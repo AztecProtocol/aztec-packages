@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
-namespace transcript {
+namespace bb::plonk::transcript {
 
 struct Keccak256Hasher {
     static constexpr size_t SECURITY_PARAMETER_SIZE = 32;
@@ -38,7 +38,7 @@ class Transcript {
     };
 
   public:
-    typedef proof_system::plonk::verification_key Key;
+    typedef bb::plonk::verification_key Key;
 
     /**
      * Create a new transcript for Prover based on the manifest.
@@ -119,4 +119,4 @@ class Transcript {
     std::map<std::string, int> challenge_map;
 };
 
-} // namespace transcript
+} // namespace bb::plonk::transcript

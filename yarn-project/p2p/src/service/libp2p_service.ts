@@ -1,6 +1,6 @@
+import { Tx, TxHash } from '@aztec/circuit-types';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tx, TxHash } from '@aztec/types';
 
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
@@ -30,8 +30,6 @@ import {
   decodeTransactionsMessage,
   getEncodedMessage,
 } from './tx_messages.js';
-
-const INITIAL_PEER_REFRESH_INTERVAL = 20000;
 
 /**
  * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
@@ -63,7 +61,6 @@ export function exportLibP2PPeerIdToString(peerId: PeerId) {
  */
 export class LibP2PService implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
-  private timeout: NodeJS.Timer | undefined = undefined;
   private knownTxLookup: KnownTxLookup = new KnownTxLookup();
   constructor(
     private config: P2PConfig,
@@ -118,10 +115,6 @@ export class LibP2PService implements P2PService {
     );
     const dht = this.node.services['kadDHT'] as DualKadDHT;
     this.logger(`Started P2P client as ${await dht.getMode()} with Peer ID ${this.node.peerId.toString()}`);
-    this.timeout = setTimeout(async () => {
-      this.logger(`Refreshing routing table...`);
-      await dht.refreshRoutingTable();
-    }, INITIAL_PEER_REFRESH_INTERVAL);
   }
 
   /**
@@ -129,11 +122,11 @@ export class LibP2PService implements P2PService {
    * @returns An empty promise.
    */
   public async stop() {
-    if (this.timeout) {
-      clearTimeout(this.timeout);
-    }
+    this.logger('Stopping job queue...');
     await this.jobQueue.end();
+    this.logger('Stopping LibP2P...');
     await this.node.stop();
+    this.logger('LibP2P service stopped');
   }
 
   /**
@@ -325,7 +318,7 @@ export class LibP2PService implements P2PService {
   }
 
   private async processTxFromPeer(tx: Tx, peerId: PeerId): Promise<void> {
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     this.knownTxLookup.addPeerForTx(peerId, txHashString);
     this.logger(`Received tx ${txHashString} from peer ${peerId.toString()}`);
@@ -337,7 +330,7 @@ export class LibP2PService implements P2PService {
     const txs = createTransactionsMessage([tx]);
     const payload = new Uint8Array(txs);
     const peers = this.getTxPeers();
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     for (const peer of peers) {
       try {
@@ -383,7 +376,7 @@ export class LibP2PService implements P2PService {
     const message = createTransactionsMessage(txs);
     await this.sendRawMessageToPeer(message, peer);
     for (const tx of txs) {
-      const hash = await tx.getTxHash();
+      const hash = tx.getTxHash();
       this.knownTxLookup.addPeerForTx(peer, hash.toString());
     }
   }

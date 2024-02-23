@@ -80,17 +80,20 @@ function deploy_package() {
 
 # New packages here should be added after the last package that they depend on
 deploy_package foundation
-deploy_package circuits.js
 deploy_package types
+deploy_package circuits.js
+deploy_package circuit-types
+deploy_package protocol-contracts
 deploy_package aztec.js
+deploy_package accounts
 deploy_package l1-artifacts
 deploy_package ethereum
 deploy_package noir-compiler
-deploy_package noir-contracts
-deploy_package cli
+deploy_package noir-contracts.js
+deploy_package kv-store
 deploy_package merkle-tree
-deploy_package noir-protocol-circuits
-deploy_package acir-simulator
+deploy_package noir-protocol-circuits-types
+deploy_package simulator
 deploy_package key-store
 deploy_package pxe
 deploy_package archiver
@@ -98,4 +101,3 @@ deploy_package p2p
 deploy_package world-state
 deploy_package sequencer-client
 deploy_package aztec-node
-deploy_package aztec-sandbox

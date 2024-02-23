@@ -1,8 +1,11 @@
 #pragma once
+#include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
-namespace barretenberg {
+namespace bb {
 
 template <typename Flavor> class RelationUtils {
   public:
@@ -10,8 +13,10 @@ template <typename Flavor> class RelationUtils {
     using Relations = typename Flavor::Relations;
     using PolynomialEvaluations = typename Flavor::AllValues;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
+    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
     /**
      * Utility methods for tuple of tuples of Univariates
@@ -59,13 +64,35 @@ template <typename Flavor> class RelationUtils {
     }
 
     /**
+     * @brief Scale Univaraites, each representing a subrelation, by different challenges
+     *
+     * @param tuple Tuple of tuples of Univariates
+     * @param challenge Array of NUM_SUBRELATIONS - 1 challenges (because the first subrelation doesn't need to be
+     * scaled)
+     * @param current_scalar power of the challenge
+     */
+    static void scale_univariates(auto& tuple, const RelationSeparator& challenges, FF& current_scalar)
+        requires bb::IsFoldingFlavor<Flavor>
+    {
+        size_t idx = 0;
+        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
+        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
+        auto scale_by_challenges = [&]<size_t, size_t>(auto& element) {
+            element *= tmp[idx];
+            idx++;
+        };
+        apply_to_tuple_of_tuples(tuple, scale_by_challenges);
+    }
+
+    /**
      * @brief Scale Univaraites by consecutive powers of the provided challenge
      *
      * @param tuple Tuple of tuples of Univariates
      * @param challenge
      * @param current_scalar power of the challenge
      */
-    static void scale_univariates(auto& tuple, const FF& challenge, FF& current_scalar)
+    static void scale_univariates(auto& tuple, const RelationSeparator& challenge, FF& current_scalar)
+        requires(!bb::IsFoldingFlavor<Flavor>)
     {
         auto scale_by_consecutive_powers_of_challenge = [&]<size_t, size_t>(auto& element) {
             element *= current_scalar;
@@ -97,8 +124,8 @@ template <typename Flavor> class RelationUtils {
     /**
      * @brief Componentwise addition of nested tuples (tuples of tuples)
      * @details Used for summing tuples of tuples of Univariates. Needed for Sumcheck multithreading. Each thread
-     * accumulates relation contributions across a portion of the hypecube and then the results are accumulated into a
-     * single nested tuple.
+     * accumulates relation contributions across a portion of the hypecube and then the results are accumulated into
+     * a single nested tuple.
      *
      * @tparam Tuple
      * @tparam Index Index into outer tuple
@@ -117,28 +144,27 @@ template <typename Flavor> class RelationUtils {
     /**
      * @brief Calculate the contribution of each relation to the expected value of the full Honk relation.
      *
-     * @details For each relation, use the purported values (supplied by the prover) of the multivariates to calculate
-     * a contribution to the purported value of the full Honk relation. These are stored in `evaluations`. Adding these
-     * together, with appropriate scaling factors, produces the expected value of the full Honk relation. This value is
-     * checked against the final value of the target total sum (called sigma_0 in the thesis).
+     * @details For each relation, use the purported values (supplied by the prover) of the multivariates to
+     * calculate a contribution to the purported value of the full Honk relation. These are stored in `evaluations`.
+     * Adding these together, with appropriate scaling factors, produces the expected value of the full Honk
+     * relation. This value is checked against the final value of the target total sum (called sigma_0 in the
+     * thesis).
      */
     template <typename Parameters, size_t relation_idx = 0>
     // TODO(#224)(Cody): Input should be an array?
     inline static void accumulate_relation_evaluations(PolynomialEvaluations evaluations,
                                                        RelationEvaluations& relation_evaluations,
                                                        const Parameters& relation_parameters,
-                                                       const FF& partial_evaluation_constant)
+                                                       const FF& partial_evaluation_result)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::accumulate(std::get<relation_idx>(relation_evaluations),
-                             evaluations,
-                             relation_parameters,
-                             partial_evaluation_constant);
+        Relation::accumulate(
+            std::get<relation_idx>(relation_evaluations), evaluations, relation_parameters, partial_evaluation_result);
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < NUM_RELATIONS) {
             accumulate_relation_evaluations<Parameters, relation_idx + 1>(
-                evaluations, relation_evaluations, relation_parameters, partial_evaluation_constant);
+                evaluations, relation_evaluations, relation_parameters, partial_evaluation_result);
         }
     }
 
@@ -148,7 +174,7 @@ template <typename Flavor> class RelationUtils {
 
     /**
      * @brief Set each element in a tuple of arrays to zero.
-     * @details FF's default constructor may not initialize to zero (e.g., barretenberg::fr), hence we can't rely on
+     * @details FF's default constructor may not initialize to zero (e.g., bb::fr), hence we can't rely on
      * aggregate initialization of the evaluations array.
      */
     template <size_t idx = 0> static void zero_elements(auto& tuple)
@@ -158,10 +184,77 @@ template <typename Flavor> class RelationUtils {
     };
 
     /**
-     * @brief Scale elements by consecutive powers of the challenge then sum
+     * @brief Scale elements, representing evaluations of subrelations, by separate challenges then sum them
+     * @param challenges Array of NUM_SUBRELATIONS - 1 challenges (because the first subrelation does not need to be
+     * scaled)
      * @param result Batched result
      */
-    static void scale_and_batch_elements(auto& tuple, const FF& challenge, FF current_scalar, FF& result)
+    static void scale_and_batch_elements(auto& tuple,
+                                         const RelationSeparator& challenges,
+                                         FF current_scalar,
+                                         FF& result)
+        requires bb::IsFoldingFlavor<Flavor>
+    {
+        size_t idx = 0;
+        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
+        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
+        auto scale_by_challenges_and_accumulate = [&](auto& element) {
+            for (auto& entry : element) {
+                result += entry * tmp[idx];
+                idx++;
+            }
+        };
+        apply_to_tuple_of_arrays(scale_by_challenges_and_accumulate, tuple);
+    }
+
+    /**
+     * @brief Scales elements, representing evaluations of polynomials in subrelations, by separate challenges and then
+     * sum them together. This function has identical functionality with the one above with the caveat that one such
+     * evaluation is part of a linearly dependent subrelation and hence needs to be accumulated separately.
+     *
+     * @details Such functionality is needed when computing the evaluation of the full relation at a specific row in
+     * the execution trace because a linearly dependent subrelation does not act on a specific row but rather on the
+     * entire execution trace.
+     *
+     * @param tuple
+     * @param challenges
+     * @param current_scalar
+     * @param result
+     * @param linearly_dependent_contribution
+     */
+    static void scale_and_batch_elements(auto& tuple,
+                                         const RelationSeparator& challenges,
+                                         FF current_scalar,
+                                         FF& result,
+                                         FF& linearly_dependent_contribution)
+        requires bb::IsFoldingFlavor<Flavor>
+    {
+        size_t idx = 0;
+        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
+
+        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
+
+        auto scale_by_challenge_and_accumulate =
+            [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
+                using Relation = typename std::tuple_element_t<relation_idx, Relations>;
+                const bool is_subrelation_linearly_independent =
+                    bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
+                if (is_subrelation_linearly_independent) {
+                    result += element * tmp[idx];
+                } else {
+                    linearly_dependent_contribution += element * tmp[idx];
+                }
+                idx++;
+            };
+        apply_to_tuple_of_arrays_elements(scale_by_challenge_and_accumulate, tuple);
+    }
+
+    /**
+     * @brief Scale elements by consecutive powers of a given challenge then sum the result
+     * @param result Batched result
+     */
+    static void scale_and_batch_elements(auto& tuple, const RelationSeparator& challenge, FF current_scalar, FF& result)
+        requires(!bb::IsFoldingFlavor<Flavor>)
     {
         auto scale_by_challenge_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
@@ -178,7 +271,7 @@ template <typename Flavor> class RelationUtils {
      * @tparam Operation Any operation valid on elements of the inner arrays (FFs)
      * @param tuple Tuple of arrays (of FFs)
      */
-    template <typename Operation, size_t idx = 0, typename... Ts>
+    template <size_t idx = 0, typename Operation, typename... Ts>
     static void apply_to_tuple_of_arrays(Operation&& operation, std::tuple<Ts...>& tuple)
     {
         auto& element = std::get<idx>(tuple);
@@ -186,8 +279,36 @@ template <typename Flavor> class RelationUtils {
         std::invoke(std::forward<Operation>(operation), element);
 
         if constexpr (idx + 1 < sizeof...(Ts)) {
-            apply_to_tuple_of_arrays<Operation, idx + 1>(operation, tuple);
+            apply_to_tuple_of_arrays<idx + 1, Operation>(operation, tuple);
+        }
+    }
+
+    /**
+     * @brief Recursive template function to apply a specific operation on each element of several arrays in a tuple
+     *
+     * @details We need this method in addition to the apply_to_tuple_of_arrays when we aim to perform different
+     * operations depending on the array element. More explicitly, in our codebase this method is used when the elements
+     * of array are values of subrelations and we want to accumulate some of these values separately (the linearly
+     * dependent contribution when we compute the evaluation of full rel_U(G)H at particular row.)
+     */
+    template <size_t outer_idx = 0, size_t inner_idx = 0, typename Operation, typename... Ts>
+    static void apply_to_tuple_of_arrays_elements(Operation&& operation, std::tuple<Ts...>& tuple)
+    {
+        using Relation = typename std::tuple_element_t<outer_idx, Relations>;
+        const auto subrelation_length = Relation::SUBRELATION_PARTIAL_LENGTHS.size();
+        auto& element = std::get<outer_idx>(tuple);
+
+        // Invoke the operation with outer_idx (array index) and inner_idx (element index) as template arguments
+        operation.template operator()<outer_idx, inner_idx>(element[inner_idx]);
+
+        if constexpr (inner_idx + 1 < subrelation_length) {
+            // Recursively call for the next element within the same array
+            apply_to_tuple_of_arrays_elements<outer_idx, inner_idx + 1, Operation>(std::forward<Operation>(operation),
+                                                                                   tuple);
+        } else if constexpr (outer_idx + 1 < sizeof...(Ts)) {
+            // Move to the next array in the tuple
+            apply_to_tuple_of_arrays_elements<outer_idx + 1, 0, Operation>(std::forward<Operation>(operation), tuple);
         }
     }
 };
-} // namespace barretenberg
+} // namespace bb

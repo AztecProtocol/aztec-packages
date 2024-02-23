@@ -3,8 +3,7 @@
 
 #include <bitset>
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder>
 bit_array<Builder>::bit_array(Builder* parent_context, const size_t n)
@@ -157,7 +156,8 @@ template <typename Builder> std::string bit_array<Builder>::get_witness_as_strin
     return output;
 }
 
-INSTANTIATE_STDLIB_TYPE(bit_array)
+template class bit_array<bb::StandardCircuitBuilder>;
+template class bit_array<bb::UltraCircuitBuilder>;
+template class bit_array<bb::GoblinUltraCircuitBuilder>;
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

@@ -1,8 +1,8 @@
+import { Note, PXE } from '@aztec/circuit-types';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak, pedersenHash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Note, PXE } from '@aztec/types';
 
 import fs from 'fs';
 
@@ -245,7 +245,7 @@ export class AztecCheatCodes {
    */
   public computeSlotInMap(baseSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
     // Based on `at` function in
-    // aztec3-packages/yarn-project/aztec-nr/aztec/src/state_vars/map.nr
+    // aztec3-packages/aztec-nr/aztec/src/state_vars/map.nr
     return Fr.fromBuffer(pedersenHash([new Fr(baseSlot), new Fr(key)].map(f => f.toBuffer())));
   }
 

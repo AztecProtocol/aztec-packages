@@ -11,8 +11,7 @@
 // Despite the name, it is *not* a "safe" version of the uint class - as operations are positive integer
 // operations, and not modulo 2^t for some t, as they are in the uint class.
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder> class safe_uint_t {
   private:
@@ -33,8 +32,8 @@ template <typename Builder> class safe_uint_t {
 
   public:
     // The following constant should be small enough that any thing with this bitnum is smaller than the modulus
-    static constexpr size_t MAX_BIT_NUM = barretenberg::fr::modulus.get_msb();
-    static constexpr uint256_t MAX_VALUE = barretenberg::fr::modulus - 1;
+    static constexpr size_t MAX_BIT_NUM = bb::fr::modulus.get_msb();
+    static constexpr uint256_t MAX_VALUE = bb::fr::modulus - 1;
     static constexpr size_t IS_UNSAFE = 143; // weird constant to make it hard to use accidentally
     // Make sure our uint256 values don't wrap  - add_two function sums three of these
     static_assert((uint512_t)MAX_VALUE * 3 < (uint512_t)1 << 256);
@@ -56,7 +55,7 @@ template <typename Builder> class safe_uint_t {
 
     // When initialzing a constant, we can set the max value to the constant itself (rather than the usually larger
     // 2^n-1)
-    safe_uint_t(const barretenberg::fr& const_value)
+    safe_uint_t(const bb::fr& const_value)
         : value(const_value)
         , current_max(const_value)
     {}
@@ -64,12 +63,12 @@ template <typename Builder> class safe_uint_t {
     // When initialzing a constant, we can set the max value to the constant itself (rather than the usually larger
     // 2^n-1)
     safe_uint_t(const uint256_t& const_value)
-        : value(barretenberg::fr(const_value))
-        , current_max(barretenberg::fr(const_value))
+        : value(bb::fr(const_value))
+        , current_max(bb::fr(const_value))
     {}
     safe_uint_t(const unsigned int& const_value)
-        : value(barretenberg::fr(const_value))
-        , current_max(barretenberg::fr(const_value))
+        : value(bb::fr(const_value))
+        , current_max(bb::fr(const_value))
     {}
 
     safe_uint_t(const safe_uint_t& other)
@@ -77,7 +76,7 @@ template <typename Builder> class safe_uint_t {
         , current_max(other.current_max)
     {}
 
-    static safe_uint_t<Builder> create_constant_witness(Builder* parent_context, barretenberg::fr const& value)
+    static safe_uint_t<Builder> create_constant_witness(Builder* parent_context, bb::fr const& value)
 
     {
         witness_t<Builder> out(parent_context, value);
@@ -177,7 +176,7 @@ template <typename Builder> class safe_uint_t {
      **/
     safe_uint_t normalize() const;
 
-    barretenberg::fr get_value() const;
+    bb::fr get_value() const;
 
     Builder* get_context() const { return value.context; }
 
@@ -209,8 +208,4 @@ template <typename Builder> inline std::ostream& operator<<(std::ostream& os, sa
 {
     return os << v.value;
 }
-
-EXTERN_STDLIB_TYPE(safe_uint_t);
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

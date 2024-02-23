@@ -3,13 +3,13 @@
 
 namespace acir_format {
 
-using namespace proof_system::plonk;
+using namespace bb::plonk;
 
 template <typename Builder>
-crypto::ecdsa::signature ecdsa_convert_signature(Builder& builder, std::vector<uint32_t> signature)
+crypto::ecdsa_signature ecdsa_convert_signature(Builder& builder, std::vector<uint32_t> signature)
 {
 
-    crypto::ecdsa::signature signature_cr;
+    crypto::ecdsa_signature signature_cr;
 
     // Get the witness assignment for each witness index
     // Write the witness assignment to the byte_array
@@ -48,14 +48,14 @@ secp256k1_ct::g1_ct ecdsa_convert_inputs(Builder* ctx, const secp256k1::g1::affi
 {
     uint256_t x_u256(input.x);
     uint256_t y_u256(input.y);
-    secp256k1_ct::fq_ct x(witness_ct(ctx, barretenberg::fr(x_u256.slice(0, secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2))),
-                          witness_ct(ctx,
-                                     barretenberg::fr(x_u256.slice(secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2,
-                                                                   secp256k1_ct::fq_ct::NUM_LIMB_BITS * 4))));
-    secp256k1_ct::fq_ct y(witness_ct(ctx, barretenberg::fr(y_u256.slice(0, secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2))),
-                          witness_ct(ctx,
-                                     barretenberg::fr(y_u256.slice(secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2,
-                                                                   secp256k1_ct::fq_ct::NUM_LIMB_BITS * 4))));
+    secp256k1_ct::fq_ct x(
+        witness_ct(ctx, bb::fr(x_u256.slice(0, secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2))),
+        witness_ct(
+            ctx, bb::fr(x_u256.slice(secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2, secp256k1_ct::fq_ct::NUM_LIMB_BITS * 4))));
+    secp256k1_ct::fq_ct y(
+        witness_ct(ctx, bb::fr(y_u256.slice(0, secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2))),
+        witness_ct(
+            ctx, bb::fr(y_u256.slice(secp256k1_ct::fq_ct::NUM_LIMB_BITS * 2, secp256k1_ct::fq_ct::NUM_LIMB_BITS * 4))));
 
     return { x, y };
 }
@@ -64,11 +64,11 @@ secp256k1_ct::g1_ct ecdsa_convert_inputs(Builder* ctx, const secp256k1::g1::affi
 // with just a byte.
 // notice that this function truncates each field_element to a byte
 template <typename Builder>
-proof_system::plonk::stdlib::byte_array<Builder> ecdsa_vector_of_bytes_to_byte_array(
-    Builder& builder, std::vector<uint32_t> vector_of_bytes)
+bb::stdlib::byte_array<Builder> ecdsa_vector_of_bytes_to_byte_array(Builder& builder,
+                                                                    std::vector<uint32_t> vector_of_bytes)
 {
-    using byte_array_ct = proof_system::plonk::stdlib::byte_array<Builder>;
-    using field_ct = proof_system::plonk::stdlib::field_t<Builder>;
+    using byte_array_ct = bb::stdlib::byte_array<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
 
     byte_array_ct arr(&builder);
 
@@ -95,10 +95,10 @@ void create_ecdsa_k1_verify_constraints(Builder& builder,
                                         const EcdsaSecp256k1Constraint& input,
                                         bool has_valid_witness_assignments)
 {
-    using secp256k1_ct = proof_system::plonk::stdlib::secp256k1<Builder>;
-    using field_ct = proof_system::plonk::stdlib::field_t<Builder>;
-    using bool_ct = proof_system::plonk::stdlib::bool_t<Builder>;
-    using byte_array_ct = proof_system::plonk::stdlib::byte_array<Builder>;
+    using secp256k1_ct = bb::stdlib::secp256k1<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
+    using bool_ct = bb::stdlib::bool_t<Builder>;
+    using byte_array_ct = bb::stdlib::byte_array<Builder>;
 
     if (has_valid_witness_assignments == false) {
         dummy_ecdsa_constraint(builder, input);
@@ -117,9 +117,9 @@ void create_ecdsa_k1_verify_constraints(Builder& builder,
     std::vector<uint8_t> ss(new_sig.s.begin(), new_sig.s.end());
     uint8_t vv = new_sig.v;
 
-    stdlib::ecdsa::signature<Builder> sig{ stdlib::byte_array<Builder>(&builder, rr),
-                                           stdlib::byte_array<Builder>(&builder, ss),
-                                           stdlib::uint8<Builder>(&builder, vv) };
+    stdlib::ecdsa_signature<Builder> sig{ stdlib::byte_array<Builder>(&builder, rr),
+                                          stdlib::byte_array<Builder>(&builder, ss),
+                                          stdlib::uint8<Builder>(&builder, vv) };
 
     pub_key_x_fq.assert_is_in_field();
     pub_key_y_fq.assert_is_in_field();
@@ -135,11 +135,11 @@ void create_ecdsa_k1_verify_constraints(Builder& builder,
     }
 
     bool_ct signature_result =
-        stdlib::ecdsa::verify_signature_prehashed_message_noassert<Builder,
-                                                                   secp256k1_ct,
-                                                                   typename secp256k1_ct::fq_ct,
-                                                                   typename secp256k1_ct::bigfr_ct,
-                                                                   typename secp256k1_ct::g1_bigfr_ct>(
+        stdlib::ecdsa_verify_signature_prehashed_message_noassert<Builder,
+                                                                  secp256k1_ct,
+                                                                  typename secp256k1_ct::fq_ct,
+                                                                  typename secp256k1_ct::bigfr_ct,
+                                                                  typename secp256k1_ct::g1_bigfr_ct>(
             message, public_key, sig);
     bool_ct signature_result_normalized = signature_result.normalize();
     builder.assert_equal(signature_result_normalized.witness_index, input.result);
@@ -160,14 +160,14 @@ template <typename Builder> void dummy_ecdsa_constraint(Builder& builder, EcdsaS
     signature_.resize(64);
 
     // Create a valid signature with a valid public key
-    crypto::ecdsa::key_pair<secp256k1_ct::fr, secp256k1_ct::g1> account;
+    crypto::ecdsa_key_pair<secp256k1_ct::fr, secp256k1_ct::g1> account;
     account.private_key = 10;
     account.public_key = secp256k1_ct::g1::one * account.private_key;
     uint256_t pub_x_value = account.public_key.x;
     uint256_t pub_y_value = account.public_key.y;
     std::string message_string = "Instructions unclear, ask again later.";
-    crypto::ecdsa::signature signature =
-        crypto::ecdsa::construct_signature<Sha256Hasher, secp256k1_ct::fq, secp256k1_ct::fr, secp256k1_ct::g1>(
+    crypto::ecdsa_signature signature =
+        crypto::ecdsa_construct_signature<crypto::Sha256Hasher, secp256k1_ct::fq, secp256k1_ct::fr, secp256k1_ct::g1>(
             message_string, account);
 
     // Create new variables which will reference the valid public key and signature.

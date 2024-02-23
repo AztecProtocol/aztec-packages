@@ -15,21 +15,17 @@
     using field_ct = stdlib::field_t<Builder>;                                                                         \
     using bool_ct = stdlib::bool_t<Builder>;                                                                           \
     using public_witness_ct = stdlib::public_witness_t<Builder>;
-
-namespace test_stdlib_logic {
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
-
 template <class Builder> class LogicTest : public testing::Test {};
 
-using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(LogicTest, CircuitTypes);
 
@@ -148,5 +144,3 @@ TYPED_TEST(LogicTest, DifferentWitnessSameResult)
         EXPECT_EQ(result, false);
     }
 }
-
-} // namespace test_stdlib_logic

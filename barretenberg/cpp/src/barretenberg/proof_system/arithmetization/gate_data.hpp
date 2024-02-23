@@ -6,7 +6,7 @@
 // TODO(#557): The field-specific aliases for gates should be removed and the type could be explicit when this
 // structures are used to avoid having foo_gate and foo_gate_grumpkin (i.e. use foo_gate<field> instead). Moreover, we
 // need to ensure the read/write functions handle grumpkin gates as well.
-namespace proof_system {
+namespace bb {
 template <typename FF> struct add_triple_ {
     uint32_t a;
     uint32_t b;
@@ -60,7 +60,7 @@ template <typename FF> struct poly_triple_ {
 
     friend bool operator==(poly_triple_<FF> const& lhs, poly_triple_<FF> const& rhs) = default;
 };
-using poly_triple = poly_triple_<barretenberg::fr>;
+using poly_triple = poly_triple_<bb::fr>;
 struct ecc_op_tuple {
     uint32_t op;
     uint32_t x_lo;
@@ -133,19 +133,34 @@ template <typename FF> struct ecc_dbl_gate_ {
     uint32_t y3;
 };
 
+template <typename FF> struct databus_lookup_gate_ {
+    uint32_t index;
+    uint32_t value;
+};
+
+/* External gate data for poseidon2 external round*/
 template <typename FF> struct poseidon2_external_gate_ {
     uint32_t a;
     uint32_t b;
     uint32_t c;
     uint32_t d;
-    uint32_t round_idx;
+    size_t round_idx;
 };
 
+/* Internal gate data for poseidon2 internal round*/
 template <typename FF> struct poseidon2_internal_gate_ {
     uint32_t a;
     uint32_t b;
     uint32_t c;
     uint32_t d;
-    uint32_t round_idx;
+    size_t round_idx;
 };
-} // namespace proof_system
+
+/* Last gate for poseidon2, needed because poseidon2 gates compare against the shifted wires. */
+template <typename FF> struct poseidon2_end_gate_ {
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+};
+} // namespace bb

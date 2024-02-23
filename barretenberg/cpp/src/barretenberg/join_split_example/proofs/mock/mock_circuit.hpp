@@ -2,13 +2,11 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-namespace join_split_example {
-namespace proofs {
-namespace mock {
+namespace bb::join_split_example::proofs::mock {
 
-using namespace proof_system::plonk;
+using namespace bb::plonk;
 
-template <typename Builder> void mock_circuit(Builder& builder, std::vector<barretenberg::fr> const& public_inputs_)
+template <typename Builder> void mock_circuit(Builder& builder, std::vector<bb::fr> const& public_inputs_)
 {
     const auto public_inputs =
         map(public_inputs_, [&](auto& i) { return stdlib::field_t(stdlib::witness_t(&builder, i)); });
@@ -19,6 +17,4 @@ template <typename Builder> void mock_circuit(Builder& builder, std::vector<barr
         { stdlib::field_t(stdlib::witness_t(&builder, 1)), stdlib::field_t(stdlib::witness_t(&builder, 1)) });
 }
 
-} // namespace mock
-} // namespace proofs
-} // namespace join_split_example
+} // namespace bb::join_split_example::proofs::mock

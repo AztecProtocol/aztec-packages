@@ -10,7 +10,10 @@ use acir::{
 };
 use acvm_blackbox_solver::BlackBoxResolutionError;
 
-use self::{arithmetic::ArithmeticSolver, directives::solve_directives, memory_op::MemoryOpSolver};
+use self::{
+    arithmetic::ExpressionSolver, blackbox::bigint::BigIntSolver, directives::solve_directives,
+    memory_op::MemoryOpSolver,
+};
 use crate::BlackBoxFunctionSolver;
 
 use thiserror::Error;
@@ -69,13 +72,15 @@ pub enum StepResult<'a, B: BlackBoxFunctionSolver> {
 // The most common being that one of its input has not been
 // assigned a value.
 //
-// TODO: ExpressionHasTooManyUnknowns is specific for arithmetic expressions
-// TODO: we could have a error enum for arithmetic failure cases in that module
+// TODO: ExpressionHasTooManyUnknowns is specific for expression solver
+// TODO: we could have a error enum for expression solver failure cases in that module
 // TODO that can be converted into an OpcodeNotSolvable or OpcodeResolutionError enum
 #[derive(Clone, PartialEq, Eq, Debug, Error)]
 pub enum OpcodeNotSolvable {
     #[error("missing assignment for witness index {0}")]
     MissingAssignment(u32),
+    #[error("Attempted to load uninitialized memory block")]
+    MissingMemoryBlock(u32),
     #[error("expression has too many unknowns {0}")]
     ExpressionHasTooManyUnknowns(Expression),
 }
@@ -132,6 +137,8 @@ pub struct ACVM<'a, B: BlackBoxFunctionSolver> {
     /// Stores the solver for memory operations acting on blocks of memory disambiguated by [block][`BlockId`].
     block_solvers: HashMap<BlockId, MemoryOpSolver>,
 
+    bigint_solver: BigIntSolver,
+
     /// A list of opcodes which are to be executed by the ACVM.
     opcodes: &'a [Opcode],
     /// Index of the next opcode to be executed.
@@ -149,6 +156,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
             status,
             backend,
             block_solvers: HashMap::default(),
+            bigint_solver: BigIntSolver::default(),
             opcodes,
             instruction_pointer: 0,
             witness_map: initial_witness,
@@ -253,10 +261,13 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         let opcode = &self.opcodes[self.instruction_pointer];
 
         let resolution = match opcode {
-            Opcode::Arithmetic(expr) => ArithmeticSolver::solve(&mut self.witness_map, expr),
-            Opcode::BlackBoxFuncCall(bb_func) => {
-                blackbox::solve(self.backend, &mut self.witness_map, bb_func)
-            }
+            Opcode::AssertZero(expr) => ExpressionSolver::solve(&mut self.witness_map, expr),
+            Opcode::BlackBoxFuncCall(bb_func) => blackbox::solve(
+                self.backend,
+                &mut self.witness_map,
+                bb_func,
+                &mut self.bigint_solver,
+            ),
             Opcode::Directive(directive) => solve_directives(&mut self.witness_map, directive),
             Opcode::MemoryInit { block_id, init } => {
                 let solver = self.block_solvers.entry(*block_id).or_default();
@@ -327,7 +338,13 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         // there will be a cached `BrilligSolver` to avoid recomputation.
         let mut solver: BrilligSolver<'_, B> = match self.brillig_solver.take() {
             Some(solver) => solver,
-            None => BrilligSolver::new(witness, brillig, self.backend, self.instruction_pointer)?,
+            None => BrilligSolver::new(
+                witness,
+                &self.block_solvers,
+                brillig,
+                self.backend,
+                self.instruction_pointer,
+            )?,
         };
         match solver.solve()? {
             BrilligSolverStatus::ForeignCallWait(foreign_call) => {
@@ -362,7 +379,13 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
             return StepResult::Status(self.handle_opcode_resolution(resolution));
         }
 
-        let solver = BrilligSolver::new(witness, brillig, self.backend, self.instruction_pointer);
+        let solver = BrilligSolver::new(
+            witness,
+            &self.block_solvers,
+            brillig,
+            self.backend,
+            self.instruction_pointer,
+        );
         match solver {
             Ok(solver) => StepResult::IntoBrillig(solver),
             Err(..) => StepResult::Status(self.handle_opcode_resolution(solver.map(|_| ()))),
@@ -397,7 +420,7 @@ pub fn get_value(
     expr: &Expression,
     initial_witness: &WitnessMap,
 ) -> Result<FieldElement, OpcodeResolutionError> {
-    let expr = ArithmeticSolver::evaluate(expr, initial_witness);
+    let expr = ExpressionSolver::evaluate(expr, initial_witness);
     match expr.to_const() {
         Some(value) => Ok(value),
         None => Err(OpcodeResolutionError::OpcodeNotSolvable(

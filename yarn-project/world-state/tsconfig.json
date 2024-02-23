@@ -7,10 +7,16 @@
   },
   "references": [
     {
+      "path": "../circuit-types"
+    },
+    {
       "path": "../circuits.js"
     },
     {
       "path": "../foundation"
+    },
+    {
+      "path": "../kv-store"
     },
     {
       "path": "../merkle-tree"

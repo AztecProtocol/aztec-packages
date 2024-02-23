@@ -1,13 +1,9 @@
 #include "./ultra_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace barretenberg;
-using namespace proof_system::honk::sumcheck;
-
-namespace proof_system::honk {
+namespace bb {
 template <typename Flavor>
 UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<Transcript>& transcript,
                                        const std::shared_ptr<VerificationKey>& verifier_key)
@@ -24,7 +20,7 @@ UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<Transcript>& transc
 template <typename Flavor>
 UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<VerificationKey>& verifier_key)
     : key(verifier_key)
-    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, barretenberg::srs::get_crs_factory()))
+    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, bb::srs::get_crs_factory()))
     , transcript(std::make_shared<Transcript>())
 {}
 
@@ -46,18 +42,18 @@ template <typename Flavor> UltraVerifier_<Flavor>& UltraVerifier_<Flavor>::opera
  * @brief This function verifies an Ultra Honk proof for a given Flavor.
  *
  */
-template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = pcs::zeromorph::ZeroMorphVerifier_<Curve>;
+    using ZeroMorph = ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
 
-    proof_system::RelationParameters<FF> relation_parameters;
+    bb::RelationParameters<FF> relation_parameters;
 
-    transcript = std::make_shared<Transcript>(proof.proof_data);
+    transcript = std::make_shared<Transcript>(proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -101,7 +97,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     }
 
     // Get challenge for sorted list batching and wire four memory records
-    FF eta = transcript->get_challenge("eta");
+    FF eta = transcript->template get_challenge<FF>("eta");
     relation_parameters.eta = eta;
 
     // Get commitments to sorted list accumulator and fourth wire
@@ -109,7 +105,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     commitments.w_4 = transcript->template receive_from_prover<Commitment>(commitment_labels.w_4);
 
     // Get permutation challenges
-    auto [beta, gamma] = challenges_to_field_elements<FF>(transcript->get_challenges("beta", "gamma"));
+    auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
     if constexpr (IsGoblinFlavor<Flavor>) {
@@ -131,14 +127,22 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     commitments.z_lookup = transcript->template receive_from_prover<Commitment>(commitment_labels.z_lookup);
 
     // Execute Sumcheck Verifier
-    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
-    FF alpha = transcript->get_challenge("alpha");
+    const size_t log_circuit_size = numeric::get_msb(circuit_size);
+    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    RelationSeparator alphas;
+    for (size_t idx = 0; idx < alphas.size(); idx++) {
+        alphas[idx] = transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
+    }
+
+    auto gate_challenges = std::vector<FF>(log_circuit_size);
+    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, transcript);
+        sumcheck.verify(relation_parameters, alphas, gate_challenges);
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        info("UltraVerifier: Sumcheck failed.");
         return false;
     }
 
@@ -156,7 +160,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     return sumcheck_verified.value() && verified;
 }
 
-template class UltraVerifier_<honk::flavor::Ultra>;
-template class UltraVerifier_<honk::flavor::GoblinUltra>;
+template class UltraVerifier_<UltraFlavor>;
+template class UltraVerifier_<GoblinUltraFlavor>;
 
-} // namespace proof_system::honk
+} // namespace bb

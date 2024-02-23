@@ -1,64 +1,41 @@
 # Public Kernel Circuit - Tail
 
-:::info Disclaimer
-This is a draft. These requirements need to be considered by the wider team, and might change significantly before a mainnet release.
+:::Danger
+The public kernel circuits are being redesigned to accommodate the latest AVM designs. This page is therefore highly likely to change significantly.
 :::
 
 ## Requirements
 
-The **tail** circuit refrains from processing individual public function calls. Instead, it integrates the results of iterative public kernel circuit and performs additional verification and processing necessary for generating the final public inputs.
+The **tail** circuit refrains from processing individual public function calls. Instead, it integrates the results of inner public kernel circuit and performs additional verification and processing necessary for generating the final public inputs.
 
 ### Verification of the Previous Iteration
 
 #### Verifying the previous kernel proof.
 
-It verifies that the previous iteration was executed successfully with the given proof data, verification key, and public inputs.
+It verifies that the previous iteration was executed successfully with the given proof data, verification key, and public inputs, sourced from [`private_inputs`](#private-inputs)[`.previous_kernel`](#previouskernel).
 
 The preceding proof can only be:
 
-- [Iterative public kernel proof](./public-kernel-iterative.md).
+- [Inner public kernel proof](./public-kernel-inner.md).
 
 #### Ensuring the previous iteration is the last.
 
 The following must be empty to ensure all the public function calls are processed:
 
-- Public call requests.
+- `public_call_requests` within [`private_inputs`](#private-inputs)[`.previous_kernel`](#previouskernel)[`.public_inputs`](./public-kernel-tail.md#public-inputs)[`.transient_accumulated_data`](./public-kernel-tail.md#transientaccumulateddata).
 
 ### Processing Final Outputs
 
 #### Siloing values.
 
-1. It silos the following in the transient accumulated data with each item's contract address:
+This section follows the same [process](./private-kernel-tail.md#siloing-values) as outlined in the tail private kernel circuit.
 
-   - Note hash contexts.
-   - Nullifier contexts.
+Additionally, it silos the `storage_slot` of each non-empty item in the following arrays:
 
-   The siloed value is computed as: `hash(contract_address, value)`.
+- `storage_reads`
+- `storage_writes`
 
-   Siloing with a contract address ensures that data produced by a contract is accurately attributed to the correct contract and cannot be misconstrued as data created in a different contract.
-
-2. It then applies nonces to the note hashes:
-
-   - The nonce for a note hash is computed as: `hash(first_nullifier, index)`, where:
-     - `first_nullifier` is the hash of the transaction request.
-     - `index` is the position of the note hash in the note hashes array in the public inputs.
-
-   Siloing with a nonce guarantees that each final note hash is a unique value in the note hash tree.
-
-3. It generates the final hashes for L2-L1 messages, calculated as:
-
-   `hash(contract_address, version_id, portal_contract_address, chain_id, message)`
-
-   Where _version_id_ and _portal_contract_address_ equal the values defined in the constant data.
-
-4. It silos the storage slot of each item in the following array with the item's contract address:
-
-   - Read requests.
-   - Update requests.
-
-   The siloed storage slot is computed as: `hash(contract_address, storage_slot)`.
-
-> While siloing could occur in each kernel iteration, it is _typically_ more efficient to be done once in the tail circuit.
+The siloed storage slot is computed as: `hash(contract_address, storage_slot)`.
 
 #### Verifying ordered arrays.
 
@@ -66,163 +43,205 @@ The iterations of the public kernel may yield values in an unordered state due t
 
 This circuit ensures the correct ordering of the following:
 
-- Note hashes.
-- Nullifiers.
-- L2-to-L1 messages.
-- New contracts.
-- Read requests.
-- Update requests.
+- `note_hashes`
+- `nullifiers`
+- `storage_reads`
+- `storage_writes`
+- `ordered_unencrypted_log_hashes`
 
-The corresponding _unordered_arrays_ for the above are sourced from the [siloed results](#siloing-values).
+1. For `note_hashes`, `nullifiers`, and `ordered_unencrypted_log_hashes`, they undergo the same [process](./private-kernel-tail.md#verifying-ordered-arrays) as outlined in the tail private kernel circuit. With the exception that the loop starts from index `offset + i`, where `offset` is the number of non-zero values in the `note_hashes` and `nullifiers` arrays within [`private_inputs`](#private-inputs)[`.previous_kernel`](#previouskernel)[`.public_inputs`](./public-kernel-tail.md#public-inputs)[`.accumulated_data`](./public-kernel-tail.md#accumulateddata).
 
-An _ordered_requests_ array and a _hints_ array are provided for every _unordered_array_ via private inputs.
+2. For `storage_reads`, an `ordered_storage_reads` and `storage_read_hints` are provided as [hints](#hints) through `private_inputs`. This circuit checks that:
 
-For each hint _hints[i]_ at index _i_, locate the item at index _i_ in _ordered_array_:
+   For each `read` at index `i` in `storage_reads[i]`, the associated `mapped_read` is at `ordered_storage_reads[storage_read_hints[i]]`.
 
-- If the item is not empty:
-  - It must correspond to the item at index _hints[i]_ in _unordered_array_.
-  - For _i_ != 0, the counter must be greater than the counter of the item at index _hints[i - 1]_ in _unordered_array_.
-- If the item is empty:
-  - All the subsequent items (index >= _i_) must be empty in both _ordered_array_ and _unordered_array_.
+   - If `read.is_empty() == false`, verify that:
+     - All values in `read` align with those in `mapped_read`:
+       - `read.contract_address == mapped_read.contract_address`
+       - `read.storage_slot == mapped_read.storage_slot`
+       - `read.value == mapped_read.value`
+       - `read.counter == mapped_read.counter`
+     - If `i > 0`, verify that:
+       - `mapped_read[i].counter > mapped_read[i - 1].counter`
+   - Else:
+     - All the subsequent reads (index `>= i`) in both `storage_reads` and `ordered_storage_reads` must be empty.
+
+3. For `storage_writes`, an `ordered_storage_writes` and `storage_write_hints` are provided as [hints](#hints) through `private_inputs`. The verification is the same as the process for `storage_reads`.
 
 #### Verifying public data snaps.
 
-The public data snaps array is provided through private inputs, serving as hints for read requests to prove that the value in the tree aligns with the read operation. For update requests, it substantiates the presence or absence of the storage slot in the public data tree.
+The `public_data_snaps` is provided through `private_inputs`, serving as hints for `storage_reads` to prove that the value in the tree aligns with the read operation. For `storage_writes`, it substantiates the presence or absence of the storage slot in the public data tree.
 
-A public data snap contains:
+A [public_data_snap](#publicdatasnap) contains:
 
-- A leaf in the public data tree, containing the storage slot and its value.
-- An override counter, indicating the counter of an update request that overrides the value of the storage slot. Zero if the value is not overridden in this transaction.
-- A flag _exists_ indicating its presence or absence in the public data tree.
+- A `storage_slot` and its `value`.
+- An `override_counter`, indicating the counter of the first `storage_write` that writes to the storage slot. Zero if the storage slot is not written in this transaction.
+- A flag `exists` indicating its presence or absence in the public data tree.
 
-This circuit ensures the uniqueness of each snap within the provided public data snaps array. It verifies that the storage slot of each item (except for the one at index 0) must be greater than the storage slot of the previous item in the array.
+This circuit ensures the uniqueness of each snap in `public_data_snaps`. It verifies that:
 
-> It is crucial for each snap to be unique, as duplicated snaps would disrupt a group of update requests for the same storage slot. This could facilitate the unauthorized act of reading the old value after it has been updated.
+For each snap at index `i`, where `i` > 0:
 
-#### Grouping update requests.
+- If `snap.is_empty() == false`
+  - `snap.storage_slot > public_data_snaps[i - 1].storage_slot`
 
-To facilitate the verification of read requests and streamline update requests, it is imperative to establish connections between update requests targeting the same storage slot. Furthermore, the first update request in a group must be linked to a public data snap, ensuring the dataset has progressed from the right initial state.
+> It is crucial for each snap to be unique, as duplicated snaps would disrupt a group of writes for the same storage slot. This could enable the unauthorized act of reading the old value after it has been updated.
 
-A new field, _prev_counter_, is introduced to the ordered update requests to indicate whether each request possesses a previous snap or update request. Another field, _exists_, is also added to signify the presence or absence of the storage slot in the tree.
+#### Grouping storage writes.
 
-1. For each non-empty public data snap:
+To facilitate the verification of `storage_reads` and streamline `storage_writes`, it is imperative to establish connections between writes targeting the same storage slot. Furthermore, the first write in a group must be linked to a `public_data_snap`, ensuring the dataset has progressed from the right initial state.
 
-   - Skip the remaining steps if its override counter is _0_.
-   - Locate the request within the update requests using an index provided as a hint through private inputs.
-   - Verify that the storage slot of the request matches the storage slot of the snap.
-   - Verify that the counter of the request matches the override counter of the snap.
-   - Ensure that the _prev_counter_ of the request is _0_.
-   - Set the _prev_counter_ of the request to _1_.
-   - Set the _exists_ flag of the request to be the same as the snap.
+A new field, `prev_counter`, is incorporated to the `ordered_storage_writes` to indicate whether each write has a preceding snap or write. Another field, `exists`, is also added to signify the presence or absence of the storage slot in the tree.
 
-   > The value _1_ can be utilized to signify a public data snap, as this value can never serve as the counter of an update request. The _counter_start_ for the first public function call must be greater than or equal to 1. Subsequently, the counters for all subsequent function calls and requests should exceed this initial value.
+1. For each `snap` at index `i` in `public_data_snaps`:
 
-2. For each non-empty update request,
+   - Skip the remaining steps if it is empty or if its `override_counter` is `0`.
+   - Locate the `write` at `ordered_storage_writes[storage_write_indices[i]]`.
+   - Verify the following:
+     - `write.storage_slot == snap.storage_slot`
+     - `write.counter == snap.override_counter`
+     - `write.prev_counter == 0`
+   - Update the hints in `write`:
+     - `write.prev_counter = 1`
+     - `write.exists = snap.exists`
 
-   - Skip the remaining steps if its override counter is _0_.
-   - Locate the request within the update requests using an index provided as a hint through private inputs.
-   - Verify that the storage slot of the request matches the storage slot of the current request.
-   - Verify that the counter of the request matches the override counter of the current request.
-   - Ensure that the _prev_counter_ of the request is _0_.
-   - Set the _prev_counter_ of the request to the counter of the current request.
-   - Set the _exists_ flag of the request to be the same as the current request.
+   > The value _1_ can be utilized to signify a preceding `snap`, as this value can never serve as the counter of a `storage_write`. Because the _counter_start_ for the first public function call must be 1, the counters for all subsequent side effects should exceed this initial value.
 
-3. Following the previous two steps, verify that all non-empty update requests have a non-zero _prev_counter_.
+2. For each `write` at index `i` in `ordered_storage_writes`:
 
-#### Verifying read requests.
+   - Skip the remaining steps if its `next_counter` is `0`.
+   - Locate the `next_write` at `ordered_storage_writes[next_storage_write_indices[i]]`.
+   - Verify the following:
+     - `write.storage_slot == next_write.storage_slot`
+     - `write.next_counter == next_write.counter`
+     - `write.prev_counter == 0`
+   - Update the hints in `next_write`:
+     - `next_write.prev_counter = write.counter`
+     - `next_write.exists = write.exists`
 
-A read request can be reading:
+3. Following the previous two steps, verify that all non-empty writes in `ordered_storage_writes` have a non-zero `prev_counter`.
 
-- An updated value: initialized or updated in the current transaction. The value being read is in an update request.
-- An existing value: initialized or updated in a prior successful transaction. The value being read is the value in the public data tree.
-- An uninitialized value: not initialized yet. The read request is reading the value zero. There isn't a leaf in the public data tree representing its storage slot, nor in the update requests.
+#### Verifying storage reads.
 
-For each non-empty read request, it must satisfy one of the following conditions:
+A storage read can be reading:
 
-1. If reading an updated value, the value is in an update request:
+- An uninitialized storage slot: the value is zero. There isn't a leaf in the public data tree representing its storage slot, nor in the `storage_writes`.
+- An existing storage slot: written in a prior successful transaction. The value being read is the value in the public data tree.
+- An updated storage slot: initialized or updated in the current transaction. The value being read is in a `storage_write`.
 
-   - Locates the update request within the update requests.
-     - Its index in the update requests array is provided as a hint through private inputs.
-   - The storage slot and value of the read request must match those of the update request.
-   - The counter of the update request must be less than the counter of the read request.
-   - The override counter of the update request must be zero or greater than the counter of the read request.
+For each non-empty `read` at index `i` in `ordered_storage_reads`, it must satisfy one of the following conditions:
 
-   > A zero override counter indicates that the value is not overridden in the transaction.
+1. If reading an uninitialized or an existing storage slot, the value is in a `snap`:
 
-2. If reading an existing or an uninitialized value, the value is in a public data snap:
+   - Locate the `snap` at `public_data_snaps[persistent_read_hints[i]]`.
+   - Verify the following:
+     - `read.storage_slot == snap.storage_slot`
+     - `read.value == snap.value`
+     - `(read.counter < snap.override_counter) | (snap.override_counter == 0)`
+   - If `snap.exists == false`:
+     - `read.value == 0`
 
-   - Locate the snap within the public data snaps.
-     - Its index in the public data snaps array is provided as a hint through private inputs.
-   - The storage slot and value of the read request must match those of the snap.
-   - The override counter of the snap must be zero or greater than the counter of the read request.
+   Depending on the value of the `exists` flag in the snap, verify its presence or absence in the public data tree:
 
-   Depending on the value of the _exists_ flag in the snap, verify its presence or absence in the public data tree:
-
-   - If _exists_ is true:
+   - If `exists` is true:
      - It must pass a membership check on the leaf.
-   - If _exists_ is false:
-     - The value must be zero.
-     - It must pass a non-membership check on the low leaf.
+   - If `exists` is false:
+     - It must pass a non-membership check on the low leaf. The preimage of the low leaf is at `storage_read_low_leaf_preimages[i]`.
 
-   > The membership checks are executed against the root in **old** public data tree snapshot, as defined in the public inputs. The membership witnesses for the leaves and the low leaves are provided as hints through private inputs.
+   > The (non-)membership checks are executed against the root in `old_public_data_tree_snapshot`. The membership witnesses for the leaves are in `storage_read_membership_witnesses`, provided as [hints](#hints) through `private_inputs`.
+
+2. If reading an updated storage slot, the value is in a `storage_write`:
+
+   - Locates the `storage_write` at `ordered_storage_writes[transient_read_hints[i]]`.
+   - Verify the following:
+     - `read.storage_slot == storage_write.storage_slot`
+     - `read.value == storage_write.value`
+     - `read.counter > storage_write.counter`
+     - `(read.counter < storage_write.next_counter) | (storage_write.next_counter == 0)`
+
+   > A zero `next_counter` indicates that the value is not written again in the transaction.
 
 #### Updating the public data tree.
 
-It updates the current public data tree with the update requests. For each non-empty request in the **ordered** and **siloed** update requests array, the circuit processes it base on its type:
+It updates the public data tree with the values in `storage_writes`. The `latest_root` of the tree is _old_public_data_tree_snapshot.root_.
 
-1. Transient update.
+For each non-empty `write` at index `i` in `ordered_storage_writes`, the circuit processes it base on its type:
 
-   If the override counter of a request is not zero, the value is overridden by another update request that occurs later in the same transaction. This transient value can be ignored as the final state of the tree won't be affected by it.
+1. Transient write.
+
+   If `write.next_counter != 0`, the same storage slot is written again by another storage write that occurs later in the same transaction. This transient `write` can be ignored as the final state of the tree won't be affected by it.
 
 2. Updating an existing storage slot.
 
-   For a non-transient update request, if the _exists_ flag is true, it is updating an existing storage slot. The circuit does the following for such an update:
+   For a non-transient `write` (`write.next_counter == 0`), if `write.exists == true`, it is updating an existing storage slot. The circuit does the following for such a write:
 
    - Performs a membership check, where:
-     - The leaf contains the existing storage slot.
-     - The leaf's old value and the sibling path are provided as hints through private inputs.
-     - The root is the latest root after processing the previous request.
-   - Derives the new latest root with the new value in the leaf.
+     - The leaf if for the existing storage slot.
+       - `leaf.storage_slot = write.storage_slot`
+     - The old value is the value in a `snap`:
+       - `leaf.value = public_data_snaps[public_data_snap_indices[i]].value`
+     - The index and the sibling path are in `storage_write_membership_witnesses`, provided as [hints](#hints) through `private_inputs`.
+     - The root is the `latest_root` after processing the previous write.
+   - Derives the `latest_root` for the `latest_public_data_tree` with the updated leaf, where `leaf.value = write.value`.
 
 3. Creating a new storage slot.
 
-   For a non-transient update request, if the _exists_ flag is false, it is inserting to a new storage slot. The circuit adds it to a subtree:
+   For a non-transient `write` (`write.next_counter == 0`), if `write.exists == false`, it is initializing a storage slot. The circuit adds it to a subtree:
 
-   - Perform a membership check on the low leaf in the latest public data tree or the subtree.
-     - The leaf preimage and its membership witness are provided as hints through private inputs.
-   - Update the low leaf to point to the new leaf containing the new storage slot.
-     - The low leaf could be in the public data tree or the subtree.
-   - Append the new leaf to the subtree.
+   - Perform a membership check on the low leaf in the _latest_public_data_tree_ and in the subtree. One check must succeed.
+     - The low leaf preimage is at `storage_write_low_leaf_preimages[i]`.
+     - The membership witness for the public data tree is at `storage_write_membership_witnesses[i]`.
+     - The membership witness for the subtree is at `subtree_membership_witnesses[i]`.
+     - The above are provided as [hints](#hints) through `private_inputs`.
+   - Update the low leaf to point to the new leaf:
+     - `low_leaf.next_slot = write.storage_slot`
+     - `low_leaf.next_index = old_public_data_tree_snapshot.next_available_leaf_index + number_of_new_leaves`
+   - If the low leaf is in the `latest_public_data_tree`, derive the `latest_root` from the updated low leaf.
+   - If the low leaf is in the subtree, derive the `subtree_root` from the updated low leaf.
+   - Append the new leaf to the subtree. Derive the `subtree_root`.
+   - Increment `number_of_new_leaves` by `1`.
 
-After all the update requests are processed:
+> The subtree and _number_of_new_leaves_ are initialized to empty and 0 at the beginning of the process.
+
+After all the storage writes are processed:
 
 - Batch insert the subtree to the public data tree.
-  - The insertion index is the index in the **old** public data tree snapshot.
-- Verify that the latest root matches the root in the **new** public data tree snapshot in the public inputs.
-- Verify that the index in the **new** public data tree snapshot equals the index in the **old** public data tree snapshot plus the number of the new leaves appended to the subtree.
+  - The insertion index is `old_public_data_tree_snapshot.next_available_leaf_index`.
+- Verify the following:
+  - `latest_root == new_public_data_tree_snapshot.root`
+  - `new_public_data_tree_snapshot.next_available_leaf_index == old_public_data_tree_snapshot.next_available_leaf_index + number_of_new_leaves`
 
 ### Validating Public Inputs
 
 #### Verifying the accumulated data.
 
-1. The following must align with the results after ordering, as verified in a [previous step](#verifying-ordered-arrays):
+1. The following must align with the results after siloing, as verified in a [previous step](#siloing-values):
 
-   - Note hashes.
-   - Nullifiers.
-   - L2-to-L1 messages.
-   - New contracts.
+   - `l2_to_l1_messages`
 
-   > Note that these are arrays of siloed values or relevant data. Attributes aiding verification and siloing only exist in the corresponding types in the transient accumulated data.
+2. The following must align with the results after ordering, as verified in a [previous step](#verifying-ordered-arrays):
 
-2. The following must match the respective values in the previous kernel's public inputs:
+   - `note_hashes`
+   - `nullifiers`
 
-   - Log hashes.
-   - Log lengths.
+3. The hashes and lengths for unencrypted logs are accumulated as follows:
 
-3. The following is referenced and verified in a [previous step](#updating-the-public-data-tree):
+   Initialize `accumulated_logs_hash` to be the `unencrypted_logs_hash` within [`private_inputs`](#private-inputs)[`.previous_kernel`](#previouskernel).[public_inputs].[accumulated_data](#accumulateddata).
 
-   - Old public data tree snapshot.
-   - New public data tree snapshot.
+   For each non-empty _log_hash_ at index `i` in `ordered_unencrypted_log_hashes`, which is provided as [hints](#hints), and the [ordering](#verifying-ordered-arrays) was verified against the [siloed hashes](#siloing-values) in previous steps:
+
+   - `accumulated_logs_hash = hash(accumulated_logs_hash, log_hash.hash)`
+   - `accumulated_logs_length += log_hash.length`
+
+   Check the values in the `public_inputs` are correct:
+
+   - `unencrypted_logs_hash == accumulated_logs_hash`
+   - `unencrypted_log_preimages_length == accumulated_logs_length`
+
+4. The following is referenced and verified in a [previous step](#updating-the-public-data-tree):
+
+   - `old_public_data_tree_snapshot`
+   - `new_public_data_tree_snapshot`
 
 #### Verifying the transient accumulated data.
 
@@ -230,83 +249,146 @@ It ensures that the transient accumulated data is empty.
 
 #### Verifying the constant data.
 
-It verifies that the constant data matches the one in the previous iteration's public inputs.
+This section follows the same [process](./private-kernel-inner.mdx#verifying-the-constant-data) as outlined in the inner private kernel circuit.
 
-## Private Inputs
+## `PrivateInputs`
 
-### Previous Kernel
+### `PreviousKernel`
 
-The data of the previous kernel iteration:
+| Field                | Type                                                                  | Description                                  |
+| -------------------- | --------------------------------------------------------------------- | -------------------------------------------- |
+| `public_inputs`      | [`PublicKernelPublicInputs`](#public-inputs)                          | Public inputs of the proof.                  |
+| `proof`              | `Proof`                                                               | Proof of the kernel circuit.                 |
+| `vk`                 | `VerificationKey`                                                     | Verification key of the kernel circuit.      |
+| `membership_witness` | [`MembershipWitness`](./private-kernel-initial.mdx#membershipwitness) | Membership witness for the verification key. |
 
-- Proof of the kernel circuit. It must be:
-  - [Iterative public kernel circuit](./public-kernel-iterative.md).
-- Public inputs of the proof.
-- Verification key of the circuit.
-- Membership witness for the verification key.
-
-### Hints
+### _Hints_
 
 Data that aids in the verifications carried out in this circuit:
 
-- Sorted indices of read requests.
-- Ordered read requests.
-- Sorted indices of update requests.
-- Ordered update requests.
-- Public data snaps.
-- Indices of update requests for public data snaps.
-- Indices of update requests for transient update requests.
-- Hints for read requests, including:
-  - A flag indicating whether it's reading an update request or a leaf in the public data tree.
-  - Index of the update request or a public data snap.
-  - Membership witness.
-- Indices of update requests for transient updates.
-- Membership witnesses for update requests.
-- Membership witnesses of low leaves in public data tree for update requests.
-- Membership witnesses of low leaves in subtree for update requests.
+| Field                                | Type                                                                       | Description                                                                                                                                |
+| ------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `note_hash_indices`                  | `[field; C]`                                                               | Indices of `note_hashes` for `note_hash_contexts`. `C` equals the length of `note_hashes`.                                                 |
+| `note_hash_hints`                    | `[field; C]`                                                               | Indices of `note_hash_contexts` for ordered `note_hashes`. `C` equals the length of `note_hash_contexts`.                                  |
+| `nullifier_hints`                    | `[field; C]`                                                               | Indices of _nullifier_contexts_ for ordered `nullifiers`. `C` equals the length of _nullifier_contexts_.                                   |
+| `ordered_unencrypted_log_hashes`     | `[field; C]`                                                               | Ordered _unencrypted_log_hashes_. `C` equals the length of _unencrypted_log_hashes_.                                                       |
+| `unencrypted_log_hash_hints`         | `[field; C]`                                                               | Indices of `ordered_unencrypted_log_hashes` for _unencrypted_log_hash_contexts_. `C` equals the length of _unencrypted_log_hash_contexts_. |
+| `ordered_storage_reads`              | [`[StorageReadContext; C]`](#storagereadcontext)                           | Ordered `storage_reads`. `C` equals the length of `storage_reads`.                                                                         |
+| `storage_read_hints`                 | `[field; C]`                                                               | Indices of reads for `ordered_storage_reads`. `C` equals the length of `storage_reads`.                                                    |
+| `ordered_storage_writes`             | [`[StorageWriteContext; C]`](#storagewritecontext)                         | Ordered `storage_writes`. `C` equals the length of `storage_writes`.                                                                       |
+| `storage_write_hints`                | `[field; C]`                                                               | Indices of writes for `ordered_storage_writes`. `C` equals the length of `storage_writes`.                                                 |
+| `public_data_snaps`                  | [`[PublicDataSnap; C]`](#publicdatasnap)                                   | Data that aids verification of storage reads and writes. `C` equals the length of `ordered_storage_writes` + `ordered_storage_reads`.      |
+| `storage_write_indices`              | `[field; C]`                                                               | Indices of `ordered_storage_writes` for `public_data_snaps`. `C` equals the length of `public_data_snaps`.                                 |
+| `transient_read_hints`               | `[field; C]`                                                               | Indices of `ordered_storage_writes` for transient reads. `C` equals the length of `ordered_storage_reads`.                                 |
+| `persistent_read_hints`              | `[field; C]`                                                               | Indices of `ordered_storage_writes` for persistent reads. `C` equals the length of `ordered_storage_reads`.                                |
+| `public_data_snap_indices`           | `[field; C]`                                                               | Indices of `public_data_snaps` for persistent write. `C` equals the length of `ordered_storage_writes`.                                    |
+| `storage_read_low_leaf_preimages`    | [`[PublicDataLeafPreimage; C]`](#publicdataleafpreimage)                   | Preimages for public data leaf. `C` equals the length of `ordered_storage_writes`.                                                         |
+| `storage_read_membership_witnesses`  | [`[MembershipWitness; C]`](./private-kernel-initial.mdx#membershipwitness) | Membership witnesses for persistent reads. `C` equals the length of `ordered_storage_writes`.                                              |
+| `storage_write_low_leaf_preimages`   | [`[PublicDataLeafPreimage; C]`](#publicdataleafpreimage)                   | Preimages for public data. `C` equals the length of `ordered_storage_writes`.                                                              |
+| `storage_write_membership_witnesses` | [`[MembershipWitness; C]`](./private-kernel-initial.mdx#membershipwitness) | Membership witnesses for public data tree. `C` equals the length of `ordered_storage_writes`.                                              |
+| `subtree_membership_witnesses`       | [`[MembershipWitness; C]`](./private-kernel-initial.mdx#membershipwitness) | Membership witnesses for the public data subtree. `C` equals the length of `ordered_storage_writes`.                                       |
 
 ## Public Inputs
 
-The structure of this public inputs aligns with that of the [tail private kernel circuit](./private-kernel-tail.md) and the [iterative public kernel circuit](./public-kernel-iterative.md).
+### `ConstantData`
 
-### Accumulated Data
+These are constants that remain the same throughout the entire transaction. Its format aligns with the [ConstantData](./private-kernel-initial.mdx#constantdata) of the initial private kernel circuit.
 
-It contains data accumulated during the execution of the entire transaction:
+### `AccumulatedData`
 
-- Note hashes.
-- Nullifiers.
-- L2-to-L1 messages.
-- New contracts.
-- Log hashes.
-- Log lengths.
-- Old public data tree snapshot.
-- New public data tree snapshot.
+Data accumulated during the execution of the transaction.
 
-### Constant Data
+| Field                              | Type                              | Description                                                 |
+| ---------------------------------- | --------------------------------- | ----------------------------------------------------------- |
+| `note_hashes`                      | `[field; C]`                      | Note hashes created in the transaction.                     |
+| `nullifiers`                       | `[field; C]`                      | Nullifiers created in the transaction.                      |
+| `l2_to_l1_messages`                | `[field; C]`                      | L2-to-L1 messages created in the transaction.               |
+| `unencrypted_logs_hash`            | `field`                           | Hash of the accumulated unencrypted logs.                   |
+| `unencrypted_log_preimages_length` | `field`                           | Length of all unencrypted log preimages.                    |
+| `encrypted_logs_hash`              | `field`                           | Hash of the accumulated encrypted logs.                     |
+| `encrypted_log_preimages_length`   | `field`                           | Length of all encrypted log preimages.                      |
+| `encrypted_note_preimages_hash`    | `field`                           | Hash of the accumulated encrypted note preimages.           |
+| `encrypted_note_preimages_length`  | `field`                           | Length of all encrypted note preimages.                     |
+| `old_public_data_tree_snapshot`    | [`[TreeSnapshot]`](#treesnapshot) | Snapshot of the public data tree prior to this transaction. |
+| `new_public_data_tree_snapshot`    | [`[TreeSnapshot]`](#treesnapshot) | Snapshot of the public data tree after this transaction.    |
 
-These are constants that remain the same throughout the entire transaction:
+> The above `C`s represent constants defined by the protocol. Each `C` might have a different value from the others.
 
-- Historical data - representing the states of the block at which the transaction is constructed, including:
-  - Hash of the global variables.
-  - Roots of the trees:
-    - Note hash tree.
-    - Nullifier tree.
-    - Contract tree.
-    - L1-to-l2 message tree.
-    - Public data tree.
-- Transaction context
-  - A flag indicating whether it is a fee paying transaction.
-  - A flag indicating whether it is a fee rebate transaction.
-  - Chain ID.
-  - Version of the transaction.
+### `TransientAccumulatedData`
 
-### Transient Accumulated Data
+| Field                       | Type                                                                             | Description                                            |
+| --------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `note_hash_contexts`        | [`[NoteHashContext; C]`](./private-kernel-initial.mdx#notehashcontext)           | Note hashes with extra data aiding verification.       |
+| `nullifier_contexts`        | [`[NullifierContext; C]`](./private-kernel-initial.mdx#nullifiercontext)         | Nullifiers with extra data aiding verification.        |
+| `l2_to_l1_message_contexts` | [`[L2toL1MessageContext; C]`](./private-kernel-initial.mdx#l2tol1messagecontext) | L2-to-l1 messages with extra data aiding verification. |
+| `storage_reads`             | [`[StorageRead; C]`](#storageread)                                               | Reads of the public data.                              |
+| `storage_writes`            | [`[StorageWrite; C]`](#storagewrite)                                             | Writes of the public data.                             |
+| `public_call_requests`      | [`[CallRequest; C]`](./private-kernel-initial.mdx#callrequest)                   | Requests to call publics functions.                    |
 
-It includes data that aids in processing each kernel iteration. They must be empty for this circuit.
+> The above `C`s represent constants defined by the protocol. Each `C` might have a different value from the others.
 
-- Note hash contexts.
-- Nullifier contexts.
-- L2-to-L1 message contexts.
-- New contract contexts.
-- Read requests.
-- Update requests.
-- Public call requests.
+## Types
+
+### `TreeSnapshot`
+
+| Field                       | Type    | Description                       |
+| --------------------------- | ------- | --------------------------------- |
+| `root`                      | `field` | Root of the tree.                 |
+| `next_available_leaf_index` | `field` | The index to insert new value to. |
+
+### `StorageRead`
+
+| Field              | Type           | Description                         |
+| ------------------ | -------------- | ----------------------------------- |
+| `contract_address` | `AztecAddress` | Address of the contract.            |
+| `storage_slot`     | `field`        | Storage slot.                       |
+| `value`            | `field`        | Value read from the storage slot.   |
+| `counter`          | `field`        | Counter at which the read happened. |
+
+### `StorageWrite`
+
+| Field              | Type           | Description                            |
+| ------------------ | -------------- | -------------------------------------- |
+| `contract_address` | `AztecAddress` | Address of the contract.               |
+| `storage_slot`     | `field`        | Storage slot.                          |
+| `value`            | `field`        | New value written to the storage slot. |
+| `counter`          | `field`        | Counter at which the write happened.   |
+
+### `StorageReadContext`
+
+| Field              | Type           | Description                         |
+| ------------------ | -------------- | ----------------------------------- |
+| `contract_address` | `AztecAddress` | Address of the contract.            |
+| `storage_slot`     | `field`        | Storage slot.                       |
+| `value`            | `field`        | Value read from the storage slot.   |
+| `counter`          | `field`        | Counter at which the read happened. |
+
+### `StorageWriteContext`
+
+| Field              | Type           | Description                                                            |
+| ------------------ | -------------- | ---------------------------------------------------------------------- |
+| `contract_address` | `AztecAddress` | Address of the contract.                                               |
+| `storage_slot`     | `field`        | Storage slot.                                                          |
+| `value`            | `field`        | New value written to the storage slot.                                 |
+| `counter`          | `field`        | Counter at which the write happened.                                   |
+| `prev_counter`     | `field`        | Counter of the previous write to the storage slot.                     |
+| `next_counter`     | `field`        | Counter of the next write to the storage slot.                         |
+| `exists`           | `bool`         | A flag indicating whether the storage slot is in the public data tree. |
+
+### `PublicDataSnap`
+
+| Field              | Type    | Description                                                              |
+| ------------------ | ------- | ------------------------------------------------------------------------ |
+| `storage_slot`     | `field` | Storage slot.                                                            |
+| `value`            | `field` | Value of the storage slot.                                               |
+| `override_counter` | `field` | Counter at which the `storage_slot` is first written in the transaction. |
+| `exists`           | `bool`  | A flag indicating whether the storage slot is in the public data tree.   |
+
+### `PublicDataLeafPreimage`
+
+| Field          | Type    | Description                    |
+| -------------- | ------- | ------------------------------ |
+| `storage_slot` | `field` | Storage slot.                  |
+| `value`        | `field` | Value of the storage slot.     |
+| `next_slot`    | `field` | Storage slot of the next leaf. |
+| `next_index`   | `field` | Index of the next leaf.        |

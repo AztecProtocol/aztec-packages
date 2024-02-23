@@ -18,8 +18,7 @@ use super::{
         basic_block::BasicBlock,
         dfg::{CallStack, InsertInstructionResult},
         function::RuntimeType,
-        instruction::{Endian, InstructionId, Intrinsic},
-        types::NumericType,
+        instruction::{ConstrainError, InstructionId, Intrinsic},
     },
     ssa_gen::Ssa,
 };
@@ -250,9 +249,22 @@ impl FunctionBuilder {
         &mut self,
         lhs: ValueId,
         rhs: ValueId,
-        assert_message: Option<String>,
+        assert_message: Option<Box<ConstrainError>>,
     ) {
         self.insert_instruction(Instruction::Constrain(lhs, rhs, assert_message), None);
+    }
+
+    /// Insert a [`Instruction::RangeCheck`] instruction at the end of the current block.
+    pub(crate) fn insert_range_check(
+        &mut self,
+        value: ValueId,
+        max_bit_size: u32,
+        assert_message: Option<String>,
+    ) {
+        self.insert_instruction(
+            Instruction::RangeCheck { value, max_bit_size, assert_message },
+            None,
+        );
     }
 
     /// Insert a call instruction at the end of the current block and return
@@ -264,105 +276,6 @@ impl FunctionBuilder {
         result_types: Vec<Type>,
     ) -> Cow<[ValueId]> {
         self.insert_instruction(Instruction::Call { func, arguments }, Some(result_types)).results()
-    }
-
-    /// Insert ssa instructions which computes lhs << rhs by doing lhs*2^rhs
-    pub(crate) fn insert_shift_left(&mut self, lhs: ValueId, rhs: ValueId) -> ValueId {
-        let base = self.field_constant(FieldElement::from(2_u128));
-        let pow = self.pow(base, rhs);
-        let typ = self.current_function.dfg.type_of_value(lhs);
-        let pow = self.insert_cast(pow, typ);
-        self.insert_binary(lhs, BinaryOp::Mul, pow)
-    }
-
-    /// Insert ssa instructions which computes lhs << rhs by doing lhs*2^rhs
-    /// and truncate the result to bit_size
-    pub(crate) fn insert_wrapping_shift_left(
-        &mut self,
-        lhs: ValueId,
-        rhs: ValueId,
-        bit_size: u32,
-    ) -> ValueId {
-        let base = self.field_constant(FieldElement::from(2_u128));
-        let typ = self.current_function.dfg.type_of_value(lhs);
-        let (max_bit, pow) =
-            if let Some(rhs_constant) = self.current_function.dfg.get_numeric_constant(rhs) {
-                // Happy case is that we know precisely by how many bits the the integer will
-                // increase: lhs_bit_size + rhs
-                let (rhs_bit_size_pow_2, overflows) =
-                    2_u128.overflowing_pow(rhs_constant.to_u128() as u32);
-                if overflows {
-                    assert!(bit_size < 128, "ICE - shift left with big integers are not supported");
-                    if bit_size < 128 {
-                        let zero = self.numeric_constant(FieldElement::zero(), typ);
-                        return InsertInstructionResult::SimplifiedTo(zero).first();
-                    }
-                }
-                let pow = self.numeric_constant(FieldElement::from(rhs_bit_size_pow_2), typ);
-                (bit_size + (rhs_constant.to_u128() as u32), pow)
-            } else {
-                // we use a predicate to nullify the result in case of overflow
-                let bit_size_var =
-                    self.numeric_constant(FieldElement::from(bit_size as u128), typ.clone());
-                let overflow = self.insert_binary(rhs, BinaryOp::Lt, bit_size_var);
-                let one = self.numeric_constant(FieldElement::one(), Type::unsigned(1));
-                let predicate = self.insert_binary(overflow, BinaryOp::Eq, one);
-                let predicate = self.insert_cast(predicate, typ.clone());
-
-                let pow = self.pow(base, rhs);
-                let pow = self.insert_cast(pow, typ);
-                (FieldElement::max_num_bits(), self.insert_binary(predicate, BinaryOp::Mul, pow))
-            };
-
-        if max_bit <= bit_size {
-            self.insert_binary(lhs, BinaryOp::Mul, pow)
-        } else {
-            let result = self.insert_binary(lhs, BinaryOp::Mul, pow);
-            self.insert_truncate(result, bit_size, max_bit)
-        }
-    }
-
-    /// Insert ssa instructions which computes lhs >> rhs by doing lhs/2^rhs
-    pub(crate) fn insert_shift_right(&mut self, lhs: ValueId, rhs: ValueId) -> ValueId {
-        let base = self.field_constant(FieldElement::from(2_u128));
-        let pow = self.pow(base, rhs);
-        self.insert_binary(lhs, BinaryOp::Div, pow)
-    }
-
-    /// Computes lhs^rhs via square&multiply, using the bits decomposition of rhs
-    /// Pseudo-code of the computation:
-    /// let mut r = 1;
-    /// let rhs_bits = to_bits(rhs);
-    /// for i in 1 .. bit_size + 1 {
-    ///     let r_squared = r * r;
-    ///     let b = rhs_bits[bit_size - i];
-    ///     r = (r_squared * lhs * b) + (1 - b) * r_squared;
-    /// }
-    pub(crate) fn pow(&mut self, lhs: ValueId, rhs: ValueId) -> ValueId {
-        let typ = self.current_function.dfg.type_of_value(rhs);
-        if let Type::Numeric(NumericType::Unsigned { bit_size }) = typ {
-            let to_bits = self.import_intrinsic_id(Intrinsic::ToBits(Endian::Little));
-            let length = self.field_constant(FieldElement::from(bit_size as i128));
-            let result_types =
-                vec![Type::field(), Type::Array(Rc::new(vec![Type::bool()]), bit_size as usize)];
-            let rhs_bits = self.insert_call(to_bits, vec![rhs, length], result_types);
-            let rhs_bits = rhs_bits[1];
-            let one = self.field_constant(FieldElement::one());
-            let mut r = one;
-            for i in 1..bit_size + 1 {
-                let r_squared = self.insert_binary(r, BinaryOp::Mul, r);
-                let a = self.insert_binary(r_squared, BinaryOp::Mul, lhs);
-                let idx = self.field_constant(FieldElement::from((bit_size - i) as i128));
-                let b = self.insert_array_get(rhs_bits, idx, Type::field());
-                let r1 = self.insert_binary(a, BinaryOp::Mul, b);
-                let c = self.insert_binary(one, BinaryOp::Sub, b);
-                let r2 = self.insert_binary(c, BinaryOp::Mul, r_squared);
-                r = self.insert_binary(r1, BinaryOp::Add, r2);
-            }
-            r
-        } else {
-            unreachable!("Value must be unsigned in power operation");
-        }
     }
 
     /// Insert an instruction to extract an element from an array

@@ -3,19 +3,17 @@
 #include "../notes/native/index.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/crypto/merkle_tree/index.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
-#include "barretenberg/stdlib/merkle_tree/index.hpp"
 #include "index.hpp"
 
-namespace join_split_example {
-namespace proofs {
-namespace join_split {
+namespace bb::join_split_example::proofs::join_split {
 
-using namespace barretenberg;
-// using namespace proof_system::plonk::stdlib::types;
-using namespace proof_system::plonk::stdlib::merkle_tree;
-using namespace join_split_example::proofs::notes::native;
+using namespace bb;
+// using namespace bb::stdlib::types;
+using namespace bb::crypto::merkle_tree;
+using namespace bb::join_split_example::proofs::notes::native;
 using key_pair = join_split_example::fixtures::grumpkin_key_pair;
 
 /**
@@ -34,7 +32,7 @@ class join_split_js_parity_tests : public ::testing::Test {
     virtual void SetUp()
     {
         store = std::make_unique<MemoryStore>();
-        tree = std::make_unique<MerkleTree<MemoryStore>>(*store, 32);
+        tree = std::make_unique<MerkleTree<MemoryStore, PedersenHashPolicy>>(*store, 32);
     }
 
     void append_notes(std::vector<value::value_note> const& notes)
@@ -58,7 +56,7 @@ class join_split_js_parity_tests : public ::testing::Test {
     }
 
     std::unique_ptr<MemoryStore> store;
-    std::unique_ptr<MerkleTree<MemoryStore>> tree;
+    std::unique_ptr<MerkleTree<MemoryStore, PedersenHashPolicy>> tree;
 };
 
 TEST_F(join_split_js_parity_tests, test_full_proof)
@@ -67,13 +65,13 @@ TEST_F(join_split_js_parity_tests, test_full_proof)
         0x0b, 0x9b, 0x3a, 0xde, 0xe6, 0xb3, 0xd8, 0x1b, 0x28, 0xa0, 0x88, 0x6b, 0x2a, 0x84, 0x15, 0xc7,
         0xda, 0x31, 0x29, 0x1a, 0x5e, 0x96, 0xbb, 0x7a, 0x56, 0x63, 0x9e, 0x17, 0x7d, 0x30, 0x1b, 0xeb });
     auto public_key = grumpkin::g1::one * private_key;
-    auto note_secret = from_buffer<barretenberg::fr>(std::vector<uint8_t>{
+    auto note_secret = from_buffer<bb::fr>(std::vector<uint8_t>{
         0x00, 0x00, 0x00, 0x00, 0x11, 0x11, 0x11, 0x11, 0x00, 0x00, 0x00, 0x00, 0x11, 0x11, 0x11, 0x11,
         0x00, 0x00, 0x00, 0x00, 0x11, 0x11, 0x11, 0x11, 0x00, 0x00, 0x00, 0x00, 0x11, 0x11, 0x11, 0x11 });
-    auto input_nullifier1 = from_buffer<barretenberg::fr>(std::vector<uint8_t>{
+    auto input_nullifier1 = from_buffer<bb::fr>(std::vector<uint8_t>{
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 });
-    auto input_nullifier2 = from_buffer<barretenberg::fr>(std::vector<uint8_t>{
+    auto input_nullifier2 = from_buffer<bb::fr>(std::vector<uint8_t>{
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02 });
 
@@ -104,7 +102,7 @@ TEST_F(join_split_js_parity_tests, test_full_proof)
     value::value_note output_note2 = { 50, 0, 0, public_key, note_secret, 0, input_note2_nullifier };
 
     join_split_tx tx;
-    tx.proof_id = ProofIds::SEND;
+    tx.proof_id = proof_ids::SEND;
     tx.public_value = 0;
     tx.public_owner = 0;
     tx.asset_id = 0;
@@ -130,7 +128,7 @@ TEST_F(join_split_js_parity_tests, test_full_proof)
     tx.signature.s = { 0 };
 
     // To assert that the C++ and TypeScript code produces the same input data.
-    info("tx buffer hash: ", sha256::sha256(to_buffer(tx)));
+    info("tx buffer hash: ", crypto::sha256(to_buffer(tx)));
 
     auto proof = sign_and_create_proof(tx, { private_key, public_key });
     auto proof_data = inner_proof_data(proof.proof_data);
@@ -138,7 +136,7 @@ TEST_F(join_split_js_parity_tests, test_full_proof)
     auto output_note1_commitment = tx.output_note[0].commit();
     auto output_note2_commitment = tx.output_note[1].commit();
 
-    EXPECT_EQ(proof_data.proof_id, ProofIds::SEND);
+    EXPECT_EQ(proof_data.proof_id, proof_ids::SEND);
     EXPECT_EQ(proof_data.note_commitment1, output_note1_commitment);
     EXPECT_EQ(proof_data.note_commitment2, output_note2_commitment);
     EXPECT_EQ(proof_data.nullifier1, uint256_t(input_note1_nullifier));
@@ -161,6 +159,4 @@ TEST_F(join_split_js_parity_tests, test_full_proof)
     // }
 }
 
-} // namespace join_split
-} // namespace proofs
-} // namespace join_split_example
+} // namespace bb::join_split_example::proofs::join_split

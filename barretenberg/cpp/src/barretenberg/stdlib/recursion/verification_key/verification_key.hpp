@@ -15,7 +15,7 @@
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include <map>
 
-namespace proof_system::plonk::stdlib::recursion {
+namespace bb::stdlib::recursion {
 
 /**
  * @brief Constructs a packed buffer of field elements to be fed into a Pedersen hash function
@@ -40,12 +40,12 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
     field_pt hash()
     {
         // we can only use relaxed range checks in pedersen::compress iff bits_per_element < modulus bits
-        static_assert(bits_per_element < uint256_t(barretenberg::fr::modulus).get_msb());
+        static_assert(bits_per_element < uint256_t(bb::fr::modulus).get_msb());
 
         if (current_bit_counter != 0) {
             const uint256_t down_shift = uint256_t(1) << uint256_t((bits_per_element - current_bit_counter));
             for (auto& x : work_element) {
-                x = x / barretenberg::fr(down_shift);
+                x = x / bb::fr(down_shift);
             }
             preimage_data.push_back(field_pt::accumulate(work_element));
         }
@@ -116,7 +116,7 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
             size_t new_bit_counter = current_bit_counter + num_bits;
             field_pt hi = element;
             const size_t leftovers = bits_per_element - new_bit_counter;
-            field_pt buffer_shift = field_pt(context, barretenberg::fr(uint256_t(1) << ((uint64_t)leftovers)));
+            field_pt buffer_shift = field_pt(context, bb::fr(uint256_t(1) << ((uint64_t)leftovers)));
             work_element.emplace_back(hi * buffer_shift);
             current_bit_counter = new_bit_counter;
             if (current_bit_counter == bits_per_element) {
@@ -128,16 +128,16 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
             return;
         }
         const size_t lo_bits = num_bits - hi_bits;
-        field_pt lo = witness_t(context, barretenberg::fr(element_u256.slice(0, lo_bits)));
-        field_pt hi = witness_t(context, barretenberg::fr(element_u256.slice(lo_bits, 256)));
+        field_pt lo = witness_t(context, bb::fr(element_u256.slice(0, lo_bits)));
+        field_pt hi = witness_t(context, bb::fr(element_u256.slice(lo_bits, 256)));
         lo.create_range_constraint(lo_bits);
         hi.create_range_constraint(hi_bits);
-        field_pt shift(context, barretenberg::fr(uint256_t(1ULL) << static_cast<uint64_t>(lo_bits)));
+        field_pt shift(context, bb::fr(uint256_t(1ULL) << static_cast<uint64_t>(lo_bits)));
         if (!element.is_constant() || !lo.is_constant() || !hi.is_constant()) {
             lo.add_two(hi * shift, -element).assert_equal(0);
         }
 
-        constexpr uint256_t modulus = barretenberg::fr::modulus;
+        constexpr uint256_t modulus = bb::fr::modulus;
         constexpr size_t modulus_bits = modulus.get_msb();
 
         // If our input is a full field element we must validate the sum of our slices is < p
@@ -174,8 +174,7 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
             work_element.emplace_back(hi);
             preimage_data.push_back(field_pt::accumulate(work_element));
             field_t lo_shift(
-                context,
-                barretenberg::fr(uint256_t(1ULL) << ((bits_per_element - static_cast<uint64_t>(current_bit_counter)))));
+                context, bb::fr(uint256_t(1ULL) << ((bits_per_element - static_cast<uint64_t>(current_bit_counter)))));
             work_element = std::vector<field_pt>();
             work_element.emplace_back(lo * lo_shift);
         }
@@ -197,7 +196,7 @@ template <typename Builder> struct evaluation_domain {
         return domain;
     }
 
-    static evaluation_domain from_witness(Builder* ctx, const barretenberg::evaluation_domain& input)
+    static evaluation_domain from_witness(Builder* ctx, const bb::evaluation_domain& input)
     {
         evaluation_domain domain;
         domain.root = witness_t<Builder>(ctx, input.root);
@@ -210,7 +209,7 @@ template <typename Builder> struct evaluation_domain {
         return domain;
     }
 
-    static evaluation_domain from_constants(Builder* ctx, const barretenberg::evaluation_domain& input)
+    static evaluation_domain from_constants(Builder* ctx, const bb::evaluation_domain& input)
     {
         evaluation_domain domain;
         domain.root = field_t<Builder>(ctx, input.root);
@@ -245,7 +244,7 @@ template <typename Curve> struct verification_key {
         std::shared_ptr<verification_key> key = std::make_shared<verification_key>();
         key->context = ctx;
 
-        key->polynomial_manifest = PolynomialManifest(Builder::CIRCUIT_TYPE);
+        key->polynomial_manifest = plonk::PolynomialManifest(Builder::CIRCUIT_TYPE);
         key->domain = evaluation_domain<Builder>::from_field_elements({ fields[0], fields[1], fields[2] });
 
         key->n = fields[3];
@@ -261,7 +260,8 @@ template <typename Curve> struct verification_key {
 
         size_t count = 22;
         for (const auto& descriptor : key->polynomial_manifest.get()) {
-            if (descriptor.source == PolynomialSource::SELECTOR || descriptor.source == PolynomialSource::PERMUTATION) {
+            if (descriptor.source == plonk::PolynomialSource::SELECTOR ||
+                descriptor.source == plonk::PolynomialSource::PERMUTATION) {
 
                 const auto x_lo = fields[count++];
                 const auto x_hi = fields[count++];
@@ -293,7 +293,7 @@ template <typename Curve> struct verification_key {
         key->polynomial_manifest = input_key->polynomial_manifest;
 
         // Circuit types:
-        key->n = witness_t<Builder>(ctx, barretenberg::fr(input_key->circuit_size));
+        key->n = witness_t<Builder>(ctx, bb::fr(input_key->circuit_size));
         key->num_public_inputs = witness_t<Builder>(ctx, input_key->num_public_inputs);
         key->domain = evaluation_domain<Builder>::from_witness(ctx, input_key->domain);
         key->contains_recursive_proof = input_key->contains_recursive_proof;
@@ -343,7 +343,7 @@ template <typename Curve> struct verification_key {
             field_t<Builder> key_index(witness_t<Builder>(context, 0));
             std::vector<field_t<Builder>> compressed_keys;
             for (size_t i = 0; i < keys_in_set.size(); ++i) {
-                barretenberg::fr compressed = hash_native(keys_in_set[i]);
+                bb::fr compressed = hash_native(keys_in_set[i]);
                 compressed_keys.emplace_back(compressed);
                 if (compressed == circuit_key_compressed.get_value()) {
                     key_index = witness_t<Builder>(context, i);
@@ -361,7 +361,7 @@ template <typename Curve> struct verification_key {
         } else {
             bool_t<Builder> is_valid(false);
             for (const auto& key : keys_in_set) {
-                barretenberg::fr compressed = hash_native(key);
+                bb::fr compressed = hash_native(key);
                 is_valid = is_valid || (circuit_key_compressed == compressed);
             }
 
@@ -402,8 +402,7 @@ template <typename Curve> struct verification_key {
         return hashed_key;
     }
 
-    static barretenberg::fr hash_native(const std::shared_ptr<plonk::verification_key>& key,
-                                        const size_t hash_index = 0)
+    static bb::fr hash_native(const std::shared_ptr<plonk::verification_key>& key, const size_t hash_index = 0)
     {
         std::vector<uint8_t> preimage_data;
 
@@ -441,9 +440,9 @@ template <typename Curve> struct verification_key {
 
     // Native data:
 
-    std::shared_ptr<barretenberg::srs::factories::VerifierCrs<curve::BN254>> reference_string;
+    std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> reference_string;
 
-    PolynomialManifest polynomial_manifest;
+    plonk::PolynomialManifest polynomial_manifest;
     // Used to check in the circuit if a proof contains any aggregated state.
     bool contains_recursive_proof = false;
     std::vector<uint32_t> recursive_proof_public_input_indices;
@@ -451,4 +450,4 @@ template <typename Curve> struct verification_key {
     Builder* context;
 };
 
-} // namespace proof_system::plonk::stdlib::recursion
+} // namespace bb::stdlib::recursion

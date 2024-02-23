@@ -1,0 +1,33 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../noir-compiler"
+    },
+    {
+      "path": "../types"
+    },
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../merkle-tree"
+    }
+  ],
+  "include": ["src", "src/**/*.json"],
+  "exclude": ["src/contracts"]
+}

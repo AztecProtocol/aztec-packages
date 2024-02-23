@@ -11,7 +11,9 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { TokenContract } from '@aztec/noir-contracts/Token';
+import { decodeFunctionSignature } from '@aztec/foundation/abi';
+import { ReaderContract } from '@aztec/noir-contracts.js/Reader';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
@@ -23,6 +25,9 @@ const TIMEOUT = 90_000;
 describe('e2e_token_contract', () => {
   jest.setTimeout(TIMEOUT);
 
+  const TOKEN_NAME = 'Aztec Token';
+  const TOKEN_SYMBOL = 'AZT';
+  const TOKEN_DECIMALS = 18n;
   let teardown: () => Promise<void>;
   let wallets: AccountWallet[];
   let accounts: CompleteAddress[];
@@ -34,15 +39,41 @@ describe('e2e_token_contract', () => {
 
   const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
     const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
+    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
     const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(note, accounts[accountIndex].address, asset.address, storageSlot, txHash);
+    const extendedNote = new ExtendedNote(
+      note,
+      accounts[accountIndex].address,
+      asset.address,
+      storageSlot,
+      noteTypeId,
+      txHash,
+    );
     await wallets[accountIndex].addNote(extendedNote);
+  };
+
+  const toString = (val: bigint[]) => {
+    let str = '';
+    for (let i = 0; i < val.length; i++) {
+      if (val[i] != 0n) {
+        str += String.fromCharCode(Number(val[i]));
+      }
+    }
+    return str;
   };
 
   beforeAll(async () => {
     ({ teardown, logger, wallets, accounts } = await setup(3));
 
-    asset = await TokenContract.deploy(wallets[0], accounts[0]).send().deployed();
+    TokenContract.artifact.functions.forEach(fn => {
+      const sig = decodeFunctionSignature(fn.name, fn.parameters);
+      logger(`Function ${sig} and the selector: ${FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)}`);
+    });
+
+    asset = await TokenContract.deploy(wallets[0], accounts[0], TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS)
+      .send()
+      .deployed();
     logger(`Token deployed to ${asset.address}`);
     tokenSim = new TokenSimulator(
       asset,
@@ -51,15 +82,6 @@ describe('e2e_token_contract', () => {
     );
 
     expect(await asset.methods.admin().view()).toBe(accounts[0].address.toBigInt());
-
-    asset.artifact.functions.forEach(fn => {
-      logger(
-        `Function ${fn.name} has ${fn.bytecode.length} bytes and the selector: ${FunctionSelector.fromNameAndParameters(
-          fn.name,
-          fn.parameters,
-        )}`,
-      );
-    });
   }, 100_000);
 
   afterAll(() => teardown());
@@ -67,6 +89,96 @@ describe('e2e_token_contract', () => {
   afterEach(async () => {
     await tokenSim.check();
   }, TIMEOUT);
+
+  describe('Reading constants', () => {
+    let reader: ReaderContract;
+    beforeAll(async () => {
+      reader = await ReaderContract.deploy(wallets[0]).send().deployed();
+    });
+
+    describe('name', () => {
+      it('private', async () => {
+        const t = toString(await asset.methods.un_get_name().view());
+        expect(t).toBe(TOKEN_NAME);
+
+        const tx = reader.methods.check_name_private(asset.address, TOKEN_NAME).send();
+        const receipt = await tx.wait();
+        expect(receipt.status).toBe(TxStatus.MINED);
+
+        await expect(reader.methods.check_name_private(asset.address, 'WRONG_NAME').simulate()).rejects.toThrowError(
+          "Cannot satisfy constraint 'name.is_eq(_what)'",
+        );
+      });
+
+      it('public', async () => {
+        const t = toString(await asset.methods.un_get_name().view());
+        expect(t).toBe(TOKEN_NAME);
+
+        const tx = reader.methods.check_name_public(asset.address, TOKEN_NAME).send();
+        const receipt = await tx.wait();
+        expect(receipt.status).toBe(TxStatus.MINED);
+
+        await expect(reader.methods.check_name_public(asset.address, 'WRONG_NAME').simulate()).rejects.toThrowError(
+          "Failed to solve brillig function, reason: explicit trap hit in brillig 'name.is_eq(_what)'",
+        );
+      });
+    });
+
+    describe('symbol', () => {
+      it('private', async () => {
+        const t = toString(await asset.methods.un_get_symbol().view());
+        expect(t).toBe(TOKEN_SYMBOL);
+
+        const tx = reader.methods.check_symbol_private(asset.address, TOKEN_SYMBOL).send();
+        const receipt = await tx.wait();
+        expect(receipt.status).toBe(TxStatus.MINED);
+
+        await expect(
+          reader.methods.check_symbol_private(asset.address, 'WRONG_SYMBOL').simulate(),
+        ).rejects.toThrowError("Cannot satisfy constraint 'symbol.is_eq(_what)'");
+      });
+      it('public', async () => {
+        const t = toString(await asset.methods.un_get_symbol().view());
+        expect(t).toBe(TOKEN_SYMBOL);
+
+        const tx = reader.methods.check_symbol_public(asset.address, TOKEN_SYMBOL).send();
+        const receipt = await tx.wait();
+        expect(receipt.status).toBe(TxStatus.MINED);
+
+        await expect(reader.methods.check_symbol_public(asset.address, 'WRONG_SYMBOL').simulate()).rejects.toThrowError(
+          "Failed to solve brillig function, reason: explicit trap hit in brillig 'symbol.is_eq(_what)'",
+        );
+      });
+    });
+
+    describe('decimals', () => {
+      it('private', async () => {
+        const t = await asset.methods.un_get_decimals().view();
+        expect(t).toBe(TOKEN_DECIMALS);
+
+        const tx = reader.methods.check_decimals_private(asset.address, TOKEN_DECIMALS).send();
+        const receipt = await tx.wait();
+        expect(receipt.status).toBe(TxStatus.MINED);
+
+        await expect(reader.methods.check_decimals_private(asset.address, 99).simulate()).rejects.toThrowError(
+          "Cannot satisfy constraint 'ret[0] as u8 == what'",
+        );
+      });
+
+      it('public', async () => {
+        const t = await asset.methods.un_get_decimals().view();
+        expect(t).toBe(TOKEN_DECIMALS);
+
+        const tx = reader.methods.check_decimals_public(asset.address, TOKEN_DECIMALS).send();
+        const receipt = await tx.wait();
+        expect(receipt.status).toBe(TxStatus.MINED);
+
+        await expect(reader.methods.check_decimals_public(asset.address, 99).simulate()).rejects.toThrowError(
+          "Failed to solve brillig function, reason: explicit trap hit in brillig 'ret[0] as u8 == what'",
+        );
+      });
+    });
+  });
 
   describe('Access controlled functions', () => {
     it('Set admin', async () => {

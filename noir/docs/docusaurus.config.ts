@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import type { Config } from '@docusaurus/types';
 
 const { themes } = require('prism-react-renderer');
@@ -25,6 +26,7 @@ export default {
       '@docusaurus/preset-classic',
       {
         docs: {
+          path: 'processed-docs',
           sidebarPath: './sidebars.js',
           routeBasePath: '/docs',
           remarkPlugins: [math],
@@ -47,6 +49,9 @@ export default {
   ],
 
   themeConfig: {
+    colorMode: {
+      respectPrefersColorScheme: true,
+    },
     navbar: {
       logo: {
         alt: 'Noir Logo',
@@ -112,7 +117,7 @@ export default {
     prism: {
       theme: lightTheme,
       darkTheme: darkTheme,
-      additionalLanguages: ['rust', 'powershell', 'solidity', 'toml'],
+      additionalLanguages: ['rust', 'powershell', 'solidity', 'toml', 'json', 'bash', 'docker'],
     },
     stylesheets: [
       {
@@ -128,7 +133,7 @@ export default {
 
       // Public API key: it is safe to commit it
       apiKey: 'b9b94d2f1c58f7d509f0bc1f13b381fb',
-
+      contextualSearch: true,
       indexName: 'noir-lang',
     },
   },
@@ -150,7 +155,7 @@ export default {
         entryPoints: ['../tooling/noir_js/src/index.ts'],
         tsconfig: '../tooling/noir_js/tsconfig.json',
         entryPointStrategy: 'resolve',
-        out: 'docs/reference/NoirJS/noir_js',
+        out: 'processed-docs/reference/NoirJS/noir_js',
         plugin: ['typedoc-plugin-markdown'],
         name: 'noir_js',
         disableSources: true,
@@ -181,7 +186,7 @@ export default {
         entryPoints: ['../tooling/noir_js_backend_barretenberg/src/index.ts'],
         tsconfig: '../tooling/noir_js_backend_barretenberg/tsconfig.json',
         entryPointStrategy: 'resolve',
-        out: 'docs/reference/NoirJS/backend_barretenberg',
+        out: 'processed-docs/reference/NoirJS/backend_barretenberg',
         plugin: ['typedoc-plugin-markdown'],
         name: 'backend_barretenberg',
         disableSources: true,
@@ -203,6 +208,37 @@ export default {
         outputFileStrategy: 'members',
         memberPageTitle: '{name}',
         membersWithOwnFile: ['Interface', 'Class', 'TypeAlias'],
+      },
+    ],
+    [
+      'docusaurus-plugin-typedoc',
+      {
+        id: 'noir_wasm',
+        entryPoints: ['../compiler/wasm/src/index.cts'],
+        tsconfig: '../compiler/wasm/tsconfig.json',
+        entryPointStrategy: 'resolve',
+        out: 'processed-docs/reference/NoirJS/noir_wasm',
+        plugin: ['typedoc-plugin-markdown'],
+        name: 'noir_wasm',
+        disableSources: true,
+        excludePrivate: true,
+        skipErrorChecking: true,
+        sidebar: {
+          filteredIds: ['reference/noir_wasm/index'],
+        },
+        readme: 'none',
+        hidePageHeader: true,
+        hideBreadcrumbs: true,
+        hideInPageTOC: true,
+        useCodeBlocks: true,
+        typeDeclarationFormat: 'table',
+        propertiesFormat: 'table',
+        parametersFormat: 'table',
+        enumMembersFormat: 'table',
+        indexFormat: 'table',
+        outputFileStrategy: 'members',
+        memberPageTitle: '{name}',
+        membersWithOwnFile: ['Function', 'TypeAlias'],
       },
     ],
   ],

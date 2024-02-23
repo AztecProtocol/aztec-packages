@@ -1,18 +1,19 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
+#include "barretenberg/protogalaxy/decider_prover.hpp"
+#include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
-#include "barretenberg/ultra_honk/merge_prover.hpp"
-#include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
-namespace proof_system::honk {
-template <UltraFlavor Flavor> class UltraComposer_ {
+namespace bb {
+template <IsUltraFlavor Flavor_> class UltraComposer_ {
   public:
+    using Flavor = Flavor_;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -39,7 +40,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    UltraComposer_() { crs_factory_ = barretenberg::srs::get_crs_factory(); }
+    UltraComposer_() { crs_factory_ = bb::srs::get_crs_factory(); }
 
     explicit UltraComposer_(std::shared_ptr<CRSFactory> crs_factory)
         : crs_factory_(std::move(crs_factory))
@@ -66,39 +67,22 @@ template <UltraFlavor Flavor> class UltraComposer_ {
         const std::shared_ptr<Instance>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
+    DeciderProver_<Flavor> create_decider_prover(
+        const std::shared_ptr<Instance>&,
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    DeciderProver_<Flavor> create_decider_prover(
+        const std::shared_ptr<Instance>&,
+        const std::shared_ptr<CommitmentKey>&,
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
+    DeciderVerifier_<Flavor> create_decider_verifier(
+        const std::shared_ptr<Instance>&,
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     UltraVerifier_<Flavor> create_verifier(CircuitBuilder& circuit);
 
     UltraVerifier_<Flavor> create_ultra_with_keccak_verifier(CircuitBuilder& circuit);
 
-    /**
-     * @brief Create Prover for Goblin ECC op queue merge protocol
-     *
-     * @param op_queue
-     * @return MergeProver_<Flavor>
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/804): Goblin should be responsible for constructing
-     * merge prover/verifier.
-     */
-    MergeProver_<Flavor> create_merge_prover(
-        const std::shared_ptr<ECCOpQueue>& op_queue,
-        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
-    {
-        // Store the previous aggregate op queue size and update the current one
-        op_queue->set_size_data();
-        // Merge requires a commitment key with size equal to that of the current op queue transcript T_i since the
-        // shift of the current contribution t_i will be of degree equal to deg(T_i)
-        auto commitment_key = compute_commitment_key(op_queue->get_current_size());
-        return MergeProver_<Flavor>(commitment_key, op_queue, transcript);
-    }
-
-    /**
-     * @brief Create Verifier for Goblin ECC op queue merge protocol
-     *
-     * @return MergeVerifier_<Flavor>
-     */
-    MergeVerifier_<Flavor> create_merge_verifier() { return MergeVerifier_<Flavor>(); }
-
-    ProtoGalaxyProver_<ProverInstances> create_folding_prover(const std::vector<std::shared_ptr<Instance>>& instances,
-                                                              const std::shared_ptr<CommitmentKey>& commitment_key)
+    ProtoGalaxyProver_<ProverInstances> create_folding_prover(const std::vector<std::shared_ptr<Instance>>& instances)
     {
         ProtoGalaxyProver_<ProverInstances> output_state(instances, commitment_key);
 
@@ -121,9 +105,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     void compute_verification_key(const std::shared_ptr<Instance>&);
 };
 
-extern template class UltraComposer_<honk::flavor::Ultra>;
-extern template class UltraComposer_<honk::flavor::GoblinUltra>;
 // TODO(#532): this pattern is weird; is this not instantiating the templates?
-using UltraComposer = UltraComposer_<honk::flavor::Ultra>;
-using GoblinUltraComposer = UltraComposer_<honk::flavor::GoblinUltra>;
-} // namespace proof_system::honk
+using UltraComposer = UltraComposer_<UltraFlavor>;
+using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
+} // namespace bb

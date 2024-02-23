@@ -13,7 +13,7 @@
 #include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include <cstddef>
-namespace proof_system {
+namespace bb {
 using ECCVMOperation = ECCOpQueue::ECCVMOperation;
 
 /**
@@ -552,7 +552,7 @@ void GoblinTranslatorCircuitBuilder::create_accumulation_gate(const Accumulation
     num_gates += 2;
 
     // Check that all the wires are filled equally
-    barretenberg::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { ASSERT(std::get<i>(wires).size() == num_gates); });
+    bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { ASSERT(std::get<i>(wires).size() == num_gates); });
 }
 
 /**
@@ -568,7 +568,7 @@ GoblinTranslatorCircuitBuilder::AccumulationInput compute_witness_values_for_one
                                                                                         Fq batching_challenge_v,
                                                                                         Fq evaluation_input_x)
 {
-    using Fr = barretenberg::fr;
+    using Fr = bb::fr;
 
     // Get the Opcode value
     Fr op(ecc_op.get_opcode_value());
@@ -601,7 +601,7 @@ GoblinTranslatorCircuitBuilder::AccumulationInput compute_witness_values_for_one
 }
 void GoblinTranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(std::shared_ptr<ECCOpQueue> ecc_op_queue)
 {
-    using Fq = barretenberg::fq;
+    using Fq = bb::fq;
     std::vector<Fq> accumulator_trace;
     Fq current_accumulator(0);
     if (ecc_op_queue->raw_ops.empty()) {
@@ -1065,14 +1065,6 @@ bool GoblinTranslatorCircuitBuilder::check_circuit()
     }
     return true;
 };
-template GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(barretenberg::fr,
-                                                                                   barretenberg::fr,
-                                                                                   barretenberg::fr,
-                                                                                   barretenberg::fr,
-                                                                                   barretenberg::fr,
-                                                                                   barretenberg::fr,
-                                                                                   barretenberg::fr,
-                                                                                   barretenberg::fq,
-                                                                                   barretenberg::fq,
-                                                                                   barretenberg::fq);
-} // namespace proof_system
+template GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
+    bb::fr, bb::fr, bb::fr, bb::fr, bb::fr, bb::fr, bb::fr, bb::fq, bb::fq, bb::fq);
+} // namespace bb

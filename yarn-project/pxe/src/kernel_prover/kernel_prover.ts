@@ -1,33 +1,37 @@
-import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
 import {
   AztecAddress,
-  CONTRACT_TREE_HEIGHT,
   CallRequest,
   Fr,
+  GrumpkinScalar,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
-  MembershipWitness,
-  PreviousKernelData,
+  NullifierKeyValidationRequestContext,
   PrivateCallData,
-  PrivateKernelInputsInit,
-  PrivateKernelInputsInner,
-  PrivateKernelInputsOrdering,
-  PrivateKernelPublicInputs,
+  PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPublicInputs,
+  PrivateKernelInnerData,
+  PrivateKernelTailCircuitPrivateInputs,
   ReadRequestMembershipWitness,
   SideEffect,
+  SideEffectLinkedToNoteHash,
+  SideEffectType,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
-  makeTuple,
 } from '@aztec/circuits.js';
+import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
+import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
 
 import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
@@ -70,6 +74,8 @@ export interface KernelProverOutput extends ProofOutputFinal {
  * constructs private call data based on the execution results.
  */
 export class KernelProver {
+  private log = createDebugLogger('aztec:kernel-prover');
+
   constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {}
 
   /**
@@ -89,7 +95,7 @@ export class KernelProver {
     let previousVerificationKey = VerificationKey.makeFake();
 
     let output: ProofOutput = {
-      publicInputs: PrivateKernelPublicInputs.empty(),
+      publicInputs: PrivateKernelInnerCircuitPublicInputs.empty(),
       proof: makeEmptyProof(),
     };
 
@@ -97,7 +103,9 @@ export class KernelProver {
       const currentExecution = executionStack.pop()!;
       executionStack.push(...currentExecution.nestedExecutions);
 
-      const privateCallRequests = currentExecution.nestedExecutions.map(result => result.callStackItem.toCallRequest());
+      const privateCallRequests = currentExecution.nestedExecutions.map(result =>
+        result.callStackItem.toCallRequest(currentExecution.callStackItem.publicInputs.callContext),
+      );
       const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
 
       // Start with the partially filled in read request witnesses from the simulator
@@ -135,18 +143,19 @@ export class KernelProver {
       );
 
       if (firstIteration) {
-        const proofInput = new PrivateKernelInputsInit(txRequest, privateCallData);
+        const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, privateCallData);
+        pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
-        const previousKernelData = new PreviousKernelData(
+        const previousKernelData = new PrivateKernelInnerData(
           output.publicInputs,
           output.proof,
           previousVerificationKey,
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
-        const proofInput = new PrivateKernelInputsInner(previousKernelData, privateCallData);
+        const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
         pushTestData('private-kernel-inputs-inner', proofInput);
         output = await this.proofCreator.createProofInner(proofInput);
       }
@@ -158,7 +167,7 @@ export class KernelProver {
     }
 
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
-    const previousKernelData = new PreviousKernelData(
+    const previousKernelData = new PrivateKernelInnerData(
       output.publicInputs,
       output.proof,
       previousVerificationKey,
@@ -166,28 +175,70 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const readCommitmentHints = this.getReadRequestHints(
-      output.publicInputs.end.readRequests,
-      output.publicInputs.end.newCommitments,
-    );
+    const [sortedCommitments, sortedCommitmentsIndexes] = this.sortSideEffects<
+      SideEffect,
+      typeof MAX_NEW_COMMITMENTS_PER_TX
+    >(output.publicInputs.end.newCommitments);
+
+    const [sortedNullifiers, sortedNullifiersIndexes] = this.sortSideEffects<
+      SideEffectLinkedToNoteHash,
+      typeof MAX_NEW_NULLIFIERS_PER_TX
+    >(output.publicInputs.end.newNullifiers);
+
+    const readCommitmentHints = this.getReadRequestHints(output.publicInputs.end.readRequests, sortedCommitments);
 
     const nullifierCommitmentHints = this.getNullifierHints(
-      mapTuple(output.publicInputs.end.newNullifiers, n => n.noteHash),
-      output.publicInputs.end.newCommitments,
+      mapTuple(sortedNullifiers, n => n.noteHash),
+      sortedCommitments,
     );
 
-    const privateInputs = new PrivateKernelInputsOrdering(
-      previousKernelData,
-      readCommitmentHints,
-      nullifierCommitmentHints,
+    const masterNullifierSecretKeys = await this.getMasterNullifierSecretKeys(
+      output.publicInputs.end.nullifierKeyValidationRequests,
     );
-    const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
+
+    this.log.debug(
+      `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
+    );
+
+    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
+      previousKernelData,
+      sortedCommitments,
+      sortedCommitmentsIndexes,
+      readCommitmentHints,
+      sortedNullifiers,
+      sortedNullifiersIndexes,
+      nullifierCommitmentHints,
+      masterNullifierSecretKeys,
+    );
+    pushTestData('private-kernel-inputs-ordering', privateInputs);
+    const outputFinal = await this.proofCreator.createProofTail(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
     const finalNewCommitments = outputFinal.publicInputs.end.newCommitments;
     const outputNotes = finalNewCommitments.map(c => newNotes[c.value.toString()]).filter(c => !!c);
 
     return { ...outputFinal, outputNotes };
+  }
+
+  private sortSideEffects<T extends SideEffectType, K extends number>(
+    sideEffects: Tuple<T, K>,
+  ): [Tuple<T, K>, Tuple<number, K>] {
+    const sorted = sideEffects
+      .map((sideEffect, index) => ({ sideEffect, index }))
+      .sort((a, b) => {
+        // Empty ones go to the right
+        if (a.sideEffect.isEmpty()) {
+          return 1;
+        }
+        return Number(a.sideEffect.counter.toBigInt() - b.sideEffect.counter.toBigInt());
+      });
+
+    const originalToSorted = sorted.map(() => 0);
+    sorted.forEach(({ index }, i) => {
+      originalToSorted[index] = i;
+    });
+
+    return [sorted.map(({ sideEffect }) => sideEffect) as Tuple<T, K>, originalToSorted as Tuple<number, K>];
   }
 
   private async createPrivateCallData(
@@ -207,14 +258,15 @@ export class KernelProver {
     );
     const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
 
-    const contractLeafMembershipWitness = functionData.isConstructor
-      ? MembershipWitness.random(CONTRACT_TREE_HEIGHT)
-      : await this.oracle.getContractMembershipWitness(contractAddress);
-
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
       functionData.selector,
     );
+    const { contractClassId, publicKeysHash, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
+      contractAddress,
+    );
+    const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
+      await this.oracle.getContractClassIdPreimage(contractClassId);
 
     // TODO(#262): Use real acir hash
     // const acirHash = keccak(Buffer.from(bytecode, 'hex'));
@@ -223,18 +275,21 @@ export class KernelProver {
     // TODO
     const proof = makeEmptyProof();
 
-    return new PrivateCallData(
+    return PrivateCallData.from({
       callStackItem,
       privateCallStack,
       publicCallStack,
       proof,
-      VerificationKey.fromBuffer(vk),
+      vk: VerificationKey.fromBuffer(vk),
+      publicKeysHash,
+      contractClassArtifactHash,
+      contractClassPublicBytecodeCommitment,
+      saltedInitializationHash,
       functionLeafMembershipWitness,
-      contractLeafMembershipWitness,
-      makeTuple(MAX_READ_REQUESTS_PER_CALL, i => readRequestMembershipWitnesses[i], 0),
-      portalContractAddress.toField(),
+      readRequestMembershipWitnesses: makeTuple(MAX_READ_REQUESTS_PER_CALL, i => readRequestMembershipWitnesses[i], 0),
+      portalContractAddress: portalContractAddress.toField(),
       acirHash,
-    );
+    });
   }
 
   /**
@@ -305,10 +360,13 @@ export class KernelProver {
     commitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
   ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
     const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
+    const alreadyUsed = new Set<number>();
     for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_TX; i++) {
       if (!nullifiedCommitments[i].isZero()) {
-        const equalToCommitment = (cmt: SideEffect) => cmt.value.equals(nullifiedCommitments[i]);
+        const equalToCommitment = (cmt: SideEffect, index: number) =>
+          cmt.value.equals(nullifiedCommitments[i]) && !alreadyUsed.has(index);
         const result = commitments.findIndex(equalToCommitment);
+        alreadyUsed.add(result);
         if (result == -1) {
           throw new Error(
             `The nullified commitment at index ${i} with value ${nullifiedCommitments[
@@ -321,5 +379,22 @@ export class KernelProver {
       }
     }
     return hints;
+  }
+
+  private async getMasterNullifierSecretKeys(
+    nullifierKeyValidationRequests: Tuple<
+      NullifierKeyValidationRequestContext,
+      typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
+    >,
+  ) {
+    const keys = makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);
+    for (let i = 0; i < nullifierKeyValidationRequests.length; ++i) {
+      const request = nullifierKeyValidationRequests[i];
+      if (request.isEmpty()) {
+        break;
+      }
+      keys[i] = await this.oracle.getMasterNullifierSecretKey(request.publicKey);
+    }
+    return keys;
   }
 }

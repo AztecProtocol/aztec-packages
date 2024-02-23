@@ -2,11 +2,10 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/honk/proof_system/power_polynomial.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace proof_system::honk {
+namespace bb {
 
 /**
  * Create GoblinTranslatorProver from proving key, witness and manifest.
@@ -89,7 +88,7 @@ void GoblinTranslatorProver::execute_wire_and_sorted_constraints_commitments_rou
 void GoblinTranslatorProver::execute_grand_product_computation_round()
 {
     // Compute and store parameters required by relations in Sumcheck
-    FF gamma = transcript->get_challenge("gamma");
+    FF gamma = transcript->template get_challenge<FF>("gamma");
     const size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
     relation_parameters.beta = 0;
     relation_parameters.gamma = gamma;
@@ -127,7 +126,7 @@ void GoblinTranslatorProver::execute_grand_product_computation_round()
         };
     }
     // Compute constraint permutation grand product
-    grand_product_library::compute_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
+    compute_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
 
     transcript->send_to_verifier(commitment_labels.z_perm, commitment_key->commit(key->z_perm));
 }
@@ -138,12 +137,15 @@ void GoblinTranslatorProver::execute_grand_product_computation_round()
  */
 void GoblinTranslatorProver::execute_relation_check_rounds()
 {
-    using Sumcheck = sumcheck::SumcheckProver<Flavor>;
+    using Sumcheck = SumcheckProver<Flavor>;
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
-
-    FF alpha = transcript->get_challenge("alpha");
-    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alpha);
+    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alpha, gate_challenges);
 }
 
 /**
@@ -153,7 +155,7 @@ void GoblinTranslatorProver::execute_relation_check_rounds()
  * */
 void GoblinTranslatorProver::execute_zeromorph_rounds()
 {
-    using ZeroMorph = pcs::zeromorph::ZeroMorphProver_<Curve>;
+    using ZeroMorph = ZeroMorphProver_<Curve>;
     ZeroMorph::prove(prover_polynomials.get_unshifted(),
                      prover_polynomials.get_to_be_shifted(),
                      sumcheck_output.claimed_evaluations.get_unshifted(),
@@ -166,13 +168,13 @@ void GoblinTranslatorProver::execute_zeromorph_rounds()
                      prover_polynomials.get_concatenation_groups());
 }
 
-plonk::proof& GoblinTranslatorProver::export_proof()
+HonkProof& GoblinTranslatorProver::export_proof()
 {
-    proof.proof_data = transcript->export_proof();
+    proof = transcript->export_proof();
     return proof;
 }
 
-plonk::proof& GoblinTranslatorProver::construct_proof()
+HonkProof& GoblinTranslatorProver::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
@@ -195,4 +197,4 @@ plonk::proof& GoblinTranslatorProver::construct_proof()
     return export_proof();
 }
 
-} // namespace proof_system::honk
+} // namespace bb

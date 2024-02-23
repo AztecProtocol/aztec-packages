@@ -5,7 +5,10 @@ global M: Field = 32;
 global L: Field = 10; // Unused globals currently allowed
 global N: Field = 5;
 global T_LEN = 2; // Type inference is allowed on globals
-//global N: Field = 5; // Uncomment to see duplicate globals error 
+
+// Globals can reference other globals
+global DERIVED = M + L;
+
 struct Dummy {
      x: [Field; N],
      y: [Field; foo::MAGIC_NUMBER]
@@ -16,6 +19,13 @@ struct Test {
 }
 global VALS: [Test; 1] = [Test { v: 100 }];
 global NESTED = [VALS, VALS];
+
+unconstrained fn calculate_global_value() -> Field {
+    42
+}
+
+// Regression test for https://github.com/noir-lang/noir/issues/4318
+global CALCULATED_GLOBAL: Field = calculate_global_value();
 
 fn main(
     a: [Field; M + N - N],
@@ -55,21 +65,24 @@ fn main(
     let t: [Field; T_LEN] = [N, M];
     assert(t[1] == 32);
 
-    assert(15 == mysubmodule::my_helper());
+    assert(15 == my_submodule::my_helper());
 
-    let add_submodules_N = mysubmodule::N + foo::bar::N;
+    let add_submodules_N = my_submodule::N + foo::bar::N;
     assert(15 == add_submodules_N);
-    let add_from_bar_N = mysubmodule::N + foo::bar::from_bar(1);
+    let add_from_bar_N = my_submodule::N + foo::bar::from_bar(1);
     assert(15 == add_from_bar_N);
-    // Example showing an array filled with (mysubmodule::N + 2) 0's
-    let sugared = [0; mysubmodule::N + 2];
-    assert(sugared[mysubmodule::N + 1] == 0);
+    // Example showing an array filled with (my_submodule::N + 2) 0's
+    let sugared = [0; my_submodule::N + 2];
+    assert(sugared[my_submodule::N + 1] == 0);
 
-    let arr: [Field; mysubmodule::N] = [N; 10];
+    let arr: [Field; my_submodule::N] = [N; 10];
     assert((arr[0] == 5) & (arr[9] == 5));
 
     foo::from_foo(d);
     baz::from_baz(c);
+    assert(DERIVED == M + L);
+
+    assert(CALCULATED_GLOBAL == 42);
 }
 
 fn multiplyByM(x: Field) -> Field {
@@ -80,7 +93,7 @@ fn arrays_neq(a: [Field; M], b: [Field; M]) {
     assert(a != b);
 }
 
-mod mysubmodule {
+mod my_submodule {
     global N: Field = 10;
     global L: Field = 50;
 

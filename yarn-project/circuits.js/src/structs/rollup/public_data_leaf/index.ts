@@ -1,9 +1,7 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-
-import { serializeToBuffer } from '../../../utils/serialize.js';
 
 /**
  * Class containing the data of a preimage of a single leaf in the public data tree.
@@ -125,5 +123,9 @@ export class PublicDataTreeLeaf implements IndexedTreeLeaf {
 
   static buildDummy(key: bigint): PublicDataTreeLeaf {
     return new PublicDataTreeLeaf(new Fr(key), new Fr(0));
+  }
+
+  static empty(): PublicDataTreeLeaf {
+    return new PublicDataTreeLeaf(Fr.ZERO, Fr.ZERO);
   }
 }

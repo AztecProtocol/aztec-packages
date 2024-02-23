@@ -7,7 +7,16 @@
   },
   "references": [
     {
+      "path": "../accounts"
+    },
+    {
       "path": "../aztec.js"
+    },
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../circuits.js"
     },
     {
       "path": "../ethereum"
@@ -22,7 +31,7 @@
       "path": "../noir-compiler"
     },
     {
-      "path": "../noir-contracts"
+      "path": "../noir-contracts.js"
     },
     {
       "path": "../types"

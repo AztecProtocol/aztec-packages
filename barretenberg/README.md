@@ -242,7 +242,7 @@ A default configuration for VS Code is provided by the file [`barretenberg.code-
 
 ### Integration tests with Aztec in Monorepo
 
-CI will automatically run integration tests against Aztec. The tests in `circuits/cpp` folder use the embedded barretenberg, and can be used to integration test it.
+CI will automatically run integration tests against Aztec. It is located in the `barretenberg` folder.
 
 ### Integration tests with Aztec in Barretenberg Standalone Repo
 
@@ -270,17 +270,16 @@ All words that contain a dot (.) that is not the last character in the word are 
 
 Large delimiters (`\big(`, `\left(`, also the `cases` environment) are not natively supported.
 
+The purpose of this documentation:
 
-The purpose of this documentation: 
-  - The goal of this documentation is to be self-contained and authoritative.
-  - It cannot be used to record speculations or planned developments. It is documentation of what's implemented.
-  - It should always be accurate.
-  - It should use notation that facilitates the documentation being accurate.
-  - It should be "direct" in the sense of the reflecting the code. It should not use unnecessary abstractions or notation that that is unnatural to use in code comments.
-  - It should remove ambiguity rather than to add it. It is not just another HackMD document.
-  - It should _not depend_ on external references except for published or widely-used papers (PlonK; Honk; Bulletproofs). It should not reference things published on HackMD.
-  - It may _make_ external references to publicly-available sources, but that should be to resolve potential confusions that a user might face when reconciling differences between sources.
-
+- The goal of this documentation is to be self-contained and authoritative.
+- It cannot be used to record speculations or planned developments. It is documentation of what's implemented.
+- It should always be accurate.
+- It should use notation that facilitates the documentation being accurate.
+- It should be "direct" in the sense of the reflecting the code. It should not use unnecessary abstractions or notation that that is unnatural to use in code comments.
+- It should remove ambiguity rather than to add it. It is not just another HackMD document.
+- It should _not depend_ on external references except for published or widely-used papers (PlonK; Honk; Bulletproofs). It should not reference things published on HackMD.
+- It may _make_ external references to publicly-available sources, but that should be to resolve potential confusions that a user might face when reconciling differences between sources.
 
 There is a global file barretenberg/spec/macros.tex that allows for using latex macros. This is convenient, it encourages standarization of notation across the repo, and it also enables changing that notation with minimal footprint in the diffs.
 
@@ -288,8 +287,7 @@ Grouping can be used to make pages that list classes or pages together even thou
 
 Call graph and caller graph are different
 
-
-"Let's repeat that, because it is often overlooked: to document global objects (functions, typedefs, enum, macros, etc), you must document the file in which they are defined. In other words, there must at least be a /*! \file */ or a ..."
+"Let's repeat that, because it is often overlooked: to document global objects (functions, typedefs, enum, macros, etc), you must document the file in which they are defined. In other words, there must at least be a /_! \file _/ or a ..."
 
 `@example` could be useful. There is a special toolbar icon for examples
 
@@ -302,15 +300,29 @@ It to be relatively easy to include hand-made dot diagrams in documentation.
 There is support for creating message sequence charts as in: https://www.mcternan.me.uk//mscgen/ and more general kinds of diagrams as in https://plantuml.com/state-diagram
 
 TODO:
-  - Control tree view alla [SO-28938063](https://stackoverflow.com/questions/28938063/customize-treeview-in-doxygen)?
-  - Use `@test` tag
-  - Use `@todo` tag
-  - Use `@deprecated` tag
-  - Investigate warnings when using `*_impl.hpp` implementations.
-  - use testing namespace everywhere (e.g. in plonk composer tests) to prevent tons of useless test documentation from being created at in general namespace level like plonk
+
+- Control tree view alla [SO-28938063](https://stackoverflow.com/questions/28938063/customize-treeview-in-doxygen)?
+- Use `@test` tag
+- Use `@todo` tag
+- Use `@deprecated` tag
+- Investigate warnings when using `*_impl.hpp` implementations.
+- use testing namespace everywhere (e.g. in plonk composer tests) to prevent tons of useless test documentation from being created at in general namespace level like plonk
 
 The VS Code extension oijaz.unicode-latex is convenient for parsing latex to unicode, e.g., `\gamma` to becomes `γ`, and this can make latex-heavy comments much easier to parse (`\gamma` seems to render as well as `γ`, to my surprise).
 
 The `@details` tag is 'greedy' int the sense that it wants to include lots of data specified by other tags. As far as I can tell, the most robust strategy for putting documentation with code is to make the `@details` part of the leading code (the one coming before the class/function/whatever definiton) and then putting unwanted stuff inside the function body.
 
 I recall seeing a way to extract parts of comments that are inside function bodies. Not sure a good application of this, though, sounds fidgety.
+
+### Testing locally in docker
+
+A common issue that arises is that our CI system has a different compiler version e.g. namely for GCC. If you need to mimic the CI operating system locally you can use bootstrap_docker.sh or run dockerfiles directly. However, there is a more efficient workflow for iterative development:
+
+```
+cd barretenberg/cpp
+./scripts/docker_interactive.sh
+mv build build-native # your native build folders are mounted, but will not work! have to clear them
+cmake --preset gcc ;  cmake --build build
+```
+
+This will allow you to rebuild as efficiently as if you were running native code, and not have to see a full compile cycle.

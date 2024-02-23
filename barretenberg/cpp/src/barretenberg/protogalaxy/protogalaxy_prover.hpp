@@ -11,7 +11,19 @@
 #include "barretenberg/relations/utils.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 
-namespace proof_system::honk {
+namespace bb {
+template <class ProverInstances_> struct ProtogalaxyProofConstructionState {
+    using FF = typename ProverInstances_::FF;
+    using Instance = typename ProverInstances_::Instance;
+
+    std::shared_ptr<Instance> accumulator;
+    Polynomial<FF> perturbator;
+    std::vector<FF> deltas;
+    Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH, ProverInstances_::NUM> combiner_quotient;
+    FF compressed_perturbator;
+    FoldingResult<typename ProverInstances_::Flavor> result;
+};
+
 template <class ProverInstances_> class ProtoGalaxyProver_ {
   public:
     using ProverInstances = ProverInstances_;
@@ -19,11 +31,12 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Instance = typename ProverInstances::Instance;
-    using Utils = barretenberg::RelationUtils<Flavor>;
+    using Utils = bb::RelationUtils<Flavor>;
     using RowEvaluations = typename Flavor::AllValues;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
-    using AlphaType = typename ProverInstances::AlphaType;
+    using RelationSeparator = typename Flavor::RelationSeparator;
+    using CombinedRelationSeparator = typename ProverInstances::RelationSeparator;
     using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
@@ -38,17 +51,18 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using ExtendedUnivariateWithRandomization =
         Univariate<FF,
                    (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + ProverInstances::NUM - 1) * (ProverInstances::NUM - 1) + 1>;
-
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
 
     using TupleOfTuplesOfUnivariates =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
+    static constexpr size_t NUM_SUBRELATIONS = ProverInstances::NUM_SUBRELATIONS;
+
     ProverInstances instances;
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
-
     std::shared_ptr<CommitmentKey> commitment_key;
+    ProtogalaxyProofConstructionState<ProverInstances> state;
 
     ProtoGalaxyProver_() = default;
     ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts,
@@ -89,24 +103,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/753): fold goblin polynomials
      */
-    FoldingResult<Flavor> fold_instances();
-    /**
-     * @brief Given a vector \vec{\beta} of values, compute the pow polynomial on these values as defined in the paper.
-     */
-    static std::vector<FF> compute_pow_polynomial_at_values(const std::vector<FF>& betas, const size_t instance_size)
-    {
-        std::vector<FF> pow_betas(instance_size);
-        for (size_t i = 0; i < instance_size; i++) {
-            auto res = FF(1);
-            for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
-                if ((j & 1) == 1) {
-                    res *= betas[beta_idx];
-                }
-            }
-            pow_betas[i] = res;
-        }
-        return pow_betas;
-    }
+    BB_PROFILE FoldingResult<Flavor> fold_instances();
 
     /**
      * @brief For a new round challenge δ at each iteration of the ProtoGalaxy protocol, compute the vector
@@ -128,54 +125,68 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     {
         auto log_instance_size = gate_challenges.size();
         std::vector<FF> next_gate_challenges(log_instance_size);
-        next_gate_challenges[0] = 1;
 
-        for (size_t idx = 1; idx < log_instance_size; idx++) {
-            next_gate_challenges[idx] = gate_challenges[idx] + perturbator_challenge * round_challenges[idx - 1];
+        for (size_t idx = 0; idx < log_instance_size; idx++) {
+            next_gate_challenges[idx] = gate_challenges[idx] + perturbator_challenge * round_challenges[idx];
         }
         return next_gate_challenges;
     }
 
     // Returns the accumulator, which is the first element in ProverInstances. The accumulator is assumed to have the
     // FoldingParameters set and be the result of a previous round of folding.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/740): handle the case when the accumulator is empty
-    // (i.e. we are in the first round of folding)/
     std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
 
     /**
-     * @brief Compute the values of the full Honk relation at each row in the execution trace, f_i(ω) in the
-     * ProtoGalaxy paper, given the evaluations of all the prover polynomials and α (the parameter that helps establish
-     * each subrelation is independently valid in Honk - from the Plonk paper, DO NOT confuse with α in ProtoGalaxy),
+     * @brief Compute the values of the full Honk relation at each row in the execution trace, representing f_i(ω) in
+     * the ProtoGalaxy paper, given the evaluations of all the prover polynomials and \vec{α} (the batching challenges
+     * that help establishing each subrelation is independently valid in Honk - from the Plonk paper, DO NOT confuse
+     * with α in ProtoGalaxy).
+     *
+     * @details When folding GoblinUltra instances, one of the relations is linearly dependent. We define such relations
+     * as acting on the entire execution trace and hence requiring to be accumulated separately as we iterate over each
+     * row. At the end of the function, the linearly dependent contribution is accumulated at index 0 representing the
+     * sum f_0(ω) + α_j*g(ω) where f_0 represents the full honk evaluation at row 0, g(ω) is the linearly dependent
+     * subrelation and α_j is its corresponding batching challenge.
      */
     static std::vector<FF> compute_full_honk_evaluations(const ProverPolynomials& instance_polynomials,
-                                                         const FF& alpha,
+                                                         const RelationSeparator& alpha,
                                                          const RelationParameters<FF>& relation_parameters)
     {
         auto instance_size = instance_polynomials.get_polynomial_size();
-
         std::vector<FF> full_honk_evaluations(instance_size);
-        for (size_t row = 0; row < instance_size; row++) {
+        std::vector<FF> linearly_dependent_contributions(instance_size);
+        parallel_for(instance_size, [&](size_t row) {
             auto row_evaluations = instance_polynomials.get_row(row);
             RelationEvaluations relation_evaluations;
             Utils::zero_elements(relation_evaluations);
 
-            // Note that the evaluations are accumulated with the gate separation challenge being 1 at this stage, as
-            // this specific randomness is added later through the power polynomial univariate specific to ProtoGalaxy
+            // Note that the evaluations are accumulated with the gate separation challenge
+            // being 1 at this stage, as this specific randomness is added later through the
+            // power polynomial univariate specific to ProtoGalaxy
             Utils::template accumulate_relation_evaluations<>(
                 row_evaluations, relation_evaluations, relation_parameters, FF(1));
 
-            auto running_challenge = FF(1);
             auto output = FF(0);
-            Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+            auto running_challenge = FF(1);
+
+            // Sum relation evaluations, batched by their corresponding relation separator challenge, to
+            // get the value of the full honk relation at a specific row
+            linearly_dependent_contributions[row] = 0;
+            Utils::scale_and_batch_elements(
+                relation_evaluations, alpha, running_challenge, output, linearly_dependent_contributions[row]);
             full_honk_evaluations[row] = output;
+        });
+
+        for (FF& linearly_dependent_contribution : linearly_dependent_contributions) {
+            full_honk_evaluations[0] += linearly_dependent_contribution;
         }
         return full_honk_evaluations;
     }
 
     /**
-     * @brief  Recursively compute the parent nodes of each level in there, starting from the leaves. Note that at each
-     * level, the resulting parent nodes will be polynomials of degree (level + 1) because we multiply by an additional
-     * factor of X.
+     * @brief  Recursively compute the parent nodes of each level in the tree, starting from the leaves. Note that at
+     * each level, the resulting parent nodes will be polynomials of degree (level+1) because we multiply by an
+     * additional factor of X.
      */
     static std::vector<FF> construct_coefficients_tree(const std::vector<FF>& betas,
                                                        const std::vector<FF>& deltas,
@@ -237,8 +248,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                               const std::vector<FF>& deltas)
     {
         auto full_honk_evaluations = compute_full_honk_evaluations(
-            accumulator->prover_polynomials, accumulator->alpha, accumulator->relation_parameters);
-        const auto betas = accumulator->folding_parameters.gate_challenges;
+            accumulator->prover_polynomials, accumulator->alphas, accumulator->relation_parameters);
+        const auto betas = accumulator->gate_challenges;
         assert(betas.size() == deltas.size());
         auto coeffs = construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
         return Polynomial<FF>(coeffs);
@@ -285,11 +296,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @brief Compute the combiner polynomial $G$ in the Protogalaxy paper.
      *
      */
-    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
-                                                         const std::vector<FF>& pow_betas_star)
+    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances, PowPolynomial<FF>& pow_betas)
     {
         size_t common_instance_size = instances[0]->instance_size;
-
+        pow_betas.compute_values();
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
         // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
@@ -300,7 +310,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
         size_t iterations_per_thread = common_instance_size / num_threads;   // actual iterations per thread
-
         // Construct univariate accumulator containers; one per thread
         std::vector<TupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
@@ -318,12 +327,14 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             size_t end = (thread_idx + 1) * iterations_per_thread;
 
             for (size_t idx = start; idx < end; idx++) {
+                // No need to initialise extended_univariates to 0, it's assigned to
                 extend_univariates(extended_univariates[thread_idx], instances, idx);
 
-                FF pow_challenge = pow_betas_star[idx];
+                FF pow_challenge = pow_betas[idx];
 
                 // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to this
-                // function have already been folded
+                // function have already been folded. Moreover, linear-dependent relations that act over the entire
+                // execution trace rather than on rows, will not be multiplied by the pow challenge.
                 accumulate_relation_univariates(
                     thread_univariate_accumulators[thread_idx],
                     extended_univariates[thread_idx],
@@ -337,19 +348,22 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return batch_over_relations(univariate_accumulators, instances.alpha);
+        return batch_over_relations(univariate_accumulators, instances.alphas);
     }
-    static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates univariate_accumulators,
-                                                                    AlphaType alpha)
+
+    static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
+                                                                    const CombinedRelationSeparator& alpha)
     {
 
         // First relation does not get multiplied by a batching challenge
         auto result = std::get<0>(std::get<0>(univariate_accumulators))
                           .template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
-        auto scale_and_sum = [&]<size_t outer_idx, size_t>(auto& element) {
+        size_t idx = 0;
+        auto scale_and_sum = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
             auto extended = element.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
-            extended *= alpha;
+            extended *= alpha[idx];
             result += extended;
+            idx++;
         };
 
         Utils::template apply_to_tuple_of_tuples<0, 1>(univariate_accumulators, scale_and_sum);
@@ -366,7 +380,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      */
     static Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM> compute_combiner_quotient(
-        FF compressed_perturbator, ExtendedUnivariateWithRandomization combiner)
+        const FF compressed_perturbator, ExtendedUnivariateWithRandomization combiner)
     {
         std::array<FF, ProverInstances::BATCHED_EXTENDED_LENGTH - ProverInstances::NUM> combiner_quotient_evals = {};
 
@@ -395,42 +409,43 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      */
     static void combine_relation_parameters(ProverInstances& instances)
     {
-        // array of parameters to be computed
         size_t param_idx = 0;
-        for (auto& folded_parameter : instances.relation_parameters.to_fold) {
+        auto to_fold = instances.relation_parameters.get_to_fold();
+        for (auto& folded_parameter : to_fold) {
             Univariate<FF, ProverInstances::NUM> tmp(0);
             size_t instance_idx = 0;
             for (auto& instance : instances) {
-                tmp.value_at(instance_idx) = instance->relation_parameters.to_fold[param_idx].get();
+                tmp.value_at(instance_idx) = instance->relation_parameters.get_to_fold()[param_idx];
                 instance_idx++;
             }
-            folded_parameter.get() = tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
+            folded_parameter = tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
             param_idx++;
         }
     }
 
     /**
-     * @brief Combine the relation batching parameter (named alpha) from each instance into a univariate, used in the
+     * @brief Combine the relation batching parameters (alphas) from each instance into a univariate, used in the
      * computation of combiner.
      *
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/772): At the moment we have a single α per Instance, we
-    // fold them and then we use the unique folded_α for each folded subrelation that is batched in the combiner. This
-    // is obviously insecure. We need to generate α_i for each subrelation_i, fold them and then use folded_α_i when
-    // batching the i-th folded subrelation in the combiner.
     static void combine_alpha(ProverInstances& instances)
     {
-        Univariate<FF, ProverInstances::NUM> accumulated_alpha;
-        size_t instance_idx = 0;
-        for (auto& instance : instances) {
-            accumulated_alpha.value_at(instance_idx) = instance->alpha;
-            instance_idx++;
+        size_t alpha_idx = 0;
+        for (auto& alpha : instances.alphas) {
+            Univariate<FF, ProverInstances::NUM> tmp;
+            size_t instance_idx = 0;
+            for (auto& instance : instances) {
+                tmp.value_at(instance_idx) = instance->alphas[alpha_idx];
+                instance_idx++;
+            }
+            alpha = tmp.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
+            alpha_idx++;
         }
-        instances.alpha = accumulated_alpha.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
     }
 
     /**
-     * @brief Compute the next accumulator (ϕ*, ω*\vec{\beta*}, e*), send the public data ϕ*  and the folding parameters
+     * @brief Compute the next accumulator (ϕ*, ω*, \vec{\beta*}, e*), send the public data ϕ*  and the folding
+     * parameters
      * (\vec{\beta*}, e*) to the verifier and return the complete accumulator
      *
      * @details At this stage, we assume that the instances have the same size and the same number of public parameter.s
@@ -444,10 +459,12 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     std::shared_ptr<Instance> compute_next_accumulator(
         ProverInstances& instances,
         Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>& combiner_quotient,
-        const FF& challenge,
+        FF& challenge,
         const FF& compressed_perturbator);
-};
 
-extern template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::Ultra, 2>>;
-extern template class ProtoGalaxyProver_<ProverInstances_<honk::flavor::GoblinUltra, 2>>;
-} // namespace proof_system::honk
+    void preparation_round();
+    void perturbator_round();
+    void combiner_quotient_round();
+    void accumulator_update_round();
+};
+} // namespace bb

@@ -9,7 +9,7 @@
 // the input should fail
 bool circuit_should_fail = false;
 
-using fr = barretenberg::fr;
+using fr = bb::fr;
 #define HAVOC_TESTING
 
 #include "barretenberg/common/fuzzer.hpp"
@@ -110,11 +110,11 @@ FastRandom VarianceRNG(0);
  */
 template <typename Builder> class SafeUintFuzzBase {
   private:
-    typedef proof_system::plonk::stdlib::bool_t<Builder> bool_t;
-    typedef proof_system::plonk::stdlib::field_t<Builder> field_t;
-    typedef proof_system::plonk::stdlib::safe_uint_t<Builder> suint_t;
-    typedef proof_system::plonk::stdlib::witness_t<Builder> witness_t;
-    typedef proof_system::plonk::stdlib::public_witness_t<Builder> public_witness_t;
+    typedef bb::stdlib::bool_t<Builder> bool_t;
+    typedef bb::stdlib::field_t<Builder> field_t;
+    typedef bb::stdlib::safe_uint_t<Builder> suint_t;
+    typedef bb::stdlib::witness_t<Builder> witness_t;
+    typedef bb::stdlib::public_witness_t<Builder> public_witness_t;
 
   public:
     /**
@@ -1252,7 +1252,7 @@ template <typename Builder> class SafeUintFuzzBase {
             // Check assert conditions
             if ((lsb > msb) || (msb > 252) ||
                 (static_cast<uint256_t>(stack[first_index].suint.get_value()) >=
-                 (static_cast<uint256_t>(1) << grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH))) {
+                 (static_cast<uint256_t>(1) << bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH))) {
                 return 0;
             }
             PRINT_SLICE(first_index, lsb, msb, stack)
@@ -1420,7 +1420,7 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
  */
 extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* Data, size_t Size, size_t MaxSize, unsigned int Seed)
 {
-    using FuzzerClass = SafeUintFuzzBase<proof_system::StandardCircuitBuilder>;
+    using FuzzerClass = SafeUintFuzzBase<bb::StandardCircuitBuilder>;
     auto fast_random = FastRandom(Seed);
     auto size_occupied = ArithmeticFuzzHelper<FuzzerClass>::MutateInstructionBuffer(Data, Size, MaxSize, fast_random);
     if ((fast_random.next() % 200) < fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB) {
@@ -1441,7 +1441,7 @@ extern "C" size_t LLVMFuzzerCustomCrossOver(const uint8_t* Data1,
                                             size_t MaxOutSize,
                                             unsigned int Seed)
 {
-    using FuzzerClass = SafeUintFuzzBase<proof_system::StandardCircuitBuilder>;
+    using FuzzerClass = SafeUintFuzzBase<bb::StandardCircuitBuilder>;
     auto fast_random = FastRandom(Seed);
     auto vecA = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data1, Size1);
     auto vecB = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data2, Size2);

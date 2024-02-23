@@ -7,16 +7,19 @@
   },
   "references": [
     {
+      "path": "../accounts"
+    },
+    {
       "path": "../archiver"
     },
     {
       "path": "../aztec-node"
     },
     {
-      "path": "../aztec-sandbox"
+      "path": "../aztec.js"
     },
     {
-      "path": "../aztec.js"
+      "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
@@ -31,16 +34,22 @@
       "path": "../foundation"
     },
     {
+      "path": "../kv-store"
+    },
+    {
       "path": "../l1-artifacts"
     },
     {
       "path": "../merkle-tree"
     },
     {
-      "path": "../noir-contracts"
+      "path": "../noir-contracts.js"
     },
     {
       "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
     },
     {
       "path": "../pxe"

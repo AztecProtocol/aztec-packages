@@ -1,10 +1,12 @@
+import { AztecAddress } from '../aztec-address/index.js';
 import { Fr } from '../fields/index.js';
 import { ABIParameter, type ABIType, ABIVariable, FunctionArtifact } from './abi.js';
+import { isAztecAddressStruct } from './utils.js';
 
 /**
  * The type of our decoded ABI.
  */
-export type DecodedReturn = bigint | boolean | DecodedReturn[] | { [key: string]: DecodedReturn };
+export type DecodedReturn = bigint | boolean | AztecAddress | DecodedReturn[] | { [key: string]: DecodedReturn };
 
 /**
  * Decodes return values from a function call.
@@ -38,13 +40,24 @@ class ReturnValuesDecoder {
       }
       case 'struct': {
         const struct: { [key: string]: DecodedReturn } = {};
+        if (isAztecAddressStruct(abiType)) {
+          return new AztecAddress(this.getNextField().toBuffer());
+        }
+
         for (const field of abiType.fields) {
           struct[field.name] = this.decodeReturn(field.type);
         }
         return struct;
       }
+      case 'string': {
+        const array = [];
+        for (let i = 0; i < abiType.length; i += 1) {
+          array.push(this.getNextField().toBigInt());
+        }
+        return array;
+      }
       default:
-        throw new Error(`Unsupported type: ${abiType.kind}`);
+        throw new Error(`Unsupported type: ${abiType}`);
     }
   }
 
@@ -114,10 +127,12 @@ export class FunctionSignatureDecoder {
         return 'bool';
       case 'array':
         return `[${this.getParameterType(param.type)};${param.length}]`;
+      case 'string':
+        return `str<${param.length}>`;
       case 'struct':
         return `(${param.fields.map(field => `${this.decodeParameter(field)}`).join(this.separator)})`;
       default:
-        throw new Error(`Unsupported type: ${param.kind}`);
+        throw new Error(`Unsupported type: ${param}`);
     }
   }
 

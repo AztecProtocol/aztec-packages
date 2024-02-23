@@ -1,14 +1,13 @@
-import { GlobalVariables } from '@aztec/circuits.js';
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
+import { L2BlockBuiltStats } from '@aztec/circuit-types/stats';
+import { AztecAddress, EthAddress, GlobalVariables } from '@aztec/circuits.js';
+import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { P2P } from '@aztec/p2p';
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
-import { L2BlockBuiltStats } from '@aztec/types/stats';
 import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
-
-import times from 'lodash.times';
 
 import { BlockBuilder } from '../block_builder/index.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -32,6 +31,9 @@ export class Sequencer {
   private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
   private minTxsPerBLock = 1;
+  // TODO: zero values should not be allowed for the following 2 values in PROD
+  private _coinbase = EthAddress.ZERO;
+  private _feeRecipient = AztecAddress.ZERO;
   private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
 
@@ -65,6 +67,12 @@ export class Sequencer {
     if (config.minTxsPerBlock) {
       this.minTxsPerBLock = config.minTxsPerBlock;
     }
+    if (config.coinbase) {
+      this._coinbase = config.coinbase;
+    }
+    if (config.feeRecipient) {
+      this._feeRecipient = config.feeRecipient;
+    }
   }
 
   /**
@@ -83,6 +91,7 @@ export class Sequencer {
    * Stops the sequencer from processing txs and moves to STOPPED state.
    */
   public async stop(): Promise<void> {
+    this.log(`Stopping sequencer`);
     await this.runningPromise?.stop();
     this.publisher.interrupt();
     this.state = SequencerState.STOPPED;
@@ -139,19 +148,27 @@ export class Sequencer {
       }
       this.log.info(`Retrieved ${pendingTxs.length} txs from P2P pool`);
 
-      const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
+      const historicalHeader = (await this.l2BlockSource.getBlock(-1))?.header;
+      const newBlockNumber =
+        (historicalHeader === undefined
+          ? await this.l2BlockSource.getBlockNumber()
+          : Number(historicalHeader.globalVariables.blockNumber.toBigInt())) + 1;
 
       /**
        * We'll call this function before running expensive operations to avoid wasted work.
        */
       const assertBlockHeight = async () => {
         const currentBlockNumber = await this.l2BlockSource.getBlockNumber();
-        if (currentBlockNumber + 1 !== blockNumber) {
+        if (currentBlockNumber + 1 !== newBlockNumber) {
           throw new Error('New block was emitted while building block');
         }
       };
 
-      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(blockNumber));
+      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
+        new Fr(newBlockNumber),
+        this._coinbase,
+        this._feeRecipient,
+      );
 
       // Filter out invalid txs
       // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
@@ -160,19 +177,17 @@ export class Sequencer {
         return;
       }
 
-      this.log.info(`Building block ${blockNumber} with ${validTxs.length} transactions`);
+      this.log.info(`Building block ${newBlockNumber} with ${validTxs.length} transactions`);
       this.state = SequencerState.CREATING_BLOCK;
-
-      const prevGlobalVariables = (await this.l2BlockSource.getBlock(-1))?.globalVariables ?? GlobalVariables.empty();
 
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
-      const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
+      const processor = await this.publicProcessorFactory.create(historicalHeader, newGlobalVariables);
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs));
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
-        this.log(`Dropping failed txs ${(await Tx.getHashes(failedTxData)).join(', ')}`);
-        await this.p2pClient.deleteTxs(await Tx.getHashes(failedTxData));
+        this.log(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
+        await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
       }
 
       // Only accept processed transactions that are not double-spends,
@@ -198,7 +213,7 @@ export class Sequencer {
 
       await assertBlockHeight();
 
-      const emptyTx = await processor.makeEmptyProcessedTx();
+      const emptyTx = processor.makeEmptyProcessedTx();
       const [rollupCircuitsDuration, block] = await elapsed(() =>
         this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables),
       );
@@ -233,20 +248,25 @@ export class Sequencer {
   protected async publishExtendedContractData(validTxs: ProcessedTx[], block: L2Block) {
     // Publishes contract data for txs to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_CONTRACT_DATA;
-    const newContractData = validTxs
-      .map(tx => {
-        // Currently can only have 1 new contract per tx
-        return tx.newContracts[0];
-      })
-      .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
+    const newContracts = validTxs.flatMap(tx => tx.newContracts).filter(cd => !cd.isEmpty());
 
-    const blockHash = block.getCalldataHash();
-    this.log(`Publishing extended contract data with block hash ${blockHash.toString('hex')}`);
+    if (newContracts.length === 0) {
+      this.log.debug(`No new contracts to publish in block ${block.number}`);
+      return;
+    }
 
-    const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContractData);
+    const blockCalldataHash = block.body.getCalldataHash();
+    this.log.info(`Publishing ${newContracts.length} contracts in block ${block.number}`);
+
+    const publishedContractData = await this.publisher.processNewContractData(
+      block.number,
+      blockCalldataHash,
+      newContracts,
+    );
+
     if (publishedContractData) {
       this.log(`Successfully published new contract data for block ${block.number}`);
-    } else if (!publishedContractData && newContractData.length) {
+    } else if (!publishedContractData && newContracts.length) {
       this.log(`Failed to publish new contract data for block ${block.number}`);
     }
   }
@@ -276,7 +296,7 @@ export class Sequencer {
     for (const tx of txs) {
       if (tx.data.constants.txContext.chainId.value !== globalVariables.chainId.value) {
         this.log(
-          `Deleting tx for incorrect chain ${tx.data.constants.txContext.chainId.toString()}, tx hash ${await Tx.getHash(
+          `Deleting tx for incorrect chain ${tx.data.constants.txContext.chainId.toString()}, tx hash ${Tx.getHash(
             tx,
           )}`,
         );
@@ -284,17 +304,18 @@ export class Sequencer {
         continue;
       }
       if (await this.isTxDoubleSpend(tx)) {
-        this.log(`Deleting double spend tx ${await Tx.getHash(tx)}`);
+        this.log(`Deleting double spend tx ${Tx.getHash(tx)}`);
         txsToDelete.push(tx);
         continue;
       } else if (this.isTxDoubleSpendSameBlock(tx, thisBlockNullifiers)) {
         // We don't drop these txs from the p2p pool immediately since they become valid
         // again if the current block fails to be published for some reason.
-        this.log(`Skipping tx with double-spend for this same block ${await Tx.getHash(tx)}`);
+        this.log(`Skipping tx with double-spend for this same block ${Tx.getHash(tx)}`);
         continue;
       }
 
       tx.data.end.newNullifiers.forEach(n => thisBlockNullifiers.add(n.value.toBigInt()));
+      tx.data.endNonRevertibleData.newNullifiers.forEach(n => thisBlockNullifiers.add(n.value.toBigInt()));
       validTxs.push(tx);
       if (validTxs.length >= this.maxTxsPerBlock) {
         break;
@@ -303,7 +324,7 @@ export class Sequencer {
 
     // Make sure we remove these from the tx pool so we do not consider it again
     if (txsToDelete.length > 0) {
-      await this.p2pClient.deleteTxs(await Tx.getHashes([...txsToDelete]));
+      await this.p2pClient.deleteTxs(Tx.getHashes([...txsToDelete]));
     }
 
     return validTxs;
@@ -365,7 +386,10 @@ export class Sequencer {
    */
   protected isTxDoubleSpendSameBlock(tx: Tx | ProcessedTx, thisBlockNullifiers: Set<bigint>): boolean {
     // We only consider non-empty nullifiers
-    const newNullifiers = tx.data.end.newNullifiers.filter(n => !n.isEmpty());
+    const newNullifiers = [
+      ...tx.data.endNonRevertibleData.newNullifiers.filter(n => !n.isEmpty()),
+      ...tx.data.end.newNullifiers.filter(n => !n.isEmpty()),
+    ];
 
     for (const nullifier of newNullifiers) {
       if (thisBlockNullifiers.has(nullifier.value.toBigInt())) {
@@ -383,7 +407,10 @@ export class Sequencer {
    */
   protected async isTxDoubleSpend(tx: Tx | ProcessedTx): Promise<boolean> {
     // We only consider non-empty nullifiers
-    const newNullifiers = tx.data.end.newNullifiers.filter(n => !n.isEmpty());
+    const newNullifiers = [
+      ...tx.data.endNonRevertibleData.newNullifiers.filter(n => !n.isEmpty()),
+      ...tx.data.end.newNullifiers.filter(n => !n.isEmpty()),
+    ];
 
     // Ditch this tx if it has a repeated nullifiers
     const uniqNullifiers = new Set(newNullifiers.map(n => n.value.toBigInt()));
@@ -400,6 +427,14 @@ export class Sequencer {
       }
     }
     return false;
+  }
+
+  get coinbase(): EthAddress {
+    return this._coinbase;
+  }
+
+  get feeRecipient(): AztecAddress {
+    return this._feeRecipient;
   }
 }
 

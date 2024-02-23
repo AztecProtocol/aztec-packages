@@ -13,15 +13,14 @@
 #include <filesystem>
 #endif
 
-namespace join_split_example {
-namespace proofs {
+namespace bb::join_split_example::proofs {
 
 struct circuit_data {
     circuit_data()
         : num_gates(0)
     {}
 
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> srs;
+    std::shared_ptr<bb::srs::factories::CrsFactory<curve::BN254>> srs;
     std::shared_ptr<plonk::proving_key> proving_key;
     std::shared_ptr<plonk::verification_key> verification_key;
     size_t num_gates;
@@ -40,7 +39,7 @@ inline bool exists(std::string const& path)
 template <typename Composer, typename F>
 circuit_data get_circuit_data(std::string const& name,
                               std::string const& path_name,
-                              std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& srs,
+                              std::shared_ptr<bb::srs::factories::CrsFactory<curve::BN254>> const& srs,
                               std::string const& key_path,
                               bool compute,
                               bool save,
@@ -83,7 +82,7 @@ circuit_data get_circuit_data(std::string const& name,
         info(name, ": Circuit size: ", builder.get_num_gates());
         if (mock) {
             auto public_inputs = builder.get_public_inputs();
-            ::join_split_example::proofs::mock::mock_circuit(mock_builder, public_inputs);
+            ::bb::join_split_example::proofs::mock::mock_circuit(mock_builder, public_inputs);
             info(name, ": Mock circuit size: ", mock_builder.get_num_gates());
             benchmark_collator.benchmark_info_deferred(Composer::NAME_STRING,
                                                        "Core",
@@ -259,5 +258,4 @@ circuit_data get_circuit_data(std::string const& name,
     return data;
 }
 
-} // namespace proofs
-} // namespace join_split_example
+} // namespace bb::join_split_example::proofs

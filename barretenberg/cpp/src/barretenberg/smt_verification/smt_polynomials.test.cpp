@@ -13,17 +13,16 @@
 #include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/smt_verification/circuit/circuit.hpp"
 
-using namespace barretenberg;
-using namespace proof_system;
+using namespace bb;
 using namespace smt_circuit;
 
-using field_ct = proof_system::plonk::stdlib::field_t<StandardCircuitBuilder>;
-using witness_t = proof_system::plonk::stdlib::witness_t<StandardCircuitBuilder>;
-using pub_witness_t = proof_system::plonk::stdlib::public_witness_t<StandardCircuitBuilder>;
+using field_ct = stdlib::field_t<StandardCircuitBuilder>;
+using witness_t = stdlib::witness_t<StandardCircuitBuilder>;
+using pub_witness_t = stdlib::public_witness_t<StandardCircuitBuilder>;
 
 // TODO(alex): z1 = z2, s1=s2, but coefficients are not public
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 msgpack::sbuffer create_circuit(size_t n, bool pub_coeffs)

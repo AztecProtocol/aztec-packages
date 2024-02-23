@@ -76,7 +76,7 @@
 #include <concepts>
 #include <vector>
 
-namespace proof_system::honk::flavor {
+namespace bb {
 
 /**
  * @brief Base class template containing circuit-specifying data.
@@ -105,20 +105,20 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
 
     bool contains_recursive_proof;
     std::vector<uint32_t> recursive_proof_public_input_indices;
-    barretenberg::EvaluationDomain<FF> evaluation_domain;
+    bb::EvaluationDomain<FF> evaluation_domain;
 
     std::vector<std::string> get_labels() const
     {
         return concatenate(PrecomputedPolynomials::get_labels(), WitnessPolynomials::get_labels());
     }
     // This order matters! must match get_unshifted in entity classes
-    RefVector<Polynomial> get_all() { return concatenate(get_precomputed_polynomials(), get_witness_polynomials()); }
-    RefVector<Polynomial> get_witness_polynomials() { return WitnessPolynomials::get_all(); }
-    RefVector<Polynomial> get_precomputed_polynomials() { return PrecomputedPolynomials::get_all(); }
+    auto get_all() { return concatenate(get_precomputed_polynomials(), get_witness_polynomials()); }
+    auto get_witness_polynomials() { return WitnessPolynomials::get_all(); }
+    auto get_precomputed_polynomials() { return PrecomputedPolynomials::get_all(); }
     ProvingKey_() = default;
     ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
-        this->evaluation_domain = barretenberg::EvaluationDomain<FF>(circuit_size, circuit_size);
+        this->evaluation_domain = bb::EvaluationDomain<FF>(circuit_size, circuit_size);
         PrecomputedPolynomials::circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
@@ -255,25 +255,25 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_tu
     }
 }
 
-} // namespace proof_system::honk::flavor
+} // namespace bb
 
 // Forward declare honk flavors
-namespace proof_system::honk::flavor {
-class Ultra;
-class ECCVM;
-class GoblinUltra;
-template <typename BuilderType> class UltraRecursive_;
-class GoblinUltraRecursive;
-} // namespace proof_system::honk::flavor
+namespace bb {
+class UltraFlavor;
+class ECCVMFlavor;
+class GoblinUltraFlavor;
+template <typename BuilderType> class UltraRecursiveFlavor_;
+template <typename BuilderType> class GoblinUltraRecursiveFlavor_;
+} // namespace bb
 
 // Forward declare plonk flavors
-namespace proof_system::plonk::flavor {
+namespace bb::plonk::flavor {
 class Standard;
 class Ultra;
-} // namespace proof_system::plonk::flavor
+} // namespace bb::plonk::flavor
 
 // Establish concepts for testing flavor attributes
-namespace proof_system {
+namespace bb {
 /**
  * @brief Test whether a type T lies in a list of types ...U.
  *
@@ -286,25 +286,32 @@ template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 template <typename T> 
-concept IsHonkFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::GoblinUltra>;
+concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, GoblinUltraFlavor>;
 
 template <typename T> 
-concept IsUltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::GoblinUltra>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, GoblinUltraFlavor>;
 
 template <typename T> 
-concept IsGoblinFlavor = IsAnyOf<T, honk::flavor::GoblinUltra,
-                                    honk::flavor::GoblinUltraRecursive>;
+concept IsGoblinFlavor = IsAnyOf<T, GoblinUltraFlavor,
+                                    GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
+                                    GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 
 template <typename T> 
-concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive_<UltraCircuitBuilder>, 
-                                       honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>, 
-                                       honk::flavor::GoblinUltraRecursive>;
+concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>, 
+                                       UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 
+                                       GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
+                                       GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::ECCVM>;
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
 
-template <typename T> concept UltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::GoblinUltra>;
+template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor, 
+                                                           GoblinUltraFlavor, 
+                                                           UltraRecursiveFlavor_<UltraCircuitBuilder>, 
+                                                           UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 
+                                                           GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>, 
+                                                           GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 
-template <typename T> concept ECCVMFlavor = IsAnyOf<T, honk::flavor::ECCVM>;
+template <typename T> concept IsECCVMFlavor = IsAnyOf<T, ECCVMFlavor>;
 
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {
@@ -317,4 +324,4 @@ inline std::string flavor_get_label(Container&& container, const Element& elemen
 }
 
 // clang-format on
-} // namespace proof_system
+} // namespace bb

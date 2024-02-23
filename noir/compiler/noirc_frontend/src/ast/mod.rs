@@ -45,7 +45,7 @@ pub enum UnresolvedTypeData {
     Parenthesized(Box<UnresolvedType>),
 
     /// A Named UnresolvedType can be a struct type or a type variable
-    Named(Path, Vec<UnresolvedType>),
+    Named(Path, Vec<UnresolvedType>, /*is_synthesized*/ bool),
 
     /// A Trait as return type or parameter of function, including its generics
     TraitAsType(Path, Vec<UnresolvedType>),
@@ -110,7 +110,7 @@ impl std::fmt::Display for UnresolvedTypeData {
                 Signedness::Signed => write!(f, "i{num_bits}"),
                 Signedness::Unsigned => write!(f, "u{num_bits}"),
             },
-            Named(s, args) => {
+            Named(s, args, _) => {
                 let args = vecmap(args, |arg| ToString::to_string(&arg.typ));
                 if args.is_empty() {
                     write!(f, "{s}")
@@ -179,6 +179,14 @@ impl std::fmt::Display for UnresolvedTypeExpression {
 }
 
 impl UnresolvedType {
+    pub fn is_synthesized(&self) -> bool {
+        match &self.typ {
+            UnresolvedTypeData::MutableReference(ty) => ty.is_synthesized(),
+            UnresolvedTypeData::Named(_, _, synthesized) => *synthesized,
+            _ => false,
+        }
+    }
+
     pub fn without_span(typ: UnresolvedTypeData) -> UnresolvedType {
         UnresolvedType { typ, span: None }
     }
@@ -257,7 +265,20 @@ impl UnresolvedTypeExpression {
                     BinaryOpKind::Multiply => BinaryTypeOperator::Multiplication,
                     BinaryOpKind::Divide => BinaryTypeOperator::Division,
                     BinaryOpKind::Modulo => BinaryTypeOperator::Modulo,
-                    _ => unreachable!(), // impossible via operator_allowed check
+
+                    BinaryOpKind::Equal
+                    | BinaryOpKind::NotEqual
+                    | BinaryOpKind::Less
+                    | BinaryOpKind::LessEqual
+                    | BinaryOpKind::Greater
+                    | BinaryOpKind::GreaterEqual
+                    | BinaryOpKind::And
+                    | BinaryOpKind::Or
+                    | BinaryOpKind::Xor
+                    | BinaryOpKind::ShiftRight
+                    | BinaryOpKind::ShiftLeft => {
+                        unreachable!("impossible via `operator_allowed` check")
+                    }
                 };
                 Ok(UnresolvedTypeExpression::BinaryOperation(lhs, op, rhs, expr.span))
             }

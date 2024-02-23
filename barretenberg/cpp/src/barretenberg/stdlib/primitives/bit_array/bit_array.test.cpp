@@ -17,18 +17,15 @@
     using bit_array_ct = stdlib::bit_array<Builder>;                                                                   \
     using bool_ct = stdlib::bool_t<Builder>;
 
-namespace test_stdlib_bit_array {
-
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 template <class Builder> class BitArrayTest : public ::testing::Test {};
 
-using CircuitTypes = ::testing::Types<proof_system::StandardCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(BitArrayTest, CircuitTypes);
 
 TYPED_TEST(BitArrayTest, test_uint32_input_output_consistency)
@@ -130,4 +127,3 @@ TYPED_TEST(BitArrayTest, test_uint32_vector_constructor)
 
     static_cast<byte_array_ct>(test_bit_array_2).get_value();
 }
-} // namespace test_stdlib_bit_array

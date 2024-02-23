@@ -9,8 +9,7 @@
 
 #include "types.hpp"
 
-namespace plookup {
-namespace dummy_tables {
+namespace bb::plookup::dummy_tables {
 
 /**
  * @brief Lookup the value corresponding to a specific key
@@ -21,9 +20,9 @@ namespace dummy_tables {
  *
  * @tparam id The id of the basic table used to parametrize the values for 2 fake tables
  * @param key The key that we are looking up
- * @return std::array<barretenberg::fr, 2>
+ * @return std::array<bb::fr, 2>
  */
-template <uint64_t id> inline std::array<barretenberg::fr, 2> get_value_from_key(const std::array<uint64_t, 2> key)
+template <uint64_t id> inline std::array<bb::fr, 2> get_value_from_key(const std::array<uint64_t, 2> key)
 {
     return { key[0] * 3 + key[1] * 4 + id * 0x1337ULL, 0ULL };
 }
@@ -93,5 +92,4 @@ inline MultiTable get_honk_dummy_multitable()
     table.get_table_values.emplace_back(&get_value_from_key<HONK_DUMMY_BASIC2>);
     return table;
 }
-} // namespace dummy_tables
-} // namespace plookup
+} // namespace bb::plookup::dummy_tables

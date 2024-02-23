@@ -18,6 +18,7 @@ use std::{
 };
 
 use crate::{
+    debug::DebugInstrumenter,
     hir_def::{
         expr::*,
         function::{FuncMeta, FunctionSignature, Parameters},
@@ -26,13 +27,16 @@ use crate::{
     },
     node_interner::{self, DefinitionKind, NodeInterner, StmtId, TraitImplKind, TraitMethodId},
     token::FunctionAttribute,
-    ContractFunctionType, FunctionKind, Type, TypeBinding, TypeBindings, TypeVariableKind,
-    Visibility,
+    ContractFunctionType, FunctionKind, Type, TypeBinding, TypeBindings, TypeVariable,
+    TypeVariableKind, UnaryOp, Visibility,
 };
 
 use self::ast::{Definition, FuncId, Function, LocalId, Program};
+use self::debug_types::DebugTypeTracker;
 
 pub mod ast;
+mod debug;
+pub mod debug_types;
 pub mod printer;
 
 struct LambdaContext {
@@ -58,15 +62,16 @@ struct Monomorphizer<'interner> {
     /// confuse users.
     locals: HashMap<node_interner::DefinitionId, LocalId>,
 
-    /// Queue of functions to monomorphize next
-    queue: VecDeque<(node_interner::FuncId, FuncId, TypeBindings)>,
+    /// Queue of functions to monomorphize next each item in the queue is a tuple of:
+    /// (old_id, new_monomorphized_id, any type bindings to apply, the trait method if old_id is from a trait impl)
+    queue: VecDeque<(node_interner::FuncId, FuncId, TypeBindings, Option<TraitMethodId>)>,
 
     /// When a function finishes being monomorphized, the monomorphized ast::Function is
     /// stored here along with its FuncId.
     finished_functions: BTreeMap<FuncId, Function>,
 
     /// Used to reference existing definitions in the HIR
-    interner: &'interner NodeInterner,
+    interner: &'interner mut NodeInterner,
 
     lambda_envs_stack: Vec<LambdaContext>,
 
@@ -76,6 +81,8 @@ struct Monomorphizer<'interner> {
     is_range_loop: bool,
 
     return_location: Option<Location>,
+
+    debug_type_tracker: DebugTypeTracker,
 }
 
 type HirType = crate::Type;
@@ -91,35 +98,50 @@ type HirType = crate::Type;
 /// Note that there is no requirement on the `main` function that can be passed into
 /// this function. Typically, this is the function named "main" in the source project,
 /// but it can also be, for example, an arbitrary test function for running `nargo test`.
-pub fn monomorphize(main: node_interner::FuncId, interner: &NodeInterner) -> Program {
-    log::trace!("Start monomorphization");
-    let mut monomorphizer = Monomorphizer::new(interner);
+#[tracing::instrument(level = "trace", skip(main, interner))]
+pub fn monomorphize(main: node_interner::FuncId, interner: &mut NodeInterner) -> Program {
+    monomorphize_debug(main, interner, &DebugInstrumenter::default())
+}
+
+pub fn monomorphize_debug(
+    main: node_interner::FuncId,
+    interner: &mut NodeInterner,
+    debug_instrumenter: &DebugInstrumenter,
+) -> Program {
+    let debug_type_tracker = DebugTypeTracker::build_from_debug_instrumenter(debug_instrumenter);
+    let mut monomorphizer = Monomorphizer::new(interner, debug_type_tracker);
     let function_sig = monomorphizer.compile_main(main);
 
     while !monomorphizer.queue.is_empty() {
-        let (next_fn_id, new_id, bindings) = monomorphizer.queue.pop_front().unwrap();
+        let (next_fn_id, new_id, bindings, trait_method) = monomorphizer.queue.pop_front().unwrap();
         monomorphizer.locals.clear();
 
         perform_instantiation_bindings(&bindings);
+        let impl_bindings = monomorphizer.perform_impl_bindings(trait_method, next_fn_id);
         monomorphizer.function(next_fn_id, new_id);
+        undo_instantiation_bindings(impl_bindings);
         undo_instantiation_bindings(bindings);
     }
 
     let functions = vecmap(monomorphizer.finished_functions, |(_, f)| f);
-    let FuncMeta { return_distinctness, return_visibility, .. } = interner.function_meta(&main);
+    let FuncMeta { return_distinctness, return_visibility, kind, .. } =
+        monomorphizer.interner.function_meta(&main);
 
-    log::trace!("Finish monomorphization");
+    let (debug_variables, debug_types) = monomorphizer.debug_type_tracker.extract_vars_and_types();
     Program::new(
         functions,
         function_sig,
-        return_distinctness,
+        *return_distinctness,
         monomorphizer.return_location,
-        return_visibility,
+        *return_visibility,
+        *kind == FunctionKind::Recursive,
+        debug_variables,
+        debug_types,
     )
 }
 
 impl<'interner> Monomorphizer<'interner> {
-    fn new(interner: &'interner NodeInterner) -> Self {
+    fn new(interner: &'interner mut NodeInterner, debug_type_tracker: DebugTypeTracker) -> Self {
         Monomorphizer {
             globals: HashMap::new(),
             locals: HashMap::new(),
@@ -131,6 +153,7 @@ impl<'interner> Monomorphizer<'interner> {
             lambda_envs_stack: Vec::new(),
             is_range_loop: false,
             return_location: None,
+            debug_type_tracker,
         }
     }
 
@@ -155,6 +178,7 @@ impl<'interner> Monomorphizer<'interner> {
         id: node_interner::FuncId,
         expr_id: node_interner::ExprId,
         typ: &HirType,
+        trait_method: Option<TraitMethodId>,
     ) -> Definition {
         let typ = typ.follow_bindings();
         match self.globals.get(&id).and_then(|inner_map| inner_map.get(&typ)) {
@@ -178,7 +202,7 @@ impl<'interner> Monomorphizer<'interner> {
                         Definition::Builtin(opcode)
                     }
                     FunctionKind::Normal => {
-                        let id = self.queue_function(id, expr_id, typ);
+                        let id = self.queue_function(id, expr_id, typ, trait_method);
                         Definition::Function(id)
                     }
                     FunctionKind::Oracle => {
@@ -191,6 +215,9 @@ impl<'interner> Monomorphizer<'interner> {
                             FunctionAttribute::Oracle(name) => Definition::Oracle(name),
                             _ => unreachable!("Oracle function must have an oracle attribute"),
                         }
+                    }
+                    FunctionKind::Recursive => {
+                        unreachable!("Only main can be specified as recursive, which should already be checked");
                     }
                 }
             }
@@ -218,7 +245,7 @@ impl<'interner> Monomorphizer<'interner> {
                 },
             );
         let main_meta = self.interner.function_meta(&main_id);
-        main_meta.into_function_signature()
+        main_meta.function_signature()
     }
 
     fn function(&mut self, f: node_interner::FuncId, id: FuncId) {
@@ -227,7 +254,7 @@ impl<'interner> Monomorphizer<'interner> {
             the_trait.self_type_typevar.force_bind(self_type);
         }
 
-        let meta = self.interner.function_meta(&f);
+        let meta = self.interner.function_meta(&f).clone();
         let modifiers = self.interner.function_modifiers(&f);
         let name = self.interner.function_name(&f).to_owned();
 
@@ -237,13 +264,13 @@ impl<'interner> Monomorphizer<'interner> {
             Type::TraitAsType(..) => &body_return_type,
             _ => meta.return_type(),
         });
-
-        let parameters = self.parameters(meta.parameters);
-        let body = self.expr(body_expr_id);
         let unconstrained = modifiers.is_unconstrained
             || matches!(modifiers.contract_function_type, Some(ContractFunctionType::Open));
 
+        let parameters = self.parameters(&meta.parameters);
+        let body = self.expr(body_expr_id);
         let function = ast::Function { id, name, parameters, body, return_type, unconstrained };
+
         self.push_function(id, function);
     }
 
@@ -254,17 +281,17 @@ impl<'interner> Monomorphizer<'interner> {
 
     /// Monomorphize each parameter, expanding tuple/struct patterns into multiple parameters
     /// and binding any generic types found.
-    fn parameters(&mut self, params: Parameters) -> Vec<(ast::LocalId, bool, String, ast::Type)> {
+    fn parameters(&mut self, params: &Parameters) -> Vec<(ast::LocalId, bool, String, ast::Type)> {
         let mut new_params = Vec::with_capacity(params.len());
-        for parameter in params {
-            self.parameter(parameter.0, &parameter.1, &mut new_params);
+        for (parameter, typ, _) in &params.0 {
+            self.parameter(parameter, typ, &mut new_params);
         }
         new_params
     }
 
     fn parameter(
         &mut self,
-        param: HirPattern,
+        param: &HirPattern,
         typ: &HirType,
         new_params: &mut Vec<(ast::LocalId, bool, String, ast::Type)>,
     ) {
@@ -276,11 +303,11 @@ impl<'interner> Monomorphizer<'interner> {
                 new_params.push((new_id, definition.mutable, name, self.convert_type(typ)));
                 self.define_local(ident.id, new_id);
             }
-            HirPattern::Mutable(pattern, _) => self.parameter(*pattern, typ, new_params),
+            HirPattern::Mutable(pattern, _) => self.parameter(pattern, typ, new_params),
             HirPattern::Tuple(fields, _) => {
                 let tuple_field_types = unwrap_tuple_type(typ);
 
-                for (field, typ) in fields.into_iter().zip(tuple_field_types) {
+                for (field, typ) in fields.iter().zip(tuple_field_types) {
                     self.parameter(field, &typ, new_params);
                 }
             }
@@ -288,7 +315,8 @@ impl<'interner> Monomorphizer<'interner> {
                 let struct_field_types = unwrap_struct_type(typ);
                 assert_eq!(struct_field_types.len(), fields.len());
 
-                let mut fields = btree_map(fields, |(name, field)| (name.0.contents, field));
+                let mut fields =
+                    btree_map(fields, |(name, field)| (name.0.contents.clone(), field));
 
                 // Iterate over `struct_field_types` since `unwrap_struct_type` will always
                 // return the fields in the order defined by the struct type.
@@ -357,11 +385,36 @@ impl<'interner> Monomorphizer<'interner> {
             }
 
             HirExpression::Infix(infix) => {
-                let lhs = Box::new(self.expr(infix.lhs));
-                let rhs = Box::new(self.expr(infix.rhs));
+                let lhs = self.expr(infix.lhs);
+                let rhs = self.expr(infix.rhs);
                 let operator = infix.operator.kind;
                 let location = self.interner.expr_location(&expr);
-                ast::Expression::Binary(ast::Binary { lhs, rhs, operator, location })
+                if self.interner.get_selected_impl_for_expression(expr).is_some() {
+                    // If an impl was selected for this infix operator, replace it
+                    // with a method call to the appropriate trait impl method.
+                    let lhs_type = self.interner.id_type(infix.lhs);
+                    let args = vec![lhs_type.clone(), lhs_type];
+
+                    // If this is a comparison operator, the result is a boolean but
+                    // the actual method call returns an Ordering
+                    use crate::BinaryOpKind::*;
+                    let ret = if matches!(operator, Less | LessEqual | Greater | GreaterEqual) {
+                        self.interner.ordering_type()
+                    } else {
+                        self.interner.id_type(expr)
+                    };
+
+                    let env = Box::new(Type::Unit);
+                    let function_type = Type::Function(args, Box::new(ret.clone()), env);
+
+                    let method = infix.trait_method_id;
+                    let func = self.resolve_trait_method_reference(expr, function_type, method);
+                    self.create_operator_impl_call(func, lhs, infix.operator, rhs, ret, location)
+                } else {
+                    let lhs = Box::new(lhs);
+                    let rhs = Box::new(rhs);
+                    ast::Expression::Binary(ast::Binary { lhs, rhs, operator, location })
+                }
             }
 
             HirExpression::Index(index) => self.index(expr, index),
@@ -399,16 +452,6 @@ impl<'interner> Monomorphizer<'interner> {
             HirExpression::Constructor(constructor) => self.constructor(constructor, expr),
 
             HirExpression::Lambda(lambda) => self.lambda(lambda, expr),
-
-            HirExpression::TraitMethodReference(method) => {
-                if let Type::Function(_, _, _) = self.interner.id_type(expr) {
-                    self.resolve_trait_method_reference(expr, method)
-                } else {
-                    unreachable!(
-                        "Calling a non-function, this should've been caught in typechecking"
-                    );
-                }
-            }
 
             HirExpression::MethodCall(hir_method_call) => {
                 unreachable!("Encountered HirExpression::MethodCall during monomorphization {hir_method_call:?}")
@@ -458,7 +501,9 @@ impl<'interner> Monomorphizer<'interner> {
             HirStatement::Constrain(constrain) => {
                 let expr = self.expr(constrain.0);
                 let location = self.interner.expr_location(&constrain.0);
-                ast::Expression::Constrain(Box::new(expr), location, constrain.2)
+                let assert_message =
+                    constrain.2.map(|assert_msg_expr| Box::new(self.expr(assert_msg_expr)));
+                ast::Expression::Constrain(Box::new(expr), location, assert_message)
             }
             HirStatement::Assign(assign) => self.assign(assign),
             HirStatement::For(for_loop) => {
@@ -656,6 +701,12 @@ impl<'interner> Monomorphizer<'interner> {
     }
 
     fn ident(&mut self, ident: HirIdent, expr_id: node_interner::ExprId) -> ast::Expression {
+        let typ = self.interner.id_type(expr_id);
+
+        if let ImplKind::TraitMethod(method, _, _) = ident.impl_kind {
+            return self.resolve_trait_method_reference(expr_id, typ, method);
+        }
+
         let definition = self.interner.definition(ident.id);
         match &definition.kind {
             DefinitionKind::Function(func_id) => {
@@ -663,7 +714,7 @@ impl<'interner> Monomorphizer<'interner> {
                 let location = Some(ident.location);
                 let name = definition.name.clone();
                 let typ = self.interner.id_type(expr_id);
-                let definition = self.lookup_function(*func_id, expr_id, &typ);
+                let definition = self.lookup_function(*func_id, expr_id, &typ, None);
                 let typ = self.convert_type(&typ);
                 let ident = ast::Ident { location, mutable, definition, name, typ: typ.clone() };
                 let ident_expression = ast::Expression::Ident(ident);
@@ -679,7 +730,12 @@ impl<'interner> Monomorphizer<'interner> {
                     ident_expression
                 }
             }
-            DefinitionKind::Global(expr_id) => self.expr(*expr_id),
+            DefinitionKind::Global(global_id) => {
+                let Some(let_) = self.interner.get_global_let_statement(*global_id) else {
+                    unreachable!("Globals should have a corresponding let statement by monomorphization")
+                };
+                self.expr(let_.expression)
+            }
             DefinitionKind::Local(_) => self.lookup_captured_expr(ident.id).unwrap_or_else(|| {
                 let ident = self.local_ident(&ident).unwrap();
                 ast::Expression::Ident(ident)
@@ -827,22 +883,25 @@ impl<'interner> Monomorphizer<'interner> {
     fn resolve_trait_method_reference(
         &mut self,
         expr_id: node_interner::ExprId,
+        function_type: HirType,
         method: TraitMethodId,
     ) -> ast::Expression {
-        let function_type = self.interner.id_type(expr_id);
-
         let trait_impl = self
             .interner
-            .get_selected_impl_for_ident(expr_id)
+            .get_selected_impl_for_expression(expr_id)
             .expect("ICE: missing trait impl - should be caught during type checking");
 
-        let hir_func_id = match trait_impl {
+        let func_id = match trait_impl {
             node_interner::TraitImplKind::Normal(impl_id) => {
                 self.interner.get_trait_implementation(impl_id).borrow().methods
                     [method.method_index]
             }
-            node_interner::TraitImplKind::Assumed { object_type } => {
-                match self.interner.lookup_trait_implementation(&object_type, method.trait_id) {
+            node_interner::TraitImplKind::Assumed { object_type, trait_generics } => {
+                match self.interner.lookup_trait_implementation(
+                    &object_type,
+                    method.trait_id,
+                    &trait_generics,
+                ) {
                     Ok(TraitImplKind::Normal(impl_id)) => {
                         self.interner.get_trait_implementation(impl_id).borrow().methods
                             [method.method_index]
@@ -864,14 +923,12 @@ impl<'interner> Monomorphizer<'interner> {
             }
         };
 
-        let func_def = self.lookup_function(hir_func_id, expr_id, &function_type);
-        let func_id = match func_def {
+        let func_id = match self.lookup_function(func_id, expr_id, &function_type, Some(method)) {
             Definition::Function(func_id) => func_id,
             _ => unreachable!(),
         };
 
         let the_trait = self.interner.get_trait(method.trait_id);
-
         ast::Expression::Ident(ast::Ident {
             definition: Definition::Function(func_id),
             mutable: false,
@@ -889,6 +946,9 @@ impl<'interner> Monomorphizer<'interner> {
         let original_func = Box::new(self.expr(call.func));
         let mut arguments = vecmap(&call.arguments, |id| self.expr(*id));
         let hir_arguments = vecmap(&call.arguments, |id| self.interner.expression(id));
+
+        self.patch_debug_instrumentation_call(&call, &mut arguments);
+
         let return_type = self.interner.id_type(id);
         let return_type = self.convert_type(&return_type);
 
@@ -901,6 +961,9 @@ impl<'interner> Monomorphizer<'interner> {
                     // The first argument to the `print` oracle is a bool, indicating a newline to be inserted at the end of the input
                     // The second argument is expected to always be an ident
                     self.append_printable_type_info(&hir_arguments[1], &mut arguments);
+                } else if name.as_str() == "assert_message" {
+                    // The first argument to the `assert_message` oracle is the expression passed as a mesage to an `assert` or `assert_eq` statement
+                    self.append_printable_type_info(&hir_arguments[0], &mut arguments);
                 }
             }
         }
@@ -954,7 +1017,7 @@ impl<'interner> Monomorphizer<'interner> {
     }
 
     /// Adds a function argument that contains type metadata that is required to tell
-    /// `println` how to convert values passed to an foreign call  back to a human-readable string.
+    /// `println` how to convert values passed to an foreign call back to a human-readable string.
     /// The values passed to an foreign call will be a simple list of field elements,
     /// thus requiring extra metadata to correctly decode this list of elements.
     ///
@@ -996,16 +1059,21 @@ impl<'interner> Monomorphizer<'interner> {
                 // The caller needs information as to whether it is handling a format string or a single type
                 arguments.push(ast::Expression::Literal(ast::Literal::Bool(is_fmt_str)));
             }
-            _ => unreachable!("logging expr {:?} is not supported", arguments[0]),
+            _ => unreachable!("logging expr {:?} is not supported", hir_argument),
         }
     }
 
     fn append_printable_type_info_inner(typ: &Type, arguments: &mut Vec<ast::Expression>) {
+        // Disallow printing slices and mutable references for consistency,
+        // since they cannot be passed from ACIR into Brillig
         if let HirType::Array(size, _) = typ {
             if let HirType::NotConstant = **size {
-                unreachable!("println does not support slices. Convert the slice to an array before passing it to println");
+                unreachable!("println and format strings do not support slices. Convert the slice to an array before passing it to println");
             }
+        } else if matches!(typ, HirType::MutableReference(_)) {
+            unreachable!("println and format strings do not support mutable references.");
         }
+
         let printable_type: PrintableType = typ.into();
         let abi_as_string = serde_json::to_string(&printable_type)
             .expect("ICE: expected PrintableType to serialize");
@@ -1086,14 +1154,14 @@ impl<'interner> Monomorphizer<'interner> {
         id: node_interner::FuncId,
         expr_id: node_interner::ExprId,
         function_type: HirType,
+        trait_method: Option<TraitMethodId>,
     ) -> FuncId {
         let new_id = self.next_function_id();
-        self.define_global(id, function_type, new_id);
+        self.define_global(id, function_type.clone(), new_id);
 
         let bindings = self.interner.get_instantiation_bindings(expr_id);
         let bindings = self.follow_bindings(bindings);
-
-        self.queue.push_back((id, new_id, bindings));
+        self.queue.push_back((id, new_id, bindings, trait_method));
         new_id
     }
 
@@ -1163,7 +1231,7 @@ impl<'interner> Monomorphizer<'interner> {
         let parameters =
             vecmap(lambda.parameters, |(pattern, typ)| (pattern, typ, Visibility::Private)).into();
 
-        let parameters = self.parameters(parameters);
+        let parameters = self.parameters(&parameters);
         let body = self.expr(lambda.body);
 
         let id = self.next_function_id();
@@ -1214,7 +1282,7 @@ impl<'interner> Monomorphizer<'interner> {
         let parameters =
             vecmap(lambda.parameters, |(pattern, typ)| (pattern, typ, Visibility::Private)).into();
 
-        let mut converted_parameters = self.parameters(parameters);
+        let mut converted_parameters = self.parameters(&parameters);
 
         let id = self.next_function_id();
         let name = lambda_name.to_owned();
@@ -1417,6 +1485,110 @@ impl<'interner> Monomorphizer<'interner> {
                 Box::new(env_type.clone()),
             ),
         })
+    }
+
+    /// Call an operator overloading method for the given operator.
+    /// This function handles the special cases some operators have which don't map
+    /// 1 to 1 onto their operator function. For example: != requires a negation on
+    /// the result of its `eq` method, and the comparison operators each require a
+    /// conversion from the `Ordering` result to a boolean.
+    fn create_operator_impl_call(
+        &self,
+        func: ast::Expression,
+        lhs: ast::Expression,
+        operator: HirBinaryOp,
+        rhs: ast::Expression,
+        ret: Type,
+        location: Location,
+    ) -> ast::Expression {
+        let arguments = vec![lhs, rhs];
+        let func = Box::new(func);
+        let return_type = self.convert_type(&ret);
+
+        let mut result =
+            ast::Expression::Call(ast::Call { func, arguments, return_type, location });
+
+        use crate::BinaryOpKind::*;
+        match operator.kind {
+            // Negate the result of the == operation
+            NotEqual => {
+                result = ast::Expression::Unary(ast::Unary {
+                    operator: UnaryOp::Not,
+                    rhs: Box::new(result),
+                    result_type: ast::Type::Bool,
+                    location,
+                });
+            }
+            // All the comparison operators require special handling since their `cmp` method
+            // returns an `Ordering` rather than a boolean value.
+            //
+            // (a < b) => a.cmp(b) == Ordering::Less
+            // (a <= b) => a.cmp(b) != Ordering::Greater
+            // (a > b) => a.cmp(b) == Ordering::Greater
+            // (a >= b) => a.cmp(b) != Ordering::Less
+            Less | LessEqual | Greater | GreaterEqual => {
+                // Comparing an Ordering directly to a field value in this way takes advantage
+                // of the fact the Ordering struct contains a single Field type, and our SSA
+                // pass will automatically unpack tuple values.
+                let ordering_value = if matches!(operator.kind, Less | GreaterEqual) {
+                    FieldElement::zero() // Ordering::Less
+                } else {
+                    2u128.into() // Ordering::Greater
+                };
+
+                let operator =
+                    if matches!(operator.kind, Less | Greater) { Equal } else { NotEqual };
+
+                let int_value = ast::Literal::Integer(ordering_value, ast::Type::Field, location);
+                let rhs = Box::new(ast::Expression::Literal(int_value));
+                let lhs = Box::new(ast::Expression::ExtractTupleField(Box::new(result), 0));
+
+                result = ast::Expression::Binary(ast::Binary { lhs, operator, rhs, location });
+            }
+            _ => (),
+        }
+
+        result
+    }
+
+    /// Call sites are instantiated against the trait method, but when an impl is later selected,
+    /// the corresponding method in the impl will have a different set of generics. `perform_impl_bindings`
+    /// is needed to apply the generics from the trait method to the impl method. Without this,
+    /// static method references to generic impls (e.g. `Eq::eq` for `[T; N]`) will fail to re-apply
+    /// the correct type bindings during monomorphization.
+    fn perform_impl_bindings(
+        &self,
+        trait_method: Option<TraitMethodId>,
+        impl_method: node_interner::FuncId,
+    ) -> TypeBindings {
+        let mut bindings = TypeBindings::new();
+
+        if let Some(trait_method) = trait_method {
+            let the_trait = self.interner.get_trait(trait_method.trait_id);
+
+            let trait_method_type = the_trait.methods[trait_method.method_index].typ.as_monotype();
+
+            // Make each NamedGeneric in this type bindable by replacing it with a TypeVariable
+            // with the same internal id and binding.
+            let (generics, impl_method_type) =
+                self.interner.function_meta(&impl_method).typ.unwrap_forall();
+
+            let replace_type_variable = |var: &TypeVariable| {
+                (var.id(), (var.clone(), Type::TypeVariable(var.clone(), TypeVariableKind::Normal)))
+            };
+
+            // Replace each NamedGeneric with a TypeVariable containing the same internal type variable
+            let type_bindings = generics.iter().map(replace_type_variable).collect();
+            let impl_method_type = impl_method_type.force_substitute(&type_bindings);
+
+            trait_method_type.try_unify(&impl_method_type, &mut bindings).unwrap_or_else(|_| {
+                unreachable!("Impl method type {} does not unify with trait method type {} during monomorphization", impl_method_type, trait_method_type)
+            });
+
+            perform_instantiation_bindings(&bindings);
+        }
+
+        bindings
     }
 }
 

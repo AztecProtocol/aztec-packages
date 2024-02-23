@@ -7,13 +7,17 @@
     ".": "./dest/index.js",
     "./interfaces/pxe": "./dest/api/interfaces/pxe.js",
     "./abi": "./dest/api/abi.js",
+    "./account": "./dest/api/account.js",
     "./aztec_address": "./dest/api/aztec_address.js",
+    "./deployment": "./dest/api/deployment.js",
     "./eth_address": "./dest/api/eth_address.js",
     "./ethereum": "./dest/api/ethereum.js",
+    "./fee": "./dest/api/fee.js",
     "./fields": "./dest/api/fields.js",
     "./init": "./dest/api/init.js",
     "./log_id": "./dest/api/log_id.js",
-    "./tx_hash": "./dest/api/tx_hash.js"
+    "./tx_hash": "./dest/api/tx_hash.js",
+    "./wallet": "./dest/api/wallet.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -23,8 +27,7 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn build:copy-contracts && tsc -b && webpack",
-    "build:copy-contracts": "mkdir -p ./src/account_contract/artifacts && cp ../noir-contracts/src/SchnorrAccount.json ../noir-contracts/src/EcdsaAccount.json ../noir-contracts/src/SchnorrSingleKeyAccount.json ./src/account_contract/artifacts",
+    "build": "yarn clean && tsc -b && webpack",
     "build:web": "webpack",
     "build:dev": "tsc -b --watch",
     "build:ts": "tsc -b",
@@ -46,19 +49,17 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/types": "workspace:^",
-    "lodash.every": "^4.6.0",
-    "lodash.partition": "^4.6.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
-    "@types/lodash.every": "^4.6.7",
-    "@types/lodash.partition": "^4.6.0",
     "@types/node": "^18.7.23",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.0",

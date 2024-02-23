@@ -1,11 +1,9 @@
 #include "../circuit_builders/circuit_builders.hpp"
 #include "uint.hpp"
 
-using namespace barretenberg;
-using namespace proof_system;
+using namespace bb;
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder, typename Native>
 uint<Builder, Native> uint<Builder, Native>::operator&(const uint& other) const
@@ -462,6 +460,7 @@ uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, c
     const uint256_t rhs = other.get_value();
     uint256_t out = 0;
 
+    // Compute the value of the result
     switch (op_type) {
     case AND: {
         out = lhs & rhs;
@@ -475,11 +474,14 @@ uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, c
     }
     }
 
+    // If both inputs are constants, just output a new constant uint with the result
     if (is_constant() && other.is_constant()) {
         // returns a constant uint.
         return uint<Builder, Native>(ctx, out);
     }
 
+    // If one of the inputs is a constant, we need to create a witness from it, because we can only perform logical
+    // constraints between witnesses
     const uint32_t lhs_idx = is_constant() ? ctx->add_variable(lhs) : witness_index;
     const uint32_t rhs_idx = other.is_constant() ? ctx->add_variable(rhs) : other.witness_index;
 
@@ -523,10 +525,9 @@ uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, c
     return result;
 }
 
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint8_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint16_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint32_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint64_t);
+template class uint<bb::StandardCircuitBuilder, uint8_t>;
+template class uint<bb::StandardCircuitBuilder, uint16_t>;
+template class uint<bb::StandardCircuitBuilder, uint32_t>;
+template class uint<bb::StandardCircuitBuilder, uint64_t>;
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

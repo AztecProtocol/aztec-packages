@@ -36,6 +36,26 @@
     "isAsync": false
   },
   {
+    "functionName": "pedersen_hashes",
+    "inArgs": [
+      {
+        "name": "inputs_buffer",
+        "type": "fr::vec_in_buf"
+      },
+      {
+        "name": "hash_index",
+        "type": "const uint32_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "output",
+        "type": "fr::out_buf"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "pedersen_hash_buffer",
     "inArgs": [
       {
@@ -45,6 +65,38 @@
       {
         "name": "hash_index",
         "type": "const uint32_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "output",
+        "type": "fr::out_buf"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "poseidon_hash",
+    "inArgs": [
+      {
+        "name": "inputs_buffer",
+        "type": "fr::vec_in_buf"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "output",
+        "type": "fr::out_buf"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "poseidon_hashes",
+    "inArgs": [
+      {
+        "name": "inputs_buffer",
+        "type": "fr::vec_in_buf"
       }
     ],
     "outArgs": [
@@ -467,6 +519,17 @@
     "isAsync": false
   },
   {
+    "functionName": "acir_new_goblin_acir_composer",
+    "inArgs": [],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "out_ptr"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "acir_delete_acir_composer",
     "inArgs": [
       {
@@ -525,10 +588,6 @@
       {
         "name": "witness_buf",
         "type": "const uint8_t *"
-      },
-      {
-        "name": "is_recursive",
-        "type": "const bool *"
       }
     ],
     "outArgs": [
@@ -540,7 +599,31 @@
     "isAsync": false
   },
   {
-    "functionName": "acir_create_goblin_proof",
+    "functionName": "acir_goblin_accumulate",
+    "inArgs": [
+      {
+        "name": "acir_composer_ptr",
+        "type": "in_ptr"
+      },
+      {
+        "name": "constraint_system_buf",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "witness_buf",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_goblin_prove",
     "inArgs": [
       {
         "name": "acir_composer_ptr",
@@ -635,10 +718,6 @@
       {
         "name": "proof_buf",
         "type": "const uint8_t *"
-      },
-      {
-        "name": "is_recursive",
-        "type": "const bool *"
       }
     ],
     "outArgs": [
@@ -650,7 +729,27 @@
     "isAsync": false
   },
   {
-    "functionName": "acir_verify_goblin_proof",
+    "functionName": "acir_goblin_verify_accumulator",
+    "inArgs": [
+      {
+        "name": "acir_composer_ptr",
+        "type": "in_ptr"
+      },
+      {
+        "name": "proof_buf",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "result",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_goblin_verify",
     "inArgs": [
       {
         "name": "acir_composer_ptr",

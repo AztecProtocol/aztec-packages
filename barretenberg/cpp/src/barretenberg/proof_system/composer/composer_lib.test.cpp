@@ -6,15 +6,15 @@
 #include <array>
 #include <gtest/gtest.h>
 
-namespace proof_system::test_composer_lib {
+using namespace bb;
 
 class ComposerLibTests : public ::testing::Test {
   protected:
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
     Flavor::CircuitBuilder circuit_constructor;
     Flavor::ProvingKey proving_key = []() {
-        auto crs_factory = barretenberg::srs::factories::CrsFactory<curve::BN254>();
+        auto crs_factory = srs::factories::CrsFactory<bb::curve::BN254>();
         auto crs = crs_factory.get_prover_crs(4);
         return Flavor::ProvingKey(/*circuit_size=*/8, /*num_public_inputs=*/0);
     }();
@@ -59,5 +59,3 @@ TEST_F(ComposerLibTests, ConstructSelectors)
     EXPECT_EQ(proving_key.q_c[2 + offset], 19);
     EXPECT_EQ(proving_key.q_c[3 + offset], 20);
 }
-
-} // namespace proof_system::test_composer_lib

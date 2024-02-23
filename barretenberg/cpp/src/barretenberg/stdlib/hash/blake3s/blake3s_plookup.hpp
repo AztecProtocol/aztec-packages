@@ -9,18 +9,8 @@
 #include "../../primitives/field/field.hpp"
 #include "../../primitives/packed_byte_array/packed_byte_array.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
-
-namespace blake3s_plookup {
+namespace bb::stdlib::blake3s_plookup {
 
 template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder>& input);
 
-#define BLAKE3S_PLOOKUP(circuit_type) byte_array<circuit_type> blake3s(const byte_array<circuit_type>& input)
-
-EXTERN_STDLIB_ULTRA_METHOD(BLAKE3S_PLOOKUP);
-
-} // namespace blake3s_plookup
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib::blake3s_plookup

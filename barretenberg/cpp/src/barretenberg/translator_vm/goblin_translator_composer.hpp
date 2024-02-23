@@ -7,10 +7,10 @@
 #include "barretenberg/translator_vm/goblin_translator_prover.hpp"
 #include "barretenberg/translator_vm/goblin_translator_verifier.hpp"
 
-namespace proof_system::honk {
+namespace bb {
 class GoblinTranslatorComposer {
   public:
-    using Flavor = honk::flavor::GoblinTranslator;
+    using Flavor = GoblinTranslatorFlavor;
     using Curve = typename Flavor::Curve;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
@@ -19,16 +19,17 @@ class GoblinTranslatorComposer {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Polynomial = typename Flavor::Polynomial;
-    using Transcript = BaseTranscript;
-    static constexpr size_t MINI_CIRCUIT_SIZE = Flavor::MINI_CIRCUIT_SIZE;
+    using Transcript = NativeTranscript;
 
     static constexpr std::string_view NAME_STRING = "GoblinTranslator";
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
+    // The minimum size of the mini-circuit (or sorted constraints won't work)
+    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
 
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<Curve>> crs_factory_;
+    std::shared_ptr<bb::srs::factories::CrsFactory<Curve>> crs_factory_;
 
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
@@ -38,8 +39,8 @@ class GoblinTranslatorComposer {
     size_t dyadic_circuit_size = 0;      // final power-of-2 circuit size
     size_t mini_circuit_dyadic_size = 0; // The size of the small circuit that contains non-range constraint relations
 
-    // We only need the standard crs factory. GoblinTranslator is not supposed to be used with Grumpkin
-    GoblinTranslatorComposer() { crs_factory_ = barretenberg::srs::get_crs_factory(); }
+    // We only need the standard crs factory. GoblinTranslatorFlavor is not supposed to be used with Grumpkin
+    GoblinTranslatorComposer() { crs_factory_ = bb::srs::get_crs_factory(); }
 
     GoblinTranslatorComposer(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
         : proving_key(std::move(p_key))
@@ -70,4 +71,4 @@ class GoblinTranslatorComposer {
         return commitment_key;
     };
 };
-} // namespace proof_system::honk
+} // namespace bb

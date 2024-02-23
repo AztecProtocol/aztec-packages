@@ -4,16 +4,16 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include <gtest/gtest.h>
 
-namespace proof_system::relation_manual_tests {
+using namespace bb;
 
-using FF = barretenberg::fr;
+using FF = fr;
 
 class RelationManual : public testing::Test {};
 
 TEST_F(RelationManual, Poseidon2ExternalRelationZeros)
 {
     using Accumulator = std::array<FF, 4>;
-    using Relation = Poseidon2ExternalRelation<FF>;
+    using Relation = bb::Poseidon2ExternalRelation<FF>;
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
@@ -44,7 +44,7 @@ TEST_F(RelationManual, Poseidon2ExternalRelationZeros)
 TEST_F(RelationManual, Poseidon2ExternalRelationRandom)
 {
     using Accumulator = std::array<FF, 4>;
-    using Relation = Poseidon2ExternalRelation<FF>;
+    using Relation = bb::Poseidon2ExternalRelation<FF>;
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
@@ -90,7 +90,7 @@ TEST_F(RelationManual, Poseidon2ExternalRelationRandom)
 TEST_F(RelationManual, Poseidon2InternalRelationZeros)
 {
     using Accumulator = std::array<FF, 4>;
-    using Relation = Poseidon2InternalRelation<FF>;
+    using Relation = bb::Poseidon2InternalRelation<FF>;
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
@@ -121,7 +121,7 @@ TEST_F(RelationManual, Poseidon2InternalRelationZeros)
 TEST_F(RelationManual, Poseidon2InternalRelationRandom)
 {
     using Accumulator = std::array<FF, 4>;
-    using Relation = Poseidon2InternalRelation<FF>;
+    using Relation = bb::Poseidon2InternalRelation<FF>;
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
@@ -165,4 +165,3 @@ TEST_F(RelationManual, Poseidon2InternalRelationRandom)
     EXPECT_EQ(acc[2], 0);
     EXPECT_EQ(acc[3], 0);
 }
-}; // namespace proof_system::relation_manual_tests

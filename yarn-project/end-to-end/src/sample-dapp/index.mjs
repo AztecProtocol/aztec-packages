@@ -1,12 +1,5 @@
-import {
-  ExtendedNote,
-  Fr,
-  L2BlockL2Logs,
-  Note,
-  computeMessageSecretHash,
-  createPXEClient,
-  getSandboxAccountsWallets,
-} from '@aztec/aztec.js';
+import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+import { ExtendedNote, Fr, Note, computeMessageSecretHash, createPXEClient } from '@aztec/aztec.js';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { getToken } from './contracts.mjs';
@@ -34,7 +27,7 @@ async function showPrivateBalances(pxe) {
 }
 
 async function mintPrivateFunds(pxe) {
-  const [owner] = await getSandboxAccountsWallets(pxe);
+  const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
 
   await showPrivateBalances(pxe);
@@ -45,8 +38,17 @@ async function mintPrivateFunds(pxe) {
   const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
   const storageSlot = new Fr(5);
+  const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
   const note = new Note([new Fr(mintAmount), secretHash]);
-  const extendedNote = new ExtendedNote(note, owner.getAddress(), token.address, storageSlot, receipt.txHash);
+  const extendedNote = new ExtendedNote(
+    note,
+    owner.getAddress(),
+    token.address,
+    storageSlot,
+    noteTypeId,
+    receipt.txHash,
+  );
   await pxe.addNote(extendedNote);
 
   await token.methods.redeem_shield(owner.getAddress(), mintAmount, secret).send().wait();
@@ -56,7 +58,7 @@ async function mintPrivateFunds(pxe) {
 
 async function transferPrivateFunds(pxe) {
   // docs:start:transferPrivateFunds
-  const [owner, recipient] = await getSandboxAccountsWallets(pxe);
+  const [owner, recipient] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
 
   const tx = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 1n, 0).send();
@@ -85,7 +87,7 @@ async function showPublicBalances(pxe) {
 
 async function mintPublicFunds(pxe) {
   // docs:start:mintPublicFunds
-  const [owner] = await getSandboxAccountsWallets(pxe);
+  const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
 
   const tx = token.methods.mint_public(owner.getAddress(), 100n).send();

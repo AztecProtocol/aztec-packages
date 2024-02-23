@@ -6,7 +6,7 @@
 #include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
+namespace bb {
 template <class VerifierInstances> class ProtoGalaxyVerifier_ {
   public:
     using Flavor = typename VerifierInstances::Flavor;
@@ -17,6 +17,9 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
+    using RelationSeparator = typename Flavor::RelationSeparator;
+
+    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
     VerifierInstances instances;
 
@@ -47,10 +50,9 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     {
         auto log_instance_size = gate_challenges.size();
         std::vector<FF> next_gate_challenges(log_instance_size);
-        next_gate_challenges[0] = 1;
 
-        for (size_t idx = 1; idx < log_instance_size; idx++) {
-            next_gate_challenges[idx] = gate_challenges[idx] + perturbator_challenge * round_challenges[idx - 1];
+        for (size_t idx = 0; idx < log_instance_size; idx++) {
+            next_gate_challenges[idx] = gate_challenges[idx] + perturbator_challenge * round_challenges[idx];
         }
         return next_gate_challenges;
     }
@@ -62,7 +64,7 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
      *
      * @param fold_data The data transmitted via the transcript by the prover.
      */
-    void prepare_for_folding(const std::vector<uint8_t>&);
+    void prepare_for_folding(const std::vector<FF>&);
 
     /**
      * @brief Instantiatied the accumulator (i.e. the relaxed instance) from the transcript.
@@ -81,9 +83,7 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
      * accumulator, received from the prover is the same as that produced by the verifier.
      *
      */
-    bool verify_folding_proof(std::vector<uint8_t>);
+    bool verify_folding_proof(const std::vector<FF>&);
 };
 
-extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::Ultra, 2>>;
-extern template class ProtoGalaxyVerifier_<VerifierInstances_<honk::flavor::GoblinUltra, 2>>;
-} // namespace proof_system::honk
+} // namespace bb

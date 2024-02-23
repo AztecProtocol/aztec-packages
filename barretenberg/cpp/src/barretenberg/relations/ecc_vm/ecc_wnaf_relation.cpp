@@ -1,8 +1,8 @@
 #include "ecc_wnaf_relation.hpp"
 #include "barretenberg/flavor/ecc_vm.hpp"
-#include "barretenberg/flavor/relation_definitions_fwd.hpp"
+#include "barretenberg/flavor/relation_definitions.hpp"
 
-namespace proof_system::honk::sumcheck {
+namespace bb {
 
 /**
  * @brief ECCVMWnafRelationImpl evaluates relations that convert scalar multipliers into 4-bit WNAF slices
@@ -217,6 +217,6 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
 }
 
 template class ECCVMWnafRelationImpl<grumpkin::fr>;
-DEFINE_SUMCHECK_RELATION_CLASS(ECCVMWnafRelationImpl, flavor::ECCVM);
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMWnafRelationImpl, ECCVMFlavor);
 
-} // namespace proof_system::honk::sumcheck
+} // namespace bb

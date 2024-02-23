@@ -1,11 +1,11 @@
 #include "merge_verifier.hpp"
 
-namespace proof_system::honk {
+namespace bb {
 
 template <typename Flavor>
 MergeVerifier_<Flavor>::MergeVerifier_()
     : transcript(std::make_shared<Transcript>())
-    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, barretenberg::srs::get_crs_factory())){};
+    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, bb::srs::get_crs_factory())){};
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_i^(j), j = 1,2,3,4.
@@ -16,11 +16,11 @@ MergeVerifier_<Flavor>::MergeVerifier_()
  * queue has been constructed correctly via a simple Schwartz-Zippel check. Evaluations are checked via batched KZG.
  *
  * @tparam Flavor
- * @return plonk::proof&
+ * @return HonkProof&
  */
-template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
-    transcript = std::make_shared<Transcript>(proof.proof_data);
+    transcript = std::make_shared<Transcript>(proof);
 
     // Receive commitments [t_i^{shift}], [T_{i-1}], and [T_i]
     std::array<Commitment, Flavor::NUM_WIRES> C_T_prev;
@@ -32,7 +32,7 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const plonk
         C_T_current[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + std::to_string(idx + 1));
     }
 
-    FF kappa = transcript->get_challenge("kappa");
+    FF kappa = transcript->template get_challenge<FF>("kappa");
 
     // Receive transcript poly evaluations and add corresponding univariate opening claims {(\kappa, p(\kappa), [p(X)]}
     std::array<FF, Flavor::NUM_WIRES> T_prev_evals;
@@ -41,25 +41,25 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const plonk
     std::vector<OpeningClaim> opening_claims;
     for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
         T_prev_evals[idx] = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ { kappa, T_prev_evals[idx] }, C_T_prev[idx] });
+        opening_claims.emplace_back(OpeningClaim{ { kappa, T_prev_evals[idx] }, C_T_prev[idx] });
     }
     for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
         t_shift_evals[idx] = transcript->template receive_from_prover<FF>("t_shift_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ { kappa, t_shift_evals[idx] }, C_t_shift[idx] });
+        opening_claims.emplace_back(OpeningClaim{ { kappa, t_shift_evals[idx] }, C_t_shift[idx] });
     }
-    for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         T_current_evals[idx] =
             transcript->template receive_from_prover<FF>("T_current_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ { kappa, T_current_evals[idx] }, C_T_current[idx] });
+        opening_claims.emplace_back(OpeningClaim{ { kappa, T_current_evals[idx] }, C_T_current[idx] });
     }
 
     // Check the identity T_i(\kappa) = T_{i-1}(\kappa) + t_i^{shift}(\kappa). If it fails, return false
     bool identity_checked = true;
-    for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         identity_checked = identity_checked && (T_current_evals[idx] == T_prev_evals[idx] + t_shift_evals[idx]);
     }
 
-    FF alpha = transcript->get_challenge("alpha");
+    FF alpha = transcript->template get_challenge<FF>("alpha");
 
     // Construct batched commitment and evaluation from constituents
     auto batched_commitment = opening_claims[0].commitment;
@@ -79,7 +79,7 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const plonk
     return identity_checked && verified;
 }
 
-template class MergeVerifier_<honk::flavor::Ultra>;
-template class MergeVerifier_<honk::flavor::GoblinUltra>;
+template class MergeVerifier_<UltraFlavor>;
+template class MergeVerifier_<GoblinUltraFlavor>;
 
-} // namespace proof_system::honk
+} // namespace bb

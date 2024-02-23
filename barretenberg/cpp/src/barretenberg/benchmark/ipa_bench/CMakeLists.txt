@@ -1,0 +1,1 @@
+barretenberg_module(ipa_bench ultra_honk)

@@ -1,7 +1,7 @@
+import { PublicKey } from '@aztec/circuit-types';
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Point } from '@aztec/foundation/fields';
-import { PublicKey } from '@aztec/types';
 
 import { Wallet } from '../account/index.js';
 import { ContractBase } from './contract_base.js';
@@ -24,16 +24,11 @@ export class Contract extends ContractBase {
    * @returns A promise that resolves to a new Contract instance.
    */
   public static async at(address: AztecAddress, artifact: ContractArtifact, wallet: Wallet): Promise<Contract> {
-    const extendedContractData = await wallet.getExtendedContractData(address);
-    if (extendedContractData === undefined) {
-      throw new Error('Contract ' + address.toString() + ' is not deployed');
+    const instance = await wallet.getContractInstance(address);
+    if (instance === undefined) {
+      throw new Error(`Contract instance at ${address.toString()} has not been registered in the wallet's PXE`);
     }
-    return new Contract(
-      extendedContractData.getCompleteAddress(),
-      artifact,
-      wallet,
-      extendedContractData.contractData.portalContractAddress,
-    );
+    return new Contract(instance, artifact, wallet);
   }
 
   /**

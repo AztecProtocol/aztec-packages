@@ -42,7 +42,7 @@
  * The verifier is able to computed the simulated commitments to A₀₊(X) and A₀₋(X)
  * since they are linear-combinations of the commitments [fⱼ] and [gⱼ].
  */
-namespace proof_system::honk::pcs::gemini {
+namespace bb {
 
 /**
  * @brief Computes d-1 fold polynomials Fold_i, i = 1, ..., d-1
@@ -53,10 +53,8 @@ namespace proof_system::honk::pcs::gemini {
  * @return std::vector<Polynomial>
  */
 template <typename Curve>
-std::vector<typename barretenberg::Polynomial<typename Curve::ScalarField>> GeminiProver_<
-    Curve>::compute_gemini_polynomials(std::span<const Fr> mle_opening_point,
-                                       Polynomial&& batched_unshifted,
-                                       Polynomial&& batched_to_be_shifted)
+std::vector<typename bb::Polynomial<typename Curve::ScalarField>> GeminiProver_<Curve>::compute_gemini_polynomials(
+    std::span<const Fr> mle_opening_point, Polynomial&& batched_unshifted, Polynomial&& batched_to_be_shifted)
 {
     const size_t num_variables = mle_opening_point.size(); // m
 
@@ -143,7 +141,7 @@ std::vector<typename barretenberg::Polynomial<typename Curve::ScalarField>> Gemi
  * @param r_challenge univariate opening challenge
  */
 template <typename Curve>
-ProverOutput<Curve> GeminiProver_<Curve>::compute_fold_polynomial_evaluations(
+GeminiProverOutput<Curve> GeminiProver_<Curve>::compute_fold_polynomial_evaluations(
     std::span<const Fr> mle_opening_point, std::vector<Polynomial>&& gemini_polynomials, const Fr& r_challenge)
 {
     const size_t num_variables = mle_opening_point.size(); // m
@@ -152,7 +150,7 @@ ProverOutput<Curve> GeminiProver_<Curve>::compute_fold_polynomial_evaluations(
     Polynomial& batched_G = gemini_polynomials[1]; // G(X) = ∑ⱼ ρᵏ⁺ʲ gⱼ(X)
 
     // Compute univariate opening queries rₗ = r^{2ˡ} for l = 0, 1, ..., m-1
-    std::vector<Fr> r_squares = squares_of_r(r_challenge, num_variables);
+    std::vector<Fr> r_squares = gemini::squares_of_r(r_challenge, num_variables);
 
     // Compute G/r
     Fr r_inv = r_challenge.invert();
@@ -190,4 +188,4 @@ ProverOutput<Curve> GeminiProver_<Curve>::compute_fold_polynomial_evaluations(
 
 template class GeminiProver_<curve::BN254>;
 template class GeminiProver_<curve::Grumpkin>;
-}; // namespace proof_system::honk::pcs::gemini
+}; // namespace bb

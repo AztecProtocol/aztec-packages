@@ -2,13 +2,15 @@
 #include "acir_format.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/bigint_constraint.hpp"
 #include "barretenberg/dsl/acir_format/blake2s_constraint.hpp"
+#include "barretenberg/dsl/acir_format/blake3_constraint.hpp"
 #include "barretenberg/dsl/acir_format/block_constraint.hpp"
 #include "barretenberg/dsl/acir_format/ecdsa_secp256k1.hpp"
-#include "barretenberg/dsl/acir_format/hash_to_field.hpp"
 #include "barretenberg/dsl/acir_format/keccak_constraint.hpp"
 #include "barretenberg/dsl/acir_format/logic_constraint.hpp"
 #include "barretenberg/dsl/acir_format/pedersen.hpp"
+#include "barretenberg/dsl/acir_format/poseidon2_constraint.hpp"
 #include "barretenberg/dsl/acir_format/range_constraint.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/schnorr_verify.hpp"
@@ -19,8 +21,22 @@
 
 namespace acir_format {
 
+/**
+ * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation
+ *
+ * @param arg acir representation of an 3-wire arithmetic operation
+ * @return poly_triple
+ * @note In principle Circuit::Expression can accommodate arbitrarily many quadratic and linear terms but in practice
+ * the ones processed here have a max of 1 and 3 respectively, in accordance with the standard width-3 arithmetic gate.
+ */
 poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The initialization of the witness indices a,b,c
+    // to 0 is implicitly assuming that (builder.zero_idx == 0) which is no longer the case. Now, witness idx 0 in
+    // general will correspond to some non-zero value and some witnesses which are not explicitly set below will be
+    // erroneously populated with this value. This does not cause failures however because the corresponding selector
+    // will indeed be 0 so the gate will be satisfied. Still, its a bad idea to have erroneous wire values
+    // even if they dont break the relation. They'll still add cost in commitments, for example.
     poly_triple pt{
         .a = 0,
         .b = 0,
@@ -31,42 +47,63 @@ poly_triple serialize_arithmetic_gate(Circuit::Expression const& arg)
         .q_o = 0,
         .q_c = 0,
     };
-    // Think this never longer than 1?
-    for (const auto& e : arg.mul_terms) {
-        uint256_t qm(std::get<0>(e));
-        uint32_t a = std::get<1>(e).value;
-        uint32_t b = std::get<2>(e).value;
-        pt.q_m = qm;
-        pt.a = a;
-        pt.b = b;
-    }
-    for (const auto& e : arg.linear_combinations) {
-        barretenberg::fr x(uint256_t(std::get<0>(e)));
-        uint32_t witness = std::get<1>(e).value;
 
-        if (pt.a == 0 || pt.a == witness) {
-            pt.a = witness;
-            pt.q_l = x;
-        } else if (pt.b == 0 || pt.b == witness) {
-            pt.b = witness;
-            pt.q_r = x;
-        } else if (pt.c == 0 || pt.c == witness) {
-            pt.c = witness;
-            pt.q_o = x;
+    // Flags indicating whether each witness index for the present poly_tuple has been set
+    bool a_set = false;
+    bool b_set = false;
+    bool c_set = false;
+
+    // If necessary, set values for quadratic term (q_m * w_l * w_r)
+    ASSERT(arg.mul_terms.size() <= 1); // We can only accommodate 1 quadratic term
+    // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
+    if (!arg.mul_terms.empty()) {
+        const auto& mul_term = arg.mul_terms[0];
+        pt.q_m = uint256_t(std::get<0>(mul_term));
+        pt.a = std::get<1>(mul_term).value;
+        pt.b = std::get<2>(mul_term).value;
+        a_set = true;
+        b_set = true;
+    }
+
+    // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
+    ASSERT(arg.linear_combinations.size() <= 3); // We can only accommodate 3 linear terms
+    for (const auto& linear_term : arg.linear_combinations) {
+        bb::fr selector_value(uint256_t(std::get<0>(linear_term)));
+        uint32_t witness_idx = std::get<1>(linear_term).value;
+
+        // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
+        // index and the corresponding selector value.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): May need to adjust the pt.a == witness_idx
+        // check (and the others like it) since we initialize a,b,c with 0 but 0 is a valid witness index once the
+        // +1 offset is removed from noir.
+        if (!a_set || pt.a == witness_idx) { // q_l * w_l
+            pt.a = witness_idx;
+            pt.q_l = selector_value;
+            a_set = true;
+        } else if (!b_set || pt.b == witness_idx) { // q_r * w_r
+            pt.b = witness_idx;
+            pt.q_r = selector_value;
+            b_set = true;
+        } else if (!c_set || pt.c == witness_idx) { // q_o * w_o
+            pt.c = witness_idx;
+            pt.q_o = selector_value;
+            c_set = true;
         } else {
-            throw_or_abort("Cannot assign linear term to a constrain of width 3");
+            throw_or_abort("Cannot assign linear term to a constraint of width 3");
         }
     }
+
+    // Set constant value q_c
     pt.q_c = uint256_t(arg.q_c);
     return pt;
 }
 
-void handle_arithmetic(Circuit::Opcode::Arithmetic const& arg, acir_format& af)
+void handle_arithmetic(Circuit::Opcode::AssertZero const& arg, AcirFormat& af)
 {
     af.constraints.push_back(serialize_arithmetic_gate(arg.value));
 }
 
-void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, acir_format& af)
+void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af)
 {
     std::visit(
         [&](auto&& arg) {
@@ -103,11 +140,40 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Sha256Compression>) {
+                af.sha256_compression.push_back(Sha256Compression{
+                    .inputs = map(arg.inputs,
+                                  [](auto& e) {
+                                      return Sha256Input{
+                                          .witness = e.witness.value,
+                                          .num_bits = e.num_bits,
+                                      };
+                                  }),
+                    .hash_values = map(arg.hash_values,
+                                       [](auto& e) {
+                                           return Sha256Input{
+                                               .witness = e.witness.value,
+                                               .num_bits = e.num_bits,
+                                           };
+                                       }),
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
+                });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Blake2s>) {
                 af.blake2s_constraints.push_back(Blake2sConstraint{
                     .inputs = map(arg.inputs,
                                   [](auto& e) {
                                       return Blake2sInput{
+                                          .witness = e.witness.value,
+                                          .num_bits = e.num_bits,
+                                      };
+                                  }),
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Blake3>) {
+                af.blake3_constraints.push_back(Blake3Constraint{
+                    .inputs = map(arg.inputs,
+                                  [](auto& e) {
+                                      return Blake3Input{
                                           .witness = e.witness.value,
                                           .num_bits = e.num_bits,
                                       };
@@ -135,17 +201,6 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                     .hash_index = arg.domain_separator,
                     .result = arg.output.value,
                 });
-            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::HashToField128Security>) {
-                af.hash_to_field_constraints.push_back(HashToFieldConstraint{
-                    .inputs = map(arg.inputs,
-                                  [](auto& e) {
-                                      return HashToFieldInput{
-                                          .witness = e.witness.value,
-                                          .num_bits = e.num_bits,
-                                      };
-                                  }),
-                    .result = arg.output.value,
-                });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
                     .hashed_message = map(arg.hashed_message, [](auto& e) { return e.witness.value; }),
@@ -168,6 +223,15 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                     .high = arg.high.witness.value,
                     .pub_key_x = arg.outputs[0].value,
                     .pub_key_y = arg.outputs[1].value,
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::EmbeddedCurveAdd>) {
+                af.ec_add_constraints.push_back(EcAdd{
+                    .input1_x = arg.input1_x.witness.value,
+                    .input1_y = arg.input1_y.witness.value,
+                    .input2_x = arg.input2_x.witness.value,
+                    .input2_y = arg.input2_y.witness.value,
+                    .result_x = arg.outputs[0].value,
+                    .result_y = arg.outputs[1].value,
                 });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Keccak256>) {
                 af.keccak_constraints.push_back(KeccakConstraint{
@@ -192,25 +256,64 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                     .var_message_size = arg.var_message_size.witness.value,
                 });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Keccakf1600>) {
+                af.keccak_permutations.push_back(Keccakf1600{
+                    .state = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
+                });
             } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::RecursiveAggregation>) {
                 auto c = RecursionConstraint{
                     .key = map(arg.verification_key, [](auto& e) { return e.witness.value; }),
                     .proof = map(arg.proof, [](auto& e) { return e.witness.value; }),
                     .public_inputs = map(arg.public_inputs, [](auto& e) { return e.witness.value; }),
                     .key_hash = arg.key_hash.witness.value,
-                    .input_aggregation_object = {},
-                    .output_aggregation_object = {},
-                    .nested_aggregation_object = {},
                 };
-                if (arg.input_aggregation_object.has_value()) {
-                    for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                        c.input_aggregation_object[i] = (*arg.input_aggregation_object)[i].witness.value;
-                    }
-                }
-                for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                    c.output_aggregation_object[i] = arg.output_aggregation_object[i].value;
-                }
                 af.recursion_constraints.push_back(c);
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntFromLeBytes>) {
+                af.bigint_from_le_bytes_constraints.push_back(BigIntFromLeBytes{
+                    .inputs = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .modulus = map(arg.modulus, [](auto& e) -> uint32_t { return e; }),
+                    .result = arg.output,
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntToLeBytes>) {
+                af.bigint_to_le_bytes_constraints.push_back(BigIntToLeBytes{
+                    .input = arg.input,
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntAdd>) {
+                af.bigint_operations.push_back(BigIntOperation{
+                    .lhs = arg.lhs,
+                    .rhs = arg.rhs,
+                    .result = arg.output,
+                    .opcode = BigIntOperationType::Add,
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntSub>) {
+                af.bigint_operations.push_back(BigIntOperation{
+                    .lhs = arg.lhs,
+                    .rhs = arg.rhs,
+                    .result = arg.output,
+                    .opcode = BigIntOperationType::Sub,
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntMul>) {
+                af.bigint_operations.push_back(BigIntOperation{
+                    .lhs = arg.lhs,
+                    .rhs = arg.rhs,
+                    .result = arg.output,
+                    .opcode = BigIntOperationType::Mul,
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::BigIntDiv>) {
+                af.bigint_operations.push_back(BigIntOperation{
+                    .lhs = arg.lhs,
+                    .rhs = arg.rhs,
+                    .result = arg.output,
+                    .opcode = BigIntOperationType::Div,
+                });
+            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Poseidon2Permutation>) {
+                af.poseidon2_constraints.push_back(Poseidon2Constraint{
+                    .state = map(arg.inputs, [](auto& e) { return e.witness.value; }),
+                    .result = map(arg.outputs, [](auto& e) { return e.value; }),
+                    .len = arg.len,
+                });
             }
         },
         arg.value.value);
@@ -260,14 +363,14 @@ void handle_memory_op(Circuit::Opcode::MemoryOp const& mem_op, BlockConstraint& 
     block.trace.push_back(acir_mem_op);
 }
 
-acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
 {
     auto circuit = Circuit::Circuit::bincodeDeserialize(buf);
 
-    acir_format af;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): this +1 seems to be accounting for the const 0 at
-    // the first index in variables
+    AcirFormat af;
+    // `varnum` is the true number of variables, thus we add one to the index which starts at zero
     af.varnum = circuit.current_witness_index + 1;
+    af.recursive = circuit.recursive;
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
     std::map<uint32_t, BlockConstraint> block_id_to_block_constraint;
@@ -275,7 +378,7 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
         std::visit(
             [&](auto&& arg) {
                 using T = std::decay_t<decltype(arg)>;
-                if constexpr (std::is_same_v<T, Circuit::Opcode::Arithmetic>) {
+                if constexpr (std::is_same_v<T, Circuit::Opcode::AssertZero>) {
                     handle_arithmetic(arg, af);
                 } else if constexpr (std::is_same_v<T, Circuit::Opcode::BlackBoxFuncCall>) {
                     handle_blackbox_func_call(arg, af);
@@ -301,17 +404,28 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
     return af;
 }
 
+/**
+ * @brief Converts from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
+ *
+ * @param buf Serialized representation of a `WitnessMap`.
+ * @return A `WitnessVector` equivalent to the passed `WitnessMap`.
+ * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
+ *       Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
+ */
 WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
 {
     auto w = WitnessMap::WitnessMap::bincodeDeserialize(buf);
     WitnessVector wv;
-    size_t index = 1;
+    size_t index = 0;
     for (auto& e : w.value) {
+        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
+        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
+        // which do not exist within the `WitnessMap` with the dummy value of zero.
         while (index < e.first.value) {
-            wv.push_back(barretenberg::fr(0)); // TODO(https://github.com/AztecProtocol/barretenberg/issues/816)?
+            wv.push_back(bb::fr(0));
             index++;
         }
-        wv.push_back(barretenberg::fr(uint256_t(e.second)));
+        wv.push_back(bb::fr(uint256_t(e.second)));
         index++;
     }
     return wv;

@@ -7,7 +7,7 @@
   },
   "references": [
     {
-      "path": "../acir-simulator"
+      "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
@@ -28,10 +28,19 @@
       "path": "../noir-compiler"
     },
     {
-      "path": "../noir-protocol-circuits"
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../simulator"
     },
     {
       "path": "../types"
+    },
+    {
+      "path": "../noir-contracts.js"
     }
   ],
   "include": ["src"]

@@ -1,18 +1,23 @@
 import { LogFn } from '@aztec/foundation/log';
 
-import { parse, stringify } from '@iarna/toml';
+import { parse } from '@iarna/toml';
 import { execSync } from 'child_process';
 import { appendFileSync, cpSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
+import { prettyPrintNargoToml } from '../utils.js';
+
 const resolutions: { [key: string]: string } = {
+  '@aztec/accounts': 'portal:.aztec-packages/yarn-project/accounts',
   '@aztec/aztec.js': 'portal:.aztec-packages/yarn-project/aztec.js',
   '@aztec/circuits.js': 'portal:.aztec-packages/yarn-project/circuits.js',
   '@aztec/foundation': 'portal:.aztec-packages/yarn-project/foundation',
   '@aztec/bb.js': 'portal:.aztec-packages/barretenberg/ts',
-  '@aztec/types': 'portal:.aztec-packages/yarn-project/types',
+  '@aztec/circuit-types': 'portal:.aztec-packages/yarn-project/circuit-types',
   '@aztec/ethereum': 'portal:.aztec-packages/yarn-project/ethereum',
+  '@aztec/protocol-contracts': 'portal:.aztec-packages/yarn-project/protocol-contracts',
+  '@aztec/types': 'portal:.aztec-packages/yarn-project/types',
 };
 
 /**
@@ -58,13 +63,16 @@ export function unbox(boxName: string, directory: string | undefined, cliVersion
 function copyDependenciesToBox(dirName: string, destPath: string) {
   [
     'barretenberg/ts',
-    'yarn-project/aztec-nr',
-    'yarn-project/noir-protocol-circuits',
+    'aztec-nr',
+    'yarn-project/noir-protocol-circuits-types',
+    'yarn-project/accounts',
     'yarn-project/aztec.js',
     'yarn-project/circuits.js',
     'yarn-project/foundation',
     'yarn-project/types',
+    'yarn-project/circuit-types',
     'yarn-project/ethereum',
+    'yarn-project/protocol-contracts',
   ].forEach(path =>
     cpSync(dirName + '/../../../../' + path, destPath + '/.aztec-packages/' + path, {
       recursive: true,
@@ -74,9 +82,6 @@ function copyDependenciesToBox(dirName: string, destPath: string) {
   );
 }
 
-/**
- *
- */
 function packageJsonInjectLocalResolutions(path: string) {
   const data = readFileSync(path, 'utf-8');
   const packageJson = JSON.parse(data);
@@ -126,7 +131,7 @@ function nargoTomlUpdateToGithubDeps(path: string, cliVersion: string) {
     }
   });
 
-  const updatedToml = stringify(content);
+  const updatedToml = prettyPrintNargoToml(content);
 
   writeFileSync(path, updatedToml, 'utf-8');
 }
@@ -147,7 +152,7 @@ function nargoTomlUpdateToDevPath(path: string) {
     }
   });
 
-  const updatedToml = stringify(content);
+  const updatedToml = prettyPrintNargoToml(content);
 
   writeFileSync(path, updatedToml, 'utf-8');
 }

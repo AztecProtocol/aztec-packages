@@ -37,6 +37,12 @@ noir-packages:
     - ^noir/tooling/noirc_abi
     - ^noir/tooling/noirc_abi_wasm
 
+noir-projects:
+  buildDir: noir-projects
+  dependencies:
+    - noir
+    - avm-transpiler
+
 noir-compile-acir-tests:
   buildDir: noir/test_programs
   # Awkward. Maybe change dockerfile paths to be absolute.
@@ -104,6 +110,12 @@ barretenberg-acir-tests-bb.js:
     - bb.js
     - noir-compile-acir-tests
 
+barretenberg-bench:
+  buildDir: barretenberg/cpp
+  dockerfile: dockerfiles/Dockerfile.bench
+  dependencies:
+    - barretenberg-x86_64-linux-clang
+
 barretenberg-docs:
   buildDir: barretenberg/cpp
   dockerfile: docs/Dockerfile
@@ -121,12 +133,15 @@ yarn-project-base:
   rebuildPatterns:
     - ^yarn-project/yarn-project-base/
     - ^yarn-project/yarn.lock
+    - ^yarn-project/.*/package.json$
   dependencies:
     - l1-contracts
     - bb.js
     - noir
     - noir-packages
     - boxes-files
+    - avm-transpiler
+    - noir-projects
 
 yarn-project:
   buildDir: yarn-project
@@ -146,9 +161,9 @@ yarn-project-prod:
     - yarn-project
   multiarch: buildx
 
-aztec-sandbox:
+aztec:
   buildDir: yarn-project
-  projectDir: yarn-project/aztec-sandbox
+  projectDir: yarn-project/aztec
   dependencies:
     - yarn-project-prod
   multiarch: buildx
@@ -169,10 +184,11 @@ cli:
 boxes:
   buildDir: boxes
   dependencies:
-    - aztec-sandbox
+    - aztec
     - noir
+    - noir-projects
   runDependencies:
-    - aztec-sandbox
+    - aztec
 
 end-to-end:
   buildDir: yarn-project
@@ -180,7 +196,7 @@ end-to-end:
   dependencies:
     - yarn-project
   runDependencies:
-    - aztec-sandbox
+    - aztec
 
 mainnet-fork:
   buildDir: iac/mainnet-fork
@@ -195,12 +211,19 @@ docs:
     - ^.*.hpp$
     - ^.*.ts$
     - ^.release-please-manifest.json$
-    - ^.*/noir-version.json$
     - ^.*.nr$
   dependencies:
     - yarn-project
+    - noir-projects
 
 yellow-paper:
   buildDir: yellow-paper
   rebuildPatterns:
     - ^yellow-paper/
+
+avm-transpiler:
+  buildDir: .
+  dockerfile: avm-transpiler/Dockerfile
+  rebuildPatterns:
+    - ^avm-transpiler/
+    - ^noir/

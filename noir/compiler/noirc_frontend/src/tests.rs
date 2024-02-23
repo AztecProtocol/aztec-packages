@@ -52,9 +52,12 @@ mod test {
     ) -> (ParsedModule, Context, Vec<(CompilationError, FileId)>) {
         let root = std::path::Path::new("/");
         let fm = FileManager::new(root);
-        let mut context = Context::new(fm);
+
+        let mut context = Context::new(fm, Default::default());
+        context.def_interner.populate_dummy_operator_traits();
         let root_file_id = FileId::dummy();
         let root_crate_id = context.crate_graph.add_crate_root(root_file_id);
+
         let (program, parser_errors) = parse_program(src);
         let mut errors = vecmap(parser_errors, |e| (e.into(), root_file_id));
         remove_experimental_warnings(&mut errors);
@@ -86,6 +89,56 @@ mod test {
 
     pub(crate) fn get_program_errors(src: &str) -> Vec<(CompilationError, FileId)> {
         get_program(src).2
+    }
+
+    #[test]
+    fn check_trait_implemented_for_all_t() {
+        let src = "
+        trait Default {
+            fn default() -> Self;
+        }
+        
+        trait Eq {
+            fn eq(self, other: Self) -> bool;
+        }
+        
+        trait IsDefault {
+            fn is_default(self) -> bool;
+        }
+        
+        impl<T> IsDefault for T where T: Default + Eq {
+            fn is_default(self) -> bool {
+                self.eq(T::default())
+            }
+        }
+        
+        struct Foo {
+            a: u64,
+        }
+        
+        impl Eq for Foo {
+            fn eq(self, other: Foo) -> bool { self.a == other.a } 
+        }
+        
+        impl Default for u64 {
+            fn default() -> Self {
+                0
+            }
+        }
+        
+        impl Default for Foo {
+            fn default() -> Self {
+                Foo { a: Default::default() }
+            }
+        }
+        
+        fn main(a: Foo) -> pub bool {
+            a.is_default()
+        }";
+
+        let errors = get_program_errors(src);
+        errors.iter().for_each(|err| println!("{:?}", err));
+        assert!(errors.is_empty());
     }
 
     #[test]
@@ -1075,9 +1128,9 @@ mod test {
     }
 
     fn check_rewrite(src: &str, expected: &str) {
-        let (_program, context, _errors) = get_program(src);
+        let (_program, mut context, _errors) = get_program(src);
         let main_func_id = context.def_interner.find_function("main").unwrap();
-        let program = monomorphize(main_func_id, &context.def_interner);
+        let program = monomorphize(main_func_id, &mut context.def_interner);
         assert!(format!("{}", program) == expected);
     }
 
@@ -1110,5 +1163,25 @@ fn lambda$f1(mut env$l1: (Field)) -> Field {
 }
 "#;
         check_rewrite(src, expected_rewrite);
+    }
+
+    #[test]
+    fn deny_cyclic_structs() {
+        let src = r#"
+            struct Foo { bar: Bar }
+            struct Bar { foo: Foo }
+            fn main() {}
+        "#;
+        assert_eq!(get_program_errors(src).len(), 1);
+    }
+
+    #[test]
+    fn deny_cyclic_globals() {
+        let src = r#"
+            global A = B;
+            global B = A;
+            fn main() {}
+        "#;
+        assert_eq!(get_program_errors(src).len(), 1);
     }
 }

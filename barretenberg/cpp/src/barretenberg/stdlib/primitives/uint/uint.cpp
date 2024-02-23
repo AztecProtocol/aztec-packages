@@ -1,11 +1,9 @@
 #include "uint.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 
-using namespace barretenberg;
-using namespace proof_system;
+using namespace bb;
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 /**
  * @brief Constrain accumulators
@@ -390,10 +388,9 @@ template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Nativ
     return result;
 }
 
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint8_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint16_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint32_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint64_t);
+template class uint<bb::StandardCircuitBuilder, uint8_t>;
+template class uint<bb::StandardCircuitBuilder, uint16_t>;
+template class uint<bb::StandardCircuitBuilder, uint32_t>;
+template class uint<bb::StandardCircuitBuilder, uint64_t>;
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

@@ -45,7 +45,7 @@ fi
 
 # Install pre-commit git hooks.
 HOOKS_DIR=$(git rev-parse --git-path hooks)
-echo "(cd barretenberg/cpp && ./format.sh staged)" > $HOOKS_DIR/pre-commit
+echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
 chmod +x $HOOKS_DIR/pre-commit
 
 git submodule update --init --recursive
@@ -54,15 +54,26 @@ PROJECTS=(
   barretenberg
   noir
   l1-contracts
+  avm-transpiler
+  noir-projects
   yarn-project
 )
 
+# Build projects locally
 for P in "${PROJECTS[@]}"; do
-  echo "**************************************"
-  echo -e "\033[1mBootstrapping $P...\033[0m"
-  echo "**************************************"
-  echo
-  $P/bootstrap.sh
+  if [ -n "${BOOTSTRAP_USE_REMOTE_CACHE:-}" ] && [ -f "$P/bootstrap_cache.sh" ]; then
+    echo "**************************************"
+    echo -e "\033[1mBootstrapping $P from remote cache...\033[0m"
+    echo "**************************************"
+    echo
+    $P/bootstrap_cache.sh
+  else
+    echo "**************************************"
+    echo -e "\033[1mBootstrapping $P...\033[0m"
+    echo "**************************************"
+    echo
+    $P/bootstrap.sh
+  fi
   echo
   echo
 done

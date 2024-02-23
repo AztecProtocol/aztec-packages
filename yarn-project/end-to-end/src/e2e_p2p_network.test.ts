@@ -5,15 +5,16 @@ import {
   ContractDeployer,
   DebugLogger,
   DeploySentTx,
+  EthAddress,
   Fr,
   Grumpkin,
   PublicKey,
   TxStatus,
   Wallet,
-  getContractDeploymentInfo,
+  getContractInstanceFromDeployParams,
   isContractDeployed,
 } from '@aztec/aztec.js';
-import { TestContractArtifact } from '@aztec/noir-contracts/Test';
+import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
 import { ConstantKeyPair, PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
@@ -23,7 +24,6 @@ import { MNEMONIC } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-// only 10 accounts with ETH (9 and not 10 because first account is used by sandbox).
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 4;
 const NUM_TXS_PER_NODE = 2;
@@ -102,7 +102,7 @@ describe('e2e_p2p_network', () => {
 
       // TODO: the following config options are not applicable to bootstrap nodes
       p2pBlockCheckIntervalMS: 1000,
-      l2QueueSize: 1,
+      p2pL2QueueSize: 1,
       transactionProtocol: '',
       bootstrapNodes: [''],
     };
@@ -114,7 +114,7 @@ describe('e2e_p2p_network', () => {
   // creates a P2P enabled instance of Aztec Node Service
   const createNode = async (tcpListenPort: number, bootstrapNode: string, publisherAddressIndex: number) => {
     // We use different L1 publisher accounts in order to avoid duplicate tx nonces. We start from
-    // publisherAddressIndex + 1 because index 0 was already used during sandbox setup.
+    // publisherAddressIndex + 1 because index 0 was already used during test environment setup.
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: publisherAddressIndex + 1 });
     const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
     config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
@@ -138,7 +138,13 @@ describe('e2e_p2p_network', () => {
     const txs: DeploySentTx[] = [];
     for (let i = 0; i < numTxs; i++) {
       const salt = Fr.random();
-      const origin = getContractDeploymentInfo(TestContractArtifact, [], salt, publicKey).completeAddress.address;
+      const origin = getContractInstanceFromDeployParams(
+        TestContractArtifact,
+        [],
+        salt,
+        publicKey,
+        EthAddress.ZERO,
+      ).address;
       const deployer = new ContractDeployer(TestContractArtifact, pxe, publicKey);
       const tx = deployer.deploy().send({ contractAddressSalt: salt });
       logger(`Tx sent with hash ${await tx.getTxHash()}`);

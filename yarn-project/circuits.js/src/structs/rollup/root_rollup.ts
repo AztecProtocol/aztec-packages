@@ -1,15 +1,15 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
-import { FieldsOf } from '../../utils/jsUtils.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
 import { AggregationObject } from '../aggregation_object.js';
-import { GlobalVariables } from '../global_variables.js';
+import { Header } from '../header.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
 
@@ -73,99 +73,18 @@ export class RootRollupInputs {
  */
 export class RootRollupPublicInputs {
   constructor(
-    /**
-     * Native aggregation state at the end of the rollup.
-     */
-    public endAggregationObject: AggregationObject,
-
-    /**
-     * Global variables of the L2 block.
-     */
-    public globalVariables: GlobalVariables,
-    /**
-     * Snapshot of the note hash tree at the start of the rollup.
-     */
-    public startNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
-     * Snapshot of the note hash tree at the end of the rollup.
-     */
-    public endNoteHashTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
-     * Snapshot of the nullifier tree at the start of the rollup.
-     */
-    public startNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the nullifier tree at the end of the rollup.
-     */
-    public endNullifierTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
-     * Snapshot of the contract tree at the start of the rollup.
-     */
-    public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the contract tree at the end of the rollup.
-     */
-    public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
-     * Snapshot of the public data tree at the start of the rollup.
-     */
-    public startPublicDataTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the public data tree at the end of the rollup.
-     */
-    public endPublicDataTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
-     * Snapshot of the L1 to L2 message tree at the start of the rollup.
-     */
-    public startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the L1 to L2 message tree at the end of the rollup.
-     */
-    public endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
-     * Snapshot of the blocks tree roots tree at the start of the rollup.
-     */
-    public startArchiveSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the blocks tree roots tree at the end of the rollup.
-     */
-    public endArchiveSnapshot: AppendOnlyTreeSnapshot,
-
-    /**
-     * Hash of the calldata.
-     */
-    public calldataHash: [Fr, Fr],
-    /**
-     * Hash of the L1 to L2 messages.
-     */
+    /** Native aggregation state at the end of the rollup. */
+    public aggregationObject: AggregationObject,
+    /** Snapshot of archive tree after this block/rollup been processed */
+    public archive: AppendOnlyTreeSnapshot,
+    /** A header of an L2 block. */
+    public header: Header,
+    /** Hash of the L1 to L2 messages. */
     public l1ToL2MessagesHash: [Fr, Fr],
   ) {}
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
-    return [
-      fields.endAggregationObject,
-      fields.globalVariables,
-      fields.startNoteHashTreeSnapshot,
-      fields.endNoteHashTreeSnapshot,
-      fields.startNullifierTreeSnapshot,
-      fields.endNullifierTreeSnapshot,
-      fields.startContractTreeSnapshot,
-      fields.endContractTreeSnapshot,
-      fields.startPublicDataTreeSnapshot,
-      fields.endPublicDataTreeSnapshot,
-      fields.startL1ToL2MessageTreeSnapshot,
-      fields.endL1ToL2MessageTreeSnapshot,
-      fields.startArchiveSnapshot,
-      fields.endArchiveSnapshot,
-      fields.calldataHash,
-      fields.l1ToL2MessagesHash,
-    ] as const;
+    return [fields.aggregationObject, fields.archive, fields.header, fields.l1ToL2MessagesHash] as const;
   }
 
   toBuffer() {
@@ -177,23 +96,6 @@ export class RootRollupPublicInputs {
   }
 
   /**
-   * Returns the sha256 hash of the calldata.
-   * @returns The sha256 hash of the calldata.
-   */
-  public sha256CalldataHash(): Buffer {
-    const high = this.calldataHash[0].toBuffer();
-    const low = this.calldataHash[1].toBuffer();
-
-    const hash = Buffer.alloc(32);
-    for (let i = 0; i < 16; i++) {
-      hash[i] = high[i + 16];
-      hash[i + 16] = low[i + 16];
-    }
-
-    return hash;
-  }
-
-  /**
    * Deserializes a buffer into a `RootRollupPublicInputs` object.
    * @param buffer - The buffer to deserialize.
    * @returns The deserialized `RootRollupPublicInputs` object.
@@ -202,21 +104,9 @@ export class RootRollupPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new RootRollupPublicInputs(
       reader.readObject(AggregationObject),
-      reader.readObject(GlobalVariables),
       reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      [Fr.fromBuffer(reader), Fr.fromBuffer(reader)],
-      [Fr.fromBuffer(reader), Fr.fromBuffer(reader)],
+      reader.readObject(Header),
+      reader.readArray(NUM_FIELDS_PER_SHA256, Fr) as [Fr, Fr],
     );
   }
 }

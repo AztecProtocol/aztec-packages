@@ -1,7 +1,4 @@
-import { Fr } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import {
-  CancelledL1ToL2Message,
   ContractData,
   ExtendedContractData,
   GetUnencryptedLogsResponse,
@@ -11,9 +8,23 @@ import {
   L2Tx,
   LogFilter,
   LogType,
-  PendingL1ToL2Message,
   TxHash,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+
+/**
+ * Represents the latest L1 block processed by the archiver for various objects in L2.
+ */
+export type ArchiverL1SynchPoint = {
+  /** The last L1 block that added a new L2 block.  */
+  addedBlock: bigint;
+  /** The last L1 block that added pending messages */
+  addedMessages: bigint;
+  /** The last L1 block that cancelled messages */
+  cancelledMessages: bigint;
+};
 
 /**
  * Interface describing a data store to be used by the archiver to store all its relevant data
@@ -58,16 +69,18 @@ export interface ArchiverDataStore {
   /**
    * Append new pending L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
+   * @param l1BlockNumber - The block number of the L1 block that added the messages.
    * @returns True if the operation is successful.
    */
-  addPendingL1ToL2Messages(messages: PendingL1ToL2Message[]): Promise<boolean>;
+  addPendingL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean>;
 
   /**
    * Remove pending L1 to L2 messages from the store (if they were cancelled).
    * @param message - The message keys to be removed from the store.
+   * @param l1BlockNumber - The block number of the L1 block that cancelled the messages.
    * @returns True if the operation is successful.
    */
-  cancelPendingL1ToL2Messages(message: CancelledL1ToL2Message[]): Promise<boolean>;
+  cancelPendingL1ToL2Messages(message: Fr[], l1BlockNumber: bigint): Promise<boolean>;
 
   /**
    * Messages that have been published in an L2 block are confirmed.
@@ -152,7 +165,35 @@ export interface ArchiverDataStore {
   getBlockNumber(): Promise<number>;
 
   /**
-   * Gets the number of the latest L1 block processed.
+   * Gets the last L1 block number processed by the archiver
    */
-  getL1BlockNumber(): Promise<bigint>;
+  getL1BlockNumber(): Promise<ArchiverL1SynchPoint>;
+
+  /**
+   * Add new contract classes from an L2 block to the store's list.
+   * @param data - List of contract classes to be added.
+   * @param blockNumber - Number of the L2 block the contracts were registered in.
+   * @returns True if the operation is successful.
+   */
+  addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
+
+  /**
+   * Returns a contract class given its id, or undefined if not exists.
+   * @param id - Id of the contract class.
+   */
+  getContractClass(id: Fr): Promise<ContractClassPublic | undefined>;
+
+  /**
+   * Add new contract instances from an L2 block to the store's list.
+   * @param data - List of contract instances to be added.
+   * @param blockNumber - Number of the L2 block the instances were deployed in.
+   * @returns True if the operation is successful.
+   */
+  addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
+
+  /**
+   * Returns a contract instance given its address, or undefined if not exists.
+   * @param address - Address of the contract.
+   */
+  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
 }

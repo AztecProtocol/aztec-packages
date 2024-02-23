@@ -7,7 +7,7 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
-namespace proof_system::plonk::stdlib::recursion::honk {
+namespace bb::stdlib::recursion::honk {
 
 /**
  * @brief Test suite for recursive verification of Goblin Ultra Honk proofs
@@ -18,11 +18,8 @@ namespace proof_system::plonk::stdlib::recursion::honk {
  */
 template <typename BuilderType> class GoblinRecursiveVerifierTest : public testing::Test {
 
-    // Define types relevant for testing
-    using UltraFlavor = ::proof_system::honk::flavor::Ultra;
-    using GoblinUltraFlavor = ::proof_system::honk::flavor::GoblinUltra;
-    using UltraComposer = ::proof_system::honk::UltraComposer_<UltraFlavor>;
-    using GoblinUltraComposer = ::proof_system::honk::UltraComposer_<GoblinUltraFlavor>;
+    using UltraComposer = UltraComposer_<UltraFlavor>;
+    using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
 
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = GoblinUltraFlavor;
@@ -33,9 +30,9 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
     using InnerFF = InnerFlavor::FF;
 
     // Types for recursive verifier circuit
-    using RecursiveFlavor = ::proof_system::honk::flavor::GoblinUltraRecursive;
-    using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using OuterBuilder = BuilderType;
+    using RecursiveFlavor = GoblinUltraRecursiveFlavor_<OuterBuilder>;
+    using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     // Helper for getting composer for prover/verifier of recursive (outer) circuit
@@ -124,7 +121,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
     };
 
   public:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     /**
      * @brief Create inner circuit and call check_circuit on it
@@ -187,7 +184,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, instance->verification_key };
         auto pairing_points = verifier.verify_proof(inner_proof);
-        info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
+        info("Recursive Verifier Goblin: num gates = ", outer_circuit.num_gates);
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
@@ -255,7 +252,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 };
 
 // Run the recursive verifier tests with conventional Ultra builder and Goblin builder
-using BuilderTypes = testing::Types<GoblinUltraCircuitBuilder>;
+using BuilderTypes = testing::Types<UltraCircuitBuilder, GoblinUltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(GoblinRecursiveVerifierTest, BuilderTypes);
 
@@ -279,4 +276,4 @@ HEAVY_TYPED_TEST(GoblinRecursiveVerifierTest, SingleRecursiveVerificationFailure
     TestFixture::test_recursive_verification_fails();
 };
 
-} // namespace proof_system::plonk::stdlib::recursion::honk
+} // namespace bb::stdlib::recursion::honk

@@ -1,17 +1,17 @@
-import levelup, { LevelUp } from 'levelup';
+import { AztecKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { Pedersen, StandardTree, newTree } from '../index.js';
-import { createMemDown } from '../test/utils/create_mem_down.js';
 import { AppendOnlySnapshotBuilder } from './append_only_snapshot.js';
 import { describeSnapshotBuilderTestSuite } from './snapshot_builder_test_suite.js';
 
 describe('AppendOnlySnapshot', () => {
   let tree: StandardTree;
   let snapshotBuilder: AppendOnlySnapshotBuilder;
-  let db: LevelUp;
+  let db: AztecKVStore;
 
   beforeEach(async () => {
-    db = levelup(createMemDown());
+    db = openTmpStore();
     const hasher = new Pedersen();
     tree = await newTree(StandardTree, db, hasher, 'test', 4);
     snapshotBuilder = new AppendOnlySnapshotBuilder(db, tree, hasher);

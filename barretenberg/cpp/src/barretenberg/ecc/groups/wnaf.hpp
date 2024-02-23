@@ -4,10 +4,10 @@
 #include <iostream>
 
 // NOLINTBEGIN(readability-implicit-bool-conversion)
-namespace barretenberg::wnaf {
+namespace bb::wnaf {
 constexpr size_t SCALAR_BITS = 127;
 
-#define WNAF_SIZE(x) ((barretenberg::wnaf::SCALAR_BITS + (x)-1) / (x)) // NOLINT(cppcoreguidelines-macro-usage)
+#define WNAF_SIZE(x) ((bb::wnaf::SCALAR_BITS + (x)-1) / (x)) // NOLINT(cppcoreguidelines-macro-usage)
 
 constexpr size_t get_optimal_bucket_width(const size_t num_points)
 {
@@ -156,6 +156,19 @@ inline void fixed_wnaf_packed(
     wnaf[0] = ((slice + predicate) >> 1UL) | (point_index);
 }
 
+/**
+ * @brief Performs fixed-window non-adjacent form (WNAF) computation for scalar multiplication.
+ *
+ * WNAF is a method for representing integers which optimizes the number of non-zero terms, which in turn optimizes
+ * the number of point doublings in scalar multiplication, in turn aiding efficiency.
+ *
+ * @param scalar Pointer to 128-bit scalar for which WNAF is to be computed.
+ * @param wnaf Pointer to num_points+1 size array where the computed WNAF will be stored.
+ * @param skew_map Reference to a boolean variable which will be set based on the least significant bit of the scalar.
+ * @param point_index The index of the point being computed in the context of multiple point multiplication.
+ * @param num_points The number of points being computed in parallel.
+ * @param wnaf_bits The number of bits to use in each window of the WNAF representation.
+ */
 inline void fixed_wnaf(const uint64_t* scalar,
                        uint64_t* wnaf,
                        bool& skew_map,
@@ -495,6 +508,6 @@ inline void fixed_wnaf_with_restricted_first_slice(uint64_t* scalar,
 //     uint64_t previous = get_wnaf_bits_const<wnaf_bits, 0>(scalar) + (uint64_t)skew_map;
 //     std::array<uint32_t, WNAF_SIZE(wnaf_bits)> result;
 // }
-} // namespace barretenberg::wnaf
+} // namespace bb::wnaf
 
 // NOLINTEND(readability-implicit-bool-conversion)

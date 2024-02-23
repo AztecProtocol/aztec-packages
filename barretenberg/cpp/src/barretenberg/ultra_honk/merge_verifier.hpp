@@ -3,40 +3,35 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace proof_system::honk {
+namespace bb {
 
 /**
  * @brief Verifier class for the Goblin ECC op queue transcript merge protocol
  *
- * @tparam Flavor
  */
 template <typename Flavor> class MergeVerifier_ {
-    using FF = typename Flavor::FF;
-    using Polynomial = typename Flavor::Polynomial;
-    using CommitmentKey = typename Flavor::CommitmentKey;
-    using Commitment = typename Flavor::Commitment;
-    using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using OpeningClaim = typename pcs::OpeningClaim<Curve>;
-    using VerificationKey = typename Flavor::VerificationKey;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using Transcript = typename Flavor::Transcript;
+    using FF = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+    using PCS = bb::KZG<Curve>;
+    using OpeningClaim = bb::OpeningClaim<Curve>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
+    using Transcript = NativeTranscript;
 
   public:
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<ECCOpQueue> op_queue;
-    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
 
     explicit MergeVerifier_();
-    bool verify_proof(const plonk::proof& proof);
+    bool verify_proof(const HonkProof& proof);
+
+  private:
+    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
+    static constexpr size_t NUM_WIRES = GoblinUltraFlavor::NUM_WIRES;
 };
 
-extern template class MergeVerifier_<honk::flavor::Ultra>;
-extern template class MergeVerifier_<honk::flavor::GoblinUltra>;
-
-} // namespace proof_system::honk
+} // namespace bb

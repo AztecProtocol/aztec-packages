@@ -99,7 +99,7 @@ FastRandom VarianceRNG(0);
 
 #define OPERATION_TYPE_SIZE 1
 
-#define ELEMENT_SIZE (sizeof(barretenberg::fr) + 1)
+#define ELEMENT_SIZE (sizeof(bb::fr) + 1)
 #define TWO_IN_ONE_OUT 3
 #define THREE_IN_ONE_OUT 4
 #define SLICE_ARGS_SIZE 6
@@ -120,10 +120,10 @@ FastRandom VarianceRNG(0);
  */
 template <typename Builder> class FieldBase {
   private:
-    typedef proof_system::plonk::stdlib::bool_t<Builder> bool_t;
-    typedef proof_system::plonk::stdlib::field_t<Builder> field_t;
-    typedef proof_system::plonk::stdlib::witness_t<Builder> witness_t;
-    typedef proof_system::plonk::stdlib::public_witness_t<Builder> public_witness_t;
+    typedef bb::stdlib::bool_t<Builder> bool_t;
+    typedef bb::stdlib::field_t<Builder> field_t;
+    typedef bb::stdlib::witness_t<Builder> witness_t;
+    typedef bb::stdlib::public_witness_t<Builder> public_witness_t;
 
   public:
     /**
@@ -160,7 +160,7 @@ template <typename Builder> class FieldBase {
             _LAST
         };
 
-        typedef barretenberg::fr Element;
+        typedef bb::fr Element;
         struct SingleArg {
             uint8_t in;
         };
@@ -327,7 +327,7 @@ template <typename Builder> class FieldBase {
          * @return Mutated element
          */
         template <typename T>
-        inline static barretenberg::fr mutateFieldElement(barretenberg::fr e, T& rng, HavocSettings& havoc_config)
+        inline static bb::fr mutateFieldElement(bb::fr e, T& rng, HavocSettings& havoc_config)
             requires SimpleRng<T>
         {
             // With a certain probability, we apply changes to the Montgomery form, rather than the plain form. This
@@ -347,9 +347,9 @@ template <typename Builder> class FieldBase {
             // Inverse conversion at the end
 #define INV_MONT_CONVERSION                                                                                            \
     if (convert_to_montgomery) {                                                                                       \
-        e = barretenberg::fr(value_data).from_montgomery_form();                                                       \
+        e = bb::fr(value_data).from_montgomery_form();                                                                 \
     } else {                                                                                                           \
-        e = barretenberg::fr(value_data);                                                                              \
+        e = bb::fr(value_data);                                                                                        \
     }
 
             // Pick the last value from the mutation distrivution vector
@@ -367,9 +367,9 @@ template <typename Builder> class FieldBase {
                     e = e.to_montgomery_form();
                 }
                 if (rng.next() & 1) {
-                    value_data = e + barretenberg::fr(rng.next() & 0xff);
+                    value_data = e + bb::fr(rng.next() & 0xff);
                 } else {
-                    value_data = e - barretenberg::fr(rng.next() & 0xff);
+                    value_data = e - bb::fr(rng.next() & 0xff);
                 }
                 if (convert_to_montgomery) {
                     e = e.from_montgomery_form();
@@ -379,31 +379,31 @@ template <typename Builder> class FieldBase {
                 MONT_CONVERSION
                 switch (rng.next() % 9) {
                 case 0:
-                    e = barretenberg::fr::zero();
+                    e = bb::fr::zero();
                     break;
                 case 1:
-                    e = barretenberg::fr::one();
+                    e = bb::fr::one();
                     break;
                 case 2:
-                    e = -barretenberg::fr::one();
+                    e = -bb::fr::one();
                     break;
                 case 3:
-                    e = barretenberg::fr::one().sqrt().second;
+                    e = bb::fr::one().sqrt().second;
                     break;
                 case 4:
-                    e = barretenberg::fr::one().sqrt().second.invert();
+                    e = bb::fr::one().sqrt().second.invert();
                     break;
                 case 5:
-                    e = barretenberg::fr::get_root_of_unity(8);
+                    e = bb::fr::get_root_of_unity(8);
                     break;
                 case 6:
-                    e = barretenberg::fr(2);
+                    e = bb::fr(2);
                     break;
                 case 7:
-                    e = barretenberg::fr((barretenberg::fr::modulus - 1) / 2);
+                    e = bb::fr((bb::fr::modulus - 1) / 2);
                     break;
                 case 8:
-                    e = barretenberg::fr((barretenberg::fr::modulus));
+                    e = bb::fr((bb::fr::modulus));
                     break;
                 default:
                     abort();
@@ -502,9 +502,9 @@ template <typename Builder> class FieldBase {
     // instruction is enabled (if it is -1,it's disabled )
     class ArgSizes {
       public:
-        static constexpr size_t CONSTANT = sizeof(barretenberg::fr);
-        static constexpr size_t WITNESS = sizeof(barretenberg::fr);
-        static constexpr size_t CONSTANT_WITNESS = sizeof(barretenberg::fr);
+        static constexpr size_t CONSTANT = sizeof(bb::fr);
+        static constexpr size_t WITNESS = sizeof(bb::fr);
+        static constexpr size_t CONSTANT_WITNESS = sizeof(bb::fr);
         static constexpr size_t SQR = 2;
         static constexpr size_t ASSERT_EQUAL = 2;
         static constexpr size_t ASSERT_NOT_EQUAL = 2;
@@ -587,7 +587,7 @@ template <typename Builder> class FieldBase {
                 Instruction instr;
                 instr.id = static_cast<typename Instruction::OPCODE>(opcode);
                 // instr.arguments.element = fr::serialize_from_buffer(Data+1);
-                instr.arguments.element = barretenberg::fr::serialize_from_buffer(Data);
+                instr.arguments.element = bb::fr::serialize_from_buffer(Data);
                 return instr;
             };
             if constexpr (opcode == Instruction::OPCODE::ASSERT_ZERO ||
@@ -767,18 +767,18 @@ template <typename Builder> class FieldBase {
         }
 
       public:
-        barretenberg::fr base;
+        bb::fr base;
         field_t field;
         ExecutionHandler() = default;
-        ExecutionHandler(barretenberg::fr a, field_t b)
+        ExecutionHandler(bb::fr a, field_t b)
             : base(a)
             , field(b)
         {}
-        ExecutionHandler(barretenberg::fr a, field_t& b)
+        ExecutionHandler(bb::fr a, field_t& b)
             : base(a)
             , field(b)
         {}
-        ExecutionHandler(barretenberg::fr& a, field_t& b)
+        ExecutionHandler(bb::fr& a, field_t& b)
             : base(a)
             , field(b)
         {}
@@ -1009,7 +1009,7 @@ template <typename Builder> class FieldBase {
 #ifdef SHOW_INFORMATION
                 std::cout << "Construct via fr" << std::endl;
 #endif
-                return construct_via_cast<barretenberg::fr>(barretenberg::fr::modulus - 1);
+                return construct_via_cast<bb::fr>(bb::fr::modulus - 1);
             case 6:
 #if 1
                 /* Disabled because casting to bool_t can fail.
@@ -1017,8 +1017,8 @@ template <typename Builder> class FieldBase {
                  *
                  * TEST(stdlib_field, test_construct_via_bool_t)
                  * {
-                 *     proof_system::StandardCircuitBuilder builder =
-                 * proof_system::proof_system::StandardCircuitBuilder(); field_t a(witness_t(&builder,
+                 *     bb::StandardCircuitBuilder builder =
+                 * bb::bb::StandardCircuitBuilder(); field_t a(witness_t(&builder,
                  * fr(uint256_t{0xf396b678452ebf15, 0x82ae10893982638b, 0xdf185a29c65fbf80, 0x1d18b2de99e48308})));
                  * field_t b = a - a; field_t c(static_cast<bool_t>(b)); std::cout << c.get_value() << std::endl;
                  * }
@@ -1061,15 +1061,14 @@ template <typename Builder> class FieldBase {
                 // const auto bits = this->f().decompose_into_bits(num_bits);
                 const auto bits = this->f().decompose_into_bits();
 
-                std::vector<barretenberg::fr> frs(bits.size());
+                std::vector<bb::fr> frs(bits.size());
                 for (size_t i = 0; i < bits.size(); i++) {
-                    frs[i] = bits[i].get_value() ? barretenberg::fr(uint256_t(1) << i) : 0;
+                    frs[i] = bits[i].get_value() ? bb::fr(uint256_t(1) << i) : 0;
                 }
 
                 switch (VarianceRNG.next() % 2) {
                 case 0: {
-                    const barretenberg::fr field_from_bits =
-                        std::accumulate(frs.begin(), frs.end(), barretenberg::fr(0));
+                    const bb::fr field_from_bits = std::accumulate(frs.begin(), frs.end(), bb::fr(0));
                     return ExecutionHandler(this->base, field_t(builder, field_from_bits));
                 }
                 case 1: {
@@ -1095,7 +1094,7 @@ template <typename Builder> class FieldBase {
             if (this->base == 0) {
                 return ExecutionHandler(this->base, this->f());
             } else {
-                return ExecutionHandler(barretenberg::fr(1) / this->base, this->f().invert());
+                return ExecutionHandler(bb::fr(1) / this->base, this->f().invert());
             }
         }
 
@@ -1449,7 +1448,7 @@ template <typename Builder> class FieldBase {
             PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Dividing", "/")
 
             ExecutionHandler result;
-            if (barretenberg::fr((uint256_t(stack[second_index].f().get_value()) % barretenberg::fr::modulus)) == 0) {
+            if (bb::fr((uint256_t(stack[second_index].f().get_value()) % bb::fr::modulus)) == 0) {
                 return 0; // This is not handled by field
             }
             // TODO: FIX THIS. I can't think of an elegant fix for this field issue right now
@@ -1568,7 +1567,7 @@ template <typename Builder> class FieldBase {
             // Check assert conditions
             if ((lsb > msb) || (msb > 252) ||
                 (static_cast<uint256_t>(stack[first_index].f().get_value()) >=
-                 (static_cast<uint256_t>(1) << grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH))) {
+                 (static_cast<uint256_t>(1) << bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH))) {
                 return 0;
             }
             PRINT_SLICE(first_index, lsb, msb, stack)
@@ -1832,7 +1831,7 @@ template <typename Builder> class FieldBase {
         (void)builder;
         for (size_t i = 0; i < stack.size(); i++) {
             auto element = stack[i];
-            if (barretenberg::fr((uint256_t(element.field.get_value()) % barretenberg::fr::modulus)) != element.base) {
+            if (bb::fr((uint256_t(element.field.get_value()) % bb::fr::modulus)) != element.base) {
                 std::cerr << "Failed at " << i << " with actual value " << element.base << " and value in field "
                           << element.field.get_value() << std::endl;
                 return false;
@@ -1970,7 +1969,7 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
  */
 extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* Data, size_t Size, size_t MaxSize, unsigned int Seed)
 {
-    using FuzzerClass = FieldBase<proof_system::StandardCircuitBuilder>;
+    using FuzzerClass = FieldBase<bb::StandardCircuitBuilder>;
     auto fast_random = FastRandom(Seed);
     auto size_occupied = ArithmeticFuzzHelper<FuzzerClass>::MutateInstructionBuffer(Data, Size, MaxSize, fast_random);
     if ((fast_random.next() % 200) < fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB) {
@@ -1991,7 +1990,7 @@ extern "C" size_t LLVMFuzzerCustomCrossOver(const uint8_t* Data1,
                                             size_t MaxOutSize,
                                             unsigned int Seed)
 {
-    using FuzzerClass = FieldBase<proof_system::StandardCircuitBuilder>;
+    using FuzzerClass = FieldBase<bb::StandardCircuitBuilder>;
     auto fast_random = FastRandom(Seed);
     auto vecA = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data1, Size1);
     auto vecB = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data2, Size2);

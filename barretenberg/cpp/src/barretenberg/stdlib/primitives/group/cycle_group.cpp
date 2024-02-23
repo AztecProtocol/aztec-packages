@@ -5,7 +5,7 @@
 #include "./cycle_group.hpp"
 #include "barretenberg/proof_system/plookup_tables/types.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
-namespace proof_system::plonk::stdlib {
+namespace bb::stdlib {
 
 template <typename Composer>
 cycle_group<Composer>::cycle_group(Composer* _context)
@@ -160,7 +160,9 @@ template <typename Composer> void cycle_group<Composer>::validate_is_on_curve() 
     auto xx = x * x;
     auto xxx = xx * x;
     auto res = y.madd(y, -xxx - Group::curve_b);
-    res *= is_point_at_infinity();
+    // if the point is marked as the point at infinity, then res should be changed to 0, but otherwise, we leave res
+    // unchanged from the original value
+    res *= !is_point_at_infinity();
     res.assert_is_zero();
 }
 
@@ -211,7 +213,7 @@ cycle_group<Composer> cycle_group<Composer>::dbl() const
         return cycle_group(x3, y3, is_point_at_infinity().get_value());
     }
     cycle_group result(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
-    context->create_ecc_dbl_gate(proof_system::ecc_dbl_gate_<FF>{
+    context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<FF>{
         .x1 = x.get_witness_index(),
         .y1 = modified_y.normalize().get_witness_index(),
         .x3 = result.x.get_witness_index(),
@@ -282,7 +284,7 @@ cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group
     field_t r_y(witness_t(context, p3.y));
     cycle_group result(r_x, r_y, false);
 
-    proof_system::ecc_add_gate_<FF> add_gate{
+    bb::ecc_add_gate_<FF> add_gate{
         .x1 = x.get_witness_index(),
         .y1 = y.get_witness_index(),
         .x2 = other.x.get_witness_index(),
@@ -334,7 +336,7 @@ cycle_group<Composer> cycle_group<Composer>::unconditional_subtract(const cycle_
         field_t r_y(witness_t(context, p3.y));
         cycle_group result(r_x, r_y, false);
 
-        proof_system::ecc_add_gate_<FF> add_gate{
+        bb::ecc_add_gate_<FF> add_gate{
             .x1 = x.get_witness_index(),
             .y1 = y.get_witness_index(),
             .x2 = other.x.get_witness_index(),
@@ -1358,6 +1360,8 @@ template <typename Composer> cycle_group<Composer> cycle_group<Composer>::operat
     throw_or_abort("Implementation under construction...");
 }
 
-INSTANTIATE_STDLIB_TYPE(cycle_group);
+template class cycle_group<bb::StandardCircuitBuilder>;
+template class cycle_group<bb::UltraCircuitBuilder>;
+template class cycle_group<bb::GoblinUltraCircuitBuilder>;
 
-} // namespace proof_system::plonk::stdlib
+} // namespace bb::stdlib

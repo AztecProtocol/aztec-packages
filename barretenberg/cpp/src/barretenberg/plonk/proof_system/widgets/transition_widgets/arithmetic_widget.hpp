@@ -2,7 +2,7 @@
 
 #include "./transition_widget.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace widget {
 
 /**
@@ -93,7 +93,7 @@ template <class Field, class Getters, typename PolyContainer> class ArithmeticKe
  * @tparam Settings
  */
 template <typename Settings>
-using ProverArithmeticWidget = widget::TransitionWidget<barretenberg::fr, Settings, widget::ArithmeticKernel>;
+using ProverArithmeticWidget = widget::TransitionWidget<bb::fr, Settings, widget::ArithmeticKernel>;
 
 /**
  * @brief Standard plonk arithmetic widget for the verifier. Provides standard plonk gate transition
@@ -105,4 +105,4 @@ using ProverArithmeticWidget = widget::TransitionWidget<barretenberg::fr, Settin
 template <typename Field, typename Group, typename Transcript, typename Settings>
 using VerifierArithmeticWidget = widget::GenericVerifierWidget<Field, Transcript, Settings, widget::ArithmeticKernel>;
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

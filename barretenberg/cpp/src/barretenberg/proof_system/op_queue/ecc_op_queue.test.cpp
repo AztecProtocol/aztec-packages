@@ -1,20 +1,21 @@
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include <gtest/gtest.h>
 
-namespace proof_system::test_flavor {
+using namespace bb;
+
 TEST(ECCOpQueueTest, Basic)
 {
     ECCOpQueue op_queue;
-    op_queue.add_accumulate(barretenberg::g1::affine_one);
-    EXPECT_EQ(op_queue.raw_ops[0].base_point, barretenberg::g1::affine_one);
+    op_queue.add_accumulate(bb::g1::affine_one);
+    EXPECT_EQ(op_queue.raw_ops[0].base_point, bb::g1::affine_one);
     op_queue.empty_row();
     EXPECT_EQ(op_queue.raw_ops[1].add, false);
 }
 
 TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
 {
-    using point = barretenberg::g1::affine_element;
-    using scalar = barretenberg::fr;
+    using point = g1::affine_element;
+    using scalar = fr;
 
     // Compute a simple point accumulation natively
     auto P1 = point::random_element();
@@ -36,5 +37,3 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
     // Adding an equality op should reset the accumulator to zero (the point at infinity)
     EXPECT_TRUE(op_queue.get_accumulator().is_point_at_infinity());
 }
-
-} // namespace proof_system::test_flavor

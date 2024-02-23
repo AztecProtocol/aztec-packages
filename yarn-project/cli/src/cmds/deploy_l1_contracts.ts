@@ -2,9 +2,6 @@ import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
 import { deployAztecContracts } from '../utils.js';
 
-/**
- *
- */
 export async function deployL1Contracts(
   rpcUrl: string,
   apiKey: string,
@@ -21,5 +18,6 @@ export async function deployL1Contracts(
   log(`L1 -> L2 Inbox Address: ${l1ContractAddresses.inboxAddress.toString()}`);
   log(`L2 -> L1 Outbox address: ${l1ContractAddresses.outboxAddress.toString()}`);
   log(`Contract Deployment Emitter Address: ${l1ContractAddresses.contractDeploymentEmitterAddress.toString()}`);
+  log(`Availability Oracle Address: ${l1ContractAddresses.availabilityOracleAddress.toString()}`);
   log('\n');
 }

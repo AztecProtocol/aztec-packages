@@ -1,6 +1,9 @@
-use acvm::ExpressionWidth;
 use fm::FileManager;
-use noirc_driver::{CompilationResult, CompileOptions, CompiledContract, CompiledProgram};
+use noirc_driver::{
+    link_to_debug_crate, CompilationResult, CompileOptions, CompiledContract, CompiledProgram,
+};
+use noirc_frontend::debug::DebugInstrumenter;
+use noirc_frontend::hir::ParsedFiles;
 
 use crate::errors::CompileError;
 use crate::prepare_package;
@@ -14,30 +17,34 @@ use rayon::prelude::*;
 ///
 /// This function will return an error if there are any compilations errors reported.
 pub fn compile_workspace(
+    file_manager: &FileManager,
+    parsed_files: &ParsedFiles,
     workspace: &Workspace,
-    binary_packages: &[Package],
-    contract_packages: &[Package],
-    expression_width: ExpressionWidth,
     compile_options: &CompileOptions,
 ) -> Result<(Vec<CompiledProgram>, Vec<CompiledContract>), CompileError> {
+    let (binary_packages, contract_packages): (Vec<_>, Vec<_>) = workspace
+        .into_iter()
+        .filter(|package| !package.is_library())
+        .cloned()
+        .partition(|package| package.is_binary());
+
     // Compile all of the packages in parallel.
-    let program_results: Vec<(FileManager, CompilationResult<CompiledProgram>)> = binary_packages
+    let program_results: Vec<CompilationResult<CompiledProgram>> = binary_packages
         .par_iter()
-        .map(|package| compile_program(workspace, package, compile_options, expression_width))
+        .map(|package| compile_program(file_manager, parsed_files, package, compile_options, None))
         .collect();
-    let contract_results: Vec<(FileManager, CompilationResult<CompiledContract>)> =
-        contract_packages
-            .par_iter()
-            .map(|package| compile_contract(package, compile_options, expression_width))
-            .collect();
+    let contract_results: Vec<CompilationResult<CompiledContract>> = contract_packages
+        .par_iter()
+        .map(|package| compile_contract(file_manager, parsed_files, package, compile_options))
+        .collect();
 
     // Report any warnings/errors which were encountered during compilation.
     let compiled_programs: Vec<CompiledProgram> = program_results
         .into_iter()
-        .map(|(file_manager, compilation_result)| {
+        .map(|compilation_result| {
             report_errors(
                 compilation_result,
-                &file_manager,
+                file_manager,
                 compile_options.deny_warnings,
                 compile_options.silence_warnings,
             )
@@ -45,10 +52,10 @@ pub fn compile_workspace(
         .collect::<Result<_, _>>()?;
     let compiled_contracts: Vec<CompiledContract> = contract_results
         .into_iter()
-        .map(|(file_manager, compilation_result)| {
+        .map(|compilation_result| {
             report_errors(
                 compilation_result,
-                &file_manager,
+                file_manager,
                 compile_options.deny_warnings,
                 compile_options.silence_warnings,
             )
@@ -59,48 +66,45 @@ pub fn compile_workspace(
 }
 
 pub fn compile_program(
-    workspace: &Workspace,
+    file_manager: &FileManager,
+    parsed_files: &ParsedFiles,
     package: &Package,
     compile_options: &CompileOptions,
-    expression_width: ExpressionWidth,
-) -> (FileManager, CompilationResult<CompiledProgram>) {
-    let (mut context, crate_id) = prepare_package(package);
-
-    let program_artifact_path = workspace.package_build_path(package);
-    let mut debug_artifact_path = program_artifact_path.clone();
-    debug_artifact_path.set_file_name(format!("debug_{}.json", package.name));
-
-    let (program, warnings) =
-        match noirc_driver::compile_main(&mut context, crate_id, compile_options, None, true) {
-            Ok(program_and_warnings) => program_and_warnings,
-            Err(errors) => {
-                return (context.file_manager, Err(errors));
-            }
-        };
-
-    // Apply backend specific optimizations.
-    let optimized_program = crate::ops::optimize_program(program, expression_width);
-
-    (context.file_manager, Ok((optimized_program, warnings)))
+    cached_program: Option<CompiledProgram>,
+) -> CompilationResult<CompiledProgram> {
+    compile_program_with_debug_instrumenter(
+        file_manager,
+        parsed_files,
+        package,
+        compile_options,
+        cached_program,
+        DebugInstrumenter::default(),
+    )
 }
 
-fn compile_contract(
+pub fn compile_program_with_debug_instrumenter(
+    file_manager: &FileManager,
+    parsed_files: &ParsedFiles,
     package: &Package,
     compile_options: &CompileOptions,
-    expression_width: ExpressionWidth,
-) -> (FileManager, CompilationResult<CompiledContract>) {
-    let (mut context, crate_id) = prepare_package(package);
-    let (contract, warnings) =
-        match noirc_driver::compile_contract(&mut context, crate_id, compile_options) {
-            Ok(contracts_and_warnings) => contracts_and_warnings,
-            Err(errors) => {
-                return (context.file_manager, Err(errors));
-            }
-        };
+    cached_program: Option<CompiledProgram>,
+    debug_instrumenter: DebugInstrumenter,
+) -> CompilationResult<CompiledProgram> {
+    let (mut context, crate_id) = prepare_package(file_manager, parsed_files, package);
+    link_to_debug_crate(&mut context, crate_id);
+    context.debug_instrumenter = debug_instrumenter;
 
-    let optimized_contract = crate::ops::optimize_contract(contract, expression_width);
+    noirc_driver::compile_main(&mut context, crate_id, compile_options, cached_program)
+}
 
-    (context.file_manager, Ok((optimized_contract, warnings)))
+pub fn compile_contract(
+    file_manager: &FileManager,
+    parsed_files: &ParsedFiles,
+    package: &Package,
+    compile_options: &CompileOptions,
+) -> CompilationResult<CompiledContract> {
+    let (mut context, crate_id) = prepare_package(file_manager, parsed_files, package);
+    noirc_driver::compile_contract(&mut context, crate_id, compile_options)
 }
 
 pub(crate) fn report_errors<T>(

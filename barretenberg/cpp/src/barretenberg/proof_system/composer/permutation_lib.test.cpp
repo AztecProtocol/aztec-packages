@@ -6,16 +6,15 @@
 #include <array>
 #include <gtest/gtest.h>
 
-namespace proof_system::test_composer_lib {
+using namespace bb;
 
 class PermutationHelperTests : public ::testing::Test {
   protected:
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
     using ProvingKey = Flavor::ProvingKey;
     Flavor::CircuitBuilder circuit_constructor;
-    barretenberg::srs::factories::CrsFactory<curve::BN254> crs_factory =
-        barretenberg::srs::factories::CrsFactory<curve::BN254>();
+    srs::factories::CrsFactory<curve::BN254> crs_factory = srs::factories::CrsFactory<curve::BN254>();
     std::shared_ptr<Flavor::ProvingKey> proving_key;
 
     virtual void SetUp()
@@ -90,5 +89,3 @@ TEST_F(PermutationHelperTests, ComputeStandardAuxPolynomials)
     // TODO(#425) Flesh out these tests
     compute_first_and_last_lagrange_polynomials<Flavor>(proving_key);
 }
-
-} // namespace proof_system::test_composer_lib

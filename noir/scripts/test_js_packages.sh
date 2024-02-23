@@ -3,7 +3,7 @@ set -eu
 
 cd $(dirname "$0")/..
 
-./scripts/install_wasm-bindgen.sh
+./.github/scripts/wasm-bindgen-install.sh
 
 # If this project has been subrepod into another project, set build data manually.
 export SOURCE_DATE_EPOCH=$(date +%s)
@@ -17,10 +17,9 @@ fi
 cargo build --release
 export PATH="${PATH}:/usr/src/noir/target/release/"
 
-yarn
+yarn --immutable
 yarn build
-npx playwright install
-npx playwright install-deps
+./.github/scripts/playwright-install.sh
 
 ./scripts/test.sh
 yarn test

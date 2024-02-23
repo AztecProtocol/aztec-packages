@@ -7,8 +7,7 @@
 #include "../sparse.hpp"
 #include "../types.hpp"
 
-namespace plookup {
-namespace keccak_tables {
+namespace bb::plookup::keccak_tables {
 
 /**
  * @brief Converts a base-11 sparse integer representation into a regular base-2 binary integer.
@@ -106,8 +105,8 @@ class KeccakOutput {
 
         table.get_values_from_key = &sparse_tables::get_sparse_normalization_values<BASE, OUTPUT_NORMALIZATION_TABLE>;
 
-        table.column_1_step_size = barretenberg::fr(numeric::pow64(static_cast<size_t>(BASE), TABLE_BITS));
-        table.column_2_step_size = barretenberg::fr(((uint64_t)1 << TABLE_BITS));
+        table.column_1_step_size = bb::fr(numeric::pow64(static_cast<size_t>(BASE), TABLE_BITS));
+        table.column_2_step_size = bb::fr(((uint64_t)1 << TABLE_BITS));
         table.column_3_step_size = 0;
         return table;
     }
@@ -171,5 +170,4 @@ class KeccakOutput {
     }
 };
 
-} // namespace keccak_tables
-} // namespace plookup
+} // namespace bb::plookup::keccak_tables

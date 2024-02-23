@@ -1,7 +1,7 @@
 #pragma once
 #include "random_widget.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 template <typename Field,
           typename Group,
           typename Transcript,
@@ -21,10 +21,6 @@ class VerifierPermutationWidget {
                                                      const Transcript& transcript);
 };
 
-extern template class VerifierPermutationWidget<barretenberg::fr,
-                                                barretenberg::g1::affine_element,
-                                                transcript::StandardTranscript>;
-
 template <size_t program_width, bool idpolys = false, const size_t num_roots_cut_out_of_vanishing_polynomial = 4>
 class ProverPermutationWidget : public ProverRandomWidget {
   public:
@@ -38,10 +34,10 @@ class ProverPermutationWidget : public ProverRandomWidget {
                                    const size_t round_number,
                                    work_queue& queue) override;
 
-    barretenberg::fr compute_quotient_contribution(const barretenberg::fr& alpha_base,
-                                                   const transcript::StandardTranscript& transcript) override;
+    bb::fr compute_quotient_contribution(const bb::fr& alpha_base,
+                                         const transcript::StandardTranscript& transcript) override;
 };
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk
 
 #include "./permutation_widget_impl.hpp"

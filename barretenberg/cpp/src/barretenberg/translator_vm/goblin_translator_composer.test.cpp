@@ -7,23 +7,19 @@
 #include "barretenberg/translator_vm/goblin_translator_prover.hpp"
 
 #include <gtest/gtest.h>
-
-using namespace proof_system::honk;
-using CircuitBuilder = flavor::GoblinTranslator::CircuitBuilder;
-using Transcript = flavor::GoblinTranslator::Transcript;
-using OpQueue = proof_system::ECCOpQueue;
-
-namespace test_goblin_translator_composer {
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
-}
+using CircuitBuilder = GoblinTranslatorFlavor::CircuitBuilder;
+using Transcript = GoblinTranslatorFlavor::Transcript;
+using OpQueue = ECCOpQueue;
+auto& engine = numeric::get_debug_randomness();
 
-std::vector<uint32_t> add_variables(auto& circuit_constructor, std::vector<barretenberg::fr> variables)
+std::vector<uint32_t> add_variables(auto& circuit_constructor, std::vector<bb::fr> variables)
 {
     std::vector<uint32_t> res;
-    for (size_t i = 0; i < variables.size(); i++) {
-        res.emplace_back(circuit_constructor.add_variable(variables[i]));
+    for (fr& variable : variables) {
+        res.emplace_back(circuit_constructor.add_variable(variable));
     }
     return res;
 }
@@ -39,8 +35,9 @@ void ensure_non_zero(auto& polynomial)
 
 class GoblinTranslatorComposerTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
+} // namespace
 
 /**
  * @brief Test simple circuit with public inputs
@@ -48,16 +45,16 @@ class GoblinTranslatorComposerTests : public ::testing::Test {
  */
 TEST_F(GoblinTranslatorComposerTests, Basic)
 {
-    using G1 = barretenberg::g1::affine_element;
-    using Fr = barretenberg::fr;
-    using Fq = barretenberg::fq;
+    using G1 = g1::affine_element;
+    using Fr = fr;
+    using Fq = fq;
 
     auto P1 = G1::random_element();
     auto P2 = G1::random_element();
     auto z = Fr::random_element();
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-    auto op_queue = std::make_shared<proof_system::ECCOpQueue>();
+    auto op_queue = std::make_shared<bb::ECCOpQueue>();
     for (size_t i = 0; i < 500; i++) {
         op_queue->add_accumulate(P1);
         op_queue->mul_accumulate(P2, z);
@@ -66,7 +63,7 @@ TEST_F(GoblinTranslatorComposerTests, Basic)
     auto prover_transcript = std::make_shared<Transcript>();
     prover_transcript->send_to_verifier("init", Fq::random_element());
     prover_transcript->export_proof();
-    Fq translation_batching_challenge = prover_transcript->get_challenge("Translation:batching_challenge");
+    Fq translation_batching_challenge = prover_transcript->template get_challenge<Fq>("Translation:batching_challenge");
     Fq translation_evaluation_challenge = Fq::random_element();
     auto circuit_builder = CircuitBuilder(translation_batching_challenge, translation_evaluation_challenge, op_queue);
     EXPECT_TRUE(circuit_builder.check_circuit());
@@ -81,5 +78,3 @@ TEST_F(GoblinTranslatorComposerTests, Basic)
     bool verified = verifier.verify_proof(proof);
     EXPECT_TRUE(verified);
 }
-
-} // namespace test_goblin_translator_composer

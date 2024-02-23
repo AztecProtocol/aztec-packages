@@ -1,11 +1,9 @@
 #include "../circuit_builders/circuit_builders.hpp"
 #include "uint.hpp"
 
-using namespace barretenberg;
-using namespace proof_system;
+using namespace bb;
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 /**
  * @brief Return a uint which, if range constrained, would be proven to be the sum of `self` and `other`.
@@ -391,10 +389,9 @@ std::pair<uint<Builder, Native>, uint<Builder, Native>> uint<Builder, Native>::d
     return std::make_pair(quotient, remainder);
 }
 
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint8_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint16_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint32_t);
-INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint64_t);
+template class uint<bb::StandardCircuitBuilder, uint8_t>;
+template class uint<bb::StandardCircuitBuilder, uint16_t>;
+template class uint<bb::StandardCircuitBuilder, uint32_t>;
+template class uint<bb::StandardCircuitBuilder, uint64_t>;
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

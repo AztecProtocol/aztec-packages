@@ -5,22 +5,18 @@
 #include "complete_partial_commitment.hpp"
 #include "create_partial_commitment.hpp"
 
-namespace join_split_example {
-namespace proofs {
-namespace notes {
-namespace native {
-namespace value {
+namespace bb::join_split_example::proofs::notes::native::value {
 
-using namespace barretenberg;
+using namespace bb;
 
 struct value_note {
     uint256_t value;
     uint32_t asset_id;
     bool account_required;
     grumpkin::g1::affine_element owner;
-    barretenberg::fr secret;
-    barretenberg::fr creator_pubkey;
-    barretenberg::fr input_nullifier;
+    bb::fr secret;
+    bb::fr creator_pubkey;
+    bb::fr input_nullifier;
 
     bool operator==(value_note const&) const = default;
 
@@ -63,8 +59,4 @@ inline void write(std::vector<uint8_t>& buf, value_note const& note)
     write(buf, note.input_nullifier);
 }
 
-} // namespace value
-} // namespace native
-} // namespace notes
-} // namespace proofs
-} // namespace join_split_example
+} // namespace bb::join_split_example::proofs::notes::native::value

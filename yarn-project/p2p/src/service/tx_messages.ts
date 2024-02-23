@@ -1,6 +1,11 @@
-import { KernelCircuitPublicInputsFinal, MAX_NEW_CONTRACTS_PER_TX, Proof, PublicCallRequest } from '@aztec/circuits.js';
+import { ExtendedContractData, Tx, TxHash, TxL2Logs } from '@aztec/circuit-types';
+import {
+  MAX_NEW_CONTRACTS_PER_TX,
+  PrivateKernelTailCircuitPublicInputs,
+  Proof,
+  PublicCallRequest,
+} from '@aztec/circuits.js';
 import { Tuple, numToUInt32BE } from '@aztec/foundation/serialize';
-import { ExtendedContractData, Tx, TxHash, TxL2Logs } from '@aztec/types';
 
 /**
  * Enumeration of P2P message types.
@@ -186,7 +191,7 @@ export function fromTxMessage(buffer: Buffer): Tx {
   };
   // this is the opposite of the 'toMessage' function
   // so the first 4 bytes is the complete length, skip it
-  const publicInputs = toObject(buffer.subarray(4), KernelCircuitPublicInputsFinal);
+  const publicInputs = toObject(buffer.subarray(4), PrivateKernelTailCircuitPublicInputs);
   const proof = toObject(publicInputs.remainingData, Proof);
 
   const encryptedLogs = toObject(proof.remainingData, TxL2Logs);

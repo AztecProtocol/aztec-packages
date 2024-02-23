@@ -1,9 +1,9 @@
 #include "barretenberg/flavor/ecc_vm.hpp"
-#include "barretenberg/flavor/relation_definitions_fwd.hpp"
+#include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "ecc_msm_relation.hpp"
 
-namespace proof_system::honk::sumcheck {
+namespace bb {
 
 /**
  * @brief Expression for ECCVM lookup tables.
@@ -25,11 +25,11 @@ void ECCVMLookupRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumula
                                              const Parameters& params,
                                              const FF& scaling_factor)
 {
-    logderivative_library::accumulate_logderivative_lookup_subrelation_contributions<FF, ECCVMLookupRelationImpl<FF>>(
+    accumulate_logderivative_lookup_subrelation_contributions<FF, ECCVMLookupRelationImpl<FF>>(
         accumulator, in, params, scaling_factor);
 }
 
 template class ECCVMLookupRelationImpl<grumpkin::fr>;
-DEFINE_SUMCHECK_RELATION_CLASS(ECCVMLookupRelationImpl, flavor::ECCVM);
+DEFINE_SUMCHECK_RELATION_CLASS(ECCVMLookupRelationImpl, ECCVMFlavor);
 
-} // namespace proof_system::honk::sumcheck
+} // namespace bb

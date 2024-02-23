@@ -1,18 +1,14 @@
+use super::fs::{create_named_dir, write_to_file};
 use super::NargoConfig;
-use super::{
-    compile_cmd::compile_bin_package,
-    fs::{create_named_dir, write_to_file},
-};
 use crate::backends::Backend;
+use crate::cli::compile_cmd::report_errors;
 use crate::errors::CliError;
 
-use acvm::ExpressionWidth;
-use bb_abstraction_leaks::ACVM_BACKEND_BARRETENBERG;
 use clap::Args;
-use nargo::package::Package;
-use nargo::workspace::Workspace;
+use nargo::ops::compile_program;
+use nargo::{insert_all_files_for_workspace_into_file_manager, parse_all};
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
-use noirc_driver::{CompileOptions, NOIR_ARTIFACT_VERSION_STRING};
+use noirc_driver::{file_manager_with_stdlib, CompileOptions, NOIR_ARTIFACT_VERSION_STRING};
 use noirc_frontend::graph::CrateName;
 
 /// Generates a Solidity verifier smart contract for the program
@@ -45,15 +41,31 @@ pub(crate) fn run(
         Some(NOIR_ARTIFACT_VERSION_STRING.to_string()),
     )?;
 
+    let mut workspace_file_manager = file_manager_with_stdlib(&workspace.root_dir);
+    insert_all_files_for_workspace_into_file_manager(&workspace, &mut workspace_file_manager);
+    let parsed_files = parse_all(&workspace_file_manager);
+
     let expression_width = backend.get_backend_info()?;
-    for package in &workspace {
-        let smart_contract_string = smart_contract_for_package(
-            &workspace,
-            backend,
+    let binary_packages = workspace.into_iter().filter(|package| package.is_binary());
+    for package in binary_packages {
+        let compilation_result = compile_program(
+            &workspace_file_manager,
+            &parsed_files,
             package,
             &args.compile_options,
-            expression_width,
+            None,
+        );
+
+        let program = report_errors(
+            compilation_result,
+            &workspace_file_manager,
+            args.compile_options.deny_warnings,
+            args.compile_options.silence_warnings,
         )?;
+
+        let program = nargo::ops::transform_program(program, expression_width);
+
+        let smart_contract_string = backend.eth_contract(&program.circuit)?;
 
         let contract_dir = workspace.contracts_directory_path(package);
         create_named_dir(&contract_dir, "contract");
@@ -64,23 +76,4 @@ pub(crate) fn run(
     }
 
     Ok(())
-}
-
-fn smart_contract_for_package(
-    workspace: &Workspace,
-    backend: &Backend,
-    package: &Package,
-    compile_options: &CompileOptions,
-    expression_width: ExpressionWidth,
-) -> Result<String, CliError> {
-    let program = compile_bin_package(workspace, package, compile_options, expression_width)?;
-
-    let mut smart_contract_string = backend.eth_contract(&program.circuit)?;
-
-    if backend.name() == ACVM_BACKEND_BARRETENBERG {
-        smart_contract_string =
-            bb_abstraction_leaks::complete_barretenberg_verifier_contract(smart_contract_string);
-    }
-
-    Ok(smart_contract_string)
 }

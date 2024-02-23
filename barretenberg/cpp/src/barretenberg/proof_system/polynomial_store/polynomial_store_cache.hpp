@@ -4,7 +4,7 @@
 #include <map>
 #include <string>
 
-namespace proof_system {
+namespace bb {
 
 /**
  * A cache that wraps an underlying external store. It favours holding the largest polynomials in it's cache up
@@ -17,10 +17,10 @@ namespace proof_system {
  */
 class PolynomialStoreCache {
   private:
-    using Polynomial = barretenberg::Polynomial<barretenberg::fr>;
+    using Polynomial = bb::Polynomial<bb::fr>;
     std::map<std::string, Polynomial> cache_;
     std::multimap<size_t, std::map<std::string, Polynomial>::iterator> size_map_;
-    PolynomialStoreWasm<barretenberg::fr> external_store;
+    PolynomialStoreWasm<bb::fr> external_store;
     size_t max_cache_size_;
 
   public:
@@ -35,4 +35,4 @@ class PolynomialStoreCache {
     void purge_until_free();
 };
 
-} // namespace proof_system
+} // namespace bb

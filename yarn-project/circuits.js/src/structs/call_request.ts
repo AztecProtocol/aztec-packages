@@ -1,9 +1,7 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
-
-import { serializeToBuffer } from '../utils/serialize.js';
 
 /**
  * Caller context.
@@ -145,5 +143,9 @@ export class CallRequest {
       callRequest.startSideEffectCounter.equals(this.startSideEffectCounter) &&
       callRequest.endSideEffectCounter.equals(this.endSideEffectCounter)
     );
+  }
+
+  toString() {
+    return `CallRequest(hash: ${this.hash.toString()}, callerContractAddress: ${this.callerContractAddress.toString()}, callerContext: ${this.callerContext.toString()}, startSideEffectCounter: ${this.startSideEffectCounter.toString()}, endSideEffectCounter: ${this.endSideEffectCounter.toString()})`;
   }
 }

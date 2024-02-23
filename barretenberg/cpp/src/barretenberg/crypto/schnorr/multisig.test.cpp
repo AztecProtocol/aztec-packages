@@ -3,13 +3,15 @@
 
 #include "./multisig.hpp"
 
-using namespace barretenberg;
+using namespace bb;
+using namespace bb::crypto;
 
+namespace {
 template <typename Hash> struct MultisigTest : public ::testing::Test {
     using G = grumpkin::g1;
     using Fr = grumpkin::fr;
-    using KeyPair = crypto::schnorr::key_pair<Fr, G>;
-    using multisig = crypto::schnorr::multisig<G, Hash, Blake2sHasher>;
+    using KeyPair = crypto::schnorr_key_pair<Fr, G>;
+    using multisig = crypto::schnorr_multisig<G, Hash, Blake2sHasher>;
     using multisig_public_key = typename multisig::MultiSigPublicKey;
 
     static KeyPair generate_account()
@@ -31,9 +33,9 @@ template <typename Hash> struct MultisigTest : public ::testing::Test {
         return signer_pubkeys;
     }
 
-    static std::optional<crypto::schnorr::signature> create_multisig(const std::string& message,
-                                                                     const std::vector<KeyPair>& accounts,
-                                                                     const bool tamper_proof_of_possession = false)
+    static std::optional<crypto::schnorr_signature> create_multisig(const std::string& message,
+                                                                    const std::vector<KeyPair>& accounts,
+                                                                    const bool tamper_proof_of_possession = false)
     {
         std::vector<typename multisig::RoundOnePublicOutput> round1_pub;
         std::vector<typename multisig::RoundOnePrivateOutput> round1_priv;
@@ -63,6 +65,8 @@ template <typename Hash> struct MultisigTest : public ::testing::Test {
 };
 
 using HashTypes = ::testing::Types<KeccakHasher, Sha256Hasher>;
+} // namespace
+
 TYPED_TEST_SUITE(MultisigTest, HashTypes);
 
 TYPED_TEST(MultisigTest, verify_multi_signature_blake2s)
@@ -70,8 +74,8 @@ TYPED_TEST(MultisigTest, verify_multi_signature_blake2s)
     using G = grumpkin::g1;
     using Fr = grumpkin::fr;
     using Fq = grumpkin::fq;
-    using KeyPair = crypto::schnorr::key_pair<Fr, G>;
-    using multisig = crypto::schnorr::multisig<G, TypeParam>;
+    using KeyPair = crypto::schnorr_key_pair<Fr, G>;
+    using multisig = crypto::schnorr_multisig<G, TypeParam>;
 
     std::string message = "The quick brown dog jumped over the lazy fox.";
 
@@ -88,7 +92,7 @@ TYPED_TEST(MultisigTest, verify_multi_signature_blake2s)
     auto pub_key = multisig::validate_and_combine_signer_pubkeys(this->create_signer_pubkeys(accounts));
     ASSERT_TRUE(pub_key.has_value());
 
-    bool result = crypto::schnorr::verify_signature<Blake2sHasher, Fq, Fr, G>(message, *pub_key, *signature);
+    bool result = crypto::schnorr_verify_signature<Blake2sHasher, Fq, Fr, G>(message, *pub_key, *signature);
 
     EXPECT_EQ(result, true);
 }
@@ -97,7 +101,7 @@ TYPED_TEST(MultisigTest, multi_signature_fails_if_proof_of_possession_invalid)
 {
     using G = grumpkin::g1;
     using Fr = grumpkin::fr;
-    using KeyPair = crypto::schnorr::key_pair<Fr, G>;
+    using KeyPair = crypto::schnorr_key_pair<Fr, G>;
 
     std::string message = "The quick brown dog jumped over the lazy fox.";
 
@@ -116,7 +120,7 @@ TYPED_TEST(MultisigTest, multi_signature_fails_if_duplicates)
 {
     using G = grumpkin::g1;
     using Fr = grumpkin::fr;
-    using KeyPair = crypto::schnorr::key_pair<Fr, G>;
+    using KeyPair = crypto::schnorr_key_pair<Fr, G>;
 
     std::string message = "The quick brown dog jumped over the lazy fox.";
 

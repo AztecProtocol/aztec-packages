@@ -1,7 +1,4 @@
-use super::{
-    brillig::Brillig,
-    directives::{Directive, QuotientDirective},
-};
+use super::{brillig::Brillig, directives::Directive};
 use crate::native_types::{Expression, Witness};
 use serde::{Deserialize, Serialize};
 
@@ -11,9 +8,10 @@ mod memory_operation;
 pub use black_box_function_call::{BlackBoxFuncCall, FunctionInput};
 pub use memory_operation::{BlockId, MemOp};
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Opcode {
-    Arithmetic(Expression),
+    AssertZero(Expression),
     /// Calls to "gadgets" which rely on backends implementing support for specialized constraints.
     ///
     /// Often used for exposing more efficient implementations of SNARK-unfriendly computations.  
@@ -36,7 +34,7 @@ pub enum Opcode {
 impl std::fmt::Display for Opcode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Opcode::Arithmetic(expr) => {
+            Opcode::AssertZero(expr) => {
                 write!(f, "EXPR [ ")?;
                 for i in &expr.mul_terms {
                     write!(f, "({}, _{}, _{}) ", i.0, i.1.witness_index(), i.2.witness_index())?;
@@ -48,21 +46,7 @@ impl std::fmt::Display for Opcode {
 
                 write!(f, " ]")
             }
-            Opcode::Directive(Directive::Quotient(QuotientDirective { a, b, q, r, predicate })) => {
-                write!(f, "DIR::QUOTIENT ")?;
-                if let Some(pred) = predicate {
-                    writeln!(f, "PREDICATE = {pred}")?;
-                }
 
-                write!(
-                    f,
-                    "(out : _{},  (_{}, {}), _{})",
-                    a,
-                    q.witness_index(),
-                    b,
-                    r.witness_index()
-                )
-            }
             Opcode::BlackBoxFuncCall(g) => write!(f, "{g}"),
             Opcode::Directive(Directive::ToLeRadix { a, b, radix: _ }) => {
                 write!(f, "DIR::TORADIX ")?;
@@ -76,20 +60,6 @@ impl std::fmt::Display for Opcode {
                     b.last().unwrap().witness_index(),
                 )
             }
-            Opcode::Directive(Directive::PermutationSort { inputs: a, tuple, bits, sort_by }) => {
-                write!(f, "DIR::PERMUTATIONSORT ")?;
-                write!(
-                    f,
-                    "(permutation size: {} {}-tuples, sort_by: {:#?}, bits: [_{}..._{}]))",
-                    a.len(),
-                    tuple,
-                    sort_by,
-                    // (Note): the bits do not have contiguous index but there are too many for display
-                    bits.first().unwrap().witness_index(),
-                    bits.last().unwrap().witness_index(),
-                )
-            }
-
             Opcode::Brillig(brillig) => {
                 write!(f, "BRILLIG: ")?;
                 writeln!(f, "inputs: {:?}", brillig.inputs)?;

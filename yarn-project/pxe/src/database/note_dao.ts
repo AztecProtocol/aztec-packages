@@ -1,11 +1,13 @@
+import { Note, TxHash } from '@aztec/circuit-types';
 import { AztecAddress, Fr, Point, PublicKey } from '@aztec/circuits.js';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { BufferReader, Note, TxHash } from '@aztec/types';
+import { BufferReader } from '@aztec/foundation/serialize';
+import { NoteData } from '@aztec/simulator';
 
 /**
  * A note with contextual data.
  */
-export class NoteDao {
+export class NoteDao implements NoteData {
   constructor(
     /** The note as emitted from the Noir contract. */
     public note: Note,
@@ -13,6 +15,8 @@ export class NoteDao {
     public contractAddress: AztecAddress,
     /** The specific storage location of the note on the contract. */
     public storageSlot: Fr,
+    /** The note type identifier for the contract. */
+    public noteTypeId: Fr,
     /** The hash of the tx the note was created in. */
     public txHash: TxHash,
     /** The nonce of the note. */
@@ -35,6 +39,7 @@ export class NoteDao {
       this.note.toBuffer(),
       this.contractAddress.toBuffer(),
       this.storageSlot.toBuffer(),
+      this.noteTypeId.toBuffer(),
       this.txHash.buffer,
       this.nonce.toBuffer(),
       this.innerNoteHash.toBuffer(),
@@ -49,6 +54,7 @@ export class NoteDao {
     const note = Note.fromBuffer(reader);
     const contractAddress = AztecAddress.fromBuffer(reader);
     const storageSlot = Fr.fromBuffer(reader);
+    const noteTypeId = Fr.fromBuffer(reader);
     const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
     const nonce = Fr.fromBuffer(reader);
     const innerNoteHash = Fr.fromBuffer(reader);
@@ -60,6 +66,7 @@ export class NoteDao {
       note,
       contractAddress,
       storageSlot,
+      noteTypeId,
       txHash,
       nonce,
       innerNoteHash,

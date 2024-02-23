@@ -1,4 +1,6 @@
 // docs:start:imports
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   ExtendedNote,
   Fr,
@@ -8,11 +10,9 @@ import {
   computeMessageSecretHash,
   createDebugLogger,
   createPXEClient,
-  getSandboxAccountsWallets,
-  getSchnorrAccount,
-  waitForSandbox,
+  waitForPXE,
 } from '@aztec/aztec.js';
-import { TokenContract } from '@aztec/noir-contracts/Token';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { format } from 'util';
 
@@ -28,7 +28,7 @@ describe('e2e_sandbox_example', () => {
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready
-    await waitForSandbox(pxe);
+    await waitForPXE(pxe, logger);
 
     const nodeInfo = await pxe.getNodeInfo();
 
@@ -45,7 +45,7 @@ describe('e2e_sandbox_example', () => {
     // docs:start:load_accounts
     ////////////// LOAD SOME ACCOUNTS FROM THE SANDBOX //////////////
     // The sandbox comes with a set of created accounts. Load them
-    const accounts = await getSandboxAccountsWallets(pxe);
+    const accounts = await getDeployedTestAccountsWallets(pxe);
     const aliceWallet = accounts[0];
     const bobWallet = accounts[1];
     const alice = aliceWallet.getAddress();
@@ -61,7 +61,7 @@ describe('e2e_sandbox_example', () => {
     logger(`Deploying token contract...`);
 
     // Deploy the contract and set Alice as the admin while doing so
-    const contract = await TokenContract.deploy(aliceWallet, alice).send().deployed();
+    const contract = await TokenContract.deploy(aliceWallet, alice, 'TokenName', 'TokenSymbol', 18).send().deployed();
     logger(`Contract successfully deployed at address ${contract.address.toShortString()}`);
 
     // Create the contract abstraction and link it to Alice's wallet for future signing
@@ -77,8 +77,12 @@ describe('e2e_sandbox_example', () => {
 
     // Add the newly created "pending shield" note to PXE
     const pendingShieldsStorageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
+    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
     const note = new Note([new Fr(initialSupply), aliceSecretHash]);
-    await pxe.addNote(new ExtendedNote(note, alice, contract.address, pendingShieldsStorageSlot, receipt.txHash));
+    await pxe.addNote(
+      new ExtendedNote(note, alice, contract.address, pendingShieldsStorageSlot, noteTypeId, receipt.txHash),
+    );
 
     // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above
     // to a "token note")
@@ -145,7 +149,14 @@ describe('e2e_sandbox_example', () => {
 
     const bobPendingShield = new Note([new Fr(mintQuantity), bobSecretHash]);
     await pxe.addNote(
-      new ExtendedNote(bobPendingShield, bob, contract.address, pendingShieldsStorageSlot, mintPrivateReceipt.txHash),
+      new ExtendedNote(
+        bobPendingShield,
+        bob,
+        contract.address,
+        pendingShieldsStorageSlot,
+        noteTypeId,
+        mintPrivateReceipt.txHash,
+      ),
     );
 
     await tokenContractBob.methods.redeem_shield(bob, mintQuantity, bobSecret).send().wait();
@@ -167,7 +178,7 @@ describe('e2e_sandbox_example', () => {
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready
-    await waitForSandbox(pxe);
+    await waitForPXE(pxe, logger);
 
     // docs:start:create_accounts
     ////////////// CREATE SOME ACCOUNTS WITH SCHNORR SIGNERS //////////////

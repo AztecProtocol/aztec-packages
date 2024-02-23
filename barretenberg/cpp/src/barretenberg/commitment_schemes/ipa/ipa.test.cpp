@@ -8,9 +8,10 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include <gtest/gtest.h>
-using namespace barretenberg;
-namespace proof_system::honk::pcs::ipa::test {
 
+using namespace bb;
+
+namespace {
 using Curve = curve::Grumpkin;
 
 class IPATest : public CommitmentTest<Curve> {
@@ -19,8 +20,9 @@ class IPATest : public CommitmentTest<Curve> {
     using GroupElement = typename Curve::Element;
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 };
+} // namespace
 
 TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
 {
@@ -31,7 +33,7 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
     }
     p[3] = Fr::one();
     GroupElement commitment = this->commit(p);
-    auto srs_elements = this->ck()->srs->get_monomial_points();
+    auto* srs_elements = this->ck()->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * p[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
@@ -47,7 +49,7 @@ TEST_F(IPATest, Commit)
     constexpr size_t n = 128;
     auto poly = this->random_polynomial(n);
     GroupElement commitment = this->commit(poly);
-    auto srs_elements = this->ck()->srs->get_monomial_points();
+    auto* srs_elements = this->ck()->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * poly[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
@@ -70,11 +72,11 @@ TEST_F(IPATest, Open)
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
     // initialize empty prover transcript
-    auto prover_transcript = std::make_shared<BaseTranscript>();
+    auto prover_transcript = std::make_shared<NativeTranscript>();
     IPA::compute_opening_proof(this->ck(), opening_pair, poly, prover_transcript);
 
     // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<BaseTranscript>(prover_transcript->proof_data);
+    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
     auto result = IPA::verify(this->vk(), opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
@@ -85,10 +87,10 @@ TEST_F(IPATest, Open)
 TEST_F(IPATest, GeminiShplonkIPAWithShift)
 {
     using IPA = IPA<Curve>;
-    using ShplonkProver = shplonk::ShplonkProver_<Curve>;
-    using ShplonkVerifier = shplonk::ShplonkVerifier_<Curve>;
-    using GeminiProver = gemini::GeminiProver_<Curve>;
-    using GeminiVerifier = gemini::GeminiVerifier_<Curve>;
+    using ShplonkProver = ShplonkProver_<Curve>;
+    using ShplonkVerifier = ShplonkVerifier_<Curve>;
+    using GeminiProver = GeminiProver_<Curve>;
+    using GeminiVerifier = GeminiVerifier_<Curve>;
 
     const size_t n = 8;
     const size_t log_n = 3;
@@ -129,7 +131,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     batched_commitment_unshifted = commitment1 * rhos[0] + commitment2 * rhos[1];
     batched_commitment_to_be_shifted = commitment2 * rhos[2];
 
-    auto prover_transcript = BaseTranscript::prover_init_empty();
+    auto prover_transcript = NativeTranscript::prover_init_empty();
 
     auto gemini_polynomials = GeminiProver::compute_gemini_polynomials(
         mle_opening_point, std::move(batched_unshifted), std::move(batched_to_be_shifted));
@@ -140,7 +142,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
         prover_transcript->send_to_verifier(label, commitment);
     }
 
-    const Fr r_challenge = prover_transcript->get_challenge("Gemini:r");
+    const Fr r_challenge = prover_transcript->template get_challenge<Fr>("Gemini:r");
 
     const auto [gemini_opening_pairs, gemini_witnesses] = GeminiProver::compute_fold_polynomial_evaluations(
         mle_opening_point, std::move(gemini_polynomials), r_challenge);
@@ -151,18 +153,18 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
         prover_transcript->send_to_verifier(label, evaluation);
     }
 
-    const Fr nu_challenge = prover_transcript->get_challenge("Shplonk:nu");
+    const Fr nu_challenge = prover_transcript->template get_challenge<Fr>("Shplonk:nu");
     auto batched_quotient_Q =
         ShplonkProver::compute_batched_quotient(gemini_opening_pairs, gemini_witnesses, nu_challenge);
     prover_transcript->send_to_verifier("Shplonk:Q", this->ck()->commit(batched_quotient_Q));
 
-    const Fr z_challenge = prover_transcript->get_challenge("Shplonk:z");
+    const Fr z_challenge = prover_transcript->template get_challenge<Fr>("Shplonk:z");
     const auto [shplonk_opening_pair, shplonk_witness] = ShplonkProver::compute_partially_evaluated_batched_quotient(
         gemini_opening_pairs, gemini_witnesses, std::move(batched_quotient_Q), nu_challenge, z_challenge);
 
     IPA::compute_opening_proof(this->ck(), shplonk_opening_pair, shplonk_witness, prover_transcript);
 
-    auto verifier_transcript = BaseTranscript::verifier_init_empty(prover_transcript);
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
     auto gemini_verifier_claim = GeminiVerifier::reduce_verification(mle_opening_point,
                                                                      batched_evaluation,
@@ -176,4 +178,3 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     EXPECT_EQ(verified, true);
 }
-} // namespace proof_system::honk::pcs::ipa::test

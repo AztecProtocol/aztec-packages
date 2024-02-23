@@ -2,6 +2,7 @@ use ark_ff::PrimeField;
 use ark_ff::Zero;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 // XXX: Switch out for a trait and proper implementations
 // This implementation is in-efficient, can definitely remove hex usage and Iterator instances for trivial functionality
@@ -125,8 +126,8 @@ impl<'de, T: ark_ff::PrimeField> Deserialize<'de> for FieldElement<T> {
     where
         D: serde::Deserializer<'de>,
     {
-        let s = <&str>::deserialize(deserializer)?;
-        match Self::from_hex(s) {
+        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        match Self::from_hex(&s) {
             Some(value) => Ok(value),
             None => Err(serde::de::Error::custom(format!("Invalid hex for FieldElement: {s}",))),
         }
@@ -172,6 +173,10 @@ impl<F: PrimeField> FieldElement<F> {
     }
     pub fn is_one(&self) -> bool {
         self == &Self::one()
+    }
+
+    pub fn is_negative(&self) -> bool {
+        self.neg().num_bits() < self.num_bits()
     }
 
     pub fn pow(&self, exponent: &Self) -> Self {
@@ -237,6 +242,12 @@ impl<F: PrimeField> FieldElement<F> {
 
     pub fn try_into_u128(self) -> Option<u128> {
         self.fits_in_u128().then(|| self.to_u128())
+    }
+
+    pub fn to_i128(self) -> i128 {
+        let is_negative = self.is_negative();
+        let bytes = if is_negative { self.neg() } else { self }.to_be_bytes();
+        i128::from_be_bytes(bytes[16..32].try_into().unwrap()) * if is_negative { -1 } else { 1 }
     }
 
     pub fn try_to_u64(&self) -> Option<u64> {

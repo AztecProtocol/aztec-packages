@@ -8,7 +8,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace proof_system {
+namespace bb {
 
 template <typename FF_> class DatabusLookupRelationImpl {
   public:
@@ -175,12 +175,12 @@ template <typename FF_> class DatabusLookupRelationImpl {
                            const Parameters& params,
                            const FF& scaling_factor)
     {
-        honk::logderivative_library::
-            accumulate_logderivative_lookup_subrelation_contributions<FF, DatabusLookupRelationImpl<FF>>(
-                accumulator, in, params, scaling_factor);
+
+        accumulate_logderivative_lookup_subrelation_contributions<FF, DatabusLookupRelationImpl<FF>>(
+            accumulator, in, params, scaling_factor);
     }
 };
 
 template <typename FF> using DatabusLookupRelation = Relation<DatabusLookupRelationImpl<FF>>;
 
-} // namespace proof_system
+} // namespace bb

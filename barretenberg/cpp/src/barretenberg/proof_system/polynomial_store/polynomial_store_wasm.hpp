@@ -3,11 +3,11 @@
 #include <string>
 #include <unordered_map>
 
-namespace proof_system {
+namespace bb {
 
 template <typename Fr> class PolynomialStoreWasm {
   private:
-    using Polynomial = barretenberg::Polynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
     std::unordered_map<std::string, size_t> size_map;
 
   public:
@@ -16,6 +16,4 @@ template <typename Fr> class PolynomialStoreWasm {
     Polynomial get(std::string const& key);
 };
 
-extern template class PolynomialStoreWasm<barretenberg::fr>;
-
-} // namespace proof_system
+} // namespace bb

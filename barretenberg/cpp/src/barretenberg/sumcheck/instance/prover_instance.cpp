@@ -5,7 +5,7 @@
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 
-namespace proof_system::honk {
+namespace bb {
 /**
  * @brief Helper method to compute quantities like total number of gates and dyadic circuit size
  *
@@ -195,6 +195,7 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     // Note: We do not utilize a zero row for databus columns
     for (size_t idx = 0; idx < circuit.public_calldata.size(); ++idx) {
         public_calldata[idx] = circuit.get_variable(circuit.public_calldata[idx]);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/821): automate updating of read counts
         calldata_read_counts[idx] = circuit.calldata_read_counts[idx];
     }
 
@@ -406,7 +407,7 @@ void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
     relation_parameters.gamma = gamma;
 
     // Compute permutation and lookup grand product polynomials
-    logderivative_library::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
+    bb::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
         prover_polynomials, relation_parameters, proving_key->circuit_size);
 }
 
@@ -414,19 +415,17 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_poly
 {
     auto public_input_delta =
         compute_public_input_delta<Flavor>(public_inputs, beta, gamma, proving_key->circuit_size, pub_inputs_offset);
-
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
     relation_parameters.public_input_delta = public_input_delta;
-
     auto lookup_grand_product_delta = compute_lookup_grand_product_delta(beta, gamma, proving_key->circuit_size);
     relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
     // Compute permutation and lookup grand product polynomials
-    grand_product_library::compute_grand_products<Flavor>(proving_key, prover_polynomials, relation_parameters);
+    compute_grand_products<Flavor>(proving_key, prover_polynomials, relation_parameters);
 }
 
-template class ProverInstance_<honk::flavor::Ultra>;
-template class ProverInstance_<honk::flavor::GoblinUltra>;
+template class ProverInstance_<UltraFlavor>;
+template class ProverInstance_<GoblinUltraFlavor>;
 
-} // namespace proof_system::honk
+} // namespace bb

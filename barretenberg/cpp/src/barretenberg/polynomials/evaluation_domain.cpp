@@ -9,7 +9,7 @@
 #include <memory.h>
 #include <memory>
 
-namespace barretenberg {
+namespace bb {
 
 namespace {
 constexpr size_t MIN_GROUP_PER_THREAD = 4;
@@ -66,7 +66,7 @@ EvaluationDomain<Fr>::EvaluationDomain(const size_t domain_size, const size_t ta
     , roots(nullptr)
 {
     // Grumpkin does not have many roots of unity and, given these are not used for Honk, we set it to one.
-    if (proof_system::IsAnyOf<Fr, grumpkin::fr>) {
+    if (bb::IsAnyOf<Fr, grumpkin::fr>) {
         root = Fr::one();
     } else {
         root = Fr::get_root_of_unity(log2_size);
@@ -177,7 +177,7 @@ template <typename Fr> void EvaluationDomain<Fr>::compute_lookup_table()
 }
 
 // explicitly instantiate both EvaluationDomain
-template class EvaluationDomain<barretenberg::fr>;
+template class EvaluationDomain<bb::fr>;
 template class EvaluationDomain<grumpkin::fr>;
 
-} // namespace barretenberg
+} // namespace bb

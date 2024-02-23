@@ -1,7 +1,4 @@
-import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import {
-  CancelledL1ToL2Message,
   ContractData,
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
@@ -15,10 +12,12 @@ import {
   LogFilter,
   LogId,
   LogType,
-  PendingL1ToL2Message,
   TxHash,
   UnencryptedL2Log,
-} from '@aztec/types';
+} from '@aztec/circuit-types';
+import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { ArchiverDataStore } from '../archiver_store.js';
 import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
@@ -70,10 +69,39 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   private pendingL1ToL2Messages: PendingL1ToL2MessageStore = new PendingL1ToL2MessageStore();
 
+  private contractClasses: Map<string, ContractClassPublic> = new Map();
+
+  private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
+
+  private lastL1BlockAddedMessages: bigint = 0n;
+  private lastL1BlockCancelledMessages: bigint = 0n;
+
   constructor(
     /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
     public readonly maxLogs: number,
   ) {}
+
+  public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    return Promise.resolve(this.contractClasses.get(id.toString()));
+  }
+
+  public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return Promise.resolve(this.contractInstances.get(address.toString()));
+  }
+
+  public addContractClasses(data: ContractClassPublic[], _blockNumber: number): Promise<boolean> {
+    for (const contractClass of data) {
+      this.contractClasses.set(contractClass.id.toString(), contractClass);
+    }
+    return Promise.resolve(true);
+  }
+
+  public addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
+    for (const contractInstance of data) {
+      this.contractInstances.set(contractInstance.address.toString(), contractInstance);
+    }
+    return Promise.resolve(true);
+  }
 
   /**
    * Append new blocks to the store's list.
@@ -108,11 +136,17 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   /**
    * Append new pending L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
+   * @param l1BlockNumber - The L1 block number for which to add the messages.
    * @returns True if the operation is successful (always in this implementation).
    */
-  public addPendingL1ToL2Messages(messages: PendingL1ToL2Message[]): Promise<boolean> {
-    for (const { message, blockNumber, indexInBlock } of messages) {
-      this.pendingL1ToL2Messages.addMessage(message.entryKey!, message, blockNumber, indexInBlock);
+  public addPendingL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean> {
+    if (l1BlockNumber <= this.lastL1BlockAddedMessages) {
+      return Promise.resolve(false);
+    }
+
+    this.lastL1BlockAddedMessages = l1BlockNumber;
+    for (const message of messages) {
+      this.pendingL1ToL2Messages.addMessage(message.entryKey!, message);
     }
     return Promise.resolve(true);
   }
@@ -120,11 +154,17 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   /**
    * Remove pending L1 to L2 messages from the store (if they were cancelled).
    * @param messages - The message keys to be removed from the store.
+   * @param l1BlockNumber - The L1 block number for which to remove the messages.
    * @returns True if the operation is successful (always in this implementation).
    */
-  public cancelPendingL1ToL2Messages(messages: CancelledL1ToL2Message[]): Promise<boolean> {
-    messages.forEach(({ entryKey, blockNumber, indexInBlock }) => {
-      this.pendingL1ToL2Messages.removeMessage(entryKey, blockNumber, indexInBlock);
+  public cancelPendingL1ToL2Messages(messages: Fr[], l1BlockNumber: bigint): Promise<boolean> {
+    if (l1BlockNumber <= this.lastL1BlockCancelledMessages) {
+      return Promise.resolve(false);
+    }
+
+    this.lastL1BlockCancelledMessages = l1BlockNumber;
+    messages.forEach(entryKey => {
+      this.pendingL1ToL2Messages.removeMessage(entryKey);
     });
     return Promise.resolve(true);
   }
@@ -137,8 +177,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   public confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
     messageKeys.forEach(messageKey => {
-      this.confirmedL1ToL2Messages.addMessageUnsafe(messageKey, this.pendingL1ToL2Messages.getMessage(messageKey)!);
-      this.pendingL1ToL2Messages.removeMessageUnsafe(messageKey);
+      this.confirmedL1ToL2Messages.addMessage(messageKey, this.pendingL1ToL2Messages.getMessage(messageKey)!);
+      this.pendingL1ToL2Messages.removeMessage(messageKey);
     });
     return Promise.resolve(true);
   }
@@ -356,7 +396,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       return Promise.resolve(undefined);
     }
     for (const blockContext of this.l2BlockContexts) {
-      for (const contractData of blockContext.block.newContractData) {
+      for (const contractData of blockContext.block.body.txEffects.flatMap(txEffect => txEffect.contractData)) {
         if (contractData.contractAddress.equals(contractAddress)) {
           return Promise.resolve(contractData);
         }
@@ -376,7 +416,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       return Promise.resolve([]);
     }
     const block: L2Block | undefined = this.l2BlockContexts[l2BlockNum - INITIAL_L2_BLOCK_NUM]?.block;
-    return Promise.resolve(block?.newContractData);
+    return Promise.resolve(block?.body.txEffects.flatMap(txEffect => txEffect.contractData));
   }
 
   /**
@@ -390,10 +430,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.l2BlockContexts[this.l2BlockContexts.length - 1].block.number);
   }
 
-  public getL1BlockNumber(): Promise<bigint> {
-    if (this.l2BlockContexts.length === 0) {
-      return Promise.resolve(0n);
-    }
-    return Promise.resolve(this.l2BlockContexts[this.l2BlockContexts.length - 1].block.getL1BlockNumber());
+  public getL1BlockNumber() {
+    const addedBlock = this.l2BlockContexts[this.l2BlockContexts.length - 1]?.block?.getL1BlockNumber() ?? 0n;
+    const addedMessages = this.lastL1BlockAddedMessages;
+    const cancelledMessages = this.lastL1BlockCancelledMessages;
+
+    return Promise.resolve({
+      addedBlock,
+      addedMessages,
+      cancelledMessages,
+    });
   }
 }

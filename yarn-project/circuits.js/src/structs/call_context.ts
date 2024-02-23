@@ -1,20 +1,16 @@
+import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
-import { FieldsOf } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
-import { Fr, FunctionSelector } from './index.js';
+import { CALL_CONTEXT_LENGTH } from '../constants.gen.js';
 
 /**
  * Call context.
- * @see abis/call_context.hpp
  */
 export class CallContext {
-  /**
-   * Address of the portal contract to the storage contract.
-   */
-  public portalContractAddress: EthAddress;
   constructor(
     /**
      * Address of the account which represents the entity who invoked the call.
@@ -28,9 +24,8 @@ export class CallContext {
     public storageContractAddress: AztecAddress,
     /**
      * Address of the portal contract to the storage contract.
-     * Union type is a kludge until C++ has an eth address type.
      */
-    portalContractAddress: EthAddress | Fr,
+    public portalContractAddress: EthAddress,
     /**
      * Function selector of the function being called.
      */
@@ -50,11 +45,8 @@ export class CallContext {
     /**
      * The start side effect counter for this call context.
      */
-    public startSideEffectCounter: Fr,
-  ) {
-    this.portalContractAddress =
-      portalContractAddress instanceof EthAddress ? portalContractAddress : EthAddress.fromField(portalContractAddress);
-  }
+    public startSideEffectCounter: number,
+  ) {}
 
   /**
    * Returns a new instance of CallContext with zero msg sender, storage contract address and portal contract address.
@@ -64,12 +56,12 @@ export class CallContext {
     return new CallContext(
       AztecAddress.ZERO,
       AztecAddress.ZERO,
-      Fr.ZERO,
+      EthAddress.ZERO,
       FunctionSelector.empty(),
       false,
       false,
       false,
-      Fr.ZERO,
+      0,
     );
   }
 
@@ -79,7 +71,7 @@ export class CallContext {
       this.storageContractAddress.isZero() &&
       this.portalContractAddress.isZero() &&
       this.functionSelector.isEmpty() &&
-      this.startSideEffectCounter.isZero()
+      Fr.ZERO
     );
   }
 
@@ -108,6 +100,16 @@ export class CallContext {
     return serializeToBuffer(...CallContext.getFields(this));
   }
 
+  toFields(): Fr[] {
+    const fields = serializeToFields(...CallContext.getFields(this));
+    if (fields.length !== CALL_CONTEXT_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for CallContext. Expected ${CALL_CONTEXT_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
+  }
+
   /**
    * Deserialize this from a buffer.
    * @param buffer - The bufferable type from which to deserialize.
@@ -116,14 +118,28 @@ export class CallContext {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new CallContext(
-      new AztecAddress(reader.readBytes(32)),
-      new AztecAddress(reader.readBytes(32)),
-      new EthAddress(reader.readBytes(32)),
-      FunctionSelector.fromBuffer(reader.readBytes(4)),
+      reader.readObject(AztecAddress),
+      reader.readObject(AztecAddress),
+      reader.readObject(EthAddress),
+      reader.readObject(FunctionSelector),
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readBoolean(),
-      reader.readObject(Fr),
+      reader.readNumber(),
+    );
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): CallContext {
+    const reader = FieldReader.asReader(fields);
+    return new CallContext(
+      reader.readObject(AztecAddress),
+      reader.readObject(AztecAddress),
+      reader.readObject(EthAddress),
+      reader.readObject(FunctionSelector),
+      reader.readBoolean(),
+      reader.readBoolean(),
+      reader.readBoolean(),
+      reader.readU32(),
     );
   }
 

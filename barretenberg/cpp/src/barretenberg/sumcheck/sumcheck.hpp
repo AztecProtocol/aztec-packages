@@ -5,7 +5,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include "sumcheck_round.hpp"
 
-namespace proof_system::honk::sumcheck {
+namespace bb {
 
 template <typename Flavor> class SumcheckProver {
 
@@ -16,11 +16,12 @@ template <typename Flavor> class SumcheckProver {
     using ClaimedEvaluations = typename Flavor::AllValues;
     using Transcript = typename Flavor::Transcript;
     using Instance = ProverInstance_<Flavor>;
-
-    std::shared_ptr<Transcript> transcript;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     const size_t multivariate_n;
     const size_t multivariate_d;
+
+    std::shared_ptr<Transcript> transcript;
     SumcheckProverRound<Flavor> round;
 
     /**
@@ -58,11 +59,22 @@ template <typename Flavor> class SumcheckProver {
 
     // prover instantiates sumcheck with circuit size and a prover transcript
     SumcheckProver(size_t multivariate_n, const std::shared_ptr<Transcript>& transcript)
-        : transcript(transcript)
-        , multivariate_n(multivariate_n)
+        : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
+        , transcript(transcript)
         , round(multivariate_n)
         , partially_evaluated_polynomials(multivariate_n){};
+
+    // WORKTODO delete this
+    /**
+     * @brief Compute univariate restriction place in transcript, generate challenge, partially evaluate,... repeat
+     * until final round, then compute multivariate evaluations and place in transcript.
+     */
+    SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
+    {
+        return prove(
+            instance->prover_polynomials, instance->relation_parameters, instance->alphas, instance->gate_challenges);
+    };
 
     /**
      * @brief Compute univariate restriction place in transcript, generate challenge, partially evaluate,... repeat
@@ -71,12 +83,13 @@ template <typename Flavor> class SumcheckProver {
      * @details
      */
     SumcheckOutput<Flavor> prove(ProverPolynomials& full_polynomials,
-                                 const proof_system::RelationParameters<FF>& relation_parameters,
-                                 FF alpha) // pass by value, not by reference
+                                 const bb::RelationParameters<FF>& relation_parameters,
+                                 const RelationSeparator alpha,
+                                 const std::vector<FF>& gate_challenges)
     {
-        FF zeta = transcript->get_challenge("Sumcheck:zeta");
 
-        barretenberg::PowUnivariate<FF> pow_univariate(zeta);
+        bb::PowPolynomial<FF> pow_univariate(gate_challenges);
+        pow_univariate.compute_values();
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
@@ -85,21 +98,19 @@ template <typename Flavor> class SumcheckProver {
         // This populates partially_evaluated_polynomials.
         auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, pow_univariate, alpha);
         transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
-        FF round_challenge = transcript->get_challenge("Sumcheck:u_0");
+        FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
         multivariate_challenge.emplace_back(round_challenge);
         partially_evaluate(full_polynomials, multivariate_n, round_challenge);
         pow_univariate.partially_evaluate(round_challenge);
-        round.round_size =
-            round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and release memory?
-
-        // All but final round
+        round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
+                                                  // release memory?        // All but final round
         // We operate on partially_evaluated_polynomials in place.
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             // Write the round univariate to the transcript
             round_univariate =
                 round.compute_univariate(partially_evaluated_polynomials, relation_parameters, pow_univariate, alpha);
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
-            FF round_challenge = transcript->get_challenge("Sumcheck:u_" + std::to_string(round_idx));
+            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
             pow_univariate.partially_evaluate(round_challenge);
@@ -110,20 +121,11 @@ template <typename Flavor> class SumcheckProver {
         ClaimedEvaluations multivariate_evaluations;
         for (auto [eval, poly] :
              zip_view(multivariate_evaluations.get_all(), partially_evaluated_polynomials.get_all())) {
-            eval = (poly)[0];
+            eval = poly[0];
         }
-        transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations);
+        transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
 
         return { multivariate_challenge, multivariate_evaluations };
-    };
-
-    /**
-     * @brief Compute univariate restriction place in transcript, generate challenge, partially evaluate,... repeat
-     * until final round, then compute multivariate evaluations and place in transcript.
-     */
-    SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
-    {
-        return prove(instance->prover_polynomials, instance->relation_parameters, instance->alpha);
     };
 
     /**
@@ -172,40 +174,41 @@ template <typename Flavor> class SumcheckProver {
 template <typename Flavor> class SumcheckVerifier {
 
   public:
-    using Utils = barretenberg::RelationUtils<Flavor>;
+    using Utils = bb::RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
     using ClaimedEvaluations = typename Flavor::AllValues;
     using Transcript = typename Flavor::Transcript;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
     const size_t multivariate_d;
+    std::shared_ptr<Transcript> transcript;
     SumcheckVerifierRound<Flavor> round;
 
-    // verifier instantiates sumcheck with circuit size
-    explicit SumcheckVerifier(size_t multivariate_n)
-        : multivariate_d(numeric::get_msb(multivariate_n))
-        , round(){};
+    // Verifier instantiates sumcheck with circuit size, optionally a different target sum than 0 can be specified.
+    explicit SumcheckVerifier(size_t multivariate_d, std::shared_ptr<Transcript> transcript, FF target_sum = 0)
+        : multivariate_d(multivariate_d)
+        , transcript(transcript)
+        , round(target_sum){};
 
     /**
-     * @brief Extract round univariate, check sum, generate challenge, compute next target sum..., repeat until final
-     * round, then use purported evaluations to generate purported full Honk relation value and check against final
-     * target sum.
+     * @brief Extract round univariate, check sum, generate challenge, compute next target sum..., repeat until
+     * final round, then use purported evaluations to generate purported full Honk relation value and check against
+     * final target sum.
      *
      * @details If verification fails, returns std::nullopt, otherwise returns SumcheckOutput
      * @param relation_parameters
      * @param transcript
      */
-    SumcheckOutput<Flavor> verify(const proof_system::RelationParameters<FF>& relation_parameters,
-                                  FF alpha,
-                                  const std::shared_ptr<Transcript>& transcript)
+    SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
+                                  RelationSeparator alpha,
+                                  const std::vector<FF>& gate_challenges)
     {
         bool verified(true);
 
-        FF zeta = transcript->get_challenge("Sumcheck:zeta");
-
-        barretenberg::PowUnivariate<FF> pow_univariate(zeta);
+        bb::PowPolynomial<FF> pow_univariate(gate_challenges);
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
 
@@ -220,12 +223,12 @@ template <typename Flavor> class SumcheckVerifier {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
             auto round_univariate =
-                transcript->template receive_from_prover<barretenberg::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
+                transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
 
             bool checked = round.check_sum(round_univariate);
             verified = verified && checked;
-            FF round_challenge = transcript->get_challenge("Sumcheck:u_" + std::to_string(round_idx));
+            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
 
             round.compute_next_target_sum(round_univariate, round_challenge);
@@ -236,10 +239,20 @@ template <typename Flavor> class SumcheckVerifier {
         ClaimedEvaluations purported_evaluations;
         auto transcript_evaluations =
             transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
+
+        // GCC has a bug where it says this is above array bounds
+        // but this is likely due to this bug https://gcc.gnu.org/bugzilla/show_bug.cgi?id=104165
+        // We disable this - if GCC was right, we would have caught this at runtime
+#if !defined(__clang__) && defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
         }
-
+#if !defined(__clang__) && defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
         FF full_honk_relation_purported_value = round.compute_full_honk_relation_purported_value(
             purported_evaluations, relation_parameters, pow_univariate, alpha);
 
@@ -254,4 +267,4 @@ template <typename Flavor> class SumcheckVerifier {
         return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, verified };
     };
 };
-} // namespace proof_system::honk::sumcheck
+} // namespace bb

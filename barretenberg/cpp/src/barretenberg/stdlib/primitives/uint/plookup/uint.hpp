@@ -5,8 +5,7 @@
 #include "../../field/field.hpp"
 #include "../../plookup/plookup.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename Builder, typename Native> class uint_plookup {
   public:
@@ -172,11 +171,4 @@ template <typename T, typename w> inline std::ostream& operator<<(std::ostream& 
 {
     return os << v.get_value();
 }
-
-EXTERN_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint8_t);
-EXTERN_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint16_t);
-EXTERN_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint32_t);
-EXTERN_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint64_t);
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

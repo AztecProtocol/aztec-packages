@@ -3,8 +3,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "sha256_plookup.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 namespace internal {
 constexpr uint32_t init_constants[8]{ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                                       0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
@@ -179,7 +178,31 @@ template <typename Builder> packed_byte_array<Builder> sha256(const packed_byte_
     return packed_byte_array<Builder>(output, 4);
 }
 
-INSTANTIATE_STDLIB_METHOD(SHA256_BLOCK)
-INSTANTIATE_STDLIB_METHOD(SHA256)
-} // namespace stdlib
-} // namespace proof_system::plonk
+/**
+ * @brief Generate a simple sha256 circuit for testing purposes
+ *
+ * @tparam Builder
+ * @param builder
+ * @param num_iterations number of hashes to perform
+ */
+template <typename Builder> void generate_sha256_test_circuit(Builder& builder, size_t num_iterations)
+{
+    std::string in;
+    in.resize(32);
+    stdlib::packed_byte_array<Builder> input(&builder, in);
+    for (size_t i = 0; i < num_iterations; i++) {
+        input = stdlib::sha256<Builder>(input);
+    }
+}
+
+template byte_array<bb::StandardCircuitBuilder> sha256_block(const byte_array<bb::StandardCircuitBuilder>& input);
+template byte_array<bb::UltraCircuitBuilder> sha256_block(const byte_array<bb::UltraCircuitBuilder>& input);
+template byte_array<bb::GoblinUltraCircuitBuilder> sha256_block(const byte_array<bb::GoblinUltraCircuitBuilder>& input);
+template packed_byte_array<bb::StandardCircuitBuilder> sha256(
+    const packed_byte_array<bb::StandardCircuitBuilder>& input);
+template packed_byte_array<bb::UltraCircuitBuilder> sha256(const packed_byte_array<bb::UltraCircuitBuilder>& input);
+template packed_byte_array<bb::GoblinUltraCircuitBuilder> sha256(
+    const packed_byte_array<bb::GoblinUltraCircuitBuilder>& input);
+template void generate_sha256_test_circuit(bb::UltraCircuitBuilder&, size_t);
+template void generate_sha256_test_circuit(bb::GoblinUltraCircuitBuilder&, size_t);
+} // namespace bb::stdlib

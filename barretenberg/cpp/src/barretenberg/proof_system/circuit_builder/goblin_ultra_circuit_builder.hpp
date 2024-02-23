@@ -3,16 +3,16 @@
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "ultra_circuit_builder.hpp"
 
-namespace proof_system {
+namespace bb {
 
-using namespace barretenberg;
+using namespace bb;
 
-template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<arithmetization::UltraHonk<FF>> {
+template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<UltraHonkArith<FF>> {
   public:
     static constexpr std::string_view NAME_STRING = "GoblinUltraArithmetization";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
-        UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+        UltraCircuitBuilder_<UltraHonkArith<FF>>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
     size_t num_ecc_op_gates = 0; // number of ecc op "gates" (rows); these are placed at the start of the circuit
 
@@ -29,7 +29,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
 
     // Wires storing ecc op queue data; values are indices into the variables array
-    std::array<WireVector, arithmetization::UltraHonk<FF>::NUM_WIRES> ecc_op_wires;
+    std::array<WireVector, UltraHonkArith<FF>::NUM_WIRES> ecc_op_wires;
 
     WireVector& ecc_op_wire_1() { return std::get<0>(ecc_op_wires); };
     WireVector& ecc_op_wire_2() { return std::get<1>(ecc_op_wires); };
@@ -67,7 +67,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
   public:
     GoblinUltraCircuitBuilder_(const size_t size_hint = 0,
                                std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
-        : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>(size_hint)
+        : UltraCircuitBuilder_<UltraHonkArith<FF>>(size_hint)
         , op_queue(op_queue_in)
     {
         // Set indices to constants corresponding to Goblin ECC op codes
@@ -95,20 +95,9 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
                                auto& witness_values,
                                std::vector<uint32_t>& public_inputs,
                                size_t varnum)
-        : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>()
+        : UltraCircuitBuilder_<UltraHonkArith<FF>>(/*size_hint=*/0, witness_values, public_inputs, varnum)
         , op_queue(op_queue_in)
     {
-        // Add the witness variables known directly from acir
-        for (size_t idx = 0; idx < varnum; ++idx) {
-            // Zeros are added for variables whose existence is known but whose values are not yet known. The values may
-            // be "set" later on via the assert_equal mechanism.
-            auto value = idx < witness_values.size() ? witness_values[idx] : 0;
-            this->add_variable(value);
-        }
-
-        // Add the public_inputs from acir
-        this->public_inputs = public_inputs;
-
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
     };
@@ -130,7 +119,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
      */
     size_t get_num_gates() const override
     {
-        auto num_ultra_gates = UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::get_num_gates();
+        auto num_ultra_gates = UltraCircuitBuilder_<UltraHonkArith<FF>>::get_num_gates();
         return num_ultra_gates + num_ecc_op_gates;
     }
 
@@ -145,7 +134,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::get_num_gates_split_into_components(
+        UltraCircuitBuilder_<UltraHonkArith<FF>>::get_num_gates_split_into_components(
             count, rangecount, romcount, ramcount, nnfcount);
 
         size_t total = count + romcount + ramcount + rangecount + num_ecc_op_gates;
@@ -155,24 +144,24 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     }
 
     /**
-     * Make a witness variable a member of the public calldata.
+     * @brief Add a witness variable to the public calldata.
      *
-     * @param witness_index The index of the witness.
+     * @param in Value to be added to calldata.
      * */
-    void set_public_calldata(const uint32_t witness_index)
+    uint32_t add_public_calldata(const FF& in)
     {
-        for (const uint32_t calldata : public_calldata) {
-            if (calldata == witness_index) {
-                if (!this->failed()) {
-                    this->failure("Attempted to redundantly set a public calldata!");
-                }
-                return;
-            }
-        }
-        public_calldata.emplace_back(witness_index);
+        const uint32_t index = this->add_variable(in);
+        public_calldata.emplace_back(index);
+        // Note: this is a bit inefficent to do every time but for safety these need to be coupled
+        calldata_read_counts.resize(public_calldata.size());
+        return index;
     }
+
+    void create_calldata_lookup_gate(const databus_lookup_gate_<FF>& in);
+
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
+    void create_poseidon2_end_gate(const poseidon2_end_gate_<FF>& in);
 
     FF compute_poseidon2_external_identity(FF q_poseidon2_external_value,
                                            FF q_1_value,
@@ -205,6 +194,5 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
 
     bool check_circuit();
 };
-extern template class GoblinUltraCircuitBuilder_<barretenberg::fr>;
-using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<barretenberg::fr>;
-} // namespace proof_system
+using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<bb::fr>;
+} // namespace bb

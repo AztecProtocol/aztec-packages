@@ -11,7 +11,7 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts';
+import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
@@ -58,14 +58,18 @@ describe('e2e_lending_contract', () => {
 
     {
       logger(`Deploying collateral asset feed contract...`);
-      const receipt = await waitForSuccess(TokenContract.deploy(wallet, accounts[0]).send());
+      const receipt = await waitForSuccess(
+        TokenContract.deploy(wallet, accounts[0], 'TokenName', 'TokenSymbol', 18).send(),
+      );
       logger(`Collateral asset deployed to ${receipt.contractAddress}`);
       collateralAsset = await TokenContract.at(receipt.contractAddress!, wallet);
     }
 
     {
       logger(`Deploying stable coin contract...`);
-      const receipt = await waitForSuccess(TokenContract.deploy(wallet, accounts[0]).send());
+      const receipt = await waitForSuccess(
+        TokenContract.deploy(wallet, accounts[0], 'TokenName', 'TokenSymbol', 18).send(),
+      );
       logger(`Stable coin asset deployed to ${receipt.contractAddress}`);
       stableCoin = await TokenContract.at(receipt.contractAddress!, wallet);
     }
@@ -122,9 +126,18 @@ describe('e2e_lending_contract', () => {
         await Promise.all([a, b].map(waitForSuccess));
 
         const storageSlot = new Fr(5);
+        const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
         const note = new Note([new Fr(mintAmount), secretHash]);
         const txHash = await b.getTxHash();
-        const extendedNote = new ExtendedNote(note, accounts[0].address, asset.address, storageSlot, txHash);
+        const extendedNote = new ExtendedNote(
+          note,
+          accounts[0].address,
+          asset.address,
+          storageSlot,
+          noteTypeId,
+          txHash,
+        );
         await wallet.addNote(extendedNote);
 
         await waitForSuccess(asset.methods.redeem_shield(lendingAccount.address, mintAmount, secret).send());
@@ -245,18 +258,6 @@ describe('e2e_lending_contract', () => {
           .deposit_public(depositAmount, nonce, lendingAccount.address, collateralAsset.address)
           .send(),
       );
-    });
-    describe('failure cases', () => {
-      it('calling internal _deposit function directly', async () => {
-        // Try to call the internal `_deposit` function directly
-        // This should:
-        // - not change any storage values.
-        // - fail
-
-        await expect(
-          lendingContract.methods._deposit(lendingAccount.address.toField(), 42n, collateralAsset.address).simulate(),
-        ).rejects.toThrow();
-      });
     });
   });
 

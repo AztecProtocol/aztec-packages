@@ -1,16 +1,27 @@
 import {
-  BlockHeader,
+  ExtendedContractData,
+  L1ToL2MessageSource,
+  L2Block,
+  L2BlockSource,
+  MerkleTreeId,
+  Tx,
+  TxHash,
+  mockTx,
+} from '@aztec/circuit-types';
+import {
+  AztecAddress,
+  EthAddress,
   Fr,
   GlobalVariables,
+  Header,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   makeEmptyProof,
 } from '@aztec/circuits.js';
+import { times } from '@aztec/foundation/collection';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx, TxHash, mockTx } from '@aztec/types';
 import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchronizer } from '@aztec/world-state';
 
 import { MockProxy, mock, mockFn } from 'jest-mock-extended';
-import times from 'lodash.times';
 
 import { BlockBuilder } from '../block_builder/index.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -37,6 +48,8 @@ describe('sequencer', () => {
 
   const chainId = new Fr(12345);
   const version = Fr.ZERO;
+  const coinbase = EthAddress.random();
+  const feeRecipient = AztecAddress.random();
 
   beforeEach(() => {
     lastBlockNumber = 0;
@@ -57,7 +70,7 @@ describe('sequencer', () => {
 
     publicProcessor = mock<PublicProcessor>({
       process: async txs => [await Promise.all(txs.map(tx => makeProcessedTx(tx))), []],
-      makeEmptyProcessedTx: () => makeEmptyProcessedTx(BlockHeader.empty(), chainId, version),
+      makeEmptyProcessedTx: () => makeEmptyProcessedTx(Header.empty(), chainId, version),
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({
@@ -95,16 +108,16 @@ describe('sequencer', () => {
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
     );
 
     await sequencer.initialSync();
     await sequencer.work();
 
-    const expectedTxHashes = [...(await Tx.getHashes([tx])), ...times(1, () => TxHash.ZERO)];
+    const expectedTxHashes = [...Tx.getHashes([tx]), ...times(1, () => TxHash.ZERO)];
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -124,7 +137,7 @@ describe('sequencer', () => {
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
     );
 
     // We make a nullifier from tx1 a part of the nullifier tree, so it gets rejected as double spend
@@ -138,15 +151,15 @@ describe('sequencer', () => {
     await sequencer.initialSync();
     await sequencer.work();
 
-    const expectedTxHashes = await Tx.getHashes([txs[0], txs[2]]);
+    const expectedTxHashes = Tx.getHashes([txs[0], txs[2]]);
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
-    expect(p2p.deleteTxs).toHaveBeenCalledWith([await doubleSpendTx.getTxHash()]);
+    expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
   });
 
   it('builds a block out of several txs rejecting incorrect chain ids', async () => {
@@ -162,7 +175,7 @@ describe('sequencer', () => {
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
     );
 
     // We make the chain id on the invalid tx not equal to the configured chain id
@@ -171,15 +184,15 @@ describe('sequencer', () => {
     await sequencer.initialSync();
     await sequencer.work();
 
-    const expectedTxHashes = await Tx.getHashes([txs[0], txs[2]]);
+    const expectedTxHashes = Tx.getHashes([txs[0], txs[2]]);
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
-    expect(p2p.deleteTxs).toHaveBeenCalledWith([await invalidChainTx.getTxHash()]);
+    expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
   });
 
   it('aborts building a block if the chain moves underneath it', async () => {
@@ -192,7 +205,7 @@ describe('sequencer', () => {
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
     );
 
     await sequencer.initialSync();
@@ -208,6 +221,45 @@ describe('sequencer', () => {
     await sequencer.work();
 
     expect(publisher.processL2Block).not.toHaveBeenCalled();
+  });
+
+  it('publishes contract data', async () => {
+    const txWithContract = mockTx(0x10000);
+    (txWithContract.newContracts as Array<ExtendedContractData>) = [ExtendedContractData.random()];
+    txWithContract.data.constants.txContext.chainId = chainId;
+
+    const txWithEmptyContract = mockTx(0x20000);
+    (txWithEmptyContract.newContracts as Array<ExtendedContractData>) = [ExtendedContractData.empty()];
+    txWithEmptyContract.data.constants.txContext.chainId = chainId;
+
+    const block = L2Block.random(lastBlockNumber + 1);
+    const proof = makeEmptyProof();
+
+    p2p.getTxs.mockResolvedValueOnce([txWithContract, txWithEmptyContract]);
+    blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
+    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.processNewContractData.mockResolvedValueOnce(true);
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
+    );
+
+    await sequencer.initialSync();
+    await sequencer.work();
+
+    // check that the block was built with both transactions
+    expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.arrayContaining([
+        expect.objectContaining({ hash: txWithContract.getTxHash() }),
+        expect.objectContaining({ hash: txWithEmptyContract.getTxHash() }),
+      ]),
+      expect.any(Array),
+    );
+
+    // check that the empty contract did not get published
+    expect(publisher.processNewContractData).toHaveBeenCalledWith(block.number, block.body.getCalldataHash(), [
+      txWithContract.newContracts[0],
+    ]);
   });
 });
 
