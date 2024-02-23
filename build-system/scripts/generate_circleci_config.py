@@ -44,11 +44,12 @@ def get_already_built_manifest_job_names():
     manifest_names = get_manifest_job_names()
 
     with ProcessPoolExecutor() as executor:
-        futures = {executor.submit(_get_already_built_manifest_job_names, key): key for key in manifest_names}
+        futures = [executor.submit(_get_already_built_manifest_job_names, key) for key in manifest_names]
         for future in as_completed(futures):
+            eprint('fut', future)
             result = future.result()
+            eprint('res', result)
             if result is not None:
-                eprint("res", result)
                 yield result
 
 def remove_jobs_from_workflow(jobs, to_remove):
