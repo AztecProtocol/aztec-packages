@@ -360,7 +360,7 @@ jobs:
       - run:
           name: "Upload"
           command: |
-            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh release
+            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh barretenberg-release-bench
 
   barretenberg-op-count-bench:
     machine:
@@ -377,7 +377,7 @@ jobs:
       - run:
           name: "Upload"
           command: |
-            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh op-count
+            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh barretenberg-op-count-bench
 
   barretenberg-wasm-bench:
     machine:
@@ -394,7 +394,7 @@ jobs:
       - run:
           name: "Upload"
           command: |
-            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh wasm
+            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh barretenberg-wasm-bench
 
   barretenberg-proof-system-tests:
     docker:

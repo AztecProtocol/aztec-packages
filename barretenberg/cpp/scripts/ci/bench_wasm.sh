@@ -6,10 +6,12 @@ set -eu
 cd "$(dirname $0)"
 
 cd ../../srs_db
+./download_ignition.sh 1
+./download_grumpkin.sh
 cd ../build
 
 bench() {
-  ~/.wasmtime/bin/wasmtime run -Wthreads=y -Sthreads=y --dir=.. ./bin/$1 --benchmark_format=json --benchmark_counters_tabular=true $2 > $1.json
+  ~/.wasmtime/bin/wasmtime run -Wthreads=y -Sthreads=y --dir=.. ./bin/$1 --benchmark_format=json --benchmark_counters_tabular=true $2
   cat $1.json
 }
 
