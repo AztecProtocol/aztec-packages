@@ -104,7 +104,7 @@ if __name__ == '__main__':
     # # List of jobs to remove
     jobs_to_remove = list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
     for key in jobs_to_remove:
-        eprint("Skipping circleci job", key)
+        eprint("Skipping circleci job:", key)
 
     # Get rid of workflow setup step and setup flag
     workflow_dict["setup"] = False
