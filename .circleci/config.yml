@@ -85,6 +85,7 @@ jobs:
             # ability to query ECR images
             ecr_login
             set +eu
+            set -x
             # convert to json, run a python script, write out json (which is a readable as YAML)
             pip install PyYAML
             build-system/scripts/generate_circleci_config.py 
