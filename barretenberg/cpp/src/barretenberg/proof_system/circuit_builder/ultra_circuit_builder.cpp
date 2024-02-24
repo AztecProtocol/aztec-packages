@@ -61,10 +61,6 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
 {
     // First add a gate to simultaneously ensure first entries of all wires is zero and to add a non
     // zero value to all selectors aside from q_c and q_lookup
-    // blocks.main.w_l().emplace_back(this->zero_idx);
-    // blocks.main.w_r().emplace_back(this->zero_idx);
-    // blocks.main.w_o().emplace_back(this->zero_idx);
-    // blocks.main.w_4().emplace_back(this->zero_idx);
     blocks.main.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
     blocks.main.q_m().emplace_back(1);
     blocks.main.q_1().emplace_back(1);
@@ -126,10 +122,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_add_gate(const add_triple_<FF
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    // blocks.main.w_l().emplace_back(in.a);
-    // blocks.main.w_r().emplace_back(in.b);
-    // blocks.main.w_o().emplace_back(in.c);
-    // blocks.main.w_4().emplace_back(this->zero_idx);
     blocks.main.populate_wires(in.a, in.b, in.c, this->zero_idx);
     blocks.main.q_m().emplace_back(0);
     blocks.main.q_1().emplace_back(in.a_scaling);
@@ -162,10 +154,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate(const add_quad_<
                                                                 const bool include_next_gate_w_4)
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
-    // blocks.main.w_l().emplace_back(in.a);
-    // blocks.main.w_r().emplace_back(in.b);
-    // blocks.main.w_o().emplace_back(in.c);
-    // blocks.main.w_4().emplace_back(in.d);
     blocks.main.populate_wires(in.a, in.b, in.c, in.d);
     blocks.main.q_m().emplace_back(0);
     blocks.main.q_1().emplace_back(in.a_scaling);
@@ -260,10 +248,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_mul_gate(const mul_quad_<
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
 
-    // blocks.main.w_l().emplace_back(in.a);
-    // blocks.main.w_r().emplace_back(in.b);
-    // blocks.main.w_o().emplace_back(in.c);
-    // blocks.main.w_4().emplace_back(in.d);
     blocks.main.populate_wires(in.a, in.b, in.c, in.d);
     blocks.main.q_m().emplace_back(in.mul_scaling);
     blocks.main.q_1().emplace_back(in.a_scaling);
@@ -290,10 +274,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_balanced_add_gate(const add_q
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
 
-    // blocks.main.w_l().emplace_back(in.a);
-    // blocks.main.w_r().emplace_back(in.b);
-    // blocks.main.w_o().emplace_back(in.c);
-    // blocks.main.w_4().emplace_back(in.d);
     blocks.main.populate_wires(in.a, in.b, in.c, in.d);
     blocks.main.q_m().emplace_back(0);
     blocks.main.q_1().emplace_back(in.a_scaling);
@@ -336,10 +316,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_mul_gate(const mul_triple_<FF
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    // blocks.main.w_l().emplace_back(in.a);
-    // blocks.main.w_r().emplace_back(in.b);
-    // blocks.main.w_o().emplace_back(in.c);
-    // blocks.main.w_4().emplace_back(this->zero_idx);
     blocks.main.populate_wires(in.a, in.b, in.c, this->zero_idx);
     blocks.main.q_m().emplace_back(in.mul_scaling);
     blocks.main.q_1().emplace_back(0);
@@ -368,10 +344,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_bool_gate(const uint32_t vari
 {
     this->assert_valid_variables({ variable_index });
 
-    // blocks.main.w_l().emplace_back(variable_index);
-    // blocks.main.w_r().emplace_back(variable_index);
-    // blocks.main.w_o().emplace_back(this->zero_idx);
-    // blocks.main.w_4().emplace_back(this->zero_idx);
     blocks.main.populate_wires(variable_index, variable_index, this->zero_idx, this->zero_idx);
     blocks.main.q_m().emplace_back(1);
     blocks.main.q_1().emplace_back(-1);
@@ -403,10 +375,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_poly_gate(const poly_triple_<
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    // blocks.main.w_l().emplace_back(in.a);
-    // blocks.main.w_r().emplace_back(in.b);
-    // blocks.main.w_o().emplace_back(in.c);
-    // blocks.main.w_4().emplace_back(this->zero_idx);
     blocks.main.populate_wires(in.a, in.b, in.c, this->zero_idx);
     blocks.main.q_m().emplace_back(in.q_m);
     blocks.main.q_1().emplace_back(in.q_l);
@@ -592,10 +560,6 @@ void UltraCircuitBuilder_<Arithmetization>::fix_witness(const uint32_t witness_i
 {
     this->assert_valid_variables({ witness_index });
 
-    // blocks.main.w_l().emplace_back(witness_index);
-    // blocks.main.w_r().emplace_back(this->zero_idx);
-    // blocks.main.w_o().emplace_back(this->zero_idx);
-    // blocks.main.w_4().emplace_back(this->zero_idx);
     blocks.main.populate_wires(witness_index, this->zero_idx, this->zero_idx, this->zero_idx);
     blocks.main.q_m().emplace_back(0);
     blocks.main.q_1().emplace_back(1);
@@ -673,10 +637,6 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<Arithmetization>::create_gates_
 
         blocks.main.q_lookup_type().emplace_back(FF(1));
         blocks.main.q_3().emplace_back(FF(table.table_index));
-        // blocks.main.w_l().emplace_back(first_idx);
-        // blocks.main.w_r().emplace_back(second_idx);
-        // blocks.main.w_o().emplace_back(third_idx);
-        // blocks.main.w_4().emplace_back(this->zero_idx);
         blocks.main.populate_wires(first_idx, second_idx, third_idx, this->zero_idx);
         blocks.main.q_1().emplace_back(0);
         blocks.main.q_2().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_1_step_sizes[i + 1]));
@@ -982,11 +942,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
     this->assert_valid_variables(variable_index);
 
     for (size_t i = 0; i < variable_index.size(); i += gate_width) {
-
-        // blocks.main.w_l().emplace_back(variable_index[i]);
-        // blocks.main.w_r().emplace_back(variable_index[i + 1]);
-        // blocks.main.w_o().emplace_back(variable_index[i + 2]);
-        // blocks.main.w_4().emplace_back(variable_index[i + 3]);
         blocks.main.populate_wires(variable_index[i], variable_index[i+1], variable_index[i+2], variable_index[i+3]);
 
         ++this->num_gates;
@@ -1007,10 +962,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
         check_selector_length_consistency();
     }
     // dummy gate needed because of sort widget's check of next row
-    // blocks.main.w_l().emplace_back(variable_index[variable_index.size() - 1]);
-    // blocks.main.w_r().emplace_back(this->zero_idx);
-    // blocks.main.w_o().emplace_back(this->zero_idx);
-    // blocks.main.w_4().emplace_back(this->zero_idx);
     blocks.main.populate_wires(variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
     ++this->num_gates;
     blocks.main.q_m().emplace_back(0);
@@ -1045,10 +996,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_dummy_constraints(const std::
     this->assert_valid_variables(padded_list);
 
     for (size_t i = 0; i < padded_list.size(); i += gate_width) {
-        // blocks.main.w_l().emplace_back(padded_list[i]);
-        // blocks.main.w_r().emplace_back(padded_list[i + 1]);
-        // blocks.main.w_o().emplace_back(padded_list[i + 2]);
-        // blocks.main.w_4().emplace_back(padded_list[i + 3]);
         blocks.main.populate_wires(padded_list[i], padded_list[i+1], padded_list[i+2], padded_list[i+3]);
         ++this->num_gates;
         blocks.main.q_m().emplace_back(0);
@@ -1080,10 +1027,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     this->assert_valid_variables(variable_index);
 
     // enforce range checks of first row and starting at start
-    // blocks.main.w_l().emplace_back(variable_index[0]);
-    // blocks.main.w_r().emplace_back(variable_index[1]);
-    // blocks.main.w_o().emplace_back(variable_index[2]);
-    // blocks.main.w_4().emplace_back(variable_index[3]);
     blocks.main.populate_wires(variable_index[0], variable_index[1], variable_index[2], variable_index[3]);
     ++this->num_gates;
     blocks.main.q_m().emplace_back(0);
@@ -1104,10 +1047,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     // enforce range check for middle rows
     for (size_t i = gate_width; i < variable_index.size() - gate_width; i += gate_width) {
 
-        // blocks.main.w_l().emplace_back(variable_index[i]);
-        // blocks.main.w_r().emplace_back(variable_index[i + 1]);
-        // blocks.main.w_o().emplace_back(variable_index[i + 2]);
-        // blocks.main.w_4().emplace_back(variable_index[i + 3]);
         blocks.main.populate_wires(variable_index[i], variable_index[i + 1], variable_index[i+2], variable_index[i+3]);
         ++this->num_gates;
         blocks.main.q_m().emplace_back(0);
@@ -1128,10 +1067,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     }
     // enforce range checks of last row and ending at end
     if (variable_index.size() > gate_width) {
-        // blocks.main.w_l().emplace_back(variable_index[variable_index.size() - 4]);
-        // blocks.main.w_r().emplace_back(variable_index[variable_index.size() - 3]);
-        // blocks.main.w_o().emplace_back(variable_index[variable_index.size() - 2]);
-        // blocks.main.w_4().emplace_back(variable_index[variable_index.size() - 1]);
         blocks.main.populate_wires(variable_index[variable_index.size() - 4], variable_index[variable_index.size() - 3], variable_index[variable_index.size() - 2], variable_index[variable_index.size() - 1]);
         ++this->num_gates;
         blocks.main.q_m().emplace_back(0);
@@ -1153,10 +1088,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
 
     // dummy gate needed because of sort widget's check of next row
     // use this gate to check end condition
-    // blocks.main.w_l().emplace_back(variable_index[variable_index.size() - 1]);
-    // blocks.main.w_r().emplace_back(this->zero_idx);
-    // blocks.main.w_o().emplace_back(this->zero_idx);
-    // blocks.main.w_4().emplace_back(this->zero_idx);
     blocks.main.populate_wires(variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
     ++this->num_gates;
     blocks.main.q_m().emplace_back(0);
@@ -1532,26 +1463,9 @@ void UltraCircuitBuilder_<Arithmetization>::range_constrain_two_limbs(const uint
     const std::array<uint32_t, 5> lo_sublimbs = get_sublimbs(lo_idx, lo_masks);
     const std::array<uint32_t, 5> hi_sublimbs = get_sublimbs(hi_idx, hi_masks);
 
-    // blocks.main.w_l().emplace_back(lo_sublimbs[0]);
-    // blocks.main.w_r().emplace_back(lo_sublimbs[1]);
-    // blocks.main.w_o().emplace_back(lo_sublimbs[2]);
-    // blocks.main.w_4().emplace_back(lo_idx);
     blocks.main.populate_wires(lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
-
-
-    // blocks.main.w_l().emplace_back(lo_sublimbs[3]);
-    // blocks.main.w_r().emplace_back(lo_sublimbs[4]);
-    // blocks.main.w_o().emplace_back(hi_sublimbs[0]);
-    // blocks.main.w_4().emplace_back(hi_sublimbs[1]);
     blocks.main.populate_wires(lo_sublimbs[3], lo_sublimbs[4], hi_sublimbs[0], hi_sublimbs[1]);
-
-
-    // blocks.main.w_l().emplace_back(hi_sublimbs[2]);
-    // blocks.main.w_r().emplace_back(hi_sublimbs[3]);
-    // blocks.main.w_o().emplace_back(hi_sublimbs[4]);
-    // blocks.main.w_4().emplace_back(hi_idx);
     blocks.main.populate_wires(hi_sublimbs[2], hi_sublimbs[3], hi_sublimbs[4], hi_idx);
-
 
     apply_aux_selectors(AUX_SELECTORS::LIMB_ACCUMULATE_1);
     apply_aux_selectors(AUX_SELECTORS::LIMB_ACCUMULATE_2);
@@ -1711,36 +1625,19 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
                           0 },
                         true);
 
-    // blocks.main.w_l().emplace_back(input.a[1]);
-    // blocks.main.w_r().emplace_back(input.b[1]);
-    // blocks.main.w_o().emplace_back(input.r[0]);
-    // blocks.main.w_4().emplace_back(lo_0_idx);
     blocks.main.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
-
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
     ++this->num_gates;
-    // blocks.main.w_l().emplace_back(input.a[0]);
-    // blocks.main.w_r().emplace_back(input.b[0]);
-    // blocks.main.w_o().emplace_back(input.a[3]);
-    // blocks.main.w_4().emplace_back(input.b[3]);
-    blocks.main.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
 
+    blocks.main.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_2);
     ++this->num_gates;
-    // blocks.main.w_l().emplace_back(input.a[2]);
-    // blocks.main.w_r().emplace_back(input.b[2]);
-    // blocks.main.w_o().emplace_back(input.r[3]);
-    // blocks.main.w_4().emplace_back(hi_0_idx);
-    blocks.main.populate_wires(input.a[2], input.b[2], input.r[3], hi_0_idx);
 
+    blocks.main.populate_wires(input.a[2], input.b[2], input.r[3], hi_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_3);
     ++this->num_gates;
-    // blocks.main.w_l().emplace_back(input.a[1]);
-    // blocks.main.w_r().emplace_back(input.b[1]);
-    // blocks.main.w_o().emplace_back(input.r[2]);
-    // blocks.main.w_4().emplace_back(hi_1_idx);
-    blocks.main.populate_wires(input.a[1], input.b[1], input.r[2], hi_1_idx);
 
+    blocks.main.populate_wires(input.a[1], input.b[1], input.r[2], hi_1_idx);
     apply_aux_selectors(AUX_SELECTORS::NONE);
     ++this->num_gates;
 
@@ -1812,14 +1709,11 @@ void UltraCircuitBuilder_<Arithmetization>::process_non_native_field_multiplicat
 
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
         ++this->num_gates;
-        // blocks.main.w_l().emplace_back(input.a[0]);
-        // blocks.main.w_r().emplace_back(input.b[0]);
-        // blocks.main.w_o().emplace_back(input.a[3]);
-        // blocks.main.w_4().emplace_back(input.b[3]);
-        blocks.main.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
 
+        blocks.main.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_2);
         ++this->num_gates;
+
         blocks.main.w_l().emplace_back(input.a[2]);
         blocks.main.w_r().emplace_back(input.b[2]);
         blocks.main.w_o().emplace_back(this->zero_idx);
@@ -1954,35 +1848,16 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
      * By setting `q_arith` to `3`, we can validate `x_p + y_p + q_m = z_p`
      **/
     // GATE 1
-    // blocks.main.w_l().emplace_back(y_p);
-    // blocks.main.w_r().emplace_back(x_0);
-    // blocks.main.w_o().emplace_back(y_0);
-    // blocks.main.w_4().emplace_back(x_p);
-    blocks.main.populate_wires(y_p, x_0, y_0, x_p);
     // |  1  |  2  |  3  |  4  |
     // |-----|-----|-----|-----|
     // | y.p | x.0 | y.0 | z.p | (b.p + b.p - c.p = 0) AND (a.0 + b.0 - c.0 = 0)
     // | x.p | x.1 | y.1 | z.0 | (a.1  + b.1 - c.1 = 0)
     // | x.2 | y.2 | z.2 | z.1 | (a.2  + b.2 - c.2 = 0)
     // | x.3 | y.3 | z.3 | --- | (a.3  + b.3 - c.3 = 0)
-    // blocks.main.w_l().emplace_back(z_p);
-    // blocks.main.w_r().emplace_back(x_1);
-    // blocks.main.w_o().emplace_back(y_1); // |  1  |  2  |  3  |  4  |
-    // blocks.main.w_4().emplace_back(z_0); // |-----|-----|-----|-----|
+    blocks.main.populate_wires(y_p, x_0, y_0, x_p);
     blocks.main.populate_wires(z_p, x_1, y_1, z_0);
-
-    // blocks.main.w_l().emplace_back(x_2); // | y.p | x.0 | y.0 | z.p | (b.p + b.p - c.p = 0) AND (a.0 + b.0 - c.0 = 0)
-    // blocks.main.w_r().emplace_back(y_2); // | x.p | x.1 | y.1 | z.0 | (a.1  + b.1 - c.1 = 0)
-    // blocks.main.w_o().emplace_back(z_2); // | x.2 | y.2 | z.2 | z.1 | (a.2  + b.2 - c.2 = 0)
-    // blocks.main.w_4().emplace_back(z_1); // | x.3 | y.3 | z.3 | --- | (a.3  + b.3 - c.3 = 0)
     blocks.main.populate_wires(x_2, y_2, z_2, z_1);
-
-    // blocks.main.w_l().emplace_back(x_3);
-    // blocks.main.w_r().emplace_back(y_3);
-    // blocks.main.w_o().emplace_back(z_3);
-    // blocks.main.w_4().emplace_back(this->zero_idx);
     blocks.main.populate_wires(x_3, y_3, z_3, this->zero_idx);
-
 
     blocks.main.q_m().emplace_back(addconstp);
     blocks.main.q_1().emplace_back(0);
@@ -2100,28 +1975,9 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
     // | x.p | x.1 | y.1 | z.0 | (a.1 - b.1 - c.1 = 0)
     // | x.2 | y.2 | z.2 | z.1 | (a.2 - b.2 - c.2 = 0)
     // | x.3 | y.3 | z.3 | --- | (a.3 - b.3 - c.3 = 0)
-    // blocks.main.w_l().emplace_back(y_p);
-    // blocks.main.w_r().emplace_back(x_0);
-    // blocks.main.w_o().emplace_back(y_0);
-    // blocks.main.w_4().emplace_back(z_p);
     blocks.main.populate_wires(y_p, x_0, y_0, z_p);
-
-    // blocks.main.w_l().emplace_back(x_p);
-    // blocks.main.w_r().emplace_back(x_1);
-    // blocks.main.w_o().emplace_back(y_1); // |  1  |  2  |  3  |  4  |
-    // blocks.main.w_4().emplace_back(z_0); // |-----|-----|-----|-----|
     blocks.main.populate_wires(x_p, x_1, y_1, z_0);
-
-    // blocks.main.w_l().emplace_back(x_2); // | y.p | x.0 | y.0 | z.p | (b.p + c.p - a.p = 0) AND (a.0 - b.0 - c.0 = 0)
-    // blocks.main.w_r().emplace_back(y_2); // | x.p | x.1 | y.1 | z.0 | (a.1 - b.1 - c.1 = 0)
-    // blocks.main.w_o().emplace_back(z_2); // | x.2 | y.2 | z.2 | z.1 | (a.2 - b.2 - c.2 = 0)
-    // blocks.main.w_4().emplace_back(z_1); // | x.3 | y.3 | z.3 | --- | (a.3 - b.3 - c.3 = 0)
     blocks.main.populate_wires(x_2, y_2, z_2, z_1);
-
-    // blocks.main.w_l().emplace_back(x_3);
-    // blocks.main.w_r().emplace_back(y_3);
-    // blocks.main.w_o().emplace_back(z_3);
-    // blocks.main.w_4().emplace_back(this->zero_idx);
     blocks.main.populate_wires(x_3, y_3, z_3, this->zero_idx);
 
     blocks.main.q_m().emplace_back(-addconstp);
@@ -2186,10 +2042,6 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     // Record wire value can't yet be computed
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(AUX_SELECTORS::ROM_READ);
-    // blocks.main.w_l().emplace_back(record.index_witness);
-    // blocks.main.w_r().emplace_back(record.value_column1_witness);
-    // blocks.main.w_o().emplace_back(record.value_column2_witness);
-    // blocks.main.w_4().emplace_back(record.record_witness);
     blocks.main.populate_wires(record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
     record.gate_index = this->num_gates;
@@ -2208,10 +2060,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_ROM_gate(RomRecord& re
 {
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(AUX_SELECTORS::ROM_CONSISTENCY_CHECK);
-    // blocks.main.w_l().emplace_back(record.index_witness);
-    // blocks.main.w_r().emplace_back(record.value_column1_witness);
-    // blocks.main.w_o().emplace_back(record.value_column2_witness);
-    // blocks.main.w_4().emplace_back(record.record_witness);
     blocks.main.populate_wires(record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
     record.gate_index = this->num_gates;
@@ -2256,10 +2104,6 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(record.access_type == RamRecord::AccessType::READ ? AUX_SELECTORS::RAM_READ
                                                                           : AUX_SELECTORS::RAM_WRITE);
-    // blocks.main.w_l().emplace_back(record.index_witness);
-    // blocks.main.w_r().emplace_back(record.timestamp_witness);
-    // blocks.main.w_o().emplace_back(record.value_witness);
-    // blocks.main.w_4().emplace_back(record.record_witness);
     blocks.main.populate_wires(record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
     record.gate_index = this->num_gates;
@@ -2279,10 +2123,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_RAM_gate(RamRecord& re
 {
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(AUX_SELECTORS::RAM_CONSISTENCY_CHECK);
-    // blocks.main.w_l().emplace_back(record.index_witness);
-    // blocks.main.w_r().emplace_back(record.timestamp_witness);
-    // blocks.main.w_o().emplace_back(record.value_witness);
-    // blocks.main.w_4().emplace_back(record.record_witness);
     blocks.main.populate_wires(record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
     record.gate_index = this->num_gates;
@@ -2776,10 +2616,6 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         uint32_t timestamp_delta_witness = this->add_variable(timestamp_delta);
 
         apply_aux_selectors(AUX_SELECTORS::RAM_TIMESTAMP_CHECK);
-        // blocks.main.w_l().emplace_back(current.index_witness);
-        // blocks.main.w_r().emplace_back(current.timestamp_witness);
-        // blocks.main.w_o().emplace_back(timestamp_delta_witness);
-        // blocks.main.w_4().emplace_back(this->zero_idx);
         blocks.main.populate_wires(current.index_witness, current.timestamp_witness, timestamp_delta_witness, this->zero_idx);
 
         ++this->num_gates;
