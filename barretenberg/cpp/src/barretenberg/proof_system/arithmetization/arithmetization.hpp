@@ -32,6 +32,41 @@ namespace bb {
  * We should only do this if it becomes necessary or convenient.
  */
 
+template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTraceBlock {
+  public:
+    using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
+    using WireType = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
+    using Selectors = std::array<SelectorType, NUM_SELECTORS>;
+    using Wires = std::array<WireType, NUM_WIRES>;
+
+    Wires wires; // vectors of indices into a witness variables array
+    Selectors selectors;
+    bool is_public_input = false;
+
+    bool operator==(const ExecutionTraceBlock& other) const = default;
+
+    void reserve(size_t size_hint)
+    {
+        for (auto& w : wires) {
+            w.reserve(size_hint);
+        }
+        for (auto& p : selectors) {
+            p.reserve(size_hint);
+        }
+    }
+
+    // WORKTODO: maybe dont need this
+    void resize(size_t size_hint)
+    {
+        for (auto& w : wires) {
+            w.resize(size_hint);
+        }
+        for (auto& p : selectors) {
+            p.resize(size_hint);
+        }
+    }
+};
+
 // These are not magic numbers and they should not be written with global constants. These parameters are not
 // accessible through clearly named static class members.
 template <typename FF_> class StandardArith {
@@ -39,18 +74,9 @@ template <typename FF_> class StandardArith {
     static constexpr size_t NUM_WIRES = 3;
     static constexpr size_t NUM_SELECTORS = 5;
     using FF = FF_;
-    using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
-    using WireType = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
-    using Selectors = std::array<SelectorType, NUM_SELECTORS>;
-    using Wires = std::array<WireType, NUM_WIRES>;
 
-    struct ExecutionTraceBlock {
-        Wires wires;
-        Selectors selectors;
-        bool is_public_input = false;
-
-        bool operator==(const ExecutionTraceBlock& other) const = default;
-
+    class StandardTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {
+      public:
         // WORKTODO: would be nice to do this instead of getters but we lose convenience of block.wires
         // WireType w_l;
         // WireType w_r;
@@ -58,45 +84,25 @@ template <typename FF_> class StandardArith {
 
         void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3)
         {
-            wires[0].emplace_back(idx_1);
-            wires[1].emplace_back(idx_2);
-            wires[2].emplace_back(idx_3);
+            this->wires[0].emplace_back(idx_1);
+            this->wires[1].emplace_back(idx_2);
+            this->wires[2].emplace_back(idx_3);
         }
 
-        WireType& w_l() { return std::get<0>(wires); };
-        WireType& w_r() { return std::get<1>(wires); };
-        WireType& w_o() { return std::get<2>(wires); };
+        auto& w_l() { return std::get<0>(this->wires); };
+        auto& w_r() { return std::get<1>(this->wires); };
+        auto& w_o() { return std::get<2>(this->wires); };
 
-        SelectorType& q_m() { return selectors[0]; };
-        SelectorType& q_1() { return selectors[1]; };
-        SelectorType& q_2() { return selectors[2]; };
-        SelectorType& q_3() { return selectors[3]; };
-        SelectorType& q_c() { return selectors[4]; };
-
-        void reserve(size_t size_hint)
-        {
-            for (auto& w : wires) {
-                w.reserve(size_hint);
-            }
-            for (auto& p : selectors) {
-                p.reserve(size_hint);
-            }
-        }
-
-        void resize(size_t size_hint)
-        {
-            for (auto& w : wires) {
-                w.resize(size_hint);
-            }
-            for (auto& p : selectors) {
-                p.resize(size_hint);
-            }
-        }
+        auto& q_m() { return this->selectors[0]; };
+        auto& q_1() { return this->selectors[1]; };
+        auto& q_2() { return this->selectors[2]; };
+        auto& q_3() { return this->selectors[3]; };
+        auto& q_c() { return this->selectors[4]; };
     };
 
     struct TraceBlocks {
-        ExecutionTraceBlock pub_inputs;
-        ExecutionTraceBlock arithmetic;
+        StandardTraceBlock pub_inputs;
+        StandardTraceBlock arithmetic;
 
         auto get() { return RefArray{ pub_inputs, arithmetic }; }
         
@@ -112,67 +118,38 @@ template <typename FF_> class UltraArith {
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 11;
     using FF = FF_;
-    using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
-    using WireType = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
-    using Selectors = std::array<SelectorType, NUM_SELECTORS>;
-    using Wires = std::array<WireType, NUM_WIRES>;
 
-    struct ExecutionTraceBlock {
-        Wires wires;
-        Selectors selectors;
-        bool is_public_input = false;
-
-        bool operator==(const ExecutionTraceBlock& other) const = default;
-
+    class UltraTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {
+      public:
         void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
         {
-            wires[0].emplace_back(idx_1);
-            wires[1].emplace_back(idx_2);
-            wires[2].emplace_back(idx_3);
-            wires[3].emplace_back(idx_4);
+            this->wires[0].emplace_back(idx_1);
+            this->wires[1].emplace_back(idx_2);
+            this->wires[2].emplace_back(idx_3);
+            this->wires[3].emplace_back(idx_4);
         }
 
-        WireType& w_l() { return std::get<0>(wires); };
-        WireType& w_r() { return std::get<1>(wires); };
-        WireType& w_o() { return std::get<2>(wires); };
-        WireType& w_4() { return std::get<3>(wires); };
+        auto& w_l() { return std::get<0>(this->wires); };
+        auto& w_r() { return std::get<1>(this->wires); };
+        auto& w_o() { return std::get<2>(this->wires); };
+        auto& w_4() { return std::get<3>(this->wires); };
 
-        SelectorType& q_m() { return selectors[0]; };
-        SelectorType& q_c() { return selectors[1]; };
-        SelectorType& q_1() { return selectors[2]; };
-        SelectorType& q_2() { return selectors[3]; };
-        SelectorType& q_3() { return selectors[4]; };
-        SelectorType& q_4() { return selectors[5]; };
-        SelectorType& q_arith() { return selectors[6]; };
-        SelectorType& q_sort() { return selectors[7]; };
-        SelectorType& q_elliptic() { return selectors[8]; };
-        SelectorType& q_aux() { return selectors[9]; };
-        SelectorType& q_lookup_type() { return selectors[10]; };
-
-        void reserve(size_t size_hint)
-        {
-            for (auto& w : wires) {
-                w.reserve(size_hint);
-            }
-            for (auto& p : selectors) {
-                p.reserve(size_hint);
-            }
-        }
-
-        void resize(size_t size_hint)
-        {
-            for (auto& w : wires) {
-                w.resize(size_hint);
-            }
-            for (auto& p : selectors) {
-                p.resize(size_hint);
-            }
-        }
+        auto& q_m() { return this->selectors[0]; };
+        auto& q_c() { return this->selectors[1]; };
+        auto& q_1() { return this->selectors[2]; };
+        auto& q_2() { return this->selectors[3]; };
+        auto& q_3() { return this->selectors[4]; };
+        auto& q_4() { return this->selectors[5]; };
+        auto& q_arith() { return this->selectors[6]; };
+        auto& q_sort() { return this->selectors[7]; };
+        auto& q_elliptic() { return this->selectors[8]; };
+        auto& q_aux() { return this->selectors[9]; };
+        auto& q_lookup_type() { return this->selectors[10]; };
     };
 
     struct TraceBlocks {
-        ExecutionTraceBlock pub_inputs;
-        ExecutionTraceBlock main;
+        UltraTraceBlock pub_inputs;
+        UltraTraceBlock main;
 
         auto get() { return RefArray{ pub_inputs, main }; }
 
@@ -196,65 +173,36 @@ template <typename FF_> class UltraHonkArith {
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 14;
     using FF = FF_;
-    using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
-    using WireType = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
-    using Selectors = std::array<SelectorType, NUM_SELECTORS>;
-    using Wires = std::array<WireType, NUM_WIRES>;
 
-    struct ExecutionTraceBlock {
-        Wires wires;
-        Selectors selectors;
-        bool is_public_input = false;
-
-        bool operator==(const ExecutionTraceBlock& other) const = default;
-
+    class UltraHonkTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {
+      public:
         void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
         {
-            wires[0].emplace_back(idx_1);
-            wires[1].emplace_back(idx_2);
-            wires[2].emplace_back(idx_3);
-            wires[3].emplace_back(idx_4);
+            this->wires[0].emplace_back(idx_1);
+            this->wires[1].emplace_back(idx_2);
+            this->wires[2].emplace_back(idx_3);
+            this->wires[3].emplace_back(idx_4);
         }
 
-        WireType& w_l() { return std::get<0>(wires); };
-        WireType& w_r() { return std::get<1>(wires); };
-        WireType& w_o() { return std::get<2>(wires); };
-        WireType& w_4() { return std::get<3>(wires); };
+        auto& w_l() { return std::get<0>(this->wires); };
+        auto& w_r() { return std::get<1>(this->wires); };
+        auto& w_o() { return std::get<2>(this->wires); };
+        auto& w_4() { return std::get<3>(this->wires); };
 
-        SelectorType& q_m() { return selectors[0]; };
-        SelectorType& q_c() { return selectors[1]; };
-        SelectorType& q_1() { return selectors[2]; };
-        SelectorType& q_2() { return selectors[3]; };
-        SelectorType& q_3() { return selectors[4]; };
-        SelectorType& q_4() { return selectors[5]; };
-        SelectorType& q_arith() { return selectors[6]; };
-        SelectorType& q_sort() { return selectors[7]; };
-        SelectorType& q_elliptic() { return selectors[8]; };
-        SelectorType& q_aux() { return selectors[9]; };
-        SelectorType& q_lookup_type() { return selectors[10]; };
-        SelectorType& q_busread() { return selectors[11]; };
-        SelectorType& q_poseidon2_external() { return selectors[12]; };
-        SelectorType& q_poseidon2_internal() { return selectors[13]; };
-
-        void reserve(size_t size_hint)
-        {
-            for (auto& w : wires) {
-                w.reserve(size_hint);
-            }
-            for (auto& p : selectors) {
-                p.reserve(size_hint);
-            }
-        }
-
-        void resize(size_t size_hint)
-        {
-            for (auto& w : wires) {
-                w.resize(size_hint);
-            }
-            for (auto& p : selectors) {
-                p.resize(size_hint);
-            }
-        }
+        auto& q_m() { return this->selectors[0]; };
+        auto& q_c() { return this->selectors[1]; };
+        auto& q_1() { return this->selectors[2]; };
+        auto& q_2() { return this->selectors[3]; };
+        auto& q_3() { return this->selectors[4]; };
+        auto& q_4() { return this->selectors[5]; };
+        auto& q_arith() { return this->selectors[6]; };
+        auto& q_sort() { return this->selectors[7]; };
+        auto& q_elliptic() { return this->selectors[8]; };
+        auto& q_aux() { return this->selectors[9]; };
+        auto& q_lookup_type() { return this->selectors[10]; };
+        auto& q_busread() { return this->selectors[11]; };
+        auto& q_poseidon2_external() { return this->selectors[12]; };
+        auto& q_poseidon2_internal() { return this->selectors[13]; };
 
         /**
          * @brief Add zeros to all selectors which are not part of the conventional Ultra arithmetization
@@ -284,9 +232,9 @@ template <typename FF_> class UltraHonkArith {
     };
 
     struct TraceBlocks {
-        ExecutionTraceBlock ecc_op;
-        ExecutionTraceBlock pub_inputs;
-        ExecutionTraceBlock main;
+        UltraHonkTraceBlock ecc_op;
+        UltraHonkTraceBlock pub_inputs;
+        UltraHonkTraceBlock main;
 
         auto get() { return RefArray{ ecc_op, pub_inputs, main }; }
         
