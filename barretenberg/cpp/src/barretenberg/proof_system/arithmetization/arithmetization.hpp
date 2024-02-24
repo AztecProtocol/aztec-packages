@@ -54,7 +54,7 @@ template <typename FF_> class StandardArith {
         // WireType w_r;
         // WireType w_o;
 
-        void update_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3)
+        void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3)
         {
             wires[0].emplace_back(idx_1);
             wires[1].emplace_back(idx_2);
@@ -107,6 +107,14 @@ template <typename FF_> class UltraArith {
         Wires wires;
         Selectors selectors;
         bool is_public_input = false;
+
+        void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
+        {
+            wires[0].emplace_back(idx_1);
+            wires[1].emplace_back(idx_2);
+            wires[2].emplace_back(idx_3);
+            wires[4].emplace_back(idx_4);
+        }
 
         WireType& w_l() { return std::get<0>(wires); };
         WireType& w_r() { return std::get<1>(wires); };
@@ -186,6 +194,14 @@ template <typename FF_> class UltraHonkArith {
         Wires wires;
         Selectors selectors;
         bool is_public_input = false;
+
+        void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
+        {
+            wires[0].emplace_back(idx_1);
+            wires[1].emplace_back(idx_2);
+            wires[2].emplace_back(idx_3);
+            wires[4].emplace_back(idx_4);
+        }
 
         WireType& w_l() { return std::get<0>(wires); };
         WireType& w_r() { return std::get<1>(wires); };

@@ -230,7 +230,7 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_poly_gate(const 
     this->assert_valid_variables({ in.a, in.b, in.c });
 
     // WORKTODO: use this update_wires method everywhere
-    blocks.arithmetic.update_wires(in.a, in.b, in.c);
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c);
     blocks.arithmetic.q_m().emplace_back(in.q_m);
     blocks.arithmetic.q_1().emplace_back(in.q_l);
     blocks.arithmetic.q_2().emplace_back(in.q_r);
