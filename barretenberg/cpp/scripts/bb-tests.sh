@@ -5,7 +5,7 @@ set -eu
 
 $(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null
 export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
-REPOSITORY=barretenberg-x86_64-linux-clang-assert
+REPOSITORY=barretenberg-assert-build
 # use the image rebuild patterns to compute a content hash, use this to get a URI
 IMAGE_URI=$(calculate_image_uri $REPOSITORY)
 retry docker pull $IMAGE_URI

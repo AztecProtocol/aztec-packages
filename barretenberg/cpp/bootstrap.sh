@@ -65,8 +65,9 @@ fi
 ./scripts/install-wasi-sdk.sh
 
 # Build WASM.
-cmake --preset wasm
-cmake --build --preset wasm
+echo "not building single-threaded barretenberg WASM, see https://github.com/AztecProtocol/barretenberg/issues/865"
+# cmake --preset wasm
+# cmake --build --preset wasm
 
 # Build WASM with new threading.
 cmake --preset wasm-threads

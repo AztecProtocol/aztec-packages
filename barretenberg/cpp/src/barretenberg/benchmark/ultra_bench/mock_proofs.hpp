@@ -2,6 +2,7 @@
 #include <benchmark/benchmark.h>
 #include <cstddef>
 
+#include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
@@ -108,6 +109,7 @@ void construct_proof_with_specified_num_iterations(benchmark::State& state,
     Composer composer;
 
     for (auto _ : state) {
+        BB_REPORT_OP_COUNT_IN_BENCH(state);
         // Construct circuit and prover; don't include this part in measurement
         state.PauseTiming();
         auto prover = get_prover(composer, test_circuit_function, num_iterations);

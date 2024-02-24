@@ -168,11 +168,11 @@ If you are cross-compiling, you can use a preconfigured toolchain file:
 To build:
 
 ```bash
-cmake --preset wasm
-cmake --build --preset wasm --target barretenberg.wasm
+cmake --preset wasm-threads
+cmake --build --preset wasm-threads --target barretenberg.wasm
 ```
 
-The resulting wasm binary will be at `./build-wasm/bin/barretenberg.wasm`.
+The resulting wasm binary will be at `./build-wasm-threads/bin/barretenberg.wasm`.
 
 To run the tests, you'll need to install `wasmtime`.
 
@@ -183,14 +183,14 @@ curl https://wasmtime.dev/install.sh -sSf | bash
 Tests can be built and run like:
 
 ```bash
-cmake --build --preset wasm --target ecc_tests
-wasmtime --dir=.. ./bin/ecc_tests
+cmake --build --preset wasm-threads --target ecc_tests
+wasmtime run -Wthreads=y -Sthreads=y --dir=.. ./bin/ecc_tests
 ```
 
 To add gtest filter parameters in a wasm context:
 
 ```
-wasmtime --dir=.. ./bin/ecc_tests run --gtest_filter=filtertext
+wasmtime run -Wthreads=y -Sthreads=y --dir=.. ./bin/ecc_tests run --gtest_filter=filtertext
 ```
 
 ### Fuzzing build

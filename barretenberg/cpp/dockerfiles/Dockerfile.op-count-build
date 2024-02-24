@@ -1,0 +1,23 @@
+# builds with op count preset
+FROM alpine:3.18 AS builder
+RUN apk update \
+    && apk upgrade \
+    && apk add --no-cache \
+    build-base \
+    clang16 \
+    cmake \
+    ninja \
+    git \
+    curl \
+    perl
+WORKDIR /usr/src/barretenberg/cpp
+COPY . .
+# Build targets needed for benchmarking.
+RUN cmake --preset op-count-track -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+RUN cmake --build --preset op-count-track --target goblin_ultra_honk_bench --target ultra_honk_bench --target ivc_bench --target bb --target grumpkin_srs_gen
+
+FROM alpine:3.18
+WORKDIR /usr/src/barretenberg/cpp
+COPY . .
+COPY --from=builder /usr/src/barretenberg/cpp/scripts/ci /usr/src/barretenberg/cpp/scripts/ci
+COPY --from=builder /usr/src/barretenberg/cpp/build-op-count-track/bin /usr/src/barretenberg/cpp/build/bin

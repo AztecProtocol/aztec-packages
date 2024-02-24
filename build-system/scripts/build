@@ -6,9 +6,9 @@
 # The deploy phase will tag the images such that they become permanent.
 #
 # usage: ./build <repository>
-# example: ./build aztec-connect-cpp-x86_64-linux-clang
+# example: ./build aztec-connect-cpp-build
 # output image:
-#   278380418400.dkr.ecr.us-east-2.amazonaws.com/aztec-connect-cpp-x86_64-linux-clang:cache-deadbeefcafebabe1337c0d3-x86_64
+#   278380418400.dkr.ecr.us-east-2.amazonaws.com/aztec-connect-cpp-build:cache-deadbeefcafebabe1337c0d3-x86_64
 #
 # In more detail:
 # - Init all submodules required to build this project.

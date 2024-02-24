@@ -18,12 +18,8 @@ using namespace bb::crypto::merkle_tree;
 /* Old join-split tests below. The value of having all of these logic tests is unclear, but we'll
    leave them around, at least for a while. */
 
-#ifdef CI
-constexpr bool CIRCUIT_CHANGE_EXPECTED = false;
-#else
 // During development, if the circuit vk hash/gate count is expected to change, set the following to true.
 constexpr bool CIRCUIT_CHANGE_EXPECTED = false;
-#endif
 
 using namespace bb;
 using namespace bb::stdlib;

@@ -1,4 +1,4 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/barretenberg-x86_64-linux-clang-assert
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/barretenberg-assert-build
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-compile-acir-tests as noir-acir-tests
 
 FROM node:18.19.0-alpine

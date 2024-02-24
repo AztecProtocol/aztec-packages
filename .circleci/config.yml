@@ -145,7 +145,7 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build noir-compile-acir-tests 32
-          aztec_manifest_key: noir
+          aztec_manifest_key: noir-compile-acir-tests
 
   avm-transpiler:
     docker:
@@ -160,7 +160,7 @@ jobs:
           aztec_manifest_key: avm-transpiler
 
   # Barretenberg
-  barretenberg-wasm-linux-clang:
+  barretenberg-asan-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -169,10 +169,10 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-wasm-linux-clang 128
-          aztec_manifest_key: barretenberg-wasm-linux-clang
+          command: cond_spot_run_build barretenberg-asan-build 128
+          aztec_manifest_key: barretenberg-asan-build
 
-  barretenberg-x86_64-linux-gcc:
+  barretenberg-assert-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -181,10 +181,10 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 128
-          aztec_manifest_key: barretenberg-x86_64-linux-gcc
+          command: cond_spot_run_build barretenberg-assert-build 128
+          aztec_manifest_key: barretenberg-assert-build
 
-  barretenberg-x86_64-linux-clang:
+  barretenberg-release-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -193,10 +193,10 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang 128
-          aztec_manifest_key: barretenberg-x86_64-linux-clang
+          command: cond_spot_run_build barretenberg-release-build 128
+          aztec_manifest_key: barretenberg-release-build
 
-  barretenberg-x86_64-linux-clang-fuzzing:
+  barretenberg-fuzzing-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -205,22 +205,10 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 128
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-fuzzing
-          
-  barretenberg-x86_64-linux-clang-assert:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 128
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+          command: cond_spot_run_build barretenberg-fuzzing-build 128
+          aztec_manifest_key: barretenberg-fuzzing-build
 
-  barretenberg-x86_64-linux-clang-sol:
+  barretenberg-gcc-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -229,8 +217,80 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-sol 32
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-sol
+          command: cond_spot_run_build barretenberg-gcc-build 128
+          aztec_manifest_key: barretenberg-gcc-build
+
+  barretenberg-msan-build:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-msan-build 128
+          aztec_manifest_key: barretenberg-msan-build
+
+  barretenberg-op-count-build:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-op-count-build 128
+          aztec_manifest_key: barretenberg-op-count-build
+
+  barretenberg-tsan-build:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-tsan-build 128
+          aztec_manifest_key: barretenberg-tsan-build
+
+  barretenberg-ubsan-build:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-ubsan-build 128
+          aztec_manifest_key: barretenberg-ubsan-build
+
+  barretenberg-wasm-build:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-wasm-build 128
+          aztec_manifest_key: barretenberg-wasm-build
+
+  barretenberg-solidity-verifier:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-solidity-verifier 32
+          aztec_manifest_key: barretenberg-solidity-verifier
 
   barretenberg-docs:
     machine:
@@ -257,8 +317,8 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib-tests
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+          command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/run_tests 1 stdlib-tests
+          aztec_manifest_key: barretenberg-assert-build
 
   barretenberg-dsl-tests:
     docker:
@@ -269,8 +329,8 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 dsl_tests
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+          command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/run_tests 1 dsl_tests
+          aztec_manifest_key: barretenberg-assert-build
 
   barretenberg-tests:
     docker:
@@ -281,10 +341,10 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/bb-tests.sh
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+          command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/bb-tests.sh
+          aztec_manifest_key: barretenberg-assert-build
 
-  barretenberg-bench:
+  barretenberg-release-bench:
     machine:
       # NOTE: we usually use alpine build image when making spot images, but
       # we are not able to upload to S3 with it
@@ -295,12 +355,46 @@ jobs:
       - *setup_env
       - run:
           name: "Benchmark"
-          command: cond_spot_run_build barretenberg-bench 32
-          aztec_manifest_key: barretenberg-bench
+          command: cond_spot_run_build barretenberg-release-bench 16
+          aztec_manifest_key: barretenberg-release-bench
       - run:
           name: "Upload"
           command: |
-            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh
+            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh barretenberg-release-bench
+
+  barretenberg-op-count-bench:
+    machine:
+      # NOTE: we usually use alpine build image when making spot images, but
+      # we are not able to upload to S3 with it
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_spot_run_build barretenberg-op-count-bench 16
+      - run:
+          name: "Upload"
+          command: |
+            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh barretenberg-op-count-bench
+
+  barretenberg-wasm-bench:
+    machine:
+      # NOTE: we usually use alpine build image when making spot images, but
+      # we are not able to upload to S3 with it
+      image: ubuntu-2204:2023.07.2
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_spot_run_build barretenberg-wasm-bench 16
+      - run:
+          name: "Upload"
+          command: |
+            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh barretenberg-wasm-bench
 
   barretenberg-proof-system-tests:
     docker:
@@ -311,8 +405,8 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 proof_system_tests
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+          command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/run_tests 1 proof_system_tests
+          aztec_manifest_key: barretenberg-assert-build
 
   barretenberg-stdlib-recursion-ultra-tests:
     docker:
@@ -323,8 +417,8 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+          command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
+          aztec_manifest_key: barretenberg-assert-build
 
   barretenberg-join-split-tests:
     docker:
@@ -335,8 +429,8 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+          command: cond_spot_run_test barretenberg-assert-build 32 ./scripts/run_tests 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
+          aztec_manifest_key: barretenberg-assert-build
 
   barretenberg-acir-tests-bb:
     docker:
@@ -1304,7 +1398,7 @@ e2e_test: &e2e_test
 
 bb_test: &bb_test
   requires:
-    - barretenberg-x86_64-linux-clang-assert
+    - barretenberg-assert-build
   <<: *defaults
 
 # Workflows.
@@ -1336,15 +1430,24 @@ workflows:
       - avm-transpiler: *defaults
 
       # Barretenberg
-      - barretenberg-x86_64-linux-gcc: *defaults
-      - barretenberg-x86_64-linux-clang: *defaults
-      - barretenberg-x86_64-linux-clang-assert: *defaults
-      - barretenberg-x86_64-linux-clang-fuzzing: *defaults
-      - barretenberg-wasm-linux-clang: *defaults
-      - barretenberg-x86_64-linux-clang-sol: *defaults
-      - barretenberg-bench:
+      - barretenberg-assert-build: *defaults
+      - barretenberg-fuzzing-build: *defaults
+      - barretenberg-gcc-build: *defaults
+      - barretenberg-op-count-build: *defaults
+      - barretenberg-release-build: *defaults
+      - barretenberg-wasm-build: *defaults
+      - barretenberg-solidity-verifier: *defaults
+      - barretenberg-op-count-bench:
           requires:
-            - barretenberg-x86_64-linux-clang
+            - barretenberg-op-count-build
+          <<: *defaults
+      - barretenberg-release-bench:
+          requires:
+            - barretenberg-release-build
+          <<: *defaults
+      - barretenberg-wasm-bench:
+          requires:
+            - barretenberg-wasm-build
           <<: *defaults
       - barretenberg-proof-system-tests: *bb_test
       - barretenberg-dsl-tests: *bb_test
@@ -1354,13 +1457,13 @@ workflows:
       - barretenberg-join-split-tests: *bb_test
       - barretenberg-acir-tests-bb:
           requires:
-            - barretenberg-x86_64-linux-clang-assert
+            - barretenberg-assert-build
             - noir-compile-acir-tests
           <<: *defaults
       - barretenberg-docs: *defaults
       - bb-js:
           requires:
-            - barretenberg-wasm-linux-clang
+            - barretenberg-wasm-build
           <<: *defaults
       - bb-js-tests:
           requires:

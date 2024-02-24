@@ -1,4 +1,4 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/barretenberg-wasm-linux-clang
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/barretenberg-wasm-build
 
 FROM node:18.19.0-alpine
 COPY --from=0 /usr/src/barretenberg /usr/src/barretenberg
