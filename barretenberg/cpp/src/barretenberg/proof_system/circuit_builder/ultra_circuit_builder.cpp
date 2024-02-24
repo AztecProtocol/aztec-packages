@@ -3207,6 +3207,9 @@ inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compu
  *
  * @details The method switches the circuit to the "in-the-head" version, finalizes it, checks gates, lookups and
  * permutations and then switches it back from the in-the-head version, discarding the updates
+ * @note We want to check that the whole circuit works, but ultra circuits need to have ram, rom and range gates added in the end for the check to be complete as
+ * well as the set permutation check, so we finalize the circuit when we check it. This structure allows us to
+ * restore the circuit to the state before the finalization.
  *
  * @return true
  * @return false
@@ -3214,9 +3217,11 @@ inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compu
 template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::check_circuit()
 {
     bool result = true;
-    CircuitDataBackup circuit_backup = CircuitDataBackup::store_prefinilized_state(this);
-    // Finalize circuit-in-the-head
 
+    // Copy prefinalized circuit so that original circuit can be restored prior to return
+    UltraCircuitBuilder_<Arithmetization> prefinalized_circuit = *this;
+
+    // Finalize the circuit
     finalize_circuit();
 
     // Sample randomness
@@ -3468,7 +3473,10 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
 
         result = false;
     }
-    circuit_backup.restore_prefinilized_state(this);
+
+    // Restore the circuit to its pre-finalized state
+    *this = prefinalized_circuit;
+
     return result;
 }
 template class UltraCircuitBuilder_<UltraArith<bb::fr>>;

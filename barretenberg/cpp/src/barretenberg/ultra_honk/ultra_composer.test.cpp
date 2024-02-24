@@ -33,6 +33,8 @@ std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> v
 
 void prove_and_verify(auto& circuit_builder, auto& composer, bool expected_result)
 {
+    // WORKTODO: running check_circuit for good meaure to ensure proof doesnt break
+    EXPECT_EQ(circuit_builder.check_circuit(), expected_result);
     auto instance = composer.create_instance(circuit_builder);
     auto prover = composer.create_prover(instance);
     auto verifier = composer.create_verifier(instance);
