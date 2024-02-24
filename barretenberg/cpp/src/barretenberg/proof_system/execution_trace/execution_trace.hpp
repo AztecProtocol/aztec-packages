@@ -64,13 +64,12 @@ template <class Flavor> class ExecutionTrace_ {
     static TraceData construct_trace_data(Builder& builder, size_t dyadic_circuit_size);
 
     /**
-     * @brief Temporary helper method to construct execution trace blocks from existing builder structures
-     * @details Eventually the builder will construct blocks directly
+     * @brief Populate the public inputs block
+     * @details The first two wires are a copy of the public inputs and the other wires and all selectors are zero
      *
      * @param builder
-     * @return std::vector<TraceBlock>
      */
-    static void create_execution_trace_blocks(Builder& builder);
+    static void populate_public_inputs_block(Builder& builder);
 };
 
 } // namespace bb

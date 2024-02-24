@@ -137,11 +137,6 @@ template <typename FF_> class UltraArith {
         WireType& w_o() { return std::get<2>(wires); };
         WireType& w_4() { return std::get<3>(wires); };
 
-        const WireType& w_l() const { return std::get<0>(wires); };
-        const WireType& w_r() const { return std::get<1>(wires); };
-        const WireType& w_o() const { return std::get<2>(wires); };
-        const WireType& w_4() const { return std::get<3>(wires); };
-
         SelectorType& q_m() { return selectors[0]; };
         SelectorType& q_c() { return selectors[1]; };
         SelectorType& q_1() { return selectors[2]; };
@@ -153,18 +148,6 @@ template <typename FF_> class UltraArith {
         SelectorType& q_elliptic() { return selectors[8]; };
         SelectorType& q_aux() { return selectors[9]; };
         SelectorType& q_lookup_type() { return selectors[10]; };
-
-        const SelectorType& q_m() const { return selectors[0]; };
-        const SelectorType& q_c() const { return selectors[1]; };
-        const SelectorType& q_1() const { return selectors[2]; };
-        const SelectorType& q_2() const { return selectors[3]; };
-        const SelectorType& q_3() const { return selectors[4]; };
-        const SelectorType& q_4() const { return selectors[5]; };
-        const SelectorType& q_arith() const { return selectors[6]; };
-        const SelectorType& q_sort() const { return selectors[7]; };
-        const SelectorType& q_elliptic() const { return selectors[8]; };
-        const SelectorType& q_aux() const { return selectors[9]; };
-        const SelectorType& q_lookup_type() const { return selectors[10]; };
 
         void reserve(size_t size_hint)
         {
@@ -238,11 +221,6 @@ template <typename FF_> class UltraHonkArith {
         WireType& w_o() { return std::get<2>(wires); };
         WireType& w_4() { return std::get<3>(wires); };
 
-        const WireType& w_l() const { return std::get<0>(wires); };
-        const WireType& w_r() const { return std::get<1>(wires); };
-        const WireType& w_o() const { return std::get<2>(wires); };
-        const WireType& w_4() const { return std::get<3>(wires); };
-
         SelectorType& q_m() { return selectors[0]; };
         SelectorType& q_c() { return selectors[1]; };
         SelectorType& q_1() { return selectors[2]; };
@@ -255,23 +233,8 @@ template <typename FF_> class UltraHonkArith {
         SelectorType& q_aux() { return selectors[9]; };
         SelectorType& q_lookup_type() { return selectors[10]; };
         SelectorType& q_busread() { return selectors[11]; };
-        SelectorType& q_poseidon2_external() { return this->selectors[12]; };
-        SelectorType& q_poseidon2_internal() { return this->selectors[13]; };
-
-        const SelectorType& q_m() const { return selectors[0]; };
-        const SelectorType& q_c() const { return selectors[1]; };
-        const SelectorType& q_1() const { return selectors[2]; };
-        const SelectorType& q_2() const { return selectors[3]; };
-        const SelectorType& q_3() const { return selectors[4]; };
-        const SelectorType& q_4() const { return selectors[5]; };
-        const SelectorType& q_arith() const { return selectors[6]; };
-        const SelectorType& q_sort() const { return selectors[7]; };
-        const SelectorType& q_elliptic() const { return selectors[8]; };
-        const SelectorType& q_aux() const { return selectors[9]; };
-        const SelectorType& q_lookup_type() const { return selectors[10]; };
-        const SelectorType& q_busread() const { return selectors[11]; };
-        const SelectorType& q_poseidon2_external() const { return this->selectors[12]; };
-        const SelectorType& q_poseidon2_internal() const { return this->selectors[13]; };
+        SelectorType& q_poseidon2_external() { return selectors[12]; };
+        SelectorType& q_poseidon2_internal() { return selectors[13]; };
 
         void reserve(size_t size_hint)
         {

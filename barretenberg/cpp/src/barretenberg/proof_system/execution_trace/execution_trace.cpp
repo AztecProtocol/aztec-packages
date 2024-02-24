@@ -47,10 +47,8 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 {
     TraceData trace_data{ dyadic_circuit_size, builder };
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/862): Eventually trace_blocks will be constructed
-    // directly in the builder, i.e. the gate addition methods will directly populate the wire/selectors in the
-    // appropriate block. In the mean time we do some inefficient copying etc to construct it here post facto.
-    create_execution_trace_blocks(builder);
+    // Complete the public inputs execution trace block from builder.public_inputs
+    populate_public_inputs_block(builder);
 
     uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
     // For each block in the trace, populate wire polys, copy cycles and selector polys
@@ -91,7 +89,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     return trace_data;
 }
 
-template <class Flavor> void ExecutionTrace_<Flavor>::create_execution_trace_blocks(Builder& builder)
+template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_block(Builder& builder)
 {
     // Update the public inputs block
     for (auto& idx : builder.public_inputs) {
