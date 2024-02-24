@@ -113,7 +113,7 @@ template <typename FF_> class UltraArith {
             wires[0].emplace_back(idx_1);
             wires[1].emplace_back(idx_2);
             wires[2].emplace_back(idx_3);
-            wires[4].emplace_back(idx_4);
+            wires[3].emplace_back(idx_4);
         }
 
         WireType& w_l() { return std::get<0>(wires); };
@@ -200,7 +200,7 @@ template <typename FF_> class UltraHonkArith {
             wires[0].emplace_back(idx_1);
             wires[1].emplace_back(idx_2);
             wires[2].emplace_back(idx_3);
-            wires[4].emplace_back(idx_4);
+            wires[3].emplace_back(idx_4);
         }
 
         WireType& w_l() { return std::get<0>(wires); };
