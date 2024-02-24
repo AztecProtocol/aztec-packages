@@ -13,21 +13,12 @@ if [ "$1" = "master" ]; then
     # Deploy to production if the argument is "master"
     DEPLOY_OUTPUT=$(netlify deploy --site aztec-docs-dev --prod)
 else    
-    PR_URL="$2"
-    API_URL="${PR_URL/github.com/api.github.com/repos}"
-    API_URL="${API_URL/pull/pulls}"
-    API_URL="${API_URL}/files"
+    
+    REPOSITORY=docs
+    IMAGE_COMMIT_TAG=$(calculate_image_tag $REPOSITORY)
 
-    echo "API URL: $API_URL"
-
-    DOCS_CHANGED=$(curl -L \
-        -H "Authorization: Bearer $AZTEC_BOT_COMMENTER_GITHUB_TOKEN" \
-        "${API_URL}" | \
-        jq '[.[] | select(.filename | startswith("docs/"))] | length > 0')
-
-    echo "Docs changed: $DOCS_CHANGED"
-
-    if [ "$DOCS_CHANGED" = "false" ]; then
+    # Check if the docs changed
+    if check_rebuild $IMAGE_COMMIT_TAG $REPOSITORY; then
         echo "No docs changed, not deploying"
         exit 0
     fi
@@ -40,6 +31,5 @@ else
     extract_repo yarn-project /usr/src project
     cd project/src/yarn-project/scripts
 
-    yarn
-    UNIQUE_DEPLOY_URL=$UNIQUE_DEPLOY_URL yarn docs-preview
+    UNIQUE_DEPLOY_URL=$UNIQUE_DEPLOY_URL yarn docs-preview-comment
 fi
