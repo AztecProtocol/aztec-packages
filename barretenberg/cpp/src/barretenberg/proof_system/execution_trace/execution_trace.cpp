@@ -14,6 +14,10 @@ void ExecutionTrace_<Flavor>::generate(Builder& builder,
 
     add_wires_and_selectors_to_proving_key(trace_data, builder, proving_key);
 
+    // if constexpr(IsGoblinFlavor<Flavor>){
+    //     add_ecc_op_wires_to_proving_key(trace_data, builder, proving_key);
+    // }
+
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
     compute_permutation_argument_polynomials<Flavor>(builder, proving_key.get(), trace_data.copy_cycles);
 }
@@ -105,6 +109,37 @@ template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_blo
         }
     }
     builder.blocks.pub_inputs.is_public_input = true;
+}
+
+template <class Flavor>
+void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(
+    TraceData& trace_data, Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key) 
+requires IsGoblinFlavor<Flavor>
+{
+    std::array<Polynomial, NUM_WIRES> op_wire_polynomials;
+    for (auto& poly : op_wire_polynomials) {
+        poly = Polynomial{ proving_key->circuit_size };
+    }
+    Polynomial ecc_op_selector{ proving_key->circuit_size };
+
+    // The ECC op wires are constructed to contain the op data on the appropriate range and to vanish everywhere else.
+    // The op data is assumed to have already been stored at the correct location in the convetional wires so the data
+    // can simply be copied over directly.
+    const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
+    for (auto [ecc_op_wire, wire] : zip_view(op_wire_polynomials, trace_data.wires)) {
+        for (size_t i = 0; i < builder.num_ecc_op_gates; ++i) {
+            size_t idx = i + op_wire_offset;
+            ecc_op_wire[idx] = wire[idx];
+            ecc_op_selector[idx] = 1;
+        }
+    }
+
+    proving_key->num_ecc_op_gates = builder.num_ecc_op_gates;
+    proving_key->ecc_op_wire_1 = op_wire_polynomials[0].share();
+    proving_key->ecc_op_wire_2 = op_wire_polynomials[1].share();
+    proving_key->ecc_op_wire_3 = op_wire_polynomials[2].share();
+    proving_key->ecc_op_wire_4 = op_wire_polynomials[3].share();
+    proving_key->lagrange_ecc_op = ecc_op_selector.share();
 }
 
 template class ExecutionTrace_<UltraFlavor>;
