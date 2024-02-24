@@ -49,6 +49,8 @@ template <typename FF_> class StandardArith {
         Selectors selectors;
         bool is_public_input = false;
 
+        bool operator==(const ExecutionTraceBlock& other) const = default;
+
         // WORKTODO: would be nice to do this instead of getters but we lose convenience of block.wires
         // WireType w_l;
         // WireType w_r;
@@ -80,6 +82,16 @@ template <typename FF_> class StandardArith {
                 p.reserve(size_hint);
             }
         }
+
+        void resize(size_t size_hint)
+        {
+            for (auto& w : wires) {
+                w.resize(size_hint);
+            }
+            for (auto& p : selectors) {
+                p.resize(size_hint);
+            }
+        }
     };
 
     struct TraceBlocks {
@@ -87,6 +99,8 @@ template <typename FF_> class StandardArith {
         ExecutionTraceBlock arithmetic;
 
         auto get() { return RefArray{ pub_inputs, arithmetic }; }
+        
+        bool operator==(const TraceBlocks& other) const = default;
     };
 
     // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
@@ -107,6 +121,8 @@ template <typename FF_> class UltraArith {
         Wires wires;
         Selectors selectors;
         bool is_public_input = false;
+
+        bool operator==(const ExecutionTraceBlock& other) const = default;
 
         void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
         {
@@ -159,6 +175,16 @@ template <typename FF_> class UltraArith {
                 p.reserve(size_hint);
             }
         }
+
+        void resize(size_t size_hint)
+        {
+            for (auto& w : wires) {
+                w.resize(size_hint);
+            }
+            for (auto& p : selectors) {
+                p.resize(size_hint);
+            }
+        }
     };
 
     struct TraceBlocks {
@@ -166,6 +192,8 @@ template <typename FF_> class UltraArith {
         ExecutionTraceBlock main;
 
         auto get() { return RefArray{ pub_inputs, main }; }
+
+        bool operator==(const TraceBlocks& other) const = default;
     };
 
     // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
@@ -194,6 +222,8 @@ template <typename FF_> class UltraHonkArith {
         Wires wires;
         Selectors selectors;
         bool is_public_input = false;
+
+        bool operator==(const ExecutionTraceBlock& other) const = default;
 
         void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
         {
@@ -253,6 +283,16 @@ template <typename FF_> class UltraHonkArith {
             }
         }
 
+        void resize(size_t size_hint)
+        {
+            for (auto& w : wires) {
+                w.resize(size_hint);
+            }
+            for (auto& p : selectors) {
+                p.resize(size_hint);
+            }
+        }
+
         /**
          * @brief Add zeros to all selectors which are not part of the conventional Ultra arithmetization
          * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the
@@ -286,6 +326,8 @@ template <typename FF_> class UltraHonkArith {
         ExecutionTraceBlock main;
 
         auto get() { return RefArray{ ecc_op, pub_inputs, main }; }
+        
+        bool operator==(const TraceBlocks& other) const = default;
     };
 
     // Note: Unused. Needed only for consistency with Ultra arith (which is used by Plonk)

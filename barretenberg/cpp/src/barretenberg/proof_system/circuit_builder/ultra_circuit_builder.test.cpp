@@ -655,10 +655,13 @@ TEST(ultra_circuit_constructor, non_native_field_multiplication)
     circuit_constructor.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
 
     auto saved_state = UltraCircuitBuilder::CircuitDataBackup::store_full_state(circuit_constructor);
+    UltraCircuitBuilder builder_copy{circuit_constructor};
+
     bool result = circuit_constructor.check_circuit();
 
     EXPECT_EQ(result, true);
     EXPECT_TRUE(saved_state.is_same_state(circuit_constructor));
+    EXPECT_EQ(builder_copy, circuit_constructor);
 }
 
 TEST(ultra_circuit_constructor, rom)

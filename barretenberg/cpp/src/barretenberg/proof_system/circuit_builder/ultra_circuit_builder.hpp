@@ -280,8 +280,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * restore the circuit to the state before the finalization.
      */
     struct CircuitDataBackup {
-        using WireVector = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
-        using SelectorVector = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
+        using GateBlocks = typename Arithmetization::TraceBlocks;
+        GateBlocks blocks;
 
         std::vector<uint32_t> public_inputs;
         std::vector<FF> variables;
@@ -293,21 +293,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         std::vector<uint32_t> real_variable_index;
         std::vector<uint32_t> real_variable_tags;
         std::map<FF, uint32_t> constant_variable_indices;
-        WireVector w_l;
-        WireVector w_r;
-        WireVector w_o;
-        WireVector w_4;
-        SelectorVector q_m;
-        SelectorVector q_c;
-        SelectorVector q_1;
-        SelectorVector q_2;
-        SelectorVector q_3;
-        SelectorVector q_4;
-        SelectorVector q_arith;
-        SelectorVector q_sort;
-        SelectorVector q_elliptic;
-        SelectorVector q_aux;
-        SelectorVector q_lookup_type;
         uint32_t current_tag = DUMMY_TAG;
         std::map<uint32_t, uint32_t> tau;
 
@@ -345,21 +330,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
             stored_state.real_variable_index = builder.real_variable_index;
             stored_state.real_variable_tags = builder.real_variable_tags;
             stored_state.constant_variable_indices = builder.constant_variable_indices;
-            stored_state.w_l = builder.blocks.main.w_l();
-            stored_state.w_r = builder.blocks.main.w_r();
-            stored_state.w_o = builder.blocks.main.w_o();
-            stored_state.w_4 = builder.blocks.main.w_4();
-            stored_state.q_m = builder.blocks.main.q_m();
-            stored_state.q_c = builder.blocks.main.q_c();
-            stored_state.q_1 = builder.blocks.main.q_1();
-            stored_state.q_2 = builder.blocks.main.q_2();
-            stored_state.q_3 = builder.blocks.main.q_3();
-            stored_state.q_4 = builder.blocks.main.q_4();
-            stored_state.q_arith = builder.blocks.main.q_arith();
-            stored_state.q_sort = builder.blocks.main.q_sort();
-            stored_state.q_elliptic = builder.blocks.main.q_elliptic();
-            stored_state.q_aux = builder.blocks.main.q_aux();
-            stored_state.q_lookup_type = builder.blocks.main.q_lookup_type();
+            stored_state.blocks = builder.blocks;
             stored_state.current_tag = builder.current_tag;
             stored_state.tau = builder.tau;
 
@@ -444,21 +415,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
             builder->circuit_finalized = circuit_finalized;
             builder->num_gates = num_gates;
             builder->cached_partial_non_native_field_multiplications = cached_partial_non_native_field_multiplications;
-            builder->blocks.main.w_l().resize(num_gates);
-            builder->blocks.main.w_r().resize(num_gates);
-            builder->blocks.main.w_o().resize(num_gates);
-            builder->blocks.main.w_4().resize(num_gates);
-            builder->blocks.main.q_m().resize(num_gates);
-            builder->blocks.main.q_c().resize(num_gates);
-            builder->blocks.main.q_1().resize(num_gates);
-            builder->blocks.main.q_2().resize(num_gates);
-            builder->blocks.main.q_3().resize(num_gates);
-            builder->blocks.main.q_4().resize(num_gates);
-            builder->blocks.main.q_arith().resize(num_gates);
-            builder->blocks.main.q_sort().resize(num_gates);
-            builder->blocks.main.q_elliptic().resize(num_gates);
-            builder->blocks.main.q_aux().resize(num_gates);
-            builder->blocks.main.q_lookup_type().resize(num_gates);
+            builder->blocks.main.resize(num_gates);
             if constexpr (HasAdditionalSelectors<Arithmetization>) {
                 builder->blocks.main.resize_additional(num_gates);
             }
@@ -493,49 +450,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
             if (!(constant_variable_indices == builder.constant_variable_indices)) {
                 return false;
             }
-            if (!(w_l == builder.blocks.main.w_l())) {
-                return false;
-            }
-            if (!(w_r == builder.blocks.main.w_r())) {
-                return false;
-            }
-            if (!(w_o == builder.blocks.main.w_o())) {
-                return false;
-            }
-            if (!(w_4 == builder.blocks.main.w_4())) {
-                return false;
-            }
-            if (!(q_m == builder.blocks.main.q_m())) {
-                return false;
-            }
-            if (!(q_c == builder.blocks.main.q_c())) {
-                return false;
-            }
-            if (!(q_1 == builder.blocks.main.q_1())) {
-                return false;
-            }
-            if (!(q_2 == builder.blocks.main.q_2())) {
-                return false;
-            }
-            if (!(q_3 == builder.blocks.main.q_3())) {
-                return false;
-            }
-            if (!(q_4 == builder.blocks.main.q_4())) {
-                return false;
-            }
-            if (!(q_arith == builder.blocks.main.q_arith())) {
-                return false;
-            }
-            if (!(q_sort == builder.blocks.main.q_sort())) {
-                return false;
-            }
-            if (!(q_elliptic == builder.blocks.main.q_elliptic())) {
-                return false;
-            }
-            if (!(q_aux == builder.blocks.main.q_aux())) {
-                return false;
-            }
-            if (!(q_lookup_type == builder.blocks.main.q_lookup_type())) {
+            if (!(blocks == builder.blocks)) {
                 return false;
             }
             if (!(current_tag == builder.current_tag)) {
@@ -695,6 +610,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         return *this;
     };
     ~UltraCircuitBuilder_() override = default;
+
+    bool operator==(const UltraCircuitBuilder_& other) const = default;
 
     /**
      * @brief Debug helper method for ensuring all selectors have the same size
