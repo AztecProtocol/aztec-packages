@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -eu
 
+type docker &> /dev/null && [ -f ~/.aws/credentials ] || exit 1
+
 cd "$(dirname "$0")"
-source ../build-system/scripts/setup_env '' '' mainframe_$USER > /dev/null
+source ../../build-system/scripts/setup_env '' '' mainframe_$USER > /dev/null
 
 echo -e "\033[1mRetrieving bb.wasm from remote cache...\033[0m"
-extract_repo bb.js \
+extract_repo barretenberg-wasm-linux-clang \
   /usr/src/barretenberg/cpp/build-wasm/bin ./cpp/build-wasm \
   /usr/src/barretenberg/cpp/build-wasm-threads/bin ./cpp/build-wasm-threads
 
-echo -e "\033[1mBuilding ESM bb.ts...\033[0m"
-(cd ts && SKIP_CPP_BUILD=1 ./scripts/build_wasm.sh && ./bootstrap.sh esm)
+remove_old_images barretenberg-wasm-linux-clang
