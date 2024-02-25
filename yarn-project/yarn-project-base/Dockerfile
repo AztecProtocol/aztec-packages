@@ -78,8 +78,5 @@ RUN yarn --immutable && rm -rf /root/.cache/puppeteer && /bin/bash -c '\
   [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
   done'
 
-# If everything's worked properly, we should no longer need access to the network.
-RUN echo "enableNetwork: false" >> .yarnrc.yml
-
 # Check package.json inheritance and tsconfig project references.
 RUN yarn prepare:check
