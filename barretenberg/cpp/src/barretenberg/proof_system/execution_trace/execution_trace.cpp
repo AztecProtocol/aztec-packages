@@ -14,9 +14,9 @@ void ExecutionTrace_<Flavor>::generate(Builder& builder,
 
     add_wires_and_selectors_to_proving_key(trace_data, builder, proving_key);
 
-    // if constexpr(IsGoblinFlavor<Flavor>){
-    //     add_ecc_op_wires_to_proving_key(trace_data, builder, proving_key);
-    // }
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        add_ecc_op_wires_to_proving_key(builder, proving_key);
+    }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
     compute_permutation_argument_polynomials<Flavor>(builder, proving_key.get(), trace_data.copy_cycles);
@@ -28,10 +28,10 @@ void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(
 {
     if constexpr (IsHonkFlavor<Flavor>) {
         for (auto [pkey_wire, trace_wire] : zip_view(proving_key->get_wires(), trace_data.wires)) {
-            pkey_wire = std::move(trace_wire);
+            pkey_wire = trace_wire.share();
         }
         for (auto [pkey_selector, trace_selector] : zip_view(proving_key->get_selectors(), trace_data.selectors)) {
-            pkey_selector = std::move(trace_selector);
+            pkey_selector = trace_selector.share();
         }
     } else if constexpr (IsPlonkFlavor<Flavor>) {
         for (size_t idx = 0; idx < trace_data.wires.size(); ++idx) {
@@ -113,24 +113,23 @@ template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_blo
 
 template <class Flavor>
 void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(
-    TraceData& trace_data, Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
+    Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
     requires IsGoblinFlavor<Flavor>
 {
+    // Initialize the ecc op wire polynomials to zero on the whole domain
     std::array<Polynomial, NUM_WIRES> op_wire_polynomials;
     for (auto& poly : op_wire_polynomials) {
         poly = Polynomial{ proving_key->circuit_size };
     }
     Polynomial ecc_op_selector{ proving_key->circuit_size };
 
-    // The ECC op wires are constructed to contain the op data on the appropriate range and to vanish everywhere else.
-    // The op data is assumed to have already been stored at the correct location in the convetional wires so the data
-    // can simply be copied over directly.
+    // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
-    for (auto [ecc_op_wire, wire] : zip_view(op_wire_polynomials, trace_data.wires)) {
+    for (auto [ecc_op_wire, wire] : zip_view(op_wire_polynomials, proving_key->get_wires())) {
         for (size_t i = 0; i < builder.num_ecc_op_gates; ++i) {
             size_t idx = i + op_wire_offset;
             ecc_op_wire[idx] = wire[idx];
-            ecc_op_selector[idx] = 1;
+            ecc_op_selector[idx] = 1; // construct the selector as the indicator on the ecc op block
         }
     }
 
