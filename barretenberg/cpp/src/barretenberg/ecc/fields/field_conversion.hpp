@@ -95,7 +95,6 @@ template <typename T> std::vector<bb::fr> convert_to_bn254_frs(const T& val)
     } else if constexpr (IsAnyOf<T, grumpkin::fr>) {
         return convert_grumpkin_fr_to_bn254_frs(val);
     } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
-        ASSERT(!val.is_point_at_infinity());
         auto fr_vec_x = convert_to_bn254_frs(val.x);
         auto fr_vec_y = convert_to_bn254_frs(val.y);
         std::vector<bb::fr> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
