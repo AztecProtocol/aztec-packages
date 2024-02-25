@@ -49,7 +49,7 @@ TEST_F(GoblinTranslatorComposerTests, Basic)
     using Fr = fr;
     using Fq = fq;
 
-    // And an element and scalar the accumulation of which leaves no Point-at-Infinity commitments
+    // Add an element and scalar the accumulation of which leaves no Point-at-Infinity commitments
     const auto x = uint256_t(0xd3c208c16d87cfd3, 0xd97816a916871ca8, 0x9b85045b68181585, 0x30644e72e131a02);
     const auto y = uint256_t(0x3ce1cc9c7e645a83, 0x2edac647851e3ac5, 0xd0cbe61fced2bc53, 0x1a76dae6d3272396);
     auto padding_element = G1(x, y);
@@ -62,7 +62,8 @@ TEST_F(GoblinTranslatorComposerTests, Basic)
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
-    // Accumulate padding for non-PI commitments
+    // Accumulate padding so that we don't produce Point-at-Infinity commitments. Currently our transcript can't handle
+    // them
     op_queue->mul_accumulate(padding_element, padding_scalar);
 
     // Push everything else
