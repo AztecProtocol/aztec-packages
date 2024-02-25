@@ -429,11 +429,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
         blocks.main.q_1()[this->num_gates - 1] = in.sign_coefficient;
         blocks.main.q_elliptic()[this->num_gates - 1] = 1;
     } else {
-        blocks.main.w_l().emplace_back(this->zero_idx);
-        blocks.main.w_r().emplace_back(in.x1);
-        blocks.main.w_o().emplace_back(in.y1);
-        blocks.main.w_4().emplace_back(this->zero_idx);
-        // blocks.main.populate_wires(this->zero_idx, in.x1, in.y1, this->zero_idx);
+        blocks.main.populate_wires(this->zero_idx, in.x1, in.y1, this->zero_idx);
         blocks.main.q_3().emplace_back(0);
         blocks.main.q_4().emplace_back(0);
         blocks.main.q_1().emplace_back(in.sign_coefficient);
@@ -452,11 +448,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
         check_selector_length_consistency();
         ++this->num_gates;
     }
-    blocks.main.w_l().emplace_back(in.x2);
-    blocks.main.w_4().emplace_back(in.y2);
-    blocks.main.w_r().emplace_back(in.x3);
-    blocks.main.w_o().emplace_back(in.y3);
-    // blocks.main.populate_wires(in.x2, in.y2, in.x3, in.y3);
+    blocks.main.populate_wires(in.x2, in.x3, in.y3, in.y2);
     blocks.main.q_m().emplace_back(0);
     blocks.main.q_1().emplace_back(0);
     blocks.main.q_2().emplace_back(0);
@@ -503,11 +495,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_dbl_gate(const ecc_dbl_ga
         blocks.main.q_elliptic()[this->num_gates - 1] = 1;
         blocks.main.q_m()[this->num_gates - 1] = 1;
     } else {
-        blocks.main.w_r().emplace_back(in.x1);
-        blocks.main.w_o().emplace_back(in.y1);
-        blocks.main.w_l().emplace_back(this->zero_idx);
-        blocks.main.w_4().emplace_back(this->zero_idx);
-        // blocks.main.populate_wires(in.x1, in.y1, this->zero_idx, this->zero_idx);
+        blocks.main.populate_wires(this->zero_idx, in.x1, in.y1, this->zero_idx);
         blocks.main.q_elliptic().emplace_back(1);
         blocks.main.q_m().emplace_back(1);
         blocks.main.q_1().emplace_back(0);
@@ -526,11 +514,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_dbl_gate(const ecc_dbl_ga
         ++this->num_gates;
     }
 
-    blocks.main.w_r().emplace_back(in.x3);
-    blocks.main.w_o().emplace_back(in.y3);
-    blocks.main.w_l().emplace_back(this->zero_idx);
-    blocks.main.w_4().emplace_back(this->zero_idx);
-    // blocks.main.populate_wires(in.x3, in.y3, this->zero_idx, this->zero_idx);
+    blocks.main.populate_wires(this->zero_idx, in.x3, in.y3, this->zero_idx);
     blocks.main.q_m().emplace_back(0);
     blocks.main.q_1().emplace_back(0);
     blocks.main.q_2().emplace_back(0);
