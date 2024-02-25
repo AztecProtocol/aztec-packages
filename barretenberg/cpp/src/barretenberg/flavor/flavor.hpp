@@ -283,10 +283,6 @@ namespace bb {
  */
 // clang-format off
 
-// WORKTODO: debug purposes only
-template <typename T>
-concept IsStandardFlavor = IsAnyOf<T, plonk::flavor::Standard>;
-
 template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 

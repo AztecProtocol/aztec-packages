@@ -54,17 +54,6 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
             p.reserve(size_hint);
         }
     }
-
-    // WORKTODO: maybe dont need this
-    void resize(size_t size_hint)
-    {
-        for (auto& w : wires) {
-            w.resize(size_hint);
-        }
-        for (auto& p : selectors) {
-            p.resize(size_hint);
-        }
-    }
 };
 
 // These are not magic numbers and they should not be written with global constants. These parameters are not

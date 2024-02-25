@@ -19,9 +19,7 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_add_gate(const a
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    blocks.arithmetic.w_l().emplace_back(in.a);
-    blocks.arithmetic.w_r().emplace_back(in.b);
-    blocks.arithmetic.w_o().emplace_back(in.c);
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c);
     blocks.arithmetic.q_m().emplace_back(FF::zero());
     blocks.arithmetic.q_1().emplace_back(in.a_scaling);
     blocks.arithmetic.q_2().emplace_back(in.b_scaling);
@@ -70,9 +68,7 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_balanced_add_gat
     FF temp = t0 + t1;
     uint32_t temp_idx = this->add_variable(temp);
 
-    blocks.arithmetic.w_l().emplace_back(in.a);
-    blocks.arithmetic.w_r().emplace_back(in.b);
-    blocks.arithmetic.w_o().emplace_back(temp_idx);
+    blocks.arithmetic.populate_wires(in.a, in.b, temp_idx);
     blocks.arithmetic.q_m().emplace_back(FF::zero());
     blocks.arithmetic.q_1().emplace_back(in.a_scaling);
     blocks.arithmetic.q_2().emplace_back(in.b_scaling);
@@ -81,9 +77,7 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_balanced_add_gat
 
     ++this->num_gates;
 
-    blocks.arithmetic.w_l().emplace_back(temp_idx);
-    blocks.arithmetic.w_r().emplace_back(in.c);
-    blocks.arithmetic.w_o().emplace_back(in.d);
+    blocks.arithmetic.populate_wires(temp_idx, in.c, in.d);
     blocks.arithmetic.q_m().emplace_back(FF::zero());
     blocks.arithmetic.q_1().emplace_back(FF::one());
     blocks.arithmetic.q_2().emplace_back(in.c_scaling);
@@ -96,9 +90,7 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_balanced_add_gat
     // i.e. in.d * (in.d - 1) * (in.d - 2) = 0
     FF temp_2 = this->get_variable(in.d).sqr() - this->get_variable(in.d);
     uint32_t temp_2_idx = this->add_variable(temp_2);
-    blocks.arithmetic.w_l().emplace_back(in.d);
-    blocks.arithmetic.w_r().emplace_back(in.d);
-    blocks.arithmetic.w_o().emplace_back(temp_2_idx);
+    blocks.arithmetic.populate_wires(in.d, in.d, temp_2_idx);
     blocks.arithmetic.q_m().emplace_back(FF::one());
     blocks.arithmetic.q_1().emplace_back(FF::neg_one());
     blocks.arithmetic.q_2().emplace_back(FF::zero());
@@ -108,9 +100,7 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_balanced_add_gat
     ++this->num_gates;
 
     constexpr FF neg_two = -FF(2);
-    blocks.arithmetic.w_l().emplace_back(temp_2_idx);
-    blocks.arithmetic.w_r().emplace_back(in.d);
-    blocks.arithmetic.w_o().emplace_back(this->zero_idx);
+    blocks.arithmetic.populate_wires(temp_2_idx, in.d, this->zero_idx);
     blocks.arithmetic.q_m().emplace_back(FF::one());
     blocks.arithmetic.q_1().emplace_back(neg_two);
     blocks.arithmetic.q_2().emplace_back(FF::zero());
@@ -185,9 +175,7 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_mul_gate(const m
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    blocks.arithmetic.w_l().emplace_back(in.a);
-    blocks.arithmetic.w_r().emplace_back(in.b);
-    blocks.arithmetic.w_o().emplace_back(in.c);
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c);
     blocks.arithmetic.q_m().emplace_back(in.mul_scaling);
     blocks.arithmetic.q_1().emplace_back(FF::zero());
     blocks.arithmetic.q_2().emplace_back(FF::zero());
@@ -207,10 +195,7 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_bool_gate(const 
 {
     this->assert_valid_variables({ variable_index });
 
-    blocks.arithmetic.w_l().emplace_back(variable_index);
-    blocks.arithmetic.w_r().emplace_back(variable_index);
-    blocks.arithmetic.w_o().emplace_back(variable_index);
-
+    blocks.arithmetic.populate_wires(variable_index, variable_index, variable_index);
     blocks.arithmetic.q_m().emplace_back(FF::one());
     blocks.arithmetic.q_1().emplace_back(FF::zero());
     blocks.arithmetic.q_2().emplace_back(FF::zero());
@@ -229,7 +214,6 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_poly_gate(const 
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    // WORKTODO: use this update_wires method everywhere
     blocks.arithmetic.populate_wires(in.a, in.b, in.c);
     blocks.arithmetic.q_m().emplace_back(in.q_m);
     blocks.arithmetic.q_1().emplace_back(in.q_l);
@@ -481,9 +465,7 @@ void StandardCircuitBuilder_<FF>::fix_witness(const uint32_t witness_index, cons
 {
     this->assert_valid_variables({ witness_index });
 
-    blocks.arithmetic.w_l().emplace_back(witness_index);
-    blocks.arithmetic.w_r().emplace_back(this->zero_idx);
-    blocks.arithmetic.w_o().emplace_back(this->zero_idx);
+    blocks.arithmetic.populate_wires(witness_index, this->zero_idx, this->zero_idx);
     blocks.arithmetic.q_m().emplace_back(FF::zero());
     blocks.arithmetic.q_1().emplace_back(FF::one());
     blocks.arithmetic.q_2().emplace_back(FF::zero());
