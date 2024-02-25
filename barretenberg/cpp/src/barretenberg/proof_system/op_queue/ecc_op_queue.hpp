@@ -39,6 +39,69 @@ class ECCOpQueue {
     Point get_accumulator() { return accumulator; }
 
     /**
+     * @brief Prepend the information from the previous queue (used before accumulation/merge proof to be able to run
+     * circuit construction separately)
+     *
+     * @param previous
+     */
+    void prepend_previous_queue(const ECCOpQueue& previous)
+    {
+        // Allocate enough space
+        std::vector<ECCVMOperation> raw_ops_updated(raw_ops.size() + previous.raw_ops.size());
+        // Copy raw_ops
+        std::copy(previous.raw_ops.rbegin(), previous.raw_ops.rend(), raw_ops_updated.begin());
+        std::copy(raw_ops.rbegin(),
+                  raw_ops.rend(),
+                  std::next(raw_ops_updated.begin(), static_cast<long>(previous.raw_ops.size())));
+
+        // Swap raw_ops underlying storage
+        raw_ops.swap(raw_ops_updated);
+        // Do the same 3 operations for ultra_ops
+        for (size_t i = 0; i < 4; i++) {
+            std::vector<Fr> current_ultra_op(ultra_ops[i].size() + previous.ultra_ops[i].size());
+            std::copy(previous.ultra_ops[i].rbegin(), previous.ultra_ops[i].rend(), current_ultra_op.begin());
+            std::copy(ultra_ops[i].rbegin(),
+                      ultra_ops[i].rend(),
+                      std::next(current_ultra_op.begin(), static_cast<long>(previous.ultra_ops[i].size())));
+            ultra_ops[i].swap(current_ultra_op);
+        }
+        // Update sizes
+        current_ultra_ops_size += previous.ultra_ops[0].size();
+        previous_ultra_ops_size += previous.ultra_ops[0].size();
+        // Update commitments
+        ultra_ops_commitments = previous.ultra_ops_commitments;
+        previous_ultra_ops_commitments = previous.previous_ultra_ops_commitments;
+    }
+
+    /**
+     * @brief Swap all internal values in this queue with the other
+     *
+     * @param other
+     */
+    void swap(ECCOpQueue* other)
+    {
+        // Swap vectors
+        raw_ops.swap(other->raw_ops);
+        for (size_t i = 0; i < 4; i++) {
+            ultra_ops[i].swap(other->ultra_ops[i]);
+        }
+        // Swap sizes
+        size_t temp = current_ultra_ops_size;
+        current_ultra_ops_size = other->current_ultra_ops_size;
+        other->current_ultra_ops_size = temp;
+        temp = previous_ultra_ops_size;
+        previous_ultra_ops_size = other->previous_ultra_ops_size;
+        other->previous_ultra_ops_size = temp;
+        // Swap commitments
+        auto commit_temp = previous_ultra_ops_commitments;
+        previous_ultra_ops_commitments = other->previous_ultra_ops_commitments;
+        other->previous_ultra_ops_commitments = commit_temp;
+        commit_temp = ultra_ops_commitments;
+        ultra_ops_commitments = other->ultra_ops_commitments;
+        other->ultra_ops_commitments = commit_temp;
+    }
+
+    /**
      * @brief Set the current and previous size of the ultra_ops transcript
      *
      * @details previous_ultra_ops_size = M_{i-1} is needed by the prover to extract the previous aggregate op

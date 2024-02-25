@@ -37,3 +37,36 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
     // Adding an equality op should reset the accumulator to zero (the point at infinity)
     EXPECT_TRUE(op_queue.get_accumulator().is_point_at_infinity());
 }
+
+TEST(ECCOpQueueTest, PrependAndSwapTests)
+{
+    using point = g1::affine_element;
+    using scalar = fr;
+
+    // Compute a simple point accumulation natively
+    auto P1 = point::random_element();
+    auto P2 = point::random_element();
+    auto z = scalar::random_element();
+
+    // Add operations to a
+    ECCOpQueue op_queue_a;
+    op_queue_a.add_accumulate(P1 + P1);
+    op_queue_a.mul_accumulate(P2, z + z);
+
+    // Add different operations to b
+    ECCOpQueue op_queue_b;
+    op_queue_b.mul_accumulate(P2, z);
+    op_queue_b.add_accumulate(P1);
+
+    // Add same operations as to a
+    ECCOpQueue op_queue_c;
+    op_queue_a.add_accumulate(P1 + P1);
+    op_queue_a.mul_accumulate(P2, z + z);
+
+    // Swap b with a
+    op_queue_b.swap(&op_queue_a);
+
+    for (size_t i = 0; i < op_queue_c.raw_ops.size(); i++) {
+        EXPECT_EQ(op_queue_b.raw_ops[i], op_queue_c.raw_ops[i]);
+    }
+}
