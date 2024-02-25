@@ -94,7 +94,7 @@ template <typename FF_> class StandardArith {
         StandardTraceBlock arithmetic;
 
         auto get() { return RefArray{ pub_inputs, arithmetic }; }
-        
+
         bool operator==(const TraceBlocks& other) const = default;
     };
 
@@ -226,7 +226,7 @@ template <typename FF_> class UltraHonkArith {
         UltraHonkTraceBlock main;
 
         auto get() { return RefArray{ ecc_op, pub_inputs, main }; }
-        
+
         bool operator==(const TraceBlocks& other) const = default;
     };
 

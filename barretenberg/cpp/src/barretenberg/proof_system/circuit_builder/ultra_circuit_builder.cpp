@@ -926,7 +926,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
     this->assert_valid_variables(variable_index);
 
     for (size_t i = 0; i < variable_index.size(); i += gate_width) {
-        blocks.main.populate_wires(variable_index[i], variable_index[i+1], variable_index[i+2], variable_index[i+3]);
+        blocks.main.populate_wires(
+            variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
 
         ++this->num_gates;
         blocks.main.q_m().emplace_back(0);
@@ -946,7 +947,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
         check_selector_length_consistency();
     }
     // dummy gate needed because of sort widget's check of next row
-    blocks.main.populate_wires(variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.main.populate_wires(
+        variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
     ++this->num_gates;
     blocks.main.q_m().emplace_back(0);
     blocks.main.q_1().emplace_back(0);
@@ -980,7 +982,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_dummy_constraints(const std::
     this->assert_valid_variables(padded_list);
 
     for (size_t i = 0; i < padded_list.size(); i += gate_width) {
-        blocks.main.populate_wires(padded_list[i], padded_list[i+1], padded_list[i+2], padded_list[i+3]);
+        blocks.main.populate_wires(padded_list[i], padded_list[i + 1], padded_list[i + 2], padded_list[i + 3]);
         ++this->num_gates;
         blocks.main.q_m().emplace_back(0);
         blocks.main.q_1().emplace_back(0);
@@ -1031,7 +1033,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     // enforce range check for middle rows
     for (size_t i = gate_width; i < variable_index.size() - gate_width; i += gate_width) {
 
-        blocks.main.populate_wires(variable_index[i], variable_index[i + 1], variable_index[i+2], variable_index[i+3]);
+        blocks.main.populate_wires(
+            variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
         ++this->num_gates;
         blocks.main.q_m().emplace_back(0);
         blocks.main.q_1().emplace_back(0);
@@ -1051,7 +1054,10 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     }
     // enforce range checks of last row and ending at end
     if (variable_index.size() > gate_width) {
-        blocks.main.populate_wires(variable_index[variable_index.size() - 4], variable_index[variable_index.size() - 3], variable_index[variable_index.size() - 2], variable_index[variable_index.size() - 1]);
+        blocks.main.populate_wires(variable_index[variable_index.size() - 4],
+                                   variable_index[variable_index.size() - 3],
+                                   variable_index[variable_index.size() - 2],
+                                   variable_index[variable_index.size() - 1]);
         ++this->num_gates;
         blocks.main.q_m().emplace_back(0);
         blocks.main.q_1().emplace_back(0);
@@ -1072,7 +1078,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
 
     // dummy gate needed because of sort widget's check of next row
     // use this gate to check end condition
-    blocks.main.populate_wires(variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.main.populate_wires(
+        variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
     ++this->num_gates;
     blocks.main.q_m().emplace_back(0);
     blocks.main.q_1().emplace_back(1);
@@ -2026,7 +2033,8 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     // Record wire value can't yet be computed
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(AUX_SELECTORS::ROM_READ);
-    blocks.main.populate_wires(record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
+    blocks.main.populate_wires(
+        record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
     record.gate_index = this->num_gates;
     ++this->num_gates;
@@ -2044,7 +2052,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_ROM_gate(RomRecord& re
 {
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(AUX_SELECTORS::ROM_CONSISTENCY_CHECK);
-    blocks.main.populate_wires(record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
+    blocks.main.populate_wires(
+        record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
     record.gate_index = this->num_gates;
     ++this->num_gates;
@@ -2088,7 +2097,8 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(record.access_type == RamRecord::AccessType::READ ? AUX_SELECTORS::RAM_READ
                                                                           : AUX_SELECTORS::RAM_WRITE);
-    blocks.main.populate_wires(record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
+    blocks.main.populate_wires(
+        record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
     record.gate_index = this->num_gates;
     ++this->num_gates;
@@ -2107,7 +2117,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_RAM_gate(RamRecord& re
 {
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(AUX_SELECTORS::RAM_CONSISTENCY_CHECK);
-    blocks.main.populate_wires(record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
+    blocks.main.populate_wires(
+        record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
     record.gate_index = this->num_gates;
     ++this->num_gates;
@@ -2600,7 +2611,8 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         uint32_t timestamp_delta_witness = this->add_variable(timestamp_delta);
 
         apply_aux_selectors(AUX_SELECTORS::RAM_TIMESTAMP_CHECK);
-        blocks.main.populate_wires(current.index_witness, current.timestamp_witness, timestamp_delta_witness, this->zero_idx);
+        blocks.main.populate_wires(
+            current.index_witness, current.timestamp_witness, timestamp_delta_witness, this->zero_idx);
 
         ++this->num_gates;
 
@@ -3191,9 +3203,9 @@ inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compu
  *
  * @details The method switches the circuit to the "in-the-head" version, finalizes it, checks gates, lookups and
  * permutations and then switches it back from the in-the-head version, discarding the updates
- * @note We want to check that the whole circuit works, but ultra circuits need to have ram, rom and range gates added in the end for the check to be complete as
- * well as the set permutation check, so we finalize the circuit when we check it. This structure allows us to
- * restore the circuit to the state before the finalization.
+ * @note We want to check that the whole circuit works, but ultra circuits need to have ram, rom and range gates added
+ * in the end for the check to be complete as well as the set permutation check, so we finalize the circuit when we
+ * check it. This structure allows us to restore the circuit to the state before the finalization.
  *
  * @return true
  * @return false

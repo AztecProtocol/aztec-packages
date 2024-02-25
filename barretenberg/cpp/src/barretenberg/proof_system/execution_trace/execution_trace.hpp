@@ -71,8 +71,9 @@ template <class Flavor> class ExecutionTrace_ {
      */
     static void populate_public_inputs_block(Builder& builder);
 
-    static void add_ecc_op_wires_to_proving_key(
-        TraceData& trace_data, Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key) 
+    static void add_ecc_op_wires_to_proving_key(TraceData& trace_data,
+                                                Builder& builder,
+                                                const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
         requires IsGoblinFlavor<Flavor>;
 };
 
