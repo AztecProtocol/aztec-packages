@@ -18,5 +18,4 @@ WORKDIR /usr/src/noir-projects/aztec-nr
 RUN ../../noir/target/release/nargo compile --silence-warnings && ../../noir/target/release/nargo test --silence-warnings
 
 FROM scratch
-COPY --from=builder /usr/src/noir-projects/noir-contracts/target /usr/src/noir-projects/noir-contracts/target
-COPY --from=builder /usr/src/noir-projects/noir-protocol-circuits/src/target /usr/src/noir-projects/noir-protocol-circuits/src/target
+COPY --from=builder /usr/src/noir-projects /usr/src/noir-projects
