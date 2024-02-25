@@ -49,9 +49,9 @@ class ECCOpQueue {
         // Allocate enough space
         std::vector<ECCVMOperation> raw_ops_updated(raw_ops.size() + previous.raw_ops.size());
         // Copy raw_ops
-        std::copy(previous.raw_ops.rbegin(), previous.raw_ops.rend(), raw_ops_updated.begin());
-        std::copy(raw_ops.rbegin(),
-                  raw_ops.rend(),
+        std::copy(previous.raw_ops.begin(), previous.raw_ops.end(), raw_ops_updated.begin());
+        std::copy(raw_ops.begin(),
+                  raw_ops.end(),
                   std::next(raw_ops_updated.begin(), static_cast<long>(previous.raw_ops.size())));
 
         // Swap raw_ops underlying storage
@@ -59,9 +59,9 @@ class ECCOpQueue {
         // Do the same 3 operations for ultra_ops
         for (size_t i = 0; i < 4; i++) {
             std::vector<Fr> current_ultra_op(ultra_ops[i].size() + previous.ultra_ops[i].size());
-            std::copy(previous.ultra_ops[i].rbegin(), previous.ultra_ops[i].rend(), current_ultra_op.begin());
-            std::copy(ultra_ops[i].rbegin(),
-                      ultra_ops[i].rend(),
+            std::copy(previous.ultra_ops[i].begin(), previous.ultra_ops[i].end(), current_ultra_op.begin());
+            std::copy(ultra_ops[i].begin(),
+                      ultra_ops[i].end(),
                       std::next(current_ultra_op.begin(), static_cast<long>(previous.ultra_ops[i].size())));
             ultra_ops[i].swap(current_ultra_op);
         }

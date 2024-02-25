@@ -32,7 +32,7 @@ template <typename CycleGroup> struct VMOperation {
         res += static_cast<uint32_t>(reset);
         return res;
     }
-    bool operator==(VMOperation<CycleGroup>& other)
+    bool operator==(const VMOperation<CycleGroup> other) const
     {
         return add == other.add && mul == other.mul && eq == other.eq && reset == other.reset && z1 == other.z1 &&
                z2 == other.z2 && base_point == other.base_point;

@@ -60,13 +60,26 @@ TEST(ECCOpQueueTest, PrependAndSwapTests)
 
     // Add same operations as to a
     ECCOpQueue op_queue_c;
-    op_queue_a.add_accumulate(P1 + P1);
-    op_queue_a.mul_accumulate(P2, z + z);
+    op_queue_c.add_accumulate(P1 + P1);
+    op_queue_c.mul_accumulate(P2, z + z);
 
     // Swap b with a
     op_queue_b.swap(&op_queue_a);
 
+    // Check b==c
     for (size_t i = 0; i < op_queue_c.raw_ops.size(); i++) {
         EXPECT_EQ(op_queue_b.raw_ops[i], op_queue_c.raw_ops[i]);
+    }
+
+    // Prepend b to a
+    op_queue_a.prepend_previous_queue(op_queue_b);
+
+    // Append same operations as now in a to c
+    op_queue_c.mul_accumulate(P2, z);
+    op_queue_c.add_accumulate(P1);
+
+    // Check a==c
+    for (size_t i = 0; i < op_queue_c.raw_ops.size(); i++) {
+        EXPECT_EQ(op_queue_a.raw_ops[i], op_queue_c.raw_ops[i]);
     }
 }
