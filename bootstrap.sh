@@ -32,6 +32,8 @@ if [ -n "$CMD" ]; then
     git clean -ffdx
 
     exit 0
+  elif [ "$CMD" = "full" ]; then
+    export NO_CACHE=1
   else
     echo "Unknown command: $CMD"
     exit 1
