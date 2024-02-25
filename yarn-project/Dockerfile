@@ -13,8 +13,6 @@ COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
 COPY --from=boxes-files /usr/src/boxes /usr/src/boxes
 COPY . .
-# If everything's worked properly, we should no longer need access to the network.
-RUN echo "enableNetwork: false" >> .yarnrc.yml
 # Generate L1 contract TypeScript artifacts.
 RUN cd l1-artifacts && ./scripts/generate-artifacts.sh && rm -rf /usr/src/l1-contracts
 # This is actually our code generation tool. Needed to build contract typescript wrappers.
