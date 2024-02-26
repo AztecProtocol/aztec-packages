@@ -97,7 +97,9 @@ template <typename Flavor> class SumcheckProver {
         // First round
         // This populates partially_evaluated_polynomials.
         auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, pow_univariate, alpha);
+
         transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
+
         FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
         multivariate_challenge.emplace_back(round_challenge);
         partially_evaluate(full_polynomials, multivariate_n, round_challenge);
@@ -109,7 +111,9 @@ template <typename Flavor> class SumcheckProver {
             // Write the round univariate to the transcript
             round_univariate =
                 round.compute_univariate(partially_evaluated_polynomials, relation_parameters, pow_univariate, alpha);
+
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
+
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
@@ -123,6 +127,7 @@ template <typename Flavor> class SumcheckProver {
              zip_view(multivariate_evaluations.get_all(), partially_evaluated_polynomials.get_all())) {
             eval = poly[0];
         }
+
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
 
         return { multivariate_challenge, multivariate_evaluations };

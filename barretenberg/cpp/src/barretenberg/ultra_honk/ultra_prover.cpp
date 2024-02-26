@@ -187,12 +187,15 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::export_proof()
 template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript->
+    info("Running the preamble round");
     execute_preamble_round();
 
     // Compute first three wire commitments
+    info("Running the wire commitments round");
     execute_wire_commitments_round();
 
     // Compute sorted list accumulator and commitment
+    info("Running the wire commitments round");
     execute_sorted_list_accumulator_round();
 
     // Fiat-Shamir: beta & gamma

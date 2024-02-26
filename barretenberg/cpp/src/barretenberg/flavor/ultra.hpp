@@ -534,6 +534,7 @@ class UltraFlavor {
             zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
         }
+
         /**
          * @brief Serializes the structure variables into a FULL Ultra proof. Should be called only if
          * deserialize_full_transcript() was called and some transcript variable was modified.

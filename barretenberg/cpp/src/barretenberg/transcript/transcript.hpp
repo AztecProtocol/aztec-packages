@@ -160,9 +160,12 @@ template <typename TranscriptParams> class BaseTranscript {
         // Hash the full buffer with poseidon2, which is believed to be a collision resistant hash function and a random
         // oracle, removing the need to pre-hash to compress and then hash with a random oracle, as we previously did
         // with Pedersen and Blake3s.
-        Fr base_hash = TranscriptParams::hash(full_buffer);
+        info("full_buffer size: ", full_buffer.size());
+        for (size_t i = 0; i < full_buffer.size(); i++) {
+            info("full_buffer[", i, "]: ", full_buffer[i]);
+        }
+        Fr new_challenge = TranscriptParams::hash(full_buffer);
 
-        Fr new_challenge = base_hash;
         // update previous challenge buffer for next time we call this function
         previous_challenge = new_challenge;
         return new_challenge;
@@ -279,7 +282,13 @@ template <typename TranscriptParams> class BaseTranscript {
             //             HASH_OUTPUT_SIZE / 2,
             //             field_element_buffer.begin() + HASH_OUTPUT_SIZE / 2);
             */
-            challenges[i] = TranscriptParams::template convert_challenge<ChallengeType>(get_next_challenge_buffer());
+            auto challenge_buffer = get_next_challenge_buffer();
+            challenges[i] = TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer);
+        }
+
+        info("round ", round_number);
+        for (size_t i = 0; i < num_challenges; i++) {
+            info("  challenge ", i, ": ", challenges[i]);
         }
 
         // Prepare for next round.
@@ -374,6 +383,7 @@ template <typename TranscriptParams> class BaseTranscript {
 
     template <typename ChallengeType> ChallengeType get_challenge(const std::string& label)
     {
+        info("getting challenge: ", label);
         ChallengeType result = get_challenges<ChallengeType>(label)[0];
 #if defined LOG_CHALLENGES || defined LOG_INTERACTIONS
         info("challenge: ", label, ": ", result);
