@@ -1,9 +1,9 @@
-use crate::context::{Context};
-use crate::oracle::{storage::{storage_read, storage_write}};
-use crate::history::public_value_inclusion::prove_public_value_inclusion;
-use dep::std::option::Option;
-use dep::protocol_types::traits::{Deserialize, Serialize};
-use crate::state_vars::storage::Storage;
+use crate::{
+    context::{Context}, hash::pedersen_hash,
+    history::public_value_inclusion::prove_public_value_inclusion,
+    oracle::{storage::{storage_read, storage_write}}, state_vars::storage::Storage
+};
+use dep::protocol_types::{constants::GENERATOR_INDEX__IMMUTABLE_INITIALIZE_PLACEHOLDER, traits::{Deserialize, Serialize}};
 
 struct SharedImmutable<T>{
     context: Context,
@@ -18,9 +18,7 @@ impl<T> SharedImmutable<T> {
         context: Context,
         storage_slot: Field
     ) -> Self {
-        assert(
-            (storage_slot != 0) & (storage_slot != 1), "Storage slots 0 and 1 not allowed. Storage slots must start from 2."
-        );
+        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
 
@@ -32,9 +30,12 @@ impl<T> SharedImmutable<T> {
         self.context.public.unwrap_unchecked().assert_deployment();
 
         // We check that the struct is not yet initialized by checking if the placeholder slot is 0
-        let placeholder_storage_slot = self.storage_slot - 1;
+        let placeholder_storage_slot = pedersen_hash(
+            [self.storage_slot],
+            GENERATOR_INDEX__IMMUTABLE_INITIALIZE_PLACEHOLDER
+        );
         let fields_read: [Field; 1] = storage_read(placeholder_storage_slot);
-        assert(fields_read[0] != 0, "SharedImmutable already initialized");
+        assert(fields_read[0] == 0, "SharedImmutable already initialized");
 
         // We populate the placeholder slot with a non-zero value to indicate that the struct is initialized
         storage_write(placeholder_storage_slot, [0xdead]);
