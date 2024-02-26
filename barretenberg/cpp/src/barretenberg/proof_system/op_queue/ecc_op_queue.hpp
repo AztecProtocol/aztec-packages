@@ -49,7 +49,9 @@ class ECCOpQueue {
         // Allocate enough space
         std::vector<ECCVMOperation> raw_ops_updated(raw_ops.size() + previous.raw_ops.size());
         // Copy raw_ops
+        // Copy the previous raw ops to the beginning of the new vector
         std::copy(previous.raw_ops.begin(), previous.raw_ops.end(), raw_ops_updated.begin());
+        // Copy the raw ops from current queue after the ones from the previous queue (concatenate them)
         std::copy(raw_ops.begin(),
                   raw_ops.end(),
                   std::next(raw_ops_updated.begin(), static_cast<long>(previous.raw_ops.size())));
@@ -58,11 +60,15 @@ class ECCOpQueue {
         raw_ops.swap(raw_ops_updated);
         // Do the same 3 operations for ultra_ops
         for (size_t i = 0; i < 4; i++) {
+            // Allocate new vector
             std::vector<Fr> current_ultra_op(ultra_ops[i].size() + previous.ultra_ops[i].size());
+            // Copy the previous ultra ops to the beginning of the new vector
             std::copy(previous.ultra_ops[i].begin(), previous.ultra_ops[i].end(), current_ultra_op.begin());
+            // Copy the ultra ops from current queue after the ones from the previous queue (concatenate them)
             std::copy(ultra_ops[i].begin(),
                       ultra_ops[i].end(),
                       std::next(current_ultra_op.begin(), static_cast<long>(previous.ultra_ops[i].size())));
+            // Swap storage
             ultra_ops[i].swap(current_ultra_op);
         }
         // Update sizes
@@ -74,31 +80,30 @@ class ECCOpQueue {
     }
 
     /**
-     * @brief Swap all internal values in this queue with the other
+     * @brief Enable using std::swap on queues
      *
-     * @param other
      */
-    void swap(ECCOpQueue* other)
+    friend void swap(ECCOpQueue& lhs, ECCOpQueue& rhs)
     {
         // Swap vectors
-        raw_ops.swap(other->raw_ops);
+        lhs.raw_ops.swap(rhs.raw_ops);
         for (size_t i = 0; i < 4; i++) {
-            ultra_ops[i].swap(other->ultra_ops[i]);
+            lhs.ultra_ops[i].swap(rhs.ultra_ops[i]);
         }
         // Swap sizes
-        size_t temp = current_ultra_ops_size;
-        current_ultra_ops_size = other->current_ultra_ops_size;
-        other->current_ultra_ops_size = temp;
-        temp = previous_ultra_ops_size;
-        previous_ultra_ops_size = other->previous_ultra_ops_size;
-        other->previous_ultra_ops_size = temp;
+        size_t temp = lhs.current_ultra_ops_size;
+        lhs.current_ultra_ops_size = rhs.current_ultra_ops_size;
+        rhs.current_ultra_ops_size = temp;
+        temp = lhs.previous_ultra_ops_size;
+        lhs.previous_ultra_ops_size = rhs.previous_ultra_ops_size;
+        rhs.previous_ultra_ops_size = temp;
         // Swap commitments
-        auto commit_temp = previous_ultra_ops_commitments;
-        previous_ultra_ops_commitments = other->previous_ultra_ops_commitments;
-        other->previous_ultra_ops_commitments = commit_temp;
-        commit_temp = ultra_ops_commitments;
-        ultra_ops_commitments = other->ultra_ops_commitments;
-        other->ultra_ops_commitments = commit_temp;
+        auto commit_temp = lhs.previous_ultra_ops_commitments;
+        lhs.previous_ultra_ops_commitments = rhs.previous_ultra_ops_commitments;
+        rhs.previous_ultra_ops_commitments = commit_temp;
+        commit_temp = lhs.ultra_ops_commitments;
+        lhs.ultra_ops_commitments = rhs.ultra_ops_commitments;
+        rhs.ultra_ops_commitments = commit_temp;
     }
 
     /**

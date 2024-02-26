@@ -23,6 +23,7 @@ bool allocator_destroyed = false;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::unordered_map<void*, std::shared_ptr<void>> manual_slabs;
 #ifndef NO_MULTITHREADING
+// The manual slabs unordered map is not thread-safe, so we need to manage access to it when multithreaded.
 std::mutex manual_slabs_mutex;
 #endif
 template <typename... Args> inline void dbg_info(Args... args)

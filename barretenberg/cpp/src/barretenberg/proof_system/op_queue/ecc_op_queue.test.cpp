@@ -64,7 +64,7 @@ TEST(ECCOpQueueTest, PrependAndSwapTests)
     op_queue_c.mul_accumulate(P2, z + z);
 
     // Swap b with a
-    op_queue_b.swap(&op_queue_a);
+    std::swap(op_queue_b, op_queue_a);
 
     // Check b==c
     for (size_t i = 0; i < op_queue_c.raw_ops.size(); i++) {
