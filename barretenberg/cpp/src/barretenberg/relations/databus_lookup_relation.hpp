@@ -22,7 +22,11 @@ template <typename FF_> class DatabusLookupRelationImpl {
         LENGTH, // inverse polynomial correctness subrelation
         LENGTH  // log-derivative lookup argument subrelation
     };
-
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.q_busread.evaluations[0].is_zero() && in.q_busread.evaluations[1].is_zero() &&
+               in.calldata_read_counts.evaluations[0].is_zero() && in.calldata_read_counts.evaluations[1].is_zero();
+    }
     // The second subrelation is "linearly dependant" in the sense that it establishes the value of a sum across the
     // entire execution trace rather than a per-row identity.
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };

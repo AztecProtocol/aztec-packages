@@ -17,7 +17,10 @@ template <typename FF_> class EccOpQueueRelationImpl {
         3, // op-queue-wire vanishes sub-relation 3
         3  // op-queue-wire vanishes sub-relation 4
     };
-
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.lagrange_ecc_op.evaluations[0].is_zero() && in.lagrange_ecc_op.evaluations[1].is_zero();
+    }
     /**
      * @brief Expression for the generalized permutation sort gate.
      * @details The relation is defined as C(in(X)...) =
