@@ -128,9 +128,12 @@ BENCHMARK_DEFINE_F(IvcBench, Decide)(benchmark::State& state)
 {
     ClientIVC ivc;
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 >>>>>>> master
+=======
+>>>>>>> 26118e61dc6183b907f5718a24d3dcfb1e036361
     // Perform a specified number of iterations of function/kernel accumulation
     perform_ivc_accumulation_rounds(state, ivc);
 
@@ -148,10 +151,7 @@ BENCHMARK_DEFINE_F(IvcBench, Decide)(benchmark::State& state)
 BENCHMARK_DEFINE_F(IvcBench, ECCVM)(benchmark::State& state)
 {
     ClientIVC ivc;
-<<<<<<< HEAD
-=======
 
->>>>>>> master
     // Perform a specified number of iterations of function/kernel accumulation
     perform_ivc_accumulation_rounds(state, ivc);
 
