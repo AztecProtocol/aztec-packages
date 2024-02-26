@@ -40,7 +40,7 @@ import {
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { to2Fields } from '@aztec/foundation/serialize';
+import { Tuple, to2Fields } from '@aztec/foundation/serialize';
 import {
   PublicExecution,
   PublicExecutionResult,
@@ -401,73 +401,69 @@ export abstract class AbstractPhaseManager {
       publicDataUpdateRequests: nonRevertiblePublicDataUpdateRequests,
     } = publicInputs.endNonRevertibleData; // from kernel
 
-    // Convert ContractStorage* objects to PublicData* objects and sort them in execution order
-    const simPublicDataReads = collectPublicDataReads(execResult);
-    const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(execResult);
+    // Convert ContractStorage* objects to PublicData* objects and sort them in execution order.
+    // Note, this only pulls simulated reads/writes from the current phase,
+    // so the returned result will be a subset of the public kernel output.
 
+    const simPublicDataReads = collectPublicDataReads(execResult);
+    // verify that each read is in the kernel output
+    for (const read of simPublicDataReads) {
+      if (
+        !revertiblePublicDataReads.find(item => item.equals(read)) &&
+        !nonRevertiblePublicDataReads.find(item => item.equals(read))
+      ) {
+        throw new Error(
+          `Public data reads from simulator do not match those from public kernel.\nFrom simulator: ${simPublicDataReads
+            .map(p => p.toFriendlyJSON())
+            .join(', ')}\nFrom public kernel revertible: ${revertiblePublicDataReads
+            .map(i => i.toFriendlyJSON())
+            .join(', ')}\nFrom public kernel non-revertible: ${nonRevertiblePublicDataReads
+            .map(i => i.toFriendlyJSON())
+            .join(', ')}`,
+        );
+      }
+    }
+
+    const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(execResult);
+    for (const update of simPublicDataUpdateRequests) {
+      if (
+        !revertiblePublicDataUpdateRequests.find(item => item.equals(update)) &&
+        !nonRevertiblePublicDataUpdateRequests.find(item => item.equals(update))
+      ) {
+        throw new Error(
+          `Public data update requests from simulator do not match those from public kernel.\nFrom simulator: ${simPublicDataUpdateRequests
+            .map(p => p.toFriendlyJSON())
+            .join(', ')}\nFrom public kernel revertible: ${revertiblePublicDataUpdateRequests
+            .map(i => i.toFriendlyJSON())
+            .join(', ')}\nFrom public kernel non-revertible: ${nonRevertiblePublicDataUpdateRequests
+            .map(i => i.toFriendlyJSON())
+            .join(', ')}`,
+        );
+      }
+    }
+
+    // Now grab the simulated public data reads and updates that are also in the kernel output
     const simRevertiblePublicDataReads = simPublicDataReads.filter(read =>
-      revertiblePublicDataReads.find(item => item.leafSlot.equals(read.leafSlot) && item.value.equals(read.value)),
+      revertiblePublicDataReads.find(item => item.equals(read)),
+    );
+    const simNonRevertiblePublicDataReads = simPublicDataReads.filter(read =>
+      nonRevertiblePublicDataReads.find(item => item.equals(read)),
     );
     const simRevertiblePublicDataUpdateRequests = simPublicDataUpdateRequests.filter(update =>
-      revertiblePublicDataUpdateRequests.find(
-        item => item.leafSlot.equals(update.leafSlot) && item.newValue.equals(update.newValue),
-      ),
-    );
-
-    const simNonRevertiblePublicDataReads = simPublicDataReads.filter(read =>
-      nonRevertiblePublicDataReads.find(item => item.leafSlot.equals(read.leafSlot) && item.value.equals(read.value)),
+      revertiblePublicDataUpdateRequests.find(item => item.equals(update)),
     );
     const simNonRevertiblePublicDataUpdateRequests = simPublicDataUpdateRequests.filter(update =>
-      nonRevertiblePublicDataUpdateRequests.find(
-        item => item.leafSlot.equals(update.leafSlot) && item.newValue.equals(update.newValue),
-      ),
+      nonRevertiblePublicDataUpdateRequests.find(item => item.equals(update)),
     );
 
-    // Assume that kernel public inputs has the right number of items.
     // We only want to reorder the items from the public inputs of the
     // most recently processed top/enqueued call.
-    const numRevertibleReadsInKernel = arrayNonEmptyLength(publicInputs.end.publicDataReads, f => f.isEmpty());
-    const numRevertibleUpdatesInKernel = arrayNonEmptyLength(publicInputs.end.publicDataUpdateRequests, f =>
+    const numRevertibleReadsInKernel = arrayNonEmptyLength(revertiblePublicDataReads, f => f.isEmpty());
+    const numRevertibleUpdatesInKernel = arrayNonEmptyLength(revertiblePublicDataUpdateRequests, f => f.isEmpty());
+    const numNonRevertibleReadsInKernel = arrayNonEmptyLength(nonRevertiblePublicDataReads, f => f.isEmpty());
+    const numNonRevertibleUpdatesInKernel = arrayNonEmptyLength(nonRevertiblePublicDataUpdateRequests, f =>
       f.isEmpty(),
     );
-    const numNonRevertibleReadsInKernel = arrayNonEmptyLength(publicInputs.endNonRevertibleData.publicDataReads, f =>
-      f.isEmpty(),
-    );
-    const numNonRevertibleUpdatesInKernel = arrayNonEmptyLength(
-      publicInputs.endNonRevertibleData.publicDataUpdateRequests,
-      f => f.isEmpty(),
-    );
-
-    // Validate all items in enqueued public calls are in the kernel emitted stack
-    const readsAreEqual =
-      simRevertiblePublicDataReads.length + simNonRevertiblePublicDataReads.length === simPublicDataReads.length;
-
-    const updatesAreEqual =
-      simRevertiblePublicDataUpdateRequests.length + simNonRevertiblePublicDataUpdateRequests.length ===
-      simPublicDataUpdateRequests.length;
-
-    if (!readsAreEqual) {
-      throw new Error(
-        `Public data reads from simulator do not match those from public kernel.\nFrom simulator: ${simPublicDataReads
-          .map(p => p.toFriendlyJSON())
-          .join(', ')}\nFrom public kernel revertible: ${revertiblePublicDataReads
-          .map(i => i.toFriendlyJSON())
-          .join(', ')}\nFrom public kernel non-revertible: ${nonRevertiblePublicDataReads
-          .map(i => i.toFriendlyJSON())
-          .join(', ')}`,
-      );
-    }
-    if (!updatesAreEqual) {
-      throw new Error(
-        `Public data update requests from simulator do not match those from public kernel.\nFrom simulator: ${simPublicDataUpdateRequests
-          .map(p => p.toFriendlyJSON())
-          .join(', ')}\nFrom public kernel revertible: ${revertiblePublicDataUpdateRequests
-          .map(i => i.toFriendlyJSON())
-          .join(', ')}\nFrom public kernel non-revertible: ${nonRevertiblePublicDataUpdateRequests
-          .map(i => i.toFriendlyJSON())
-          .join(', ')}`,
-      );
-    }
 
     const numRevertibleReadsBeforeThisEnqueuedCall = numRevertibleReadsInKernel - simRevertiblePublicDataReads.length;
     const numRevertibleUpdatesBeforeThisEnqueuedCall =
@@ -521,21 +517,25 @@ export abstract class AbstractPhaseManager {
   }
 
   private removeRedundantPublicDataWrites(publicInputs: PublicKernelCircuitPublicInputs) {
-    const lastWritesMap = new Map<string, PublicDataUpdateRequest>();
-    for (const write of publicInputs.end.publicDataUpdateRequests) {
-      const key = write.leafSlot.toString();
-      lastWritesMap.set(key, write);
-    }
-
-    const lastWrites = publicInputs.end.publicDataUpdateRequests.filter(write =>
-      lastWritesMap.get(write.leafSlot.toString())?.equals(write),
-    );
+    const patch = <N extends number>(requests: Tuple<PublicDataUpdateRequest, N>) => {
+      const lastWritesMap = new Map<string, PublicDataUpdateRequest>();
+      for (const write of requests) {
+        const key = write.leafSlot.toString();
+        lastWritesMap.set(key, write);
+      }
+      return requests.filter(write => lastWritesMap.get(write.leafSlot.toString())?.equals(write));
+    };
 
     publicInputs.end.publicDataUpdateRequests = padArrayEnd(
-      lastWrites,
-
+      patch(publicInputs.end.publicDataUpdateRequests),
       PublicDataUpdateRequest.empty(),
       MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    );
+
+    publicInputs.endNonRevertibleData.publicDataUpdateRequests = padArrayEnd(
+      patch(publicInputs.endNonRevertibleData.publicDataUpdateRequests),
+      PublicDataUpdateRequest.empty(),
+      MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
   }
 }

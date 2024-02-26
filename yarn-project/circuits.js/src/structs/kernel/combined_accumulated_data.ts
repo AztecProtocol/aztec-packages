@@ -34,6 +34,8 @@ import { ReadRequestContext } from '../read_request.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 import { NewContractData } from './new_contract_data.js';
 
+// const log = createDebugLogger('aztec:combined_accumulated_data');
+
 /**
  * Read operations from the public state tree.
  */
@@ -86,6 +88,10 @@ export class PublicDataRead {
   toFriendlyJSON() {
     return `Leaf=${this.leafSlot.toFriendlyJSON()}: ${this.value.toFriendlyJSON()}`;
   }
+
+  equals(other: PublicDataRead) {
+    return this.leafSlot.equals(other.leafSlot) && this.value.equals(other.value);
+  }
 }
 
 /**
@@ -126,6 +132,10 @@ export class PublicDataUpdateRequest {
 
   isEmpty() {
     return this.leafSlot.isZero() && this.newValue.isZero();
+  }
+
+  static isEmpty(x: PublicDataUpdateRequest) {
+    return x.isEmpty();
   }
 
   equals(other: PublicDataUpdateRequest) {
@@ -325,8 +335,32 @@ export class CombinedAccumulatedData {
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
 
+    const nonSquashedWrites = [
+      ...revertible.publicDataUpdateRequests,
+      ...nonRevertible.publicDataUpdateRequests,
+    ].filter(x => !x.isEmpty());
+
+    // log.debug('nonSquashedWrites');
+    // for (const write of nonSquashedWrites) {
+    //   log.debug(write.toFriendlyJSON());
+    // }
+
+    const squashedWrites = Array.from(
+      nonSquashedWrites
+        .reduce<Map<string, PublicDataUpdateRequest>>((acc, curr) => {
+          acc.set(curr.leafSlot.toString(), curr);
+          return acc;
+        }, new Map())
+        .values(),
+    );
+
+    // log.debug('squashedWrites');
+    // for (const write of squashedWrites) {
+    //   log.debug(write.toFriendlyJSON());
+    // }
+
     const publicDataUpdateRequests = padArrayEnd(
-      [...nonRevertible.publicDataUpdateRequests, ...revertible.publicDataUpdateRequests].filter(x => !x.isEmpty()),
+      squashedWrites,
       PublicDataUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
