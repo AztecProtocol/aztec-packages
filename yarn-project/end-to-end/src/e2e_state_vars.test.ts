@@ -21,7 +21,7 @@ describe('e2e_state_vars', () => {
 
   describe('SharedImmutable', () => {
     it('private read of uninitialized SharedImmutable', async () => {
-      const s = await contract.methods.get_stable().view();
+      const s = await contract.methods.get_shared_immutable().view();
 
       const receipt2 = await contract.methods.match_shared_immutable(s.account, s.points).send().wait();
       expect(receipt2.status).toEqual(TxStatus.MINED);
@@ -30,7 +30,7 @@ describe('e2e_state_vars', () => {
     it('private read of initialized SharedImmutable', async () => {
       const receipt = await contract.methods.initialize_shared_immutable(1).send().wait();
       expect(receipt.status).toEqual(TxStatus.MINED);
-      const s = await contract.methods.get_stable().view();
+      const s = await contract.methods.get_shared_immutable().view();
 
       const receipt2 = await contract.methods.match_shared_immutable(s.account, s.points).send().wait();
       expect(receipt2.status).toEqual(TxStatus.MINED);

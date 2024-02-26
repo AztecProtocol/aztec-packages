@@ -118,7 +118,7 @@ contract DocsExample {
         assert(read.points == expected.points, "Invalid points");
     }
 
-    unconstrained fn get_stable() -> pub Leader {
+    unconstrained fn get_shared_immutable() -> pub Leader {
         storage.shared_immutable.read_public()
     }
 
