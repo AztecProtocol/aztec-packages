@@ -20,8 +20,8 @@ import { SlowTreeContract, TokenBlacklistContract, TokenContract } from '@aztec/
 
 import { jest } from '@jest/globals';
 
-import { setup } from './fixtures/utils.js';
 import { U128_UNDERFLOW_ERROR } from './fixtures/fixtures.js';
+import { setup } from './fixtures/utils.js';
 import { TokenSimulator } from './simulators/token_simulator.js';
 
 const TIMEOUT = 90_000;
