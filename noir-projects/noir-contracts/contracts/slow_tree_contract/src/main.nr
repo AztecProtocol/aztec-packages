@@ -5,6 +5,7 @@ mod types;
 // More documentation need to be outlined for this properly, but there is some in 
 // https://github.com/AztecProtocol/aztec-packages/issues/1291
 // This is made as a separate contract for one thing mainly. Making it simpler to use.
+// TODO(#4760): Rename slow updates to shared mutable and ideally move the impl to state-vars in aztec-nr.
 contract SlowTree {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
     use dep::std::option::Option;

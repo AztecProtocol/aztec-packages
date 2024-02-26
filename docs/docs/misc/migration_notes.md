@@ -17,16 +17,17 @@ It is possible to provide a user-defined implementation, in which case auto-gene
 ### Updated naming of state variable wrappers
 We have decided to change the naming of our state variable wrappers because the naming was not clear.
 The changes are as follows:
-2. `Singleton` -> `PrivateMutable`
-1. `ImmutableSingleton` -> `PrivateImmutable`
+1. `Singleton` -> `PrivateMutable`
+2. `ImmutableSingleton` -> `PrivateImmutable`
 3. `StablePublicState` -> `SharedImmutable`
-4. `SlowUpdates` -> `SharedMutable`
-4. `PublicState` -> `PublicMutable`
+5. `PublicState` -> `PublicMutable`
 
 This is the meaning of "private", "public" and "shared":
 Private: read (R) and write (W) from private, not accessible from public
 Public: not accessible from private, R/W from public
 Shared: R from private, R/W from public
+
+Note: `SlowUpdates` will be renamed to `SharedMutable` once the implementation is ready.
 
 ## 0.24.0
 
