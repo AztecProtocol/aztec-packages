@@ -32,9 +32,9 @@ retry ecr_login $REGION
 if ! aws ecr-public describe-repositories --region $REGION --repository-names $REPOSITORY > /dev/null 2>&1; then
   echo "Creating repo: $REPOSITORY"
   aws ecr-public create-repository --region $REGION --repository-name $REPOSITORY > /dev/null 2>&1
-  aws ecr-public put-lifecycle-policy --region $REGION --repository-name $REPOSITORY --lifecycle-policy-text "$LIFECYCLE_POLICY" > /dev/null 2>&1
-elif [ -n "$REFRESH_LIFECYCLE" ]; then
-  echo "Refreshing lifecycle rules for repo: $REPOSITORY"
-  aws ecr-public put-lifecycle-policy --region $REGION --repository-name $REPOSITORY --lifecycle-policy-text "$LIFECYCLE_POLICY" > /dev/null 2>&1
+  # aws ecr-public put-lifecycle-policy --region $REGION --repository-name $REPOSITORY --lifecycle-policy-text "$LIFECYCLE_POLICY" > /dev/null 2>&1
+# elif [ -n "$REFRESH_LIFECYCLE" ]; then
+#   echo "Refreshing lifecycle rules for repo: $REPOSITORY"
+#   aws ecr-public put-lifecycle-policy --region $REGION --repository-name $REPOSITORY --lifecycle-policy-text "$LIFECYCLE_POLICY" > /dev/null 2>&1
 fi
 echo
