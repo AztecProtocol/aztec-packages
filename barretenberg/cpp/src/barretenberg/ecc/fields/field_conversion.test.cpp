@@ -11,6 +11,10 @@ class FieldConversionTest : public ::testing::Test {
         auto frs = bb::field_conversion::convert_to_bn254_frs(x);
         EXPECT_EQ(len, frs.size());
         auto y = bb::field_conversion::convert_from_bn254_frs<T>(frs);
+        if constexpr (std::is_same_v<T, curve::BN254::AffineElement>) {
+            auto tmp1 = uint256_t(x.x);
+            auto tmp2 = uint256_t(y.x);
+        }
         EXPECT_EQ(x, y);
     }
 };
@@ -34,6 +38,11 @@ TEST_F(FieldConversionTest, FieldConversionFr)
 
     bb::fr x2(bb::fr::modulus_minus_two); // modulus - 2
     check_conversion(x2);
+
+    bb::fr x3(curve::Grumpkin::Group::affine_point_at_infinity.x);
+    // x3.self_from_montgomery_form();
+    // x3.self_to_montgomery_form();
+    check_conversion(x3);
 }
 
 /**
@@ -44,6 +53,11 @@ TEST_F(FieldConversionTest, FieldConversionGrumpkinFr)
 {
     grumpkin::fr x1(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
     check_conversion(x1);
+
+    grumpkin::fr x2(15230403791020821917UL, 754611498739239741UL, 7381016538464732716UL, 9223372036854775808UL);
+    // x2.self_from_montgomery_form();
+    // x2.self_to_montgomery_form();
+    check_conversion(x2);
 }
 
 /**
@@ -57,6 +71,9 @@ TEST_F(FieldConversionTest, FieldConversionBN254AffineElement)
 
     curve::BN254::AffineElement x2(grumpkin::fr::modulus_minus_two, grumpkin::fr::modulus_minus_two);
     check_conversion(x2);
+
+    curve::BN254::AffineElement x3(curve::BN254::Group::affine_point_at_infinity);
+    check_conversion(x3);
 }
 
 /**
@@ -69,6 +86,9 @@ TEST_F(FieldConversionTest, FieldConversionGrumpkinAffineElement)
 
     curve::Grumpkin::AffineElement x2(bb::fr::modulus_minus_two, bb::fr::modulus_minus_two);
     check_conversion(x2);
+
+    curve::Grumpkin::AffineElement x3(curve::Grumpkin::Group::affine_point_at_infinity);
+    check_conversion(x3);
 }
 
 /**
