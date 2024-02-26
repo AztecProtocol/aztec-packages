@@ -1,11 +1,16 @@
-//
-
 contract AvmTest {
     // Libs
     use dep::aztec::protocol_types::address::{AztecAddress, EthAddress};
 
     // avm lib
-    use dep::aztec::avm::context::AvmContext;
+    use dep::aztec::avm::{
+        context::AvmContext,
+        hash::{
+            keccak256,
+            poseidon,
+            sha256
+        }
+    };
 
     #[aztec(private)]
     fn constructor() {}
@@ -51,9 +56,32 @@ contract AvmTest {
         200 as Field
     }
 
-    /************************************************************************
-     * AvmContext functions
-     ************************************************************************/
+    // /************************************************************************
+    //  * Hashing functions
+    //  ************************************************************************/
+    #[aztec(public-vm)]
+    fn keccak_hash(data: [Field; 3]) -> pub [Field; 2] {
+        keccak256(data)
+    }
+
+    #[aztec(public-vm)]
+    fn poseidon_hash(data: [Field; 3]) -> pub Field {
+        poseidon(data)
+    }
+
+    #[aztec(public-vm)]
+    fn sha256_hash(data: [Field; 3]) -> pub [Field; 2] {
+        sha256(data)
+    }
+
+    #[aztec(public-vm)]
+    fn pedersen_hash(data: [Field; 3]) -> pub Field {
+        dep::std::hash::pedersen_hash(data)
+    }
+
+    // /************************************************************************
+    //  * AvmContext functions
+    //  ************************************************************************/
     #[aztec(public-vm)]
     fn getAddress() -> pub AztecAddress {
         context.address()
@@ -113,20 +141,8 @@ contract AvmTest {
     fn getTimestamp() -> pub Field {
         context.timestamp()
     }
-
     // #[aztec(public-vm)]
     // fn getContractCallDepth() -> pub Field {
     //     context.contract_call_depth()
     // }
-
-    // Function required for all contracts
-    unconstrained fn compute_note_hash_and_nullifier(
-        _contract_address: AztecAddress,
-        _nonce: Field,
-        _storage_slot: Field,
-        _note_type_id: Field,
-        _serialized_note: [Field; 1]
-    ) -> pub [Field; 4] {
-        [0, 0, 0, 0]
-    }
 }

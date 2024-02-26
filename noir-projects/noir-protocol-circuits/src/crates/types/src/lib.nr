@@ -9,7 +9,7 @@ mod contrakt;
 mod transaction;
 mod abis;
 mod constants;
-mod contract_class;
+mod contract_class_id;
 
 mod messaging;
 mod mocked;
@@ -29,5 +29,5 @@ mod public_data_tree_leaf_preimage;
 
 use abis::kernel_circuit_public_inputs::{
     PrivateKernelInnerCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs,
-    PublicKernelCircuitPublicInputs
+    PublicKernelCircuitPublicInputs, RollupKernelCircuitPublicInputs
 };

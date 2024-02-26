@@ -14,7 +14,7 @@ import {
   computeVarArgsHash,
   hashConstructor,
   hashVK,
-  siloCommitment,
+  siloNoteHash,
   siloNullifier,
 } from './hash.js';
 
@@ -55,7 +55,7 @@ describe('hash', () => {
   it('computes siloed commitment', () => {
     const contractAddress = new AztecAddress(new Fr(123n).toBuffer());
     const uniqueCommitment = new Fr(456);
-    const res = siloCommitment(contractAddress, uniqueCommitment);
+    const res = siloNoteHash(contractAddress, uniqueCommitment);
     expect(res).toMatchSnapshot();
   });
 
@@ -105,13 +105,13 @@ describe('hash', () => {
   it('Computes an empty nullifier hash ', () => {
     const emptyNull = SideEffectLinkedToNoteHash.empty();
 
-    const emptyHash = Fr.fromBuffer(computeNullifierHash(emptyNull)).toString();
+    const emptyHash = computeNullifierHash(emptyNull).toString();
     expect(emptyHash).toMatchSnapshot();
   });
 
   it('Computes an empty sideeffect hash ', () => {
     const emptySideEffect = SideEffect.empty();
-    const emptyHash = Fr.fromBuffer(computeCommitmentsHash(emptySideEffect)).toString();
+    const emptyHash = computeCommitmentsHash(emptySideEffect).toString();
     expect(emptyHash).toMatchSnapshot();
   });
 

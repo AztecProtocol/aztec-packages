@@ -205,6 +205,7 @@ void sqr(State& state) noexcept
 }
 BENCHMARK(sqr);
 } // namespace
+#endif
 
 #endif
 // NOLINTNEXTLINE macro invocation triggers style guideline errors from googletest code
