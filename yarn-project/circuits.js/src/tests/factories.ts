@@ -292,6 +292,7 @@ export function makeCombinedAccumulatedRevertibleData(seed = 1, full = false): P
 
   return new PublicAccumulatedRevertibleData(
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, sideEffectFromNumber, seed + 0x80),
+    tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_TX, readRequestContextFromNumber, seed + 0x90),
     tupleGenerator(
       MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
       makeNullifierKeyValidationRequestContext,

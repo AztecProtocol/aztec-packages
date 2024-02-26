@@ -419,7 +419,7 @@ mod tests {
 
     #[test]
     unconstrained fn splits_tx_nullifier_to_non_revertible() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         let public_inputs = builder.execute();
         assert(array_length(public_inputs.end_non_revertible.new_nullifiers) == 1);
         assert(array_length(public_inputs.end.new_nullifiers) == 0);
@@ -692,7 +692,7 @@ mod tests {
 
     #[test]
     unconstrained fn split_nullifiers_into_non_revertible() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         // expect 3 non-revertible nullifiers: the tx nullifier + 2 new ones
         builder.previous_kernel.append_new_nullifiers_from_private(2);
         builder.previous_kernel.capture_min_revertible_side_effect_counter();
@@ -720,7 +720,7 @@ mod tests {
 
     #[test]
     unconstrained fn split_commitments_into_non_revertible() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
 
         // expect 2 non-revertible commitments
         builder.previous_kernel.append_new_note_hashes(2);
@@ -755,7 +755,7 @@ mod tests {
 
     #[test]
     unconstrained fn split_side_effect_squashing() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
 
         // add one hash in non-revertible part
         builder.previous_kernel.append_new_note_hashes(1);

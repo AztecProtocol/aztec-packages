@@ -1186,6 +1186,7 @@ export function mapPublicAccumulatedRevertibleDataToNoir(
 ): PublicAccumulatedRevertibleDataNoir {
   return {
     read_requests: mapTuple(data.readRequests, mapSideEffectToNoir),
+    nullifier_read_requests: mapTuple(data.nullifierReadRequests, mapReadRequestContextToNoir),
     nullifier_key_validation_requests: mapTuple(
       data.nullifierKeyValidationRequests,
       mapNullifierKeyValidationRequestContextToNoir,
@@ -1406,6 +1407,7 @@ export function mapPublicAccumulatedRevertibleDataFromNoir(
 ): PublicAccumulatedRevertibleData {
   return new PublicAccumulatedRevertibleData(
     mapTupleFromNoir(data.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(data.nullifier_read_requests, MAX_NULLIFIER_READ_REQUESTS_PER_TX, mapReadRequestContextFromNoir),
     mapTupleFromNoir(
       data.nullifier_key_validation_requests,
       MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
