@@ -14,7 +14,10 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         7, // internal poseidon2 round sub-relation for third value
         7, // internal poseidon2 round sub-relation for fourth value
     };
-
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.q_poseidon2_internal.evaluations[0].is_zero() && in.q_poseidon2_internal.evaluations[1].is_zero();
+    }
     /**
      * @brief Expression for the poseidon2 internal round relation, based on I_i in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.

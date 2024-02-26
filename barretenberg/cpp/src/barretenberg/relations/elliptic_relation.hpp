@@ -13,7 +13,10 @@ template <typename FF_> class EllipticRelationImpl {
         6, // x-coordinate sub-relation
         6, // y-coordinate sub-relation
     };
-
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.q_elliptic.evaluations[0].is_zero() && in.q_elliptic.evaluations[1].is_zero();
+    }
     // TODO(@zac-williamson #2609 find more generic way of doing this)
     static constexpr FF get_curve_b()
     {

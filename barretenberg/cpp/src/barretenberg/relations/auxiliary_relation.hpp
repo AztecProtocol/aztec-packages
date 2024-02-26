@@ -48,7 +48,10 @@ template <typename FF_> class AuxiliaryRelationImpl {
         1, // RAM consistency sub-relation 2
         1  // RAM consistency sub-relation 3
     };
-
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.q_aux.evaluations[0].is_zero() && in.q_aux.evaluations[1].is_zero();
+    }
     /**
      * @brief Expression for the generalized permutation sort gate.
      * @details The following explanation is reproduced from the Plonk analog 'plookup_auxiliary_widget':

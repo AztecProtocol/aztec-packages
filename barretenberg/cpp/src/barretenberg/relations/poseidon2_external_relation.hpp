@@ -12,7 +12,10 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         7, // external poseidon2 round sub-relation for third value
         7, // external poseidon2 round sub-relation for fourth value
     };
-
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.q_poseidon2_external.evaluations[0].is_zero() && in.q_poseidon2_external.evaluations[1].is_zero();
+    }
     /**
      * @brief Expression for the poseidon2 external round relation, based on E_i in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.
