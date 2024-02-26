@@ -25,6 +25,7 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     static constexpr merkle::HashType merkle_hash_type = merkle::HashType::FIXED_BASE_PEDERSEN;
     static constexpr pedersen::CommitmentType commitment_type = pedersen::CommitmentType::FIXED_BASE_PEDERSEN;
 
+    // Storage for wires and selectors for all gate types
     GateBlocks blocks;
 
     static constexpr size_t UINT_LOG2_BASE = 2;
