@@ -23,7 +23,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
             historical_header: self.private_call.call_stack_item.public_inputs.historical_header,
             tx_context: self.tx_request.tx_context,
         };
-        public_inputs.max_non_revertible_side_effect_counter = self.private_call.call_stack_item.public_inputs.max_non_revertible_side_effect_counter;
+        public_inputs.min_revertible_side_effect_counter = self.private_call.call_stack_item.public_inputs.min_revertible_side_effect_counter;
     }
 
     // Confirm that the TxRequest (user's intent) 
@@ -271,7 +271,7 @@ mod tests {
     fn input_validation_malformed_arrays_commitments() {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
 
-        builder.private_call.public_inputs.new_commitments.extend_from_array(
+        builder.private_call.public_inputs.new_note_hashes.extend_from_array(
             [
             SideEffect { value: 0, counter: 0 },
             SideEffect { value: 9123, counter: 1 }

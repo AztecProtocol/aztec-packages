@@ -2,7 +2,7 @@ import {
   AztecAddress,
   CallRequest,
   Fr,
-  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -23,6 +23,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
@@ -69,6 +70,7 @@ export interface KernelProverOutput extends ProofOutputFinal {
  * constructs private call data based on the execution results.
  */
 export class KernelProver {
+  private log = createDebugLogger('aztec:kernel-prover');
   private hintsBuilder: HintsBuilder;
 
   constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {
@@ -174,8 +176,8 @@ export class KernelProver {
 
     const [sortedCommitments, sortedCommitmentsIndexes] = this.hintsBuilder.sortSideEffects<
       SideEffect,
-      typeof MAX_NEW_COMMITMENTS_PER_TX
-    >(output.publicInputs.end.newCommitments);
+      typeof MAX_NEW_NOTE_HASHES_PER_TX
+    >(output.publicInputs.end.newNoteHashes);
 
     const [sortedNullifiers, sortedNullifiersIndexes] = this.hintsBuilder.sortSideEffects<
       SideEffectLinkedToNoteHash,
@@ -201,6 +203,10 @@ export class KernelProver {
       output.publicInputs.end.nullifierKeyValidationRequests,
     );
 
+    this.log.debug(
+      `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
+    );
+
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
       previousKernelData,
       sortedCommitments,
@@ -216,7 +222,7 @@ export class KernelProver {
     const outputFinal = await this.proofCreator.createProofTail(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
-    const finalNewCommitments = outputFinal.publicInputs.end.newCommitments;
+    const finalNewCommitments = outputFinal.publicInputs.end.newNoteHashes;
     const outputNotes = finalNewCommitments.map(c => newNotes[c.value.toString()]).filter(c => !!c);
 
     return { ...outputFinal, outputNotes };
@@ -289,11 +295,11 @@ export class KernelProver {
     } = executionResult;
     const contractAddress = publicInputs.callContext.storageContractAddress;
     // Assuming that for each new commitment there's an output note added to the execution result.
-    const newCommitments = await this.proofCreator.getSiloedCommitments(publicInputs);
+    const newNoteHashes = await this.proofCreator.getSiloedCommitments(publicInputs);
     return newNotes.map((data, i) => ({
       contractAddress,
       data,
-      commitment: newCommitments[i],
+      commitment: newNoteHashes[i],
     }));
   }
 }
