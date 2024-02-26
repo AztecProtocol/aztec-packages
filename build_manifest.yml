@@ -146,7 +146,7 @@ yarn-project-base:
 yarn-project:
   buildDir: yarn-project
   rebuildPatterns:
-    - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml)$
+    - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml|snap)$
     - ^yarn-project/Dockerfile$
     - ^yarn-project/cli/aztec-cli
   dependencies:
@@ -207,11 +207,11 @@ docs:
   dockerfile: docs/Dockerfile
   rebuildPatterns:
     - ^docs/
-    - ^.*.cpp$
-    - ^.*.hpp$
-    - ^.*.ts$
-    - ^.release-please-manifest.json$
-    - ^.*.nr$
+    - ^.*\.cpp$
+    - ^.*\.hpp$
+    - ^.*\.ts$
+    - ^.release-please-manifest\.json$
+    - ^.*\.nr$
   dependencies:
     - yarn-project
     - noir-projects
