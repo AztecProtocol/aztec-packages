@@ -18,7 +18,7 @@ To greatly simplify the experience of writing private state, Aztec.nr provides t
 
 - [PrivateMutable<NoteType\>](#singletonnotetype)
 - [PrivateImmutable<NoteType\>](#privateimmutablenotetype)
-- [Set<NoteType\>](#setnotetype)
+- [PrivateSet<NoteType\>](#privatesetnotetype)
 
 These three structs abstract-away many of Aztec's protocol complexities, by providing intuitive methods to modify notes in the utxo tree in a privacy-preserving way.
 
@@ -178,9 +178,9 @@ This function will throw if the `PrivateImmutable` hasn't been initialized.
 
 Functionally similar to `get_note`, but executed unconstrained and can be used by the wallet to fetch notes for use by front-ends etc.
 
-## `Set<NoteType>`
+## `PrivateSet<NoteType>`
 
-Set is used for managing a collection of notes. All notes in a Set are of the same `NoteType`. But whether these notes all belong to one entity, or are accessible and editable by different entities, is up to the developer. The set is a collection of notes inserted into the data-tree, but notes are never removed from the tree itself, they are only nullified.
+`PrivateSet` is used for managing a collection of notes. All notes in a `PrivateSet` are of the same `NoteType`. But whether these notes all belong to one entity, or are accessible and editable by different entities, is up to the developer. The set is a collection of notes inserted into the data-tree, but notes are never removed from the tree itself, they are only nullified.
 
 You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/set.nr).
 
@@ -198,7 +198,7 @@ We can initialize the set as follows:
 
 ### `insert`
 
-Allows us to modify the storage by inserting a note into the set.
+Allows us to modify the storage by inserting a note into the `PrivateSet`.
 
 A hash of the note will be generated, and inserted into the note hash tree, allowing us to later use in contract interactions. Recall that the content of the note should be shared with the owner to allow them to use it, as mentioned this can be done via an [encrypted log](../../writing_contracts/events/emit_event.md#encrypted-events), or offchain via web2, or completely offline.
 
@@ -214,7 +214,7 @@ The usage is similar to using the `insert` method with the difference that this 
 
 ### `remove`
 
-Will remove a note from the set if it previously has been read from storage, e.g. you have fetched it through a `get_notes` call. This is useful when you want to remove a note that you have previously read from storage and do not have to read it again.
+Will remove a note from the `PrivateSet` if it previously has been read from storage, e.g. you have fetched it through a `get_notes` call. This is useful when you want to remove a note that you have previously read from storage and do not have to read it again.
 
 Nullifiers are emitted when reading values to make sure that they are up to date.
 
