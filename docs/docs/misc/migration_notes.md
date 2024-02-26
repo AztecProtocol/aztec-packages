@@ -14,6 +14,20 @@ Historically developers have been required to include a `compute_note_hash_and_n
 
 It is possible to provide a user-defined implementation, in which case auto-generation will be skipped (though there are no known use cases for this).
 
+### Updated naming of state variable wrappers
+We have decided to change the naming of our state variable wrappers because the naming was not clear.
+The changes are as follows:
+2. `Singleton` -> `PrivateMutable`
+1. `ImmutableSingleton` -> `PrivateImmutable`
+3. `StablePublicState` -> `SharedImmutable`
+4. `SlowUpdates` -> `SharedMutable`
+4. `PublicState` -> `PublicMutable`
+
+This is the meaning of "private", "public" and "shared":
+Private: read (R) and write (W) from private, not accessible from public
+Public: not accessible from private, R/W from public
+Shared: R from private, R/W from public
+
 ## 0.24.0
 
 ### Introduce Note Type IDs
