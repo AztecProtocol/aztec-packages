@@ -58,7 +58,8 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
         using BaseField = typename T::Fq;
         constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<BaseField>();
         ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
-        // check if all zeros
+        // check if all zeros, which is how we represent the point at infinity
+        // this representation is sound because (0, 0) is not on either curve
         bool all_zeros = true;
         for (auto x : fr_vec) {
             all_zeros = all_zeros && (x == 0);
@@ -106,6 +107,8 @@ template <typename T> std::vector<bb::fr> convert_to_bn254_frs(const T& val)
         return convert_grumpkin_fr_to_bn254_frs(val);
     } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
         if (val.is_point_at_infinity()) {
+            // if its a point at infinity, represent it as a vector of 0s
+            // this cannot coincide for an actual point on the curve since (0, 0) is not on the curve
             std::vector<bb::fr> fr_vec(calc_num_bn254_frs<T>(), 0);
             return fr_vec;
         }

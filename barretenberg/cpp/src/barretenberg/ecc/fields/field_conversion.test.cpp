@@ -11,10 +11,6 @@ class FieldConversionTest : public ::testing::Test {
         auto frs = bb::field_conversion::convert_to_bn254_frs(x);
         EXPECT_EQ(len, frs.size());
         auto y = bb::field_conversion::convert_from_bn254_frs<T>(frs);
-        if constexpr (std::is_same_v<T, curve::BN254::AffineElement>) {
-            auto tmp1 = uint256_t(x.x);
-            auto tmp2 = uint256_t(y.x);
-        }
         EXPECT_EQ(x, y);
     }
 };
@@ -40,8 +36,6 @@ TEST_F(FieldConversionTest, FieldConversionFr)
     check_conversion(x2);
 
     bb::fr x3(curve::Grumpkin::Group::affine_point_at_infinity.x);
-    // x3.self_from_montgomery_form();
-    // x3.self_to_montgomery_form();
     check_conversion(x3);
 }
 
