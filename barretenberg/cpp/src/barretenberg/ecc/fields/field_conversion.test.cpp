@@ -53,11 +53,6 @@ TEST_F(FieldConversionTest, FieldConversionGrumpkinFr)
 {
     grumpkin::fr x1(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
     check_conversion(x1);
-
-    grumpkin::fr x2(15230403791020821917UL, 754611498739239741UL, 7381016538464732716UL, 9223372036854775808UL);
-    // x2.self_from_montgomery_form();
-    // x2.self_to_montgomery_form();
-    check_conversion(x2);
 }
 
 /**

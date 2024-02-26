@@ -58,6 +58,16 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
         using BaseField = typename T::Fq;
         constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<BaseField>();
         ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
+        // check if all zeros
+        bool all_zeros = true;
+        for (auto x : fr_vec) {
+            all_zeros = all_zeros && (x == 0);
+        }
+        if (all_zeros) {
+            T val;
+            val.self_set_infinity();
+            return val;
+        }
         T val;
         val.x = convert_from_bn254_frs<BaseField>(fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
         val.y = convert_from_bn254_frs<BaseField>(fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
@@ -95,6 +105,10 @@ template <typename T> std::vector<bb::fr> convert_to_bn254_frs(const T& val)
     } else if constexpr (IsAnyOf<T, grumpkin::fr>) {
         return convert_grumpkin_fr_to_bn254_frs(val);
     } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
+        if (val.is_point_at_infinity()) {
+            std::vector<bb::fr> fr_vec(calc_num_bn254_frs<T>(), 0);
+            return fr_vec;
+        }
         auto fr_vec_x = convert_to_bn254_frs(val.x);
         auto fr_vec_y = convert_to_bn254_frs(val.y);
         std::vector<bb::fr> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
