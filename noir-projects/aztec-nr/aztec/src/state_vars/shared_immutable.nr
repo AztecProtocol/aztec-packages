@@ -2,7 +2,7 @@ use crate::{
     context::Context, history::public_value_inclusion::prove_public_value_inclusion,
     oracle::{storage::{storage_read, storage_write}}, state_vars::storage::Storage
 };
-use dep::protocol_types::traits::{Deserialize, Serialize};
+use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize}};
 
 struct SharedImmutable<T>{
     context: Context,
@@ -34,7 +34,7 @@ impl<T> SharedImmutable<T> {
         // );
 
         // We check that the struct is not yet initialized by checking if the initialization slot is 0
-        let initialization_slot = self.storage_slot - 1;
+        let initialization_slot = INITIALIZATION_SLOT_SEPARATOR + self.storage_slot;
         let fields_read: [Field; 1] = storage_read(initialization_slot);
         assert(fields_read[0] == 0, "SharedImmutable already initialized");
 

@@ -940,8 +940,7 @@ fn assign_storage_slots(
                 )),
             }?;
 
-            // We start from 2 because 0 storage slot is buggy and 1 is reserved for the initialization slot
-            let mut storage_slot: u64 = 2;
+            let mut storage_slot: u64 = 1;
             for (index, (_, expr_id)) in storage_constructor_expression.fields.iter().enumerate() {
                 let fields = r#struct.borrow().get_fields(&[]);
                 let (_, field_type) = fields.get(index).unwrap();
@@ -988,9 +987,7 @@ fn assign_storage_slots(
                     ));
                 });
 
-                // We add 1 on the next line because some of the types use value in initialization storage slot
-                // (set as "type storage slot - 1") to determine whether the value in the type was already initialized.
-                storage_slot += type_serialized_len + 1;
+                storage_slot += type_serialized_len;
             }
         }
     }
