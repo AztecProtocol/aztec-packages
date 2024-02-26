@@ -439,7 +439,6 @@ A getter function for checking the public balance of the provided Aztec account.
 
 A getter function to compute the note hash and nullifier for notes in the contract's storage.
 
-This must be included in every contract because it depends on the note type IDs and storage slots, which are defined when we set up storage.
 
 #include_code compute_note_hash_and_nullifier /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
