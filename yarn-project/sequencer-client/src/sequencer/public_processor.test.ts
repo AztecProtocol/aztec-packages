@@ -367,6 +367,7 @@ describe('public_processor', () => {
       const enqueuedExecutionContractAddress = baseContractAddress;
       const contractSlotA = fr(0x100);
       const contractSlotB = fr(0x150);
+      const contractSlotC = fr(0x200);
 
       let simulatorCallCount = 0;
 
@@ -381,7 +382,10 @@ describe('public_processor', () => {
         else if (simulatorCallCount === 1) {
           // which is the call enqueued last chronologically
           executionResult = makePublicExecutionResultFromRequest(callRequests[2]);
-          executionResult.contractStorageUpdateRequests = [new ContractStorageUpdateRequest(contractSlotA, fr(0x101))];
+          executionResult.contractStorageUpdateRequests = [
+            new ContractStorageUpdateRequest(contractSlotA, fr(0x101)),
+            new ContractStorageUpdateRequest(contractSlotB, fr(0x151)),
+          ];
         }
         // third call is for teardown
         else if (simulatorCallCount === 2) {
@@ -399,7 +403,7 @@ describe('public_processor', () => {
               [],
               [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x101)),
-                new ContractStorageUpdateRequest(contractSlotB, fr(0x151)),
+                new ContractStorageUpdateRequest(contractSlotC, fr(0x201)),
               ],
             ),
             makePublicExecutionResult(
@@ -438,7 +442,7 @@ describe('public_processor', () => {
       expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(0);
       expect(
         arrayNonEmptyLength(processed[0].data.combinedData.publicDataUpdateRequests, PublicDataUpdateRequest.isEmpty),
-      ).toEqual(2);
+      ).toEqual(3);
       expect(processed[0].data.combinedData.publicDataUpdateRequests[0]).toEqual(
         new PublicDataUpdateRequest(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotA), fr(0x102)),
       );
@@ -446,6 +450,12 @@ describe('public_processor', () => {
         new PublicDataUpdateRequest(
           computePublicDataTreeLeafSlot(enqueuedExecutionContractAddress, contractSlotB),
           fr(0x151),
+        ),
+      );
+      expect(processed[0].data.combinedData.publicDataUpdateRequests[2]).toEqual(
+        new PublicDataUpdateRequest(
+          computePublicDataTreeLeafSlot(enqueuedExecutionContractAddress, contractSlotC),
+          fr(0x201),
         ),
       );
     });
