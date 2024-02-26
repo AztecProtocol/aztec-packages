@@ -64,7 +64,10 @@ BB_PROFILE static void test_round(State& state, size_t index) noexcept
     GoblinUltraProver prover = bb::mock_proofs::get_prover(
         composer, &bb::mock_proofs::generate_basic_arithmetic_circuit<GoblinUltraCircuitBuilder>, log2_num_gates);
     for (auto _ : state) {
+        state.PauseTiming();
         test_round_inner(state, prover, index);
+        state.ResumeTiming();
+        // NOTE: google bench is very finnicky, must end in ResumeTiming() for correctness
     }
 }
 #define ROUND_BENCHMARK(round)                                                                                         \

@@ -207,6 +207,5 @@ BENCHMARK(sqr);
 } // namespace
 #endif
 
-#endif
 // NOLINTNEXTLINE macro invocation triggers style guideline errors from googletest code
 BENCHMARK_MAIN();
