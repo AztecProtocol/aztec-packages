@@ -91,11 +91,9 @@ export class PrivateCallStackItem {
    * @returns Hash.
    */
   public hash(): Fr {
-    return Fr.fromBuffer(
-      pedersenHash(
-        this.toFields().map(field => field.toBuffer()),
-        GeneratorIndex.CALL_STACK_ITEM,
-      ),
+    return pedersenHash(
+      this.toFields().map(field => field.toBuffer()),
+      GeneratorIndex.CALL_STACK_ITEM,
     );
   }
 
@@ -112,7 +110,12 @@ export class PrivateCallStackItem {
     const callerContext = currentCallContext.isDelegateCall
       ? new CallerContext(parentCallContext.msgSender, parentCallContext.storageContractAddress)
       : CallerContext.empty();
-    // todo: populate side effect counters correctly
-    return new CallRequest(this.hash(), parentCallContext.storageContractAddress, callerContext, Fr.ZERO, Fr.ZERO);
+    return new CallRequest(
+      this.hash(),
+      parentCallContext.storageContractAddress,
+      callerContext,
+      new Fr(this.publicInputs.callContext.startSideEffectCounter),
+      this.publicInputs.endSideEffectCounter,
+    );
   }
 }

@@ -2,9 +2,11 @@ import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountWalletWithPrivateKey,
+  AztecAddress,
   AztecNode,
   CheatCodes,
   CompleteAddress,
+  Contract,
   DebugLogger,
   DeployL1Contracts,
   EthCheatCodes,
@@ -192,6 +194,7 @@ async function setupWithRemoteEnvironment(
   };
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
+
   return {
     aztecNode,
     sequencer: undefined,
@@ -406,3 +409,30 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessag
 
   expect(asciiLogs).toStrictEqual(logMessages);
 };
+
+export type PublicBalancesFn = ReturnType<typeof getPublicBalancesFn>;
+export function getPublicBalancesFn(
+  symbol: string,
+  contract: Contract,
+  logger: any,
+): (...addresses: AztecAddress[]) => Promise<bigint[]> {
+  const balances = async (...addresses: AztecAddress[]) => {
+    const b = await Promise.all(addresses.map(address => contract.methods.balance_of_public(address).view()));
+    const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
+    logger(debugString);
+    return b;
+  };
+
+  return balances;
+}
+
+export async function assertPublicBalances(
+  balances: PublicBalancesFn,
+  addresses: AztecAddress[],
+  expectedBalances: bigint[],
+) {
+  const actualBalances = await balances(...addresses);
+  for (let i = 0; i < addresses.length; i++) {
+    expect(actualBalances[i]).toBe(expectedBalances[i]);
+  }
+}

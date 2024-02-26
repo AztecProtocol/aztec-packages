@@ -32,7 +32,8 @@ import {
   CompleteAddress,
   FunctionData,
   GrumpkinPrivateKey,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
   PrivateKernelTailCircuitPublicInputs,
   PublicCallRequest,
@@ -43,7 +44,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { DecodedReturn, encodeArguments } from '@aztec/foundation/abi';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -337,10 +338,10 @@ export class PXEService implements PXE {
 
     const nonces: Fr[] = [];
     const firstNullifier = tx.newNullifiers[0];
-    const commitments = tx.newCommitments;
-    for (let i = 0; i < commitments.length; ++i) {
-      const commitment = commitments[i];
-      if (commitment.equals(Fr.ZERO)) {
+    const hashes = tx.newNoteHashes;
+    for (let i = 0; i < hashes.length; ++i) {
+      const hash = hashes[i];
+      if (hash.equals(Fr.ZERO)) {
         break;
       }
 
@@ -354,11 +355,11 @@ export class PXEService implements PXE {
       );
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
       // Remove this once notes added from public also include nonces.
-      if (commitment.equals(siloedNoteHash)) {
+      if (hash.equals(siloedNoteHash)) {
         nonces.push(Fr.ZERO);
         break;
       }
-      if (commitment.equals(uniqueSiloedNoteHash)) {
+      if (hash.equals(uniqueSiloedNoteHash)) {
         nonces.push(nonce);
       }
     }
@@ -391,7 +392,7 @@ export class PXEService implements PXE {
 
       const timer = new Timer();
       const tx = await this.#simulateAndProve(txRequest, newContract);
-      this.log(`Processed private part of ${tx.data.end.newNullifiers[0]}`, {
+      this.log(`Processed private part of ${tx.getTxHash()}`, {
         eventName: 'tx-pxe-processing',
         duration: timer.ms(),
         ...tx.getStats(),
@@ -399,14 +400,14 @@ export class PXEService implements PXE {
       if (simulatePublic) {
         await this.#simulatePublicCalls(tx);
       }
-      this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
+      this.log.info(`Executed local simulation for ${tx.getTxHash()}`);
 
       return tx;
     });
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     if (await this.node.getTx(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
@@ -647,6 +648,9 @@ export class PXEService implements PXE {
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
+    this.log(
+      `Needs setup: ${publicInputs.needsSetup}, needs app logic: ${publicInputs.needsAppLogic}, needs teardown: ${publicInputs.needsTeardown}`,
+    );
 
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
@@ -714,27 +718,54 @@ export class PXEService implements PXE {
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
     const enqueuedPublicCallStackItems = await Promise.all(enqueuedPublicCalls.map(c => c.toCallRequest()));
-    const { publicCallStack } = publicInputs.end;
 
     // Validate all items in enqueued public calls are in the kernel emitted stack
-    const areEqual = enqueuedPublicCallStackItems.reduce(
-      (accum, enqueued) => accum && !!publicCallStack.find(item => item.equals(enqueued)),
-      true,
+    const enqueuedRevertiblePublicCallStackItems = enqueuedPublicCallStackItems.filter(enqueued =>
+      publicInputs.end.publicCallStack.find(item => item.equals(enqueued)),
     );
 
-    if (!areEqual) {
+    const revertibleStackSize = arrayNonEmptyLength(publicInputs.end.publicCallStack, item => item.isEmpty());
+
+    if (enqueuedRevertiblePublicCallStackItems.length !== revertibleStackSize) {
       throw new Error(
-        `Enqueued public function calls and public call stack do not match.\nEnqueued calls: ${enqueuedPublicCallStackItems
+        `Enqueued revertible public function calls and revertible public call stack do not match.\nEnqueued calls: ${enqueuedRevertiblePublicCallStackItems
           .map(h => h.hash.toString())
-          .join(', ')}\nPublic call stack: ${publicCallStack.map(i => i.toString()).join(', ')}`,
+          .join(', ')}\nPublic call stack: ${publicInputs.end.publicCallStack.map(i => i.toString()).join(', ')}`,
       );
     }
 
     // Override kernel output
     publicInputs.end.publicCallStack = padArrayEnd(
-      enqueuedPublicCallStackItems,
+      enqueuedRevertiblePublicCallStackItems,
       CallRequest.empty(),
-      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+      MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    );
+
+    // Do the same for non-revertible
+
+    const enqueuedNonRevertiblePublicCallStackItems = enqueuedPublicCallStackItems.filter(enqueued =>
+      publicInputs.endNonRevertibleData.publicCallStack.find(item => item.equals(enqueued)),
+    );
+
+    const nonRevertibleStackSize = arrayNonEmptyLength(publicInputs.endNonRevertibleData.publicCallStack, item =>
+      item.isEmpty(),
+    );
+
+    if (enqueuedNonRevertiblePublicCallStackItems.length !== nonRevertibleStackSize) {
+      throw new Error(
+        `Enqueued non-revertible public function calls and non-revertible public call stack do not match.\nEnqueued calls: ${enqueuedNonRevertiblePublicCallStackItems
+          .map(h => h.hash.toString())
+          .join(', ')}\nPublic call stack: ${publicInputs.endNonRevertibleData.publicCallStack
+          .map(i => i.toString())
+          .join(', ')}`,
+      );
+    }
+
+    // Override kernel output
+    publicInputs.endNonRevertibleData.publicCallStack = padArrayEnd(
+      enqueuedNonRevertiblePublicCallStackItems,
+      CallRequest.empty(),
+      MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
   }
 
