@@ -24,7 +24,3 @@ If you have defined a `Storage` struct following this naming scheme, then it wil
 :::warning Using slot `0` is not supported!
 No storage values should be initialized at slot `0` - storage slots begin at `1`. This is a known issue that will be fixed in the future.
 :::
-
-:::danger
-If your contract uses storage (has Storage struct defined), you **MUST** include a `compute_note_hash_and_nullifier` function to allow PXE to process encrypted events. See [how to implement compute_note_hash_and_nullifier()](../functions/compute_note_hash_and_nullifier.md) for more.
-:::

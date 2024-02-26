@@ -45,8 +45,6 @@ struct Storage {
 No storage values should be initialized at slot `0` - storage slots begin at `1`. This is a known issue that will be fixed in the future.
 :::
 
-If your contract uses storage (has Storage struct defined), you **MUST** include a `compute_note_hash_and_nullifier` function to allow PXE to process encrypted events. See [how to implement compute_note_hash_and_nullifier()](../../writing_contracts/functions/compute_note_hash_and_nullifier.md) for more.
-
 If you don't yet have any private state variables defined you can use this placeholder function:
 
 #include_code compute_note_hash_and_nullifier_placeholder /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
