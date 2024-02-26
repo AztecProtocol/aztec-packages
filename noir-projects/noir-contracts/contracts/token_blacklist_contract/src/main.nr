@@ -16,36 +16,18 @@ contract TokenBlacklist {
     // Libs
     use dep::std::option::Option;
 
-    use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector,
-        address::AztecAddress,
-    };
+    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
     use dep::aztec::{
-        note::{
-            note_getter_options::NoteGetterOptions,
-            note_header::NoteHeader,
-            utils as note_utils,
-        },
-        context::{PrivateContext, PublicContext, Context},
-        hash::{compute_secret_hash},
-        state_vars::{map::Map, public_state::PublicState, set::Set, immutable_singleton::ImmutableSingleton},
+        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader, utils as note_utils},
+        context::{PrivateContext, PublicContext, Context}, hash::{compute_secret_hash},
+        state_vars::{map::Map, public_state::PublicState, set::Set, immutable_singleton::ImmutableSingleton}
     };
 
     use dep::field_note::field_note::FieldNote;
 
-    use dep::authwit::{
-        auth::{
-            assert_current_call_valid_authwit,
-            assert_current_call_valid_authwit_public,
-        },
-    };
+    use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
 
-    use crate::types::{
-        transparent_note::TransparentNote,
-        token_note::TokenNote,
-        balances_map::{BalancesMap},
-        roles::UserFlags,
-    };
+    use crate::types::{transparent_note::TransparentNote, token_note::TokenNote, balances_map::{BalancesMap}, roles::UserFlags};
     // docs:start:interface
     use crate::interfaces::SlowMap;
     // docs:end:interface
@@ -215,7 +197,7 @@ contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let amount =U128::from_integer(amount);
+        let amount = U128::from_integer(amount);
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
 
@@ -269,9 +251,9 @@ contract TokenBlacklist {
     #[aztec(private)]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         let slow = SlowMap::at(AztecAddress::from_field(storage.slow_update.get_note().value));
-        let from_roles = UserFlags::new( U128::from_integer(slow.read_at(&mut context, from.to_field())));
+        let from_roles = UserFlags::new(U128::from_integer(slow.read_at(&mut context, from.to_field())));
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
-        let to_roles = UserFlags::new(U128::from_integer( slow.read_at(&mut context, to.to_field())));
+        let to_roles = UserFlags::new(U128::from_integer(slow.read_at(&mut context, to.to_field())));
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
         // docs:end:transfer_private
 
@@ -289,7 +271,7 @@ contract TokenBlacklist {
     #[aztec(private)]
     fn burn(from: AztecAddress, amount: Field, nonce: Field) {
         let slow = SlowMap::at(AztecAddress::from_field(storage.slow_update.get_note().value));
-        let from_roles = UserFlags::new( U128::from_integer(slow.read_at(&mut context, from.to_field())));
+        let from_roles = UserFlags::new(U128::from_integer(slow.read_at(&mut context, from.to_field())));
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
         if (!from.eq(context.msg_sender())) {
@@ -321,15 +303,15 @@ contract TokenBlacklist {
 
     /// Unconstrained ///
 
-    unconstrained fn total_supply() -> pub U128 {
-        storage.total_supply.read()
+    unconstrained fn total_supply() -> pub Field {
+        storage.total_supply.read().to_field()
     }
 
-    unconstrained fn balance_of_private(owner: AztecAddress) -> pub U128 {
-        storage.balances.balance_of(owner)
+    unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
+        storage.balances.balance_of(owner).to_field()
     }
 
-    unconstrained fn balance_of_public(owner: AztecAddress) -> pub U128 {
-        storage.public_balances.at(owner).read()
+    unconstrained fn balance_of_public(owner: AztecAddress) -> pub Field {
+        storage.public_balances.at(owner).read().to_field()
     }
 }
