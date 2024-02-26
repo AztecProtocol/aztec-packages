@@ -92,6 +92,7 @@ library Constants {
   uint256 internal constant CALL_CONTEXT_LENGTH = 8;
   uint256 internal constant CONTENT_COMMITMENT_LENGTH = 7;
   uint256 internal constant CONTRACT_DEPLOYMENT_DATA_LENGTH = 6;
+  uint256 internal constant CONTRACT_INSTANCE_LENGTH = 6;
   uint256 internal constant CONTRACT_STORAGE_READ_LENGTH = 2;
   uint256 internal constant CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 2;
   uint256 internal constant ETH_ADDRESS_LENGTH = 1;
