@@ -10,7 +10,7 @@ mod transaction;
 mod abis;
 mod constants;
 mod contract_class;
-
+mod merkle_tree;
 mod messaging;
 mod mocked;
 mod hash;

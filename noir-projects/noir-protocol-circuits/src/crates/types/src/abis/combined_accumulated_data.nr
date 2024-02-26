@@ -3,20 +3,21 @@ use crate::{
     call_request::CallRequest, new_contract_data::NewContractData,
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    read_request::ReadRequestContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 }
 };
 use crate::constants::{
-    MAX_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NEW_COMMITMENTS_PER_TX,
-    MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_NEW_CONTRACTS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, NUM_FIELDS_PER_SHA256,
-    MAX_NEW_COMMITMENTS_PER_TX_META, MAX_NEW_NULLIFIERS_PER_TX_META,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META
+    MAX_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
+    MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_NEW_CONTRACTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_PUBLIC_DATA_READS_PER_TX, NUM_FIELDS_PER_SHA256, MAX_NEW_COMMITMENTS_PER_TX_META,
+    MAX_NEW_NULLIFIERS_PER_TX_META, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META
 };
 
 struct CombinedAccumulatedData {
     read_requests: [SideEffect; MAX_READ_REQUESTS_PER_TX],
+    nullifier_read_requests: [ReadRequestContext; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
     nullifier_key_validation_requests: [NullifierKeyValidationRequestContext; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
 
     new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_TX],
@@ -68,6 +69,7 @@ struct AccumulatedNonRevertibleData {
 
 struct CombinedAccumulatedDataBuilder {
     read_requests: BoundedVec<SideEffect,MAX_READ_REQUESTS_PER_TX>,
+    nullifier_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
 
     new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_TX>,
@@ -96,6 +98,7 @@ impl CombinedAccumulatedDataBuilder {
     pub fn finish(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
             read_requests: self.read_requests.storage,
+            nullifier_read_requests: self.nullifier_read_requests.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
@@ -114,6 +117,9 @@ impl CombinedAccumulatedDataBuilder {
 
     pub fn to_final(self) -> FinalAccumulatedData {
         assert_eq(self.read_requests.len, 0, "Final accumulated data: read requests not empty");
+        assert_eq(
+            self.nullifier_read_requests.len, 0, "Final accumulated data: nullifier read requests not empty"
+        );
         assert_eq(
             self.nullifier_key_validation_requests.len, 0, "Final accumulated data: nullifier key validation requests not empty"
         );

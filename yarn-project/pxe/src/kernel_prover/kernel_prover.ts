@@ -2,15 +2,11 @@ import {
   AztecAddress,
   CallRequest,
   Fr,
-  GrumpkinScalar,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
-  MAX_READ_REQUESTS_PER_TX,
-  NullifierKeyValidationRequestContext,
   PrivateCallData,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
@@ -20,7 +16,6 @@ import {
   ReadRequestMembershipWitness,
   SideEffect,
   SideEffectLinkedToNoteHash,
-  SideEffectType,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -28,10 +23,11 @@ import {
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
+import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
 
+import { HintsBuilder } from './hints_builder.js';
 import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
 
@@ -73,7 +69,11 @@ export interface KernelProverOutput extends ProofOutputFinal {
  * constructs private call data based on the execution results.
  */
 export class KernelProver {
-  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {}
+  private hintsBuilder: HintsBuilder;
+
+  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {
+    this.hintsBuilder = new HintsBuilder(oracle);
+  }
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -172,24 +172,32 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const [sortedCommitments, sortedCommitmentsIndexes] = this.sortSideEffects<
+    const [sortedCommitments, sortedCommitmentsIndexes] = this.hintsBuilder.sortSideEffects<
       SideEffect,
       typeof MAX_NEW_COMMITMENTS_PER_TX
     >(output.publicInputs.end.newCommitments);
 
-    const [sortedNullifiers, sortedNullifiersIndexes] = this.sortSideEffects<
+    const [sortedNullifiers, sortedNullifiersIndexes] = this.hintsBuilder.sortSideEffects<
       SideEffectLinkedToNoteHash,
       typeof MAX_NEW_NULLIFIERS_PER_TX
     >(output.publicInputs.end.newNullifiers);
 
-    const readCommitmentHints = this.getReadRequestHints(output.publicInputs.end.readRequests, sortedCommitments);
+    const readCommitmentHints = this.hintsBuilder.getReadRequestHints(
+      output.publicInputs.end.readRequests,
+      sortedCommitments,
+    );
 
-    const nullifierCommitmentHints = this.getNullifierHints(
+    const nullifierReadRequestResetHints = await this.hintsBuilder.getNullifierReadRequestResetHints(
+      output.publicInputs.end.newNullifiers,
+      output.publicInputs.end.nullifierReadRequests,
+    );
+
+    const nullifierCommitmentHints = this.hintsBuilder.getNullifierHints(
       mapTuple(sortedNullifiers, n => n.noteHash),
       sortedCommitments,
     );
 
-    const masterNullifierSecretKeys = await this.getMasterNullifierSecretKeys(
+    const masterNullifierSecretKeys = await this.hintsBuilder.getMasterNullifierSecretKeys(
       output.publicInputs.end.nullifierKeyValidationRequests,
     );
 
@@ -202,6 +210,7 @@ export class KernelProver {
       sortedNullifiersIndexes,
       nullifierCommitmentHints,
       masterNullifierSecretKeys,
+      nullifierReadRequestResetHints,
     );
     pushTestData('private-kernel-inputs-ordering', privateInputs);
     const outputFinal = await this.proofCreator.createProofTail(privateInputs);
@@ -211,27 +220,6 @@ export class KernelProver {
     const outputNotes = finalNewCommitments.map(c => newNotes[c.value.toString()]).filter(c => !!c);
 
     return { ...outputFinal, outputNotes };
-  }
-
-  private sortSideEffects<T extends SideEffectType, K extends number>(
-    sideEffects: Tuple<T, K>,
-  ): [Tuple<T, K>, Tuple<number, K>] {
-    const sorted = sideEffects
-      .map((sideEffect, index) => ({ sideEffect, index }))
-      .sort((a, b) => {
-        // Empty ones go to the right
-        if (a.sideEffect.isEmpty()) {
-          return 1;
-        }
-        return Number(a.sideEffect.counter.toBigInt() - b.sideEffect.counter.toBigInt());
-      });
-
-    const originalToSorted = sorted.map(() => 0);
-    sorted.forEach(({ index }, i) => {
-      originalToSorted[index] = i;
-    });
-
-    return [sorted.map(({ sideEffect }) => sideEffect) as Tuple<T, K>, originalToSorted as Tuple<number, K>];
   }
 
   private async createPrivateCallData(
@@ -307,84 +295,5 @@ export class KernelProver {
       data,
       commitment: newCommitments[i],
     }));
-  }
-
-  /**
-   * Performs the matching between an array of read request and an array of commitments. This produces
-   * hints for the private kernel ordering circuit to efficiently match a read request with the corresponding
-   * commitment.
-   *
-   * @param readRequests - The array of read requests.
-   * @param commitments - The array of commitments.
-   * @returns An array of hints where each element is the index of the commitment in commitments array
-   *  corresponding to the read request. In other words we have readRequests[i] == commitments[hints[i]].
-   */
-  private getReadRequestHints(
-    readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
-    commitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
-  ): Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX> {
-    const hints = makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero);
-    for (let i = 0; i < MAX_READ_REQUESTS_PER_TX && !readRequests[i].isEmpty(); i++) {
-      const equalToRR = (cmt: SideEffect) => cmt.value.equals(readRequests[i].value);
-      const result = commitments.findIndex(equalToRR);
-      if (result == -1) {
-        throw new Error(
-          `The read request at index ${i} with value ${readRequests[i].toString()} does not match to any commitment.`,
-        );
-      } else {
-        hints[i] = new Fr(result);
-      }
-    }
-    return hints;
-  }
-
-  /**
-   *  Performs the matching between an array of nullified commitments and an array of commitments. This produces
-   * hints for the private kernel ordering circuit to efficiently match a nullifier with the corresponding
-   * commitment.
-   *
-   * @param nullifiedCommitments - The array of nullified commitments.
-   * @param commitments - The array of commitments.
-   * @returns An array of hints where each element is the index of the commitment in commitments array
-   *  corresponding to the nullified commitments. In other words we have nullifiedCommitments[i] == commitments[hints[i]].
-   */
-  private getNullifierHints(
-    nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    commitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
-  ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
-    const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
-    for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_TX; i++) {
-      if (!nullifiedCommitments[i].isZero()) {
-        const equalToCommitment = (cmt: SideEffect) => cmt.value.equals(nullifiedCommitments[i]);
-        const result = commitments.findIndex(equalToCommitment);
-        if (result == -1) {
-          throw new Error(
-            `The nullified commitment at index ${i} with value ${nullifiedCommitments[
-              i
-            ].toString()} does not match to any commitment.`,
-          );
-        } else {
-          hints[i] = new Fr(result);
-        }
-      }
-    }
-    return hints;
-  }
-
-  private async getMasterNullifierSecretKeys(
-    nullifierKeyValidationRequests: Tuple<
-      NullifierKeyValidationRequestContext,
-      typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
-    >,
-  ) {
-    const keys = makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);
-    for (let i = 0; i < nullifierKeyValidationRequests.length; ++i) {
-      const request = nullifierKeyValidationRequests[i];
-      if (request.isEmpty()) {
-        break;
-      }
-      keys[i] = await this.oracle.getMasterNullifierSecretKey(request.publicKey);
-    }
-    return keys;
   }
 }

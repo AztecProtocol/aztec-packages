@@ -47,6 +47,8 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX_META,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -95,6 +97,8 @@ import {
   PublicKernelData,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
+  ReadRequest,
+  ReadRequestContext,
   ReadRequestMembershipWitness,
   RollupTypes,
   RootRollupInputs,
@@ -248,6 +252,7 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
 
   return new CombinedAccumulatedData(
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, sideEffectFromNumber, seed + 0x80),
+    tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_TX, readRequestContextFromNumber, seed + 0x90),
     tupleGenerator(
       MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
       makeNullifierKeyValidationRequestContext,
@@ -761,10 +766,11 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
     maxNonRevertibleSideEffectCounter: fr(0),
     readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, sideEffectFromNumber, seed + 0x300),
+    nullifierReadRequests: makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, readRequestFromNumber, seed + 0x310),
     nullifierKeyValidationRequests: makeTuple(
       MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
       makeNullifierKeyValidationRequest,
-      seed + 0x300,
+      seed + 0x320,
     ),
     newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, sideEffectFromNumber, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, sideEffectLinkedFromNumber, seed + 0x500),
@@ -1218,4 +1224,12 @@ export function sideEffectFromNumber(n: number): SideEffect {
  */
 export function sideEffectLinkedFromNumber(n: number): SideEffectLinkedToNoteHash {
   return new SideEffectLinkedToNoteHash(new Fr(BigInt(n)), Fr.zero(), Fr.zero());
+}
+
+function readRequestFromNumber(n: number): ReadRequest {
+  return new ReadRequest(new Fr(BigInt(n)), n + 1);
+}
+
+function readRequestContextFromNumber(n: number): ReadRequestContext {
+  return new ReadRequestContext(new Fr(BigInt(n)), n + 1, AztecAddress.fromBigInt(BigInt(n + 2)));
 }

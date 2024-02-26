@@ -34,6 +34,7 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX_META,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
@@ -48,8 +49,10 @@ import {
   NullifierKeyValidationRequest,
   NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
+  NullifierReadRequestResetHints,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
+  PendingReadHint,
   Point,
   PreviousRollupData,
   PrivateCallData,
@@ -71,9 +74,13 @@ import {
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
+  ReadRequest,
+  ReadRequestContext,
   ReadRequestMembershipWitness,
+  ReadRequestStatus,
   RootRollupInputs,
   RootRollupPublicInputs,
+  SettledReadHint,
   SideEffect,
   SideEffectLinkedToNoteHash,
   StateDiffHints,
@@ -109,7 +116,9 @@ import {
   PrivateKernelInitCircuitPrivateInputs as PrivateKernelInitCircuitPrivateInputsNoir,
   PublicDataRead as PublicDataReadNoir,
   PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
+  ReadRequestContext as ReadRequestContextNoir,
   ReadRequestMembershipWitness as ReadRequestMembershipWitnessNoir,
+  ReadRequest as ReadRequestNoir,
   SideEffectLinkedToNoteHash as SideEffectLinkedToNoteHashNoir,
   SideEffect as SideEffectNoir,
   TxContext as TxContextNoir,
@@ -123,8 +132,12 @@ import {
 import {
   AccumulatedNonRevertibleData as AccumulatedNonRevertibleDataNoir,
   FinalAccumulatedData as FinalAccumulatedDataNoir,
+  NullifierReadRequestResetHints as NullifierReadRequestResetHintsNoir,
+  PendingReadHint as PendingReadHintNoir,
   PrivateKernelTailCircuitPrivateInputs as PrivateKernelTailCircuitPrivateInputsNoir,
   PrivateKernelTailCircuitPublicInputs as PrivateKernelTailCircuitPublicInputsNoir,
+  ReadRequestStatus as ReadRequestStatusNoir,
+  SettledReadHint as SettledReadHintNoir,
 } from './types/private_kernel_tail_types.js';
 import { PublicKernelData as PublicKernelDataNoir } from './types/public_kernel_app_logic_types.js';
 import {
@@ -564,6 +577,53 @@ export function mapSideEffectLinkedFromNoir(
 }
 
 /**
+ * Maps a ReadRequest to a noir ReadRequest.
+ * @param readRequest - The read request.
+ * @returns The noir ReadRequest.
+ */
+export function mapReadRequestToNoir(readRequest: ReadRequest): ReadRequestNoir {
+  return {
+    value: mapFieldToNoir(readRequest.value),
+    counter: mapNumberToNoir(readRequest.counter),
+  };
+}
+
+/**
+ * Maps a noir ReadRequest to ReadRequest.
+ * @param readRequest - The noir ReadRequest.
+ * @returns The TS ReadRequest.
+ */
+export function mapReadRequestFromNoir(readRequest: ReadRequestNoir): ReadRequest {
+  return new ReadRequest(mapFieldFromNoir(readRequest.value), mapNumberFromNoir(readRequest.counter));
+}
+
+/**
+ * Maps a ReadRequestContext to a noir ReadRequestContext.
+ * @param readRequestContext - The read request context.
+ * @returns The noir ReadRequestContext.
+ */
+export function mapReadRequestContextToNoir(readRequestContext: ReadRequestContext): ReadRequestContextNoir {
+  return {
+    value: mapFieldToNoir(readRequestContext.value),
+    counter: mapNumberToNoir(readRequestContext.counter),
+    contract_address: mapAztecAddressToNoir(readRequestContext.contractAddress),
+  };
+}
+
+/**
+ * Maps a noir ReadRequest to ReadRequest.
+ * @param readRequest - The noir ReadRequest.
+ * @returns The TS ReadRequest.
+ */
+export function mapReadRequestContextFromNoir(readRequestContext: ReadRequestContextNoir): ReadRequestContext {
+  return new ReadRequestContext(
+    mapFieldFromNoir(readRequestContext.value),
+    mapNumberFromNoir(readRequestContext.counter),
+    mapAztecAddressFromNoir(readRequestContext.contract_address),
+  );
+}
+
+/**
  * Maps a NullifierKeyValidationRequest to a noir NullifierKeyValidationRequest.
  * @param request - The NullifierKeyValidationRequest.
  * @returns The noir NullifierKeyValidationRequest.
@@ -646,6 +706,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
     return_values: mapTuple(privateCircuitPublicInputs.returnValues, mapFieldToNoir),
     read_requests: mapTuple(privateCircuitPublicInputs.readRequests, mapSideEffectToNoir),
+    nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapSideEffectToNoir),
     nullifier_key_validation_requests: mapTuple(
       privateCircuitPublicInputs.nullifierKeyValidationRequests,
       mapNullifierKeyValidationRequestToNoir,
@@ -853,6 +914,37 @@ export function mapPublicDataReadToNoir(publicDataRead: PublicDataRead): PublicD
   };
 }
 
+function mapReadRequestStatusToNoir(readRequestStatus: ReadRequestStatus): ReadRequestStatusNoir {
+  return {
+    state: mapNumberToNoir(readRequestStatus.state),
+    hint_index: mapNumberToNoir(readRequestStatus.hintIndex),
+  };
+}
+
+function mapPendingReadHintToNoir(hint: PendingReadHint): PendingReadHintNoir {
+  return {
+    read_request_index: mapNumberToNoir(hint.readRequestIndex),
+    pending_value_index: mapNumberToNoir(hint.pendingValueIndex),
+  };
+}
+
+function mapNullifierSettledReadHintToNoir(hint: SettledReadHint<typeof NULLIFIER_TREE_HEIGHT>): SettledReadHintNoir {
+  return {
+    read_request_index: mapNumberToNoir(hint.readRequestIndex),
+    membership_witness: mapNullifierMembershipWitnessToNoir(hint.membershipWitness),
+  };
+}
+
+function mapNullifierReadRequestResetHintsToNoir(
+  hints: NullifierReadRequestResetHints,
+): NullifierReadRequestResetHintsNoir {
+  return {
+    read_request_statuses: mapTuple(hints.readRequestStatuses, mapReadRequestStatusToNoir),
+    pending_read_hints: mapTuple(hints.pendingReadHints, mapPendingReadHintToNoir),
+    settled_read_hints: mapTuple(hints.settledReadHints, mapNullifierSettledReadHintToNoir),
+  };
+}
+
 /**
  * Maps combined accumulated data from noir to the parsed type.
  * @param combinedAccumulatedData - The noir combined accumulated data.
@@ -863,6 +955,11 @@ export function mapCombinedAccumulatedDataFromNoir(
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
     mapTupleFromNoir(combinedAccumulatedData.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(
+      combinedAccumulatedData.nullifier_read_requests,
+      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+      mapReadRequestContextFromNoir,
+    ),
     mapTupleFromNoir(
       combinedAccumulatedData.nullifier_key_validation_requests,
       MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
@@ -971,6 +1068,7 @@ export function mapCombinedAccumulatedDataToNoir(
 ): CombinedAccumulatedDataNoir {
   return {
     read_requests: mapTuple(combinedAccumulatedData.readRequests, mapSideEffectToNoir),
+    nullifier_read_requests: mapTuple(combinedAccumulatedData.nullifierReadRequests, mapReadRequestContextToNoir),
     nullifier_key_validation_requests: mapTuple(
       combinedAccumulatedData.nullifierKeyValidationRequests,
       mapNullifierKeyValidationRequestContextToNoir,
@@ -1174,6 +1272,7 @@ export function mapPrivateKernelTailCircuitPrivateInputsToNoir(
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, mapNumberToNoir),
     nullifier_commitment_hints: mapTuple(inputs.nullifierCommitmentHints, mapFieldToNoir),
     master_nullifier_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),
+    nullifier_read_request_reset_hints: mapNullifierReadRequestResetHintsToNoir(inputs.nullifierReadRequestResetHints),
   };
 }
 

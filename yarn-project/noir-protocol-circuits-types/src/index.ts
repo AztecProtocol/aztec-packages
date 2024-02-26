@@ -78,7 +78,7 @@ export const PrivateKernelInitArtifact = PrivateKernelInitJson as NoirCompiledCi
 
 export const PrivateKernelInnerArtifact = PrivateKernelInnerJson as NoirCompiledCircuit;
 
-export const PrivateKernelOrderingArtifact = PrivateKernelTailJson as NoirCompiledCircuit;
+export const PrivateKernelTailArtifact = PrivateKernelTailJson as NoirCompiledCircuit;
 
 export const PublicKernelPrivatePreviousArtifact = PublicKernelPrivatePreviousJson as NoirCompiledCircuit;
 

@@ -1,3 +1,6 @@
+mod append_only_tree;
+mod indexed_tree;
+
 struct MerkleTree<N> {
     leaves: [Field; N],
     nodes: [Field; N],

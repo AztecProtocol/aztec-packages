@@ -1,4 +1,7 @@
-use crate::common;
+use crate::{
+    common,
+    read_request_reset::{ReadRequestResetHints, ReadRequestStatus, PendingReadHint, SettledReadHint, reset_read_requests}
+};
 use dep::std::{cmp::Eq, option::Option, unsafe};
 use dep::types::{
     abis::{
@@ -6,17 +9,24 @@ use dep::types::{
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     kernel_data::{PrivateKernelInnerData, PrivateKernelTailData},
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputsBuilder, PrivateKernelTailCircuitPublicInputs},
+    membership_witness::{MembershipWitness, NullifierMembershipWitness},
     side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
 },
     constants::{
     MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-    MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX
+    MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, NULLIFIER_TREE_HEIGHT
 },
     grumpkin_private_key::GrumpkinPrivateKey,
     hash::{compute_commitment_nonce, compute_unique_siloed_commitment},
     utils::{arrays::{array_length, array_eq}}, traits::{Empty, is_empty}
 };
+
+struct NullifierReadRequestResetHints {
+    read_request_statuses: [ReadRequestStatus; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
+    pending_read_hints: [PendingReadHint; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
+    settled_read_hints: [SettledReadHint<NULLIFIER_TREE_HEIGHT>; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
+}
 
 struct PrivateKernelTailCircuitPrivateInputs {
     previous_kernel: PrivateKernelInnerData,
@@ -25,6 +35,7 @@ struct PrivateKernelTailCircuitPrivateInputs {
     read_commitment_hints: [Field; MAX_READ_REQUESTS_PER_TX],
     sorted_new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_new_nullifiers_indexes: [u32; MAX_NEW_NULLIFIERS_PER_TX],
+    nullifier_read_request_reset_hints: NullifierReadRequestResetHints,
     nullifier_commitment_hints: [Field; MAX_NEW_NULLIFIERS_PER_TX],
     master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
 }
@@ -32,7 +43,34 @@ struct PrivateKernelTailCircuitPrivateInputs {
 impl PrivateKernelTailCircuitPrivateInputs {
     fn validate_inputs(self) {
         assert_eq(
-            array_length(self.previous_kernel.public_inputs.end.private_call_stack), 0, "Private call stack must be empty when executing the ordering circuit"
+            array_length(self.previous_kernel.public_inputs.end.private_call_stack), 0, "Private call stack must be empty when executing the tail circuit"
+        );
+    }
+
+    fn validate_nullifier_read_requests(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
+        let requests = self.previous_kernel.public_inputs.end.nullifier_read_requests;
+
+        let pending_nullifiers = self.previous_kernel.public_inputs.end.new_nullifiers;
+
+        let hints = ReadRequestResetHints {
+            read_request_statuses: self.nullifier_read_request_reset_hints.read_request_statuses,
+            pending_read_hints: self.nullifier_read_request_reset_hints.pending_read_hints,
+            settled_read_hints: self.nullifier_read_request_reset_hints.settled_read_hints
+        };
+
+        let nullifier_tree_root = public_inputs.constants.historical_header.state.partial.nullifier_tree.root;
+
+        public_inputs.end.nullifier_read_requests = reset_read_requests(
+            requests,
+            pending_nullifiers,
+            hints,
+            nullifier_tree_root,
+        );
+        // When we have a separate reset circuit, we can allow unverified requests and process them later after the 
+        // corresponding values are added to public inputs in nested executions.
+        // But right now, all the request must be cleared in one go.
+        assert(
+            public_inputs.end.nullifier_read_requests.len() == 0, "All nullifier read requests must be verified"
         );
     }
 
@@ -200,7 +238,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
         public_inputs.end.new_commitments.storage = unique_commitments;
     }
 
-    pub fn native_private_kernel_circuit_ordering(self) -> PrivateKernelTailCircuitPublicInputs {
+    pub fn native_private_kernel_circuit_tail(self) -> PrivateKernelTailCircuitPublicInputs {
         let mut public_inputs : PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
         public_inputs.is_private = true;
 
@@ -210,6 +248,8 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
         // Do this before any functions can modify the inputs.
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
+
+        self.validate_nullifier_read_requests(&mut public_inputs);
 
         self.validate_nullifier_keys(&mut public_inputs);
 
@@ -229,9 +269,18 @@ impl PrivateKernelTailCircuitPrivateInputs {
 }
 
 mod tests {
-    use dep::std::cmp::Eq;
-    use crate::private_kernel_tail::PrivateKernelTailCircuitPrivateInputs;
-    use dep::types::constants::{MAX_READ_REQUESTS_PER_TX, MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX};
+    use dep::std::{cmp::Eq, unsafe};
+    use crate::{
+        private_kernel_tail::{NullifierReadRequestResetHints, PrivateKernelTailCircuitPrivateInputs},
+        read_request_reset::{
+        PendingReadHint, ReadRequestResetHints, ReadRequestResetHintsBuilder, ReadRequestState,
+        ReadRequestStatus
+    }
+    };
+    use dep::types::constants::{
+        MAX_READ_REQUESTS_PER_TX, MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT
+    };
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelTailCircuitPublicInputs,
@@ -241,18 +290,20 @@ mod tests {
         utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
     };
 
-    struct PrivateKernelOrderingInputsBuilder {
+    struct PrivateKernelTailInputsBuilder {
         previous_kernel: PreviousKernelDataBuilder,
         read_commitment_hints: [Field; MAX_READ_REQUESTS_PER_TX],
         nullifier_commitment_hints: [Field; MAX_NEW_NULLIFIERS_PER_TX],
+        nullifier_read_request_reset_hints: ReadRequestResetHintsBuilder<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT>,
     }
 
-    impl PrivateKernelOrderingInputsBuilder {
+    impl PrivateKernelTailInputsBuilder {
         pub fn new() -> Self {
-            PrivateKernelOrderingInputsBuilder {
+            PrivateKernelTailInputsBuilder {
                 previous_kernel: PreviousKernelDataBuilder::new(),
                 read_commitment_hints: [0; MAX_READ_REQUESTS_PER_TX],
-                nullifier_commitment_hints: [0; MAX_NEW_NULLIFIERS_PER_TX]
+                nullifier_commitment_hints: [0; MAX_NEW_NULLIFIERS_PER_TX],
+                nullifier_read_request_reset_hints: ReadRequestResetHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX)
             }
         }
 
@@ -289,6 +340,15 @@ mod tests {
             self.previous_kernel.append_new_nullifiers(num_nullifiers);
         }
 
+        pub fn add_nullifier_pending_read(&mut self, nullifier_index_offset_one: Field) {
+            let nullifier_index = nullifier_index_offset_one + 1; // + 1 is for the first nullifier
+            let read_request_index = self.previous_kernel.add_read_request_for_pending_nullifier(nullifier_index);
+            let hint_index = self.nullifier_read_request_reset_hints.pending_read_hints.len();
+            let hint = PendingReadHint { read_request_index, pending_value_index: nullifier_index };
+            self.nullifier_read_request_reset_hints.pending_read_hints.push(hint);
+            self.nullifier_read_request_reset_hints.read_request_statuses[read_request_index] = ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
+        }
+
         pub fn nullify_transient_commitment(&mut self, nullifier_index: Field, commitment_index: Field) {
             self.previous_kernel.end.new_nullifiers.storage[nullifier_index].note_hash = self.previous_kernel.end.new_commitments.get(commitment_index).value;
             self.nullifier_commitment_hints[nullifier_index] = commitment_index;
@@ -322,16 +382,23 @@ mod tests {
         }
 
         pub fn execute(self) -> PrivateKernelTailCircuitPublicInputs {
-            let (sorted_new_commitments, sorted_new_commitments_indexes) = PrivateKernelOrderingInputsBuilder::sort_sideffects(self.get_new_commitments());
+            let (sorted_new_commitments, sorted_new_commitments_indexes) = PrivateKernelTailInputsBuilder::sort_sideffects(self.get_new_commitments());
             let mut sorted_read_commitment_hints = [0; MAX_READ_REQUESTS_PER_TX];
             for i in 0..sorted_read_commitment_hints.len() {
                 sorted_read_commitment_hints[i] = sorted_new_commitments_indexes[self.read_commitment_hints[i]] as Field;
             }
-            let (sorted_new_nullifiers, sorted_new_nullifiers_indexes) = PrivateKernelOrderingInputsBuilder::sort_sideffects(self.get_new_nullifiers());
+            let (sorted_new_nullifiers, sorted_new_nullifiers_indexes) = PrivateKernelTailInputsBuilder::sort_sideffects(self.get_new_nullifiers());
             let mut sorted_nullifier_commitment_hints = [0; MAX_NEW_NULLIFIERS_PER_TX];
             for i in 0..sorted_nullifier_commitment_hints.len() {
                 sorted_nullifier_commitment_hints[i] = sorted_new_nullifiers_indexes[self.nullifier_commitment_hints[i]] as Field;
             }
+
+            let nullifier_read_request_reset_hints = NullifierReadRequestResetHints {
+                read_request_statuses: self.nullifier_read_request_reset_hints.read_request_statuses,
+                pending_read_hints: self.nullifier_read_request_reset_hints.pending_read_hints.storage,
+                settled_read_hints: self.nullifier_read_request_reset_hints.settled_read_hints.storage
+            };
+
             let kernel = PrivateKernelTailCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_inner_data(),
                 sorted_new_commitments,
@@ -339,20 +406,25 @@ mod tests {
                 read_commitment_hints: sorted_read_commitment_hints,
                 sorted_new_nullifiers,
                 sorted_new_nullifiers_indexes,
+                nullifier_read_request_reset_hints,
                 nullifier_commitment_hints: sorted_nullifier_commitment_hints,
                 master_nullifier_secret_keys: dep::std::unsafe::zeroed()
             };
-            kernel.native_private_kernel_circuit_ordering()
+            kernel.native_private_kernel_circuit_tail()
         }
 
         pub fn failed(self) {
+            let _ = self.execute();
+        }
+
+        pub fn succeeded(&mut self) {
             let _ = self.execute();
         }
     }
 
     #[test]
     unconstrained fn native_matching_one_read_request_to_commitment_works() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
 
         builder.append_transient_commitments(1);
         builder.add_transient_read(0);
@@ -366,7 +438,7 @@ mod tests {
 
     #[test]
     unconstrained fn native_matching_some_read_requests_to_commitments_works() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.append_transient_commitments(MAX_NEW_COMMITMENTS_PER_TX);
         // Read the commitment at index 1;
         builder.add_transient_read(1);
@@ -382,7 +454,7 @@ mod tests {
 
     #[test(should_fail_with="Hinted commitment does not match read request")]
     unconstrained fn native_read_request_unknown_fails() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.append_transient_commitments(1);
         builder.add_transient_read(0);
         // Tweak the read request so that it does not match the commitment at index 0;
@@ -392,8 +464,57 @@ mod tests {
     }
 
     #[test]
+    unconstrained fn one_pending_nullifier_read_request() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+
+        builder.append_nullifiers(3);
+        builder.add_nullifier_pending_read(1);
+
+        builder.succeeded();
+    }
+
+    #[test]
+    unconstrained fn two_pending_nullifier_read_requests() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+
+        builder.append_nullifiers(3);
+        builder.add_nullifier_pending_read(1);
+        builder.add_nullifier_pending_read(0);
+
+        builder.succeeded();
+    }
+
+    #[test(should_fail_with="hinted value does not match read request")]
+    unconstrained fn pending_nullifier_read_request_wrong_hint_fails() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+
+        builder.append_nullifiers(3);
+        builder.add_nullifier_pending_read(1);
+        let mut hint = builder.nullifier_read_request_reset_hints.pending_read_hints.pop();
+        assert(hint.pending_value_index == 2);
+        hint.pending_value_index = 1;
+        builder.nullifier_read_request_reset_hints.pending_read_hints.push(hint);
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Read request counter must be greater than counter of the value being read")]
+    unconstrained fn pending_nullifier_read_request_reads_before_value_fails() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+
+        builder.append_nullifiers(3);
+        builder.add_nullifier_pending_read(1);
+        let nullifier_being_read = builder.get_new_nullifiers()[2];
+        let mut read_request = builder.previous_kernel.end.nullifier_read_requests.pop();
+        read_request.counter = nullifier_being_read.counter - 1;
+        builder.previous_kernel.end.nullifier_read_requests.push(read_request);
+
+        builder.failed();
+    }
+
+    #[test]
     unconstrained fn native_squash_one_of_one_transient_matches_works() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.append_transient_commitments(1);
         builder.append_nullifiers(2);
         // The nullifier at index 1 is nullifying the commitment at index 0;
@@ -409,7 +530,7 @@ mod tests {
 
     #[test]
     unconstrained fn native_squash_one_of_two_transient_matches_works() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.append_transient_commitments(2);
         builder.append_nullifiers(2);
         // The nullifier at index 1 is nullifying the commitment at index 0;
@@ -432,7 +553,7 @@ mod tests {
 
     #[test]
     unconstrained fn native_squash_two_of_two_transient_matches_works() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.append_transient_commitments(2);
         builder.append_nullifiers(2);
         // The nullifier at index 1 is nullifying the commitment at index 1;
@@ -447,7 +568,7 @@ mod tests {
 
     #[test]
     unconstrained fn ordering_of_commitments_and_nullifiers() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
 
         let mut sorted_new_commitments = [SideEffect::empty(); 10];
         let mut sorted_new_nullifiers = [SideEffectLinkedToNoteHash::empty(); 10];
@@ -478,7 +599,7 @@ mod tests {
 
     #[test]
     unconstrained fn native_empty_nullified_commitment_means_persistent_nullifier_0() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.append_transient_commitments(2);
         builder.append_nullifiers(2);
         let public_inputs = builder.execute();
@@ -490,7 +611,7 @@ mod tests {
 
     #[test]
     unconstrained fn native_empty_nullified_commitment_means_persistent_nullifier_1() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.append_nullifiers(2);
         let public_inputs = builder.execute();
         assert(array_length(public_inputs.end.new_commitments) == 0);
@@ -499,7 +620,7 @@ mod tests {
 
     #[test(should_fail)]
     unconstrained fn invalid_nullifier_commitment_hint_fails() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.append_transient_commitments(1);
         builder.append_nullifiers(1);
         // The nullifier at index 1 is nullifying the commitment at index 0;
@@ -511,7 +632,7 @@ mod tests {
 
     #[test(should_fail_with="Hinted commitment does not match")]
     unconstrained fn wrong_nullifier_commitment_hint_fails() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.append_transient_commitments(2);
         builder.append_nullifiers(2);
         // The nullifier at index 1 is nullifying the commitment at index 1;
@@ -523,16 +644,16 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Private call stack must be empty when executing the ordering circuit")]
+    #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
     unconstrained fn non_empty_private_call_stack_should_fail() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.push_private_call_request(1, false);
         builder.failed();
     }
 
     #[test(should_fail_with="The 0th nullifier in the accumulated nullifier array is zero")]
     unconstrained fn zero_0th_nullifier_fails() {
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
+        let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
         builder.failed();
     }
