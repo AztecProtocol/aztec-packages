@@ -32,6 +32,13 @@ namespace bb {
  * We should only do this if it becomes necessary or convenient.
  */
 
+/**
+ * @brief Basic structure for storing gate data in a builder
+ *
+ * @tparam FF
+ * @tparam NUM_WIRES
+ * @tparam NUM_SELECTORS
+ */
 template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTraceBlock {
   public:
     using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
@@ -66,11 +73,6 @@ template <typename FF_> class StandardArith {
 
     class StandardTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {
       public:
-        // WORKTODO: would be nice to do this instead of getters but we lose convenience of block.wires
-        // WireType w_l;
-        // WireType w_r;
-        // WireType w_o;
-
         void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3)
         {
             this->wires[0].emplace_back(idx_1);

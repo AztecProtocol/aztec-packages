@@ -42,10 +42,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     calldata_read_counts[raw_read_idx]++;
 
     // mock gates that use poseidon selectors, with all zeros as input
-    this->blocks.main.w_l().emplace_back(this->zero_idx);
-    this->blocks.main.w_r().emplace_back(this->zero_idx);
-    this->blocks.main.w_o().emplace_back(this->zero_idx);
-    this->blocks.main.w_4().emplace_back(this->zero_idx);
+    this->blocks.main.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
     this->blocks.main.q_m().emplace_back(0);
     this->blocks.main.q_1().emplace_back(0);
     this->blocks.main.q_2().emplace_back(0);
@@ -65,10 +62,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     ++this->num_gates;
 
     // second gate that stores the output of all zeros of the poseidon gates
-    this->blocks.main.w_l().emplace_back(this->zero_idx);
-    this->blocks.main.w_r().emplace_back(this->zero_idx);
-    this->blocks.main.w_o().emplace_back(this->zero_idx);
-    this->blocks.main.w_4().emplace_back(this->zero_idx);
+    this->blocks.main.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
     this->blocks.main.q_m().emplace_back(0);
     this->blocks.main.q_1().emplace_back(0);
     this->blocks.main.q_2().emplace_back(0);
@@ -207,18 +201,12 @@ ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::decompose_ecc_operands(uint32_t op_
  */
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::populate_ecc_op_wires(const ecc_op_tuple& in)
 {
-    this->blocks.ecc_op.w_l().emplace_back(in.op);
-    this->blocks.ecc_op.w_r().emplace_back(in.x_lo);
-    this->blocks.ecc_op.w_o().emplace_back(in.x_hi);
-    this->blocks.ecc_op.w_4().emplace_back(in.y_lo);
+    this->blocks.ecc_op.populate_wires(in.op, in.x_lo, in.x_hi, in.y_lo);
     for (auto& selector : this->blocks.ecc_op.selectors) {
         selector.emplace_back(0);
     }
 
-    this->blocks.ecc_op.w_l().emplace_back(this->zero_idx);
-    this->blocks.ecc_op.w_r().emplace_back(in.y_hi);
-    this->blocks.ecc_op.w_o().emplace_back(in.z_1);
-    this->blocks.ecc_op.w_4().emplace_back(in.z_2);
+    this->blocks.ecc_op.populate_wires(this->zero_idx, in.y_hi, in.z_1, in.z_2);
     for (auto& selector : this->blocks.ecc_op.selectors) {
         selector.emplace_back(0);
     }
@@ -243,13 +231,10 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::set_goblin_ecc_op_co
 template <typename FF>
 void GoblinUltraCircuitBuilder_<FF>::create_calldata_lookup_gate(const databus_lookup_gate_<FF>& in)
 {
-    this->blocks.main.w_l().emplace_back(in.value);
-    this->blocks.main.w_r().emplace_back(in.index);
+    this->blocks.main.populate_wires(in.value, in.index, this->zero_idx, this->zero_idx);
     this->blocks.main.q_busread().emplace_back(1);
 
     // populate all other components with zero
-    this->blocks.main.w_o().emplace_back(this->zero_idx);
-    this->blocks.main.w_4().emplace_back(this->zero_idx);
     this->blocks.main.q_m().emplace_back(0);
     this->blocks.main.q_1().emplace_back(0);
     this->blocks.main.q_2().emplace_back(0);
@@ -274,10 +259,7 @@ void GoblinUltraCircuitBuilder_<FF>::create_calldata_lookup_gate(const databus_l
 template <typename FF>
 void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
 {
-    this->blocks.main.w_l().emplace_back(in.a);
-    this->blocks.main.w_r().emplace_back(in.b);
-    this->blocks.main.w_o().emplace_back(in.c);
-    this->blocks.main.w_4().emplace_back(in.d);
+    this->blocks.main.populate_wires(in.a, in.b, in.c, in.d);
     this->blocks.main.q_m().emplace_back(0);
     this->blocks.main.q_1().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
     this->blocks.main.q_2().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
@@ -302,10 +284,7 @@ void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseid
 template <typename FF>
 void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in)
 {
-    this->blocks.main.w_l().emplace_back(in.a);
-    this->blocks.main.w_r().emplace_back(in.b);
-    this->blocks.main.w_o().emplace_back(in.c);
-    this->blocks.main.w_4().emplace_back(in.d);
+    this->blocks.main.populate_wires(in.a, in.b, in.c, in.d);
     this->blocks.main.q_m().emplace_back(0);
     this->blocks.main.q_1().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
     this->blocks.main.q_2().emplace_back(0);
@@ -333,10 +312,7 @@ void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseid
  */
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_end_gate(const poseidon2_end_gate_<FF>& in)
 {
-    this->blocks.main.w_l().emplace_back(in.a);
-    this->blocks.main.w_r().emplace_back(in.b);
-    this->blocks.main.w_o().emplace_back(in.c);
-    this->blocks.main.w_4().emplace_back(in.d);
+    this->blocks.main.populate_wires(in.a, in.b, in.c, in.d);
     this->blocks.main.q_m().emplace_back(0);
     this->blocks.main.q_1().emplace_back(0);
     this->blocks.main.q_2().emplace_back(0);
