@@ -27,7 +27,10 @@ impl<T> SharedImmutable<T> {
         assert(
             self.context.private.is_none(), "SharedImmutable can only be initialized from public functions"
         );
-        self.context.public.unwrap_unchecked().assert_deployment();
+        // TODO(#4738): Uncomment the following assert
+        // assert(
+        //     self.context.public.unwrap_unchecked().is_deployment(), "SharedImmutable can only be initialized during contract deployment"
+        // );
 
         // We check that the struct is not yet initialized by checking if the placeholder slot is 0
         let placeholder_storage_slot = pedersen_hash(

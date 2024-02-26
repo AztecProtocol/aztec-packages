@@ -95,8 +95,9 @@ impl PrivateContext {
         }
     }
 
-    pub fn assert_deployment(self) {
+    pub fn is_deployment(self) -> bool {
         // TODO(#4738): Implement this
+        false
     }
 
     pub fn msg_sender(self) -> AztecAddress {
