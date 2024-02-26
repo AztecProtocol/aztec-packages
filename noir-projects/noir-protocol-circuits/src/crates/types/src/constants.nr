@@ -31,7 +31,7 @@ global MAX_NEW_L2_TO_L1_MSGS_PER_CALL: Field = 2;
 global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: Field = 16;
 global MAX_PUBLIC_DATA_READS_PER_CALL: Field = 16;
 global MAX_READ_REQUESTS_PER_CALL: Field = 32;
-global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: Field = 32;
+global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: Field = 2; // Change it to a larger value when there's a seperate reset circuit.
 global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL: Field = 1;
 
 // "PER TRANSACTION" CONSTANTS
@@ -60,7 +60,7 @@ global MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX: Field = 16;
 global MAX_NEW_L2_TO_L1_MSGS_PER_TX: Field = 2;
 global MAX_NEW_CONTRACTS_PER_TX: Field = 1;
 global MAX_READ_REQUESTS_PER_TX: Field = 128;
-global MAX_NULLIFIER_READ_REQUESTS_PER_TX: Field = 128;
+global MAX_NULLIFIER_READ_REQUESTS_PER_TX: Field = 8; // Change it to a larger value when there's a seperate reset circuit.
 global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX: Field = 4;
 global NUM_ENCRYPTED_LOGS_HASHES_PER_TX: Field = 1;
 global NUM_UNENCRYPTED_LOGS_HASHES_PER_TX: Field = 1;

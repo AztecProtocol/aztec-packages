@@ -1,7 +1,7 @@
 import {
   Fr,
   GrumpkinScalar,
-  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
@@ -46,26 +46,27 @@ export class HintsBuilder {
   }
 
   /**
-   * Performs the matching between an array of read request and an array of commitments. This produces
-   * hints for the private kernel ordering circuit to efficiently match a read request with the corresponding
-   * commitment.
+   * Performs the matching between an array of read request and an array of note hashes. This produces
+   * hints for the private kernel tail circuit to efficiently match a read request with the corresponding
+   * note hash. Several read requests might be pointing to the same note hash. It is therefore valid
+   * to return more than one hint with the same index (contrary to getNullifierHints).
    *
    * @param readRequests - The array of read requests.
-   * @param commitments - The array of commitments.
-   * @returns An array of hints where each element is the index of the commitment in commitments array
-   *  corresponding to the read request. In other words we have readRequests[i] == commitments[hints[i]].
+   * @param noteHashes - The array of note hashes.
+   * @returns An array of hints where each element is the index of the note hash in note hashes array
+   *  corresponding to the read request. In other words we have readRequests[i] == noteHashes[hints[i]].
    */
   getReadRequestHints(
     readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
-    commitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    noteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   ): Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX> {
     const hints = makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero);
     for (let i = 0; i < MAX_READ_REQUESTS_PER_TX && !readRequests[i].isEmpty(); i++) {
       const equalToRR = (cmt: SideEffect) => cmt.value.equals(readRequests[i].value);
-      const result = commitments.findIndex(equalToRR);
+      const result = noteHashes.findIndex(equalToRR);
       if (result == -1) {
         throw new Error(
-          `The read request at index ${i} with value ${readRequests[i].toString()} does not match to any commitment.`,
+          `The read request at index ${i} with value ${readRequests[i].toString()} does not match to any note hash.`,
         );
       } else {
         hints[i] = new Fr(result);
@@ -112,29 +113,34 @@ export class HintsBuilder {
   }
 
   /**
-   *  Performs the matching between an array of nullified commitments and an array of commitments. This produces
-   * hints for the private kernel ordering circuit to efficiently match a nullifier with the corresponding
-   * commitment.
+   * Performs the matching between an array of nullified note hashes and an array of note hashes. This produces
+   * hints for the private kernel tail circuit to efficiently match a nullifier with the corresponding
+   * note hash. Note that the same note hash value might appear more than once in the note hashes
+   * (resp. nullified note hashes) array. It is crucial in this case that each hint points to a different index
+   * of the nullified note hashes array. Otherwise, the private kernel will fail to validate.
    *
-   * @param nullifiedCommitments - The array of nullified commitments.
-   * @param commitments - The array of commitments.
-   * @returns An array of hints where each element is the index of the commitment in commitments array
-   *  corresponding to the nullified commitments. In other words we have nullifiedCommitments[i] == commitments[hints[i]].
+   * @param nullifiedNoteHashes - The array of nullified note hashes.
+   * @param noteHashes - The array of note hashes.
+   * @returns An array of hints where each element is the index of the note hash in note hashes array
+   *  corresponding to the nullified note hash. In other words we have nullifiedNoteHashes[i] == noteHashes[hints[i]].
    */
   getNullifierHints(
-    nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    commitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    nullifiedNoteHashes: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    noteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
     const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
+    const alreadyUsed = new Set<number>();
     for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_TX; i++) {
-      if (!nullifiedCommitments[i].isZero()) {
-        const equalToCommitment = (cmt: SideEffect) => cmt.value.equals(nullifiedCommitments[i]);
-        const result = commitments.findIndex(equalToCommitment);
+      if (!nullifiedNoteHashes[i].isZero()) {
+        const result = noteHashes.findIndex(
+          (cmt: SideEffect, index: number) => cmt.value.equals(nullifiedNoteHashes[i]) && !alreadyUsed.has(index),
+        );
+        alreadyUsed.add(result);
         if (result == -1) {
           throw new Error(
-            `The nullified commitment at index ${i} with value ${nullifiedCommitments[
+            `The nullified note hash at index ${i} with value ${nullifiedNoteHashes[
               i
-            ].toString()} does not match to any commitment.`,
+            ].toString()} does not match to any note hash.`,
           );
         } else {
           hints[i] = new Fr(result);

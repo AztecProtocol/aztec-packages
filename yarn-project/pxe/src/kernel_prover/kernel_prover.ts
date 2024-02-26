@@ -174,7 +174,7 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const [sortedCommitments, sortedCommitmentsIndexes] = this.hintsBuilder.sortSideEffects<
+    const [sortedNoteHashes, sortedNoteHashesIndexes] = this.hintsBuilder.sortSideEffects<
       SideEffect,
       typeof MAX_NEW_NOTE_HASHES_PER_TX
     >(output.publicInputs.end.newNoteHashes);
@@ -184,9 +184,9 @@ export class KernelProver {
       typeof MAX_NEW_NULLIFIERS_PER_TX
     >(output.publicInputs.end.newNullifiers);
 
-    const readCommitmentHints = this.hintsBuilder.getReadRequestHints(
+    const readNoteHashHints = this.hintsBuilder.getReadRequestHints(
       output.publicInputs.end.readRequests,
-      sortedCommitments,
+      sortedNoteHashes,
     );
 
     const nullifierReadRequestResetHints = await this.hintsBuilder.getNullifierReadRequestResetHints(
@@ -194,9 +194,9 @@ export class KernelProver {
       output.publicInputs.end.nullifierReadRequests,
     );
 
-    const nullifierCommitmentHints = this.hintsBuilder.getNullifierHints(
+    const nullifierNoteHashHints = this.hintsBuilder.getNullifierHints(
       mapTuple(sortedNullifiers, n => n.noteHash),
-      sortedCommitments,
+      sortedNoteHashes,
     );
 
     const masterNullifierSecretKeys = await this.hintsBuilder.getMasterNullifierSecretKeys(
@@ -209,12 +209,12 @@ export class KernelProver {
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
       previousKernelData,
-      sortedCommitments,
-      sortedCommitmentsIndexes,
-      readCommitmentHints,
+      sortedNoteHashes,
+      sortedNoteHashesIndexes,
+      readNoteHashHints,
       sortedNullifiers,
       sortedNullifiersIndexes,
-      nullifierCommitmentHints,
+      nullifierNoteHashHints,
       masterNullifierSecretKeys,
       nullifierReadRequestResetHints,
     );
