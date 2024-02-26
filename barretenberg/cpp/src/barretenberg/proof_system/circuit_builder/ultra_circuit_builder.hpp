@@ -271,7 +271,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         uint32_t hi_3_idx;
     };
 
-    // Block for all gates
+    // Storage for wires and selectors for all gate types
     GateBlocks blocks;
 
     // These are variables that we have used a gate on, to enforce that they are
