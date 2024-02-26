@@ -5,7 +5,7 @@ contract InclusionProofs {
         grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId
     };
     use dep::aztec::{
-        state_vars::{map::Map, set::Set, public_mutable::PublicMutable}, context::Context,
+        state_vars::{Map, Set, PublicMutable}, context::Context,
         note::{
         note_getter_options::NoteGetterOptions, note_getter_options::NoteStatus,
         note_header::NoteHeader, utils as note_utils

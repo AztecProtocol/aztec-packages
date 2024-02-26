@@ -3,7 +3,7 @@ contract Delegator {
     use dep::std::option::Option;
 
     use dep::aztec::{
-        log::emit_unencrypted_log, state_vars::{public_mutable::PublicMutable, set::Set},
+        log::emit_unencrypted_log, state_vars::{PublicMutable, Set},
         protocol_types::{abis::{function_selector::FunctionSelector}, address::AztecAddress},
         note::{note_viewer_options::NoteViewerOptions, utils as note_utils, note_header::NoteHeader}
     };

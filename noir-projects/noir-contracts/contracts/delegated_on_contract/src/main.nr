@@ -4,7 +4,7 @@ contract DelegatedOn {
 
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context}, log::emit_unencrypted_log,
-        state_vars::{public_mutable::PublicMutable, set::Set},
+        state_vars::{PublicMutable, Set},
         protocol_types::{abis::{function_selector::FunctionSelector, call_context::CallContext}, address::AztecAddress},
         note::{
         note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,

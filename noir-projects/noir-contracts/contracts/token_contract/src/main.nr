@@ -23,7 +23,7 @@ contract Token {
             utils as note_utils,
         },
         hash::{compute_secret_hash},
-        state_vars::{map::Map, public_mutable::PublicMutable, shared_immutable::SharedImmutable,  set::Set},
+        state_vars::{Map, PublicMutable, SharedImmutable, Set},
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress
