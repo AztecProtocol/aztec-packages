@@ -17,9 +17,7 @@ impl<T> SharedImmutable<T> {
         context: Context,
         storage_slot: Field
     ) -> Self {
-        assert(
-            (storage_slot != 0) & (storage_slot != 1), "Storage slots 0 and 1 not allowed. Storage slots must start from 2."
-        );
+        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
 
