@@ -48,7 +48,6 @@ class ECCOpQueue {
     {
         // Allocate enough space
         std::vector<ECCVMOperation> raw_ops_updated(raw_ops.size() + previous.raw_ops.size());
-        // Copy raw_ops
         // Copy the previous raw ops to the beginning of the new vector
         std::copy(previous.raw_ops.begin(), previous.raw_ops.end(), raw_ops_updated.begin());
         // Copy the raw ops from current queue after the ones from the previous queue (concatenate them)
