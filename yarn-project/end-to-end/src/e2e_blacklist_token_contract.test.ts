@@ -21,6 +21,7 @@ import { SlowTreeContract, TokenBlacklistContract, TokenContract } from '@aztec/
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
+import { U128_UNDERFLOW_ERROR } from './fixtures/fixtures.js';
 import { TokenSimulator } from './simulators/token_simulator.js';
 
 const TIMEOUT = 90_000;
@@ -357,8 +358,8 @@ describe('e2e_blacklist_token_contract', () => {
           ).rejects.toThrowError('Assertion failed: caller is not minter');
         });
 
-        it('mint >u120 tokens to overflow', async () => {
-          const amount = 2n ** 120n; // SafeU120::max() + 1;
+        it('mint >u128 tokens to overflow', async () => {
+          const amount = 2n ** 128n; // U128::max() + 1;
           await expect(asset.methods.mint_public(accounts[0].address, amount).simulate()).rejects.toThrowError(
             'Assertion failed: Value too large for SafeU120',
           );
@@ -536,7 +537,7 @@ describe('e2e_blacklist_token_contract', () => {
           const nonce = 0;
           await expect(
             asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
-          ).rejects.toThrowError('Assertion failed: Underflow');
+          ).rejects.toThrowError(U128_UNDERFLOW_ERROR);
         });
 
         it('transfer on behalf of self with non-zero nonce', async () => {
@@ -576,7 +577,7 @@ describe('e2e_blacklist_token_contract', () => {
           await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
           // Perform the transfer
-          await expect(action.simulate()).rejects.toThrowError('Assertion failed: Underflow');
+          await expect(action.simulate()).rejects.toThrowError(U128_UNDERFLOW_ERROR);
 
           expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
@@ -944,7 +945,7 @@ describe('e2e_blacklist_token_contract', () => {
         expect(amount).toBeGreaterThan(0n);
 
         await expect(asset.methods.shield(accounts[0].address, amount, secretHash, 0).simulate()).rejects.toThrowError(
-          'Assertion failed: Underflow',
+          U128_UNDERFLOW_ERROR,
         );
       });
 
@@ -969,7 +970,7 @@ describe('e2e_blacklist_token_contract', () => {
         const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
         await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
-        await expect(action.simulate()).rejects.toThrowError('Assertion failed: Underflow');
+        await expect(action.simulate()).rejects.toThrowError(U128_UNDERFLOW_ERROR);
       });
 
       it('on behalf of other (wrong designated caller)', async () => {
@@ -1218,7 +1219,7 @@ describe('e2e_blacklist_token_contract', () => {
           const amount = balance0 + 1n;
           const nonce = 0;
           await expect(asset.methods.burn_public(accounts[0].address, amount, nonce).simulate()).rejects.toThrowError(
-            'Assertion failed: Underflow',
+            U128_UNDERFLOW_ERROR,
           );
         });
 
@@ -1252,7 +1253,7 @@ describe('e2e_blacklist_token_contract', () => {
           const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
           await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
-          await expect(action.simulate()).rejects.toThrowError('Assertion failed: Underflow');
+          await expect(action.simulate()).rejects.toThrowError(U128_UNDERFLOW_ERROR);
         });
 
         it('burn on behalf of other, wrong designated caller', async () => {
