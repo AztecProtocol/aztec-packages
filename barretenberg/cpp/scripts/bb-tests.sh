@@ -3,7 +3,7 @@
 # Might be better to list exclusions here rather than inclusions as risky to maintain.
 set -eu
 
-$(aws ecr-public get-login --region us-east-2 --no-include-email) 2> /dev/null
+$(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null
 export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
 REPOSITORY=barretenberg-x86_64-linux-clang-assert
 # use the image rebuild patterns to compute a content hash, use this to get a URI

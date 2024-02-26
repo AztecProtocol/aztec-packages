@@ -11,7 +11,7 @@ TESTS=$2
 shift
 shift
 
-$(aws ecr-public get-login --region us-east-2 --no-include-email) 2> /dev/null
+$(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null
 
 # use the image rebuild patterns to compute a content hash, use this to get a URI
 REPOSITORY=barretenberg-x86_64-linux-clang-assert
