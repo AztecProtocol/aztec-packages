@@ -35,6 +35,14 @@ describe('e2e_state_vars', () => {
       const receipt2 = await contract.methods.match_shared_immutable(s.account, s.points).send().wait();
       expect(receipt2.status).toEqual(TxStatus.MINED);
     }, 200_000);
+
+    it('initializing SharedImmutable the second time should fail', async () => {
+      // Jest executes the tests sequentially and the first call to initialize_shared_immutable was executed
+      // in the previous test, so the call bellow should fail.
+      await expect(contract.methods.initialize_shared_immutable(1).send().wait()).rejects.toThrowError(
+        "Assertion failed: SharedImmutable already initialized 'fields_read[0] == 0'",
+      );
+    }, 100_000);
   });
 
   describe('PrivateMutable', () => {
