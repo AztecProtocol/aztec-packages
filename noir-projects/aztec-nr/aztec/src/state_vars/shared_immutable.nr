@@ -18,7 +18,9 @@ impl<T> SharedImmutable<T> {
         context: Context,
         storage_slot: Field
     ) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
+        assert(
+            (storage_slot != 0) & (storage_slot != 1), "Storage slots 0 and 1 not allowed. Storage slots must start from 2."
+        );
         Self { context, storage_slot }
     }
 
@@ -28,13 +30,17 @@ impl<T> SharedImmutable<T> {
             self.context.private.is_none(), "SharedImmutable can only be initialized from public functions"
         );
         self.context.public.unwrap_unchecked().assert_deployment();
-        // TODO: Must throw if the storage slot is not empty -> cannot allow overwriting
-        // This is currently impractical, as public functions are never marked `is_contract_deployment`
-        // in the `call_context`, only private functions will have this flag set.
-        let fields = T::serialize(value);
-        // TODO(benesjan): check here that the value is not already set
-        // storage_write(self.storage_slot, 0xdead);
-        storage_write(self.storage_slot, fields);
+
+        // We check that the struct is not yet initialized by checking if the placeholder slot is 0
+        let placeholder_storage_slot = self.storage_slot - 1;
+        let fields_read: [Field; 1] = storage_read(placeholder_storage_slot);
+        assert(fields_read[0] != 0, "SharedImmutable already initialized");
+
+        // We populate the placeholder slot with a non-zero value to indicate that the struct is initialized
+        storage_write(placeholder_storage_slot, [0xdead]);
+
+        let fields_write = T::serialize(value);
+        storage_write(self.storage_slot, fields_write);
     }
 
     pub fn read_public<T_SERIALIZED_LEN>(self) -> T where T: Deserialize<T_SERIALIZED_LEN> {

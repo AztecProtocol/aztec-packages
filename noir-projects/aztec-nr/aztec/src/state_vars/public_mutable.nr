@@ -28,7 +28,7 @@ impl<T> PublicMutable<T> {
 
     // docs:start:public_mutable_struct_read
     pub fn read<T_SERIALIZED_LEN>(self) -> T where T: Deserialize<T_SERIALIZED_LEN> {
-        assert(self.context.private.is_none(), "Public state reads only supported in public functions");
+        assert(self.context.private.is_none(), "PublicMutable reads only supported in public functions");
         let fields = storage_read(self.storage_slot);
         T::deserialize(fields)
     }
@@ -36,7 +36,7 @@ impl<T> PublicMutable<T> {
 
     // docs:start:public_mutable_struct_write
     pub fn write<T_SERIALIZED_LEN>(self, value: T) where T: Serialize<T_SERIALIZED_LEN> {
-        assert(self.context.private.is_none(), "Public state writes only supported in public functions");
+        assert(self.context.private.is_none(), "PublicMutable writes only supported in public functions");
         let fields = T::serialize(value);
         storage_write(self.storage_slot, fields);
     }
