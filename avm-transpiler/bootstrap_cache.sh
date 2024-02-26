@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -eu
 
-type docker &> /dev/null && [ -f ~/.aws/credentials ] || exit 1
+[ -z "${NO_CACHE:-}" ] && type docker &> /dev/null && [ -f ~/.aws/credentials ] || exit 1
 
 cd "$(dirname "$0")"
 source ../build-system/scripts/setup_env '' '' mainframe_$USER > /dev/null
