@@ -16,7 +16,7 @@ Aztec private state follows a [utxo](https://en.wikipedia.org/wiki/Unspent_trans
 
 To greatly simplify the experience of writing private state, Aztec.nr provides three different types of private state variable:
 
-- [PrivateMutable<NoteType\>](#singletonnotetype)
+- [PrivateMutable<NoteType\>](#privatemutablenotetype)
 - [PrivateImmutable<NoteType\>](#privateimmutablenotetype)
 - [PrivateSet<NoteType\>](#privatesetnotetype)
 
