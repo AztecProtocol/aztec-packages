@@ -205,7 +205,7 @@ Storage definition and initialization has been simplified. Previously:
 
 ```rust
 struct Storage {
-    leader: PublicMutable<Leader, LEADER_SERIALIZED_LEN>,
+    leader: PublicState<Leader, LEADER_SERIALIZED_LEN>,
     legendary_card: Singleton<CardNote, CARD_NOTE_LEN>,
     profiles: Map<AztecAddress, Singleton<CardNote, CARD_NOTE_LEN>>,
     test: Set<CardNote, CARD_NOTE_LEN>,
