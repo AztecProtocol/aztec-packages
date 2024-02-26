@@ -62,7 +62,7 @@ By the time mainnet comes around, zk-SNARKs will be needed in order to validate 
 
 But proofs are really only needed as a protection against malicious behavior. The Sandbox is an emulated ecosystem; entirely contained within your laptop, and it follows the network's rules out of the box. So as long as its inner workings aren't tampered-with, it will act 'honestly'. Since you'll be the only person interacting with the Sandbox on your own laptop, and with a healthy assumption that you should be honest with yourself, you won't need proofs when testing.
 
-### No Circuits
+### No Circuits!
 
 This is kind-of a repetition of ['No Proofs!'](#no-proofs) above, but for the sake of clarity, there aren't yet any arithmetic circuits in the Sandbox. We might refer to certain components of the core protocol as being 'circuits', and we might refer to user-defined smart contract functions as being compiled to 'circuits', but the Sandbox doesn't actually contain any circuits yet. Instead, there is code which emulates the logic of a circuit. This is intentional, to make execution of the Sandbox as fast as possible.
 
@@ -74,7 +74,7 @@ The Sandbox will execute more quickly. The logic of all 'circuits' is still in p
 
 \*Note: some core protocol circuit assertions and constraints still need to be written (see [GitHub](https://github.com/AztecProtocol/aztec-packages/issues)). This would be bad in an adversarial environment, but the Sandbox is not that. Naturally, proper circuits will need to be written.
 
-### No Fees
+### No Fees!
 
 That's right, there are no L2 network fees yet!
 
@@ -86,7 +86,7 @@ The Sandbox can currently be thought of as a bare-minimum execution layer. We'll
 
 Apps won't yet be able to allow for any L2 fee logic. Once fees are introduced, this will cause breaking changes to in-progress apps, which will need to be updated to accommodate the notion of paying network fees for transactions. Clear documentation will be provided.
 
-### Basic Keys and Addresses
+### Basic Keys and Addresses!
 
 The way in which keypairs and addresses are currently derived and implemented (inside the Sandbox) is greatly over-simplified, relative to future plans.
 
@@ -189,7 +189,7 @@ Due to the rigidity of zk-SNARK circuits, there are upper bounds on the amount o
 
 Here are the current constants:
 
-# include_code constants /noir-projects/noir-protocol-circuits/src/crates/types/src/constants.nr rust
+#include_code constants /noir-projects/noir-protocol-circuits/src/crates/types/src/constants.nr rust
 
 #### What are the consequences?
 
