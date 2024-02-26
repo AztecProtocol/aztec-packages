@@ -5,6 +5,7 @@ contract Counter {
         context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
         state_vars::map::Map
     };
+    use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
     use dep::easy_private_state::EasyPrivateUint;
     // docs:end:imports
 
