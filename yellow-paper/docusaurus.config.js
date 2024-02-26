@@ -107,7 +107,6 @@ const config = {
           },
         ],
       },
-
       algolia: {
         appId: "6RXKCCZJK7",
         apiKey: "d0dc44e75dba0e82247eea041300ae4b",
