@@ -11,11 +11,11 @@ contract Benchmarking {
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         context::{Context},
         note::{utils as note_utils, note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        log::emit_unencrypted_log, state_vars::{Map, PublicMutable, Set}
+        log::emit_unencrypted_log, state_vars::{Map, PublicMutable, PrivateSet}
     };
 
     struct Storage {
-        notes: Map<AztecAddress, Set<ValueNote>>,
+        notes: Map<AztecAddress, PrivateSet<ValueNote>>,
         balances: Map<AztecAddress, PublicMutable<Field>>,
     }
 

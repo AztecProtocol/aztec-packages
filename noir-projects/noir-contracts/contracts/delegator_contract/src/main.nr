@@ -3,7 +3,7 @@ contract Delegator {
     use dep::std::option::Option;
 
     use dep::aztec::{
-        log::emit_unencrypted_log, state_vars::{PublicMutable, Set},
+        log::emit_unencrypted_log, state_vars::{PublicMutable, PrivateSet},
         protocol_types::{abis::{function_selector::FunctionSelector}, address::AztecAddress},
         note::{note_viewer_options::NoteViewerOptions, utils as note_utils, note_header::NoteHeader}
     };
@@ -11,7 +11,7 @@ contract Delegator {
 
     struct Storage {
         current_value: PublicMutable<Field>,
-        a_private_value: Set<ValueNote>,
+        a_private_value: PrivateSet<ValueNote>,
     }
 
     #[aztec(private)]

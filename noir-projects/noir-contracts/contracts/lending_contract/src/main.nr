@@ -20,8 +20,8 @@ contract Lending {
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
         state_vars::{
-            map::Map,
-            public_mutable::PublicMutable,
+            Map,
+            PublicMutable,
         }
     };
     use crate::asset::Asset;

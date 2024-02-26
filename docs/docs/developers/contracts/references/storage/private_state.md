@@ -42,11 +42,11 @@ A note should implement the following traits:
 
 The interplay between a private state variable and its notes can be confusing. Here's a summary to aid intuition:
 
-A private state variable (of type `PrivateMutable`, `PrivateImmutable` or `Set`) may be declared in storage.
+A private state variable (of type `PrivateMutable`, `PrivateImmutable` or `PrivateSet`) may be declared in storage.
 
 Every note contains a header, which contains the contract address and storage slot of the state variable to which it is associated. A note is associated with a private state variable if the storage slot of the private state variable matches the storage slot contained in the note's header. The header provides information that helps the user interpret the note's data.
 
-Management of the header is abstracted-away from developers who use the `PrivateImmutable`, `PrivateMutable` and `Set` types.
+Management of the header is abstracted-away from developers who use the `PrivateImmutable`, `PrivateMutable` and `PrivateSet` types.
 
 A private state variable points to one or many notes (depending on the type). The note(s) are all valid private state if the note(s) haven't yet been nullified.
 
@@ -56,15 +56,15 @@ A `PrivateMutable` may point to _one_ note at a time. But since it's not "immuta
 
 `PrivateMutable` is a useful type when declaring a private state variable which may only ever be modified by those who are privy to the current value of that state.
 
-A `Set` may point to _multiple_ notes at a time. The "current value" of a private state variable of type `Set` is some accumulation of all not-yet nullified notes which belong to the `Set`.
+A `PrivateSet` may point to _multiple_ notes at a time. The "current value" of a private state variable of type `PrivateSet` is some accumulation of all not-yet nullified notes which belong to the `PrivateSet`.
 
 :::note
-The term "some accumulation" is intentionally vague. The interpretation of the "current value" of a `Set` must be expressed by the smart contract developer. A common use case for a `Set` is to represent the sum of a collection of values (in which case 'accumulation' is 'summation').
+The term "some accumulation" is intentionally vague. The interpretation of the "current value" of a `PrivateSet` must be expressed by the smart contract developer. A common use case for a `PrivateSet` is to represent the sum of a collection of values (in which case 'accumulation' is 'summation').
 
-Think of a ZCash balance (or even a Bitcoin balance). The "current value" of a user's ZCash balance is the sum of all unspent (not-yet nullified) notes belonging to that user. To modify the "current value" of a `Set` state variable, is to [`insert`](#insert) new notes into the `Set`, or [`remove`](#remove) notes from that set.
+Think of a ZCash balance (or even a Bitcoin balance). The "current value" of a user's ZCash balance is the sum of all unspent (not-yet nullified) notes belonging to that user. To modify the "current value" of a `PrivateSet` state variable, is to [`insert`](#insert) new notes into the `PrivateSet`, or [`remove`](#remove) notes from that set.
 :::
 
-Interestingly, if a developer requires a private state to be modifiable by users who _aren't_ privy to the value of that state, a `Set` is a very useful type. The `insert` method allows new notes to be added to the `Set` without knowing any of the other notes in the set! (Like posting an envelope into a post box, you don't know what else is in there!).
+Interestingly, if a developer requires a private state to be modifiable by users who _aren't_ privy to the value of that state, a `PrivateSet` is a very useful type. The `insert` method allows new notes to be added to the `PrivateSet` without knowing any of the other notes in the set! (Like posting an envelope into a post box, you don't know what else is in there!).
 
 ## `PrivateMutable<NoteType>`
 
@@ -94,7 +94,7 @@ Beware that because this nullifier is created only from the storage slot without
 For example, if the storage slot depends on the an address then it is possible to link the nullifier to the address. If the singleton is part of a `map` with an `AztecAddress` as the key then the nullifier will be linked to the address.
 :::
 
-Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `PrivateMutable`, `PrivateImmutable` or `Set`) does not have a default initial value. The `initialize` method (or `insert`, in the case of a `Set`) must be called.
+Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `PrivateMutable`, `PrivateImmutable` or `PrivateSet`) does not have a default initial value. The `initialize` method (or `insert`, in the case of a `PrivateSet`) must be called.
 
 :::info
 Extend on what happens if you try to use non-initialized state.

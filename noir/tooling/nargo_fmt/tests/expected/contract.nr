@@ -10,13 +10,13 @@ contract Benchmarking {
     use dep::aztec::{
         context::{Context},
         note::{utils as note_utils, note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        log::emit_unencrypted_log, state_vars::{Map, PublicMutable, Set},
+        log::emit_unencrypted_log, state_vars::{Map, PublicMutable, PrivateSet},
         types::type_serialization::field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
         types::address::{AztecAddress}
     };
 
     struct Storage {
-        notes: Map<AztecAddress, Set<ValueNote, VALUE_NOTE_LEN>>,
+        notes: Map<AztecAddress, PrivateSet<ValueNote, VALUE_NOTE_LEN>>,
         balances: Map<AztecAddress, PublicMutable<Field, FIELD_SERIALIZED_LEN>>,
     }
 
@@ -26,7 +26,7 @@ contract Benchmarking {
                 notes: Map::new(
                     context,
                     1,
-                    |context, slot| { Set::new(context, slot, ValueNoteMethods) }
+                    |context, slot| { PrivateSet::new(context, slot, ValueNoteMethods) }
                 ),
                 balances: Map::new(
                     context,

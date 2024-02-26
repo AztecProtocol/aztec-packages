@@ -1,5 +1,5 @@
 use dep::aztec::context::{PrivateContext, PublicContext, Context};
-use dep::aztec::state_vars::{map::Map, public_mutable::PublicMutable};
+use dep::aztec::state_vars::{Map, PublicMutable};
 
 use crate::entrypoint::{app::AppPayload, fee::FeePayload};
 use crate::auth::IS_VALID_SELECTOR;

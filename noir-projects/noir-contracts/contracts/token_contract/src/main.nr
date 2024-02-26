@@ -23,7 +23,7 @@ contract Token {
             utils as note_utils,
         },
         hash::{compute_secret_hash},
-        state_vars::{Map, PublicMutable, SharedImmutable, Set},
+        state_vars::{Map, PublicMutable, SharedImmutable, PrivateSet},
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress
@@ -59,7 +59,7 @@ contract Token {
         // docs:end:storage_balances
         total_supply: PublicMutable<SafeU120>,
         // docs:start:storage_pending_shields
-        pending_shields: Set<TransparentNote>,
+        pending_shields: PrivateSet<TransparentNote>,
         // docs:end:storage_pending_shields
         public_balances: Map<AztecAddress, PublicMutable<SafeU120>>,
         symbol: SharedImmutable<FieldCompressedString>,

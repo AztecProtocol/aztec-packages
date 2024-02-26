@@ -20,7 +20,7 @@ impl<T_C> B<T_C> {
     }
 }
 // ---
-// Set<Note>
+// PrivateSet<Note>
 struct C<T_D> {
         t_d_interface: MethodInterface<T_D>,
     }

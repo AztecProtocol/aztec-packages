@@ -9,7 +9,7 @@ mod token_interface;
 contract TokenBridge {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
 
-    use dep::aztec::{context::{Context}, hash::{compute_secret_hash}, state_vars::{public_mutable::PublicMutable}};
+    use dep::aztec::{context::{Context}, hash::{compute_secret_hash}, state_vars::{PublicMutable}};
 
     use dep::token_portal_content_hash_lib::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 

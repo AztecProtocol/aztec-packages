@@ -25,7 +25,7 @@ contract DocsExample {
             utils as note_utils,
         },
         context::{PrivateContext, PublicContext, Context},
-        state_vars::{Map, PublicMutable, PrivateMutable, PrivateImmutable, Set, SharedImmutable},
+        state_vars::{Map, PublicMutable, PrivateMutable, PrivateImmutable, PrivateSet, SharedImmutable},
     };
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
@@ -45,7 +45,7 @@ contract DocsExample {
         // just used for docs example to show how to create a private mutable map. 
         profiles: Map<AztecAddress, PrivateMutable<CardNote>>,
         // docs:start:storage-set-declaration
-        set: Set<CardNote>,
+        set: PrivateSet<CardNote>,
         // docs:end:storage-set-declaration
         // docs:start:storage-private-immutable-declaration
         private_immutable: PrivateImmutable<CardNote>,
@@ -81,7 +81,7 @@ contract DocsExample {
                 ),
                 // docs:end:state_vars-MapPrivateMutable
                 // docs:start:storage-set-init
-                set: Set::new(context, 5),
+                set: PrivateSet::new(context, 5),
                 // docs:end:storage-set-init
                 private_immutable: PrivateImmutable::new(context, 6),
                 // docs:start:storage-shared-immutable

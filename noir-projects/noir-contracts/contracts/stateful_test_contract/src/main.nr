@@ -5,11 +5,12 @@ contract StatefulTest {
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
-        note::{note_header::NoteHeader, utils as note_utils}, state_vars::{Map, PublicMutable, Set}
+        note::{note_header::NoteHeader, utils as note_utils},
+        state_vars::{Map, PublicMutable, PrivateSet}
     };
 
     struct Storage {
-        notes: Map<AztecAddress, Set<ValueNote>>,
+        notes: Map<AztecAddress, PrivateSet<ValueNote>>,
         public_values: Map<AztecAddress, PublicMutable<Field>>,
     }
 
