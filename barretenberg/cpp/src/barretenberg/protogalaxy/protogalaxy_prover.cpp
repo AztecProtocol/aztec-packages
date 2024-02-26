@@ -6,8 +6,12 @@ template <class ProverInstances>
 void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
                                                                      const std::string& domain_separator)
 {
-    instance->initialize_prover_polynomials();
-    prover_setup_(instance, commitment_key, transcript, domain_separator + '_');
+    PreSumcheckProver<Flavor> pre_sumcheck_prover(instance, commitment_key, transcript, domain_separator + '_');
+    pre_sumcheck_prover.execute_preamble_round();
+    pre_sumcheck_prover.execute_wire_commitments_round();
+    pre_sumcheck_prover.execute_sorted_list_accumulator_round();
+    pre_sumcheck_prover.execute_log_derivative_inverse_round();
+    pre_sumcheck_prover.execute_grand_product_computation_round();
     for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; idx++) {
         instance->alphas[idx] =
             transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));

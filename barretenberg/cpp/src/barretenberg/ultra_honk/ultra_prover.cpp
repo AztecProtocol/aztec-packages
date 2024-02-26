@@ -1,5 +1,4 @@
 #include "ultra_prover.hpp"
-#include "barretenberg/protogalaxy/shared_prover_setup.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -17,56 +16,9 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst,
                                    const std::shared_ptr<Transcript>& transcript)
     : instance(std::move(inst))
     , transcript(transcript)
+    , pre_sumcheck_prover(inst, commitment_key, transcript, "")
     , commitment_key(commitment_key)
-{
-    instance->initialize_prover_polynomials();
-}
-
-/**
- * @brief Add circuit size, public input size, and public inputs to transcript
- *
- */
-template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_preamble_round()
-{
-    execute_preamble_round_(instance, transcript);
-}
-
-/**
- * @brief Commit to the wire polynomials (part of the witness), with the exception of the fourth wire, which is
- * only commited to after adding memory records. In the Goblin Flavor, we also commit to the ECC OP wires and the
- * DataBus columns.
- */
-template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_wire_commitments_round()
-{
-    execute_wire_commitments_round_(instance, commitment_key, transcript);
-}
-
-/**
- * @brief Compute sorted witness-table accumulator and commit to the resulting polynomials.
- *
- */
-template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_sorted_list_accumulator_round()
-{
-    execute_sorted_list_accumulator_round_(instance, commitment_key, transcript);
-}
-
-/**
- * @brief Compute log derivative inverse polynomial and its commitment, if required
- *
- */
-template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_log_derivative_inverse_round()
-{
-    execute_log_derivative_inverse_round_(instance, commitment_key, transcript);
-}
-
-/**
- * @brief Compute permutation and lookup grand product polynomials and their commitments
- *
- */
-template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_grand_product_computation_round()
-{
-    execute_grand_product_computation_round_(instance, commitment_key, transcript);
-}
+{}
 
 /**
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
@@ -115,19 +67,19 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::export_proof()
 template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript->
-    execute_preamble_round();
+    pre_sumcheck_prover.execute_preamble_round();
 
     // Compute first three wire commitments
-    execute_wire_commitments_round();
+    pre_sumcheck_prover.execute_wire_commitments_round();
 
     // Compute sorted list accumulator and commitment
-    execute_sorted_list_accumulator_round();
+    pre_sumcheck_prover.execute_sorted_list_accumulator_round();
 
     // Fiat-Shamir: beta & gamma
-    execute_log_derivative_inverse_round();
+    pre_sumcheck_prover.execute_log_derivative_inverse_round();
 
     // Compute grand product(s) and commitments.
-    execute_grand_product_computation_round();
+    pre_sumcheck_prover.execute_grand_product_computation_round();
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

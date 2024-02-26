@@ -3,6 +3,7 @@
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/protogalaxy/shared_prover_setup.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
@@ -45,6 +46,8 @@ template <IsUltraFlavor Flavor> class UltraProver_ {
     bb::RelationParameters<FF> relation_parameters;
 
     Polynomial quotient_W;
+
+    PreSumcheckProver<Flavor> pre_sumcheck_prover;
 
     SumcheckOutput<Flavor> sumcheck_output;
 
