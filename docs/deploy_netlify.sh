@@ -13,12 +13,22 @@ if [ "$1" = "master" ]; then
     # Deploy to production if the argument is "master"
     DEPLOY_OUTPUT=$(netlify deploy --site aztec-docs-dev --prod)
 else    
-    
-    REPOSITORY=docs
-    IMAGE_COMMIT_TAG=$(calculate_image_tag $REPOSITORY)
+    # TODO we should prob see if check_rebuild can be used for this
+    PR_URL="$2"
+    API_URL="${PR_URL/github.com/api.github.com/repos}"
+    API_URL="${API_URL/pull/pulls}"
+    API_URL="${API_URL}/files"
 
-    # Check if the docs changed
-    if check_rebuild $IMAGE_COMMIT_TAG $REPOSITORY; then
+    echo "API URL: $API_URL"
+
+    DOCS_CHANGED=$(curl -L \
+        -H "Authorization: Bearer $AZTEC_BOT_COMMENTER_GITHUB_TOKEN" \
+        "${API_URL}" | \
+        jq '[.[] | select(.filename | startswith("docs/"))] | length > 0')
+
+    echo "Docs changed: $DOCS_CHANGED"
+
+    if [ "$DOCS_CHANGED" = "false" ]; then
         echo "No docs changed, not deploying"
         exit 0
     fi
