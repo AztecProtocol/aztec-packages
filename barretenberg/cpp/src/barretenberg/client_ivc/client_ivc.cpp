@@ -93,20 +93,26 @@ void ClientIVC::precompute_folding_verification_keys()
     using VerifierInstance = VerifierInstance_<GoblinUltraFlavor>;
 
     Composer composer;
-    ClientCircuit initial_function_circuit{ goblin.op_queue };
-    GoblinMockCircuits::construct_mock_function_circuit(initial_function_circuit);
+    std::vector<ClientCircuit> client_circuits(3);
+    // Run 3 circuits in parallel
+    parallel_for(3, [&](size_t i) {
+        client_circuits[i] = ClientCircuit();
+        GoblinMockCircuits::construct_mock_function_circuit(client_circuits[i]);
+    });
 
     // Initialise both the first prover and verifier accumulator from the inital function circuit
-    initialize(initial_function_circuit);
+    client_circuits[0].op_queue->prepend_previous_queue(*goblin.op_queue);
+    initialize(client_circuits[0]);
+    client_circuits[0].op_queue.swap(goblin.op_queue);
     composer.compute_commitment_key(prover_fold_output.accumulator->instance_size);
     vks.first_func_vk = composer.compute_verification_key(prover_fold_output.accumulator);
     auto initial_verifier_acc = std::make_shared<VerifierInstance>();
     initial_verifier_acc->verification_key = vks.first_func_vk;
 
     // Accumulate the next function circuit
-    ClientCircuit function_circuit{ goblin.op_queue };
-    GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
-    auto function_fold_proof = accumulate(function_circuit);
+    client_circuits[1].op_queue->prepend_previous_queue(*goblin.op_queue);
+    auto function_fold_proof = accumulate(client_circuits[1]);
+    client_circuits[1].op_queue.swap(goblin.op_queue);
 
     // Create its verification key (we have called accumulate so it includes the recursive merge verifier)
     vks.func_vk = composer.compute_verification_key(prover_instance);
@@ -119,9 +125,9 @@ void ClientIVC::precompute_folding_verification_keys()
     vks.first_kernel_vk = composer.compute_verification_key(prover_instance);
 
     // Create another mock function circuit to run the full kernel
-    function_circuit = ClientCircuit{ goblin.op_queue };
-    GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
-    function_fold_proof = accumulate(function_circuit);
+    client_circuits[2].op_queue->prepend_previous_queue(*goblin.op_queue);
+    function_fold_proof = accumulate(client_circuits[2]);
+    client_circuits[2].op_queue.swap(goblin.op_queue);
 
     // Create the full kernel circuit and compute verification key
     kernel_circuit = GoblinUltraCircuitBuilder{ goblin.op_queue };
