@@ -52,12 +52,12 @@ contract Token {
         admin: PublicMutable<AztecAddress>,
         // docs:end:storage_admin
         // docs:start:storage_minters
-        minters: Map<AztecAddress, PublicMutable<bool>>, 
+        minters: Map<AztecAddress, PublicMutable<bool>>,
         // docs:end:storage_minters
         // docs:start:storage_balances
         balances: BalancesMap<TokenNote>,
         // docs:end:storage_balances
-        total_supply: PublicMutable<SafeU120>, 
+        total_supply: PublicMutable<SafeU120>,
         // docs:start:storage_pending_shields
         pending_shields: Set<TransparentNote>,
         // docs:end:storage_pending_shields

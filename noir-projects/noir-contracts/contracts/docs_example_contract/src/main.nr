@@ -54,7 +54,7 @@ contract DocsExample {
         shared_immutable: SharedImmutable<Leader>,
         // docs:end:storage-shared-immutable-declaration
         // docs:start:storage-minters-declaration
-        minters: Map<AztecAddress, PublicMutable<bool>>, 
+        minters: Map<AztecAddress, PublicMutable<bool>>,
         // docs:end:storage-minters-declaration
     }
 

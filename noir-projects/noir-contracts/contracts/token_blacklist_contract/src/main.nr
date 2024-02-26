@@ -54,7 +54,7 @@ contract TokenBlacklist {
     struct Storage {
         admin: PublicMutable<AztecAddress>, 
         balances: BalancesMap<TokenNote>, 
-        total_supply: PublicMutable<SafeU120>, 
+        total_supply: PublicMutable<SafeU120>,
         pending_shields: Set<TransparentNote>, 
         public_balances: Map<AztecAddress, PublicMutable<SafeU120>>, 
         slow_update: PrivateImmutable<FieldNote>,
