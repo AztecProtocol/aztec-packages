@@ -11,7 +11,7 @@ contract Benchmarking {
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         context::{Context},
         note::{utils as note_utils, note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        log::emit_unencrypted_log, state_vars::{map::Map, public_mutable::PublicMutable, set::Set}
+        log::emit_unencrypted_log, state_vars::{Map, PublicMutable, Set}
     };
 
     struct Storage {

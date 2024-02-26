@@ -19,20 +19,20 @@ describe('e2e_state_vars', () => {
 
   afterAll(() => teardown());
 
-  describe('Stable Public State', () => {
-    it('private read of uninitialized stable', async () => {
+  describe('SharedImmutable', () => {
+    it('private read of uninitialized SharedImmutable', async () => {
       const s = await contract.methods.get_stable().view();
 
-      const receipt2 = await contract.methods.match_stable(s.account, s.points).send().wait();
+      const receipt2 = await contract.methods.match_shared_immutable(s.account, s.points).send().wait();
       expect(receipt2.status).toEqual(TxStatus.MINED);
     });
 
-    it('private read of initialized stable', async () => {
-      const receipt = await contract.methods.initialize_stable(1).send().wait();
+    it('private read of initialized SharedImmutable', async () => {
+      const receipt = await contract.methods.initialize_shared_immutable(1).send().wait();
       expect(receipt.status).toEqual(TxStatus.MINED);
       const s = await contract.methods.get_stable().view();
 
-      const receipt2 = await contract.methods.match_stable(s.account, s.points).send().wait();
+      const receipt2 = await contract.methods.match_shared_immutable(s.account, s.points).send().wait();
       expect(receipt2.status).toEqual(TxStatus.MINED);
     }, 200_000);
   });

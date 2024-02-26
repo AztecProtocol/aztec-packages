@@ -74,13 +74,13 @@ Like for public state, we define the struct to have context and a storage slot. 
 
 An example of singleton usage in the account contracts is keeping track of public keys. The `PrivateMutable` is added to the `Storage` struct as follows:
 
-#include_code storage-singleton-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code storage-private-mutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 ### `new`
 
 As part of the initialization of the `Storage` struct, the `PrivateMutable` is created as follows at the specified storage slot.
 
-#include_code start_vars_singleton /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code start_vars_private_mutable /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 ### `initialize`
 
@@ -104,7 +104,7 @@ Extend on what happens if you try to use non-initialized state.
 
 An unconstrained method to check whether the PrivateMutable has been initialized or not. It takes an optional owner and returns a boolean. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/singleton.nr).
 
-#include_code singleton_is_initialized /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code private_mutable_is_initialized /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 ### `replace`
 
@@ -140,7 +140,7 @@ Functionally similar to [`get_note`](#get_note), but executed in unconstrained f
 
 As part of the initialization of the `Storage` struct, the `PrivateMutable` is created as follows, here at storage slot 1.
 
-#include_code storage-immutable-singleton-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code storage-private-immutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 ### `initialize`
 
@@ -154,7 +154,7 @@ For example, if the storage slot depends on the an address then it is possible t
 
 Set the value of an PrivateImmutable by calling the `initialize` method:
 
-#include_code initialize-immutable-singleton /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code initialize-private-mutable /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 Once initialized, an PrivateImmutable's value remains unchangeable. This method can only be called once.
 
@@ -168,7 +168,7 @@ Similar to the `PrivateMutable`, we can use the `get_note` method to read the va
 
 Use this method to retrieve the value of an initialized PrivateImmutable.
 
-#include_code get_note-immutable-singleton /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code get_note-private-immutable /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 Unlike a `PrivateMutable`, the `get_note` function for an PrivateImmutable doesn't nullify the current note in the background. This means that multiple accounts can concurrently call this function to read the value.
 

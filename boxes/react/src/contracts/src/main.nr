@@ -1,6 +1,6 @@
 contract BoxReact {
     use dep::aztec::{
-        protocol_types::address::AztecAddress, state_vars::{private_mutable::PrivateMutable, map::Map},
+        protocol_types::address::AztecAddress, state_vars::{PrivateMutable, Map},
         note::{utils as note_utils, note_interface::NoteInterface, note_header::NoteHeader}
     };
 

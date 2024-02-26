@@ -10,7 +10,7 @@ contract Benchmarking {
     use dep::aztec::{
         context::{Context},
         note::{utils as note_utils, note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        log::emit_unencrypted_log, state_vars::{map::Map, public_mutable::PublicMutable, set::Set},
+        log::emit_unencrypted_log, state_vars::{Map, PublicMutable, Set},
         types::type_serialization::field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
         types::address::{AztecAddress}
     };

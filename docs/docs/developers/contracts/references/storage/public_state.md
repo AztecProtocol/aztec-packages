@@ -105,9 +105,9 @@ You can find the details of `SharedImmutable` in the implementation [here](https
 
 Is done exactly like the `PublicMutable` struct, but with the `SharedImmutable` struct.
 
-#include_code storage-stable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code storage-shared-immutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-#include_code storage-stable-init /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code storage-shared-immutable /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 ### `initialize`
 
