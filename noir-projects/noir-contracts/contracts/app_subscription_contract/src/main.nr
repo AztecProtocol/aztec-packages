@@ -18,7 +18,9 @@ contract AppSubscriptionContract {
     use crate::subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN};
 
     struct Storage {
-        // todo change this to PrivateImmutable because it's only needed in private
+        // The following is only needed in private but we use ShareImmutable here instead of PrivateImmutable because
+        // the value can be publicly known and SharedImmutable provides us with a better devex here because we don't
+        // have to bother with sharing the note between pixies of users.
         target_address: SharedImmutable<AztecAddress>,
         subscription_token_address: SharedImmutable<AztecAddress>,
         subscription_recipient_address: SharedImmutable<AztecAddress>,
