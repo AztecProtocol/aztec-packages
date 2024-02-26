@@ -113,4 +113,4 @@ docker run \
   ${DOCKER_ENV:-} \
   ${DOCKER_HOST_BINDS:-} \
   ${DOCKER_USER:-} \
-  $IMAGE:$VERSION ${args[@]:-}
+  $IMAGE:$VERSION ${preserved_args[@]:-}
