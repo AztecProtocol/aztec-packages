@@ -19,6 +19,7 @@ import {
 import {
   ContractClassRegisteredEvent,
   FunctionSelector,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
 } from '@aztec/circuits.js';
 import { ContractInstanceDeployedEvent, computeSaltedInitializationHash } from '@aztec/circuits.js/contract';
@@ -49,6 +50,7 @@ import {
   retrieveNewContractData,
   retrieveNewPendingL1ToL2Messages,
 } from './data_retrieval.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 /**
  * Helper interface to combine all sources this archiver implementation provides.
@@ -356,7 +358,18 @@ export class Archiver implements ArchiveSource {
 
     // store retrieved L2 blocks after removing new logs information.
     // remove logs to serve "lightweight" block information. Logs can be fetched separately if needed.
-    await this.store.addBlocks(retrievedBlocks.retrievedData);
+    await this.store.addBlocks(
+      retrievedBlocks.retrievedData.map(block => {
+        // Ensure we pad the L1 to L2 message array to the full size before storing.
+        block.body.l1ToL2Messages = padArrayEnd(
+          block.body.l1ToL2Messages,
+          Fr.ZERO,
+          NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+        );
+
+        return block;
+      }),
+    );  
   }
 
   /**
