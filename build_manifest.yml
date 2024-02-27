@@ -44,11 +44,11 @@ noir-projects:
     - avm-transpiler
 
 noir-compile-acir-tests:
-  buildDir: noir/test_programs
+  buildDir: noir/noir-repo/test_programs
   # Awkward. Maybe change dockerfile paths to be absolute.
-  dockerfile: ../../barretenberg/acir_tests/Dockerfile.noir_acir_tests
+  dockerfile: ../../../barretenberg/acir_tests/Dockerfile.noir_acir_tests
   rebuildPatterns:
-    - ^noir/test_programs
+    - ^noir/noir-repo/test_programs
     - ^barretenberg/acir_tests/Dockerfile.noir_acir_tests
   dependencies:
     - noir
