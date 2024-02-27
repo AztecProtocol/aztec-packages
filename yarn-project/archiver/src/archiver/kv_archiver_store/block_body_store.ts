@@ -46,7 +46,7 @@ export class BlockBodyStore {
     );
 
     if (blockBodiesBuffer.some(bodyBuffer => bodyBuffer === undefined)) {
-      throw new Error('Weird');
+      throw new Error('Block body buffer is undefined');
     }
 
     return blockBodiesBuffer.map(blockBodyBuffer => Body.fromBuffer(blockBodyBuffer!));
