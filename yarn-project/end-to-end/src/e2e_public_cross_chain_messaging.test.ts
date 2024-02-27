@@ -17,7 +17,7 @@ import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { Hex } from 'viem';
 import { getAbiItem, getAddress } from 'viem/utils';
 
-import { setup } from './fixtures/utils.js';
+import { publicDeployAccounts, setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 
 describe('e2e_public_cross_chain_messaging', () => {
@@ -36,7 +36,8 @@ describe('e2e_public_cross_chain_messaging', () => {
   let outbox: any;
 
   beforeEach(async () => {
-    const { pxe, deployL1ContractsValues, wallets, logger: logger_, teardown: teardown_ } = await setup(2);
+    const { pxe, deployL1ContractsValues, wallets, accounts, logger: logger_, teardown: teardown_ } = await setup(2);
+    await publicDeployAccounts(wallets[0], accounts.slice(0, 2));
     crossChainTestHarness = await CrossChainTestHarness.new(
       pxe,
       deployL1ContractsValues.publicClient,
