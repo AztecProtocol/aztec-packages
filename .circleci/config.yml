@@ -1124,7 +1124,11 @@ jobs:
             build docs
 
             echo "Deploying docs"
-            docs/deploy_netlify.sh $CIRCLE_BRANCH $CIRCLE_PULL_REQUEST
+            if [ -n "$CIRCLE_PULL_REQUEST" ]; then
+                docs/deploy_netlify.sh "$CIRCLE_BRANCH" "$CIRCLE_PULL_REQUEST"
+            else
+                docs/deploy_netlify.sh "$CIRCLE_BRANCH"
+            fi
 
   yellow-paper:
     machine:
