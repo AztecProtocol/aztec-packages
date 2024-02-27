@@ -5,12 +5,12 @@ use crate::traits::{Empty, Hash};
 struct NullifierLeafPreimage {
     nullifier : Field,
     next_nullifier :Field,
-    next_index : u64,
+    next_index : u32,
 }
 
 impl Empty for NullifierLeafPreimage {
     fn empty() -> Self {
-        Self {
+       Self {
             nullifier : 0,
             next_nullifier : 0,
             next_index : 0,
@@ -38,6 +38,6 @@ impl NullifierLeafPreimage {
     }
 
     pub fn deserialize(fields: [Field; NULLIFIER_LEAF_PREIMAGE_LENGTH]) -> Self {
-        Self { nullifier: fields[0], next_nullifier: fields[1], next_index: fields[2] as u64 }
+        Self { nullifier: fields[0], next_nullifier: fields[1], next_index: fields[2] as u32 }
     }
 }

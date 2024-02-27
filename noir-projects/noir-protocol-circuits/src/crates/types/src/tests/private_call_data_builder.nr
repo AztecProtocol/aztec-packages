@@ -108,13 +108,13 @@ impl PrivateCallDataBuilder {
         }
     }
 
-    pub fn append_private_call_requests(&mut self, num_requests: u64, is_delegate_call: bool) {
+    pub fn append_private_call_requests(&mut self, num_requests: u32, is_delegate_call: bool) {
         let (hashes, call_requests) = self.generate_call_requests(self.private_call_stack, num_requests, is_delegate_call);
         self.public_inputs.private_call_stack_hashes.extend_from_bounded_vec(hashes);
         self.private_call_stack.extend_from_bounded_vec(call_requests);
     }
 
-    pub fn append_public_call_requests(&mut self, num_requests: u64, is_delegate_call: bool) {
+    pub fn append_public_call_requests(&mut self, num_requests: u32, is_delegate_call: bool) {
         let (hashes, call_requests) = self.generate_call_requests(self.public_call_stack, num_requests, is_delegate_call);
         self.public_inputs.public_call_stack_hashes.extend_from_bounded_vec(hashes);
         self.public_call_stack.extend_from_bounded_vec(call_requests);
@@ -123,7 +123,7 @@ impl PrivateCallDataBuilder {
     fn generate_call_requests<N>(
         self,
         requests: BoundedVec<CallRequest, N>,
-        num_requests: u64,
+        num_requests: u32,
         is_delegate_call: bool
     ) -> (BoundedVec<Field, N>, BoundedVec<CallRequest, N>) {
         let value_offset = requests.len();
@@ -156,13 +156,13 @@ impl PrivateCallDataBuilder {
         (hashes, call_requests)
     }
 
-    pub fn append_read_requests(&mut self, num_read_requests: u64) {
+    pub fn append_read_requests(&mut self, num_read_requests: u32) {
         let (read_requests, read_request_membership_witnesses) = fixtures::read_requests::generate_read_requests(num_read_requests);
         self.public_inputs.read_requests.extend_from_bounded_vec(read_requests);
         self.read_request_membership_witnesses.extend_from_bounded_vec(read_request_membership_witnesses);
     }
 
-    pub fn append_transient_read_requests(&mut self, num_read_requests: u64) {
+    pub fn append_transient_read_requests(&mut self, num_read_requests: u32) {
         let (read_requests, read_request_membership_witnesses) = fixtures::read_requests::generate_transient_read_requests(num_read_requests);
         self.public_inputs.read_requests.extend_from_bounded_vec(read_requests);
         self.read_request_membership_witnesses.extend_from_bounded_vec(read_request_membership_witnesses);

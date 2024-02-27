@@ -282,7 +282,7 @@ pub fn compute_logs_hash(
     )
 }
 
-pub fn compute_note_hash_nonce(first_nullifier: Field, commitment_index: u64) -> Field {
+pub fn compute_note_hash_nonce(first_nullifier: Field, commitment_index: u32) -> Field {
     pedersen_hash(
         [
         first_nullifier,

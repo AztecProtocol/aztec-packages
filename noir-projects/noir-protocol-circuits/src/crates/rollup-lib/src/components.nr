@@ -116,7 +116,7 @@ pub fn insert_subtree_to_snapshot_tree<N>(
     let new_root = root_from_sibling_path(subtreeRootToInsert, leafIndexAtDepth as Field, siblingPath);
 
     // 2^subtreeDepth is the number of leaves added. 2^x = 1 << x
-    let new_next_available_leaf_index = (snapshot.next_available_leaf_index as u64) + (1 << (subtreeDepth as u64));
+    let new_next_available_leaf_index = (snapshot.next_available_leaf_index as u32) + (1 << (subtreeDepth as u32));
 
     AppendOnlyTreeSnapshot { root: new_root, next_available_leaf_index: new_next_available_leaf_index as u32 }
 }
