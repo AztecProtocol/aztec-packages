@@ -23,7 +23,7 @@ unconstrained pub fn get_public_data_witness(block_number: u32, leaf_slot: Field
     let fields = get_public_data_witness_oracle(block_number, leaf_slot);
     PublicDataWitness {
         index: fields[0],
-        leaf_preimage: PublicDataTreeLeafPreimage { slot: fields[1], value: fields[2], next_index: fields[3] as u64, next_slot: fields[4] },
+        leaf_preimage: PublicDataTreeLeafPreimage { slot: fields[1], value: fields[2], next_index: fields[3] as u32, next_slot: fields[4] },
         path: arr_copy_slice(fields, [0; PUBLIC_DATA_TREE_HEIGHT], 1 + LEAF_PREIMAGE_LENGTH)
     }
 }
