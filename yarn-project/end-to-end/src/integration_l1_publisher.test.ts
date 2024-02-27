@@ -326,8 +326,11 @@ describe('L1Publisher integration', () => {
 
   it('Block body is correctly published to AvailabilityOracle', async () => {
     const body = L2Block.random(4).body;
+    // `sendPublishTx` function is private so I am hacking around TS here. I think it's ok for test purposes.
     const txHash = await (publisher as any).sendPublishTx(body.toBuffer());
 
+    // We verify that the body was successfully published by fetching TxsPublished events from the AvailabilityOracle
+    // and checking if the txsHash in the event is as expected
     const events = await publicClient.getLogs({
       address: availabilityOracleAddress,
       event: getAbiItem({
@@ -342,7 +345,7 @@ describe('L1Publisher integration', () => {
 
     // We check that exactly 1 TxsPublished event was emitted and txsHash is as expected
     expect(txEvents.length).toBe(1);
-    expect(txEvents[0].args.txsHash).toEqual(body.getCalldataHash().toString());
+    expect(txEvents[0].args.txsHash).toEqual(`0x${body.getCalldataHash().toString('hex')}`);
   });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
