@@ -57,7 +57,7 @@ describe('world state access trace', () => {
     const commitment = new Fr(10);
 
     let counter = 0;
-    trace.tracePublicStorageWrite(contractAddress, slot, value);
+    trace.tracePublicStorageWrite(contractAddress, slot, [value]);
     counter++;
     trace.tracePublicStorageRead(contractAddress, slot, value);
     counter++;
@@ -67,7 +67,7 @@ describe('world state access trace', () => {
     counter++;
     trace.traceNewNullifier(contractAddress, commitment);
     counter++;
-    trace.tracePublicStorageWrite(contractAddress, slot, value);
+    trace.tracePublicStorageWrite(contractAddress, slot, [value]);
     counter++;
     trace.tracePublicStorageRead(contractAddress, slot, value);
     counter++;
