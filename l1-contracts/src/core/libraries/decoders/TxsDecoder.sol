@@ -91,6 +91,9 @@ library TxsDecoder {
       vars.l1Tol2MsgsCount = count;
       offset += 0x4 + count * 0x20;
 
+      count = read4(_body, offset); // number of tx effects
+      vars.baseLeaves = new bytes32[](count);
+
       // // Note hashes
       // count = read1(_body, offset);
       // vars.baseLeaves = new bytes32[](count / Constants.MAX_NEW_NOTE_HASHES_PER_TX);
