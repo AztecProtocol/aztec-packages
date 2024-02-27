@@ -21,7 +21,7 @@ services:
     entrypoint: >
       sh -c '
         while ! nc -z aztec 8080; do sleep 1; done;
-        yarn workspace @aztec/$BOX npx playwright test
+        yarn workspace @aztec/$BOX test
       '
     ipc: host
     cap_add:
