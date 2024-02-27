@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 
-cd $(dirname "$0")/..
+cd $(dirname "$0")/../noir-repo
 
 ./.github/scripts/wasm-bindgen-install.sh
 
@@ -15,7 +15,7 @@ else
 fi
 
 cargo build --release
-export PATH="${PATH}:/usr/src/noir/target/release/"
+export PATH="${PATH}:/usr/src/noir/noir-repo/target/release/"
 
 yarn --immutable
 yarn build

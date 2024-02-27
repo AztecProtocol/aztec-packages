@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 
-cd $(dirname "$0")/..
+cd $(dirname "$0")/../noir-repo
 
 # If this project has been subrepod into another project, set build data manually.
 export SOURCE_DATE_EPOCH=$(date +%s)
