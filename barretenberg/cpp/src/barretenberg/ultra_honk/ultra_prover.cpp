@@ -12,11 +12,11 @@ namespace bb {
  * */
 template <IsUltraFlavor Flavor>
 UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst,
-                                   const std::shared_ptr<CommitmentKey>& commitment_key,
+                                   [[maybe_unused]] const std::shared_ptr<CommitmentKey>& commitment_key, // WORKTODO
                                    const std::shared_ptr<Transcript>& transcript)
     : instance(std::move(inst))
     , transcript(transcript)
-    , commitment_key(commitment_key)
+    , commitment_key(instance->proving_key->commitment_key)
 {
     instance->initialize_prover_polynomials();
 }
