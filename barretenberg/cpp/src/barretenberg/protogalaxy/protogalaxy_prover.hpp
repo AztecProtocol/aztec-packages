@@ -67,9 +67,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     ProtoGalaxyProver_() = default;
     ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts,
-                       const std::shared_ptr<CommitmentKey>& commitment_key)
+                       [[maybe_unused]] const std::shared_ptr<CommitmentKey>& commitment_key) // WORKTODO
         : instances(ProverInstances(insts))
-        , commitment_key(std::move(commitment_key)){};
+        , commitment_key(instances[1]->proving_key->commitment_key){}; // WORKTODO: [1] is wack; too much partial
+                                                                       // initialization/hidden state in all of this
     ~ProtoGalaxyProver_() = default;
 
     /**
