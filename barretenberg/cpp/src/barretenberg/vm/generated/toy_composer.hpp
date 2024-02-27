@@ -62,7 +62,7 @@ class ToyComposer {
 
     void compute_commitment_key(size_t circuit_size)
     {
-        commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
+        commitment_key = std::make_shared<CommitmentKey>(circuit_size);
     };
 };
 

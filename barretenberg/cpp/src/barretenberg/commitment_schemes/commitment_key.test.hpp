@@ -22,7 +22,7 @@ template <> inline std::shared_ptr<CommitmentKey<curve::BN254>> CreateCommitment
     constexpr size_t n = 4096;
     std::shared_ptr<bb::srs::factories::CrsFactory<curve::BN254>> crs_factory(
         new bb::srs::factories::FileCrsFactory<curve::BN254>("../srs_db/ignition", 4096));
-    return std::make_shared<CommitmentKey<curve::BN254>>(n, crs_factory);
+    return std::make_shared<CommitmentKey<curve::BN254>>(n);
 }
 // For IPA
 template <> inline std::shared_ptr<CommitmentKey<curve::Grumpkin>> CreateCommitmentKey<CommitmentKey<curve::Grumpkin>>()
@@ -30,7 +30,7 @@ template <> inline std::shared_ptr<CommitmentKey<curve::Grumpkin>> CreateCommitm
     constexpr size_t n = 4096;
     std::shared_ptr<bb::srs::factories::CrsFactory<curve::Grumpkin>> crs_factory(
         new bb::srs::factories::FileCrsFactory<curve::Grumpkin>("../srs_db/grumpkin", 4096));
-    return std::make_shared<CommitmentKey<curve::Grumpkin>>(n, crs_factory);
+    return std::make_shared<CommitmentKey<curve::Grumpkin>>(n);
 }
 
 template <typename CK> inline std::shared_ptr<CK> CreateCommitmentKey()

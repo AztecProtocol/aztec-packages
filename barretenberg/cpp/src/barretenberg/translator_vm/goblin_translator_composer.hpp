@@ -67,7 +67,7 @@ class GoblinTranslatorComposer {
             return commitment_key;
         }
 
-        commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
+        commitment_key = std::make_shared<CommitmentKey>(circuit_size);
         return commitment_key;
     };
 };

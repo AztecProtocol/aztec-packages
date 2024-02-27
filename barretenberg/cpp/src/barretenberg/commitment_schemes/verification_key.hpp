@@ -43,7 +43,7 @@ template <> class VerifierCommitmentKey<curve::BN254> {
      * @param num_points
      * @param srs verifier G2 point
      */
-    VerifierCommitmentKey([[maybe_unused]] size_t num_points,
+    VerifierCommitmentKey([[maybe_unused]] size_t num_points, // WORKTODO
                           std::shared_ptr<bb::srs::factories::CrsFactory<Curve>> crs_factory)
         : srs(crs_factory->get_verifier_crs())
     {}
