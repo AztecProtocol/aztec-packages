@@ -46,14 +46,45 @@ class ClientIVCBench : public benchmark::Fixture {
         GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
         ivc.initialize(function_circuit);
 
-        // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
-        Builder kernel_circuit{ ivc.goblin.op_queue };
-        GoblinMockCircuits::construct_mock_function_circuit(kernel_circuit);
-        auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
-
         auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
         NUM_CIRCUITS -= 1; // Subtract one to account for the "initialization" round above
+
+        ClientIVC::FoldProof function_fold_proof;
+        ClientIVC::FoldProof kernel_fold_proof;
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+            std::array<Builder, 2> kernel_and_function_builders;
+            parallel_for(2, [&](size_t workload_index) {
+                if (workload_index == 0) {
+                    // Initialize with current op_queue
+                    kernel_and_function_builders[workload_index] = Builder(ivc.goblin.op_queue);
+                    // Compute kernel circuit
+                    if (circuit_idx == 0) {
+                        // First kernel is not really a kernel
+                        GoblinMockCircuits::construct_mock_function_circuit(
+                            kernel_and_function_builders[workload_index]);
+                    } else {
+                        // Actually kernel for next
+                        GoblinMockCircuits::construct_mock_folding_kernel(
+                            kernel_and_function_builders[workload_index], function_fold_proof, kernel_fold_proof);
+                    }
+                } else {
+                    // Construct function circuit in parallel
+                    // Initialize without op_queue
+                    kernel_and_function_builders[workload_index] = Builder();
+                    GoblinMockCircuits::construct_mock_function_circuit(kernel_and_function_builders[workload_index]);
+                }
+            });
+            // Accumulate kernel
+            kernel_fold_proof = ivc.accumulate(kernel_and_function_builders[0]);
+
+            // Prepend op_queue to function circuit
+            kernel_and_function_builders[1].op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
+
+            // Accumulate circuit
+            function_fold_proof = ivc.accumulate(kernel_and_function_builders[1]);
+
+            // Retrieve op_queue from function circuit
+            std::swap(*ivc.goblin.op_queue, *kernel_and_function_builders[1].op_queue);
 
             // Accumulate function circuit
             Builder function_circuit{ ivc.goblin.op_queue };
@@ -64,6 +95,20 @@ class ClientIVCBench : public benchmark::Fixture {
             Builder kernel_circuit{ ivc.goblin.op_queue };
             GoblinMockCircuits::construct_mock_folding_kernel(kernel_circuit, function_fold_proof, kernel_fold_proof);
             auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
+        }
+
+        // Perform last kernel accumulation
+        if (NUM_CIRCUITS == 0) {
+            // If we only do 1 fold in total, use mock function circuit
+            Builder last_kernel_circuit{ ivc.goblin.op_queue };
+            GoblinMockCircuits::construct_mock_function_circuit(last_kernel_circuit);
+            auto kernel_fold_proof = ivc.accumulate(last_kernel_circuit);
+        } else {
+            // Accumulate kernel circuit
+            Builder last_kernel_circuit{ ivc.goblin.op_queue };
+            GoblinMockCircuits::construct_mock_folding_kernel(
+                last_kernel_circuit, function_fold_proof, kernel_fold_proof);
+            auto kernel_fold_proof = ivc.accumulate(last_kernel_circuit);
         }
     }
 };
