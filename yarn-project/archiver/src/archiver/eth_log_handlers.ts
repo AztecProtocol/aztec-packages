@@ -99,9 +99,8 @@ async function getBlockFromCallData(
   l2BlockNum: bigint,
 ): Promise<L2Block> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
-  // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
   const { functionName, args } = decodeFunctionData({
-    abi: RollupAbi.filter(item => item.type.toString() !== 'constructor'),
+    abi: RollupAbi,
     data,
   });
   if (functionName !== 'process') {
