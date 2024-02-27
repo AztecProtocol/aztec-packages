@@ -56,7 +56,7 @@ There will be 2 primary communication domains within the network:
 
 ### Node Discovery
 
-When new participants join the network for the first time, they will need to locate peers. Ethereum's [DiscV5](https://github.com/ethereum/devp2p/blob/master/discv5/discv5.md) is an adaptation of Kademlia, storing node records rather than content within it's distributed hash table. From this, nodes are able to build what can be thought of as an address book of other participants.
+When new participants join the network for the first time, they will need to locate peers. Ethereum's [DiscV5](https://github.com/ethereum/devp2p/blob/master/discv5/discv5.md) is an adaptation of Kademlia, storing node records rather than content within its distributed hash table. From this, nodes are able to build what can be thought of as an address book of other participants.
 
 #### DiscV5
 
