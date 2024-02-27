@@ -1,4 +1,4 @@
-#include "barretenberg/protogalaxy/shared_prover_setup.hpp"
+#include "barretenberg/protogalaxy/presumcheck_prover.hpp"
 
 namespace bb {
 
