@@ -249,7 +249,9 @@ fn handle_foreign_call(
         }
         "poseidon" => {
             handle_single_field_hash_instruction(avm_instrs, function, destinations, inputs)
-        }
+        },
+        "storageWrite" => emit_storage_write(avm_instrs, destinations, inputs),
+        "storageRead" => emit_storage_read(avm_instrs, destinations, inputs),
         _ => handle_getter_instruction(avm_instrs, function, destinations, inputs),
     }
 }

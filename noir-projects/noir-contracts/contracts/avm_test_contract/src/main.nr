@@ -1,7 +1,7 @@
 contract AvmTest {
     // Libs
     use dep::aztec::protocol_types::address::{AztecAddress, EthAddress};
-    use dep::aztec::state_vars::public_state::PublicState;
+    use dep::aztec::state_vars::PublicMutable;
 
     // avm lib
     use dep::aztec::avm::hash::{keccak256, poseidon, sha256};
@@ -10,7 +10,7 @@ contract AvmTest {
     fn constructor() {}
 
     struct Storage {
-        owner: PublicState<AztecAddress>
+        owner: PublicMutable<AztecAddress>
     }
 
     #[aztec(public-vm)]
