@@ -1,5 +1,4 @@
 import { makeTuple } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import { MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT } from '../constants.gen.js';
