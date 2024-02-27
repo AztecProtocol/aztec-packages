@@ -675,7 +675,6 @@ fn transform_vm_function(
     func: &mut NoirFunction,
     storage_defined: bool,
 ) -> Result<(), AztecMacroError> {
-
     // Create access to storage
     if storage_defined {
         let storage = abstract_storage("public_vm", true);

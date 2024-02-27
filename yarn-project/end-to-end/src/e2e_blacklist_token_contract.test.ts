@@ -627,7 +627,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it.skip('transfer into account to overflow', () => {
-          // This should already be covered by the mint case earlier. e.g., since we cannot mint to oU128_OVERFLOW_ERRORverflow, there is not
+          // This should already be covered by the mint case earlier. e.g., since we cannot mint to overflow, there is not
           // a way to get funds enough to overflow.
           // Require direct storage manipulation for us to perform a nice explicit case though.
           // See https://github.com/AztecProtocol/aztec-packages/issues/1259

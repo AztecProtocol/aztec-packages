@@ -190,14 +190,14 @@ pub(crate) fn allocate_value(
     let typ = dfg.type_of_value(value_id);
 
     match typ {
-        Type::Numeric(numeric_type) =>{
-
-         let bit_size = numeric_type.bit_size();
-        //  dbg!(bit_size);
-         BrilligVariable::SingleAddr(SingleAddrVariable {
-            address: brillig_context.allocate_register(),
-            bit_size: bit_size,
-        })},
+        Type::Numeric(numeric_type) => {
+            let bit_size = numeric_type.bit_size();
+            //  dbg!(bit_size);
+            BrilligVariable::SingleAddr(SingleAddrVariable {
+                address: brillig_context.allocate_register(),
+                bit_size: bit_size,
+            })
+        }
         Type::Reference(_) => BrilligVariable::SingleAddr(SingleAddrVariable {
             address: brillig_context.allocate_register(),
             bit_size: BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
