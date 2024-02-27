@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+type docker &> /dev/null && [ -f ~/.aws/credentials ] || exit 1

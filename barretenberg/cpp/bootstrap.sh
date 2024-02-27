@@ -31,8 +31,11 @@ fi
 # Download ignition transcripts.
 (cd ./srs_db && ./download_ignition.sh 0)
 
+# Install wasi-sdk.
+./scripts/install-wasi-sdk.sh
+
 # Attempt to just pull artefacts from CI and exit on success.
-./bootstrap_cache.sh && exit
+[ -n "$USE_CACHE" ] && ./bootstrap_cache.sh && exit
 
 # Pick native toolchain file.
 ARCH=$(uname -m)
@@ -63,9 +66,6 @@ if [ ! -d ./srs_db/grumpkin ]; then
   # If tests require more points, the parameter can be increased here.
   (cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 8192)
 fi
-
-# Install wasi-sdk.
-./scripts/install-wasi-sdk.sh
 
 # Build WASM.
 cmake --preset wasm
