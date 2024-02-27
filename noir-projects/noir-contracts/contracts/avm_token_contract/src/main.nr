@@ -6,15 +6,14 @@ contract AvmToken {
 
     use dep::aztec::{
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader, utils as note_utils},
-        hash::{compute_secret_hash},
-        state_vars::{map::Map, public_state::PublicState, stable_public_state::StablePublicState, set::Set},
+        hash::{compute_secret_hash}, state_vars::{map::Map, PublicMutable},
         protocol_types::{abis::function_selector::FunctionSelector}
     };
 
     struct Storage {
-        total_supply: PublicState<Field>,
-        owner: PublicState<AztecAddress>,
-        balances: Map<AztecAddress, PublicState<U128>>
+        total_supply: PublicMutable<Field>,
+        owner: PublicMutable<AztecAddress>,
+        balances: Map<AztecAddress, PublicMutable<U128>>
     }
 
     #[aztec(private)]
