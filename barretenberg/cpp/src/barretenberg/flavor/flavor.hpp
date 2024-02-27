@@ -97,7 +97,7 @@ class PrecomputedEntitiesBase {
  * @tparam FF The scalar field on which we will encode our polynomial data. When instantiating, this may be extractable
  * from the other template paramter.
  */
-template <typename PrecomputedPolynomials, typename WitnessPolynomials>
+template <typename PrecomputedPolynomials, typename WitnessPolynomials, typename CommitmentKey_>
 class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
   public:
     using Polynomial = typename PrecomputedPolynomials::DataType;
@@ -106,6 +106,7 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     bool contains_recursive_proof;
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bb::EvaluationDomain<FF> evaluation_domain;
+    std::shared_ptr<CommitmentKey_> commitment_key;
 
     std::vector<std::string> get_labels() const
     {
@@ -119,6 +120,7 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     ProvingKey_() = default;
     ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
+        this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size + 1);
         this->evaluation_domain = bb::EvaluationDomain<FF>(circuit_size, circuit_size);
         PrecomputedPolynomials::circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
