@@ -1353,9 +1353,9 @@ export function mapPrivateKernelTailCircuitPrivateInputsToNoir(
     read_commitment_hints: mapTuple(inputs.readCommitmentHints, mapFieldToNoir),
     sorted_new_nullifiers: mapTuple(inputs.sortedNewNullifiers, mapSideEffectLinkedToNoir),
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, mapNumberToNoir),
+    nullifier_read_request_reset_hints: mapNullifierReadRequestResetHintsToNoir(inputs.nullifierReadRequestResetHints),
     nullifier_commitment_hints: mapTuple(inputs.nullifierCommitmentHints, mapFieldToNoir),
     master_nullifier_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),
-    nullifier_read_request_reset_hints: mapNullifierReadRequestResetHintsToNoir(inputs.nullifierReadRequestResetHints),
   };
 }
 

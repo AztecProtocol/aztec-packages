@@ -1,5 +1,5 @@
 import { makeTuple } from '@aztec/foundation/array';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT } from '../constants.gen.js';
 import { MembershipWitness } from './membership_witness.js';
@@ -21,6 +21,10 @@ export class ReadRequestStatus {
     const reader = BufferReader.asReader(buffer);
     return new ReadRequestStatus(reader.readNumber(), reader.readNumber());
   }
+
+  toBuffer() {
+    return serializeToBuffer(this.state, this.hintIndex);
+  }
 }
 
 export class PendingReadHint {
@@ -33,6 +37,10 @@ export class PendingReadHint {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PendingReadHint(reader.readNumber(), reader.readNumber());
+  }
+
+  toBuffer() {
+    return serializeToBuffer(this.readRequestIndex, this.pendingValueIndex);
   }
 }
 
@@ -49,6 +57,10 @@ export class SettledReadHint<TREE_HEIGHT extends number> {
   ): SettledReadHint<TREE_HEIGHT> {
     const reader = BufferReader.asReader(buffer);
     return new SettledReadHint(reader.readNumber(), MembershipWitness.fromBuffer(reader, treeHeight));
+  }
+
+  toBuffer() {
+    return serializeToBuffer(this.readRequestIndex, this.membershipWitness);
   }
 }
 
@@ -96,6 +108,10 @@ export class ReadRequestResetHints<
       reader.readArray(numPendingReads, PendingReadHint),
       reader.readArray(numSettledReads, { fromBuffer: r => SettledReadHint.fromBuffer(r, treeHeight) }),
     );
+  }
+
+  toBuffer() {
+    return serializeToBuffer(this.readRequestStatuses, this.pendingReadHints, this.settledReadHints);
   }
 }
 

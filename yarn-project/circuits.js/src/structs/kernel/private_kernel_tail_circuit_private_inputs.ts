@@ -45,6 +45,10 @@ export class PrivateKernelTailCircuitPrivateInputs {
      */
     public sortedNewNullifiersIndexes: Tuple<number, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
+     * Contains hints for the nullifier read requests to locate corresponding pending or settled nullifiers.
+     */
+    public nullifierReadRequestResetHints: NullifierReadRequestResetHints,
+    /**
      * Contains hints for the transient nullifiers to localize corresponding commitments.
      */
     public nullifierCommitmentHints: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
@@ -52,7 +56,6 @@ export class PrivateKernelTailCircuitPrivateInputs {
      * The master nullifier secret keys for the nullifier key validation requests.
      */
     public masterNullifierSecretKeys: Tuple<GrumpkinPrivateKey, typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
-    public nullifierReadRequestResetHints: NullifierReadRequestResetHints,
   ) {}
 
   /**
@@ -67,6 +70,7 @@ export class PrivateKernelTailCircuitPrivateInputs {
       this.readCommitmentHints,
       this.sortedNewNullifiers,
       this.sortedNewNullifiersIndexes,
+      this.nullifierReadRequestResetHints,
       this.nullifierCommitmentHints,
       this.masterNullifierSecretKeys,
     );
@@ -86,9 +90,9 @@ export class PrivateKernelTailCircuitPrivateInputs {
       reader.readArray(MAX_READ_REQUESTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
+      reader.readObject({ fromBuffer: nullifierReadRequestResetHintsFromBuffer }),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar),
-      reader.readObject({ fromBuffer: nullifierReadRequestResetHintsFromBuffer }),
     );
   }
 }

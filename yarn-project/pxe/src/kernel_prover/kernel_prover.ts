@@ -214,9 +214,9 @@ export class KernelProver {
       readNoteHashHints,
       sortedNullifiers,
       sortedNullifiersIndexes,
+      nullifierReadRequestResetHints,
       nullifierNoteHashHints,
       masterNullifierSecretKeys,
-      nullifierReadRequestResetHints,
     );
     pushTestData('private-kernel-inputs-ordering', privateInputs);
     const outputFinal = await this.proofCreator.createProofTail(privateInputs);
