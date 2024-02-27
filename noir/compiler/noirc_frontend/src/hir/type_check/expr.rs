@@ -821,10 +821,6 @@ impl<'interner> TypeChecker<'interner> {
                 let alias = alias.borrow().get_type(args);
                 self.comparator_operand_type_rules(&alias, other, op, span)
             }
-            (Alias(alias, args), other) | (other, Alias(alias, args)) => {
-                let alias = alias.borrow().get_type(args);
-                self.comparator_operand_type_rules(&alias, other, op, span)
-            }
             (Integer(sign_x, bit_width_x), Integer(sign_y, bit_width_y)) => {
                 if sign_x != sign_y {
                     return Err(TypeCheckError::IntegerSignedness {
@@ -1101,7 +1097,7 @@ impl<'interner> TypeChecker<'interner> {
 
             // Matches on TypeVariable must be first so that we follow any type
             // bindings.
-            (TypeVariable(int, int_kind), other) | (other, TypeVariable(int, int_kind)) => {
+            (TypeVariable(int, _), other) | (other, TypeVariable(int, _)) => {
                 if let TypeBinding::Bound(binding) = &*int.borrow() {
                     return self.infix_operand_type_rules(binding, op, other, span);
                 }
@@ -1110,10 +1106,6 @@ impl<'interner> TypeChecker<'interner> {
 
                 // Both types are unified so the choice of which to return is arbitrary
                 Ok((other.clone(), false))
-            }
-            (Alias(alias, args), other) | (other, Alias(alias, args)) => {
-                let alias = alias.borrow().get_type(args);
-                self.infix_operand_type_rules(&alias, op, other, span)
             }
             (Alias(alias, args), other) | (other, Alias(alias, args)) => {
                 let alias = alias.borrow().get_type(args);

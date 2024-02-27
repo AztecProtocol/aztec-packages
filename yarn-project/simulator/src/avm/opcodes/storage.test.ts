@@ -49,7 +49,7 @@ describe('Storage Instructions', () => {
       context.machineState.memory.set(0, a);
       context.machineState.memory.set(1, b);
 
-      await new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*size=*/ 1, /*slotOffset=*/ 1).execute(context);
+      await new SStore(/*indirect=*/ 0, /*srcOffset=*/ 1, /*size=*/ 1, /*slotOffset=*/ 0).execute(context);
 
       expect(journal.writeStorage).toHaveBeenCalledWith(address, new Fr(a.toBigInt()), [new Fr(b.toBigInt())]);
     });

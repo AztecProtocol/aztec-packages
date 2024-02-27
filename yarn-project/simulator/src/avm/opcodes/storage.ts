@@ -40,9 +40,9 @@ export class SStore extends BaseStorageInstruction {
       throw new StaticCallStorageAlterError();
     }
 
-    const [srcOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset], context.machineState.memory);
+    const [srcOffset, slotOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset, this.bOffset], context.machineState.memory);
 
-    const slot = context.machineState.memory.get(srcOffset).toFr();
+    const slot = context.machineState.memory.get(slotOffset).toFr();
     const data = context.machineState.memory.getSlice(srcOffset, this.size).map(field => field.toFr());
 
     context.persistableState.writeStorage(context.environment.storageAddress, slot, data);

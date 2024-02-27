@@ -51,7 +51,7 @@ export class Addressing {
     for (const [i, offset] of offsets.entries()) {
       switch (this.modePerOperand[i]) {
         case AddressingMode.INDIRECT:
-          mem.checkTag(TypeTag.UINT64, offset); // brillig word size is 64 bits
+          mem.checkTag(TypeTag.UINT32, offset); // brillig word size is 64 bits
           resolved[i] = Number(mem.get(offset).toBigInt());
           break;
         case AddressingMode.DIRECT:

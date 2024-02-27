@@ -65,7 +65,7 @@ describe('Hashing Opcodes', () => {
       expect(result).toEqual(new Field(expectedHash));
     });
 
-    it('Should hash correctly - indirect', async () => {
+    it('Should hash correctly - indirect pos', async () => {
       const args = [new Field(1n), new Field(2n), new Field(3n)];
       const indirect = 1;
       const hashOffset = 0;
@@ -144,7 +144,6 @@ describe('Hashing Opcodes', () => {
 
       expect(combined).toEqual(expectedHash);
     });
-    // TODO: indirect
   });
 
   describe('Sha256', () => {
