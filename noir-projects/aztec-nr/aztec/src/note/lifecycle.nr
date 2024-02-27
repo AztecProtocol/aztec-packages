@@ -38,6 +38,8 @@ pub fn create_note<Note, N>(
     }
 }
 
+pub fn create_partial_note() {}
+
 pub fn create_note_hash_from_public<Note, N>(
     context: &mut PublicContext,
     storage_slot: Field,

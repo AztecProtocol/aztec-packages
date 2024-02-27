@@ -664,7 +664,15 @@ export class PXEService implements PXE {
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
-    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions, [extendedContractData]);
+    return new Tx(
+      publicInputs,
+      proof,
+      encryptedLogs,
+      unencryptedLogs,
+      enqueuedPublicFunctions,
+      [extendedContractData],
+      executionResult.returnValues,
+    );
   }
 
   /**

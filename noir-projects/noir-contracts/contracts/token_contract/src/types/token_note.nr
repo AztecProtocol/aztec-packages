@@ -17,8 +17,8 @@ global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 struct TokenNote {
     // the amount of tokens in the note
     amount: U128,
-    // the provider of secrets for the nullifier. The owner (recipient) to ensure that the note 
-    // can be privately spent. When nullifier secret and encryption private key is same 
+    // the provider of secrets for the nullifier. The owner (recipient) to ensure that the note
+    // can be privately spent. When nullifier secret and encryption private key is same
     // we can simply use the owner for this one.
     owner: AztecAddress,
     // randomness of the note to hide contents.
@@ -26,26 +26,33 @@ struct TokenNote {
     // the note header (contract_address, nonce, storage_slot)
     // included in the note such that it becomes part of encrypted logs for later use.
     header: NoteHeader,
+
+    partial_hash: Field,
 }
 
 impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     fn serialize_content(self) -> [Field; TOKEN_NOTE_LEN] {
-        [self.amount.to_field(), self.owner.to_field(), self.randomness]
+        [self.amount.to_field(), self.owner.to_field(), compute_partial_hash(self)]
     }
 
     fn deserialize_content(serialized_note: [Field; TOKEN_NOTE_LEN]) -> Self {
-        Self {
-            // TODO: check this type cast is right
+        let note = Self {
             amount: U128::from_integer(serialized_note[0]),
             owner: AztecAddress::from_field(serialized_note[1]),
-            randomness: serialized_note[2],
+            randomness: 0,
             header: NoteHeader::empty(),
-        }
+            partial_hash: serialized_note[2]
+        };
+        // note.partial_hash = compute_partial_hash(note);
+        note
     }
 
     fn compute_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(self.serialize_content(), 0)
+        pedersen_hash([
+            compute_partial_hash(self),
+            self.amount.to_field(),
+        ], 0)
     }
 
     // docs:start:nullifier
@@ -105,12 +112,16 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
 
 impl OwnedNote for TokenNote {
     fn new(amount: U128, owner: AztecAddress) -> Self {
-        Self {
+        let mut note = Self {
             amount,
             owner,
             randomness: rand(),
             header: NoteHeader::empty(),
-        }
+            partial_hash: 0
+        };
+
+        note.partial_hash = compute_partial_hash(note);
+        note
     }
 
     fn get_amount(self) -> U128 {
@@ -120,5 +131,28 @@ impl OwnedNote for TokenNote {
     fn get_owner(self) -> AztecAddress {
         self.owner
     }
-   
+}
+
+impl TokenNote {
+    pub fn from_partial(amount: U128, partial_hash: Field) -> Self {
+        Self { amount, partial_hash, owner: AztecAddress::empty(), randomness: 0, header: NoteHeader::empty() }
+    }
+
+    pub fn partial_hash(self) -> Field {
+        compute_partial_hash(self)
+    }
+}
+
+fn compute_partial_hash(note: TokenNote) -> Field {
+    if note.partial_hash != 0 {
+        note.partial_hash
+    } else {
+        pedersen_hash(
+            [
+            note.owner.to_field(),
+            note.randomness
+        ],
+            0
+        )
+    }
 }

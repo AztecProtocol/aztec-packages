@@ -6,6 +6,7 @@ import {
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
+import { DecodedReturn } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -48,6 +49,8 @@ export class Tx {
      * TODO(#3417): Check if portal addresses are still always set to zero
      */
     public readonly newContracts: Tuple<ExtendedContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
+    /** something */
+    public readonly returnValues: DecodedReturn = [],
   ) {
     if (this.unencryptedLogs.functionLogs.length < this.encryptedLogs.functionLogs.length) {
       // This check is present because each private function invocation creates encrypted FunctionL2Logs object and

@@ -103,7 +103,7 @@ describe('e2e_fees', () => {
 
     // mint some test tokens for Alice
     // she'll pay for the subscription with these
-    await bananaCoin.methods.privately_mint_private_note(MINTED_BANANAS).send().wait();
+    // await bananaCoin.methods.privately_mint_private_note(MINTED_BANANAS).send().wait();
     await bananaCoin.methods.mint_public(aliceAddress, MINTED_BANANAS).send().wait();
     await gasBridgeTestHarness.bridgeFromL1ToL2(BRIDGED_GAS_BALANCE, BRIDGED_GAS_BALANCE, subscriptionContract.address);
     await gasBridgeTestHarness.bridgeFromL1ToL2(BRIDGED_GAS_BALANCE, BRIDGED_GAS_BALANCE, bananaFPC.address);
