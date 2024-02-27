@@ -23,10 +23,10 @@ using GetParameterView = std::conditional_t<IsField<typename Params::DataType>, 
 
 template <typename T, size_t subrelation_idx>
 concept HasSubrelationLinearlyIndependentMember = requires(T) {
-                                                      {
-                                                          std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
-                                                          } -> std::convertible_to<bool>;
-                                                  };
+    {
+        std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
+    } -> std::convertible_to<bool>;
+};
 
 template <typename T>
 concept HasParameterLengthAdjustmentsMember = requires { T::TOTAL_LENGTH_ADJUSTMENTS; };
@@ -111,12 +111,20 @@ consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_part
  *
  */
 
-template <typename Relation, typename Input>
-concept isSkippable = requires(Input& input) {
-                          {
-                              Relation::skip(input)
-                              } -> std::same_as<bool>;
-                      };
+/**
+ * @brief Check if the relation has a static skip method to determine if accumulation of its result can be optimised
+ * based on a single check
+ *
+ * @details The skip function should return true if relation can be skipped and false if it can't
+ * @tparam Relation The relation type
+ * @tparam AllEntities The type containing UnivariateViews with witness and selector values
+ */
+template <typename Relation, typename AllEntities>
+concept isSkippable = requires(const AllEntities& input) {
+    {
+        Relation::skip(input)
+    } -> std::same_as<bool>;
+};
 
 /**
  * @brief A wrapper for Relations to expose methods used by the Sumcheck prover or verifier to add the

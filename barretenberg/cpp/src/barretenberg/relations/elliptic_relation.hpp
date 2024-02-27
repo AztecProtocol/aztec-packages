@@ -13,8 +13,17 @@ template <typename FF_> class EllipticRelationImpl {
         6, // x-coordinate sub-relation
         6, // y-coordinate sub-relation
     };
+
+    /**
+     * @brief Determine if elliptic relation can be ignored at current row
+     *
+     * @param in UnivariateViews of entities
+     * @return true if we can skip
+     * @return false if relation has to be accumulated
+     */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
+        // If evaluations at 0 and 1 are both zero, then all evaluations are zero and relation will result in zero
         return in.q_elliptic.evaluations[0].is_zero() && in.q_elliptic.evaluations[1].is_zero();
     }
     // TODO(@zac-williamson #2609 find more generic way of doing this)
