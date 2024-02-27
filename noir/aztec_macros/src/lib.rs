@@ -12,7 +12,7 @@ use noirc_frontend::macros_api::{
     BlockExpression, CallExpression, CastExpression, Distinctness, Expression, ExpressionKind,
     ForLoopStatement, ForRange, FunctionDefinition, FunctionReturnType, FunctionVisibility,
     HirContext, HirExpression, HirLiteral, HirStatement, Ident, ImportStatement, IndexExpression,
-    LetStatement, Literal, MemberAccessExpression, MethodCallExpression, NoirFunction, NoirStruct,
+    LetStatement, Literal, MethodCallExpression, NoirFunction, NoirStruct,
     Param, Path, PathKind, Pattern, PrefixExpression, SecondaryAttribute, Signedness, Span,
     Statement, StatementKind, StructType, Type, TypeImpl, UnaryOp, UnresolvedType,
     UnresolvedTypeData, Visibility,
@@ -190,13 +190,6 @@ fn assignment(name: &str, assigned_to: Expression) -> Statement {
         r#type: make_type(UnresolvedTypeData::Unspecified),
         expression: assigned_to,
     }))
-}
-
-fn member_access(lhs: &str, rhs: &str) -> Expression {
-    expression(ExpressionKind::MemberAccess(Box::new(MemberAccessExpression {
-        lhs: variable(lhs),
-        rhs: ident(rhs),
-    })))
 }
 
 fn return_type(path: Path) -> FunctionReturnType {
@@ -1109,7 +1102,12 @@ fn create_inputs(ty: &str) -> Param {
 ///
 ///     // Create the context
 ///     // The inputs (injected by this `create_inputs`) and completed hash object are passed to the context
+///
+///     // For private context:
 ///     let mut context = PrivateContext::new(inputs, hasher.hash());
+///
+///     // Or for public context:
+///     let mut context = SomePublicContext::public(PublicContext::new(inputs, hasher.hash()));
 /// }
 /// ```
 fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMacroError> {
@@ -1184,14 +1182,29 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
 
     let path_snippet = ty.to_case(Case::Snake); // e.g. private_context
 
-    // let mut context = {ty}::new(inputs, hash);
-    let let_context = mutable_assignment(
-        "context", // Assigned to
-        call(
-            variable_path(chained_path!("aztec", "context", &path_snippet, ty, "new")), // Path
-            vec![inputs_expression, hash_call],                                         // args
-        ),
+    // Expression (used below): {ty}::new(inputs, hash);
+    let inner_context_expression = call(
+        variable_path(chained_path!("aztec", "context", &path_snippet, ty, "new")), // Path
+        vec![inputs_expression, hash_call],
     );
+
+    let let_context = match ty {
+        // let mut context = PrivateContext::new(inputs, hash);
+        "PrivateContext" => mutable_assignment(
+                    "context", // Assigned to
+                    inner_context_expression,
+                ),
+        // let mut context = SomePublicContext::public(PublicContext::new(inputs, hash));
+        "PublicContext" => mutable_assignment(
+                    "context", // Assigned to
+                    call(
+                        variable_path(chained_path!("aztec", "context", "some_public_context", "SomePublicContext", "public")), // Path
+                        vec![inner_context_expression],                                         // args
+                    ),
+                ),
+        _ => panic!("Invalid context type {ty} for aztec macros"),
+    };
+
     injected_expressions.push(let_context);
 
     // Return all expressions that will be injected by the hasher
@@ -1204,7 +1217,7 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
 /// /// Before
 /// #[aztec(public-vm)]
 /// fn foo() -> Field {
-///   let mut context = aztec::context::AVMContext::new();
+///   let mut context = SomePublicContext::public(AVMContext::new());
 ///   let timestamp = context.timestamp();
 ///   // ...
 /// }
@@ -1216,11 +1229,17 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
 ///     // ...
 /// }
 fn create_avm_context() -> Result<Statement, AztecMacroError> {
+    // Expression (used below): AVMContext::new();
+    let inner_context_expression = call(
+        variable_path(chained_path!("aztec", "context", "AVMContext", "new")), // Path
+        vec![],                                         // args
+    );
+    // let mut context = SomePublicContext::public(AVMContext::new();
     let let_context = mutable_assignment(
         "context", // Assigned to
         call(
-            variable_path(chained_path!("aztec", "context", "AVMContext", "new")), // Path
-            vec![],                                                                // args
+            variable_path(chained_path!("aztec", "context", "some_public_context", "SomePublicContext", "public")), // Path
+            vec![inner_context_expression],
         ),
     );
 
@@ -1239,7 +1258,7 @@ fn create_avm_context() -> Result<Statement, AztecMacroError> {
 /// fn foo() -> protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
 ///   // ...
 ///   let my_return_value: Field = 10;
-///   context.return_values.push(my_return_value);
+///   context.push_return_value(my_return_value);
 /// }
 ///
 /// /// After
@@ -1328,13 +1347,6 @@ fn abstract_storage(typ: &str, unconstrained: bool) -> Statement {
 
 /// Context Return Values
 ///
-/// Creates an instance to the context return values
-/// ```noir
-/// `context.return_values`
-/// ```
-fn context_return_values() -> Expression {
-    member_access("context", "return_values")
-}
 
 fn make_statement(kind: StatementKind) -> Statement {
     Statement { span: Span::default(), kind }
@@ -1343,24 +1355,24 @@ fn make_statement(kind: StatementKind) -> Statement {
 /// Make return Push
 ///
 /// Translates to:
-/// `context.return_values.push({push_value})`
+/// `context.push_return_value({push_value})`
 fn make_return_push(push_value: Expression) -> Statement {
     make_statement(StatementKind::Semi(method_call(
-        context_return_values(),
-        "push",
-        vec![push_value],
+        variable("context"), //variable
+        "push_return_value", // method name
+        vec![], //args
     )))
 }
 
 /// Make Return push array
 ///
 /// Translates to:
-/// `context.return_values.extend_from_array({push_value})`
+/// `context.push_return_values({push_value})`
 fn make_return_extend_from_array(push_value: Expression) -> Statement {
     make_statement(StatementKind::Semi(method_call(
-        context_return_values(),
-        "extend_from_array",
-        vec![push_value],
+        variable("context"), //variable
+        "push_return_values", // method name
+        vec![push_value], //args
     )))
 }
 
@@ -1368,7 +1380,7 @@ fn make_return_extend_from_array(push_value: Expression) -> Statement {
 ///
 /// Translates to:
 /// ```noir
-/// `context.return_values.extend_from_array({push_value}.serialize())`
+/// `context.push_return_values({push_value}.serialize())`
 fn make_struct_return_type(expression: Expression) -> Statement {
     let serialized_call = method_call(
         expression,  // variable
@@ -1383,16 +1395,16 @@ fn make_struct_return_type(expression: Expression) -> Statement {
 /// Translates to:
 /// ```noir
 /// for i in 0..{ident}.len() {
-///    context.return_values.push({ident}[i] as Field)
+///    context.push_return_value({ident}[i] as Field)`
 /// }
 /// ```
 fn make_array_return_type(expression: Expression) -> Statement {
     let inner_cast_expression =
         cast(index_array_variable(expression.clone(), "i"), UnresolvedTypeData::FieldElement);
     let assignment = make_statement(StatementKind::Semi(method_call(
-        context_return_values(), // variable
-        "push",                  // method name
-        vec![inner_cast_expression],
+        variable("context"), //variable
+        "push_return_value", // method name
+        vec![inner_cast_expression], //args
     )));
 
     create_loop_over(expression, vec![assignment])
@@ -1402,7 +1414,7 @@ fn make_array_return_type(expression: Expression) -> Statement {
 ///
 /// Translates to:
 /// ```noir
-/// context.return_values.push({ident} as Field)
+/// context.push_return_value({ident} as Field)`
 /// ```
 fn make_castable_return_type(expression: Expression) -> Statement {
     // Cast these types to a field before pushing
@@ -1457,12 +1469,11 @@ fn create_return_type(ty: &str) -> FunctionReturnType {
 ///  // ...
 /// }
 fn create_context_finish() -> Statement {
-    let method_call = method_call(
-        variable("context"), // variable
-        "finish",            // method name
-        vec![],              // args
-    );
-    make_statement(StatementKind::Expression(method_call))
+    make_statement(StatementKind::Expression(method_call(
+        variable("context"), //variable
+        "finish", // method name
+        vec![], //args
+    )))
 }
 
 //

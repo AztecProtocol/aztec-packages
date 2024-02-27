@@ -1,6 +1,6 @@
 use crate::{
-    context::inputs::PublicContextInputs, messaging::process_l1_to_l2_message,
-    oracle::{arguments, public_call::call_public_function_internal}
+    context::{context_interface::ContextInterface, inputs::PublicContextInputs},
+    messaging::process_l1_to_l2_message, oracle::{arguments, public_call::call_public_function_internal}
 };
 use dep::protocol_types::{
     abis::{
@@ -46,6 +46,186 @@ struct PublicContext {
     prover_address: AztecAddress,
 }
 
+impl ContextInterface for PublicContext {
+    fn msg_sender(self) -> AztecAddress {
+        self.inputs.call_context.msg_sender
+    }
+
+    fn this_address(self) -> AztecAddress {
+        self.inputs.call_context.storage_contract_address
+    }
+
+    fn this_portal_address(self) -> EthAddress {
+        self.inputs.call_context.portal_contract_address
+    }
+
+    fn chain_id(self) -> Field {
+        self.inputs.public_global_variables.chain_id
+    }
+
+    fn version(self) -> Field {
+        self.inputs.public_global_variables.version
+    }
+
+    fn selector(self) -> FunctionSelector {
+        self.inputs.call_context.function_selector
+    }
+
+    fn block_number(self) -> Field {
+        self.inputs.public_global_variables.block_number
+    }
+
+    fn timestamp(self) -> Field {
+        self.inputs.public_global_variables.timestamp
+    }
+
+    fn coinbase(self) -> EthAddress {
+        self.inputs.public_global_variables.coinbase
+    }
+
+    fn args_hash(self) -> Field {
+        self.args_hash
+    }
+
+    fn push_new_note_hash(&mut self, note_hash: Field) {
+        let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
+        self.new_note_hashes.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
+    fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
+        let side_effect = SideEffectLinkedToNoteHash {
+            value: nullifier,
+            note_hash: 0, // cannot nullify pending notes in public context
+            counter: self.side_effect_counter
+        };
+        self.new_nullifiers.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
+    fn message_portal(&mut self, recipient: EthAddress, content: Field) {
+        let message = L2ToL1Message { recipient, content };
+        self.new_l2_to_l1_msgs.push(message);
+    }
+
+    fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field, sender: EthAddress) {
+        let this = (*self).this_address();
+        let nullifier = process_l1_to_l2_message(
+            self.historical_header.state.l1_to_l2_message_tree.root,
+            this,
+            sender,
+            self.chain_id(),
+            self.version(),
+            msg_key,
+            content,
+            secret
+        );
+
+        // Push nullifier (and the "commitment" corresponding to this can be "empty")
+        self.push_new_nullifier(nullifier, 0)
+    }
+
+    fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {
+        let _void1 = self;
+        let _void2 = log;
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+    }
+
+    fn accumulate_unencrypted_logs<T>(&mut self, log: T) {
+        let _void1 = self;
+        let _void2 = log;
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+    }
+
+    fn call_public_function<ARGS_COUNT>(
+        _self: Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field; ARGS_COUNT]
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        let args_hash = hash_args(args);
+        assert(args_hash == arguments::pack_arguments(args));
+        call_public_function_internal(contract_address, function_selector, args_hash, false, false)
+    }
+
+    fn static_call_public_function<ARGS_COUNT>(
+        _self: Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field; ARGS_COUNT]
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        let args_hash = hash_args(args);
+        assert(args_hash == arguments::pack_arguments(args));
+        call_public_function_internal(contract_address, function_selector, args_hash, true, false)
+    }
+
+    fn delegate_call_public_function<ARGS_COUNT>(
+        _self: Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field; ARGS_COUNT]
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        let args_hash = hash_args(args);
+        assert(args_hash == arguments::pack_arguments(args));
+        call_public_function_internal(contract_address, function_selector, args_hash, false, true)
+    }
+
+    fn call_public_function_no_args(
+        _self: Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        call_public_function_internal(contract_address, function_selector, 0, false, false)
+    }
+
+    fn static_call_public_function_no_args(
+        _self: Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        call_public_function_internal(contract_address, function_selector, 0, true, false)
+    }
+
+    fn delegate_call_public_function_no_args(
+        _self: Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        call_public_function_internal(contract_address, function_selector, 0, false, true)
+    }
+
+    fn push_return_value(&mut self, value: Field) {
+        self.return_values.push(value);
+    }
+    fn push_return_values<N>(&mut self, values: [Field; N]) {
+        self.return_values.extend_from_array(values);
+    }
+
+    fn finish(self) -> PublicCircuitPublicInputs {
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+        let unencrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
+        let unencrypted_log_preimages_length = 0;
+
+        // Compute the public call stack hashes
+        let pub_circuit_pub_inputs = PublicCircuitPublicInputs {
+            call_context: self.inputs.call_context, // Done
+            args_hash: self.args_hash, // Done
+            contract_storage_update_requests: self.contract_storage_update_requests.storage,
+            contract_storage_reads: self.contract_storage_reads.storage,
+            return_values: self.return_values.storage,
+            new_note_hashes: self.new_note_hashes.storage,
+            new_nullifiers: self.new_nullifiers.storage,
+            public_call_stack_hashes: self.public_call_stack_hashes.storage,
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            unencrypted_logs_hash,
+            unencrypted_log_preimages_length,
+            historical_header: self.inputs.historical_header,
+            prover_address: self.prover_address
+        };
+        pub_circuit_pub_inputs
+    }
+}
+
 impl PublicContext {
     pub fn new(inputs: PublicContextInputs, args_hash: Field) -> PublicContext {
         let empty_storage_read = StorageRead::empty();
@@ -75,174 +255,7 @@ impl PublicContext {
         false
     }
 
-    pub fn msg_sender(self) -> AztecAddress {
-        self.inputs.call_context.msg_sender
-    }
-
-    pub fn this_address(self) -> AztecAddress {
-        self.inputs.call_context.storage_contract_address
-    }
-
-    pub fn this_portal_address(self) -> EthAddress {
-        self.inputs.call_context.portal_contract_address
-    }
-
-    pub fn chain_id(self) -> Field {
-        self.inputs.public_global_variables.chain_id
-    }
-
-    pub fn version(self) -> Field {
-        self.inputs.public_global_variables.version
-    }
-
-    pub fn selector(self) -> FunctionSelector {
-        self.inputs.call_context.function_selector
-    }
-
-    pub fn block_number(self) -> Field {
-        self.inputs.public_global_variables.block_number
-    }
-
-    pub fn timestamp(self) -> Field {
-        self.inputs.public_global_variables.timestamp
-    }
-
-    pub fn coinbase(self) -> EthAddress {
-        self.inputs.public_global_variables.coinbase
-    }
-
     pub fn fee_recipient(self) -> AztecAddress {
         self.inputs.public_global_variables.fee_recipient
-    }
-
-    pub fn finish(self) -> PublicCircuitPublicInputs {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-        let unencrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
-        let unencrypted_log_preimages_length = 0;
-
-        // Compute the public call stack hashes
-        let pub_circuit_pub_inputs = PublicCircuitPublicInputs {
-            call_context: self.inputs.call_context, // Done
-            args_hash: self.args_hash, // Done
-            contract_storage_update_requests: self.contract_storage_update_requests.storage,
-            contract_storage_reads: self.contract_storage_reads.storage,
-            return_values: self.return_values.storage,
-            new_note_hashes: self.new_note_hashes.storage,
-            new_nullifiers: self.new_nullifiers.storage,
-            public_call_stack_hashes: self.public_call_stack_hashes.storage,
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
-            unencrypted_logs_hash,
-            unencrypted_log_preimages_length,
-            historical_header: self.inputs.historical_header,
-            prover_address: self.prover_address
-        };
-        pub_circuit_pub_inputs
-    }
-
-    pub fn push_new_note_hash(&mut self, note_hash: Field) {
-        let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
-        self.new_note_hashes.push(side_effect);
-        self.side_effect_counter = self.side_effect_counter + 1;
-    }
-
-    pub fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
-        let side_effect = SideEffectLinkedToNoteHash {
-            value: nullifier,
-            note_hash: 0, // cannot nullify pending notes in public context
-            counter: self.side_effect_counter
-        };
-        self.new_nullifiers.push(side_effect);
-        self.side_effect_counter = self.side_effect_counter + 1;
-    }
-
-    pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
-        let message = L2ToL1Message { recipient, content };
-        self.new_l2_to_l1_msgs.push(message);
-    }
-
-    pub fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field, sender: EthAddress) {
-        let this = (*self).this_address();
-        let nullifier = process_l1_to_l2_message(
-            self.historical_header.state.l1_to_l2_message_tree.root,
-            this,
-            sender,
-            self.chain_id(),
-            self.version(),
-            msg_key,
-            content,
-            secret
-        );
-
-        // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_new_nullifier(nullifier, 0)
-    }
-
-    pub fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {
-        let _void1 = self;
-        let _void2 = log;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-    }
-
-    pub fn accumulate_unencrypted_logs<T>(&mut self, log: T) {
-        let _void1 = self;
-        let _void2 = log;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-    }
-
-    pub fn call_public_function<ARGS_COUNT>(
-        _self: Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        let args_hash = hash_args(args);
-        assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, false, false)
-    }
-
-    pub fn static_call_public_function<ARGS_COUNT>(
-        _self: Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        let args_hash = hash_args(args);
-        assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, true, false)
-    }
-
-    pub fn delegate_call_public_function<ARGS_COUNT>(
-        _self: Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        let args_hash = hash_args(args);
-        assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, false, true)
-    }
-
-    pub fn call_public_function_no_args(
-        _self: Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, false, false)
-    }
-
-    pub fn static_call_public_function_no_args(
-        _self: Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, true, false)
-    }
-
-    pub fn delegate_call_public_function_no_args(
-        _self: Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, false, true)
     }
 }

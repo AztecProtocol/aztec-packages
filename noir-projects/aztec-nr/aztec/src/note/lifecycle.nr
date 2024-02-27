@@ -1,4 +1,4 @@
-use crate::context::{PrivateContext, PublicContext};
+use crate::context::{PrivateContext, PublicContext, SomePublicContext};
 use crate::note::{
     note_header::NoteHeader, note_interface::NoteInterface,
     utils::{compute_note_hash_for_insertion, compute_note_hash_for_consumption}
@@ -39,7 +39,7 @@ pub fn create_note<Note, N>(
 }
 
 pub fn create_note_hash_from_public<Note, N>(
-    context: &mut PublicContext,
+    context: &mut SomePublicContext,
     storage_slot: Field,
     note: &mut Note
 ) where Note: NoteInterface<N> {

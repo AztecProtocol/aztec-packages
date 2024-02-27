@@ -1,17 +1,20 @@
 mod globals;
 mod inputs;
 
+mod avm;
+mod context_interface;
 mod private_context;
 mod public_context;
-mod avm;
+mod some_public_context;
 
+use avm::{AVMContext};
 use private_context::PrivateContext;
 use public_context::PublicContext;
-use avm::AVMContext;
+use some_public_context::SomePublicContext;
 
 struct Context {
     private: Option<&mut PrivateContext>,
-    public: Option<&mut PublicContext>,
+    public: Option<&mut SomePublicContext>,
 }
 
 impl Context {
@@ -19,11 +22,11 @@ impl Context {
         Context { private: Option::some(context), public: Option::none() }
     }
 
-    pub fn public(context: &mut PublicContext) -> Context {
-        Context { public: Option::some(context), private: Option::none() }
+    pub fn public(context: &mut SomePublicContext) -> Context {
+        Context { private: Option::none(), public: Option::some(context) }
     }
 
     pub fn none() -> Context {
-        Context { public: Option::none(), private: Option::none() }
+        Context { private: Option::none(), public: Option::none() }
     }
 }

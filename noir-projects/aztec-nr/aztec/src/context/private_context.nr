@@ -490,4 +490,11 @@ impl PrivateContext {
 
         self.public_call_stack_hashes.push(item.hash());
     }
+
+    fn push_return_value(&mut self, value: Field) {
+        self.return_values.push(value);
+    }
+    fn push_return_values<N>(&mut self, values: [Field; N]) {
+        self.return_values.extend_from_array(values);
+    }
 }
