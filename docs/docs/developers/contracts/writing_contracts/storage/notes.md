@@ -2,7 +2,9 @@
 title: Using Notes
 ---
 
-Some optionally background resources on notes can be seen here:
+This explainer will go through some more details of components that make up Notes, expanding upon what has been covered [here](../../../../learn/concepts/storage/notes).
+
+Some optional background resources on notes can be seen here:
 - [High level network architecture](../../../../learn/about_aztec/technical_overview#high-level-network-architecture), specifically the Private Execution Environment
 - [Transaction lifecycle (simple diagram)](../../../../learn/concepts/transactions#simple-example-of-the-private-transaction-lifecycle)
 - [Public and Private state](../../../../learn/concepts/hybrid_state/main)
@@ -13,11 +15,9 @@ Outside of this there are many more details to discover that will be skipped ove
 - Oracle's role in using notes
 - Value Serialization/Deserialization
 
-This explainer will go through some examples that touch on what has been covered [here](../../../../learn/concepts/storage/notes).
-
 #### Some code context
 The way Aztec (`aztec-packages` monorepo) benefits from the Noir language is via three important components:
-- `Aztec-nr` - a Noir framework enabling contracts on Aztec, written in Noir. Includes useful Note implementations.
+- `Aztec-nr` - a Noir framework enabling contracts on Aztec, written in Noir. Includes useful Note implementations
 - `noir contracts` - , example Aztec contracts
 - `noir-protocol-circuits` - a crate containing essential circuits for the protocol (public circuits and private wrappers)
 
@@ -32,6 +32,8 @@ We also see a function to create a note hash from the public context, a way of c
 
 ### Note Interface functions
 To see a [note_interface](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implementation, we will look at a simple [ValueNote](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr).
+
+The interface is required to work within an Aztec contract's storage, and a ValueNote is a specific type of note to hold a number (as a `Field`).
 
 #### Computing hashes and nullifiers
 A few key functions in the note interface are around computing the note hash and nullifier, with logic to get/use secret keys from the private context.
@@ -51,8 +53,8 @@ We recall that multiple notes are associated with a "slot" (or ID), and so the v
 The helper function in [balance_utils](https://github.com/AztecProtocol/aztec-packages/blob/#include_/noir-projects/aztec-nr/value-note/src/balance_utils.nr) implements this logic taking a `Set` of `ValueNotes`.
 
 A couple of things worth clarifying:
-- A `Set` takes a Generic type, specified here as `ValueNote`, but can be any `Note` type (for all notes in the set).
-- A `Set` of notes also specifies *the* slot of all Notes that it holds.
+- A `Set` takes a Generic type, specified here as `ValueNote`, but can be any `Note` type (for all notes in the set)
+- A `Set` of notes also specifies *the* slot of all Notes that it holds
 
 ### Abstracting Notes
 The Aztec.nr framework includes an [easy_private_state](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/easy-private-state/src/easy_private_state.nr) for use in contracts.
