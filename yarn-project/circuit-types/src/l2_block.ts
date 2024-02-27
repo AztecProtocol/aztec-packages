@@ -7,7 +7,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
- * TODO: Reuse data types and serialization functions from circuits package.
  */
 export class L2Block {
   #l1BlockNumber?: bigint;
@@ -166,7 +165,7 @@ export class L2Block {
     const buf = serializeToBuffer(
       this.header.globalVariables,
       // TODO(#3868)
-      AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot / committments,
+      AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot / commitments,
       AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startContractTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startPublicDataTreeSnapshot,
