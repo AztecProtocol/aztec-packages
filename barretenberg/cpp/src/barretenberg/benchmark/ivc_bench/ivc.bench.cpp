@@ -44,44 +44,100 @@ class IvcBench : public benchmark::Fixture {
      */
     static void perform_ivc_accumulation_rounds(State& state, ClientIVC& ivc)
     {
-        // Initialize IVC with a function circuit
-        Builder initial_function_circuit{ ivc.goblin.op_queue };
-        GoblinMockCircuits::construct_mock_function_circuit(initial_function_circuit);
-        ivc.initialize(initial_function_circuit);
+        // Construct 2 starting function circuits in parallel
+        std::vector<Builder> initial_function_circuits(2);
+        parallel_for(2, [&](size_t circuit_index) {
+            initial_function_circuits[circuit_index] = Builder();
+            GoblinMockCircuits::construct_mock_function_circuit(initial_function_circuits[circuit_index]);
+        });
+
+        // Prepend the queue to the first one
+        initial_function_circuits[0].op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
+        // Initialize IVC
+        ivc.initialize(initial_function_circuits[0]);
         auto kernel_verifier_accumulator = std::make_shared<ClientIVC::VerifierInstance>();
         kernel_verifier_accumulator->verification_key = ivc.vks.first_func_vk;
+        // Retrieve the queue from the circuit
+        std::swap(*ivc.goblin.op_queue, *initial_function_circuits[0].op_queue);
 
+        // Prepend EccOpQueue to the second circuit
+        initial_function_circuits[1].op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
         // Accumulate another function circuit
-        Builder function_circuit{ ivc.goblin.op_queue };
-        GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
-        auto function_fold_proof = ivc.accumulate(function_circuit);
+        auto function_fold_proof = ivc.accumulate(initial_function_circuits[1]);
+
         VerifierFoldData function_fold_output = { function_fold_proof, ivc.vks.func_vk };
+        // Retrieve the queue
+        std::swap(*ivc.goblin.op_queue, *initial_function_circuits[1].op_queue);
 
-        // Create and accumulate the first folding kernel which only verifies the accumulation of a function circuit
-        Builder kernel_circuit{ ivc.goblin.op_queue };
-        kernel_verifier_accumulator = GoblinMockCircuits::construct_mock_folding_kernel(
-            kernel_circuit, function_fold_output, {}, kernel_verifier_accumulator);
-        auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
-        VerifierFoldData kernel_fold_output = { kernel_fold_proof, ivc.vks.first_kernel_vk };
-
+        // Release memory
+        initial_function_circuits.clear();
         auto NUM_CIRCUITS = static_cast<size_t>(state.range(0));
         // Subtract two to account for the "initialization" round above i.e. we have already folded two function
         // circuits
         NUM_CIRCUITS -= 2;
-        for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
-            // Accumulate function circuit
-            Builder function_circuit{ ivc.goblin.op_queue };
-            GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
-            auto function_fold_proof = ivc.accumulate(function_circuit);
-            function_fold_output = { function_fold_proof, ivc.vks.func_vk };
+        VerifierFoldData kernel_fold_output;
 
-            // Create kernel circuit containing the recursive folding verification of a function circuit and a kernel
-            // circuit and accumulate it
+        // Start round-by-round accumulation
+        for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
+            Builder function_circuit;
             Builder kernel_circuit{ ivc.goblin.op_queue };
+            parallel_for(2, [&](size_t thread_index) {
+                // First thread is working on the kernel
+                if (thread_index == 0) {
+                    // Construct kernel proof
+                    if (circuit_idx == 0) {
+                        // Special case when we don't accumulate the previous kernel proof
+                        // Create and accumulate the first folding kernel which only verifies the accumulation of a
+                        // function circuit
+                        kernel_verifier_accumulator = GoblinMockCircuits::construct_mock_folding_kernel(
+                            kernel_circuit, function_fold_output, {}, kernel_verifier_accumulator);
+
+                    } else {
+                        // Create kernel circuit containing the recursive folding verification of a function circuit and
+                        // a kernel circuit and accumulate it
+                        kernel_verifier_accumulator = GoblinMockCircuits::construct_mock_folding_kernel(
+                            kernel_circuit, function_fold_output, kernel_fold_output, kernel_verifier_accumulator);
+                    }
+                } else {
+                    // The second thread is constructing the next function circuit
+                    function_circuit = Builder();
+                    GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
+                }
+            });
+            // Accumulate kernel circuit
+            auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
+
+            // Depending on the round the verification key is different
+            if (circuit_idx == 0) {
+
+                kernel_fold_output = { kernel_fold_proof, ivc.vks.first_kernel_vk };
+            } else {
+
+                kernel_fold_output = { kernel_fold_proof, ivc.vks.kernel_vk };
+            }
+            // Prepend queue to the function circuit
+            function_circuit.op_queue->prepend_previous_queue(*ivc.goblin.op_queue);
+
+            // Accumulate function circuit
+            auto function_fold_proof = ivc.accumulate(function_circuit);
+            // Retrieve queue
+            std::swap(*ivc.goblin.op_queue, *function_circuit.op_queue);
+            function_fold_output = { function_fold_proof, ivc.vks.func_vk };
+        }
+
+        // We need to do one last kernel accumulation
+        Builder kernel_circuit{ ivc.goblin.op_queue };
+        // Kernel might be just checking function circuit folding if we haven't entered the loop
+        if (NUM_CIRCUITS == 0) {
+            kernel_verifier_accumulator = GoblinMockCircuits::construct_mock_folding_kernel(
+                kernel_circuit, function_fold_output, {}, kernel_verifier_accumulator);
+            auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
+            kernel_fold_output = { kernel_fold_proof, ivc.vks.first_kernel_vk };
+        } else {
+            // Or it might be regular (kernel + function) kernel
             kernel_verifier_accumulator = GoblinMockCircuits::construct_mock_folding_kernel(
                 kernel_circuit, function_fold_output, kernel_fold_output, kernel_verifier_accumulator);
-
-            kernel_fold_proof = ivc.accumulate(kernel_circuit);
+            auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
             kernel_fold_output = { kernel_fold_proof, ivc.vks.kernel_vk };
         }
     }
