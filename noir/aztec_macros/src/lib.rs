@@ -68,7 +68,7 @@ const MAX_CONTRACT_PRIVATE_FUNCTIONS: usize = 2_usize.pow(FUNCTION_TREE_HEIGHT);
 #[derive(Debug, Clone)]
 pub enum AztecMacroError {
     AztecDepNotFound,
-    ContractHasTooManyPrivaeFunctions { span: Span },
+    ContractHasTooManyPrivateFunctions { span: Span },
     ContractConstructorMissing { span: Span },
     UnsupportedFunctionArgumentType { span: Span, typ: UnresolvedTypeData },
     UnsupportedStorageType { span: Option<Span>, typ: UnresolvedTypeData },
@@ -84,7 +84,7 @@ impl From<AztecMacroError> for MacroError {
                 secondary_message: None,
                 span: None,
             },
-            AztecMacroError::ContractHasTooManyPrivaeFunctions { span } => MacroError {
+            AztecMacroError::ContractHasTooManyPrivateFunctions { span } => MacroError {
                 primary_message: format!("Contract can only have a maximum of {} private functions", MAX_CONTRACT_PRIVATE_FUNCTIONS),
                 secondary_message: None,
                 span: Some(span),
@@ -471,7 +471,7 @@ fn transform_module(
         if private_functions_count > MAX_CONTRACT_PRIVATE_FUNCTIONS {
             let crate_graph = &context.crate_graph[crate_id];
             return Err((
-                AztecMacroError::ContractHasTooManyPrivaeFunctions { span: Span::default() },
+                AztecMacroError::ContractHasTooManyPrivateFunctions { span: Span::default() },
                 crate_graph.root_file_id,
             ));
         }
