@@ -1276,6 +1276,8 @@ fn abstract_return_values(func: &mut NoirFunction) -> Option<Statement> {
                 UnresolvedTypeData::FieldElement => Some(make_return_push(expression.clone())),
                 _ => None,
             };
+            // In case we are pushing return values to the context, we remove the statement that originated the push
+            // This avoids running duplicate code, since blocks like if/else can be value returning statements
             if new_return.is_some() {
                 func.def_mut().body.0.remove(len - 1);
             }
