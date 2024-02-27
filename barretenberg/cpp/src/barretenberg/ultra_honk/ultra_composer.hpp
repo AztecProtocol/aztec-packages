@@ -96,13 +96,6 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
 
         return output_state;
     };
-
-    /**
-     * @brief Compute the verification key of an Instance, produced from a finalised circuit.
-     *
-     * @param inst
-     */
-    void compute_verification_key(const std::shared_ptr<Instance>&);
 };
 
 // TODO(#532): this pattern is weird; is this not instantiating the templates?

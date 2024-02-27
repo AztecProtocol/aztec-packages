@@ -6,17 +6,6 @@
 
 namespace bb {
 
-/**
- * Compute verification key consisting of selector precommitments.
- *
- * @return Pointer to the resulting verification key of the Instance.
- * */
-template <IsUltraFlavor Flavor>
-void UltraComposer_<Flavor>::compute_verification_key(const std::shared_ptr<ProverInstance_<Flavor>>& instance)
-{
-    instance->verification_key = std::move(Flavor::compute_verification_key(instance->proving_key));
-}
-
 template <IsUltraFlavor Flavor>
 std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_instance(CircuitBuilder& circuit)
 {
