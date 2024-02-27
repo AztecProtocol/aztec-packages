@@ -1,4 +1,6 @@
 import { Body } from '@aztec/circuit-types';
+import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
 /**
@@ -20,11 +22,11 @@ export class BlockBodyStore {
   addBlockBodies(blockBodies: Body[]): Promise<boolean> {
     return this.db.transaction(() => {
       for (const body of blockBodies) {
-        // body.l1ToL2Messages = padArrayEnd(
-        //   body.l1ToL2Messages,
-        //   Fr.ZERO,
-        //   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        // );
+        body.l1ToL2Messages = padArrayEnd(
+          body.l1ToL2Messages,
+          Fr.ZERO,
+          NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+        );
 
         void this.#blockBodies.set(body.getCalldataHash().toString('hex'), body.toBuffer());
       }

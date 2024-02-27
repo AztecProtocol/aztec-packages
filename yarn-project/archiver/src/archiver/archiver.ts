@@ -294,7 +294,7 @@ export class Archiver implements ArchiveSource {
     // create the block number -> block hash mapping to ensure we retrieve the appropriate events
     const blockNumberToBodyHash: { [key: number]: Buffer | undefined } = {};
     retrievedBlocks.retrievedData.forEach((block: L2Block) => {
-      blockNumberToBodyHash[block.number] = block.header.contentCommitment.txsHash;
+      blockNumberToBodyHash[block.number] = block.body.getCalldataHash();
     });
     const retrievedContracts = await retrieveNewContractData(
       this.publicClient,
@@ -349,18 +349,7 @@ export class Archiver implements ArchiveSource {
 
     // store retrieved L2 blocks after removing new logs information.
     // remove logs to serve "lightweight" block information. Logs can be fetched separately if needed.
-    await this.store.addBlocks(
-      retrievedBlocks.retrievedData.map(block => {
-        // Ensure we pad the L1 to L2 message array to the full size before storing.
-        block.body.l1ToL2Messages = padArrayEnd(
-          block.body.l1ToL2Messages,
-          Fr.ZERO,
-          NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        );
-
-        return block;
-      }),
-    );  
+    await this.store.addBlocks(retrievedBlocks.retrievedData);  
   }
 
   /**
