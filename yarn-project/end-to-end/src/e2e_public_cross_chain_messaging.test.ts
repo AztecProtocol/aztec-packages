@@ -1,9 +1,12 @@
 import {
   AccountWallet,
   AztecAddress,
+  CompleteAddress,
   DebugLogger,
+  DeployL1Contracts,
   EthAddress,
   Fr,
+  PXE,
   TxStatus,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
@@ -21,8 +24,12 @@ import { publicDeployAccounts, setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 
 describe('e2e_public_cross_chain_messaging', () => {
+  let pxe: PXE;
+  let deployL1ContractsValues: DeployL1Contracts;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
+  let wallets: AccountWallet[];
+  let accounts: CompleteAddress[];
 
   let user1Wallet: AccountWallet;
   let user2Wallet: AccountWallet;
@@ -35,15 +42,20 @@ describe('e2e_public_cross_chain_messaging', () => {
   let inbox: any;
   let outbox: any;
 
-  beforeEach(async () => {
-    const { pxe, deployL1ContractsValues, wallets, accounts, logger: logger_, teardown: teardown_ } = await setup(2);
+  beforeAll(async () => {
+    ({ pxe, deployL1ContractsValues, wallets, accounts, logger, teardown } = await setup(2));
+    user1Wallet = wallets[0];
+    user2Wallet = wallets[1];
     await publicDeployAccounts(wallets[0], accounts.slice(0, 2));
+  });
+
+  beforeEach(async () => {
     crossChainTestHarness = await CrossChainTestHarness.new(
       pxe,
       deployL1ContractsValues.publicClient,
       deployL1ContractsValues.walletClient,
       wallets[0],
-      logger_,
+      logger,
     );
     l2Token = crossChainTestHarness.l2Token;
     l2Bridge = crossChainTestHarness.l2Bridge;
@@ -51,15 +63,11 @@ describe('e2e_public_cross_chain_messaging', () => {
     ownerAddress = crossChainTestHarness.ownerAddress;
     inbox = crossChainTestHarness.inbox;
     outbox = crossChainTestHarness.outbox;
-    teardown = teardown_;
-    user1Wallet = wallets[0];
-    user2Wallet = wallets[1];
 
-    logger = logger_;
     logger('Successfully deployed contracts and initialized portal');
   }, 100_000);
 
-  afterEach(async () => {
+  afterAll(async () => {
     await teardown();
   });
 
