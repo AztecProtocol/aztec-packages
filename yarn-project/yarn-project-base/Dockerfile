@@ -46,7 +46,7 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/bb.js as bb.js
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-packages as noir-packages
 
 FROM node:18.19.0
-RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
+RUN apt update && apt install -y jq curl perl parallel && rm -rf /var/lib/apt/lists/* && apt-get clean
 
 # Copy in portalled packages.
 COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
