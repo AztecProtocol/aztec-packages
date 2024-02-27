@@ -29,7 +29,7 @@ contract GasToken {
     // the true canonical gas token contract will not have this function
     #[aztec(public)]
     fn mint_public(to: AztecAddress, amount: Field) {
-        let amount = SafeU120::new(amount);
+        let amount = U128::from_integer(amount);
         let new_balance = storage.balances.at(to).read().add(amount);
 
         storage.balances.at(to).write(new_balance);
