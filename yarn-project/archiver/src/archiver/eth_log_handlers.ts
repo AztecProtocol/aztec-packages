@@ -129,21 +129,18 @@ async function getBlockFromCallData(
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `L2BlockProcessed` logs.
  */
-export async function getL2BlockProcessedLogs(
+export function getL2BlockProcessedLogs(
   publicClient: PublicClient,
   rollupAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-) {
-  // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
-  //       as a standalone constant.
-  const abiItem = getAbiItem({
-    abi: RollupAbi,
-    name: 'L2BlockProcessed',
-  });
-  return await publicClient.getLogs<typeof abiItem, undefined, true>({
+): Promise<Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[]> {
+  return publicClient.getLogs({
     address: getAddress(rollupAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: RollupAbi,
+      name: 'L2BlockProcessed',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
@@ -157,19 +154,18 @@ export async function getL2BlockProcessedLogs(
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `ContractDeployment` logs.
  */
-export async function getContractDeploymentLogs(
+export function getContractDeploymentLogs(
   publicClient: PublicClient,
   contractDeploymentEmitterAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
 ): Promise<Log<bigint, number, false, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[]> {
-  const abiItem = getAbiItem({
-    abi: ContractDeploymentEmitterAbi,
-    name: 'ContractDeployment',
-  });
-  return await publicClient.getLogs({
+  return publicClient.getLogs({
     address: getAddress(contractDeploymentEmitterAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: ContractDeploymentEmitterAbi,
+      name: 'ContractDeployment',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
@@ -223,19 +219,18 @@ export function processContractDeploymentLogs(
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `MessageAdded` logs.
  */
-export async function getPendingL1ToL2MessageLogs(
+export function getPendingL1ToL2MessageLogs(
   publicClient: PublicClient,
   inboxAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
 ): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageAdded'>[]> {
-  const abiItem = getAbiItem({
-    abi: InboxAbi,
-    name: 'MessageAdded',
-  });
-  return await publicClient.getLogs({
+  return publicClient.getLogs({
     address: getAddress(inboxAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: InboxAbi,
+      name: 'MessageAdded',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
@@ -249,19 +244,18 @@ export async function getPendingL1ToL2MessageLogs(
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `L1ToL2MessageCancelled` logs.
  */
-export async function getL1ToL2MessageCancelledLogs(
+export function getL1ToL2MessageCancelledLogs(
   publicClient: PublicClient,
   inboxAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
 ): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[]> {
-  const abiItem = getAbiItem({
-    abi: InboxAbi,
-    name: 'L1ToL2MessageCancelled',
-  });
-  return await publicClient.getLogs({
+  return publicClient.getLogs({
     address: getAddress(inboxAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: InboxAbi,
+      name: 'L1ToL2MessageCancelled',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
