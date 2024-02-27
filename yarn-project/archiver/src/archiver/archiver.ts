@@ -249,7 +249,6 @@ export class Archiver implements ArchiveSource {
       blockUntilSynced,
       lastL1Blocks.addedBlock + 1n,
       currentL1BlockNumber,
-      nextExpectedL2BlockNum,
     );
 
     const blockBodies = retrievedBlockBodies.retrievedData.map(([blockBody]) => blockBody);

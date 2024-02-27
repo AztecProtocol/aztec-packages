@@ -88,7 +88,6 @@ export async function retrieveBlockBodiesFromDataAvailability(
   blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
-  expectedNextL2BlockNum: bigint,
 ): Promise<DataRetrieval<[Body, Buffer]>> {
   const retrievedBlockBodies: [Body, Buffer][] = [];
 
