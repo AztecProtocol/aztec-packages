@@ -113,8 +113,8 @@ export class TxEffect {
   hash() {
     const noteHashesBuffer = Buffer.concat(this.newNoteHashes.map(x => x.toBuffer()));
     const nullifiersBuffer = Buffer.concat(this.newNullifiers.map(x => x.toBuffer()));
-    const publicDataUpdateRequestsBuffer = Buffer.concat(this.newPublicDataWrites.map(x => x.toBuffer()));
     const newL2ToL1MsgsBuffer = Buffer.concat(this.newL2ToL1Msgs.map(x => x.toBuffer()));
+    const publicDataUpdateRequestsBuffer = Buffer.concat(this.newPublicDataWrites.map(x => x.toBuffer()));
     const encryptedLogsHashKernel0 = this.encryptedLogs.hash();
     const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
 
@@ -125,8 +125,8 @@ export class TxEffect {
     const inputValue = Buffer.concat([
       noteHashesBuffer,
       nullifiersBuffer,
-      publicDataUpdateRequestsBuffer,
       newL2ToL1MsgsBuffer,
+      publicDataUpdateRequestsBuffer,
       this.contractLeaves[0].toBuffer(),
       this.contractData[0].contractAddress.toBuffer(),
       // TODO(#3938): make portal address 20 bytes here when updating the hashing

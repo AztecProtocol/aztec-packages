@@ -53,6 +53,17 @@ library TxsDecoder {
     uint256 unencryptedLogs;
   }
 
+  struct Counts {
+    uint256 noteHash;
+    uint256 nullifier;
+    uint256 l2ToL1Msgs;
+    uint256 publicData;
+    uint256 contracts;
+    uint256 contractData;
+    uint256 encryptedLogs;
+    uint256 unencryptedLogs;
+  }
+
   // Note: Used in `computeConsumables` to get around stack too deep errors.
   struct ConsumablesVars {
     bytes32[] baseLeaves;
@@ -70,56 +81,61 @@ library TxsDecoder {
    */
   function decode(bytes calldata _body) internal pure returns (bytes32) {
     ArrayOffsets memory offsets;
+    Counts memory counts;
     ConsumablesVars memory vars;
+    uint256 offset = 0;
 
     {
-      uint256 offset = 0;
-
-      // Commitments
-      uint256 count = read4(_body, offset);
-      vars.baseLeaves = new bytes32[](count / Constants.MAX_NEW_NOTE_HASHES_PER_TX);
-      offsets.noteHash = 0x4;
-      offset += 0x4 + count * 0x20;
-      offsets.nullifier = offset + 0x4; // + 0x4 to offset by next read4
-
-      // Nullifiers
-      count = read4(_body, offset);
-      offset += 0x4 + count * 0x20;
-      offsets.publicData = offset + 0x4; // + 0x4 to offset by next read4
-
-      // Public data writes
-      count = read4(_body, offset);
-      offset += 0x4 + count * 0x40;
-      offsets.l2ToL1Msgs = offset + 0x4; // + 0x4 to offset by next read4
-
-      // L2 to L1 messages
-      count = read4(_body, offset);
-      vars.l2ToL1Msgs = new bytes32[](count);
-      assembly {
-        // load the l2 to l1 msgs (done here as offset will be altered in loop)
-        let l2ToL1Msgs := mload(add(vars, 0x20))
-        calldatacopy(
-          add(l2ToL1Msgs, 0x20), add(_body.offset, mload(add(offsets, 0x60))), mul(count, 0x20)
-        )
-      }
-      offset += 0x4 + count * 0x20;
-      offsets.contracts = offset + 0x4; // + 0x4 to offset by next read4
-
-      // Contracts
-      count = read4(_body, offset);
-      offsets.contractData = offsets.contracts + count * 0x20;
-      offset += 0x4 + count * 0x54;
-      offsets.l1ToL2Msgs = offset + 0x4; // + 0x4 to offset by next read4
-
       // L1 to L2 messages
-      count = read4(_body, offset);
+      uint256 count = read4(_body, offset);
       vars.l1Tol2MsgsCount = count;
       offset += 0x4 + count * 0x20;
-      offsets.encryptedLogs = offset + 0x4; // + 0x4 to offset by next read4
 
-      // Used as length in bytes down here
-      uint256 length = read4(_body, offset);
-      offsets.unencryptedLogs = offsets.encryptedLogs + 0x4 + length;
+      // // Note hashes
+      // count = read1(_body, offset);
+      // vars.baseLeaves = new bytes32[](count / Constants.MAX_NEW_NOTE_HASHES_PER_TX);
+      // offsets.noteHash = 0x4;
+      // offset += 0x4 + count * 0x20;
+      // offsets.nullifier = offset + 0x4; // + 0x4 to offset by next read4
+
+      // // Nullifiers
+      // count = read4(_body, offset);
+      // offset += 0x4 + count * 0x20;
+      // offsets.publicData = offset + 0x4; // + 0x4 to offset by next read4
+
+      // // Public data writes
+      // count = read4(_body, offset);
+      // offset += 0x4 + count * 0x40;
+      // offsets.l2ToL1Msgs = offset + 0x4; // + 0x4 to offset by next read4
+
+      // // L2 to L1 messages
+      // count = read4(_body, offset);
+      // vars.l2ToL1Msgs = new bytes32[](count);
+      // assembly {
+      //   // load the l2 to l1 msgs (done here as offset will be altered in loop)
+      //   let l2ToL1Msgs := mload(add(vars, 0x20))
+      //   calldatacopy(
+      //     add(l2ToL1Msgs, 0x20), add(_body.offset, mload(add(offsets, 0x60))), mul(count, 0x20)
+      //   )
+      // }
+      // offset += 0x4 + count * 0x20;
+      // offsets.contracts = offset + 0x4; // + 0x4 to offset by next read4
+
+      // // Contracts
+      // count = read4(_body, offset);
+      // offsets.contractData = offsets.contracts + count * 0x20;
+      // offset += 0x4 + count * 0x54;
+      // offsets.l1ToL2Msgs = offset + 0x4; // + 0x4 to offset by next read4
+
+      // // L1 to L2 messages
+      // count = read4(_body, offset);
+      // vars.l1Tol2MsgsCount = count;
+      // offset += 0x4 + count * 0x20;
+      // offsets.encryptedLogs = offset + 0x4; // + 0x4 to offset by next read4
+
+      // // Used as length in bytes down here
+      // uint256 length = read4(_body, offset);
+      // offsets.unencryptedLogs = offsets.encryptedLogs + 0x4 + length;
     }
 
     // Data starts after header. Look at L2 Block Data specification at the top of this file.
@@ -142,6 +158,62 @@ library TxsDecoder {
          * Zero values.
          */
 
+        // First we decode the tx effect
+
+        // Note hashes
+        uint256 count = read1(_body, offset);
+        offset += 0x1;
+        counts.noteHash = count;
+        offsets.noteHash = offset;
+        offset += count * 0x20; // each note hash is 0x20 bytes long
+
+        // Nullifiers
+        count = read1(_body, offset);
+        offset += 0x1;
+        counts.nullifier = count;
+        offsets.nullifier = offset;
+        offset += count * 0x20; // each nullifier is 0x20 bytes long
+
+        // L2 to L1 messages
+        count = read1(_body, offset);
+        offset += 0x1;
+        counts.l2ToL1Msgs = count;
+        offsets.l2ToL1Msgs = offset;
+        offset += count * 0x20; // each l2 to l1 message is 0x20 bytes long
+
+        // Public data writes
+        count = read1(_body, offset);
+        offset += 0x1;
+        counts.publicData = count;
+        offsets.publicData = offset;
+        offset += count * 0x40; // each public data write is 0x40 bytes long
+
+        // Contracts
+        count = read1(_body, offset);
+        offset += 0x1;
+        counts.contracts = count;
+        offsets.contracts = offset;
+        offset += count * 0x20; // each contract leaf is 0x20 bytes long
+
+        // Contract data
+        counts.contractData = count; // count is the same as contracts
+        offsets.contractData = offset;
+        offset += count * 0x34; // each contract data is 0x34 bytes long
+
+        // Encrypted logs
+        uint256 length = read4(_body, offset); // Used as length in bytes for logs
+        counts.encryptedLogs = length;
+        offset += 0x4;
+        offsets.encryptedLogs = offset;
+        offset += length;
+
+        // Unencrypted logs
+        length = read4(_body, offset); // Used as length in bytes for logs
+        counts.unencryptedLogs = length;
+        offset += 0x4;
+        offsets.unencryptedLogs = offset;
+        offset += length; // now offset is at the beginning of the next tx effect
+
         /**
          * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
          * Note: will advance offsets by the number of bytes processed.
@@ -155,26 +227,44 @@ library TxsDecoder {
         // Insertions are split into multiple `bytes.concat` to work around stack too deep.
         vars.baseLeaf = bytes.concat(
           bytes.concat(
-            slice(_body, offsets.noteHash, Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP),
-            slice(_body, offsets.nullifier, Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP),
-            slice(_body, offsets.publicData, Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP),
-            slice(_body, offsets.l2ToL1Msgs, Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP),
-            slice(_body, offsets.contracts, Constants.CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP)
+            sliceAndPad(
+              _body,
+              offsets.noteHash,
+              counts.noteHash * 0x20,
+              Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP
+            ),
+            sliceAndPad(
+              _body,
+              offsets.nullifier,
+              counts.nullifier * 0x20,
+              Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP
+            ),
+            sliceAndPad(
+              _body,
+              offsets.l2ToL1Msgs,
+              counts.l2ToL1Msgs * 0x20,
+              Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP
+            ),
+            sliceAndPad(
+              _body,
+              offsets.publicData,
+              counts.publicData * 0x40,
+              Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP
+            ),
+            sliceAndPad(
+              _body,
+              offsets.contracts,
+              counts.contracts * 0x20,
+              Constants.CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP
+            )
           ),
           bytes.concat(
             slice(_body, offsets.contractData, 0x20), // newContractDataKernel.aztecAddress
-            bytes12(0),
+            bytes12(0), // We pad the ethAddress to 32 bytes, we don't use sliceAndPad here because we want to prefix
             slice(_body, offsets.contractData + 0x20, 0x14) // newContractDataKernel.ethAddress
           ),
           bytes.concat(vars.encryptedLogsHash, vars.unencryptedLogsHash)
         );
-
-        offsets.noteHash += Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP;
-        offsets.nullifier += Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP;
-        offsets.publicData += Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP;
-        offsets.l2ToL1Msgs += Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP;
-        offsets.contracts += Constants.CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP;
-        offsets.contractData += Constants.CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP_UNPADDED;
 
         vars.baseLeaves[i] = sha256(vars.baseLeaf);
       }
@@ -287,6 +377,32 @@ library TxsDecoder {
     returns (bytes memory)
   {
     return _data[_start:_start + _length];
+  }
+
+  /**
+   * @notice Wrapper around the slicing and padding to avoid some stack too deep
+   * @param _data - The data to slice
+   * @param _start - The start of the slice
+   * @param _length - The length of the slice
+   * @param _targetLength - The length of the padded array
+   * @return The slice
+   */
+  function sliceAndPad(bytes calldata _data, uint256 _start, uint256 _length, uint256 _targetLength)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return bytes.concat(_data[_start:_start + _length], new bytes(_targetLength - _length));
+  }
+
+  /**
+   * @notice Reads 1 bytes from the data
+   * @param _data - The data to read from
+   * @param _offset - The offset to read from
+   * @return The 1 byte as a uint256
+   */
+  function read1(bytes calldata _data, uint256 _offset) internal pure returns (uint256) {
+    return uint256(uint8(bytes1(slice(_data, _offset, 1))));
   }
 
   /**
