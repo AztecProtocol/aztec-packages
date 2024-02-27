@@ -2,6 +2,6 @@
   "scripts": {
     "build": "yarn clean && yarn build:contracts",
     "build:contracts": "./scripts/generate-types.sh",
-    "clean": "rm -rf .tsbuildinfo ./artifacts"
+    "clean": "rm -rf .tsbuildinfo ./artifacts ./codegenCache.json"
   }
 }
