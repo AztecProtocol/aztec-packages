@@ -183,51 +183,43 @@ async function getBlockBodiesFromCallData(publicClient: PublicClient, txHash: `0
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `L2BlockProcessed` logs.
  */
-export async function getL2BlockProcessedLogs(
+export function getL2BlockProcessedLogs(
   publicClient: PublicClient,
   rollupAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-) {
-  // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
-  //       as a standalone constant.
-  const abiItem = getAbiItem({
-    abi: RollupAbi,
-    name: 'L2BlockProcessed',
-  });
-
-  return await publicClient.getLogs({
+): Promise<Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[]> {
+  return publicClient.getLogs({
     address: getAddress(rollupAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: RollupAbi,
+      name: 'L2BlockProcessed',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
 }
 
 /**
- * Gets relevant `L2BlockProcessed` logs from chain.
+ * Gets relevant `L2BTxsPublished` logs from chain.
  * @param publicClient - The viem public client to use for transaction retrieval.
- * @param dataAvailabilityOracleAddress - The address of the rollup contract.
+ * @param dataAvailabilityOracleAddress - The address of the availability oracle contract.
  * @param fromBlock - First block to get logs from (inclusive).
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `L2BlockProcessed` logs.
  */
-export async function getL2TxsPublishedLogs(
+export function getL2TxsPublishedLogs(
   publicClient: PublicClient,
   dataAvailabilityOracleAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-) {
-  // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
-  //       as a standalone constant.
-  const abiItem = getAbiItem({
-    abi: AvailabilityOracleAbi,
-    name: 'TxsPublished',
-  });
-
-  return await publicClient.getLogs({
+  ): Promise<Log<bigint, number, false, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>[]> {
+  return publicClient.getLogs({
     address: getAddress(dataAvailabilityOracleAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: AvailabilityOracleAbi,
+      name: 'TxsPublished',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
