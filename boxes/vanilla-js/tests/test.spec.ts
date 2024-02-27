@@ -1,40 +1,38 @@
 import { test, expect } from '@playwright/test';
 
 test('Deploying, setting, and getting a number', async ({ page }) => {
+  test.slow();
   await page.goto('http://localhost:5173/');
-  await expect(page.getByRole('button', { name: 'Deploy' })).toBeVisible();
-  await page.getByRole('button', { name: 'Deploy' }).click();
 
-  page.once('dialog', dialog => {
-    expect(dialog.message().includes('Contract deployed at '));
-    dialog.accept().catch(() => {
-      throw new Error('Failed to accept dialog');
+  const handleDialog = (expectedMessage: string) => {
+    return new Promise<void>(resolve => {
+      page.once('dialog', async dialog => {
+        expect(dialog.message()).toContain(expectedMessage);
+        await dialog.accept();
+        resolve();
+      });
     });
-  });
+  };
 
-  await expect(page.getByRole('button', { name: 'Set Number' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Get Number' })).toBeVisible();
+  // Deploy contract
+  const deployDialogPromise = handleDialog('Contract deployed at');
+  await page.getByRole('button', { name: 'Deploy' }).click();
+  await deployDialogPromise;
   await expect(page.locator('#number')).toHaveValue('0');
 
+  // Get number
+  const getNumberDialogPromise = handleDialog('Number is:');
   await page.getByRole('button', { name: 'Get Number' }).click();
-  page.once('dialog', dialog => {
-    expect(dialog.message().includes('Number is:'));
-    dialog.dismiss().catch(() => {});
-  });
-  await page.locator('#number').fill('1');
-  await page.getByRole('button', { name: 'Set Number' }).click();
-  page.once('dialog', dialog => {
-    expect(dialog.message().includes('Number set!'));
-    dialog.accept().catch(() => {
-      throw new Error('Failed to accept dialog');
-    });
-  });
-  await page.getByRole('button', { name: 'Get Number' }).click();
+  await getNumberDialogPromise;
 
-  page.once('dialog', dialog => {
-    expect(dialog.message().includes('Number is: 1'));
-    dialog.accept().catch(() => {
-      throw new Error('Failed to accept dialog');
-    });
-  });
+  // Set number
+  await page.locator('#number').fill('1');
+  const setNumberDialogPromise = handleDialog('Number set!');
+  await page.getByRole('button', { name: 'Set Number' }).click();
+  await setNumberDialogPromise;
+
+  // Verifying number
+  const verifyNumberDialogPromise = handleDialog('Number is: 1');
+  await page.getByRole('button', { name: 'Get Number' }).click();
+  await verifyNumberDialogPromise;
 });

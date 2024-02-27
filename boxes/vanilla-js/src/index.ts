@@ -33,11 +33,11 @@ document.querySelector('#deploy').addEventListener('click', async ({ target }: a
     .send({ contractAddressSalt: Fr.random() })
     .deployed();
   contract = await at(contractAddress, wallet);
-  alert(`Contract deployed at ${contractAddress}`);
+  setWait(false);
 
+  alert(`Contract deployed at ${contractAddress}`);
   target.hidden = true;
   document.querySelectorAll('#get, #set').forEach((e: HTMLButtonElement & HTMLFormElement) => (e.hidden = false));
-  setWait(false);
 });
 
 document.querySelector('#set').addEventListener('submit', async (e: Event) => {
@@ -46,11 +46,10 @@ document.querySelector('#set').addEventListener('submit', async (e: Event) => {
 
   const { value } = document.querySelector('#number') as HTMLInputElement;
   const owner = wallet.getCompleteAddress().address;
-  console.log(owner);
   await contract.methods.setNumber(parseInt(value), owner).send().wait();
-  alert('Number set!');
 
   setWait(false);
+  alert('Number set!');
 });
 
 document.querySelector('#get').addEventListener('click', async () => {
