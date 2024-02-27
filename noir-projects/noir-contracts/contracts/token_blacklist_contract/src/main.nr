@@ -20,7 +20,7 @@ contract TokenBlacklist {
     use dep::aztec::{
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader, utils as note_utils},
         context::{PrivateContext, PublicContext, Context}, hash::{compute_secret_hash},
-        state_vars::{map::Map, public_state::PublicState, set::Set, immutable_singleton::ImmutableSingleton}
+        state_vars::{Map, PublicMutable, PrivateSet, PrivateImmutable}
     };
 
     use dep::field_note::field_note::FieldNote;
@@ -33,13 +33,13 @@ contract TokenBlacklist {
     // docs:end:interface
 
     struct Storage {
-        admin: PublicState<AztecAddress>, 
+        admin: PublicMutable<AztecAddress>, 
         balances: BalancesMap<TokenNote>, 
-        total_supply: PublicState<U128>, 
-        pending_shields: Set<TransparentNote>, 
-        public_balances: Map<AztecAddress, PublicState<U128>>, 
-        slow_update: ImmutableSingleton<FieldNote>,
-        public_slow_update: PublicState<AztecAddress>,
+        total_supply: PublicMutable<U128>,
+        pending_shields: PrivateSet<TransparentNote>, 
+        public_balances: Map<AztecAddress, PublicMutable<U128>>, 
+        slow_update: PrivateImmutable<FieldNote>,
+        public_slow_update: PublicMutable<AztecAddress>,
     }
 
     // docs:start:constructor
