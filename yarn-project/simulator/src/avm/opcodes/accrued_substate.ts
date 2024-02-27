@@ -1,4 +1,6 @@
 import type { AvmContext } from '../avm_context.js';
+import { InstructionExecutionError } from '../errors.js';
+import { NullifierCollisionError } from '../journal/nullifiers.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
 import { StaticCallStorageAlterError } from './storage.js';
@@ -19,7 +21,7 @@ export class EmitNoteHash extends Instruction {
     }
 
     const noteHash = context.machineState.memory.get(this.noteHashOffset).toFr();
-    context.worldState.writeNoteHash(noteHash);
+    context.persistableState.writeNoteHash(noteHash);
 
     context.machineState.incrementPc();
   }
@@ -41,7 +43,18 @@ export class EmitNullifier extends Instruction {
     }
 
     const nullifier = context.machineState.memory.get(this.nullifierOffset).toFr();
-    context.worldState.writeNullifier(nullifier);
+    try {
+      await context.persistableState.writeNullifier(context.environment.storageAddress, nullifier);
+    } catch (e) {
+      if (e instanceof NullifierCollisionError) {
+        // Error is known/expected, raise as InstructionExecutionError that the will lead the simulator to revert this call
+        throw new InstructionExecutionError(
+          `Attempted to emit duplicate nullifier ${nullifier} (storage address: ${context.environment.storageAddress}).`,
+        );
+      } else {
+        throw e;
+      }
+    }
 
     context.machineState.incrementPc();
   }
@@ -63,7 +76,7 @@ export class EmitUnencryptedLog extends Instruction {
     }
 
     const log = context.machineState.memory.getSlice(this.logOffset, this.logSize).map(f => f.toFr());
-    context.worldState.writeLog(log);
+    context.persistableState.writeLog(log);
 
     context.machineState.incrementPc();
   }
@@ -85,7 +98,7 @@ export class SendL2ToL1Message extends Instruction {
     }
 
     const msg = context.machineState.memory.getSlice(this.msgOffset, this.msgSize).map(f => f.toFr());
-    context.worldState.writeL1Message(msg);
+    context.persistableState.writeL1Message(msg);
 
     context.machineState.incrementPc();
   }

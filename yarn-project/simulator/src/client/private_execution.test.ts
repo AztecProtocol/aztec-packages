@@ -19,13 +19,13 @@ import {
   nonEmptySideEffects,
   sideEffectArrayToValueArray,
 } from '@aztec/circuits.js';
-import { makeContractDeploymentData, makeHeader } from '@aztec/circuits.js/factories';
 import {
   computeCommitmentNonce,
   computeMessageSecretHash,
   computeVarArgsHash,
   siloNoteHash,
 } from '@aztec/circuits.js/hash';
+import { makeContractDeploymentData, makeHeader } from '@aztec/circuits.js/testing';
 import {
   FunctionArtifact,
   FunctionSelector,
@@ -871,7 +871,7 @@ describe('Private Execution test suite', () => {
           isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: 2,
+          startSideEffectCounter: 1,
         }),
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
@@ -881,7 +881,7 @@ describe('Private Execution test suite', () => {
           isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: 2,
+          startSideEffectCounter: 1,
         }),
       });
 

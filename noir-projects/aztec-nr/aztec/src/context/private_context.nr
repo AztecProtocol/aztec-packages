@@ -28,7 +28,7 @@ use dep::protocol_types::{
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     grumpkin_private_key::GrumpkinPrivateKey, hash::hash_args, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::is_empty
 };
 use dep::std::option::Option;
 
@@ -71,8 +71,7 @@ impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
         let side_effect_counter = inputs.call_context.start_side_effect_counter;
         let mut min_revertible_side_effect_counter = 0;
-        // Note. The side effect counter is 2 when this is the initial call
-        if (side_effect_counter == 2) {
+        if is_empty(inputs.call_context.msg_sender) {
             min_revertible_side_effect_counter = side_effect_counter;
         }
         PrivateContext {
@@ -80,20 +79,25 @@ impl PrivateContext {
             side_effect_counter,
             min_revertible_side_effect_counter,
             args_hash,
-            return_values: BoundedVec::new(0),
-            read_requests: BoundedVec::new(SideEffect::empty()),
-            nullifier_key_validation_requests: BoundedVec::new(NullifierKeyValidationRequest::empty()),
-            new_note_hashes: BoundedVec::new(SideEffect::empty()),
-            new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::empty()),
+            return_values: BoundedVec::new(),
+            read_requests: BoundedVec::new(),
+            nullifier_key_validation_requests: BoundedVec::new(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
             historical_header: inputs.historical_header,
-            private_call_stack_hashes: BoundedVec::new(0),
-            public_call_stack_hashes: BoundedVec::new(0),
-            new_l2_to_l1_msgs: BoundedVec::new(L2ToL1Message::empty()),
+            private_call_stack_hashes: BoundedVec::new(),
+            public_call_stack_hashes: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
             nullifier_key: Option::none()
         }
+    }
+
+    pub fn is_deployment(self) -> bool {
+        // TODO(#4738): Implement this
+        false
     }
 
     pub fn msg_sender(self) -> AztecAddress {
