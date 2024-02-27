@@ -22,7 +22,7 @@ import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hex
  * @returns Array of all Pending L1 to L2 messages that were processed
  */
 export function processPendingL1ToL2MessageAddedLogs(
-  logs: Log<bigint, number, undefined, true, typeof InboxAbi, 'MessageAdded'>[],
+  logs: Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageAdded'>[],
 ): [L1ToL2Message, bigint][] {
   const l1ToL2Messages: [L1ToL2Message, bigint][] = [];
   for (const log of logs) {
@@ -50,7 +50,7 @@ export function processPendingL1ToL2MessageAddedLogs(
  * @returns Array of message keys of the L1 to L2 messages that were cancelled
  */
 export function processCancelledL1ToL2MessagesLogs(
-  logs: Log<bigint, number, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[],
+  logs: Log<bigint, number, false, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[],
 ): [Fr, bigint][] {
   const cancelledL1ToL2Messages: [Fr, bigint][] = [];
   for (const log of logs) {
@@ -68,7 +68,7 @@ export function processCancelledL1ToL2MessagesLogs(
 export async function processBlockLogs(
   publicClient: PublicClient,
   expectedL2BlockNumber: bigint,
-  logs: Log<bigint, number, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[],
+  logs: Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[],
 ): Promise<[Header, AppendOnlyTreeSnapshot, bigint][]> {
   const retrievedBlockMetadata: [Header, AppendOnlyTreeSnapshot, bigint][] = [];
   for (const log of logs) {
@@ -89,7 +89,7 @@ export async function processBlockLogs(
 export async function processBlockBodyLogs(
   publicClient: PublicClient,
   expectedL2BlockNumber: bigint,
-  logs: Log<bigint, number, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>[],
+  logs: Log<bigint, number, false, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>[],
 ): Promise<[Body, Buffer][]> {
   const retrievedBlockBodies: [Body, Buffer][] = [];
   for (const log of logs) {
@@ -149,7 +149,7 @@ async function getBlockHashFromCallData(
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
   // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
   const { functionName, args } = decodeFunctionData({
-    abi: RollupAbi.filter(item => item.type.toString() !== 'constructor'),
+    abi: RollupAbi,
     data,
   });
 
@@ -247,7 +247,7 @@ export async function getContractDeploymentLogs(
   contractDeploymentEmitterAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-): Promise<Log<bigint, number, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[]> {
+): Promise<Log<bigint, number, false, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[]> {
   const abiItem = getAbiItem({
     abi: ContractDeploymentEmitterAbi,
     name: 'ContractDeployment',
@@ -268,7 +268,7 @@ export async function getContractDeploymentLogs(
  */
 export function processContractDeploymentLogs(
   blockNumberToBodyHash: { [key: number]: Buffer | undefined },
-  logs: Log<bigint, number, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[],
+  logs: Log<bigint, number, false, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[],
 ): [ExtendedContractData[], number][] {
   const extendedContractData: [ExtendedContractData[], number][] = [];
   for (let i = 0; i < logs.length; i++) {
@@ -313,7 +313,7 @@ export async function getPendingL1ToL2MessageLogs(
   inboxAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-): Promise<Log<bigint, number, undefined, true, typeof InboxAbi, 'MessageAdded'>[]> {
+): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageAdded'>[]> {
   const abiItem = getAbiItem({
     abi: InboxAbi,
     name: 'MessageAdded',
@@ -339,7 +339,7 @@ export async function getL1ToL2MessageCancelledLogs(
   inboxAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-): Promise<Log<bigint, number, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[]> {
+): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[]> {
   const abiItem = getAbiItem({
     abi: InboxAbi,
     name: 'L1ToL2MessageCancelled',
