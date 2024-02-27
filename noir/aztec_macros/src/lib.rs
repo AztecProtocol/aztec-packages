@@ -1255,15 +1255,13 @@ fn create_avm_context() -> Result<Statement, AztecMacroError> {
 /// Any primitive type that can be cast will be casted to a field and pushed to the context.
 fn abstract_return_values(func: &mut NoirFunction) -> Option<Statement> {
     let current_return_type = func.return_type().typ;
-    let len = func.def.body.len();
-    let last_statement = &func.def.body.0[len - 1];
+    let last_statement = func.def.body.0.last();
 
     // TODO: (length, type) => We can limit the size of the array returned to be limited by kernel size
     // Doesn't need done until we have settled on a kernel size
     // TODO: support tuples here and in inputs -> convert into an issue
-
     // Check if the return type is an expression, if it is, we can handle it
-    match last_statement {
+    match last_statement? {
         Statement { kind: StatementKind::Expression(expression), .. } => {
             let new_return = match current_return_type {
                 // Call serialize on structs, push the whole array, calling push_array
@@ -1279,7 +1277,7 @@ fn abstract_return_values(func: &mut NoirFunction) -> Option<Statement> {
             // In case we are pushing return values to the context, we remove the statement that originated the push
             // This avoids running duplicate code, since blocks like if/else can be value returning statements
             if new_return.is_some() {
-                func.def_mut().body.0.remove(len - 1);
+                func.def_mut().body.0.pop();
             }
             new_return
         }
