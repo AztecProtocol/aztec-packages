@@ -68,7 +68,7 @@ Interestingly, if a developer requires a private state to be modifiable by users
 
 ## `PrivateMutable<NoteType>`
 
-PrivateMutable is a private state variable that is unique in a way. When a PrivateMutable is initialized, a note is created to represent its value. And the way to update the value is to destroy the current note, and create a new one with the updated value.
+PrivateMutable (formerly known as `Singleton`) is a private state variable that is unique in a way. When a PrivateMutable is initialized, a note is created to represent its value. And the way to update the value is to destroy the current note, and create a new one with the updated value.
 
 Like for public state, we define the struct to have context and a storage slot. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/state_vars/private_mutable.nr).
 
@@ -134,7 +134,7 @@ Functionally similar to [`get_note`](#get_note), but executed in unconstrained f
 
 ## `PrivateImmutable<NoteType>`
 
-`PrivateImmutable` represents a unique private state variable that, as the name suggests, is immutable. Once initialized, its value cannot be altered. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/private_immutable.nr).
+`PrivateImmutable` (formerly known as `ImmutableSingleton`) represents a unique private state variable that, as the name suggests, is immutable. Once initialized, its value cannot be altered. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/private_immutable.nr).
 
 ### `new`
 

@@ -8,7 +8,7 @@ For a higher level overview of the state model in Aztec, see the [state model](.
 
 ## Overview
 
-The `PublicMutable` struct is generic over the variable type `T`. The type _must_ implement Serialize and Deserialize traits, as specified here:
+The `PublicMutable` (formerly known as `PublicState`) struct is generic over the variable type `T`. The type _must_ implement Serialize and Deserialize traits, as specified here:
 
 #include_code serialize /noir-projects/noir-protocol-circuits/src/crates/types/src/traits.nr rust
 #include_code deserialize /noir-projects/noir-protocol-circuits/src/crates/types/src/traits.nr rust
@@ -91,7 +91,7 @@ We have a `write` method on the `PublicMutable` struct that takes the value to w
 
 ## Shared Immutable
 
-`SharedImmutable` is a special type that can be read from both public and private!
+`SharedImmutable` (formerly known as `StablePublicState`) is a special type that can be read from both public and private!
 
 Since private execution is based on historical data, the user can pick ANY of its prior values to read from. This is why it `MUST` not be updated after the contract is deployed. The variable should be initialized at the constructor and then never changed.
 
@@ -100,6 +100,10 @@ This makes the immutable public variables useful for stuff that you would usuall
 Just like the `PublicMutable` it is generic over the variable type `T`. The type `MUST` implement Serialize and Deserialize traits.
 
 You can find the details of `SharedImmutable` in the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/shared_immutable.nr).
+
+:::info
+The word `Shared` in Aztec protocol means read/write from public, read only from private.
+:::
 
 ### `new`
 
