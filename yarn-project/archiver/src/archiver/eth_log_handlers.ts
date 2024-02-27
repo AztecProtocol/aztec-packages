@@ -113,34 +113,6 @@ export async function processBlockBodyLogs(
  * @param l2BlockNum - L2 block number.
  * @returns An L2 block deserialized from the calldata.
  */
-async function getBlockBodiesFromCallData(publicClient: PublicClient, txHash: `0x${string}`): Promise<Body> {
-  const { input: data } = await publicClient.getTransaction({ hash: txHash });
-  // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
-  const { functionName, args } = decodeFunctionData({
-    abi: AvailabilityOracleAbi,
-    data,
-  });
-
-  if (functionName !== 'publish') {
-    throw new Error(`Unexpected method called ${functionName}`);
-  }
-
-  const [bodyHex] = args! as [Hex];
-
-  const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
-
-  return blockBody;
-}
-
-/**
- * Builds an L2 block out of calldata from the tx that published it.
- * Assumes that the block was published from an EOA.
- * TODO: Add retries and error management.
- * @param publicClient - The viem public client to use for transaction retrieval.
- * @param txHash - Hash of the tx that published it.
- * @param l2BlockNum - L2 block number.
- * @returns An L2 block deserialized from the calldata.
- */
 async function getBlockHashFromCallData(
   publicClient: PublicClient,
   txHash: `0x${string}`,
@@ -177,6 +149,34 @@ async function getBlockHashFromCallData(
 }
 
 /**
+ * Builds an L2 block out of calldata from the tx that published it.
+ * Assumes that the block was published from an EOA.
+ * TODO: Add retries and error management.
+ * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param txHash - Hash of the tx that published it.
+ * @param l2BlockNum - L2 block number.
+ * @returns An L2 block deserialized from the calldata.
+ */
+async function getBlockBodiesFromCallData(publicClient: PublicClient, txHash: `0x${string}`): Promise<Body> {
+  const { input: data } = await publicClient.getTransaction({ hash: txHash });
+  // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
+  const { functionName, args } = decodeFunctionData({
+    abi: AvailabilityOracleAbi,
+    data,
+  });
+
+  if (functionName !== 'publish') {
+    throw new Error(`Unexpected method called ${functionName}`);
+  }
+
+  const [bodyHex] = args! as [Hex];
+
+  const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
+
+  return blockBody;
+}
+
+/**
  * Gets relevant `L2BlockProcessed` logs from chain.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param rollupAddress - The address of the rollup contract.
@@ -197,7 +197,7 @@ export async function getL2BlockProcessedLogs(
     name: 'L2BlockProcessed',
   });
 
-  return await publicClient.getLogs<typeof abiItem, true>({
+  return await publicClient.getLogs({
     address: getAddress(rollupAddress.toString()),
     event: abiItem,
     fromBlock,
@@ -208,14 +208,14 @@ export async function getL2BlockProcessedLogs(
 /**
  * Gets relevant `L2BlockProcessed` logs from chain.
  * @param publicClient - The viem public client to use for transaction retrieval.
- * @param rollupAddress - The address of the rollup contract.
+ * @param dataAvailabilityOracleAddress - The address of the rollup contract.
  * @param fromBlock - First block to get logs from (inclusive).
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `L2BlockProcessed` logs.
  */
-export async function getL2BlockProcessedLogsFromDataAvailabilityOracle(
+export async function getL2TxsPublishedLogs(
   publicClient: PublicClient,
-  rollupAddress: EthAddress,
+  dataAvailabilityOracleAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
 ) {
@@ -226,8 +226,8 @@ export async function getL2BlockProcessedLogsFromDataAvailabilityOracle(
     name: 'TxsPublished',
   });
 
-  return await publicClient.getLogs<typeof abiItem, true>({
-    address: getAddress(rollupAddress.toString()),
+  return await publicClient.getLogs({
+    address: getAddress(dataAvailabilityOracleAddress.toString()),
     event: abiItem,
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive

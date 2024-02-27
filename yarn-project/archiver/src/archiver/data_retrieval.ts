@@ -8,7 +8,7 @@ import {
   getContractDeploymentLogs,
   getL1ToL2MessageCancelledLogs,
   getL2BlockProcessedLogs,
-  getL2BlockProcessedLogsFromDataAvailabilityOracle,
+  getL2TxsPublishedLogs,
   getPendingL1ToL2MessageLogs,
   processBlockBodyLogs,
   processBlockLogs,
@@ -75,7 +75,7 @@ export async function retrieveBlockHashesFromRollup(
 /**
  * Fetches new L2 Blocks.
  * @param publicClient - The viem public client to use for transaction retrieval.
- * @param rollupAddress - The address of the rollup contract.
+ * @param dataAvailabilityAddress - The address of the rollup contract.
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
@@ -84,7 +84,7 @@ export async function retrieveBlockHashesFromRollup(
  */
 export async function retrieveBlockBodiesFromDataAvailability(
   publicClient: PublicClient,
-  rollupAddress: EthAddress,
+  dataAvailabilityAddress: EthAddress,
   blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
@@ -96,19 +96,19 @@ export async function retrieveBlockBodiesFromDataAvailability(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const l2BlockProcessedLogs = await getL2BlockProcessedLogsFromDataAvailabilityOracle(
+    const l2TxsPublishedLogs = await getL2TxsPublishedLogs(
       publicClient,
-      rollupAddress,
+      dataAvailabilityAddress,
       searchStartBlock,
       searchEndBlock,
     );
-    if (l2BlockProcessedLogs.length === 0) {
+    if (l2TxsPublishedLogs.length === 0) {
       break;
     }
 
-    const newBlockBodies = await processBlockBodyLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
+    const newBlockBodies = await processBlockBodyLogs(publicClient, expectedNextL2BlockNum, l2TxsPublishedLogs);
     retrievedBlockBodies.push(...newBlockBodies);
-    searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
+    searchStartBlock = l2TxsPublishedLogs[l2TxsPublishedLogs.length - 1].blockNumber! + 1n;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
   return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlockBodies };
 }
