@@ -65,7 +65,7 @@ def _get_already_built_manifest_job_names(manifest_name):
 def get_already_built_manifest_job_names():
     manifest_names = get_manifest_job_names()
 
-    with ProcessPoolExecutor(max_workers=8) as executor:
+    with ProcessPoolExecutor() as executor:
         futures = {executor.submit(_get_already_built_manifest_job_names, key): key for key in manifest_names}
         for future in as_completed(futures):
             result = future.result()
