@@ -1,6 +1,6 @@
 import { Body, L2Tx, TxHash } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header, STRING_ENCODING } from '@aztec/circuits.js';
-import { makeAppendOnlyTreeSnapshot, makeHeader } from '@aztec/circuits.js/factories';
+import { makeAppendOnlyTreeSnapshot, makeHeader } from '@aztec/circuits.js/testing';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
