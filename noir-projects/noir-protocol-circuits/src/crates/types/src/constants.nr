@@ -101,7 +101,7 @@ global ARGS_HASH_CHUNK_COUNT: u32 = 32;
 // determine whether a given variable has been initialized (by asserting that the value in the slot is 0).
 // The initialization slot is computed by adding the constant bellow to the variable's storage slot. This constant has
 // to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
-global INITIALIZATION_SLOT_SEPARATOR: Field = 1000;
+global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 
 // CONTRACT CLASS CONSTANTS
 // This should be around 8192 (assuming 2**15 instructions packed at 8 bytes each),
