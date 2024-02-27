@@ -153,7 +153,7 @@ describe('e2e_deploy_contract', () => {
         expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
         expect(badTxReceipt.blockNumber).toBeUndefined();
 
-        await expect(pxe.getExtendedContractData(goodDeploy.getInstance().address)).resolves.toBeDefined();
+        await expect(pxe.getContractData(goodDeploy.getInstance().address)).resolves.toBeDefined();
         await expect(pxe.getExtendedContractData(goodDeploy.getInstance().address)).resolves.toBeDefined();
 
         await expect(pxe.getContractData(badDeploy.getInstance().address)).resolves.toBeUndefined();
