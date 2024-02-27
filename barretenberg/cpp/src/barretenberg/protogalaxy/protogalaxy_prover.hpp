@@ -277,20 +277,43 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         }
     }
 
-    template <typename Parameters, size_t relation_idx = 0>
+    template <typename Parameters, size_t relation_idx_ = 0>
     void accumulate_relation_univariates(TupleOfTuplesOfUnivariates& univariate_accumulators,
                                          const ExtendedUnivariates& extended_univariates,
                                          const Parameters& relation_parameters,
                                          const FF& scaling_factor)
     {
-        using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::accumulate(
-            std::get<relation_idx>(univariate_accumulators), extended_univariates, relation_parameters, scaling_factor);
-
-        // Repeat for the next relation.
-        if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
-            accumulate_relation_univariates<Parameters, relation_idx + 1>(
-                univariate_accumulators, extended_univariates, relation_parameters, scaling_factor);
+        auto univariate_accumulators_0 = std::get<0>(univariate_accumulators);
+        UltraArithmeticRelation<FF>::accumulate(
+            univariate_accumulators_0, extended_univariates, relation_parameters, scaling_factor);
+        auto univariate_accumulators_1 = std::get<1>(univariate_accumulators);
+        UltraPermutationRelation<FF>::accumulate(
+            univariate_accumulators_1, extended_univariates, relation_parameters, scaling_factor);
+        auto univariate_accumulators_2 = std::get<2>(univariate_accumulators);
+        LookupRelation<FF>::accumulate(
+            univariate_accumulators_2, extended_univariates, relation_parameters, scaling_factor);
+        auto univariate_accumulators_3 = std::get<3>(univariate_accumulators);
+        GenPermSortRelation<FF>::accumulate(
+            univariate_accumulators_3, extended_univariates, relation_parameters, scaling_factor);
+        auto univariate_accumulators_4 = std::get<4>(univariate_accumulators);
+        EllipticRelation<FF>::accumulate(
+            univariate_accumulators_4, extended_univariates, relation_parameters, scaling_factor);
+        auto univariate_accumulators_5 = std::get<5>(univariate_accumulators);
+        AuxiliaryRelation<FF>::accumulate(
+            univariate_accumulators_5, extended_univariates, relation_parameters, scaling_factor);
+        if constexpr (IsGoblinFlavor<Flavor>) {
+            auto univariate_accumulators_6 = std::get<6>(univariate_accumulators);
+            EccOpQueueRelation<FF>::accumulate(
+                univariate_accumulators_6, extended_univariates, relation_parameters, scaling_factor);
+            auto univariate_accumulators_7 = std::get<7>(univariate_accumulators);
+            DatabusLookupRelation<FF>::accumulate(
+                univariate_accumulators_7, extended_univariates, relation_parameters, scaling_factor);
+            auto univariate_accumulators_8 = std::get<8>(univariate_accumulators);
+            Poseidon2ExternalRelation<FF>::accumulate(
+                univariate_accumulators_8, extended_univariates, relation_parameters, scaling_factor);
+            auto univariate_accumulators_9 = std::get<9>(univariate_accumulators);
+            Poseidon2InternalRelation<FF>::accumulate(
+                univariate_accumulators_9, extended_univariates, relation_parameters, scaling_factor);
         }
     }
 
