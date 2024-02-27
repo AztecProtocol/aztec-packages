@@ -19,4 +19,4 @@ RUN ./scripts/bootstrap_packages.sh
 FROM scratch
 COPY --from=0 /usr/src/noir/packages /usr/src/noir/packages
 # For some unknown reason, on alpine only, we need this to exist.
-COPY --from=0 /usr/src/noir/node_modules/@noir-lang /usr/src/noir/node_modules/@noir-lang
+COPY --from=0 /usr/src/noir/noir-repo/node_modules/@noir-lang /usr/src/noir/noir-repo/node_modules/@noir-lang
