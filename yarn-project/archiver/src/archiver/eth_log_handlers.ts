@@ -88,7 +88,6 @@ export async function processBlockLogs(
 
 export async function processBlockBodyLogs(
   publicClient: PublicClient,
-  expectedL2BlockNumber: bigint,
   logs: Log<bigint, number, false, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>[],
 ): Promise<[Body, Buffer][]> {
   const retrievedBlockBodies: [Body, Buffer][] = [];

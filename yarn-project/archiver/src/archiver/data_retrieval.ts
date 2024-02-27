@@ -106,7 +106,7 @@ export async function retrieveBlockBodiesFromDataAvailability(
       break;
     }
 
-    const newBlockBodies = await processBlockBodyLogs(publicClient, expectedNextL2BlockNum, l2TxsPublishedLogs);
+    const newBlockBodies = await processBlockBodyLogs(publicClient, l2TxsPublishedLogs);
     retrievedBlockBodies.push(...newBlockBodies);
     searchStartBlock = l2TxsPublishedLogs[l2TxsPublishedLogs.length - 1].blockNumber! + 1n;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
