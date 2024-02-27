@@ -48,7 +48,6 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 
     Wires wires; // vectors of indices into a witness variables array
     Selectors selectors;
-    bool is_public_input = false;
 
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
