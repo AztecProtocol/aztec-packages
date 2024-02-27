@@ -168,7 +168,7 @@ export class LendingSimulator {
     const asset = await this.lendingContract.methods.get_asset(0).view();
 
     const interestAccumulator = asset['interest_accumulator'];
-    const interestAccumulatorBigint = BigInt(interestAccumulator.lo + interestAccumulator.hi * (2 ** 64));
+    const interestAccumulatorBigint = BigInt(interestAccumulator.lo + interestAccumulator.hi * 2 ** 64);
     expect(interestAccumulatorBigint).toEqual(this.accumulator);
     expect(asset['last_updated_ts']).toEqual(BigInt(this.time));
 
