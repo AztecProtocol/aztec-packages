@@ -17,7 +17,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import { U128_UNDERFLOW_ERROR } from './fixtures/fixtures.js';
+import { U128_OVERFLOW_ERROR, U128_UNDERFLOW_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import { TokenSimulator } from './simulators/token_simulator.js';
 
@@ -241,7 +241,7 @@ describe('e2e_token_contract', () => {
         });
 
         it('mint >u128 tokens to overflow', async () => {
-          const amount = 2n ** 120n; // SafeU120::max() + 1;
+          const amount = 2n ** 128n; // U128::max() + 1;
           await expect(asset.methods.mint_public(accounts[0].address, amount).simulate()).rejects.toThrowError(
             'Assertion failed: Value too large for U128',
           );
@@ -250,14 +250,14 @@ describe('e2e_token_contract', () => {
         it('mint <u128 but recipient balance >u128', async () => {
           const amount = 2n ** 128n - tokenSim.balanceOfPublic(accounts[0].address);
           await expect(asset.methods.mint_public(accounts[0].address, amount).simulate()).rejects.toThrowError(
-            'Assertion failed: Overflow',
+            U128_OVERFLOW_ERROR,
           );
         });
 
         it('mint <u128 but such that total supply >u128', async () => {
           const amount = 2n ** 128n - tokenSim.balanceOfPublic(accounts[0].address);
           await expect(asset.methods.mint_public(accounts[1].address, amount).simulate()).rejects.toThrowError(
-            'Assertion failed: Overflow',
+            U128_OVERFLOW_ERROR,
           );
         });
       });
@@ -313,25 +313,25 @@ describe('e2e_token_contract', () => {
           ).rejects.toThrowError('Assertion failed: caller is not minter');
         });
 
-        it('mint >u120 tokens to overflow', async () => {
-          const amount = 2n ** 120n; // SafeU120::max() + 1;
+        it('mint >u128 tokens to overflow', async () => {
+          const amount = 2n ** 128n; // U128::max() + 1;
           await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrowError(
-            'Assertion failed: Value too large for SafeU120',
+            'Assertion failed: Value too large for U128',
           );
         });
 
-        it('mint <u120 but recipient balance >u120', async () => {
-          const amount = 2n ** 120n - tokenSim.balanceOfPrivate(accounts[0].address);
-          expect(amount).toBeLessThan(2n ** 120n);
+        it('mint <u128 but recipient balance >u128', async () => {
+          const amount = 2n ** 128n - tokenSim.balanceOfPrivate(accounts[0].address);
+          expect(amount).toBeLessThan(2n ** 128n);
           await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrowError(
-            'Assertion failed: Overflow',
+            U128_OVERFLOW_ERROR,
           );
         });
 
-        it('mint <u120 but such that total supply >u120', async () => {
-          const amount = 2n ** 120n - tokenSim.totalSupply;
+        it('mint <u128 but such that total supply >u128', async () => {
+          const amount = 2n ** 128n - tokenSim.totalSupply;
           await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrowError(
-            'Assertion failed: Overflow',
+            U128_OVERFLOW_ERROR,
           );
         });
       });
