@@ -17,7 +17,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import { U128_OVERFLOW_ERROR, U128_UNDERFLOW_ERROR } from './fixtures/fixtures.js';
+import { BITSIZE_TOO_BIG_ERROR, U128_OVERFLOW_ERROR, U128_UNDERFLOW_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import { TokenSimulator } from './simulators/token_simulator.js';
 
@@ -243,7 +243,7 @@ describe('e2e_token_contract', () => {
         it('mint >u128 tokens to overflow', async () => {
           const amount = 2n ** 128n; // U128::max() + 1;
           await expect(asset.methods.mint_public(accounts[0].address, amount).simulate()).rejects.toThrowError(
-            'Assertion failed: Value too large for U128',
+            BITSIZE_TOO_BIG_ERROR,
           );
         });
 
@@ -316,7 +316,7 @@ describe('e2e_token_contract', () => {
         it('mint >u128 tokens to overflow', async () => {
           const amount = 2n ** 128n; // U128::max() + 1;
           await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrowError(
-            'Assertion failed: Value too large for U128',
+            BITSIZE_TOO_BIG_ERROR,
           );
         });
 
