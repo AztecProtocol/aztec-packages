@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('Deploying, setting, and getting a number', async ({ page }) => {
   test.slow();
-  await page.goto('http://localhost:5173/');
+  await page.goto('/');
 
   const handleDialog = (expectedMessage: string) => {
     return new Promise<void>(resolve => {

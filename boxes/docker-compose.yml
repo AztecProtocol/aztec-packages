@@ -23,6 +23,10 @@ services:
         while ! nc -z aztec 8080; do sleep 1; done;
         yarn workspace @aztec/$BOX test
       '
+    ipc: host
+    cap_add:
+      - SYS_ADMIN
+    init: true
     environment:
       DEBUG: "aztec:*"
       DEBUG_COLORS: "true"
