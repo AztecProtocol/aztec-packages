@@ -52,10 +52,12 @@ import {
 } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
+import { spawn } from 'child_process';
+import fs from 'fs/promises';
 import { env } from 'process';
 
 import { getVerificationKeys } from '../mocks/verification_keys.js';
-import { PublicProver } from '../prover/index.js';
+import { AvmProver, PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { HintsBuilder } from './hints_builder.js';
 import { FailedTx } from './processed_tx.js';
@@ -201,13 +203,26 @@ export abstract class AbstractPhaseManager {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
 
+        this.log.debug(`AVM_ENABLED? :${env.AVM_ENABLED}`);
+
         // NOTE: temporary glue to incorporate avm execution calls
         const simulator = (execution: PublicExecution, globalVariables: GlobalVariables) =>
-          env.AVM_ENABLED
-            ? this.publicExecutor.simulateAvm(execution, globalVariables)
-            : this.publicExecutor.simulate(execution, globalVariables);
+          // env.AVM_ENABLED
+          //     ? this.publicExecutor.simulateAvm(execution, globalVariables)
+          this.publicExecutor.simulate(execution, globalVariables);
 
         const result = isExecutionRequest ? await simulator(current, this.globalVariables) : current;
+        // Once a result has happened, we can try and transmit it to the witgen/prover.
+        if (env.AVM_ENABLED) {
+          this.log.debug('Running AVM');
+          const fnSelector = result.execution.functionData.selector;
+          const contractAddress = result.execution.contractAddress;
+          const calldata = result.execution.args;
+          const bytecode = await this.publicExecutor.getContractBytecode(contractAddress, fnSelector);
+          const prover = new CliAvmProver();
+          const proof = await prover.getAvmProof(calldata, bytecode!);
+          this.log.debug(`PRoof is ${proof}`);
+        }
 
         newUnencryptedFunctionLogs.push(result.unencryptedLogs);
         const functionSelector = result.execution.functionData.selector.toString();
@@ -496,4 +511,43 @@ function patchPublicStorageActionOrdering(
       ? MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
       : MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
+}
+
+export class CliAvmProver implements AvmProver {
+  private binaryPath = '/mnt/user-data/ilyas/Code/aztec-packages/barretenberg/cpp/build/bin';
+  private inputsPath = '/tmp';
+  private targetPath = '/tmp';
+  async getAvmProof(calldata: Fr[], bytecode: Buffer): Promise<Buffer> {
+    const logger = createDebugLogger('avm-prover-cpp');
+    try {
+      await fs.writeFile(
+        `${this.inputsPath}/calldata.bin`,
+        calldata.map(c => c.toBuffer()),
+      );
+      logger.debug(`BytecOde: ${bytecode}`);
+      await fs.writeFile(`${this.inputsPath}/avm_bytecode.bin`, bytecode);
+    } catch (err: any) {
+      logger.debug('error', err);
+    }
+
+    const bbBinary = spawn(`${this.binaryPath}/bb`, [
+      'avm_prove',
+      '-b',
+      `${this.inputsPath}/avm_bytecode.bin`,
+      '-d',
+      `${this.inputsPath}/calldata.bin`,
+      'o',
+      `${this.targetPath}/proof`,
+    ]);
+    return new Promise((resolve, reject) => {
+      bbBinary.on('close', () => {
+        logger.debug('Completed process');
+        resolve(fs.readFile(`${this.targetPath}/proof`));
+      });
+      bbBinary.stderr.on('data', data => {
+        logger.debug(`stderr: ${data}`);
+        reject();
+      });
+    });
+  }
 }
