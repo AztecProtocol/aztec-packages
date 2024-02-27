@@ -21,9 +21,11 @@ pub enum NumericType {
 impl NumericType {
     /// Returns the bit size of the provided numeric type.
     pub(crate) fn bit_size(self: &NumericType) -> u32 {
+        // println!("getting numeric type bitsize");
         match self {
             NumericType::NativeField => FieldElement::max_num_bits(),
-            NumericType::Unsigned { bit_size } | NumericType::Signed { bit_size } => *bit_size,
+            // TODO: This hack to limit to u32 is temp - just to check if this fixes it
+            NumericType::Unsigned { bit_size } | NumericType::Signed { bit_size } => std::cmp::min(*bit_size, 32),
         }
     }
 

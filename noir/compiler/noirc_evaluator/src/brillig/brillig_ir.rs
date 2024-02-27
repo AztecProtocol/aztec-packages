@@ -221,6 +221,7 @@ impl BrilligContext {
         index: MemoryAddress,
         result: MemoryAddress,
     ) {
+        // dbg!("Array Get");
         self.debug_show.array_get(array_ptr, index, result);
         // Computes array_ptr + index, ie array[index]
         let index_of_element_in_memory = self.allocate_register();
@@ -557,8 +558,12 @@ impl BrilligContext {
         constant: Value,
         bit_size: u32,
     ) {
+        // dbg!("const instruction", result, constant, bit_size);
         self.debug_show.const_instruction(result, constant);
-        self.push_opcode(BrilligOpcode::Const { destination: result, value: constant, bit_size });
+        
+        // TODO: temporarily to unblock me ass
+        let bit_s = std::cmp::min(32, bit_size);
+        self.push_opcode(BrilligOpcode::Const { destination: result, value: constant, bit_size: bit_s });
     }
 
     pub(crate) fn usize_const(&mut self, result: MemoryAddress, constant: Value) {

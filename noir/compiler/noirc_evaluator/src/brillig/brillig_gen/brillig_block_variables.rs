@@ -132,6 +132,7 @@ impl BlockVariables {
         value_id: ValueId,
         dfg: &DataFlowGraph,
     ) -> BrilligVariable {
+        // dbg!("allocate constant");
         let value_id = dfg.resolve(value_id);
         let constant = allocate_value(value_id, brillig_context, dfg);
         self.available_constants.insert(value_id, constant);
@@ -189,10 +190,14 @@ pub(crate) fn allocate_value(
     let typ = dfg.type_of_value(value_id);
 
     match typ {
-        Type::Numeric(numeric_type) => BrilligVariable::SingleAddr(SingleAddrVariable {
+        Type::Numeric(numeric_type) =>{
+
+         let bit_size = numeric_type.bit_size();
+        //  dbg!(bit_size);
+         BrilligVariable::SingleAddr(SingleAddrVariable {
             address: brillig_context.allocate_register(),
-            bit_size: numeric_type.bit_size(),
-        }),
+            bit_size: bit_size,
+        })},
         Type::Reference(_) => BrilligVariable::SingleAddr(SingleAddrVariable {
             address: brillig_context.allocate_register(),
             bit_size: BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
