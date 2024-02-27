@@ -18,21 +18,21 @@ contract AvmToken {
 
     #[aztec(private)]
     fn constructor(owner: AztecAddress) {
-        let selector = FunctionSelector::from_signature("_initialize((Field))");
-        context.call_public_function(context.this_address(), selector, [owner.to_field()]);
+        // let selector = FunctionSelector::from_signature("_initialize((Field))");
+        // context.call_public_function(context.this_address(), selector, [owner.to_field()]);
     }
 
-    #[aztec(public-vm)]
-    internal fn _initialize(new_owner: AztecAddress) {
-        assert(!new_owner.is_zero(), "invalid admin");
-        storage.owner.write(new_owner);
-    }
+    // #[aztec(public-vm)]
+    // internal fn _initialize(new_owner: AztecAddress) {
+    //     assert(!new_owner.is_zero(), "invalid admin");
+    //     storage.owner.write(new_owner);
+    // }
 
-    #[aztec(public-vm)]
-    fn setOwner() {
-        assert(context.sender() == storage.owner.read(), "only owner can set admin");
-        storage.owner.write(context.sender());
-    }
+    // #[aztec(public-vm)]
+    // fn setOwner() {
+    //     assert(context.sender() == storage.owner.read(), "only owner can set admin");
+    //     storage.owner.write(context.sender());
+    // }
 
     #[aztec(public-vm)]
     fn transfer(to: AztecAddress, amount: Field) {

@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
+import { AvmTestContractArtifact, AvmTokenContractArtifact } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
@@ -446,4 +446,33 @@ describe('AVM simulator', () => {
       });
     });
   });
+
+    describe("avm_token", () => {
+      it('execute transfer', async () => {
+        const to = AztecAddress.fromField(new Fr(1));
+        const amount = new Fr(1);
+
+        const calldata = [to, amount];
+
+        // Get contract function artifact
+        const artifact = AvmTokenContractArtifact.functions.find(f => f.name === 'avm_transfer')!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+        jest
+          .spyOn(context.persistableState.hostStorage.publicStateDb, 'storageRead')
+          .mockReturnValueOnce(Promise.resolve(new Fr(0)))
+          .mockReturnValueOnce(Promise.resolve(new Fr(2)))
+
+        const results = await new AvmSimulator(context).execute();
+
+        expect(results.reverted).toBe(false);
+
+      });
+    })
 });
