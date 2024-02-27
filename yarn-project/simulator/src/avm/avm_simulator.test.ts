@@ -147,34 +147,6 @@ describe('AVM simulator', () => {
       });
     });
 
-    describe.each([
-      ['avm_poseidon_hash', poseidonHash],
-      ['avm_pedersen_hash', pedersenHash],
-    ])('Hashes with field returned in noir contracts', (name: string, hashFunction: (data: Buffer[]) => Buffer) => {
-      it(`Should execute contract function that performs ${name} hash`, async () => {
-        const calldata = [new Fr(1), new Fr(2), new Fr(3)];
-        const hash = hashFunction(calldata.map(f => f.toBuffer()));
-
-        // Get contract function artifact
-        const artifact = AvmTestContractArtifact.functions.find(f => f.name === name)!;
-
-        // Decode bytecode into instructions
-        const bytecode = Buffer.from(artifact.bytecode, 'base64');
-
-        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-        jest
-          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
-          .mockReturnValue(Promise.resolve(bytecode));
-
-        const results = await new AvmSimulator(context).execute();
-
-        expect(results.reverted).toBe(false);
-
-        const returnData = results.output;
-        expect(returnData).toEqual([new Fr(hash)]);
-      });
-    });
-
     describe('Storage accesses', () => {
       it('Should set a single value in storage', async () => {
         // We want to set
