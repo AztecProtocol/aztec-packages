@@ -66,6 +66,16 @@ contract Token {
     }
     // docs:end:constructor
 
+    #[aztec(private)]
+    fn foo(decimals: u8) {
+        assert(decimals == 0);
+    }
+
+    #[aztec(private)]
+    fn bar(decimals: u64) {
+        assert(decimals == 0);
+    }
+
     // docs:start:set_admin
     #[aztec(public)]
     fn set_admin(new_admin: AztecAddress) {
