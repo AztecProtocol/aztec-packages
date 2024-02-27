@@ -2,7 +2,7 @@
 use dep::std::unsafe;
 use dep::types::{
     abis::{membership_witness::MembershipWitness, read_request::ReadRequestContext, side_effect::OrderedValue},
-    hash::{silo_nullifier, root_from_sibling_path}, traits::is_empty
+    hash::{silo_nullifier, root_from_sibling_path}, traits::{Empty, is_empty}
 };
 
 struct ReadRequestStateEnum {
@@ -19,33 +19,33 @@ global ReadRequestState = ReadRequestStateEnum {
 
 struct ReadRequestStatus {
     state: u8,
-    hint_index: Field,
+    hint_index: u64,
 }
 
-impl ReadRequestStatus {
-    pub fn null() -> Self {
+impl Empty for ReadRequestStatus {
+    fn empty() -> Self {
         ReadRequestStatus { state: ReadRequestState.NADA, hint_index: 0 }
     }
 }
 
 struct PendingReadHint {
-    read_request_index: Field,
-    pending_value_index: Field,
+    read_request_index: u64,
+    pending_value_index: u64,
 }
 
 impl PendingReadHint {
-    pub fn null(read_request_len: Field) -> Self {
+    pub fn nada(read_request_len: u64) -> Self {
         PendingReadHint { read_request_index: read_request_len, pending_value_index: 0 }
     }
 }
 
 struct SettledReadHint<TREE_HEIGHT> {
-    read_request_index: Field,
+    read_request_index: u64,
     membership_witness: MembershipWitness<TREE_HEIGHT>,
 }
 
 impl<TREE_HEIGHT> SettledReadHint<TREE_HEIGHT> {
-    pub fn null(read_request_len: Field) -> Self {
+    pub fn nada(read_request_len: u64) -> Self {
         SettledReadHint { read_request_index: read_request_len, membership_witness: unsafe::zeroed() }
     }
 }
@@ -64,11 +64,11 @@ struct ReadRequestResetHintsBuilder<READ_REQUEST_LEN, NUM_PENDING_READS, NUM_SET
 }
 
 impl<READ_REQUEST_LEN, NUM_PENDING_READS, NUM_SETTLED_READS, TREE_HEIGHT> ReadRequestResetHintsBuilder<READ_REQUEST_LEN, NUM_PENDING_READS, NUM_SETTLED_READS, TREE_HEIGHT> {
-    pub fn new(read_request_len: Field) -> Self {
+    pub fn new(read_request_len: u64) -> Self {
         ReadRequestResetHintsBuilder {
-            read_request_statuses: [ReadRequestStatus::null(); READ_REQUEST_LEN],
-            pending_read_hints: BoundedVec::new(PendingReadHint::null(read_request_len)),
-            settled_read_hints: BoundedVec::new(SettledReadHint::null(read_request_len))
+            read_request_statuses: [ReadRequestStatus::empty(); READ_REQUEST_LEN],
+            pending_read_hints: BoundedVec { storage: [PendingReadHint::nada(read_request_len); NUM_PENDING_READS], len: 0 },
+            settled_read_hints: BoundedVec { storage: [SettledReadHint::nada(read_request_len); NUM_SETTLED_READS], len: 0 }
         }
     }
 }
@@ -88,9 +88,9 @@ fn validate_pending_read_requests<READ_REQUEST_LEN, T, PENDING_VALUE_LEN, NUM_PE
             let read_request = read_requests[read_request_index];
             let siloed_value = silo_nullifier(read_request.contract_address, read_request.value); // TODO: Should be comparing the contract address with ContractScopedOrderedValue.
             let pending_value = pending_values[hints[i].pending_value_index];
-            assert(siloed_value.eq(pending_value.value()), "hinted value does not match read request");
+            assert(siloed_value.eq(pending_value.value()), "Hinted value does not match read request");
             assert(
-                read_request.counter > pending_value.counter(), "read request counter must be greater than counter of the value being read"
+                read_request.counter > pending_value.counter(), "Read request counter must be greater than counter of the value being read"
             );
             // TODO: for transient note hash, the counter of the read request must be less than the counter of the nullifier.
         }
@@ -111,7 +111,7 @@ fn validate_settled_read_requests<READ_REQUEST_LEN, NUM_SETTLED_READS, TREE_HEIG
             let siloed_value = silo_nullifier(read_request.contract_address, read_request.value); // TODO: Should silo the value differently based on the type of the read request.
             let witness = hints[i].membership_witness;
             let root_for_read_request = root_from_sibling_path(siloed_value, witness.leaf_index, witness.sibling_path);
-            assert(root_for_read_request == historical_tree_root, "tree root mismatch for read request");
+            assert(root_for_read_request == historical_tree_root, "Tree root mismatch for read request");
         }
     }
 }
@@ -122,7 +122,7 @@ fn propagate_unverified_read_requests<READ_REQUEST_LEN, NUM_PENDING_READS, NUM_S
     pending_read_hints: [PendingReadHint; NUM_PENDING_READS],
     settled_read_hints: [SettledReadHint<TREE_HEIGHT>; NUM_SETTLED_READS]
 ) -> BoundedVec<ReadRequestContext, READ_REQUEST_LEN> {
-    let mut propagated_read_requests = BoundedVec::new(ReadRequestContext::empty());
+    let mut propagated_read_requests = BoundedVec::new();
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests[i];
         if !is_empty(read_request) {
@@ -131,11 +131,11 @@ fn propagate_unverified_read_requests<READ_REQUEST_LEN, NUM_PENDING_READS, NUM_S
                 propagated_read_requests.push(read_request);
             } else if status.state == ReadRequestState.PENDING {
                 assert(
-                    pending_read_hints[status.hint_index].read_request_index == i, "hinted pending read request does not match status"
+                    pending_read_hints[status.hint_index].read_request_index == i, "Hinted pending read request does not match status"
                 );
             } else if status.state == ReadRequestState.SETTLED {
                 assert(
-                    settled_read_hints[status.hint_index].read_request_index == i, "hinted settled read request does not match status"
+                    settled_read_hints[status.hint_index].read_request_index == i, "Hinted settled read request does not match status"
                 );
             }
         }
@@ -219,7 +219,7 @@ mod tests {
         validate_pending_read_requests(read_requests, pending_values, hints);
     }
 
-    #[test(should_fail_with="hinted value does not match read request")]
+    #[test(should_fail_with="Hinted value does not match read request")]
     fn test_validate_pending_read_requests_wrong_hint_fails() {
         let mut hint = pending_read_hints[1];
         hint.pending_value_index = 1;
@@ -227,7 +227,7 @@ mod tests {
         validate_pending_read_requests(read_requests, pending_values, hints);
     }
 
-    #[test(should_fail_with="read request counter must be greater than counter of the value being read")]
+    #[test(should_fail_with="Read request counter must be greater than counter of the value being read")]
     fn test_validate_pending_read_requests_reads_later_value_fails() {
         let read_requests = [
             ReadRequestContext { value: inner_nullifiers[1], counter: pending_values[1].counter - 1, contract_address }
@@ -249,7 +249,7 @@ mod tests {
         validate_settled_read_requests(read_requests, hints, tree_root);
     }
 
-    #[test(should_fail_with="tree root mismatch for read request")]
+    #[test(should_fail_with="Tree root mismatch for read request")]
     fn test_validate_settled_read_requests_wrong_witness_fails() {
         let tree = build_tree();
         let hints = [
@@ -302,7 +302,7 @@ mod tests {
         assert(unverified_read_requests.len() == 0);
     }
 
-    #[test(should_fail_with="hinted pending read request does not match status")]
+    #[test(should_fail_with="Hinted pending read request does not match status")]
     fn test_propagate_unverified_read_requests_wrong_pending_read_status_fails() {
         let read_request_statuses = [
             ReadRequestStatus { state: ReadRequestState.PENDING, hint_index: 0 },
@@ -319,7 +319,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="hinted settled read request does not match status")]
+    #[test(should_fail_with="Hinted settled read request does not match status")]
     fn test_propagate_unverified_read_requests_wrong_settled_read_status_fails() {
         let read_request_statuses = [
             ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index: 0 },

@@ -335,7 +335,7 @@ mod tests {
             self.previous_kernel.append_new_nullifiers_from_private(num_nullifiers);
         }
 
-        pub fn add_nullifier_pending_read(&mut self, nullifier_index_offset_one: Field) {
+        pub fn add_nullifier_pending_read(&mut self, nullifier_index_offset_one: u64) {
             let nullifier_index = nullifier_index_offset_one + 1; // + 1 is for the first nullifier
             let read_request_index = self.previous_kernel.add_read_request_for_pending_nullifier(nullifier_index);
             let hint_index = self.nullifier_read_request_reset_hints.pending_read_hints.len();
@@ -492,7 +492,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="hinted value does not match read request")]
+    #[test(should_fail_with="Hinted value does not match read request")]
     unconstrained fn pending_nullifier_read_request_wrong_hint_fails() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
 
@@ -685,13 +685,8 @@ mod tests {
 
     #[test(should_fail_with="The 0th nullifier in the accumulated nullifier array is zero")]
     unconstrained fn zero_0th_nullifier_fails() {
-<<<<<<< HEAD
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.end.new_nullifiers = BoundedVec::new(SideEffectLinkedToNoteHash::empty());
-=======
-        let mut builder = PrivateKernelOrderingInputsBuilder::new();
         builder.previous_kernel.end.new_nullifiers = BoundedVec::new();
->>>>>>> origin/master
         builder.failed();
     }
 
