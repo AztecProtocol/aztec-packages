@@ -16,7 +16,7 @@ YELLOW="\033[93m"
 BOLD="\033[1m"
 RESET="\033[0m"
 
-PATH=$PATH:./build-system/scripts
+source ./build-system/scripts/setup_env '' '' '' > /dev/null
 
 if [ "$CMD" = "clean" ]; then
   echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
@@ -38,7 +38,6 @@ if [ "$CMD" = "clean" ]; then
 
   exit 0
 elif [ "$CMD" = "full" ]; then
-  export USE_CACHE=
   if can_use_ci_cache; then
     echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
     echo
@@ -46,7 +45,7 @@ elif [ "$CMD" = "full" ]; then
 elif [ "$CMD" = "fast" ]; then
   export USE_CACHE=1
   if ! can_use_ci_cache; then
-    echo -e "${BOLD}${YELLOW}WARNING: Either docker or aws credentials are missing. Install docker and request credentials.${RESET}"
+    echo -e "${BOLD}${YELLOW}WARNING: Either docker or aws credentials are missing. Install docker and request credentials. Note this is for internal aztec devs only.${RESET}"
     exit 1
   fi
 else
