@@ -1,4 +1,4 @@
-use dep::aztec::context::{PrivateContext, PublicContext, Context};
+use dep::aztec::context::{PrivateContext, PublicContext, Context, SomePublicContext};
 use dep::aztec::state_vars::{Map, PublicMutable};
 
 use crate::entrypoint::{app::AppPayload, fee::FeePayload};
@@ -42,7 +42,7 @@ impl AccountActions {
     }
 
     pub fn public(
-        context: &mut PublicContext,
+        context: &mut SomePublicContext,
         approved_action_storage_slot: Field,
         is_valid_impl: fn(&mut PrivateContext, Field) -> bool
     ) -> Self {
