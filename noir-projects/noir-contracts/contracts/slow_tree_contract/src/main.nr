@@ -5,17 +5,18 @@ mod types;
 // More documentation need to be outlined for this properly, but there is some in 
 // https://github.com/AztecProtocol/aztec-packages/issues/1291
 // This is made as a separate contract for one thing mainly. Making it simpler to use.
+// TODO(#4760): Rename slow updates to shared mutable and ideally move the impl to state-vars in aztec-nr.
 contract SlowTree {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
     use dep::std::option::Option;
-    use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
+    use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
         note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{map::Map, public_state::PublicState, set::Set},
+        state_vars::{Map, PublicMutable, PrivateSet},
         protocol_types::type_serialization::FIELD_SERIALIZED_LEN
     };
-    use dep::slow_updates_tree::slow_map::{SlowMap, Leaf, SlowUpdateProof, compute_merkle_root, deserialize_slow_update_proof};
+    use dep::slow_updates_tree::{SlowMap, Leaf, SlowUpdateProof, compute_merkle_root, deserialize_slow_update_proof};
 
     // docs:start:import_pop_capsule
     use crate::capsule::pop_capsule;
@@ -139,15 +140,5 @@ contract SlowTree {
 
     unconstrained fn un_read_root(address: AztecAddress) -> pub Leaf {
         storage.trees.at(address.to_field()).read_root()
-    }
-
-    unconstrained fn compute_note_hash_and_nullifier(
-        _contract_address: AztecAddress,
-        _nonce: Field,
-        _storage_slot: Field,
-        _note_type_id: Field,
-        _serialized_note: [Field; 4]
-    ) -> pub [Field; 4] {
-        [0x0d, 0x0e, 0x0a, 0x0d]
     }
 }

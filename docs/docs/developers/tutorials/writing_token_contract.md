@@ -129,8 +129,6 @@ contract Token {
     unconstrained fn balance_of_private(owner: AztecAddress) -> Field {}
 
     unconstrained fn balance_of_public(owner: AztecAddress) -> Field {}
-
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, note_type_id: Field, serialized_note: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {}
 }
 ```
 
@@ -193,8 +191,6 @@ Aztec transactions can pass data to Ethereum contracts through the rollup via th
 
 Unconstrained functions can be thought of as view functions from Solidity--they only return information from the contract storage or compute and return data without modifying contract storage.
 
-The `compute_note_hash_and_nullifier` function allows contract devs to specify how to compute notes and nullifiers. This must be included in every contract because it depends on the storage slots, which are defined when we set up storage.
-
 ## Contract dependencies
 
 Before we can implement the functions, we need set up the contract storage, and before we do that we need to import the appropriate dependencies.
@@ -237,9 +233,9 @@ Reading through the storage variables:
 
 - `admin` a single Field value stored in public state. A `Field` is basically an unsigned integer with a maximum value determined by the underlying cryptographic curve.
 - `minters` is a mapping of Fields in public state. This will store whether an account is an approved minter on the contract.
-- `balances` is a mapping of private balances. Private balances are stored in a `Set` of `ValueNote`s. The balance is the sum of all of an account's `ValueNote`s.
+- `balances` is a mapping of private balances. Private balances are stored in a `PrivateSet` of `ValueNote`s. The balance is the sum of all of an account's `ValueNote`s.
 - `total_supply` is a Field value stored in public state and represents the total number of tokens minted.
-- `pending_shields` is a `Set` of `TransparentNote`s stored in private state. What is stored publicly is a set of commitments to `TransparentNote`s.
+- `pending_shields` is a `PrivateSet` of `TransparentNote`s stored in private state. What is stored publicly is a set of commitments to `TransparentNote`s.
 - `public_balances` is a mapping field elements in public state and represents the publicly viewable balances of accounts.
 
 You can read more about it [here](../contracts/writing_contracts/storage/main.md).
@@ -292,7 +288,7 @@ The function returns 1 to indicate successful execution.
 
 This public function allows an account approved in the public `minters` mapping to create new private tokens that can be claimed by anyone that has the pre-image to the `secret_hash`.
 
-First, public storage is initialized. Then it checks that the `msg_sender` is an approved minter. Then a new `TransparentNote` is created with the specified `amount` and `secret_hash`. You can read the details of the `TransparentNote` in the `types.nr` file [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/types.nr#L61). The `amount` is added to the existing public `total_supply` and the storage value is updated. Then the new `TransparentNote` is added to the `pending_shields` using the `insert_from_public` function, which is accessible on the `Set` type. Then it's ready to be claimed by anyone with the `secret_hash` pre-image using the `redeem_shield` function. It returns `1` to indicate successful execution.
+First, public storage is initialized. Then it checks that the `msg_sender` is an approved minter. Then a new `TransparentNote` is created with the specified `amount` and `secret_hash`. You can read the details of the `TransparentNote` in the `types.nr` file [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/types.nr#L61). The `amount` is added to the existing public `total_supply` and the storage value is updated. Then the new `TransparentNote` is added to the `pending_shields` using the `insert_from_public` function, which is accessible on the `PrivateSet` type. Then it's ready to be claimed by anyone with the `secret_hash` pre-image using the `redeem_shield` function. It returns `1` to indicate successful execution.
 
 #include_code mint_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -434,21 +430,6 @@ A getter function for checking the private balance of the provided Aztec account
 A getter function for checking the public balance of the provided Aztec account.
 
 #include_code balance_of_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
-
-#### `compute_note_hash_and_nullifier`
-
-A getter function to compute the note hash and nullifier for notes in the contract's storage.
-
-This must be included in every contract because it depends on the storage slots, which are defined when we set up storage.
-
-#include_code compute_note_hash_and_nullifier /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
-
-:::danger
-If your contract works with storage (has Storage struct defined), you **MUST** include a `compute_note_hash_and_nullifier` function.
-If you don't yet have any private state variables defined put there a placeholder function:
-
-#include_code compute_note_hash_and_nullifier_placeholder /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
-:::
 
 ## Compiling
 

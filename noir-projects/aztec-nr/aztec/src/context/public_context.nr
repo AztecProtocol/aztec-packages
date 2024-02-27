@@ -12,7 +12,7 @@ use dep::protocol_types::{
 },
     address::{AztecAddress, EthAddress},
     constants::{
-    MAX_NEW_COMMITMENTS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
+    MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_READ_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256,
     RETURN_VALUES_LENGTH
@@ -32,7 +32,7 @@ struct PublicContext {
     contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
 
-    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_CALL>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
@@ -58,7 +58,7 @@ impl PublicContext {
             contract_storage_update_requests: BoundedVec::new(empty_storage_update),
             contract_storage_reads: BoundedVec::new(empty_storage_read),
             public_call_stack_hashes: BoundedVec::new(0),
-            new_commitments: BoundedVec::new(SideEffect::empty()),
+            new_note_hashes: BoundedVec::new(SideEffect::empty()),
             new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::empty()),
             new_l2_to_l1_msgs: BoundedVec::new(L2ToL1Message::empty()),
             unencrypted_logs_hash: BoundedVec::new(0),
@@ -68,6 +68,11 @@ impl PublicContext {
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
         }
+    }
+
+    pub fn is_deployment(self) -> bool {
+        // TODO(#4738): Implement this
+        false
     }
 
     pub fn msg_sender(self) -> AztecAddress {
@@ -122,7 +127,7 @@ impl PublicContext {
             contract_storage_update_requests: self.contract_storage_update_requests.storage,
             contract_storage_reads: self.contract_storage_reads.storage,
             return_values: self.return_values.storage,
-            new_commitments: self.new_commitments.storage,
+            new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
@@ -136,7 +141,7 @@ impl PublicContext {
 
     pub fn push_new_note_hash(&mut self, note_hash: Field) {
         let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
-        self.new_commitments.push(side_effect);
+        self.new_note_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 
@@ -155,14 +160,12 @@ impl PublicContext {
         self.new_l2_to_l1_msgs.push(message);
     }
 
-    // PrivateContextInputs must be temporarily passed in to prevent too many unknowns
-    // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
-    pub fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field) {
+    pub fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field, sender: EthAddress) {
         let this = (*self).this_address();
         let nullifier = process_l1_to_l2_message(
             self.historical_header.state.l1_to_l2_message_tree.root,
             this,
-            self.this_portal_address(),
+            sender,
             self.chain_id(),
             self.version(),
             msg_key,
@@ -194,10 +197,10 @@ impl PublicContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, false)
+        call_public_function_internal(contract_address, function_selector, args_hash, false, false)
     }
 
-    pub fn call_public_function_static<ARGS_COUNT>(
+    pub fn static_call_public_function<ARGS_COUNT>(
         _self: Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
@@ -205,7 +208,18 @@ impl PublicContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, true)
+        call_public_function_internal(contract_address, function_selector, args_hash, true, false)
+    }
+
+    pub fn delegate_call_public_function<ARGS_COUNT>(
+        _self: Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field; ARGS_COUNT]
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        let args_hash = hash_args(args);
+        assert(args_hash == arguments::pack_arguments(args));
+        call_public_function_internal(contract_address, function_selector, args_hash, false, true)
     }
 
     pub fn call_public_function_no_args(
@@ -213,14 +227,22 @@ impl PublicContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, false)
+        call_public_function_internal(contract_address, function_selector, 0, false, false)
     }
 
-    pub fn call_public_function_no_args_static(
+    pub fn static_call_public_function_no_args(
         _self: Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, true)
+        call_public_function_internal(contract_address, function_selector, 0, true, false)
+    }
+
+    pub fn delegate_call_public_function_no_args(
+        _self: Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        call_public_function_internal(contract_address, function_selector, 0, false, true)
     }
 }

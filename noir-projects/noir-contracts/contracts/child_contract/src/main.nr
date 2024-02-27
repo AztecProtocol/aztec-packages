@@ -3,28 +3,16 @@ contract Child {
     use dep::std::option::Option;
 
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
-        log::emit_unencrypted_log,
-        state_vars::{
-            public_state::PublicState,
-            set::Set
-        },
-        protocol_types::{
-            abis::{
-                function_selector::FunctionSelector,
-                call_context::CallContext
-            },
-            address::AztecAddress,
-        },
-        note::{
-            note_getter_options::NoteGetterOptions,
-        }
+        context::{PrivateContext, PublicContext, Context}, log::emit_unencrypted_log,
+        state_vars::{PublicMutable, PrivateSet},
+        protocol_types::{abis::{function_selector::FunctionSelector, call_context::CallContext}, address::AztecAddress},
+        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader, utils as note_utils}
     };
-    use dep::value_note::value_note::ValueNote;
+    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
     struct Storage {
-        current_value: PublicState<Field>,
-        a_private_value: Set<ValueNote>,
+        current_value: PublicMutable<Field>,
+        a_private_value: PrivateSet<ValueNote>,
     }
 
     #[aztec(private)]
@@ -122,16 +110,5 @@ contract Child {
 
         let pubSetValueSelector = FunctionSelector::from_signature("pubSetValue(Field)");
         let _ret = context.call_public_function(context.this_address(), pubSetValueSelector, [10]);
-    }
-
-    // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; 0]
-    ) -> pub [Field; 4] {
-        [0, 0, 0, 0]
     }
 }

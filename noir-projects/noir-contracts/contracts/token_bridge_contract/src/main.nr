@@ -9,7 +9,7 @@ mod token_interface;
 contract TokenBridge {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
 
-    use dep::aztec::{context::{Context}, hash::{compute_secret_hash}, state_vars::{public_state::PublicState}};
+    use dep::aztec::{context::{Context}, hash::{compute_secret_hash}, state_vars::{PublicMutable}};
 
     use dep::token_portal_content_hash_lib::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 
@@ -19,7 +19,7 @@ contract TokenBridge {
     // docs:start:token_bridge_storage_and_constructor
     // Storage structure, containing all storage, and specifying what slots they use.
     struct Storage {
-        token: PublicState<AztecAddress>,
+        token: PublicMutable<AztecAddress>,
     }
 
     // Constructs the contract.
@@ -37,7 +37,7 @@ contract TokenBridge {
         let content_hash = get_mint_public_content_hash(to, amount, canceller);
 
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(msg_key, content_hash, secret);
+        context.consume_l1_to_l2_message(msg_key, content_hash, secret, context.this_portal_address());
 
         // Mint tokens
         Token::at(storage.token.read()).mint_public(context, to, amount);
@@ -75,7 +75,12 @@ contract TokenBridge {
     ) {
         // Consume L1 to L2 message and emit nullifier
         let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller);
-        context.consume_l1_to_l2_message(msg_key, content_hash, secret_for_L1_to_L2_message_consumption);
+        context.consume_l1_to_l2_message(
+            msg_key,
+            content_hash,
+            secret_for_L1_to_L2_message_consumption,
+            context.this_portal_address()
+        );
 
         // Mint tokens on L2
         // `mint_private` on token is public. So we call an internal public function
@@ -154,17 +159,4 @@ contract TokenBridge {
         assert(storage.token.read().eq(token), "Token address is not the same as seen in storage");
     }
     // docs:end:assert_token_is_same
-
-    // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
-    // docs:start:compute_note_hash_and_nullifier_placeholder
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; 0]
-    ) -> pub [Field; 4] {
-        [0, 0, 0, 0]
-    }
-    // docs:end:compute_note_hash_and_nullifier_placeholder
 }

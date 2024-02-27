@@ -1,7 +1,9 @@
 use acvm::acir::brillig::Opcode as BrilligOpcode;
 use acvm::acir::circuit::brillig::Brillig;
 
-use acvm::brillig_vm::brillig::{BinaryFieldOp, BinaryIntOp, MemoryAddress, Value, ValueOrArray};
+use acvm::brillig_vm::brillig::{
+    BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, MemoryAddress, Value, ValueOrArray,
+};
 
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
@@ -93,7 +95,6 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                             value: destination.to_usize() as u32,
                         },
                     ],
-                    ..Default::default()
                 });
             }
             BrilligOpcode::CalldataCopy { destination_address, size, offset } => {
@@ -147,19 +148,19 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                 destination,
                 source,
             } => {
-                avm_instrs.push(emit_mov(Some(ALL_DIRECT), source.to_usize() as u32, destination.to_usize() as u32));
+                avm_instrs.push(generate_mov_instruction(Some(ALL_DIRECT), source.to_usize() as u32, destination.to_usize() as u32));
             }
             BrilligOpcode::Load {
                 destination,
                 source_pointer,
             } => {
-                avm_instrs.push(emit_mov(Some(ZEROTH_OPERAND_INDIRECT), source_pointer.to_usize() as u32, destination.to_usize() as u32));
+                avm_instrs.push(generate_mov_instruction(Some(ZEROTH_OPERAND_INDIRECT), source_pointer.to_usize() as u32, destination.to_usize() as u32));
             }
             BrilligOpcode::Store {
                 destination_pointer,
                 source,
             } => {
-                avm_instrs.push(emit_mov(Some(FIRST_OPERAND_INDIRECT), source.to_usize() as u32, destination_pointer.to_usize() as u32));
+                avm_instrs.push(generate_mov_instruction(Some(FIRST_OPERAND_INDIRECT), source.to_usize() as u32, destination_pointer.to_usize() as u32));
             }
             BrilligOpcode::Call { location } => {
                 let avm_loc = brillig_pcs_to_avm_pcs[*location];
@@ -200,9 +201,13 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                     ..Default::default()
                 });
             },
+            BrilligOpcode::Cast { destination, source, bit_size } => {
+                avm_instrs.push(generate_cast_instruction(source.to_usize() as u32, destination.to_usize() as u32, tag_from_bit_size(*bit_size)));
+            }
             BrilligOpcode::ForeignCall { function, destinations, inputs, destination_value_types:_, input_value_types:_ } => {
                 handle_foreign_call(&mut avm_instrs, function, destinations, inputs);
             },
+            BrilligOpcode::BlackBox(operation) => handle_black_box_function(&mut avm_instrs, operation),
             _ => panic!(
                 "Transpiler doesn't know how to process {:?} brillig instruction",
                 brillig_instr
@@ -220,8 +225,11 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
     bytecode
 }
 
-/// Handle foreign function calls
-/// - Environment getting opcodes will be represented as foreign calls
+/// Handle brillig foreign calls
+/// Examples:
+/// - Tree access opcodes
+/// - Hashing/gadget opcodes
+/// - Environment getter opcodes
 /// - TODO: support for avm external calls through this function
 fn handle_foreign_call(
     avm_instrs: &mut Vec<AvmInstruction>,
@@ -229,8 +237,196 @@ fn handle_foreign_call(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
+    match function.as_str() {
+        "emitNoteHash" | "emitNullifier" => handle_emit_note_hash_or_nullifier(
+            function.as_str() == "emitNullifier",
+            avm_instrs,
+            destinations,
+            inputs,
+        ),
+        "keccak256" | "sha256" => {
+            handle_2_field_hash_instruction(avm_instrs, function, destinations, inputs)
+        }
+        "poseidon" => {
+            handle_single_field_hash_instruction(avm_instrs, function, destinations, inputs)
+        }
+        _ => handle_getter_instruction(avm_instrs, function, destinations, inputs),
+    }
+}
+
+/// Handle an AVM EMITNOTEHASH or EMITNULLIFIER instruction
+/// (an emitNoteHash or emitNullifier brillig foreign call was encountered)
+/// Adds the new instruction to the avm instructions list.
+fn handle_emit_note_hash_or_nullifier(
+    is_nullifier: bool, // false for note hash, true for nullifier
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    let function_name = if is_nullifier {
+        "EMITNULLIFIER"
+    } else {
+        "EMITNOTEHASH"
+    };
+
+    if destinations.len() != 0 || inputs.len() != 1 {
+        panic!(
+            "Transpiler expects ForeignCall::{} to have 0 destinations and 1 input, got {} and {}",
+            function_name,
+            destinations.len(),
+            inputs.len()
+        );
+    }
+    let offset_operand = match &inputs[0] {
+        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        _ => panic!(
+            "Transpiler does not know how to handle ForeignCall::{} with HeapArray/Vector inputs",
+            function_name
+        ),
+    };
+    avm_instrs.push(AvmInstruction {
+        opcode: if is_nullifier {
+            AvmOpcode::EMITNULLIFIER
+        } else {
+            AvmOpcode::EMITNOTEHASH
+        },
+        indirect: Some(ALL_DIRECT),
+        operands: vec![AvmOperand::U32 {
+            value: offset_operand,
+        }],
+        ..Default::default()
+    });
+}
+
+/// Two field hash instructions represent instruction's that's outputs are larger than a field element
+///
+/// This includes:
+/// - keccak
+/// - sha256
+///
+/// In the future the output of these may expand / contract depending on what is most efficient for the circuit
+/// to reason about. In order to decrease user friction we will use two field outputs.
+fn handle_2_field_hash_instruction(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    function: &String,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
+) {
+    // handle field returns differently
+    let hash_offset_maybe = inputs[0];
+    let (hash_offset, hash_size) = match hash_offset_maybe {
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
+        _ => panic!("Keccak | Sha256 address inputs destination should be a single value"),
+    };
+
+    assert!(destinations.len() == 1);
+    let dest_offset_maybe = destinations[0];
+    let dest_offset = match dest_offset_maybe {
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
+            assert!(size == 2);
+            pointer.0
+        }
+        _ => panic!("Keccak | Poseidon address destination should be a single value"),
+    };
+
+    let opcode = match function.as_str() {
+        "keccak256" => AvmOpcode::KECCAK,
+        "sha256" => AvmOpcode::SHA256,
+        _ => panic!(
+            "Transpiler doesn't know how to process ForeignCall function {:?}",
+            function
+        ),
+    };
+
+    avm_instrs.push(AvmInstruction {
+        opcode,
+        indirect: Some(3), // 11 - addressing mode, indirect for input and output
+        operands: vec![
+            AvmOperand::U32 {
+                value: dest_offset as u32,
+            },
+            AvmOperand::U32 {
+                value: hash_offset as u32,
+            },
+            AvmOperand::U32 {
+                value: hash_size as u32,
+            },
+        ],
+        ..Default::default()
+    });
+}
+
+/// A single field hash instruction includes hash functions that emit a single field element
+/// directly onto the stack.
+///
+/// This includes (snark friendly functions):
+/// - poseidon2
+///
+/// Pedersen is not implemented this way as the black box function representation has the correct api.
+/// As the Poseidon BBF only deals with a single permutation, it is not quite suitable for our current avm
+/// representation.
+fn handle_single_field_hash_instruction(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    function: &String,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
+) {
+    // handle field returns differently
+    let hash_offset_maybe = inputs[0];
+    let (hash_offset, hash_size) = match hash_offset_maybe {
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
+        _ => panic!("Poseidon address inputs destination should be a single value"),
+    };
+
+    assert!(destinations.len() == 1);
+    let dest_offset_maybe = destinations[0];
+    let dest_offset = match dest_offset_maybe {
+        ValueOrArray::MemoryAddress(dest_offset) => dest_offset.0,
+        _ => panic!("Poseidon address destination should be a single value"),
+    };
+
+    let opcode = match function.as_str() {
+        "poseidon" => AvmOpcode::POSEIDON,
+        _ => panic!(
+            "Transpiler doesn't know how to process ForeignCall function {:?}",
+            function
+        ),
+    };
+
+    avm_instrs.push(AvmInstruction {
+        opcode,
+        indirect: Some(1),
+        operands: vec![
+            AvmOperand::U32 {
+                value: dest_offset as u32,
+            },
+            AvmOperand::U32 {
+                value: hash_offset as u32,
+            },
+            AvmOperand::U32 {
+                value: hash_size as u32,
+            },
+        ],
+        ..Default::default()
+    });
+}
+
+/// Getter Instructions are instructions that take NO inputs, and return information
+/// from the current execution context.
+///
+/// This includes:
+/// - Global variables
+/// - Caller
+/// - storage address
+/// - ...
+fn handle_getter_instruction(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    function: &String,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
     // For the foreign calls we want to handle, we do not want inputs, as they are getters
-    assert!(inputs.len() == 0);
+    assert!(inputs.is_empty());
     assert!(destinations.len() == 1);
     let dest_offset_maybe = destinations[0];
     let dest_offset = match dest_offset_maybe {
@@ -257,7 +453,6 @@ fn handle_foreign_call(
             function
         ),
     };
-
     avm_instrs.push(AvmInstruction {
         opcode,
         indirect: Some(ALL_DIRECT),
@@ -265,7 +460,7 @@ fn handle_foreign_call(
             value: dest_offset as u32,
         }],
         ..Default::default()
-    });
+    })
 }
 
 /// Handles Brillig's CONST opcode.
@@ -279,7 +474,7 @@ fn handle_const(
     let dest = destination.to_usize() as u32;
 
     if !matches!(tag, AvmTypeTag::FIELD) {
-        avm_instrs.push(emit_set(tag, dest, value.to_u128()));
+        avm_instrs.push(generate_set_instruction(tag, dest, value.to_u128()));
     } else {
         // Handling fields is a bit more complex since we cannot fit a field in a single instruction.
         // We need to split the field into 128-bit chunks and set them individually.
@@ -291,14 +486,14 @@ fn handle_const(
             panic!("SET: Field value doesn't fit in 128 bits, that's not supported yet!");
         }
         avm_instrs.extend([
-            emit_set(AvmTypeTag::UINT128, dest, field.to_u128()),
-            emit_cast(dest, dest, AvmTypeTag::FIELD),
+            generate_set_instruction(AvmTypeTag::UINT128, dest, field.to_u128()),
+            generate_cast_instruction(dest, dest, AvmTypeTag::FIELD),
         ]);
     }
 }
 
-/// Emits an AVM SET instruction.
-fn emit_set(tag: AvmTypeTag, dest: u32, value: u128) -> AvmInstruction {
+/// Generates an AVM SET instruction.
+fn generate_set_instruction(tag: AvmTypeTag, dest: u32, value: u128) -> AvmInstruction {
     AvmInstruction {
         opcode: AvmOpcode::SET,
         indirect: Some(ALL_DIRECT),
@@ -316,7 +511,7 @@ fn emit_set(tag: AvmTypeTag, dest: u32, value: u128) -> AvmInstruction {
                 AvmTypeTag::UINT64 => AvmOperand::U64 {
                     value: value as u64,
                 },
-                AvmTypeTag::UINT128 => AvmOperand::U128 { value: value },
+                AvmTypeTag::UINT128 => AvmOperand::U128 { value },
                 _ => panic!("Invalid type tag {:?} for set", tag),
             },
             // dest offset
@@ -325,8 +520,8 @@ fn emit_set(tag: AvmTypeTag, dest: u32, value: u128) -> AvmInstruction {
     }
 }
 
-/// Emits an AVM CAST instruction.
-fn emit_cast(source: u32, destination: u32, dst_tag: AvmTypeTag) -> AvmInstruction {
+/// Generates an AVM CAST instruction.
+fn generate_cast_instruction(source: u32, destination: u32, dst_tag: AvmTypeTag) -> AvmInstruction {
     AvmInstruction {
         opcode: AvmOpcode::CAST,
         indirect: Some(ALL_DIRECT),
@@ -338,16 +533,54 @@ fn emit_cast(source: u32, destination: u32, dst_tag: AvmTypeTag) -> AvmInstructi
     }
 }
 
-/// Emits an AVM MOV instruction.
-fn emit_mov(indirect: Option<u8>, source: u32, dest: u32) -> AvmInstruction {
+/// Generates an AVM MOV instruction.
+fn generate_mov_instruction(indirect: Option<u8>, source: u32, dest: u32) -> AvmInstruction {
     AvmInstruction {
         opcode: AvmOpcode::MOV,
-        indirect: indirect,
+        indirect,
         operands: vec![
             AvmOperand::U32 { value: source },
             AvmOperand::U32 { value: dest },
         ],
         ..Default::default()
+    }
+}
+
+/// Black box functions, for the meantime only covers pedersen operations as the blackbox function api suits our current needs.
+/// (array goes in -> field element comes out)
+fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &BlackBoxOp) {
+    match operation {
+        BlackBoxOp::PedersenHash {
+            inputs,
+            domain_separator: _,
+            output,
+        } => {
+            let hash_offset = inputs.pointer.0;
+            let hash_size = inputs.size.0;
+
+            let dest_offset = output.0;
+
+            avm_instrs.push(AvmInstruction {
+                opcode: AvmOpcode::PEDERSEN,
+                indirect: Some(1),
+                operands: vec![
+                    AvmOperand::U32 {
+                        value: dest_offset as u32,
+                    },
+                    AvmOperand::U32 {
+                        value: hash_offset as u32,
+                    },
+                    AvmOperand::U32 {
+                        value: hash_size as u32,
+                    },
+                ],
+                ..Default::default()
+            });
+        }
+        _ => panic!(
+            "Transpiler doesn't know how to process BlackBoxOp {:?}",
+            operation
+        ),
     }
 }
 
@@ -367,12 +600,7 @@ fn map_brillig_pcs_to_avm_pcs(initial_offset: usize, brillig: &Brillig) -> Vec<u
     pc_map[0] = initial_offset;
     for i in 0..brillig.bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig.bytecode[i] {
-            BrilligOpcode::Load { .. } => 2,
-            BrilligOpcode::Store { .. } => 2,
-            BrilligOpcode::Const { bit_size, .. } => match bit_size {
-                254 => 2, // Field.
-                _ => 1,
-            },
+            BrilligOpcode::Const { bit_size: 254, .. } => 2,
             _ => 1,
         };
         // next Brillig pc will map to an AVM pc offset by the
@@ -384,6 +612,7 @@ fn map_brillig_pcs_to_avm_pcs(initial_offset: usize, brillig: &Brillig) -> Vec<u
 
 fn tag_from_bit_size(bit_size: u32) -> AvmTypeTag {
     match bit_size {
+        1 => AvmTypeTag::UINT8, // temp workaround
         8 => AvmTypeTag::UINT8,
         16 => AvmTypeTag::UINT16,
         32 => AvmTypeTag::UINT32,

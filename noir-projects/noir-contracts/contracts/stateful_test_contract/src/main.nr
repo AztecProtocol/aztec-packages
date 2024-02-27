@@ -6,12 +6,12 @@ contract StatefulTest {
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
         note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{map::Map, public_state::PublicState, set::Set}
+        state_vars::{Map, PublicMutable, PrivateSet}
     };
 
     struct Storage {
-        notes: Map<AztecAddress, Set<ValueNote>>,
-        public_values: Map<AztecAddress, PublicState<Field>>,
+        notes: Map<AztecAddress, PrivateSet<ValueNote>>,
+        public_values: Map<AztecAddress, PublicMutable<Field>>,
     }
 
     #[aztec(private)]
@@ -54,16 +54,5 @@ contract StatefulTest {
 
     unconstrained fn get_public_value(owner: AztecAddress) -> pub Field {
         storage.public_values.at(owner).read()
-    }
-
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; VALUE_NOTE_LEN]
-    ) -> pub [Field; 4] {
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
     }
 }

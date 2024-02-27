@@ -7,7 +7,7 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicStateDB } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
@@ -165,5 +165,9 @@ export class WorldStateDB implements CommitmentsDB {
 
   public async getCommitmentIndex(commitment: Fr): Promise<bigint | undefined> {
     return await this.db.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment.toBuffer());
+  }
+
+  public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
+    return await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
   }
 }

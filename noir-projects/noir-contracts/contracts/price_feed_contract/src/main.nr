@@ -5,8 +5,8 @@ contract PriceFeed {
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
         state_vars::{
-            map::Map,
-            public_state::PublicState,
+            Map,
+            PublicMutable,
         },
     };
     use dep::aztec::protocol_types::address::AztecAddress;
@@ -14,7 +14,7 @@ contract PriceFeed {
 
     // Storage structure, containing all storage, and specifying what slots they use.
     struct Storage {
-        assets: Map<Field, PublicState<Asset>>,
+        assets: Map<Field, PublicMutable<Asset>>,
     }
 
     #[aztec(private)]
@@ -33,16 +33,5 @@ contract PriceFeed {
 
     unconstrained fn fetch_price(assetId: Field) -> pub Asset {
         storage.assets.at(assetId).read()
-    }
-
-    // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; 0]
-    ) -> pub [Field; 4] {
-        [0, 0, 0, 0]
     }
 }

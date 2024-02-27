@@ -89,6 +89,7 @@
       "displayName": "Build with GCC",
       "description": "Build with globally installed GCC",
       "inherits": "default",
+      "binaryDir": "build-gcc",
       "environment": {
         "CC": "gcc",
         "CXX": "g++"
@@ -128,6 +129,18 @@
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON"
+      }
+    },
+    {
+      "name": "fuzzing-asan",
+      "displayName": "Build with fuzzing",
+      "description": "Build default preset but with fuzzing enabled",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-fuzzing",
+      "cacheVariables": {
+        "FUZZING": "ON",
+        "ENABLE_ASAN": "ON",
+        "DISABLE_ASM": "ON"
       }
     },
     {
@@ -274,16 +287,6 @@
       }
     },
     {
-      "name": "wasm-bench",
-      "displayName": "WASM benchmarking.",
-      "description": "WASM benchmarking.",
-      "inherits": "wasm-threads",
-      "binaryDir": "build-wasm-bench",
-      "environment": {
-        "CXXFLAGS": "-DWASMTIME_ENV_HACK"
-      }
-    },
-    {
       "name": "xray",
       "displayName": "Build with multi-threaded XRay Profiling",
       "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
@@ -386,6 +389,11 @@
       "inherits": "clang16",
       "configurePreset": "fuzzing"
     },
+{
+      "name": "fuzzing-asan",
+      "inherits": "clang16-dbg",
+      "configurePreset": "fuzzing-asan"
+    },
     {
       "name": "gperftools",
       "inherits": "clang16",
@@ -442,12 +450,6 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": ["barretenberg.wasm"]
-    },
-    {
-      "name": "wasm-bench",
-      "configurePreset": "wasm-bench",
-      "inheritConfigureEnvironment": true,
-      "jobs": 0
     },
     {
       "name": "xray",
@@ -515,6 +517,11 @@
       "name": "fuzzing",
       "inherits": "default",
       "configurePreset": "fuzzing"
+    },
+{
+      "name": "fuzzing-asan",
+      "inherits": "clang16-dbg",
+      "configurePreset": "fuzzing-asan"
     },
     {
       "name": "smt-verification",

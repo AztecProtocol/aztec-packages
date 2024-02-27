@@ -20,8 +20,8 @@ contract Lending {
     use dep::aztec::{
         context::{PrivateContext, PublicContext, Context},
         state_vars::{
-            map::Map,
-            public_state::PublicState,
+            Map,
+            PublicMutable,
         }
     };
     use crate::asset::Asset;
@@ -31,11 +31,11 @@ contract Lending {
 
     // Storage structure, containing all storage, and specifying what slots they use.
     struct Storage {
-        collateral_asset: PublicState<AztecAddress>,
-        stable_coin: PublicState<AztecAddress>,
-        assets: Map<Field, PublicState<Asset>>,
-        collateral: Map<AztecAddress, PublicState<Field>>,
-        static_debt: Map<AztecAddress, PublicState<Field>>, // abusing keys very heavily
+        collateral_asset: PublicMutable<AztecAddress>,
+        stable_coin: PublicMutable<AztecAddress>,
+        assets: Map<Field, PublicMutable<Asset>>,
+        collateral: Map<AztecAddress, PublicMutable<Field>>,
+        static_debt: Map<AztecAddress, PublicMutable<Field>>, // abusing keys very heavily
     }
 
     struct Position {
@@ -66,14 +66,7 @@ contract Lending {
         let last_updated_ts = context.timestamp() as u120;
         let loan_to_value = loan_to_value as u120;
 
-        asset_loc.write(
-            Asset {
-            interest_accumulator: 1000000000,
-            last_updated_ts,
-            loan_to_value,
-            oracle
-        }
-        );
+        asset_loc.write(Asset { interest_accumulator: 1000000000, last_updated_ts, loan_to_value, oracle });
 
         storage.collateral_asset.write(collateral_asset);
         storage.stable_coin.write(stable_coin);
@@ -305,16 +298,5 @@ contract Lending {
 
     unconstrained fn get_assets() -> pub [AztecAddress; 2] {
         [storage.collateral_asset.read(), storage.stable_coin.read()]
-    }
-
-    // TODO: remove this placeholder once https://github.com/AztecProtocol/aztec-packages/issues/2918 is implemented
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; 0]
-    ) -> pub [Field; 4] {
-        [0, 0, 0, 0]
     }
 }
