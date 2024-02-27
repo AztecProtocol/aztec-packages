@@ -139,9 +139,14 @@ template <typename FF_> class UltraArith {
 
     struct TraceBlocks {
         UltraTraceBlock pub_inputs;
+        UltraTraceBlock arithemetic;
+        UltraTraceBlock sort;
+        UltraTraceBlock elliptic;
+        UltraTraceBlock aux;
+        UltraTraceBlock lookup;
         UltraTraceBlock main;
 
-        auto get() { return RefArray{ pub_inputs, main }; }
+        auto get() { return RefArray{ pub_inputs, arithemetic, sort, elliptic, aux, lookup, main }; }
 
         bool operator==(const TraceBlocks& other) const = default;
     };
@@ -224,9 +229,14 @@ template <typename FF_> class UltraHonkArith {
     struct TraceBlocks {
         UltraHonkTraceBlock ecc_op;
         UltraHonkTraceBlock pub_inputs;
+        UltraHonkTraceBlock arithemetic;
+        UltraHonkTraceBlock sort;
+        UltraHonkTraceBlock elliptic;
+        UltraHonkTraceBlock aux;
+        UltraHonkTraceBlock lookup;
         UltraHonkTraceBlock main;
 
-        auto get() { return RefArray{ ecc_op, pub_inputs, main }; }
+        auto get() { return RefArray{ ecc_op, pub_inputs, arithemetic, sort, elliptic, aux, lookup, main }; }
 
         bool operator==(const TraceBlocks& other) const = default;
     };

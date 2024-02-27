@@ -154,20 +154,20 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate(const add_quad_<
                                                                 const bool include_next_gate_w_4)
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
-    blocks.main.populate_wires(in.a, in.b, in.c, in.d);
-    blocks.main.q_m().emplace_back(0);
-    blocks.main.q_1().emplace_back(in.a_scaling);
-    blocks.main.q_2().emplace_back(in.b_scaling);
-    blocks.main.q_3().emplace_back(in.c_scaling);
-    blocks.main.q_c().emplace_back(in.const_scaling);
-    blocks.main.q_arith().emplace_back(include_next_gate_w_4 ? 2 : 1);
-    blocks.main.q_4().emplace_back(in.d_scaling);
-    blocks.main.q_sort().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
-    blocks.main.q_aux().emplace_back(0);
+    blocks.arithemetic.populate_wires(in.a, in.b, in.c, in.d);
+    blocks.arithemetic.q_m().emplace_back(0);
+    blocks.arithemetic.q_1().emplace_back(in.a_scaling);
+    blocks.arithemetic.q_2().emplace_back(in.b_scaling);
+    blocks.arithemetic.q_3().emplace_back(in.c_scaling);
+    blocks.arithemetic.q_c().emplace_back(in.const_scaling);
+    blocks.arithemetic.q_arith().emplace_back(include_next_gate_w_4 ? 2 : 1);
+    blocks.arithemetic.q_4().emplace_back(in.d_scaling);
+    blocks.arithemetic.q_sort().emplace_back(0);
+    blocks.arithemetic.q_lookup_type().emplace_back(0);
+    blocks.arithemetic.q_elliptic().emplace_back(0);
+    blocks.arithemetic.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
+        blocks.arithemetic.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
