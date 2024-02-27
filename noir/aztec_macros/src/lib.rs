@@ -1253,7 +1253,7 @@ fn create_avm_context() -> Result<Statement, AztecMacroError> {
 /// Similarly; Structs will be pushed to the context, after serialize() is called on them.
 /// Arrays will be iterated over and each element will be pushed to the context.
 /// Any primitive type that can be cast will be casted to a field and pushed to the context.
-fn abstract_return_values(func: &NoirFunction) -> Option<Statement> {
+fn abstract_return_values(func: &mut NoirFunction) -> Option<Statement> {
     let current_return_type = func.return_type().typ;
     let len = func.def.body.len();
     let last_statement = &func.def.body.0[len - 1];
@@ -1265,7 +1265,7 @@ fn abstract_return_values(func: &NoirFunction) -> Option<Statement> {
     // Check if the return type is an expression, if it is, we can handle it
     match last_statement {
         Statement { kind: StatementKind::Expression(expression), .. } => {
-            match current_return_type {
+            let new_return = match current_return_type {
                 // Call serialize on structs, push the whole array, calling push_array
                 UnresolvedTypeData::Named(..) => Some(make_struct_return_type(expression.clone())),
                 UnresolvedTypeData::Array(..) => Some(make_array_return_type(expression.clone())),
@@ -1275,7 +1275,11 @@ fn abstract_return_values(func: &NoirFunction) -> Option<Statement> {
                 }
                 UnresolvedTypeData::FieldElement => Some(make_return_push(expression.clone())),
                 _ => None,
+            };
+            if new_return.is_some() {
+                func.def_mut().body.0.remove(len - 1);
             }
+            new_return
         }
         _ => None,
     }
