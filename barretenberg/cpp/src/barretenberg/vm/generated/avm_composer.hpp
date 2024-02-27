@@ -37,7 +37,7 @@ class AvmComposer {
     bool contains_recursive_proof = false;
     bool computed_witness = false;
 
-    AvmComposer() { crs_factory_ = bb::srs::get_crs_factory(); }
+    AvmComposer() { crs_factory_ = bb::srs::get_bn254_crs_factory(); }
 
     AvmComposer(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
         : proving_key(std::move(p_key))

@@ -40,7 +40,7 @@ class GoblinTranslatorComposer {
     size_t mini_circuit_dyadic_size = 0; // The size of the small circuit that contains non-range constraint relations
 
     // We only need the standard crs factory. GoblinTranslatorFlavor is not supposed to be used with Grumpkin
-    GoblinTranslatorComposer() { crs_factory_ = bb::srs::get_crs_factory(); }
+    GoblinTranslatorComposer() { crs_factory_ = bb::srs::get_bn254_crs_factory(); }
 
     GoblinTranslatorComposer(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
         : proving_key(std::move(p_key))

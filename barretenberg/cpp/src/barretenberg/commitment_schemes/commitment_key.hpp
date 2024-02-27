@@ -51,14 +51,7 @@ template <class Curve> class CommitmentKey {
      */
     CommitmentKey(const size_t num_points)
         : pippenger_runtime_state(num_points)
-        , crs_factory([]() {
-            if constexpr (std::same_as<Curve, curve::BN254>) {
-                return srs::get_crs_factory();
-            } else {
-                static_assert(std::same_as<Curve, curve::Grumpkin>);
-                return srs::get_grumpkin_crs_factory();
-            }
-        }())
+        , crs_factory(srs::get_crs_factory<Curve>())
         , srs(crs_factory->get_prover_crs(num_points))
     {}
 
