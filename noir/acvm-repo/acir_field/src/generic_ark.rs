@@ -254,6 +254,10 @@ impl<F: PrimeField> FieldElement<F> {
         (self.num_bits() <= 64).then(|| self.to_u128() as u64)
     }
 
+    pub fn try_to_u32(&self) -> Option<u32> {
+        (self.num_bits() <= 32).then(|| self.to_u128() as u32)
+    }
+
     /// Computes the inverse or returns zero if the inverse does not exist
     /// Before using this FieldElement, please ensure that this behavior is necessary
     pub fn inverse(&self) -> FieldElement<F> {

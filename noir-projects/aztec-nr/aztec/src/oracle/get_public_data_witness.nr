@@ -4,7 +4,7 @@ use dep::protocol_types::{
     utils::arr_copy_slice
 };
 
-global LEAF_PREIMAGE_LENGTH: u64 = 4;
+global LEAF_PREIMAGE_LENGTH: u32 = 4;
 global PUBLIC_DATA_WITNESS: Field = 45;
 
 struct PublicDataWitness {

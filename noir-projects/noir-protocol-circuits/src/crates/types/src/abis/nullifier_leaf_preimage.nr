@@ -1,4 +1,4 @@
-global NULLIFIER_LEAF_PREIMAGE_LENGTH: u64 = 3;
+global NULLIFIER_LEAF_PREIMAGE_LENGTH: u32 = 3;
 
 use crate::traits::{Empty, Hash};
 

@@ -221,6 +221,7 @@ impl FunctionBuilder {
         operator: BinaryOp,
         rhs: ValueId,
     ) -> ValueId {
+        // dbg!(lhs, rhs, operator);
         assert_eq!(
             self.type_of_value(lhs),
             self.type_of_value(rhs),
@@ -296,6 +297,7 @@ impl FunctionBuilder {
         element_type: Type,
     ) -> ValueId {
         let element_type = Some(vec![element_type]);
+        // dbg!(&element_type);
         self.insert_instruction(Instruction::ArrayGet { array, index }, element_type).first()
     }
 

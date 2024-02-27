@@ -128,6 +128,9 @@ impl<'a> FunctionContext<'a> {
     }
 
     fn codegen_expression(&mut self, expr: &Expression) -> Result<Values, RuntimeError> {
+
+        // dbg!(expr);
+
         match expr {
             Expression::Ident(ident) => Ok(self.codegen_ident(ident)),
             Expression::Literal(literal) => self.codegen_literal(literal),
@@ -186,6 +189,10 @@ impl<'a> FunctionContext<'a> {
     fn codegen_literal(&mut self, literal: &ast::Literal) -> Result<Values, RuntimeError> {
         match literal {
             ast::Literal::Array(array) => {
+
+                // dbg!(&array);
+
+                // TODO(md): need to double check this array upstream - is the
                 let elements =
                     try_vecmap(&array.contents, |element| self.codegen_expression(element))?;
 
@@ -347,6 +354,8 @@ impl<'a> FunctionContext<'a> {
     }
 
     fn codegen_binary(&mut self, binary: &ast::Binary) -> Result<Values, RuntimeError> {
+        // TODO: crashing in here
+        // dbg!(&binary);
         let lhs = self.codegen_non_tuple_expression(&binary.lhs)?;
         let rhs = self.codegen_non_tuple_expression(&binary.rhs)?;
         Ok(self.insert_binary(lhs, binary.operator, rhs, binary.location))
@@ -389,9 +398,11 @@ impl<'a> FunctionContext<'a> {
         // base_index = index * type_size
         let index = self.make_array_index(index);
         let type_size = Self::convert_type(element_type).size_of_type();
-        let type_size = self.builder.numeric_constant(type_size as u128, Type::unsigned(64));
+        let type_size = self.builder.numeric_constant(type_size as u128, Type::unsigned(32));
         let base_index =
             self.builder.set_location(location).insert_binary(index, BinaryOp::Mul, type_size);
+
+        // dbg!(index, type_size, base_index);
 
         let mut field_index = 0u128;
         Ok(Self::map_type(element_type, |typ| {
@@ -472,6 +483,8 @@ impl<'a> FunctionContext<'a> {
 
         // this is the 'i' in `for i in start .. end { block }`
         let index_type = Self::convert_non_tuple_type(&for_expr.index_type);
+        // dbg!(index_type.clone());
+
         let loop_index = self.builder.add_block_parameter(loop_entry, index_type);
 
         self.builder.set_location(for_expr.start_range_location);

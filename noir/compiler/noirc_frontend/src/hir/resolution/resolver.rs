@@ -1219,6 +1219,7 @@ impl<'a> Resolver<'a> {
                             );
                             (decl, this.resolve_expression(block))
                         });
+                        // dbg!(&identifier);
 
                         HirStatement::For(HirForStatement {
                             start_range,

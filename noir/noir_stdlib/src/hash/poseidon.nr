@@ -47,7 +47,7 @@ fn permute<M, N, O>(pos_conf: PoseidonConfig<M, N>, mut state: [Field; O]) -> [F
         }
 
         state = apply_matrix(mds, state); // Apply MDS matrix
-        count = count + t as u64;
+        count = count + t as u32;
     }
 
     state

@@ -560,14 +560,10 @@ impl BrilligContext {
     ) {
         // dbg!("const instruction", result, constant, bit_size);
         self.debug_show.const_instruction(result, constant);
-
+        
         // TODO: temporarily to unblock me ass
-        let bit_s = std::cmp::min(32, bit_size);
-        self.push_opcode(BrilligOpcode::Const {
-            destination: result,
-            value: constant,
-            bit_size: bit_s,
-        });
+        // let bit_s = std::cmp::min(32, bit_size);
+        self.push_opcode(BrilligOpcode::Const { destination: result, value: constant, bit_size });
     }
 
     pub(crate) fn usize_const(&mut self, result: MemoryAddress, constant: Value) {

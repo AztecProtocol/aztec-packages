@@ -730,9 +730,10 @@ impl<'a> FunctionContext<'a> {
         address
     }
 
-    /// Array indexes are u64s. This function casts values used as indexes to u64.
+    // TODO: HACK
+    /// Array indexes are u32s. This function casts values used as indexes to u32.
     pub(super) fn make_array_index(&mut self, index: ValueId) -> ValueId {
-        self.builder.insert_cast(index, Type::unsigned(64))
+        self.builder.insert_cast(index, Type::unsigned(32))
     }
 
     /// Define a local variable to be some Values that can later be retrieved
@@ -980,12 +981,12 @@ impl<'a> FunctionContext<'a> {
     ) -> ValueId {
         let index = self.make_array_index(index);
         let element_size =
-            self.builder.numeric_constant(self.element_size(array), Type::unsigned(64));
+            self.builder.numeric_constant(self.element_size(array), Type::unsigned(32));
 
         // The actual base index is the user's index * the array element type's size
         let mut index =
             self.builder.set_location(location).insert_binary(index, BinaryOp::Mul, element_size);
-        let one = self.builder.numeric_constant(FieldElement::one(), Type::unsigned(64));
+        let one = self.builder.numeric_constant(FieldElement::one(), Type::unsigned(32));
 
         new_value.for_each(|value| {
             let value = value.eval(self);
