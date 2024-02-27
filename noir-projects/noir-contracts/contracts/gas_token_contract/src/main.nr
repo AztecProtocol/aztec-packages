@@ -24,6 +24,7 @@ contract GasToken {
         storage.balances.at(to).write(new_balance);
     }
 
+    // TODO(@just-mitch): remove this function before mainnet deployment
     // convenience function for testing
     // the true canonical gas token contract will not have this function
     #[aztec(public)]
