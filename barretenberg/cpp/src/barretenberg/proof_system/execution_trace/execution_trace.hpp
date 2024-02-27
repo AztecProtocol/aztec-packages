@@ -40,7 +40,7 @@ template <class Flavor> class ExecutionTrace_ {
      *
      * @param builder
      */
-    static void generate(Builder& builder, const std::shared_ptr<ProvingKey>&);
+    static void populate(Builder& builder, const std::shared_ptr<ProvingKey>&);
 
   private:
     /**

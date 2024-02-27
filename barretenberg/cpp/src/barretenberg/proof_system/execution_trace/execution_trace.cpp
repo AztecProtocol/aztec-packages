@@ -6,7 +6,7 @@
 namespace bb {
 
 template <class Flavor>
-void ExecutionTrace_<Flavor>::generate(Builder& builder,
+void ExecutionTrace_<Flavor>::populate(Builder& builder,
                                        const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
 {
     // Construct wire polynomials, selector polynomials, and copy cycles from raw circuit data

@@ -69,7 +69,7 @@ template <class Flavor> class ProverInstance_ {
         proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, circuit.public_inputs.size());
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
-        Trace::generate(circuit, proving_key);
+        Trace::populate(circuit, proving_key);
 
         // If Goblin, construct the databus polynomials
         if constexpr (IsGoblinFlavor<Flavor>) {
