@@ -1,6 +1,7 @@
 use crate::{context::Context, oracle::{storage::{storage_read, storage_write}}, state_vars::storage::Storage};
 use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize}};
 
+// Just like SharedImmutable but without the ability to read from private functions.
 // docs:start:public_immutable_struct
 struct PublicImmutable<T> {
     context: Context,

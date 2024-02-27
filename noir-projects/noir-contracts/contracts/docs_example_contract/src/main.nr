@@ -56,7 +56,56 @@ contract DocsExample {
         // docs:start:storage-minters-declaration
         minters: Map<AztecAddress, PublicMutable<bool>>,
         // docs:end:storage-minters-declaration
+        // docs:start:storage-public-immutable-declaration
         public_immutable: PublicImmutable<Leader>,
+        // docs:end:storage-public-immutable-declaration
+    }
+
+    // Note: The following is no longer necessary to implement manually as our macros do this for us. It is left here
+    // for documentation purposes only.
+    impl Storage {
+        fn init(context: Context) -> Self {
+            Storage {
+                // docs:start:storage-leader-init
+                leader: PublicMutable::new(
+                    context,
+                    1
+                ),
+                // docs:end:storage-leader-init
+                // docs:start:start_vars_private_mutable
+                legendary_card: PrivateMutable::new(context, 3),
+                // docs:end:start_vars_private_mutable
+                // just used for docs example (not for game play):
+                // docs:start:state_vars-MapPrivateMutable
+                profiles: Map::new(
+                    context,
+                    4,
+                    |context, slot| {
+                        PrivateMutable::new(context, slot)
+                    },
+                ),
+                // docs:end:state_vars-MapPrivateMutable
+                // docs:start:storage-set-init
+                set: PrivateSet::new(context, 5),
+                // docs:end:storage-set-init
+                private_immutable: PrivateImmutable::new(context, 6),
+                // docs:start:storage-shared-immutable
+                shared_immutable: SharedImmutable::new(context, 7),
+                // docs:end:storage-shared-immutable
+                // docs:start:storage-minters-init
+                minters: Map::new(
+                    context,
+                    8,
+                    |context, slot| {
+                        PublicMutable::new(context, slot)
+                    },
+                ),
+                // docs:end:storage-minters-init
+                // docs:start:storage-public-immutable
+                public_immutable: PublicImmutable::new(context, 9),
+                // docs:end:storage-public-immutable
+            }
+        }
     }
 
     #[aztec(private)]
@@ -83,12 +132,16 @@ contract DocsExample {
 
     #[aztec(public)]
     fn initialize_public_immutable(points: u8) {
+        // docs:start:initialize_public_immutable
         let mut new_leader = Leader { account: context.msg_sender(), points };
         storage.public_immutable.initialize(new_leader);
+        // docs:end:initialize_public_immutable
     }
 
     unconstrained fn get_public_immutable() -> pub Leader {
+        // docs:start:read_public_immutable
         storage.public_immutable.read()
+        // docs:end:read_public_immutable
     }
 
     // docs:start:initialize-private-mutable
