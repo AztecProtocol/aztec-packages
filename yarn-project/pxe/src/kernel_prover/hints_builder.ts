@@ -106,6 +106,7 @@ export class HintsBuilder {
             membershipWitness.index,
             membershipWitness.siblingPath.toTuple<typeof NULLIFIER_TREE_HEIGHT>(),
           ),
+          membershipWitness.leafPreimage,
         );
       }
     }

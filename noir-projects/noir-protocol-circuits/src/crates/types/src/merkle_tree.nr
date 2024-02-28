@@ -1,5 +1,6 @@
 mod append_only_tree;
 mod indexed_tree;
+mod leaf_preimage;
 
 struct MerkleTree<N> {
     leaves: [Field; N],

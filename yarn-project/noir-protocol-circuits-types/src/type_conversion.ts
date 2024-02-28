@@ -140,13 +140,13 @@ import {
 } from './types/private_kernel_inner_types.js';
 import {
   NullifierReadRequestResetHints as NullifierReadRequestResetHintsNoir,
+  NullifierSettledReadHint as NullifierSettledReadHintNoir,
   PendingReadHint as PendingReadHintNoir,
   PrivateAccumulatedNonRevertibleData as PrivateAccumulatedNonRevertibleDataNoir,
   PrivateAccumulatedRevertibleData as PrivateAccumulatedRevertibleDataNoir,
   PrivateKernelTailCircuitPrivateInputs as PrivateKernelTailCircuitPrivateInputsNoir,
   PrivateKernelTailCircuitPublicInputs as PrivateKernelTailCircuitPublicInputsNoir,
   ReadRequestStatus as ReadRequestStatusNoir,
-  SettledReadHint as SettledReadHintNoir,
 } from './types/private_kernel_tail_types.js';
 import {
   PublicAccumulatedNonRevertibleData as PublicAccumulatedNonRevertibleDataNoir,
@@ -939,10 +939,13 @@ function mapPendingReadHintToNoir(hint: PendingReadHint): PendingReadHintNoir {
   };
 }
 
-function mapNullifierSettledReadHintToNoir(hint: SettledReadHint<typeof NULLIFIER_TREE_HEIGHT>): SettledReadHintNoir {
+function mapNullifierSettledReadHintToNoir(
+  hint: SettledReadHint<typeof NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage>,
+): NullifierSettledReadHintNoir {
   return {
     read_request_index: mapNumberToNoir(hint.readRequestIndex),
     membership_witness: mapNullifierMembershipWitnessToNoir(hint.membershipWitness),
+    leaf_preimage: mapNullifierLeafPreimageToNoir(hint.leafPreimage),
   };
 }
 
