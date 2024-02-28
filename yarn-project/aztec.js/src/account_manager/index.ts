@@ -6,11 +6,12 @@ import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { AccountContract } from '../account/contract.js';
 import { Salt } from '../account/index.js';
 import { AccountInterface } from '../account/interface.js';
-import { DefaultWaitOpts, DeployMethod, WaitOpts } from '../contract/index.js';
-import { ContractDeployer } from '../deployment/index.js';
+import { DeployMethod } from '../contract/deploy_method.js';
+import { DefaultWaitOpts, WaitOpts } from '../contract/sent_tx.js';
+import { ContractDeployer } from '../deployment/contract_deployer.js';
 import { waitForAccountSynch } from '../utils/account.js';
 import { generatePublicKey } from '../utils/index.js';
-import { AccountWalletWithPrivateKey } from '../wallet/index.js';
+import { AccountWalletWithPrivateKey, SignerlessWallet } from '../wallet/index.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 
 /**
@@ -25,6 +26,7 @@ export class AccountManager {
   private completeAddress?: CompleteAddress;
   private instance?: ContractInstanceWithAddress;
   private encryptionPublicKey?: PublicKey;
+  // TODO(@spalladino): Update to the new deploy method and kill the legacy one.
   private deployMethod?: DeployMethod;
 
   constructor(
@@ -130,7 +132,15 @@ export class AccountManager {
       }
       await this.#register();
       const encryptionPublicKey = this.getEncryptionPublicKey();
-      const deployer = new ContractDeployer(this.accountContract.getContractArtifact(), this.pxe, encryptionPublicKey);
+      // We use a signerless wallet so we hit the account contract directly and it deploys itself.
+      // If we used getWallet, the deployment would get routed via the account contract entrypoint
+      // instead of directly hitting the initializer.
+      const deployWallet = new SignerlessWallet(this.pxe);
+      const deployer = new ContractDeployer(
+        this.accountContract.getContractArtifact(),
+        deployWallet,
+        encryptionPublicKey,
+      );
       const args = this.accountContract.getDeploymentArgs();
       this.deployMethod = deployer.deploy(...args);
     }
@@ -139,6 +149,7 @@ export class AccountManager {
 
   /**
    * Deploys the account contract that backs this account.
+   * Does not register the associated class nor publicly deploy the instance.
    * Uses the salt provided in the constructor or a randomly generated one.
    * Note that if the Account is constructed with an explicit complete address
    * it is assumed that the account contract has already been deployed and this method will throw.
@@ -148,7 +159,11 @@ export class AccountManager {
   public async deploy(): Promise<DeployAccountSentTx> {
     const deployMethod = await this.getDeployMethod();
     const wallet = await this.getWallet();
-    const sentTx = deployMethod.send({ contractAddressSalt: this.salt });
+    const sentTx = deployMethod.send({
+      contractAddressSalt: this.salt,
+      skipClassRegistration: true,
+      skipPublicDeployment: true,
+    });
     return new DeployAccountSentTx(wallet, sentTx.getTxHash());
   }
 
