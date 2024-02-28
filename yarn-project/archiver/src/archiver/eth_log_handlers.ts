@@ -158,7 +158,6 @@ async function getBlockHashFromCallData(
  */
 async function getBlockBodiesFromCallData(publicClient: PublicClient, txHash: `0x${string}`): Promise<Body> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
-  // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
   const { functionName, args } = decodeFunctionData({
     abi: AvailabilityOracleAbi,
     data,
@@ -201,7 +200,7 @@ export function getL2BlockProcessedLogs(
 }
 
 /**
- * Gets relevant `L2BTxsPublished` logs from chain.
+ * Gets relevant `TxsPublished` logs from chain.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param dataAvailabilityOracleAddress - The address of the availability oracle contract.
  * @param fromBlock - First block to get logs from (inclusive).
