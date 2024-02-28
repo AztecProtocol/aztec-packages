@@ -85,16 +85,6 @@ class ClientIVCBench : public benchmark::Fixture {
 
             // Retrieve op_queue from function circuit
             std::swap(*ivc.goblin.op_queue, *kernel_and_function_builders[1].op_queue);
-
-            // Accumulate function circuit
-            Builder function_circuit{ ivc.goblin.op_queue };
-            GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
-            auto function_fold_proof = ivc.accumulate(function_circuit);
-
-            // Accumulate kernel circuit
-            Builder kernel_circuit{ ivc.goblin.op_queue };
-            GoblinMockCircuits::construct_mock_folding_kernel(kernel_circuit, function_fold_proof, kernel_fold_proof);
-            auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
         }
 
         // Perform last kernel accumulation
