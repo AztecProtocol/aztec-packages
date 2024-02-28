@@ -153,7 +153,6 @@ template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate(const add_quad_<FF>& in,
                                                                 const bool include_next_gate_w_4)
 {
-    // WORKTODO: make these blocks.arithmetic
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
     blocks.main.populate_wires(in.a, in.b, in.c, in.d);
     blocks.main.q_m().emplace_back(0);
@@ -2034,6 +2033,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     blocks.main.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
     record.gate_index = this->blocks.main.size() - 1;
     ++this->num_gates;
 }
@@ -2053,6 +2053,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_ROM_gate(RomRecord& re
     blocks.main.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
     record.gate_index = this->blocks.main.size() - 1;
     ++this->num_gates;
 }
@@ -2098,6 +2099,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     blocks.main.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
     record.gate_index = this->blocks.main.size() - 1;
     ++this->num_gates;
 }
@@ -2118,6 +2120,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_RAM_gate(RamRecord& re
     blocks.main.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
     record.gate_index = this->blocks.main.size() - 1;
     ++this->num_gates;
 }
@@ -2131,9 +2134,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_RAM_gate(RamRecord& re
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_final_sorted_RAM_gate(RamRecord& record, const size_t ram_array_size)
 {
-    // WORKTODO: the gate index here and elewhere needs to be set based on the size of whatever block contains the
-    // ram/rom gates
     record.record_witness = this->add_variable(0);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
     record.gate_index = this->blocks.main.size(); // no -1 since we havent added the gate yet
 
     create_big_add_gate({
@@ -2954,26 +2956,6 @@ inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compu
     FF alpha,
     FF eta) const
 {
-    // info("q_aux_value = ", q_aux_value);
-    // info("q_arith_value = ", q_arith_value);
-    // info("q_1_value = ", q_1_value);
-    // info("q_2_value = ", q_2_value);
-    // info("q_3_value = ", q_3_value);
-    // info("q_4_value = ", q_4_value);
-    // info("q_m_value = ", q_m_value);
-    // info("q_c_value = ", q_c_value);
-    // info("w_1_value = ", w_1_value);
-    // info("w_2_value = ", w_2_value);
-    // info("w_3_value = ", w_3_value);
-    // info("w_4_value = ", w_4_value);
-    // info("w_1_shifted_value = ", w_1_shifted_value);
-    // info("w_2_shifted_value = ", w_2_shifted_value);
-    // info("w_3_shifted_value = ", w_3_shifted_value);
-    // info("w_4_shifted_value = ", w_4_shifted_value);
-    // info("alpha_base = ", alpha_base);
-    // info("alpha = ", alpha);
-    // info("eta = ", eta);
-
     constexpr FF LIMB_SIZE(uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     // TODO(kesha): Replace with a constant defined in header
     constexpr FF SUBLIMB_SHIFT(uint256_t(1) << 14);
@@ -3241,18 +3223,12 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
     finalize_circuit();
 
     // Sample randomness
-    const FF arithmetic_base = 1;
-    const FF elliptic_base = 1;
-    const FF genperm_sort_base = 1;
-    const FF auxillary_base = 1;
-    const FF alpha = 1;
-    const FF eta = 1;
-    // const FF arithmetic_base = FF::random_element();
-    // const FF elliptic_base = FF::random_element();
-    // const FF genperm_sort_base = FF::random_element();
-    // const FF auxillary_base = FF::random_element();
-    // const FF alpha = FF::random_element();
-    // const FF eta = FF::random_element();
+    const FF arithmetic_base = FF::random_element();
+    const FF elliptic_base = FF::random_element();
+    const FF genperm_sort_base = FF::random_element();
+    const FF auxillary_base = FF::random_element();
+    const FF alpha = FF::random_element();
+    const FF eta = FF::random_element();
 
     // We need to get all memory
     std::unordered_set<size_t> memory_read_record_gates;
@@ -3325,9 +3301,8 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
         }
     };
     // For each gate
-    // WORKTODO: this is now only checking the main block. need to check all blocks
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): only checking the main block. check all blocks
     for (size_t i = 0; i < this->blocks.main.size(); i++) {
-        // info("INDEX = ", i);
         FF q_arith_value;
         FF q_aux_value;
         FF q_elliptic_value;
@@ -3379,6 +3354,7 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
         FF w_2_shifted_value;
         FF w_3_shifted_value;
         FF w_4_shifted_value;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): gate index based on block containing ram/rom
         if (i < (this->blocks.main.size() - 1)) {
             w_1_shifted_value = this->get_variable(blocks.main.w_l()[i + 1]);
             w_2_shifted_value = this->get_variable(blocks.main.w_r()[i + 1]);
