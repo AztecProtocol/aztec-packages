@@ -38,7 +38,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/744): make testing utility with functionality shared
      * amongst test files
      */
-    static void create_function_circuit(Builder& builder, size_t log_num_gates = 15)
+    static void create_function_circuit(Builder& builder, size_t log_num_gates = 10)
     {
         using fr_ct = typename Curve::ScalarField;
         using fq_ct = typename Curve::BaseField;
@@ -165,6 +165,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         Builder builder1;
         create_function_circuit(builder1);
         Builder builder2;
+        builder2.add_public_variable(FF(1));
         create_function_circuit(builder2);
 
         Composer composer = Composer();
@@ -183,13 +184,10 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         verifier.verify_folding_proof(folding_proof.folding_data);
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
 
-        // Perform native folding verification and ensure it returns the same result (either true or false) as
-        // calling check_circuit on the recursive folding verifier
+        // Perform native folding verification and ensure it returns the same result (either true or false) as calling
+        // check_circuit on the recursive folding verifier
         auto native_folding_verifier = composer.create_folding_verifier({ verifier_instance_1, verifier_instance_2 });
         native_folding_verifier.verify_folding_proof(folding_proof.folding_data);
-
-        // Check for a failure flag in the recursive verifier circuit
-        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
         // manifestsproduced by each agree.
@@ -199,6 +197,9 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
             EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i]);
         }
+
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
         {
             auto composer = Composer();
@@ -218,14 +219,16 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
      * make sure the verifer circuits pass check_circuit(). Ensure that the algorithm of the recursive and native
      * verifiers are identical by checking the manifests
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/844): Fold the recursive folding verifier in
-    // tests once we can fold instances of different sizes.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/844): Fold the recursive folding verifier in tests once
+    // we can fold instances of different sizes.
     static void test_full_protogalaxy_recursive()
     {
         // Create two arbitrary circuits for the first round of folding
         Builder builder1;
         create_function_circuit(builder1);
         Builder builder2;
+        builder2.add_public_variable(FF(1));
+
         create_function_circuit(builder2);
 
         Composer composer = Composer();
@@ -272,12 +275,23 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();
 
+        // Perform native verification then perform the pairing on the outputs of the recursive
+        //  decider verifier and check that the result agrees.
         DeciderVerifier native_decider_verifier = composer.create_decider_verifier(verifier_accumulator);
         auto native_result = native_decider_verifier.verify_proof(decider_proof);
         auto recursive_result = native_decider_verifier.pcs_verification_key->pairing_check(
             pairing_points[0].get_value(), pairing_points[1].get_value());
         EXPECT_EQ(native_result, recursive_result);
 
+        // Ensure that the underlying native and recursive decider verification algorithms agree by ensuring
+        // the manifests produced are the same.
+        auto recursive_decider_manifest = decider_verifier.transcript->get_manifest();
+        auto native_decider_manifest = native_decider_verifier.transcript->get_manifest();
+        for (size_t i = 0; i < recursive_decider_manifest.size(); ++i) {
+            EXPECT_EQ(recursive_decider_manifest[i], native_decider_manifest[i]);
+        }
+
+        // Construct and verify a proof of the recursive decider verifier circuit
         {
             auto composer = Composer();
             auto instance = composer.create_prover_instance(decider_circuit);
@@ -293,7 +307,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 
     static void test_tampered_decider_proof()
     {
-        // Create two arbitrary circuits for the first round of folding
+        // Natively fold two circuits
         auto composer = Composer();
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify_native(composer);
 
@@ -310,43 +324,37 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         decider_verifier.verify_proof(decider_proof);
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
 
-        {
-            auto composer = Composer();
-            auto instance = composer.create_prover_instance(decider_circuit);
-            auto verification_key = composer.compute_verification_key(instance);
-            auto prover = composer.create_prover(instance);
-            auto verifier = composer.create_verifier(verification_key);
-            auto proof = prover.construct_proof();
-            bool verified = verifier.verify_proof(proof);
-
-            EXPECT_FALSE(verified);
-        }
+        // We expect the decider circuit check to fail due to the bad proof
+        EXPECT_FALSE(decider_circuit.check_circuit());
     };
 
     static void test_tampered_accumulator()
     {
-
+        // Fold two circuits natively
         auto composer = Composer();
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify_native(composer);
 
         // Create another circuit to do a second round of folding
-        Builder builder3;
-        create_function_circuit(builder3);
-        auto prover_inst = composer.create_prover_instance(builder3);
+        Builder builder;
+        create_function_circuit(builder);
+        auto prover_inst = composer.create_prover_instance(builder);
         auto verifier_inst = composer.create_verifier_instance(prover_inst);
 
         prover_accumulator->prover_polynomials.w_l[1] = FF::random_element();
 
-        // Generate a folding proof
+        // Generate a folding proof with the incorrect polynomials which would result in the prover having the wrong
+        // target sum
         auto folding_prover = composer.create_folding_prover({ prover_accumulator, prover_inst });
         auto folding_proof = folding_prover.fold_instances();
 
-        // Create a recursive folding verifier circuit for the folding proof of the two instances
+        // Create a recursive folding verifier circuit for the folding proof of the two instances with the untampered
+        // commitments
         Builder folding_circuit;
         FoldingRecursiveVerifier verifier{ &folding_circuit,
                                            verifier_accumulator,
                                            { verifier_inst->verification_key } };
         auto recursive_verifier_acc = verifier.verify_folding_proof(folding_proof.folding_data);
+        // Validate that the target sum between prover and verifier is now different
         EXPECT_FALSE(folding_proof.accumulator->target_sum == recursive_verifier_acc->target_sum.get_value());
     };
 };

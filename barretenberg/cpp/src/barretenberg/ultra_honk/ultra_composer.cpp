@@ -68,7 +68,7 @@ std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_prover_i
     circuit.finalize_circuit();
     auto instance = std::make_shared<ProverInstance>(circuit);
     instance->instance_size = instance->proving_key->circuit_size;
-    commitment_key = compute_commitment_key(instance->instance_size); // hm
+    commitment_key = compute_commitment_key(instance->instance_size);
     return instance;
 }
 

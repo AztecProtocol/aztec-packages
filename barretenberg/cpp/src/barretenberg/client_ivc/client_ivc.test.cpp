@@ -48,11 +48,15 @@ class ClientIVCTests : public ::testing::Test {
     }
 
     /**
-     * @brief Construct mock kernel consisting of two recursive folding verifiers
+     * @brief Construct mock kernel consisting of two recursive folding verifiers to verify the folding of the previous
+     * function circuit and kernel circuit.
      *
      * @param builder
-     * @param fctn_fold_proof
-     * @param kernel_fold_proof
+     * @param fctn_accum contains the folding proof for the function circuit and the corresponsing function
+     * verifier instance
+     * @param kernel_accum contains the folding proof for the kernel circuit and the corresponding kernel verifier
+     * instance
+     * @returns the updated verifier accumulator
      */
     static VerifierAccumulator construct_mock_folding_kernel(Builder& builder,
                                                              VerifierFoldData& func_accum,

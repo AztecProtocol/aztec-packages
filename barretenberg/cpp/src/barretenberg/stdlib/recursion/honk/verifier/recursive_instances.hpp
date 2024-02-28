@@ -23,8 +23,8 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstan
     Builder* builder;
 
     RecursiveVerifierInstances_(Builder* builder,
-                                std::shared_ptr<NativeInstance> accumulator,
-                                std::vector<std::shared_ptr<NativeVerificationKey>> vks)
+                                const std::shared_ptr<NativeInstance>& accumulator,
+                                const std::vector<std::shared_ptr<NativeVerificationKey>>& vks)
         : builder(builder)
     {
         ASSERT(vks.size() == NUM - 1);

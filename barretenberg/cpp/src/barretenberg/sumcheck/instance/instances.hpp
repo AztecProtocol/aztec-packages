@@ -99,7 +99,7 @@ template <typename Flavor_, size_t NUM_> struct VerifierInstances_ {
     typename ArrayType::iterator end() { return _data.end(); };
     VerifierInstances_() = default;
 
-    VerifierInstances_(std::vector<std::shared_ptr<Instance>> data)
+    VerifierInstances_(const std::vector<std::shared_ptr<Instance>>& data)
     {
         ASSERT(data.size() == NUM);
         for (size_t idx = 0; idx < data.size(); idx++) {
