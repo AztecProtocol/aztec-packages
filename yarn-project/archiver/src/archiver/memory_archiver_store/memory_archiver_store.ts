@@ -151,7 +151,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets block bodies that have the same txHash as we supply.
+   * Gets block bodies that have the same txHashes as we supply.
    *
    * @param txsHashes - A list of txsHashes that correspond to the body hashes
    * @returns The requested L2 block bodies

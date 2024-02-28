@@ -30,8 +30,8 @@ export class BlockBodyStore {
 
   /**
    * Gets a list of L2 block bodies with its associated txsHashes
-   * @param txsHashes - The txsHash list that corresponds to the blockBodies we want to retrieve
-   * @returns The requested L2 block body
+   * @param txsHashes - The txsHashes list that corresponds to the blockBodies we want to retrieve
+   * @returns The requested L2 block bodies
    */
   async getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
     const blockBodiesBuffer = await this.db.transaction(() =>

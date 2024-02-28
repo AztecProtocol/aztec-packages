@@ -47,9 +47,10 @@ export interface ArchiverDataStore {
   addBlockBodies(blockBodies: Body[]): Promise<boolean>;
 
   /**
-   * Append new blocks to the store's list.
-   * @param blocks - The L2 blocks to be added to the store.
-   * @returns True if the operation is successful.
+   * Gets block bodies that have the same txHashes as we supply.
+   *
+   * @param txsHashes - A list of txsHashes that correspond to the body hashes
+   * @returns The requested L2 block bodies
    */
   getBlockBodies(txsHashes: Buffer[]): Promise<Body[]>;
 
