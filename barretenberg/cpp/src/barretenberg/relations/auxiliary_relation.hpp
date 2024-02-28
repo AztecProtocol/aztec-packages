@@ -48,7 +48,18 @@ template <typename FF_> class AuxiliaryRelationImpl {
         6, // RAM consistency sub-relation 2
         6  // RAM consistency sub-relation 3
     };
-
+    /**
+     * @brief Determine if auxiliary relation can be ignored at current row
+     *
+     * @param in UnivariateViews of entities
+     * @return true if we can skip
+     * @return false if relation has to be accumulated
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        // If evaluations at 0 and 1 are both zero, then all evaluations are zero and relation will result in zero
+        return in.q_aux.evaluations[0].is_zero() && in.q_aux.evaluations[1].is_zero();
+    }
     /**
      * @brief Expression for the generalized permutation sort gate.
      * @details The following explanation is reproduced from the Plonk analog 'plookup_auxiliary_widget':

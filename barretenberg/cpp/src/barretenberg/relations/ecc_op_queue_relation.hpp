@@ -19,6 +19,18 @@ template <typename FF_> class EccOpQueueRelationImpl {
     };
 
     /**
+     * @brief Determine if EccOpQueue relation can be ignored at current row
+     *
+     * @param in UnivariateViews of entities
+     * @return true if we can skip
+     * @return false if relation has to be accumulated
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        // If evaluations at 0 and 1 are both zero, then all evaluations are zero and relation will result in zero
+        return in.lagrange_ecc_op.evaluations[0].is_zero() && in.lagrange_ecc_op.evaluations[1].is_zero();
+    }
+    /**
      * @brief Expression for the generalized permutation sort gate.
      * @details The relation is defined as C(in(X)...) =
      *    \alpha_{base} *

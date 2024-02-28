@@ -11,6 +11,10 @@ template <typename FF_> class UltraArithmeticRelationImpl {
         6, // primary arithmetic sub-relation
         5  // secondary arithmetic sub-relation
     };
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.q_arith.evaluations[0].is_zero() && in.q_arith.evaluations[1].is_zero();
+    }
 
     /**
      * @brief Expression for the Ultra Arithmetic gate.

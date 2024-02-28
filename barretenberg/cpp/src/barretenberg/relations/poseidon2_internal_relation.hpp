@@ -16,6 +16,18 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
     };
 
     /**
+     * @brief Determine if poseidon internal relation can be ignored at current row
+     *
+     * @param in UnivariateViews of entities
+     * @return true if we can skip
+     * @return false if relation has to be accumulated
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        // If evaluations at 0 and 1 are both zero, then all evaluations are zero and relation will result in zero
+        return in.q_poseidon2_internal.evaluations[0].is_zero() && in.q_poseidon2_internal.evaluations[1].is_zero();
+    }
+    /**
      * @brief Expression for the poseidon2 internal round relation, based on I_i in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.
      * @details This relation is defined as C(in(X)...) :=

@@ -23,6 +23,20 @@ template <typename FF_> class DatabusLookupRelationImpl {
         LENGTH  // log-derivative lookup argument subrelation
     };
 
+    /**
+     * @brief Determine if DatabusLookup relation can be ignored at current row
+     *
+     * @param in UnivariateViews of entities
+     * @return true if we can skip
+     * @return false if relation has to be accumulated
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        // If evaluations at 0 and 1 for selectors determinining read and write are both zero, then all
+        // evaluations are zero and relation will result in zero
+        return in.q_busread.evaluations[0].is_zero() && in.q_busread.evaluations[1].is_zero() &&
+               in.calldata_read_counts.evaluations[0].is_zero() && in.calldata_read_counts.evaluations[1].is_zero();
+    }
     // The second subrelation is "linearly dependant" in the sense that it establishes the value of a sum across the
     // entire execution trace rather than a per-row identity.
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
