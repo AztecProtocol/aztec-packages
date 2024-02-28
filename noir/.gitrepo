@@ -5,8 +5,8 @@
 ;
 [subrepo]
 	remote = https://github.com/noir-lang/noir
-	branch = master
-	commit = e80c5f73a4cdcba3f5cf44576c605ba1e611a2ab
-	parent = 8307dadd853d5091841e169c841ab6b09c223efb
+	branch = arv/emulate_checked_arith_brillig
+	commit = d77d1e7cc51b5ab535f5e7d0200e44187e88bf02
+	parent = efd70f4b8bb284815c5345bd16d79018ed2dd812
 	method = merge
 	cmdver = 0.4.6
