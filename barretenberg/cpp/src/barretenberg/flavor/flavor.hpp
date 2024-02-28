@@ -103,6 +103,7 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     using Polynomial = typename PrecomputedPolynomials::DataType;
     using FF = typename Polynomial::FF;
 
+    size_t circuit_size;
     bool contains_recursive_proof;
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bb::EvaluationDomain<FF> evaluation_domain;
@@ -122,7 +123,7 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     {
         this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size + 1);
         this->evaluation_domain = bb::EvaluationDomain<FF>(circuit_size, circuit_size);
-        PrecomputedPolynomials::circuit_size = circuit_size;
+        this->circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
         // Allocate memory for precomputed polynomials
@@ -152,6 +153,10 @@ template <typename PrecomputedCommitments> class VerificationKey_ : public Preco
     };
     template <typename ProvingKeyPtr> VerificationKey_(const ProvingKeyPtr& proving_key)
     {
+        this->circuit_size = proving_key->circuit_size;
+        this->log_circuit_size = numeric::get_msb(this->circuit_size);
+        this->num_public_inputs = proving_key->num_public_inputs;
+
         for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
             commitment = proving_key->commitment_key->commit(polynomial);
         }
