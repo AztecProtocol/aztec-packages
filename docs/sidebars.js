@@ -102,7 +102,6 @@ const sidebars = {
           label: "Storage",
           type: "category",
           items: [
-            "learn/concepts/storage/notes",
             {
               label: "Trees",
               type: "category",
