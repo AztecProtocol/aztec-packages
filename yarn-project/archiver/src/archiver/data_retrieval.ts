@@ -11,7 +11,7 @@ import {
   getL2TxsPublishedLogs,
   getPendingL1ToL2MessageLogs,
   processBlockBodyLogs,
-  processBlockLogs,
+  processBlockMetadataLogs,
   processCancelledL1ToL2MessagesLogs,
   processContractDeploymentLogs,
   processPendingL1ToL2MessageAddedLogs,
@@ -32,16 +32,16 @@ export type DataRetrieval<T> = {
 };
 
 /**
- * Fetches new L2 Blocks.
+ * Fetches new L2 block metadata (header, archive root).
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param rollupAddress - The address of the rollup contract.
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
  * @param expectedNextL2BlockNum - The next L2 block number that we expect to find.
- * @returns An array of L2 Blocks and the next eth block to search from
+ * @returns An array of tuples representing block metadata including the header, archive tree root, and associated l1 block number; as well as the next eth block to search from
  */
-export async function retrieveBlockHashesFromRollup(
+export async function retrieveBlockMetadataFromRollup(
   publicClient: PublicClient,
   rollupAddress: EthAddress,
   blockUntilSynced: boolean,
@@ -64,7 +64,7 @@ export async function retrieveBlockHashesFromRollup(
       break;
     }
 
-    const newBlockMetadata = await processBlockLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
+    const newBlockMetadata = await processBlockMetadataLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
     retrievedBlockMetadata.push(...newBlockMetadata);
     searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
     expectedNextL2BlockNum += BigInt(newBlockMetadata.length);
@@ -73,18 +73,17 @@ export async function retrieveBlockHashesFromRollup(
 }
 
 /**
- * Fetches new L2 Blocks.
+ * Fetches new L2 block bodies and their hashes.
  * @param publicClient - The viem public client to use for transaction retrieval.
- * @param dataAvailabilityAddress - The address of the rollup contract.
+ * @param availabilityOracleAddress - The address of the availability oracle contract.
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
- * @param expectedNextL2BlockNum - The next L2 block number that we expect to find.
- * @returns An array of L2 Blocks and the next eth block to search from
+ * @returns A array of tuples of L2 block bodies and their associated hash as well as the next eth block to search from
  */
-export async function retrieveBlockBodiesFromDataAvailability(
+export async function retrieveBlockBodiesFromAvailabilityOracle(
   publicClient: PublicClient,
-  dataAvailabilityAddress: EthAddress,
+  availabilityOracleAddress: EthAddress,
   blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
@@ -97,7 +96,7 @@ export async function retrieveBlockBodiesFromDataAvailability(
     }
     const l2TxsPublishedLogs = await getL2TxsPublishedLogs(
       publicClient,
-      dataAvailabilityAddress,
+      availabilityOracleAddress,
       searchStartBlock,
       searchEndBlock,
     );

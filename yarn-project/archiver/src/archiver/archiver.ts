@@ -38,8 +38,8 @@ import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'vi
 import { ArchiverDataStore } from './archiver_store.js';
 import { ArchiverConfig } from './config.js';
 import {
-  retrieveBlockBodiesFromDataAvailability,
-  retrieveBlockHashesFromRollup,
+  retrieveBlockBodiesFromAvailabilityOracle,
+  retrieveBlockMetadataFromRollup,
   retrieveNewCancelledL1ToL2Messages,
   retrieveNewContractData,
   retrieveNewPendingL1ToL2Messages,
@@ -238,7 +238,7 @@ export class Archiver implements ArchiveSource {
     // Read all data from chain and then write to our stores at the end
     const nextExpectedL2BlockNum = BigInt((await this.store.getBlockNumber()) + 1);
 
-    const retrievedBlockBodies = await retrieveBlockBodiesFromDataAvailability(
+    const retrievedBlockBodies = await retrieveBlockBodiesFromAvailabilityOracle(
       this.publicClient,
       this.availabilityOracleAddress,
       blockUntilSynced,
@@ -250,7 +250,7 @@ export class Archiver implements ArchiveSource {
 
     await this.store.addBlockBodies(blockBodies);
 
-    const retrievedBlockMetadata = await retrieveBlockHashesFromRollup(
+    const retrievedBlockMetadata = await retrieveBlockMetadataFromRollup(
       this.publicClient,
       this.rollupAddress,
       blockUntilSynced,

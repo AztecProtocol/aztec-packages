@@ -109,7 +109,7 @@ The private kernel circuits will output 8 `Gas` values. The 6 `GasLimit`'s repre
 | `L2FeeDistributionGas` | The quantity of L2 gas the sequencer can charge for executing the fee distribution function |
 | `DAFeeDistributionGas` | The quantity of DA gas the sequencer can charge for publishing state updates and events, which are produced as part of fee distribution |
 | `DAAmortizedGasLimit` | The maximum quantity of gas permitted for use in amortized Data Availability operations |
-| `DATxGasLimit` | The maximum quantity of DA gas permitted for use in transaction specific Data Availability functions |
+| `aoTxGasLimit` | The maximum quantity of DA gas permitted for use in transaction specific Data Availability functions |
 
 By constraining each of these values individually, the transaction sender is protected from a dishonest sequencer allocating an unfairly high amount of gas to one category and leaving insufficient gas for other categories causing a transaction to erroneously be deemed 'out of gas' and a fee taken for improper execution.
 
@@ -127,7 +127,7 @@ The total fees provided with a transaction can now be derived.
 ```
 L1Fee = (L1AmortizedGasLimit + L1TxGasLimit) * feePerL1Gas
 L2Fee = (L2AmortizedGasLimit + L2TxGasLimit + L2FeeDistributionGas) * feePerL2Gas
-DAFee = (DAAmortizedGasLimit + DATxGasLimit + DAFeeDistributionGas) * feePerDAGas
+DAFee = (DAAmortizedGasLimit + aoTxGasLimit + DAFeeDistributionGas) * feePerDAGas
 
 TotalFee = L1Fee + L2Fee + DAFee 
 ```

@@ -64,8 +64,9 @@ export function processCancelledL1ToL2MessagesLogs(
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param expectedL2BlockNumber - The next expected L2 block number.
  * @param logs - L2BlockProcessed logs.
+ * @returns - An array of tuples representing block metadata including the header, archive tree root, and associated l1 block number
  */
-export async function processBlockLogs(
+export async function processBlockMetadataLogs(
   publicClient: PublicClient,
   expectedL2BlockNumber: bigint,
   logs: Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[],
@@ -77,7 +78,7 @@ export async function processBlockLogs(
       throw new Error('Block number mismatch. Expected: ' + expectedL2BlockNumber + ' but got: ' + blockNum + '.');
     }
     // TODO: Fetch blocks from calldata in parallel
-    const [header, archive] = await getBlockHashFromCallData(publicClient, log.transactionHash!, log.args.blockNumber);
+    const [header, archive] = await getBlockMetadataFromRollupTx(publicClient, log.transactionHash!, log.args.blockNumber);
 
     retrievedBlockMetadata.push([header, archive, log.blockNumber!]);
     expectedL2BlockNumber++;
@@ -92,11 +93,7 @@ export async function processBlockBodyLogs(
 ): Promise<[Body, Buffer][]> {
   const retrievedBlockBodies: [Body, Buffer][] = [];
   for (const log of logs) {
-    // // TODO: Fetch blocks from calldata in parallel
-    const newBlockBody = await getBlockBodiesFromCallData(publicClient, log.transactionHash!);
-    // newBlock.setL1BlockNumber(log.blockNumber!);
-    // retrievedBlocks.push(newBlock);
-    // expectedL2BlockNumber++;
+    const newBlockBody = await getBlockBodiesFromAvailabilityOracleTx(publicClient, log.transactionHash!);
     retrievedBlockBodies.push([newBlockBody, Buffer.from(hexToBytes(log.args.txsHash))]);
   }
 
@@ -104,15 +101,15 @@ export async function processBlockBodyLogs(
 }
 
 /**
- * Builds an L2 block out of calldata from the tx that published it.
+ * Gets block metadata (header and archive root) from the calldata of a L1 transaction
  * Assumes that the block was published from an EOA.
  * TODO: Add retries and error management.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param txHash - Hash of the tx that published it.
  * @param l2BlockNum - L2 block number.
- * @returns An L2 block deserialized from the calldata.
+ * @returns L2 block metadata (header and archive) from the calldata, deserialized
  */
-async function getBlockHashFromCallData(
+async function getBlockMetadataFromRollupTx(
   publicClient: PublicClient,
   txHash: `0x${string}`,
   l2BlockNum: bigint,
@@ -147,15 +144,14 @@ async function getBlockHashFromCallData(
 }
 
 /**
- * Builds an L2 block out of calldata from the tx that published it.
+ * Gets block bodies from calldata of a L1 transaction, and deserializes them into Body objects
  * Assumes that the block was published from an EOA.
  * TODO: Add retries and error management.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param txHash - Hash of the tx that published it.
- * @param l2BlockNum - L2 block number.
- * @returns An L2 block deserialized from the calldata.
+ * @returns An L2 block body from the calldata, deserialized
  */
-async function getBlockBodiesFromCallData(publicClient: PublicClient, txHash: `0x${string}`): Promise<Body> {
+async function getBlockBodiesFromAvailabilityOracleTx(publicClient: PublicClient, txHash: `0x${string}`): Promise<Body> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
   const { functionName, args } = decodeFunctionData({
     abi: AvailabilityOracleAbi,
@@ -204,7 +200,7 @@ export function getL2BlockProcessedLogs(
  * @param dataAvailabilityOracleAddress - The address of the availability oracle contract.
  * @param fromBlock - First block to get logs from (inclusive).
  * @param toBlock - Last block to get logs from (inclusive).
- * @returns An array of `L2BlockProcessed` logs.
+ * @returns An array of `TxsPublished` logs.
  */
 export function getL2TxsPublishedLogs(
   publicClient: PublicClient,
