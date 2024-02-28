@@ -78,7 +78,7 @@ Notes touch several core components of the protocol, but we will focus on a the 
 #### Some code context
 The way Aztec benefits from the Noir language is via three important components:
 - `Aztec-nr` - a Noir framework enabling contracts on Aztec, written in Noir. Includes useful Note implementations
-- `noir contracts` - , example Aztec contracts
+- `noir contracts` - example Aztec contracts
 - `noir-protocol-circuits` - a crate containing essential circuits for the protocol (public circuits and private wrappers)
 
 A lot of what we will look at will be in [aztec-nr/aztec/src/note](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note), specifically the lifecycle and note interface.
