@@ -239,12 +239,9 @@ describe('e2e_deploy_contract', () => {
       const owner = await registerRandomAccount(pxe);
       const initArgs: StatefulContractCtorArgs = [owner, 42];
       const contract = await registerContract(wallet, StatefulTestContract, initArgs);
-      // TODO(@spalladino): It'd be nicer to be able to fail the assert with a more descriptive message,
-      // but the best we can do for now is pushing a read request to the kernel and wait for it to fail.
-      // Maybe we need an unconstrained check for the read request that runs within the app circuit simulation
-      // so we can bail earlier with a more descriptive error? I should create an issue for this.
+      // TODO(@spalladino): It'd be nicer to be able to fail the assert with a more descriptive message.
       await expect(contract.methods.create_note(owner, 10).send().wait()).rejects.toThrow(
-        /The read request.*does not match/,
+        /nullifier witness not found/,
       );
     });
 
