@@ -51,6 +51,8 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
+    size_t size() { return std::get<0>(this->wires).size(); }
+
     void reserve(size_t size_hint)
     {
         for (auto& w : wires) {
@@ -139,14 +141,14 @@ template <typename FF_> class UltraArith {
 
     struct TraceBlocks {
         UltraTraceBlock pub_inputs;
-        UltraTraceBlock arithemetic;
+        UltraTraceBlock arithmetic;
         UltraTraceBlock sort;
         UltraTraceBlock elliptic;
         UltraTraceBlock aux;
         UltraTraceBlock lookup;
         UltraTraceBlock main;
 
-        auto get() { return RefArray{ pub_inputs, arithemetic, sort, elliptic, aux, lookup, main }; }
+        auto get() { return RefArray{ pub_inputs, arithmetic, sort, elliptic, aux, lookup, main }; }
 
         bool operator==(const TraceBlocks& other) const = default;
     };
@@ -229,14 +231,14 @@ template <typename FF_> class UltraHonkArith {
     struct TraceBlocks {
         UltraHonkTraceBlock ecc_op;
         UltraHonkTraceBlock pub_inputs;
-        UltraHonkTraceBlock arithemetic;
+        UltraHonkTraceBlock arithmetic;
         UltraHonkTraceBlock sort;
         UltraHonkTraceBlock elliptic;
         UltraHonkTraceBlock aux;
         UltraHonkTraceBlock lookup;
         UltraHonkTraceBlock main;
 
-        auto get() { return RefArray{ ecc_op, pub_inputs, arithemetic, sort, elliptic, aux, lookup, main }; }
+        auto get() { return RefArray{ ecc_op, pub_inputs, arithmetic, sort, elliptic, aux, lookup, main }; }
 
         bool operator==(const TraceBlocks& other) const = default;
     };

@@ -153,21 +153,22 @@ template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate(const add_quad_<FF>& in,
                                                                 const bool include_next_gate_w_4)
 {
+    // WORKTODO: make these blocks.arithmetic
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
-    blocks.arithemetic.populate_wires(in.a, in.b, in.c, in.d);
-    blocks.arithemetic.q_m().emplace_back(0);
-    blocks.arithemetic.q_1().emplace_back(in.a_scaling);
-    blocks.arithemetic.q_2().emplace_back(in.b_scaling);
-    blocks.arithemetic.q_3().emplace_back(in.c_scaling);
-    blocks.arithemetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithemetic.q_arith().emplace_back(include_next_gate_w_4 ? 2 : 1);
-    blocks.arithemetic.q_4().emplace_back(in.d_scaling);
-    blocks.arithemetic.q_sort().emplace_back(0);
-    blocks.arithemetic.q_lookup_type().emplace_back(0);
-    blocks.arithemetic.q_elliptic().emplace_back(0);
-    blocks.arithemetic.q_aux().emplace_back(0);
+    blocks.main.populate_wires(in.a, in.b, in.c, in.d);
+    blocks.main.q_m().emplace_back(0);
+    blocks.main.q_1().emplace_back(in.a_scaling);
+    blocks.main.q_2().emplace_back(in.b_scaling);
+    blocks.main.q_3().emplace_back(in.c_scaling);
+    blocks.main.q_c().emplace_back(in.const_scaling);
+    blocks.main.q_arith().emplace_back(include_next_gate_w_4 ? 2 : 1);
+    blocks.main.q_4().emplace_back(in.d_scaling);
+    blocks.main.q_sort().emplace_back(0);
+    blocks.main.q_lookup_type().emplace_back(0);
+    blocks.main.q_elliptic().emplace_back(0);
+    blocks.main.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.arithemetic.pad_additional();
+        blocks.main.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
@@ -2951,6 +2952,26 @@ inline typename Arithmetization::FF UltraCircuitBuilder_<Arithmetization>::compu
     FF alpha,
     FF eta) const
 {
+    // info("q_aux_value = ", q_aux_value);
+    // info("q_arith_value = ", q_arith_value);
+    // info("q_1_value = ", q_1_value);
+    // info("q_2_value = ", q_2_value);
+    // info("q_3_value = ", q_3_value);
+    // info("q_4_value = ", q_4_value);
+    // info("q_m_value = ", q_m_value);
+    // info("q_c_value = ", q_c_value);
+    // info("w_1_value = ", w_1_value);
+    // info("w_2_value = ", w_2_value);
+    // info("w_3_value = ", w_3_value);
+    // info("w_4_value = ", w_4_value);
+    // info("w_1_shifted_value = ", w_1_shifted_value);
+    // info("w_2_shifted_value = ", w_2_shifted_value);
+    // info("w_3_shifted_value = ", w_3_shifted_value);
+    // info("w_4_shifted_value = ", w_4_shifted_value);
+    // info("alpha_base = ", alpha_base);
+    // info("alpha = ", alpha);
+    // info("eta = ", eta);
+
     constexpr FF LIMB_SIZE(uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     // TODO(kesha): Replace with a constant defined in header
     constexpr FF SUBLIMB_SHIFT(uint256_t(1) << 14);
@@ -3218,12 +3239,18 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
     finalize_circuit();
 
     // Sample randomness
-    const FF arithmetic_base = FF::random_element();
-    const FF elliptic_base = FF::random_element();
-    const FF genperm_sort_base = FF::random_element();
-    const FF auxillary_base = FF::random_element();
-    const FF alpha = FF::random_element();
-    const FF eta = FF::random_element();
+    const FF arithmetic_base = 1;
+    const FF elliptic_base = 1;
+    const FF genperm_sort_base = 1;
+    const FF auxillary_base = 1;
+    const FF alpha = 1;
+    const FF eta = 1;
+    // const FF arithmetic_base = FF::random_element();
+    // const FF elliptic_base = FF::random_element();
+    // const FF genperm_sort_base = FF::random_element();
+    // const FF auxillary_base = FF::random_element();
+    // const FF alpha = FF::random_element();
+    // const FF eta = FF::random_element();
 
     // We need to get all memory
     std::unordered_set<size_t> memory_read_record_gates;
@@ -3296,7 +3323,9 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
         }
     };
     // For each gate
-    for (size_t i = 0; i < this->num_gates; i++) {
+    // WORKTODO: this is now only checking the main block. need to check all blocks
+    for (size_t i = 0; i < this->blocks.main.size(); i++) {
+        // info("INDEX = ", i);
         FF q_arith_value;
         FF q_aux_value;
         FF q_elliptic_value;
@@ -3348,7 +3377,7 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
         FF w_2_shifted_value;
         FF w_3_shifted_value;
         FF w_4_shifted_value;
-        if (i < (this->num_gates - 1)) {
+        if (i < (this->blocks.main.size() - 1)) {
             w_1_shifted_value = this->get_variable(blocks.main.w_l()[i + 1]);
             w_2_shifted_value = this->get_variable(blocks.main.w_r()[i + 1]);
             w_3_shifted_value = this->get_variable(blocks.main.w_o()[i + 1]);

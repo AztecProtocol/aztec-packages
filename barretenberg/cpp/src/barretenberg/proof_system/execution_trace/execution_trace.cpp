@@ -57,7 +57,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
     // For each block in the trace, populate wire polys, copy cycles and selector polys
     for (auto& block : builder.blocks.get()) {
-        auto block_size = static_cast<uint32_t>(block.wires[0].size());
+        auto block_size = static_cast<uint32_t>(block.size());
         info("block size = ", block_size);
 
         // Update wire polynomials and copy cycles
