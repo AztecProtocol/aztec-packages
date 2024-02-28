@@ -64,6 +64,8 @@ std::shared_ptr<typename Flavor::VerificationKey> UltraComposer_<Flavor>::comput
 template <IsUltraFlavor Flavor>
 std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_prover_instance(CircuitBuilder& circuit)
 {
+    BB_OP_COUNT_TIME_NAME("UltraComposer::create_prover_instance");
+
     circuit.add_gates_to_ensure_all_polys_are_non_zero();
     circuit.finalize_circuit();
     auto instance = std::make_shared<ProverInstance>(circuit);
