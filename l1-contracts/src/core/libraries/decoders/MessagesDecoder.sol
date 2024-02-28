@@ -78,6 +78,8 @@ library MessagesDecoder {
     uint256 numTxs = read4(_body, offset);
     offset += 0x4;
 
+    l2ToL1Msgs = new bytes32[](numTxs * Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX);
+
     // Now we iterate over the tx effects
     for (uint256 i = 0; i < numTxs; i++) {
       // Note hashes
@@ -95,29 +97,20 @@ library MessagesDecoder {
         count = read1(_body, offset);
         offset += 0x1;
 
-        // First we copy the total messages to temporary variable
-        bytes32[] memory currentMsgs = l2ToL1Msgs;
-        uint256 numCurrentMessages = currentMsgs.length;
-
-        // Next we allocate a new array which accomodates both the current and new messages
-        l2ToL1Msgs = new bytes32[](numCurrentMessages + count);
-
-        // Now we copy current messages to the newly allocated array
-        for (uint256 j = 0; j < numCurrentMessages; j++) {
-          l2ToL1Msgs[j] = currentMsgs[j];
-        }
-
-        // Then we copy the new messages to next
         uint256 msgsLength = count * 0x20; // each l2 to l1 message is 0x20 bytes long
-        assembly {
-          calldatacopy(
-            add(add(l2ToL1Msgs, 0x20), mul(numCurrentMessages, 0x20)),
-            add(_body.offset, offset),
-            msgsLength
-          )
+
+        // Now we copy the new messages into the array (if there are some)
+        if (count > 0) {
+          uint256 indexInArray = i * Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX;
+          assembly {
+            calldatacopy(
+              add(add(l2ToL1Msgs, 0x20), mul(indexInArray, 0x20)),
+              add(_body.offset, offset),
+              msgsLength
+            )
+          }
         }
 
-        // Finally we increase the offset by the length of the new messages
         offset += msgsLength;
       }
 
