@@ -160,9 +160,9 @@ library TxsDecoder {
         offsets.contractData = offset;
         offset += count * 0x34; // each contract data is 0x34 bytes long
 
-        bytes memory contractDataBlob = new bytes(Constants.CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP);
+        bytes memory contractData = new bytes(Constants.CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP);
         if (counts.contracts == 1) {
-          contractDataBlob = bytes.concat(
+          contractData = bytes.concat(
             slice(_body, offsets.contractData, 0x20), // newContractDataKernel.aztecAddress
             bytes12(0), // We pad the ethAddress to 32 bytes, we don't use sliceAndPad here because we want to prefix
             slice(_body, offsets.contractData + 0x20, 0x14) // newContractDataKernel.ethAddress
@@ -210,7 +210,7 @@ library TxsDecoder {
               Constants.CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP
             )
           ),
-          contractDataBlob,
+          contractData,
           bytes.concat(vars.encryptedLogsHash, vars.unencryptedLogsHash)
         );
 
