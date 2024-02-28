@@ -16,7 +16,7 @@ template <IsUltraFlavor Flavor>
 UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr<Instance>& instance,
                                                            const std::shared_ptr<Transcript>& transcript)
 {
-    UltraProver_<Flavor> output_state(instance, commitment_key, transcript);
+    UltraProver_<Flavor> output_state(instance, transcript);
 
     return output_state;
 }

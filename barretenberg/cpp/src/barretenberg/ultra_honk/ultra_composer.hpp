@@ -84,7 +84,7 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
 
     ProtoGalaxyProver_<ProverInstances> create_folding_prover(const std::vector<std::shared_ptr<Instance>>& instances)
     {
-        ProtoGalaxyProver_<ProverInstances> output_state(instances, commitment_key);
+        ProtoGalaxyProver_<ProverInstances> output_state(instances);
 
         return output_state;
     };
