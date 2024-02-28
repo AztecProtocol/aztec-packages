@@ -27,7 +27,8 @@ UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared
 {
     auto& verification_key = instance->verification_key;
     UltraVerifier_<Flavor> output_state(transcript, verification_key);
-    auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
+    auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(
+        verification_key->circuit_size, instance->proving_key->commitment_key->crs_factory);
     output_state.pcs_verification_key = std::move(pcs_verification_key);
 
     return output_state;
@@ -48,7 +49,8 @@ DeciderVerifier_<Flavor> UltraComposer_<Flavor>::create_decider_verifier(const s
 {
     auto& verification_key = accumulator->verification_key;
     DeciderVerifier_<Flavor> output_state(transcript, verification_key);
-    auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(accumulator->instance_size, crs_factory_);
+    auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(
+        accumulator->instance_size, accumulator->proving_key->commitment_key->crs_factory);
     output_state.pcs_verification_key = std::move(pcs_verification_key);
 
     return output_state;

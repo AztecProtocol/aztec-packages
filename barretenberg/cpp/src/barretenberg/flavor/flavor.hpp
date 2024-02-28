@@ -151,6 +151,7 @@ template <typename PrecomputedCommitments> class VerificationKey_ : public Preco
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
     };
+
     template <typename ProvingKeyPtr> VerificationKey_(const ProvingKeyPtr& proving_key)
     {
         this->circuit_size = proving_key->circuit_size;

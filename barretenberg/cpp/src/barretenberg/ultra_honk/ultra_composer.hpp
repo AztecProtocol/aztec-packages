@@ -35,15 +35,7 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
     static constexpr std::string_view NAME_STRING = "UltraHonk";
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
-    // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
-    std::shared_ptr<CRSFactory> crs_factory_;
-
-    UltraComposer_() { crs_factory_ = bb::srs::get_bn254_crs_factory(); }
-
-    explicit UltraComposer_(std::shared_ptr<CRSFactory> crs_factory)
-        : crs_factory_(std::move(crs_factory))
-    {}
-
+    UltraComposer_() = default;
     UltraComposer_(UltraComposer_&& other) noexcept = default;
     UltraComposer_(UltraComposer_ const& other) noexcept = default;
     UltraComposer_& operator=(UltraComposer_&& other) noexcept = default;

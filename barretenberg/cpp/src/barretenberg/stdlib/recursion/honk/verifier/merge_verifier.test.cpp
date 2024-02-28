@@ -49,7 +49,6 @@ class RecursiveMergeVerifierTest : public testing::Test {
         GoblinMockCircuits::construct_simple_initial_circuit(sample_circuit);
 
         // Generate a proof over the inner circuit
-        InnerComposer inner_composer;
         MergeProver merge_prover{ op_queue };
         auto merge_proof = merge_prover.construct_proof();
 
