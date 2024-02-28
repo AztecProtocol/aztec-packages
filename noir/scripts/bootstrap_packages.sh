@@ -6,26 +6,28 @@ cd $ROOT/noir-repo
 
 ./.github/scripts/wasm-bindgen-install.sh
 
-# If this project has been subrepod into another project, set build data manually.
+# Set build data manually.
 export SOURCE_DATE_EPOCH=$(date +%s)
 export GIT_DIRTY=false
-if [ -f ".gitrepo" ]; then
-  export GIT_COMMIT=$(awk '/commit =/ {print $3}' .gitrepo)
-else
-  export GIT_COMMIT=$(git rev-parse --verify HEAD)
-fi
+export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
 
 PROJECTS=(
   @noir-lang/acvm_js
   @noir-lang/types
   @noir-lang/noirc_abi
 )
-
-# INCLUDE="--include @noir-lang/acvm_js --include @noir-lang/types --include @noir-lang/noirc_abi"
 INCLUDE=$(printf " --include %s" "${PROJECTS[@]}")
 
 yarn --immutable
-yarn workspaces foreach --parallel --topological-dev --verbose $INCLUDE run build
+
+if [ "$1" == "ci" ]; then
+  EXCLUDE="--exclude @noir-lang/root --exclude docs"
+  yarn workspaces foreach --parallel --topological-dev --verbose $EXCLUDE run build
+  ./.github/scripts/playwright-install.sh
+  yarn workspaces foreach --parallel --topological-dev --verbose $EXCLUDE run test
+else
+  yarn workspaces foreach --parallel --topological-dev --verbose $INCLUDE run build
+fi
 
 # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
 # These can be useful for testing, or portaling into other projects.

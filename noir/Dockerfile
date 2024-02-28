@@ -1,7 +1,10 @@
 FROM rust:bullseye
+ARG COMMIT_HASH
+ENV COMMIT_HASH=${COMMIT_HASH}
+RUN apt update && apt install -y libc++1
 WORKDIR /usr/src/noir
 COPY . .
-RUN ./scripts/bootstrap_native.sh
+RUN ./scripts/bootstrap_native.sh ci
 
 # When running the container, mount the users home directory to same location.
 FROM ubuntu:focal

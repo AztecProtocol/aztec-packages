@@ -36,6 +36,8 @@ noir-packages:
     - ^noir/tooling/noir_js_types
     - ^noir/tooling/noirc_abi
     - ^noir/tooling/noirc_abi_wasm
+  dependencies:
+    - noir
 
 noir-projects:
   buildDir: noir-projects
