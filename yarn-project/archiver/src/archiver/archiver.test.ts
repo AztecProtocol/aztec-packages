@@ -5,7 +5,7 @@ import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
-import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi, AvailabilityOracleAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
@@ -96,8 +96,14 @@ describe('Archiver', () => {
       .mockResolvedValueOnce([makeContractDeploymentEvent(103n, blocks[0])]) // the first loop of the archiver ends here at block 2500
       .mockResolvedValueOnce(l1ToL2MessageAddedEvents.slice(2, 4).flat())
       .mockResolvedValueOnce(makeL1ToL2MessageCancelledEvents(2503n, l1ToL2MessagesToCancel))
-      .mockResolvedValueOnce([makeL2TxsPublishedEvent(2510n, blocks[1].body.getCalldataHash()), makeL2TxsPublishedEvent(2520n, blocks[2].body.getCalldataHash())])
-      .mockResolvedValueOnce([makeL2BlockProcessedEvent(2510n, 2n, blocks[1].body.getCalldataHash()), makeL2BlockProcessedEvent(2520n, 3n, blocks[2].body.getCalldataHash())])
+      .mockResolvedValueOnce([
+        makeL2TxsPublishedEvent(2510n, blocks[1].body.getCalldataHash()),
+        makeL2TxsPublishedEvent(2520n, blocks[2].body.getCalldataHash()),
+      ])
+      .mockResolvedValueOnce([
+        makeL2BlockProcessedEvent(2510n, 2n, blocks[1].body.getCalldataHash()),
+        makeL2BlockProcessedEvent(2520n, 3n, blocks[2].body.getCalldataHash()),
+      ])
       .mockResolvedValueOnce([makeContractDeploymentEvent(2540n, blocks[1])])
       .mockResolvedValue([]);
     publicClient.getTransaction.mockResolvedValueOnce(daTxs[0]);
@@ -211,8 +217,14 @@ describe('Archiver', () => {
         );
       })
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([makeL2TxsPublishedEvent(70n, blocks[0].body.getCalldataHash()), makeL2TxsPublishedEvent(80n, blocks[1].body.getCalldataHash())])
-      .mockResolvedValueOnce([makeL2BlockProcessedEvent(70n, 1n, blocks[0].body.getCalldataHash()), makeL2BlockProcessedEvent(80n, 2n, blocks[1].body.getCalldataHash())])
+      .mockResolvedValueOnce([
+        makeL2TxsPublishedEvent(70n, blocks[0].body.getCalldataHash()),
+        makeL2TxsPublishedEvent(80n, blocks[1].body.getCalldataHash()),
+      ])
+      .mockResolvedValueOnce([
+        makeL2BlockProcessedEvent(70n, 1n, blocks[0].body.getCalldataHash()),
+        makeL2BlockProcessedEvent(80n, 2n, blocks[1].body.getCalldataHash()),
+      ])
       .mockResolvedValue([]);
     daTxs.slice(0, numL2BlocksInTest).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     rollupTxs.slice(0, numL2BlocksInTest).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));

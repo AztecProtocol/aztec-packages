@@ -1,7 +1,7 @@
+import { L2Block } from '@aztec/circuit-types';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { KVArchiverDataStore } from './kv_archiver_store.js';
-import { L2Block } from '@aztec/circuit-types';
 
 describe('Block Body Store', () => {
   let archiverStore: KVArchiverDataStore;
