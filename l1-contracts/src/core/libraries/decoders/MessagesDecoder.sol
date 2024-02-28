@@ -16,30 +16,37 @@ import {Hash} from "../Hash.sol";
  * -------------------
  * You can use https://gist.github.com/LHerskind/724a7e362c97e8ac2902c6b961d36830 to generate the below outline.
  * -------------------
- * L2 Body Data specification
+ * L2 Body Data Specification
  * -------------------
- *
- *  | byte start                                                                     | num bytes    | name
- *  | ---                                                                            | ---          | ---
- *  | 0x00                                                                           | 0x04         | len(newNoteHashes) (denoted a)
- *  | 0x04                                                                           | a * 0x20     | newNoteHashes
- *  | 0x04 + a * 0x20                                                                | 0x04         | len(newNullifiers) (denoted b)
- *  | 0x08 + a * 0x20                                                                | b * 0x20     | newNullifiers
- *  | 0x08 + a * 0x20 + b * 0x20                                                     | 0x04         | len(newPublicDataWrites) (denoted c)
- *  | 0x0c + a * 0x20 + b * 0x20                                                     | c * 0x40     | newPublicDataWrites
- *  | 0x0c + a * 0x20 + b * 0x20 + c * 0x40                                          | 0x04         | len(newL2ToL1Msgs) (denoted d)
- *  | 0x10 + a * 0x20 + b * 0x20 + c * 0x40                                          | d * 0x20     | newL2ToL1Msgs
- *  | 0x10 + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20                               | 0x04         | len(contracts) (denoted e)
- *  | 0x14 + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20                               | e * 0x20     | newContracts
- *  | 0x14 + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x20                    | e * 0x34     | newContractsData
- *  | 0x14 + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54                    | 0x04         | len(newL1ToL2Msgs) (denoted f)
- *  | 0x18 + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54                    | f * 0x20     | newL1ToL2Msgs
- *  | 0x18 + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54 + f * 0x20         | 0x04         | byteLen(newEncryptedLogs) (denoted g)
- *  | 0x1c + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54 + f * 0x20         | g            | newEncryptedLogs
- *  | 0x1c + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54 + f * 0x20 + g     | 0x04         | byteLen(newUnencryptedLogs) (denoted h)
- *  | 0x20 + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54 + f * 0x20 + g     | h            | newUnencryptedLogs
- *  | ---                                                                            | ---          | ---
- * TODO(benesjan): update ^
+ *  | byte start                                                                                                                | num bytes  | name
+ *  | ---                                                                                                                       | ---        | ---
+ *  | 0x0                                                                                                                       | 0x4        | len(newL1ToL2Msgs) (denoted a)
+ *  | 0x4                                                                                                                       | a * 0x20   | newL1ToL2Msgs
+ *  | 0x4 + a * 0x20 = tx0Start                                                                                                 | 0x4        | len(numTxs) (denoted t)
+ *  |                                                                                                                           |            | TxEffect 0 {
+ *  | tx0Start                                                                                                                  | 0x1        |   len(newNoteHashes) (denoted b)
+ *  | tx0Start + 0x1                                                                                                            | b * 0x20   |   newNoteHashes
+ *  | tx0Start + 0x1 + b * 0x20                                                                                                 | 0x1        |   len(newNullifiers) (denoted c)
+ *  | tx0Start + 0x1 + b * 0x20 + 0x1                                                                                           | c * 0x20   |   newNullifiers
+ *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20                                                                                | 0x1        |   len(newL2ToL1Msgs) (denoted d)
+ *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1                                                                          | d * 0x20   |   newL2ToL1Msgs
+ *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20                                                               | 0x1        |   len(newPublicDataWrites) (denoted e)
+ *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01                                                        | e * 0x40   |   newPublicDataWrites
+ *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40                                             | 0x1        |   len(contracts) (denoted f)
+ *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x1                                       | f * 0x20   |   newContracts
+ *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x1 + f * 0x20                            | f * 0x34   |   newContractsData
+ *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x1 + f * 0x20 + f * 0x34                 | 0x04       |   byteLen(newEncryptedLogs) (denoted g)
+ *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x1 + f * 0x20 + f * 0x34 + 0x4           | g          |   newEncryptedLogs
+ *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x1 + f * 0x20 + f * 0x34 + 0x4 + g       | 0x04       |   byteLen(newUnencryptedLogs) (denoted h)
+ *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x1 + f * 0x20 + f * 0x34 + 0x4 + g + 0x4 | h          |   newUnencryptedLogs
+ *  |                                                                                                                           |            | },
+ *  |                                                                                                                           |            | TxEffect 1 {
+ *  |                                                                                                                           |            |   ...
+ *  |                                                                                                                           |            | },
+ *  |                                                                                                                           |            | ...
+ *  |                                                                                                                           |            | TxEffect (t - 1) {
+ *  |                                                                                                                           |            |   ...
+ *  |                                                                                                                           |            | },
  */
 library MessagesDecoder {
   /**
