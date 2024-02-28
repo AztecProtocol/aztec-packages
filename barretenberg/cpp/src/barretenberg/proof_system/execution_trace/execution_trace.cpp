@@ -14,7 +14,7 @@ void ExecutionTrace_<Flavor>::populate(Builder& builder,
 
     add_wires_and_selectors_to_proving_key(trace_data, builder, proving_key);
 
-    if constexpr (IsUltraFlavor<Flavor> || IsUltraPlonkFlavor<Flavor>) {
+    if constexpr (IsUltraPlonkOrHonk<Flavor>) {
         add_memory_records_to_proving_key(trace_data, builder, proving_key);
     }
 
@@ -56,7 +56,7 @@ void ExecutionTrace_<Flavor>::add_memory_records_to_proving_key(
 {
     ASSERT(proving_key->memory_read_records.empty() && proving_key->memory_write_records.empty());
 
-    // Update the indices of RAM/ROM reads/writes based on where the memory block sits in the trace
+    // Update indices of RAM/ROM reads/writes based on where block containing these gates sits in the trace
     for (auto& index : builder.memory_read_records) {
         proving_key->memory_read_records.emplace_back(index + trace_data.ram_rom_offset);
     }

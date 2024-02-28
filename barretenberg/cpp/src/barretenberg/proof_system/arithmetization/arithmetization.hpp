@@ -48,7 +48,7 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 
     Wires wires; // vectors of indices into a witness variables array
     Selectors selectors;
-    bool has_ram_rom = false;
+    bool has_ram_rom = false; // does the block contain RAM/ROM gates
 
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
@@ -239,11 +239,18 @@ template <typename FF_> class UltraHonkArith {
         UltraHonkTraceBlock elliptic;
         UltraHonkTraceBlock aux;
         UltraHonkTraceBlock lookup;
+        UltraHonkTraceBlock busread;
+        UltraHonkTraceBlock poseidon_external;
+        UltraHonkTraceBlock poseidon_internal;
         UltraHonkTraceBlock main;
 
         TraceBlocks() { main.has_ram_rom = true; }
 
-        auto get() { return RefArray{ ecc_op, pub_inputs, arithmetic, sort, elliptic, aux, lookup, main }; }
+        auto get()
+        {
+            return RefArray{ ecc_op,  pub_inputs,        arithmetic,        sort, elliptic, aux, lookup,
+                             busread, poseidon_external, poseidon_internal, main };
+        }
 
         bool operator==(const TraceBlocks& other) const = default;
     };
