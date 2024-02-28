@@ -15,4 +15,4 @@ COPY . .
 RUN ./scripts/test_js_packages.sh
 
 # Don't waste time pushing a huge container back to ECR as nothing needs the output.
-FROM scratch
+RUN rm -rf /usr/src/noir
