@@ -100,7 +100,7 @@ A few key functions in the note interface are around computing the note hash and
 
 In the ValueNote implementation you'll notice that it uses the `pedersen_hash` function. This is currently required by the protocol, but may be updated to another hashing function, like poseidon.
 
-As a convenience, the outer [note/utils.nr](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/utils.nr) contains an implementation of a function required by Aztec contracts using private storage: `compute_note_hash_and_nullifier`
+As a convenience, the outer [note/utils.nr](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/utils.nr) contains implementations of functions that may be needed in Aztec contracts, for example computing note hashes.
 
 #### Serialization and deserialization
 Serialization/deserialization of content is used to convert between the Note's variables and a generic array of Field elements. The Field type is understood and used by lower level crypographic libraries.
@@ -108,7 +108,7 @@ This is analogous to the encoding/decoding between variables and bytes in solidi
 
 For example in ValueNote, the `serialize_content` function simply returns: the value, owner address (as a field) and the note randomness; as an array of Field elements.
 
-### Value as a sum of Note
+### Value as a sum of Notes
 We recall that multiple notes are associated with a "slot" (or ID), and so the value of a numerical note (like ValueNote) is the sum of each note's value.
 The helper function in [balance_utils](https://github.com/AztecProtocol/aztec-packages/blob/#include_/noir-projects/aztec-nr/value-note/src/balance_utils.nr) implements this logic taking a `Set` of `ValueNotes`.
 
@@ -116,17 +116,17 @@ A couple of things worth clarifying:
 - A `Set` takes a Generic type, specified here as `ValueNote`, but can be any `Note` type (for all notes in the set)
 - A `Set` of notes also specifies *the* slot of all Notes that it holds
 
-### Abstracting Notes
-The Aztec.nr framework includes an [easy_private_state](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/easy-private-state/src/easy_private_state.nr) for use in contracts.
+### Example - Notes in action
+The Aztec.nr framework includes examples of high-level states [easy_private_uint](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr) for use in contracts.
 
-The struct is an `EasyPrivateUint` that contains a Context, Set of ValueNotes, and storage_slot (used when setting the Set).
+The struct (`EasyPrivateUint`) contains a Context, Set of ValueNotes, and storage_slot (used when setting the Set).
 
-The `add` function shows the simplicity of appending a new note to all existing ones. On the other hand, `sub` (subtraction), needs to first add up all existing values (consuming them in the process), and then insert a single new value of the difference between the sum and parameter.
+Notice how the `add` function shows the simplicity of appending a new note to all existing ones. On the other hand, `sub` (subtraction), needs to first add up all existing values (consuming them in the process), and then insert a single new value of the difference between the sum and parameter.
 
 -----
 
 ### Apply
-To see this in action, try the [Token tutorial](../../../tutorials/writing_token_contract). In this section you will also find other tutorials using notes in different ways.
+Try the [Token tutorial](../../../tutorials/writing_token_contract) to see what notes can achieve. In this section you will also find other tutorials using notes in different ways.
 
 ### Further reading
 - [Storage Trees](./trees/main)
