@@ -86,9 +86,9 @@ Looking at the noir circuits in these components, you will see references to the
 
 ### Lifecycle functions
 Inside the [lifecycle](
-https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/lifecycle.nr) circuits we see the functions to create and destroy a note, implemented as insertions of note hashes and nullifiers respectively.
+https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/lifecycle.nr) circuits we see the functions to create and destroy a note, implemented as insertions of note hashes and nullifiers respectively. This is helpful for regular private variables.
 
-We also see a function to create a note hash from the public context, a way of creating a private variable from a public call (run in the sequencer).
+We also see a function to create a note hash from the public context, a way of creating a private variable from a public call (run in the sequencer). This could be used in application contracts to give private digital assets to users.
 
 ### Note Interface functions
 To see a [note_interface](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implementation, we will look at a simple [ValueNote](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr).
