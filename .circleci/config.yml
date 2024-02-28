@@ -1322,7 +1322,10 @@ workflows:
             - noir-x86_64
             - noir-arm64
           <<: *defaults
-      - noir-packages: *defaults
+      - noir-packages:
+          requires:
+            - noir-ecr-manifest
+          <<: *defaults
       - noir-compile-acir-tests:
           requires:
             - noir-ecr-manifest
