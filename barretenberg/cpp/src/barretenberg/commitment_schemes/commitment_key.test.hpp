@@ -6,10 +6,6 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "claim.hpp"
-#include <algorithm>
-#include <concepts>
-#include <memory>
-#include <string_view>
 
 #include <gtest/gtest.h>
 
