@@ -259,7 +259,7 @@ We can see that each account has the expected balance of tokens.
 
 ### Calling an unconstrained (view) function
 
-<img src="/img/sandbox_unconstrained_function.svg" alt="Unconstrained function call" />
+<img src="/img/sandbox_unconstrained_function.png" alt="Unconstrained function call" />
 
 ## Create and submit a transaction
 
