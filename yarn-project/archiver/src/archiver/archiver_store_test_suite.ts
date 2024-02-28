@@ -38,11 +38,16 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       blocks = Array.from({ length: 10 }).map((_, i) => {
         const block = L2Block.random(i + 1);
         block.setL1BlockNumber(BigInt(i + 1));
+        block.header.contentCommitment.txsHash = block.body.getCalldataHash();
         return block;
       });
     });
 
     describe('addBlocks', () => {
+      it('returns success when adding block bodies', async () => {
+        await expect(store.addBlockBodies(blocks.map(block => block.body))).resolves.toBe(true);
+      });
+
       it('returns success when adding blocks', async () => {
         await expect(store.addBlocks(blocks)).resolves.toBe(true);
       });
@@ -56,6 +61,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     describe('getBlocks', () => {
       beforeEach(async () => {
         await store.addBlocks(blocks);
+        await store.addBlockBodies(blocks.map(block => block.body));
       });
 
       it.each(blockTests)('retrieves previously stored blocks', async (start, limit, getExpectedBlocks) => {
@@ -157,6 +163,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           blocks.map(block => store.addLogs(block.body.encryptedLogs, block.body.unencryptedLogs, block.number)),
         );
         await store.addBlocks(blocks);
+        await store.addBlockBodies(blocks.map(block => block.body));
       });
 
       it.each([
@@ -362,7 +369,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       let block: L2Block;
       beforeEach(async () => {
         block = L2Block.random(1);
+        block.header.contentCommitment.txsHash = block.body.getCalldataHash();
         await store.addBlocks([block]);
+        await store.addBlockBodies([block.body]);
       });
 
       it('returns previously stored contract data', async () => {
@@ -380,7 +389,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       let block: L2Block;
       beforeEach(async () => {
         block = L2Block.random(1);
+        block.header.contentCommitment.txsHash = block.body.getCalldataHash();
         await store.addBlocks([block]);
+        await store.addBlockBodies([block.body]);
       });
 
       it('returns the contract data for a known block', async () => {
