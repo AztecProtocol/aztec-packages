@@ -11,7 +11,7 @@ import {
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { TestContract, TokenContract } from '@aztec/noir-contracts';
+import { TestContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getAddress, getContract, parseEther } from 'viem';
 
@@ -160,7 +160,11 @@ describe('e2e_cheat_codes', () => {
         await cc.aztec.warp(newTimestamp);
 
         // ensure rollup contract is correctly updated
-        const rollup = getContract({ address: getAddress(rollupAddress.toString()), abi: RollupAbi, publicClient });
+        const rollup = getContract({
+          address: getAddress(rollupAddress.toString()),
+          abi: RollupAbi,
+          client: publicClient,
+        });
         expect(Number(await rollup.read.lastBlockTs())).toEqual(newTimestamp);
         expect(Number(await rollup.read.lastWarpedBlockTs())).toEqual(newTimestamp);
 
@@ -213,11 +217,13 @@ describe('e2e_cheat_codes', () => {
       // docs:start:pxe_add_note
       const note = new Note([new Fr(mintAmount), secretHash]);
       const pendingShieldStorageSlot = new Fr(5n);
+      const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
       const extendedNote = new ExtendedNote(
         note,
         admin.address,
         token.address,
         pendingShieldStorageSlot,
+        noteTypeId,
         receipt.txHash,
       );
       await pxe.addNote(extendedNote);

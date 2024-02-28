@@ -14,10 +14,9 @@
 
 #include <gtest/gtest.h>
 
-using namespace bb::honk;
-using namespace bb::honk::sumcheck;
+using namespace bb;
 
-using Flavor = bb::honk::flavor::Ultra;
+using Flavor = UltraFlavor;
 using FF = typename Flavor::FF;
 
 class SumcheckTestsRealCircuit : public ::testing::Test {
@@ -31,13 +30,13 @@ class SumcheckTestsRealCircuit : public ::testing::Test {
  */
 TEST_F(SumcheckTestsRealCircuit, Ultra)
 {
-    using Flavor = flavor::Ultra;
+    using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     // Create a composer and a dummy circuit with a few gates
-    auto builder = bb::UltraCircuitBuilder();
+    auto builder = UltraCircuitBuilder();
     FF a = FF::one();
 
     // Add some basic add gates, with a public input for good measure
@@ -63,23 +62,23 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
 
     // Add some lookup gates (related to pedersen hashing)
     auto pedersen_input_value = FF::random_element();
-    const FF input_hi = uint256_t(pedersen_input_value)
-                            .slice(bb::plookup::fixed_base::table::BITS_PER_LO_SCALAR,
-                                   bb::plookup::fixed_base::table::BITS_PER_LO_SCALAR +
-                                       bb::plookup::fixed_base::table::BITS_PER_HI_SCALAR);
+    const FF input_hi =
+        uint256_t(pedersen_input_value)
+            .slice(plookup::fixed_base::table::BITS_PER_LO_SCALAR,
+                   plookup::fixed_base::table::BITS_PER_LO_SCALAR + plookup::fixed_base::table::BITS_PER_HI_SCALAR);
     const FF input_lo = uint256_t(pedersen_input_value).slice(0, bb::plookup::fixed_base::table::BITS_PER_LO_SCALAR);
     const auto input_hi_index = builder.add_variable(input_hi);
     const auto input_lo_index = builder.add_variable(input_lo);
 
     const auto sequence_data_hi =
-        bb::plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
+        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
     const auto sequence_data_lo =
-        bb::plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
+        plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
 
     builder.create_gates_from_plookup_accumulators(
-        bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, sequence_data_hi, input_hi_index);
+        plookup::MultiTableId::FIXED_BASE_LEFT_HI, sequence_data_hi, input_hi_index);
     builder.create_gates_from_plookup_accumulators(
-        bb::plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
+        plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
 
     // Add a sort gate (simply checks that consecutive inputs have a difference of < 4)
     a_idx = builder.add_variable(FF(0));
@@ -167,7 +166,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
 
     RelationSeparator prover_alphas;
     for (size_t idx = 0; idx < prover_alphas.size(); idx++) {
-        prover_alphas[idx] = prover_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+        prover_alphas[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
     }
 
     instance->alphas = prover_alphas;
@@ -175,7 +174,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     std::vector<FF> prover_gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         prover_gate_challenges[idx] =
-            prover_transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+            prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     instance->gate_challenges = prover_gate_challenges;
     auto prover_output = sumcheck_prover.prove(instance);
@@ -185,13 +184,13 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(log_circuit_size, verifier_transcript);
     RelationSeparator verifier_alphas;
     for (size_t idx = 0; idx < verifier_alphas.size(); idx++) {
-        verifier_alphas[idx] = verifier_transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+        verifier_alphas[idx] = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
     }
 
     std::vector<FF> verifier_gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         verifier_gate_challenges[idx] =
-            verifier_transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+            verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     auto verifier_output =
         sumcheck_verifier.verify(instance->relation_parameters, verifier_alphas, verifier_gate_challenges);

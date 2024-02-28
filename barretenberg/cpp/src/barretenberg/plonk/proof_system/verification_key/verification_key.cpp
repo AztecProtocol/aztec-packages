@@ -92,6 +92,7 @@ verification_key::verification_key(verification_key_data&& data,
     , polynomial_manifest(static_cast<CircuitType>(data.circuit_type))
     , contains_recursive_proof(data.contains_recursive_proof)
     , recursive_proof_public_input_indices(std::move(data.recursive_proof_public_input_indices))
+    , is_recursive_circuit(data.is_recursive_circuit)
 {}
 
 verification_key::verification_key(const verification_key& other)
@@ -135,7 +136,7 @@ verification_key& verification_key::operator=(verification_key&& other) noexcept
     return *this;
 }
 
-sha256::hash verification_key::sha256_hash()
+crypto::Sha256Hash verification_key::sha256_hash()
 {
     std::vector<uint256_t> vk_data;
     vk_data.emplace_back(static_cast<uint32_t>(circuit_type));
@@ -149,7 +150,7 @@ sha256::hash verification_key::sha256_hash()
     for (auto& index : recursive_proof_public_input_indices) {
         vk_data.emplace_back(index);
     }
-    return sha256::sha256(to_buffer(vk_data));
+    return crypto::sha256(to_buffer(vk_data));
 }
 
 } // namespace bb::plonk

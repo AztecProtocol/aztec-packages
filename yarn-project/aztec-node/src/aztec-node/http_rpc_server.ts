@@ -8,15 +8,15 @@ import {
   L2BlockL2Logs,
   L2Tx,
   LogId,
+  SiblingPath,
   Tx,
   TxHash,
 } from '@aztec/circuit-types';
-import { BlockHeader, FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector, Header } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import { SiblingPath } from '@aztec/types/membership';
 
 /**
  * Wrap an AztecNode instance with a JSON RPC HTTP server.
@@ -34,7 +34,7 @@ export function createAztecNodeRpcServer(node: AztecNode) {
       ContractData,
       Fr,
       FunctionSelector,
-      BlockHeader,
+      Header,
       L2Block,
       L2Tx,
       LogId,
@@ -43,7 +43,6 @@ export function createAztecNodeRpcServer(node: AztecNode) {
       L1ToL2MessageAndIndex,
     },
     { Tx, L2BlockL2Logs },
-    false,
     // disable methods not part of the AztecNode interface
     ['start', 'stop'],
   );

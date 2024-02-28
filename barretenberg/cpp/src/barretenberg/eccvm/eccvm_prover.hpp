@@ -3,16 +3,16 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/ecc_vm.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace bb::honk {
+namespace bb {
 
-// We won't compile this class with honk::flavor::Standard, but we will like want to compile it (at least for testing)
+// We won't compile this class with Standard, but we will like want to compile it (at least for testing)
 // with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
-template <ECCVMFlavor Flavor> class ECCVMProver_ {
+template <IsECCVMFlavor Flavor> class ECCVMProver_ {
 
     using FF = typename Flavor::FF;
     using PCS = typename Flavor::PCS;
@@ -30,20 +30,20 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
                           const std::shared_ptr<PCSCommitmentKey>& commitment_key,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    BBERG_PROFILE void execute_preamble_round();
-    BBERG_PROFILE void execute_wire_commitments_round();
-    BBERG_PROFILE void execute_log_derivative_commitments_round();
-    BBERG_PROFILE void execute_grand_product_computation_round();
-    BBERG_PROFILE void execute_relation_check_rounds();
-    BBERG_PROFILE void execute_univariatization_round();
-    BBERG_PROFILE void execute_pcs_evaluation_round();
-    BBERG_PROFILE void execute_shplonk_batched_quotient_round();
-    BBERG_PROFILE void execute_shplonk_partial_evaluation_round();
-    BBERG_PROFILE void execute_final_pcs_round();
-    BBERG_PROFILE void execute_transcript_consistency_univariate_opening_round();
+    BB_PROFILE void execute_preamble_round();
+    BB_PROFILE void execute_wire_commitments_round();
+    BB_PROFILE void execute_log_derivative_commitments_round();
+    BB_PROFILE void execute_grand_product_computation_round();
+    BB_PROFILE void execute_relation_check_rounds();
+    BB_PROFILE void execute_univariatization_round();
+    BB_PROFILE void execute_pcs_evaluation_round();
+    BB_PROFILE void execute_shplonk_batched_quotient_round();
+    BB_PROFILE void execute_shplonk_partial_evaluation_round();
+    BB_PROFILE void execute_final_pcs_round();
+    BB_PROFILE void execute_transcript_consistency_univariate_opening_round();
 
-    plonk::proof& export_proof();
-    plonk::proof& construct_proof();
+    HonkProof& export_proof();
+    HonkProof& construct_proof();
 
     std::shared_ptr<Transcript> transcript;
 
@@ -71,16 +71,16 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
     FF evaluation_challenge_x;
     FF translation_batching_challenge_v; // to be rederived by the translator verifier
 
-    sumcheck::SumcheckOutput<Flavor> sumcheck_output;
-    pcs::gemini::ProverOutput<Curve> gemini_output;
-    pcs::shplonk::ProverOutput<Curve> shplonk_output;
+    SumcheckOutput<Flavor> sumcheck_output;
+    GeminiProverOutput<Curve> gemini_output;
+    ShplonkProverOutput<Curve> shplonk_output;
     std::shared_ptr<PCSCommitmentKey> commitment_key;
 
-    using Gemini = pcs::gemini::GeminiProver_<Curve>;
-    using Shplonk = pcs::shplonk::ShplonkProver_<Curve>;
+    using Gemini = GeminiProver_<Curve>;
+    using Shplonk = ShplonkProver_<Curve>;
 
   private:
-    plonk::proof proof;
+    HonkProof proof;
 };
 
-} // namespace bb::honk
+} // namespace bb

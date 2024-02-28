@@ -1,4 +1,5 @@
-import { Fr } from '../fields/index.js';
+import { Fr, fromBuffer } from '../fields/index.js';
+import { BufferReader, FieldReader } from '../serialize/index.js';
 
 /**
  * AztecAddress represents a 32-byte address in the Aztec Protocol.
@@ -15,8 +16,23 @@ export class AztecAddress extends Fr {
     super(buffer);
   }
 
+  static ZERO = new AztecAddress(Buffer.alloc(32));
+
+  static zero(): AztecAddress {
+    return AztecAddress.ZERO;
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    return fromBuffer(buffer, AztecAddress);
+  }
+
   static fromField(fr: Fr) {
     return new AztecAddress(fr.toBuffer());
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return AztecAddress.fromField(reader.readField());
   }
 
   static fromBigInt(value: bigint) {
@@ -26,5 +42,9 @@ export class AztecAddress extends Fr {
   static fromString(buf: string) {
     const buffer = Buffer.from(buf.replace(/^0x/i, ''), 'hex');
     return new AztecAddress(buffer);
+  }
+
+  static random() {
+    return new AztecAddress(super.random().toBuffer());
   }
 }

@@ -39,6 +39,7 @@ const config = {
   markdown: {
     mermaid: true,
   },
+
   themes: ["@docusaurus/theme-mermaid"],
 
   presets: [
@@ -84,8 +85,11 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      // Replace with your project's social card
-      // image: "img/docusaurus-social-card.jpg",
+      algolia: {
+        appId: "6RXKCCZJK7",
+        apiKey: "aa09855dba35e5b48be3a126d7714170",
+        indexName: "yp-aztec",
+      },
       navbar: {
         title: "Home",
         // logo: {
@@ -139,6 +143,7 @@ const config = {
         ],
         copyright: `Copyright © ${new Date().getFullYear()} Aztec Labs, Inc. Built with Docusaurus.`,
       },
+
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,

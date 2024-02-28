@@ -5,7 +5,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include "sumcheck_round.hpp"
 
-namespace bb::honk::sumcheck {
+namespace bb {
 
 template <typename Flavor> class SumcheckProver {
 
@@ -98,7 +98,7 @@ template <typename Flavor> class SumcheckProver {
         // This populates partially_evaluated_polynomials.
         auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, pow_univariate, alpha);
         transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
-        FF round_challenge = transcript->get_challenge("Sumcheck:u_0");
+        FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
         multivariate_challenge.emplace_back(round_challenge);
         partially_evaluate(full_polynomials, multivariate_n, round_challenge);
         pow_univariate.partially_evaluate(round_challenge);
@@ -110,7 +110,7 @@ template <typename Flavor> class SumcheckProver {
             round_univariate =
                 round.compute_univariate(partially_evaluated_polynomials, relation_parameters, pow_univariate, alpha);
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
-            FF round_challenge = transcript->get_challenge("Sumcheck:u_" + std::to_string(round_idx));
+            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
             pow_univariate.partially_evaluate(round_challenge);
@@ -123,7 +123,7 @@ template <typename Flavor> class SumcheckProver {
              zip_view(multivariate_evaluations.get_all(), partially_evaluated_polynomials.get_all())) {
             eval = poly[0];
         }
-        transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations);
+        transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
 
         return { multivariate_challenge, multivariate_evaluations };
     };
@@ -228,7 +228,7 @@ template <typename Flavor> class SumcheckVerifier {
 
             bool checked = round.check_sum(round_univariate);
             verified = verified && checked;
-            FF round_challenge = transcript->get_challenge("Sumcheck:u_" + std::to_string(round_idx));
+            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
 
             round.compute_next_target_sum(round_univariate, round_challenge);
@@ -239,6 +239,7 @@ template <typename Flavor> class SumcheckVerifier {
         ClaimedEvaluations purported_evaluations;
         auto transcript_evaluations =
             transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
+
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
         }
@@ -257,4 +258,4 @@ template <typename Flavor> class SumcheckVerifier {
         return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, verified };
     };
 };
-} // namespace bb::honk::sumcheck
+} // namespace bb

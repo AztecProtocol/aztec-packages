@@ -1,6 +1,5 @@
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { Fr } from './index.js';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
  * Essential members and functions of all SideEffect variants
@@ -13,7 +12,7 @@ export interface SideEffectType {
   /** Convert to a buffer */
   toBuffer(): Buffer;
   /** Convert to a field array */
-  toFieldArray(): Fr[];
+  toFields(): Fr[];
   /** Are all of the fields of the SideEffect zero? */
   isEmpty(): boolean;
 }
@@ -34,6 +33,10 @@ export class SideEffect implements SideEffectType {
     public counter: Fr,
   ) {}
 
+  toString(): string {
+    return `value=${this.value.toString()} counter=${this.counter.toString()}`;
+  }
+
   /**
    * Serialize this as a buffer.
    * @returns The buffer.
@@ -46,8 +49,13 @@ export class SideEffect implements SideEffectType {
    * Convert to an array of fields.
    * @returns The array of fields.
    */
-  toFieldArray(): Fr[] {
+  toFields(): Fr[] {
     return [this.value, this.counter];
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): SideEffect {
+    const reader = FieldReader.asReader(fields);
+    return new SideEffect(reader.readField(), reader.readField());
   }
 
   /**
@@ -55,7 +63,15 @@ export class SideEffect implements SideEffectType {
    * @returns True if the value and counter both are zero.
    */
   isEmpty() {
-    return this.value.isZero() && this.counter.isZero();
+    return SideEffect.isEmpty(this);
+  }
+
+  /**
+   * Checks whether this instance of side-effect is empty.
+   * @returns True if the value and counter both are zero.
+   */
+  static isEmpty(sideEffect: SideEffect) {
+    return sideEffect.value.isZero() && sideEffect.counter.isZero();
   }
 
   /**
@@ -109,8 +125,13 @@ export class SideEffectLinkedToNoteHash implements SideEffectType {
    * Convert to an array of fields.
    * @returns The array of fields.
    */
-  toFieldArray(): Fr[] {
+  toFields(): Fr[] {
     return [this.value, this.noteHash, this.counter];
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): SideEffectLinkedToNoteHash {
+    const reader = FieldReader.asReader(fields);
+    return new SideEffectLinkedToNoteHash(reader.readField(), reader.readField(), reader.readField());
   }
 
   /**
@@ -118,7 +139,15 @@ export class SideEffectLinkedToNoteHash implements SideEffectType {
    * @returns True if the value, note hash and counter are all zero.
    */
   isEmpty() {
-    return this.value.isZero() && this.noteHash.isZero() && this.counter.isZero();
+    return SideEffectLinkedToNoteHash.isEmpty(this);
+  }
+
+  /**
+   * Returns whether this instance of side-effect is empty.
+   * @returns True if the value, note hash and counter are all zero.
+   */
+  static isEmpty(sideEffect: SideEffectLinkedToNoteHash) {
+    return sideEffect.value.isZero() && sideEffect.noteHash.isZero() && sideEffect.counter.isZero();
   }
 
   /**

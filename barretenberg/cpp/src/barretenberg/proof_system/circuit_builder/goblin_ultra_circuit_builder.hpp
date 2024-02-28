@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
+#include "barretenberg/proof_system/execution_trace/execution_trace.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "ultra_circuit_builder.hpp"
 
@@ -7,12 +8,14 @@ namespace bb {
 
 using namespace bb;
 
-template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<arithmetization::UltraHonk<FF>> {
+template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<UltraHonkArith<FF>> {
   public:
+    using Arithmetization = UltraHonkArith<FF>;
+
     static constexpr std::string_view NAME_STRING = "GoblinUltraArithmetization";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
-        UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+        UltraCircuitBuilder_<UltraHonkArith<FF>>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
     size_t num_ecc_op_gates = 0; // number of ecc op "gates" (rows); these are placed at the start of the circuit
 
@@ -24,30 +27,6 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     uint32_t add_accum_op_idx;
     uint32_t mul_accum_op_idx;
     uint32_t equality_op_idx;
-
-    using WireVector = std::vector<uint32_t, ContainerSlabAllocator<uint32_t>>;
-    using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
-
-    // Wires storing ecc op queue data; values are indices into the variables array
-    std::array<WireVector, arithmetization::UltraHonk<FF>::NUM_WIRES> ecc_op_wires;
-
-    WireVector& ecc_op_wire_1() { return std::get<0>(ecc_op_wires); };
-    WireVector& ecc_op_wire_2() { return std::get<1>(ecc_op_wires); };
-    WireVector& ecc_op_wire_3() { return std::get<2>(ecc_op_wires); };
-    WireVector& ecc_op_wire_4() { return std::get<3>(ecc_op_wires); };
-
-    const WireVector& ecc_op_wire_1() const { return std::get<0>(ecc_op_wires); };
-    const WireVector& ecc_op_wire_2() const { return std::get<1>(ecc_op_wires); };
-    const WireVector& ecc_op_wire_3() const { return std::get<2>(ecc_op_wires); };
-    const WireVector& ecc_op_wire_4() const { return std::get<3>(ecc_op_wires); };
-
-    SelectorVector& q_busread() { return this->selectors.q_busread(); };
-    SelectorVector& q_poseidon2_external() { return this->selectors.q_poseidon2_external(); };
-    SelectorVector& q_poseidon2_internal() { return this->selectors.q_poseidon2_internal(); };
-
-    const SelectorVector& q_busread() const { return this->selectors.q_busread(); };
-    const SelectorVector& q_poseidon2_external() const { return this->selectors.q_poseidon2_external(); };
-    const SelectorVector& q_poseidon2_internal() const { return this->selectors.q_poseidon2_internal(); };
 
     // DataBus call/return data arrays
     std::vector<uint32_t> public_calldata;
@@ -67,7 +46,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
   public:
     GoblinUltraCircuitBuilder_(const size_t size_hint = 0,
                                std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
-        : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>(size_hint)
+        : UltraCircuitBuilder_<UltraHonkArith<FF>>(size_hint)
         , op_queue(op_queue_in)
     {
         // Set indices to constants corresponding to Goblin ECC op codes
@@ -95,7 +74,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
                                auto& witness_values,
                                std::vector<uint32_t>& public_inputs,
                                size_t varnum)
-        : UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>(/*size_hint=*/0, witness_values, public_inputs, varnum)
+        : UltraCircuitBuilder_<UltraHonkArith<FF>>(/*size_hint=*/0, witness_values, public_inputs, varnum)
         , op_queue(op_queue_in)
     {
         // Set indices to constants corresponding to Goblin ECC op codes
@@ -119,7 +98,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
      */
     size_t get_num_gates() const override
     {
-        auto num_ultra_gates = UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::get_num_gates();
+        auto num_ultra_gates = UltraCircuitBuilder_<UltraHonkArith<FF>>::get_num_gates();
         return num_ultra_gates + num_ecc_op_gates;
     }
 
@@ -134,7 +113,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        UltraCircuitBuilder_<arithmetization::UltraHonk<FF>>::get_num_gates_split_into_components(
+        UltraCircuitBuilder_<UltraHonkArith<FF>>::get_num_gates_split_into_components(
             count, rangecount, romcount, ramcount, nnfcount);
 
         size_t total = count + romcount + ramcount + rangecount + num_ecc_op_gates;

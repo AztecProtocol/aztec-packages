@@ -1,14 +1,10 @@
 /* eslint-disable camelcase */
 import { CheatCodes, DebugLogger, Fr, Wallet } from '@aztec/aztec.js';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
-import { SlowTreeContract } from '@aztec/noir-contracts/SlowTree';
-
-import { default as levelup } from 'levelup';
-import { type MemDown, default as memdown } from 'memdown';
+import { SlowTreeContract } from '@aztec/noir-contracts.js/SlowTree';
 
 import { setup } from './fixtures/utils.js';
-
-export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('e2e_slow_tree', () => {
   let logger: DebugLogger;
@@ -27,13 +23,13 @@ describe('e2e_slow_tree', () => {
 
   it('Messing around with noir slow tree', async () => {
     const depth = 254;
-    const slowUpdateTreeSimulator = await newTree(SparseTree, levelup(createMemDown()), new Pedersen(), 'test', depth);
+    const slowUpdateTreeSimulator = await newTree(SparseTree, openTmpStore(), new Pedersen(), 'test', depth);
     const getMembershipProof = async (index: bigint, includeUncommitted: boolean) => {
       return {
         index,
-        value: Fr.fromBuffer((await slowUpdateTreeSimulator.getLeafValue(index, includeUncommitted))!),
+        value: Fr.fromBuffer(slowUpdateTreeSimulator.getLeafValue(index, includeUncommitted)!),
         // eslint-disable-next-line camelcase
-        sibling_path: (await slowUpdateTreeSimulator.getSiblingPath(index, includeUncommitted)).toFieldArray(),
+        sibling_path: (await slowUpdateTreeSimulator.getSiblingPath(index, includeUncommitted)).toFields(),
       };
     };
 

@@ -18,7 +18,7 @@
  * The challenges are ρ (batching) and r (random evaluation).
  *
  */
-namespace bb::honk::pcs::shplonk {
+namespace bb {
 
 /**
  * @brief Polynomial G(X) = Q(X) - ∑ₖ ẑₖ(r)⋅( Bₖ(X) − Tₖ(z) ), where Q(X) = ∑ₖ ( Bₖ(X) − Tₖ(X) ) / zₖ(X)
@@ -33,7 +33,7 @@ template <typename Curve> using OutputWitness = bb::Polynomial<typename Curve::S
  *
  * @tparam Curve EC parameters
  */
-template <typename Curve> struct ProverOutput {
+template <typename Curve> struct ShplonkProverOutput {
     OpeningPair<Curve> opening_pair; // single opening pair (challenge, evaluation)
     OutputWitness<Curve> witness;    // single polynomial G(X)
 };
@@ -97,7 +97,7 @@ template <typename Curve> class ShplonkProver_ {
      * @param z_challenge
      * @return Output{OpeningPair, Polynomial}
      */
-    static ProverOutput<Curve> compute_partially_evaluated_batched_quotient(
+    static ShplonkProverOutput<Curve> compute_partially_evaluated_batched_quotient(
         std::span<const OpeningPair<Curve>> opening_pairs,
         std::span<const Polynomial> witness_polynomials,
         Polynomial&& batched_quotient_Q,
@@ -168,11 +168,11 @@ template <typename Curve> class ShplonkVerifier_ {
 
         const size_t num_claims = claims.size();
 
-        const Fr nu = transcript->get_challenge("Shplonk:nu");
+        const Fr nu = transcript->template get_challenge<Fr>("Shplonk:nu");
 
         auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
-        const Fr z_challenge = transcript->get_challenge("Shplonk:z");
+        const Fr z_challenge = transcript->template get_challenge<Fr>("Shplonk:z");
 
         // [G] = [Q] - ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ] + G₀⋅[1]
         //     = [Q] - [∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )]
@@ -271,4 +271,4 @@ template <typename Curve> class ShplonkVerifier_ {
         return { { z_challenge, Fr(0) }, G_commitment };
     };
 };
-} // namespace bb::honk::pcs::shplonk
+} // namespace bb

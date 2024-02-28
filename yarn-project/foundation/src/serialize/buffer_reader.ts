@@ -55,6 +55,16 @@ export class BufferReader {
   }
 
   /**
+   * Reads `count` 32-bit unsigned integers from the buffer at the current index position.
+   * @param count - The number of 32-bit unsigned integers to read.
+   * @returns An array of 32-bit unsigned integers.
+   */
+  public readNumbers<N extends number>(count: N): Tuple<number, N> {
+    const result = Array.from({ length: count }, () => this.readNumber());
+    return result as Tuple<number, N>;
+  }
+
+  /**
    * Reads a 16-bit unsigned integer from the buffer at the current index position.
    * Updates the index position by 2 bytes after reading the number.
    *
@@ -63,6 +73,17 @@ export class BufferReader {
   public readUInt16(): number {
     this.index += 2;
     return this.buffer.readUInt16BE(this.index - 2);
+  }
+
+  /**
+   * Reads a 8-bit unsigned integer from the buffer at the current index position.
+   * Updates the index position by 1 byte after reading the number.
+   *
+   * @returns The read 8 bit value.
+   */
+  public readUInt8(): number {
+    this.index += 1;
+    return this.buffer.readUInt8(this.index - 1);
   }
 
   /**
@@ -88,6 +109,13 @@ export class BufferReader {
   public readBytes(n: number): Buffer {
     this.index += n;
     return Buffer.from(this.buffer.subarray(this.index - n, this.index));
+  }
+
+  /** Reads until the end of the buffer. */
+  public readToEnd(): Buffer {
+    const result = this.buffer.subarray(this.index);
+    this.index = this.buffer.length;
+    return result;
   }
 
   /**
@@ -118,6 +146,29 @@ export class BufferReader {
     fromBuffer: (reader: BufferReader) => T;
   }): T[] {
     const size = this.readNumber();
+    const result = new Array<T>(size);
+    for (let i = 0; i < size; i++) {
+      result[i] = itemDeserializer.fromBuffer(this);
+    }
+    return result;
+  }
+
+  /**
+   * Reads a vector of fixed size from the buffer and deserializes its elements using the provided itemDeserializer object.
+   * The 'itemDeserializer' object should have a 'fromBuffer' method that takes a BufferReader instance and returns the deserialized element.
+   * The method first reads the size of the vector (a number) from the buffer, then iterates through its elements,
+   * deserializing each one using the 'fromBuffer' method of 'itemDeserializer'.
+   *
+   * @param itemDeserializer - Object with 'fromBuffer' method to deserialize vector elements.
+   * @returns An array of deserialized elements of type T.
+   */
+  public readVectorUint8Prefix<T>(itemDeserializer: {
+    /**
+     * A method to deserialize data from a buffer.
+     */
+    fromBuffer: (reader: BufferReader) => T;
+  }): T[] {
+    const size = this.readUInt8();
     const result = new Array<T>(size);
     for (let i = 0; i < size; i++) {
       result[i] = itemDeserializer.fromBuffer(this);

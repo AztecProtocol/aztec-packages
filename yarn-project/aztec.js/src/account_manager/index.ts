@@ -1,15 +1,17 @@
 import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/circuit-types';
-import { EthAddress, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { EthAddress, PublicKey, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
+import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { AccountContract } from '../account/contract.js';
 import { Salt } from '../account/index.js';
 import { AccountInterface } from '../account/interface.js';
-import { DefaultWaitOpts, DeployMethod, WaitOpts } from '../contract/index.js';
-import { ContractDeployer } from '../contract_deployer/index.js';
+import { DeployMethod } from '../contract/deploy_method.js';
+import { DefaultWaitOpts, WaitOpts } from '../contract/sent_tx.js';
+import { ContractDeployer } from '../deployment/contract_deployer.js';
 import { waitForAccountSynch } from '../utils/account.js';
 import { generatePublicKey } from '../utils/index.js';
-import { AccountWalletWithPrivateKey } from '../wallet/index.js';
+import { AccountWalletWithPrivateKey, SignerlessWallet } from '../wallet/index.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 
 /**
@@ -18,23 +20,22 @@ import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
  */
 export class AccountManager {
   /** Deployment salt for the account contract. */
-  public readonly salt?: Fr;
+  public readonly salt: Fr;
 
+  // TODO(@spalladino): Does it make sense to have both completeAddress and instance?
   private completeAddress?: CompleteAddress;
+  private instance?: ContractInstanceWithAddress;
   private encryptionPublicKey?: PublicKey;
+  // TODO(@spalladino): Update to the new deploy method and kill the legacy one.
   private deployMethod?: DeployMethod;
 
   constructor(
     private pxe: PXE,
     private encryptionPrivateKey: GrumpkinPrivateKey,
     private accountContract: AccountContract,
-    saltOrAddress?: Salt | CompleteAddress,
+    salt?: Salt,
   ) {
-    if (saltOrAddress instanceof CompleteAddress) {
-      this.completeAddress = saltOrAddress;
-    } else {
-      this.salt = saltOrAddress ? new Fr(saltOrAddress) : Fr.random();
-    }
+    this.salt = salt ? new Fr(salt) : Fr.random();
   }
 
   protected getEncryptionPublicKey() {
@@ -62,15 +63,30 @@ export class AccountManager {
   public getCompleteAddress(): CompleteAddress {
     if (!this.completeAddress) {
       const encryptionPublicKey = generatePublicKey(this.encryptionPrivateKey);
-      const contractDeploymentInfo = getContractDeploymentInfo(
-        this.accountContract.getContractArtifact(),
-        this.accountContract.getDeploymentArgs(),
-        this.salt!,
-        encryptionPublicKey,
-      );
-      this.completeAddress = contractDeploymentInfo.completeAddress;
+      const instance = this.getInstance();
+      this.completeAddress = CompleteAddress.fromPublicKeyAndInstance(encryptionPublicKey, instance);
     }
     return this.completeAddress;
+  }
+
+  /**
+   * Returns the contract instance definition associated with this account.
+   * Does not require the account to be deployed or registered.
+   * @returns ContractInstance instance.
+   */
+  public getInstance(): ContractInstanceWithAddress {
+    if (!this.instance) {
+      const encryptionPublicKey = generatePublicKey(this.encryptionPrivateKey);
+      const portalAddress = EthAddress.ZERO;
+      this.instance = getContractInstanceFromDeployParams(
+        this.accountContract.getContractArtifact(),
+        this.accountContract.getDeploymentArgs(),
+        this.salt,
+        encryptionPublicKey,
+        portalAddress,
+      );
+    }
+    return this.instance;
   }
 
   /**
@@ -80,7 +96,7 @@ export class AccountManager {
    */
   public async getWallet(): Promise<AccountWalletWithPrivateKey> {
     const entrypoint = await this.getAccount();
-    return new AccountWalletWithPrivateKey(this.pxe, entrypoint, this.encryptionPrivateKey);
+    return new AccountWalletWithPrivateKey(this.pxe, entrypoint, this.encryptionPrivateKey, this.salt);
   }
 
   /**
@@ -91,17 +107,15 @@ export class AccountManager {
    * @returns A Wallet instance.
    */
   public async register(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithPrivateKey> {
-    const address = await this.#register();
-
+    await this.#register();
     await this.pxe.addContracts([
       {
         artifact: this.accountContract.getContractArtifact(),
-        completeAddress: address,
-        portalContract: EthAddress.ZERO,
+        instance: this.getInstance(),
       },
     ]);
 
-    await waitForAccountSynch(this.pxe, address, opts);
+    await waitForAccountSynch(this.pxe, this.getCompleteAddress(), opts);
     return this.getWallet();
   }
 
@@ -118,7 +132,15 @@ export class AccountManager {
       }
       await this.#register();
       const encryptionPublicKey = this.getEncryptionPublicKey();
-      const deployer = new ContractDeployer(this.accountContract.getContractArtifact(), this.pxe, encryptionPublicKey);
+      // We use a signerless wallet so we hit the account contract directly and it deploys itself.
+      // If we used getWallet, the deployment would get routed via the account contract entrypoint
+      // instead of directly hitting the initializer.
+      const deployWallet = new SignerlessWallet(this.pxe);
+      const deployer = new ContractDeployer(
+        this.accountContract.getContractArtifact(),
+        deployWallet,
+        encryptionPublicKey,
+      );
       const args = this.accountContract.getDeploymentArgs();
       this.deployMethod = deployer.deploy(...args);
     }
@@ -127,6 +149,7 @@ export class AccountManager {
 
   /**
    * Deploys the account contract that backs this account.
+   * Does not register the associated class nor publicly deploy the instance.
    * Uses the salt provided in the constructor or a randomly generated one.
    * Note that if the Account is constructed with an explicit complete address
    * it is assumed that the account contract has already been deployed and this method will throw.
@@ -136,7 +159,11 @@ export class AccountManager {
   public async deploy(): Promise<DeployAccountSentTx> {
     const deployMethod = await this.getDeployMethod();
     const wallet = await this.getWallet();
-    const sentTx = deployMethod.send({ contractAddressSalt: this.salt });
+    const sentTx = deployMethod.send({
+      contractAddressSalt: this.salt,
+      skipClassRegistration: true,
+      skipPublicDeployment: true,
+    });
     return new DeployAccountSentTx(wallet, sentTx.getTxHash());
   }
 
@@ -154,9 +181,8 @@ export class AccountManager {
     return this.getWallet();
   }
 
-  async #register(): Promise<CompleteAddress> {
+  async #register(): Promise<void> {
     const completeAddress = this.getCompleteAddress();
     await this.pxe.registerAccount(this.encryptionPrivateKey, completeAddress.partialAddress);
-    return completeAddress;
   }
 }

@@ -18,11 +18,11 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(
  *
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
-    using Sumcheck = ::bb::honk::sumcheck::SumcheckVerifier<Flavor>;
+    using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using Curve = typename Flavor::Curve;
-    using ZeroMorph = ::bb::honk::pcs::zeromorph::ZeroMorphVerifier_<Curve>;
+    using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::bb::RelationParameters<FF>;
@@ -30,14 +30,15 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     RelationParams relation_parameters;
 
-    transcript = std::make_shared<Transcript>(builder, proof.proof_data);
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    transcript = std::make_shared<Transcript>(stdlib_proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-    const auto public_input_size = transcript->template receive_from_prover<uint32_t>("public_input_size");
-    const auto pub_inputs_offset = transcript->template receive_from_prover<uint32_t>("pub_inputs_offset");
+    const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
+    const auto public_input_size = transcript->template receive_from_prover<FF>("public_input_size");
+    const auto pub_inputs_offset = transcript->template receive_from_prover<FF>("pub_inputs_offset");
 
     // For debugging purposes only
     ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
@@ -45,8 +46,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < key->num_public_inputs; ++i) {
-        auto public_input_i = transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i));
-        public_inputs.emplace_back(public_input_i);
+        public_inputs.emplace_back(transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i)));
     }
 
     // Get commitments to first three wire polynomials
@@ -70,7 +70,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     }
 
     // Get challenge for sorted list batching and wire four memory records
-    auto eta = transcript->get_challenge("eta");
+    auto eta = transcript->template get_challenge<FF>("eta");
     relation_parameters.eta = eta;
 
     // Get commitments to sorted list accumulator and fourth wire
@@ -78,7 +78,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     commitments.w_4 = transcript->template receive_from_prover<Commitment>(commitment_labels.w_4);
 
     // Get permutation challenges
-    auto [beta, gamma] = transcript->get_challenges("beta", "gamma");
+    auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
     if constexpr (IsGoblinFlavor<Flavor>) {
@@ -86,9 +86,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
             transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
     }
 
-    const FF public_input_delta = bb::honk::compute_public_input_delta<Flavor>(
+    const FF public_input_delta = compute_public_input_delta<Flavor>(
         public_inputs, beta, gamma, circuit_size, static_cast<uint32_t>(pub_inputs_offset.get_value()));
-    const FF lookup_grand_product_delta = bb::honk::compute_lookup_grand_product_delta<FF>(beta, gamma, circuit_size);
+    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, circuit_size);
 
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
@@ -105,12 +105,12 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
     RelationSeparator alpha;
     for (size_t idx = 0; idx < alpha.size(); idx++) {
-        alpha[idx] = transcript->get_challenge("Sumcheck:alpha_" + std::to_string(idx));
+        alpha[idx] = transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
     }
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
-        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
@@ -124,8 +124,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     return pairing_points;
 }
 
-template class UltraRecursiveVerifier_<bb::honk::flavor::UltraRecursive_<UltraCircuitBuilder>>;
-template class UltraRecursiveVerifier_<bb::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
-template class UltraRecursiveVerifier_<bb::honk::flavor::GoblinUltraRecursive_<UltraCircuitBuilder>>;
-template class UltraRecursiveVerifier_<bb::honk::flavor::GoblinUltraRecursive_<GoblinUltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

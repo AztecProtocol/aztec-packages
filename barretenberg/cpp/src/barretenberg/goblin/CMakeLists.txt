@@ -1,1 +1,1 @@
-barretenberg_module(goblin stdlib_recursion ultra_honk eccvm translator_vm)
+barretenberg_module(goblin stdlib_recursion ultra_honk eccvm translator_vm stdlib_sha256 crypto_merkle_tree stdlib_primitives)

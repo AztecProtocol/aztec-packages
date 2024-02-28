@@ -5,16 +5,15 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/ultra_honk/merge_prover.hpp"
+#include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 
-using namespace bb::honk;
-
-namespace test_ultra_honk_composer {
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
-}
+auto& engine = numeric::get_debug_randomness();
 
 class GoblinUltraHonkComposerTests : public ::testing::Test {
   protected:
@@ -23,7 +22,9 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
-    using CommitmentKey = pcs::CommitmentKey<Curve>;
+    using CommitmentKey = bb::CommitmentKey<Curve>;
+    using MergeProver = MergeProver_<GoblinUltraFlavor>;
+    using MergeVerifier = MergeVerifier_<GoblinUltraFlavor>;
 
     /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
@@ -74,16 +75,17 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
      * @brief Construct and verify a Goblin ECC op queue merge proof
      *
      */
-    bool construct_and_verify_merge_proof(auto& composer, auto& op_queue)
+    bool construct_and_verify_merge_proof(auto& op_queue)
     {
-        auto merge_prover = composer.create_merge_prover(op_queue);
-        auto merge_verifier = composer.create_merge_verifier();
+        MergeProver merge_prover{ op_queue };
+        MergeVerifier merge_verifier;
         auto merge_proof = merge_prover.construct_proof();
         bool verified = merge_verifier.verify_proof(merge_proof);
 
         return verified;
     }
 };
+} // namespace
 
 /**
  * @brief Test proof construction/verification for a circuit with ECC op gates, public inputs, and basic arithmetic
@@ -99,7 +101,7 @@ TEST_F(GoblinUltraHonkComposerTests, SingleCircuit)
     // Add mock data to op queue to simulate interaction with a previous circuit
     op_queue->populate_with_mock_initital_data();
 
-    auto builder = bb::GoblinUltraCircuitBuilder{ op_queue };
+    auto builder = GoblinUltraCircuitBuilder{ op_queue };
 
     generate_test_circuit(builder);
 
@@ -110,7 +112,7 @@ TEST_F(GoblinUltraHonkComposerTests, SingleCircuit)
     EXPECT_TRUE(honk_verified);
 
     // Construct and verify Goblin ECC op queue Merge proof
-    auto merge_verified = construct_and_verify_merge_proof(composer, op_queue);
+    auto merge_verified = construct_and_verify_merge_proof(op_queue);
     EXPECT_TRUE(merge_verified);
 }
 
@@ -130,14 +132,14 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsMergeOnly)
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
-        auto builder = bb::GoblinUltraCircuitBuilder{ op_queue };
+        auto builder = GoblinUltraCircuitBuilder{ op_queue };
 
         generate_test_circuit(builder);
 
         auto composer = GoblinUltraComposer();
 
         // Construct and verify Goblin ECC op queue Merge proof
-        auto merge_verified = construct_and_verify_merge_proof(composer, op_queue);
+        auto merge_verified = construct_and_verify_merge_proof(op_queue);
         EXPECT_TRUE(merge_verified);
     }
 }
@@ -158,7 +160,7 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkOnly)
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
-        auto builder = bb::GoblinUltraCircuitBuilder{ op_queue };
+        auto builder = GoblinUltraCircuitBuilder{ op_queue };
 
         generate_test_circuit(builder);
 
@@ -186,7 +188,7 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkAndMerge)
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
-        auto builder = bb::GoblinUltraCircuitBuilder{ op_queue };
+        auto builder = GoblinUltraCircuitBuilder{ op_queue };
 
         generate_test_circuit(builder);
 
@@ -197,7 +199,7 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkAndMerge)
         EXPECT_TRUE(honk_verified);
 
         // Construct and verify Goblin ECC op queue Merge proof
-        auto merge_verified = construct_and_verify_merge_proof(composer, op_queue);
+        auto merge_verified = construct_and_verify_merge_proof(op_queue);
         EXPECT_TRUE(merge_verified);
     }
 
@@ -212,5 +214,3 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkAndMerge)
         EXPECT_EQ(result, expected);
     }
 }
-
-} // namespace test_ultra_honk_composer

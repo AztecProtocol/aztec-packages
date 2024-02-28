@@ -58,7 +58,7 @@ template <typename Fr> class Polynomial {
      */
     Polynomial share() const;
 
-    std::array<uint8_t, 32> hash() const { return sha256::sha256(byte_span()); }
+    std::array<uint8_t, 32> hash() const { return crypto::sha256(byte_span()); }
 
     void clear()
     {
@@ -230,6 +230,13 @@ template <typename Fr> class Polynomial {
 
     std::size_t size() const { return size_; }
     std::size_t capacity() const { return size_ + MAXIMUM_COEFFICIENT_SHIFT; }
+
+    static Polynomial random(const size_t num_coeffs)
+    {
+        Polynomial p(num_coeffs);
+        std::generate_n(p.begin(), num_coeffs, []() { return Fr::random_element(); });
+        return p;
+    }
 
   private:
     // allocate a fresh memory pointer for backing memory

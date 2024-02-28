@@ -4,10 +4,7 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-using namespace bb;
-using namespace bb::honk::sumcheck;
-
-namespace bb::honk {
+namespace bb {
 template <typename Flavor>
 ECCVMVerifier_<Flavor>::ECCVMVerifier_(const std::shared_ptr<typename Flavor::VerificationKey>& verifier_key)
     : key(verifier_key)
@@ -32,23 +29,22 @@ template <typename Flavor> ECCVMVerifier_<Flavor>& ECCVMVerifier_<Flavor>::opera
  * @brief This function verifies an ECCVM Honk proof for given program settings.
  *
  */
-template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     using FF = typename Flavor::FF;
     using GroupElement = typename Flavor::GroupElement;
     using Commitment = typename Flavor::Commitment;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Gemini = pcs::gemini::GeminiVerifier_<Curve>;
-    using Shplonk = pcs::shplonk::ShplonkVerifier_<Curve>;
+    using Gemini = GeminiVerifier_<Curve>;
+    using Shplonk = ShplonkVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Transcript = typename Flavor::Transcript;
-    using OpeningClaim = typename pcs::OpeningClaim<Curve>;
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = std::make_shared<Transcript>(proof.proof_data);
+    transcript = std::make_shared<Transcript>(proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -141,7 +137,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     commitments.lookup_read_counts_1 = receive_commitment(commitment_labels.lookup_read_counts_1);
 
     // Get challenge for sorted list batching and wire four memory records
-    auto [beta, gamma] = challenges_to_field_elements<FF>(transcript->get_challenges("beta", "gamma"));
+    auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
 
     relation_parameters.gamma = gamma;
     auto beta_sqr = beta * beta;
@@ -159,10 +155,10 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
-    FF alpha = transcript->get_challenge("Sumcheck:alpha");
+    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = transcript->get_challenge("Sumcheck:gate_challenge_" + std::to_string(idx));
+        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
     auto [multivariate_challenge, purported_evaluations, sumcheck_verified] =
@@ -182,8 +178,8 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     auto batched_commitment_to_be_shifted = GroupElement::zero();
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
     // Compute powers of batching challenge rho
-    FF rho = transcript->get_challenge("rho");
-    std::vector<FF> rhos = pcs::gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
+    FF rho = transcript->template get_challenge<FF>("rho");
+    std::vector<FF> rhos = gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
 
     // Compute batched multivariate evaluation
     FF batched_evaluation = FF::zero();
@@ -242,7 +238,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     {
         auto hack_commitment = receive_commitment("Translation:hack_commitment");
 
-        FF evaluation_challenge_x = transcript->get_challenge("Translation:evaluation_challenge_x");
+        FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
         // Construct arrays of commitments and evaluations to be batched
         const size_t NUM_UNIVARIATES = 6;
@@ -260,7 +256,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         };
 
         // Get another challenge for batching the univariate claims
-        FF ipa_batching_challenge = transcript->get_challenge("Translation:ipa_batching_challenge");
+        FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
 
         // Construct batched commitment and batched evaluation
         auto batched_commitment = transcript_commitments[0];
@@ -273,14 +269,14 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         }
 
         // Construct and verify batched opening claim
-        OpeningClaim batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval },
-                                                  batched_commitment };
+        OpeningClaim<Curve> batched_univariate_claim = { { evaluation_challenge_x, batched_transcript_eval },
+                                                         batched_commitment };
         univariate_opening_verified = PCS::verify(pcs_verification_key, batched_univariate_claim, transcript);
     }
 
     return sumcheck_verified.value() && multivariate_opening_verified && univariate_opening_verified;
 }
 
-template class ECCVMVerifier_<honk::flavor::ECCVM>;
+template class ECCVMVerifier_<ECCVMFlavor>;
 
-} // namespace bb::honk
+} // namespace bb

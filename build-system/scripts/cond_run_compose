@@ -20,14 +20,13 @@ echo "Success tag: $SUCCESS_TAG"
 
 if ! check_rebuild $SUCCESS_TAG $REPOSITORY; then
   # Login to pull our ecr images with docker.
-  ecr_login
+  retry ecr_login
 
   # For each dependency and self, pull in the latest image and give it correct tag.
   for REPO in $(query_manifest runDependencies $REPOSITORY $JOB_NAME); do
     echo "Pulling $REPO..."
     REPO_IMAGE_URI=$(calculate_image_uri $REPO)
     retry docker pull $REPO_IMAGE_URI
-    docker tag $REPO_IMAGE_URI $ECR_DEPLOY_URL/$REPO
     docker tag $REPO_IMAGE_URI aztecprotocol/$REPO
   done
 

@@ -5,8 +5,11 @@
 
 namespace acir_format {
 
+template class DSLBigInts<UltraCircuitBuilder>;
+template class DSLBigInts<GoblinUltraCircuitBuilder>;
+
 template <typename Builder>
-void build_constraints(Builder& builder, acir_format const& constraint_system, bool has_valid_witness_assignments)
+void build_constraints(Builder& builder, AcirFormat const& constraint_system, bool has_valid_witness_assignments)
 {
     // Add arithmetic gates
     for (const auto& constraint : constraint_system.constraints) {
@@ -27,6 +30,9 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
     // Add sha256 constraints
     for (const auto& constraint : constraint_system.sha256_constraints) {
         create_sha256_constraints(builder, constraint);
+    }
+    for (const auto& constraint : constraint_system.sha256_compression) {
+        create_sha256_compression_constraints(builder, constraint);
     }
 
     // Add schnorr constraints
@@ -74,6 +80,9 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
         create_pedersen_hash_constraint(builder, constraint);
     }
 
+    for (const auto& constraint : constraint_system.poseidon2_constraints) {
+        create_poseidon2_permutations(builder, constraint);
+    }
     // Add fixed base scalar mul constraints
     for (const auto& constraint : constraint_system.fixed_base_scalar_mul_constraints) {
         create_fixed_base_constraint(builder, constraint);
@@ -81,12 +90,7 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
 
     // Add ec add constraints
     for (const auto& constraint : constraint_system.ec_add_constraints) {
-        create_ec_add_constraint(builder, constraint);
-    }
-
-    // Add ec double
-    for (const auto& constraint : constraint_system.ec_double_constraints) {
-        create_ec_double_constraint(builder, constraint);
+        create_ec_add_constraint(builder, constraint, has_valid_witness_assignments);
     }
 
     // Add block constraints
@@ -94,10 +98,22 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
         create_block_constraints(builder, constraint, has_valid_witness_assignments);
     }
 
+    // Add big_int constraints
+    DSLBigInts<Builder> dsl_bigints;
+    for (const auto& constraint : constraint_system.bigint_from_le_bytes_constraints) {
+        create_bigint_from_le_bytes_constraint(builder, constraint, dsl_bigints);
+    }
+    for (const auto& constraint : constraint_system.bigint_operations) {
+        create_bigint_operations_constraint<Builder>(constraint, dsl_bigints);
+    }
+    for (const auto& constraint : constraint_system.bigint_to_le_bytes_constraints) {
+        create_bigint_to_le_bytes_constraint(builder, constraint, dsl_bigints);
+    }
+
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for UGH for now since we're not yet
     // dealing with proper recursion
     if constexpr (IsGoblinBuilder<Builder>) {
-        if (constraint_system.recursion_constraints.size() > 0) {
+        if (!constraint_system.recursion_constraints.empty()) {
             info("WARNING: this circuit contains recursion_constraints!");
         }
     } else {
@@ -132,8 +148,15 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
             // If the proof has public inputs attached to it, we should handle setting the nested aggregation object
             if (constraint.proof.size() > proof_size_no_pub_inputs) {
                 // The public inputs attached to a proof should match the aggregation object in size
-                ASSERT(constraint.proof.size() - proof_size_no_pub_inputs ==
-                       RecursionConstraint::AGGREGATION_OBJECT_SIZE);
+                if (constraint.proof.size() - proof_size_no_pub_inputs !=
+                    RecursionConstraint::AGGREGATION_OBJECT_SIZE) {
+                    auto error_string = format(
+                        "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
+                        "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
+                        "which is {}\n",
+                        RecursionConstraint::AGGREGATION_OBJECT_SIZE);
+                    throw_or_abort(error_string);
+                }
                 for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
                     // Set the nested aggregation object indices to the current size of the public inputs
                     // This way we know that the nested aggregation object indices will always be the last
@@ -149,7 +172,6 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
                                        constraint.proof.begin() +
                                            static_cast<std::ptrdiff_t>(RecursionConstraint::AGGREGATION_OBJECT_SIZE));
             }
-
             current_output_aggregation_object = create_recursion_constraints(builder,
                                                                              constraint,
                                                                              current_input_aggregation_object,
@@ -188,9 +210,11 @@ void build_constraints(Builder& builder, acir_format const& constraint_system, b
  * @return Builder
  */
 template <typename Builder>
-Builder create_circuit(const acir_format& constraint_system, size_t size_hint, WitnessVector const& witness)
+Builder create_circuit(const AcirFormat& constraint_system, size_t size_hint, WitnessVector const& witness)
 {
-    Builder builder{ size_hint, witness, constraint_system.public_inputs, constraint_system.varnum };
+    Builder builder{
+        size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, constraint_system.recursive
+    };
 
     bool has_valid_witness_assignments = !witness.empty();
     build_constraints(builder, constraint_system, has_valid_witness_assignments);
@@ -198,9 +222,9 @@ Builder create_circuit(const acir_format& constraint_system, size_t size_hint, W
     return builder;
 }
 
-template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const acir_format& constraint_system,
+template UltraCircuitBuilder create_circuit<UltraCircuitBuilder>(const AcirFormat& constraint_system,
                                                                  size_t size_hint,
                                                                  WitnessVector const& witness);
-template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, acir_format const&, bool);
+template void build_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder&, AcirFormat const&, bool);
 
 } // namespace acir_format

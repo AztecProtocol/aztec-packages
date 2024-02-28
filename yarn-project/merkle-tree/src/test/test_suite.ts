@@ -1,13 +1,12 @@
+import { SiblingPath } from '@aztec/circuit-types';
+import { AztecKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { Hasher } from '@aztec/types/interfaces';
-import { SiblingPath } from '@aztec/types/membership';
-
-import { default as levelup } from 'levelup';
 
 import { Pedersen } from '../index.js';
 import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
 import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { appendLeaves } from './utils/append_leaves.js';
-import { createMemDown } from './utils/create_mem_down.js';
 
 const expectSameTrees = async (
   tree1: AppendOnlyTree | UpdateOnlyTree,
@@ -28,12 +27,12 @@ const expectSameTrees = async (
 export const treeTestSuite = (
   testName: string,
   createDb: (
-    levelup: levelup.LevelUp,
+    store: AztecKVStore,
     hasher: Hasher,
     name: string,
     depth: number,
   ) => Promise<AppendOnlyTree | UpdateOnlyTree>,
-  createFromName: (levelup: levelup.LevelUp, hasher: Hasher, name: string) => Promise<AppendOnlyTree | UpdateOnlyTree>,
+  createFromName: (store: AztecKVStore, hasher: Hasher, name: string) => Promise<AppendOnlyTree | UpdateOnlyTree>,
 ) => {
   describe(testName, () => {
     const values: Buffer[] = [];
@@ -52,12 +51,10 @@ export const treeTestSuite = (
     });
 
     it('should revert changes on rollback', async () => {
-      const levelDownEmpty = createMemDown();
-      const dbEmpty = levelup(levelDownEmpty);
+      const dbEmpty = openTmpStore();
       const emptyTree = await createDb(dbEmpty, pedersen, 'test', 10);
 
-      const levelDown = createMemDown();
-      const db = levelup(levelDown);
+      const db = openTmpStore();
       const tree = await createDb(db, pedersen, 'test2', 10);
       await appendLeaves(tree, values.slice(0, 4));
 
@@ -89,12 +86,10 @@ export const treeTestSuite = (
     });
 
     it('should not revert changes after commit', async () => {
-      const levelDownEmpty = createMemDown();
-      const dbEmpty = levelup(levelDownEmpty);
+      const dbEmpty = openTmpStore();
       const emptyTree = await createDb(dbEmpty, pedersen, 'test', 10);
 
-      const levelDown = createMemDown();
-      const db = levelup(levelDown);
+      const db = openTmpStore();
       const tree = await createDb(db, pedersen, 'test2', 10);
       await appendLeaves(tree, values.slice(0, 4));
 
@@ -110,14 +105,12 @@ export const treeTestSuite = (
     });
 
     it('should be able to restore from previous committed data', async () => {
-      const levelDown = createMemDown();
-      const db = levelup(levelDown);
+      const db = openTmpStore();
       const tree = await createDb(db, pedersen, 'test', 10);
       await appendLeaves(tree, values.slice(0, 4));
       await tree.commit();
 
-      const db2 = levelup(levelDown);
-      const tree2 = await createFromName(db2, pedersen, 'test');
+      const tree2 = await createFromName(db, pedersen, 'test');
 
       // both committed and uncommitted should be equal to the restored data
       expect(tree.getRoot(true)).toEqual(tree2.getRoot(true));
@@ -129,7 +122,7 @@ export const treeTestSuite = (
     });
 
     it('should throw an error if previous data does not exist for the given name', async () => {
-      const db = levelup(createMemDown());
+      const db = openTmpStore();
       await expect(
         (async () => {
           await createFromName(db, pedersen, 'a_whole_new_tree');
@@ -138,7 +131,7 @@ export const treeTestSuite = (
     });
 
     it('should serialize sibling path data to a buffer and be able to deserialize it back', async () => {
-      const db = levelup(createMemDown());
+      const db = openTmpStore();
       const tree = await createDb(db, pedersen, 'test', 10);
       await appendLeaves(tree, values.slice(0, 1));
 

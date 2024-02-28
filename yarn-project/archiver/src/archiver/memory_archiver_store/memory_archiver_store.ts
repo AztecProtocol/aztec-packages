@@ -17,6 +17,7 @@ import {
 } from '@aztec/circuit-types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { ArchiverDataStore } from '../archiver_store.js';
 import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
@@ -68,6 +69,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   private pendingL1ToL2Messages: PendingL1ToL2MessageStore = new PendingL1ToL2MessageStore();
 
+  private contractClasses: Map<string, ContractClassPublic> = new Map();
+
+  private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
+
   private lastL1BlockAddedMessages: bigint = 0n;
   private lastL1BlockCancelledMessages: bigint = 0n;
 
@@ -75,6 +80,32 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
     public readonly maxLogs: number,
   ) {}
+
+  public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    return Promise.resolve(this.contractClasses.get(id.toString()));
+  }
+
+  public getContractClassIds(): Promise<Fr[]> {
+    return Promise.resolve(Array.from(this.contractClasses.keys()).map(key => Fr.fromString(key)));
+  }
+
+  public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return Promise.resolve(this.contractInstances.get(address.toString()));
+  }
+
+  public addContractClasses(data: ContractClassPublic[], _blockNumber: number): Promise<boolean> {
+    for (const contractClass of data) {
+      this.contractClasses.set(contractClass.id.toString(), contractClass);
+    }
+    return Promise.resolve(true);
+  }
+
+  public addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
+    for (const contractInstance of data) {
+      this.contractInstances.set(contractInstance.address.toString(), contractInstance);
+    }
+    return Promise.resolve(true);
+  }
 
   /**
    * Append new blocks to the store's list.
@@ -369,7 +400,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       return Promise.resolve(undefined);
     }
     for (const blockContext of this.l2BlockContexts) {
-      for (const contractData of blockContext.block.newContractData) {
+      for (const contractData of blockContext.block.body.txEffects.flatMap(txEffect => txEffect.contractData)) {
         if (contractData.contractAddress.equals(contractAddress)) {
           return Promise.resolve(contractData);
         }
@@ -389,7 +420,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       return Promise.resolve([]);
     }
     const block: L2Block | undefined = this.l2BlockContexts[l2BlockNum - INITIAL_L2_BLOCK_NUM]?.block;
-    return Promise.resolve(block?.newContractData);
+    return Promise.resolve(block?.body.txEffects.flatMap(txEffect => txEffect.contractData));
   }
 
   /**

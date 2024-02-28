@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 
-namespace bb::honk::pcs::zeromorph {
+namespace bb {
 
 template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
   public:
@@ -74,23 +74,27 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
             g_commitments.emplace_back(f_commitments[i]);
         }
 
-        // Initialize an empty BaseTranscript
-        auto prover_transcript = BaseTranscript::prover_init_empty();
+        // Initialize an empty NativeTranscript
+        auto prover_transcript = NativeTranscript::prover_init_empty();
 
         // Execute Prover protocol
-        ZeroMorphProver::prove(f_polynomials,
-                               g_polynomials,
-                               v_evaluations,
-                               w_evaluations,
+        ZeroMorphProver::prove(RefVector(f_polynomials),
+                               RefVector(g_polynomials),
+                               RefVector(v_evaluations),
+                               RefVector(w_evaluations),
                                u_challenge,
                                this->commitment_key,
                                prover_transcript);
 
-        auto verifier_transcript = BaseTranscript::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
         // Execute Verifier protocol
-        auto pairing_points = ZeroMorphVerifier::verify(
-            f_commitments, g_commitments, v_evaluations, w_evaluations, u_challenge, verifier_transcript);
+        auto pairing_points = ZeroMorphVerifier::verify(RefVector(f_commitments),
+                                                        RefVector(g_commitments),
+                                                        RefVector(v_evaluations),
+                                                        RefVector(w_evaluations),
+                                                        u_challenge,
+                                                        verifier_transcript);
 
         bool verified = this->vk()->pairing_check(pairing_points[0], pairing_points[1]);
 
@@ -220,32 +224,32 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
             concatenation_groups_commitments.emplace_back(concatenation_group_commitment);
         }
 
-        // Initialize an empty BaseTranscript
-        auto prover_transcript = BaseTranscript::prover_init_empty();
+        // Initialize an empty NativeTranscript
+        auto prover_transcript = NativeTranscript::prover_init_empty();
 
         // Execute Prover protocol
-        ZeroMorphProver::prove(f_polynomials, // unshifted
-                               g_polynomials, // to-be-shifted
-                               v_evaluations, // unshifted
-                               w_evaluations, // shifted
+        ZeroMorphProver::prove(RefVector(f_polynomials), // unshifted
+                               RefVector(g_polynomials), // to-be-shifted
+                               RefVector(v_evaluations), // unshifted
+                               RefVector(w_evaluations), // shifted
                                u_challenge,
                                this->commitment_key,
                                prover_transcript,
-                               concatenated_polynomials,
-                               c_evaluations,
+                               RefVector(concatenated_polynomials),
+                               RefVector(c_evaluations),
                                to_vector_of_ref_vectors(concatenation_groups));
 
-        auto verifier_transcript = BaseTranscript::verifier_init_empty(prover_transcript);
+        auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
         // Execute Verifier protocol
-        auto pairing_points = ZeroMorphVerifier::verify(f_commitments, // unshifted
-                                                        g_commitments, // to-be-shifted
-                                                        v_evaluations, // unshifted
-                                                        w_evaluations, // shifted
+        auto pairing_points = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
+                                                        RefVector(g_commitments), // to-be-shifted
+                                                        RefVector(v_evaluations), // unshifted
+                                                        RefVector(w_evaluations), // shifted
                                                         u_challenge,
                                                         verifier_transcript,
                                                         to_vector_of_ref_vectors(concatenation_groups_commitments),
-                                                        c_evaluations);
+                                                        RefVector(c_evaluations));
 
         verified = this->vk()->pairing_check(pairing_points[0], pairing_points[1]);
 
@@ -532,4 +536,4 @@ TYPED_TEST(ZeroMorphWithConcatenationTest, ProveAndVerify)
     auto verified = this->execute_zeromorph_protocol(num_unshifted, num_shifted, num_concatenated);
     EXPECT_TRUE(verified);
 }
-} // namespace bb::honk::pcs::zeromorph
+} // namespace bb

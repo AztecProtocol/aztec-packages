@@ -31,24 +31,26 @@ export {
   DeploySentTx,
 } from './contract/index.js';
 
-export { ContractDeployer } from './contract_deployer/index.js';
+export { ContractDeployer } from './deployment/index.js';
 
 export {
   generatePublicKey,
   FieldLike,
   EthAddressLike,
-  computeMessageSecretHash,
   CheatCodes,
   AztecAddressLike,
   FunctionSelectorLike,
+  WrappedFieldLike,
   isContractDeployed,
   EthCheatCodes,
   computeAuthWitMessageHash,
+  computeInnerAuthWitHash,
+  computeOuterAuthWitHash,
   waitForPXE,
   waitForAccountSynch,
 } from './utils/index.js';
 
-export { createPXEClient } from './pxe_client.js';
+export { createPXEClient } from './rpc_clients/index.js';
 
 export { AuthWitnessProvider } from './account/index.js';
 
@@ -67,14 +69,18 @@ export {
   GlobalVariables,
   GrumpkinScalar,
   Point,
-  getContractDeploymentInfo,
+  getContractInstanceFromDeployParams,
+  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+
+export { computeMessageSecretHash } from '@aztec/circuits.js/hash';
 
 export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 
 export {
   AuthWitness,
   AztecNode,
+  Body,
   CompleteAddress,
   ContractData,
   DeployedContract,
@@ -106,9 +112,11 @@ export {
   emptyFunctionCall,
   merkleTreeIds,
   mockTx,
+  Comparator,
 } from '@aztec/circuit-types';
-
 export { NodeInfo } from '@aztec/types/interfaces';
+
+export { ContractInstanceWithAddress, ContractClassWithId } from '@aztec/types/contracts';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
@@ -137,3 +145,4 @@ export {
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/init.js';
 export * from './api/abi.js';
+export * from './api/fee.js';

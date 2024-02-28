@@ -1,0 +1,32 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../types"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../merkle-tree"
+    },
+    {
+      "path": "../noir-contracts.js"
+    }
+  ],
+  "include": ["src"]
+}

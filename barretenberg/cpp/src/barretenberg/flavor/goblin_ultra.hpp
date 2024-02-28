@@ -3,6 +3,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
@@ -19,21 +20,19 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include "relation_definitions.hpp"
 
-namespace bb::honk::flavor {
+namespace bb {
 
-class GoblinUltra {
+class GoblinUltraFlavor {
   public:
     using CircuitBuilder = GoblinUltraCircuitBuilder;
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
-    using CommitmentHandle = Curve::AffineElement;
-    using PCS = pcs::kzg::KZG<Curve>;
+    using PCS = KZG<Curve>;
     using Polynomial = bb::Polynomial<FF>;
-    using PolynomialHandle = std::span<FF>;
-    using CommitmentKey = pcs::CommitmentKey<Curve>;
-    using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
+    using CommitmentKey = bb::CommitmentKey<Curve>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
 
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
@@ -131,31 +130,31 @@ class GoblinUltra {
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
-        RefVector<DataType> get_selectors()
+        auto get_selectors()
         {
-            return { q_m,
-                     q_c,
-                     q_l,
-                     q_r,
-                     q_o,
-                     q_4,
-                     q_arith,
-                     q_sort,
-                     q_elliptic,
-                     q_aux,
-                     q_lookup,
-                     q_busread,
-                     q_poseidon2_external,
-                     q_poseidon2_internal };
+            return RefArray{ q_m,
+                             q_c,
+                             q_l,
+                             q_r,
+                             q_o,
+                             q_4,
+                             q_arith,
+                             q_sort,
+                             q_elliptic,
+                             q_aux,
+                             q_lookup,
+                             q_busread,
+                             q_poseidon2_external,
+                             q_poseidon2_internal };
         };
-        RefVector<DataType> get_sigma_polynomials() { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
-        RefVector<DataType> get_id_polynomials() { return { id_1, id_2, id_3, id_4 }; };
-        RefVector<DataType> get_table_polynomials() { return { table_1, table_2, table_3, table_4 }; };
+        auto get_sigma_polynomials() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
+        auto get_id_polynomials() { return RefArray{ id_1, id_2, id_3, id_4 }; };
+        auto get_table_polynomials() { return RefArray{ table_1, table_2, table_3, table_4 }; };
     };
 
     // GoblinUltra needs to expose more public classes than most flavors due to GoblinUltraRecursive reuse, but these
     // are internal:
-  private:
+  public:
     // WireEntities for basic witness entities
     template <typename DataType> class WireEntities {
       public:
@@ -192,10 +191,10 @@ class GoblinUltra {
       public:
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedEntities<DataType>)
 
-        RefVector<DataType> get_wires() { return WireEntities<DataType>::get_all(); };
-        RefVector<DataType> get_ecc_op_wires()
+        auto get_wires() { return WireEntities<DataType>::get_all(); };
+        auto get_ecc_op_wires()
         {
-            return { this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
+            return RefArray{ this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
         }
     };
 
@@ -233,25 +232,25 @@ class GoblinUltra {
       public:
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
-        RefVector<DataType> get_wires() { return { this->w_l, this->w_r, this->w_o, this->w_4 }; };
-        RefVector<DataType> get_ecc_op_wires()
+        auto get_wires() { return RefArray{ this->w_l, this->w_r, this->w_o, this->w_4 }; };
+        auto get_ecc_op_wires()
         {
-            return { this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
+            return RefArray{ this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
         };
         // Gemini-specific getters.
-        RefVector<DataType> get_unshifted()
+        auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
 
-        RefVector<DataType> get_witness() { return WitnessEntities<DataType>::get_all(); };
-        RefVector<DataType> get_to_be_shifted()
+        auto get_witness() { return WitnessEntities<DataType>::get_all(); };
+        auto get_to_be_shifted()
         {
-            return { this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
-                     this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
+            return RefArray{ this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
+                             this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
         };
-        RefVector<DataType> get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
-        RefVector<DataType> get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
+        auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 
     /**
@@ -270,13 +269,13 @@ class GoblinUltra {
 
         size_t num_ecc_op_gates; // needed to determine public input offset
 
-        RefVector<DataType> get_to_be_shifted()
+        auto get_to_be_shifted()
         {
-            return { this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
-                     this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
+            return RefArray{ this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
+                             this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
         };
         // The plookup wires that store plookup read data.
-        std::array<PolynomialHandle, 3> get_table_column_wires() { return { w_l, w_r, w_o }; };
+        auto get_table_column_wires() { return RefArray{ w_l, w_r, w_o }; };
     };
 
     /**
@@ -379,36 +378,35 @@ class GoblinUltra {
             calldata_read_counts = "CALLDATA_READ_COUNTS";
             lookup_inverses = "LOOKUP_INVERSES";
 
-            // The ones beginning with "__" are only used for debugging
-            q_c = "__Q_C";
-            q_l = "__Q_L";
-            q_r = "__Q_R";
-            q_o = "__Q_O";
-            q_4 = "__Q_4";
-            q_m = "__Q_M";
-            q_arith = "__Q_ARITH";
-            q_sort = "__Q_SORT";
-            q_elliptic = "__Q_ELLIPTIC";
-            q_aux = "__Q_AUX";
-            q_lookup = "__Q_LOOKUP";
-            q_busread = "__Q_BUSREAD";
-            q_poseidon2_external = "__Q_POSEIDON2_EXTERNAL";
-            q_poseidon2_internal = "__Q_POSEIDON2_INTERNAL";
-            sigma_1 = "__SIGMA_1";
-            sigma_2 = "__SIGMA_2";
-            sigma_3 = "__SIGMA_3";
-            sigma_4 = "__SIGMA_4";
-            id_1 = "__ID_1";
-            id_2 = "__ID_2";
-            id_3 = "__ID_3";
-            id_4 = "__ID_4";
-            table_1 = "__TABLE_1";
-            table_2 = "__TABLE_2";
-            table_3 = "__TABLE_3";
-            table_4 = "__TABLE_4";
-            lagrange_first = "__LAGRANGE_FIRST";
-            lagrange_last = "__LAGRANGE_LAST";
-            lagrange_ecc_op = "__Q_ECC_OP_QUEUE";
+            q_c = "Q_C";
+            q_l = "Q_L";
+            q_r = "Q_R";
+            q_o = "Q_O";
+            q_4 = "Q_4";
+            q_m = "Q_M";
+            q_arith = "Q_ARITH";
+            q_sort = "Q_SORT";
+            q_elliptic = "Q_ELLIPTIC";
+            q_aux = "Q_AUX";
+            q_lookup = "Q_LOOKUP";
+            q_busread = "Q_BUSREAD";
+            q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
+            q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
+            sigma_1 = "SIGMA_1";
+            sigma_2 = "SIGMA_2";
+            sigma_3 = "SIGMA_3";
+            sigma_4 = "SIGMA_4";
+            id_1 = "ID_1";
+            id_2 = "ID_2";
+            id_3 = "ID_3";
+            id_4 = "ID_4";
+            table_1 = "TABLE_1";
+            table_2 = "TABLE_2";
+            table_3 = "TABLE_3";
+            table_4 = "TABLE_4";
+            lagrange_first = "LAGRANGE_FIRST";
+            lagrange_last = "LAGRANGE_LAST";
+            lagrange_ecc_op = "Q_ECC_OP_QUEUE";
         };
     };
 
@@ -418,42 +416,8 @@ class GoblinUltra {
     template <typename Commitment, typename VerificationKey>
     class VerifierCommitments_ : public AllEntities<Commitment> {
       public:
-        VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)
-        {
-            this->q_m = verification_key->q_m;
-            this->q_l = verification_key->q_l;
-            this->q_r = verification_key->q_r;
-            this->q_o = verification_key->q_o;
-            this->q_4 = verification_key->q_4;
-            this->q_c = verification_key->q_c;
-            this->q_arith = verification_key->q_arith;
-            this->q_sort = verification_key->q_sort;
-            this->q_elliptic = verification_key->q_elliptic;
-            this->q_aux = verification_key->q_aux;
-            this->q_lookup = verification_key->q_lookup;
-            this->q_busread = verification_key->q_busread;
-            this->q_poseidon2_external = verification_key->q_poseidon2_external;
-            this->q_poseidon2_internal = verification_key->q_poseidon2_internal;
-            this->sigma_1 = verification_key->sigma_1;
-            this->sigma_2 = verification_key->sigma_2;
-            this->sigma_3 = verification_key->sigma_3;
-            this->sigma_4 = verification_key->sigma_4;
-            this->id_1 = verification_key->id_1;
-            this->id_2 = verification_key->id_2;
-            this->id_3 = verification_key->id_3;
-            this->id_4 = verification_key->id_4;
-            this->table_1 = verification_key->table_1;
-            this->table_2 = verification_key->table_2;
-            this->table_3 = verification_key->table_3;
-            this->table_4 = verification_key->table_4;
-            this->lagrange_first = verification_key->lagrange_first;
-            this->lagrange_last = verification_key->lagrange_last;
-            this->lagrange_ecc_op = verification_key->lagrange_ecc_op;
-            this->databus_id = verification_key->databus_id;
-        }
-
         VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key,
-                             const WitnessCommitments& witness_commitments)
+                             const std::optional<WitnessEntities<Commitment>>& witness_commitments = std::nullopt)
         {
             this->q_m = verification_key->q_m;
             this->q_l = verification_key->q_l;
@@ -486,19 +450,23 @@ class GoblinUltra {
             this->lagrange_ecc_op = verification_key->lagrange_ecc_op;
             this->databus_id = verification_key->databus_id;
 
-            this->w_l = witness_commitments.w_l;
-            this->w_r = witness_commitments.w_r;
-            this->w_o = witness_commitments.w_o;
-            this->sorted_accum = witness_commitments.sorted_accum;
-            this->w_4 = witness_commitments.w_4;
-            this->z_perm = witness_commitments.z_perm;
-            this->z_lookup = witness_commitments.z_lookup;
-            this->ecc_op_wire_1 = witness_commitments.ecc_op_wire_1;
-            this->ecc_op_wire_2 = witness_commitments.ecc_op_wire_2;
-            this->ecc_op_wire_3 = witness_commitments.ecc_op_wire_3;
-            this->calldata = witness_commitments.calldata;
-            this->calldata = witness_commitments.calldata_read_counts;
-            this->lookup_inverses = witness_commitments.lookup_inverses;
+            if (witness_commitments.has_value()) {
+                auto commitments = witness_commitments.value();
+                this->w_l = commitments.w_l;
+                this->w_r = commitments.w_r;
+                this->w_o = commitments.w_o;
+                this->w_4 = commitments.w_4;
+                this->sorted_accum = commitments.sorted_accum;
+                this->z_perm = commitments.z_perm;
+                this->z_lookup = commitments.z_lookup;
+                this->ecc_op_wire_1 = commitments.ecc_op_wire_1;
+                this->ecc_op_wire_2 = commitments.ecc_op_wire_2;
+                this->ecc_op_wire_3 = commitments.ecc_op_wire_3;
+                this->ecc_op_wire_4 = commitments.ecc_op_wire_4;
+                this->calldata = commitments.calldata;
+                this->calldata_read_counts = commitments.calldata_read_counts;
+                this->lookup_inverses = commitments.lookup_inverses;
+            }
         }
     };
     // Specialize for GoblinUltra (general case used in GoblinUltraRecursive).
@@ -508,7 +476,7 @@ class GoblinUltra {
      * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
      * Note: Made generic for use in GoblinUltraRecursive.
      */
-    template <typename Commitment> class Transcript_ : public BaseTranscript {
+    template <typename Commitment> class Transcript_ : public NativeTranscript {
       public:
         uint32_t circuit_size;
         uint32_t public_input_size;
@@ -536,48 +504,62 @@ class GoblinUltra {
 
         Transcript_() = default;
 
-        Transcript_(const std::vector<uint8_t>& proof)
-            : BaseTranscript(proof)
+        Transcript_(const HonkProof& proof)
+            : NativeTranscript(proof)
         {}
+
+        static std::shared_ptr<Transcript_> prover_init_empty()
+        {
+            auto transcript = std::make_shared<Transcript_>();
+            constexpr uint32_t init{ 42 }; // arbitrary
+            transcript->send_to_verifier("Init", init);
+            return transcript;
+        };
+
+        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
+        {
+            auto verifier_transcript = std::make_shared<Transcript_>(transcript->proof_data);
+            [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");
+            return verifier_transcript;
+        };
 
         void deserialize_full_transcript()
         {
             // take current proof and put them into the struct
-            size_t num_bytes_read = 0;
-            circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
+            size_t num_frs_read = 0;
+            circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             size_t log_n = numeric::get_msb(circuit_size);
 
-            public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
-            pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_bytes_read);
+            public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
+            pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             for (size_t i = 0; i < public_input_size; ++i) {
-                public_inputs.push_back(deserialize_from_buffer<FF>(proof_data, num_bytes_read));
+                public_inputs.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
-            w_l_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            ecc_op_wire_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            ecc_op_wire_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            ecc_op_wire_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            w_l_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            ecc_op_wire_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            ecc_op_wire_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            ecc_op_wire_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            z_lookup_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.push_back(
                     deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
-                                                                                                 num_bytes_read));
+                                                                                                 num_frs_read));
             }
-            sumcheck_evaluations =
-                deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_bytes_read);
+            sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
             for (size_t i = 0; i < log_n; ++i) {
-                zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_bytes_read));
+                zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
-            zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
-            zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_bytes_read);
+            zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
         }
 
         void serialize_full_transcript()
@@ -622,4 +604,4 @@ class GoblinUltra {
     using Transcript = Transcript_<Commitment>;
 };
 
-} // namespace bb::honk::flavor
+} // namespace bb

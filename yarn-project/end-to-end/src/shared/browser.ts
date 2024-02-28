@@ -3,7 +3,7 @@ import * as AztecAccountsSchnorr from '@aztec/accounts/schnorr';
 import * as AztecAccountsSingleKey from '@aztec/accounts/single_key';
 import * as AztecAccountsTesting from '@aztec/accounts/testing';
 import * as AztecJs from '@aztec/aztec.js';
-import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { Server } from 'http';
 import Koa from 'koa';
@@ -75,7 +75,7 @@ export const browserTestSuite = (
 
       browser = await launch({
         executablePath: process.env.CHROME_BIN,
-        headless: 'new',
+        headless: true,
         args: [
           '--no-sandbox',
           '--headless',
@@ -206,7 +206,7 @@ export const browserTestSuite = (
     }, 60_000);
 
     const deployTokenContract = async () => {
-      const txHash = await page.evaluate(
+      const [txHash, tokenAddress] = await page.evaluate(
         async (rpcUrl, initialBalance, TokenContractArtifact) => {
           const {
             DeployMethod,
@@ -239,7 +239,7 @@ export const browserTestSuite = (
           const ownerAddress = owner.getAddress();
           const tx = new DeployMethod(
             owner.getCompleteAddress().publicKey,
-            pxe,
+            owner,
             TokenContractArtifact,
             (a: AztecJs.AztecAddress) => Contract.at(a, TokenContractArtifact, owner),
             [owner.getCompleteAddress(), 'TokenName', 'TKN', 18],
@@ -252,19 +252,22 @@ export const browserTestSuite = (
           const mintPrivateReceipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
           const storageSlot = new Fr(5);
+
+          const noteTypeId = new Fr(84114971101151129711410111011678111116101n);
           const note = new Note([new Fr(initialBalance), secretHash]);
           const extendedNote = new ExtendedNote(
             note,
             ownerAddress,
             token.address,
             storageSlot,
+            noteTypeId,
             mintPrivateReceipt.txHash,
           );
           await pxe.addNote(extendedNote);
 
           await token.methods.redeem_shield(ownerAddress, initialBalance, secret).send().wait();
 
-          return txHash.toString();
+          return [txHash.toString(), token.address.toString()];
         },
         pxeURL,
         initialBalance,
@@ -273,7 +276,7 @@ export const browserTestSuite = (
 
       const txResult = await testClient.getTxReceipt(AztecJs.TxHash.fromString(txHash));
       expect(txResult.status).toEqual(AztecJs.TxStatus.MINED);
-      contractAddress = txResult.contractAddress!;
+      contractAddress = AztecJs.AztecAddress.fromString(tokenAddress);
     };
 
     const getTokenAddress = async () => {

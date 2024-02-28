@@ -13,8 +13,9 @@
  * @brief IPA (inner-product argument) commitment scheme class. Conforms to the specification
  * https://hackmd.io/q-A8y6aITWyWJrvsGGMWNA?view.
  *
+ *
  */
-namespace bb::honk::pcs::ipa {
+namespace bb {
 template <typename Curve> class IPA {
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
@@ -36,12 +37,12 @@ template <typename Curve> class IPA {
     static void compute_opening_proof(const std::shared_ptr<CK>& ck,
                                       const OpeningPair<Curve>& opening_pair,
                                       const Polynomial& polynomial,
-                                      const std::shared_ptr<BaseTranscript>& transcript)
+                                      const std::shared_ptr<NativeTranscript>& transcript)
     {
         ASSERT(opening_pair.challenge != 0 && "The challenge point should not be zero");
         auto poly_degree = static_cast<size_t>(polynomial.size());
-        transcript->send_to_verifier("IPA:poly_degree", static_cast<uint64_t>(poly_degree));
-        const Fr generator_challenge = transcript->get_challenge("IPA:generator_challenge");
+        transcript->send_to_verifier("IPA:poly_degree", static_cast<uint32_t>(poly_degree));
+        const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         auto aux_generator = Commitment::one() * generator_challenge;
         // Checks poly_degree is greater than zero and a power of two
         // In the future, we might want to consider if non-powers of two are needed
@@ -49,7 +50,7 @@ template <typename Curve> class IPA {
                "The poly_degree should be positive and a power of two");
 
         auto a_vec = polynomial;
-        auto srs_elements = ck->srs->get_monomial_points();
+        auto* srs_elements = ck->srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_degree);
 
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
@@ -138,35 +139,33 @@ template <typename Curve> class IPA {
             transcript->send_to_verifier("IPA:R_" + index, Commitment(R_elements[i]));
 
             // Generate the round challenge.
-            const Fr round_challenge = transcript->get_challenge("IPA:round_challenge_" + index);
+            const Fr round_challenge = transcript->get_challenge<Fr>("IPA:round_challenge_" + index);
             const Fr round_challenge_inv = round_challenge.invert();
 
-            auto G_lo = GroupElement::batch_mul_with_endomorphism(
-                std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<long>(round_size) },
-                round_challenge_inv);
             auto G_hi = GroupElement::batch_mul_with_endomorphism(
                 std::span{ G_vec_local.begin() + static_cast<long>(round_size),
                            G_vec_local.begin() + static_cast<long>(round_size * 2) },
-                round_challenge);
+                round_challenge_inv);
 
             // Update the vectors a_vec, b_vec and G_vec.
-            // a_vec_next = a_vec_lo * round_challenge + a_vec_hi * round_challenge_inv
-            // b_vec_next = b_vec_lo * round_challenge_inv + b_vec_hi * round_challenge
-            // G_vec_next = G_vec_lo * round_challenge_inv + G_vec_hi * round_challenge
+            // a_vec_next = a_vec_lo + a_vec_hi * round_challenge
+            // b_vec_next = b_vec_lo + b_vec_hi * round_challenge_inv
+            // G_vec_next = G_vec_lo + G_vec_hi * round_challenge_inv
             run_loop_in_parallel_if_effective(
                 round_size,
                 [&a_vec, &b_vec, round_challenge, round_challenge_inv, round_size](size_t start, size_t end) {
                     for (size_t j = start; j < end; j++) {
-                        a_vec[j] *= round_challenge;
-                        a_vec[j] += round_challenge_inv * a_vec[round_size + j];
-                        b_vec[j] *= round_challenge_inv;
-                        b_vec[j] += round_challenge * b_vec[round_size + j];
+                        a_vec[j] += round_challenge * a_vec[round_size + j];
+                        b_vec[j] += round_challenge_inv * b_vec[round_size + j];
                     }
                 },
                 /*finite_field_additions_per_iteration=*/4,
                 /*finite_field_multiplications_per_iteration=*/8,
                 /*finite_field_inversions_per_iteration=*/1);
-            GroupElement::batch_affine_add(G_lo, G_hi, G_vec_local);
+            GroupElement::batch_affine_add(
+                std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<long>(round_size) },
+                G_hi,
+                G_vec_local);
         }
 
         transcript->send_to_verifier("IPA:a_0", a_vec[0]);
@@ -183,10 +182,12 @@ template <typename Curve> class IPA {
      */
     static bool verify(const std::shared_ptr<VK>& vk,
                        const OpeningClaim<Curve>& opening_claim,
-                       const std::shared_ptr<BaseTranscript>& transcript)
+                       const std::shared_ptr<NativeTranscript>& transcript)
     {
-        auto poly_degree = static_cast<size_t>(transcript->template receive_from_prover<uint64_t>("IPA:poly_degree"));
-        const Fr generator_challenge = transcript->get_challenge("IPA:generator_challenge");
+        auto poly_degree = static_cast<uint32_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
+            "IPA:poly_degree")); // note this is base field because this is a uint32_t, which should map to a bb::fr,
+                                 // not a grumpkin::fr, which is a BaseField element for Grumpkin
+        const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         auto aux_generator = Commitment::one() * generator_challenge;
 
         auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_degree));
@@ -194,7 +195,7 @@ template <typename Curve> class IPA {
         // Compute C_prime
         GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
 
-        // Compute C_zero = C_prime + ∑_{j ∈ [k]} u_j^2L_j + ∑_{j ∈ [k]} u_j^{-2}R_j
+        // Compute C_zero = C_prime + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
         auto pippenger_size = 2 * log_poly_degree;
         std::vector<Fr> round_challenges(log_poly_degree);
         std::vector<Fr> round_challenges_inv(log_poly_degree);
@@ -204,13 +205,13 @@ template <typename Curve> class IPA {
             std::string index = std::to_string(i);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
-            round_challenges[i] = transcript->get_challenge("IPA:round_challenge_" + index);
+            round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
             round_challenges_inv[i] = round_challenges[i].invert();
 
             msm_elements[2 * i] = element_L;
             msm_elements[2 * i + 1] = element_R;
-            msm_scalars[2 * i] = round_challenges[i].sqr();
-            msm_scalars[2 * i + 1] = round_challenges_inv[i].sqr();
+            msm_scalars[2 * i] = round_challenges_inv[i];
+            msm_scalars[2 * i + 1] = round_challenges[i];
         }
 
         GroupElement LR_sums = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
@@ -220,31 +221,32 @@ template <typename Curve> class IPA {
         /**
          * Compute b_zero where b_zero can be computed using the polynomial:
          *
-         * g(X) = ∏_{i ∈ [k]} (u_{k-i}^{-1} + u_{k-i}.X^{2^{i-1}}).
+         * g(X) = ∏_{i ∈ [k]} (1 + u_{k-i}^{-1}.X^{2^{i-1}}).
          *
-         * b_zero = g(evaluation) = ∏_{i ∈ [k]} (u_{k-i}^{-1} + u_{k-i}. (evaluation)^{2^{i-1}})
+         * b_zero = g(evaluation) = ∏_{i ∈ [k]} (1 + u_{k-i}^{-1}. (evaluation)^{2^{i-1}})
          */
         Fr b_zero = Fr::one();
         for (size_t i = 0; i < log_poly_degree; i++) {
             auto exponent = static_cast<uint64_t>(Fr(2).pow(i));
-            b_zero *= round_challenges_inv[log_poly_degree - 1 - i] +
-                      (round_challenges[log_poly_degree - 1 - i] * opening_claim.opening_pair.challenge.pow(exponent));
+            b_zero *= Fr::one() + (round_challenges_inv[log_poly_degree - 1 - i] *
+                                   opening_claim.opening_pair.challenge.pow(exponent));
         }
 
         // Compute G_zero
         // First construct s_vec
         std::vector<Fr> s_vec(poly_degree);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/857): This code is not efficient as its O(nlogn).
+        // This can be optimized to be linear by computing a tree of products. Its very readable, so we're
+        // leaving it unoptimized for now.
         run_loop_in_parallel_if_effective(
             poly_degree,
-            [&s_vec, &round_challenges, &round_challenges_inv, log_poly_degree](size_t start, size_t end) {
+            [&s_vec, &round_challenges_inv, log_poly_degree](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     Fr s_vec_scalar = Fr::one();
                     for (size_t j = (log_poly_degree - 1); j != size_t(-1); j--) {
                         auto bit = (i >> j) & 1;
                         bool b = static_cast<bool>(bit);
                         if (b) {
-                            s_vec_scalar *= round_challenges[log_poly_degree - 1 - j];
-                        } else {
                             s_vec_scalar *= round_challenges_inv[log_poly_degree - 1 - j];
                         }
                     }
@@ -254,7 +256,7 @@ template <typename Curve> class IPA {
             /*finite_field_additions_per_iteration=*/0,
             /*finite_field_multiplications_per_iteration=*/log_poly_degree);
 
-        auto srs_elements = vk->srs->get_monomial_points();
+        auto* srs_elements = vk->srs->get_monomial_points();
 
         // Copy the G_vector to local memory.
         std::vector<Commitment> G_vec_local(poly_degree);
@@ -288,4 +290,4 @@ template <typename Curve> class IPA {
     }
 };
 
-} // namespace bb::honk::pcs::ipa
+} // namespace bb

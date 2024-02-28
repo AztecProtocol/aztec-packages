@@ -1,4 +1,5 @@
-import { ContractDeployer, EthAddress, Fr, Point } from '@aztec/aztec.js';
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { ContractDeployer, EthAddress, Fq, Fr, Point } from '@aztec/aztec.js';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
@@ -6,9 +7,6 @@ import { encodeArgs } from '../encoding.js';
 import { GITHUB_TAG_PREFIX } from '../github.js';
 import { getContractArtifact, getFunctionArtifact } from '../utils.js';
 
-/**
- *
- */
 export async function deploy(
   artifactPath: string,
   json: boolean,
@@ -17,6 +15,7 @@ export async function deploy(
   rawArgs: any[],
   portalAddress: EthAddress,
   salt: Fr,
+  privateKey: Fq,
   wait: boolean,
   debugLogger: DebugLogger,
   log: LogFn,
@@ -34,7 +33,8 @@ export async function deploy(
     );
   }
 
-  const deployer = new ContractDeployer(contractArtifact, client, publicKey);
+  const wallet = await getSchnorrAccount(client, privateKey, privateKey, Fr.ZERO).getWallet();
+  const deployer = new ContractDeployer(contractArtifact, wallet, publicKey);
 
   const constructor = getFunctionArtifact(contractArtifact, 'constructor');
   if (!constructor) {
@@ -53,7 +53,7 @@ export async function deploy(
   debugLogger(`Deploy tx sent with hash ${txHash}`);
   if (wait) {
     const deployed = await tx.wait();
-    const { address, partialAddress } = deployed.contract.completeAddress;
+    const { address, partialAddress } = deployed.contract;
     if (json) {
       logJson({ address: address.toString(), partialAddress: partialAddress.toString() });
     } else {
@@ -61,7 +61,7 @@ export async function deploy(
       log(`Contract partial address ${partialAddress.toString()}\n`);
     }
   } else {
-    const { address, partialAddress } = deploy.completeAddress ?? {};
+    const { address, partialAddress } = deploy;
     if (json) {
       logJson({
         address: address?.toString() ?? 'N/A',
@@ -69,8 +69,8 @@ export async function deploy(
         txHash: txHash.toString(),
       });
     } else {
-      log(`\nContract Address: ${deploy.completeAddress?.address.toString() ?? 'N/A'}`);
-      log(`Contract Partial Address: ${deploy.completeAddress?.partialAddress.toString() ?? 'N/A'}`);
+      log(`\nContract Address: ${address?.toString() ?? 'N/A'}`);
+      log(`Contract Partial Address: ${partialAddress?.toString() ?? 'N/A'}`);
       log(`Deployment transaction hash: ${txHash}\n`);
     }
   }

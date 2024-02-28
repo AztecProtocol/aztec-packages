@@ -1,6 +1,5 @@
 #pragma once
 #include <barretenberg/dsl/acir_format/acir_format.hpp>
-#include <barretenberg/goblin/goblin.hpp>
 
 namespace acir_proofs {
 
@@ -18,17 +17,17 @@ class AcirComposer {
     AcirComposer(size_t size_hint = 0, bool verbose = true);
 
     template <typename Builder = UltraCircuitBuilder>
-    void create_circuit(acir_format::acir_format& constraint_system, WitnessVector const& witness = {});
+    void create_circuit(acir_format::AcirFormat& constraint_system, WitnessVector const& witness = {});
 
     std::shared_ptr<bb::plonk::proving_key> init_proving_key();
 
-    std::vector<uint8_t> create_proof(bool is_recursive);
+    std::vector<uint8_t> create_proof();
 
     void load_verification_key(bb::plonk::verification_key_data&& data);
 
     std::shared_ptr<bb::plonk::verification_key> init_verification_key();
 
-    bool verify_proof(std::vector<uint8_t> const& proof, bool is_recursive);
+    bool verify_proof(std::vector<uint8_t> const& proof);
 
     std::string get_solidity_verifier();
     size_t get_total_circuit_size() { return builder_.get_total_circuit_size(); };
@@ -38,15 +37,8 @@ class AcirComposer {
 
     std::vector<bb::fr> serialize_verification_key_into_fields();
 
-    // Goblin specific methods
-    void create_goblin_circuit(acir_format::acir_format& constraint_system, acir_format::WitnessVector& witness);
-    std::vector<uint8_t> create_goblin_proof();
-    bool verify_goblin_proof(std::vector<uint8_t> const& proof);
-
   private:
     acir_format::Builder builder_;
-    acir_format::GoblinBuilder goblin_builder_;
-    Goblin goblin;
     size_t size_hint_;
     std::shared_ptr<bb::plonk::proving_key> proving_key_;
     std::shared_ptr<bb::plonk::verification_key> verification_key_;

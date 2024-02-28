@@ -1,5 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -101,10 +102,10 @@ export class L1ToL2Message {
    * Returns each element within its own field so that it can be consumed by an acvm oracle call.
    * @returns The message as an array of fields (in order).
    */
-  toFieldArray(): Fr[] {
+  toFields(): Fr[] {
     return [
-      ...this.sender.toFieldArray(),
-      ...this.recipient.toFieldArray(),
+      ...this.sender.toFields(),
+      ...this.recipient.toFields(),
       this.content,
       this.secretHash,
       new Fr(BigInt(this.deadline)),
@@ -116,6 +117,10 @@ export class L1ToL2Message {
     return serializeToBuffer(this.sender, this.recipient, this.content, this.secretHash, this.deadline, this.fee);
   }
 
+  hash(): Fr {
+    return Fr.fromBufferReduce(sha256(serializeToBuffer(...this.toFields())));
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): L1ToL2Message {
     const reader = BufferReader.asReader(buffer);
     const sender = reader.readObject(L1Actor);
@@ -125,6 +130,15 @@ export class L1ToL2Message {
     const deadline = reader.readNumber();
     const fee = reader.readNumber();
     return new L1ToL2Message(sender, recipient, content, secretHash, deadline, fee);
+  }
+
+  toString(): string {
+    return this.toBuffer().toString('hex');
+  }
+
+  static fromString(data: string): L1ToL2Message {
+    const buffer = Buffer.from(data, 'hex');
+    return L1ToL2Message.fromBuffer(buffer);
   }
 
   static empty(): L1ToL2Message {
@@ -163,7 +177,7 @@ export class L1Actor {
     return new L1Actor(EthAddress.ZERO, 0);
   }
 
-  toFieldArray(): Fr[] {
+  toFields(): Fr[] {
     return [this.sender.toField(), new Fr(BigInt(this.chainId))];
   }
 
@@ -173,7 +187,7 @@ export class L1Actor {
 
   static fromBuffer(buffer: Buffer | BufferReader): L1Actor {
     const reader = BufferReader.asReader(buffer);
-    const ethAddr = new EthAddress(reader.readBytes(32));
+    const ethAddr = reader.readObject(EthAddress);
     const chainId = reader.readNumber();
     return new L1Actor(ethAddr, chainId);
   }
@@ -202,7 +216,7 @@ export class L2Actor {
     return new L2Actor(AztecAddress.ZERO, 0);
   }
 
-  toFieldArray(): Fr[] {
+  toFields(): Fr[] {
     return [this.recipient.toField(), new Fr(BigInt(this.version))];
   }
 

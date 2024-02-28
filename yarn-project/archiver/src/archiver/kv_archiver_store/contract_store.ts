@@ -14,7 +14,7 @@ export class ContractStore {
   #log = createDebugLogger('aztec:archiver:contract_store');
 
   constructor(private db: AztecKVStore, blockStore: BlockStore) {
-    this.#extendedContractData = db.createMap('archiver_extended_contract_data');
+    this.#extendedContractData = db.openMap('archiver_extended_contract_data');
     this.#blockStore = blockStore;
   }
 
@@ -77,7 +77,12 @@ export class ContractStore {
     }
 
     const block = this.#blockStore.getBlock(blockNumber);
-    return block?.newContractData[index];
+
+    if (block?.body.txEffects[index].contractData.length !== 1) {
+      throw new Error(`Contract data at block: ${blockNumber}, tx: ${index} does not have length of 1`);
+    }
+
+    return block?.body.txEffects[index].contractData[0];
   }
 
   /**
@@ -88,6 +93,6 @@ export class ContractStore {
    */
   getContractDataInBlock(blockNumber: number): ContractData[] {
     const block = this.#blockStore.getBlock(blockNumber);
-    return block?.newContractData ?? [];
+    return block?.body.txEffects.flatMap(txEffect => txEffect.contractData) ?? [];
   }
 }

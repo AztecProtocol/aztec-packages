@@ -13,7 +13,7 @@ services:
       - '8545:8545'
 
   sandbox:
-    image: aztecprotocol/aztec-sandbox:latest
+    image: aztecprotocol/aztec:latest
     environment:
       DEBUG: 'aztec:*'
       DEBUG_COLORS: 1
@@ -25,6 +25,7 @@ services:
       WS_BLOCK_CHECK_INTERVAL_MS: 50
       PXE_BLOCK_POLLING_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
+      AVM_ENABLED: ${AVM_ENABLED:-}
     ports:
       - '8080:8080'
 

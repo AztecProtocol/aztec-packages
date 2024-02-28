@@ -22,29 +22,35 @@ import {Hash} from "./Hash.sol";
  *  | byte start                                                                       | num bytes    | name
  *  | ---                                                                              | ---          | ---
  *  |                                                                                  |              | Header {
- *  |                                                                                  |              |   GlobalVariables {
- *  | 0x0000                                                                           | 0x20         |     chainId
- *  | 0x0020                                                                           | 0x20         |     version
- *  | 0x0040                                                                           | 0x20         |     blockNumber
- *  | 0x0060                                                                           | 0x20         |     timestamp
- *  |                                                                                  |              |   }
+ *  | 0x0000                                                                           | 0x20         |   lastArchive.root
+ *  | 0x0020                                                                           | 0x04         |   lastArchive.nextAvailableLeafIndex
+ *  |                                                                                  |              |   ContentCommitment {
+ *  | 0x0024                                                                           | 0x20         |     txTreeHeight
+ *  | 0x0044                                                                           | 0x20         |     txsHash
+ *  | 0x0064                                                                           | 0x20         |     inHash
+ *  | 0x0084                                                                           | 0x20         |     outHash
  *  |                                                                                  |              |   StateReference {
- *  | 0x0080                                                                           | 0x20         |     l1ToL2MessageTree.root
- *  | 0x00a0                                                                           | 0x04         |     l1ToL2MessageTree.nextAvailableLeafIndex
+ *  | 0x00a4                                                                           | 0x20         |     l1ToL2MessageTree.root
+ *  | 0x00c4                                                                           | 0x04         |     l1ToL2MessageTree.nextAvailableLeafIndex
  *  |                                                                                  |              |     PartialStateReference {
- *  | 0x00a4                                                                           | 0x20         |       noteHashTree.root
- *  | 0x00c4                                                                           | 0x04         |       noteHashTree.nextAvailableLeafIndex
- *  | 0x00c8                                                                           | 0x20         |       nullifierTree.root
- *  | 0x00e8                                                                           | 0x04         |       nullifierTree.nextAvailableLeafIndex
- *  | 0x00ec                                                                           | 0x20         |       contractTree.root
- *  | 0x010c                                                                           | 0x04         |       contractTree.nextAvailableLeafIndex
- *  | 0x0110                                                                           | 0x20         |       publicDataTree.root
- *  | 0x0130                                                                           | 0x04         |       publicDataTree.nextAvailableLeafIndex
+ *  | 0x00c8                                                                           | 0x20         |       noteHashTree.root
+ *  | 0x00e8                                                                           | 0x04         |       noteHashTree.nextAvailableLeafIndex
+ *  | 0x00ec                                                                           | 0x20         |       nullifierTree.root
+ *  | 0x010c                                                                           | 0x04         |       nullifierTree.nextAvailableLeafIndex
+ *  | 0x0110                                                                           | 0x20         |       contractTree.root
+ *  | 0x0130                                                                           | 0x04         |       contractTree.nextAvailableLeafIndex
+ *  | 0x0134                                                                           | 0x20         |       publicDataTree.root
+ *  | 0x0154                                                                           | 0x04         |       publicDataTree.nextAvailableLeafIndex
  *  |                                                                                  |              |     }
  *  |                                                                                  |              |   }
- *  | 0x0134                                                                           | 0x20         |   lastArchive.root
- *  | 0x0154                                                                           | 0x04         |   lastArchive.nextAvailableLeafIndex
- *  | 0x0158                                                                           | 0x20         |   bodyHash
+ *  |                                                                                  |              |   GlobalVariables {
+ *  | 0x0158                                                                           | 0x20         |     chainId
+ *  | 0x0178                                                                           | 0x20         |     version
+ *  | 0x0198                                                                           | 0x20         |     blockNumber
+ *  | 0x01b8                                                                           | 0x20         |     timestamp
+ *  | 0x01d8                                                                           | 0x14         |     coinbase
+ *  | 0x01ec                                                                           | 0x20         |     feeRecipient
+ *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
  *  | ---                                                                              | ---          | ---
  */
@@ -52,13 +58,6 @@ library HeaderLib {
   struct AppendOnlyTreeSnapshot {
     bytes32 root;
     uint32 nextAvailableLeafIndex;
-  }
-
-  struct GlobalVariables {
-    uint256 chainId;
-    uint256 version;
-    uint256 blockNumber;
-    uint256 timestamp;
   }
 
   struct PartialStateReference {
@@ -74,44 +73,30 @@ library HeaderLib {
     PartialStateReference partialStateReference;
   }
 
+  struct GlobalVariables {
+    uint256 chainId;
+    uint256 version;
+    uint256 blockNumber;
+    uint256 timestamp;
+    address coinbase;
+    bytes32 feeRecipient;
+  }
+
+  struct ContentCommitment {
+    uint256 txTreeHeight;
+    bytes32 txsHash;
+    bytes32 inHash;
+    bytes32 outHash;
+  }
+
   struct Header {
-    GlobalVariables globalVariables;
-    StateReference stateReference;
     AppendOnlyTreeSnapshot lastArchive;
-    bytes32 bodyHash;
+    ContentCommitment contentCommitment;
+    StateReference stateReference;
+    GlobalVariables globalVariables;
   }
 
-  /**
-   * @notice Decodes the header
-   * @param _header - The header calldata
-   * @return The decoded header
-   */
-  function decode(bytes calldata _header) internal pure returns (Header memory) {
-    require(_header.length == 376, "Invalid header length");
-
-    Header memory header;
-
-    header.globalVariables.chainId = uint256(bytes32(_header[:0x20]));
-    header.globalVariables.version = uint256(bytes32(_header[0x20:0x40]));
-    header.globalVariables.blockNumber = uint256(bytes32(_header[0x40:0x60]));
-    header.globalVariables.timestamp = uint256(bytes32(_header[0x60:0x80]));
-    header.stateReference.l1ToL2MessageTree =
-      AppendOnlyTreeSnapshot(bytes32(_header[0x80:0xa0]), uint32(bytes4(_header[0xa0:0xa4])));
-    header.stateReference.partialStateReference.noteHashTree =
-      AppendOnlyTreeSnapshot(bytes32(_header[0xa4:0xc4]), uint32(bytes4(_header[0xc4:0xc8])));
-    header.stateReference.partialStateReference.nullifierTree =
-      AppendOnlyTreeSnapshot(bytes32(_header[0xc8:0xe8]), uint32(bytes4(_header[0xe8:0xec])));
-    header.stateReference.partialStateReference.contractTree =
-      AppendOnlyTreeSnapshot(bytes32(_header[0xec:0x10c]), uint32(bytes4(_header[0x10c:0x110])));
-    header.stateReference.partialStateReference.publicDataTree =
-      AppendOnlyTreeSnapshot(bytes32(_header[0x110:0x130]), uint32(bytes4(_header[0x130:0x134])));
-    header.lastArchive =
-      AppendOnlyTreeSnapshot(bytes32(_header[0x134:0x154]), uint32(bytes4(_header[0x154:0x158])));
-
-    header.bodyHash = bytes32(_header[0x158:0x178]);
-
-    return header;
-  }
+  uint256 private constant HEADER_LENGTH = 0x20c; // Header byte length
 
   /**
    * @notice Validates the header
@@ -150,5 +135,56 @@ library HeaderLib {
     if (_archive != bytes32(0) && _archive != _header.lastArchive.root) {
       revert Errors.Rollup__InvalidArchive(_archive, _header.lastArchive.root);
     }
+  }
+
+  /**
+   * @notice Decodes the header
+   * @param _header - The header calldata
+   * @return The decoded header
+   */
+  function decode(bytes calldata _header) internal pure returns (Header memory) {
+    if (_header.length != HEADER_LENGTH) {
+      revert Errors.HeaderLib__InvalidHeaderSize(HEADER_LENGTH, _header.length);
+    }
+
+    Header memory header;
+
+    // Reading lastArchive
+    header.lastArchive = AppendOnlyTreeSnapshot(
+      bytes32(_header[0x0000:0x0020]), uint32(bytes4(_header[0x0020:0x0024]))
+    );
+
+    // Reading ContentCommitment
+    header.contentCommitment.txTreeHeight = uint256(bytes32(_header[0x0024:0x0044]));
+    header.contentCommitment.txsHash = bytes32(_header[0x0044:0x0064]);
+    header.contentCommitment.inHash = bytes32(_header[0x0064:0x0084]);
+    header.contentCommitment.outHash = bytes32(_header[0x0084:0x00a4]);
+
+    // Reading StateReference
+    header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(
+      bytes32(_header[0x00a4:0x00c4]), uint32(bytes4(_header[0x00c4:0x00c8]))
+    );
+    header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(
+      bytes32(_header[0x00c8:0x00e8]), uint32(bytes4(_header[0x00e8:0x00ec]))
+    );
+    header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(
+      bytes32(_header[0x00ec:0x010c]), uint32(bytes4(_header[0x010c:0x0110]))
+    );
+    header.stateReference.partialStateReference.contractTree = AppendOnlyTreeSnapshot(
+      bytes32(_header[0x0110:0x0130]), uint32(bytes4(_header[0x0130:0x0134]))
+    );
+    header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(
+      bytes32(_header[0x0134:0x0154]), uint32(bytes4(_header[0x0154:0x0158]))
+    );
+
+    // Reading GlobalVariables
+    header.globalVariables.chainId = uint256(bytes32(_header[0x0158:0x0178]));
+    header.globalVariables.version = uint256(bytes32(_header[0x0178:0x0198]));
+    header.globalVariables.blockNumber = uint256(bytes32(_header[0x0198:0x01b8]));
+    header.globalVariables.timestamp = uint256(bytes32(_header[0x01b8:0x01d8]));
+    header.globalVariables.coinbase = address(bytes20(_header[0x01d8:0x01ec]));
+    header.globalVariables.feeRecipient = bytes32(_header[0x01ec:HEADER_LENGTH]);
+
+    return header;
   }
 }

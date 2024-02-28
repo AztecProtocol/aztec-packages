@@ -4,13 +4,11 @@ import {
   KeyStore,
   L2BlockContext,
   L2BlockL2Logs,
-  LogType,
   MerkleTreeId,
   TxHash,
 } from '@aztec/circuit-types';
 import { NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
-import { AztecAddress, BlockHeader, Fr, PublicKey } from '@aztec/circuits.js';
-import { computeGlobalsHash } from '@aztec/circuits.js/abis';
+import { AztecAddress, Fr, PublicKey } from '@aztec/circuits.js';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -62,12 +60,9 @@ export class Synchronizer {
 
   protected async initialSync() {
     // fast forward to the latest block
-    const [latestBlockNumber, latestBlockHeader] = await Promise.all([
-      this.node.getBlockNumber(),
-      this.node.getBlockHeader(),
-    ]);
-    this.initialSyncBlockNumber = latestBlockNumber;
-    await this.db.setBlockData(latestBlockNumber, latestBlockHeader);
+    const latestHeader = await this.node.getHeader();
+    this.initialSyncBlockNumber = Number(latestHeader.globalVariables.blockNumber.toBigInt());
+    await this.db.setHeader(latestHeader);
   }
 
   /**
@@ -106,45 +101,19 @@ export class Synchronizer {
   protected async work(limit = 1): Promise<boolean> {
     const from = this.getSynchedBlockNumber() + 1;
     try {
-      // Possibly improve after https://github.com/AztecProtocol/aztec-packages/issues/3870
-      let encryptedLogs = await this.node.getLogs(from, limit, LogType.ENCRYPTED);
-      if (!encryptedLogs.length) {
+      const blocks = await this.node.getBlocks(from, limit);
+      if (blocks.length === 0) {
         return false;
       }
 
-      let unencryptedLogs = await this.node.getLogs(from, limit, LogType.UNENCRYPTED);
-      if (!unencryptedLogs.length) {
-        return false;
-      }
-
-      // Note: If less than `limit` encrypted logs is returned, then we fetch only that number of blocks.
-      const blocks = await this.node.getBlocks(from, encryptedLogs.length);
-      if (!blocks.length) {
-        return false;
-      }
-
-      if (blocks.length !== encryptedLogs.length) {
-        // "Trim" the encrypted logs to match the number of blocks.
-        encryptedLogs = encryptedLogs.slice(0, blocks.length);
-      }
-
-      if (blocks.length !== unencryptedLogs.length) {
-        // "Trim" the unencrypted logs to match the number of blocks.
-        unencryptedLogs = unencryptedLogs.slice(0, blocks.length);
-      }
-
-      // attach logs to blocks
-      blocks.forEach((block, i) => {
-        block.attachLogs(encryptedLogs[i], LogType.ENCRYPTED);
-        block.attachLogs(unencryptedLogs[i], LogType.UNENCRYPTED);
-      });
+      const encryptedLogs = blocks.flatMap(block => block.body.encryptedLogs);
 
       // Wrap blocks in block contexts & only keep those that match our query
       const blockContexts = blocks.filter(block => block.number >= from).map(block => new L2BlockContext(block));
 
       // Update latest tree roots from the most recent block
       const latestBlock = blockContexts[blockContexts.length - 1];
-      await this.setBlockDataFromBlock(latestBlock);
+      await this.setHeaderFromBlock(latestBlock);
 
       const logCount = L2BlockL2Logs.getTotalLogCount(encryptedLogs);
       this.log(`Forwarding ${logCount} encrypted logs and blocks to ${this.noteProcessors.length} note processors`);
@@ -204,25 +173,14 @@ export class Synchronizer {
     }
 
     try {
-      let encryptedLogs = await this.node.getLogs(from, limit, LogType.ENCRYPTED);
-      if (!encryptedLogs.length) {
-        // This should never happen because this function should only be called when the note processor is lagging
-        // behind main sync.
-        throw new Error('No encrypted logs in processor catch up mode');
-      }
-
-      // Note: If less than `limit` encrypted logs is returned, then we fetch only that number of blocks.
-      const blocks = await this.node.getBlocks(from, encryptedLogs.length);
+      const blocks = await this.node.getBlocks(from, limit);
       if (!blocks.length) {
         // This should never happen because this function should only be called when the note processor is lagging
         // behind main sync.
         throw new Error('No blocks in processor catch up mode');
       }
 
-      if (blocks.length !== encryptedLogs.length) {
-        // "Trim" the encrypted logs to match the number of blocks.
-        encryptedLogs = encryptedLogs.slice(0, blocks.length);
-      }
+      const encryptedLogs = blocks.flatMap(block => block.body.encryptedLogs);
 
       const blockContexts = blocks.map(block => new L2BlockContext(block));
 
@@ -270,25 +228,13 @@ export class Synchronizer {
     }
   }
 
-  private async setBlockDataFromBlock(latestBlock: L2BlockContext) {
+  private async setHeaderFromBlock(latestBlock: L2BlockContext) {
     const { block } = latestBlock;
     if (block.number < this.initialSyncBlockNumber) {
       return;
     }
 
-    const globalsHash = computeGlobalsHash(latestBlock.block.header.globalVariables);
-    const blockHeader = new BlockHeader(
-      block.header.state.partial.noteHashTree.root,
-      block.header.state.partial.nullifierTree.root,
-      block.header.state.partial.contractTree.root,
-      block.header.state.l1ToL2MessageTree.root,
-      block.archive.root,
-      Fr.ZERO, // todo: private kernel vk tree root
-      block.header.state.partial.publicDataTree.root,
-      globalsHash,
-    );
-
-    await this.db.setBlockData(block.number, blockHeader);
+    await this.db.setHeader(block.header);
   }
 
   /**

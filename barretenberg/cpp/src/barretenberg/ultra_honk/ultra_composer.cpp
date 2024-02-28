@@ -4,14 +4,14 @@
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 
-namespace bb::honk {
+namespace bb {
 
 /**
  * Compute verification key consisting of selector precommitments.
  *
  * @return Pointer to the resulting verification key of the Instance.
  * */
-template <UltraFlavor Flavor>
+template <IsUltraFlavor Flavor>
 void UltraComposer_<Flavor>::compute_verification_key(const std::shared_ptr<ProverInstance_<Flavor>>& instance)
 {
     if (instance->verification_key) {
@@ -64,9 +64,11 @@ void UltraComposer_<Flavor>::compute_verification_key(const std::shared_ptr<Prov
     instance->verification_key = std::move(verification_key);
 }
 
-template <UltraFlavor Flavor>
+template <IsUltraFlavor Flavor>
 std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_instance(CircuitBuilder& circuit)
 {
+    BB_OP_COUNT_TIME_NAME("UltraComposer::create_prover_instance");
+
     circuit.add_gates_to_ensure_all_polys_are_non_zero();
     circuit.finalize_circuit();
     auto instance = std::make_shared<Instance>(circuit);
@@ -76,7 +78,7 @@ std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_instance
     return instance;
 }
 
-template <UltraFlavor Flavor>
+template <IsUltraFlavor Flavor>
 UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr<Instance>& instance,
                                                            const std::shared_ptr<Transcript>& transcript)
 {
@@ -85,7 +87,7 @@ UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr
     return output_state;
 }
 
-template <UltraFlavor Flavor>
+template <IsUltraFlavor Flavor>
 UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared_ptr<Instance>& instance,
                                                                const std::shared_ptr<Transcript>& transcript)
 {
@@ -97,7 +99,7 @@ UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared
     return output_state;
 }
 
-template <UltraFlavor Flavor>
+template <IsUltraFlavor Flavor>
 DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(const std::shared_ptr<Instance>& accumulator,
                                                                      const std::shared_ptr<Transcript>& transcript)
 {
@@ -107,7 +109,7 @@ DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(const std::
     return output_state;
 }
 
-template <UltraFlavor Flavor>
+template <IsUltraFlavor Flavor>
 DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(
     const std::shared_ptr<Instance>& accumulator,
     const std::shared_ptr<CommitmentKey>& commitment_key,
@@ -118,7 +120,7 @@ DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(
     return output_state;
 }
 
-template <UltraFlavor Flavor>
+template <IsUltraFlavor Flavor>
 DeciderVerifier_<Flavor> UltraComposer_<Flavor>::create_decider_verifier(const std::shared_ptr<Instance>& accumulator,
                                                                          const std::shared_ptr<Transcript>& transcript)
 {
@@ -130,6 +132,6 @@ DeciderVerifier_<Flavor> UltraComposer_<Flavor>::create_decider_verifier(const s
     return output_state;
 }
 
-template class UltraComposer_<honk::flavor::Ultra>;
-template class UltraComposer_<honk::flavor::GoblinUltra>;
-} // namespace bb::honk
+template class UltraComposer_<UltraFlavor>;
+template class UltraComposer_<GoblinUltraFlavor>;
+} // namespace bb

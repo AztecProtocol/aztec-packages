@@ -7,8 +7,10 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-namespace acir_format::tests {
-using curve_ct = bb::stdlib::secp256k1<Builder>;
+using namespace bb;
+using namespace bb::crypto;
+using namespace acir_format;
+using curve_ct = stdlib::secp256k1<Builder>;
 
 class ECDSASecp256k1 : public ::testing::Test {
   protected:
@@ -23,15 +25,14 @@ size_t generate_ecdsa_constraint(EcdsaSecp256k1Constraint& ecdsa_constraint, Wit
     // NOTE: If the hash being used outputs more than 32 bytes, then big-field will panic
     std::vector<uint8_t> message_buffer;
     std::copy(message_string.begin(), message_string.end(), std::back_inserter(message_buffer));
-    auto hashed_message = sha256::sha256(message_buffer);
+    auto hashed_message = sha256(message_buffer);
 
-    crypto::ecdsa::key_pair<curve_ct::fr, curve_ct::g1> account;
+    ecdsa_key_pair<curve_ct::fr, curve_ct::g1> account;
     account.private_key = curve_ct::fr::random_element();
     account.public_key = curve_ct::g1::one * account.private_key;
 
-    crypto::ecdsa::signature signature =
-        crypto::ecdsa::construct_signature<Sha256Hasher, curve_ct::fq, curve_ct::fr, curve_ct::g1>(message_string,
-                                                                                                   account);
+    ecdsa_signature signature =
+        ecdsa_construct_signature<Sha256Hasher, curve_ct::fq, curve_ct::fr, curve_ct::g1>(message_string, account);
 
     uint256_t pub_x_value = account.public_key.x;
     uint256_t pub_y_value = account.public_key.y;
@@ -87,12 +88,14 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
     EcdsaSecp256k1Constraint ecdsa_k1_constraint;
     WitnessVector witness_values;
     size_t num_variables = generate_ecdsa_constraint(ecdsa_k1_constraint, witness_values);
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
+        .recursive = false,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
         .sha256_constraints = {},
+        .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = { ecdsa_k1_constraint },
         .ecdsa_r1_constraints = {},
@@ -103,10 +106,13 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .ec_double_constraints = {},
         .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
         .constraints = {},
         .block_constraints = {},
     };
@@ -131,12 +137,14 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
     EcdsaSecp256k1Constraint ecdsa_k1_constraint;
     WitnessVector witness_values;
     size_t num_variables = generate_ecdsa_constraint(ecdsa_k1_constraint, witness_values);
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
+        .recursive = false,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
         .sha256_constraints = {},
+        .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = { ecdsa_k1_constraint },
         .ecdsa_r1_constraints = {},
@@ -147,10 +155,13 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .ec_double_constraints = {},
         .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
         .constraints = {},
         .block_constraints = {},
     };
@@ -170,12 +181,14 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
     // tamper with signature
     witness_values[witness_values.size() - 20] += 1;
 
-    acir_format constraint_system{
+    AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
+        .recursive = false,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
         .sha256_constraints = {},
+        .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = { ecdsa_k1_constraint },
         .ecdsa_r1_constraints = {},
@@ -186,10 +199,13 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
         .fixed_base_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .ec_double_constraints = {},
         .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
         .constraints = {},
         .block_constraints = {},
     };
@@ -203,4 +219,3 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
     auto verifier = composer.create_verifier(builder);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
-} // namespace acir_format::tests

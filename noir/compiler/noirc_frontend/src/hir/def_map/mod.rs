@@ -31,7 +31,7 @@ pub struct LocalModuleId(pub Index);
 
 impl LocalModuleId {
     pub fn dummy_id() -> LocalModuleId {
-        LocalModuleId(Index::from_raw_parts(std::usize::MAX, std::u64::MAX))
+        LocalModuleId(Index::dummy())
     }
 }
 
@@ -87,7 +87,7 @@ impl CrateDefMap {
 
         // First parse the root file.
         let root_file_id = context.crate_graph[crate_id].root_file_id;
-        let (ast, parsing_errors) = parse_file(&context.file_manager, root_file_id);
+        let (ast, parsing_errors) = context.parsed_file_results(root_file_id);
         let mut ast = ast.into_sorted();
 
         for macro_processor in &macro_processors {
@@ -135,6 +135,11 @@ impl CrateDefMap {
     pub fn modules(&self) -> &Arena<ModuleData> {
         &self.modules
     }
+
+    pub fn modules_mut(&mut self) -> &mut Arena<ModuleData> {
+        &mut self.modules
+    }
+
     pub fn krate(&self) -> CrateId {
         self.krate
     }

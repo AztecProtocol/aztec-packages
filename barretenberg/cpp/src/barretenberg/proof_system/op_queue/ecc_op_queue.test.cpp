@@ -1,7 +1,8 @@
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include <gtest/gtest.h>
 
-namespace bb::test_flavor {
+using namespace bb;
+
 TEST(ECCOpQueueTest, Basic)
 {
     ECCOpQueue op_queue;
@@ -13,8 +14,8 @@ TEST(ECCOpQueueTest, Basic)
 
 TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
 {
-    using point = bb::g1::affine_element;
-    using scalar = bb::fr;
+    using point = g1::affine_element;
+    using scalar = fr;
 
     // Compute a simple point accumulation natively
     auto P1 = point::random_element();
@@ -37,4 +38,48 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
     EXPECT_TRUE(op_queue.get_accumulator().is_point_at_infinity());
 }
 
-} // namespace bb::test_flavor
+TEST(ECCOpQueueTest, PrependAndSwapTests)
+{
+    using point = g1::affine_element;
+    using scalar = fr;
+
+    // Compute a simple point accumulation natively
+    auto P1 = point::random_element();
+    auto P2 = point::random_element();
+    auto z = scalar::random_element();
+
+    // Add operations to a
+    ECCOpQueue op_queue_a;
+    op_queue_a.add_accumulate(P1 + P1);
+    op_queue_a.mul_accumulate(P2, z + z);
+
+    // Add different operations to b
+    ECCOpQueue op_queue_b;
+    op_queue_b.mul_accumulate(P2, z);
+    op_queue_b.add_accumulate(P1);
+
+    // Add same operations as to a
+    ECCOpQueue op_queue_c;
+    op_queue_c.add_accumulate(P1 + P1);
+    op_queue_c.mul_accumulate(P2, z + z);
+
+    // Swap b with a
+    std::swap(op_queue_b, op_queue_a);
+
+    // Check b==c
+    for (size_t i = 0; i < op_queue_c.raw_ops.size(); i++) {
+        EXPECT_EQ(op_queue_b.raw_ops[i], op_queue_c.raw_ops[i]);
+    }
+
+    // Prepend b to a
+    op_queue_a.prepend_previous_queue(op_queue_b);
+
+    // Append same operations as now in a to c
+    op_queue_c.mul_accumulate(P2, z);
+    op_queue_c.add_accumulate(P1);
+
+    // Check a==c
+    for (size_t i = 0; i < op_queue_c.raw_ops.size(); i++) {
+        EXPECT_EQ(op_queue_a.raw_ops[i], op_queue_c.raw_ops[i]);
+    }
+}

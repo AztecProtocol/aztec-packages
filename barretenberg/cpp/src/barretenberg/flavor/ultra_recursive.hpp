@@ -17,8 +17,6 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
-#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
-#include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
 #include <concepts>
@@ -29,8 +27,9 @@
 
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 
-namespace bb::honk::flavor {
+namespace bb {
 
 /**
  * @brief The recursive counterpart to the "native" Ultra flavor.
@@ -46,20 +45,20 @@ namespace bb::honk::flavor {
  *
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
-template <typename BuilderType> class UltraRecursive_ {
+template <typename BuilderType> class UltraRecursiveFlavor_ {
   public:
     using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
     using Curve = stdlib::bn254<CircuitBuilder>;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::Element;
-    using CommitmentHandle = typename Curve::Element;
     using FF = typename Curve::ScalarField;
-    using NativeVerificationKey = flavor::Ultra::VerificationKey;
+    using NativeFlavor = UltraFlavor;
+    using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all
-    using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
 
-    static constexpr size_t NUM_WIRES = flavor::Ultra::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = UltraFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
@@ -79,11 +78,15 @@ template <typename BuilderType> class UltraRecursive_ {
                                  bb::AuxiliaryRelation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
+    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
+    static_assert(MAX_TOTAL_RELATION_LENGTH == 12);
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
+    static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
@@ -131,14 +134,14 @@ template <typename BuilderType> class UltraRecursive_ {
                               lagrange_first, // column 23
                               lagrange_last); // column 24
 
-        RefVector<DataType> get_selectors()
+        auto get_selectors()
         {
-            return { q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_aux, q_lookup };
+            return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_sort, q_elliptic, q_aux, q_lookup };
         };
-        RefVector<DataType> get_sigma_polynomials() { return { sigma_1, sigma_2, sigma_3, sigma_4 }; };
-        RefVector<DataType> get_id_polynomials() { return { id_1, id_2, id_3, id_4 }; };
+        auto get_sigma_polynomials() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
+        auto get_id_polynomials() { return RefArray{ id_1, id_2, id_3, id_4 }; };
 
-        RefVector<DataType> get_table_polynomials() { return { table_1, table_2, table_3, table_4 }; };
+        auto get_table_polynomials() { return RefArray{ table_1, table_2, table_3, table_4 }; };
     };
 
     /**
@@ -158,8 +161,14 @@ template <typename BuilderType> class UltraRecursive_ {
 
         );
 
-        RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
+        auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
     };
+
+  public:
+    /**
+     * @brief A container for the witness commitments.
+     */
+    using WitnessCommitments = WitnessEntities<Commitment>;
 
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
@@ -218,25 +227,36 @@ template <typename BuilderType> class UltraRecursive_ {
                               z_lookup_shift      // column 42
         );
 
-        RefVector<DataType> get_wires() { return { w_l, w_r, w_o, w_4 }; };
+        auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
         // Gemini-specific getters.
-        RefVector<DataType> get_unshifted()
+        auto get_unshifted()
         {
-            return { q_m,           q_c,   q_l,      q_r,     q_o,     q_4,          q_arith, q_sort,
-                     q_elliptic,    q_aux, q_lookup, sigma_1, sigma_2, sigma_3,      sigma_4, id_1,
-                     id_2,          id_3,  id_4,     table_1, table_2, table_3,      table_4, lagrange_first,
-                     lagrange_last, w_l,   w_r,      w_o,     w_4,     sorted_accum, z_perm,  z_lookup
+            return RefArray{ q_m,           q_c,   q_l,      q_r,     q_o,     q_4,          q_arith, q_sort,
+                             q_elliptic,    q_aux, q_lookup, sigma_1, sigma_2, sigma_3,      sigma_4, id_1,
+                             id_2,          id_3,  id_4,     table_1, table_2, table_3,      table_4, lagrange_first,
+                             lagrange_last, w_l,   w_r,      w_o,     w_4,     sorted_accum, z_perm,  z_lookup
 
             };
         };
-        RefVector<DataType> get_to_be_shifted()
+        auto get_precomputed()
         {
-            return { table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
+            return RefArray{ q_m,          q_c,   q_l,      q_r,     q_o,     q_4,     q_arith, q_sort,
+                             q_elliptic,   q_aux, q_lookup, sigma_1, sigma_2, sigma_3, sigma_4, id_1,
+                             id_2,         id_3,  id_4,     table_1, table_2, table_3, table_4, lagrange_first,
+                             lagrange_last
+
+            };
+        }
+
+        auto get_witness() { return RefArray{ w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup }; };
+        auto get_to_be_shifted()
+        {
+            return RefArray{ table_1, table_2, table_3, table_4, w_l, w_r, w_o, w_4, sorted_accum, z_perm, z_lookup };
         };
-        RefVector<DataType> get_shifted()
+        auto get_shifted()
         {
-            return { table_1_shift, table_2_shift, table_3_shift,      table_4_shift, w_l_shift,     w_r_shift,
-                     w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
+            return RefArray{ table_1_shift, table_2_shift, table_3_shift,      table_4_shift, w_l_shift,     w_r_shift,
+                             w_o_shift,     w_4_shift,     sorted_accum_shift, z_perm_shift,  z_lookup_shift };
         };
     };
 
@@ -251,6 +271,12 @@ template <typename BuilderType> class UltraRecursive_ {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>> {
       public:
+        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
+        {
+            this->circuit_size = circuit_size;
+            this->log_circuit_size = numeric::get_msb(circuit_size);
+            this->num_public_inputs = num_public_inputs;
+        };
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key
          *
@@ -258,8 +284,10 @@ template <typename BuilderType> class UltraRecursive_ {
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-            : VerificationKey_<PrecomputedEntities<Commitment>>(native_key->circuit_size, native_key->num_public_inputs)
         {
+            this->circuit_size = native_key->circuit_size;
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = native_key->num_public_inputs;
             this->q_m = Commitment::from_witness(builder, native_key->q_m);
             this->q_l = Commitment::from_witness(builder, native_key->q_l);
             this->q_r = Commitment::from_witness(builder, native_key->q_r);
@@ -317,38 +345,38 @@ template <typename BuilderType> class UltraRecursive_ {
             this->z_lookup = "Z_LOOKUP";
             this->sorted_accum = "SORTED_ACCUM";
 
-            // The ones beginning with "__" are only used for debugging
-            this->q_c = "__Q_C";
-            this->q_l = "__Q_L";
-            this->q_r = "__Q_R";
-            this->q_o = "__Q_O";
-            this->q_4 = "__Q_4";
-            this->q_m = "__Q_M";
-            this->q_arith = "__Q_ARITH";
-            this->q_sort = "__Q_SORT";
-            this->q_elliptic = "__Q_ELLIPTIC";
-            this->q_aux = "__Q_AUX";
-            this->q_lookup = "__Q_LOOKUP";
-            this->sigma_1 = "__SIGMA_1";
-            this->sigma_2 = "__SIGMA_2";
-            this->sigma_3 = "__SIGMA_3";
-            this->sigma_4 = "__SIGMA_4";
-            this->id_1 = "__ID_1";
-            this->id_2 = "__ID_2";
-            this->id_3 = "__ID_3";
-            this->id_4 = "__ID_4";
-            this->table_1 = "__TABLE_1";
-            this->table_2 = "__TABLE_2";
-            this->table_3 = "__TABLE_3";
-            this->table_4 = "__TABLE_4";
-            this->lagrange_first = "__LAGRANGE_FIRST";
-            this->lagrange_last = "__LAGRANGE_LAST";
+            this->q_c = "Q_C";
+            this->q_l = "Q_L";
+            this->q_r = "Q_R";
+            this->q_o = "Q_O";
+            this->q_4 = "Q_4";
+            this->q_m = "Q_M";
+            this->q_arith = "Q_ARITH";
+            this->q_sort = "Q_SORT";
+            this->q_elliptic = "Q_ELLIPTIC";
+            this->q_aux = "Q_AUX";
+            this->q_lookup = "Q_LOOKUP";
+            this->sigma_1 = "SIGMA_1";
+            this->sigma_2 = "SIGMA_2";
+            this->sigma_3 = "SIGMA_3";
+            this->sigma_4 = "SIGMA_4";
+            this->id_1 = "ID_1";
+            this->id_2 = "ID_2";
+            this->id_3 = "ID_3";
+            this->id_4 = "ID_4";
+            this->table_1 = "TABLE_1";
+            this->table_2 = "TABLE_2";
+            this->table_3 = "TABLE_3";
+            this->table_4 = "TABLE_4";
+            this->lagrange_first = "LAGRANGE_FIRST";
+            this->lagrange_last = "LAGRANGE_LAST";
         };
     };
 
     class VerifierCommitments : public AllEntities<Commitment> {
       public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
+        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
+                            const std::optional<WitnessCommitments>& witness_commitments = std::nullopt)
         {
             this->q_m = verification_key->q_m;
             this->q_l = verification_key->q_l;
@@ -375,10 +403,21 @@ template <typename BuilderType> class UltraRecursive_ {
             this->table_4 = verification_key->table_4;
             this->lagrange_first = verification_key->lagrange_first;
             this->lagrange_last = verification_key->lagrange_last;
+
+            if (witness_commitments.has_value()) {
+                auto commitments = witness_commitments.value();
+                this->w_l = commitments.w_l;
+                this->w_r = commitments.w_r;
+                this->w_o = commitments.w_o;
+                this->sorted_accum = commitments.sorted_accum;
+                this->w_4 = commitments.w_4;
+                this->z_perm = commitments.z_perm;
+                this->z_lookup = commitments.z_lookup;
+            }
         }
     };
 
-    using Transcript = bb::stdlib::recursion::honk::Transcript<CircuitBuilder>;
+    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 
-} // namespace bb::honk::flavor
+} // namespace bb

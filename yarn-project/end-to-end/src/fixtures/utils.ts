@@ -1,10 +1,14 @@
+import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountWalletWithPrivateKey,
+  AztecAddress,
   AztecNode,
+  BatchCall,
   CheatCodes,
   CompleteAddress,
+  Contract,
   DebugLogger,
   DeployL1Contracts,
   EthCheatCodes,
@@ -13,12 +17,15 @@ import {
   LogType,
   PXE,
   SentTx,
+  Wallet,
   createAztecNodeClient,
   createDebugLogger,
   createPXEClient,
   deployL1Contracts,
+  makeFetch,
   waitForPXE,
 } from '@aztec/aztec.js';
+import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
@@ -48,23 +55,17 @@ import {
   http,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
-import { MNEMONIC, localAnvil } from './fixtures.js';
+import { MNEMONIC } from './fixtures.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
-const { PXE_URL = '', AZTEC_NODE_URL = '' } = process.env;
+const { PXE_URL = '' } = process.env;
 
-const getAztecNodeUrl = () => {
-  if (AZTEC_NODE_URL) {
-    return AZTEC_NODE_URL;
-  }
-
-  // If AZTEC_NODE_URL is not set, we assume that the PXE is running on the same host as the Aztec Node and use the default port
-  const url = new URL(PXE_URL);
-  url.port = '8079';
-  return url.toString();
+const getAztecUrl = () => {
+  return PXE_URL;
 };
 
 export const setupL1Contracts = async (
@@ -98,7 +99,7 @@ export const setupL1Contracts = async (
       contractBytecode: RollupBytecode,
     },
   };
-  return await deployL1Contracts(l1RpcUrl, account, localAnvil, logger, l1Artifacts);
+  return await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts);
 };
 
 /**
@@ -164,11 +165,11 @@ async function setupWithRemoteEnvironment(
   numberOfAccounts: number,
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
-  const aztecNodeUrl = getAztecNodeUrl();
+  const aztecNodeUrl = getAztecUrl();
   logger(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
   const aztecNode = createAztecNodeClient(aztecNodeUrl);
   logger(`Creating PXE client to remote host ${PXE_URL}`);
-  const pxeClient = createPXEClient(PXE_URL);
+  const pxeClient = createPXEClient(PXE_URL, makeFetch([1, 2, 3], true));
   await waitForPXE(pxeClient, logger);
   logger('JSON RPC client connected to PXE');
   logger(`Retrieving contract addresses from ${PXE_URL}`);
@@ -184,11 +185,11 @@ async function setupWithRemoteEnvironment(
 
   const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
     account,
-    chain: localAnvil,
+    chain: foundry,
     transport: http(config.rpcUrl),
   });
   const publicClient = createPublicClient({
-    chain: localAnvil,
+    chain: foundry,
     transport: http(config.rpcUrl),
   });
   const deployL1ContractsValues: DeployL1Contracts = {
@@ -198,6 +199,7 @@ async function setupWithRemoteEnvironment(
   };
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
+
   return {
     aztecNode,
     sequencer: undefined,
@@ -320,6 +322,22 @@ export async function setup(
 }
 
 /**
+ * Registers the contract class used for test accounts and publicly deploys the instances requested.
+ * Use this when you need to make a public call to an account contract, such as for requesting a public authwit.
+ * @param sender - Wallet to send the deployment tx.
+ * @param accountsToDeploy - Which accounts to publicly deploy.
+ */
+export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: (CompleteAddress | AztecAddress)[]) {
+  const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
+  const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
+  const batch = new BatchCall(sender, [
+    (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
+    ...instances.map(instance => deployInstance(sender, instance!).request()),
+  ]);
+  await batch.send().wait();
+}
+
+/**
  * Sets the timestamp of the next block.
  * @param rpcUrl - rpc url of the blockchain instance to connect to
  * @param timestamp - the timestamp for the next block
@@ -412,3 +430,30 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessag
 
   expect(asciiLogs).toStrictEqual(logMessages);
 };
+
+export type PublicBalancesFn = ReturnType<typeof getPublicBalancesFn>;
+export function getPublicBalancesFn(
+  symbol: string,
+  contract: Contract,
+  logger: any,
+): (...addresses: AztecAddress[]) => Promise<bigint[]> {
+  const balances = async (...addresses: AztecAddress[]) => {
+    const b = await Promise.all(addresses.map(address => contract.methods.balance_of_public(address).view()));
+    const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
+    logger(debugString);
+    return b;
+  };
+
+  return balances;
+}
+
+export async function assertPublicBalances(
+  balances: PublicBalancesFn,
+  addresses: AztecAddress[],
+  expectedBalances: bigint[],
+) {
+  const actualBalances = await balances(...addresses);
+  for (let i = 0; i < addresses.length; i++) {
+    expect(actualBalances[i]).toBe(expectedBalances[i]);
+  }
+}

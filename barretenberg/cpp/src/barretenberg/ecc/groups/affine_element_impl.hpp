@@ -5,9 +5,9 @@
 
 namespace bb::group_elements {
 template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T>::affine_element(const Fq& a, const Fq& b) noexcept
-    : x(a)
-    , y(b)
+constexpr affine_element<Fq, Fr, T>::affine_element(const Fq& x, const Fq& y) noexcept
+    : x(x)
+    , y(y)
 {}
 
 template <class Fq, class Fr, class T>
@@ -263,10 +263,10 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(con
 }
 
 template <typename Fq, typename Fr, typename T>
-affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::random_element(numeric::random::Engine* engine) noexcept
+affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::random_element(numeric::RNG* engine) noexcept
 {
     if (engine == nullptr) {
-        engine = &numeric::random::get_engine();
+        engine = &numeric::get_randomness();
     }
 
     Fq x;

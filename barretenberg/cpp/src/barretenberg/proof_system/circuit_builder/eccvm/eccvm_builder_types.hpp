@@ -2,7 +2,7 @@
 
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-namespace bb_eccvm {
+namespace bb::eccvm {
 
 static constexpr size_t NUM_SCALAR_BITS = 128;
 static constexpr size_t WNAF_SLICE_BITS = 4;
@@ -32,6 +32,7 @@ template <typename CycleGroup> struct VMOperation {
         res += static_cast<uint32_t>(reset);
         return res;
     }
+    bool operator==(const VMOperation<CycleGroup>& other) const = default;
 };
 template <typename CycleGroup> struct ScalarMul {
     uint32_t pc;
@@ -44,4 +45,4 @@ template <typename CycleGroup> struct ScalarMul {
 
 template <typename CycleGroup> using MSM = std::vector<ScalarMul<CycleGroup>>;
 
-} // namespace bb_eccvm
+} // namespace bb::eccvm

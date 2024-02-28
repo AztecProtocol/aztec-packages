@@ -7,9 +7,6 @@
   },
   "references": [
     {
-      "path": "../acir-simulator"
-    },
-    {
       "path": "../circuit-types"
     },
     {
@@ -28,16 +25,25 @@
       "path": "../merkle-tree"
     },
     {
-      "path": "../noir-protocol-circuits"
+      "path": "../noir-protocol-circuits-types"
     },
     {
       "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../simulator"
     },
     {
       "path": "../types"
     },
     {
       "path": "../world-state"
+    },
+    {
+      "path": "../kv-store"
     }
   ],
   "include": ["src"]

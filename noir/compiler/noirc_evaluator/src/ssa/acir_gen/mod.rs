@@ -7,6 +7,7 @@ use std::fmt::Debug;
 use self::acir_ir::acir_variable::{AcirContext, AcirType, AcirVar};
 use super::function_builder::data_bus::DataBus;
 use super::ir::dfg::CallStack;
+use super::ir::instruction::ConstrainError;
 use super::{
     ir::{
         dfg::DataFlowGraph,
@@ -88,10 +89,6 @@ struct Context {
     /// a new BlockId
     max_block_id: u32,
 
-    /// Maps SSA array values to their slice size and any nested slices internal to the parent slice.
-    /// This enables us to maintain the slice structure of a slice when performing an array get.
-    slice_sizes: HashMap<Id<Value>, Vec<usize>>,
-
     data_bus: DataBus,
 }
 
@@ -102,6 +99,18 @@ pub(crate) struct AcirDynamicArray {
     block_id: BlockId,
     /// Length of the array
     len: usize,
+    /// An ACIR dynamic array is a flat structure, so we use
+    /// the inner structure of an `AcirType::NumericType` directly.
+    /// Some usages of ACIR arrays (e.g. black box functions) require the bit size
+    /// of every value to be known, thus we store the types as part of the dynamic
+    /// array definition.
+    ///
+    /// A dynamic non-homogenous array can potentially have values of differing types.
+    /// Thus, we store a vector of types rather than a single type, as a dynamic non-homogenous array
+    /// is still represented in ACIR by a single `AcirDynamicArray` structure.
+    ///
+    /// The length of the value types vector must match the `len` field in this structure.
+    value_types: Vec<NumericType>,
     /// Identification for the ACIR dynamic array
     /// inner element type sizes array
     element_type_sizes: Option<BlockId>,
@@ -153,6 +162,16 @@ impl AcirValue {
             AcirValue::DynamicArray(_) => unimplemented!("Cannot flatten a dynamic array"),
         }
     }
+
+    fn flat_numeric_types(self) -> Vec<NumericType> {
+        match self {
+            AcirValue::Array(_) => {
+                self.flatten().into_iter().map(|(_, typ)| typ.to_numeric_type()).collect()
+            }
+            AcirValue::DynamicArray(AcirDynamicArray { value_types, .. }) => value_types,
+            _ => unreachable!("An AcirValue::Var cannot be used as an array value"),
+        }
+    }
 }
 
 impl Ssa {
@@ -202,7 +221,6 @@ impl Context {
             internal_memory_blocks: HashMap::default(),
             internal_mem_block_lengths: HashMap::default(),
             max_block_id: 0,
-            slice_sizes: HashMap::default(),
             data_bus: DataBus::default(),
         }
     }
@@ -274,6 +292,7 @@ impl Context {
             inputs,
             outputs,
             false,
+            true,
         )?;
         let output_vars: Vec<_> = output_values
             .iter()
@@ -284,7 +303,16 @@ impl Context {
         for acir_var in output_vars {
             self.acir_context.return_var(acir_var)?;
         }
-        Ok(self.acir_context.finish(witness_inputs, Vec::new()))
+
+        let generated_acir = self.acir_context.finish(witness_inputs, Vec::new());
+
+        assert_eq!(
+            generated_acir.opcodes().len(),
+            1,
+            "Unconstrained programs should only generate a single opcode but multiple were emitted"
+        );
+
+        Ok(generated_acir)
     }
 
     /// Adds and binds `AcirVar`s for each numeric block parameter or block parameter array element.
@@ -415,70 +443,97 @@ impl Context {
                 self.define_result_var(dfg, instruction_id, result_acir_var);
             }
             Instruction::Constrain(lhs, rhs, assert_message) => {
-                let lhs = self.convert_value(*lhs, dfg);
-                let rhs = self.convert_value(*rhs, dfg);
+                let lhs = self.convert_numeric_value(*lhs, dfg)?;
+                let rhs = self.convert_numeric_value(*rhs, dfg)?;
 
-                fn get_var_equality_assertions(
-                    lhs: AcirValue,
-                    rhs: AcirValue,
-                    read_from_index: &mut impl FnMut(BlockId, usize) -> Result<AcirVar, InternalError>,
-                ) -> Result<Vec<(AcirVar, AcirVar)>, InternalError> {
-                    match (lhs, rhs) {
-                        (AcirValue::Var(lhs, _), AcirValue::Var(rhs, _)) => Ok(vec![(lhs, rhs)]),
-                        (AcirValue::Array(lhs_values), AcirValue::Array(rhs_values)) => {
-                            let var_equality_assertions = lhs_values
-                                .into_iter()
-                                .zip(rhs_values)
-                                .map(|(lhs, rhs)| {
-                                    get_var_equality_assertions(lhs, rhs, read_from_index)
-                                })
-                                .collect::<Result<Vec<_>, _>>()?
-                                .into_iter()
-                                .flatten()
-                                .collect();
-                            Ok(var_equality_assertions)
-                        }
-                        (
-                            AcirValue::DynamicArray(AcirDynamicArray {
-                                block_id: lhs_block_id,
-                                len,
-                                ..
-                            }),
-                            AcirValue::DynamicArray(AcirDynamicArray {
-                                block_id: rhs_block_id,
-                                ..
-                            }),
-                        ) => try_vecmap(0..len, |i| {
-                            let lhs_var = read_from_index(lhs_block_id, i)?;
-                            let rhs_var = read_from_index(rhs_block_id, i)?;
-                            Ok((lhs_var, rhs_var))
-                        }),
-                        _ => {
-                            unreachable!("ICE: lhs and rhs should be of the same type")
+                let assert_message = if let Some(error) = assert_message {
+                    match error.as_ref() {
+                        ConstrainError::Static(string) => Some(string.clone()),
+                        ConstrainError::Dynamic(call_instruction) => {
+                            self.convert_ssa_call(call_instruction, dfg, ssa, brillig, &[])?;
+                            None
                         }
                     }
-                }
+                } else {
+                    None
+                };
 
-                let mut read_dynamic_array_index =
-                    |block_id: BlockId, array_index: usize| -> Result<AcirVar, InternalError> {
-                        let index_var = self.acir_context.add_constant(array_index);
-
-                        self.acir_context.read_from_memory(block_id, &index_var)
-                    };
-
-                for (lhs, rhs) in
-                    get_var_equality_assertions(lhs, rhs, &mut read_dynamic_array_index)?
-                {
-                    self.acir_context.assert_eq_var(lhs, rhs, assert_message.clone())?;
-                }
+                self.acir_context.assert_eq_var(lhs, rhs, assert_message)?;
             }
             Instruction::Cast(value_id, _) => {
                 let acir_var = self.convert_numeric_value(*value_id, dfg)?;
                 self.define_result_var(dfg, instruction_id, acir_var);
             }
-            Instruction::Call { func, arguments } => {
+            Instruction::Call { .. } => {
                 let result_ids = dfg.instruction_results(instruction_id);
-                match &dfg[*func] {
+                warnings.extend(self.convert_ssa_call(
+                    instruction,
+                    dfg,
+                    ssa,
+                    brillig,
+                    result_ids,
+                )?);
+            }
+            Instruction::Not(value_id) => {
+                let (acir_var, typ) = match self.convert_value(*value_id, dfg) {
+                    AcirValue::Var(acir_var, typ) => (acir_var, typ),
+                    _ => unreachable!("NOT is only applied to numerics"),
+                };
+                let result_acir_var = self.acir_context.not_var(acir_var, typ)?;
+                self.define_result_var(dfg, instruction_id, result_acir_var);
+            }
+            Instruction::Truncate { value, bit_size, max_bit_size } => {
+                let result_acir_var =
+                    self.convert_ssa_truncate(*value, *bit_size, *max_bit_size, dfg)?;
+                self.define_result_var(dfg, instruction_id, result_acir_var);
+            }
+            Instruction::EnableSideEffects { condition } => {
+                let acir_var = self.convert_numeric_value(*condition, dfg)?;
+                self.current_side_effects_enabled_var = acir_var;
+            }
+            Instruction::ArrayGet { .. } | Instruction::ArraySet { .. } => {
+                self.handle_array_operation(instruction_id, dfg, last_array_uses)?;
+            }
+            Instruction::Allocate => {
+                unreachable!("Expected all allocate instructions to be removed before acir_gen")
+            }
+            Instruction::Store { .. } => {
+                unreachable!("Expected all store instructions to be removed before acir_gen")
+            }
+            Instruction::Load { .. } => {
+                unreachable!("Expected all load instructions to be removed before acir_gen")
+            }
+            Instruction::IncrementRc { .. } => {
+                // Do nothing. Only Brillig needs to worry about reference counted arrays
+            }
+            Instruction::RangeCheck { value, max_bit_size, assert_message } => {
+                let acir_var = self.convert_numeric_value(*value, dfg)?;
+                self.acir_context.range_constrain_var(
+                    acir_var,
+                    &NumericType::Unsigned { bit_size: *max_bit_size },
+                    assert_message.clone(),
+                )?;
+            }
+        }
+
+        self.acir_context.set_call_stack(CallStack::new());
+        Ok(warnings)
+    }
+
+    fn convert_ssa_call(
+        &mut self,
+        instruction: &Instruction,
+        dfg: &DataFlowGraph,
+        ssa: &Ssa,
+        brillig: &Brillig,
+        result_ids: &[ValueId],
+    ) -> Result<Vec<SsaReport>, RuntimeError> {
+        let mut warnings = Vec::new();
+
+        match instruction {
+            Instruction::Call { func, arguments } => {
+                let function_value = &dfg[*func];
+                match function_value {
                     Value::Function(id) => {
                         let func = &ssa.functions[id];
                         match func.runtime() {
@@ -486,13 +541,21 @@ impl Context {
                                 "expected an intrinsic/brillig call, but found {func:?}. All ACIR methods should be inlined"
                             ),
                             RuntimeType::Brillig => {
+                                // Check that we are not attempting to return a slice from 
+                                // an unconstrained runtime to a constrained runtime
+                                for result_id in result_ids {
+                                    if dfg.type_of_value(*result_id).contains_slice_element() {
+                                        return Err(RuntimeError::UnconstrainedSliceReturnToConstrained { call_stack: self.acir_context.get_call_stack() })
+                                    }
+                                }
+
                                 let inputs = vecmap(arguments, |arg| self.convert_value(*arg, dfg));
 
                                 let code = self.gen_brillig_for(func, brillig)?;
 
                                 let outputs: Vec<AcirType> = vecmap(result_ids, |result_id| dfg.type_of_value(*result_id).into());
 
-                                let output_values = self.acir_context.brillig(self.current_side_effects_enabled_var, code, inputs, outputs, true)?;
+                                let output_values = self.acir_context.brillig(self.current_side_effects_enabled_var, code, inputs, outputs, true, false)?;
 
                                 // Compiler sanity check
                                 assert_eq!(result_ids.len(), output_values.len(), "ICE: The number of Brillig output values should match the result ids in SSA");
@@ -552,51 +615,11 @@ impl Context {
                     Value::ForeignFunction(_) => unreachable!(
                         "All `oracle` methods should be wrapped in an unconstrained fn"
                     ),
-                    _ => unreachable!("expected calling a function"),
+                    _ => unreachable!("expected calling a function but got {function_value:?}"),
                 }
             }
-            Instruction::Not(value_id) => {
-                let (acir_var, typ) = match self.convert_value(*value_id, dfg) {
-                    AcirValue::Var(acir_var, typ) => (acir_var, typ),
-                    _ => unreachable!("NOT is only applied to numerics"),
-                };
-                let result_acir_var = self.acir_context.not_var(acir_var, typ)?;
-                self.define_result_var(dfg, instruction_id, result_acir_var);
-            }
-            Instruction::Truncate { value, bit_size, max_bit_size } => {
-                let result_acir_var =
-                    self.convert_ssa_truncate(*value, *bit_size, *max_bit_size, dfg)?;
-                self.define_result_var(dfg, instruction_id, result_acir_var);
-            }
-            Instruction::EnableSideEffects { condition } => {
-                let acir_var = self.convert_numeric_value(*condition, dfg)?;
-                self.current_side_effects_enabled_var = acir_var;
-            }
-            Instruction::ArrayGet { .. } | Instruction::ArraySet { .. } => {
-                self.handle_array_operation(instruction_id, dfg, last_array_uses)?;
-            }
-            Instruction::Allocate => {
-                unreachable!("Expected all allocate instructions to be removed before acir_gen")
-            }
-            Instruction::Store { .. } => {
-                unreachable!("Expected all store instructions to be removed before acir_gen")
-            }
-            Instruction::Load { .. } => {
-                unreachable!("Expected all load instructions to be removed before acir_gen")
-            }
-            Instruction::IncrementRc { .. } => {
-                // Do nothing. Only Brillig needs to worry about reference counted arrays
-            }
-            Instruction::RangeCheck { value, max_bit_size, assert_message } => {
-                let acir_var = self.convert_numeric_value(*value, dfg)?;
-                self.acir_context.range_constrain_var(
-                    acir_var,
-                    &NumericType::Unsigned { bit_size: *max_bit_size },
-                    assert_message.clone(),
-                )?;
-            }
+            _ => unreachable!("expected calling a call instruction"),
         }
-        self.acir_context.set_call_stack(CallStack::new());
         Ok(warnings)
     }
 
@@ -678,27 +701,21 @@ impl Context {
         instruction: InstructionId,
         dfg: &DataFlowGraph,
         index: ValueId,
-        array: ValueId,
+        array_id: ValueId,
         store_value: Option<ValueId>,
     ) -> Result<bool, RuntimeError> {
         let index_const = dfg.get_numeric_constant(index);
-        let value_type = dfg.type_of_value(array);
-        let (Type::Array(element_types, _) | Type::Slice(element_types)) = &value_type else {
+        let value_type = dfg.type_of_value(array_id);
+        // Compiler sanity checks
+        assert!(
+            !value_type.is_nested_slice(),
+            "ICE: Nested slice type has reached ACIR generation"
+        );
+        let (Type::Array(_, _) | Type::Slice(_)) = &value_type else {
             unreachable!("ICE: expected array or slice type");
-
         };
 
-        // TODO(#3188): Need to be able to handle constant index for slices to seriously reduce
-        // constraint sizes of nested slices
-        // This can only be done if we accurately flatten nested slices as otherwise we will reach
-        // index out of bounds errors. If the slice is already flat then we can treat them similarly to arrays.
-        if matches!(value_type, Type::Slice(_))
-            && element_types.iter().any(|element| element.contains_slice_element())
-        {
-            return Ok(false);
-        }
-
-        match self.convert_value(array, dfg) {
+        match self.convert_value(array_id, dfg) {
             AcirValue::Var(acir_var, _) => {
                 return Err(RuntimeError::InternalError(InternalError::Unexpected {
                     expected: "an array value".to_string(),
@@ -788,24 +805,8 @@ impl Context {
 
                 let mut dummy_predicate_index = predicate_index;
                 // We must setup the dummy value to match the type of the value we wish to store
-                let slice_sizes = if store_type.contains_slice_element() {
-                    self.compute_slice_sizes(store, None, dfg);
-                    self.slice_sizes.get(&store).cloned().ok_or_else(|| {
-                        InternalError::Unexpected {
-                            expected: "Store value should have slice sizes computed".to_owned(),
-                            found: "Missing key in slice sizes map".to_owned(),
-                            call_stack: self.acir_context.get_call_stack(),
-                        }
-                    })?
-                } else {
-                    vec![]
-                };
-                let dummy = self.array_get_value(
-                    &store_type,
-                    block_id,
-                    &mut dummy_predicate_index,
-                    &slice_sizes,
-                )?;
+                let dummy =
+                    self.array_get_value(&store_type, block_id, &mut dummy_predicate_index)?;
 
                 Some(self.convert_array_set_store_value(&store_value, &dummy)?)
             }
@@ -922,26 +923,12 @@ impl Context {
             }
         }
 
-        let value = if !res_typ.contains_slice_element() {
-            self.array_get_value(&res_typ, block_id, &mut var_index, &[])?
-        } else {
-            let slice_sizes = self
-                .slice_sizes
-                .get(&array_id)
-                .expect("ICE: Array with slices should have associated slice sizes");
-
-            // The first max size is going to be the length of the parent slice
-            // As we are fetching from the parent slice we just want its internal
-            // slice sizes.
-            let slice_sizes = slice_sizes[1..].to_vec();
-
-            let value = self.array_get_value(&res_typ, block_id, &mut var_index, &slice_sizes)?;
-
-            // Insert the resulting slice sizes
-            self.slice_sizes.insert(results[0], slice_sizes);
-
-            value
-        };
+        // Compiler sanity check
+        assert!(
+            !res_typ.contains_slice_element(),
+            "ICE: Nested slice result found during ACIR generation"
+        );
+        let value = self.array_get_value(&res_typ, block_id, &mut var_index)?;
 
         self.define_result(dfg, instruction, value.clone());
 
@@ -953,7 +940,6 @@ impl Context {
         ssa_type: &Type,
         block_id: BlockId,
         var_index: &mut AcirVar,
-        slice_sizes: &[usize],
     ) -> Result<AcirValue, RuntimeError> {
         let one = self.acir_context.add_constant(FieldElement::one());
         match ssa_type.clone() {
@@ -971,33 +957,12 @@ impl Context {
                 let mut values = Vector::new();
                 for _ in 0..len {
                     for typ in element_types.as_ref() {
-                        values.push_back(self.array_get_value(
-                            typ,
-                            block_id,
-                            var_index,
-                            slice_sizes,
-                        )?);
+                        values.push_back(self.array_get_value(typ, block_id, var_index)?);
                     }
                 }
                 Ok(AcirValue::Array(values))
             }
-            Type::Slice(element_types) => {
-                // It is not enough to execute this loop and simply pass the size from the parent definition.
-                // We need the internal sizes of each type in case of a nested slice.
-                let mut values = Vector::new();
-
-                let (current_size, new_sizes) =
-                    slice_sizes.split_first().expect("should be able to split");
-
-                for _ in 0..*current_size {
-                    for typ in element_types.as_ref() {
-                        values
-                            .push_back(self.array_get_value(typ, block_id, var_index, new_sizes)?);
-                    }
-                }
-                Ok(AcirValue::Array(values))
-            }
-            _ => unreachable!("ICE - expected an array or slice"),
+            _ => unreachable!("ICE: Expected an array or numeric but got {ssa_type:?}"),
         }
     }
 
@@ -1059,31 +1024,20 @@ impl Context {
 
         self.array_set_value(&store_value, result_block_id, &mut var_index)?;
 
-        // Set new resulting array to have the same slice sizes as the instruction input
-        if let Type::Slice(element_types) = &array_typ {
-            let has_internal_slices =
-                element_types.as_ref().iter().any(|typ| typ.contains_slice_element());
-            if has_internal_slices {
-                let slice_sizes = self
-                    .slice_sizes
-                    .get(&array_id)
-                    .expect(
-                        "ICE: Expected array with internal slices to have associated slice sizes",
-                    )
-                    .clone();
-                let results = dfg.instruction_results(instruction);
-                self.slice_sizes.insert(results[0], slice_sizes);
-            }
-        }
-
         let element_type_sizes = if !can_omit_element_sizes_array(&array_typ) {
             Some(self.init_element_type_sizes_array(&array_typ, array_id, None, dfg)?)
         } else {
             None
         };
+
+        let value_types = self.convert_value(array_id, dfg).flat_numeric_types();
+        // Compiler sanity check
+        assert_eq!(value_types.len(), array_len, "ICE: The length of the flattened type array should match the length of the dynamic array");
+
         let result_value = AcirValue::DynamicArray(AcirDynamicArray {
             block_id: result_block_id,
             len: array_len,
+            value_types,
             element_type_sizes,
         });
         self.define_result(dfg, instruction, result_value);
@@ -1167,7 +1121,7 @@ impl Context {
         &mut self,
         array_typ: &Type,
         array_id: ValueId,
-        array_acir_value: Option<AcirValue>,
+        supplied_acir_value: Option<&AcirValue>,
         dfg: &DataFlowGraph,
     ) -> Result<BlockId, RuntimeError> {
         let element_type_sizes = self.internal_block_id(&array_id);
@@ -1184,8 +1138,6 @@ impl Context {
             Type::Array(_, _) | Type::Slice(_) => {
                 match &dfg[array_id] {
                     Value::Array { array, .. } => {
-                        self.compute_slice_sizes(array_id, None, dfg);
-
                         for (i, value) in array.iter().enumerate() {
                             flat_elem_type_sizes.push(
                                 self.flattened_slice_size(*value, dfg) + flat_elem_type_sizes[i],
@@ -1195,26 +1147,23 @@ impl Context {
                     Value::Instruction { .. } | Value::Param { .. } => {
                         // An instruction representing the slice means it has been processed previously during ACIR gen.
                         // Use the previously defined result of an array operation to fetch the internal type information.
-                        let array_acir_value = if let Some(array_acir_value) = array_acir_value {
-                            array_acir_value
-                        } else {
-                            self.convert_value(array_id, dfg)
-                        };
+                        let array_acir_value = &self.convert_value(array_id, dfg);
+                        let array_acir_value = supplied_acir_value.unwrap_or(array_acir_value);
                         match array_acir_value {
                             AcirValue::DynamicArray(AcirDynamicArray {
                                 element_type_sizes: inner_elem_type_sizes,
                                 ..
                             }) => {
                                 if let Some(inner_elem_type_sizes) = inner_elem_type_sizes {
-                                    if self.initialized_arrays.contains(&inner_elem_type_sizes) {
-                                        let type_sizes_array_len = self.internal_mem_block_lengths.get(&inner_elem_type_sizes).copied().ok_or_else(||
+                                    if self.initialized_arrays.contains(inner_elem_type_sizes) {
+                                        let type_sizes_array_len = *self.internal_mem_block_lengths.get(inner_elem_type_sizes).ok_or_else(||
                                             InternalError::General {
                                                 message: format!("Array {array_id}'s inner element type sizes array does not have a tracked length"),
                                                 call_stack: self.acir_context.get_call_stack(),
                                             }
                                         )?;
                                         self.copy_dynamic_array(
-                                            inner_elem_type_sizes,
+                                            *inner_elem_type_sizes,
                                             element_type_sizes,
                                             type_sizes_array_len,
                                         )?;
@@ -1283,41 +1232,6 @@ impl Context {
         self.internal_mem_block_lengths.insert(element_type_sizes, element_type_sizes_len);
 
         Ok(element_type_sizes)
-    }
-
-    fn compute_slice_sizes(
-        &mut self,
-        current_array_id: ValueId,
-        parent_array: Option<ValueId>,
-        dfg: &DataFlowGraph,
-    ) {
-        let (array, typ) = match &dfg[current_array_id] {
-            Value::Array { array, typ } => (array, typ.clone()),
-            _ => return,
-        };
-
-        if !matches!(typ, Type::Slice(_)) {
-            return;
-        }
-
-        let element_size = typ.element_size();
-        let true_len = array.len() / element_size;
-        if let Some(parent_array) = parent_array {
-            let sizes_list =
-                self.slice_sizes.get_mut(&parent_array).expect("ICE: expected size list");
-            sizes_list.push(true_len);
-            for value in array {
-                self.compute_slice_sizes(*value, Some(parent_array), dfg);
-            }
-        } else {
-            // This means the current_array_id is the parent array
-            // The slice sizes should follow the parent array's type structure
-            // thus we start our sizes list with the parent array size.
-            self.slice_sizes.insert(current_array_id, vec![true_len]);
-            for value in array {
-                self.compute_slice_sizes(*value, Some(current_array_id), dfg);
-            }
-        }
     }
 
     fn copy_dynamic_array(
@@ -1455,7 +1369,7 @@ impl Context {
 
         // The return value may or may not be an array reference. Calling `flatten_value_list`
         // will expand the array if there is one.
-        let return_acir_vars = self.flatten_value_list(return_values, dfg);
+        let return_acir_vars = self.flatten_value_list(return_values, dfg)?;
         let mut warnings = Vec::new();
         for acir_var in return_acir_vars {
             if self.acir_context.is_constant(&acir_var) {
@@ -1497,7 +1411,13 @@ impl Context {
                 AcirValue::Array(elements.collect())
             }
             Value::Intrinsic(..) => todo!(),
-            Value::Function(..) => unreachable!("ICE: All functions should have been inlined"),
+            Value::Function(function_id) => {
+                // This conversion is for debugging support only, to allow the
+                // debugging instrumentation code to work. Taking the reference
+                // of a function in ACIR is useless.
+                let id = self.acir_context.add_constant(function_id.to_usize());
+                AcirValue::Var(id, AcirType::field())
+            }
             Value::ForeignFunction(_) => unimplemented!(
                 "Oracle calls directly in constrained functions are not yet available."
             ),
@@ -1587,6 +1507,9 @@ impl Context {
                 rhs,
                 bit_count,
                 self.current_side_effects_enabled_var,
+            ),
+            BinaryOp::Shl | BinaryOp::Shr => unreachable!(
+                "ICE - bit shift operators do not exist in ACIR and should have been replaced"
             ),
         }
     }
@@ -1710,7 +1633,7 @@ impl Context {
 
                 let vars = self.acir_context.black_box_function(black_box, inputs, output_count)?;
 
-                Ok(Self::convert_vars_to_values(vars, dfg, result_ids))
+                Ok(self.convert_vars_to_values(vars, dfg, result_ids))
             }
             Intrinsic::ApplyRangeConstraint => {
                 unreachable!("ICE: `Intrinsic::ApplyRangeConstraint` calls should be transformed into an `Instruction::RangeCheck`");
@@ -1732,33 +1655,6 @@ impl Context {
 
                 self.acir_context.bit_decompose(endian, field, bit_size, result_type)
             }
-            Intrinsic::Sort => {
-                let inputs = vecmap(arguments, |arg| self.convert_value(*arg, dfg));
-                // We flatten the inputs and retrieve the bit_size of the elements
-                let mut input_vars = Vec::new();
-                let mut bit_size = 0;
-                for input in inputs {
-                    for (var, typ) in input.flatten() {
-                        input_vars.push(var);
-                        if bit_size == 0 {
-                            bit_size = typ.bit_size();
-                        } else {
-                            assert_eq!(
-                                bit_size,
-                                typ.bit_size(),
-                                "cannot sort element of different bit size"
-                            );
-                        }
-                    }
-                }
-                // Generate the sorted output variables
-                let out_vars = self
-                    .acir_context
-                    .sort(input_vars, bit_size, self.current_side_effects_enabled_var)
-                    .expect("Could not sort");
-
-                Ok(Self::convert_vars_to_values(out_vars, dfg, result_ids))
-            }
             Intrinsic::ArrayLen => {
                 let len = match self.convert_value(arguments[0], dfg) {
                     AcirValue::Var(_, _) => unreachable!("Non-array passed to array.len() method"),
@@ -1772,23 +1668,21 @@ impl Context {
                 let slice_length = self.convert_value(arguments[0], dfg).into_var()?;
                 let (slice_contents, slice_typ, _) =
                     self.check_array_is_initialized(arguments[1], dfg)?;
-                let slice = self.convert_value(slice_contents, dfg);
+                assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
+                let slice = self.convert_value(slice_contents, dfg);
                 let mut new_elem_size = Self::flattened_value_size(&slice);
 
                 let mut new_slice = Vector::new();
                 self.slice_intrinsic_input(&mut new_slice, slice)?;
 
                 let elements_to_push = &arguments[2..];
-                // We only fill internal slices for nested slices (a slice inside of a slice).
-                // So we must directly push back elements for slices which are not a nested slice.
-                if !slice_typ.is_nested_slice() {
-                    for elem in elements_to_push {
-                        let element = self.convert_value(*elem, dfg);
+                // We must directly push back elements for non-nested slices
+                for elem in elements_to_push {
+                    let element = self.convert_value(*elem, dfg);
 
-                        new_elem_size += Self::flattened_value_size(&element);
-                        new_slice.push_back(element);
-                    }
+                    new_elem_size += Self::flattened_value_size(&element);
+                    new_slice.push_back(element);
                 }
 
                 // Increase the slice length by one to enable accessing more elements in the slice.
@@ -1800,20 +1694,6 @@ impl Context {
                 self.initialize_array(result_block_id, new_elem_size, Some(new_slice_val.clone()))?;
                 // The previous slice length represents the index we want to write into.
                 let mut var_index = slice_length;
-                // Dynamic arrays are represented as flat memory. We must flatten the user facing index
-                // to a flattened index that matches the complex slice structure.
-                if slice_typ.is_nested_slice() {
-                    let element_size = slice_typ.element_size();
-
-                    // Multiply the element size against the var index before fetching the flattened index
-                    // This operation makes sure our user-facing slice index matches the strategy for indexing in SSA,
-                    // which is how `get_flattened_index` expects its index input.
-                    let element_size_var = self.acir_context.add_constant(element_size);
-                    var_index = self.acir_context.mul_var(slice_length, element_size_var)?;
-                    var_index =
-                        self.get_flattened_index(&slice_typ, slice_contents, var_index, dfg)?;
-                }
-
                 // Write the elements we wish to push back directly.
                 // The slice's underlying array value should already be filled with dummy data
                 // to enable this write to be within bounds.
@@ -1828,15 +1708,24 @@ impl Context {
                     Some(self.init_element_type_sizes_array(
                         &slice_typ,
                         slice_contents,
-                        Some(new_slice_val),
+                        Some(&new_slice_val),
                         dfg,
                     )?)
                 } else {
                     None
                 };
+
+                let value_types = new_slice_val.flat_numeric_types();
+                assert_eq!(
+                    value_types.len(),
+                    new_elem_size,
+                    "ICE: Value types array must match new slice size"
+                );
+
                 let result = AcirValue::DynamicArray(AcirDynamicArray {
                     block_id: result_block_id,
                     len: new_elem_size,
+                    value_types,
                     element_type_sizes,
                 });
                 Ok(vec![AcirValue::Var(new_slice_length, AcirType::field()), result])
@@ -1847,8 +1736,9 @@ impl Context {
 
                 let (slice_contents, slice_typ, _) =
                     self.check_array_is_initialized(arguments[1], dfg)?;
-                let slice: AcirValue = self.convert_value(slice_contents, dfg);
+                assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
+                let slice: AcirValue = self.convert_value(slice_contents, dfg);
                 let mut new_slice_size = Self::flattened_value_size(&slice);
 
                 // Increase the slice length by one to enable accessing more elements in the slice.
@@ -1860,33 +1750,14 @@ impl Context {
 
                 let elements_to_push = &arguments[2..];
                 let mut elem_size = 0;
-                // We only fill internal slices for nested slices (a slice inside of a slice).
-                // So we must directly push front elements for slices which are not a nested slice.
-                if !slice_typ.is_nested_slice() {
-                    for elem in elements_to_push.iter().rev() {
-                        let element = self.convert_value(*elem, dfg);
+                // We must directly push front elements for non-nested slices
+                for elem in elements_to_push.iter().rev() {
+                    let element = self.convert_value(*elem, dfg);
 
-                        elem_size += Self::flattened_value_size(&element);
-                        new_slice.push_front(element);
-                    }
-                    new_slice_size += elem_size;
-                } else {
-                    // We have already filled the appropriate dummy values for nested slice during SSA gen.
-                    // We need to account for that we do not go out of bounds by removing dummy data as we
-                    // push elements to the front of our slice.
-                    // Using this strategy we are able to avoid dynamic writes like we do for a SlicePushBack.
-                    for elem in elements_to_push.iter().rev() {
-                        let element = self.convert_value(*elem, dfg);
-
-                        let elem_size = Self::flattened_value_size(&element);
-                        // Have to pop based off of the flattened value size as we read the
-                        // slice intrinsic as a flat list of AcirValue::Var
-                        for _ in 0..elem_size {
-                            new_slice.pop_back();
-                        }
-                        new_slice.push_front(element);
-                    }
+                    elem_size += Self::flattened_value_size(&element);
+                    new_slice.push_front(element);
                 }
+                new_slice_size += elem_size;
 
                 let new_slice_val = AcirValue::Array(new_slice.clone());
 
@@ -1901,15 +1772,24 @@ impl Context {
                     Some(self.init_element_type_sizes_array(
                         &slice_typ,
                         slice_contents,
-                        Some(new_slice_val),
+                        Some(&new_slice_val),
                         dfg,
                     )?)
                 } else {
                     None
                 };
+
+                let value_types = new_slice_val.flat_numeric_types();
+                assert_eq!(
+                    value_types.len(),
+                    new_slice_size,
+                    "ICE: Value types array must match new slice size"
+                );
+
                 let result = AcirValue::DynamicArray(AcirDynamicArray {
                     block_id: result_block_id,
                     len: new_slice_size,
+                    value_types,
                     element_type_sizes,
                 });
 
@@ -1928,55 +1808,16 @@ impl Context {
 
                 let (slice_contents, slice_typ, block_id) =
                     self.check_array_is_initialized(arguments[1], dfg)?;
-                let slice = self.convert_value(slice_contents, dfg);
-
-                let element_size = slice_typ.element_size();
+                assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
                 let mut popped_elements = Vec::new();
-                // Fetch the values we are popping off of the slice.
-                // In the case of non-nested slice the logic is simple as we do not
-                // need to account for the internal slice sizes or flattening the index.
-                //
-                // The pop back operation results are of the format [slice length, slice contents, popped elements].
-                // Thus, we look at the result ids at index 2 and onwards to determine the type of each popped element.
-                if !slice_typ.is_nested_slice() {
-                    for res in &result_ids[2..] {
-                        let elem = self.array_get_value(
-                            &dfg.type_of_value(*res),
-                            block_id,
-                            &mut var_index,
-                            &[],
-                        )?;
-                        popped_elements.push(elem);
-                    }
-                } else {
-                    // Fetch the slice sizes of the nested slice.
-                    let slice_sizes = self.slice_sizes.get(&slice_contents);
-                    let mut slice_sizes =
-                        slice_sizes.expect("ICE: should have slice sizes").clone();
-                    // We want to remove the parent size as we are fetching the child
-                    slice_sizes.remove(0);
-
-                    // Multiply the element size against the var index before fetching the flattened index
-                    // This operation makes sure our user-facing slice index matches the strategy for indexing in SSA,
-                    // which is how `get_flattened_index` expects its index input.
-                    let element_size_var = self.acir_context.add_constant(element_size);
-                    // We want to use an index one less than the slice length
-                    var_index = self.acir_context.mul_var(var_index, element_size_var)?;
-                    var_index =
-                        self.get_flattened_index(&slice_typ, slice_contents, var_index, dfg)?;
-
-                    for res in &result_ids[2..] {
-                        let elem = self.array_get_value(
-                            &dfg.type_of_value(*res),
-                            block_id,
-                            &mut var_index,
-                            &slice_sizes,
-                        )?;
-                        popped_elements.push(elem);
-                    }
+                for res in &result_ids[2..] {
+                    let elem =
+                        self.array_get_value(&dfg.type_of_value(*res), block_id, &mut var_index)?;
+                    popped_elements.push(elem);
                 }
 
+                let slice = self.convert_value(slice_contents, dfg);
                 let mut new_slice = Vector::new();
                 self.slice_intrinsic_input(&mut new_slice, slice)?;
 
@@ -1994,10 +1835,12 @@ impl Context {
 
                 let (slice_contents, slice_typ, block_id) =
                     self.check_array_is_initialized(arguments[1], dfg)?;
-                let slice = self.convert_value(slice_contents, dfg);
+                assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
                 let one = self.acir_context.add_constant(FieldElement::one());
                 let new_slice_length = self.acir_context.sub_var(slice_length, one)?;
+
+                let slice = self.convert_value(slice_contents, dfg);
 
                 let mut new_slice = Vector::new();
                 self.slice_intrinsic_input(&mut new_slice, slice)?;
@@ -2010,40 +1853,14 @@ impl Context {
                 // Fetch the values we are popping off of the slice.
                 // In the case of non-nested slice the logic is simple as we do not
                 // need to account for the internal slice sizes or flattening the index.
-                //
-                // The pop front operation results are of the format [popped elements, slice length, slice contents].
-                // Thus, we look at the result ids up to the element size to determine the type of each popped element.
-                if !slice_typ.is_nested_slice() {
-                    for res in &result_ids[..element_size] {
-                        let element = self.array_get_value(
-                            &dfg.type_of_value(*res),
-                            block_id,
-                            &mut var_index,
-                            &[],
-                        )?;
-                        let elem_size = Self::flattened_value_size(&element);
-                        popped_elements_size += elem_size;
-                        popped_elements.push(element);
-                    }
-                } else {
-                    let slice_sizes = self.slice_sizes.get(&slice_contents);
-                    let mut slice_sizes =
-                        slice_sizes.expect("ICE: should have slice sizes").clone();
-                    // We want to remove the parent size as we are fetching the child
-                    slice_sizes.remove(0);
-
-                    for res in &result_ids[..element_size] {
-                        let element = self.array_get_value(
-                            &dfg.type_of_value(*res),
-                            block_id,
-                            &mut var_index,
-                            &slice_sizes,
-                        )?;
-                        let elem_size = Self::flattened_value_size(&element);
-                        popped_elements_size += elem_size;
-                        popped_elements.push(element);
-                    }
+                for res in &result_ids[..element_size] {
+                    let element =
+                        self.array_get_value(&dfg.type_of_value(*res), block_id, &mut var_index)?;
+                    let elem_size = Self::flattened_value_size(&element);
+                    popped_elements_size += elem_size;
+                    popped_elements.push(element);
                 }
+
                 // It is expected that the `popped_elements_size` is the flattened size of the elements,
                 // as the input slice should be a dynamic array which is represented by flat memory.
                 new_slice = new_slice.slice(popped_elements_size..);
@@ -2059,6 +1876,7 @@ impl Context {
 
                 let (slice_contents, slice_typ, block_id) =
                     self.check_array_is_initialized(arguments[1], dfg)?;
+                assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
                 let slice = self.convert_value(slice_contents, dfg);
                 let insert_index = self.convert_value(arguments[2], dfg).into_var()?;
@@ -2164,20 +1982,28 @@ impl Context {
                     }
                 }
 
-                // let new_slice_val = AcirValue::Array(new_slice);
                 let element_type_sizes = if !can_omit_element_sizes_array(&slice_typ) {
                     Some(self.init_element_type_sizes_array(
                         &slice_typ,
                         slice_contents,
-                        Some(slice),
+                        Some(&slice),
                         dfg,
                     )?)
                 } else {
                     None
                 };
+
+                let value_types = slice.flat_numeric_types();
+                assert_eq!(
+                    value_types.len(),
+                    slice_size,
+                    "ICE: Value types array must match new slice size"
+                );
+
                 let result = AcirValue::DynamicArray(AcirDynamicArray {
                     block_id: result_block_id,
                     len: slice_size,
+                    value_types,
                     element_type_sizes,
                 });
 
@@ -2189,6 +2015,7 @@ impl Context {
 
                 let (slice_contents, slice_typ, block_id) =
                     self.check_array_is_initialized(arguments[1], dfg)?;
+                assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
                 let slice = self.convert_value(slice_contents, dfg);
                 let remove_index = self.convert_value(arguments[2], dfg).into_var()?;
@@ -2217,8 +2044,6 @@ impl Context {
                     self.get_flattened_index(&slice_typ, slice_contents, flat_remove_index, dfg)?;
 
                 // Fetch the values we are remove from the slice.
-                // In the case of non-nested slice the logic is simple as we do not
-                // need to account for the internal slice sizes or flattening the index.
                 // As we fetch the values we can determine the size of the removed values
                 // which we will later use for writing the correct resulting slice.
                 let mut popped_elements = Vec::new();
@@ -2226,36 +2051,12 @@ impl Context {
                 // Set a temp index just for fetching from the original slice as `array_get_value` mutates
                 // the index internally.
                 let mut temp_index = flat_user_index;
-                if !slice_typ.is_nested_slice() {
-                    for res in &result_ids[2..(2 + element_size)] {
-                        let element = self.array_get_value(
-                            &dfg.type_of_value(*res),
-                            block_id,
-                            &mut temp_index,
-                            &[],
-                        )?;
-                        let elem_size = Self::flattened_value_size(&element);
-                        popped_elements_size += elem_size;
-                        popped_elements.push(element);
-                    }
-                } else {
-                    let slice_sizes = self.slice_sizes.get(&slice_contents);
-                    let mut slice_sizes =
-                        slice_sizes.expect("ICE: should have slice sizes").clone();
-                    // We want to remove the parent size as we are fetching the child
-                    slice_sizes.remove(0);
-
-                    for res in &result_ids[2..(2 + element_size)] {
-                        let element = self.array_get_value(
-                            &dfg.type_of_value(*res),
-                            block_id,
-                            &mut temp_index,
-                            &slice_sizes,
-                        )?;
-                        let elem_size = Self::flattened_value_size(&element);
-                        popped_elements_size += elem_size;
-                        popped_elements.push(element);
-                    }
+                for res in &result_ids[2..(2 + element_size)] {
+                    let element =
+                        self.array_get_value(&dfg.type_of_value(*res), block_id, &mut temp_index)?;
+                    let elem_size = Self::flattened_value_size(&element);
+                    popped_elements_size += elem_size;
+                    popped_elements.push(element);
                 }
 
                 // Go through the entire slice argument and determine what value should be written to the new slice.
@@ -2310,15 +2111,24 @@ impl Context {
                     Some(self.init_element_type_sizes_array(
                         &slice_typ,
                         slice_contents,
-                        Some(new_slice_val),
+                        Some(&new_slice_val),
                         dfg,
                     )?)
                 } else {
                     None
                 };
+
+                let value_types = new_slice_val.flat_numeric_types();
+                assert_eq!(
+                    value_types.len(),
+                    slice_size,
+                    "ICE: Value types array must match new slice size"
+                );
+
                 let result = AcirValue::DynamicArray(AcirDynamicArray {
                     block_id: result_block_id,
                     len: slice_size,
+                    value_types,
                     element_type_sizes,
                 });
 
@@ -2380,28 +2190,53 @@ impl Context {
     /// Maps an ssa value list, for which some values may be references to arrays, by inlining
     /// the `AcirVar`s corresponding to the contents of each array into the list of `AcirVar`s
     /// that correspond to other values.
-    fn flatten_value_list(&mut self, arguments: &[ValueId], dfg: &DataFlowGraph) -> Vec<AcirVar> {
+    fn flatten_value_list(
+        &mut self,
+        arguments: &[ValueId],
+        dfg: &DataFlowGraph,
+    ) -> Result<Vec<AcirVar>, InternalError> {
         let mut acir_vars = Vec::with_capacity(arguments.len());
         for value_id in arguments {
             let value = self.convert_value(*value_id, dfg);
-            AcirContext::flatten_value(&mut acir_vars, value);
+            acir_vars.append(
+                &mut self.acir_context.flatten(value)?.iter().map(|(var, _)| *var).collect(),
+            );
         }
-        acir_vars
+        Ok(acir_vars)
     }
 
     /// Convert a Vec<AcirVar> into a Vec<AcirValue> using the given result ids.
     /// If the type of a result id is an array, several acir vars are collected into
     /// a single AcirValue::Array of the same length.
+    /// If the type of a result id is a slice, the slice length must precede it and we can
+    /// convert to an AcirValue::Array when the length is known (constant).
     fn convert_vars_to_values(
+        &self,
         vars: Vec<AcirVar>,
         dfg: &DataFlowGraph,
         result_ids: &[ValueId],
     ) -> Vec<AcirValue> {
         let mut vars = vars.into_iter();
-        vecmap(result_ids, |result| {
+        let mut values: Vec<AcirValue> = Vec::new();
+        for result in result_ids {
             let result_type = dfg.type_of_value(*result);
-            Self::convert_var_type_to_values(&result_type, &mut vars)
-        })
+            if let Type::Slice(elements_type) = result_type {
+                let error = "ICE - cannot get slice length when converting slice to AcirValue";
+                let len = values.last().expect(error).borrow_var().expect(error);
+                let len = self.acir_context.constant(len).to_u128();
+                let mut element_values = im::Vector::new();
+                for _ in 0..len {
+                    for element_type in elements_type.iter() {
+                        let element = Self::convert_var_type_to_values(element_type, &mut vars);
+                        element_values.push_back(element);
+                    }
+                }
+                values.push(AcirValue::Array(element_values));
+            } else {
+                values.push(Self::convert_var_type_to_values(&result_type, &mut vars));
+            }
+        }
+        values
     }
 
     /// Recursive helper for convert_vars_to_values.

@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.24.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.23.0...barretenberg.js-v0.24.0) (2024-02-13)
+
+
+### Features
+
+* Prototype native merkle trees ([#4457](https://github.com/AztecProtocol/aztec-packages/issues/4457)) ([7d5e056](https://github.com/AztecProtocol/aztec-packages/commit/7d5e0563edf3c7397ca994033b703149242cc24c))
+
+## [0.23.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.22.0...barretenberg.js-v0.23.0) (2024-02-07)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.22.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.21.0...barretenberg.js-v0.22.0) (2024-02-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **acir:** Move `is_recursive` flag to be part of the circuit definition ([#4221](https://github.com/AztecProtocol/aztec-packages/issues/4221))
+
+### Miscellaneous
+
+* **acir:** Move `is_recursive` flag to be part of the circuit definition ([#4221](https://github.com/AztecProtocol/aztec-packages/issues/4221)) ([9c965a7](https://github.com/AztecProtocol/aztec-packages/commit/9c965a7c9e652dfeaba2f09152e5db287407473d))
+
+## [0.21.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.20.0...barretenberg.js-v0.21.0) (2024-01-30)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.20.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.19.0...barretenberg.js-v0.20.0) (2024-01-22)
+
+
+### Features
+
+* Goblin acir composer ([#4112](https://github.com/AztecProtocol/aztec-packages/issues/4112)) ([5e85b92](https://github.com/AztecProtocol/aztec-packages/commit/5e85b92f48bc31fe55315de9f45c4907e417cb6a))
+
 ## [0.19.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.18.0...barretenberg.js-v0.19.0) (2024-01-17)
 
 

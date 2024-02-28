@@ -12,7 +12,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # Specifying `-Wno-${ERROR_NAME}` will silence the error completely.
 # To preserve the warning, but prevent them from causing the build to fail,
 # use the flag `-Wno-error=${ERROR_NAME}`
-add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion)
+add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion -Wfatal-errors)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics -fconstexpr-steps=100000000)
@@ -24,7 +24,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    add_compile_options(-fconstexpr-ops-limit=100000000)
+    add_compile_options(-fconstexpr-ops-limit=100000000 -Wno-psabi)
 endif()
 
 # We enable -O1 level optimsations, even when compiling debug wasm, otherwise we get "local count too large" at runtime.
@@ -40,15 +40,16 @@ endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE})
 
 # I feel this should be limited to ecc, however it's currently used in headers that go across libraries,
-# and there currently isn't an easy way to inherit the DDISABLE_SHENANIGANS parameter.
+# and there currently isn't an easy way to inherit the DDISABLE_ASM parameter.
 if(DISABLE_ASM)
     message("Using fallback non-assembly methods for field multiplications.")
-    add_definitions(-DDISABLE_SHENANIGANS=1)
+    add_definitions(-DDISABLE_ASM=1)
 else()
     message(STATUS "Using optimized assembly for field arithmetic.")
 endif()
 
 add_subdirectory(barretenberg/bb)
+add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/common)
 add_subdirectory(barretenberg/crypto)
@@ -85,9 +86,7 @@ if(SMT)
     add_subdirectory(barretenberg/smt_verification)
 endif()
 
-if(BENCHMARKS)
-    add_subdirectory(barretenberg/benchmark)
-endif()
+add_subdirectory(barretenberg/benchmark)
 
 include(GNUInstallDirs)
 
@@ -107,6 +106,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:crypto_keccak_objects>
     $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
     $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
+    $<TARGET_OBJECTS:crypto_poseidon2_objects>
     $<TARGET_OBJECTS:crypto_schnorr_objects>
     $<TARGET_OBJECTS:crypto_sha256_objects>
     $<TARGET_OBJECTS:dsl_objects>
@@ -127,9 +127,10 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_blake2s_objects>
     $<TARGET_OBJECTS:stdlib_blake3s_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>
-    $<TARGET_OBJECTS:stdlib_merkle_tree_objects>
+    $<TARGET_OBJECTS:crypto_merkle_tree_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
+    $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
     $<TARGET_OBJECTS:stdlib_recursion_objects>
     $<TARGET_OBJECTS:stdlib_schnorr_objects>
@@ -137,7 +138,8 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:sumcheck_objects>
     $<TARGET_OBJECTS:transcript_objects>
     $<TARGET_OBJECTS:translator_vm_objects>
-    $<TARGET_OBJECTS:ultra_honk_objects>)
+    $<TARGET_OBJECTS:ultra_honk_objects>
+    $<TARGET_OBJECTS:vm_objects>)
 
 add_library(
     barretenberg

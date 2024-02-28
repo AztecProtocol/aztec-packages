@@ -20,12 +20,9 @@ import { FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import { JsonRpcServer, createNamespacedJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 
 import http from 'http';
-import { foundry } from 'viem/chains';
-
-export const localAnvil = foundry;
 
 /**
  * Wraps an instance of Private eXecution Environment (PXE) implementation to a JSON RPC HTTP interface.
@@ -55,7 +52,6 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       LogId,
     },
     { Tx, TxReceipt, L2BlockL2Logs },
-    false,
     ['start', 'stop'],
   );
 }
@@ -67,7 +63,8 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
  * @returns A running http server.
  */
 export function startPXEHttpServer(pxeService: PXE, port: string | number): http.Server {
-  const rpcServer = createPXERpcServer(pxeService);
+  const pxeServer = createPXERpcServer(pxeService);
+  const rpcServer = createNamespacedJsonRpcServer([{ pxe: pxeServer }]);
 
   const app = rpcServer.getApp();
   const httpServer = http.createServer(app.callback());

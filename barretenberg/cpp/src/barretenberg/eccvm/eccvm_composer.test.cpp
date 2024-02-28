@@ -12,32 +12,30 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 
-using namespace bb::honk;
-
-namespace test_eccvm_composer {
+using namespace bb;
 
 template <typename Flavor> class ECCVMComposerTests : public ::testing::Test {
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialized for every test.
     void SetUp() override
     {
-        if constexpr (std::is_same<Flavor, flavor::ECCVM>::value) {
-            bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        if constexpr (std::is_same<Flavor, ECCVMFlavor>::value) {
+            srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
         } else {
-            bb::srs::init_crs_factory("../srs_db/ignition");
+            srs::init_crs_factory("../srs_db/ignition");
         }
     };
 };
 
-using FlavorTypes = ::testing::Types<flavor::ECCVM>;
+using FlavorTypes = ::testing::Types<ECCVMFlavor>;
 TYPED_TEST_SUITE(ECCVMComposerTests, FlavorTypes);
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
-template <typename Flavor> bb::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::random::Engine* engine = nullptr)
+template <typename Flavor> ECCVMCircuitBuilder<Flavor> generate_trace(numeric::RNG* engine = nullptr)
 {
-    bb::ECCVMCircuitBuilder<Flavor> result;
+    ECCVMCircuitBuilder<Flavor> result;
     using G1 = typename Flavor::CycleGroup;
     using Fr = typename G1::Fr;
 
@@ -102,4 +100,3 @@ TYPED_TEST(ECCVMComposerTests, EqFails)
     bool verified = verifier.verify_proof(proof);
     ASSERT_FALSE(verified);
 }
-} // namespace test_eccvm_composer

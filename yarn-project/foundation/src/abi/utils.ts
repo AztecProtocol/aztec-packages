@@ -15,7 +15,7 @@ export function isAddressStruct(abiType: ABIType) {
  * @returns Boolean.
  */
 export function isEthAddressStruct(abiType: ABIType) {
-  return abiType.kind === 'struct' && abiType.path.endsWith('types::address::EthAddress');
+  return abiType.kind === 'struct' && abiType.path.endsWith('address::EthAddress');
 }
 
 /**
@@ -24,7 +24,7 @@ export function isEthAddressStruct(abiType: ABIType) {
  * @returns Boolean.
  */
 export function isAztecAddressStruct(abiType: ABIType) {
-  return abiType.kind === 'struct' && abiType.path.endsWith('types::address::AztecAddress');
+  return abiType.kind === 'struct' && abiType.path.endsWith('address::AztecAddress');
 }
 
 /**
@@ -34,4 +34,17 @@ export function isAztecAddressStruct(abiType: ABIType) {
  */
 export function isFunctionSelectorStruct(abiType: ABIType) {
   return abiType.kind === 'struct' && abiType.path.endsWith('types::abis::function_selector::FunctionSelector');
+}
+
+/**
+ * Returns whether the ABI type is a struct with a single `inner` field.
+ * @param abiType - Type to check.
+ */
+export function isWrappedFieldStruct(abiType: ABIType) {
+  return (
+    abiType.kind === 'struct' &&
+    abiType.fields.length === 1 &&
+    abiType.fields[0].name === 'inner' &&
+    abiType.fields[0].type.kind === 'field'
+  );
 }

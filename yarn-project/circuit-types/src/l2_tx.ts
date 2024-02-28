@@ -1,7 +1,7 @@
 import {
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   Vector,
@@ -31,9 +31,9 @@ export class L2Tx {
 
   constructor(
     /**
-     * New commitments created by the transaction.
+     * New note hashes created by the transaction.
      */
-    public newCommitments: Fr[],
+    public newNoteHashes: Fr[],
     /**
      * New nullifiers created by the transaction.
      */
@@ -57,7 +57,7 @@ export class L2Tx {
     /**
      * The unique identifier of the block containing the transaction.
      */
-    public blockHash: Buffer,
+    public blockHash: Fr,
     /**
      * The block number in which the transaction was included.
      */
@@ -80,7 +80,7 @@ export class L2Tx {
       reader.readVector(Fr),
       reader.readVector(Fr),
       reader.readVector(ContractData),
-      reader.readBytes(Fr.SIZE_IN_BYTES),
+      Fr.fromBuffer(reader),
       reader.readNumber(),
     );
   }
@@ -100,13 +100,13 @@ export class L2Tx {
    */
   toBuffer() {
     return Buffer.concat([
-      new Vector(this.newCommitments).toBuffer(),
+      new Vector(this.newNoteHashes).toBuffer(),
       new Vector(this.newNullifiers).toBuffer(),
       new Vector(this.newPublicDataWrites).toBuffer(),
       new Vector(this.newL2ToL1Msgs).toBuffer(),
       new Vector(this.newContracts).toBuffer(),
       new Vector(this.newContractData).toBuffer(),
-      this.blockHash,
+      this.blockHash.toBuffer(),
       numToUInt32BE(this.blockNumber),
     ]);
   }
@@ -121,13 +121,13 @@ export class L2Tx {
   static random() {
     const rand = (min: number, max: number) => Math.floor(Math.random() * max) + min;
     return new L2Tx(
-      times(rand(0, MAX_NEW_COMMITMENTS_PER_TX), Fr.random),
+      times(rand(0, MAX_NEW_NOTE_HASHES_PER_TX), Fr.random),
       times(rand(1, MAX_NEW_NULLIFIERS_PER_TX), Fr.random),
       times(rand(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX), PublicDataWrite.random),
       times(rand(0, MAX_NEW_L2_TO_L1_MSGS_PER_TX), Fr.random),
       times(rand(0, MAX_NEW_CONTRACTS_PER_TX), Fr.random),
       times(rand(0, MAX_NEW_CONTRACTS_PER_TX), ContractData.random),
-      Fr.random().toBuffer(),
+      Fr.random(),
       123,
     );
   }

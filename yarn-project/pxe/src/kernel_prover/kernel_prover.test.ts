@@ -1,15 +1,16 @@
-import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
 import { FunctionL2Logs, Note } from '@aztec/circuit-types';
 import {
   FunctionData,
   FunctionSelector,
-  KernelCircuitPublicInputs,
-  MAX_NEW_COMMITMENTS_PER_CALL,
-  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_READ_REQUESTS_PER_CALL,
+  MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
   MembershipWitness,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
+  PrivateKernelInnerCircuitPublicInputs,
+  PrivateKernelTailCircuitPublicInputs,
   ReadRequestMembershipWitness,
   SideEffect,
   TxRequest,
@@ -17,11 +18,11 @@ import {
   VerificationKey,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { makeTxRequest } from '@aztec/circuits.js/factories';
+import { makeTxRequest } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { Tuple } from '@aztec/foundation/serialize';
+import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
 
 import { mock } from 'jest-mock-extended';
 
@@ -41,6 +42,7 @@ describe('Kernel Prover', () => {
     .map(() => ({
       note: new Note([Fr.random(), Fr.random(), Fr.random()]),
       storageSlot: Fr.random(),
+      noteTypeId: Fr.random(),
       owner: { x: Fr.random(), y: Fr.random() },
     }));
 
@@ -50,8 +52,8 @@ describe('Kernel Prover', () => {
 
   const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): ExecutionResult => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
-    publicInputs.newCommitments = makeTuple(
-      MAX_NEW_COMMITMENTS_PER_CALL,
+    publicInputs.newNoteHashes = makeTuple(
+      MAX_NEW_NOTE_HASHES_PER_CALL,
       i =>
         i < newNoteIndices.length
           ? new SideEffect(generateFakeCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO)
@@ -61,7 +63,7 @@ describe('Kernel Prover', () => {
     const functionData = FunctionData.empty();
     functionData.selector = new FunctionSelector(fnName.charCodeAt(0));
     return {
-      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, functionData, publicInputs, false),
+      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, functionData, publicInputs),
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       newNotes: newNoteIndices.map(idx => notesAndSlots[idx]),
@@ -80,12 +82,27 @@ describe('Kernel Prover', () => {
   };
 
   const createProofOutput = (newNoteIndices: number[]) => {
-    const publicInputs = KernelCircuitPublicInputs.empty();
-    const commitments = newNoteIndices.map(
-      idx => new SideEffect(generateFakeSiloedCommitment(notesAndSlots[idx]), Fr.ZERO),
-    );
-    // TODO(AD) FIXME(AD) This cast is bad. Why is this not the correct length when this is called?
-    publicInputs.end.newCommitments = commitments as Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>;
+    const publicInputs = PrivateKernelInnerCircuitPublicInputs.empty();
+    const commitments = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, () => SideEffect.empty());
+    for (let i = 0; i < newNoteIndices.length; i++) {
+      commitments[i] = new SideEffect(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO);
+    }
+
+    publicInputs.end.newNoteHashes = commitments;
+    return {
+      publicInputs,
+      proof: makeEmptyProof(),
+    };
+  };
+
+  const createProofOutputFinal = (newNoteIndices: number[]) => {
+    const publicInputs = PrivateKernelTailCircuitPublicInputs.empty();
+    const commitments = makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, () => SideEffect.empty());
+    for (let i = 0; i < newNoteIndices.length; i++) {
+      commitments[i] = new SideEffect(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO);
+    }
+
+    publicInputs.end.newNoteHashes = commitments;
     return {
       publicInputs,
       proof: makeEmptyProof(),
@@ -123,13 +140,24 @@ describe('Kernel Prover', () => {
     // TODO(dbanks12): will need to mock oracle.getNoteMembershipWitness() to test non-transient reads
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
+    oracle.getContractAddressPreimage.mockResolvedValue({
+      contractClassId: Fr.random(),
+      publicKeysHash: Fr.random(),
+      saltedInitializationHash: Fr.random(),
+    });
+    oracle.getContractClassIdPreimage.mockResolvedValue({
+      artifactHash: Fr.random(),
+      publicBytecodeCommitment: Fr.random(),
+      privateFunctionsRoot: Fr.random(),
+    });
+
     proofCreator = mock<ProofCreator>();
     proofCreator.getSiloedCommitments.mockImplementation(publicInputs =>
-      Promise.resolve(publicInputs.newCommitments.map(com => createFakeSiloedCommitment(com.value))),
+      Promise.resolve(publicInputs.newNoteHashes.map(com => createFakeSiloedCommitment(com.value))),
     );
     proofCreator.createProofInit.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofInner.mockResolvedValue(createProofOutput([]));
-    proofCreator.createProofOrdering.mockResolvedValue(createProofOutput([]));
+    proofCreator.createProofTail.mockResolvedValue(createProofOutputFinal([]));
 
     prover = new KernelProver(oracle, proofCreator);
   });
@@ -171,7 +199,7 @@ describe('Kernel Prover', () => {
     proofCreator.createProofInit.mockResolvedValueOnce(createProofOutput([1, 2, 3]));
     proofCreator.createProofInner.mockResolvedValueOnce(createProofOutput([1, 3, 4]));
     proofCreator.createProofInner.mockResolvedValueOnce(createProofOutput([1, 3, 5, 6]));
-    proofCreator.createProofOrdering.mockResolvedValueOnce(createProofOutput([1, 3, 5, 6]));
+    proofCreator.createProofTail.mockResolvedValueOnce(createProofOutputFinal([1, 3, 5, 6]));
 
     const executionResult = {
       ...resultA,

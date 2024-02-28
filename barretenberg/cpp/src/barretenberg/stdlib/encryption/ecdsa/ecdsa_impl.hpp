@@ -3,8 +3,9 @@
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives//bit_array/bit_array.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
-namespace bb::stdlib::ecdsa {
+namespace bb::stdlib {
 
 /**
  * @brief Verify ECDSA signature. Produces unsatisfiable constraints if signature fails
@@ -20,9 +21,9 @@ namespace bb::stdlib::ecdsa {
  * @return bool_t<Builder>
  */
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> verify_signature(const stdlib::byte_array<Builder>& message,
-                                 const G1& public_key,
-                                 const signature<Builder>& sig)
+bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& message,
+                                       const G1& public_key,
+                                       const ecdsa_signature<Builder>& sig)
 {
     Builder* ctx = message.get_context() ? message.get_context() : public_key.x.context;
 
@@ -130,9 +131,9 @@ bool_t<Builder> verify_signature(const stdlib::byte_array<Builder>& message,
  * @return bool_t<Builder>
  */
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> verify_signature_prehashed_message_noassert(const stdlib::byte_array<Builder>& hashed_message,
-                                                            const G1& public_key,
-                                                            const signature<Builder>& sig)
+bool_t<Builder> ecdsa_verify_signature_prehashed_message_noassert(const stdlib::byte_array<Builder>& hashed_message,
+                                                                  const G1& public_key,
+                                                                  const ecdsa_signature<Builder>& sig)
 {
     Builder* ctx = hashed_message.get_context() ? hashed_message.get_context() : public_key.x.context;
 
@@ -210,14 +211,65 @@ bool_t<Builder> verify_signature_prehashed_message_noassert(const stdlib::byte_a
  * @return bool_t<Builder>
  */
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> verify_signature_noassert(const stdlib::byte_array<Builder>& message,
-                                          const G1& public_key,
-                                          const signature<Builder>& sig)
+bool_t<Builder> ecdsa_verify_signature_noassert(const stdlib::byte_array<Builder>& message,
+                                                const G1& public_key,
+                                                const ecdsa_signature<Builder>& sig)
 {
     stdlib::byte_array<Builder> hashed_message =
         static_cast<stdlib::byte_array<Builder>>(stdlib::sha256<Builder>(message));
 
-    return verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, sig);
+    return ecdsa_verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(
+        hashed_message, public_key, sig);
 }
 
-} // namespace bb::stdlib::ecdsa
+/**
+ * @brief Generate a simple ecdsa verification circuit for testing purposes
+ *
+ * @tparam Builder
+ * @param builder
+ * @param num_iterations number of signature verifications to perform
+ */
+template <typename Builder> void generate_ecdsa_verification_test_circuit(Builder& builder, size_t num_iterations)
+{
+    using curve = stdlib::secp256k1<Builder>;
+    using fr = typename curve::fr;
+    using fq = typename curve::fq;
+    using g1 = typename curve::g1;
+
+    std::string message_string = "Instructions unclear, ask again later.";
+
+    crypto::ecdsa_key_pair<fr, g1> account;
+    for (size_t i = 0; i < num_iterations; i++) {
+        // Generate unique signature for each iteration
+        account.private_key = curve::fr::random_element();
+        account.public_key = curve::g1::one * account.private_key;
+
+        crypto::ecdsa_signature signature =
+            crypto::ecdsa_construct_signature<crypto::Sha256Hasher, fq, fr, g1>(message_string, account);
+
+        bool first_result = crypto::ecdsa_verify_signature<crypto::Sha256Hasher, fq, fr, g1>(
+            message_string, account.public_key, signature);
+        static_cast<void>(first_result); // TODO(Cody): This is not used anywhere.
+
+        std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
+        std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
+        uint8_t vv = signature.v;
+
+        typename curve::g1_bigfr_ct public_key = curve::g1_bigfr_ct::from_witness(&builder, account.public_key);
+
+        stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
+                                              typename curve::byte_array_ct(&builder, ss),
+                                              stdlib::uint8<Builder>(&builder, vv) };
+
+        typename curve::byte_array_ct message(&builder, message_string);
+
+        // Verify ecdsa signature
+        stdlib::ecdsa_verify_signature<Builder,
+                                       curve,
+                                       typename curve::fq_ct,
+                                       typename curve::bigfr_ct,
+                                       typename curve::g1_bigfr_ct>(message, public_key, sig);
+    }
+}
+
+} // namespace bb::stdlib

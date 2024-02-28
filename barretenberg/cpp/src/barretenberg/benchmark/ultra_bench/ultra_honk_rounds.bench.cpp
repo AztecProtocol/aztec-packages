@@ -1,6 +1,7 @@
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/benchmark/ultra_bench/benchmark_utilities.hpp"
+#include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
+#include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -20,22 +21,27 @@ enum {
 };
 
 /**
- * @details Benchmark ultrahonk by performing all the rounds, but only measuring one.
+ * @details Benchmark Goblin ultrahonk by performing all the rounds, but only measuring one.
  * Note: As a result the very short rounds take a long time for statistical significance, so recommended to set their
  * iterations to 1.
  * @param state - The google benchmark state.
- * @param prover - The ultrahonk prover.
+ * @param prover - The Goblin ultrahonk prover.
  * @param index - The pass to measure.
  **/
-BBERG_PROFILE static void test_round_inner(State& state, honk::UltraProver& prover, size_t index) noexcept
+BB_PROFILE static void test_round_inner(State& state, GoblinUltraProver& prover, size_t index) noexcept
 {
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
+        BB_REPORT_OP_COUNT_IN_BENCH(state);
         if (index == target_index) {
             state.ResumeTiming();
         }
+
         func();
         if (index == target_index) {
             state.PauseTiming();
+        } else {
+            // We don't actually want to write to user-defined counters
+            BB_REPORT_OP_COUNT_BENCH_CANCEL();
         }
     };
 
@@ -47,19 +53,17 @@ BBERG_PROFILE static void test_round_inner(State& state, honk::UltraProver& prov
     time_if_index(RELATION_CHECK, [&] { prover.execute_relation_check_rounds(); });
     time_if_index(ZEROMORPH, [&] { prover.execute_zeromorph_rounds(); });
 }
-BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
+BB_PROFILE static void test_round(State& state, size_t index) noexcept
 {
+    auto log2_num_gates = static_cast<size_t>(state.range(0));
     bb::srs::init_crs_factory("../srs_db/ignition");
 
+    GoblinUltraComposer composer;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/761) benchmark both sparse and dense circuits
+    GoblinUltraProver prover = bb::mock_proofs::get_prover(
+        composer, &bb::mock_proofs::generate_basic_arithmetic_circuit<GoblinUltraCircuitBuilder>, log2_num_gates);
     for (auto _ : state) {
-        state.PauseTiming();
-        honk::UltraComposer composer;
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/761) benchmark both sparse and dense circuits
-        honk::UltraProver prover = bench_utils::get_prover(
-            composer, &bench_utils::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
         test_round_inner(state, prover, index);
-        state.ResumeTiming();
-        // NOTE: google bench is very finnicky, must end in ResumeTiming() for correctness
     }
 }
 #define ROUND_BENCHMARK(round)                                                                                         \
@@ -67,7 +71,7 @@ BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
     {                                                                                                                  \
         test_round(state, round);                                                                                      \
     }                                                                                                                  \
-    BENCHMARK(ROUND_##round)->Unit(kMillisecond)
+    BENCHMARK(ROUND_##round)->DenseRange(17, 19)->Unit(kMillisecond)
 
 // Fast rounds take a long time to benchmark because of how we compute statistical significance.
 // Limit to one iteration so we don't spend a lot of time redoing full proofs just to measure this part.
@@ -78,3 +82,5 @@ ROUND_BENCHMARK(LOG_DERIVATIVE_INVERSE)->Iterations(1);
 ROUND_BENCHMARK(GRAND_PRODUCT_COMPUTATION)->Iterations(1);
 ROUND_BENCHMARK(RELATION_CHECK);
 ROUND_BENCHMARK(ZEROMORPH);
+
+BENCHMARK_MAIN();
