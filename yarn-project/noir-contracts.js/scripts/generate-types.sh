@@ -35,6 +35,3 @@ find "$OUT_DIR" -maxdepth 1 -type f -name '*.ts' ! -name 'index.ts' | while read
   CONTRACT_NAME=$(basename "$TS_FILE" .ts) # Remove the .ts extension to get the contract name
   echo "export * from './${CONTRACT_NAME}.js';" >>"$INDEX"
 done
-
-echo "Formatting..."
-yarn formatting:fix
