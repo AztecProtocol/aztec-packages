@@ -8,6 +8,14 @@
 
 namespace bb {
 
+/**
+ * @brief Class for all the presumcheck rounds, which are shared between the folding prover and ultra prover.
+ * @details This class contains execute_preamble_round(), execute_wire_commitments_round(),
+ * execute_sorted_list_accumulator_round(), execute_log_derivative_inverse_round(), and
+ * execute_grand_product_computation_round().
+ *
+ * @tparam Flavor
+ */
 template <IsUltraFlavor Flavor> class PreSumcheckProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using Instance = ProverInstance_<Flavor>;
@@ -41,10 +49,4 @@ template <IsUltraFlavor Flavor> class PreSumcheckProver {
     std::shared_ptr<CommitmentKey> commitment_key;
     std::string domain_separator;
 };
-
-template <IsUltraFlavor Flavor>
-void prover_setup_(const std::shared_ptr<ProverInstance_<Flavor>>& instance,
-                   const std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key,
-                   const std::shared_ptr<typename Flavor::Transcript>& transcript,
-                   const std::string& domain_separator = "");
 } // namespace bb
