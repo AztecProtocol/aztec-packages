@@ -366,7 +366,7 @@ describe('e2e_deploy_contract', () => {
       // Register the instance to be deployed in the pxe
       await wallet.addContracts([{ artifact, instance }]);
       // Set up the contract that calls the deployer (which happens to be the StatefulTestContract) and call it
-      const deployer = await registerContract(wallet, StatefulTestContract, [accounts[0].address, 48]);
+      const deployer = await registerContract(wallet, TestContract, [accounts[0].address, 48]);
       await deployer.methods.deploy_contract(instance.address).send().wait();
     });
   });

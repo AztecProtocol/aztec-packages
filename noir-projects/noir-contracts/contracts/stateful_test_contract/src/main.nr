@@ -81,10 +81,4 @@ contract StatefulTest {
     unconstrained fn get_public_value(owner: AztecAddress) -> pub Field {
         storage.public_values.at(owner).read()
     }
-
-    // This method is here because we've hit the 32 function limit for the TestContract
-    #[aztec(private)]
-    fn deploy_contract(target: AztecAddress) {
-        aztec_deploy_contract(&mut context, target);
-    }
 }
