@@ -42,7 +42,7 @@ class ClientIVCBench : public benchmark::Fixture {
      */
     static void perform_ivc_accumulation_rounds(State& state, ClientIVC& ivc)
     {
-        // Initialize IVC with a function circuit
+        // Initialize IVC with function circuit
         Builder initial_function_circuit{ ivc.goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(initial_function_circuit);
         ivc.initialize(initial_function_circuit);
