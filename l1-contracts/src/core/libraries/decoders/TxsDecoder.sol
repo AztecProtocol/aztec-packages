@@ -49,8 +49,6 @@ library TxsDecoder {
     uint256 contracts;
     uint256 contractData;
     uint256 l1ToL2Msgs;
-    uint256 encryptedLogs;
-    uint256 unencryptedLogs;
   }
 
   struct Counts {
@@ -60,8 +58,6 @@ library TxsDecoder {
     uint256 publicData;
     uint256 contracts;
     uint256 contractData;
-    uint256 encryptedLogs;
-    uint256 unencryptedLogs;
   }
 
   // Note: Used in `computeConsumables` to get around stack too deep errors.
@@ -92,53 +88,8 @@ library TxsDecoder {
       offset += 0x4 + count * 0x20;
 
       count = read4(_body, offset); // number of tx effects
+      offset += 0x4;
       vars.baseLeaves = new bytes32[](count);
-
-      // // Note hashes
-      // count = read1(_body, offset);
-      // vars.baseLeaves = new bytes32[](count / Constants.MAX_NEW_NOTE_HASHES_PER_TX);
-      // offsets.noteHash = 0x4;
-      // offset += 0x4 + count * 0x20;
-      // offsets.nullifier = offset + 0x4; // + 0x4 to offset by next read4
-
-      // // Nullifiers
-      // count = read4(_body, offset);
-      // offset += 0x4 + count * 0x20;
-      // offsets.publicData = offset + 0x4; // + 0x4 to offset by next read4
-
-      // // Public data writes
-      // count = read4(_body, offset);
-      // offset += 0x4 + count * 0x40;
-      // offsets.l2ToL1Msgs = offset + 0x4; // + 0x4 to offset by next read4
-
-      // // L2 to L1 messages
-      // count = read4(_body, offset);
-      // vars.l2ToL1Msgs = new bytes32[](count);
-      // assembly {
-      //   // load the l2 to l1 msgs (done here as offset will be altered in loop)
-      //   let l2ToL1Msgs := mload(add(vars, 0x20))
-      //   calldatacopy(
-      //     add(l2ToL1Msgs, 0x20), add(_body.offset, mload(add(offsets, 0x60))), mul(count, 0x20)
-      //   )
-      // }
-      // offset += 0x4 + count * 0x20;
-      // offsets.contracts = offset + 0x4; // + 0x4 to offset by next read4
-
-      // // Contracts
-      // count = read4(_body, offset);
-      // offsets.contractData = offsets.contracts + count * 0x20;
-      // offset += 0x4 + count * 0x54;
-      // offsets.l1ToL2Msgs = offset + 0x4; // + 0x4 to offset by next read4
-
-      // // L1 to L2 messages
-      // count = read4(_body, offset);
-      // vars.l1Tol2MsgsCount = count;
-      // offset += 0x4 + count * 0x20;
-      // offsets.encryptedLogs = offset + 0x4; // + 0x4 to offset by next read4
-
-      // // Used as length in bytes down here
-      // uint256 length = read4(_body, offset);
-      // offsets.unencryptedLogs = offsets.encryptedLogs + 0x4 + length;
     }
 
     // Data starts after header. Look at L2 Block Data specification at the top of this file.
@@ -160,8 +111,6 @@ library TxsDecoder {
          * Note that we always read data, the l2Block (atm) must therefore include dummy or zero-notes for
          * Zero values.
          */
-
-        // First we decode the tx effect
 
         // Note hashes
         uint256 count = read1(_body, offset);
@@ -203,29 +152,21 @@ library TxsDecoder {
         offsets.contractData = offset;
         offset += count * 0x34; // each contract data is 0x34 bytes long
 
-        // Encrypted logs
-        uint256 length = read4(_body, offset); // Used as length in bytes for logs
-        counts.encryptedLogs = length;
-        offset += 0x4;
-        offsets.encryptedLogs = offset;
-        offset += length;
-
-        // Unencrypted logs
-        length = read4(_body, offset); // Used as length in bytes for logs
-        counts.unencryptedLogs = length;
-        offset += 0x4;
-        offsets.unencryptedLogs = offset;
-        offset += length; // now offset is at the beginning of the next tx effect
+        bytes memory contractDataBlob = new bytes(Constants.CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP);
+        if (counts.contracts == 1) {
+          contractDataBlob = bytes.concat(
+            slice(_body, offsets.contractData, 0x20), // newContractDataKernel.aztecAddress
+            bytes12(0), // We pad the ethAddress to 32 bytes, we don't use sliceAndPad here because we want to prefix
+            slice(_body, offsets.contractData + 0x20, 0x14) // newContractDataKernel.ethAddress
+          );
+        }
 
         /**
          * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
          * Note: will advance offsets by the number of bytes processed.
          */
-        (vars.encryptedLogsHash, offsets.encryptedLogs) =
-          computeKernelLogsHash(offsets.encryptedLogs, _body);
-
-        (vars.unencryptedLogsHash, offsets.unencryptedLogs) =
-          computeKernelLogsHash(offsets.unencryptedLogs, _body);
+        (vars.encryptedLogsHash, offset) = computeKernelLogsHash(offset, _body);
+        (vars.unencryptedLogsHash, offset) = computeKernelLogsHash(offset, _body);
 
         // Insertions are split into multiple `bytes.concat` to work around stack too deep.
         vars.baseLeaf = bytes.concat(
@@ -261,11 +202,7 @@ library TxsDecoder {
               Constants.CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP
             )
           ),
-          bytes.concat(
-            slice(_body, offsets.contractData, 0x20), // newContractDataKernel.aztecAddress
-            bytes12(0), // We pad the ethAddress to 32 bytes, we don't use sliceAndPad here because we want to prefix
-            slice(_body, offsets.contractData + 0x20, 0x14) // newContractDataKernel.ethAddress
-          ),
+          contractDataBlob,
           bytes.concat(vars.encryptedLogsHash, vars.unencryptedLogsHash)
         );
 
