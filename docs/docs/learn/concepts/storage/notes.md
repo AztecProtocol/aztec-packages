@@ -15,7 +15,7 @@ For private state we need encryption and techniques to hide information about st
 This page will focus on how private variables are implemented with Notes and storage trees.
 
 #### Side-note about execution
-Under the hood, the Aztec protocol handles some important details around public and private function calls. Notably around calls between them and relevant delays to avoid race conditions around state reads/writes (more [here](../pxe/acir_simulator#simulating-functions)).
+Under the hood, the Aztec protocol handles some important details around public and private function calls. Calls between them are asynchronous due to different execution contexts (local execution vs. node execution).
 Whilst it just works for us under the hood, a detailed explanation of the transaction lifecycle can be found [here](../transactions#simple-example-of-the-private-transaction-lifecycle).
 
 ## Private state variables in Aztec
