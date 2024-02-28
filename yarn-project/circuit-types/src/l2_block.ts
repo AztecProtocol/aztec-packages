@@ -161,10 +161,10 @@ export class L2Block {
    * The same output as the hash of RootRollupPublicInputs.
    * @returns The public input hash for the L2 block as a field element.
    */
+  // TODO(#4844)
   getPublicInputsHash(): Fr {
     const buf = serializeToBuffer(
       this.header.globalVariables,
-      // TODO(#3868)
       AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot / commitments,
       AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startContractTreeSnapshot,
@@ -188,10 +188,10 @@ export class L2Block {
    * Computes the start state hash (should equal contract data before block).
    * @returns The start state hash for the L2 block.
    */
+  // TODO(#4844)
   getStartStateHash() {
     const inputValue = serializeToBuffer(
       new Fr(Number(this.header.globalVariables.blockNumber.toBigInt()) - 1),
-      // TODO(#3868)
       AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startContractTreeSnapshot,
@@ -206,6 +206,7 @@ export class L2Block {
    * Computes the end state hash (should equal contract data after block).
    * @returns The end state hash for the L2 block.
    */
+  // TODO(#4844)
   getEndStateHash() {
     const inputValue = serializeToBuffer(
       this.header.globalVariables.blockNumber,
