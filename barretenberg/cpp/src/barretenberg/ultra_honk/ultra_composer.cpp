@@ -37,19 +37,7 @@ template <IsUltraFlavor Flavor>
 DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(const std::shared_ptr<Instance>& accumulator,
                                                                      const std::shared_ptr<Transcript>& transcript)
 {
-    commitment_key = compute_commitment_key(accumulator->instance_size);
-    DeciderProver_<Flavor> output_state(accumulator, commitment_key, transcript);
-
-    return output_state;
-}
-
-template <IsUltraFlavor Flavor>
-DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(
-    const std::shared_ptr<Instance>& accumulator,
-    const std::shared_ptr<CommitmentKey>& commitment_key,
-    const std::shared_ptr<Transcript>& transcript)
-{
-    DeciderProver_<Flavor> output_state(accumulator, commitment_key, transcript);
+    DeciderProver_<Flavor> output_state(accumulator, transcript);
 
     return output_state;
 }

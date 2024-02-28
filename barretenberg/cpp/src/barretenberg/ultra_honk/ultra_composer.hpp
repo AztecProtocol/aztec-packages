@@ -52,12 +52,6 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
     UltraComposer_& operator=(UltraComposer_ const& other) noexcept = default;
     ~UltraComposer_() = default;
 
-    std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
-    {
-        commitment_key = std::make_shared<CommitmentKey>(circuit_size + 1);
-        return commitment_key;
-    };
-
     std::shared_ptr<Instance> create_instance(CircuitBuilder& circuit);
 
     UltraProver_<Flavor> create_prover(const std::shared_ptr<Instance>&,
@@ -69,10 +63,6 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
 
     DeciderProver_<Flavor> create_decider_prover(
         const std::shared_ptr<Instance>&,
-        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    DeciderProver_<Flavor> create_decider_prover(
-        const std::shared_ptr<Instance>&,
-        const std::shared_ptr<CommitmentKey>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     DeciderVerifier_<Flavor> create_decider_verifier(
