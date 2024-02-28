@@ -219,6 +219,20 @@ describe('e2e_deploy_contract', () => {
       expect(await contracts[1].methods.summed_values(owner).view()).toEqual(52n);
     }, 30_000);
 
+    // TODO(@spalladino): This won't work until we can read a nullifier in the same tx in which it was emitted.
+    it.skip('initializes and calls a private function in a single tx', async () => {
+      const owner = await registerRandomAccount(pxe);
+      const initArgs: StatefulContractCtorArgs = [owner, 42];
+      const contract = await registerContract(wallet, StatefulTestContract, initArgs);
+      const batch = new BatchCall(wallet, [
+        contract.methods.constructor(...initArgs).request(),
+        contract.methods.create_note(owner, 10).request(),
+      ]);
+      logger.info(`Executing constructor and private function in batch at ${contract.address}`);
+      await batch.send().wait();
+      expect(await contract.methods.summed_values(owner).view()).toEqual(52n);
+    });
+
     it('refuses to initialize a contract twice', async () => {
       const owner = await registerRandomAccount(pxe);
       const initArgs: StatefulContractCtorArgs = [owner, 42];
@@ -241,7 +255,7 @@ describe('e2e_deploy_contract', () => {
       const contract = await registerContract(wallet, StatefulTestContract, initArgs);
       // TODO(@spalladino): It'd be nicer to be able to fail the assert with a more descriptive message.
       await expect(contract.methods.create_note(owner, 10).send().wait()).rejects.toThrow(
-        /nullifier witness not found/,
+        /nullifier witness not found/i,
       );
     });
 
