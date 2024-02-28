@@ -55,7 +55,7 @@ template <class Curve> class CommitmentKey {
         , srs(crs_factory->get_prover_crs(num_points))
     {}
 
-    // Note: This constructor is to be used only by Plonk; For Honk the srs lifes in the CommitmentKey
+    // Note: This constructor is to be used only by Plonk; For Honk the srs lives in the CommitmentKey
     CommitmentKey(const size_t num_points, std::shared_ptr<srs::factories::ProverCrs<Curve>> prover_crs)
         : pippenger_runtime_state(num_points)
         , srs(prover_crs)

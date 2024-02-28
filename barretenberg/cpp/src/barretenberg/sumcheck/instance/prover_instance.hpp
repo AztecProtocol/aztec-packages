@@ -64,7 +64,7 @@ template <class Flavor> class ProverInstance_ {
 
     ProverInstance_(Circuit& circuit)
     {
-        BB_OP_COUNT_TIME_NAME("UltraComposer::create_prover_instance"); // WORKTODO
+        BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");
         circuit.add_gates_to_ensure_all_polys_are_non_zero();
         circuit.finalize_circuit();
 
