@@ -39,6 +39,7 @@ import {Hash} from "../Hash.sol";
  *  | 0x1c + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54 + f * 0x20 + g     | 0x04         | byteLen(newUnencryptedLogs) (denoted h)
  *  | 0x20 + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54 + f * 0x20 + g     | h            | newUnencryptedLogs
  *  | ---                                                                            | ---          | ---
+ * TODO(benesjan): update ^
  */
 library MessagesDecoder {
   /**
@@ -65,6 +66,7 @@ library MessagesDecoder {
 
     // L1 to L2 messages
     uint256 count = read4(_body, offset);
+    offset += 0x4 + count * 0x20;
     // `l1ToL2Msgs` is fixed size so if `lengths.l1Tol2MsgsCount` < `Constants.NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` the array
     // will contain some zero values.
     assembly {
