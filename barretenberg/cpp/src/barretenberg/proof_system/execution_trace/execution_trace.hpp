@@ -21,6 +21,8 @@ template <class Flavor> class ExecutionTrace_ {
         std::array<Polynomial, Builder::Arithmetization::NUM_SELECTORS> selectors;
         // A vector of sets (vectors) of addresses into the wire polynomials whose values are copy constrained
         std::vector<CyclicPermutation> copy_cycles;
+        // The offset from 0 of the block containing RAM/RAM read/write gates
+        uint32_t ram_rom_offset = 0;
 
         TraceData(size_t dyadic_circuit_size, Builder& builder)
         {
@@ -53,6 +55,23 @@ template <class Flavor> class ExecutionTrace_ {
     static void add_wires_and_selectors_to_proving_key(TraceData& trace_data,
                                                        Builder& builder,
                                                        const std::shared_ptr<typename Flavor::ProvingKey>& proving_key);
+
+    /**
+     * @brief Add the memory records indicating which rows correspond to RAM/ROM reads/writes
+     * @details WORKTODO(update description) Prover needs to know which gates contain a read/write 'record' witness on
+     * the 4th wire. This wire value can only be fully computed once the first 3 wire polynomials have been committed
+     * to. The 4th wire on these gates will be a random linear combination of the first 3 wires, using the plookup
+     * challenge `eta`. Because we shift the gates by the number of public inputs, we need to update the records with
+     * the public_inputs offset
+     *
+     * @param trace_data
+     * @param builder
+     * @param proving_key
+     */
+    static void add_memory_records_to_proving_key(TraceData& trace_data,
+                                                  Builder& builder,
+                                                  const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
+        requires IsUltraPlonkOrHonk<Flavor>;
 
     /**
      * @brief Construct wire polynomials, selector polynomials and copy cycles from raw circuit data

@@ -14,6 +14,10 @@ void ExecutionTrace_<Flavor>::populate(Builder& builder,
 
     add_wires_and_selectors_to_proving_key(trace_data, builder, proving_key);
 
+    if constexpr (IsUltraFlavor<Flavor> || IsUltraPlonkFlavor<Flavor>) {
+        add_memory_records_to_proving_key(trace_data, builder, proving_key);
+    }
+
     if constexpr (IsGoblinFlavor<Flavor>) {
         add_ecc_op_wires_to_proving_key(builder, proving_key);
     }
@@ -42,6 +46,22 @@ void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(
             proving_key->polynomial_store.put(builder.selector_names[idx] + "_lagrange",
                                               std::move(trace_data.selectors[idx]));
         }
+    }
+}
+
+template <class Flavor>
+void ExecutionTrace_<Flavor>::add_memory_records_to_proving_key(
+    TraceData& trace_data, Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
+    requires IsUltraPlonkOrHonk<Flavor>
+{
+    ASSERT(proving_key->memory_read_records.empty() && proving_key->memory_write_records.empty());
+
+    // Update the indices of RAM/ROM reads/writes based on where the memory block sits in the trace
+    for (auto& index : builder.memory_read_records) {
+        proving_key->memory_read_records.emplace_back(index + trace_data.ram_rom_offset);
+    }
+    for (auto& index : builder.memory_write_records) {
+        proving_key->memory_write_records.emplace_back(index + trace_data.ram_rom_offset);
     }
 }
 
@@ -81,6 +101,11 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
                 size_t trace_row_idx = row_idx + offset;
                 selector_poly[trace_row_idx] = selector[row_idx];
             }
+        }
+
+        // Store the offset of the block containing RAM/ROM read/write gates for use in updating memory records
+        if (block.has_ram_rom) {
+            trace_data.ram_rom_offset = offset;
         }
 
         offset += block_size;

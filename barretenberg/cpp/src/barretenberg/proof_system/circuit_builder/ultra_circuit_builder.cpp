@@ -2034,7 +2034,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     blocks.main.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
-    record.gate_index = this->num_gates;
+    record.gate_index = this->blocks.main.size() - 1;
     ++this->num_gates;
 }
 
@@ -2053,7 +2053,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_ROM_gate(RomRecord& re
     blocks.main.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
-    record.gate_index = this->num_gates;
+    record.gate_index = this->blocks.main.size() - 1;
     ++this->num_gates;
 }
 
@@ -2098,7 +2098,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     blocks.main.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
-    record.gate_index = this->num_gates;
+    record.gate_index = this->blocks.main.size() - 1;
     ++this->num_gates;
 }
 
@@ -2118,7 +2118,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_RAM_gate(RamRecord& re
     blocks.main.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
-    record.gate_index = this->num_gates;
+    record.gate_index = this->blocks.main.size() - 1;
     ++this->num_gates;
 }
 
@@ -2131,8 +2131,10 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_RAM_gate(RamRecord& re
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_final_sorted_RAM_gate(RamRecord& record, const size_t ram_array_size)
 {
+    // WORKTODO: the gate index here and elewhere needs to be set based on the size of whatever block contains the
+    // ram/rom gates
     record.record_witness = this->add_variable(0);
-    record.gate_index = this->num_gates;
+    record.gate_index = this->blocks.main.size(); // no -1 since we havent added the gate yet
 
     create_big_add_gate({
         record.index_witness,
