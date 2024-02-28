@@ -723,7 +723,7 @@ TEST(ultra_circuit_constructor, ram_simple)
     // Initialize a length-1 RAM array with a single value
     fr ram_value = 5;
     uint32_t ram_value_idx = builder.add_variable(ram_value);
-    size_t ram_id = builder.create_RAM_array(1);
+    size_t ram_id = builder.create_RAM_array(/*array_size=*/1);
     builder.init_RAM_element(ram_id, /*index_value=*/0, ram_value_idx);
 
     // Read from the RAM array we just created (at the 0th index)

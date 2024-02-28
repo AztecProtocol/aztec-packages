@@ -149,6 +149,7 @@ template <typename FF_> class UltraArith {
         UltraTraceBlock lookup;
         UltraTraceBlock main;
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): update to aux.has_ram_rom = true
         TraceBlocks() { main.has_ram_rom = true; }
 
         auto get() { return RefArray{ pub_inputs, arithmetic, sort, elliptic, aux, lookup, main }; }
