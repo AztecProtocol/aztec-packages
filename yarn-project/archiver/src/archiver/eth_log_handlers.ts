@@ -118,7 +118,6 @@ async function getBlockHashFromCallData(
   l2BlockNum: bigint,
 ): Promise<[Header, AppendOnlyTreeSnapshot]> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
-  // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
   const { functionName, args } = decodeFunctionData({
     abi: RollupAbi,
     data,
@@ -238,13 +237,12 @@ export async function getContractDeploymentLogs(
   fromBlock: bigint,
   toBlock: bigint,
 ): Promise<Log<bigint, number, false, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[]> {
-  const abiItem = getAbiItem({
-    abi: ContractDeploymentEmitterAbi,
-    name: 'ContractDeployment',
-  });
   return await publicClient.getLogs({
     address: getAddress(contractDeploymentEmitterAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: ContractDeploymentEmitterAbi,
+      name: 'ContractDeployment',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
@@ -304,13 +302,12 @@ export async function getPendingL1ToL2MessageLogs(
   fromBlock: bigint,
   toBlock: bigint,
 ): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageAdded'>[]> {
-  const abiItem = getAbiItem({
-    abi: InboxAbi,
-    name: 'MessageAdded',
-  });
   return await publicClient.getLogs({
     address: getAddress(inboxAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: InboxAbi,
+      name: 'MessageAdded',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
@@ -330,13 +327,12 @@ export async function getL1ToL2MessageCancelledLogs(
   fromBlock: bigint,
   toBlock: bigint,
 ): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[]> {
-  const abiItem = getAbiItem({
-    abi: InboxAbi,
-    name: 'L1ToL2MessageCancelled',
-  });
   return await publicClient.getLogs({
     address: getAddress(inboxAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: InboxAbi,
+      name: 'L1ToL2MessageCancelled',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });

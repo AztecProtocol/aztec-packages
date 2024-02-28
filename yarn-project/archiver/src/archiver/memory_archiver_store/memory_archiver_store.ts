@@ -136,8 +136,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Append new blocks to the store's list.
-   * @param blocks - The L2 blocks to be added to the store.
+   * Append new block bodies to the store's list.
+   * @param blockBodies - The L2 block bodies to be added to the store.
    * @returns True if the operation is successful.
    */
   addBlockBodies(blockBodies: Body[]): Promise<boolean> {
@@ -151,9 +151,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets an L2 block.
-   * @param blockNumber - The number of the block to return.
-   * @returns The requested L2 block, without logs attached
+   * Gets block bodies that have the same txHash as we supply.
+   *
+   * @param txsHashes - A list of txsHashes that correspond to the body hashes
+   * @returns The requested L2 block bodies
    */
   getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
     const blockBodies = txsHashes.map(txsHash => this.l2BlockBodies.get(txsHash.toString('hex')));

@@ -80,16 +80,14 @@ export class L2Block {
 
   /**
    * Serializes a block
-   * @remarks This can be used specifying no logs, which is used when the block is being served via JSON-RPC because the logs are expected to be served
-   * separately.
-   * @returns A serialized L2 block logs.
+   * @returns A serialized L2 block as a Buffer.
    */
   toBuffer() {
     return serializeToBuffer(this.header, this.archive, this.body);
   }
 
   /**
-   * Deserializes L2 block without logs from a buffer.
+   * Deserializes L2 block from a buffer.
    * @param str - A serialized L2 block.
    * @returns Deserialized L2 block.
    */
@@ -98,10 +96,8 @@ export class L2Block {
   }
 
   /**
-   * Serializes a block without logs to a string.
-   * @remarks This is used when the block is being served via JSON-RPC because the logs are expected to be served
-   * separately.
-   * @returns A serialized L2 block without logs.
+   * Serializes a block to a string.
+   * @returns A serialized L2 block as a string.
    */
   toString(): string {
     return this.toBuffer().toString(STRING_ENCODING);

@@ -71,8 +71,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Append new blocks to the store's list.
-   * @param blocks - The L2 blocks to be added to the store.
+   * Append new block bodies to the store's list.
+   * @param blockBodies - The L2 block bodies to be added to the store.
    * @returns True if the operation is successful.
    */
   addBlockBodies(blockBodies: Body[]): Promise<boolean> {
@@ -80,9 +80,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Append new blocks to the store's list.
-   * @param blocks - The L2 blocks to be added to the store.
-   * @returns True if the operation is successful.
+   * Gets block bodies that have the same txHash as we supply.
+   *
+   * @param txsHashes - A list of txsHashes that correspond to the body hashes
+   * @returns The requested L2 block bodies
    */
   getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
     return this.#blockBodyStore.getBlockBodies(txsHashes);
@@ -99,11 +100,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
-   * The blocks returned do not contain any logs.
    *
    * @param start - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
-   * @returns The requested L2 blocks, without any logs attached
+   * @returns The requested L2 blocks
    */
   getBlocks(start: number, limit: number): Promise<L2Block[]> {
     try {

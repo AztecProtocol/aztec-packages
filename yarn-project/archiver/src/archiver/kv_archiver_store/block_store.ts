@@ -54,12 +54,12 @@ export class BlockStore {
           l1BlockNumber: block.getL1BlockNumber(),
         });
 
-        for (const [i, tx] of block.getTxs().entries()) {
+        block.getTxs().forEach((tx, i) => {
           if (tx.txHash.isZero()) {
-            continue;
+            return;
           }
           void this.#txIndex.set(tx.txHash.toString(), [block.number, i]);
-        }
+        })
 
         block.body.txEffects
           .flatMap(txEffect => txEffect.contractData)
@@ -70,13 +70,6 @@ export class BlockStore {
 
             void this.#contractIndex.set(contractData.contractAddress.toString(), [block.number, i]);
           });
-        // for (const [i, contractData] of block.body.txEffects.flatMap(txEffect => txEffect.contractData).entries()) {
-        //   if (contractData.contractAddress.isZero()) {
-        //     continue;
-        //   }
-
-        //   void this.#contractIndex.set(contractData.contractAddress.toString(), [block.number, i]);
-        // }
       }
 
       return true;
@@ -87,7 +80,7 @@ export class BlockStore {
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param start - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
-   * @returns The requested L2 blocks, without logs attached
+   * @returns The requested L2 blocks
    */
   *getBlocks(start: number, limit: number): IterableIterator<L2Block> {
     for (const blockStorage of this.#blocks.values(this.#computeBlockRange(start, limit))) {
@@ -98,7 +91,7 @@ export class BlockStore {
   /**
    * Gets an L2 block.
    * @param blockNumber - The number of the block to return.
-   * @returns The requested L2 block, without logs attached
+   * @returns The requested L2 blocks
    */
   getBlock(blockNumber: number): L2Block | undefined {
     const blockStorage = this.#blocks.get(blockNumber);

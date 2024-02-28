@@ -3,11 +3,8 @@ import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
-/**
- * LMDB implementation of the ArchiverDataStore interface.
- */
 export class BlockBodyStore {
-  /** Map block number to block data */
+  /** Map block body hash to block body */
   #blockBodies: AztecMap<string, Buffer>;
 
   constructor(private db: AztecKVStore) {
@@ -15,8 +12,8 @@ export class BlockBodyStore {
   }
 
   /**
-   * Append new blocks to the store's list.
-   * @param blocks - The L2 blocks to be added to the store.
+   * Append new block bodies to the store's map.
+   * @param blockBodies - The L2 block bodies to be added to the store.
    * @returns True if the operation is successful.
    */
   addBlockBodies(blockBodies: Body[]): Promise<boolean> {
@@ -32,9 +29,9 @@ export class BlockBodyStore {
   }
 
   /**
-   * Gets an L2 block.
-   * @param blockNumber - The number of the block to return.
-   * @returns The requested L2 block, without logs attached
+   * Gets a list of L2 block bodies with its associated txsHashes
+   * @param txsHashes - The txsHash list that corresponds to the blockBodies we want to retrieve
+   * @returns The requested L2 block body
    */
   async getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
     const blockBodiesBuffer = await this.db.transaction(() =>
@@ -48,22 +45,10 @@ export class BlockBodyStore {
     return blockBodiesBuffer.map(blockBodyBuffer => Body.fromBuffer(blockBodyBuffer!));
   }
 
-  // /**
-  //  * Gets up to `limit` amount of L2 blocks starting from `from`.
-  //  * @param start - Number of the first block to return (inclusive).
-  //  * @param limit - The number of blocks to return.
-  //  * @returns The requested L2 blocks, without logs attached
-  //  */
-  // *getBlockBodies(start: number, limit: number): IterableIterator<L2Block> {
-  //   for (const blockCtx of this.#blocks.values(this.#computeBlockRange(start, limit))) {
-  //     yield L2Block.fromBuffer(blockCtx.block);
-  //   }
-  // }
-
   /**
-   * Gets an L2 block.
-   * @param blockNumber - The number of the block to return.
-   * @returns The requested L2 block, without logs attached
+   * Gets an L2 block body.
+   * @param txsHash - The txHash of the the block body to return
+   * @returns The requested L2 block body
    */
   getBlockBody(txsHash: Buffer): Body | undefined {
     const blockBody = this.#blockBodies.get(txsHash.toString('hex'));
