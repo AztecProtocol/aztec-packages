@@ -1,0 +1,7 @@
+FROM rust:bullseye
+ARG COMMIT_HASH
+ENV COMMIT_HASH=${COMMIT_HASH}
+RUN apt update && apt install -y libc++1
+WORKDIR /usr/src/noir
+COPY . .
+RUN ./scripts/test_native.sh

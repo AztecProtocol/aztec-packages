@@ -20,14 +20,7 @@ INCLUDE=$(printf " --include %s" "${PROJECTS[@]}")
 
 yarn --immutable
 
-if [ "$1" == "ci" ]; then
-  EXCLUDE="--exclude @noir-lang/root --exclude docs"
-  yarn workspaces foreach --parallel --topological-dev --verbose $EXCLUDE run build
-  ./.github/scripts/playwright-install.sh
-  yarn workspaces foreach --parallel --topological-dev --verbose $EXCLUDE run test
-else
-  yarn workspaces foreach --parallel --topological-dev --verbose $INCLUDE run build
-fi
+yarn workspaces foreach --parallel --topological-dev --verbose $INCLUDE run build
 
 # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
 # These can be useful for testing, or portaling into other projects.

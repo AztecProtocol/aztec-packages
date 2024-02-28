@@ -1,0 +1,14 @@
+^noir/Dockerfile
+^noir/acvm-repo
+^noir/compiler
+^noir/aztec_macros
+^noir/noir_stdlib
+^noir/tooling/backend_interface
+^noir/tooling/bb_abstraction_leaks
+^noir/tooling/debugger
+^noir/tooling/lsp
+^noir/tooling/nargo
+^noir/tooling/nargo_cli
+^noir/tooling/nargo_toml
+^noir/tooling/nargo_fmt
+^noir/tooling/noirc_abi

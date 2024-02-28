@@ -20,9 +20,3 @@ if [ -n "${DEBUG:-}" ]; then
 else
   cargo build --release
 fi
-
-if [ "${1:-}" == "ci" ]; then
-  cargo fmt --all --check
-  cargo clippy --workspace --locked --release
-  cargo test --workspace --locked --release
-fi

@@ -51,8 +51,14 @@ function try_fetch_image() {
   return 0
 }
 
-# Login to ECR and ensure repository exists.
-retry ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
+NOREPO=$(query_manifest noRepo $REPOSITORY)
+
+# Login to ECR and ensure repository exists (unless no repo is set).
+if [ "$NOREPO" == "true" ]; then
+  retry ecr_login $ECR_REGION
+else
+  retry ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
+fi
 # Login to dockerhub.
 retry dockerhub_login
 
@@ -126,6 +132,7 @@ MULTIARCH=$(query_manifest multiarch $REPOSITORY)
 
 # Build the image.
 if [ "$MULTIARCH" == "buildx" ]; then
+  [ "$NOREPO" == "true" ] && echo "mulitarch: buildx with noRepo: true is unsupported." && exit 1
   # We've requested to use buildx. This will build both arch containers on the host machine using virtualization.
   # The result is a single image tag that supports multiarch.
   # This is the simplest approach for build jobs that are not too intensive.
@@ -141,6 +148,9 @@ else
   fi
 
   docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg CONTENT_HASH=$CONTENT_HASH --build-arg COMMIT_HASH=$COMMIT_HASH .
-  echo "Pushing image: $IMAGE_COMMIT_URI"
-  retry docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
+
+  if [ "$NOREPO" == "false" ]; then
+    echo "Pushing image: $IMAGE_COMMIT_URI"
+    retry docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
+  fi
 fi
