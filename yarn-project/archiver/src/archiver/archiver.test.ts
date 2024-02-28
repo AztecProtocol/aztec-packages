@@ -410,7 +410,7 @@ function makeRollupTx(l2Block: L2Block) {
 
 /**
  * Makes a fake availability oracle tx for testing purposes.
- * @param block - The L2Block.
+ * @param blockBody - The block body posted by the simulated tx.
  * @returns A fake tx with calldata that corresponds to calling process in the Availbility Oracle contract.
  */
 function makeAoTx(blockBody: Body) {
