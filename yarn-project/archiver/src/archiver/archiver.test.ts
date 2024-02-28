@@ -1,4 +1,4 @@
-import { ExtendedContractData, L2Block, L2BlockL2Logs, LogType } from '@aztec/circuit-types';
+import { Body, ExtendedContractData, L2Block, L2BlockL2Logs, LogType } from '@aztec/circuit-types';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
@@ -44,15 +44,8 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    const blocks = blockNumbers.map(x => {
-      const block = L2Block.random(x, 4, x, x + 1, x * 2, x * 3);
-      const txsHash = block.body.getCalldataHash();
-      block.header.contentCommitment.txsHash = txsHash;
-
-      return block;
-    });
-
-    const aoTxs = blocks.map(makeAoTx);
+    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
+    const aoTxs = blocks.map(block => block.body).map(makeAoTx);
     const rollupTxs = blocks.map(makeRollupTx);
 
     // `L2Block.random(x)` creates some l1 to l2 messages. We add those,
@@ -92,7 +85,7 @@ describe('Archiver', () => {
       .mockResolvedValueOnce(l1ToL2MessageAddedEvents.slice(0, 2).flat())
       .mockResolvedValueOnce([]) // no messages to cancel
       .mockResolvedValueOnce([makeL2TxsPublishedEvent(101n, blocks[0].body.getCalldataHash())])
-      .mockResolvedValueOnce([makeL2BlockProcessedEvent(101n, 1n, blocks[0].body.getCalldataHash())])
+      .mockResolvedValueOnce([makeL2BlockProcessedEvent(101n, 1n)])
       .mockResolvedValueOnce([makeContractDeploymentEvent(103n, blocks[0])]) // the first loop of the archiver ends here at block 2500
       .mockResolvedValueOnce(l1ToL2MessageAddedEvents.slice(2, 4).flat())
       .mockResolvedValueOnce(makeL1ToL2MessageCancelledEvents(2503n, l1ToL2MessagesToCancel))
@@ -101,8 +94,8 @@ describe('Archiver', () => {
         makeL2TxsPublishedEvent(2520n, blocks[2].body.getCalldataHash()),
       ])
       .mockResolvedValueOnce([
-        makeL2BlockProcessedEvent(2510n, 2n, blocks[1].body.getCalldataHash()),
-        makeL2BlockProcessedEvent(2520n, 3n, blocks[2].body.getCalldataHash()),
+        makeL2BlockProcessedEvent(2510n, 2n),
+        makeL2BlockProcessedEvent(2520n, 3n),
       ])
       .mockResolvedValueOnce([makeContractDeploymentEvent(2540n, blocks[1])])
       .mockResolvedValue([]);
@@ -173,15 +166,9 @@ describe('Archiver', () => {
       return [Fr.random().toString(), Fr.random().toString()];
     };
 
-    const blocks = blockNumbers.map(x => {
-      const block = L2Block.random(x, 4, x, x + 1, x * 2, x * 3);
-      const txsHash = block.body.getCalldataHash();
-      block.header.contentCommitment.txsHash = txsHash;
+    const blocks = blockNumbers.map(x =>L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
 
-      return block;
-    });
-
-    const aoTxs = blocks.map(makeAoTx);
+    const aoTxs = blocks.map(block => block.body).map(makeAoTx);
     const rollupTxs = blocks.map(makeRollupTx);
 
     // `L2Block.random(x)` creates some l1 to l2 messages. We add those,
@@ -222,8 +209,8 @@ describe('Archiver', () => {
         makeL2TxsPublishedEvent(80n, blocks[1].body.getCalldataHash()),
       ])
       .mockResolvedValueOnce([
-        makeL2BlockProcessedEvent(70n, 1n, blocks[0].body.getCalldataHash()),
-        makeL2BlockProcessedEvent(80n, 2n, blocks[1].body.getCalldataHash()),
+        makeL2BlockProcessedEvent(70n, 1n),
+        makeL2BlockProcessedEvent(80n, 2n),
       ])
       .mockResolvedValue([]);
     aoTxs.slice(0, numL2BlocksInTest).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
@@ -266,10 +253,8 @@ describe('Archiver', () => {
 
     const block = L2Block.random(1, 4, 1, 2, 4, 6);
     block.body.l1ToL2Messages = times(2, Fr.random);
-    const txsHash = block.body.getCalldataHash();
-    block.header.contentCommitment.txsHash = txsHash;
     const rollupTx = makeRollupTx(block);
-    const aoTx = makeAoTx(block);
+    const aoTx = makeAoTx(block.body);
 
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n);
     // logs should be created in order of how archiver syncs.
@@ -281,8 +266,8 @@ describe('Archiver', () => {
         ),
       )
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([makeL2TxsPublishedEvent(101n, txsHash)])
-      .mockResolvedValueOnce([makeL2BlockProcessedEvent(101n, 1n, txsHash)])
+      .mockResolvedValueOnce([makeL2TxsPublishedEvent(101n, block.body.getCalldataHash())])
+      .mockResolvedValueOnce([makeL2BlockProcessedEvent(101n, 1n)])
       .mockResolvedValue([]);
     publicClient.getTransaction.mockResolvedValueOnce(aoTx);
     publicClient.getTransaction.mockResolvedValueOnce(rollupTx);
@@ -313,11 +298,11 @@ describe('Archiver', () => {
  * @param l2BlockNum - L2Block number.
  * @returns An L2BlockProcessed event log.
  */
-function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint, txsHash: Buffer) {
+function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
   return {
     blockNumber: l1BlockNum,
     args: { blockNumber: l2BlockNum },
-    transactionHash: txsHash.toString('hex'),
+    transactionHash: `0x${l2BlockNum}`,
   } as Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>;
 }
 
@@ -428,8 +413,8 @@ function makeRollupTx(l2Block: L2Block) {
  * @param block - The L2Block.
  * @returns A fake tx with calldata that corresponds to calling process in the Availbility Oracle contract.
  */
-function makeAoTx(l2Block: L2Block) {
-  const body = toHex(l2Block.body.toBuffer());
+function makeAoTx(blockBody: Body) {
+  const body = toHex(blockBody.toBuffer());
   const input = encodeFunctionData({
     abi: AvailabilityOracleAbi,
     functionName: 'publish',

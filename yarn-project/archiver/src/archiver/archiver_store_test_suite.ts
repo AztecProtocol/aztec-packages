@@ -38,7 +38,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       blocks = Array.from({ length: 10 }).map((_, i) => {
         const block = L2Block.random(i + 1);
         block.setL1BlockNumber(BigInt(i + 1));
-        block.header.contentCommitment.txsHash = block.body.getCalldataHash();
         return block;
       });
     });
@@ -369,7 +368,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       let block: L2Block;
       beforeEach(async () => {
         block = L2Block.random(1);
-        block.header.contentCommitment.txsHash = block.body.getCalldataHash();
         await store.addBlocks([block]);
         await store.addBlockBodies([block.body]);
       });
@@ -389,7 +387,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       let block: L2Block;
       beforeEach(async () => {
         block = L2Block.random(1);
-        block.header.contentCommitment.txsHash = block.body.getCalldataHash();
         await store.addBlocks([block]);
         await store.addBlockBodies([block.body]);
       });
@@ -409,6 +406,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       it('stores extended contract data', async () => {
         const block = L2Block.random(1);
         await store.addBlocks([block]);
+        await store.addBlockBodies([block.body]);
         await expect(store.addExtendedContractData([ExtendedContractData.random()], block.number)).resolves.toEqual(
           true,
         );
@@ -421,6 +419,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       it('"pushes" extended contract data and does not overwrite', async () => {
         const block = L2Block.random(1);
         await store.addBlocks([block]);
+        await store.addBlockBodies([block.body]);
 
         // Assuming one contract per tx, and the first two txs
         const firstContract = ExtendedContractData.random(block.body.txEffects[0].contractData[0]);
@@ -443,6 +442,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         block = L2Block.random(1);
         extendedContractData = ExtendedContractData.random(block.body.txEffects[0].contractData[0]);
         await store.addBlocks([block]);
+        await store.addBlockBodies([block.body]);
         await store.addExtendedContractData([extendedContractData], block.number);
       });
 
@@ -464,6 +464,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         block = L2Block.random(1);
         extendedContractData = ExtendedContractData.random(block.body.txEffects[0].contractData[0]);
         await store.addBlocks([block]);
+        await store.addBlockBodies([block.body]);
         await store.addExtendedContractData([extendedContractData], block.number);
       });
 
@@ -491,6 +492,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           );
 
         await store.addBlocks(blocks);
+        await store.addBlockBodies(blocks.map(block => block.body));
+
         await Promise.all(
           blocks.map(block => store.addLogs(block.body.encryptedLogs, block.body.unencryptedLogs, block.number)),
         );

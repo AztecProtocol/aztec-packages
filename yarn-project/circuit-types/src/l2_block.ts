@@ -104,17 +104,21 @@ export class L2Block {
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
   ): L2Block {
+    const body = Body.random(
+      txsPerBlock,
+      numPrivateCallsPerTx,
+      numPublicCallsPerTx,
+      numEncryptedLogsPerCall,
+      numUnencryptedLogsPerCall,
+    );
+
+    const txsHash = body.getCalldataHash();
+
     return L2Block.fromFields(
       {
         archive: makeAppendOnlyTreeSnapshot(1),
-        header: makeHeader(0, l2BlockNum),
-        body: Body.random(
-          txsPerBlock,
-          numPrivateCallsPerTx,
-          numPublicCallsPerTx,
-          numEncryptedLogsPerCall,
-          numUnencryptedLogsPerCall,
-        ),
+        header: makeHeader(0, l2BlockNum, txsHash),
+        body,
       },
       // just for testing purposes, each random L2 block got emitted in the equivalent L1 block
       BigInt(l2BlockNum),

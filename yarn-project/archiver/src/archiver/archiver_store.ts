@@ -40,8 +40,8 @@ export interface ArchiverDataStore {
   addBlocks(blocks: L2Block[]): Promise<boolean>;
 
   /**
-   * Append new blocks to the store's list.
-   * @param blocks - The L2 blocks to be added to the store.
+   * Append new block bodies to the store's list.
+   * @param blockBodies - The L2 block bodies to be added to the store.
    * @returns True if the operation is successful.
    */
   addBlockBodies(blockBodies: Body[]): Promise<boolean>;
