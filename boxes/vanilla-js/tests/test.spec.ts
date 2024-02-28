@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 
 test('Deploying, setting, and getting a number', async ({ page }) => {
-  test.slow();
   await page.goto('/');
 
   const handleDialog = (expectedMessage: string) => {

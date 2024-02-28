@@ -13,7 +13,7 @@ export default defineConfig({
     video: 'on-first-retry',
   },
   expect: {
-    timeout: 60000,
+    timeout: 30000,
   },
   projects: [
     {
