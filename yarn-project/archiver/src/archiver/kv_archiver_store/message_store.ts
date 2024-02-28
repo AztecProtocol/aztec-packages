@@ -115,7 +115,7 @@ export class MessageStore {
   confirmPendingMessages(messageKeys: Fr[]): Promise<boolean> {
     return this.db.transaction(() => {
       for (const messageKey of messageKeys) {
-        if (messageKey.equals(Fr.ZERO)){
+        if (messageKey.equals(Fr.ZERO)) {
           continue;
         }
 

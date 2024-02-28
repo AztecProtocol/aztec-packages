@@ -16,15 +16,10 @@ import {
   TxHash,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import {
-  ContractClassRegisteredEvent,
-  FunctionSelector,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/circuits.js';
+import { ContractClassRegisteredEvent, FunctionSelector } from '@aztec/circuits.js';
 import { ContractInstanceDeployedEvent } from '@aztec/circuits.js/contract';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -349,7 +344,7 @@ export class Archiver implements ArchiveSource {
 
     // store retrieved L2 blocks after removing new logs information.
     // remove logs to serve "lightweight" block information. Logs can be fetched separately if needed.
-    await this.store.addBlocks(retrievedBlocks.retrievedData);  
+    await this.store.addBlocks(retrievedBlocks.retrievedData);
   }
 
   /**

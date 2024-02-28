@@ -1,12 +1,4 @@
-import {
-  Body,
-  ContractData,
-  L2Block,
-  MerkleTreeId,
-  PublicDataWrite,
-  TxEffect,
-  TxL2Logs,
-} from '@aztec/circuit-types';
+import { Body, ContractData, L2Block, MerkleTreeId, PublicDataWrite, TxEffect, TxL2Logs } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,

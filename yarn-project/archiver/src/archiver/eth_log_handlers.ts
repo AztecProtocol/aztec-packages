@@ -213,7 +213,7 @@ export function getL2TxsPublishedLogs(
   dataAvailabilityOracleAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-  ): Promise<Log<bigint, number, false, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>[]> {
+): Promise<Log<bigint, number, false, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>[]> {
   return publicClient.getLogs({
     address: getAddress(dataAvailabilityOracleAddress.toString()),
     event: getAbiItem({

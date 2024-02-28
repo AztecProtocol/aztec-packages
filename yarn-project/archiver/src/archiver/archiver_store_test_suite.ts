@@ -4,7 +4,6 @@ import {
   L1ToL2Message,
   L2Block,
   L2BlockContext,
-  L2BlockL2Logs,
   LogId,
   LogType,
   TxHash,

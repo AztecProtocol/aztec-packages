@@ -61,13 +61,15 @@ export class BlockStore {
           void this.#txIndex.set(tx.txHash.toString(), [block.number, i]);
         }
 
-        block.body.txEffects.flatMap(txEffect => txEffect.contractData).forEach((contractData, i) => {
-          if (contractData.contractAddress.isZero()) {
-            return;
-          }
+        block.body.txEffects
+          .flatMap(txEffect => txEffect.contractData)
+          .forEach((contractData, i) => {
+            if (contractData.contractAddress.isZero()) {
+              return;
+            }
 
-          void this.#contractIndex.set(contractData.contractAddress.toString(), [block.number, i]);
-        })
+            void this.#contractIndex.set(contractData.contractAddress.toString(), [block.number, i]);
+          });
         // for (const [i, contractData] of block.body.txEffects.flatMap(txEffect => txEffect.contractData).entries()) {
         //   if (contractData.contractAddress.isZero()) {
         //     continue;
