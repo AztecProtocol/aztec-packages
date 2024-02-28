@@ -93,10 +93,7 @@ describe('Archiver', () => {
         makeL2TxsPublishedEvent(2510n, blocks[1].body.getCalldataHash()),
         makeL2TxsPublishedEvent(2520n, blocks[2].body.getCalldataHash()),
       ])
-      .mockResolvedValueOnce([
-        makeL2BlockProcessedEvent(2510n, 2n),
-        makeL2BlockProcessedEvent(2520n, 3n),
-      ])
+      .mockResolvedValueOnce([makeL2BlockProcessedEvent(2510n, 2n), makeL2BlockProcessedEvent(2520n, 3n)])
       .mockResolvedValueOnce([makeContractDeploymentEvent(2540n, blocks[1])])
       .mockResolvedValue([]);
     publicClient.getTransaction.mockResolvedValueOnce(aoTxs[0]);
@@ -166,7 +163,7 @@ describe('Archiver', () => {
       return [Fr.random().toString(), Fr.random().toString()];
     };
 
-    const blocks = blockNumbers.map(x =>L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
+    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
 
     const aoTxs = blocks.map(block => block.body).map(makeAoTx);
     const rollupTxs = blocks.map(makeRollupTx);
@@ -208,10 +205,7 @@ describe('Archiver', () => {
         makeL2TxsPublishedEvent(70n, blocks[0].body.getCalldataHash()),
         makeL2TxsPublishedEvent(80n, blocks[1].body.getCalldataHash()),
       ])
-      .mockResolvedValueOnce([
-        makeL2BlockProcessedEvent(70n, 1n),
-        makeL2BlockProcessedEvent(80n, 2n),
-      ])
+      .mockResolvedValueOnce([makeL2BlockProcessedEvent(70n, 1n), makeL2BlockProcessedEvent(80n, 2n)])
       .mockResolvedValue([]);
     aoTxs.slice(0, numL2BlocksInTest).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     rollupTxs.slice(0, numL2BlocksInTest).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));

@@ -78,7 +78,11 @@ export async function processBlockMetadataLogs(
       throw new Error('Block number mismatch. Expected: ' + expectedL2BlockNumber + ' but got: ' + blockNum + '.');
     }
     // TODO: Fetch blocks from calldata in parallel
-    const [header, archive] = await getBlockMetadataFromRollupTx(publicClient, log.transactionHash!, log.args.blockNumber);
+    const [header, archive] = await getBlockMetadataFromRollupTx(
+      publicClient,
+      log.transactionHash!,
+      log.args.blockNumber,
+    );
 
     retrievedBlockMetadata.push([header, archive, log.blockNumber!]);
     expectedL2BlockNumber++;
@@ -151,7 +155,10 @@ async function getBlockMetadataFromRollupTx(
  * @param txHash - Hash of the tx that published it.
  * @returns An L2 block body from the calldata, deserialized
  */
-async function getBlockBodiesFromAvailabilityOracleTx(publicClient: PublicClient, txHash: `0x${string}`): Promise<Body> {
+async function getBlockBodiesFromAvailabilityOracleTx(
+  publicClient: PublicClient,
+  txHash: `0x${string}`,
+): Promise<Body> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
   const { functionName, args } = decodeFunctionData({
     abi: AvailabilityOracleAbi,

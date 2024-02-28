@@ -59,7 +59,7 @@ export class BlockStore {
             return;
           }
           void this.#txIndex.set(tx.txHash.toString(), [block.number, i]);
-        })
+        });
 
         block.body.txEffects
           .flatMap(txEffect => txEffect.contractData)

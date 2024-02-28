@@ -1037,10 +1037,14 @@ export function makeContentCommitment(seed = 0, txsHash: Buffer | undefined = un
 /**
  * Makes header.
  */
-export function makeHeader(seed = 0, blockNumber: number | undefined = undefined, txsHash: Buffer | undefined = undefined): Header {
+export function makeHeader(
+  seed = 0,
+  blockNumber: number | undefined = undefined,
+  txsHash: Buffer | undefined = undefined,
+): Header {
   return new Header(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
-    makeContentCommitment((seed + 0x200), txsHash),
+    makeContentCommitment(seed + 0x200, txsHash),
     makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), blockNumber),
   );
