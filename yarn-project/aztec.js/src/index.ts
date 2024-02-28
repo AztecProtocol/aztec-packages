@@ -44,6 +44,8 @@ export {
   isContractDeployed,
   EthCheatCodes,
   computeAuthWitMessageHash,
+  computeInnerAuthWitHash,
+  computeOuterAuthWitHash,
   waitForPXE,
   waitForAccountSynch,
 } from './utils/index.js';
@@ -78,6 +80,7 @@ export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 export {
   AuthWitness,
   AztecNode,
+  Body,
   CompleteAddress,
   ContractData,
   DeployedContract,
