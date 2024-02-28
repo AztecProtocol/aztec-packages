@@ -1257,7 +1257,7 @@ fn create_avm_context() -> Result<Statement, AztecMacroError> {
 /// Similarly; Structs will be pushed to the context, after serialize() is called on them.
 /// Arrays will be iterated over and each element will be pushed to the context.
 /// Any primitive type that can be cast will be casted to a field and pushed to the context.
-fn abstract_return_values(func: &mut NoirFunction) -> Option<Statement> {
+fn abstract_return_values(func: &NoirFunction) -> Option<Statement> {
     let current_return_type = func.return_type().typ;
     let last_statement = func.def.body.0.last();
 
