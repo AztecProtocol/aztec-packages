@@ -18,7 +18,7 @@ pub fn digest<N>(msg: [u8; N]) -> [u8; 32] {
     let mut msg_block: [u8; 64] = [0; 64];
     let mut h: [u32; 8] = [1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225]; // Intermediate hash, starting with the canonical initial value
     let mut out_h: [u8; 32] = [0; 32]; // Digest as sequence of bytes
-    let mut i: u64 = 0; // Message byte pointer
+    let mut i: u32 = 0; // Message byte pointer
     for k in 0..N {
         // Populate msg_block
         msg_block[i as Field] = msg[k];

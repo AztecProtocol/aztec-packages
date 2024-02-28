@@ -70,7 +70,7 @@ describe('External Calls', () => {
       const successOffset = 7;
       const otherContextInstructionsBytecode = encodeToBytecode([
         new CalldataCopy(/*indirect=*/ 0, /*csOffset=*/ 0, /*copySize=*/ argsSize, /*dstOffset=*/ 0),
-        new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*size=*/ 0, /*slotOffset=*/ 0),
+        new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*size=*/ 1, /*slotOffset=*/ 0),
         new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 2),
       ]);
 
@@ -101,6 +101,7 @@ describe('External Calls', () => {
 
       // Check that the storage call has been merged into the parent journal
       const { currentStorageValue } = context.persistableState.flush();
+      console.log()
       expect(currentStorageValue.size).toEqual(1);
 
       const nestedContractWrites = currentStorageValue.get(addr.toBigInt());

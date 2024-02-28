@@ -21,8 +21,8 @@ impl Eq for U4 {
 }
 
 fn compact_decode<N>(input: [u8; N], length: Field) -> ([U4; NIBBLE_LENGTH], Field) {
-    assert(2 * input.len() <= NIBBLE_LENGTH as u64);
-    assert(length as u64 <= input.len());
+    assert(2 * input.len() <= NIBBLE_LENGTH as u32);
+    assert(length as u32 <= input.len());
 
     let mut nibble = [U4::zero(); NIBBLE_LENGTH];
 
@@ -32,7 +32,7 @@ fn compact_decode<N>(input: [u8; N], length: Field) -> ([U4; NIBBLE_LENGTH], Fie
     if parity == 1 {
         nibble[0] = U4::from_u8(input[0] & 0x0f);
         for i in 1..input.len() {
-            if i as u64 < length as u64 {
+            if i as u32 < length as u32 {
                 let x = input[i];
                 nibble[2*i - 1] = U4::from_u8(x >> 4);
                 nibble[2*i] = U4::from_u8(x & 0x0f);
@@ -40,7 +40,7 @@ fn compact_decode<N>(input: [u8; N], length: Field) -> ([U4; NIBBLE_LENGTH], Fie
         }
     } else {
         for i in 0..2 {
-            if (i as u64) < length as u64 - 1 {
+            if (i as u32) < length as u32 - 1 {
                 let x = input[i + 1];
                 nibble[2*i] = U4::from_u8(x >> 4);
                 nibble[2*i + 1] = U4::from_u8(x & 0x0f);

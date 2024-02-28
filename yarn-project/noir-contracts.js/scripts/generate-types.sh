@@ -30,11 +30,13 @@ for ABI in $(find ../../noir-projects/noir-contracts/target -maxdepth 1 -type f 
   CONTRACT=$(jq -r .name "artifacts/$filename")
 
   echo "Creating types for $CONTRACT using artifacts/$filename..."
-  node --no-warnings ../noir-compiler/dest/cli.js codegen -o $OUT_DIR --ts "artifacts/$filename"
+  node --no-warnings ../noir-compiler/dest/cli.js codegen -o $OUT_DIR --ts "artifacts/$filename" &
 
   # Add contract import/export to index.ts.
   echo "export * from './${CONTRACT}.js';" >>$INDEX
 done
+
+wait
 
 echo "Formatting..."
 yarn formatting:fix

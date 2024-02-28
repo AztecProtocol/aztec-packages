@@ -1,6 +1,6 @@
 struct BoundedVec<T, MaxLen> {
     storage: [T; MaxLen],
-    len: u64,
+    len: u32,
 }
 
 impl<T, MaxLen> BoundedVec<T, MaxLen> {
@@ -9,27 +9,27 @@ impl<T, MaxLen> BoundedVec<T, MaxLen> {
         BoundedVec { storage: [zeroed; MaxLen], len: 0 }
     }
 
-    pub fn get(mut self: Self, index: u64) -> T {
-        assert(index as u64 < self.len);
+    pub fn get(mut self: Self, index: u32) -> T {
+        assert(index as u32 < self.len);
         self.storage[index]
     }
 
-    pub fn get_unchecked(mut self: Self, index: u64) -> T {
+    pub fn get_unchecked(mut self: Self, index: u32) -> T {
         self.storage[index]
     }
 
     pub fn push(&mut self, elem: T) {
-        assert(self.len < MaxLen as u64, "push out of bounds");
+        assert(self.len < MaxLen as u32, "push out of bounds");
 
         self.storage[self.len] = elem;
         self.len += 1;
     }
 
-    pub fn len(self) -> u64 {
+    pub fn len(self) -> u32 {
         self.len
     }
 
-    pub fn max_len(_self: BoundedVec<T, MaxLen>) -> u64 {
+    pub fn max_len(_self: BoundedVec<T, MaxLen>) -> u32 {
         MaxLen
     }
 
@@ -41,7 +41,7 @@ impl<T, MaxLen> BoundedVec<T, MaxLen> {
 
     pub fn extend_from_array<Len>(&mut self, array: [T; Len]) {
         let new_len = self.len + array.len();
-        assert(new_len as u64 <= MaxLen as u64, "extend_from_array out of bounds");
+        assert(new_len as u32 <= MaxLen as u32, "extend_from_array out of bounds");
         for i in 0..array.len() {
             self.storage[self.len + i] = array[i];
         }
@@ -51,7 +51,7 @@ impl<T, MaxLen> BoundedVec<T, MaxLen> {
     pub fn extend_from_bounded_vec<Len>(&mut self, vec: BoundedVec<T, Len>) {
         let append_len = vec.len();
         let new_len = self.len + append_len;
-        assert(new_len as u64 <= MaxLen as u64, "extend_from_bounded_vec out of bounds");
+        assert(new_len as u32 <= MaxLen as u32, "extend_from_bounded_vec out of bounds");
 
         let mut exceeded_len = false;
         for i in 0..Len {
@@ -64,7 +64,7 @@ impl<T, MaxLen> BoundedVec<T, MaxLen> {
     }
 
     pub fn pop(&mut self) -> T {
-        assert(self.len as u64 > 0);
+        assert(self.len as u32 > 0);
         self.len -= 1;
 
         let elem = self.storage[self.len];

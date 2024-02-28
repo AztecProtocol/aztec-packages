@@ -30,12 +30,12 @@ pub fn validate_array<T, N>(array: [T; N]) where T: Empty + Eq {
             first_zero_pos = i;
         }
     }
-    assert((last_non_zero_pos as u64) <= (first_zero_pos as u64), "invalid array");
+    assert((last_non_zero_pos as u32) <= (first_zero_pos as u32), "invalid array");
 }
 
 // Helper method to determine the number of non-zero/empty elements in a validated array (ie, validate_array(array)
 // should be true).
-pub fn array_length<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
+pub fn array_length<T, N>(array: [T; N]) -> u32 where T: Empty + Eq {
     let mut length = 0;
     let mut end = false;
     for elem in array {

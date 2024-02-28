@@ -106,7 +106,7 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
     pub fn with_filter(
         filter: fn([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
         filter_args: FILTER_ARGS
-    ) -> Self where Note: NoteInterface<N> {
+) -> Self where Note: NoteInterface<N> {
         NoteGetterOptions {
             selects: BoundedVec::new(),
             sorts: BoundedVec::new(),

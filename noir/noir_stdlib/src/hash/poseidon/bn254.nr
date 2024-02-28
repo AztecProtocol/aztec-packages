@@ -27,7 +27,7 @@ pub fn permute<M, N, O>(pos_conf: PoseidonConfig<M, N>, mut state: [Field; O]) -
         }
 
         state = apply_matrix(mds, state); // Apply MDS matrix
-        count = count + t as u64;
+        count = count + t as u32;
     }
     // Partial rounds
     for _r in 0..rp {
@@ -37,7 +37,7 @@ pub fn permute<M, N, O>(pos_conf: PoseidonConfig<M, N>, mut state: [Field; O]) -
         state[0] = state[0].pow_32(alpha);
 
         state = apply_matrix(mds, state); // Apply MDS matrix
-        count = count + t as u64;
+        count = count + t as u32;
     }
     // Second half of full rounds
     for _r in 0..rf / 2 {
@@ -49,7 +49,7 @@ pub fn permute<M, N, O>(pos_conf: PoseidonConfig<M, N>, mut state: [Field; O]) -
         }
 
         state = apply_matrix(mds, state); // Apply MDS matrix
-        count = count + t as u64;
+        count = count + t as u32;
     }
 
     state

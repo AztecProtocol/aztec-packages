@@ -1,1 +1,1 @@
-array.len() should return a u64
+array.len() should return a u32

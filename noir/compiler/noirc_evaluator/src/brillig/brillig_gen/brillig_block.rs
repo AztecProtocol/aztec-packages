@@ -1232,6 +1232,7 @@ impl<'block> BrilligBlock<'block> {
                         self.variables.allocate_constant(self.brillig_context, value_id, dfg);
                     let register_index = new_variable.extract_single_addr();
 
+                    // println!("GET THE BIT SIZE FROM SSA TYPE");
                     self.brillig_context.const_instruction(
                         register_index.address,
                         (*constant).into(),

@@ -675,6 +675,8 @@ impl Context {
             }
         };
 
+        // dbg!(index);
+
         if self.handle_constant_index(instruction, dfg, index, array, store_value)? {
             return Ok(());
         }
@@ -726,13 +728,13 @@ impl Context {
             AcirValue::Array(array) => {
                 if let Some(index_const) = index_const {
                     let array_size = array.len();
-                    let index = match index_const.try_to_u64() {
+                    let index = match index_const.try_to_u32() {
                         Some(index_const) => index_const as usize,
                         None => {
                             let call_stack = self.acir_context.get_call_stack();
                             return Err(RuntimeError::TypeConversion {
                                 from: "array index".to_string(),
-                                into: "u64".to_string(),
+                                into: "u32".to_string(),
                                 call_stack,
                             });
                         }
@@ -1926,10 +1928,10 @@ impl Context {
 
                     // Check that we are above the lower bound of the insertion index
                     let greater_eq_than_idx =
-                        self.acir_context.more_than_eq_var(current_index, flat_user_index, 64)?;
+                        self.acir_context.more_than_eq_var(current_index, flat_user_index, 32)?;
                     // Check that we are below the upper bound of the insertion index
                     let less_than_idx =
-                        self.acir_context.less_than_var(current_index, max_flat_user_index, 64)?;
+                        self.acir_context.less_than_var(current_index, max_flat_user_index, 32)?;
 
                     // Read from the original slice the value we want to insert into our new slice.
                     // We need to make sure that we read the previous element when our current index is greater than insertion index.
