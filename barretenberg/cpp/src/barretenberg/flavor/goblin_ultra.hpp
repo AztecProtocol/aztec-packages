@@ -291,13 +291,7 @@ class GoblinUltraFlavor {
 
     static std::shared_ptr<VerificationKey> compute_verification_key(const std::shared_ptr<ProvingKey>& proving_key)
     {
-        auto result = std::make_shared<VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);
-
-        for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed_polynomials(), result->get_all())) {
-            commitment = proving_key->commitment_key->commit(polynomial);
-        }
-
-        return result;
+        return std::make_shared<VerificationKey>(proving_key);
     }
 
     /**

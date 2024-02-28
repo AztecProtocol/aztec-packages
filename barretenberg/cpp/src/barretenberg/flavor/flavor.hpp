@@ -150,6 +150,12 @@ template <typename PrecomputedCommitments> class VerificationKey_ : public Preco
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
     };
+    template <typename ProvingKeyPtr> VerificationKey_(const ProvingKeyPtr& proving_key)
+    {
+        for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
+            commitment = proving_key->commitment_key->commit(polynomial);
+        }
+    }
 };
 
 // Because of how Gemini is written, is importat to put the polynomials out in this order.
