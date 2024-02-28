@@ -92,7 +92,7 @@ template <class Flavor> class ProverInstance_ {
 
         populate_memory_read_write_records<Flavor>(circuit, proving_key);
 
-        verification_key = std::move(Flavor::compute_verification_key(proving_key));
+        verification_key = std::make_shared<VerificationKey>(proving_key);
     }
 
     ProverInstance_() = default;

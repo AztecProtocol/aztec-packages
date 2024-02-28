@@ -289,11 +289,6 @@ class GoblinUltraFlavor {
      */
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
 
-    static std::shared_ptr<VerificationKey> compute_verification_key(const std::shared_ptr<ProvingKey>& proving_key)
-    {
-        return std::make_shared<VerificationKey>(proving_key);
-    }
-
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */

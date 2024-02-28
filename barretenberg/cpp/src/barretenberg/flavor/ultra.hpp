@@ -292,11 +292,6 @@ class UltraFlavor {
      */
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
 
-    static std::shared_ptr<VerificationKey> compute_verification_key(const std::shared_ptr<ProvingKey>& proving_key)
-    {
-        return std::make_shared<VerificationKey>(proving_key);
-    }
-
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
      * evaluated at one point.
