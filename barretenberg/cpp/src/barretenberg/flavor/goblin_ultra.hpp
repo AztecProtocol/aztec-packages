@@ -285,47 +285,17 @@ class GoblinUltraFlavor {
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
+     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
 
     static std::shared_ptr<VerificationKey> compute_verification_key(const std::shared_ptr<ProvingKey>& proving_key)
     {
         auto result = std::make_shared<VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);
-        std::shared_ptr<CommitmentKey>& commitment_key = proving_key->commitment_key;
 
-        result->q_m = commitment_key->commit(proving_key->q_m);
-        result->q_l = commitment_key->commit(proving_key->q_l);
-        result->q_r = commitment_key->commit(proving_key->q_r);
-        result->q_o = commitment_key->commit(proving_key->q_o);
-        result->q_c = commitment_key->commit(proving_key->q_c);
-        result->sigma_1 = commitment_key->commit(proving_key->sigma_1);
-        result->sigma_2 = commitment_key->commit(proving_key->sigma_2);
-        result->sigma_3 = commitment_key->commit(proving_key->sigma_3);
-        result->id_1 = commitment_key->commit(proving_key->id_1);
-        result->id_2 = commitment_key->commit(proving_key->id_2);
-        result->id_3 = commitment_key->commit(proving_key->id_3);
-        result->lagrange_first = commitment_key->commit(proving_key->lagrange_first);
-        result->lagrange_last = commitment_key->commit(proving_key->lagrange_last);
-        result->q_4 = commitment_key->commit(proving_key->q_4);
-        result->q_arith = commitment_key->commit(proving_key->q_arith);
-        result->q_sort = commitment_key->commit(proving_key->q_sort);
-        result->q_elliptic = commitment_key->commit(proving_key->q_elliptic);
-        result->q_aux = commitment_key->commit(proving_key->q_aux);
-        result->q_lookup = commitment_key->commit(proving_key->q_lookup);
-        result->sigma_4 = commitment_key->commit(proving_key->sigma_4);
-        result->id_4 = commitment_key->commit(proving_key->id_4);
-        result->table_1 = commitment_key->commit(proving_key->table_1);
-        result->table_2 = commitment_key->commit(proving_key->table_2);
-        result->table_3 = commitment_key->commit(proving_key->table_3);
-        result->table_4 = commitment_key->commit(proving_key->table_4);
-
-        // TODO(luke): Similar to the lagrange_first/last polynomials, we dont really need to commit to these
-        // polynomials due to their simple structure.
-        result->lagrange_ecc_op = commitment_key->commit(proving_key->lagrange_ecc_op);
-        result->q_busread = commitment_key->commit(proving_key->q_busread);
-        result->databus_id = commitment_key->commit(proving_key->databus_id);
-        result->q_poseidon2_external = commitment_key->commit(proving_key->q_poseidon2_external);
-        result->q_poseidon2_internal = commitment_key->commit(proving_key->q_poseidon2_internal);
+        for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed_polynomials(), result->get_all())) {
+            commitment = proving_key->commitment_key->commit(polynomial);
+        }
 
         return result;
     }
