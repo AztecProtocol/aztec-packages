@@ -78,7 +78,7 @@ __metadata:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
     "@types/jest": "npm:^29.5.0"
-    "@types/node": "npm:^20.5.9"
+    "@types/node": "npm:^20.11.21"
     "@types/react": "npm:^18.2.15"
     "@types/react-dom": "npm:^18.2.7"
     "@typescript-eslint/eslint-plugin": "npm:^6.0.0"
@@ -1638,12 +1638,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:*, @types/node@npm:^20.11.16, @types/node@npm:^20.11.17, @types/node@npm:^20.5.9":
+"@types/node@npm:*, @types/node@npm:^20.11.16, @types/node@npm:^20.11.17":
   version: 20.11.19
   resolution: "@types/node@npm:20.11.19"
   dependencies:
     undici-types: "npm:~5.26.4"
   checksum: 10c0/f451ef0a1d78f29c57bad7b77e49ebec945f2a6d0d7a89851d7e185ee9fe7ad94d651c0dfbcb7858c9fa791310c8b40a881e2260f56bd3c1b7e7ae92723373ae
+  languageName: node
+  linkType: hard
+
+"@types/node@npm:^20.11.21":
+  version: 20.11.21
+  resolution: "@types/node@npm:20.11.21"
+  dependencies:
+    undici-types: "npm:~5.26.4"
+  checksum: 10c0/52b1cdfe8b14a67ab98c01b2e9621994b34a2537368e108fb925121a9d5958eb7344a2fb81ff36964932d5e5a093de8897f021bded10cad3536fd31e932b3000
   languageName: node
   linkType: hard
 
@@ -10500,8 +10509,13 @@ __metadata:
   linkType: hard
 
 "viem@npm:^2.7.15":
+<<<<<<< HEAD
   version: 2.7.19
   resolution: "viem@npm:2.7.19"
+=======
+  version: 2.7.15
+  resolution: "viem@npm:2.7.15"
+>>>>>>> 109df5bd2f (adding react frontend tests)
   dependencies:
     "@adraffy/ens-normalize": "npm:1.10.0"
     "@noble/curves": "npm:1.2.0"
@@ -10516,7 +10530,11 @@ __metadata:
   peerDependenciesMeta:
     typescript:
       optional: true
+<<<<<<< HEAD
   checksum: 10c0/aa7e8750eca7d02eab1819ec7d85ba2d3669c65b133c919dc34ea0052c236e75220e25d667a604dd76d36f92958d60a52d6772c58cf725435f728ca4c70ee9b7
+=======
+  checksum: 10c0/c9e987d959e5b91578fc0082a4142a83832d27575ec23fdafd7569d46acaa6f65ccd4c8a5a0b3ebfac8bfe0b2d74cd48d7e51357701806d9bebb9607077b242a
+>>>>>>> 109df5bd2f (adding react frontend tests)
   languageName: node
   linkType: hard
 

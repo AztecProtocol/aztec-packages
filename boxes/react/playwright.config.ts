@@ -4,8 +4,8 @@ export default defineConfig({
   testDir: './tests',
   testMatch: '**.spec.ts',
   fullyParallel: true,
-  retries: 3,
-  workers: process.env.CI ? 1 : 3,
+  retries: process.env.CI ? 3 : 0,
+  workers: 3,
   reporter: 'list',
   use: {
     baseURL: 'http://127.0.0.1:5173',
