@@ -20,7 +20,7 @@ use dep::protocol_types::{
 },
     address::{AztecAddress, EthAddress},
     constants::{
-    MAX_NEW_COMMITMENTS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
+    MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     MAX_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256,
@@ -28,7 +28,7 @@ use dep::protocol_types::{
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     grumpkin_private_key::GrumpkinPrivateKey, hash::hash_args, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::is_empty
 };
 use dep::std::option::Option;
 
@@ -49,7 +49,7 @@ struct PrivateContext {
     read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
-    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_CALL>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     private_call_stack_hashes : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
@@ -71,8 +71,7 @@ impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
         let side_effect_counter = inputs.call_context.start_side_effect_counter;
         let mut min_revertible_side_effect_counter = 0;
-        // Note. The side effect counter is 2 when this is the initial call
-        if (side_effect_counter == 2) {
+        if is_empty(inputs.call_context.msg_sender) {
             min_revertible_side_effect_counter = side_effect_counter;
         }
         PrivateContext {
@@ -80,20 +79,25 @@ impl PrivateContext {
             side_effect_counter,
             min_revertible_side_effect_counter,
             args_hash,
-            return_values: BoundedVec::new(0),
-            read_requests: BoundedVec::new(SideEffect::empty()),
-            nullifier_key_validation_requests: BoundedVec::new(NullifierKeyValidationRequest::empty()),
-            new_commitments: BoundedVec::new(SideEffect::empty()),
-            new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::empty()),
+            return_values: BoundedVec::new(),
+            read_requests: BoundedVec::new(),
+            nullifier_key_validation_requests: BoundedVec::new(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
             historical_header: inputs.historical_header,
-            private_call_stack_hashes: BoundedVec::new(0),
-            public_call_stack_hashes: BoundedVec::new(0),
-            new_l2_to_l1_msgs: BoundedVec::new(L2ToL1Message::empty()),
+            private_call_stack_hashes: BoundedVec::new(),
+            public_call_stack_hashes: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
             nullifier_key: Option::none()
         }
+    }
+
+    pub fn is_deployment(self) -> bool {
+        // TODO(#4738): Implement this
+        false
     }
 
     pub fn msg_sender(self) -> AztecAddress {
@@ -151,7 +155,7 @@ impl PrivateContext {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             read_requests: self.read_requests.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
-            new_commitments: self.new_commitments.storage,
+            new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
             private_call_stack_hashes: self.private_call_stack_hashes.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
@@ -181,7 +185,7 @@ impl PrivateContext {
 
     pub fn push_new_note_hash(&mut self, note_hash: Field) {
         let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
-        self.new_commitments.push(side_effect);
+        self.new_note_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 
@@ -444,7 +448,7 @@ impl PrivateContext {
                 contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
                 contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
                 public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-                new_commitments: [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL],
+                new_note_hashes: [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
                 new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
                 new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 unencrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],

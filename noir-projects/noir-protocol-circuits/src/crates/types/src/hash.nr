@@ -10,11 +10,10 @@ use crate::abis::side_effect::{SideEffect};
 use crate::utils::uint256::U256;
 use crate::constants::{
     ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT,
-    NOTE_HASH_TREE_HEIGHT, NUM_FIELDS_PER_SHA256, GENERATOR_INDEX__SILOED_COMMITMENT,
+    NOTE_HASH_TREE_HEIGHT, NUM_FIELDS_PER_SHA256, GENERATOR_INDEX__SILOED_NOTE_HASH,
     GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__VK, GENERATOR_INDEX__CONSTRUCTOR,
     GENERATOR_INDEX__PARTIAL_ADDRESS, GENERATOR_INDEX__CONTRACT_ADDRESS,
-    GENERATOR_INDEX__COMMITMENT_NONCE, GENERATOR_INDEX__UNIQUE_COMMITMENT,
-    GENERATOR_INDEX__FUNCTION_ARGS
+    GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH, GENERATOR_INDEX__FUNCTION_ARGS
 };
 use crate::messaging::l2_to_l1_message::L2ToL1Message;
 
@@ -48,11 +47,11 @@ pub fn hash_args<N>(args: [Field; N]) -> Field {
         for i in 0..ARGS_HASH_CHUNK_COUNT {
             let mut chunk_hash = 0;
             let start_chunk_index = i * ARGS_HASH_CHUNK_LENGTH;
-            if start_chunk_index < (args.len() as u32) {
+            if start_chunk_index < args.len() {
                 let mut chunk_args = [0; ARGS_HASH_CHUNK_LENGTH];
                 for j in 0..ARGS_HASH_CHUNK_LENGTH {
                     let item_index = i * ARGS_HASH_CHUNK_LENGTH + j;
-                    if item_index < (args.len() as u32) {
+                    if item_index < args.len() {
                         chunk_args[j] = args[item_index];
                     }
                 }
@@ -158,13 +157,13 @@ pub fn read_request_root_from_siblings(
     root_from_sibling_path(read_request, leaf_index, sibling_path)
 }
 
-pub fn silo_commitment(address: AztecAddress, inner_commitment: Field) -> Field {
+pub fn silo_note_hash(address: AztecAddress, inner_commitment: Field) -> Field {
     pedersen_hash(
         [
         address.to_field(),
         inner_commitment
     ],
-        GENERATOR_INDEX__SILOED_COMMITMENT
+        GENERATOR_INDEX__SILOED_NOTE_HASH
     )
 }
 
@@ -201,7 +200,7 @@ pub fn compute_l2_to_l1_hash(
     chain_id: Field,
     message: L2ToL1Message
 ) -> Field {
-    let mut bytes: BoundedVec<u8, 160> = BoundedVec::new(0);
+    let mut bytes: BoundedVec<u8, 160> = BoundedVec::new();
 
     let inputs = [
         contract_address.to_field(), rollup_version_id, message.recipient.to_field(), chain_id, message.content
@@ -283,42 +282,42 @@ pub fn compute_logs_hash(
     )
 }
 
-pub fn compute_commitment_nonce(first_nullifier: Field, commitment_index: Field) -> Field {
+pub fn compute_note_hash_nonce(first_nullifier: Field, commitment_index: u64) -> Field {
     pedersen_hash(
         [
         first_nullifier,
-        commitment_index
+        commitment_index as Field
     ],
-        GENERATOR_INDEX__COMMITMENT_NONCE
+        GENERATOR_INDEX__NOTE_HASH_NONCE
     )
 }
 
-pub fn compute_unique_siloed_commitment(nonce: Field, siloed_commitment: Field) -> Field {
+pub fn compute_unique_siloed_note_hash(nonce: Field, siloed_note_hash: Field) -> Field {
     pedersen_hash(
         [
         nonce,
-        siloed_commitment
+        siloed_note_hash
     ],
-        GENERATOR_INDEX__UNIQUE_COMMITMENT
+        GENERATOR_INDEX__UNIQUE_NOTE_HASH
     )
 }
 
-pub fn compute_unique_siloed_commitments<N>(
+pub fn compute_unique_siloed_note_hashes<N>(
     first_nullifier: Field,
-    siloed_commitments: [SideEffect; N]
+    siloed_note_hashes: [SideEffect; N]
 ) -> [SideEffect; N] {
-    let mut unique_siloed_commitments = [SideEffect::empty(); N];
+    let mut unique_siloed_note_hashes = [SideEffect::empty(); N];
     for i in 0..N {
-        let siloed_commitment = siloed_commitments[i];
-        if siloed_commitment.value != 0 {
-            let nonce = compute_commitment_nonce(first_nullifier, i);
-            unique_siloed_commitments[i] = SideEffect {
-                value: compute_unique_siloed_commitment(nonce, siloed_commitment.value),
-                counter: siloed_commitment.counter
+        let siloed_note_hash = siloed_note_hashes[i];
+        if siloed_note_hash.value != 0 {
+            let nonce = compute_note_hash_nonce(first_nullifier, i);
+            unique_siloed_note_hashes[i] = SideEffect {
+                value: compute_unique_siloed_note_hash(nonce, siloed_note_hash.value),
+                counter: siloed_note_hash.counter
                 };
         }
     }
-    unique_siloed_commitments
+    unique_siloed_note_hashes
 }
 
 pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {

@@ -4,14 +4,16 @@ contract StatefulTest {
     use dep::std::option::Option;
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
+        deploy::{deploy_contract as aztec_deploy_contract},
         context::{PrivateContext, PublicContext, Context},
         note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{map::Map, public_state::PublicState, set::Set}
+        state_vars::{Map, PublicMutable, PrivateSet},
+        oracle::get_contract_instance::get_contract_instance
     };
 
     struct Storage {
-        notes: Map<AztecAddress, Set<ValueNote>>,
-        public_values: Map<AztecAddress, PublicState<Field>>,
+        notes: Map<AztecAddress, PrivateSet<ValueNote>>,
+        public_values: Map<AztecAddress, PublicMutable<Field>>,
     }
 
     #[aztec(private)]
@@ -54,5 +56,11 @@ contract StatefulTest {
 
     unconstrained fn get_public_value(owner: AztecAddress) -> pub Field {
         storage.public_values.at(owner).read()
+    }
+
+    // This method is here because we've hit the 32 function limit for the TestContract
+    #[aztec(private)]
+    fn deploy_contract(target: AztecAddress) {
+        aztec_deploy_contract(&mut context, target);
     }
 }

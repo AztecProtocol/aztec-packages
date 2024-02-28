@@ -14,7 +14,7 @@ import {
   Header,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_REVERTIBLE_COMMITMENTS_PER_TX,
+  MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
   MAX_REVERTIBLE_NULLIFIERS_PER_TX,
   MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -28,11 +28,11 @@ import {
   makeNewSideEffect,
   makeNewSideEffectLinkedToNoteHash,
   makeProof,
-} from '@aztec/circuits.js/factories';
+} from '@aztec/circuits.js/testing';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
   L1Publisher,
@@ -77,16 +77,13 @@ describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
   let deployerAccount: PrivateKeyAccount;
 
+  let availabilityOracleAddress: Address;
   let rollupAddress: Address;
   let inboxAddress: Address;
   let outboxAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
-  let inbox: GetContractReturnType<
-    typeof InboxAbi,
-    PublicClient<HttpTransport, Chain>,
-    WalletClient<HttpTransport, Chain>
-  >;
+  let inbox: GetContractReturnType<typeof InboxAbi, WalletClient<HttpTransport, Chain>>;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
@@ -115,6 +112,7 @@ describe('L1Publisher integration', () => {
     } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger);
     publicClient = publicClient_;
 
+    availabilityOracleAddress = getAddress(l1ContractAddresses.availabilityOracleAddress.toString());
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
@@ -123,18 +121,17 @@ describe('L1Publisher integration', () => {
     rollup = getContract({
       address: rollupAddress,
       abi: RollupAbi,
-      publicClient,
+      client: publicClient,
     });
     inbox = getContract({
       address: inboxAddress,
       abi: InboxAbi,
-      publicClient,
-      walletClient,
+      client: walletClient,
     });
     outbox = getContract({
       address: outboxAddress,
       abi: OutboxAbi,
-      publicClient,
+      client: publicClient,
     });
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
@@ -179,7 +176,7 @@ describe('L1Publisher integration', () => {
 
     const processedTx = makeProcessedTx(tx, kernelOutput, makeProof());
 
-    processedTx.data.end.newCommitments = makeTuple(MAX_REVERTIBLE_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
+    processedTx.data.end.newNoteHashes = makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, makeNewSideEffect, seed + 0x100);
     processedTx.data.end.newNullifiers = makeTuple(
       MAX_REVERTIBLE_NULLIFIERS_PER_TX,
       makeNewSideEffectLinkedToNoteHash,
@@ -326,6 +323,30 @@ describe('L1Publisher integration', () => {
     const output = JSON.stringify(jsonObject, null, 2);
     fs.writeFileSync(path, output, 'utf8');
   };
+
+  it('Block body is correctly published to AvailabilityOracle', async () => {
+    const body = L2Block.random(4).body;
+    // `sendPublishTx` function is private so I am hacking around TS here. I think it's ok for test purposes.
+    const txHash = await (publisher as any).sendPublishTx(body.toBuffer());
+
+    // We verify that the body was successfully published by fetching TxsPublished events from the AvailabilityOracle
+    // and checking if the txsHash in the event is as expected
+    const events = await publicClient.getLogs({
+      address: availabilityOracleAddress,
+      event: getAbiItem({
+        abi: AvailabilityOracleAbi,
+        name: 'TxsPublished',
+      }),
+      fromBlock: 0n,
+    });
+
+    // We get the event just for the relevant transaction
+    const txEvents = events.filter(event => event.transactionHash === txHash);
+
+    // We check that exactly 1 TxsPublished event was emitted and txsHash is as expected
+    expect(txEvents.length).toBe(1);
+    expect(txEvents[0].args.txsHash).toEqual(`0x${body.getCalldataHash().toString('hex')}`);
+  });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();

@@ -173,11 +173,12 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'Optional deployment salt as a hex string for generating the deployment address.',
       parseFieldFromHexString,
     )
+    .addOption(createPrivateKeyOption("The sender's private key.", true))
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
-    .action(async (artifactPath, { json, rpcUrl, publicKey, args: rawArgs, portalAddress, salt, wait }) => {
+    .action(async (artifactPath, { json, rpcUrl, publicKey, args: rawArgs, portalAddress, salt, wait, privateKey }) => {
       const { deploy } = await import('./cmds/deploy.js');
       await deploy(
         artifactPath,
@@ -187,6 +188,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         rawArgs,
         portalAddress,
         salt,
+        privateKey,
         wait,
         debugLogger,
         log,
@@ -444,21 +446,6 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .action(async () => {
       const { exampleContracts } = await import('./cmds/example_contracts.js');
       await exampleContracts(log);
-    });
-
-  program
-    .command('unbox')
-    .description(
-      'Unboxes an example contract from @aztec/boxes.  Also Copies `noir-libs` dependencies and setup simple frontend for the contract using its ABI.',
-    )
-    .argument('<contractName>', 'Name of the contract to unbox, e.g. "PrivateToken"')
-    .argument(
-      '[localDirectory]',
-      'Local directory to unbox source folder to (relative or absolute), optional - defaults to `<contractName>/`',
-    )
-    .action(async (contractName, localDirectory) => {
-      const { unbox } = await import('./cmds/unbox.js');
-      unbox(contractName, localDirectory, cliVersion, log);
     });
 
   program

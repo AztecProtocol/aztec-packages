@@ -11,7 +11,7 @@ import {
 } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
 import { AztecAddress, Fr } from '@aztec/circuits.js';
-import { makeContractClassPublic } from '@aztec/circuits.js/factories';
+import { makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { ContractClassPublic, ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
@@ -369,8 +369,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await expect(store.getContractData(block.body.txEffects[0].contractData[0].contractAddress)).resolves.toEqual(
           block.body.txEffects[0].contractData[0],
         );
-
-        expect(block.body.txEffects[0].contractData[1]).toBe(undefined);
       });
 
       it('returns undefined if contract data is not found', async () => {
