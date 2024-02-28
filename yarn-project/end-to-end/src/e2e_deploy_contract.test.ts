@@ -194,11 +194,16 @@ describe('e2e_deploy_contract', () => {
         const owner = await registerRandomAccount(pxe);
         const initArgs: StatefulContractCtorArgs = [owner, 42];
         const contract = await registerContract(testWallet, StatefulTestContract, initArgs);
+        logger.info(`Calling the constructor for ${contract.address}`);
         await contract.methods
           .constructor(...initArgs)
           .send()
           .wait();
+        logger.info(`Checking if the constructor was run for ${contract.address}`);
         expect(await contract.methods.summed_values(owner).view()).toEqual(42n);
+        logger.info(`Calling a function that requires initialization on ${contract.address}`);
+        await contract.methods.create_note(owner, 10).send().wait();
+        expect(await contract.methods.summed_values(owner).view()).toEqual(52n);
       },
       30_000,
     );
