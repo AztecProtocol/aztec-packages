@@ -59,6 +59,18 @@
       }
     },
     {
+      "name": "clang16-dbg-fast",
+      "displayName": "Optimized debug build with Clang-16",
+      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "inherits": "clang16-dbg",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CFLAGS": "-O2 -gdwarf",
+        "CXXFLAGS": "-O2 -gdwarf-4",
+        "LDFLAGS": "-O2 -gdwarf-4"
+      }
+    },
+    {
       "name": "asan",
       "displayName": "Debugging build with address sanitizer on Clang-16",
       "description": "Build with address sanitizer on clang16 with debugging information",
@@ -77,6 +89,7 @@
       "displayName": "Build with GCC",
       "description": "Build with globally installed GCC",
       "inherits": "default",
+      "binaryDir": "build-gcc",
       "environment": {
         "CC": "gcc",
         "CXX": "g++"
@@ -116,6 +129,18 @@
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON"
+      }
+    },
+    {
+      "name": "fuzzing-asan",
+      "displayName": "Build with fuzzing",
+      "description": "Build default preset but with fuzzing enabled",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-fuzzing",
+      "cacheVariables": {
+        "FUZZING": "ON",
+        "ENABLE_ASAN": "ON",
+        "DISABLE_ASM": "ON"
       }
     },
     {
@@ -262,16 +287,6 @@
       }
     },
     {
-      "name": "wasm-bench",
-      "displayName": "WASM benchmarking.",
-      "description": "WASM benchmarking.",
-      "inherits": "wasm-threads",
-      "binaryDir": "build-wasm-bench",
-      "environment": {
-        "CXXFLAGS": "-DWASMTIME_ENV_HACK"
-      }
-    },
-    {
       "name": "xray",
       "displayName": "Build with multi-threaded XRay Profiling",
       "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
@@ -340,6 +355,11 @@
       "configurePreset": "clang16-dbg"
     },
     {
+      "name": "clang16-dbg-fast",
+      "inherits": "default",
+      "configurePreset": "clang16-dbg-fast"
+    },
+    {
       "name": "asan",
       "inherits": "default",
       "configurePreset": "asan"
@@ -368,6 +388,11 @@
       "name": "fuzzing",
       "inherits": "clang16",
       "configurePreset": "fuzzing"
+    },
+{
+      "name": "fuzzing-asan",
+      "inherits": "clang16-dbg",
+      "configurePreset": "fuzzing-asan"
     },
     {
       "name": "gperftools",
@@ -425,12 +450,6 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": ["barretenberg.wasm"]
-    },
-    {
-      "name": "wasm-bench",
-      "configurePreset": "wasm-bench",
-      "inheritConfigureEnvironment": true,
-      "jobs": 0
     },
     {
       "name": "xray",
@@ -498,6 +517,11 @@
       "name": "fuzzing",
       "inherits": "default",
       "configurePreset": "fuzzing"
+    },
+{
+      "name": "fuzzing-asan",
+      "inherits": "clang16-dbg",
+      "configurePreset": "fuzzing-asan"
     },
     {
       "name": "smt-verification",

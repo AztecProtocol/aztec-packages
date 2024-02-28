@@ -1,5 +1,5 @@
 use dep::aztec::context::{PrivateContext, PublicContext, Context};
-use dep::aztec::state_vars::{map::Map, public_state::PublicState};
+use dep::aztec::state_vars::{Map, PublicMutable};
 
 use crate::entrypoint::{app::AppPayload, fee::FeePayload};
 use crate::auth::IS_VALID_SELECTOR;
@@ -7,7 +7,7 @@ use crate::auth::IS_VALID_SELECTOR;
 struct AccountActions {
   context: Context,
   is_valid_impl: fn(&mut PrivateContext, Field) -> bool,
-  approved_action: Map<Field, PublicState<bool>>,
+  approved_action: Map<Field, PublicMutable<bool>>,
 }
 
 impl AccountActions {
@@ -23,7 +23,7 @@ impl AccountActions {
                 context,
                 approved_action_storage_slot,
                 |context, slot| {
-          PublicState::new(context, slot)
+          PublicMutable::new(context, slot)
         }
             )
         }
@@ -61,7 +61,7 @@ impl AccountActions {
         let fee_hash = fee_payload.hash();
         assert(valid_fn(private_context, fee_hash));
         fee_payload.execute_calls(private_context);
-        private_context.capture_max_non_revertible_side_effect_counter();
+        private_context.capture_min_revertible_side_effect_counter();
 
         let app_hash = app_payload.hash();
         assert(valid_fn(private_context, app_hash));

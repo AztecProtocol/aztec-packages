@@ -19,11 +19,11 @@ contract Test {
         note_viewer_options::NoteViewerOptions
     },
         oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, rand::rand},
-        state_vars::immutable_singleton::ImmutableSingleton, log::emit_unencrypted_log_from_private
+        state_vars::PrivateImmutable, log::emit_unencrypted_log_from_private
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::FieldNote;
-    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
+    use dep::value_note::value_note::ValueNote;
 
     #[event]
     struct ExampleEvent {
@@ -31,7 +31,7 @@ contract Test {
     }
 
     struct Storage {
-        example_constant: ImmutableSingleton<FieldNote>,
+        example_constant: PrivateImmutable<FieldNote>,
     }
 
     #[aztec(private)]
@@ -171,7 +171,7 @@ contract Test {
         a_struct: DummyNote,
         a_deep_struct: DeepStruct
     ) -> distinct pub PrivateCircuitPublicInputs {
-        let mut args: BoundedVec<Field, 17> = BoundedVec::new(0);
+        let mut args: BoundedVec<Field, 17> = BoundedVec::new();
         args.push(a_field);
         args.push(a_bool as Field);
         args.push(a_number as Field);
@@ -267,7 +267,7 @@ contract Test {
     ) {
         let content_hash = get_mint_public_content_hash(to, amount, canceller);
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(msg_key, content_hash, secret);
+        context.consume_l1_to_l2_message(msg_key, content_hash, secret, context.this_portal_address());
     }
 
     #[aztec(private)]
@@ -280,7 +280,34 @@ contract Test {
     ) {
         // Consume L1 to L2 message and emit nullifier
         let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller);
-        context.consume_l1_to_l2_message(msg_key, content_hash, secret_for_L1_to_L2_message_consumption);
+        context.consume_l1_to_l2_message(
+            msg_key,
+            content_hash,
+            secret_for_L1_to_L2_message_consumption,
+            context.this_portal_address()
+        );
+    }
+
+    #[aztec(public)]
+    fn consume_message_from_arbitrary_sender_public(
+        msg_key: Field,
+        content: Field,
+        secret: Field,
+        sender: EthAddress
+    ) {
+        // Consume message and emit nullifier
+        context.consume_l1_to_l2_message(msg_key, content, secret, sender);
+    }
+
+    #[aztec(private)]
+    fn consume_message_from_arbitrary_sender_private(
+        msg_key: Field,
+        content: Field,
+        secret: Field,
+        sender: EthAddress
+    ) {
+        // Consume message and emit nullifier
+        context.consume_l1_to_l2_message(msg_key, content, secret, sender);
     }
 
     #[aztec(private)]
@@ -352,25 +379,5 @@ contract Test {
         a_bool: bool,
         a_note: DummyNote,
         many_notes: [DummyNote; 3],
-    }
-
-    // Computes note hash and nullifier.
-    // Note 1: Needs to be defined by every contract producing logs.
-    // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; VALUE_NOTE_LEN] // must fit either a FieldNote or a ValueNote
-    ) -> pub [Field; 4] {
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-
-        if (note_type_id == FieldNote::get_note_type_id()) {
-            note_utils::compute_note_hash_and_nullifier(FieldNote::deserialize_content, note_header, serialized_note)
-        } else {
-            let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-            note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
-        }
     }
 }

@@ -3,12 +3,11 @@ import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { GeneratorIndex } from '../constants.gen.js';
+import { FUNCTION_DATA_LENGTH, GeneratorIndex } from '../constants.gen.js';
 import { ContractFunctionDao } from '../types/contract_function_dao.js';
 
 /**
  * Function description for circuit.
- * @see abis/function_data.hpp
  */
 export class FunctionData {
   constructor(
@@ -48,7 +47,18 @@ export class FunctionData {
   }
 
   toFields(): Fr[] {
-    return [this.selector.toField(), new Fr(this.isInternal), new Fr(this.isPrivate), new Fr(this.isConstructor)];
+    const fields = [
+      this.selector.toField(),
+      new Fr(this.isInternal),
+      new Fr(this.isPrivate),
+      new Fr(this.isConstructor),
+    ];
+    if (fields.length !== FUNCTION_DATA_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for FunctionData. Expected ${FUNCTION_DATA_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   /**
@@ -113,11 +123,9 @@ export class FunctionData {
   }
 
   hash(): Fr {
-    return Fr.fromBuffer(
-      pedersenHash(
-        this.toFields().map(field => field.toBuffer()),
-        GeneratorIndex.FUNCTION_DATA,
-      ),
+    return pedersenHash(
+      this.toFields().map(field => field.toBuffer()),
+      GeneratorIndex.FUNCTION_DATA,
     );
   }
 }

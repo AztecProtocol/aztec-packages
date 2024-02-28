@@ -11,7 +11,7 @@ set -eu
 REPOSITORY=$1
 ARCH_LIST=$2
 
-ecr_login
+retry ecr_login
 
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 MULTIARCH_IMAGE_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
@@ -24,7 +24,7 @@ IFS=','
 for A in $ARCH_LIST; do
   IMAGE_URI=$(calculate_image_uri $REPOSITORY $A)
   echo "Adding image $IMAGE_URI to manifest list $MULTIARCH_IMAGE_URI..."
-  docker manifest create $MULTIARCH_IMAGE_URI --amend $IMAGE_URI
+  retry docker manifest create $MULTIARCH_IMAGE_URI --amend $IMAGE_URI
 done
 
 retry docker manifest push --purge $MULTIARCH_IMAGE_URI

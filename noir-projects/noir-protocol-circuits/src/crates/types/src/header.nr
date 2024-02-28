@@ -3,15 +3,18 @@ use crate::{
     append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
     global_variables::{GlobalVariables, GLOBAL_VARIABLES_LENGTH}
 },
-    constants::{GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, NUM_FIELDS_PER_SHA256, STATE_REFERENCE_LENGTH},
+    constants::{
+    GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, NUM_FIELDS_PER_SHA256, STATE_REFERENCE_LENGTH,
+    CONTENT_COMMITMENT_LENGTH
+},
     hash::pedersen_hash, state_reference::StateReference, traits::{Deserialize, Empty, Hash, Serialize},
-    utils::{arr_copy_slice}
+    utils::{arr_copy_slice}, content_commitment::ContentCommitment
 };
 
 // docs:start:header
 struct Header {
     last_archive: AppendOnlyTreeSnapshot,
-    body_hash: [Field; NUM_FIELDS_PER_SHA256],
+    content_commitment: ContentCommitment,
     state: StateReference,
     global_variables: GlobalVariables,
 }
@@ -20,7 +23,7 @@ struct Header {
 impl Eq for Header {
     fn eq(self, other: Self) -> bool {
         self.last_archive.eq(other.last_archive) &
-        (self.body_hash == other.body_hash) &
+        self.content_commitment.eq(other.content_commitment) &
         self.state.eq(other.state) &
         self.global_variables.eq(other.global_variables)
     }
@@ -28,10 +31,10 @@ impl Eq for Header {
 
 impl Serialize<HEADER_LENGTH> for Header {
     fn serialize(self) -> [Field; HEADER_LENGTH] {
-        let mut fields: BoundedVec<Field, HEADER_LENGTH> = BoundedVec::new(0);
+        let mut fields: BoundedVec<Field, HEADER_LENGTH> = BoundedVec::new();
 
         fields.extend_from_array(self.last_archive.serialize());
-        fields.extend_from_array(self.body_hash);
+        fields.extend_from_array(self.content_commitment.serialize());
         fields.extend_from_array(self.state.serialize());
         fields.extend_from_array(self.global_variables.serialize());
 
@@ -46,8 +49,8 @@ impl Deserialize<HEADER_LENGTH> for Header {
         let last_archive_fields = arr_copy_slice(serialized, [0; APPEND_ONLY_TREE_SNAPSHOT_LENGTH], offset);
         offset = offset + APPEND_ONLY_TREE_SNAPSHOT_LENGTH;
 
-        let body_hash = arr_copy_slice(serialized, [0; NUM_FIELDS_PER_SHA256], offset);
-        offset = offset + NUM_FIELDS_PER_SHA256;
+        let content_commitment_fields = arr_copy_slice(serialized, [0; CONTENT_COMMITMENT_LENGTH], offset);
+        offset = offset + CONTENT_COMMITMENT_LENGTH;
 
         let state_fields = arr_copy_slice(serialized, [0; STATE_REFERENCE_LENGTH], offset);
         offset = offset + STATE_REFERENCE_LENGTH;
@@ -56,7 +59,7 @@ impl Deserialize<HEADER_LENGTH> for Header {
 
         Header {
             last_archive: AppendOnlyTreeSnapshot::deserialize(last_archive_fields),
-            body_hash,
+            content_commitment: ContentCommitment::deserialize(content_commitment_fields),
             state: StateReference::deserialize(state_fields),
             global_variables: GlobalVariables::deserialize(global_variables_fields),
         }
@@ -67,7 +70,7 @@ impl Empty for Header {
     fn empty() -> Self {
         Self {
             last_archive: AppendOnlyTreeSnapshot::zero(),
-            body_hash: [0; NUM_FIELDS_PER_SHA256],
+            content_commitment: ContentCommitment::empty(),
             state: StateReference::empty(),
             global_variables: GlobalVariables::empty(),
         }
@@ -92,4 +95,13 @@ fn serialization_of_empty() {
 fn hash_smoke() {
     let header: Header = dep::std::unsafe::zeroed();
     let _hashed = header.hash();
+}
+
+#[test]
+fn empty_hash_is_zero() {
+    let header: Header = dep::std::unsafe::zeroed();
+    let hash = header.hash();
+
+    // Value from new_contract_data.test.ts "computes empty hash" test
+    assert_eq(hash, 0x2df930cc7b9fc763e82ade72f7c4618834692b2a3d0936aff8d7bbfb27f59d6e);
 }

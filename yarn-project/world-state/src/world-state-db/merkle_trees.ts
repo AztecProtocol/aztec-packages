@@ -3,6 +3,7 @@ import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   CONTRACT_TREE_HEIGHT,
+  ContentCommitment,
   Fr,
   GlobalVariables,
   Header,
@@ -148,7 +149,7 @@ export class MerkleTrees implements MerkleTreeDb {
 
   public async buildInitialHeader(includeUncommitted: boolean): Promise<Header> {
     const state = await this.getStateReference(includeUncommitted);
-    return new Header(AppendOnlyTreeSnapshot.zero(), Buffer.alloc(32, 0), state, GlobalVariables.empty());
+    return new Header(AppendOnlyTreeSnapshot.zero(), ContentCommitment.empty(), state, GlobalVariables.empty());
   }
 
   /**
@@ -351,7 +352,7 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
    * @returns Whether the block handled was produced by this same node.
    */
@@ -482,7 +483,7 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param l2Block - The L2 block to handle.
    */
   async #handleL2Block(l2Block: L2Block): Promise<HandleL2BlockResult> {
@@ -508,9 +509,9 @@ export class MerkleTrees implements MerkleTreeDb {
 
       // Sync the append only trees
       for (const [tree, leaves] of [
-        [MerkleTreeId.CONTRACT_TREE, l2Block.newContracts],
-        [MerkleTreeId.NOTE_HASH_TREE, l2Block.newCommitments],
-        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l2Block.newL1ToL2Messages],
+        [MerkleTreeId.CONTRACT_TREE, l2Block.body.txEffects.flatMap(txEffect => txEffect.contractLeaves)],
+        [MerkleTreeId.NOTE_HASH_TREE, l2Block.body.txEffects.flatMap(txEffect => txEffect.newNoteHashes)],
+        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l2Block.body.l1ToL2Messages],
       ] as const) {
         await this.#appendLeaves(
           tree,
@@ -520,16 +521,18 @@ export class MerkleTrees implements MerkleTreeDb {
 
       // Sync the indexed trees
       await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
-        l2Block.newNullifiers.map(fr => fr.toBuffer()),
+        l2Block.body.txEffects.flatMap(txEffect => txEffect.newNullifiers.map(nullifier => nullifier.toBuffer())),
         NULLIFIER_SUBTREE_HEIGHT,
       );
 
       const publicDataTree = this.trees[MerkleTreeId.PUBLIC_DATA_TREE] as StandardIndexedTree;
 
+      const publicDataWrites = l2Block.body.txEffects.flatMap(txEffect => txEffect.newPublicDataWrites);
+
       // We insert the public data tree leaves with one batch per tx to avoid updating the same key twice
-      for (let i = 0; i < l2Block.newPublicDataWrites.length / MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
+      for (let i = 0; i < publicDataWrites.length / MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
         await publicDataTree.batchInsert(
-          l2Block.newPublicDataWrites
+          publicDataWrites
             .slice(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * i, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * (i + 1))
             .map(write => new PublicDataTreeLeaf(write.leafIndex, write.newValue).toBuffer()),
           PUBLIC_DATA_SUBTREE_HEIGHT,

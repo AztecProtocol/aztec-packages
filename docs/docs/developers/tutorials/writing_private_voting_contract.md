@@ -73,7 +73,7 @@ We are using various utils within the Aztec library:
 - `context` - exposes things such as the contract address, msg_sender, etc
 - `context.request_nullifier_secret_key` - get your secret key to help us create a randomized nullifier
 - `FunctionSelector::from_signature` - compute a function selector from signature so we can call functions from other functions
-- `state_vars::{ map::Map, public_state::PublicState, }` - we will use a Map to store the votes (key = voteId, value = number of votes), and PublicState to hold our public values that we mentioned earlier
+- `state_vars::{Map, PublicMutable}` - we will use a Map to store the votes (key = voteId, value = number of votes), and PublicMutable to hold our public values that we mentioned earlier
 - `types::type_serialization::{..}` - various serialization methods for defining how to use these types
 - `types::address::{AztecAddress},` - our admin will be held as an address
 - `constants::EMPTY_NULLIFIED_COMMITMENT,` - this will come in useful when creating our nullifier
@@ -162,16 +162,6 @@ Paste this function in your contract:
 #include_code end_vote noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
 
 Here, we are asserting that the `msg_sender()` is equal to the admin stored in public state. We have to create an `AztecAddress` type from the `msg_sender()` in order to do a direct comparison.
-
-## compute_note_hash_and_nullifier
-
-Every Aztec contract that has storage must have a `compute_note_hash_and_nullifier()` function. If you try to compile without this function, you will get an error. This is explained in more detail [here](../contracts/resources/common_patterns/main.md#working-with-compute_note_hash_and_nullifier).
-
-At the end of the contract, paste this:
-
-#include_code compute_note_hash_and_nullifier noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
-
-We can simply return `[0,0,0,0]` because we are not creating any notes in our contract.
 
 ## Compiling and deploying
 

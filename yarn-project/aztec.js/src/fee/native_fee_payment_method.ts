@@ -1,8 +1,8 @@
 import { FunctionCall } from '@aztec/circuit-types';
 import { FunctionData } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
 import { FeePaymentMethod } from './fee_payment_method.js';
 
@@ -10,8 +10,7 @@ import { FeePaymentMethod } from './fee_payment_method.js';
  * Pay fee directly in the native gas token.
  */
 export class NativeFeePaymentMethod implements FeePaymentMethod {
-  // TODO(fees) replace this with the address of the gas token when that's deployed.
-  static #GAS_TOKEN = AztecAddress.ZERO;
+  static #GAS_TOKEN = GasTokenAddress;
 
   constructor() {}
 
@@ -44,8 +43,8 @@ export class NativeFeePaymentMethod implements FeePaymentMethod {
    * @param feeLimit - The maximum fee to be paid in gas token.
    * @returns A function call
    */
-  getFunctionCalls(feeLimit: Fr): FunctionCall[] {
-    return [
+  getFunctionCalls(feeLimit: Fr): Promise<FunctionCall[]> {
+    return Promise.resolve([
       {
         to: NativeFeePaymentMethod.#GAS_TOKEN,
         functionData: new FunctionData(FunctionSelector.fromSignature('check_balance(Field)'), false, false, false),
@@ -56,6 +55,6 @@ export class NativeFeePaymentMethod implements FeePaymentMethod {
         functionData: new FunctionData(FunctionSelector.fromSignature('pay_fee(Field)'), false, false, false),
         args: [feeLimit],
       },
-    ];
+    ]);
   }
 }

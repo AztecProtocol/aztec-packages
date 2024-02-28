@@ -6,17 +6,20 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
-import { AvmWorldStateJournal } from '../journal/journal.js';
+import { AvmPersistableStateManager } from '../journal/journal.js';
 import { SLoad, SStore, StaticCallStorageAlterError } from './storage.js';
 
 describe('Storage Instructions', () => {
   let context: AvmContext;
-  let journal: MockProxy<AvmWorldStateJournal>;
+  let journal: MockProxy<AvmPersistableStateManager>;
   const address = AztecAddress.random();
 
   beforeEach(async () => {
-    journal = mock<AvmWorldStateJournal>();
-    context = initContext({ worldState: journal, env: initExecutionEnvironment({ address, storageAddress: address }) });
+    journal = mock<AvmPersistableStateManager>();
+    context = initContext({
+      persistableState: journal,
+      env: initExecutionEnvironment({ address, storageAddress: address }),
+    });
   });
 
   describe('SSTORE', () => {
@@ -47,7 +50,7 @@ describe('Storage Instructions', () => {
 
     it('Should not be able to write to storage in a static call', async () => {
       context = initContext({
-        worldState: journal,
+        persistableState: journal,
         env: initExecutionEnvironment({ address, storageAddress: address, isStaticCall: true }),
       });
 

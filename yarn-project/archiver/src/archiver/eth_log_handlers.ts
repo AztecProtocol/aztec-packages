@@ -21,7 +21,7 @@ import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hex
  * @returns Array of all Pending L1 to L2 messages that were processed
  */
 export function processPendingL1ToL2MessageAddedLogs(
-  logs: Log<bigint, number, undefined, true, typeof InboxAbi, 'MessageAdded'>[],
+  logs: Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageAdded'>[],
 ): [L1ToL2Message, bigint][] {
   const l1ToL2Messages: [L1ToL2Message, bigint][] = [];
   for (const log of logs) {
@@ -49,7 +49,7 @@ export function processPendingL1ToL2MessageAddedLogs(
  * @returns Array of message keys of the L1 to L2 messages that were cancelled
  */
 export function processCancelledL1ToL2MessagesLogs(
-  logs: Log<bigint, number, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[],
+  logs: Log<bigint, number, false, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[],
 ): [Fr, bigint][] {
   const cancelledL1ToL2Messages: [Fr, bigint][] = [];
   for (const log of logs) {
@@ -67,7 +67,7 @@ export function processCancelledL1ToL2MessagesLogs(
 export async function processBlockLogs(
   publicClient: PublicClient,
   expectedL2BlockNumber: bigint,
-  logs: Log<bigint, number, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[],
+  logs: Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[],
 ): Promise<L2Block[]> {
   const retrievedBlocks: L2Block[] = [];
   for (const log of logs) {
@@ -99,22 +99,21 @@ async function getBlockFromCallData(
   l2BlockNum: bigint,
 ): Promise<L2Block> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
-  // TODO: File a bug in viem who complains if we dont remove the ctor from the abi here
   const { functionName, args } = decodeFunctionData({
-    abi: RollupAbi.filter(item => item.type.toString() !== 'constructor'),
+    abi: RollupAbi,
     data,
   });
   if (functionName !== 'process') {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [headerHex, archiveRootHex, , bodyHex] = args! as [Hex, Hex, Hex, Hex, Hex];
+  const [headerHex, archiveRootHex, bodyHex] = args! as [Hex, Hex, Hex, Hex];
   const blockBuffer = Buffer.concat([
     Buffer.from(hexToBytes(headerHex)),
     Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
     numToUInt32BE(Number(l2BlockNum)), // L2Block.archive.nextAvailableLeafIndex
     Buffer.from(hexToBytes(bodyHex)),
   ]);
-  const block = L2Block.fromBufferWithLogs(blockBuffer);
+  const block = L2Block.fromBuffer(blockBuffer);
   if (BigInt(block.number) !== l2BlockNum) {
     throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${block.number}`);
   }
@@ -129,21 +128,18 @@ async function getBlockFromCallData(
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `L2BlockProcessed` logs.
  */
-export async function getL2BlockProcessedLogs(
+export function getL2BlockProcessedLogs(
   publicClient: PublicClient,
   rollupAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-) {
-  // Note: For some reason the return type of `getLogs` would not get correctly derived if I didn't set the abiItem
-  //       as a standalone constant.
-  const abiItem = getAbiItem({
-    abi: RollupAbi,
-    name: 'L2BlockProcessed',
-  });
-  return await publicClient.getLogs<typeof abiItem, true>({
+): Promise<Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[]> {
+  return publicClient.getLogs({
     address: getAddress(rollupAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: RollupAbi,
+      name: 'L2BlockProcessed',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
@@ -157,19 +153,18 @@ export async function getL2BlockProcessedLogs(
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `ContractDeployment` logs.
  */
-export async function getContractDeploymentLogs(
+export function getContractDeploymentLogs(
   publicClient: PublicClient,
   contractDeploymentEmitterAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-): Promise<Log<bigint, number, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[]> {
-  const abiItem = getAbiItem({
-    abi: ContractDeploymentEmitterAbi,
-    name: 'ContractDeployment',
-  });
-  return await publicClient.getLogs({
+): Promise<Log<bigint, number, false, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[]> {
+  return publicClient.getLogs({
     address: getAddress(contractDeploymentEmitterAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: ContractDeploymentEmitterAbi,
+      name: 'ContractDeployment',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
@@ -177,20 +172,20 @@ export async function getContractDeploymentLogs(
 
 /**
  * Processes newly received ContractDeployment logs.
- * @param blockHashMapping - A mapping from block number to relevant block hash.
+ * @param blockNumberToBodyHash - A mapping from block number to relevant body hash.
  * @param logs - ContractDeployment logs.
  * @returns The set of retrieved extended contract data items.
  */
 export function processContractDeploymentLogs(
-  blockHashMapping: { [key: number]: Buffer | undefined },
-  logs: Log<bigint, number, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[],
+  blockNumberToBodyHash: { [key: number]: Buffer | undefined },
+  logs: Log<bigint, number, false, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[],
 ): [ExtendedContractData[], number][] {
   const extendedContractData: [ExtendedContractData[], number][] = [];
   for (let i = 0; i < logs.length; i++) {
     const log = logs[i];
     const l2BlockNum = Number(log.args.l2BlockNum);
     const blockHash = Buffer.from(hexToBytes(log.args.l2BlockHash));
-    const expectedBlockHash = blockHashMapping[l2BlockNum];
+    const expectedBlockHash = blockNumberToBodyHash[l2BlockNum];
     if (expectedBlockHash === undefined || !blockHash.equals(expectedBlockHash)) {
       continue;
     }
@@ -223,19 +218,18 @@ export function processContractDeploymentLogs(
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `MessageAdded` logs.
  */
-export async function getPendingL1ToL2MessageLogs(
+export function getPendingL1ToL2MessageLogs(
   publicClient: PublicClient,
   inboxAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-): Promise<Log<bigint, number, undefined, true, typeof InboxAbi, 'MessageAdded'>[]> {
-  const abiItem = getAbiItem({
-    abi: InboxAbi,
-    name: 'MessageAdded',
-  });
-  return await publicClient.getLogs({
+): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageAdded'>[]> {
+  return publicClient.getLogs({
     address: getAddress(inboxAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: InboxAbi,
+      name: 'MessageAdded',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
@@ -249,19 +243,18 @@ export async function getPendingL1ToL2MessageLogs(
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `L1ToL2MessageCancelled` logs.
  */
-export async function getL1ToL2MessageCancelledLogs(
+export function getL1ToL2MessageCancelledLogs(
   publicClient: PublicClient,
   inboxAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-): Promise<Log<bigint, number, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[]> {
-  const abiItem = getAbiItem({
-    abi: InboxAbi,
-    name: 'L1ToL2MessageCancelled',
-  });
-  return await publicClient.getLogs({
+): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[]> {
+  return publicClient.getLogs({
     address: getAddress(inboxAddress.toString()),
-    event: abiItem,
+    event: getAbiItem({
+      abi: InboxAbi,
+      name: 'L1ToL2MessageCancelled',
+    }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });

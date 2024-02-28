@@ -21,6 +21,7 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { ContractInstance } from '@aztec/types/contracts';
 
 /**
  * A pair of public key and secret key.
@@ -90,6 +91,10 @@ export abstract class TypedOracle {
   }
 
   getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
+    throw new Error('Not available.');
+  }
+
+  getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
     throw new Error('Not available.');
   }
 
@@ -195,6 +200,7 @@ export abstract class TypedOracle {
     _argsHash: Fr,
     _sideffectCounter: number,
     _isStaticCall: boolean,
+    _isDelegateCall: boolean,
   ): Promise<PrivateCallStackItem> {
     throw new Error('Not available.');
   }
@@ -204,6 +210,7 @@ export abstract class TypedOracle {
     _functionSelector: FunctionSelector,
     _argsHash: Fr,
     _isStaticCall: boolean,
+    _isDelegateCall: boolean,
   ): Promise<Fr[]> {
     throw new Error('Not available.');
   }
@@ -214,6 +221,7 @@ export abstract class TypedOracle {
     _argsHash: Fr,
     _sideffectCounter: number,
     _isStaticCall: boolean,
+    _isDelegateCall: boolean,
   ): Promise<PublicCallRequest> {
     throw new Error('Not available.');
   }

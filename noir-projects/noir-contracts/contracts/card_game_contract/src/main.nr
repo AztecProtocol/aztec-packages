@@ -3,7 +3,7 @@ mod game;
 
 contract CardGame {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, constants::MAX_NOTES_PER_PAGE};
-    use dep::aztec::{context::Context, hash::pedersen_hash, state_vars::{map::Map, public_state::PublicState}};
+    use dep::aztec::{context::Context, hash::pedersen_hash, state_vars::{Map, PublicMutable}};
 
     use dep::std::option::Option;
     use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
@@ -16,7 +16,7 @@ contract CardGame {
     struct Storage {
         collections: Map<AztecAddress, Deck>,
         game_decks: Map<Field, Map<AztecAddress, Deck>>,
-        games: Map<Field, PublicState<Game>>,
+        games: Map<Field, PublicMutable<Game>>,
     }
 
     #[aztec(private)]
@@ -147,19 +147,5 @@ contract CardGame {
 
     unconstrained fn view_game(game: u32) -> pub Game {
         storage.games.at(game as Field).read()
-    }
-
-    // Computes note hash and nullifier.
-    // Note 1: Needs to be defined by every contract producing logs.
-    // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
-    unconstrained fn compute_note_hash_and_nullifier(
-        contract_address: AztecAddress,
-        nonce: Field,
-        storage_slot: Field,
-        note_type_id: Field,
-        serialized_note: [Field; VALUE_NOTE_LEN]
-    ) -> pub [Field; 4] {
-        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
     }
 }
