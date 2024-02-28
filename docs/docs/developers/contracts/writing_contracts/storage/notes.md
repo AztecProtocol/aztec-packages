@@ -9,14 +9,10 @@ Some optional background resources on notes can be seen here:
 - [Transaction lifecycle (simple diagram)](../../../../learn/concepts/transactions#simple-example-of-the-private-transaction-lifecycle)
 - [Public and Private state](../../../../learn/concepts/hybrid_state/main)
 
-Outside of this there are many more details to discover that will be skipped over for now:
-- Private and public contexts
-- Encryption keys and events
-- Oracle's role in using notes
-- Value Serialization/Deserialization
+Notes touches a lot of other core components of the protocol, but we will focus on a the essentials first.
 
 #### Some code context
-The way Aztec (`aztec-packages` monorepo) benefits from the Noir language is via three important components:
+The way Aztec benefits from the Noir language is via three important components:
 - `Aztec-nr` - a Noir framework enabling contracts on Aztec, written in Noir. Includes useful Note implementations
 - `noir contracts` - , example Aztec contracts
 - `noir-protocol-circuits` - a crate containing essential circuits for the protocol (public circuits and private wrappers)
@@ -66,11 +62,18 @@ The `add` function shows the simplicity of appending a new note to all existing 
 -----
 
 ### Apply
-To see this in action, try one of the [Tutorials](../../../tutorials/main)
+
+To see this in action, try the [Token tutorial](../../../tutorials/writing_token_contract). In this section you will also find other tutorials using notes in different ways.
 
 ### Further reading
 
 - [Proof of prior notes](../../writing_contracts/historical_data/archive_tree/how_to_prove_history) - public/private reading of public/private proof of state (public or private)
+
+If you're curious about any of the following related topics, search the documentation for...
+- Private and public contexts
+- Encryption keys and events
+- Oracle's role in using notes
+- Value Serialization/Deserialization
 
 ### References
 - [Notes explainer](../../../../learn/concepts/storage/notes)
