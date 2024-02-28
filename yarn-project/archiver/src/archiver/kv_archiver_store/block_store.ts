@@ -47,14 +47,6 @@ export class BlockStore {
   addBlocks(blocks: L2Block[]): Promise<boolean> {
     return this.db.transaction(() => {
       for (const block of blocks) {
-        // block.body.l1ToL2Messages = padArrayEnd(
-        //   block.body.l1ToL2Messages,
-        //   Fr.ZERO,
-        //   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        // );
-
-        // this.#blockBodyStore.addBlockBodies([block.body]);
-
         void this.#blocks.set(block.number, {
           blockNumber: block.number,
           header: block.header.toBuffer(),

@@ -120,7 +120,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful (always in this implementation).
    */
   public addBlocks(blocks: L2Block[]): Promise<boolean> {
-    this.l2BlockContexts.push(...blocks.map(block => new L2BlockContext(block)));
+    this.l2BlockContexts.push(...blocks.map(block => {
+      block.body.l1ToL2Messages = padArrayEnd(block.body.l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+
+      return new L2BlockContext(block)
+    }));
     this.l2Txs.push(...blocks.flatMap(b => b.getTxs()));
     return Promise.resolve(true);
   }
@@ -149,7 +153,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     const blockBodies = txsHashes.map(txsHash => this.l2BlockBodies.get(txsHash.toString('hex')));
 
     if (blockBodies.some(bodyBuffer => bodyBuffer === undefined)) {
-      throw new Error('Weird');
+      throw new Error('Block body is undefined');
     }
 
     return Promise.resolve(blockBodies as Body[]);
@@ -218,6 +222,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   public confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
     messageKeys.forEach(messageKey => {
+      if (messageKey.equals(Fr.ZERO)){
+        return;
+      }
+
       this.confirmedL1ToL2Messages.addMessage(messageKey, this.pendingL1ToL2Messages.getMessage(messageKey)!);
       this.pendingL1ToL2Messages.removeMessage(messageKey);
     });
