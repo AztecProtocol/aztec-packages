@@ -261,8 +261,8 @@ impl BaseRollupInputs {
         // 2 l2 -> l1 messages -> 2 fields
         // 32 public data update requests -> 64 fields
         // 1 contract deployments -> 3 fields
-        // 1 encrypted logs hashes -> 2 fields --> 2 sha256 hashes --> 64 bytes
-        // 1 unencrypted logs hashes -> 2 fields --> 2 sha256 hashes --> 64 bytes
+        // 1 encrypted logs hash --> 1 sha256 hash -> 2 fields --> 64 bytes
+        // 1 unencrypted logs hash --> 1 sha256 hash -> 2 fields --> 64 bytes
         let mut calldata_hash_inputs = [0; CALLDATA_HASH_INPUT_SIZE];
 
         let new_note_hashes = combined.new_note_hashes;
