@@ -63,42 +63,96 @@ library MessagesDecoder {
 
     uint256 offset = 0;
 
-    // Note hashes
-    uint256 count = read4(_body, offset);
-    offset += 0x4 + count * 0x20;
-
-    // Nullifiers
-    count = read4(_body, offset);
-    offset += 0x4 + count * 0x20;
-
-    // Public data writes
-    count = read4(_body, offset);
-    offset += 0x4 + count * 0x40;
-
-    // L2 to L1 messages
-    count = read4(_body, offset);
-    l2ToL1Msgs = new bytes32[](count);
-    assembly {
-      calldatacopy(add(l2ToL1Msgs, 0x20), add(_body.offset, add(offset, 0x4)), mul(count, 0x20))
-    }
-    offset += 0x4 + count * 0x20;
-
-    // Contracts
-    count = read4(_body, offset);
-    offset += 0x4 + count * 0x54;
-
     // L1 to L2 messages
-    count = read4(_body, offset);
+    uint256 count = read4(_body, offset);
     // `l1ToL2Msgs` is fixed size so if `lengths.l1Tol2MsgsCount` < `Constants.NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` the array
     // will contain some zero values.
     assembly {
       calldatacopy(add(l1ToL2Msgs, 0x20), add(_body.offset, add(offset, 0x04)), mul(count, 0x20))
     }
 
+    uint256 numTxs = read4(_body, offset);
+    offset += 0x4;
+
+    // Now we iterate over the tx effects
+    for (uint256 i = 0; i < numTxs; i++) {
+      // Note hashes
+      count = read1(_body, offset);
+      offset += 0x1;
+      offset += count * 0x20; // each note hash is 0x20 bytes long
+
+      // Nullifiers
+      count = read1(_body, offset);
+      offset += 0x1;
+      offset += count * 0x20; // each nullifier is 0x20 bytes long
+
+      // L2 to L1 messages
+      {
+        count = read1(_body, offset);
+        offset += 0x1;
+
+        // First we copy the total messages to temporary variable
+        bytes32[] memory currentMsgs = l2ToL1Msgs;
+        uint256 numCurrentMessages = currentMsgs.length;
+
+        // Next we allocate a new array which accomodates both the current and new messages
+        l2ToL1Msgs = new bytes32[](numCurrentMessages + count);
+
+        // Now we copy current messages to the newly allocated array
+        for (uint256 j = 0; j < numCurrentMessages; j++) {
+          l2ToL1Msgs[j] = currentMsgs[j];
+        }
+
+        // Then we copy the new messages to next
+        uint256 msgsLength = count * 0x20; // each l2 to l1 message is 0x20 bytes long
+        assembly {
+          calldatacopy(
+            add(add(l2ToL1Msgs, 0x20), mul(numCurrentMessages, 0x20)),
+            add(_body.offset, offset),
+            msgsLength
+          )
+        }
+
+        // Finally we increase the offset by the length of the new messages
+        offset += msgsLength;
+      }
+
+      // Public data writes
+      count = read1(_body, offset);
+      offset += 0x1;
+      offset += count * 0x40; // each public data write is 0x40 bytes long
+
+      // Contracts
+      count = read1(_body, offset);
+      offset += 0x1;
+      offset += count * 0x20; // each contract leaf is 0x20 bytes long
+
+      // Contract data
+      offset += count * 0x34; // each contract data is 0x34 bytes long
+
+      // Encrypted logs
+      uint256 length = read4(_body, offset);
+      offset += 0x4 + length;
+
+      // Unencrypted logs
+      length = read4(_body, offset);
+      offset += 0x4 + length;
+    }
+
     inHash = sha256(abi.encodePacked(l1ToL2Msgs));
     outHash = sha256(abi.encodePacked(l2ToL1Msgs));
 
     return (inHash, outHash, l1ToL2Msgs, l2ToL1Msgs);
+  }
+
+  /**
+   * @notice Reads 1 bytes from the data
+   * @param _data - The data to read from
+   * @param _offset - The offset to read from
+   * @return The 1 byte as a uint256
+   */
+  function read1(bytes calldata _data, uint256 _offset) internal pure returns (uint256) {
+    return uint256(uint8(bytes1(_data[_offset:_offset + 1])));
   }
 
   /**

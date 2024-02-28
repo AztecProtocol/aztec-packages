@@ -39,6 +39,7 @@ import {Hash} from "../Hash.sol";
  *  | 0x1c + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54 + f * 0x20 + g     | 0x04         | byteLen(newUnencryptedLogs) (denoted h)
  *  | 0x20 + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54 + f * 0x20 + g     | h            | newUnencryptedLogs
  *  | ---                                                                            | ---          | ---
+ * TODO(benesjan): update ^
  */
 library TxsDecoder {
   struct ArrayOffsets {
