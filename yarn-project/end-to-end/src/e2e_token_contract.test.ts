@@ -680,7 +680,7 @@ describe('e2e_token_contract', () => {
           expect(await asset.methods.balance_of_private(accounts[0].address).view()).toEqual(balance0);
         });
 
-        it('transfer on behalf of other, cancelled approval', async () => {
+        it('transfer on behalf of other, cancelled authwit', async () => {
           const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
           const amount = balance0 / 2n;
           const nonce = Fr.random();

@@ -73,6 +73,9 @@ impl AccountActions {
     // docs:start:spend_private_authwit
     pub fn spend_private_authwit(self, inner_hash: Field) -> Field {
         let context = self.context.private.unwrap();
+        // The `inner_hash` is "siloed" with the `msg_sender` to ensure that only it can 
+        // consume the message.
+        // This ensures that contracts cannot consume messages that are not intended for them.
         let message_hash = compute_outer_authwit_hash(context.msg_sender(), inner_hash);
         let valid_fn = self.is_valid_impl;
         assert(valid_fn(context, message_hash) == true, "Message not authorized by account");
@@ -84,6 +87,9 @@ impl AccountActions {
     // docs:start:spend_public_authwit
     pub fn spend_public_authwit(self, inner_hash: Field) -> Field {
         let context = self.context.public.unwrap();
+        // The `inner_hash` is "siloed" with the `msg_sender` to ensure that only it can 
+        // consume the message.
+        // This ensures that contracts cannot consume messages that are not intended for them.
         let message_hash = compute_outer_authwit_hash(context.msg_sender(), inner_hash);
         let is_valid = self.approved_action.at(message_hash).read();
         assert(is_valid == true, "Message not authorized by account");

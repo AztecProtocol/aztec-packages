@@ -19,7 +19,7 @@ describe('e2e_authwit_tests', () => {
   }, 100_000);
 
   describe('Private', () => {
-    describe('non call data', () => {
+    describe('arbitrary data', () => {
       it('happy path', async () => {
         const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead')]);
         const outerHash = computeOuterAuthWitHash(wallets[1].getAddress(), innerHash);
@@ -50,7 +50,7 @@ describe('e2e_authwit_tests', () => {
   });
 
   describe('Public', () => {
-    describe('non call data', () => {
+    describe('arbitrary data', () => {
       it('happy path', async () => {
         const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0x01')]);
         const outerHash = computeOuterAuthWitHash(wallets[1].getAddress(), innerHash);
