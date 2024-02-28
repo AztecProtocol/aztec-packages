@@ -11,6 +11,7 @@ contract ImportTest {
     };
 
     #[aztec(private)]
+    #[aztec(initializer)]
     fn constructor(
     ) {}
 

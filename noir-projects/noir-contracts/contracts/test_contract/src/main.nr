@@ -36,6 +36,7 @@ contract Test {
     }
 
     #[aztec(private)]
+    #[aztec(initializer)]
     // docs:start:empty-constructor
     fn constructor() {}
     // docs:end:empty-constructor
@@ -227,6 +228,7 @@ contract Test {
 
     // Forcefully emits a nullifier (for testing purposes)
     #[aztec(private)]
+    #[aztec(noinitcheck)]
     fn emit_nullifier(nullifier: Field) {
         context.push_new_nullifier(nullifier, 0);
     }
