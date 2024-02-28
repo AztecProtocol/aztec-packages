@@ -10,7 +10,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, serializeArrayOfBufferableToVector } from '@aztec/foundation/serialize';
 
 export class TxEffect {
   constructor(
@@ -46,20 +46,6 @@ export class TxEffect {
   ) {}
 
   toBuffer(): Buffer {
-    // TODO(benesjan): move to foundation package?
-    const serializeAndPrefixWithUint8 = (
-      arr: {
-        /**
-         * Serialize to a buffer.
-         */
-        toBuffer: () => Buffer;
-      }[],
-    ) => {
-      const length = Buffer.alloc(1);
-      length.writeUInt8(arr.length);
-      return Buffer.concat([length, ...arr.map(x => x.toBuffer())]);
-    };
-
     const nonZeroNoteHashes = this.newNoteHashes.filter(h => !h.isZero());
     const nonZeroNullifiers = this.newNullifiers.filter(h => !h.isZero());
     const nonZeroL2ToL1Msgs = this.newL2ToL1Msgs.filter(h => !h.isZero());
@@ -68,11 +54,11 @@ export class TxEffect {
     const nonZeroContractData = this.contractData.filter(h => !h.isEmpty());
 
     return Buffer.concat([
-      serializeAndPrefixWithUint8(nonZeroNoteHashes),
-      serializeAndPrefixWithUint8(nonZeroNullifiers),
-      serializeAndPrefixWithUint8(nonZeroL2ToL1Msgs),
-      serializeAndPrefixWithUint8(nonZeroPublicDataWrites),
-      serializeAndPrefixWithUint8(nonZeroContractLeaves),
+      serializeArrayOfBufferableToVector(nonZeroNoteHashes, 1),
+      serializeArrayOfBufferableToVector(nonZeroNullifiers, 1),
+      serializeArrayOfBufferableToVector(nonZeroL2ToL1Msgs, 1),
+      serializeArrayOfBufferableToVector(nonZeroPublicDataWrites, 1),
+      serializeArrayOfBufferableToVector(nonZeroContractLeaves, 1),
       // We don't prefix the contract data with the length because we already have that info before contract leaves
       ...nonZeroContractData.map(x => x.toBuffer()),
       this.encryptedLogs.toBuffer(),

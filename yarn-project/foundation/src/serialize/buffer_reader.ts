@@ -162,7 +162,6 @@ export class BufferReader {
    * @param itemDeserializer - Object with 'fromBuffer' method to deserialize vector elements.
    * @returns An array of deserialized elements of type T.
    */
-  // TODO(benesjan): This name is quite inconsistent with readVector. Rename readVector?
   public readVectorUint8Prefix<T>(itemDeserializer: {
     /**
      * A method to deserialize data from a buffer.
