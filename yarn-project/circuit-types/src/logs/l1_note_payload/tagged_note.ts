@@ -21,7 +21,9 @@ export class TaggedNote {
    */
   static fromBuffer(buffer: Buffer | BufferReader): TaggedNote {
     const reader = BufferReader.asReader(buffer);
-    return new TaggedNote(L1NotePayload.fromBuffer(reader), Fr.fromBuffer(reader));
+    const tag = Fr.fromBuffer(reader);
+    const payload = L1NotePayload.fromBuffer(reader);
+    return new TaggedNote(payload, tag);
   }
 
   /**
@@ -29,7 +31,7 @@ export class TaggedNote {
    * @returns Buffer representation of the TaggedNote object (unencrypted).
    */
   public toBuffer(): Buffer {
-    return serializeToBuffer([this.tag, this.notePayload]);
+    return serializeToBuffer(this.tag, this.notePayload);
   }
 
   /**
@@ -40,7 +42,7 @@ export class TaggedNote {
    */
   public toEncryptedBuffer(ownerPubKey: PublicKey, curve: Grumpkin): Buffer {
     const encryptedL1NotePayload = this.notePayload.toEncryptedBuffer(ownerPubKey, curve);
-    return serializeToBuffer([this.tag, encryptedL1NotePayload]);
+    return serializeToBuffer(this.tag, encryptedL1NotePayload);
   }
 
   /**
@@ -53,12 +55,14 @@ export class TaggedNote {
   static fromEncryptedBuffer(data: Buffer, ownerPrivKey: GrumpkinPrivateKey, curve: Grumpkin): TaggedNote | undefined {
     const reader = BufferReader.asReader(data);
     const tag = Fr.fromBuffer(reader);
-    const encryptedL1NotePayload = reader.readBuffer();
-    const decryptedL1NotePayload = L1NotePayload.fromEncryptedBuffer(encryptedL1NotePayload, ownerPrivKey, curve);
-    if (!decryptedL1NotePayload) {
+
+    const encryptedL1NotePayload = reader.readToEnd();
+
+    const payload = L1NotePayload.fromEncryptedBuffer(encryptedL1NotePayload, ownerPrivKey, curve);
+    if (!payload) {
       return;
     }
-    return new TaggedNote(decryptedL1NotePayload, tag);
+    return new TaggedNote(payload, tag);
   }
 
   static random(): TaggedNote {

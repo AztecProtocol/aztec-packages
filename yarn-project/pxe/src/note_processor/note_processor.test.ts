@@ -69,6 +69,7 @@ describe('Note Processor', () => {
         if (isOwner) {
           ownedL1NotePayloads.push(note.notePayload);
         }
+        // const encryptedNote =
         const log = note.toEncryptedBuffer(publicKey, grumpkin);
         // 1 tx containing 1 function invocation containing 1 log
         logs.push(new FunctionL2Logs([log]));
@@ -81,7 +82,7 @@ describe('Note Processor', () => {
   };
 
   const mockData = (
-    ownedData: number[][],
+    ownedData: number[][], // = [[2]]
     prependedBlocks = 0,
     appendedBlocks = 0,
     ownedNotes: TaggedNote[] = [], // L1NotePayload[] = [],

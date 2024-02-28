@@ -131,13 +131,11 @@ export class NoteProcessor {
         const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
         const excludedIndices: Set<number> = new Set();
         for (const functionLogs of txFunctionLogs) {
-          for (const logs of functionLogs.logs) {
+          for (const log of functionLogs.logs) {
             this.stats.seen++;
-            // const payload = L1NotePayload.fromEncryptedBuffer(logs, privateKey, curve);
-            const taggedNote = TaggedNote.fromEncryptedBuffer(logs, privateKey, curve);
+            const taggedNote = TaggedNote.fromEncryptedBuffer(log, privateKey, curve);
             if (taggedNote?.notePayload) {
-              const { notePayload: payload, tag } = taggedNote;
-              console.log('note tag: ', tag.toString());
+              const { notePayload: payload } = taggedNote;
               // We have successfully decrypted the data.
               const txHash = blockContext.getTxHash(indexOfTxInABlock);
               try {
