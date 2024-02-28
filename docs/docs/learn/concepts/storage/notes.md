@@ -12,7 +12,7 @@ For private state we need encryption and techniques to hide information about st
 - Private functions are executed locally with proofs generated for sound execution, and commitments to private variable updates are stored using append-only trees
 - "Note" types are part of Aztec.nr, a framework that facilitates use of Aztec's different storage trees to achieve private variables. Note: there are more uses beyond this
 
-This page will restrict its focus to how private variables are implemented with Notes and relevant storage trees. NB: these components can be used in a variety of ways to implement different attributes such as: singletons, unique value, or private sharing.
+This page will focus on how private variables are implemented with Notes and storage trees.
 
 #### Side-note about execution
 Under the hood, the Aztec protocol handles some important details around public and private function calls. Notably around calls between them and relevant delays to avoid race conditions around state reads/writes (more [here](../pxe/acir_simulator#simulating-functions)).
