@@ -40,7 +40,6 @@ struct Storage {
   // private state variables
 }
 ```
-
 :::warning Using slot `0` is not supported!
 No storage values should be initialized at slot `0` - storage slots begin at `1`. This is a known issue that will be fixed in the future.
 :::
