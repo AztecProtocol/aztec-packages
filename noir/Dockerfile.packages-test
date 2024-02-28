@@ -16,4 +16,4 @@ RUN ./scripts/test_js_packages.sh
 
 # Don't waste time pushing a huge container back to ECR as nothing needs the output.
 FROM scratch
-COPY --from=0 /usr/src/noir/README.md /usr/src/noir/README.md
+COPY --from=builder /usr/src/noir/README.md /usr/src/noir/README.md
