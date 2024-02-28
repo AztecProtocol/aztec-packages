@@ -28,30 +28,6 @@ if [ -n "$CMD" ]; then
 fi
 
 yarn install --immutable
-
-echo -e "\033[1mGenerating constants files...\033[0m"
-# Required to run remake-constants.
-yarn workspace @aztec/foundation build
-# Run remake constants before building Aztec.nr contracts or l1 contracts as they depend on files created by it.
-yarn workspace @aztec/circuits.js remake-constants
-
-echo -e "\033[1mSetting up compiler and building contracts...\033[0m"
-# This is actually our code generation tool. Needed to build contract typescript wrappers.
-echo "Building noir compiler..."
-yarn workspace @aztec/noir-compiler build
-# Builds noir contracts (TODO: move this stage pre yarn-project). Generates typescript wrappers.
-echo "Building contracts from noir-contracts..."
-yarn workspace @aztec/noir-contracts.js build
-# Bundle compiled contracts into other packages
-echo "Copying account contracts..."
-yarn workspace @aztec/accounts build:copy-contracts
-echo "Copying protocol contracts..."
-yarn workspace @aztec/protocol-contracts build:copy-contracts
-# Build protocol circuits. TODO: move pre yarn-project.
-echo "Building circuits from noir-protocol-circuits..."
-yarn workspace @aztec/noir-protocol-circuits-types build
-
-echo -e "\033[1mBuilding all packages...\033[0m"
 yarn build
 
 echo
