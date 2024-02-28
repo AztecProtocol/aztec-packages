@@ -9,7 +9,6 @@
 #            buildx: Use dockers buildx emulation to build for both x86_64 and arm.
 # dependencies: An array of other projects that this project depends on.
 # runDependencies: Additional projects that are needed to run a container/compose file. Ensures they're pulled first.
-# noRepo: Avoids creating a repo and pushing to it. Useful for purely transitive jobs.
 
 # Builds noir for x86_64 and arm64, creating a runnable container just with nargo.
 noir:
@@ -18,12 +17,11 @@ noir:
   rebuildPatterns: .rebuild_patterns_native
   multiarch: host
 
-# Builds and runs noir native tests. Transitive (no repo).
+# Builds and runs noir native tests.
 noir-tests:
   buildDir: noir
   dockerfile: Dockerfile.native-test
   rebuildPatterns: .rebuild_patterns_native
-  noRepo: true
 
 # Builds just the noir js packages needed by aztec.
 noir-packages:
@@ -31,12 +29,11 @@ noir-packages:
   dockerfile: Dockerfile.packages
   rebuildPatterns: .rebuild_patterns_packages
 
-# Builds and runs *all* noir package tests. Transitive (no repo).
+# Builds and runs *all* noir package tests.
 noir-packages-tests:
   buildDir: noir
   dockerfile: Dockerfile.packages-test
   rebuildPatterns: .rebuild_patterns_packages
-  noRepo: true
   dependencies:
     - noir
 

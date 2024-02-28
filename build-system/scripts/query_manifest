@@ -131,7 +131,4 @@ case "$CMD" in
   multiarch)
     yq -r ".\"$REPO\".multiarch // false" $MANIFEST
     ;;
-  noRepo)
-    yq -r ".\"$REPO\".noRepo // false" $MANIFEST
-    ;;
 esac
