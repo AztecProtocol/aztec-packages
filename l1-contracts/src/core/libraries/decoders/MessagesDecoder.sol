@@ -63,15 +63,17 @@ library MessagesDecoder {
     l1ToL2Msgs = new bytes32[](Constants.NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
     uint256 offset = 0;
-
     // L1 to L2 messages
     uint256 count = read4(_body, offset);
-    offset += 0x4 + count * 0x20;
+    offset += 0x4;
+
     // `l1ToL2Msgs` is fixed size so if `lengths.l1Tol2MsgsCount` < `Constants.NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` the array
     // will contain some zero values.
     assembly {
-      calldatacopy(add(l1ToL2Msgs, 0x20), add(_body.offset, add(offset, 0x04)), mul(count, 0x20))
+      calldatacopy(add(l1ToL2Msgs, 0x20), add(_body.offset, offset), mul(count, 0x20))
     }
+
+    offset += count * 0x20;
 
     uint256 numTxs = read4(_body, offset);
     offset += 0x4;
