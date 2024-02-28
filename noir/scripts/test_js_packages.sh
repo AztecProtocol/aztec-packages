@@ -17,5 +17,4 @@ yarn --immutable
 yarn build
 ./.github/scripts/playwright-install.sh
 
-./scripts/test.sh
 yarn test
