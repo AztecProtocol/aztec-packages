@@ -648,6 +648,10 @@ fn transform_function(
 
     // Abstract return types such that they get added to the kernel's return_values
     if let Some(return_values) = abstract_return_values(func) {
+        // In case we are pushing return values to the context, we remove the statement that originated it
+        // This avoids running duplicate code, since blocks like if/else can be value returning statements
+        func.def.body.0.pop();
+        // Add the new return statement
         func.def.body.0.push(return_values);
     }
 
@@ -1263,7 +1267,7 @@ fn abstract_return_values(func: &mut NoirFunction) -> Option<Statement> {
     // Check if the return type is an expression, if it is, we can handle it
     match last_statement? {
         Statement { kind: StatementKind::Expression(expression), .. } => {
-            let new_return = match current_return_type {
+            match current_return_type {
                 // Call serialize on structs, push the whole array, calling push_array
                 UnresolvedTypeData::Named(..) => Some(make_struct_return_type(expression.clone())),
                 UnresolvedTypeData::Array(..) => Some(make_array_return_type(expression.clone())),
@@ -1273,13 +1277,7 @@ fn abstract_return_values(func: &mut NoirFunction) -> Option<Statement> {
                 }
                 UnresolvedTypeData::FieldElement => Some(make_return_push(expression.clone())),
                 _ => None,
-            };
-            // In case we are pushing return values to the context, we remove the statement that originated the push
-            // This avoids running duplicate code, since blocks like if/else can be value returning statements
-            if new_return.is_some() {
-                func.def_mut().body.0.pop();
             }
-            new_return
         }
         _ => None,
     }
