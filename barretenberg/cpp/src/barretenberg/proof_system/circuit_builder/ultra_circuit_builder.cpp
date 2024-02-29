@@ -947,24 +947,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
         check_selector_length_consistency();
     }
     // dummy gate needed because of sort widget's check of next row
-    blocks.main.populate_wires(
-        variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
-    ++this->num_gates;
-    blocks.main.q_m().emplace_back(0);
-    blocks.main.q_1().emplace_back(0);
-    blocks.main.q_2().emplace_back(0);
-    blocks.main.q_3().emplace_back(0);
-    blocks.main.q_c().emplace_back(0);
-    blocks.main.q_arith().emplace_back(0);
-    blocks.main.q_4().emplace_back(0);
-    blocks.main.q_sort().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_aux().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
-    }
-    check_selector_length_consistency();
+    create_dummy_gate(
+        blocks.main, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
 }
 
 /**
@@ -1013,23 +997,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_dummy_constraints(const std::
     this->assert_valid_variables(padded_list);
 
     for (size_t i = 0; i < padded_list.size(); i += gate_width) {
-        blocks.main.populate_wires(padded_list[i], padded_list[i + 1], padded_list[i + 2], padded_list[i + 3]);
-        ++this->num_gates;
-        blocks.main.q_m().emplace_back(0);
-        blocks.main.q_1().emplace_back(0);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_sort().emplace_back(0);
-        blocks.main.q_elliptic().emplace_back(0);
-        blocks.main.q_lookup_type().emplace_back(0);
-        blocks.main.q_aux().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
-        }
-        check_selector_length_consistency();
+        create_dummy_gate(blocks.main, padded_list[i], padded_list[i + 1], padded_list[i + 2], padded_list[i + 3]);
     }
 }
 
@@ -2177,24 +2145,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_final_sorted_RAM_gate(RamReco
     // of sequence with the RAM gates.
 
     // Create a final gate with all selectors zero; wire values are accessed by the previous RAM gate via shifted wires
-    blocks.main.populate_wires(
-        record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
-    blocks.main.q_m().emplace_back(0);
-    blocks.main.q_1().emplace_back(0);
-    blocks.main.q_2().emplace_back(0);
-    blocks.main.q_3().emplace_back(0);
-    blocks.main.q_c().emplace_back(0);
-    blocks.main.q_arith().emplace_back(0);
-    blocks.main.q_4().emplace_back(0);
-    blocks.main.q_sort().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_aux().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
-    }
-    check_selector_length_consistency();
-    ++this->num_gates;
+    create_dummy_gate(
+        blocks.main, record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
     // Create an add gate ensuring the final index is consistent with the size of the RAM array
     create_big_add_gate({
@@ -2541,7 +2493,23 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     // we have validated that all ROM reads are correctly constrained
     FF max_index_value((uint64_t)rom_array.state.size());
     uint32_t max_index = this->add_variable(max_index_value);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This was formerly a single arithmetic gate. A
+    // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing the
+    // arithmetic gate to occur out of sequence.
     create_dummy_gate(blocks.main, max_index, this->zero_idx, this->zero_idx, this->zero_idx);
+    create_big_add_gate(
+        {
+            max_index,
+            this->zero_idx,
+            this->zero_idx,
+            this->zero_idx,
+            1,
+            0,
+            0,
+            0,
+            -max_index_value,
+        },
+        false);
     // N.B. If the above check holds, we know the sorted list begins with an index value of 0,
     // because the first cell is explicitly initialized using zero_idx as the index field.
 }
