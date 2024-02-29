@@ -152,8 +152,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param limit - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
    * @returns The requested L1 to L2 entry keys.
    */
-  getPendingL1ToL2entryKeys(limit: number): Promise<Fr[]> {
-    return Promise.resolve(this.#messageStore.getPendingentryKeysByFee(limit));
+  getPendingL1ToL2EntryKeys(limit: number): Promise<Fr[]> {
+    return Promise.resolve(this.#messageStore.getPendingEntryKeysByFee(limit));
   }
 
   /**

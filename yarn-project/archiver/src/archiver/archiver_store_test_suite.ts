@@ -185,7 +185,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const message = L1ToL2Message.random(Fr.random());
         await expect(store.addPendingL1ToL2Messages([message, message], 1n)).resolves.toEqual(true);
 
-        await expect(store.getPendingL1ToL2entryKeys(2)).resolves.toEqual([message.entryKey!, message.entryKey!]);
+        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey!, message.entryKey!]);
       });
 
       it('allows duplicate pending messages in different blocks', async () => {
@@ -193,14 +193,14 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await expect(store.addPendingL1ToL2Messages([message], 1n)).resolves.toEqual(true);
         await expect(store.addPendingL1ToL2Messages([message], 2n)).resolves.toEqual(true);
 
-        await expect(store.getPendingL1ToL2entryKeys(2)).resolves.toEqual([message.entryKey!, message.entryKey!]);
+        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey!, message.entryKey!]);
       });
 
       it('is idempotent', async () => {
         const message = L1ToL2Message.random(Fr.random());
         await expect(store.addPendingL1ToL2Messages([message], 1n)).resolves.toEqual(true);
         await expect(store.addPendingL1ToL2Messages([message], 1n)).resolves.toEqual(false);
-        await expect(store.getPendingL1ToL2entryKeys(2)).resolves.toEqual([message.entryKey!]);
+        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey!]);
       });
     });
 
@@ -208,7 +208,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       it('returns previously stored pending L1 to L2 messages', async () => {
         const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message], 1n);
-        await expect(store.getPendingL1ToL2entryKeys(1)).resolves.toEqual([message.entryKey!]);
+        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([message.entryKey!]);
       });
 
       it('returns messages ordered by fee', async () => {
@@ -219,13 +219,13 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await store.addPendingL1ToL2Messages(messages, 1n);
 
         messages.sort((a, b) => b.fee - a.fee);
-        await expect(store.getPendingL1ToL2entryKeys(messages.length)).resolves.toEqual(
+        await expect(store.getPendingL1ToL2EntryKeys(messages.length)).resolves.toEqual(
           messages.map(message => message.entryKey!),
         );
       });
 
       it('returns an empty array if no messages are found', async () => {
-        await expect(store.getPendingL1ToL2entryKeys(1)).resolves.toEqual([]);
+        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([]);
       });
     });
 
@@ -240,7 +240,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message], 1n);
         await store.confirmL1ToL2EntryKeys([message.entryKey!]);
-        await expect(store.getPendingL1ToL2entryKeys(1)).resolves.toEqual([]);
+        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([]);
       });
 
       it('once confirmed a message can also be pending if added again', async () => {
@@ -248,14 +248,14 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await store.addPendingL1ToL2Messages([message], 1n);
         await store.confirmL1ToL2EntryKeys([message.entryKey!]);
         await store.addPendingL1ToL2Messages([message], 2n);
-        await expect(store.getPendingL1ToL2entryKeys(2)).resolves.toEqual([message.entryKey!]);
+        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey!]);
       });
 
       it('once confirmed a message can remain pending if more of it were pending', async () => {
         const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message, message], 1n);
         await store.confirmL1ToL2EntryKeys([message.entryKey!]);
-        await expect(store.getPendingL1ToL2entryKeys(1)).resolves.toEqual([message.entryKey!]);
+        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([message.entryKey!]);
       });
     });
 
@@ -264,14 +264,14 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message], 1n);
         await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 1n);
-        await expect(store.getPendingL1ToL2entryKeys(1)).resolves.toEqual([]);
+        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([]);
       });
 
       it('cancels only one of the pending messages if duplicates exist', async () => {
         const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message, message], 1n);
         await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 1n);
-        await expect(store.getPendingL1ToL2entryKeys(2)).resolves.toEqual([message.entryKey]);
+        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey]);
       });
 
       it('once canceled a message can also be pending if added again', async () => {
@@ -279,17 +279,17 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await store.addPendingL1ToL2Messages([message], 1n);
 
         await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 1n);
-        await expect(store.getPendingL1ToL2entryKeys(1)).resolves.toEqual([]);
+        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([]);
 
         await store.addPendingL1ToL2Messages([message], 2n);
-        await expect(store.getPendingL1ToL2entryKeys(1)).resolves.toEqual([message.entryKey!]);
+        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([message.entryKey!]);
       });
 
       it('allows adding and cancelling in the same block', async () => {
         const message = L1ToL2Message.random(Fr.random());
         await store.addPendingL1ToL2Messages([message], 1n);
         await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 1n);
-        await expect(store.getPendingL1ToL2entryKeys(1)).resolves.toEqual([]);
+        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([]);
       });
 
       it('allows duplicates cancellations in different positions in the same block', async () => {
@@ -298,7 +298,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         await store.cancelPendingL1ToL2EntryKeys([message.entryKey!, message.entryKey!], 1n);
 
-        await expect(store.getPendingL1ToL2entryKeys(2)).resolves.toEqual([]);
+        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([]);
       });
 
       it('allows duplicates cancellations in different blocks', async () => {
@@ -308,7 +308,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 2n);
         await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 3n);
 
-        await expect(store.getPendingL1ToL2entryKeys(2)).resolves.toEqual([]);
+        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([]);
       });
 
       it('is idempotent', async () => {
@@ -318,7 +318,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 2n);
         await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 2n);
 
-        await expect(store.getPendingL1ToL2entryKeys(2)).resolves.toEqual([message.entryKey!]);
+        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey!]);
       });
     });
 

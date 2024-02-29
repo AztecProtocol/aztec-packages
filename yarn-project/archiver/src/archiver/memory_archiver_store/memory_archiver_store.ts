@@ -246,8 +246,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param limit - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
    * @returns The requested L1 to L2 entry keys.
    */
-  public getPendingL1ToL2entryKeys(limit: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP): Promise<Fr[]> {
-    return Promise.resolve(this.pendingL1ToL2Messages.getentryKeys(limit));
+  public getPendingL1ToL2EntryKeys(limit: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP): Promise<Fr[]> {
+    return Promise.resolve(this.pendingL1ToL2Messages.getEntryKeys(limit));
   }
 
   /**

@@ -551,7 +551,7 @@ export class Archiver implements ArchiveSource {
    * @returns The requested L1 to L2 messages' keys.
    */
   getPendingL1ToL2EntryKeys(limit: number): Promise<Fr[]> {
-    return this.store.getPendingL1ToL2entryKeys(limit);
+    return this.store.getPendingL1ToL2EntryKeys(limit);
   }
 
   /**

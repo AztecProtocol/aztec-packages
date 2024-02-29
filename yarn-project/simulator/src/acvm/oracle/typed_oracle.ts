@@ -161,7 +161,7 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  getL1ToL2MembershipWitness(_msgKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+  getL1ToL2MembershipWitness(_entryKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     throw new Error('Not available.');
   }
 

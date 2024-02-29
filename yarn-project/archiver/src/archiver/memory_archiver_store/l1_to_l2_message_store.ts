@@ -38,7 +38,7 @@ export class L1ToL2MessageStore {
  * for removing messages or fetching multiple messages.
  */
 export class PendingL1ToL2MessageStore extends L1ToL2MessageStore {
-  getentryKeys(limit: number): Fr[] {
+  getEntryKeys(limit: number): Fr[] {
     if (limit < 1) {
       return [];
     }

@@ -152,7 +152,7 @@ export class MessageStore {
    * @param limit - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
    * @returns The requested L1 to L2 entry keys.
    */
-  getPendingentryKeysByFee(limit: number): Fr[] {
+  getPendingEntryKeysByFee(limit: number): Fr[] {
     const entryKeys: Fr[] = [];
 
     for (const [[_, entryKey], count] of this.#pendingMessagesByFee.entries({
