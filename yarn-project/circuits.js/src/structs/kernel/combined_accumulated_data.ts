@@ -34,8 +34,6 @@ import { ReadRequestContext } from '../read_request.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 import { NewContractData } from './new_contract_data.js';
 
-// const log = createDebugLogger('aztec:combined_accumulated_data');
-
 /**
  * Read operations from the public state tree.
  */
@@ -340,11 +338,6 @@ export class CombinedAccumulatedData {
       ...nonRevertible.publicDataUpdateRequests,
     ].filter(x => !x.isEmpty());
 
-    // log.debug('nonSquashedWrites');
-    // for (const write of nonSquashedWrites) {
-    //   log.debug(write.toFriendlyJSON());
-    // }
-
     const squashedWrites = Array.from(
       nonSquashedWrites
         .reduce<Map<string, PublicDataUpdateRequest>>((acc, curr) => {
@@ -353,11 +346,6 @@ export class CombinedAccumulatedData {
         }, new Map())
         .values(),
     );
-
-    // log.debug('squashedWrites');
-    // for (const write of squashedWrites) {
-    //   log.debug(write.toFriendlyJSON());
-    // }
 
     const publicDataUpdateRequests = padArrayEnd(
       squashedWrites,

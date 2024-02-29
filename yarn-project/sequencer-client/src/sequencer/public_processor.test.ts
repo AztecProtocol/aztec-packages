@@ -359,7 +359,8 @@ describe('public_processor', () => {
         proof,
         TxL2Logs.random(2, 3),
         TxL2Logs.random(3, 2),
-        callRequests.slice().reverse(), // unsure why we need to reverse here 😬
+        // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
+        callRequests.slice().reverse(),
         [ExtendedContractData.random()],
       );
 
