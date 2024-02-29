@@ -1,4 +1,4 @@
-import { AztecNode, INITIAL_L2_BLOCK_NUM, TxEffect, PXE, mockTx } from '@aztec/circuit-types';
+import { AztecNode, INITIAL_L2_BLOCK_NUM, PXE, TxEffect, mockTx } from '@aztec/circuit-types';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';

@@ -18,11 +18,11 @@ import { L2Block } from '../l2_block.js';
 import { GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { SiblingPath } from '../sibling_path/index.js';
-import { Tx, TxHash } from '../tx/index.js';
+import { Tx, TxHash, TxReceipt } from '../tx/index.js';
+import { TxEffect } from '../tx_effect.js';
 import { SequencerConfig } from './configs.js';
 import { NullifierMembershipWitness } from './nullifier_tree.js';
 import { PublicDataWitness } from './public_data_tree.js';
-import { TxEffect } from '../tx_effect.js';
 
 /** Helper type for a specific L2 block number or the latest block number */
 type BlockNumber = number | 'latest';
@@ -229,6 +229,16 @@ export interface AztecNode {
    * @returns Nothing.
    */
   sendTx(tx: Tx): Promise<void>;
+
+  /**
+   * Fetches a transaction receipt for a given transaction hash. Returns a mined receipt if it was added
+   * to the chain, a pending receipt if it's still in the mempool of the connected Aztec node, or a dropped
+   * receipt if not found in the connected Aztec node.
+   *
+   * @param txHash - The transaction hash.
+   * @returns A receipt of the transaction.
+   */
+  getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
    * Get a tx effect.

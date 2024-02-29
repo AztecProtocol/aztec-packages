@@ -9,10 +9,10 @@ import { GetUnencryptedLogsResponse, LogFilter } from '../logs/index.js';
 import { ExtendedNote } from '../notes/index.js';
 import { NoteFilter } from '../notes/note_filter.js';
 import { Tx, TxHash, TxReceipt } from '../tx/index.js';
+import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
 import { DeployedContract } from './deployed-contract.js';
 import { SyncStatus } from './sync-status.js';
-import { TxEffect } from '../tx_effect.js';
 
 // docs:start:pxe-interface
 /**

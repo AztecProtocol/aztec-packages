@@ -6,10 +6,10 @@ import {
   L1ToL2MessageAndIndex,
   L2Block,
   L2BlockL2Logs,
-  TxEffect,
   LogId,
   SiblingPath,
   Tx,
+  TxEffect,
   TxHash,
 } from '@aztec/circuit-types';
 import { FunctionSelector, Header } from '@aztec/circuits.js';

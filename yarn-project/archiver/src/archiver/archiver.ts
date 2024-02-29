@@ -10,10 +10,11 @@ import {
   L2BlockL2Logs,
   L2BlockSource,
   L2LogsSource,
-  TxEffect,
   LogFilter,
   LogType,
+  TxEffect,
   TxHash,
+  TxReceipt,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
@@ -421,6 +422,10 @@ export class Archiver implements ArchiveSource {
 
   public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
     return this.store.getTxEffect(txHash);
+  }
+
+  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+    return this.store.getSettledTxReceipt(txHash);
   }
 
   /**
