@@ -288,7 +288,7 @@ describe('Archiver', () => {
 /**
  * Makes a fake L2BlockProcessed event for testing purposes.
  * @param l1BlockNum - L1 block number.
- * @param l2BlockNum - L2Block number.
+ * @param l2BlockNum - L2 Block number.
  * @returns An L2BlockProcessed event log.
  */
 function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
@@ -300,9 +300,9 @@ function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
 }
 
 /**
- * Makes a fake L2BTxsPublished event for testing purposes.
+ * Makes a fake TxsPublished event for testing purposes.
  * @param l1BlockNum - L1 block number.
- * @param l2BlockNum - L2Block number.
+ * @param txsHash - txsHash for the body.
  * @returns A TxsPublished event log.
  */
 function makeTxsPublishedEvent(l1BlockNum: bigint, txsHash: Buffer) {
