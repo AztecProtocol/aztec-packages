@@ -66,6 +66,7 @@ template <> class VerifierCommitmentKey<curve::BN254> {
         return (result == Curve::TargetField::one());
     }
 
+    std::shared_ptr<srs::factories::CrsFactory<Curve>> crs_factory;
     std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> srs;
 };
 

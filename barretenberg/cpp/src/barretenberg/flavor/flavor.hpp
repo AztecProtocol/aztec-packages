@@ -142,8 +142,11 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
  */
-template <typename PrecomputedCommitments> class VerificationKey_ : public PrecomputedCommitments {
+template <typename PrecomputedCommitments, typename CommitmentKey>
+class VerificationKey_ : public PrecomputedCommitments {
   public:
+    std::shared_ptr<CommitmentKey> commitment_key;
+
     VerificationKey_() = default;
     VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
@@ -157,6 +160,7 @@ template <typename PrecomputedCommitments> class VerificationKey_ : public Preco
         this->circuit_size = proving_key->circuit_size;
         this->log_circuit_size = numeric::get_msb(this->circuit_size);
         this->num_public_inputs = proving_key->num_public_inputs;
+        this->commitment_key = proving_key->commitment_key;
 
         for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
             commitment = proving_key->commitment_key->commit(polynomial);
