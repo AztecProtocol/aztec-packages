@@ -34,8 +34,8 @@ template <class Flavor> class ProverInstance_ {
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
-    // commitment_key needs to be here, and not accessed through the proving key, since somtimes the proving key is
-    // uninitialized in the proving key
+    // commitment_key needs to be here, and not accessed through the proving key, since sometimes the proving key is
+    // null
     std::shared_ptr<CommitmentKey> commitment_key;
     std::shared_ptr<VerificationKey> verification_key;
 
