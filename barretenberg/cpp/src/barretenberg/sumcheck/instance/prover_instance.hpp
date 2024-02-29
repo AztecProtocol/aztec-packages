@@ -64,6 +64,10 @@ template <class Flavor> class ProverInstance_ {
 
     ProverInstance_(Circuit& circuit)
     {
+        BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");
+        circuit.add_gates_to_ensure_all_polys_are_non_zero();
+        circuit.finalize_circuit();
+
         dyadic_circuit_size = compute_dyadic_size(circuit);
 
         proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, circuit.public_inputs.size());
@@ -85,6 +89,8 @@ template <class Flavor> class ProverInstance_ {
         proving_key->contains_recursive_proof = contains_recursive_proof;
 
         sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
+
+        verification_key = std::make_shared<VerificationKey>(proving_key);
     }
 
     ProverInstance_() = default;
