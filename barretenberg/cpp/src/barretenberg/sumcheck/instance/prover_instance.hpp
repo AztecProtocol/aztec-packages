@@ -33,8 +33,8 @@ template <class Flavor> class ProverInstance_ {
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
-    // commitment_key needs to be here, and not accessed through the proving key, since sometimes the proving key is
-    // null
+    // currently commitment_key needs to be here, and not accessed through the proving key, since sometimes the proving
+    // key is null during protogalaxy proving (TODO(https://github.com/AztecProtocol/barretenberg/issues/881)?)
     std::shared_ptr<CommitmentKey> commitment_key;
     std::shared_ptr<VerificationKey> verification_key;
 

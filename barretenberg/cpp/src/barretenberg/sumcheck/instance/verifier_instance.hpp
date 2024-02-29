@@ -20,8 +20,8 @@ template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     std::shared_ptr<VerificationKey> verification_key;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): Access throutgh vk by making sure vk is
-    // initialized in Proptogalaxy?
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/881)?: Access throutgh vk by making sure vk is
+    // initialized in Protogalaxy?
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     std::vector<FF> public_inputs;
     size_t pub_inputs_offset = 0;

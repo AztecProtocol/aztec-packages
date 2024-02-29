@@ -83,7 +83,7 @@ namespace bb {
  * @brief Base class template containing circuit-specifying data.
  *
  */
-class PrecomputedEntitiesBase { // WORKTODO: utility?
+class PrecomputedEntitiesBase {
   public:
     size_t circuit_size;
     size_t log_circuit_size;
@@ -146,7 +146,7 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
 template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
 class VerificationKey_ : public PrecomputedCommitments {
   public:
-    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key; // WORKTODO: asymmetrical naming
+    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
 
     VerificationKey_() = default;
     VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
