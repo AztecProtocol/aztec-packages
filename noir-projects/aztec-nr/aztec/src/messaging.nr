@@ -2,6 +2,8 @@ mod l1_to_l2_message;
 
 use crate::oracle::get_l1_to_l2_membership_witness::get_l1_to_l2_membership_witness;
 
+use crate::oracle::debug_log::debug_log_format;
+
 use dep::std::merkle::compute_merkle_root;
 use crate::messaging::l1_to_l2_message::L1ToL2Message;
 use dep::protocol_types::{constants::L1_TO_L2_MSG_TREE_HEIGHT, address::{AztecAddress, EthAddress}, utils::arr_copy_slice};
@@ -24,6 +26,18 @@ pub fn process_l1_to_l2_message(
         secret
     );
     let entry_key = msg.hash();
+    debug_log_format(
+        "L1ToL2Message entry_key: H({0}, {1}, {2}, {3}, {4}, {5}) = {6} ",
+        [
+        portal_contract_address.to_field(),
+        chain_id,
+        storage_contract_address.to_field(),
+        version,
+        content,
+        secret,
+        entry_key
+    ]
+    );
 
     let returned_message = get_l1_to_l2_membership_witness(entry_key);
     let leaf_index = returned_message[0];

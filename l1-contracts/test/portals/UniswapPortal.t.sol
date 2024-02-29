@@ -154,10 +154,10 @@ contract UniswapPortalTest is Test {
     entryKey = outbox.computeEntryKey(message);
   }
 
-  function _addMessagesToOutbox(bytes32 daiWithdrawMessageKey, bytes32 swapMessageKey) internal {
+  function _addMessagesToOutbox(bytes32 daiWithdrawentryKey, bytes32 swapentryKey) internal {
     bytes32[] memory entryKeys = new bytes32[](2);
-    entryKeys[0] = daiWithdrawMessageKey;
-    entryKeys[1] = swapMessageKey;
+    entryKeys[0] = daiWithdrawentryKey;
+    entryKeys[1] = swapentryKey;
     vm.prank(address(rollup));
 
     outbox.sendL1Messages(entryKeys);
@@ -246,7 +246,7 @@ contract UniswapPortalTest is Test {
     bytes32 swapMsgKey = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
     _addMessagesToOutbox(daiWithdrawMsgKey, swapMsgKey);
 
-    bytes32 l1ToL2MessageKey = uniswapPortal.swapPublic(
+    bytes32 l1ToL2entryKey = uniswapPortal.swapPublic(
       address(daiTokenPortal),
       amount,
       uniswapFeePool,
@@ -264,7 +264,7 @@ contract UniswapPortalTest is Test {
     // there should be some weth in the weth portal
     assertGt(WETH9.balanceOf(address(wethTokenPortal)), 0);
     // there should be a message in the inbox:
-    assertEq(inbox.get(l1ToL2MessageKey).count, 1);
+    assertEq(inbox.get(l1ToL2entryKey).count, 1);
     // there should be no message in the outbox:
     assertFalse(outbox.contains(daiWithdrawMsgKey));
     assertFalse(outbox.contains(swapMsgKey));
@@ -279,7 +279,7 @@ contract UniswapPortalTest is Test {
     _addMessagesToOutbox(daiWithdrawMsgKey, swapMsgKey);
 
     vm.prank(_caller);
-    bytes32 l1ToL2MessageKey = uniswapPortal.swapPublic(
+    bytes32 l1ToL2entryKey = uniswapPortal.swapPublic(
       address(daiTokenPortal),
       amount,
       uniswapFeePool,
@@ -297,7 +297,7 @@ contract UniswapPortalTest is Test {
     // there should be some weth in the weth portal
     assertGt(WETH9.balanceOf(address(wethTokenPortal)), 0);
     // there should be a message in the inbox:
-    assertEq(inbox.get(l1ToL2MessageKey).count, 1);
+    assertEq(inbox.get(l1ToL2entryKey).count, 1);
     // there should be no message in the outbox:
     assertFalse(outbox.contains(daiWithdrawMsgKey));
     assertFalse(outbox.contains(swapMsgKey));
@@ -357,7 +357,7 @@ contract UniswapPortalTest is Test {
     bytes32 swapMsgKey = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
     _addMessagesToOutbox(daiWithdrawMsgKey, swapMsgKey);
 
-    bytes32 l1ToL2MessageKey = uniswapPortal.swapPublic{value: 1 ether}(
+    bytes32 l1ToL2entryKey = uniswapPortal.swapPublic{value: 1 ether}(
       address(daiTokenPortal),
       amount,
       uniswapFeePool,
@@ -376,13 +376,13 @@ contract UniswapPortalTest is Test {
     // check event was emitted
     vm.expectEmit(true, false, false, false);
     // expected event:
-    emit L1ToL2MessageCancelled(l1ToL2MessageKey);
+    emit L1ToL2MessageCancelled(l1ToL2entryKey);
     // perform op
     // TODO(2167) - Update UniswapPortal properly with new portal standard.
     bytes32 entryKey = wethTokenPortal.cancelL1ToAztecMessagePublic(
       aztecRecipient, wethAmountOut, deadlineForL1ToL2Message, secretHash, 1 ether
     );
-    assertEq(entryKey, l1ToL2MessageKey, "returned entry key and calculated entryKey should match");
+    assertEq(entryKey, l1ToL2entryKey, "returned entry key and calculated entryKey should match");
     assertFalse(inbox.contains(entryKey), "entry still in inbox");
     assertEq(
       WETH9.balanceOf(address(this)),

@@ -377,9 +377,9 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Gets a confirmed/consumed L1 to L2 message for the given message key
+   * Gets a confirmed/consumed L1 to L2 message for the given entry key
    * and its index in the merkle tree.
-   * @param entryKey - The message key.
+   * @param entryKey - The entry key.
    * @returns The map containing the message and index.
    */
   public async getL1ToL2MessageAndIndex(entryKey: Fr): Promise<L1ToL2MessageAndIndex> {

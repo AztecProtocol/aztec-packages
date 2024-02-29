@@ -80,11 +80,11 @@ export class MessageStore {
 
   /**
    * Remove pending L1 to L2 messages from the store (if they were cancelled).
-   * @param messageKeys - The message keys to be removed from the store.
+   * @param entryKeys - The entry keys to be removed from the store.
    * @param l1BlockNumber - The L1 block number for which to remove the messages.
    * @returns True if the operation is successful.
    */
-  cancelPendingMessages(messageKeys: Fr[], l1BlockNumber: bigint): Promise<boolean> {
+  cancelPendingMessages(entryKeys: Fr[], l1BlockNumber: bigint): Promise<boolean> {
     return this.db.transaction(() => {
       const lastL1BlockNumber = this.#lastL1BlockCancellingMessages.get() ?? 0n;
       if (lastL1BlockNumber >= l1BlockNumber) {
@@ -93,7 +93,7 @@ export class MessageStore {
 
       void this.#lastL1BlockCancellingMessages.set(l1BlockNumber);
 
-      for (const entryKey of messageKeys) {
+      for (const entryKey of entryKeys) {
         const messageCtx = this.#messages.get(entryKey.toString());
         if (!messageCtx) {
           throw new Error(`Message ${entryKey.toString()} not found`);
@@ -109,12 +109,12 @@ export class MessageStore {
   /**
    * Messages that have been published in an L2 block are confirmed.
    * Add them to the confirmed store, also remove them from the pending store.
-   * @param messageKeys - The message keys to be removed from the store.
+   * @param entryKeys - The entry keys to be removed from the store.
    * @returns True if the operation is successful.
    */
-  confirmPendingMessages(messageKeys: Fr[]): Promise<boolean> {
+  confirmPendingMessages(entryKeys: Fr[]): Promise<boolean> {
     return this.db.transaction(() => {
-      for (const entryKey of messageKeys) {
+      for (const entryKey of entryKeys) {
         const messageCtx = this.#messages.get(entryKey.toString());
         if (!messageCtx) {
           throw new Error(`Message ${entryKey.toString()} not found`);
@@ -130,8 +130,8 @@ export class MessageStore {
   }
 
   /**
-   * Gets the confirmed L1 to L2 message corresponding to the given message key.
-   * @param entryKey - The message key to look up.
+   * Gets the confirmed L1 to L2 message corresponding to the given entry key.
+   * @param entryKey - The entry key to look up.
    * @returns The requested L1 to L2 message or throws if not found.
    */
   getConfirmedMessage(entryKey: Fr): L1ToL2Message {
@@ -150,21 +150,21 @@ export class MessageStore {
   /**
    * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
    * @param limit - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
-   * @returns The requested L1 to L2 message keys.
+   * @returns The requested L1 to L2 entry keys.
    */
-  getPendingMessageKeysByFee(limit: number): Fr[] {
-    const messageKeys: Fr[] = [];
+  getPendingentryKeysByFee(limit: number): Fr[] {
+    const entryKeys: Fr[] = [];
 
     for (const [[_, entryKey], count] of this.#pendingMessagesByFee.entries({
       reverse: true,
     })) {
       // put `count` copies of this message in the result list
-      messageKeys.push(...Array(count).fill(Fr.fromString(entryKey)));
-      if (messageKeys.length >= limit) {
+      entryKeys.push(...Array(count).fill(Fr.fromString(entryKey)));
+      if (entryKeys.length >= limit) {
         break;
       }
     }
 
-    return messageKeys;
+    return entryKeys;
   }
 }

@@ -231,7 +231,7 @@ export class Archiver implements ArchiveSource {
         `Adding ${newMessages.length} new messages and ${cancelledMessages.length} cancelled messages in L1 block ${l1Block}`,
       );
       await this.store.addPendingL1ToL2Messages(newMessages, l1Block);
-      await this.store.cancelPendingL1ToL2Messages(cancelledMessages, l1Block);
+      await this.store.cancelPendingL1ToL2EntryKeys(cancelledMessages, l1Block);
     }
 
     // ********** Events that are processed per L2 block **********
@@ -307,10 +307,10 @@ export class Archiver implements ArchiveSource {
     );
 
     // from retrieved L2Blocks, confirm L1 to L2 messages that have been published
-    // from each l2block fetch all messageKeys in a flattened array:
+    // from each l2block fetch all entryKeys in a flattened array:
     this.log(`Confirming l1 to l2 messages in store`);
     for (const block of retrievedBlocks.retrievedData) {
-      await this.store.confirmL1ToL2Messages(block.body.l1ToL2Messages);
+      await this.store.confirmL1ToL2EntryKeys(block.body.l1ToL2Messages);
     }
 
     // store retrieved L2 blocks after removing new logs information.
@@ -550,13 +550,13 @@ export class Archiver implements ArchiveSource {
    * @param limit - The number of messages to return.
    * @returns The requested L1 to L2 messages' keys.
    */
-  getPendingL1ToL2Messages(limit: number): Promise<Fr[]> {
-    return this.store.getPendingL1ToL2MessageKeys(limit);
+  getPendingL1ToL2EntryKeys(limit: number): Promise<Fr[]> {
+    return this.store.getPendingL1ToL2entryKeys(limit);
   }
 
   /**
-   * Gets the confirmed/consumed L1 to L2 message associated with the given message key
-   * @param entryKey - The message key.
+   * Gets the confirmed/consumed L1 to L2 message associated with the given entry key
+   * @param entryKey - The entry key.
    * @returns The L1 to L2 message (throws if not found).
    */
   getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message> {

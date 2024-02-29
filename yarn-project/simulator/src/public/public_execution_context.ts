@@ -86,7 +86,7 @@ export class PublicExecutionContext extends TypedOracle {
 
   /**
    * Fetches the a message from the db, given its key.
-   * @param entryKey - A buffer representing the message key.
+   * @param entryKey - A buffer representing the entry key.
    * @returns The l1 to l2 message data
    */
   public async getL1ToL2MembershipWitness(entryKey: Fr) {
