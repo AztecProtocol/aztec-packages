@@ -435,7 +435,13 @@ fn transform_module(
         }
     }
 
-    let has_initializer = module.functions.iter().any(|func| func.def.attributes.secondary.iter().any(|attr| is_custom_attribute(&attr, "aztec(initializer)")));
+    let has_initializer = module.functions.iter().any(|func| {
+        func.def
+            .attributes
+            .secondary
+            .iter()
+            .any(|attr| is_custom_attribute(&attr, "aztec(initializer)"))
+    });
 
     for func in module.functions.iter_mut() {
         let mut is_private = false;
