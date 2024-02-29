@@ -30,13 +30,6 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
     using ProverInstances = ProverInstances_<Flavor, NUM_FOLDING>;
     using VerifierInstances = VerifierInstances_<Flavor, NUM_FOLDING>;
 
-    UltraComposer_() = default;
-    UltraComposer_(UltraComposer_&& other) noexcept = default;
-    UltraComposer_(UltraComposer_ const& other) noexcept = default;
-    UltraComposer_& operator=(UltraComposer_&& other) noexcept = default;
-    UltraComposer_& operator=(UltraComposer_ const& other) noexcept = default;
-    ~UltraComposer_() = default;
-
     std::shared_ptr<Instance> create_instance(CircuitBuilder& circuit);
 
     UltraProver_<Flavor> create_prover(const std::shared_ptr<Instance>&,
