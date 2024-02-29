@@ -707,7 +707,7 @@ TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
     // The below part detects any changes in the join-split circuit
     constexpr uint32_t CIRCUIT_GATE_COUNT = 49492;
     constexpr uint32_t GATES_NEXT_POWER_OF_TWO = 65535;
-    const uint256_t VK_HASH("cbd4375e4347a5f460999449d0a72868e27cbf17771263121263ce67ad030077");
+    const uint256_t VK_HASH("29f333ac68164d4e079b3d4243c95425432f317aa26ad67fd668ca883b28e236");
 
     auto number_of_gates_js = result.number_of_gates;
     std::cout << get_verification_key()->sha256_hash() << std::endl;
