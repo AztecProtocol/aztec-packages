@@ -19,7 +19,7 @@ This page will focus on how private variables are implemented with Notes and sto
 
 #### Side-note about execution
 Under the hood, the Aztec protocol handles some important details around public and private function calls. Calls between them are asynchronous due to different execution contexts (local execution vs. node execution).
-A detailed explanation of the transaction lifecycle can be found [here](../transactions#simple-example-of-the-private-transaction-lifecycle).
+A detailed explanation of the transaction lifecycle can be found [here](../../../../learn/concepts/transactions#simple-example-of-the-private-transaction-lifecycle).
 
 ## Private state variables in Aztec
 State variables in an Aztec contract are defined inside a struct specifically named `Storage`, and must satisfy the [Note Interface](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) and contain a [Note header](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_header.nr).
@@ -29,7 +29,7 @@ The Note header struct contains the contract address which the value is effectiv
 A couple of things to unpack here:
 
 #### Storage "slot"
-Storage slots are more literal for public storage, a place where a value is stored. For private storage, a storage slot is logical (more [here](./storage_slots#private-state-slots---slots-arent-real)).
+Storage slots are more literal for public storage, a place where a value is stored. For private storage, a storage slot is logical (more [here](../../../../learn/concepts/storage/storage_slots#private-state-slots---slots-arent-real)).
 
 #### Silos
 The address of the contract is included in a Note's data to ensure that different contracts don't arrive at the same hash with an identical variable. This is handled in the protocol's execution.
@@ -129,7 +129,7 @@ Notice how the `add` function shows the simplicity of appending a new note to al
 Try the [Token tutorial](../../../tutorials/writing_token_contract) to see what notes can achieve. In this section you will also find other tutorials using notes in different ways.
 
 ### Further reading
-- [Storage Trees](./trees/main)
+- [Storage Trees](../../../../learn/concepts/storage/trees/main)
 - [Proof of prior notes](../../writing_contracts/historical_data/archive_tree/how_to_prove_history) - public/private reading of public/private proof of state (public or private)
 
 If you're curious about any of the following related topics, search the documentation for...
