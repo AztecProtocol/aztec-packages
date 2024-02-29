@@ -8,16 +8,19 @@ struct NoteHeader {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
     // Remove this and check the nonce to see whether a note is transient or not.
     is_transient: bool,
+
+    // whether this note is partially built in private and partially built in public
+    is_partial: bool,
 }
 
 impl Empty for NoteHeader {
     fn empty() -> Self {
-        NoteHeader { contract_address: AztecAddress::zero(), nonce: 0, storage_slot: 0, is_transient: false }
+        NoteHeader { contract_address: AztecAddress::zero(), nonce: 0, storage_slot: 0, is_transient: false, is_partial: false }
     }
 }
 
 impl NoteHeader {
     pub fn new(contract_address: AztecAddress, nonce: Field, storage_slot: Field) -> Self {
-        NoteHeader { contract_address, nonce, storage_slot, is_transient: false }
+        NoteHeader { contract_address, nonce, storage_slot, is_transient: false, is_partial: false }
     }
 }

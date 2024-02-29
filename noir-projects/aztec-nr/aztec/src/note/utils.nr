@@ -1,4 +1,7 @@
-use crate::{context::PrivateContext, note::{note_header::NoteHeader, note_interface::NoteInterface}};
+use crate::{
+    context::PrivateContext,
+    note::{note_header::NoteHeader, note_interface::{NoteInterface, PartialNoteInterface}}
+};
 
 use dep::protocol_types::{
     address::AztecAddress,
@@ -49,6 +52,20 @@ pub fn compute_siloed_nullifier<Note, N>(
 
     let input = [header.contract_address.to_field(), inner_nullifier];
     pedersen_hash(input, GENERATOR_INDEX__OUTER_NULLIFIER)
+}
+
+pub fn compute_partial_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface<N> + PartialNoteInterface {
+    let header = note.get_header();
+    let partial_note_hash = note.compute_note_private_content_hash();
+    pedersen_hash([header.storage_slot, partial_note_hash], 0)
+}
+
+pub fn compute_complete_note_hash_for_insertion<Note, N>(
+    partial_note_hash: Field,
+    note: Note
+) -> Field where Note: NoteInterface<N> + PartialNoteInterface {
+    let public_note_hash = note.compute_note_public_content_hash();
+    pedersen_hash([partial_note_hash, public_note_hash], 0)
 }
 
 pub fn compute_note_hash_for_insertion<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
