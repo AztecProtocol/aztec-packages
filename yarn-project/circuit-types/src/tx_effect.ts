@@ -17,19 +17,19 @@ export class TxEffect {
     /**
      * The note hashes to be inserted into the note hash tree.
      */
-    public newNoteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public noteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * The nullifiers to be inserted into the nullifier tree.
      */
-    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public nullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * The L2 to L1 messages to be inserted into the messagebox on L1.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
+    public l2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     /**
      * The public data writes to be inserted into the public data tree.
      */
-    public newPublicDataWrites: Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    public publicDataWrites: Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     /**
      * The leaves of the new contract data that will be inserted into the contracts tree.
      */
@@ -46,10 +46,10 @@ export class TxEffect {
   ) {}
 
   toBuffer(): Buffer {
-    const nonZeroNoteHashes = this.newNoteHashes.filter(h => !h.isZero());
-    const nonZeroNullifiers = this.newNullifiers.filter(h => !h.isZero());
-    const nonZeroL2ToL1Msgs = this.newL2ToL1Msgs.filter(h => !h.isZero());
-    const nonZeroPublicDataWrites = this.newPublicDataWrites.filter(h => !h.isEmpty());
+    const nonZeroNoteHashes = this.noteHashes.filter(h => !h.isZero());
+    const nonZeroNullifiers = this.nullifiers.filter(h => !h.isZero());
+    const nonZeroL2ToL1Msgs = this.l2ToL1Msgs.filter(h => !h.isZero());
+    const nonZeroPublicDataWrites = this.publicDataWrites.filter(h => !h.isEmpty());
     const nonZeroContractLeaves = this.contractLeaves.filter(h => !h.isZero());
     const nonZeroContractData = this.contractData.filter(h => !h.isEmpty());
 
@@ -97,10 +97,10 @@ export class TxEffect {
   }
 
   hash() {
-    const noteHashesBuffer = Buffer.concat(this.newNoteHashes.map(x => x.toBuffer()));
-    const nullifiersBuffer = Buffer.concat(this.newNullifiers.map(x => x.toBuffer()));
-    const newL2ToL1MsgsBuffer = Buffer.concat(this.newL2ToL1Msgs.map(x => x.toBuffer()));
-    const publicDataUpdateRequestsBuffer = Buffer.concat(this.newPublicDataWrites.map(x => x.toBuffer()));
+    const noteHashesBuffer = Buffer.concat(this.noteHashes.map(x => x.toBuffer()));
+    const nullifiersBuffer = Buffer.concat(this.nullifiers.map(x => x.toBuffer()));
+    const newL2ToL1MsgsBuffer = Buffer.concat(this.l2ToL1Msgs.map(x => x.toBuffer()));
+    const publicDataUpdateRequestsBuffer = Buffer.concat(this.publicDataWrites.map(x => x.toBuffer()));
     const encryptedLogsHashKernel0 = this.encryptedLogs.hash();
     const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
 
@@ -159,6 +159,6 @@ export class TxEffect {
   }
 
   get txHash(): TxHash {
-    return new TxHash(this.newNullifiers[0].toBuffer());
+    return new TxHash(this.nullifiers[0].toBuffer());
   }
 }

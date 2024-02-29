@@ -47,7 +47,7 @@ describe('e2e_non_contract_account', () => {
 
     const tx = await aztecNode!.getTxEffect(receipt.txHash);
     const expectedSiloedNullifier = siloNullifier(contract.address, nullifier);
-    const siloedNullifier = tx!.newNullifiers[1];
+    const siloedNullifier = tx!.nullifiers[1];
 
     expect(siloedNullifier.equals(expectedSiloedNullifier)).toBeTruthy();
   }, 120_000);
@@ -77,7 +77,7 @@ describe('e2e_non_contract_account', () => {
 
     // check that 1 note hash was created
     const tx = await pxe.getTxEffect(receipt.txHash);
-    const nonZeroNoteHashes = tx?.newNoteHashes.filter(c => c.value > 0);
+    const nonZeroNoteHashes = tx?.noteHashes.filter(c => c.value > 0);
     expect(nonZeroNoteHashes?.length).toBe(1);
 
     // Add the note

@@ -341,8 +341,8 @@ export class PXEService implements PXE {
     }
 
     const nonces: Fr[] = [];
-    const firstNullifier = tx.newNullifiers[0];
-    const hashes = tx.newNoteHashes;
+    const firstNullifier = tx.nullifiers[0];
+    const hashes = tx.noteHashes;
     for (let i = 0; i < hashes.length; ++i) {
       const hash = hashes[i];
       if (hash.equals(Fr.ZERO)) {

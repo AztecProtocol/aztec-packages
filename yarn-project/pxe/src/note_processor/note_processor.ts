@@ -124,7 +124,7 @@ export class NoteProcessor {
         this.stats.txs++;
         const dataStartIndexForTx =
           dataEndIndexForBlock - (txLogs.length - indexOfTxInABlock) * MAX_NEW_NOTE_HASHES_PER_TX;
-        const newNoteHashes = block.body.txEffects[indexOfTxInABlock].newNoteHashes;
+        const newNoteHashes = block.body.txEffects[indexOfTxInABlock].noteHashes;
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
         const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
@@ -211,7 +211,7 @@ export class NoteProcessor {
     }
 
     const newNullifiers: Fr[] = blocksAndNotes.flatMap(b =>
-      b.blockContext.block.body.txEffects.flatMap(txEffect => txEffect.newNullifiers),
+      b.blockContext.block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
     );
     const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.publicKey);
     removedNotes.forEach(noteDao => {

@@ -75,9 +75,9 @@ describe('e2e_state_vars', () => {
       const receipt = await contract.methods.initialize_private(RANDOMNESS, POINTS).send().wait();
 
       const tx = await wallet.getTxEffect(receipt.txHash);
-      expect(tx?.newNoteHashes.length).toEqual(1);
+      expect(tx?.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the initializer
-      expect(tx?.newNullifiers.length).toEqual(2);
+      expect(tx?.nullifiers.length).toEqual(2);
       expect(await contract.methods.is_legendary_initialized().view()).toEqual(true);
     });
 
@@ -100,9 +100,9 @@ describe('e2e_state_vars', () => {
       const receipt = await contract.methods.update_legendary_card(RANDOMNESS, POINTS).send().wait();
 
       const tx = await wallet.getTxEffect(receipt.txHash);
-      expect(tx?.newNoteHashes.length).toEqual(1);
+      expect(tx?.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
-      expect(tx?.newNullifiers.length).toEqual(2);
+      expect(tx?.nullifiers.length).toEqual(2);
 
       const noteAfter = await contract.methods.get_legendary_card().view();
 
@@ -123,9 +123,9 @@ describe('e2e_state_vars', () => {
         .send()
         .wait();
       const tx = await wallet.getTxEffect(receipt.txHash);
-      expect(tx?.newNoteHashes.length).toEqual(1);
+      expect(tx?.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
-      expect(tx?.newNullifiers.length).toEqual(2);
+      expect(tx?.nullifiers.length).toEqual(2);
 
       const { points, randomness } = await contract.methods.get_legendary_card().view();
       expect(points).toEqual(POINTS + 1n);
@@ -137,9 +137,9 @@ describe('e2e_state_vars', () => {
       const noteBefore = await contract.methods.get_legendary_card().view();
       const receipt = await contract.methods.increase_legendary_points().send().wait();
       const tx = await wallet.getTxEffect(receipt.txHash);
-      expect(tx?.newNoteHashes.length).toEqual(1);
+      expect(tx?.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
-      expect(tx?.newNullifiers.length).toEqual(2);
+      expect(tx?.nullifiers.length).toEqual(2);
 
       const { points, randomness } = await contract.methods.get_legendary_card().view();
       expect(points).toEqual(noteBefore.points + 1n);
@@ -158,9 +158,9 @@ describe('e2e_state_vars', () => {
       const receipt = await contract.methods.initialize_private_immutable(RANDOMNESS, POINTS).send().wait();
 
       const tx = await wallet.getTxEffect(receipt.txHash);
-      expect(tx?.newNoteHashes.length).toEqual(1);
+      expect(tx?.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the initializer
-      expect(tx?.newNullifiers.length).toEqual(2);
+      expect(tx?.nullifiers.length).toEqual(2);
       expect(await contract.methods.is_priv_imm_initialized().view()).toEqual(true);
     });
 

@@ -250,7 +250,7 @@ export class L2Block {
     this.assertIndexInRange(txIndex);
 
     // Gets the first nullifier of the tx specified by txIndex
-    const firstNullifier = this.body.txEffects[txIndex].newNullifiers[0];
+    const firstNullifier = this.body.txEffects[txIndex].nullifiers[0];
 
     return new TxHash(firstNullifier.toBuffer());
   }
