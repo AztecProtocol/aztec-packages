@@ -183,7 +183,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     auto vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
     std::vector<FF> lagranges{ FF(1) - challenge, challenge };
 
-    // WORKTODO: bad pattern; can't copy construct but can assign to commitment_key member, confusing state
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::make_shared<Instance>();
     next_accumulator->is_accumulator = true;
     next_accumulator->instance_size = instances[0]->instance_size;
