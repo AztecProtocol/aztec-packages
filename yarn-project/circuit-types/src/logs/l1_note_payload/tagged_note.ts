@@ -35,10 +35,10 @@ export class TaggedNote {
   }
 
   /**
-   * Encrypt the L1NotePayload object using the owner's public key and the ephemeral private key.
-   * @param ownerPubKey - Public key of the owner of the L1NotePayload object.
+   * Encrypt the L1NotePayload object using the owner's public key and the ephemeral private key, then attach the tag.
+   * @param ownerPubKey - Public key of the owner of the TaggedNote object.
    * @param curve - The curve instance to use.
-   * @returns The encrypted L1NotePayload object.
+   * @returns The encrypted TaggedNote object.
    */
   public toEncryptedBuffer(ownerPubKey: PublicKey, curve: Grumpkin): Buffer {
     const encryptedL1NotePayload = this.notePayload.toEncryptedBuffer(ownerPubKey, curve);
@@ -47,10 +47,10 @@ export class TaggedNote {
 
   /**
    * Decrypts the L1NotePayload object using the owner's private key.
-   * @param data - Encrypted L1NotePayload object.
-   * @param ownerPrivKey - Private key of the owner of the L1NotePayload object.
+   * @param data - Encrypted TaggedNote object.
+   * @param ownerPrivKey - Private key of the owner of the TaggedNote object.
    * @param curve - The curve instance to use.
-   * @returns Instance of L1NotePayload if the decryption was successful, undefined otherwise.
+   * @returns Instance of TaggedNote if the decryption was successful, undefined otherwise.
    */
   static fromEncryptedBuffer(data: Buffer, ownerPrivKey: GrumpkinPrivateKey, curve: Grumpkin): TaggedNote | undefined {
     const reader = BufferReader.asReader(data);
