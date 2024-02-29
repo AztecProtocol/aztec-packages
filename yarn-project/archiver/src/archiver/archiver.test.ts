@@ -45,7 +45,7 @@ describe('Archiver', () => {
     expect(latestBlockNum).toEqual(0);
 
     const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
-    const aoTxs = blocks.map(block => block.body).map(makeAoTx);
+    const aoTxs = blocks.map(block => block.body).map(makePublishTx);
     const rollupTxs = blocks.map(makeRollupTx);
 
     // `L2Block.random(x)` creates some l1 to l2 messages. We add those,
@@ -84,14 +84,14 @@ describe('Archiver', () => {
     publicClient.getLogs
       .mockResolvedValueOnce(l1ToL2MessageAddedEvents.slice(0, 2).flat())
       .mockResolvedValueOnce([]) // no messages to cancel
-      .mockResolvedValueOnce([makeL2TxsPublishedEvent(101n, blocks[0].body.getCalldataHash())])
+      .mockResolvedValueOnce([makeTxsPublishedEvent(101n, blocks[0].body.getCalldataHash())])
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(101n, 1n)])
       .mockResolvedValueOnce([makeContractDeploymentEvent(103n, blocks[0])]) // the first loop of the archiver ends here at block 2500
       .mockResolvedValueOnce(l1ToL2MessageAddedEvents.slice(2, 4).flat())
       .mockResolvedValueOnce(makeL1ToL2MessageCancelledEvents(2503n, l1ToL2MessagesToCancel))
       .mockResolvedValueOnce([
-        makeL2TxsPublishedEvent(2510n, blocks[1].body.getCalldataHash()),
-        makeL2TxsPublishedEvent(2520n, blocks[2].body.getCalldataHash()),
+        makeTxsPublishedEvent(2510n, blocks[1].body.getCalldataHash()),
+        makeTxsPublishedEvent(2520n, blocks[2].body.getCalldataHash()),
       ])
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(2510n, 2n), makeL2BlockProcessedEvent(2520n, 3n)])
       .mockResolvedValueOnce([makeContractDeploymentEvent(2540n, blocks[1])])
@@ -165,7 +165,7 @@ describe('Archiver', () => {
 
     const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
 
-    const aoTxs = blocks.map(block => block.body).map(makeAoTx);
+    const aoTxs = blocks.map(block => block.body).map(makePublishTx);
     const rollupTxs = blocks.map(makeRollupTx);
 
     // `L2Block.random(x)` creates some l1 to l2 messages. We add those,
@@ -202,8 +202,8 @@ describe('Archiver', () => {
       })
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
-        makeL2TxsPublishedEvent(70n, blocks[0].body.getCalldataHash()),
-        makeL2TxsPublishedEvent(80n, blocks[1].body.getCalldataHash()),
+        makeTxsPublishedEvent(70n, blocks[0].body.getCalldataHash()),
+        makeTxsPublishedEvent(80n, blocks[1].body.getCalldataHash()),
       ])
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(70n, 1n), makeL2BlockProcessedEvent(80n, 2n)])
       .mockResolvedValue([]);
@@ -247,7 +247,7 @@ describe('Archiver', () => {
 
     const block = L2Block.random(1, 4, 1, 2, 4, 6);
     const rollupTx = makeRollupTx(block);
-    const aoTx = makeAoTx(block.body);
+    const aoTx = makePublishTx(block.body);
 
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n);
     // logs should be created in order of how archiver syncs.
@@ -259,7 +259,7 @@ describe('Archiver', () => {
         ),
       )
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([makeL2TxsPublishedEvent(101n, block.body.getCalldataHash())])
+      .mockResolvedValueOnce([makeTxsPublishedEvent(101n, block.body.getCalldataHash())])
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(101n, 1n)])
       .mockResolvedValue([]);
     publicClient.getTransaction.mockResolvedValueOnce(aoTx);
@@ -303,9 +303,9 @@ function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
  * Makes a fake L2BTxsPublished event for testing purposes.
  * @param l1BlockNum - L1 block number.
  * @param l2BlockNum - L2Block number.
- * @returns An L2BlockProcessed event log.
+ * @returns A TxsPublished event log.
  */
-function makeL2TxsPublishedEvent(l1BlockNum: bigint, txsHash: Buffer) {
+function makeTxsPublishedEvent(l1BlockNum: bigint, txsHash: Buffer) {
   return {
     blockNumber: l1BlockNum,
     args: {
@@ -404,9 +404,9 @@ function makeRollupTx(l2Block: L2Block) {
 /**
  * Makes a fake availability oracle tx for testing purposes.
  * @param blockBody - The block body posted by the simulated tx.
- * @returns A fake tx with calldata that corresponds to calling process in the Availbility Oracle contract.
+ * @returns A fake tx with calldata that corresponds to calling publish in the Availability Oracle contract.
  */
-function makeAoTx(blockBody: Body) {
+function makePublishTx(blockBody: Body) {
   const body = toHex(blockBody.toBuffer());
   const input = encodeFunctionData({
     abi: AvailabilityOracleAbi,

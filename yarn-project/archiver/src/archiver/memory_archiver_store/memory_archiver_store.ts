@@ -34,7 +34,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l2BlockContexts: L2BlockContext[] = [];
 
   /**
-   * A mapping of contract address to extended contract data.
+   * A mapping of body hash to body
    */
   private l2BlockBodies: Map<string, Body> = new Map();
 

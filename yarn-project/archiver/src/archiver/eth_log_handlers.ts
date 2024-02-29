@@ -64,9 +64,9 @@ export function processCancelledL1ToL2MessagesLogs(
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param expectedL2BlockNumber - The next expected L2 block number.
  * @param logs - L2BlockProcessed logs.
- * @returns - An array of tuples representing block metadata including the header, archive tree root, and associated l1 block number
+ * @returns - An array of tuples representing block metadata including the header, archive tree snapshot, and associated l1 block number.
  */
-export async function processBlockMetadataLogs(
+export async function processL2BlockProcessedLogs(
   publicClient: PublicClient,
   expectedL2BlockNumber: bigint,
   logs: Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[],
@@ -91,7 +91,7 @@ export async function processBlockMetadataLogs(
   return retrievedBlockMetadata;
 }
 
-export async function processBlockBodyLogs(
+export async function processTxsPublishedLogs(
   publicClient: PublicClient,
   logs: Log<bigint, number, false, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>[],
 ): Promise<[Body, Buffer][]> {
@@ -105,7 +105,7 @@ export async function processBlockBodyLogs(
 }
 
 /**
- * Gets block metadata (header and archive root) from the calldata of a L1 transaction
+ * Gets block metadata (header and archive snapshot) from the calldata of an L1 transaction.
  * Assumes that the block was published from an EOA.
  * TODO: Add retries and error management.
  * @param publicClient - The viem public client to use for transaction retrieval.
@@ -148,7 +148,7 @@ async function getBlockMetadataFromRollupTx(
 }
 
 /**
- * Gets block bodies from calldata of a L1 transaction, and deserializes them into Body objects
+ * Gets block bodies from calldata of an L1 transaction, and deserializes them into Body objects.
  * Assumes that the block was published from an EOA.
  * TODO: Add retries and error management.
  * @param publicClient - The viem public client to use for transaction retrieval.
@@ -209,7 +209,7 @@ export function getL2BlockProcessedLogs(
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `TxsPublished` logs.
  */
-export function getL2TxsPublishedLogs(
+export function getTxsPublishedLogs(
   publicClient: PublicClient,
   dataAvailabilityOracleAddress: EthAddress,
   fromBlock: bigint,
@@ -234,13 +234,13 @@ export function getL2TxsPublishedLogs(
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `ContractDeployment` logs.
  */
-export async function getContractDeploymentLogs(
+export function getContractDeploymentLogs(
   publicClient: PublicClient,
   contractDeploymentEmitterAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
 ): Promise<Log<bigint, number, false, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[]> {
-  return await publicClient.getLogs({
+  return publicClient.getLogs({
     address: getAddress(contractDeploymentEmitterAddress.toString()),
     event: getAbiItem({
       abi: ContractDeploymentEmitterAbi,
@@ -299,13 +299,13 @@ export function processContractDeploymentLogs(
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `MessageAdded` logs.
  */
-export async function getPendingL1ToL2MessageLogs(
+export function getPendingL1ToL2MessageLogs(
   publicClient: PublicClient,
   inboxAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
 ): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageAdded'>[]> {
-  return await publicClient.getLogs({
+  return publicClient.getLogs({
     address: getAddress(inboxAddress.toString()),
     event: getAbiItem({
       abi: InboxAbi,
@@ -324,13 +324,13 @@ export async function getPendingL1ToL2MessageLogs(
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `L1ToL2MessageCancelled` logs.
  */
-export async function getL1ToL2MessageCancelledLogs(
+export function getL1ToL2MessageCancelledLogs(
   publicClient: PublicClient,
   inboxAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
 ): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[]> {
-  return await publicClient.getLogs({
+  return publicClient.getLogs({
     address: getAddress(inboxAddress.toString()),
     event: getAbiItem({
       abi: InboxAbi,

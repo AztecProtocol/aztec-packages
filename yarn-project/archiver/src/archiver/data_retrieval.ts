@@ -8,10 +8,10 @@ import {
   getContractDeploymentLogs,
   getL1ToL2MessageCancelledLogs,
   getL2BlockProcessedLogs,
-  getL2TxsPublishedLogs,
+  getTxsPublishedLogs,
   getPendingL1ToL2MessageLogs,
-  processBlockBodyLogs,
-  processBlockMetadataLogs,
+  processTxsPublishedLogs,
+  processL2BlockProcessedLogs,
   processCancelledL1ToL2MessagesLogs,
   processContractDeploymentLogs,
   processPendingL1ToL2MessageAddedLogs,
@@ -64,7 +64,7 @@ export async function retrieveBlockMetadataFromRollup(
       break;
     }
 
-    const newBlockMetadata = await processBlockMetadataLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
+    const newBlockMetadata = await processL2BlockProcessedLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
     retrievedBlockMetadata.push(...newBlockMetadata);
     searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
     expectedNextL2BlockNum += BigInt(newBlockMetadata.length);
@@ -94,7 +94,7 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const l2TxsPublishedLogs = await getL2TxsPublishedLogs(
+    const l2TxsPublishedLogs = await getTxsPublishedLogs(
       publicClient,
       availabilityOracleAddress,
       searchStartBlock,
@@ -104,7 +104,7 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
       break;
     }
 
-    const newBlockBodies = await processBlockBodyLogs(publicClient, l2TxsPublishedLogs);
+    const newBlockBodies = await processTxsPublishedLogs(publicClient, l2TxsPublishedLogs);
     retrievedBlockBodies.push(...newBlockBodies);
     searchStartBlock = l2TxsPublishedLogs[l2TxsPublishedLogs.length - 1].blockNumber! + 1n;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);

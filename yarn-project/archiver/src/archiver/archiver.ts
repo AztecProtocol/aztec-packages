@@ -55,7 +55,6 @@ export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & 
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-
 export class Archiver implements ArchiveSource {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
