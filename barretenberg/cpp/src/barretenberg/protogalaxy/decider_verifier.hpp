@@ -10,6 +10,7 @@ namespace bb {
 template <typename Flavor> class DeciderVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
+    using CommitmentKey = typename Flavor::CommitmentKey;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Transcript = typename Flavor::Transcript;
@@ -27,6 +28,7 @@ template <typename Flavor> class DeciderVerifier_ {
     std::shared_ptr<VerifierInstance> accumulator;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<CommitmentKey> commitment_key; // WORKTODO
 };
 
 using DeciderVerifier = DeciderVerifier_<UltraFlavor>;

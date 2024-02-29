@@ -45,23 +45,15 @@ template <IsUltraFlavor Flavor>
 DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(const std::shared_ptr<ProverInstance>& accumulator,
                                                                      const std::shared_ptr<Transcript>& transcript)
 {
-    DeciderProver_<Flavor> output_state(accumulator, transcript);
-
-    return output_state;
+    return DeciderProver_<Flavor>(accumulator, transcript);
+    ;
 }
 
 template <IsUltraFlavor Flavor>
 DeciderVerifier_<Flavor> UltraComposer_<Flavor>::create_decider_verifier(
     const std::shared_ptr<VerifierInstance>& accumulator, const std::shared_ptr<Transcript>& transcript)
 {
-    DeciderVerifier_<Flavor> output_state(transcript, accumulator);
-    // WORKTODO: HACK: this function changes in Mara's PR; need to put crs factory in verifier instance after that.
-    srs::init_crs_factory("../srs_db/ignition");
-    auto pcs_verification_key =
-        std::make_unique<VerifierCommitmentKey>(accumulator->instance_size, srs::get_bn254_crs_factory());
-    output_state.pcs_verification_key = std::move(pcs_verification_key);
-
-    return output_state;
+    return DeciderVerifier_<Flavor>(transcript, accumulator);
 }
 
 template class UltraComposer_<UltraFlavor>;

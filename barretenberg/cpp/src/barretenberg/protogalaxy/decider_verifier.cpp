@@ -11,6 +11,7 @@ DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<Transcript>& tr
                                            const std::shared_ptr<VerifierInstance>& accumulator)
     : accumulator(accumulator)
     , transcript(transcript)
+    , commitment_key(accumulator->verification_key->commitment_key)
 {}
 template <typename Flavor>
 DeciderVerifier_<Flavor>::DeciderVerifier_()
