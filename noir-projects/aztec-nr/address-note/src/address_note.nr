@@ -20,6 +20,13 @@ struct AddressNote {
 }
 
 impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
+    fn compute_note_private_content_hash(self) -> Field {
+        pedersen_hash(self.serialize_content(), 0)
+    }
+
+    fn compute_note_public_content_hash(self) -> Field {
+        0
+    }
     fn serialize_content(self) -> [Field; ADDRESS_NOTE_LEN]{
         [self.address.to_field(), self.owner.to_field(), self.randomness]
     }

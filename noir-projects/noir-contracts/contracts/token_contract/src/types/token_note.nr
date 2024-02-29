@@ -35,23 +35,22 @@ struct TokenNote {
 
 impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     fn serialize_content(self) -> [Field; TOKEN_NOTE_LEN] {
-        [self.amount.to_field(), self.owner.to_field(), self.compute_note_private_content_hash()]
+        [self.amount.to_field(), self.owner.to_field(), self.randomness]
     }
 
     fn deserialize_content(serialized_note: [Field; TOKEN_NOTE_LEN]) -> Self {
         Self {
             amount: U128::from_integer(serialized_note[0]),
             owner: AztecAddress::from_field(serialized_note[1]),
-            randomness: 0,
+            randomness: serialized_note[2],
             header: NoteHeader::empty(),
-            private_content_hash: serialized_note[2],
+            private_content_hash: 0,
         }
     }
 
     fn compute_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
-            self.compute_note_private_content_hash(),
             self.amount.to_field(),
         ], 0)
     }
@@ -109,6 +108,26 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
         // python -c "print(int(''.join(str(ord(c)) for c in 'TokenNote')))"
         8411110710111078111116101
     }
+
+    fn compute_note_private_content_hash(self) -> Field {
+        if self.private_content_hash != 0 {
+            self.private_content_hash
+        } else {
+            pedersen_hash(
+                [
+                self.owner.to_field(),
+                self.randomness
+            ],
+                0
+            )
+        }
+    }
+
+    fn compute_note_public_content_hash(self) -> Field {
+        pedersen_hash([
+            self.amount.to_field(),
+        ], 0)
+    }
 }
 
 impl OwnedNote for TokenNote {
@@ -132,25 +151,6 @@ impl OwnedNote for TokenNote {
 }
 
 impl PartialNoteInterface for TokenNote {
-    fn compute_note_private_content_hash(self) -> Field {
-        if self.private_content_hash != 0 {
-            self.private_content_hash
-        } else {
-            pedersen_hash(
-                [
-                self.owner.to_field(),
-                self.randomness
-            ],
-                0
-            )
-        }
-    }
-
-    fn compute_note_public_content_hash(self) -> Field {
-        pedersen_hash([
-            self.amount.to_field(),
-        ], 0)
-    }
 }
 
 impl TokenNote {

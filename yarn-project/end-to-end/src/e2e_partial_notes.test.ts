@@ -7,7 +7,8 @@ import {
   TxHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { pedersenHash } from '@aztec/foundation/crypto';
+import { BufferReader, serializeToBufferArray } from '@aztec/foundation/serialize';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -44,21 +45,63 @@ describe('e2e_partial_notes', () => {
       txHash: out.txHash,
     });
 
-    const partialNotes = BufferReader.asReader(logs.logs[0].log.data).readArray(2, Fr);
-    const slots = BufferReader.asReader(logs.logs[1].log.data).readArray(2, Fr);
-    const amounts = BufferReader.asReader(logs.logs[2].log.data).readArray(2, Fr);
+    const partialNoteHashes = BufferReader.asReader(logs.logs[0].log.data).readArray(2, Fr);
+    const randomness = BufferReader.asReader(logs.logs[1].log.data).readArray(2, Fr);
+    const slots = BufferReader.asReader(logs.logs[2].log.data).readArray(2, Fr);
+    const privateContentHashes = BufferReader.asReader(logs.logs[3].log.data).readArray(2, Fr);
+    const amounts = BufferReader.asReader(logs.logs[4].log.data).readArray(2, Fr);
+    const innerNoteHashes = BufferReader.asReader(logs.logs[5].log.data).readArray(2, Fr);
     const noteTypeId = new Fr(8411110710111078111116101n); // TokenNote
 
-    console.log(partialNotes);
-    console.log(slots);
-    console.log(amounts);
-    console.log('note hashes:', out.debugInfo?.newNoteHashes);
+    const prettyPrint = (x: Fr[]) => '\n' + x.map(n => '\t- ' + n.toString()).join('\n');
+
+    /* eslint-disable no-console */
+    console.log('partial note hashes', prettyPrint(partialNoteHashes));
+    console.log('owners', prettyPrint([ctx.wallets[0].getAddress(), ctx.wallets[1].getAddress()]));
+    console.log('randomness', prettyPrint(randomness));
+    console.log('privateContentHashes', prettyPrint(privateContentHashes));
+    console.log(
+      'expected privateContentHashes',
+      prettyPrint([
+        pedersenHash(serializeToBufferArray(ctx.wallets[0].getAddress(), randomness[0])),
+        pedersenHash(serializeToBufferArray(ctx.wallets[1].getAddress(), randomness[1])),
+      ]),
+    );
+    console.log('slots', prettyPrint(slots));
+    console.log(
+      'expected slots',
+      prettyPrint([
+        pedersenHash(serializeToBufferArray(new Fr(3), ctx.wallets[0].getAddress())),
+        pedersenHash(serializeToBufferArray(new Fr(3), ctx.wallets[1].getAddress())),
+      ]),
+    );
+    console.log(
+      'expected partial note hashes',
+      prettyPrint([
+        pedersenHash(serializeToBufferArray(slots[0], privateContentHashes[0])),
+        pedersenHash(serializeToBufferArray(slots[1], privateContentHashes[1])),
+      ]),
+    );
+
+    console.log('amounts', prettyPrint(amounts));
+
+    console.log('inner note hashes', prettyPrint(innerNoteHashes));
+    console.log(
+      'expected inner note hashes',
+      prettyPrint([
+        pedersenHash(serializeToBufferArray(partialNoteHashes[0], pedersenHash([amounts[0].toBuffer()]))),
+        pedersenHash(serializeToBufferArray(partialNoteHashes[1], pedersenHash([amounts[1].toBuffer()]))),
+      ]),
+    );
+
+    console.log('note hashes:', prettyPrint(out.debugInfo?.newNoteHashes ?? []));
+    /* eslint-enable no-console */
 
     // the pxe could keep track of partial notes and recreate them
     // for now, just add the notes manually
     await ctx.wallets[0].addNote(
       new ExtendedNote(
-        new Note([amounts[0], ctx.wallets[0].getAddress(), partialNotes[0]]),
+        new Note([amounts[0], ctx.wallets[0].getAddress(), randomness[0]]),
         ctx.wallets[0].getAddress(),
         bananaCoin.address,
         slots[0],
@@ -69,7 +112,7 @@ describe('e2e_partial_notes', () => {
 
     await ctx.wallets[1].addNote(
       new ExtendedNote(
-        new Note([amounts[1], ctx.wallets[1].getAddress(), partialNotes[1]]),
+        new Note([amounts[1], ctx.wallets[1].getAddress(), randomness[1]]),
         ctx.wallets[1].getAddress(),
         bananaCoin.address,
         slots[1],

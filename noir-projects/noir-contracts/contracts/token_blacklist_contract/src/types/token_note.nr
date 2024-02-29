@@ -17,8 +17,8 @@ global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 struct TokenNote {
     // the amount of tokens in the note
     amount: U128,
-    // the provider of secrets for the nullifier. The owner (recipient) to ensure that the note 
-    // can be privately spent. When nullifier secret and encryption private key is same 
+    // the provider of secrets for the nullifier. The owner (recipient) to ensure that the note
+    // can be privately spent. When nullifier secret and encryption private key is same
     // we can simply use the owner for this one.
     owner: AztecAddress,
     // randomness of the note to hide contents.
@@ -29,6 +29,13 @@ struct TokenNote {
 }
 
 impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
+    fn compute_note_private_content_hash(self) -> Field {
+        pedersen_hash(self.serialize_content(), 0)
+    }
+
+    fn compute_note_public_content_hash(self) -> Field {
+        0
+    }
     fn serialize_content(self) -> [Field; TOKEN_NOTE_LEN] {
         [self.amount.to_field(), self.owner.to_field(), self.randomness]
     }
@@ -120,5 +127,5 @@ impl OwnedNote for TokenNote {
     fn get_owner(self) -> AztecAddress {
         self.owner
     }
-   
+
 }

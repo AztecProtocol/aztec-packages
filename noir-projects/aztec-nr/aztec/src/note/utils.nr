@@ -19,12 +19,24 @@ fn compute_unique_hash(nonce: Field, siloed_note_hash: Field) -> Field {
     pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
+pub fn compute_partial_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
+    let header = note.get_header();
+    let private_content_hash = note.compute_note_private_content_hash();
+    pedersen_hash([header.storage_slot, private_content_hash], 0)
+}
+
 fn compute_inner_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
     let header = note.get_header();
-    let note_hash = note.compute_note_content_hash();
+    let mut partial_note_hash = header.partial_note_hash;
+
+    if partial_note_hash == 0 {
+        partial_note_hash = compute_partial_note_hash(note);
+    }
+
+    let public_content_hash = note.compute_note_public_content_hash();
 
     // TODO(#1205) Do we need a generator index here?
-    pedersen_hash([header.storage_slot, note_hash], 0)
+    pedersen_hash([partial_note_hash, public_content_hash], 0)
 }
 
 fn compute_siloed_note_hash<Note, N>(note_with_header: Note) -> Field where Note: NoteInterface<N> {
@@ -52,20 +64,6 @@ pub fn compute_siloed_nullifier<Note, N>(
 
     let input = [header.contract_address.to_field(), inner_nullifier];
     pedersen_hash(input, GENERATOR_INDEX__OUTER_NULLIFIER)
-}
-
-pub fn compute_partial_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface<N> + PartialNoteInterface {
-    let header = note.get_header();
-    let partial_note_hash = note.compute_note_private_content_hash();
-    pedersen_hash([header.storage_slot, partial_note_hash], 0)
-}
-
-pub fn compute_complete_note_hash_for_insertion<Note, N>(
-    partial_note_hash: Field,
-    note: Note
-) -> Field where Note: NoteInterface<N> + PartialNoteInterface {
-    let public_note_hash = note.compute_note_public_content_hash();
-    pedersen_hash([partial_note_hash, public_note_hash], 0)
 }
 
 pub fn compute_note_hash_for_insertion<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {

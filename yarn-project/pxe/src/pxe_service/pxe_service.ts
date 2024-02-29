@@ -298,6 +298,11 @@ export class PXEService implements PXE {
           note.note,
         );
 
+      this.log(`Adding new note`);
+      this.log(`Inner hash ${innerNoteHash.toString()}`);
+      this.log(`Siloed hash ${siloedNoteHash.toString()}`);
+      this.log(`Unique siloed hash ${uniqueSiloedNoteHash.toString()}`);
+
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
       // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
       const noteHashToLookUp = nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;

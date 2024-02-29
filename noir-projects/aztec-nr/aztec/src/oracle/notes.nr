@@ -111,7 +111,7 @@ unconstrained pub fn get_notes<Note, N, M, S, NS>(
             let read_offset: u64 = return_header_length + i * (N + extra_preimage_length);
             let nonce = fields[read_offset];
             let is_transient = fields[read_offset + 1] as bool;
-            let header = NoteHeader { contract_address, nonce, storage_slot, is_transient, is_partial: false };
+            let header = NoteHeader { contract_address, nonce, storage_slot, is_transient, is_partial: false, partial_note_hash: 0 };
             let serialized_note = arr_copy_slice(fields, [0; N], read_offset + 2);
             let mut note = Note::deserialize_content(serialized_note);
             // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed

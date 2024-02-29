@@ -17,6 +17,14 @@ struct SubscriptionNote {
 }
 
 impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
+    fn compute_note_private_content_hash(self) -> Field {
+        pedersen_hash(self.serialize_content(), 0)
+    }
+
+    fn compute_note_public_content_hash(self) -> Field {
+        0
+    }
+
     fn serialize_content(self) -> [Field; SUBSCRIPTION_NOTE_LEN] {
         [self.owner.to_field(), self.expiry_block_number, self.remaining_txs]
     }

@@ -20,10 +20,13 @@ trait NoteInterface<N> {
     fn broadcast(self, context: &mut PrivateContext, slot: Field) -> ();
 
     fn get_note_type_id() -> Field;
+
+    fn compute_note_private_content_hash(self) -> Field;
+    fn compute_note_public_content_hash(self) -> Field;
 }
 // docs:end:note_interface
 
 trait PartialNoteInterface {
-    fn compute_note_private_content_hash(self) -> Field;
-    fn compute_note_public_content_hash(self) -> Field;
+    // fn compute_note_private_content_hash(self) -> Field;
+    // fn compute_note_public_content_hash(self) -> Field;
 }

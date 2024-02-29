@@ -405,7 +405,7 @@ contract Token {
         context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("complete_partial_notes([Field;2],[Field;2],[Field;2])"),
-            [res[0], res[1], amount_1, amount_2, 0, 0]
+            [res[0], res[2], res[1], res[3], amount_1, amount_2]
         );
     }
 
@@ -431,8 +431,21 @@ contract Token {
         // hack for quick e2e testing.
         // This should only emit the amounts
         emit_unencrypted_log_from_private(&mut context, [partial_note_hash_1, partial_note_hash_2]);
+
+        // hack, we shouldn't be emitting the note randomness
+        emit_unencrypted_log_from_private(
+            &mut context,
+            [partial_note_1.randomness, partial_note_2.randomness]
+        );
         // hack, we shouldn't be emitting the slots
         emit_unencrypted_log_from_private(&mut context, [from_slot, to_slot]);
+
+        emit_unencrypted_log_from_private(
+            &mut context,
+            [
+            partial_note_1.compute_note_private_content_hash(), partial_note_2.compute_note_private_content_hash()
+        ]
+        );
 
         debug_log_format(
             "split amount {0} into\n\t - note {1} at slot {2}\n\t - note {3} at slot {4}",
@@ -455,7 +468,9 @@ contract Token {
         // revealing the slots leaks privacy
         // the slots are derviced from the address so it could be brute forced
         // we probably need to redesign how note hashes are generated in order to abstract away the slot
-        [partial_note_hash_1, partial_note_hash_2]
+        [
+            partial_note_hash_1, partial_note_1.compute_note_private_content_hash(), partial_note_hash_2, partial_note_2.compute_note_private_content_hash()
+        ]
     }
 
     #[aztec(public)]
@@ -464,10 +479,10 @@ contract Token {
     }
 
     #[aztec(public)]
-    fn complete_partial_notes(partial_notes: [Field; 2], amounts: [Field; 2], private_content_hashes: [Field; 2]) {
+    fn complete_partial_notes(partial_note_hashes: [Field; 2], private_content_hashes: [Field; 2], amounts: [Field; 2]) {
         let hash = compute_partial_notes_pair_hash(
-            partial_notes[0],
-            partial_notes[1],
+            partial_note_hashes[0],
+            partial_note_hashes[1],
             context.msg_sender(),
             amounts[0] + amounts[1]
         );
@@ -475,13 +490,22 @@ contract Token {
         assert(storage.partial_notes.at(hash).read(), "partial note not authorized");
         context.push_new_nullifier(hash.to_field(), 0);
 
-        let mut token_note_1 = TokenNote::from_partial(U128::from_integer(amounts[0]), partial_notes[0]);
-        create_note_hash_from_public(&mut context, slots[0], &mut token_note_1);
+        let mut token_note_1 = TokenNote::from_partial(U128::from_integer(amounts[0]), private_content_hashes[0]);
+        let inner_note_hash_1 = complete_partial_note_from_public(&mut context, partial_note_hashes[0], &mut token_note_1);
+        // create_note_hash_from_public(&mut context, slots[0], &mut token_note_1);
 
-        let mut token_note_2 = TokenNote::from_partial(U128::from_integer(amounts[1]), partial_notes[1]);
-        create_note_hash_from_public(&mut context, slots[1], &mut token_note_2);
+        let mut token_note_2 = TokenNote::from_partial(U128::from_integer(amounts[1]), private_content_hashes[1]);
+        let inner_note_hash_2 = complete_partial_note_from_public(&mut context, partial_note_hashes[1], &mut token_note_2);
+        // create_note_hash_from_public(&mut context, slots[1], &mut token_note_2);
 
         emit_unencrypted_log(&mut context, amounts);
+        emit_unencrypted_log(
+            &mut context,
+            [
+            inner_note_hash_1,
+            inner_note_hash_2
+        ]
+        );
     }
 }
 // docs:end:token_all

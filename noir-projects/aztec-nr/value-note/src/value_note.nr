@@ -17,6 +17,13 @@ struct ValueNote {
 // docs:end:value-note-def
 
 impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
+    fn compute_note_private_content_hash(self) -> Field {
+        pedersen_hash(self.serialize_content(), 0)
+    }
+
+    fn compute_note_public_content_hash(self) -> Field {
+        0
+    }
     fn serialize_content(self) -> [Field; VALUE_NOTE_LEN] {
         [self.value, self.owner.to_field(), self.randomness]
     }

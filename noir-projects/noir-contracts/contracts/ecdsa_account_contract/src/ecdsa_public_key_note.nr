@@ -17,6 +17,13 @@ struct EcdsaPublicKeyNote {
 }
 
 impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
+    fn compute_note_private_content_hash(self) -> Field {
+        pedersen_hash(self.serialize_content(), 0)
+    }
+
+    fn compute_note_public_content_hash(self) -> Field {
+        0
+    }
     // serialize the note as 5 fields where:
     // [0] = x[0..31] (upper bound excluded)
     // [1] = x[31]
@@ -38,7 +45,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
 
         let last_x = self.x[31] as Field;
         let last_y = self.y[31] as Field;
-        
+
         [x, last_x, y, last_y, self.owner.to_field()]
     }
 
