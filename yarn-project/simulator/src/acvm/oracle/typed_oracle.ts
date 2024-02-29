@@ -1,6 +1,5 @@
 import {
   CompleteAddress,
-  L1ToL2Message,
   MerkleTreeId,
   Note,
   NoteStatus,

@@ -547,7 +547,7 @@ describe('Private Execution test suite', () => {
       });
     });
 
-    describe.only('L1 to L2', () => {
+    describe('L1 to L2', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_private_message');
       const canceller = EthAddress.random();
       let bridgedAmount = 100n;
