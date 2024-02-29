@@ -22,7 +22,7 @@ import {
   TxL2Logs,
   TxReceipt,
   getNewContractPublicFunctions,
-  isNoirCallStackUnresolved
+  isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
