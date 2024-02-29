@@ -1,7 +1,5 @@
 contract Counter {
     // docs:start:imports
-    use dep::aztec::protocol_types::address::AztecAddress;
-    use dep::aztec::state_vars::Map;
     use dep::value_note::balance_utils;
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
     use dep::easy_private_state::EasyPrivateUint;

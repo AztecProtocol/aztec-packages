@@ -1,8 +1,5 @@
 use dep::std::option::Option;
-use dep::aztec::{
-    context::Context, protocol_types::{address::AztecAddress, constants::MAX_READ_REQUESTS_PER_CALL},
-    state_vars::{PrivateSet, Map}
-};
+use dep::aztec::{context::Context, protocol_types::constants::MAX_READ_REQUESTS_PER_CALL};
 use crate::types::token_note::{TokenNote, OwnedNote};
 
 struct BalancesMap<T> {

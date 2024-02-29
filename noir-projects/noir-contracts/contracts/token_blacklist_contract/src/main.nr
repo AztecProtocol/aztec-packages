@@ -16,11 +16,7 @@ contract TokenBlacklist {
     // Libs
     use dep::std::option::Option;
 
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
-    use dep::aztec::{
-        note::note_getter_options::NoteGetterOptions, hash::compute_secret_hash,
-        state_vars::{Map, PublicMutable, PrivateSet, SharedImmutable}
-    };
+    use dep::aztec::hash::compute_secret_hash;
 
     use dep::field_note::field_note::FieldNote;
 

@@ -64,10 +64,6 @@ contract Voting {
 
 This defines a contract called `Voter`. Everything will sit inside this block.
 
-Inside this, paste these imports:
-
-#include_code imports noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
-
 We are using various utils within the Aztec library:
 
 - `context` - exposes things such as the contract address, msg_sender, etc

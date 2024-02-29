@@ -3,9 +3,7 @@ contract StatefulTest {
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
     use dep::aztec::{
         deploy::{deploy_contract as aztec_deploy_contract},
-        state_vars::{Map, PublicMutable, PrivateSet},
-        initializer::{mark_as_initialized, assert_is_initialized},
-        protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector}
+        initializer::{mark_as_initialized, assert_is_initialized}
     };
 
     struct Storage {

@@ -1,10 +1,4 @@
 contract EasyPrivateVoting {
-    // docs:start:imports
-    use dep::aztec::{
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        state_vars::{Map, PublicMutable}
-    };
-    // docs:end:imports
     // docs:start:storage_struct
     struct Storage {
         admin: PublicMutable<AztecAddress>, // admin can end vote

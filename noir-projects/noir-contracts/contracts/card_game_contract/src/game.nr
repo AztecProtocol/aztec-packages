@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Deserialize}};
+use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
 use crate::cards::Card;
 
 global NUMBER_OF_PLAYERS = 2;

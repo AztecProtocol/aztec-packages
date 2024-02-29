@@ -7,12 +7,7 @@
 contract Benchmarking {
     use dep::value_note::{utils::{increment, decrement}, value_note::ValueNote};
 
-    use dep::aztec::{
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        context::{Context},
-        note::{utils as note_utils, note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        log::emit_unencrypted_log, state_vars::{Map, PublicMutable, PrivateSet}
-    };
+    use dep::aztec::{context::Context, note::utils as note_utils};
 
     struct Storage {
         notes: Map<AztecAddress, PrivateSet<ValueNote>>,

@@ -1,6 +1,5 @@
 use dep::aztec::protocol_types::{
-    contract_class_id::ContractClassId,
-    address::{AztecAddress, EthAddress, PublicKeysHash, PartialAddress},
+    contract_class_id::ContractClassId, address::{PublicKeysHash, PartialAddress},
     constants::{DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE}, traits::{Serialize}
 };
 

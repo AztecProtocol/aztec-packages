@@ -12,14 +12,8 @@ mod types;
 contract Token {
     // Libs
     use dep::std::option::Option;
-
     use dep::compressed_string::FieldCompressedString;
-
-    use dep::aztec::{
-        note::note_getter_options::NoteGetterOptions, hash::compute_secret_hash,
-        state_vars::{Map, PublicMutable, SharedImmutable, PrivateSet},
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress}
-    };
+    use dep::aztec::hash::compute_secret_hash;
 
     // docs:start:import_authwit
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};

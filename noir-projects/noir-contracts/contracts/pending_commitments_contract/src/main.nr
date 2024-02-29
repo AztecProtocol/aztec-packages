@@ -4,13 +4,8 @@
 // be read/nullified before their creation etc.
 contract PendingCommitments {
     // Libs
-    use dep::std::option::Option;
     use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
-    use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context}, log::emit_encrypted_log,
-        note::{note_getter::NoteGetterOptions}, state_vars::{Map, PrivateSet},
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress}
-    };
+    use dep::aztec::context::{PublicContext, Context};
 
     struct Storage {
         balances: Map<AztecAddress, PrivateSet<ValueNote>>,

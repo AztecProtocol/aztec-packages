@@ -2,11 +2,7 @@
 contract Child {
     use dep::std::option::Option;
 
-    use dep::aztec::{
-        log::emit_unencrypted_log, state_vars::{PublicMutable, PrivateSet},
-        protocol_types::{abis::{function_selector::FunctionSelector, call_context::CallContext}, address::AztecAddress},
-        note::note_getter_options::NoteGetterOptions
-    };
+    use dep::aztec::protocol_types::abis::call_context::CallContext;
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
     struct Storage {

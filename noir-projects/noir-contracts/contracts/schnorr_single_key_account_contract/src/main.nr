@@ -2,7 +2,6 @@ mod util;
 mod auth_oracle;
 
 contract SchnorrSingleKeyAccount {
-    use dep::aztec::context::PrivateContext;
     use dep::authwit::{entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions};
 
     use crate::{util::recover_address, auth_oracle::get_auth_witness};

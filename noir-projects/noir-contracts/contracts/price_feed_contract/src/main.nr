@@ -1,7 +1,6 @@
 mod asset;
 
 contract PriceFeed {
-    use dep::aztec::{state_vars::{Map, PublicMutable}};
     use crate::asset::Asset;
 
     // Storage structure, containing all storage, and specifying what slots they use.

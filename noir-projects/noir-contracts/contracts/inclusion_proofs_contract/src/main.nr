@@ -2,10 +2,7 @@
 contract InclusionProofs {
     // docs:start:imports
     use dep::aztec::{
-        protocol_types::{
-        abis::function_selector::FunctionSelector, grumpkin_point::GrumpkinPoint,
-        contract_class_id::ContractClassId
-    },
+        protocol_types::{grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId},
         note::note_getter_options::NoteStatus,
         history::{
         contract_inclusion::{prove_contract_inclusion, prove_contract_inclusion_at},

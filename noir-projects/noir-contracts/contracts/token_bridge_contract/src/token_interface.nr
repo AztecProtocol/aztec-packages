@@ -1,5 +1,4 @@
 // docs:start:token_bridge_token_interface
-use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
 use dep::aztec::{context::{PublicContext, Context}};
 
 struct Token {

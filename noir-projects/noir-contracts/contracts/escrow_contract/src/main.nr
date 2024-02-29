@@ -1,12 +1,7 @@
 // Sample escrow contract that stores a balance of a private token on behalf of an owner.
 contract Escrow {
     use dep::std::option::Option;
-
-    use dep::aztec::{
-        note::note_getter_options::NoteGetterOptions, oracle::get_public_key::get_public_key,
-        protocol_types::abis::function_selector::FunctionSelector, state_vars::PrivateSet
-    };
-
+    use dep::aztec::oracle::get_public_key::get_public_key;
     use dep::address_note::address_note::{AddressNote, ADDRESS_NOTE_LEN};
 
     struct Storage {

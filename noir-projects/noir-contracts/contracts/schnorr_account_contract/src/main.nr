@@ -5,7 +5,7 @@ mod public_key_note;
 contract SchnorrAccount {
     use dep::std;
 
-    use dep::aztec::{context::{PrivateContext, Context}, state_vars::PrivateImmutable};
+    use dep::aztec::context::Context;
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness

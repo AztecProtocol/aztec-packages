@@ -1,11 +1,6 @@
 use dep::aztec::{
-    protocol_types::{address::AztecAddress, constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL}},
-    context::{PrivateContext, Context},
-    note::{
-    note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
-    note_getter::view_notes
-},
-    state_vars::PrivateSet
+    protocol_types::constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL}, context::Context,
+    note::note_getter::view_notes
 };
 use dep::std;
 use dep::std::{option::Option};

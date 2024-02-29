@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::{AztecAddress, EthAddress}};
+use dep::protocol_types::{address::{AztecAddress, EthAddress}, abis::function_selector::FunctionSelector};
 use crate::{
     state_vars::{
     map::Map, private_immutable::PrivateImmutable, private_mutable::PrivateMutable,

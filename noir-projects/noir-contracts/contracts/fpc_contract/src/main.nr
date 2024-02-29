@@ -1,9 +1,6 @@
 mod interfaces;
 
 contract FPC {
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
-    use dep::aztec::state_vars::SharedImmutable;
-
     use crate::interfaces::Token;
 
     struct Storage {
