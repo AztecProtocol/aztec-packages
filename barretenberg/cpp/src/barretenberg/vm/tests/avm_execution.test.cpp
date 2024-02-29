@@ -53,11 +53,13 @@ class AvmExecutionTests : public ::testing::Test {
 TEST_F(AvmExecutionTests, basicAddReturn)
 {
     std::string bytecode_hex = to_hex(OpCode::ADD) +      // opcode ADD
+                               "00"                       // Indirect flag
                                "01"                       // U8
                                "00000007"                 // addr a 7
                                "00000009"                 // addr b 9
                                "00000001"                 // addr c 1
                                + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
                                "00000000"                 // ret offset 0
                                "00000000";                // ret size 0
 
@@ -71,7 +73,8 @@ TEST_F(AvmExecutionTests, basicAddReturn)
     EXPECT_THAT(instructions.at(0),
                 AllOf(Field(&Instruction::op_code, OpCode::ADD),
                       Field(&Instruction::operands,
-                            ElementsAre(VariantWith<AvmMemoryTag>(AvmMemoryTag::U8),
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<AvmMemoryTag>(AvmMemoryTag::U8),
                                         VariantWith<uint32_t>(7),
                                         VariantWith<uint32_t>(9),
                                         VariantWith<uint32_t>(1)))));
@@ -79,7 +82,8 @@ TEST_F(AvmExecutionTests, basicAddReturn)
     // RETURN
     EXPECT_THAT(instructions.at(1),
                 AllOf(Field(&Instruction::op_code, OpCode::RETURN),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
 
     auto trace = Execution::gen_trace(instructions);
     gen_proof_and_validate(bytecode, std::move(trace), {});
@@ -97,11 +101,13 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
                                "9103"                     // val 37123
                                "00000033"                 // dst_offset 51
                                + to_hex(OpCode::SUB) +    // opcode SUB
+                               "00"                       // Indirect flag
                                "02"                       // U16
                                "000000AA"                 // addr a
                                "00000033"                 // addr b
                                "00000001"                 // addr c 1
                                + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
                                "00000000"                 // ret offset 0
                                "00000000";                // ret size 0
 
@@ -130,7 +136,8 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
     EXPECT_THAT(instructions.at(2),
                 AllOf(Field(&Instruction::op_code, OpCode::SUB),
                       Field(&Instruction::operands,
-                            ElementsAre(VariantWith<AvmMemoryTag>(AvmMemoryTag::U16),
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<AvmMemoryTag>(AvmMemoryTag::U16),
                                         VariantWith<uint32_t>(170),
                                         VariantWith<uint32_t>(51),
                                         VariantWith<uint32_t>(1)))));
@@ -164,12 +171,14 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
                                "00000001";             // dst_offset 1
 
     std::string const mul_hex = to_hex(OpCode::MUL) + // opcode MUL
+                                "00"                  // Indirect flag
                                 "04"                  // U64
                                 "00000000"            // addr a
                                 "00000001"            // addr b
                                 "00000001";           // addr c 1
 
     std::string const ret_hex = to_hex(OpCode::RETURN) + // opcode RETURN
+                                "00"                     // Indirect flag
                                 "00000000"               // ret offset 0
                                 "00000000";              // ret size 0
 
@@ -188,7 +197,8 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
     EXPECT_THAT(instructions.at(2),
                 AllOf(Field(&Instruction::op_code, OpCode::MUL),
                       Field(&Instruction::operands,
-                            ElementsAre(VariantWith<AvmMemoryTag>(AvmMemoryTag::U64),
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<AvmMemoryTag>(AvmMemoryTag::U64),
                                         VariantWith<uint32_t>(0),
                                         VariantWith<uint32_t>(1),
                                         VariantWith<uint32_t>(1)))));
@@ -197,7 +207,8 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
     EXPECT_THAT(instructions.at(13),
                 AllOf(Field(&Instruction::op_code, OpCode::MUL),
                       Field(&Instruction::operands,
-                            ElementsAre(VariantWith<AvmMemoryTag>(AvmMemoryTag::U64),
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<AvmMemoryTag>(AvmMemoryTag::U64),
                                         VariantWith<uint32_t>(0),
                                         VariantWith<uint32_t>(1),
                                         VariantWith<uint32_t>(1)))));
@@ -205,7 +216,8 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
     // RETURN
     EXPECT_THAT(instructions.at(14),
                 AllOf(Field(&Instruction::op_code, OpCode::RETURN),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
 
     auto trace = Execution::gen_trace(instructions);
 
@@ -235,11 +247,13 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
                                "25"                             // INTERNALCALL 37
                                "00000004"                       // jmp_dest
                                + to_hex(OpCode::ADD) +          // opcode ADD
+                               "00"                             // Indirect flag
                                "03"                             // U32
                                "00000004"                       // addr a 4
                                "00000007"                       // addr b 7
                                "00000009"                       // addr c9
                                + to_hex(OpCode::RETURN) +       // opcode RETURN
+                               "00"                             // Indirect flag
                                "00000000"                       // ret offset 0
                                "00000000"                       // ret size 0
                                + to_hex(OpCode::SET) +          // opcode SET
@@ -305,13 +319,15 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
                + val + "000000" + dst_offset;
     };
 
-    const std::string tag_address_arguments = "01"        // U8
+    const std::string tag_address_arguments = "00"        // Indirect Flag
+                                              "01"        // U8
                                               "00000002"  // addr a 2
                                               "00000003"  // addr b 3
                                               "00000002"; // addr c 2
 
     const std::string return_instruction_hex = to_hex(OpCode::RETURN) // opcode RETURN
-                                               + "00000000"           // ret offset 0
+                                               + "00"                 // Indirect flag
+                                                 "00000000"           // ret offset 0
                                                  "00000000";          // ret size 0
 
     const std::string bytecode_f1 = to_hex(OpCode::ADD) + tag_address_arguments + to_hex(OpCode::INTERNALRETURN);
@@ -366,22 +382,26 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
 TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 {
     std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY (no in tag)
+                               "00"                           // Indirect flag
                                "00000000"                     // cd_offset
                                "00000002"                     // copy_size
                                "0000000A"                     // dst_offset // M[10] = 13, M[11] = 156
                                + to_hex(OpCode::JUMP) +       // opcode JUMP
                                "00000003"                     // jmp_dest (DIV located at 3)
                                + to_hex(OpCode::SUB) +        // opcode SUB
+                               "00"                           // Indirect flag
                                "06"                           // FF
                                "0000000B"                     // addr 11
                                "0000000A"                     // addr 10
                                "00000001"                     // addr c 1 (If executed would be 156 - 13 = 143)
                                + to_hex(OpCode::DIV) +        // opcode DIV
+                               "00"                           // Indirect flag
                                "06"                           // FF
                                "0000000B"                     // addr 11
                                "0000000A"                     // addr 10
                                "00000001"                     // addr c 1 (156 / 13 = 12)
                                + to_hex(OpCode::RETURN) +     // opcode RETURN
+                               "00"                           // Indirect flag
                                "00000000"                     // ret offset 0
                                "00000000"                     // ret size 0
         ;
@@ -394,11 +414,13 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
     // We test parsing steps for CALLDATACOPY and JUMP.
 
     // CALLDATACOPY
-    EXPECT_THAT(
-        instructions.at(0),
-        AllOf(Field(&Instruction::op_code, OpCode::CALLDATACOPY),
-              Field(&Instruction::operands,
-                    ElementsAre(VariantWith<uint32_t>(0), VariantWith<uint32_t>(2), VariantWith<uint32_t>(10)))));
+    EXPECT_THAT(instructions.at(0),
+                AllOf(Field(&Instruction::op_code, OpCode::CALLDATACOPY),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint32_t>(0),
+                                        VariantWith<uint32_t>(2),
+                                        VariantWith<uint32_t>(10)))));
 
     // JUMP
     EXPECT_THAT(instructions.at(1),
@@ -430,6 +452,7 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 TEST_F(AvmExecutionTests, invalidOpcode)
 {
     std::string bytecode_hex = to_hex(OpCode::ADD) + // opcode ADD
+                               "00"                  // Indirect flag
                                "02"                  // U16
                                "00000007"            // addr a 7
                                "00000009"            // addr b 9
@@ -446,11 +469,13 @@ TEST_F(AvmExecutionTests, invalidOpcode)
 TEST_F(AvmExecutionTests, invalidInstructionTag)
 {
     std::string bytecode_hex = to_hex(OpCode::ADD) +      // opcode ADD
+                               "00"                       // Indirect flag
                                "00"                       // Wrong type
                                "00000007"                 // addr a 7
                                "00000009"                 // addr b 9
                                "00000001"                 // addr c 1
                                + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
                                "00000000"                 // ret offset 0
                                "00000000";                // ret size 0
 
@@ -462,6 +487,7 @@ TEST_F(AvmExecutionTests, invalidInstructionTag)
 TEST_F(AvmExecutionTests, ffInstructionTagSetOpcode)
 {
     std::string bytecode_hex = "00"                    // ADD
+                               "00"                    // Indirect flag
                                "05"                    // U128
                                "00000007"              // addr a 7
                                "00000009"              // addr b 9
@@ -478,6 +504,7 @@ TEST_F(AvmExecutionTests, ffInstructionTagSetOpcode)
 TEST_F(AvmExecutionTests, SetOpcodeNoOperand)
 {
     std::string bytecode_hex = "00"                   // ADD
+                               "00"                   // Indirect flag
                                "05"                   // U128
                                "00000007"             // addr a 7
                                "00000009"             // addr b 9
@@ -492,6 +519,7 @@ TEST_F(AvmExecutionTests, SetOpcodeNoOperand)
 TEST_F(AvmExecutionTests, truncatedInstructionNoTag)
 {
     std::string bytecode_hex = to_hex(OpCode::ADD) +  // opcode ADD
+                               "00"                   // Indirect flag
                                "02"                   // U16
                                "00000007"             // addr a 7
                                "00000009"             // addr b 9
@@ -506,11 +534,13 @@ TEST_F(AvmExecutionTests, truncatedInstructionNoTag)
 TEST_F(AvmExecutionTests, truncatedInstructionNoOperand)
 {
     std::string bytecode_hex = to_hex(OpCode::ADD) +   // opcode ADD
+                               "00"                    // Indirect flag
                                "02"                    // U16
                                "00000007"              // addr a 7
                                "00000009"              // addr b 9
                                "00000001"              // addr c 1
                                + to_hex(OpCode::SUB) + // opcode SUB
+                               "00"                    // Indirect flag
                                "04"                    // U64
                                "AB2373E7"              // addr a
                                "FFFFFFBB";             // addr b and missing address for c = a-b
