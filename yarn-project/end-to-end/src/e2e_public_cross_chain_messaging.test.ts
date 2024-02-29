@@ -47,7 +47,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     user1Wallet = wallets[0];
     user2Wallet = wallets[1];
     await publicDeployAccounts(wallets[0], accounts.slice(0, 2));
-  }, 60_000);
+  });
 
   beforeEach(async () => {
     crossChainTestHarness = await CrossChainTestHarness.new(
