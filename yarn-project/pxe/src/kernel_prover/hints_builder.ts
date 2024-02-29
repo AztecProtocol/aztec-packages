@@ -66,7 +66,7 @@ export class HintsBuilder {
       const result = noteHashes.findIndex(equalToRR);
       if (result == -1) {
         throw new Error(
-          `The read request at index ${i} with value ${readRequests[i].toString()} does not match to any note hash.`,
+          `The read request at index ${i} ${readRequests[i].toString()} does not match to any note hash.`,
         );
       } else {
         hints[i] = new Fr(result);
