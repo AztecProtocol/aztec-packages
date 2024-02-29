@@ -720,7 +720,7 @@ TEST(ultra_circuit_constructor, ram_simple)
 {
     UltraCircuitBuilder builder;
 
-    // Initialize a length-1 RAM array with a single value
+    // Initialize a length 1 RAM array with a single value
     fr ram_value = 5;
     uint32_t ram_value_idx = builder.add_variable(ram_value);
     size_t ram_id = builder.create_RAM_array(/*array_size=*/1);
