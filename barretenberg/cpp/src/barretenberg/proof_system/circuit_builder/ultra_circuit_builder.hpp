@@ -584,6 +584,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * 5) Number of non-native field multiplication gates.
      *
      * @return size_t
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/875): This method may return an incorrect value before
+     * the circuit is finalized due to a failure to account for "de-duplication" when computing how many
+     * non-native-field gates will be present.
      */
     size_t get_num_gates() const override
     {
@@ -699,6 +702,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         const uint32_t variable_index,
         const size_t num_bits,
         std::string const& msg = "decompose_into_default_range_better_for_oddlimbnum");
+    void create_dummy_gate(auto& block, const uint32_t&, const uint32_t&, const uint32_t&, const uint32_t&);
     void create_dummy_constraints(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint_with_edges(const std::vector<uint32_t>& variable_index, const FF&, const FF&);
