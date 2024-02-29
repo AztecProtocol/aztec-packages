@@ -113,6 +113,7 @@ impl BaseRollupInputs {
 
         // Calculate the overall calldata hash
         let calldata_hash = BaseRollupInputs::components_compute_kernel_calldata_hash(combined);
+        let out_hash = BaseRollupInputs::components_compute_kernel_out_hash(combined);
 
         // Perform membership checks that the notes provided exist within the historical trees data
         self.perform_archive_membership_checks();
@@ -131,7 +132,8 @@ impl BaseRollupInputs {
                 contract_tree: end_contract_tree_snapshot,
                 public_data_tree: end_public_data_tree_snapshot
             },
-            calldata_hash
+            calldata_hash,
+            out_hash
         }
     }
 
@@ -339,6 +341,14 @@ impl BaseRollupInputs {
         }
 
         let sha_digest = dep::std::hash::sha256(hash_input_flattened);
+        U256::from_bytes32(sha_digest).to_u128_limbs()
+    }
+
+    // Computes the out hash for a base rollup
+    fn components_compute_kernel_out_hash(combined: CombinedAccumulatedData) -> [Field; NUM_FIELDS_PER_SHA256] {
+        let mut out_hash_inputs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX] = combined.public_inputs.end.new_l2_to_l1_msgs;
+
+        let sha_digest = dep::std::hash::sha256(out_hash_inputs);
         U256::from_bytes32(sha_digest).to_u128_limbs()
     }
 

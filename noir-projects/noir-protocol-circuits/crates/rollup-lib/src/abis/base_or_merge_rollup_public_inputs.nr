@@ -27,5 +27,6 @@ struct BaseOrMergeRollupPublicInputs {
 
     // TODO(#3938): split this to txs_hash and out_hash
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
-    calldata_hash : [Field; 2],
+    calldata_hash : [Field; NUM_FIELDS_PER_SHA256],
+    out_hash : [Field; NUM_FIELDS_PER_SHA256], 
 }
