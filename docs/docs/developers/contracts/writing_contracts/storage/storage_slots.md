@@ -61,7 +61,7 @@ That way, we can have logical storage slots, without them really existing. This 
 
 ## Note type IDs
 
-Note type IDs allow for `Map`s to hold notes of different types.
+Note type IDs allow for multiple `Map`s in the same smart contract to hold a different underlying note type.
 
-This has been solved with the concept of note type IDs. Each note type now has its own ID unique to its smart contract which tells the PXE how to handle it. If you are using your own custom `compute_note_hash_and_nullifier()` function, you must specify the note type ID. You can read more about that [here](../functions/compute_note_hash_and_nullifier.md).
+Each note type now has its own ID unique to its smart contract which tells the PXE how to handle it. If you are using your own custom `compute_note_hash_and_nullifier()` function, you must specify the note type ID. You can read more about that [here](../functions/compute_note_hash_and_nullifier.md).
 

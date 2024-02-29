@@ -60,7 +60,7 @@ It includes a [`Context`](../../writing_contracts/functions/context.md) to speci
 
 You can view the implementation in the Aztec.nr library [here](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr).
 
-A `map` can hold multiple different types of note types, due to note type IDs. These are identifiers for each note type that are unique within a contract.
+You can have multiple `map`s in your contract that each have a different underlying note type, due to note type IDs. These are identifiers for each note type that are unique within a contract.
 
 ### `new`
 
