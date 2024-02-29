@@ -1,6 +1,4 @@
 import { Body } from '@aztec/circuit-types';
-import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
 export class BlockBodyStore {

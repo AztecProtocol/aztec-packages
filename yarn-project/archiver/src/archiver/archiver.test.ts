@@ -1,7 +1,5 @@
 import { Body, ExtendedContractData, L2Block, L2BlockL2Logs, LogType } from '@aztec/circuit-types';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
@@ -62,15 +60,15 @@ describe('Archiver', () => {
     const l1ToL2MessageAddedEvents = [
       makeL1ToL2MessageAddedEvents(
         100n,
-        blocks[0].body.l1ToL2Messages.flatMap(key => key.isZero() ? [] : key.toString()),
+        blocks[0].body.l1ToL2Messages.flatMap(key => (key.isZero() ? [] : key.toString())),
       ),
       makeL1ToL2MessageAddedEvents(
         100n,
-        blocks[1].body.l1ToL2Messages.flatMap(key => key.isZero() ? [] : key.toString()),
+        blocks[1].body.l1ToL2Messages.flatMap(key => (key.isZero() ? [] : key.toString())),
       ),
       makeL1ToL2MessageAddedEvents(
         2501n,
-        blocks[2].body.l1ToL2Messages.flatMap(key => key.isZero() ? [] : key.toString()),
+        blocks[2].body.l1ToL2Messages.flatMap(key => (key.isZero() ? [] : key.toString())),
       ),
       makeL1ToL2MessageAddedEvents(2502n, [
         messageToCancel1,
@@ -179,11 +177,11 @@ describe('Archiver', () => {
     const l1ToL2MessageAddedEvents = [
       makeL1ToL2MessageAddedEvents(
         100n,
-        blocks[0].body.l1ToL2Messages.flatMap(key => key.isZero() ? [] : key.toString()),
+        blocks[0].body.l1ToL2Messages.flatMap(key => (key.isZero() ? [] : key.toString())),
       ),
       makeL1ToL2MessageAddedEvents(
         101n,
-        blocks[1].body.l1ToL2Messages.flatMap(key => key.isZero() ? [] : key.toString()),
+        blocks[1].body.l1ToL2Messages.flatMap(key => (key.isZero() ? [] : key.toString())),
       ),
       makeL1ToL2MessageAddedEvents(102n, additionalL1ToL2MessagesBlock102),
       makeL1ToL2MessageAddedEvents(103n, additionalL1ToL2MessagesBlock103),
@@ -223,8 +221,6 @@ describe('Archiver', () => {
     // Check that the only pending L1 to L2 messages are those from eth bock 102
     const expectedPendingMessageKeys = additionalL1ToL2MessagesBlock102;
     const actualPendingMessageKeys = (await archiver.getPendingL1ToL2Messages(100)).map(key => key.toString());
-    console.log('expectedPendingMsgKeys', expectedPendingMessageKeys)
-    console.log('actualPendingMessageKeys', actualPendingMessageKeys)
     expect(actualPendingMessageKeys).toEqual(expectedPendingMessageKeys);
 
     await archiver.stop();

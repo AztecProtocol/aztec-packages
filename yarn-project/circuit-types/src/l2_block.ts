@@ -111,7 +111,7 @@ export class L2Block {
       numPublicCallsPerTx,
       numEncryptedLogsPerCall,
       numUnencryptedLogsPerCall,
-      numL1ToL2MessagesPerCall
+      numL1ToL2MessagesPerCall,
     );
 
     const txsHash = body.getCalldataHash();

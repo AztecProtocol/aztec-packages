@@ -7,7 +7,10 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 export class Body {
-  constructor(public l1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>, public txEffects: TxEffect[]) {}
+  constructor(
+    public l1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
+    public txEffects: TxEffect[],
+  ) {}
 
   /**
    * Serializes a block body
@@ -25,7 +28,10 @@ export class Body {
     const reader = BufferReader.asReader(buf);
     const l1ToL2Messages = reader.readVector(Fr);
 
-    return new this(padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP), reader.readVector(TxEffect));
+    return new this(
+      padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+      reader.readVector(TxEffect),
+    );
   }
 
   /**

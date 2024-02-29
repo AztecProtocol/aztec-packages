@@ -8,13 +8,13 @@ import {
   getContractDeploymentLogs,
   getL1ToL2MessageCancelledLogs,
   getL2BlockProcessedLogs,
-  getTxsPublishedLogs,
   getPendingL1ToL2MessageLogs,
-  processTxsPublishedLogs,
-  processL2BlockProcessedLogs,
+  getTxsPublishedLogs,
   processCancelledL1ToL2MessagesLogs,
   processContractDeploymentLogs,
+  processL2BlockProcessedLogs,
   processPendingL1ToL2MessageAddedLogs,
+  processTxsPublishedLogs,
 } from './eth_log_handlers.js';
 
 /**
@@ -64,7 +64,11 @@ export async function retrieveBlockMetadataFromRollup(
       break;
     }
 
-    const newBlockMetadata = await processL2BlockProcessedLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
+    const newBlockMetadata = await processL2BlockProcessedLogs(
+      publicClient,
+      expectedNextL2BlockNum,
+      l2BlockProcessedLogs,
+    );
     retrievedBlockMetadata.push(...newBlockMetadata);
     searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
     expectedNextL2BlockNum += BigInt(newBlockMetadata.length);
