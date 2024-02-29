@@ -589,7 +589,7 @@ describe('Private Execution test suite', () => {
       const mockOracles = async (updateHeader = true) => {
         const tree = await insertLeaves([preimage.hash()], 'l1ToL2Messages');
         oracle.getL1ToL2Message.mockImplementation(async () => {
-          return Promise.resolve(new MessageLoadOracleInputs(preimage, 0n, await tree.getSiblingPath(0n, true)));
+          return Promise.resolve(new MessageLoadOracleInputs(0n, await tree.getSiblingPath(0n, true)));
         });
         if (updateHeader) {
           oracle.getHeader.mockResolvedValue(header);

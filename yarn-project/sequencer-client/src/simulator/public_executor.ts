@@ -219,14 +219,12 @@ export class WorldStateDB implements CommitmentsDB {
 
   public async getL1ToL2Message(entryKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     // todo: #697 - make this one lookup.
-    const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(entryKey);
     const index = (await this.db.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, entryKey.toBuffer()))!;
     const siblingPath = await this.db.getSiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
       index,
     );
-
-    return new MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>(message, index, siblingPath);
+    return new MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>(index, siblingPath);
   }
 
   public async getCommitmentIndex(commitment: Fr): Promise<bigint | undefined> {
