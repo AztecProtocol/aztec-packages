@@ -14,6 +14,23 @@ Historically developers have been required to include a `compute_note_hash_and_n
 
 It is possible to provide a user-defined implementation, in which case auto-generation will be skipped (though there are no known use cases for this).
 
+### Updated naming of state variable wrappers
+
+We have decided to change the naming of our state variable wrappers because the naming was not clear.
+The changes are as follows:
+
+1. `Singleton` -> `PrivateMutable`
+2. `ImmutableSingleton` -> `PrivateImmutable`
+3. `StablePublicState` -> `SharedImmutable`
+4. `PublicState` -> `PublicMutable`
+
+This is the meaning of "private", "public" and "shared":
+Private: read (R) and write (W) from private, not accessible from public
+Public: not accessible from private, R/W from public
+Shared: R from private, R/W from public
+
+Note: `SlowUpdates` will be renamed to `SharedMutable` once the implementation is ready.
+
 ## 0.24.0
 
 ### Introduce Note Type IDs
@@ -97,7 +114,7 @@ Aztec contracts are now moved outside of the `yarn-project` folder and into `noi
 Before:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.23.0", directory = "yarn-project/noir-contracts/src/contracts/easy_private_token_contract"}
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.23.0", directory = "yarn-project/noir-contracts/contracts/easy_private_token_contract"}
 ```
 
 Now, update the `yarn-project` folder for `noir-projects`:
@@ -194,27 +211,27 @@ struct Storage {
     legendary_card: Singleton<CardNote, CARD_NOTE_LEN>,
     profiles: Map<AztecAddress, Singleton<CardNote, CARD_NOTE_LEN>>,
     test: Set<CardNote, CARD_NOTE_LEN>,
-    imm_singleton: ImmutableSingleton<CardNote, CARD_NOTE_LEN>,
+    imm_singleton: PrivateImmutable<CardNote, CARD_NOTE_LEN>,
 }
 
 impl Storage {
         fn init(context: Context) -> Self {
             Storage {
-                leader: PublicState::new(
+                leader: PublicMutable::new(
                     context,
                     1,
                     LeaderSerializationMethods,
                 ),
-                legendary_card: Singleton::new(context, 2, CardNoteMethods),
+                legendary_card: PrivateMutable::new(context, 2, CardNoteMethods),
                 profiles: Map::new(
                     context,
                     3,
                     |context, slot| {
-                        Singleton::new(context, slot, CardNoteMethods)
+                        PrivateMutable::new(context, slot, CardNoteMethods)
                     },
                 ),
                 test: Set::new(context, 4, CardNoteMethods),
-                imm_singleton: ImmutableSingleton::new(context, 4, CardNoteMethods),
+                imm_singleton: PrivateImmutable::new(context, 4, CardNoteMethods),
             }
         }
     }
@@ -224,11 +241,11 @@ Now:
 
 ```rust
 struct Storage {
-    leader: PublicState<Leader>,
+    leader: PublicMutable<Leader>,
     legendary_card: Singleton<CardNote>,
     profiles: Map<AztecAddress, Singleton<CardNote>>,
     test: Set<CardNote>,
-    imm_singleton: ImmutableSingleton<CardNote>,
+    imm_singleton: PrivateImmutable<CardNote>,
 }
 ```
 
@@ -462,20 +479,20 @@ It is still possible to manually implement the storage initialization (for custo
 impl Storage {
     fn init(context: Context) -> Self {
         Storage {
-            leader: PublicState::new(
+            leader: PublicMutable::new(
                 context,
                 1
             ),
-            legendary_card: Singleton::new(context, 2),
+            legendary_card: PrivateMutable::new(context, 2),
             profiles: Map::new(
                 context,
                 3,
                 |context, slot| {
-                    Singleton::new(context, slot)
+                    PrivateMutable::new(context, slot)
                 },
             ),
             test: Set::new(context, 4),
-            imm_singleton: ImmutableSingleton::new(context, 4),
+            imm_singleton: PrivateImmutable::new(context, 4),
         }
     }
 }
@@ -554,7 +571,7 @@ Before:
 
 ```rust
 struct Storage {
-    balances: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>
+    balances: Map<PublicMutable<Field, FIELD_SERIALIZED_LEN>>
 }
 
 let user_balance = balances.at(owner.to_field())
@@ -634,7 +651,7 @@ const tokenBigInt = (await bridge.methods.token().view()).inner;
 
 ```toml
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
-protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/noir-protocol-circuits/src/crates/types"}
+protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/noir-protocol-circuits/crates/types"}
 ```
 
 ### [Aztec.nr] moving compute_address func to AztecAddress
@@ -688,11 +705,11 @@ Aztec contracts are now moved outside of the `src` folder, so you need to update
 Before:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "yarn-project/noir-contracts/src/contracts/easy_private_token_contract"}
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "noir-projects/noir-contracts/contracts/easy_private_token_contract"}
 ```
 
 Now, just remove the `src` folder,:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "yarn-project/noir-contracts/contracts/easy_private_token_contract"}
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "noir-projects/noir-contracts/contracts/easy_private_token_contract"}
 ```

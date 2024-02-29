@@ -1,15 +1,19 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import { HostStorage } from './host_storage.js';
+import { Nullifiers } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
 import { WorldStateAccessTrace } from './trace.js';
+import { TracedNullifierCheck } from './trace_types.js';
 
 /**
  * Data held within the journal
  */
 export type JournalData = {
   newNoteHashes: Fr[];
+  nullifierChecks: TracedNullifierCheck[];
   newNullifiers: Fr[];
+
   newL1Messages: Fr[][];
   newLogs: Fr[][];
 
@@ -38,8 +42,8 @@ export class AvmPersistableStateManager {
   /** World State */
   /** Public storage, including cached writes */
   private publicStorage: PublicStorage;
-  ///** Nullifier set, including cached/recently-emitted nullifiers */
-  //private nullifiers: NullifiersDB;
+  /** Nullifier set, including cached/recently-emitted nullifiers */
+  private nullifiers: Nullifiers;
 
   /** World State Access Trace */
   private trace: WorldStateAccessTrace;
@@ -51,6 +55,7 @@ export class AvmPersistableStateManager {
   constructor(hostStorage: HostStorage, parent?: AvmPersistableStateManager) {
     this.hostStorage = hostStorage;
     this.publicStorage = new PublicStorage(hostStorage.publicStateDb, parent?.publicStorage);
+    this.nullifiers = new Nullifiers(hostStorage.commitmentsDb, parent?.nullifiers);
     this.trace = new WorldStateAccessTrace(parent?.trace);
   }
 
@@ -69,8 +74,9 @@ export class AvmPersistableStateManager {
    * @param value - the value being written to the slot
    */
   public writeStorage(storageAddress: Fr, slot: Fr, value: Fr) {
+    // Cache storage writes for later reference/reads
     this.publicStorage.write(storageAddress, slot, value);
-    // We want to keep track of all performed writes in the journal
+    // Trace all storage writes (even reverted ones)
     this.trace.tracePublicStorageWrite(storageAddress, slot, value);
   }
 
@@ -83,7 +89,7 @@ export class AvmPersistableStateManager {
    */
   public async readStorage(storageAddress: Fr, slot: Fr): Promise<Fr> {
     const [_exists, value] = await this.publicStorage.read(storageAddress, slot);
-    // We want to keep track of all performed reads
+    // We want to keep track of all performed reads (even reverted ones)
     this.trace.tracePublicStorageRead(storageAddress, slot, value);
     return Promise.resolve(value);
   }
@@ -92,9 +98,17 @@ export class AvmPersistableStateManager {
     this.trace.traceNewNoteHash(/*storageAddress*/ Fr.ZERO, noteHash);
   }
 
-  public writeNullifier(nullifier: Fr) {
-    // TODO track pending nullifiers in set per-contract
-    this.trace.traceNewNullifier(/*storageAddress*/ Fr.ZERO, nullifier);
+  public async checkNullifierExists(storageAddress: Fr, nullifier: Fr) {
+    const [exists, isPending, leafIndex] = await this.nullifiers.checkExists(storageAddress, nullifier);
+    this.trace.traceNullifierCheck(storageAddress, nullifier, exists, isPending, leafIndex);
+    return Promise.resolve(exists);
+  }
+
+  public async writeNullifier(storageAddress: Fr, nullifier: Fr) {
+    // Cache pending nullifiers for later access
+    await this.nullifiers.append(storageAddress, nullifier);
+    // Trace all nullifier creations (even reverted ones)
+    this.trace.traceNewNullifier(storageAddress, nullifier);
   }
 
   public writeL1Message(message: Fr[]) {
@@ -136,6 +150,7 @@ export class AvmPersistableStateManager {
   public flush(): JournalData {
     return {
       newNoteHashes: this.trace.newNoteHashes,
+      nullifierChecks: this.trace.nullifierChecks,
       newNullifiers: this.trace.newNullifiers,
       newL1Messages: this.newL1Messages,
       newLogs: this.newLogs,

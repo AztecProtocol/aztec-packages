@@ -45,6 +45,20 @@ export class Oracle {
     return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
   }
 
+  async getContractInstance([address]: ACVMField[]) {
+    const instance = await this.typedOracle.getContractInstance(AztecAddress.fromField(fromACVMField(address)));
+    // TODO(#4434) Add deployer field to ContractInstance
+    const deployer = Fr.ZERO;
+    return [
+      instance.salt,
+      deployer,
+      instance.contractClassId,
+      instance.initializationHash,
+      instance.portalContractAddress,
+      instance.publicKeysHash,
+    ].map(toACVMField);
+  }
+
   async getMembershipWitness(
     [blockNumber]: ACVMField[],
     [treeId]: ACVMField[],
@@ -85,9 +99,7 @@ export class Oracle {
 
     const witness = await this.typedOracle.getNullifierMembershipWitness(parsedBlockNumber, parsedNullifier);
     if (!witness) {
-      throw new Error(
-        `Low nullifier witness not found for nullifier ${parsedNullifier} at block ${parsedBlockNumber}.`,
-      );
+      throw new Error(`Nullifier witness not found for nullifier ${parsedNullifier} at block ${parsedBlockNumber}.`);
     }
     return witness.toFields().map(toACVMField);
   }

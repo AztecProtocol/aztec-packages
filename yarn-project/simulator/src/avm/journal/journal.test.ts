@@ -8,11 +8,12 @@ import { AvmPersistableStateManager, JournalData } from './journal.js';
 
 describe('journal', () => {
   let publicDb: MockProxy<PublicStateDB>;
+  let commitmentsDb: MockProxy<CommitmentsDB>;
   let journal: AvmPersistableStateManager;
 
   beforeEach(() => {
     publicDb = mock<PublicStateDB>();
-    const commitmentsDb = mock<CommitmentsDB>();
+    commitmentsDb = mock<CommitmentsDB>();
     const contractsDb = mock<PublicContractsDB>();
 
     const hostStorage = new HostStorage(publicDb, contractsDb, commitmentsDb);
@@ -60,21 +61,41 @@ describe('journal', () => {
       const journalUpdates = journal.flush();
       expect(journalUpdates.newNoteHashes).toEqual([utxo]);
     });
+    it('checkNullifierExists works for missing nullifiers', async () => {
+      const contractAddress = new Fr(1);
+      const utxo = new Fr(2);
+      const exists = await journal.checkNullifierExists(contractAddress, utxo);
+      expect(exists).toEqual(false);
 
+      const journalUpdates = journal.flush();
+      expect(journalUpdates.nullifierChecks.map(c => [c.nullifier, c.exists])).toEqual([[utxo, false]]);
+    });
+    it('checkNullifierExists works for existing nullifiers', async () => {
+      const contractAddress = new Fr(1);
+      const utxo = new Fr(2);
+      const storedLeafIndex = BigInt(42);
+
+      commitmentsDb.getNullifierIndex.mockResolvedValue(Promise.resolve(storedLeafIndex));
+      const exists = await journal.checkNullifierExists(contractAddress, utxo);
+      expect(exists).toEqual(true);
+
+      const journalUpdates = journal.flush();
+      expect(journalUpdates.nullifierChecks.map(c => [c.nullifier, c.exists])).toEqual([[utxo, true]]);
+    });
+    it('Should maintain nullifiers', async () => {
+      const contractAddress = new Fr(1);
+      const utxo = new Fr(2);
+      await journal.writeNullifier(contractAddress, utxo);
+
+      const journalUpdates = journal.flush();
+      expect(journalUpdates.newNullifiers).toEqual([utxo]);
+    });
     it('Should maintain l1 messages', () => {
       const utxo = [new Fr(1)];
       journal.writeL1Message(utxo);
 
       const journalUpdates = journal.flush();
       expect(journalUpdates.newL1Messages).toEqual([utxo]);
-    });
-
-    it('Should maintain nullifiers', () => {
-      const utxo = new Fr(1);
-      journal.writeNullifier(utxo);
-
-      const journalUpdates = journal.flush();
-      expect(journalUpdates.newNullifiers).toEqual([utxo]);
     });
   });
 
@@ -100,7 +121,8 @@ describe('journal', () => {
     journal.writeNoteHash(commitment);
     journal.writeLog(logs);
     journal.writeL1Message(logs);
-    journal.writeNullifier(commitment);
+    await journal.writeNullifier(contractAddress, commitment);
+    await journal.checkNullifierExists(contractAddress, commitment);
 
     const childJournal = new AvmPersistableStateManager(journal.hostStorage, journal);
     childJournal.writeStorage(contractAddress, key, valueT1);
@@ -108,7 +130,8 @@ describe('journal', () => {
     childJournal.writeNoteHash(commitmentT1);
     childJournal.writeLog(logsT1);
     childJournal.writeL1Message(logsT1);
-    childJournal.writeNullifier(commitmentT1);
+    await childJournal.writeNullifier(contractAddress, commitmentT1);
+    await childJournal.checkNullifierExists(contractAddress, commitmentT1);
 
     journal.acceptNestedCallState(childJournal);
 
@@ -133,6 +156,10 @@ describe('journal', () => {
     expect(journalUpdates.newNoteHashes).toEqual([commitment, commitmentT1]);
     expect(journalUpdates.newLogs).toEqual([logs, logsT1]);
     expect(journalUpdates.newL1Messages).toEqual([logs, logsT1]);
+    expect(journalUpdates.nullifierChecks.map(c => [c.nullifier, c.exists])).toEqual([
+      [commitment, true],
+      [commitmentT1, true],
+    ]);
     expect(journalUpdates.newNullifiers).toEqual([commitment, commitmentT1]);
   });
 
@@ -158,7 +185,8 @@ describe('journal', () => {
     journal.writeStorage(contractAddress, key, value);
     await journal.readStorage(contractAddress, key);
     journal.writeNoteHash(commitment);
-    journal.writeNullifier(commitment);
+    await journal.writeNullifier(contractAddress, commitment);
+    await journal.checkNullifierExists(contractAddress, commitment);
     journal.writeLog(logs);
     journal.writeL1Message(logs);
 
@@ -166,7 +194,8 @@ describe('journal', () => {
     childJournal.writeStorage(contractAddress, key, valueT1);
     await childJournal.readStorage(contractAddress, key);
     childJournal.writeNoteHash(commitmentT1);
-    childJournal.writeNullifier(commitmentT1);
+    await childJournal.writeNullifier(contractAddress, commitmentT1);
+    await childJournal.checkNullifierExists(contractAddress, commitmentT1);
     childJournal.writeLog(logsT1);
     childJournal.writeL1Message(logsT1);
 
@@ -190,8 +219,12 @@ describe('journal', () => {
     const slotWrites = contractWrites?.get(key.toBigInt());
     expect(slotWrites).toEqual([value, valueT1]);
 
-    // Check that the UTXOs _traces_ are merged even on rejection
+    // Check that the world state _traces_ are merged even on rejection
     expect(journalUpdates.newNoteHashes).toEqual([commitment, commitmentT1]);
+    expect(journalUpdates.nullifierChecks.map(c => [c.nullifier, c.exists])).toEqual([
+      [commitment, true],
+      [commitmentT1, true],
+    ]);
     expect(journalUpdates.newNullifiers).toEqual([commitment, commitmentT1]);
 
     // Check that rejected Accrued Substate is absent

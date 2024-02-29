@@ -5,7 +5,7 @@ contract InclusionProofs {
         grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId
     };
     use dep::aztec::{
-        state_vars::{map::Map, set::Set, public_state::PublicState}, context::Context,
+        state_vars::{Map, PrivateSet, PublicMutable}, context::Context,
         note::{
         note_getter_options::NoteGetterOptions, note_getter_options::NoteStatus,
         note_header::NoteHeader, utils as note_utils
@@ -20,10 +20,7 @@ contract InclusionProofs {
         prove_nullifier_inclusion, prove_nullifier_inclusion_at, prove_note_is_nullified,
         prove_note_is_nullified_at
     },
-        nullifier_non_inclusion::{
-        prove_nullifier_not_included, prove_nullifier_not_included_at, prove_note_not_nullified,
-        prove_note_not_nullified_at
-    },
+        nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
         public_value_inclusion::{prove_public_value_inclusion, prove_public_value_inclusion_at}
     };
     // docs:end:imports
@@ -31,9 +28,9 @@ contract InclusionProofs {
     use dep::value_note::value_note::ValueNote;
     // docs:end:value_note_imports
     struct Storage {
-        private_values: Map<AztecAddress, Set<ValueNote>>,
-        public_value: PublicState<Field>,
-        public_unused_value: PublicState<Field>,
+        private_values: Map<AztecAddress, PrivateSet<ValueNote>>,
+        public_value: PublicMutable<Field>,
+        public_unused_value: PublicMutable<Field>,
     }
 
     #[aztec(private)]
@@ -175,7 +172,7 @@ contract InclusionProofs {
     fn test_nullifier_inclusion(
         nullifier: Field,
         use_block_number: bool,
-        block_number: u32 // The block at which we'll prove that the nullifier not exists in the tree
+        block_number: u32 // The block at which we'll prove that the nullifier exists in the nullifier tree
     ) {
         if (use_block_number) {
             // docs:start:prove_nullifier_inclusion

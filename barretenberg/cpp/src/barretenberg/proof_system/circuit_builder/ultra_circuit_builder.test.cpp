@@ -1,6 +1,6 @@
 #include "ultra_circuit_builder.hpp"
-#include "check_circuit_ultra.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "check_circuit_ultra.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -99,11 +99,12 @@ TEST(ultra_circuit_constructor, create_gates_from_plookup_accumulators)
         }
     }
 
-    UltraCircuitBuilder circuit_copy{circuit_builder};
+    UltraCircuitBuilder circuit_copy{ circuit_builder };
     bool result = CircuitChecker::execute(circuit_builder);
 
     EXPECT_EQ(result, true);
-    EXPECT_TRUE(saved_state.is_same_state(circuit_builder));
+    // Ensure that check_circuit did not alter the circuit
+    EXPECT_EQ(circuit_copy, circuit_builder);
 }
 
 TEST(ultra_circuit_constructor, base_case)
@@ -157,11 +158,12 @@ TEST(ultra_circuit_constructor, test_elliptic_gate)
 
     circuit_constructor.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
 
-    UltraCircuitBuilder circuit_copy{circuit_constructor};
+    UltraCircuitBuilder circuit_copy{ circuit_constructor };
     bool result = CircuitChecker::execute(circuit_constructor);
 
     EXPECT_EQ(result, true);
-    EXPECT_TRUE(saved_state.is_same_state(circuit_constructor));
+    // Ensure that check_circuit did not alter the circuit
+    EXPECT_EQ(circuit_copy, circuit_constructor);
 
     circuit_constructor.create_ecc_add_gate({ x1 + 1, y1, x2, y2, x3, y3, 1 });
 
@@ -184,11 +186,12 @@ TEST(ultra_circuit_constructor, test_elliptic_double_gate)
 
     circuit_constructor.create_ecc_dbl_gate({ x1, y1, x3, y3 });
 
-    UltraCircuitBuilder circuit_copy{circuit_constructor};
+    UltraCircuitBuilder circuit_copy{ circuit_constructor };
     bool result = CircuitChecker::execute(circuit_constructor);
 
     EXPECT_EQ(result, true);
-    EXPECT_TRUE(saved_state.is_same_state(circuit_constructor));
+    // Ensure that check_circuit did not alter the circuit
+    EXPECT_EQ(circuit_copy, circuit_constructor);
 }
 
 TEST(ultra_circuit_constructor, non_trivial_tag_permutation)
@@ -215,11 +218,12 @@ TEST(ultra_circuit_constructor, non_trivial_tag_permutation)
     circuit_constructor.assign_tag(c_idx, 2);
     circuit_constructor.assign_tag(d_idx, 2);
 
-    UltraCircuitBuilder circuit_copy{circuit_constructor};
+    UltraCircuitBuilder circuit_copy{ circuit_constructor };
     bool result = CircuitChecker::execute(circuit_constructor);
 
     EXPECT_EQ(result, true);
-    EXPECT_TRUE(saved_state.is_same_state(circuit_constructor));
+    // Ensure that check_circuit did not alter the circuit
+    EXPECT_EQ(circuit_copy, circuit_constructor);
 
     // Break the tag
     circuit_constructor.real_variable_tags[circuit_constructor.real_variable_index[a_idx]] = 2;
@@ -260,11 +264,12 @@ TEST(ultra_circuit_constructor, non_trivial_tag_permutation_and_cycles)
     circuit_constructor.create_add_gate(
         { e_idx, f_idx, circuit_constructor.zero_idx, fr::one(), -fr::one(), fr::zero(), fr::zero() });
 
-    UltraCircuitBuilder circuit_copy{circuit_constructor};
+    UltraCircuitBuilder circuit_copy{ circuit_constructor };
     bool result = CircuitChecker::execute(circuit_constructor);
 
     EXPECT_EQ(result, true);
-    EXPECT_TRUE(saved_state.is_same_state(circuit_constructor));
+    // Ensure that check_circuit did not alter the circuit
+    EXPECT_EQ(circuit_copy, circuit_constructor);
 
     // Break the tag
     circuit_constructor.real_variable_tags[circuit_constructor.real_variable_index[a_idx]] = 2;
@@ -284,11 +289,12 @@ TEST(ultra_circuit_constructor, bad_tag_permutation)
     circuit_constructor.create_add_gate({ a_idx, b_idx, circuit_constructor.zero_idx, 1, 1, 0, 0 });
     circuit_constructor.create_add_gate({ c_idx, d_idx, circuit_constructor.zero_idx, 1, 1, 0, -1 });
 
-    UltraCircuitBuilder circuit_copy{circuit_constructor};
+    UltraCircuitBuilder circuit_copy{ circuit_constructor };
     bool result = CircuitChecker::execute(circuit_constructor);
 
     EXPECT_EQ(result, true);
-    EXPECT_TRUE(saved_state.is_same_state(circuit_constructor));
+    // Ensure that check_circuit did not alter the circuit
+    EXPECT_EQ(circuit_copy, circuit_constructor);
 
     circuit_constructor.create_tag(1, 2);
     circuit_constructor.create_tag(2, 1);
@@ -657,12 +663,13 @@ TEST(ultra_circuit_constructor, non_native_field_multiplication)
     const auto [lo_1_idx, hi_1_idx] = circuit_constructor.evaluate_non_native_field_multiplication(inputs);
     circuit_constructor.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
 
-    UltraCircuitBuilder circuit_copy{circuit_constructor};
+    UltraCircuitBuilder circuit_copy{ circuit_constructor };
 
     bool result = CircuitChecker::execute(circuit_constructor);
 
     EXPECT_EQ(result, true);
-    EXPECT_TRUE(saved_state.is_same_state(circuit_constructor));
+    // Ensure that check_circuit did not alter the circuit
+    EXPECT_EQ(circuit_copy, circuit_constructor);
 }
 
 TEST(ultra_circuit_constructor, rom)
@@ -705,6 +712,40 @@ TEST(ultra_circuit_constructor, rom)
 
     bool result = CircuitChecker::execute(circuit_constructor);
     EXPECT_EQ(result, true);
+}
+
+/**
+ * @brief A simple-as-possible RAM read test, for easier debugging
+ *
+ */
+TEST(ultra_circuit_constructor, ram_simple)
+{
+    UltraCircuitBuilder builder;
+
+    // Initialize a length 1 RAM array with a single value
+    fr ram_value = 5;
+    uint32_t ram_value_idx = builder.add_variable(ram_value);
+    size_t ram_id = builder.create_RAM_array(/*array_size=*/1);
+    builder.init_RAM_element(ram_id, /*index_value=*/0, ram_value_idx);
+
+    // Read from the RAM array we just created (at the 0th index)
+    uint32_t read_idx = builder.add_variable(0);
+    uint32_t a_idx = builder.read_RAM_array(ram_id, read_idx);
+
+    // Use the result in a simple arithmetic gate
+    builder.create_big_add_gate({
+        a_idx,
+        builder.zero_idx,
+        builder.zero_idx,
+        builder.zero_idx,
+        -1,
+        0,
+        0,
+        0,
+        builder.get_variable(ram_value_idx),
+    });
+
+    EXPECT_TRUE(builder.check_circuit());
 }
 
 TEST(ultra_circuit_constructor, ram)
@@ -768,12 +809,13 @@ TEST(ultra_circuit_constructor, ram)
         },
         false);
 
-    UltraCircuitBuilder circuit_copy{circuit_constructor};
+    UltraCircuitBuilder circuit_copy{ circuit_constructor };
     bool result = CircuitChecker::execute(circuit_constructor);
 
     EXPECT_EQ(result, true);
 
-    EXPECT_TRUE(saved_state.is_same_state(circuit_constructor));
+    // Ensure that check_circuit did not alter the circuit
+    EXPECT_EQ(circuit_copy, circuit_constructor);
 
     // Test the builder copy constructor for a circuit with RAM gates
     UltraCircuitBuilder duplicate_circuit_constructor{ circuit_constructor };
