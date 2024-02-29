@@ -21,6 +21,9 @@ template <class Flavor> class ExecutionTrace_ {
         std::array<Polynomial, Builder::Arithmetization::NUM_SELECTORS> selectors;
         // A vector of sets (vectors) of addresses into the wire polynomials whose values are copy constrained
         std::vector<CyclicPermutation> copy_cycles;
+#ifndef NO_MULTITHREADING
+        std::vector<std::mutex> copy_cycle_mutexes;
+#endif
 
         TraceData(size_t dyadic_circuit_size, Builder& builder)
         {
@@ -32,6 +35,10 @@ template <class Flavor> class ExecutionTrace_ {
                 selector = Polynomial(dyadic_circuit_size);
             }
             copy_cycles.resize(builder.variables.size());
+#ifndef NO_MULTITHREADING
+            std::vector<std::mutex> for_swap(builder.variables.size());
+            std::swap(copy_cycle_mutexes, for_swap);
+#endif
         }
     };
 

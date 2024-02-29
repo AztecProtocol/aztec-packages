@@ -58,29 +58,39 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     // For each block in the trace, populate wire polys, copy cycles and selector polys
     for (auto& block : builder.blocks.get()) {
         auto block_size = static_cast<uint32_t>(block.wires[0].size());
-
         // Update wire polynomials and copy cycles
         // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
-        for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
-            for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-                uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
-                uint32_t real_var_idx = builder.real_variable_index[var_idx];
-                uint32_t trace_row_idx = block_row_idx + offset;
-                // Insert the real witness values from this block into the wire polys at the correct offset
-                trace_data.wires[wire_idx][trace_row_idx] = builder.get_variable(var_idx);
-                // Add the address of the witness value to its corresponding copy cycle
-                trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
+        run_loop_in_parallel(block_size, [&](size_t start, size_t end) {
+            for (auto block_row_idx = static_cast<uint32_t>(start); block_row_idx < static_cast<uint32_t>(end);
+                 ++block_row_idx) {
+                for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+                    uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
+                    uint32_t real_var_idx = builder.real_variable_index[var_idx];
+                    uint32_t trace_row_idx = block_row_idx + offset;
+                    // Insert the real witness values from this block into the wire polys at the correct offset
+                    trace_data.wires[wire_idx][trace_row_idx] = builder.get_variable(var_idx);
+                    // Add the address of the witness value to its corresponding copy cycle
+                    {
+#ifndef NO_MULTITHREADING
+                        std::unique_lock<std::mutex> lock(trace_data.copy_cycle_mutexes[real_var_idx]);
+#endif
+
+                        trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
+                    }
+                }
             }
-        }
+        });
 
         // Insert the selector values for this block into the selector polynomials at the correct offset
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
-        for (auto [selector_poly, selector] : zip_view(trace_data.selectors, block.selectors)) {
-            for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                size_t trace_row_idx = row_idx + offset;
-                selector_poly[trace_row_idx] = selector[row_idx];
+        run_loop_in_parallel(block_size, [&](size_t start, size_t end) {
+            for (auto [selector_poly, selector] : zip_view(trace_data.selectors, block.selectors)) {
+                for (size_t row_idx = start; row_idx < end; ++row_idx) {
+                    size_t trace_row_idx = row_idx + offset;
+                    selector_poly[trace_row_idx] = selector[row_idx];
+                }
             }
-        }
+        });
 
         offset += block_size;
     }
@@ -90,6 +100,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_block(Builder& builder)
 {
     // Update the public inputs block
+    // We get very few of these, no need to parallelise
     for (auto& idx : builder.public_inputs) {
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
             if (wire_idx < 2) { // first two wires get a copy of the public inputs
@@ -118,6 +129,8 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(
 
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
+
+    // We only get around 200-300  operations, so there is no need to parallelise this
     for (auto [ecc_op_wire, wire] : zip_view(op_wire_polynomials, proving_key->get_wires())) {
         for (size_t i = 0; i < builder.num_ecc_op_gates; ++i) {
             size_t idx = i + op_wire_offset;

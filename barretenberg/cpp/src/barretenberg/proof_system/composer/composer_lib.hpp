@@ -64,14 +64,24 @@ std::array<typename Flavor::Polynomial, 4> construct_lookup_table_polynomials(
 
     for (const auto& table : circuit.lookup_tables) {
         const fr table_index(table.table_index);
-
-        for (size_t i = 0; i < table.size; ++i) {
-            table_polynomials[0][offset] = table.column_1[i];
-            table_polynomials[1][offset] = table.column_2[i];
-            table_polynomials[2][offset] = table.column_3[i];
-            table_polynomials[3][offset] = table_index;
-            ++offset;
-        }
+        run_loop_in_parallel_if_effective(
+            table.size,
+            [&](size_t start, size_t end) {
+                for (size_t i = start; i < end; ++i) {
+                    table_polynomials[0][offset + i] = table.column_1[i];
+                    table_polynomials[1][offset + i] = table.column_2[i];
+                    table_polynomials[2][offset + i] = table.column_3[i];
+                    table_polynomials[3][offset + i] = table_index;
+                }
+            },
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            8);
+        offset += table.size;
     }
     return table_polynomials;
 }
@@ -139,14 +149,25 @@ std::array<typename Flavor::Polynomial, 4> construct_sorted_list_polynomials(typ
         std::sort(std::execution::par_unseq, lookup_gates.begin(), lookup_gates.end());
 #endif
 
-        for (const auto& entry : lookup_gates) {
-            const auto components = entry.to_sorted_list_components(table.use_twin_keys);
-            sorted_polynomials[0][s_index] = components[0];
-            sorted_polynomials[1][s_index] = components[1];
-            sorted_polynomials[2][s_index] = components[2];
-            sorted_polynomials[3][s_index] = table_index;
-            ++s_index;
-        }
+        run_loop_in_parallel_if_effective(
+            lookup_gates.size(),
+            [&](size_t start, size_t end) {
+                for (size_t i = start; i < end; i++) {
+                    const auto& entry = lookup_gates[i];
+                    const auto components = entry.to_sorted_list_components(table.use_twin_keys);
+                    sorted_polynomials[0][s_index + i] = components[0];
+                    sorted_polynomials[1][s_index + i] = components[1];
+                    sorted_polynomials[2][s_index + i] = components[2];
+                    sorted_polynomials[3][s_index + i] = table_index;
+                }
+            },
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            4);
     }
     return sorted_polynomials;
 }
