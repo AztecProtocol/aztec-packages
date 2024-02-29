@@ -341,8 +341,6 @@ export class Archiver implements ArchiveSource {
       await this.store.confirmL1ToL2Messages(block.body.l1ToL2Messages);
     }
 
-    // store retrieved L2 blocks after removing new logs information.
-    // remove logs to serve "lightweight" block information. Logs can be fetched separately if needed.
     await this.store.addBlocks(retrievedBlocks.retrievedData);
   }
 
