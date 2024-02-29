@@ -1,4 +1,4 @@
-import { L2Block, L2BlockSource, L2Tx, TxHash } from '@aztec/circuit-types';
+import { L2Block, L2BlockSource, TxEffect, TxHash } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 
 /**
@@ -6,7 +6,7 @@ import { EthAddress } from '@aztec/circuits.js';
  */
 export class MockBlockSource implements L2BlockSource {
   private l2Blocks: L2Block[] = [];
-  private l2Txs: L2Tx[] = [];
+  private l2Txs: TxEffect[] = [];
 
   constructor(private numBlocks = 100) {
     for (let i = 0; i < this.numBlocks; i++) {
@@ -64,7 +64,7 @@ export class MockBlockSource implements L2BlockSource {
    * @param txHash - The txHash of the l2 tx.
    * @returns The requested L2 tx.
    */
-  getL2Tx(txHash: TxHash) {
+  getTxEffect(txHash: TxHash) {
     const l2Tx = this.l2Txs.find(tx => tx.txHash.equals(txHash));
     return Promise.resolve(l2Tx);
   }

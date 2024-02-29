@@ -5,7 +5,7 @@ import {
   L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
-  L2Tx,
+  TxEffect,
   LogFilter,
   LogType,
   TxHash,
@@ -51,7 +51,7 @@ export interface ArchiverDataStore {
    * @param txHash - The txHash of the l2 tx.
    * @returns The requested L2 tx.
    */
-  getL2Tx(txHash: TxHash): Promise<L2Tx | undefined>;
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
 
   /**
    * Append new logs to the store's list.

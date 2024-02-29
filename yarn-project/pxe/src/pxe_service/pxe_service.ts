@@ -10,7 +10,7 @@ import {
   GetUnencryptedLogsResponse,
   KeyStore,
   L2Block,
-  L2Tx,
+  TxEffect,
   LogFilter,
   MerkleTreeId,
   NoteFilter,
@@ -336,7 +336,7 @@ export class PXEService implements PXE {
    * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
    */
   private async getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
-    const tx = await this.node.getTx(note.txHash);
+    const tx = await this.node.getTxEffect(note.txHash);
     if (!tx) {
       throw new Error(`Unknown tx: ${note.txHash}`);
     }
@@ -413,7 +413,7 @@ export class PXEService implements PXE {
 
   public async sendTx(tx: Tx): Promise<TxHash> {
     const txHash = tx.getTxHash();
-    if (await this.node.getTx(txHash)) {
+    if (await this.node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
     this.log.info(`Sending transaction ${txHash}`);
@@ -449,7 +449,7 @@ export class PXEService implements PXE {
       txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
     }
 
-    const settledTx = await this.node.getTx(txHash);
+    const settledTx = await this.node.getTxEffect(txHash);
     if (settledTx) {
       txReceipt = new TxReceipt(txHash, TxStatus.MINED, '', settledTx.blockHash.toBuffer(), settledTx.blockNumber);
     }
@@ -457,8 +457,8 @@ export class PXEService implements PXE {
     return txReceipt;
   }
 
-  public async getTx(txHash: TxHash): Promise<L2Tx | undefined> {
-    return await this.node.getTx(txHash);
+  public async getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return await this.node.getTxEffect(txHash);
   }
 
   async getBlockNumber(): Promise<number> {

@@ -1,8 +1,8 @@
 import { EthAddress } from '@aztec/circuits.js';
 
 import { L2Block } from './l2_block.js';
-import { L2Tx } from './l2_tx.js';
 import { TxHash } from './tx/tx_hash.js';
+import { TxEffect } from './tx_effect.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
@@ -42,11 +42,11 @@ export interface L2BlockSource {
   getBlocks(from: number, limit: number): Promise<L2Block[]>;
 
   /**
-   * Gets an l2 tx.
-   * @param txHash - The txHash of the l2 tx.
-   * @returns The requested L2 tx.
+   * Gets a tx effect.
+   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
+   * @returns The requested tx effect.
    */
-  getL2Tx(txHash: TxHash): Promise<L2Tx | undefined>;
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
 
   /**
    * Starts the L2 block source.

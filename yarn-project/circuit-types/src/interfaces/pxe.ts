@@ -5,7 +5,6 @@ import { NodeInfo } from '@aztec/types/interfaces';
 import { AuthWitness } from '../auth_witness.js';
 import { ContractData, ExtendedContractData } from '../contract_data.js';
 import { L2Block } from '../l2_block.js';
-import { L2Tx } from '../l2_tx.js';
 import { GetUnencryptedLogsResponse, LogFilter } from '../logs/index.js';
 import { ExtendedNote } from '../notes/index.js';
 import { NoteFilter } from '../notes/note_filter.js';
@@ -13,6 +12,7 @@ import { Tx, TxHash, TxReceipt } from '../tx/index.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
 import { DeployedContract } from './deployed-contract.js';
 import { SyncStatus } from './sync-status.js';
+import { TxEffect } from '../tx_effect.js';
 
 // docs:start:pxe-interface
 /**
@@ -145,11 +145,11 @@ export interface PXE {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
-   * Fetches a transaction by its hash.
-   * @param txHash - The transaction hash
-   * @returns A transaction object or undefined if the transaction hasn't been mined yet
+   * Get a tx effect.
+   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
+   * @returns The requested tx effect.
    */
-  getTx(txHash: TxHash): Promise<L2Tx | undefined>;
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.

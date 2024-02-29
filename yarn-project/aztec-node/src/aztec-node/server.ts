@@ -12,7 +12,7 @@ import {
   L2BlockL2Logs,
   L2BlockSource,
   L2LogsSource,
-  L2Tx,
+  TxEffect,
   LogFilter,
   LogType,
   MerkleTreeId,
@@ -285,8 +285,8 @@ export class AztecNodeService implements AztecNode {
     await this.p2pClient!.sendTx(tx);
   }
 
-  public getTx(txHash: TxHash): Promise<L2Tx | undefined> {
-    return this.blockSource.getL2Tx(txHash);
+  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return this.blockSource.getTxEffect(txHash);
   }
 
   /**
