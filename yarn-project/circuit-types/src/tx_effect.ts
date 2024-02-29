@@ -1,4 +1,4 @@
-import { ContractData, LogType, PublicDataWrite, TxL2Logs } from '@aztec/circuit-types';
+import { ContractData, LogType, PublicDataWrite, TxHash, TxL2Logs } from '@aztec/circuit-types';
 import {
   Fr,
   MAX_NEW_CONTRACTS_PER_TX,
@@ -67,9 +67,9 @@ export class TxEffect {
   }
 
   /**
-   * Deserializes the L2Tx object from a Buffer.
+   * Deserializes the TxEffect object from a Buffer.
    * @param buffer - Buffer or BufferReader object to deserialize.
-   * @returns An instance of L2Tx.
+   * @returns An instance of TxEffect.
    */
   static fromBuffer(buffer: Buffer | BufferReader): TxEffect {
     const reader = BufferReader.asReader(buffer);
@@ -140,5 +140,25 @@ export class TxEffect {
       TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED),
       TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
     );
+  }
+
+  /**
+   * Returns a string representation of the TxEffect object.
+   */
+  toString(): string {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Deserializes an TxEffect object from a string.
+   * @param str - String to deserialize.
+   * @returns An instance of TxEffect.
+   */
+  static fromString(str: string) {
+    return TxEffect.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
+  get txHash(): TxHash {
+    return new TxHash(this.newNullifiers[0].toBuffer());
   }
 }

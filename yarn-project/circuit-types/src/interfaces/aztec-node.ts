@@ -15,7 +15,6 @@ import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/c
 import { ContractData, ExtendedContractData } from '../contract_data.js';
 import { L1ToL2MessageAndIndex } from '../l1_to_l2_message.js';
 import { L2Block } from '../l2_block.js';
-import { L2Tx } from '../l2_tx.js';
 import { GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { SiblingPath } from '../sibling_path/index.js';
@@ -23,6 +22,7 @@ import { Tx, TxHash } from '../tx/index.js';
 import { SequencerConfig } from './configs.js';
 import { NullifierMembershipWitness } from './nullifier_tree.js';
 import { PublicDataWitness } from './public_data_tree.js';
+import { TxEffect } from '../tx_effect.js';
 
 /** Helper type for a specific L2 block number or the latest block number */
 type BlockNumber = number | 'latest';
@@ -231,11 +231,11 @@ export interface AztecNode {
   sendTx(tx: Tx): Promise<void>;
 
   /**
-   * Get a settled tx.
-   * @param txHash - The txHash being requested.
-   * @returns The tx requested.
+   * Get a tx effect.
+   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
+   * @returns The requested tx effect.
    */
-  getTx(txHash: TxHash): Promise<L2Tx | undefined>;
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
 
   /**
    * Method to retrieve pending txs.

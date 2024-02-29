@@ -5,7 +5,7 @@ import {
   L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
-  L2Tx,
+  TxEffect,
   LogFilter,
   LogType,
   TxHash,
@@ -97,8 +97,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param txHash - The txHash of the l2 tx.
    * @returns The requested L2 tx.
    */
-  getL2Tx(txHash: TxHash): Promise<L2Tx | undefined> {
-    return Promise.resolve(this.#blockStore.getL2Tx(txHash));
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return Promise.resolve(this.#blockStore.getTxEffect(txHash));
   }
 
   /**

@@ -1,4 +1,4 @@
-import { INITIAL_L2_BLOCK_NUM, L2Block, L2Tx, TxHash } from '@aztec/circuit-types';
+import { INITIAL_L2_BLOCK_NUM, L2Block, TxEffect, TxHash } from '@aztec/circuit-types';
 import { AztecAddress } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap, Range } from '@aztec/kv-store';
@@ -98,8 +98,8 @@ export class BlockStore {
    * @param txHash - The txHash of the l2 tx.
    * @returns The requested L2 tx.
    */
-  getL2Tx(txHash: TxHash): L2Tx | undefined {
-    const [blockNumber, txIndex] = this.getL2TxLocation(txHash) ?? [];
+  getTxEffect(txHash: TxHash): TxEffect | undefined {
+    const [blockNumber, txIndex] = this.getTxEffectLocation(txHash) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return undefined;
     }
@@ -113,7 +113,7 @@ export class BlockStore {
    * @param txHash - The txHash of the l2 tx.
    * @returns The block number and index of the tx.
    */
-  getL2TxLocation(txHash: TxHash): [blockNumber: number, txIndex: number] | undefined {
+  getTxEffectLocation(txHash: TxHash): [blockNumber: number, txIndex: number] | undefined {
     return this.#txIndex.get(txHash.toString());
   }
 

@@ -8,7 +8,7 @@ import {
   L2Block,
   L2BlockContext,
   L2BlockL2Logs,
-  L2Tx,
+  TxEffect,
   LogFilter,
   LogId,
   LogType,
@@ -32,9 +32,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l2BlockContexts: L2BlockContext[] = [];
 
   /**
-   * An array containing all the L2 Txs in the L2 blocks that have been fetched so far.
+   * An array containing all the the effects in the L2 blocks that have been fetched so far.
    */
-  private l2Txs: L2Tx[] = [];
+  private txEffects: TxEffect[] = [];
 
   /**
    * An array containing all the encrypted logs that have been fetched so far.
@@ -114,7 +114,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   public addBlocks(blocks: L2Block[]): Promise<boolean> {
     this.l2BlockContexts.push(...blocks.map(block => new L2BlockContext(block)));
-    this.l2Txs.push(...blocks.flatMap(b => b.getTxs()));
+    this.txEffects.push(...blocks.flatMap(b => b.getTxs()));
     return Promise.resolve(true);
   }
 
@@ -236,8 +236,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param txHash - The txHash of the l2 tx.
    * @returns The requested L2 tx.
    */
-  public getL2Tx(txHash: TxHash): Promise<L2Tx | undefined> {
-    const l2Tx = this.l2Txs.find(tx => tx.txHash.equals(txHash));
+  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    const l2Tx = this.txEffects.find(tx => tx.txHash.equals(txHash));
     return Promise.resolve(l2Tx);
   }
 
