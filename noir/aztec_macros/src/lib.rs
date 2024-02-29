@@ -63,12 +63,12 @@ impl MacroProcessor for AztecMacro {
 }
 
 const FUNCTION_TREE_HEIGHT: u32 = 5;
-const MAX_CONTRACT_FUNCTIONS: usize = 2_usize.pow(FUNCTION_TREE_HEIGHT);
+const MAX_CONTRACT_PRIVATE_FUNCTIONS: usize = 2_usize.pow(FUNCTION_TREE_HEIGHT);
 
 #[derive(Debug, Clone)]
 pub enum AztecMacroError {
     AztecDepNotFound,
-    ContractHasTooManyFunctions { span: Span },
+    ContractHasTooManyPrivateFunctions { span: Span },
     ContractConstructorMissing { span: Span },
     UnsupportedFunctionArgumentType { span: Span, typ: UnresolvedTypeData },
     UnsupportedStorageType { span: Option<Span>, typ: UnresolvedTypeData },
@@ -84,8 +84,8 @@ impl From<AztecMacroError> for MacroError {
                 secondary_message: None,
                 span: None,
             },
-            AztecMacroError::ContractHasTooManyFunctions { span } => MacroError {
-                primary_message: format!("Contract can only have a maximum of {} functions", MAX_CONTRACT_FUNCTIONS),
+            AztecMacroError::ContractHasTooManyPrivateFunctions { span } => MacroError {
+                primary_message: format!("Contract can only have a maximum of {} private functions", MAX_CONTRACT_PRIVATE_FUNCTIONS),
                 secondary_message: None,
                 span: Some(span),
             },
@@ -456,10 +456,22 @@ fn transform_module(
     if has_transformed_module {
         // We only want to run these checks if the macro processor has found the module to be an Aztec contract.
 
-        if module.functions.len() > MAX_CONTRACT_FUNCTIONS {
+        let private_functions_count = module
+            .functions
+            .iter()
+            .filter(|func| {
+                func.def
+                    .attributes
+                    .secondary
+                    .iter()
+                    .any(|attr| is_custom_attribute(attr, "aztec(private)"))
+            })
+            .count();
+
+        if private_functions_count > MAX_CONTRACT_PRIVATE_FUNCTIONS {
             let crate_graph = &context.crate_graph[crate_id];
             return Err((
-                AztecMacroError::ContractHasTooManyFunctions { span: Span::default() },
+                AztecMacroError::ContractHasTooManyPrivateFunctions { span: Span::default() },
                 crate_graph.root_file_id,
             ));
         }
@@ -636,6 +648,10 @@ fn transform_function(
 
     // Abstract return types such that they get added to the kernel's return_values
     if let Some(return_values) = abstract_return_values(func) {
+        // In case we are pushing return values to the context, we remove the statement that originated it
+        // This avoids running duplicate code, since blocks like if/else can be value returning statements
+        func.def.body.0.pop();
+        // Add the new return statement
         func.def.body.0.push(return_values);
     }
 
@@ -711,7 +727,7 @@ fn collect_traits(context: &HirContext) -> Vec<TraitId> {
     crates
         .flat_map(|crate_id| context.def_map(&crate_id).map(|def_map| def_map.modules()))
         .flatten()
-        .flat_map(|(_, module)| {
+        .flat_map(|module| {
             module.type_definitions().filter_map(|typ| {
                 if let ModuleDefId::TraitId(struct_id) = typ {
                     Some(struct_id)
@@ -777,11 +793,11 @@ fn transform_event(
         HirExpression::Literal(HirLiteral::Str(signature))
             if signature == SIGNATURE_PLACEHOLDER =>
         {
-            let selector_literal_id = first_arg_id;
+            let selector_literal_id = *first_arg_id;
 
             let structure = interner.get_struct(struct_id);
             let signature = event_signature(&structure.borrow());
-            interner.update_expression(*selector_literal_id, |expr| {
+            interner.update_expression(selector_literal_id, |expr| {
                 *expr = HirExpression::Literal(HirLiteral::Str(signature.clone()));
             });
 
@@ -823,7 +839,7 @@ fn get_serialized_length(
 ) -> Result<u64, AztecMacroError> {
     let (struct_name, maybe_stored_in_state) = match typ {
         Type::Struct(struct_type, generics) => {
-            Ok((struct_type.borrow().name.0.contents.clone(), generics.get(0)))
+            Ok((struct_type.borrow().name.0.contents.clone(), generics.first()))
         }
         _ => Err(AztecMacroError::CouldNotAssignStorageSlots {
             secondary_message: Some("State storage variable must be a struct".to_string()),
@@ -847,7 +863,7 @@ fn get_serialized_length(
 
     let serialized_trait_impl_kind = traits
         .iter()
-        .filter_map(|&trait_id| {
+        .find_map(|&trait_id| {
             let r#trait = interner.get_trait(trait_id);
             if r#trait.borrow().name.0.contents == "Serialize"
                 && r#trait.borrow().generics.len() == 1
@@ -860,7 +876,6 @@ fn get_serialized_length(
                 None
             }
         })
-        .next()
         .ok_or(AztecMacroError::CouldNotAssignStorageSlots {
             secondary_message: Some("Stored data must implement Serialize trait".to_string()),
         })?;
@@ -873,7 +888,7 @@ fn get_serialized_length(
     let serialized_trait_impl_shared = interner.get_trait_implementation(*serialized_trait_impl_id);
     let serialized_trait_impl = serialized_trait_impl_shared.borrow();
 
-    match serialized_trait_impl.trait_generics.get(0).unwrap() {
+    match serialized_trait_impl.trait_generics.first().unwrap() {
         Type::Constant(value) => Ok(*value),
         _ => Err(AztecMacroError::CouldNotAssignStorageSlots { secondary_message: None }),
     }
@@ -960,9 +975,7 @@ fn assign_storage_slots(
                 let slot_arg_expression = interner.expression(&new_call_expression.arguments[1]);
 
                 let current_storage_slot = match slot_arg_expression {
-                    HirExpression::Literal(HirLiteral::Integer(slot, _)) => {
-                        Ok(slot.borrow().to_u128())
-                    }
+                    HirExpression::Literal(HirLiteral::Integer(slot, _)) => Ok(slot.to_u128()),
                     _ => Err((
                         AztecMacroError::CouldNotAssignStorageSlots {
                             secondary_message: Some(
@@ -1143,7 +1156,10 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
                         add_array_to_hasher(
                             &id,
                             &UnresolvedType {
-                                typ: UnresolvedTypeData::Integer(Signedness::Unsigned, 32),
+                                typ: UnresolvedTypeData::Integer(
+                                    Signedness::Unsigned,
+                                    noirc_frontend::IntegerBitSize::ThirtyTwo,
+                                ),
                                 span: None,
                             },
                         )
@@ -1243,15 +1259,13 @@ fn create_avm_context() -> Result<Statement, AztecMacroError> {
 /// Any primitive type that can be cast will be casted to a field and pushed to the context.
 fn abstract_return_values(func: &NoirFunction) -> Option<Statement> {
     let current_return_type = func.return_type().typ;
-    let len = func.def.body.len();
-    let last_statement = &func.def.body.0[len - 1];
+    let last_statement = func.def.body.0.last();
 
     // TODO: (length, type) => We can limit the size of the array returned to be limited by kernel size
     // Doesn't need done until we have settled on a kernel size
     // TODO: support tuples here and in inputs -> convert into an issue
-
     // Check if the return type is an expression, if it is, we can handle it
-    match last_statement {
+    match last_statement? {
         Statement { kind: StatementKind::Expression(expression), .. } => {
             match current_return_type {
                 // Call serialize on structs, push the whole array, calling push_array

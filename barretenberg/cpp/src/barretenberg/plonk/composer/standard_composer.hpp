@@ -30,7 +30,7 @@ class StandardComposer {
 
     bool computed_witness = false;
 
-    StandardComposer() { crs_factory_ = bb::srs::get_crs_factory(); }
+    StandardComposer() { crs_factory_ = bb::srs::get_bn254_crs_factory(); }
     StandardComposer(std::shared_ptr<bb::srs::factories::CrsFactory<curve::BN254>> crs_factory)
         : crs_factory_(std::move(crs_factory))
     {}
@@ -56,11 +56,11 @@ class StandardComposer {
         };
         return result;
     }
-    std::shared_ptr<plonk::proving_key> compute_proving_key(const CircuitBuilder& circuit_constructor);
-    std::shared_ptr<plonk::verification_key> compute_verification_key(const CircuitBuilder& circuit_constructor);
+    std::shared_ptr<plonk::proving_key> compute_proving_key(CircuitBuilder& circuit_constructor);
+    std::shared_ptr<plonk::verification_key> compute_verification_key(CircuitBuilder& circuit_constructor);
 
-    plonk::Verifier create_verifier(const CircuitBuilder& circuit_constructor);
-    plonk::Prover create_prover(const CircuitBuilder& circuit_constructor);
+    plonk::Verifier create_verifier(CircuitBuilder& circuit_constructor);
+    plonk::Prover create_prover(CircuitBuilder& circuit_constructor);
 
     /**
      * Create a manifest, which specifies proof rounds, elements and who supplies them.
