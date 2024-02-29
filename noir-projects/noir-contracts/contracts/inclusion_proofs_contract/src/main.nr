@@ -3,11 +3,11 @@ contract InclusionProofs {
     // docs:start:imports
     use dep::aztec::{
         protocol_types::{
-        abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress},
-        grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId
+        abis::function_selector::FunctionSelector, grumpkin_point::GrumpkinPoint,
+        contract_class_id::ContractClassId
     },
-    state_vars::{Map, PrivateSet, PublicMutable}, note::note_getter_options::{NoteGetterOptions, NoteStatus},
-    history::{
+        note::note_getter_options::NoteStatus,
+        history::{
         contract_inclusion::{prove_contract_inclusion, prove_contract_inclusion_at},
         note_inclusion::{prove_note_inclusion, prove_note_inclusion_at},
         note_validity::{prove_note_validity, prove_note_validity_at},
@@ -17,6 +17,7 @@ contract InclusionProofs {
     },
         nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
         public_value_inclusion::{prove_public_value_inclusion, prove_public_value_inclusion_at}
+    }
     };
     // docs:end:imports
     // docs:start:value_note_imports

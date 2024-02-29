@@ -7,6 +7,7 @@ mod types;
 // This is made as a separate contract for one thing mainly. Making it simpler to use.
 // TODO(#4760): Rename slow updates to shared mutable and ideally move the impl to state-vars in aztec-nr.
 contract SlowTree {
+    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
     use dep::aztec::{protocol_types::abis::function_selector::FunctionSelector, state_vars::Map};
     use dep::slow_updates_tree::{SlowMap, Leaf, SlowUpdateProof, compute_merkle_root, deserialize_slow_update_proof};
 
