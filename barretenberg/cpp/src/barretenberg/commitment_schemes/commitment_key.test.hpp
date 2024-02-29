@@ -39,10 +39,9 @@ template <>
 inline std::shared_ptr<VerifierCommitmentKey<curve::BN254>> CreateVerifierCommitmentKey<
     VerifierCommitmentKey<curve::BN254>>()
 {
-    constexpr size_t n = 4096;
     std::shared_ptr<bb::srs::factories::CrsFactory<curve::BN254>> crs_factory(
         new bb::srs::factories::FileCrsFactory<curve::BN254>("../srs_db/ignition", 4096));
-    return std::make_shared<VerifierCommitmentKey<curve::BN254>>(n, crs_factory);
+    return std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 }
 // For IPA
 template <>

@@ -73,6 +73,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include <array>
+#include <barretenberg/srs/global_crs.hpp>
 #include <concepts>
 #include <vector>
 
@@ -82,7 +83,7 @@ namespace bb {
  * @brief Base class template containing circuit-specifying data.
  *
  */
-class PrecomputedEntitiesBase {
+class PrecomputedEntitiesBase { // WORKTODO: utility?
   public:
     size_t circuit_size;
     size_t log_circuit_size;
@@ -142,10 +143,10 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
  */
-template <typename PrecomputedCommitments, typename CommitmentKey>
+template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
 class VerificationKey_ : public PrecomputedCommitments {
   public:
-    std::shared_ptr<CommitmentKey> commitment_key;
+    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key; // WORKTODO: asymmetrical naming
 
     VerificationKey_() = default;
     VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
@@ -160,7 +161,7 @@ class VerificationKey_ : public PrecomputedCommitments {
         this->circuit_size = proving_key->circuit_size;
         this->log_circuit_size = numeric::get_msb(this->circuit_size);
         this->num_public_inputs = proving_key->num_public_inputs;
-        this->commitment_key = proving_key->commitment_key;
+        this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
 
         for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
             commitment = proving_key->commitment_key->commit(polynomial);

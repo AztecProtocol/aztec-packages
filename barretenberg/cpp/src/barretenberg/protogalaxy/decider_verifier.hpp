@@ -28,7 +28,6 @@ template <typename Flavor> class DeciderVerifier_ {
     std::shared_ptr<VerifierInstance> accumulator;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<CommitmentKey> commitment_key; // WORKTODO
 };
 
 using DeciderVerifier = DeciderVerifier_<UltraFlavor>;

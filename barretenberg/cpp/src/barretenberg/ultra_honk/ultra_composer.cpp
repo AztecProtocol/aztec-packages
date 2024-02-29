@@ -33,12 +33,7 @@ template <IsUltraFlavor Flavor>
 UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared_ptr<VerificationKey>& verification_key,
                                                                const std::shared_ptr<Transcript>& transcript)
 {
-    UltraVerifier_<Flavor> output_state(transcript, verification_key);
-    auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size,
-                                                                        verification_key->commitment_key->crs_factory);
-    output_state.pcs_verification_key = std::move(pcs_verification_key);
-
-    return output_state;
+    return UltraVerifier_<Flavor>(transcript, verification_key);
 }
 
 template <IsUltraFlavor Flavor>
