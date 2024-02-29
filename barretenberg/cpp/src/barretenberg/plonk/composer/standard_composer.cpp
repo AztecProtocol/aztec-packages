@@ -25,7 +25,7 @@ namespace bb::plonk {
  *
  * @return Pointer to the initialized proving key updated with selector polynomials.
  * */
-std::shared_ptr<plonk::proving_key> StandardComposer::compute_proving_key(const CircuitBuilder& circuit_constructor)
+std::shared_ptr<plonk::proving_key> StandardComposer::compute_proving_key(CircuitBuilder& circuit_constructor)
 {
     if (circuit_proving_key) {
         return circuit_proving_key;
@@ -35,13 +35,13 @@ std::shared_ptr<plonk::proving_key> StandardComposer::compute_proving_key(const 
         circuit_constructor.num_gates + circuit_constructor.public_inputs.size() + NUM_RESERVED_GATES;
     const size_t subgroup_size = circuit_constructor.get_circuit_subgroup_size(total_num_gates); // next power of 2
 
-    auto crs = srs::get_crs_factory()->get_prover_crs(subgroup_size + 1);
+    auto crs = srs::get_bn254_crs_factory()->get_prover_crs(subgroup_size + 1);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/392): Composer type
     circuit_proving_key = std::make_shared<plonk::proving_key>(
         subgroup_size, circuit_constructor.public_inputs.size(), crs, CircuitType::STANDARD);
 
     // Construct and add to proving key the wire, selector and copy constraint polynomials
-    Trace::generate(circuit_constructor, circuit_proving_key);
+    Trace::populate(circuit_constructor, circuit_proving_key);
 
     // Make all selectors nonzero
     enforce_nonzero_selector_polynomials(circuit_constructor, circuit_proving_key.get());
@@ -62,8 +62,7 @@ std::shared_ptr<plonk::proving_key> StandardComposer::compute_proving_key(const 
  *
  * @return Pointer to created circuit verification key.
  * */
-std::shared_ptr<plonk::verification_key> StandardComposer::compute_verification_key(
-    const CircuitBuilder& circuit_constructor)
+std::shared_ptr<plonk::verification_key> StandardComposer::compute_verification_key(CircuitBuilder& circuit_constructor)
 {
     if (circuit_verification_key) {
         return circuit_verification_key;
@@ -89,7 +88,7 @@ std::shared_ptr<plonk::verification_key> StandardComposer::compute_verification_
  *
  * @return The verifier.
  * */
-plonk::Verifier StandardComposer::create_verifier(const CircuitBuilder& circuit_constructor)
+plonk::Verifier StandardComposer::create_verifier(CircuitBuilder& circuit_constructor)
 {
     auto verification_key = compute_verification_key(circuit_constructor);
 
@@ -112,7 +111,7 @@ plonk::Verifier StandardComposer::create_verifier(const CircuitBuilder& circuit_
  *
  * @return Initialized prover.
  * */
-plonk::Prover StandardComposer::create_prover(const CircuitBuilder& circuit_constructor)
+plonk::Prover StandardComposer::create_prover(CircuitBuilder& circuit_constructor)
 {
     compute_proving_key(circuit_constructor);
 
