@@ -952,9 +952,9 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
 }
 
 /**
- * @brief Create a gate with possibly non-trivial wire values but where all selectors are zero
+ * @brief Create a gate with no constraints but with possibly non-trivial wire values
  * @details A dummy gate can be used to provide wire values to be accessed via shifts by the gate that proceeds it. The
- * dummy gate itself does not have to satisfy any relations.
+ * dummy gate itself does not have to satisfy any constraints (all selectors are zero).
  *
  * @tparam Arithmetization
  * @param variable_index
