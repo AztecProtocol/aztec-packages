@@ -51,7 +51,7 @@ describe('e2e_partial_notes', () => {
     const slots = BufferReader.asReader(logs.logs[2].log.data).readArray(2, Fr);
     const privateContentHashes = BufferReader.asReader(logs.logs[3].log.data).readArray(2, Fr);
     const amounts = BufferReader.asReader(logs.logs[4].log.data).readArray(2, Fr);
-    const innerNoteHashes = BufferReader.asReader(logs.logs[5].log.data).readArray(2, Fr);
+    // const inneroteHashes = BufferReader.asReader(logs.logs[5].log.data).readArray(2, Fr);
     const noteTypeId = new Fr(8411110710111078111116101n); // TokenNote
 
     const prettyPrint = (x: Fr[]) => '\n' + x.map(n => '\t- ' + n.toString()).join('\n');
@@ -84,16 +84,6 @@ describe('e2e_partial_notes', () => {
     );
 
     console.log('amounts', prettyPrint(amounts));
-
-    console.log('inner note hashes', prettyPrint(innerNoteHashes));
-    console.log(
-      'expected inner note hashes',
-      prettyPrint([
-        pedersenHash(serializeToBufferArray(partialNoteHashes[0], pedersenHash([amounts[0].toBuffer()]))),
-        pedersenHash(serializeToBufferArray(partialNoteHashes[1], pedersenHash([amounts[1].toBuffer()]))),
-      ]),
-    );
-
     console.log('note hashes:', prettyPrint(out.debugInfo?.newNoteHashes ?? []));
 
     let notes = await ctx.pxe.getNotes({

@@ -50,7 +50,7 @@ export interface NoteData {
   /** The nonce of the note. */
   nonce: Fr;
   /** The inner note hash of the note. */
-  innerNoteHash: Fr;
+  unsiloedNoteHash: Fr;
   /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;
   /** The note's leaf index in the note hash tree. Undefined for pending notes. */
@@ -152,11 +152,11 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  notifyCreatedNote(_storageSlot: Fr, _noteTypeId: Fr, _note: Fr[], _innerNoteHash: Fr): void {
+  notifyCreatedNote(_storageSlot: Fr, _noteTypeId: Fr, _note: Fr[], _unsiloedNoteHash: Fr): void {
     throw new Error('Not available.');
   }
 
-  notifyNullifiedNote(_innerNullifier: Fr, _innerNoteHash: Fr): Promise<void> {
+  notifyNullifiedNote(_innerNullifier: Fr, _unsiloedNoteHash: Fr): Promise<void> {
     throw new Error('Not available.');
   }
 

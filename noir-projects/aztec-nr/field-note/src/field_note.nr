@@ -14,11 +14,11 @@ struct FieldNote {
 }
 
 impl NoteInterface<FIELD_NOTE_LEN> for FieldNote {
-    fn compute_note_private_content_hash(self) -> Field {
+    fn compute_inner_note_content_hash(self) -> Field {
         pedersen_hash(self.serialize_content(), 0)
     }
 
-    fn compute_note_public_content_hash(self) -> Field {
+    fn compute_outer_note_content_hash(self) -> Field {
         0
     }
     fn serialize_content(self) -> [Field; FIELD_NOTE_LEN]{

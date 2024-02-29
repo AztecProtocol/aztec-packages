@@ -25,7 +25,7 @@ export class NoteDao implements NoteData {
      * Inner note hash of the note. This is customizable by the app circuit.
      * We can use this value to compute siloedNoteHash and uniqueSiloedNoteHash.
      */
-    public innerNoteHash: Fr,
+    public unsiloedNoteHash: Fr,
     /** The nullifier of the note (siloed by contract address). */
     public siloedNullifier: Fr,
     /** The location of the relevant note in the note hash tree. */
@@ -42,7 +42,7 @@ export class NoteDao implements NoteData {
       this.noteTypeId.toBuffer(),
       this.txHash.buffer,
       this.nonce.toBuffer(),
-      this.innerNoteHash.toBuffer(),
+      this.unsiloedNoteHash.toBuffer(),
       this.siloedNullifier.toBuffer(),
       toBufferBE(this.index, 32),
       this.publicKey.toBuffer(),
@@ -57,7 +57,7 @@ export class NoteDao implements NoteData {
     const noteTypeId = Fr.fromBuffer(reader);
     const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
     const nonce = Fr.fromBuffer(reader);
-    const innerNoteHash = Fr.fromBuffer(reader);
+    const unsiloedNoteHash = Fr.fromBuffer(reader);
     const siloedNullifier = Fr.fromBuffer(reader);
     const index = toBigIntBE(reader.readBytes(32));
     const publicKey = Point.fromBuffer(reader);
@@ -69,7 +69,7 @@ export class NoteDao implements NoteData {
       noteTypeId,
       txHash,
       nonce,
-      innerNoteHash,
+      unsiloedNoteHash,
       siloedNullifier,
       index,
       publicKey,

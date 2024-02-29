@@ -123,11 +123,11 @@ export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: numbe
  * Computes a siloed commitment, given the contract address and the commitment itself.
  * A siloed commitment effectively namespaces a commitment to a specific contract.
  * @param contract - The contract address
- * @param innerNoteHash - The commitment to silo.
+ * @param unsiloedNoteHash - The commitment to silo.
  * @returns A siloed commitment.
  */
-export function siloNoteHash(contract: AztecAddress, innerNoteHash: Fr): Fr {
-  return pedersenHash([contract.toBuffer(), innerNoteHash.toBuffer()], GeneratorIndex.SILOED_NOTE_HASH);
+export function siloNoteHash(contract: AztecAddress, unsiloedNoteHash: Fr): Fr {
+  return pedersenHash([contract.toBuffer(), unsiloedNoteHash.toBuffer()], GeneratorIndex.SILOED_NOTE_HASH);
 }
 
 /**

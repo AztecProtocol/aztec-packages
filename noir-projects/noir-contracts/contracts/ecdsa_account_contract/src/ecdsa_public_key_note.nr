@@ -17,11 +17,11 @@ struct EcdsaPublicKeyNote {
 }
 
 impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
-    fn compute_note_private_content_hash(self) -> Field {
+    fn compute_inner_note_content_hash(self) -> Field {
         pedersen_hash(self.serialize_content(), 0)
     }
 
-    fn compute_note_public_content_hash(self) -> Field {
+    fn compute_outer_note_content_hash(self) -> Field {
         0
     }
     // serialize the note as 5 fields where:

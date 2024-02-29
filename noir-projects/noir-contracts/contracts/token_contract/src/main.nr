@@ -443,7 +443,7 @@ contract Token {
         emit_unencrypted_log_from_private(
             &mut context,
             [
-            partial_note_1.compute_note_private_content_hash(), partial_note_2.compute_note_private_content_hash()
+            partial_note_1.compute_inner_note_content_hash(), partial_note_2.compute_inner_note_content_hash()
         ]
         );
 
@@ -486,21 +486,14 @@ contract Token {
         context.push_new_nullifier(hash.to_field(), 0);
 
         let mut token_note_1 = TokenNote::from_partial(U128::from_integer(amounts[0]), 0);
-        let inner_note_hash_1 = complete_partial_note_from_public(&mut context, partial_note_hashes[0], &mut token_note_1);
+        complete_partial_note_from_public(&mut context, partial_note_hashes[0], &mut token_note_1);
         // create_note_hash_from_public(&mut context, slots[0], &mut token_note_1);
 
         let mut token_note_2 = TokenNote::from_partial(U128::from_integer(amounts[1]), 0);
-        let inner_note_hash_2 = complete_partial_note_from_public(&mut context, partial_note_hashes[1], &mut token_note_2);
+        complete_partial_note_from_public(&mut context, partial_note_hashes[1], &mut token_note_2);
         // create_note_hash_from_public(&mut context, slots[1], &mut token_note_2);
 
         emit_unencrypted_log(&mut context, amounts);
-        emit_unencrypted_log(
-            &mut context,
-            [
-            inner_note_hash_1,
-            inner_note_hash_2
-        ]
-        );
     }
 }
 // docs:end:token_all

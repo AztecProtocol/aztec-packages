@@ -109,21 +109,17 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
         8411110710111078111116101
     }
 
-    fn compute_note_private_content_hash(self) -> Field {
-        if self.private_content_hash != 0 {
-            self.private_content_hash
-        } else {
-            pedersen_hash(
-                [
-                self.owner.to_field(),
-                self.randomness
-            ],
-                0
-            )
-        }
+    fn compute_inner_note_content_hash(self) -> Field {
+        pedersen_hash(
+            [
+            self.owner.to_field(),
+            self.randomness
+        ],
+            0
+        )
     }
 
-    fn compute_note_public_content_hash(self) -> Field {
+    fn compute_outer_note_content_hash(self) -> Field {
         pedersen_hash([
             self.amount.to_field(),
         ], 0)

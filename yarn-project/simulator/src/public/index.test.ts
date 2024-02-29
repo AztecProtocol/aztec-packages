@@ -332,8 +332,8 @@ describe('ACIR public execution simulator', () => {
 
       const expectedNoteHash = pedersenHash([amount.toBuffer(), secretHash.toBuffer()]);
       const storageSlot = new Fr(5); // for pending_shields
-      const expectedInnerNoteHash = pedersenHash([storageSlot, expectedNoteHash].map(f => f.toBuffer()));
-      expect(result.newNoteHashes[0].value).toEqual(expectedInnerNoteHash);
+      const expectedUnsiloedNoteHash = pedersenHash([storageSlot, expectedNoteHash].map(f => f.toBuffer()));
+      expect(result.newNoteHashes[0].value).toEqual(expectedUnsiloedNoteHash);
     });
 
     it('Should be able to create a L2 to L1 message from the public context', async () => {

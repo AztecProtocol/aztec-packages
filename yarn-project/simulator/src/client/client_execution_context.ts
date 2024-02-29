@@ -134,7 +134,6 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   /**
    * Get the data for the newly created notes.
-   * @param innerNoteHashes - Inner note hashes for the notes.
    */
   public getNewNotes(): NoteAndSlot[] {
     return this.newNotes;
@@ -232,7 +231,7 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     notes.forEach(n => {
       if (n.index !== undefined) {
-        const siloedNoteHash = siloNoteHash(n.contractAddress, n.innerNoteHash);
+        const siloedNoteHash = siloNoteHash(n.contractAddress, n.unsiloedNoteHash);
         const uniqueSiloedNoteHash = computeUniqueCommitment(n.nonce, siloedNoteHash);
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
         // Should always be uniqueSiloedNoteHash when publicly created notes include nonces.
@@ -251,10 +250,10 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param storageSlot - The storage slot.
    * @param noteTypeId - The type ID of the note.
    * @param noteItems - The items to be included in a Note.
-   * @param innerNoteHash - The inner note hash of the new note.
+   * @param unsiloedNoteHash - The inner note hash of the new note.
    * @returns
    */
-  public notifyCreatedNote(storageSlot: Fr, noteTypeId: Fr, noteItems: Fr[], innerNoteHash: Fr) {
+  public notifyCreatedNote(storageSlot: Fr, noteTypeId: Fr, noteItems: Fr[], unsiloedNoteHash: Fr) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote({
       contractAddress: this.callContext.storageContractAddress,
@@ -262,7 +261,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       nonce: Fr.ZERO, // Nonce cannot be known during private execution.
       note,
       siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
-      innerNoteHash,
+      unsiloedNoteHash,
     });
     this.newNotes.push({
       storageSlot,
@@ -275,10 +274,10 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Adding a siloed nullifier into the current set of all pending nullifiers created
    * within the current transaction/execution.
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
-   * @param innerNoteHash - The inner note hash of the new note.
+   * @param unsiloedNoteHash - The inner note hash of the new note.
    */
-  public notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr) {
-    this.noteCache.nullifyNote(this.callContext.storageContractAddress, innerNullifier, innerNoteHash);
+  public notifyNullifiedNote(innerNullifier: Fr, unsiloedNoteHash: Fr) {
+    this.noteCache.nullifyNote(this.callContext.storageContractAddress, innerNullifier, unsiloedNoteHash);
     return Promise.resolve();
   }
 

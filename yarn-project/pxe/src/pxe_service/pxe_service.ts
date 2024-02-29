@@ -289,7 +289,7 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
+      const { unsiloedNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
         await this.simulator.computeNoteHashAndNullifier(
           note.contractAddress,
           nonce,
@@ -299,7 +299,7 @@ export class PXEService implements PXE {
         );
 
       this.log(`Adding new note`);
-      this.log(`Inner hash ${innerNoteHash.toString()}`);
+      this.log(`Inner hash ${unsiloedNoteHash.toString()}`);
       this.log(`Siloed hash ${siloedNoteHash.toString()}`);
       this.log(`Unique siloed hash ${uniqueSiloedNoteHash.toString()}`);
 
@@ -325,7 +325,7 @@ export class PXEService implements PXE {
           note.noteTypeId,
           note.txHash,
           nonce,
-          innerNoteHash,
+          unsiloedNoteHash,
           siloedNullifier,
           index,
           publicKey,

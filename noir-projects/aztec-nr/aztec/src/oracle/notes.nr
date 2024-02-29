@@ -8,23 +8,23 @@ fn notify_created_note_oracle<N>(
     _storage_slot: Field,
     _note_type_id: Field,
     _serialized_note: [Field; N],
-    _inner_note_hash: Field
+    _unsiloed_note_hash: Field
 ) -> Field {}
 
 unconstrained pub fn notify_created_note<N>(
     storage_slot: Field,
     note_type_id: Field,
     serialized_note: [Field; N],
-    inner_note_hash: Field
+    unsiloed_note_hash: Field
 ) -> Field {
-    notify_created_note_oracle(storage_slot, note_type_id, serialized_note, inner_note_hash)
+    notify_created_note_oracle(storage_slot, note_type_id, serialized_note, unsiloed_note_hash)
 }
 
 #[oracle(notifyNullifiedNote)]
-fn notify_nullified_note_oracle<N>(_nullifier: Field, _inner_note_hash: Field) -> Field {}
+fn notify_nullified_note_oracle<N>(_nullifier: Field, _unsiloed_note_hash: Field) -> Field {}
 
-unconstrained pub fn notify_nullified_note<N>(nullifier: Field, inner_note_hash: Field) -> Field {
-    notify_nullified_note_oracle(nullifier, inner_note_hash)
+unconstrained pub fn notify_nullified_note<N>(nullifier: Field, unsiloed_note_hash: Field) -> Field {
+    notify_nullified_note_oracle(nullifier, unsiloed_note_hash)
 }
 
 #[oracle(getNotes)]
@@ -111,7 +111,7 @@ unconstrained pub fn get_notes<Note, N, M, S, NS>(
             let read_offset: u64 = return_header_length + i * (N + extra_preimage_length);
             let nonce = fields[read_offset];
             let is_transient = fields[read_offset + 1] as bool;
-            let header = NoteHeader { contract_address, nonce, storage_slot, is_transient, is_partial: false, partial_note_hash: 0 };
+            let header = NoteHeader { contract_address, nonce, storage_slot, is_transient, is_partial: false, inner_note_hash: 0 };
             let serialized_note = arr_copy_slice(fields, [0; N], read_offset + 2);
             let mut note = Note::deserialize_content(serialized_note);
             // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
