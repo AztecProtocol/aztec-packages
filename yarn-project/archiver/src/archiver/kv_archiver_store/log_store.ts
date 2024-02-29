@@ -88,7 +88,7 @@ export class LogStore {
       throw new Error('Missing txHash');
     }
 
-    const [blockNumber, txIndex] = this.blockStore.getTxEffectLocation(filter.txHash) ?? [];
+    const [blockNumber, txIndex] = this.blockStore.getTxLocation(filter.txHash) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return { logs: [], maxLogsHit: false };
     }

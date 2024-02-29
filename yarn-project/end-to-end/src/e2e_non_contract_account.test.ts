@@ -75,10 +75,10 @@ describe('e2e_non_contract_account', () => {
 
     const receipt = await contract.methods.set_constant(value).send().wait({ interval: 0.1 });
 
-    // check that 1 commitment was created
-    const tx = await pxe.getTx(receipt.txHash);
-    const nonZeroCommitments = tx?.newNoteHashes.filter(c => c.value > 0);
-    expect(nonZeroCommitments?.length).toBe(1);
+    // check that 1 note hash was created
+    const tx = await pxe.getTxEffect(receipt.txHash);
+    const nonZeroNoteHashes = tx?.newNoteHashes.filter(c => c.value > 0);
+    expect(nonZeroNoteHashes?.length).toBe(1);
 
     // Add the note
     const note = new Note([new Fr(value)]);

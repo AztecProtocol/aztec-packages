@@ -8,11 +8,13 @@ import {
   L2Block,
   L2BlockContext,
   L2BlockL2Logs,
-  TxEffect,
   LogFilter,
   LogId,
   LogType,
+  TxEffect,
   TxHash,
+  TxReceipt,
+  TxStatus,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
@@ -232,13 +234,31 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets an l2 tx.
-   * @param txHash - The txHash of the l2 tx.
-   * @returns The requested L2 tx.
+   * Gets a tx effect.
+   * @param txHash - The txHash of the tx effect.
+   * @returns The requested tx effect.
    */
   public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
-    const l2Tx = this.txEffects.find(tx => tx.txHash.equals(txHash));
-    return Promise.resolve(l2Tx);
+    const txEffect = this.txEffects.find(tx => tx.txHash.equals(txHash));
+    return Promise.resolve(txEffect);
+  }
+
+  /**
+   * Gets a receipt of a settled tx.
+   * @param txHash - The hash of a tx we try to get the receipt for.
+   * @returns The requested tx receipt (or undefined if not found).
+   */
+  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+    for (const blockContext of this.l2BlockContexts) {
+      for (const currentTxHash of blockContext.getTxHashes()) {
+        if (currentTxHash.equals(txHash)) {
+          return Promise.resolve(
+            new TxReceipt(txHash, TxStatus.MINED, '', blockContext.block.hash().toBuffer(), blockContext.block.number),
+          );
+        }
+      }
+    }
+    return Promise.resolve(undefined);
   }
 
   /**

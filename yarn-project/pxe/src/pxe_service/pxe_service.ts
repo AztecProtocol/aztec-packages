@@ -10,13 +10,13 @@ import {
   GetUnencryptedLogsResponse,
   KeyStore,
   L2Block,
-  TxEffect,
   LogFilter,
   MerkleTreeId,
   NoteFilter,
   PXE,
   SimulationError,
   Tx,
+  TxEffect,
   TxExecutionRequest,
   TxHash,
   TxL2Logs,
@@ -438,27 +438,12 @@ export class PXEService implements PXE {
     });
   }
 
-  public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    let txReceipt = new TxReceipt(txHash, TxStatus.DROPPED, 'Tx dropped by P2P node.');
-
-    // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
-    // for mined and then for pending there could be a race condition where the tx is mined between the two checks
-    // and we would incorrectly return a TxReceipt with status DROPPED
-    const pendingTx = await this.node.getPendingTxByHash(txHash);
-    if (pendingTx) {
-      txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
-    }
-
-    const settledTx = await this.node.getTxEffect(txHash);
-    if (settledTx) {
-      txReceipt = new TxReceipt(txHash, TxStatus.MINED, '', settledTx.blockHash.toBuffer(), settledTx.blockNumber);
-    }
-
-    return txReceipt;
+  public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+    return this.node.getTxReceipt(txHash);
   }
 
-  public async getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
-    return await this.node.getTxEffect(txHash);
+  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return this.node.getTxEffect(txHash);
   }
 
   async getBlockNumber(): Promise<number> {

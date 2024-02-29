@@ -2,6 +2,7 @@ import { EthAddress } from '@aztec/circuits.js';
 
 import { L2Block } from './l2_block.js';
 import { TxHash } from './tx/tx_hash.js';
+import { TxReceipt } from './tx/tx_receipt.js';
 import { TxEffect } from './tx_effect.js';
 
 /**
@@ -47,6 +48,13 @@ export interface L2BlockSource {
    * @returns The requested tx effect.
    */
   getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
+
+  /**
+   * Gets a receipt of a settled tx.
+   * @param txHash - The hash of a tx we try to get the receipt for.
+   * @returns The requested tx receipt (or undefined if not found).
+   */
+  getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined>;
 
   /**
    * Starts the L2 block source.
