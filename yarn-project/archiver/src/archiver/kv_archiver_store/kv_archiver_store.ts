@@ -82,7 +82,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   /**
    * Gets block bodies that have the same txHashes as we supply.
    *
-   * @param txsHashes - A list of txsHashes that correspond to the body hashes
+   * @param txsHashes - A list of txsHashes (body hashes).
    * @returns The requested L2 block bodies
    */
   getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
