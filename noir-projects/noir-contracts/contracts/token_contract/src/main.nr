@@ -18,7 +18,7 @@ contract Token {
     use dep::aztec::{
         note::{
         note_getter_options::NoteGetterOptions, note_header::NoteHeader, utils as note_utils,
-        lifecycle::{create_note_hash_from_public}
+        lifecycle::{create_note_hash_from_public, create_partial_note, complete_partial_note_from_public}
     },
         hash::{compute_secret_hash}, state_vars::{Map, PublicMutable, SharedImmutable, PrivateSet},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
@@ -32,7 +32,7 @@ contract Token {
 
     use crate::types::{
         transparent_note::TransparentNote, token_note::{TokenNote, TOKEN_NOTE_LEN},
-        balances_map::BalancesMap, partial_note::{PartialNotePair, PartialNoteHash}
+        balances_map::BalancesMap, partial_note::{compute_partial_notes_pair_hash, PartialNotesHash}
     };
     // docs:end::imports
 
@@ -56,7 +56,7 @@ contract Token {
         name: SharedImmutable<FieldCompressedString>,
         // docs:start:storage_decimals
         decimals: SharedImmutable<u8>,
-        partial_notes: Map<PartialNoteHash, PublicMutable<bool>>,
+        partial_notes: Map<PartialNotesHash, PublicMutable<bool>>,
         // docs:end:storage_decimals
     }
     // docs:end:storage_struct
@@ -405,7 +405,7 @@ contract Token {
         context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("complete_partial_notes([Field;2],[Field;2],[Field;2])"),
-            [res[0], res[2], amount_1, amount_2, res[1], res[3]]
+            [res[0], res[1], amount_1, amount_2, 0, 0]
         );
     }
 
@@ -419,79 +419,61 @@ contract Token {
 
         storage.balances.sub(from, U128::from_integer(amount));
 
-        let partial_note_1 = TokenNote::new(U128::from_integer(0), from);
-        let partial_note_2 = TokenNote::new(U128::from_integer(0), to);
-
-        let partial_note = PartialNotePair {
-            partial_note_1: partial_note_1.partial_hash(),
-            partial_note_2: partial_note_2.partial_hash(),
-            completer: context.msg_sender(),
-            amount
-        };
+        let mut partial_note_1 = TokenNote::new(U128::from_integer(0), from);
+        let mut partial_note_2 = TokenNote::new(U128::from_integer(0), to);
 
         let from_slot = storage.balances.map.at(from).storage_slot;
         let to_slot = storage.balances.map.at(to).storage_slot;
-        let note_type_id = TokenNote::get_note_type_id();
 
-        emit_encrypted_log(
-            &mut context,
-            context.this_address(),
-            from_slot,
-            note_type_id,
-            get_public_key(from),
-            partial_note_1.serialize_content()
-        );
-        emit_encrypted_log(
-            &mut context,
-            context.this_address(),
-            to_slot,
-            note_type_id,
-            get_public_key(to),
-            partial_note_2.serialize_content()
-        );
+        let partial_note_hash_1 = create_partial_note(&mut context, from_slot, &mut partial_note_1, true);
+        let partial_note_hash_2 = create_partial_note(&mut context, to_slot, &mut partial_note_2, true);
 
         // hack for quick e2e testing.
         // This should only emit the amounts
-        emit_unencrypted_log_from_private(
-            &mut context,
-            [partial_note.partial_note_1, partial_note.partial_note_2]
-        );
+        emit_unencrypted_log_from_private(&mut context, [partial_note_hash_1, partial_note_hash_2]);
         // hack, we shouldn't be emitting the slots
         emit_unencrypted_log_from_private(&mut context, [from_slot, to_slot]);
 
         debug_log_format(
             "split amount {0} into\n\t - note {1} at slot {2}\n\t - note {3} at slot {4}",
-            [amount, partial_note.partial_note_1, from_slot, partial_note.partial_note_2, to_slot]
+            [amount, partial_note_hash_1, from_slot, partial_note_hash_2, to_slot]
         );
 
         context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("auth_partial_notes((Field))"),
-            [partial_note.hash().to_field()]
+            [
+            compute_partial_notes_pair_hash(
+                partial_note_hash_1,
+                partial_note_hash_2,
+                context.msg_sender(),
+                amount
+            ).to_field()
+        ]
         );
 
         // revealing the slots leaks privacy
         // the slots are derviced from the address so it could be brute forced
         // we probably need to redesign how note hashes are generated in order to abstract away the slot
-        [partial_note.partial_note_1, from_slot, partial_note.partial_note_2, to_slot]
+        [partial_note_hash_1, partial_note_hash_2]
     }
 
     #[aztec(public)]
-    internal fn auth_partial_notes(hash: PartialNoteHash) {
+    internal fn auth_partial_notes(hash: PartialNotesHash) {
         storage.partial_notes.at(hash).write(true);
     }
 
     #[aztec(public)]
-    fn complete_partial_notes(partial_notes: [Field; 2], amounts: [Field; 2], slots: [Field; 2]) {
-        let partial_note = PartialNotePair {
-            partial_note_1: partial_notes[0],
-            partial_note_2: partial_notes[1],
-            completer: context.msg_sender(),
-            amount: amounts[0] + amounts[1]
-        };
+    fn complete_partial_notes(partial_notes: [Field; 2], amounts: [Field; 2], private_content_hashes: [Field; 2]) {
+        let hash = compute_partial_notes_pair_hash(
+            partial_notes[0],
+            partial_notes[1],
+            context.msg_sender(),
+            amounts[0] + amounts[1]
+        );
 
-        assert(storage.partial_notes.at(partial_note.hash()).read(), "partial note not authorized");
-        storage.partial_notes.at(partial_note.hash()).write(false);
+        assert(storage.partial_notes.at(hash).read(), "partial note not authorized");
+        context.push_new_nullifier(hash.to_field(), 0);
 
         let mut token_note_1 = TokenNote::from_partial(U128::from_integer(amounts[0]), partial_notes[0]);
         create_note_hash_from_public(&mut context, slots[0], &mut token_note_1);

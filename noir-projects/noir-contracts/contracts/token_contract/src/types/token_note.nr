@@ -1,6 +1,9 @@
 use dep::aztec::{
     protocol_types::{address::AztecAddress, constants::MAX_READ_REQUESTS_PER_CALL},
-    note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
+    note::{
+    note_header::NoteHeader, note_interface::{NoteInterface, PartialNoteInterface},
+    utils::compute_note_hash_for_consumption
+},
     context::PrivateContext, log::emit_encrypted_log, hash::pedersen_hash
 };
 use dep::aztec::oracle::{rand::rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key};
@@ -27,30 +30,28 @@ struct TokenNote {
     // included in the note such that it becomes part of encrypted logs for later use.
     header: NoteHeader,
 
-    partial_hash: Field,
+    private_content_hash: Field,
 }
 
 impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     fn serialize_content(self) -> [Field; TOKEN_NOTE_LEN] {
-        [self.amount.to_field(), self.owner.to_field(), compute_partial_hash(self)]
+        [self.amount.to_field(), self.owner.to_field(), self.compute_note_private_content_hash()]
     }
 
     fn deserialize_content(serialized_note: [Field; TOKEN_NOTE_LEN]) -> Self {
-        let note = Self {
+        Self {
             amount: U128::from_integer(serialized_note[0]),
             owner: AztecAddress::from_field(serialized_note[1]),
             randomness: 0,
             header: NoteHeader::empty(),
-            partial_hash: serialized_note[2]
-        };
-        // note.partial_hash = compute_partial_hash(note);
-        note
+            private_content_hash: serialized_note[2],
+        }
     }
 
     fn compute_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash([
-            compute_partial_hash(self),
+            self.compute_note_private_content_hash(),
             self.amount.to_field(),
         ], 0)
     }
@@ -112,16 +113,13 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
 
 impl OwnedNote for TokenNote {
     fn new(amount: U128, owner: AztecAddress) -> Self {
-        let mut note = Self {
+        Self {
             amount,
             owner,
             randomness: rand(),
             header: NoteHeader::empty(),
-            partial_hash: 0
-        };
-
-        note.partial_hash = compute_partial_hash(note);
-        note
+            private_content_hash: 0
+        }
     }
 
     fn get_amount(self) -> U128 {
@@ -133,26 +131,30 @@ impl OwnedNote for TokenNote {
     }
 }
 
-impl TokenNote {
-    pub fn from_partial(amount: U128, partial_hash: Field) -> Self {
-        Self { amount, partial_hash, owner: AztecAddress::empty(), randomness: 0, header: NoteHeader::empty() }
+impl PartialNoteInterface for TokenNote {
+    fn compute_note_private_content_hash(self) -> Field {
+        if self.private_content_hash != 0 {
+            self.private_content_hash
+        } else {
+            pedersen_hash(
+                [
+                self.owner.to_field(),
+                self.randomness
+            ],
+                0
+            )
+        }
     }
 
-    pub fn partial_hash(self) -> Field {
-        compute_partial_hash(self)
+    fn compute_note_public_content_hash(self) -> Field {
+        pedersen_hash([
+            self.amount.to_field(),
+        ], 0)
     }
 }
 
-fn compute_partial_hash(note: TokenNote) -> Field {
-    if note.partial_hash != 0 {
-        note.partial_hash
-    } else {
-        pedersen_hash(
-            [
-            note.owner.to_field(),
-            note.randomness
-        ],
-            0
-        )
+impl TokenNote {
+    pub fn from_partial(amount: U128, private_content_hash: Field) -> Self {
+        Self { amount, private_content_hash, owner: AztecAddress::empty(), randomness: 0, header: NoteHeader::empty() }
     }
 }
