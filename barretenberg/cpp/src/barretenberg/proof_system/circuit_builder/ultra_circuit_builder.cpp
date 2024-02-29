@@ -1078,6 +1078,11 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
 
     // dummy gate needed because of sort widget's check of next row
     // use this gate to check end condition
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This was formerly a single arithmetic gate. A
+    // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing the
+    // arithmetic gate to occur out of sequence.
+    create_dummy_gate(
+        blocks.main, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
     create_big_add_gate({ variable_index[variable_index.size() - 1],
                           this->zero_idx,
                           this->zero_idx,
