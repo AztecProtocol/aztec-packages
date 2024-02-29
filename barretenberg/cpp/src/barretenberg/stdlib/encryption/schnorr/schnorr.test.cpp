@@ -49,7 +49,7 @@ TEST(stdlib_schnorr, schnorr_verify_signature)
         schnorr_verify_signature(message, pub_key, sig);
 
         info("num gates = ", builder.get_num_gates());
-        bool result = builder.check_circuit();
+        bool result = UltraCircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 }
@@ -92,7 +92,7 @@ TEST(stdlib_schnorr, verify_signature_failure)
 
     info("num gates = ", builder.get_num_gates());
 
-    bool verification_result = builder.check_circuit();
+    bool verification_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(verification_result, false);
 }
 
@@ -127,7 +127,7 @@ TEST(stdlib_schnorr, schnorr_signature_verification_result)
 
     info("num gates = ", builder.get_num_gates());
 
-    bool result = builder.check_circuit();
+    bool result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
 
@@ -170,6 +170,6 @@ TEST(stdlib_schnorr, signature_verification_result_failure)
 
     info("num gates = ", builder.get_num_gates());
 
-    bool verification_result = builder.check_circuit();
+    bool verification_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(verification_result, true);
 }

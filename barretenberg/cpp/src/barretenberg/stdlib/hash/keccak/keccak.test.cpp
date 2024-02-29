@@ -27,7 +27,7 @@ TEST(stdlib_keccak, keccak_format_input_table)
         stdlib::plookup_read<Builder>::read_from_1_to_2_table(plookup::KECCAK_FORMAT_INPUT, limb);
     }
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -41,7 +41,7 @@ TEST(stdlib_keccak, keccak_format_output_table)
         field_ct limb(witness_ct(&builder, extended_native));
         stdlib::plookup_read<Builder>::read_from_1_to_2_table(plookup::KECCAK_FORMAT_OUTPUT, limb);
     }
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -59,7 +59,7 @@ TEST(stdlib_keccak, keccak_theta_output_table)
         field_ct limb(witness_ct(&builder, extended_native));
         stdlib::plookup_read<Builder>::read_from_1_to_2_table(plookup::KECCAK_THETA_OUTPUT, limb);
     }
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -94,7 +94,7 @@ TEST(stdlib_keccak, keccak_rho_output_table)
     });
 
     info("num gates = ", builder.get_num_gates());
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -130,7 +130,7 @@ TEST(stdlib_keccak, keccak_chi_output_table)
         EXPECT_EQ(static_cast<uint256_t>(msb.get_value()), binary_native >> 63);
     }
     info("num gates = n", builder.get_num_gates());
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -170,7 +170,7 @@ TEST(stdlib_keccak, test_format_input_lanes)
         }
     }
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -189,7 +189,7 @@ TEST(stdlib_keccak, test_single_block)
 
     builder.print_num_gates();
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -211,7 +211,7 @@ TEST(stdlib_keccak, test_double_block)
 
     builder.print_num_gates();
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -238,7 +238,7 @@ TEST(stdlib_keccak, test_double_block_variable_length)
 
     EXPECT_EQ(output.get_value(), expected);
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -265,7 +265,7 @@ TEST(stdlib_keccak, test_variable_length_nonzero_input_greater_than_byte_array_s
     byte_array output = stdlib::keccak<Builder>::hash(input_arr, length);
 
     EXPECT_EQ(output.get_value(), expected);
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -285,7 +285,7 @@ TEST(stdlib_keccak, test_permutation_opcode_single_block)
 
     builder.print_num_gates();
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -308,6 +308,6 @@ TEST(stdlib_keccak, test_permutation_opcode_double_block)
 
     builder.print_num_gates();
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }

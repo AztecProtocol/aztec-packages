@@ -139,7 +139,7 @@ std::array<uint64_t, 8> inner_block(std::array<uint64_t, 64>& w)
 
 //     auto verifier = composer.create_verifier();
 //     plonk::proof proof = prover.construct_proof();
-//     bool proof_result = builder.check_circuit();
+//     bool proof_result = UltraCircuitChecker::check(builder);
 //     EXPECT_EQ(proof_result, true);
 // }
 
@@ -167,7 +167,7 @@ TEST(stdlib_sha256, test_plookup_55_bytes)
     EXPECT_EQ(uint256_t(output[7].get_value()), 0x93791fc7U);
     info("num gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -192,7 +192,7 @@ TEST(stdlib_sha256, test_55_bytes)
     EXPECT_EQ(output[7].get_value(), fr(0x93791fc7ULL));
     info("num gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -216,7 +216,7 @@ TEST(stdlib_sha256, test_NIST_vector_one_packed_byte_array)
     EXPECT_EQ(uint256_t(output[7].get_value()).data[0], (uint64_t)0xF20015ADU);
     info("num gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -243,7 +243,7 @@ TEST(stdlib_sha256, test_NIST_vector_one)
     EXPECT_EQ(output[7].get_value(), fr(0xF20015ADULL));
     info("num gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -267,7 +267,7 @@ TEST(stdlib_sha256, test_NIST_vector_two)
     EXPECT_EQ(output[7].get_value(), 0x19DB06C1ULL);
     info("num gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -292,7 +292,7 @@ TEST(stdlib_sha256, test_NIST_vector_three)
     EXPECT_EQ(output[7].get_value(), 0x8ffe732bULL);
     info("num gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -318,7 +318,7 @@ TEST(stdlib_sha256, test_NIST_vector_four)
 
     info("num gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -357,7 +357,7 @@ HEAVY_TEST(stdlib_sha256, test_NIST_vector_five)
 
     info("num gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
