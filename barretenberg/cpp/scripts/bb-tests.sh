@@ -11,7 +11,6 @@ IMAGE_URI=$(calculate_image_uri $REPOSITORY)
 retry docker pull $IMAGE_URI
 
 TESTS=(
-  srs_tests
   flavor_tests
   relations_tests
   transcript_tests
@@ -39,6 +38,7 @@ TESTS=(
   numeric_tests
   plonk_tests
   polynomials_tests
+  srs_tests
   vm_tests
 )
 TESTS_STR="${TESTS[@]}"

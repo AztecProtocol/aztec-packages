@@ -8,14 +8,15 @@ cmake --build --preset clang16
 
 cd build/
 
-./bin/client_ivc_tests
-./bin/commitment_schemes_tests
-./bin/dsl_tests
 ./bin/flavor_tests
-./bin/goblin_tests
-./bin/protogalaxy_tests
 ./bin/relations_tests
-./bin/srs_tests
-./bin/sumcheck_tests
 ./bin/transcript_tests
+./bin/commitment_schemes_tests
+./bin/sumcheck_tests
+./bin/eccvm_tests
+./bin/translator_vm_tests
+./bin/protogalaxy_tests
 ./bin/ultra_honk_tests
+./bin/goblin_tests
+./bin/client_ivc_tests
+./bin/stdlib_recursion_tests
