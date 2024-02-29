@@ -294,7 +294,6 @@ export class ClientExecutionContext extends ViewDataOracle {
   public emitEncryptedLog(contractAddress: AztecAddress, storageSlot: Fr, noteTypeId: Fr, publicKey: Point, log: Fr[]) {
     const note = new Note(log);
     const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
-    // const encryptedNote = l1NotePayload.toEncryptedBuffer(publicKey, this.curve);
     const taggedNote = new TaggedNote(l1NotePayload);
     const encryptedNote = taggedNote.toEncryptedBuffer(publicKey, this.curve);
     this.encryptedLogs.push(encryptedNote);
