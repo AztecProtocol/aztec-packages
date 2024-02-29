@@ -2133,8 +2133,11 @@ void UltraCircuitBuilder_<Arithmetization>::create_final_sorted_RAM_gate(RamReco
     record.record_witness = this->add_variable(0);
     record.gate_index = this->num_gates;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): this was once a single gate but has been broken
-    // into two for trace sorting.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This method used to add a single arithmetic gate
+    // with two purposes: (1) to provide wire values to the previous RAM gate via shifts, and (2) to perform a
+    // consistency check on the value in wire 1. These two purposes have been split into a dummy gate and a simplified
+    // arithmetic gate, respectively. This allows both purposes to be served even after arithmetic gates are sorted out
+    // of sequence with the RAM gates.
 
     // Create a final gate with all selectors zero; wire values are accessed by the previous RAM gate via shifted wires
     blocks.main.populate_wires(
