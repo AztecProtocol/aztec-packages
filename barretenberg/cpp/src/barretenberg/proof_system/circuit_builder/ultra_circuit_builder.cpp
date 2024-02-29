@@ -1078,24 +1078,15 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
 
     // dummy gate needed because of sort widget's check of next row
     // use this gate to check end condition
-    blocks.main.populate_wires(
-        variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
-    ++this->num_gates;
-    blocks.main.q_m().emplace_back(0);
-    blocks.main.q_1().emplace_back(1);
-    blocks.main.q_2().emplace_back(0);
-    blocks.main.q_3().emplace_back(0);
-    blocks.main.q_c().emplace_back(-end);
-    blocks.main.q_arith().emplace_back(1);
-    blocks.main.q_4().emplace_back(0);
-    blocks.main.q_sort().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_aux().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
-    }
-    check_selector_length_consistency();
+    create_big_add_gate({ variable_index[variable_index.size() - 1],
+                          this->zero_idx,
+                          this->zero_idx,
+                          this->zero_idx,
+                          1,
+                          0,
+                          0,
+                          0,
+                          -end });
 }
 
 // range constraint a value by decomposing it into limbs whose size should be the default range constraint size
