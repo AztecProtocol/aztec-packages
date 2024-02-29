@@ -10,7 +10,7 @@ namespace bb {
 
 template <IsUltraFlavor Flavor> struct PreSumcheckOutput {
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
-    Flavor::VerifierCommitments commitments;
+    typename Flavor::VerifierCommitments commitments;
     uint32_t circuit_size;
     bool verified;
 };
