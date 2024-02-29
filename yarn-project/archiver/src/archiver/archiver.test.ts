@@ -45,7 +45,7 @@ describe('Archiver', () => {
     expect(latestBlockNum).toEqual(0);
 
     const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
-    const aoTxs = blocks.map(block => block.body).map(makePublishTx);
+    const publisTxs = blocks.map(block => block.body).map(makePublishTx);
     const rollupTxs = blocks.map(makeRollupTx);
 
     // `L2Block.random(x)` creates some l1 to l2 messages. We add those,
@@ -96,10 +96,10 @@ describe('Archiver', () => {
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(2510n, 2n), makeL2BlockProcessedEvent(2520n, 3n)])
       .mockResolvedValueOnce([makeContractDeploymentEvent(2540n, blocks[1])])
       .mockResolvedValue([]);
-    publicClient.getTransaction.mockResolvedValueOnce(aoTxs[0]);
+    publicClient.getTransaction.mockResolvedValueOnce(publisTxs[0]);
     publicClient.getTransaction.mockResolvedValueOnce(rollupTxs[0]);
 
-    aoTxs.slice(1).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+    publisTxs.slice(1).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     rollupTxs.slice(1).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
 
     await archiver.start(false);
@@ -165,7 +165,7 @@ describe('Archiver', () => {
 
     const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
 
-    const aoTxs = blocks.map(block => block.body).map(makePublishTx);
+    const publisTxs = blocks.map(block => block.body).map(makePublishTx);
     const rollupTxs = blocks.map(makeRollupTx);
 
     // `L2Block.random(x)` creates some l1 to l2 messages. We add those,
@@ -207,7 +207,7 @@ describe('Archiver', () => {
       ])
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(70n, 1n), makeL2BlockProcessedEvent(80n, 2n)])
       .mockResolvedValue([]);
-    aoTxs.slice(0, numL2BlocksInTest).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+    publisTxs.slice(0, numL2BlocksInTest).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     rollupTxs.slice(0, numL2BlocksInTest).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
 
     await archiver.start(false);
@@ -247,7 +247,7 @@ describe('Archiver', () => {
 
     const block = L2Block.random(1, 4, 1, 2, 4, 6);
     const rollupTx = makeRollupTx(block);
-    const aoTx = makePublishTx(block.body);
+    const publisTx = makePublishTx(block.body);
 
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n);
     // logs should be created in order of how archiver syncs.
@@ -262,7 +262,7 @@ describe('Archiver', () => {
       .mockResolvedValueOnce([makeTxsPublishedEvent(101n, block.body.getCalldataHash())])
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(101n, 1n)])
       .mockResolvedValue([]);
-    publicClient.getTransaction.mockResolvedValueOnce(aoTx);
+    publicClient.getTransaction.mockResolvedValueOnce(publisTx);
     publicClient.getTransaction.mockResolvedValueOnce(rollupTx);
 
     await archiver.start(false);
