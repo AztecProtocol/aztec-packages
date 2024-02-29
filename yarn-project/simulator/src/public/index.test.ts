@@ -468,7 +468,7 @@ describe('ACIR public execution simulator', () => {
         for (const sibling of siblingPathBuffers) {
           root = pedersenHash([root.toBuffer(), sibling]);
         }
-        commitmentsDb.getL1ToL2Message.mockImplementation(() => {
+        commitmentsDb.getL1ToL2MembershipWitness.mockImplementation(() => {
           return Promise.resolve(new MessageLoadOracleInputs(0n, siblingPath));
         });
 

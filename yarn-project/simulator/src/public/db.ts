@@ -74,7 +74,7 @@ export interface CommitmentsDB {
    * @param entryKey - The message Key.
    * @returns - The l1 to l2 message object
    */
-  getL1ToL2Message(entryKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
+  getL1ToL2MembershipWitness(entryKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
    * Gets the index of a commitment in the note hash tree.

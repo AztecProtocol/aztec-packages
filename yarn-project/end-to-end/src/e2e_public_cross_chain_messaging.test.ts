@@ -136,7 +136,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    const entryKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the archiver to process the message
@@ -188,7 +188,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
-    const entryKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(0n);
 
     // Wait for the archiver to process the message
@@ -284,9 +284,7 @@ describe('e2e_public_cross_chain_messaging', () => {
         { value: fee } as any,
       );
 
-      // We check that the message was correctly injected by checking the emitted event and we store the message key
-      // for later use
-      let entryKey!: Fr;
+      // We check that the message was correctly injected by checking the emitted even
       {
         const txReceipt = await crossChainTestHarness.publicClient.waitForTransactionReceipt({
           hash: txHash,
@@ -307,9 +305,6 @@ describe('e2e_public_cross_chain_messaging', () => {
         // Note: For whatever reason, viem types "think" that there is no recipient on topics.args. I hack around this
         // by casting the args to "any"
         expect((topics.args as any).recipient).toBe(recipient);
-
-        // TODO(#4678): Unify naming of message key/entry key
-        entryKey = Fr.fromString(topics.args.entryKey!);
       }
 
       // We wait for the archiver to process the message and we push a block for the message to be confirmed

@@ -89,8 +89,8 @@ export class PublicExecutionContext extends TypedOracle {
    * @param entryKey - A buffer representing the message key.
    * @returns The l1 to l2 message data
    */
-  public async getL1ToL2Message(entryKey: Fr) {
-    return await this.commitmentsDb.getL1ToL2Message(entryKey);
+  public async getL1ToL2MembershipWitness(entryKey: Fr) {
+    return await this.commitmentsDb.getL1ToL2MembershipWitness(entryKey);
   }
 
   /**

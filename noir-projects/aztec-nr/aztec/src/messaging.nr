@@ -1,6 +1,6 @@
 mod l1_to_l2_message;
 
-use crate::oracle::get_l1_to_l2_message::get_l1_to_l2_message_call;
+use crate::oracle::get_l1_to_l2_membership_witness::get_l1_to_l2_membership_witness;
 
 use dep::std::merkle::compute_merkle_root;
 use crate::messaging::l1_to_l2_message::L1ToL2Message;
@@ -25,7 +25,7 @@ pub fn process_l1_to_l2_message(
     );
     let entry_key = msg.hash();
 
-    let returned_message = get_l1_to_l2_message_call(entry_key);
+    let returned_message = get_l1_to_l2_membership_witness(entry_key);
     let leaf_index = returned_message[0];
     let sibling_path = arr_copy_slice(returned_message, [0; L1_TO_L2_MSG_TREE_HEIGHT], 1);
 
