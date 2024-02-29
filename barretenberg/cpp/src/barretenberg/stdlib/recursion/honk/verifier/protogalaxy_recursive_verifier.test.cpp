@@ -204,9 +204,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         {
             auto composer = Composer();
             auto instance = composer.create_prover_instance(folding_circuit);
-            auto verification_key = composer.compute_verification_key(instance);
             auto prover = composer.create_prover(instance);
-            auto verifier = composer.create_verifier(verification_key);
+            auto verifier = composer.create_verifier(instance->verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 
@@ -295,9 +294,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         {
             auto composer = Composer();
             auto instance = composer.create_prover_instance(decider_circuit);
-            auto verification_key = composer.compute_verification_key(instance);
             auto prover = composer.create_prover(instance);
-            auto verifier = composer.create_verifier(verification_key);
+            auto verifier = composer.create_verifier(instance->verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 

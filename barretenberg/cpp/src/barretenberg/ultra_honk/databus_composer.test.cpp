@@ -86,9 +86,8 @@ TEST_F(DataBusComposerTests, CallDataRead)
     // Construct and verify Honk proof
     auto instance = composer.create_prover_instance(builder);
     // For debugging, use "instance_inspector::print_databus_info(instance)"
-    auto verification_key = composer.compute_verification_key(instance);
     auto prover = composer.create_prover(instance);
-    auto verifier = composer.create_verifier(verification_key);
+    auto verifier = composer.create_verifier(instance->verification_key);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
     EXPECT_TRUE(verified);
