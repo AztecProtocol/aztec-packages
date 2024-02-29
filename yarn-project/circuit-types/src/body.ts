@@ -23,7 +23,7 @@ export class Body {
    */
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
-    const l1ToL2Messages = reader.readVectorUint8Prefix(Fr);
+    const l1ToL2Messages = reader.readVector(Fr);
 
     return new this(padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP), reader.readVector(TxEffect));
   }

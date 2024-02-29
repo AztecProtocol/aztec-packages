@@ -62,15 +62,15 @@ describe('Archiver', () => {
     const l1ToL2MessageAddedEvents = [
       makeL1ToL2MessageAddedEvents(
         100n,
-        blocks[0].body.l1ToL2Messages.map(key => key.toString()),
+        blocks[0].body.l1ToL2Messages.flatMap(key => key.isZero() ? [] : key.toString()),
       ),
       makeL1ToL2MessageAddedEvents(
         100n,
-        blocks[1].body.l1ToL2Messages.map(key => key.toString()),
+        blocks[1].body.l1ToL2Messages.flatMap(key => key.isZero() ? [] : key.toString()),
       ),
       makeL1ToL2MessageAddedEvents(
         2501n,
-        blocks[2].body.l1ToL2Messages.map(key => key.toString()),
+        blocks[2].body.l1ToL2Messages.flatMap(key => key.isZero() ? [] : key.toString()),
       ),
       makeL1ToL2MessageAddedEvents(2502n, [
         messageToCancel1,
@@ -179,11 +179,11 @@ describe('Archiver', () => {
     const l1ToL2MessageAddedEvents = [
       makeL1ToL2MessageAddedEvents(
         100n,
-        blocks[0].body.l1ToL2Messages.map(key => key.toString()),
+        blocks[0].body.l1ToL2Messages.flatMap(key => key.isZero() ? [] : key.toString()),
       ),
       makeL1ToL2MessageAddedEvents(
         101n,
-        blocks[1].body.l1ToL2Messages.map(key => key.toString()),
+        blocks[1].body.l1ToL2Messages.flatMap(key => key.isZero() ? [] : key.toString()),
       ),
       makeL1ToL2MessageAddedEvents(102n, additionalL1ToL2MessagesBlock102),
       makeL1ToL2MessageAddedEvents(103n, additionalL1ToL2MessagesBlock103),
@@ -223,14 +223,14 @@ describe('Archiver', () => {
     // Check that the only pending L1 to L2 messages are those from eth bock 102
     const expectedPendingMessageKeys = additionalL1ToL2MessagesBlock102;
     const actualPendingMessageKeys = (await archiver.getPendingL1ToL2Messages(100)).map(key => key.toString());
+    console.log('expectedPendingMsgKeys', expectedPendingMessageKeys)
+    console.log('actualPendingMessageKeys', actualPendingMessageKeys)
     expect(actualPendingMessageKeys).toEqual(expectedPendingMessageKeys);
 
     await archiver.stop();
   }, 10_000);
 
   it('pads L1 to L2 messages', async () => {
-    const NUM_RECEIVED_L1_MESSAGES = 2;
-
     const archiver = new Archiver(
       publicClient,
       EthAddress.fromString(rollupAddress),
@@ -275,10 +275,9 @@ describe('Archiver', () => {
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(1);
 
-    const expectedL1Messages = block.body.l1ToL2Messages
-      .concat(times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP - NUM_RECEIVED_L1_MESSAGES, () => Fr.ZERO))
-      .map(x => x.value);
+    const expectedL1Messages = block.body.l1ToL2Messages.map(x => x.value);
     const receivedBlock = await archiver.getBlock(1);
+
     expect(receivedBlock?.body.l1ToL2Messages.map(x => x.value)).toEqual(expectedL1Messages);
 
     await archiver.stop();

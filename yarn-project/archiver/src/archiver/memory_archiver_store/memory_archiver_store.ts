@@ -122,12 +122,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public addBlocks(blocks: L2Block[]): Promise<boolean> {
     this.l2BlockContexts.push(
       ...blocks.map(block => {
-        block.body.l1ToL2Messages = padArrayEnd(
-          block.body.l1ToL2Messages,
-          Fr.ZERO,
-          NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        );
-
         return new L2BlockContext(block);
       }),
     );
@@ -142,8 +136,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   addBlockBodies(blockBodies: Body[]): Promise<boolean> {
     for (const body of blockBodies) {
-      body.l1ToL2Messages = padArrayEnd(body.l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-
       void this.l2BlockBodies.set(body.getCalldataHash().toString('hex'), body);
     }
 
