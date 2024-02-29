@@ -8,6 +8,7 @@ import {
   LogType,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import { ArchiverError } from '@aztec/errors';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
@@ -85,7 +86,7 @@ export class LogStore {
 
   #filterUnencryptedLogsOfTx(filter: LogFilter): GetUnencryptedLogsResponse {
     if (!filter.txHash) {
-      throw new Error('Missing txHash');
+      throw ArchiverError.missingTxHash();
     }
 
     const [blockNumber, txIndex] = this.blockStore.getTxLocation(filter.txHash) ?? [];

@@ -15,6 +15,7 @@ import {
   computeMessageSecretHash,
   sleep,
 } from '@aztec/aztec.js';
+import { MessageBoxError } from '@aztec/errors';
 import { keccak, sha256 } from '@aztec/foundation/crypto';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { InboxAbi, OutboxAbi } from '@aztec/l1-artifacts';
@@ -175,7 +176,7 @@ describe('e2e_public_cross_chain_messaging', () => {
         .withWallet(user2Wallet)
         .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, ethAccount, secret)
         .simulate(),
-    ).rejects.toThrow(`Message ${wrongMessage.hash().toString()} not found`);
+    ).rejects.toThrow(MessageBoxError.messageNotFound(wrongMessage.hash()).message);
 
     // user2 consumes owner's L1-> L2 message on bridge contract and mints public tokens on L2
     logger("user2 consumes owner's message on L2 Publicly");
@@ -239,7 +240,7 @@ describe('e2e_public_cross_chain_messaging', () => {
 
     await expect(
       l2Bridge.withWallet(user2Wallet).methods.claim_private(secretHash, bridgeAmount, ethAccount, secret).simulate(),
-    ).rejects.toThrowError(`Message ${wrongMessage.hash().toString()} not found`);
+    ).rejects.toThrow(MessageBoxError.messageNotFound(wrongMessage.hash()).message);
   }, 60_000);
 
   // Note: We register one portal address when deploying contract but that address is no-longer the only address

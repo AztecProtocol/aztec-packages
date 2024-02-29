@@ -19,6 +19,7 @@ import {
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { ArchiverError, MessageBoxError } from '@aztec/errors';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
@@ -258,9 +259,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @remarks When "from" is smaller than genesis block number, blocks from the beginning are returned.
    */
   public getBlocks(from: number, limit: number): Promise<L2Block[]> {
-    // Return an empty array if we are outside of range
     if (limit < 1) {
-      return Promise.reject(new Error(`Invalid limit: ${limit}`));
+      return Promise.reject(ArchiverError.invalidBlockRange(from, limit));
     }
 
     const fromIndex = Math.max(from - INITIAL_L2_BLOCK_NUM, 0);
@@ -317,7 +317,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message> {
     const message = this.confirmedL1ToL2Messages.getMessage(entryKey);
     if (!message) {
-      throw new Error(`L1 to L2 Message with key ${entryKey.toString()} not found in the confirmed messages store`);
+      throw MessageBoxError.messageNotFound(entryKey);
     }
     return Promise.resolve(message);
   }
@@ -331,7 +331,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
     if (from < INITIAL_L2_BLOCK_NUM || limit < 1) {
-      throw new Error(`Invalid limit: ${limit}`);
+      throw ArchiverError.invalidBlockRange(from, limit);
     }
     const logs = logType === LogType.ENCRYPTED ? this.encryptedLogsPerBlock : this.unencryptedLogsPerBlock;
     if (from > logs.length) {

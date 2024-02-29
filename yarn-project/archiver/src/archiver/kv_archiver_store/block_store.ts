@@ -1,5 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM, L2Block, TxEffect, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, AztecAddress, Header } from '@aztec/circuits.js';
+import { ArchiverError } from '@aztec/errors';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap, Range } from '@aztec/kv-store';
 
@@ -188,7 +189,7 @@ export class BlockStore {
 
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {
     if (limit < 1) {
-      throw new Error(`Invalid limit: ${limit}`);
+      throw ArchiverError.invalidBlockRange(start, limit);
     }
 
     if (start < INITIAL_L2_BLOCK_NUM) {

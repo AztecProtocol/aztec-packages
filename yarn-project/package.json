@@ -31,6 +31,7 @@
     "docs",
     "end-to-end",
     "ethereum",
+    "errors",
     "foundation",
     "key-store",
     "kv-store",

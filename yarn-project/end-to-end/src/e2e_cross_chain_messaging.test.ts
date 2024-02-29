@@ -10,6 +10,7 @@ import {
   TxStatus,
   computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
+import { MessageBoxError } from '@aztec/errors';
 import { keccak, sha256 } from '@aztec/foundation/crypto';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
@@ -182,7 +183,7 @@ describe('e2e_cross_chain_messaging', () => {
           secretForL2MessageConsumption,
         )
         .simulate(),
-    ).rejects.toThrowError(`Message ${wrongMessage.hash().toString()} not found`);
+    ).rejects.toThrow(MessageBoxError.messageNotFound(wrongMessage.hash()).message);
 
     // send the right one -
     const consumptionTx = l2Bridge
@@ -267,6 +268,6 @@ describe('e2e_cross_chain_messaging', () => {
         .withWallet(user2Wallet)
         .methods.claim_public(ownerAddress, bridgeAmount, ethAccount, secretForL2MessageConsumption)
         .simulate(),
-    ).rejects.toThrowError(`Message ${wrongMessage.hash().toString()} not found`);
+    ).rejects.toThrow(MessageBoxError.messageNotFound(wrongMessage.hash()).message);
   }, 120_000);
 });

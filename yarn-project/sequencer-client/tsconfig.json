@@ -13,6 +13,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../errors"
+    },
+    {
       "path": "../ethereum"
     },
     {

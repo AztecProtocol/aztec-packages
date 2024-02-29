@@ -19,6 +19,7 @@ import {
 } from '@aztec/circuit-types';
 import { ContractClassRegisteredEvent, FunctionSelector } from '@aztec/circuits.js';
 import { ContractInstanceDeployedEvent } from '@aztec/circuits.js/contract';
+import { ArchiverError } from '@aztec/errors';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -129,7 +130,7 @@ export class Archiver implements ArchiveSource {
    */
   public async start(blockUntilSynced: boolean): Promise<void> {
     if (this.runningPromise) {
-      throw new Error('Archiver is already running');
+      throw ArchiverError.alreadyRunning();
     }
 
     if (blockUntilSynced) {

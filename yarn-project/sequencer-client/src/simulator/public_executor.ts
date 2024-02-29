@@ -17,6 +17,7 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { MessageBoxError } from '@aztec/errors';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { InstanceDeployerAddress } from '@aztec/protocol-contracts/instance-deployer';
@@ -222,6 +223,7 @@ export class WorldStateDB implements CommitmentsDB {
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     const index = (await this.db.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, entryKey.toBuffer()))!;
     if (index === undefined) {
+      throw MessageBoxError.messageNotFound(entryKey);
       throw new Error(`Message ${entryKey.toString()} not found`);
     }
     const siblingPath = await this.db.getSiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>(

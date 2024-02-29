@@ -24,6 +24,7 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/cli": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
+    "@aztec/errors": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",

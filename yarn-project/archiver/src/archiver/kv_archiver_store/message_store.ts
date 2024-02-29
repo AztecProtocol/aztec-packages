@@ -1,5 +1,6 @@
 import { L1ToL2Message } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
+import { MessageBoxError } from '@aztec/errors';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecCounter, AztecKVStore, AztecMap, AztecSingleton } from '@aztec/kv-store';
 
@@ -62,7 +63,7 @@ export class MessageStore {
       for (const message of messages) {
         const entryKey = message.entryKey?.toString();
         if (!entryKey) {
-          throw new Error('Message does not have an entry key');
+          throw MessageBoxError.messageUndefinedEntryKey();
         }
 
         void this.#messages.setIfNotExists(entryKey, {
@@ -96,7 +97,7 @@ export class MessageStore {
       for (const entryKey of entryKeys) {
         const messageCtx = this.#messages.get(entryKey.toString());
         if (!messageCtx) {
-          throw new Error(`Message ${entryKey.toString()} not found`);
+          throw MessageBoxError.messageNotFound(entryKey);
         }
 
         void this.#pendingMessagesByFee.update([messageCtx.fee, entryKey.toString()], -1);
@@ -121,7 +122,7 @@ export class MessageStore {
 
         const messageCtx = this.#messages.get(entryKey.toString());
         if (!messageCtx) {
-          throw new Error(`Message ${entryKey.toString()} not found`);
+          throw MessageBoxError.messageNotFound(entryKey);
         }
         messageCtx.confirmed = true;
 
@@ -141,11 +142,11 @@ export class MessageStore {
   getConfirmedMessage(entryKey: Fr): L1ToL2Message {
     const messageCtx = this.#messages.get(entryKey.toString());
     if (!messageCtx) {
-      throw new Error(`Message ${entryKey.toString()} not found`);
+      throw MessageBoxError.messageNotFound(entryKey);
     }
 
     if (!messageCtx.confirmed) {
-      throw new Error(`Message ${entryKey.toString()} not confirmed`);
+      throw MessageBoxError.messageNotConfirmed(entryKey);
     }
 
     return L1ToL2Message.fromBuffer(messageCtx.message);

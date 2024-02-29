@@ -1,4 +1,5 @@
 import { ContractData, ExtendedContractData } from '@aztec/circuit-types';
+import { ArchiverError } from '@aztec/errors';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap } from '@aztec/kv-store';
@@ -79,7 +80,7 @@ export class ContractStore {
     const block = this.#blockStore.getBlock(blockNumber);
 
     if (block?.body.txEffects[index].contractData.length !== 1) {
-      throw new Error(`Contract data at block: ${blockNumber}, tx: ${index} does not have length of 1`);
+      throw ArchiverError.contractDataNotFound(blockNumber, index);
     }
 
     return block?.body.txEffects[index].contractData[0];

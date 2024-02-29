@@ -8,6 +8,7 @@ import {
   L2Actor,
 } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
+import { ArchiverError } from '@aztec/errors';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -75,7 +76,7 @@ export async function processL2BlockProcessedLogs(
   for (const log of logs) {
     const blockNum = log.args.blockNumber;
     if (blockNum !== expectedL2BlockNumber) {
-      throw new Error('Block number mismatch. Expected: ' + expectedL2BlockNumber + ' but got: ' + blockNum + '.');
+      throw ArchiverError.blockNumberMismatch(expectedL2BlockNumber, blockNum);
     }
     // TODO: Fetch blocks from calldata in parallel
     const [header, archive] = await getBlockMetadataFromRollupTx(
@@ -125,7 +126,7 @@ async function getBlockMetadataFromRollupTx(
   });
 
   if (functionName !== 'process') {
-    throw new Error(`Unexpected method called ${functionName}`);
+    throw ArchiverError.unexpectedMethodCall(functionName);
   }
   const [headerHex, archiveRootHex] = args! as readonly [Hex, Hex, Hex, Hex];
 
@@ -134,7 +135,7 @@ async function getBlockMetadataFromRollupTx(
   const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
 
   if (blockNumberFromHeader !== l2BlockNum) {
-    throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${blockNumberFromHeader}`);
+    throw ArchiverError.blockNumberMismatch(l2BlockNum, blockNumberFromHeader);
   }
 
   const archive = AppendOnlyTreeSnapshot.fromBuffer(
@@ -166,7 +167,7 @@ async function getBlockBodiesFromAvailabilityOracleTx(
   });
 
   if (functionName !== 'publish') {
-    throw new Error(`Unexpected method called ${functionName}`);
+    throw ArchiverError.unexpectedMethodCall(functionName);
   }
 
   const [bodyHex] = args! as [Hex];
