@@ -23,7 +23,7 @@ describe('e2e_pending_commitments_contract', () => {
     const blockNum = await aztecNode!.getBlockNumber();
     const block = (await aztecNode!.getBlocks(blockNum, 1))[0];
 
-    const commitmentsArray = block.body.txEffects.flatMap(txEffect => txEffect.newNoteHashes);
+    const commitmentsArray = block.body.txEffects.flatMap(txEffect => txEffect.noteHashes);
 
     // all new commitments should be zero (should be squashed)
     for (let c = 0; c < exceptFirstFew; c++) {
@@ -39,7 +39,7 @@ describe('e2e_pending_commitments_contract', () => {
     const blockNum = await aztecNode!.getBlockNumber();
     const block = (await aztecNode!.getBlocks(blockNum, 1))[0];
 
-    const nullifierArray = block.body.txEffects.flatMap(txEffect => txEffect.newNullifiers);
+    const nullifierArray = block.body.txEffects.flatMap(txEffect => txEffect.nullifiers);
 
     // 0th nullifier should be nonzero (txHash), all others should be zero (should be squashed)
     for (let n = 0; n < exceptFirstFew + 1; n++) {

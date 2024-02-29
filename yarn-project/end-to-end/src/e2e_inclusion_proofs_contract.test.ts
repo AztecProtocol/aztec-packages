@@ -54,7 +54,7 @@ describe('e2e_inclusion_proofs_contract', () => {
     describe('proves note existence and its nullifier non-existence and nullifier non-existence failure case', () => {
       // Owner of a note
       let noteCreationBlockNumber: number;
-      let newNoteHashes, visibleNotes: any;
+      let noteHashes, visibleNotes: any;
       const value = 100n;
       let validNoteBlockNumber: any;
 
@@ -63,11 +63,11 @@ describe('e2e_inclusion_proofs_contract', () => {
         const receipt = await contract.methods.create_note(owner, value).send().wait({ debug: true });
 
         noteCreationBlockNumber = receipt.blockNumber!;
-        ({ newNoteHashes, visibleNotes } = receipt.debugInfo!);
+        ({ noteHashes, visibleNotes } = receipt.debugInfo!);
       });
 
       it('should return the correct values for creating a note', () => {
-        expect(newNoteHashes.length).toBe(1);
+        expect(noteHashes.length).toBe(1);
         expect(visibleNotes.length).toBe(1);
         const [receivedValue, receivedOwner, _randomness] = visibleNotes[0].note.items;
         expect(receivedValue.toBigInt()).toBe(value);
@@ -158,7 +158,7 @@ describe('e2e_inclusion_proofs_contract', () => {
         const receipt = await contract.methods.create_note(owner, value).send().wait({ debug: true });
 
         noteCreationBlockNumber = receipt.blockNumber!;
-        const { newNoteHashes, visibleNotes } = receipt.debugInfo!;
+        const { noteHashes: newNoteHashes, visibleNotes } = receipt.debugInfo!;
 
         expect(newNoteHashes.length).toBe(1);
         expect(visibleNotes.length).toBe(1);
@@ -224,7 +224,7 @@ describe('e2e_inclusion_proofs_contract', () => {
       // Choose random block number between deployment and current block number to test archival node
       const blockNumber = await getRandomBlockNumberSinceDeployment();
       const block = await pxe.getBlock(blockNumber);
-      const nullifier = block?.body.txEffects[0].newNullifiers[0];
+      const nullifier = block?.body.txEffects[0].nullifiers[0];
 
       await contract.methods.test_nullifier_inclusion(nullifier!, true, blockNumber).send().wait();
       await contract.methods.test_nullifier_inclusion(nullifier!, false, 0n).send().wait();
