@@ -98,8 +98,7 @@ void ClientIVC::precompute_folding_verification_keys()
     // Initialise both the first prover and verifier accumulator from the inital function circuit
     initialize(initial_function_circuit);
     vks.first_func_vk = prover_fold_output.accumulator->verification_key;
-    auto initial_verifier_acc = std::make_shared<VerifierInstance>();
-    initial_verifier_acc->verification_key = vks.first_func_vk;
+    auto initial_verifier_acc = std::make_shared<VerifierInstance>(vks.first_func_vk);
 
     // Accumulate the next function circuit
     ClientCircuit function_circuit{ goblin.op_queue };

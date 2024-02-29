@@ -47,8 +47,7 @@ class ClientIVCBench : public benchmark::Fixture {
         Builder initial_function_circuit{ size_hint, ivc.goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(initial_function_circuit);
         ivc.initialize(initial_function_circuit);
-        auto kernel_verifier_accumulator = std::make_shared<ClientIVC::VerifierInstance>();
-        kernel_verifier_accumulator->verification_key = ivc.vks.first_func_vk;
+        auto kernel_verifier_accumulator = std::make_shared<ClientIVC::VerifierInstance>(ivc.vks.first_func_vk);
 
         // Accumulate another function circuit
         Builder function_circuit{ ivc.goblin.op_queue };

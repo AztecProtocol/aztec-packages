@@ -183,9 +183,10 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
             FoldingRecursiveVerifier(&folding_circuit, verifier_instance_1, { verifier_instance_2->verification_key });
         verifier.verify_folding_proof(folding_proof.folding_data);
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
+        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
-        // Perform native folding verification and ensure it returns the same result (either true or false) as calling
-        // check_circuit on the recursive folding verifier
+        // Perform native folding verification and ensure it returns the same result (either true or false) as
+        // calling check_circuit on the recursive folding verifier
         auto native_folding_verifier = composer.create_folding_verifier({ verifier_instance_1, verifier_instance_2 });
         native_folding_verifier.verify_folding_proof(folding_proof.folding_data);
 
@@ -199,7 +200,6 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         }
 
         // Check for a failure flag in the recursive verifier circuit
-        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
         {
             auto composer = Composer();

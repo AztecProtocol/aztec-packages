@@ -34,9 +34,9 @@ template <class Flavor> class VerifierInstance_ {
 
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
-
-    // VerifierInstance_(std::shared_ptr<VerificationKey> vk)
-    //     : verification_key(std::move(vk))
-    // {}
+    VerifierInstance_() = default;
+    VerifierInstance_(std::shared_ptr<VerificationKey> vk)
+        : verification_key(std::move(vk))
+    {}
 };
 } // namespace bb

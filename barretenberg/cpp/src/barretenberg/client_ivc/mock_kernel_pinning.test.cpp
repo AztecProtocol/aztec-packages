@@ -24,7 +24,7 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
     GoblinUltraCircuitBuilder circuit_1{ ivc.goblin.op_queue };
     GoblinMockCircuits::construct_mock_function_circuit(circuit_1);
     ivc.initialize(circuit_1);
-    auto kernel_acc = std::make_shared<ClientIVC::VerifierInstance>();
+    auto kernel_acc = std::make_shared<ClientIVC::VerifierInstance>(ivc.vks.first_func_vk);
     kernel_acc->verification_key = ivc.vks.first_func_vk;
 
     GoblinUltraCircuitBuilder circuit_2{ ivc.goblin.op_queue };
