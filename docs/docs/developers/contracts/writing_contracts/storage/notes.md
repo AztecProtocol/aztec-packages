@@ -1,5 +1,5 @@
 ---
-title: Understanding Notes
+title: Notes in Aztec.nr
 description: Core knowledge of Notes and how they work
 useful-for: dev
 ---
