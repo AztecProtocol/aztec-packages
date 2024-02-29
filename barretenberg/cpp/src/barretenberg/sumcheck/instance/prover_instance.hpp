@@ -34,6 +34,9 @@ template <class Flavor> class ProverInstance_ {
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
+    // commitment_key needs to be here, and not accessed through the proving key, since somtimes the proving key is
+    // uninitialized in the proving key
+    std::shared_ptr<CommitmentKey> commitment_key;
     std::shared_ptr<VerificationKey> verification_key;
 
     ProverPolynomials prover_polynomials;
@@ -93,6 +96,7 @@ template <class Flavor> class ProverInstance_ {
         populate_memory_read_write_records<Flavor>(circuit, proving_key);
 
         verification_key = std::make_shared<VerificationKey>(proving_key);
+        commitment_key = proving_key->commitment_key;
     }
 
     ProverInstance_() = default;

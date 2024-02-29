@@ -183,10 +183,12 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     auto vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
     std::vector<FF> lagranges{ FF(1) - challenge, challenge };
 
+    // WORKTODO: bad pattern; can't copy construct but can assign to commitment_key member, confusing state
     auto next_accumulator = std::make_shared<Instance>();
     next_accumulator->is_accumulator = true;
     next_accumulator->instance_size = instances[0]->instance_size;
     next_accumulator->log_instance_size = instances[0]->log_instance_size;
+    next_accumulator->commitment_key = instances[0]->commitment_key;
 
     // Compute the next target sum and send the next folding parameters to the verifier
     FF next_target_sum =

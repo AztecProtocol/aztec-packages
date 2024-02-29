@@ -67,10 +67,9 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         auto folding_verifier = composer.create_folding_verifier();
 
         auto proof = folding_prover.fold_instances();
-        auto next_accumulator = proof.accumulator;
         auto res = folding_verifier.verify_folding_proof(proof.folding_data);
         EXPECT_EQ(res, expected_result);
-        return next_accumulator;
+        return proof.accumulcator;
     }
 
     static void check_accumulator_target_sum_manual(std::shared_ptr<Instance>& accumulator, bool expected_result)
