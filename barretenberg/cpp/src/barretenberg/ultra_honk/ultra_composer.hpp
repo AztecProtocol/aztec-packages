@@ -17,15 +17,11 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
-    using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
-    using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
-    using CRSFactory = srs::factories::CrsFactory<typename Flavor::Curve>;
-
     using ProverInstances = ProverInstances_<Flavor>;
     using VerifierInstances = VerifierInstances_<Flavor>;
 
