@@ -450,6 +450,15 @@ contract Token {
             partial_note_2.serialize_content()
         );
 
+        // hack for quick e2e testing.
+        // This should only emit the amounts
+        emit_unencrypted_log_from_private(
+            &mut context,
+            [partial_note.partial_note_1, partial_note.partial_note_2]
+        );
+        // hack, we shouldn't be emitting the slots
+        emit_unencrypted_log_from_private(&mut context, [from_slot, to_slot]);
+
         debug_log_format(
             "split amount {0} into\n\t - note {1} at slot {2}\n\t - note {3} at slot {4}",
             [amount, partial_note.partial_note_1, from_slot, partial_note.partial_note_2, to_slot]
@@ -490,11 +499,6 @@ contract Token {
         let mut token_note_2 = TokenNote::from_partial(U128::from_integer(amounts[1]), partial_notes[1]);
         create_note_hash_from_public(&mut context, slots[1], &mut token_note_2);
 
-        // hack for quick e2e testing.
-        // This should only emit the amounts
-        emit_unencrypted_log(&mut context, partial_notes);
-        // hack, we shouldn't be emitting the slots
-        emit_unencrypted_log(&mut context, slots);
         emit_unencrypted_log(&mut context, amounts);
     }
 }
