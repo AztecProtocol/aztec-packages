@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import {
   AccountWalletWithPrivateKey,
   AztecAddress,
@@ -55,7 +56,6 @@ describe('e2e_partial_notes', () => {
 
     const prettyPrint = (x: Fr[]) => '\n' + x.map(n => '\t- ' + n.toString()).join('\n');
 
-    /* eslint-disable no-console */
     console.log('partial note hashes', prettyPrint(partialNoteHashes));
     console.log('owners', prettyPrint([ctx.wallets[0].getAddress(), ctx.wallets[1].getAddress()]));
     console.log('randomness', prettyPrint(randomness));
@@ -95,7 +95,17 @@ describe('e2e_partial_notes', () => {
     );
 
     console.log('note hashes:', prettyPrint(out.debugInfo?.newNoteHashes ?? []));
-    /* eslint-enable no-console */
+
+    let notes = await ctx.pxe.getNotes({
+      owner: ctx.wallets[1].getAddress(),
+      contractAddress: bananaCoin.address,
+    });
+
+    console.log('notes before completing partial notes: ', notes.length);
+    for (const { note, storageSlot } of notes) {
+      console.log('Note', prettyPrint(note.items));
+      console.log('Storage slot of note', storageSlot.toString());
+    }
 
     // the pxe could keep track of partial notes and recreate them
     // for now, just add the notes manually
@@ -120,6 +130,18 @@ describe('e2e_partial_notes', () => {
         out.txHash,
       ),
     );
+
+    notes = await ctx.pxe.getNotes({
+      owner: ctx.wallets[1].getAddress(),
+      contractAddress: bananaCoin.address,
+    });
+
+    console.log('notes _after_ completing partial notes: ', notes.length);
+
+    for (const { note, storageSlot } of notes) {
+      console.log('Note', prettyPrint(note.items));
+      console.log('Storage slot of note', storageSlot.toString());
+    }
 
     // if notes were added correctly then we should have a balance
     await expect(bananaCoin.methods.balance_of_private(ctx.wallets[0].getAddress()).view()).resolves.toEqual(850n);

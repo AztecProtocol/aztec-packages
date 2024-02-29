@@ -90,7 +90,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
       // We only bother inserting the note if non-empty to save funds on gas.
-      if !(self.amount == U128::from_integer(0)) {
+      if !(self.amount == U128::from_integer(0)) | self.header.is_partial {
           let encryption_pub_key = get_public_key(self.owner);
           emit_encrypted_log(
               context,
