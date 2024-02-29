@@ -77,6 +77,8 @@ export class SentTx {
         l2ToL1Msgs: tx.l2ToL1Msgs.filter(l => !l.isZero()),
         contractsLeaves: tx.contractLeaves.filter(c => !c.isZero()),
         contractData: tx.contractData.filter(c => !c.isEmpty()),
+        encryptedLogs: tx.encryptedLogs.unrollLogs(),
+        unencryptedLogs: tx.unencryptedLogs.unrollLogs(),
         visibleNotes,
       };
     }

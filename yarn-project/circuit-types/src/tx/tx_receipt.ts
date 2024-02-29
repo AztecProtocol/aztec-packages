@@ -105,6 +105,11 @@ interface DebugInfo {
    */
   contractData: ContractData[];
   /**
+   * The logs emitted by the tx
+   */
+  encryptedLogs: Buffer[];
+  unencryptedLogs: Buffer[];
+  /**
    * Notes created in this tx which belong to accounts which are registered in the PXE which was used to submit the
    * tx. You will not receive notes of accounts which are not registered in the PXE here even though they were
    * created in this tx.
