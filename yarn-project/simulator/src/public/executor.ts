@@ -2,6 +2,9 @@ import { FunctionL2Logs } from '@aztec/circuit-types';
 import { GlobalVariables, Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
+import { spawn } from 'child_process';
+import fs from 'fs/promises';
+
 import { Oracle, acvm, extractCallStack, extractReturnWitness } from '../acvm/index.js';
 import { AvmContext } from '../avm/avm_context.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
@@ -222,10 +225,72 @@ export class PublicExecutor {
     }
 
     /**
-     * Getter for access to ContractDb table
-     * @param execution - The execution to run.
+     * These functions are currently housed in the temporary executor as it relies on access to
+     *  oracles like the contractsDB and this is the least intrusive way to achieve this.
+     *  When we remove this Executor and become compatible with the kernel circuits, this will be movoed to Prover.
+     *  but will eventually be moved
      */
-    public getContractBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
-        return this.contractsDb.getBytecode(address, selector);
+
+    /**
+     * Generates a proof for an associated avm execution.
+     * @param execution - The execution to run.
+     * @returns An AVM proof and the verification key.
+     */
+    public async getAvmProof(avmExecution: PublicExecution): Promise<Buffer[]> {
+        // The paths for the barretenberg binary and the write path are hardcoded for now.
+        // It is expected that this call will be only made from this file
+        // We additionally need the path to a valid crs for proof generation.
+        const bbPath = '../../barretenberg/cpp';
+        const writePath = '/tmp';
+        const { args, functionData, contractAddress } = avmExecution;
+        const bytecode = await this.contractsDb.getBytecode(contractAddress, functionData.selector);
+        await Promise.all([
+            fs.writeFile(
+                `${writePath}/calldata.bin`,
+                args.map(c => c.toBuffer()),
+            ),
+            fs.writeFile(`${writePath}/avm_bytecode.bin`, bytecode!),
+        ]);
+
+        const bbBinary = spawn(`${bbPath}/build/bin/bb`, [
+            'avm_prove',
+            '-b',
+            `${writePath}/avm_bytecode.bin`,
+            '-d',
+            `${writePath}/calldata.bin`,
+            '-c',
+            `${bbPath}/srs_db/ignition`,
+            '-o',
+            `${writePath}/proof`,
+        ]);
+        return new Promise(resolve => {
+            bbBinary.on('close', () => {
+                resolve(Promise.all([fs.readFile(`${writePath}/proof`), fs.readFile(`${writePath}/vk`)]));
+            });
+        });
+    }
+    /**
+     * Verifies an AVM proof.
+     * @param vk - The verification key to use.
+     * @param proof - The proof to verify.
+     * @returns True if the proof is valid, false otherwise.
+     */
+    async verifyAvmProof(vk: Buffer, proof: Buffer): Promise<boolean> {
+        // The paths for the barretenberg binary and the write path are hardcoded for now.
+        // It is expected that this call will be only made from this file
+        const bbPath = '../../barretenberg/cpp';
+        const writePath = '/tmp';
+        await Promise.all([fs.writeFile(`${writePath}/vk`, vk), fs.writeFile(`${writePath}/proof`, proof)]);
+
+        const bbBinary = spawn(`${bbPath}/build/bin/bb`, ['avm_verify', '-p', `${writePath}/proof`, '-vk', `/tmp/vk`]);
+        return new Promise(resolve => {
+            let result = Buffer.alloc(0);
+            bbBinary.stdout.on('data', data => {
+                result += data;
+            });
+            bbBinary.on('close', () => {
+                resolve(result.toString() === '1' ? true : false);
+            });
+        });
     }
 }

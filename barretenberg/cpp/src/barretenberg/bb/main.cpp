@@ -535,22 +535,44 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields(vk_path, output_path);
         } else if (command == "avm_prove") {
+            // Get Bytecode
+            get_option(args, "-b", "./target/avm_bytecode.bin");
             std::string avm_bytecode_path = get_option(args, "-b", "./target/avm_bytecode.bin");
-            std::string output_path = get_option(args, "-o", "./proofs/avm_proof");
-            std::vector<uint8_t> call_data_bytes{};
+            std::vector<uint8_t> const avm_bytecode = read_file(avm_bytecode_path);
 
+            // Get calldata
+            std::vector<uint8_t> call_data_bytes{};
             if (flag_present(args, "-d")) {
-                auto const call_data_path = get_option(args, "-d", "./target/call_data.bin");
+                std::string call_data_path = get_option(args, "-d", "./target/call_data.bin");
                 call_data_bytes = read_file(call_data_path);
             }
-
-            srs::init_crs_factory("../srs_db/ignition");
-
             std::vector<fr> const call_data = many_from_buffer<fr>(call_data_bytes);
-            auto const avm_bytecode = read_file(avm_bytecode_path);
-            auto const proof = avm_trace::Execution::run_and_prove(avm_bytecode, call_data);
-            std::vector<uint8_t> const proof_bytes = to_buffer(proof);
-            write_file(output_path, proof_bytes);
+
+            // Initial CRS
+            std::string crs_path = get_option(args, "-c", "../srs_db/ignition");
+            srs::init_crs_factory(crs_path);
+
+            // Prove execution and return vk
+            auto const [verification_key, proof] = avm_trace::Execution::prove_vk(avm_bytecode, call_data);
+            // todo: Currently we only need these two parts of the vk, look into pcs_verification key reqs
+            std::vector<size_t> vk_vector = { verification_key.circuit_size, verification_key.num_public_inputs };
+
+            std::filesystem::path output_path = get_option(args, "-o", "./proofs/avm_proof");
+            std::filesystem::path output_vk_path = output_path.parent_path() / "vk";
+            write_file(output_vk_path, to_buffer(vk_vector));
+            write_file(output_path, to_buffer(proof));
+        } else if (command == "avm_verify") {
+            std::filesystem::path proof_path = get_option(args, "-p", "./proofs/avm_proof");
+            std::filesystem::path vk_path = proof_path.parent_path() / "vk";
+            std::vector<fr> const proof = many_from_buffer<fr>(read_file(proof_path));
+
+            std::vector<uint8_t> vk_bytes = read_file(vk_path);
+            auto circuit_size = from_buffer<size_t>(vk_bytes, 0);
+            auto num_public_inputs = from_buffer<size_t>(vk_bytes, sizeof(size_t));
+            auto vk = AvmFlavor::VerificationKey(circuit_size, num_public_inputs);
+
+            std::cout << avm_trace::Execution::verify(vk, proof);
+            return avm_trace::Execution::verify(vk, proof) ? 0 : 1;
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;

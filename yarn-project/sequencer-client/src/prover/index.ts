@@ -1,7 +1,6 @@
 import {
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
-  Fr,
   MergeRollupInputs,
   Proof,
   PublicCircuitPublicInputs,
@@ -51,8 +50,4 @@ export interface PublicProver {
    * @param publicInputs - Public inputs obtained via simulation.
    */
   getPublicKernelCircuitProof(publicInputs: PublicKernelCircuitPublicInputs): Promise<Proof>;
-}
-
-export interface AvmProver {
-  getAvmProof(calldata: Fr[], bytecode: Buffer): Promise<Buffer>;
 }
