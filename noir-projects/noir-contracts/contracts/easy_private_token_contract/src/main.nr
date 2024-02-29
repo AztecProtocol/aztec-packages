@@ -1,15 +1,8 @@
 // docs:start:easy_private_token_contract
 contract EasyPrivateToken {
-    use dep::aztec::{
-        context::{PublicContext, Context},
-        note::utils as note_utils,
-    };
-    use dep::std::option::Option;
-    use dep::value_note::{
-            balance_utils,
-            value_note::ValueNote,
-    };
-    use dep::easy_private_state::easy_private_state::EasyPrivateUint;
+    use dep::aztec::{protocol_types::address::AztecAddress, state_vars::Map};
+    use dep::value_note::balance_utils;
+    use dep::easy_private_state::EasyPrivateUint;
 
     struct Storage {
         balances: Map<AztecAddress, EasyPrivateUint>,
@@ -19,7 +12,7 @@ contract EasyPrivateToken {
      * initialize the contract's initial state variables.
      */
     #[aztec(private)]
-    fn constructor(initial_supply: u120, owner: AztecAddress) {
+    fn constructor(initial_supply: u64, owner: AztecAddress) {
         let balances = storage.balances;
 
         balances.at(owner).add(initial_supply, owner);
@@ -27,7 +20,7 @@ contract EasyPrivateToken {
 
     // Mints `amount` of tokens to `owner`.
     #[aztec(private)]
-    fn mint(amount: u120, owner: AztecAddress) {
+    fn mint(amount: u64, owner: AztecAddress) {
         let balances = storage.balances;
 
         balances.at(owner).add(amount, owner);
@@ -35,7 +28,7 @@ contract EasyPrivateToken {
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[aztec(private)]
-    fn transfer(amount: u120, sender: AztecAddress, recipient: AztecAddress) {
+    fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress) {
         let balances = storage.balances;
 
         balances.at(sender).sub(amount, sender);

@@ -154,17 +154,9 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
         send_accumulator(instance, domain_separator);
     } else {
         // This is the first round of folding and we need to generate some gate challenges.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/740): implement option 2 to make this more
-        // efficient by avoiding the computation of the perturbator
         finalise_and_send_instance(instance, domain_separator);
         instance->target_sum = 0;
-        auto beta = transcript->template get_challenge<FF>(domain_separator + "_initial_gate_challenge");
-        std::vector<FF> gate_challenges(instance->log_instance_size);
-        gate_challenges[0] = beta;
-        for (size_t i = 1; i < instance->log_instance_size; i++) {
-            gate_challenges[i] = gate_challenges[i - 1].sqr();
-        }
-        instance->gate_challenges = gate_challenges;
+        instance->gate_challenges = std::vector<FF>(instance->log_instance_size, 0);
     }
 
     idx++;
@@ -214,7 +206,6 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     }
 
     // Fold the prover polynomials
-    auto acc_poly_views = acc_prover_polynomials.get_all();
     for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
         for (auto [acc_poly, inst_poly] :
              zip_view(acc_prover_polynomials.get_all(), instances[inst_idx]->prover_polynomials.get_all())) {
@@ -315,9 +306,13 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
     state.accumulator = get_accumulator();
     FF delta = transcript->template get_challenge<FF>("delta");
     state.deltas = compute_round_challenge_pows(state.accumulator->log_instance_size, delta);
-    state.perturbator = compute_perturbator(state.accumulator, state.deltas);
-    for (size_t idx = 0; idx <= state.accumulator->log_instance_size; idx++) {
-        transcript->send_to_verifier("perturbator_" + std::to_string(idx), state.perturbator[idx]);
+    state.perturbator = Polynomial<FF>(state.accumulator->log_instance_size + 1); // initialize to all zeros
+    // compute perturbator only if this is not the first round and has an accumulator
+    if (state.accumulator->is_accumulator) {
+        state.perturbator = compute_perturbator(state.accumulator, state.deltas);
+        for (size_t idx = 0; idx <= state.accumulator->log_instance_size; idx++) {
+            transcript->send_to_verifier("perturbator_" + std::to_string(idx), state.perturbator[idx]);
+        }
     }
 };
 
@@ -351,6 +346,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::accum
 template <class ProverInstances>
 FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
 {
+    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver::fold_instances");
     preparation_round();
     perturbator_round();
     combiner_quotient_round();

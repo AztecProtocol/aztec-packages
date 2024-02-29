@@ -1,21 +1,21 @@
 mod asset;
 
 contract PriceFeed {
-    use dep::std::option::Option;
+    use dep::aztec::{state_vars::{Map, PublicMutable}};
     use crate::asset::Asset;
 
     // Storage structure, containing all storage, and specifying what slots they use.
     struct Storage {
-        assets: Map<Field, PublicState<Asset>>,
+        assets: Map<Field, PublicMutable<Asset>>,
     }
 
     #[aztec(private)]
     fn constructor() {}
 
     #[aztec(public)]
-    fn set_price(asset_id: Field, price: u120) {
+    fn set_price(asset_id: Field, price: Field) {
         let asset = storage.assets.at(asset_id);
-        asset.write(Asset { price });
+        asset.write(Asset { price: U128::from_integer(price) });
     }
 
     #[aztec(public)]

@@ -20,10 +20,11 @@ import { SlowTreeContract, TokenBlacklistContract, TokenContract } from '@aztec/
 
 import { jest } from '@jest/globals';
 
-import { setup } from './fixtures/utils.js';
+import { BITSIZE_TOO_BIG_ERROR, U128_OVERFLOW_ERROR, U128_UNDERFLOW_ERROR } from './fixtures/fixtures.js';
+import { publicDeployAccounts, setup } from './fixtures/utils.js';
 import { TokenSimulator } from './simulators/token_simulator.js';
 
-const TIMEOUT = 90_000;
+const TIMEOUT = 120_000;
 
 describe('e2e_blacklist_token_contract', () => {
   jest.setTimeout(TIMEOUT);
@@ -108,35 +109,20 @@ describe('e2e_blacklist_token_contract', () => {
 
   beforeAll(async () => {
     ({ teardown, logger, wallets, accounts, cheatCodes } = await setup(4));
+    await publicDeployAccounts(wallets[0], accounts.slice(0, 3));
 
     slowTree = await SlowTreeContract.deploy(wallets[0]).send().deployed();
 
     const depth = 254;
     slowUpdateTreeSimulator = await newTree(SparseTree, openTmpStore(), new Pedersen(), 'test', depth);
 
+    // Add account[0] as admin
+    await updateSlowTree(slowUpdateTreeSimulator, wallets[0], accounts[0].address, 4n);
+
     const deployTx = TokenBlacklistContract.deploy(wallets[0], accounts[0], slowTree.address).send({});
     const receipt = await deployTx.wait();
     asset = receipt.contract;
 
-    // Add the note
-    const note = new Note([slowTree.address.toField()]);
-    const storageSlot = new Fr(6);
-    const noteTypeId = new Fr(7010510110810078111116101n); // FieldNote
-
-    for (const wallet of wallets) {
-      const extendedNote = new ExtendedNote(
-        note,
-        wallet.getCompleteAddress().address,
-        asset.address,
-        storageSlot,
-        noteTypeId,
-        receipt.txHash,
-      );
-      await wallet.addNote(extendedNote);
-    }
-
-    // Add account[0] as admin
-    await updateSlowTree(slowUpdateTreeSimulator, wallets[0], accounts[0].address, 4n);
     await asset.methods.init_slow_tree(accounts[0].address).send().wait();
 
     // Progress to next "epoch"
@@ -357,24 +343,24 @@ describe('e2e_blacklist_token_contract', () => {
           ).rejects.toThrowError('Assertion failed: caller is not minter');
         });
 
-        it('mint >u120 tokens to overflow', async () => {
-          const amount = 2n ** 120n; // SafeU120::max() + 1;
+        it('mint >u128 tokens to overflow', async () => {
+          const amount = 2n ** 128n; // U128::max() + 1;
           await expect(asset.methods.mint_public(accounts[0].address, amount).simulate()).rejects.toThrowError(
-            'Assertion failed: Value too large for SafeU120',
+            BITSIZE_TOO_BIG_ERROR,
           );
         });
 
-        it('mint <u120 but recipient balance >u120', async () => {
-          const amount = 2n ** 120n - tokenSim.balanceOfPublic(accounts[0].address);
+        it('mint <u128 but recipient balance >u128', async () => {
+          const amount = 2n ** 128n - tokenSim.balanceOfPublic(accounts[0].address);
           await expect(asset.methods.mint_public(accounts[0].address, amount).simulate()).rejects.toThrowError(
-            'Assertion failed: Overflow',
+            U128_OVERFLOW_ERROR,
           );
         });
 
-        it('mint <u120 but such that total supply >u120', async () => {
-          const amount = 2n ** 120n - tokenSim.balanceOfPublic(accounts[0].address);
+        it('mint <u128 but such that total supply >u128', async () => {
+          const amount = 2n ** 128n - tokenSim.balanceOfPublic(accounts[0].address);
           await expect(asset.methods.mint_public(accounts[1].address, amount).simulate()).rejects.toThrowError(
-            'Assertion failed: Overflow',
+            U128_OVERFLOW_ERROR,
           );
         });
 
@@ -440,26 +426,26 @@ describe('e2e_blacklist_token_contract', () => {
           ).rejects.toThrowError('Assertion failed: caller is not minter');
         });
 
-        it('mint >u120 tokens to overflow', async () => {
-          const amount = 2n ** 120n; // SafeU120::max() + 1;
+        it('mint >u128 tokens to overflow', async () => {
+          const amount = 2n ** 128n; // U128::max() + 1;
           await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrowError(
-            'Assertion failed: Value too large for SafeU120',
+            BITSIZE_TOO_BIG_ERROR,
           );
         });
 
-        it('mint <u120 but recipient balance >u120', async () => {
+        it('mint <u128 but recipient balance >u128', async () => {
           // @todo @LHerskind this one don't make sense. It fails because of total supply overflowing.
-          const amount = 2n ** 120n - tokenSim.balanceOfPrivate(accounts[0].address);
-          expect(amount).toBeLessThan(2n ** 120n);
+          const amount = 2n ** 128n - tokenSim.balanceOfPrivate(accounts[0].address);
+          expect(amount).toBeLessThan(2n ** 128n);
           await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrowError(
-            'Assertion failed: Overflow',
+            U128_OVERFLOW_ERROR,
           );
         });
 
-        it('mint <u120 but such that total supply >u120', async () => {
-          const amount = 2n ** 120n - tokenSim.totalSupply;
+        it('mint <u128 but such that total supply >u128', async () => {
+          const amount = 2n ** 128n - tokenSim.totalSupply;
           await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrowError(
-            'Assertion failed: Overflow',
+            U128_OVERFLOW_ERROR,
           );
         });
 
@@ -536,7 +522,7 @@ describe('e2e_blacklist_token_contract', () => {
           const nonce = 0;
           await expect(
             asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
-          ).rejects.toThrowError('Assertion failed: Underflow');
+          ).rejects.toThrowError(U128_UNDERFLOW_ERROR);
         });
 
         it('transfer on behalf of self with non-zero nonce', async () => {
@@ -576,7 +562,7 @@ describe('e2e_blacklist_token_contract', () => {
           await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
           // Perform the transfer
-          await expect(action.simulate()).rejects.toThrowError('Assertion failed: Underflow');
+          await expect(action.simulate()).rejects.toThrowError(U128_UNDERFLOW_ERROR);
 
           expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
@@ -813,7 +799,7 @@ describe('e2e_blacklist_token_contract', () => {
           );
 
           await expect(action.simulate()).rejects.toThrowError(
-            `Unknown auth witness for message hash 0x${messageHash.toString('hex')}`,
+            `Unknown auth witness for message hash ${messageHash.toString()}`,
           );
         });
 
@@ -840,7 +826,7 @@ describe('e2e_blacklist_token_contract', () => {
           );
 
           await expect(action.simulate()).rejects.toThrowError(
-            `Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`,
+            `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
           );
           expect(await asset.methods.balance_of_private(accounts[0].address).view()).toEqual(balance0);
         });
@@ -944,7 +930,7 @@ describe('e2e_blacklist_token_contract', () => {
         expect(amount).toBeGreaterThan(0n);
 
         await expect(asset.methods.shield(accounts[0].address, amount, secretHash, 0).simulate()).rejects.toThrowError(
-          'Assertion failed: Underflow',
+          U128_UNDERFLOW_ERROR,
         );
       });
 
@@ -969,7 +955,7 @@ describe('e2e_blacklist_token_contract', () => {
         const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
         await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
-        await expect(action.simulate()).rejects.toThrowError('Assertion failed: Underflow');
+        await expect(action.simulate()).rejects.toThrowError(U128_UNDERFLOW_ERROR);
       });
 
       it('on behalf of other (wrong designated caller)', async () => {
@@ -1147,7 +1133,7 @@ describe('e2e_blacklist_token_contract', () => {
         );
 
         await expect(action.simulate()).rejects.toThrowError(
-          `Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`,
+          `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
         );
       });
 
@@ -1218,7 +1204,7 @@ describe('e2e_blacklist_token_contract', () => {
           const amount = balance0 + 1n;
           const nonce = 0;
           await expect(asset.methods.burn_public(accounts[0].address, amount, nonce).simulate()).rejects.toThrowError(
-            'Assertion failed: Underflow',
+            U128_UNDERFLOW_ERROR,
           );
         });
 
@@ -1252,7 +1238,7 @@ describe('e2e_blacklist_token_contract', () => {
           const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
           await wallets[0].setPublicAuth(messageHash, true).send().wait();
 
-          await expect(action.simulate()).rejects.toThrowError('Assertion failed: Underflow');
+          await expect(action.simulate()).rejects.toThrowError(U128_UNDERFLOW_ERROR);
         });
 
         it('burn on behalf of other, wrong designated caller', async () => {
@@ -1386,7 +1372,7 @@ describe('e2e_blacklist_token_contract', () => {
           const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
 
           await expect(action.simulate()).rejects.toThrowError(
-            `Unknown auth witness for message hash 0x${messageHash.toString('hex')}`,
+            `Unknown auth witness for message hash ${messageHash.toString()}`,
           );
         });
 
@@ -1408,7 +1394,7 @@ describe('e2e_blacklist_token_contract', () => {
           await wallets[2].addAuthWitness(witness);
 
           await expect(action.simulate()).rejects.toThrowError(
-            `Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`,
+            `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
           );
         });
 

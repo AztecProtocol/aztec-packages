@@ -11,6 +11,47 @@
 
 // @ts-check
 
+const fs = require("fs");
+const path = require("path");
+// Load the structured documentation paths
+const docsStructurePath = path.join(
+  __dirname,
+  "/src/preprocess/AztecnrReferenceAutogenStructure.json"
+);
+const docsStructure = JSON.parse(fs.readFileSync(docsStructurePath, "utf8"));
+
+// Function to recursively build sidebar items from the structured documentation
+function buildSidebarItemsFromStructure(structure, basePath = "") {
+  const items = [];
+  for (const key in structure) {
+    if (key === "_docs") {
+      // Base case: add the docs
+      structure[key].forEach((doc) => {
+        items.push(`${basePath}/${doc}`);
+      });
+    } else {
+      // Recursive case: process a subdirectory
+      const subItems = buildSidebarItemsFromStructure(
+        structure[key],
+        `${basePath}/${key}`
+      );
+      items.push({
+        type: "category",
+        label: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize the label
+        items: subItems,
+      });
+    }
+  }
+  return items;
+}
+
+// Build sidebar for AztecNR documentation
+const aztecNRSidebar = buildSidebarItemsFromStructure(
+  docsStructure.AztecNR,
+  "developers/contracts/references/aztec-nr"
+);
+
+console.log(aztecNRSidebar);
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 const sidebars = {
   docsSidebar: [
@@ -22,7 +63,7 @@ const sidebars = {
     // ABOUT AZTEC
 
     {
-      type: "html", 
+      type: "html",
       className: "sidebar-title",
       value: "LEARN",
       defaultStyle: true,
@@ -261,7 +302,6 @@ const sidebars = {
           label: "Guides",
           type: "category",
           items: [
-            "developers/sandbox/guides/blank_box",
             "developers/sandbox/guides/run_more_than_one_pxe_sandbox",
             "developers/wallets/creating_schnorr_accounts",
           ],
@@ -279,9 +319,7 @@ const sidebars = {
               id: "apis/pxe/interfaces/PXE",
             },
           ],
-
         },
-       
       ],
     },
     {
@@ -324,6 +362,7 @@ const sidebars = {
               },
               items: [
                 "developers/contracts/writing_contracts/storage/define_storage",
+                "developers/contracts/writing_contracts/storage/notes",
                 "developers/contracts/writing_contracts/storage/storage_slots",
               ],
             },
@@ -332,7 +371,6 @@ const sidebars = {
               type: "category",
               items: [
                 "developers/contracts/writing_contracts/accounts/write_accounts_contract",
-      
               ],
             },
             {
@@ -384,7 +422,8 @@ const sidebars = {
               ],
             },
             {
-              label: "Access public data from private state (Slow Updates Tree)",
+              label:
+                "Access public data from private state (Slow Updates Tree)",
               type: "category",
               link: {
                 type: "doc",
@@ -394,7 +433,6 @@ const sidebars = {
                 "developers/contracts/writing_contracts/historical_data/slow_updates_tree/implement_slow_updates",
               ],
             },
-           
           ],
         },
         {
@@ -403,16 +441,16 @@ const sidebars = {
           items: [
             "developers/contracts/compiling_contracts/how_to_compile_contract",
             "developers/contracts/compiling_contracts/artifacts",
-                     ],
+          ],
         },
         {
           label: "Deploying Contracts",
           type: "category",
           items: [
             "developers/contracts/deploying_contracts/how_to_deploy_contract",
-                     ],
+          ],
         },
-         "developers/contracts/testing_contracts/main",
+        "developers/contracts/testing_contracts/main",
         {
           label: "References",
           type: "category",
@@ -427,7 +465,7 @@ const sidebars = {
               },
               items: [
                 "developers/contracts/references/storage/private_state",
-                "developers/contracts/references/storage/public_state"
+                "developers/contracts/references/storage/public_state",
               ],
             },
             {
@@ -439,6 +477,11 @@ const sidebars = {
                 "developers/contracts/references/portals/outbox",
                 "developers/contracts/references/portals/registry",
               ],
+            },
+            {
+              label: "Aztec.nr Reference",
+              type: "category",
+              items: aztecNRSidebar,
             },
             "developers/contracts/references/history_lib_reference",
             "developers/contracts/references/slow_updates_tree",
@@ -503,7 +546,7 @@ const sidebars = {
             "developers/aztecjs/guides/call_view_function",
           ],
         },
-        { 
+        {
           label: "References",
           type: "category",
           items: [
@@ -517,9 +560,9 @@ const sidebars = {
               type: "category",
               items: [{ dirName: "apis/accounts", type: "autogenerated" }],
             },
-       ],
-    },
-    ],
+          ],
+        },
+      ],
     },
     {
       label: "Debugging",
@@ -545,9 +588,7 @@ const sidebars = {
         type: "doc",
         id: "developers/wallets/main",
       },
-      items: [
-        "developers/wallets/architecture",
-      ],
+      items: ["developers/wallets/architecture"],
     },
 
     /*    {

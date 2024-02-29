@@ -1,14 +1,18 @@
 import {
   AccountWallet,
   AztecAddress,
+  CompleteAddress,
   DebugLogger,
+  DeployL1Contracts,
   EthAddress,
   Fr,
+  PXE,
   TxStatus,
   computeAuthWitMessageHash,
+  computeMessageSecretHash,
   sleep,
 } from '@aztec/aztec.js';
-import { OutboxAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-contracts.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
@@ -16,12 +20,16 @@ import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { Hex } from 'viem';
 import { getAbiItem, getAddress } from 'viem/utils';
 
-import { setup } from './fixtures/utils.js';
+import { publicDeployAccounts, setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 
 describe('e2e_public_cross_chain_messaging', () => {
+  let pxe: PXE;
+  let deployL1ContractsValues: DeployL1Contracts;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
+  let wallets: AccountWallet[];
+  let accounts: CompleteAddress[];
 
   let user1Wallet: AccountWallet;
   let user2Wallet: AccountWallet;
@@ -31,31 +39,35 @@ describe('e2e_public_cross_chain_messaging', () => {
   let crossChainTestHarness: CrossChainTestHarness;
   let l2Token: TokenContract;
   let l2Bridge: TokenBridgeContract;
+  let inbox: any;
   let outbox: any;
 
+  beforeAll(async () => {
+    ({ pxe, deployL1ContractsValues, wallets, accounts, logger, teardown } = await setup(2));
+    user1Wallet = wallets[0];
+    user2Wallet = wallets[1];
+    await publicDeployAccounts(wallets[0], accounts.slice(0, 2));
+  });
+
   beforeEach(async () => {
-    const { pxe, deployL1ContractsValues, wallets, logger: logger_, teardown: teardown_ } = await setup(2);
     crossChainTestHarness = await CrossChainTestHarness.new(
       pxe,
       deployL1ContractsValues.publicClient,
       deployL1ContractsValues.walletClient,
       wallets[0],
-      logger_,
+      logger,
     );
     l2Token = crossChainTestHarness.l2Token;
     l2Bridge = crossChainTestHarness.l2Bridge;
     ethAccount = crossChainTestHarness.ethAccount;
     ownerAddress = crossChainTestHarness.ownerAddress;
+    inbox = crossChainTestHarness.inbox;
     outbox = crossChainTestHarness.outbox;
-    teardown = teardown_;
-    user1Wallet = wallets[0];
-    user2Wallet = wallets[1];
 
-    logger = logger_;
     logger('Successfully deployed contracts and initialized portal');
   }, 100_000);
 
-  afterEach(async () => {
+  afterAll(async () => {
     await teardown();
   });
 
@@ -75,7 +87,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the archiver to process the message
-    await sleep(5000); /// waiting 5 seconds.
+    await sleep(5000); // waiting 5 seconds.
 
     // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
     const unrelatedMintAmount = 99n;
@@ -83,7 +95,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
     const balanceBefore = unrelatedMintAmount;
 
-    // 3. Consume L1-> L2 message and mint public tokens on L2
+    // 3. Consume L1 -> L2 message and mint public tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, messageKey, secret);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, balanceBefore + bridgeAmount);
     const afterBalance = balanceBefore + bridgeAmount;
@@ -241,6 +253,81 @@ describe('e2e_public_cross_chain_messaging', () => {
       // We check that exactly 1 MessageConsumed event was emitted with the expected recipient
       expect(txEvents.length).toBe(1);
       expect(txEvents[0].args.recipient).toBe(recipient.toChecksumString());
+    },
+    60_000,
+  );
+
+  // Note: We register one portal address when deploying contract but that address is no-longer the only address
+  // allowed to send messages to the given contract. In the following test we'll test that it's really the case.
+  it.each([true, false])(
+    'can send an L1 -> L2 message from a non-registered portal address consumed from private or public',
+    async (isPrivate: boolean) => {
+      const testContract = await TestContract.deploy(user1Wallet).send().deployed();
+
+      const sender = crossChainTestHarness.ethAccount;
+      const recipient = testContract.address.toString();
+
+      const secret = Fr.random();
+      const secretHash = computeMessageSecretHash(secret);
+
+      // The following are arbitrary test values
+      const content = Fr.random();
+      const fee = 100_0000n;
+      const deadline = 4294967295n;
+
+      // We inject the message to Inbox
+      const txHash = await inbox.write.sendL2Message(
+        [
+          { actor: recipient as Hex, version: 1n },
+          deadline,
+          content.toString() as Hex,
+          secretHash.toString() as Hex,
+        ] as const,
+        { value: fee } as any,
+      );
+
+      // We check that the message was correctly injected by checking the emitted event and we store the message key
+      // for later use
+      let msgKey!: Fr;
+      {
+        const events = await crossChainTestHarness.publicClient.getLogs({
+          address: getAddress(inbox.address.toString()),
+          event: getAbiItem({
+            abi: InboxAbi,
+            name: 'MessageAdded',
+          }),
+          fromBlock: 0n,
+        });
+
+        // We get the event just for the relevant transaction
+        const txEvents = events.filter(event => event.transactionHash === txHash);
+
+        // We check that exactly 1 MessageAdded event was emitted with the expected recipient
+        expect(txEvents.length).toBe(1);
+        expect(txEvents[0].args.recipient).toBe(recipient);
+
+        // TODO(#4678): Unify naming of message key/entry key
+        msgKey = Fr.fromString(txEvents[0].args.entryKey!);
+      }
+
+      // We wait for the archiver to process the message and we push a block for the message to be confirmed
+      {
+        await sleep(5000); // waiting 5 seconds.
+        await testContract.methods.get_this_portal_address().send().wait();
+      }
+
+      // Finally, e consume the L1 -> L2 message using the test contract either from private or public
+      if (isPrivate) {
+        await testContract.methods
+          .consume_message_from_arbitrary_sender_private(msgKey, content, secret, sender)
+          .send()
+          .wait();
+      } else {
+        await testContract.methods
+          .consume_message_from_arbitrary_sender_public(msgKey, content, secret, sender)
+          .send()
+          .wait();
+      }
     },
     60_000,
   );

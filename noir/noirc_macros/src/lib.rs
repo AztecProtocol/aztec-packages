@@ -30,7 +30,7 @@ impl MacroProcessor for AssertMessageMacro {
         &self,
         _crate_id: &CrateId,
         _context: &mut HirContext,
-        _unresolevd_traits_impls: &Vec<UnresolvedTraitImpl>,
+        _unresolved_traits_impls: &[UnresolvedTraitImpl],
         _collected_functions: &mut Vec<UnresolvedFunctions>,
     ) -> Result<(), (MacroError, FileId)> {
         Ok(())

@@ -1,4 +1,4 @@
-import { ContractData, L2Block, L2BlockL2Logs, MerkleTreeId, PublicDataWrite, TxL2Logs } from '@aztec/circuit-types';
+import { Body, ContractData, L2Block, MerkleTreeId, PublicDataWrite, TxEffect, TxL2Logs } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -10,6 +10,8 @@ import {
   GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -101,46 +103,43 @@ export class SoloBlockBuilder implements BlockBuilder {
     const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
-    const newNullifiers = txs.flatMap(tx => tx.data.combinedData.newNullifiers);
-    const newCommitments = txs.flatMap(tx => tx.data.combinedData.newCommitments);
-    const newContracts = txs.flatMap(tx => tx.data.combinedData.newContracts).map(cd => cd.computeLeaf());
-    const newContractData = txs
-      .flatMap(tx => tx.data.combinedData.newContracts)
-      .map(n => new ContractData(n.contractAddress, n.portalContractAddress));
-    const newPublicDataWrites = txs.flatMap(tx =>
-      tx.data.combinedData.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)),
+    const txEffects: TxEffect[] = txs.map(
+      tx =>
+        // TODO(#4720): Combined data should most likely contain the tx effect directly
+        new TxEffect(
+          tx.data.combinedData.newNoteHashes.map((c: SideEffect) => c.value) as Tuple<
+            Fr,
+            typeof MAX_NEW_NOTE_HASHES_PER_TX
+          >,
+          tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value) as Tuple<
+            Fr,
+            typeof MAX_NEW_NULLIFIERS_PER_TX
+          >,
+          tx.data.combinedData.newL2ToL1Msgs,
+          tx.data.combinedData.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)) as Tuple<
+            PublicDataWrite,
+            typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+          >,
+          tx.data.combinedData.newContracts.map(cd => cd.hash()) as Tuple<Fr, typeof MAX_NEW_CONTRACTS_PER_TX>,
+          tx.data.combinedData.newContracts.map(
+            cd => new ContractData(cd.contractAddress, cd.portalContractAddress),
+          ) as Tuple<ContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
+          tx.encryptedLogs || new TxL2Logs([]),
+          tx.unencryptedLogs || new TxL2Logs([]),
+        ),
     );
-    const newL2ToL1Msgs = txs.flatMap(tx => tx.data.combinedData.newL2ToL1Msgs);
 
-    // Consolidate logs data from all txs
-    const encryptedLogsArr: TxL2Logs[] = [];
-    const unencryptedLogsArr: TxL2Logs[] = [];
-    for (const tx of txs) {
-      const encryptedLogs = tx.encryptedLogs || new TxL2Logs([]);
-      encryptedLogsArr.push(encryptedLogs);
-      const unencryptedLogs = tx.unencryptedLogs || new TxL2Logs([]);
-      unencryptedLogsArr.push(unencryptedLogs);
-    }
-    const newEncryptedLogs = new L2BlockL2Logs(encryptedLogsArr);
-    const newUnencryptedLogs = new L2BlockL2Logs(unencryptedLogsArr);
+    const blockBody = new Body(newL1ToL2Messages, txEffects);
 
     const l2Block = L2Block.fromFields({
       archive: circuitsOutput.archive,
       header: circuitsOutput.header,
-      newCommitments: newCommitments.map((c: SideEffect) => c.value),
-      newNullifiers: newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value),
-      newL2ToL1Msgs,
-      newContracts,
-      newContractData,
-      newPublicDataWrites,
-      newL1ToL2Messages,
-      newEncryptedLogs,
-      newUnencryptedLogs,
+      body: blockBody,
     });
 
-    if (!l2Block.getCalldataHash().equals(circuitsOutput.header.contentCommitment.txsHash)) {
+    if (!l2Block.body.getCalldataHash().equals(circuitsOutput.header.contentCommitment.txsHash)) {
       throw new Error(
-        `Calldata hash mismatch, ${l2Block
+        `Calldata hash mismatch, ${l2Block.body
           .getCalldataHash()
           .toString('hex')} == ${circuitsOutput.header.contentCommitment.txsHash.toString('hex')} `,
       );
@@ -617,15 +616,15 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Update the contract and note hash trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-    const newContracts = tx.data.combinedData.newContracts.map(cd => cd.computeLeaf());
-    const newCommitments = tx.data.combinedData.newCommitments.map(x => x.value.toBuffer());
+    const newContracts = tx.data.combinedData.newContracts.map(cd => cd.hash());
+    const newNoteHashes = tx.data.combinedData.newNoteHashes.map(x => x.value.toBuffer());
 
     await this.db.appendLeaves(
       MerkleTreeId.CONTRACT_TREE,
       newContracts.map(x => x.toBuffer()),
     );
 
-    await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, newCommitments);
+    await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, newNoteHashes);
 
     // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
     // All reads that refer to writes in the same tx are transient and can be simplified out.

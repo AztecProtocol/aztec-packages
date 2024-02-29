@@ -2,7 +2,7 @@ use crate::{
     abis::{call_context::CallContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash}},
     address::AztecAddress,
     constants::{
-    MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL, MAX_NEW_COMMITMENTS_PER_CALL,
+    MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256, RETURN_VALUES_LENGTH,
     GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH
@@ -23,7 +23,7 @@ struct PublicCircuitPublicInputs{
 
     // todo: add sideeffect ranges for the input to these hashes
     public_call_stack_hashes: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-    new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_CALL],
+    new_note_hashes: [SideEffect; MAX_NEW_NOTE_HASHES_PER_CALL],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
     new_l2_to_l1_msgs: [L2ToL1Message; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
 
@@ -48,7 +48,7 @@ impl Eq for PublicCircuitPublicInputs {
 
 impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInputs {
     fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
+        let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(); 
         fields.extend_from_array(self.call_context.serialize());   
         fields.push(self.args_hash);
         fields.extend_from_array(self.return_values);
@@ -60,8 +60,8 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         }
         fields.extend_from_array(self.public_call_stack_hashes);
 
-        for i in 0..MAX_NEW_COMMITMENTS_PER_CALL {
-            fields.extend_from_array(self.new_commitments[i].serialize());
+        for i in 0..MAX_NEW_NOTE_HASHES_PER_CALL {
+            fields.extend_from_array(self.new_note_hashes[i].serialize());
         }
         for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
             fields.extend_from_array(self.new_nullifiers[i].serialize());
@@ -88,7 +88,7 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             contract_storage_update_requests: reader.read_struct_array(StorageUpdateRequest::deserialize, [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL]),
             contract_storage_reads: reader.read_struct_array(StorageRead::deserialize, [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL]),
             public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
-            new_commitments: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL]),
+            new_note_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL]),
             new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialize, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
             new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
             unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
@@ -117,7 +117,10 @@ fn serialization_of_empty() {
 }
 
 #[test]
-fn hash_smoke() {
-    let pcpi: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
-    let _hashed = pcpi.hash();
+fn empty_hash() {
+    let inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+    let hash = inputs.hash();
+
+    // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test
+    assert_eq(hash, 0x0d43290c164ebc3d80d4d17f1939482d9d01ad503cebceb8c665d2bd96597a68);
 }

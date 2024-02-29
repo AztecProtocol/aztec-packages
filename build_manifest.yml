@@ -135,22 +135,20 @@ yarn-project-base:
     - ^yarn-project/yarn.lock
     - ^yarn-project/.*/package.json$
   dependencies:
-    - l1-contracts
     - bb.js
-    - noir
     - noir-packages
-    - boxes-files
-    - avm-transpiler
-    - noir-projects
 
 yarn-project:
   buildDir: yarn-project
   rebuildPatterns:
-    - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml)$
+    - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml|snap)$
     - ^yarn-project/Dockerfile$
     - ^yarn-project/cli/aztec-cli
   dependencies:
     - yarn-project-base
+    - l1-contracts
+    - boxes-files
+    - noir-projects
 
 yarn-project-prod:
   buildDir: yarn-project
@@ -207,11 +205,11 @@ docs:
   dockerfile: docs/Dockerfile
   rebuildPatterns:
     - ^docs/
-    - ^.*.cpp$
-    - ^.*.hpp$
-    - ^.*.ts$
-    - ^.release-please-manifest.json$
-    - ^.*.nr$
+    - ^.*\.cpp$
+    - ^.*\.hpp$
+    - ^.*\.ts$
+    - ^.release-please-manifest\.json$
+    - ^.*\.nr$
   dependencies:
     - yarn-project
     - noir-projects

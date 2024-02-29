@@ -1,26 +1,36 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract StatefulTest {
-    use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
-    use dep::std::option::Option;
-    use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
+    use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
     use dep::aztec::{
-        context::{PublicContext, Context},
-        note::utils as note_utils,
+        deploy::{deploy_contract as aztec_deploy_contract},
+        state_vars::{Map, PublicMutable, PrivateSet},
+        initializer::{mark_as_initialized, assert_is_initialized},
+        protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector}
     };
 
     struct Storage {
-        notes: Map<AztecAddress, Set<ValueNote>>,
-        public_values: Map<AztecAddress, PublicState<Field>>,
+        notes: Map<AztecAddress, PrivateSet<ValueNote>>,
+        public_values: Map<AztecAddress, PublicMutable<Field>>,
     }
 
     #[aztec(private)]
     fn constructor(owner: AztecAddress, value: Field) {
-        let selector = FunctionSelector::from_signature("create_note((Field),Field)");
+        let selector = FunctionSelector::from_signature("internal_create_note((Field),Field)");
         let _res = context.call_private_function(context.this_address(), selector, [owner.to_field(), value]);
+        mark_as_initialized(&mut context);
     }
 
     #[aztec(private)]
     fn create_note(owner: AztecAddress, value: Field) {
+        assert_is_initialized(&mut context);
+        if (value != 0) {
+            let loc = storage.notes.at(owner);
+            increment(loc, value, owner);
+        }
+    }
+
+    #[aztec(private)]
+    internal fn internal_create_note(owner: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
             increment(loc, value, owner);
@@ -29,6 +39,7 @@ contract StatefulTest {
 
     #[aztec(private)]
     fn destroy_and_create(recipient: AztecAddress, amount: Field) {
+        assert_is_initialized(&mut context);
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);
@@ -53,5 +64,11 @@ contract StatefulTest {
 
     unconstrained fn get_public_value(owner: AztecAddress) -> pub Field {
         storage.public_values.at(owner).read()
+    }
+
+    // This method is here because we've hit the 32 function limit for the TestContract
+    #[aztec(private)]
+    fn deploy_contract(target: AztecAddress) {
+        aztec_deploy_contract(&mut context, target);
     }
 }

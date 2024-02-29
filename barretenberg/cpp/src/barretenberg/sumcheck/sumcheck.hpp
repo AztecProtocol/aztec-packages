@@ -65,7 +65,6 @@ template <typename Flavor> class SumcheckProver {
         , round(multivariate_n)
         , partially_evaluated_polynomials(multivariate_n){};
 
-    // WORKTODO delete this
     /**
      * @brief Compute univariate restriction place in transcript, generate challenge, partially evaluate,... repeat
      * until final round, then compute multivariate evaluations and place in transcript.
@@ -239,6 +238,7 @@ template <typename Flavor> class SumcheckVerifier {
         ClaimedEvaluations purported_evaluations;
         auto transcript_evaluations =
             transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
+
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
         }

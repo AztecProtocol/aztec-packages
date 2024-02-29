@@ -2,21 +2,18 @@ use crate::{context::PrivateContext, note::{note_header::NoteHeader, note_interf
 
 use dep::protocol_types::{
     address::AztecAddress,
-    constants::{
-    GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__UNIQUE_COMMITMENT,
-    GENERATOR_INDEX__SILOED_COMMITMENT
-},
+    constants::{GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__UNIQUE_NOTE_HASH, GENERATOR_INDEX__SILOED_NOTE_HASH},
     hash::pedersen_hash, utils::arr_copy_slice
 };
 
 fn compute_siloed_hash(contract_address: AztecAddress, inner_note_hash: Field) -> Field {
     let inputs = [contract_address.to_field(), inner_note_hash];
-    pedersen_hash(inputs, GENERATOR_INDEX__SILOED_COMMITMENT)
+    pedersen_hash(inputs, GENERATOR_INDEX__SILOED_NOTE_HASH)
 }
 
 fn compute_unique_hash(nonce: Field, siloed_note_hash: Field) -> Field {
     let inputs = [nonce, siloed_note_hash];
-    pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_COMMITMENT)
+    pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
 fn compute_inner_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
@@ -77,6 +74,14 @@ pub fn compute_note_hash_for_consumption<Note, N>(note: Note) -> Field where Not
         // contract address and then nonce. This hash will match the existing leaf in the private
         // data tree, so the kernel can just perform a membership check directly on this hash/leaf.
         compute_unique_siloed_note_hash(note)
+        // IMPORTANT NOTE ON REDUNDANT SILOING BY CONTRACT ADDRESS: The note hash computed above is
+        // "siloed" by contract address. When a note hash is computed solely for the purpose of
+        // nullification, it is not strictly necessary to silo the note hash before computing
+        // its nullifier. In other words, it is NOT NECESSARY for protocol security that a nullifier
+        // be computed from a siloed note hash. After all, persistable note hashes and nullifiers are
+        // siloed by the kernel circuit. That being said, the siloed note hash computed above CAN be
+        // used for nullifier computation, and this achieves the (arguably unnecessary) property that
+        // nullifiers are computed from a note hash's fully-computed private data tree leaf.
     }
 }
 

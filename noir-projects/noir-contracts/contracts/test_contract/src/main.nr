@@ -10,10 +10,10 @@ contract Test {
         context::{Context, inputs::private_context_inputs::PrivateContextInputs}, hash::pedersen_hash,
         note::{
         utils as note_utils, lifecycle::{create_note, destroy_note},
-        note_getter::{get_notes, view_notes}, note_getter_options::NoteStatus,
+        note_getter::{get_notes, view_notes}, note_getter_options::NoteStatus
     },
         oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, rand::rand},
-        log::emit_unencrypted_log_from_private
+        state_vars::PrivateImmutable, log::emit_unencrypted_log_from_private
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::FieldNote;
@@ -25,7 +25,7 @@ contract Test {
     }
 
     struct Storage {
-        example_constant: ImmutableSingleton<FieldNote>,
+        example_constant: PrivateImmutable<FieldNote>,
     }
 
     #[aztec(private)]
@@ -165,7 +165,7 @@ contract Test {
         a_struct: DummyNote,
         a_deep_struct: DeepStruct
     ) -> distinct pub PrivateCircuitPublicInputs {
-        let mut args: BoundedVec<Field, 17> = BoundedVec::new(0);
+        let mut args: BoundedVec<Field, 17> = BoundedVec::new();
         args.push(a_field);
         args.push(a_bool as Field);
         args.push(a_number as Field);
@@ -261,7 +261,7 @@ contract Test {
     ) {
         let content_hash = get_mint_public_content_hash(to, amount, canceller);
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(msg_key, content_hash, secret);
+        context.consume_l1_to_l2_message(msg_key, content_hash, secret, context.this_portal_address());
     }
 
     #[aztec(private)]
@@ -274,7 +274,34 @@ contract Test {
     ) {
         // Consume L1 to L2 message and emit nullifier
         let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller);
-        context.consume_l1_to_l2_message(msg_key, content_hash, secret_for_L1_to_L2_message_consumption);
+        context.consume_l1_to_l2_message(
+            msg_key,
+            content_hash,
+            secret_for_L1_to_L2_message_consumption,
+            context.this_portal_address()
+        );
+    }
+
+    #[aztec(public)]
+    fn consume_message_from_arbitrary_sender_public(
+        msg_key: Field,
+        content: Field,
+        secret: Field,
+        sender: EthAddress
+    ) {
+        // Consume message and emit nullifier
+        context.consume_l1_to_l2_message(msg_key, content, secret, sender);
+    }
+
+    #[aztec(private)]
+    fn consume_message_from_arbitrary_sender_private(
+        msg_key: Field,
+        content: Field,
+        secret: Field,
+        sender: EthAddress
+    ) {
+        // Consume message and emit nullifier
+        context.consume_l1_to_l2_message(msg_key, content, secret, sender);
     }
 
     #[aztec(private)]

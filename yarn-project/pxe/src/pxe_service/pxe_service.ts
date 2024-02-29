@@ -57,7 +57,7 @@ import {
   collectUnencryptedLogs,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
-import { ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
@@ -161,6 +161,11 @@ export class PXEService implements PXE {
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.db.getContractInstance(address);
+  }
+
+  public async getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
+    const artifact = await this.db.getContractArtifact(id);
+    return artifact && getContractClassFromArtifact(artifact);
   }
 
   public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
@@ -338,10 +343,10 @@ export class PXEService implements PXE {
 
     const nonces: Fr[] = [];
     const firstNullifier = tx.newNullifiers[0];
-    const commitments = tx.newCommitments;
-    for (let i = 0; i < commitments.length; ++i) {
-      const commitment = commitments[i];
-      if (commitment.equals(Fr.ZERO)) {
+    const hashes = tx.newNoteHashes;
+    for (let i = 0; i < hashes.length; ++i) {
+      const hash = hashes[i];
+      if (hash.equals(Fr.ZERO)) {
         break;
       }
 
@@ -355,11 +360,11 @@ export class PXEService implements PXE {
       );
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
       // Remove this once notes added from public also include nonces.
-      if (commitment.equals(siloedNoteHash)) {
+      if (hash.equals(siloedNoteHash)) {
         nonces.push(Fr.ZERO);
         break;
       }
-      if (commitment.equals(uniqueSiloedNoteHash)) {
+      if (hash.equals(uniqueSiloedNoteHash)) {
         nonces.push(nonce);
       }
     }
@@ -446,18 +451,7 @@ export class PXEService implements PXE {
 
     const settledTx = await this.node.getTx(txHash);
     if (settledTx) {
-      const deployedContractAddress = settledTx.newContractData.find(
-        c => !c.contractAddress.equals(AztecAddress.ZERO),
-      )?.contractAddress;
-
-      txReceipt = new TxReceipt(
-        txHash,
-        TxStatus.MINED,
-        '',
-        settledTx.blockHash.toBuffer(),
-        settledTx.blockNumber,
-        deployedContractAddress,
-      );
+      txReceipt = new TxReceipt(txHash, TxStatus.MINED, '', settledTx.blockHash.toBuffer(), settledTx.blockNumber);
     }
 
     return txReceipt;
@@ -736,7 +730,7 @@ export class PXEService implements PXE {
 
     // Override kernel output
     publicInputs.end.publicCallStack = padArrayEnd(
-      enqueuedPublicCallStackItems,
+      enqueuedRevertiblePublicCallStackItems,
       CallRequest.empty(),
       MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
@@ -783,5 +777,9 @@ export class PXEService implements PXE {
 
   public getKeyStore() {
     return this.keyStore;
+  }
+
+  public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
+    return !!(await this.node.getContractClass(id));
   }
 }

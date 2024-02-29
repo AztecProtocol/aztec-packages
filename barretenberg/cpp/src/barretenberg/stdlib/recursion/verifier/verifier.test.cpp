@@ -168,7 +168,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
             info("Native result: ", native_result);
         }
 
-        transcript::Manifest recursive_manifest = InnerComposer::create_manifest(prover.key->num_public_inputs);
+        plonk::transcript::Manifest recursive_manifest = InnerComposer::create_manifest(prover.key->num_public_inputs);
 
         auto output = recursion::verify_proof<outer_curve, RecursiveSettings>(
             &outer_builder, verification_key, recursive_manifest, proof_to_recursively_verify);
@@ -194,7 +194,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         plonk::proof proof_to_recursively_verify_a = prover.construct_proof();
 
-        transcript::Manifest recursive_manifest = InnerComposer::create_manifest(prover.key->num_public_inputs);
+        plonk::transcript::Manifest recursive_manifest = InnerComposer::create_manifest(prover.key->num_public_inputs);
 
         auto previous_output = recursion::verify_proof<outer_curve, RecursiveSettings>(
             &outer_circuit, verification_key, recursive_manifest, proof_to_recursively_verify_a);
@@ -263,7 +263,8 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         plonk::proof recursive_proof = proof_type ? prover_a.construct_proof() : prover_b.construct_proof();
 
-        transcript::Manifest recursive_manifest = InnerComposer::create_manifest(prover_a.key->num_public_inputs);
+        plonk::transcript::Manifest recursive_manifest =
+            InnerComposer::create_manifest(prover_a.key->num_public_inputs);
 
         stdlib::recursion::aggregation_state<outer_curve> output =
             stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
@@ -332,7 +333,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
     static void check_pairing(const circuit_outputs& circuit_output)
     {
-        auto g2_lines = srs::get_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
+        auto g2_lines = srs::get_bn254_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
         g1::affine_element P[2];
         P[0].x = outer_scalar_field(circuit_output.aggregation_state.P0.x.get_value().lo);
         P[0].y = outer_scalar_field(circuit_output.aggregation_state.P0.y.get_value().lo);
@@ -347,7 +348,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
         info("number of gates in recursive verification circuit = ", outer_circuit.get_num_gates());
         bool result = outer_circuit.check_circuit();
         EXPECT_EQ(result, expected_result);
-        auto g2_lines = srs::get_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
+        auto g2_lines = srs::get_bn254_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
         EXPECT_EQ(check_recursive_proof_public_inputs(outer_circuit, g2_lines), true);
     }
 

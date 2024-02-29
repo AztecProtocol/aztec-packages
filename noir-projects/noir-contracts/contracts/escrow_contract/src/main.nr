@@ -2,18 +2,15 @@
 contract Escrow {
     use dep::std::option::Option;
 
-    use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
-
     use dep::aztec::{
-        context::{PublicContext, Context},
-        note::utils as note_utils,
-        oracle::get_public_key::get_public_key,
+        note::note_getter_options::NoteGetterOptions, oracle::get_public_key::get_public_key,
+        protocol_types::abis::function_selector::FunctionSelector, state_vars::PrivateSet
     };
 
     use dep::address_note::address_note::{AddressNote, ADDRESS_NOTE_LEN};
 
     struct Storage {
-        owners: Set<AddressNote>,
+        owners: PrivateSet<AddressNote>,
     }
 
     // Creates a new instance

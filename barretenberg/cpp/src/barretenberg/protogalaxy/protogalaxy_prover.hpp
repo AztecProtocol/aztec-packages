@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -65,10 +66,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     ProtogalaxyProofConstructionState<ProverInstances> state;
 
     ProtoGalaxyProver_() = default;
-    ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts,
-                       const std::shared_ptr<CommitmentKey>& commitment_key)
+    ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
         : instances(ProverInstances(insts))
-        , commitment_key(std::move(commitment_key)){};
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
+        , commitment_key(instances[1]->proving_key->commitment_key){};
     ~ProtoGalaxyProver_() = default;
 
     /**
@@ -134,8 +135,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     // Returns the accumulator, which is the first element in ProverInstances. The accumulator is assumed to have the
     // FoldingParameters set and be the result of a previous round of folding.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/740): handle the case when the accumulator is empty
-    // (i.e. we are in the first round of folding)/
     std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
 
     /**
@@ -249,6 +248,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     static Polynomial<FF> compute_perturbator(const std::shared_ptr<Instance> accumulator,
                                               const std::vector<FF>& deltas)
     {
+        BB_OP_COUNT_TIME();
         auto full_honk_evaluations = compute_full_honk_evaluations(
             accumulator->prover_polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
@@ -300,6 +300,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      */
     ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances, PowPolynomial<FF>& pow_betas)
     {
+        BB_OP_COUNT_TIME();
         size_t common_instance_size = instances[0]->instance_size;
         pow_betas.compute_values();
         // Determine number of threads for multithreading.

@@ -8,8 +8,8 @@ import {
   GlobalVariables,
   Header,
   L2ToL1Message,
-  MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -124,12 +124,12 @@ export abstract class AbstractPhaseManager {
       };
     }
 
-    // find the first call that is not revertible
-    const firstNonRevertibleCallIndex = callRequestsStack.findIndex(
-      c => nonRevertibleCallStack.findIndex(p => p.equals(c)) !== -1,
+    // find the first call that is revertible
+    const firstRevertibleCallIndex = callRequestsStack.findIndex(
+      c => revertibleCallStack.findIndex(p => p.equals(c)) !== -1,
     );
 
-    if (firstNonRevertibleCallIndex === -1) {
+    if (firstRevertibleCallIndex === 0) {
       return {
         [PublicKernelPhase.SETUP]: [],
         [PublicKernelPhase.APP_LOGIC]: publicCallsStack,
@@ -137,15 +137,19 @@ export abstract class AbstractPhaseManager {
       };
     } else {
       return {
-        [PublicKernelPhase.SETUP]: publicCallsStack.slice(firstNonRevertibleCallIndex + 1),
-        [PublicKernelPhase.APP_LOGIC]: publicCallsStack.slice(0, firstNonRevertibleCallIndex),
-        [PublicKernelPhase.TEARDOWN]: [publicCallsStack[firstNonRevertibleCallIndex]],
+        [PublicKernelPhase.SETUP]: publicCallsStack.slice(0, firstRevertibleCallIndex - 1),
+        [PublicKernelPhase.APP_LOGIC]: publicCallsStack.slice(firstRevertibleCallIndex),
+        [PublicKernelPhase.TEARDOWN]: [publicCallsStack[firstRevertibleCallIndex - 1]],
       };
     }
   }
 
   protected extractEnqueuedPublicCalls(tx: Tx): PublicCallRequest[] {
-    return AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx.data, tx.enqueuedPublicFunctionCalls)[this.phase];
+    const calls = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx.data, tx.enqueuedPublicFunctionCalls)[
+      this.phase
+    ];
+
+    return calls;
   }
 
   public static getKernelOutputAndProof(
@@ -226,7 +230,7 @@ export abstract class AbstractPhaseManager {
         newUnencryptedFunctionLogs.push(result.unencryptedLogs);
         const functionSelector = result.execution.functionData.selector.toString();
         this.log.debug(
-          `Running public kernel circuit for ${functionSelector}@${result.execution.contractAddress.toString()}`,
+          `Running public kernel circuit for ${result.execution.contractAddress.toString()}:${functionSelector}`,
         );
         executionStack.push(...result.nestedExecutions);
         const callData = await this.getPublicCallData(result, isExecutionRequest);
@@ -306,7 +310,7 @@ export abstract class AbstractPhaseManager {
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: computeVarArgsHash(result.execution.args),
-      newCommitments: padArrayEnd(result.newCommitments, SideEffect.empty(), MAX_NEW_COMMITMENTS_PER_CALL),
+      newNoteHashes: padArrayEnd(result.newNoteHashes, SideEffect.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
       newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),

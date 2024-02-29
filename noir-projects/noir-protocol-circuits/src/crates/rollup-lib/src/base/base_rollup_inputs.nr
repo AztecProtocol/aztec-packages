@@ -15,20 +15,19 @@ use dep::types::{
 },
     nullifier_leaf_preimage::NullifierLeafPreimage, public_data_update_request::PublicDataUpdateRequest,
     public_data_read::PublicDataRead, kernel_data::PublicKernelData,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash},
-    combined_accumulated_data::CombinedAccumulatedData
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}, accumulated_data::CombinedAccumulatedData
 },
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
     CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT, MAX_NEW_CONTRACTS_PER_TX,
     NOTE_HASH_SUBTREE_HEIGHT, CONTRACT_SUBTREE_HEIGHT, NUM_FIELDS_PER_SHA256,
-    MAX_NEW_COMMITMENTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
+    MAX_NEW_NOTE_HASHES_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
     MAX_NEW_NULLIFIERS_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
     PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
     MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_REVERTIBLE_COMMITMENTS_PER_TX,
-    MAX_NON_REVERTIBLE_COMMITMENTS_PER_TX, MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+    MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
+    MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, MAX_REVERTIBLE_NULLIFIERS_PER_TX,
     MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX
 },
     mocked::{AggregationObject, Proof}, partial_state_reference::PartialStateReference,
@@ -46,7 +45,7 @@ struct BaseRollupInputs {
     // TODO: The following 6 values are eventually going to be nuked from here. See discussion:
     // https://aztecprotocol.slack.com/archives/C060PU5R327/p1701965354071269
     sorted_public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    sorted_public_data_writes_indexes: [u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    sorted_public_data_writes_indexes: [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     low_public_data_writes_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX],
@@ -165,7 +164,7 @@ impl BaseRollupInputs {
     // TODO(Kev): This should say calculate_commitments_subtree_root
     // Cpp code says calculate_commitments_subtree, so I'm leaving it as is for now
     fn calculate_commitments_subtree(self, combined: CombinedAccumulatedData) -> Field {
-        calculate_subtree(combined.new_commitments.map(|c: SideEffect| c.value))
+        calculate_subtree(combined.new_note_hashes.map(|c: SideEffect| c.value))
     }
 
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self, combined: CombinedAccumulatedData) -> AppendOnlyTreeSnapshot {
@@ -196,7 +195,7 @@ impl BaseRollupInputs {
                     ((low_leaf.next_index == 0) & (low_leaf.next_nullifier == 0))
                 )
             },
-            |low_leaf: NullifierLeafPreimage, nullifier: Field, nullifier_index: u32| { // Update low leaf
+            |low_leaf: NullifierLeafPreimage, nullifier: Field, nullifier_index: u64| { // Update low leaf
                 NullifierLeafPreimage{
                     nullifier : low_leaf.nullifier,
                     next_nullifier : nullifier,
@@ -257,33 +256,38 @@ impl BaseRollupInputs {
     fn components_compute_kernel_calldata_hash(combined: CombinedAccumulatedData) -> [Field; NUM_FIELDS_PER_SHA256] {
         // Compute calldata hashes
         // Consist of
-        // MAX_NEW_COMMITMENTS_PER_TX fields for commitments
+        // MAX_NEW_NOTE_HASHES_PER_TX fields for note hashes
         // MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
-        // 16 public data update requests -> 32 fields
         // 2 l2 -> l1 messages -> 2 fields
+        // 32 public data update requests -> 64 fields
         // 1 contract deployments -> 3 fields
-        // 1 encrypted logs hashes -> 2 fields --> 2 sha256 hashes --> 64 bytes
-        // 1 unencrypted logs hashes -> 2 fields --> 2 sha256 hashes --> 64 bytes
+        // 1 encrypted logs hash --> 1 sha256 hash -> 2 fields --> 64 bytes
+        // 1 unencrypted logs hash --> 1 sha256 hash -> 2 fields --> 64 bytes
         let mut calldata_hash_inputs = [0; CALLDATA_HASH_INPUT_SIZE];
 
-        let new_commitments = combined.new_commitments;
+        let new_note_hashes = combined.new_note_hashes;
         let new_nullifiers = combined.new_nullifiers;
-        let public_data_update_requests = combined.public_data_update_requests;
         let newL2ToL1msgs = combined.new_l2_to_l1_msgs;
+        let public_data_update_requests = combined.public_data_update_requests;
         let encryptedLogsHash = combined.encrypted_logs_hash;
         let unencryptedLogsHash = combined.unencrypted_logs_hash;
 
         let mut offset = 0;
 
-        for j in 0..MAX_NEW_COMMITMENTS_PER_TX {
-            calldata_hash_inputs[offset + j] = new_commitments[j].value;
+        for j in 0..MAX_NEW_NOTE_HASHES_PER_TX {
+            calldata_hash_inputs[offset + j] = new_note_hashes[j].value;
         }
-        offset += MAX_NEW_COMMITMENTS_PER_TX ;
+        offset += MAX_NEW_NOTE_HASHES_PER_TX ;
 
         for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
             calldata_hash_inputs[offset + j] = new_nullifiers[j].value;
         }
         offset += MAX_NEW_NULLIFIERS_PER_TX ;
+
+        for j in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
+            calldata_hash_inputs[offset + j] = newL2ToL1msgs[j];
+        }
+        offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX;
 
         for j in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             calldata_hash_inputs[offset + j * 2] =
@@ -292,11 +296,6 @@ impl BaseRollupInputs {
                 public_data_update_requests[j].new_value;
         }
         offset += MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
-
-        for j in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
-            calldata_hash_inputs[offset + j] = newL2ToL1msgs[j];
-        }
-        offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX;
 
         let contract_leaf = combined.new_contracts[0];
         calldata_hash_inputs[offset] = contract_leaf.hash();
@@ -383,7 +382,7 @@ fn insert_public_data_update_requests(
     prev_snapshot: AppendOnlyTreeSnapshot,
     public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     sorted_public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    sorted_public_data_writes_indexes: [u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    sorted_public_data_writes_indexes: [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     low_public_data_writes_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     public_data_writes_subtree_sibling_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH]
@@ -418,7 +417,7 @@ fn insert_public_data_update_requests(
 
             (!is_low_empty) & (is_update | is_in_range)
         },
-        |low_preimage: PublicDataTreeLeafPreimage, write: PublicDataTreeLeaf, write_index: u32| { // Update low leaf
+        |low_preimage: PublicDataTreeLeafPreimage, write: PublicDataTreeLeaf, write_index: u64| { // Update low leaf
             let is_update = low_preimage.slot == write.slot;
             if is_update {
                 PublicDataTreeLeafPreimage{
@@ -494,15 +493,15 @@ fn validate_public_data_reads(
 #[test]
 fn consistent_not_hash_subtree_width() {
     assert_eq(
-        MAX_NEW_COMMITMENTS_PER_TX, 2.pow_32(NOTE_HASH_SUBTREE_HEIGHT), "note hash subtree width is incorrect"
+        MAX_NEW_NOTE_HASHES_PER_TX, 2.pow_32(NOTE_HASH_SUBTREE_HEIGHT as Field) as u64, "note hash subtree width is incorrect"
     );
 }
 
-global CALLDATA_HASH_INPUT_SIZE = 169;
+global CALLDATA_HASH_INPUT_SIZE = 201;
 
 #[test]
 fn consistent_calldata_hash_input_size() {
-    let expected_size = MAX_NEW_COMMITMENTS_PER_TX
+    let expected_size = MAX_NEW_NOTE_HASHES_PER_TX
         + MAX_NEW_NULLIFIERS_PER_TX
         + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
         + MAX_NEW_L2_TO_L1_MSGS_PER_TX
@@ -522,7 +521,7 @@ fn consistent_call_data_hash_log_fields() {
     );
 }
 
-global CALL_DATA_HASH_FULL_FIELDS = 165;
+global CALL_DATA_HASH_FULL_FIELDS = 197;
 
 #[test]
 fn consistent_call_data_hash_full_fields() {
@@ -569,19 +568,19 @@ mod tests {
         new_contract_data::NewContractData, nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
         kernel_data::PublicKernelData, side_effect::SideEffect,
-        combined_accumulated_data::CombinedAccumulatedData
+        accumulated_data::CombinedAccumulatedData
     },
         address::{AztecAddress, EthAddress},
         constants::{
         CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, CONTRACT_TREE_HEIGHT, CONTRACT_SUBTREE_HEIGHT,
         ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_CONTRACTS_PER_TX,
+        MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_CONTRACTS_PER_TX,
         NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT,
         NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT,
         PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
         NUM_FIELDS_PER_SHA256
     },
-        contract_class::ContractClassId, partial_state_reference::PartialStateReference,
+        contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
         public_data_tree_leaf::PublicDataTreeLeaf,
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::kernel_data_builder::PreviousKernelDataBuilder,
@@ -596,7 +595,7 @@ mod tests {
 
     struct SortedTuple<T> {
         value: T,
-        original_index: u32,
+        original_index: u64,
     }
 
     global MAX_NEW_NULLIFIERS_PER_TEST = 4;
@@ -609,7 +608,7 @@ mod tests {
         for i in 0..N {
             sorted_tuples[i] = SortedTuple {
                 value: values[i],
-                original_index: i as u32,
+                original_index: i,
             };
         }
 
@@ -622,10 +621,10 @@ mod tests {
         snapshot: AppendOnlyTreeSnapshot,
         public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), 2>,
         mut pre_existing_public_data: [PublicDataTreeLeafPreimage; EXISTING_LEAVES]
-    ) -> ([Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH], [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX], [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX], [PublicDataTreeLeafPreimage; EXISTING_LEAVES]) {
+    ) -> ([Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH], [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX], [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX], [PublicDataTreeLeafPreimage; EXISTING_LEAVES]) {
         let mut subtree_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH] = dep::std::unsafe::zeroed();
         let mut sorted_public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
-        let mut sorted_public_data_writes_indexes: [u32; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
+        let mut sorted_public_data_writes_indexes: [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
         let mut low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
         let mut low_public_data_writes_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
         let mut public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX] = dep::std::unsafe::zeroed();
@@ -633,8 +632,8 @@ mod tests {
         let mut new_subtree: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
 
         for i in 0..MAX_PUBLIC_DATA_WRITES_PER_TEST {
-            if i < (public_data_writes.len() as u64) {
-                let leaf = public_data_writes.get_unchecked(i as Field).1;
+            if i < (public_data_writes.len()) {
+                let leaf = public_data_writes.get_unchecked(i).1;
 
                 kernel_data.public_inputs.end.public_data_update_requests[i] = PublicDataUpdateRequest {
                     leaf_slot : leaf.slot,
@@ -669,13 +668,13 @@ mod tests {
                             slot: low_leaf.slot,
                             value: low_leaf.value,
                             next_slot: leaf.slot,
-                            next_index: (MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX as u32)+(i as u32)
+                            next_index: MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + i
                         };
                     }
                     low_public_data_writes_preimages[i] = low_leaf;
                     low_public_data_writes_witnesses[i] = PublicDataMembershipWitness {
                         leaf_index: low_leaf_index as Field,
-                        sibling_path: public_data_tree.get_sibling_path(low_leaf_index as Field)
+                        sibling_path: public_data_tree.get_sibling_path(low_leaf_index)
                     };
 
                     public_data_tree.update_leaf(
@@ -685,11 +684,11 @@ mod tests {
                 }
             } else {
                 sorted_public_data_writes[i] = PublicDataTreeLeaf::empty();
-                sorted_public_data_writes_indexes[i] = i as u32;
+                sorted_public_data_writes_indexes[i] = i;
             }
         }
 
-        subtree_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(public_data_tree.get_sibling_path(snapshot.next_available_leaf_index as Field), [0; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH]);
+        subtree_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(public_data_tree.get_sibling_path(snapshot.next_available_leaf_index as u64), [0; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH]);
 
         (
             subtree_path, sorted_public_data_writes, sorted_public_data_writes_indexes, low_public_data_writes_preimages, low_public_data_writes_witnesses, public_data_reads_preimages, public_data_reads_witnesses, pre_existing_public_data
@@ -698,7 +697,7 @@ mod tests {
 
     struct BaseRollupInputsBuilder {
         kernel_data: PreviousKernelDataBuilder,
-        pre_existing_notes: [Field; MAX_NEW_COMMITMENTS_PER_TX],
+        pre_existing_notes: [Field; MAX_NEW_NOTE_HASHES_PER_TX],
         pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX],
         pre_existing_contracts: [Field; 2],
         pre_existing_public_data: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
@@ -744,7 +743,7 @@ mod tests {
             nullifier_tree: &mut NonEmptyMerkleTree<MAX_NEW_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT>,
             kernel_data: &mut PublicKernelData,
             start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot
-        ) -> ([NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX], [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_TX], [Field; MAX_NEW_NULLIFIERS_PER_TX], [u32; MAX_NEW_NULLIFIERS_PER_TX]) {
+        ) -> ([NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX], [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_TX], [Field; MAX_NEW_NULLIFIERS_PER_TX], [u64; MAX_NEW_NULLIFIERS_PER_TX]) {
             let mut nullifier_predecessor_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX] = dep::std::unsafe::zeroed();
             let mut low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_TX] = dep::std::unsafe::zeroed();
 
@@ -762,19 +761,19 @@ mod tests {
                     sorted_nullifiers_indexes[i] = sorted_new_nullifier_tuples[i].original_index;
                 } else {
                     sorted_nullifiers[i] = 0;
-                    sorted_nullifiers_indexes[i] = i as u32;
+                    sorted_nullifiers_indexes[i] = i;
                 }
             }
 
             let mut pre_existing_nullifiers = self.pre_existing_nullifiers;
 
             for i in 0..MAX_NEW_NULLIFIERS_PER_TEST {
-                if (i as u64) < (self.new_nullifiers.len() as u64) {
+                if (i as u64) < (self.new_nullifiers.len()) {
                     let sorted_tuple = sorted_new_nullifier_tuples[i];
                     let new_nullifier = sorted_tuple.value;
                     let original_index = sorted_tuple.original_index;
 
-                    let low_index = self.new_nullifiers.get_unchecked(original_index as Field).existing_index;
+                    let low_index = self.new_nullifiers.get_unchecked(original_index).existing_index;
 
                     kernel_data.public_inputs.end.new_nullifiers[original_index].value = new_nullifier;
 
@@ -782,11 +781,11 @@ mod tests {
                     nullifier_predecessor_preimages[i] = low_preimage;
                     low_nullifier_membership_witness[i] = NullifierMembershipWitness {
                         leaf_index: low_index as Field,
-                        sibling_path: nullifier_tree.get_sibling_path(low_index as Field)
+                        sibling_path: nullifier_tree.get_sibling_path(low_index)
                     };
 
                     low_preimage.next_nullifier = new_nullifier;
-                    low_preimage.next_index = start_nullifier_tree_snapshot.next_available_leaf_index + original_index;
+                    low_preimage.next_index = start_nullifier_tree_snapshot.next_available_leaf_index as u64 + original_index;
                     pre_existing_nullifiers[low_index] = low_preimage;
 
                     nullifier_tree.update_leaf(low_index, low_preimage.hash());
@@ -1019,17 +1018,17 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn new_commitments_tree() {
+    unconstrained fn new_note_hashes_tree() {
         let mut builder = BaseRollupInputsBuilder::new();
 
-        let new_commitments = [27, 28, 29, 30, 31, 32];
-        let mut new_commitments_vec = builder.kernel_data.end.new_commitments;
-        for i in 0..new_commitments.len() {
-            new_commitments_vec.push(SideEffect { value: new_commitments[i], counter: 0 });
+        let new_note_hashes = [27, 28, 29, 30, 31, 32];
+        let mut new_note_hashes_vec = builder.kernel_data.end.new_note_hashes;
+        for i in 0..new_note_hashes.len() {
+            new_note_hashes_vec.push(SideEffect { value: new_note_hashes[i], counter: 0 });
         }
-        builder.kernel_data.end.new_commitments = new_commitments_vec;
+        builder.kernel_data.end.new_note_hashes = new_note_hashes_vec;
         let mut expected_commitments_tree = NonEmptyMerkleTree::new(
-            [0; MAX_NEW_COMMITMENTS_PER_TX * 2],
+            [0; MAX_NEW_NOTE_HASHES_PER_TX * 2],
             [0; NOTE_HASH_TREE_HEIGHT],
             [0; NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT - 1],
             [0; NOTE_HASH_SUBTREE_HEIGHT + 1]
@@ -1038,19 +1037,19 @@ mod tests {
         let outputs = builder.execute();
         let expected_start_note_hash_tree_snapshot = AppendOnlyTreeSnapshot {
             root: expected_commitments_tree.get_root(),
-            next_available_leaf_index: MAX_NEW_COMMITMENTS_PER_TX as u32
+            next_available_leaf_index: MAX_NEW_NOTE_HASHES_PER_TX as u32
         };
         assert(outputs.start.note_hash_tree.eq(expected_start_note_hash_tree_snapshot));
 
-        for i in 0..new_commitments.len() {
+        for i in 0..new_note_hashes.len() {
             expected_commitments_tree.update_leaf(
-                (i as u64) + (MAX_NEW_COMMITMENTS_PER_TX as u64),
-                new_commitments[i]
+                (i as u64) + (MAX_NEW_NOTE_HASHES_PER_TX as u64),
+                new_note_hashes[i]
             );
         }
         let expected_end_note_hash_tree_snapshot = AppendOnlyTreeSnapshot {
             root: expected_commitments_tree.get_root(),
-            next_available_leaf_index: (MAX_NEW_COMMITMENTS_PER_TX * 2) as u32
+            next_available_leaf_index: (MAX_NEW_NOTE_HASHES_PER_TX * 2) as u32
         };
         assert(outputs.end.note_hash_tree.eq(expected_end_note_hash_tree_snapshot));
     }
@@ -1102,7 +1101,7 @@ mod tests {
         tree_nullifiers[0] = NullifierLeafPreimage {
             nullifier : 0,
             next_nullifier : 1,
-            next_index : MAX_NEW_NULLIFIERS_PER_TX as u32,
+            next_index : MAX_NEW_NULLIFIERS_PER_TX,
         };
         tree_nullifiers[1] = builder.pre_existing_nullifiers[1];
         tree_nullifiers[MAX_NEW_NULLIFIERS_PER_TX] = NullifierLeafPreimage {
@@ -1154,7 +1153,7 @@ mod tests {
         tree_nullifiers[1] = NullifierLeafPreimage {
             nullifier : 7,
             next_nullifier : 8,
-            next_index : MAX_NEW_NULLIFIERS_PER_TX as u32,
+            next_index : MAX_NEW_NULLIFIERS_PER_TX,
         };
 
         let last_index = builder.new_nullifiers.max_len() - 1;
@@ -1162,7 +1161,7 @@ mod tests {
             tree_nullifiers[MAX_NEW_NULLIFIERS_PER_TX + i] = NullifierLeafPreimage {
                 nullifier : (8 + i) as Field,
                 next_nullifier : (8 + i + 1) as Field,
-                next_index : (MAX_NEW_NULLIFIERS_PER_TX + i) as u32 + 1,
+                next_index : MAX_NEW_NULLIFIERS_PER_TX + i + 1,
             };
         }
         tree_nullifiers[MAX_NEW_NULLIFIERS_PER_TX+last_index] = NullifierLeafPreimage {
@@ -1355,7 +1354,7 @@ mod tests {
             slot: 20,
             value: 90,
             next_slot: 25,
-            next_index: MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX as u32,
+            next_index: MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         }.hash();
         public_data_leaves[1] = PublicDataTreeLeafPreimage {
             slot: 28,

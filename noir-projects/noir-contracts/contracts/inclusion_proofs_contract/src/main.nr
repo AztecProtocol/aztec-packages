@@ -1,18 +1,13 @@
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
-    use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector,
-        grumpkin_point::GrumpkinPoint, contract_class::ContractClassId
-    };
-    use dep::aztec::{
-        context::Context,
-        note::{
-            note_getter_options::NoteStatus,
-            utils as note_utils,
-    }
-    };
     // docs:start:imports
-    use dep::aztec::history::{
+    use dep::aztec::{
+        protocol_types::{
+        abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress},
+        grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId
+    },
+    state_vars::{Map, PrivateSet, PublicMutable}, note::note_getter_options::{NoteGetterOptions, NoteStatus},
+    history::{
         contract_inclusion::{prove_contract_inclusion, prove_contract_inclusion_at},
         note_inclusion::{prove_note_inclusion, prove_note_inclusion_at},
         note_validity::{prove_note_validity, prove_note_validity_at},
@@ -20,10 +15,7 @@ contract InclusionProofs {
         prove_nullifier_inclusion, prove_nullifier_inclusion_at, prove_note_is_nullified,
         prove_note_is_nullified_at
     },
-        nullifier_non_inclusion::{
-        prove_nullifier_not_included, prove_nullifier_not_included_at, prove_note_not_nullified,
-        prove_note_not_nullified_at
-    },
+        nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
         public_value_inclusion::{prove_public_value_inclusion, prove_public_value_inclusion_at}
     };
     // docs:end:imports
@@ -31,9 +23,9 @@ contract InclusionProofs {
     use dep::value_note::value_note::ValueNote;
     // docs:end:value_note_imports
     struct Storage {
-        private_values: Map<AztecAddress, Set<ValueNote>>,
-        public_value: PublicState<Field>,
-        public_unused_value: PublicState<Field>,
+        private_values: Map<AztecAddress, PrivateSet<ValueNote>>,
+        public_value: PublicMutable<Field>,
+        public_unused_value: PublicMutable<Field>,
     }
 
     #[aztec(private)]
@@ -175,7 +167,7 @@ contract InclusionProofs {
     fn test_nullifier_inclusion(
         nullifier: Field,
         use_block_number: bool,
-        block_number: u32 // The block at which we'll prove that the nullifier not exists in the tree
+        block_number: u32 // The block at which we'll prove that the nullifier exists in the nullifier tree
     ) {
         if (use_block_number) {
             // docs:start:prove_nullifier_inclusion

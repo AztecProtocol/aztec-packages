@@ -2,7 +2,7 @@
 #include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
-#include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include <array>
 #include <gtest/gtest.h>
 
@@ -14,11 +14,11 @@ class PermutationHelperTests : public ::testing::Test {
     using FF = typename Flavor::FF;
     using ProvingKey = Flavor::ProvingKey;
     Flavor::CircuitBuilder circuit_constructor;
-    srs::factories::CrsFactory<curve::BN254> crs_factory = srs::factories::CrsFactory<curve::BN254>();
     std::shared_ptr<Flavor::ProvingKey> proving_key;
 
     virtual void SetUp()
     {
+        srs::init_crs_factory("../srs_db/ignition");
         circuit_constructor.add_public_variable(1024);
         circuit_constructor.add_public_variable(1025);
 
@@ -64,22 +64,17 @@ class PermutationHelperTests : public ::testing::Test {
     }
 };
 
-TEST_F(PermutationHelperTests, ComputeWireCopyCycles)
-{
-    // TODO(#425) Flesh out these tests
-    compute_wire_copy_cycles<Flavor>(circuit_constructor);
-}
-
 TEST_F(PermutationHelperTests, ComputePermutationMapping)
 {
     // TODO(#425) Flesh out these tests
-    compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get());
+    compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get(), {});
 }
 
 TEST_F(PermutationHelperTests, ComputeHonkStyleSigmaLagrangePolynomialsFromMapping)
 {
     // TODO(#425) Flesh out these tests
-    auto mapping = compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get());
+    auto mapping =
+        compute_permutation_mapping<Flavor, /*generalized=*/false>(circuit_constructor, proving_key.get(), {});
     compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
         proving_key->get_sigma_polynomials(), mapping.sigmas, proving_key.get());
 }
