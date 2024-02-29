@@ -131,12 +131,12 @@ export class SimulatorOracle implements DBOracle {
    * Retrieves the L1ToL2Message associated with a specific message key
    * Throws an error if the message key is not found
    *
-   * @param msgKey - The key of the message to be retrieved
+   * @param entryKey - The key of the message to be retrieved
    * @returns A promise that resolves to the message data, a sibling path and the
    *          index of the message in the l1ToL2MessageTree
    */
-  async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    const messageAndIndex = await this.aztecNode.getL1ToL2MessageAndIndex(msgKey);
+  async getL1ToL2Message(entryKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+    const messageAndIndex = await this.aztecNode.getL1ToL2MessageAndIndex(entryKey);
     const message = messageAndIndex.message;
     const index = messageAndIndex.index;
     const siblingPath = await this.aztecNode.getL1ToL2MessageSiblingPath('latest', index);

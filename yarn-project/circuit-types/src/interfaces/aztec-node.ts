@@ -77,10 +77,10 @@ export interface AztecNode {
   /**
    * Gets a confirmed/consumed L1 to L2 message for the given message key (throws if not found).
    * and its index in the merkle tree
-   * @param messageKey - The message key.
+   * @param entryKey - The message key.
    * @returns The map containing the message and index.
    */
-  getL1ToL2MessageAndIndex(messageKey: Fr): Promise<L1ToL2MessageAndIndex>;
+  getL1ToL2MessageAndIndex(entryKey: Fr): Promise<L1ToL2MessageAndIndex>;
 
   /**
    * Returns a sibling path for a leaf in the committed l1 to l2 data tree.

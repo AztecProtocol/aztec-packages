@@ -14,8 +14,8 @@ export class L1ToL2MessageStore {
 
   constructor() {}
 
-  addMessage(messageKey: Fr, message: L1ToL2Message) {
-    const messageKeyBigInt = messageKey.toBigInt();
+  addMessage(entryKey: Fr, message: L1ToL2Message) {
+    const messageKeyBigInt = entryKey.toBigInt();
     const msgAndCount = this.store.get(messageKeyBigInt);
     if (msgAndCount) {
       msgAndCount.count++;
@@ -24,12 +24,12 @@ export class L1ToL2MessageStore {
     }
   }
 
-  getMessage(messageKey: Fr): L1ToL2Message | undefined {
-    return this.store.get(messageKey.value)?.message;
+  getMessage(entryKey: Fr): L1ToL2Message | undefined {
+    return this.store.get(entryKey.value)?.message;
   }
 
-  getMessageAndCount(messageKey: Fr): L1ToL2MessageAndCount | undefined {
-    return this.store.get(messageKey.value);
+  getMessageAndCount(entryKey: Fr): L1ToL2MessageAndCount | undefined {
+    return this.store.get(entryKey.value);
   }
 }
 
@@ -57,13 +57,13 @@ export class PendingL1ToL2MessageStore extends L1ToL2MessageStore {
     return messages;
   }
 
-  removeMessage(messageKey: Fr) {
-    // ignore 0 - messageKey is a hash, so a 0 can probabilistically never occur. It is best to skip it.
-    if (messageKey.equals(Fr.ZERO)) {
+  removeMessage(entryKey: Fr) {
+    // ignore 0 - entryKey is a hash, so a 0 can probabilistically never occur. It is best to skip it.
+    if (entryKey.equals(Fr.ZERO)) {
       return;
     }
 
-    const messageKeyBigInt = messageKey.value;
+    const messageKeyBigInt = entryKey.value;
     const msgAndCount = this.store.get(messageKeyBigInt);
     if (!msgAndCount) {
       throw new Error(`Unable to remove message: L1 to L2 Message with key ${messageKeyBigInt} not found in store`);

@@ -217,9 +217,9 @@ export class Archiver implements ArchiveSource {
       messagesByBlock.set(blockNumber, messages);
     }
 
-    for (const [messageKey, blockNumber] of retrievedCancelledL1ToL2Messages.retrievedData) {
+    for (const [entryKey, blockNumber] of retrievedCancelledL1ToL2Messages.retrievedData) {
       const messages = messagesByBlock.get(blockNumber) || [[], []];
-      messages[1].push(messageKey);
+      messages[1].push(entryKey);
       messagesByBlock.set(blockNumber, messages);
     }
 
@@ -556,11 +556,11 @@ export class Archiver implements ArchiveSource {
 
   /**
    * Gets the confirmed/consumed L1 to L2 message associated with the given message key
-   * @param messageKey - The message key.
+   * @param entryKey - The message key.
    * @returns The L1 to L2 message (throws if not found).
    */
-  getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
-    return this.store.getConfirmedL1ToL2Message(messageKey);
+  getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message> {
+    return this.store.getConfirmedL1ToL2Message(entryKey);
   }
 
   getContractClassIds(): Promise<Fr[]> {

@@ -19,10 +19,10 @@ export interface L1ToL2MessageSource {
   /**
    * Gets the confirmed L1 to L2 message with the given message key.
    * i.e. message that has already been consumed by the sequencer and published in an L2 Block
-   * @param messageKey - The message key.
+   * @param entryKey - The message key.
    * @returns The confirmed L1 to L2 message (throws if not found)
    */
-  getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message>;
+  getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message>;
 
   /**
    * Gets the number of the latest L2 block processed by the implementation.

@@ -83,7 +83,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
 
     // 2. Deposit tokens to the TokenPortal
-    const messageKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the archiver to process the message
@@ -96,7 +96,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     const balanceBefore = unrelatedMintAmount;
 
     // 3. Consume L1 -> L2 message and mint public tokens on L2
-    await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, messageKey, secret);
+    await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, secret);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, balanceBefore + bridgeAmount);
     const afterBalance = balanceBefore + bridgeAmount;
 
@@ -136,7 +136,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    const messageKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const entryKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the archiver to process the message
@@ -151,7 +151,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
-        .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, ethAccount, messageKey, secret)
+        .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, ethAccount, secret)
         .simulate(),
     ).rejects.toThrow("Invalid Content 'l1_to_l2_message_data.message.content == content'");
 
@@ -159,7 +159,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     logger("user2 consumes owner's message on L2 Publicly");
     const tx = l2Bridge
       .withWallet(user2Wallet)
-      .methods.claim_public(ownerAddress, bridgeAmount, ethAccount, messageKey, secret)
+      .methods.claim_public(ownerAddress, bridgeAmount, ethAccount, secret)
       .send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
@@ -188,7 +188,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
-    const messageKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const entryKey = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(0n);
 
     // Wait for the archiver to process the message
@@ -198,10 +198,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensPublicOnL2(0n);
 
     await expect(
-      l2Bridge
-        .withWallet(user2Wallet)
-        .methods.claim_private(secretHash, bridgeAmount, ethAccount, messageKey, secret)
-        .simulate(),
+      l2Bridge.withWallet(user2Wallet).methods.claim_private(secretHash, bridgeAmount, ethAccount, secret).simulate(),
     ).rejects.toThrowError("Invalid Content 'l1_to_l2_message_data.message.content == content'");
   }, 60_000);
 
@@ -289,7 +286,7 @@ describe('e2e_public_cross_chain_messaging', () => {
 
       // We check that the message was correctly injected by checking the emitted event and we store the message key
       // for later use
-      let msgKey!: Fr;
+      let entryKey!: Fr;
       {
         const txReceipt = await crossChainTestHarness.publicClient.waitForTransactionReceipt({
           hash: txHash,
@@ -312,7 +309,7 @@ describe('e2e_public_cross_chain_messaging', () => {
         expect((topics.args as any).recipient).toBe(recipient);
 
         // TODO(#4678): Unify naming of message key/entry key
-        msgKey = Fr.fromString(topics.args.entryKey!);
+        entryKey = Fr.fromString(topics.args.entryKey!);
       }
 
       // We wait for the archiver to process the message and we push a block for the message to be confirmed
@@ -323,15 +320,9 @@ describe('e2e_public_cross_chain_messaging', () => {
 
       // Finally, e consume the L1 -> L2 message using the test contract either from private or public
       if (isPrivate) {
-        await testContract.methods
-          .consume_message_from_arbitrary_sender_private(msgKey, content, secret, sender)
-          .send()
-          .wait();
+        await testContract.methods.consume_message_from_arbitrary_sender_private(content, secret, sender).send().wait();
       } else {
-        await testContract.methods
-          .consume_message_from_arbitrary_sender_public(msgKey, content, secret, sender)
-          .send()
-          .wait();
+        await testContract.methods.consume_message_from_arbitrary_sender_public(content, secret, sender).send().wait();
       }
     },
     60_000,

@@ -180,9 +180,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful (always in this implementation).
    */
   public confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
-    messageKeys.forEach(messageKey => {
-      this.confirmedL1ToL2Messages.addMessage(messageKey, this.pendingL1ToL2Messages.getMessage(messageKey)!);
-      this.pendingL1ToL2Messages.removeMessage(messageKey);
+    messageKeys.forEach(entryKey => {
+      this.confirmedL1ToL2Messages.addMessage(entryKey, this.pendingL1ToL2Messages.getMessage(entryKey)!);
+      this.pendingL1ToL2Messages.removeMessage(entryKey);
     });
     return Promise.resolve(true);
   }
@@ -252,13 +252,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   /**
    * Gets the confirmed L1 to L2 message corresponding to the given message key.
-   * @param messageKey - The message key to look up.
+   * @param entryKey - The message key to look up.
    * @returns The requested L1 to L2 message or throws if not found.
    */
-  public getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
-    const message = this.confirmedL1ToL2Messages.getMessage(messageKey);
+  public getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message> {
+    const message = this.confirmedL1ToL2Messages.getMessage(entryKey);
     if (!message) {
-      throw new Error(`L1 to L2 Message with key ${messageKey.toString()} not found in the confirmed messages store`);
+      throw new Error(`L1 to L2 Message with key ${entryKey.toString()} not found in the confirmed messages store`);
     }
     return Promise.resolve(message);
   }

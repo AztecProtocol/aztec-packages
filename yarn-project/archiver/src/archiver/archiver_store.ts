@@ -99,10 +99,10 @@ export interface ArchiverDataStore {
 
   /**
    * Gets the confirmed L1 to L2 message corresponding to the given message key.
-   * @param messageKey - The message key to look up.
+   * @param entryKey - The message key to look up.
    * @returns The requested L1 to L2 message or throws if not found.
    */
-  getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message>;
+  getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message>;
 
   /**
    * Gets up to `limit` amount of logs starting from `from`.

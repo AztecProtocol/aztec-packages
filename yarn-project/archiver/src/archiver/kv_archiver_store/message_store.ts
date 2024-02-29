@@ -60,18 +60,18 @@ export class MessageStore {
       void this.#lastL1BlockAddingMessages.set(l1BlockNumber);
 
       for (const message of messages) {
-        const messageKey = message.entryKey?.toString();
-        if (!messageKey) {
+        const entryKey = message.entryKey?.toString();
+        if (!entryKey) {
           throw new Error('Message does not have an entry key');
         }
 
-        void this.#messages.setIfNotExists(messageKey, {
+        void this.#messages.setIfNotExists(entryKey, {
           message: message.toBuffer(),
           fee: message.fee,
           confirmed: false,
         });
 
-        void this.#pendingMessagesByFee.update([message.fee, messageKey], 1);
+        void this.#pendingMessagesByFee.update([message.fee, entryKey], 1);
       }
 
       return true;
@@ -93,13 +93,13 @@ export class MessageStore {
 
       void this.#lastL1BlockCancellingMessages.set(l1BlockNumber);
 
-      for (const messageKey of messageKeys) {
-        const messageCtx = this.#messages.get(messageKey.toString());
+      for (const entryKey of messageKeys) {
+        const messageCtx = this.#messages.get(entryKey.toString());
         if (!messageCtx) {
-          throw new Error(`Message ${messageKey.toString()} not found`);
+          throw new Error(`Message ${entryKey.toString()} not found`);
         }
 
-        void this.#pendingMessagesByFee.update([messageCtx.fee, messageKey.toString()], -1);
+        void this.#pendingMessagesByFee.update([messageCtx.fee, entryKey.toString()], -1);
       }
 
       return true;
@@ -114,15 +114,15 @@ export class MessageStore {
    */
   confirmPendingMessages(messageKeys: Fr[]): Promise<boolean> {
     return this.db.transaction(() => {
-      for (const messageKey of messageKeys) {
-        const messageCtx = this.#messages.get(messageKey.toString());
+      for (const entryKey of messageKeys) {
+        const messageCtx = this.#messages.get(entryKey.toString());
         if (!messageCtx) {
-          throw new Error(`Message ${messageKey.toString()} not found`);
+          throw new Error(`Message ${entryKey.toString()} not found`);
         }
         messageCtx.confirmed = true;
 
-        void this.#messages.set(messageKey.toString(), messageCtx);
-        void this.#pendingMessagesByFee.update([messageCtx.fee, messageKey.toString()], -1);
+        void this.#messages.set(entryKey.toString(), messageCtx);
+        void this.#pendingMessagesByFee.update([messageCtx.fee, entryKey.toString()], -1);
       }
 
       return true;
@@ -131,17 +131,17 @@ export class MessageStore {
 
   /**
    * Gets the confirmed L1 to L2 message corresponding to the given message key.
-   * @param messageKey - The message key to look up.
+   * @param entryKey - The message key to look up.
    * @returns The requested L1 to L2 message or throws if not found.
    */
-  getConfirmedMessage(messageKey: Fr): L1ToL2Message {
-    const messageCtx = this.#messages.get(messageKey.toString());
+  getConfirmedMessage(entryKey: Fr): L1ToL2Message {
+    const messageCtx = this.#messages.get(entryKey.toString());
     if (!messageCtx) {
-      throw new Error(`Message ${messageKey.toString()} not found`);
+      throw new Error(`Message ${entryKey.toString()} not found`);
     }
 
     if (!messageCtx.confirmed) {
-      throw new Error(`Message ${messageKey.toString()} not confirmed`);
+      throw new Error(`Message ${entryKey.toString()} not confirmed`);
     }
 
     return L1ToL2Message.fromBuffer(messageCtx.message);
@@ -155,11 +155,11 @@ export class MessageStore {
   getPendingMessageKeysByFee(limit: number): Fr[] {
     const messageKeys: Fr[] = [];
 
-    for (const [[_, messageKey], count] of this.#pendingMessagesByFee.entries({
+    for (const [[_, entryKey], count] of this.#pendingMessagesByFee.entries({
       reverse: true,
     })) {
       // put `count` copies of this message in the result list
-      messageKeys.push(...Array(count).fill(Fr.fromString(messageKey)));
+      messageKeys.push(...Array(count).fill(Fr.fromString(entryKey)));
       if (messageKeys.length >= limit) {
         break;
       }

@@ -71,10 +71,10 @@ export interface CommitmentsDB {
   /**
    * Gets a confirmed L1 to L2 message for the given message key.
    * TODO(Maddiaa): Can be combined with aztec-node method that does the same thing.
-   * @param msgKey - The message Key.
+   * @param entryKey - The message Key.
    * @returns - The l1 to l2 message object
    */
-  getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
+  getL1ToL2Message(entryKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
    * Gets the index of a commitment in the note hash tree.
