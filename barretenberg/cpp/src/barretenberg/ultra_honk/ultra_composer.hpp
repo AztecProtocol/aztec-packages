@@ -30,11 +30,6 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
     using ProverInstances = ProverInstances_<Flavor, NUM_FOLDING>;
     using VerifierInstances = VerifierInstances_<Flavor, NUM_FOLDING>;
 
-    // offset due to placing zero wires at the start of execution trace
-    static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
-    static constexpr std::string_view NAME_STRING = "UltraHonk";
-    static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
-
     UltraComposer_() = default;
     UltraComposer_(UltraComposer_&& other) noexcept = default;
     UltraComposer_(UltraComposer_ const& other) noexcept = default;
