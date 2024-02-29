@@ -246,7 +246,6 @@ describe('Archiver', () => {
     expect(latestBlockNum).toEqual(0);
 
     const block = L2Block.random(1, 4, 1, 2, 4, 6);
-    block.body.l1ToL2Messages = times(2, Fr.random);
     const rollupTx = makeRollupTx(block);
     const aoTx = makeAoTx(block.body);
 
