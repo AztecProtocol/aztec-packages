@@ -3,7 +3,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 
 namespace bb {
-template <class Flavor> class VerifierInstance_ {
+template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
   public:
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;

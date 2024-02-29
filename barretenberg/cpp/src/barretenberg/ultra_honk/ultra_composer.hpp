@@ -26,9 +26,8 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
     using Transcript = typename Flavor::Transcript;
     using CRSFactory = srs::factories::CrsFactory<typename Flavor::Curve>;
 
-    static constexpr size_t NUM_FOLDING = 2;
-    using ProverInstances = ProverInstances_<Flavor, NUM_FOLDING>;
-    using VerifierInstances = VerifierInstances_<Flavor, NUM_FOLDING>;
+    using ProverInstances = ProverInstances_<Flavor>;
+    using VerifierInstances = VerifierInstances_<Flavor>;
 
     std::shared_ptr<Instance> create_instance(CircuitBuilder& circuit);
 
