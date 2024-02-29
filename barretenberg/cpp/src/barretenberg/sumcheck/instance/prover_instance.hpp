@@ -9,15 +9,14 @@
 
 namespace bb {
 /**
- * @brief  An Instance is normally constructed from a finalized circuit and it's role is to compute all the polynomials
- * involved in creating a proof and, if requested, the verification key.
- * In case of folded Instance, this will be created from the FoldingResult, the aggregated work from the folding prover
- * and verifier. More specifically, a folded instance will be constructed from the complete set of folded polynomials
- * and folded public inputs and its FoldingParams are expected to be non-zero
+ * @brief  A ProverInstance is normally constructed from a finalized circuit and it contains all the information
+ * required by an Ultra Goblin Honk prover to create a proof. A ProverInstance is also the result of running the
+ * Protogalaxy prover, in which case it becomes a relaxed counterpart with the folding parameters (target sum and gate
+ * challenges set to non-zero values).
  *
+ * @details This is the equivalent of ω in the paper.
  */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/725): create an Instances class that manages several
-// Instance and passes them to ProtoGalaxy prover and verifier so that Instance objects don't need to mantain an index
+
 template <class Flavor> class ProverInstance_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
@@ -64,6 +63,10 @@ template <class Flavor> class ProverInstance_ {
 
     ProverInstance_(Circuit& circuit)
     {
+        BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");
+        circuit.add_gates_to_ensure_all_polys_are_non_zero();
+        circuit.finalize_circuit();
+
         dyadic_circuit_size = compute_dyadic_size(circuit);
 
         proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, circuit.public_inputs.size());
@@ -86,7 +89,7 @@ template <class Flavor> class ProverInstance_ {
 
         sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
 
-        populate_memory_read_write_records<Flavor>(circuit, proving_key);
+        verification_key = std::make_shared<VerificationKey>(proving_key);
     }
 
     ProverInstance_() = default;
