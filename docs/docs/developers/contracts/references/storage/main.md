@@ -11,7 +11,7 @@ You control this storage in Aztec using the `Storage` struct. This struct serves
 
 These state variables come in two forms: public and private. Public variables are visible to anyone, and private variables remain hidden within the contract.
 
-Aztec.nr has a few abstractions to help define the type of data your contract holds. These include Singletons, ImmutableSingletons, Set, and Map.
+Aztec.nr has a few abstractions to help define the type of data your contract holds. These include PrivateMutable, PublicMutable, PrivateSet, and SharedImmutable.
 
 On this and the following pages in this section, you’ll learn:
 
@@ -40,13 +40,6 @@ struct Storage {
   // private state variables
 }
 ```
-:::warning Using slot `0` is not supported!
-No storage values should be initialized at slot `0` - storage slots begin at `1`. This is a known issue that will be fixed in the future.
-:::
-
-If you don't yet have any private state variables defined you can use this placeholder function:
-
-#include_code compute_note_hash_and_nullifier_placeholder /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
 ## Map
 

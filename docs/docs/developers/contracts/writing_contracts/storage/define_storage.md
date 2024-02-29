@@ -20,7 +20,3 @@ struct Storage {
 ```
 
 If you have defined a `Storage` struct following this naming scheme, then it will be made available to you through the reserved `storage` keyword within your contract functions.
-
-:::warning Using slot `0` is not supported!
-No storage values should be initialized at slot `0` - storage slots begin at `1`. This is a known issue that will be fixed in the future.
-:::
