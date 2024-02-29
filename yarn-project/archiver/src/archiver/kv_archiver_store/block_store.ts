@@ -8,7 +8,6 @@ import { BlockBodyStore } from './block_body_store.js';
 type BlockIndexValue = [blockNumber: number, index: number];
 
 type BlockStorage = {
-  blockNumber: number;
   l1BlockNumber: bigint;
   header: Buffer;
   archive: Buffer;
@@ -48,7 +47,6 @@ export class BlockStore {
     return this.db.transaction(() => {
       for (const block of blocks) {
         void this.#blocks.set(block.number, {
-          blockNumber: block.number,
           header: block.header.toBuffer(),
           archive: block.archive.toBuffer(),
           l1BlockNumber: block.getL1BlockNumber(),
