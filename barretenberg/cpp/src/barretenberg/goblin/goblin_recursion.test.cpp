@@ -8,7 +8,6 @@
 
 using namespace bb;
 
-
 class GoblinRecursionTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
