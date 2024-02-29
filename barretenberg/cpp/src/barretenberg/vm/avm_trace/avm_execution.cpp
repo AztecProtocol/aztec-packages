@@ -58,7 +58,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     while ((pc = trace_builder.getPc()) < inst_size) {
         auto inst = instructions.at(pc);
 
-        // todo: We do not yet support the indirect flag. Therefore we do not extract
+        // TODO: We do not yet support the indirect flag. Therefore we do not extract
         // inst.operands(0) (i.e. the indirect flag) when processiing the instructions.
         switch (inst.op_code) {
             // Compute
@@ -114,24 +114,25 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         case OpCode::SET: {
             uint32_t dst_offset = 0;
             uint128_t val = 0;
-            AvmMemoryTag in_tag = std::get<AvmMemoryTag>(inst.operands.at(0));
-            dst_offset = std::get<uint32_t>(inst.operands.at(2));
+            // Skip the indirect flag at index 0;
+            AvmMemoryTag in_tag = std::get<AvmMemoryTag>(inst.operands.at(1));
+            dst_offset = std::get<uint32_t>(inst.operands.at(3));
 
             switch (in_tag) {
             case AvmMemoryTag::U8:
-                val = std::get<uint8_t>(inst.operands.at(1));
+                val = std::get<uint8_t>(inst.operands.at(2));
                 break;
             case AvmMemoryTag::U16:
-                val = std::get<uint16_t>(inst.operands.at(1));
+                val = std::get<uint16_t>(inst.operands.at(2));
                 break;
             case AvmMemoryTag::U32:
-                val = std::get<uint32_t>(inst.operands.at(1));
+                val = std::get<uint32_t>(inst.operands.at(2));
                 break;
             case AvmMemoryTag::U64:
-                val = std::get<uint64_t>(inst.operands.at(1));
+                val = std::get<uint64_t>(inst.operands.at(2));
                 break;
             case AvmMemoryTag::U128:
-                val = std::get<uint128_t>(inst.operands.at(1));
+                val = std::get<uint128_t>(inst.operands.at(2));
                 break;
             default:
                 break;
@@ -142,6 +143,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         }
             // Control Flow - Contract Calls
         case OpCode::RETURN:
+            // Skip indirect at index 0
             trace_builder.return_op(std::get<uint32_t>(inst.operands.at(1)), std::get<uint32_t>(inst.operands.at(2)));
             break;
         default:

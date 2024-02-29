@@ -93,10 +93,12 @@ TEST_F(AvmExecutionTests, basicAddReturn)
 TEST_F(AvmExecutionTests, setAndSubOpcodes)
 {
     std::string bytecode_hex = to_hex(OpCode::SET) +      // opcode SET
+                               "00"                       // Indirect flag
                                "02"                       // U16
                                "B813"                     // val 47123
                                "000000AA"                 // dst_offset 170
                                + to_hex(OpCode::SET) +    // opcode SET
+                               "00"                       // Indirect flag
                                "02"                       // U16
                                "9103"                     // val 37123
                                "00000033"                 // dst_offset 51
@@ -120,7 +122,8 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
     EXPECT_THAT(instructions.at(0),
                 AllOf(Field(&Instruction::op_code, OpCode::SET),
                       Field(&Instruction::operands,
-                            ElementsAre(VariantWith<AvmMemoryTag>(AvmMemoryTag::U16),
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<AvmMemoryTag>(AvmMemoryTag::U16),
                                         VariantWith<uint16_t>(47123),
                                         VariantWith<uint32_t>(170)))));
 
@@ -128,7 +131,8 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
     EXPECT_THAT(instructions.at(1),
                 AllOf(Field(&Instruction::op_code, OpCode::SET),
                       Field(&Instruction::operands,
-                            ElementsAre(VariantWith<AvmMemoryTag>(AvmMemoryTag::U16),
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<AvmMemoryTag>(AvmMemoryTag::U16),
                                         VariantWith<uint16_t>(37123),
                                         VariantWith<uint32_t>(51)))));
 
@@ -160,11 +164,13 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
 TEST_F(AvmExecutionTests, powerWithMulOpcodes)
 {
     std::string bytecode_hex = to_hex(OpCode::SET) +   // opcode SET
+                               "00"                    // Indirect flag
                                "04"                    // U64
                                "00000000"              // val 5 higher 32 bits
                                "00000005"              // val 5 lower 32 bits
                                "00000000"              // dst_offset 0
                                + to_hex(OpCode::SET) + // opcode SET
+                               "00"                    // Indirect flag
                                "04"                    // U64
                                "00000000"              // val 1 higher 32 bits
                                "00000001"              // val 1 lower 32 bits
@@ -241,6 +247,7 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
 TEST_F(AvmExecutionTests, simpleInternalCall)
 {
     std::string bytecode_hex = to_hex(OpCode::SET) +            // opcode SET
+                               "00"                             // Indirect flag
                                "03"                             // U32
                                "0D3D2518"                       // val 222111000 = 0xD3D2518
                                "00000004"                       // dst_offset 4
@@ -257,6 +264,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
                                "00000000"                       // ret offset 0
                                "00000000"                       // ret size 0
                                + to_hex(OpCode::SET) +          // opcode SET
+                               "00"                             // Indirect flag
                                "03"                             // U32
                                "075BCD15"                       // val 123456789 = 0x75BCD15
                                "00000007"                       // dst_offset 7
@@ -315,6 +323,7 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
 
     auto setInstructionHex = [](std::string const& val, std::string const& dst_offset) {
         return to_hex(OpCode::SET) // opcode SET
+               + "00"              // Indirect flag
                + "01"              // U8
                + val + "000000" + dst_offset;
     };
@@ -493,6 +502,7 @@ TEST_F(AvmExecutionTests, ffInstructionTagSetOpcode)
                                "00000009"              // addr b 9
                                "00000001"              // addr c 1
                                + to_hex(OpCode::SET) + // opcode SET
+                               "00"                    // Indirect flag
                                "06"                    // tag FF
                                "00002344";             //
 
@@ -503,13 +513,14 @@ TEST_F(AvmExecutionTests, ffInstructionTagSetOpcode)
 // Negative test detecting SET opcode without any operand.
 TEST_F(AvmExecutionTests, SetOpcodeNoOperand)
 {
-    std::string bytecode_hex = "00"                   // ADD
-                               "00"                   // Indirect flag
-                               "05"                   // U128
-                               "00000007"             // addr a 7
-                               "00000009"             // addr b 9
-                               "00000001"             // addr c 1
-                               + to_hex(OpCode::SET); // opcode SET
+    std::string bytecode_hex = "00"                    // ADD
+                               "00"                    // Indirect flag
+                               "05"                    // U128
+                               "00000007"              // addr a 7
+                               "00000009"              // addr b 9
+                               "00000001"              // addr c 1
+                               + to_hex(OpCode::SET) + // opcode SET
+                               "00";                   // Indirect flag
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     EXPECT_THROW_WITH_MESSAGE(Deserialization::parse(bytecode), "Operand for SET opcode is missing");
