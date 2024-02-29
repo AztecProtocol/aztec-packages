@@ -43,7 +43,7 @@ TEST(crypto_merkle_tree, test_check_membership)
 
     printf("num gates = %zu\n", builder.get_num_gates());
 
-    bool result = builder.check_circuit();
+    bool result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(is_member.get_value(), true);
     EXPECT_EQ(is_member_.get_value(), true);
     EXPECT_EQ(result, true);
@@ -71,7 +71,7 @@ TEST(crypto_merkle_tree, test_batch_update_membership)
     batch_update_membership(new_root, old_root, old_hash_path_1, values, start_idx);
     batch_update_membership(new_root, old_root, old_hash_path_2, values, start_idx);
     printf("num gates = %zu\n", builder.get_num_gates());
-    bool result = builder.check_circuit();
+    bool result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
 
@@ -88,7 +88,7 @@ TEST(crypto_merkle_tree, test_assert_check_membership)
 
     printf("num gates = %zu\n", builder.get_num_gates());
 
-    bool result = builder.check_circuit();
+    bool result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
 
@@ -106,7 +106,7 @@ TEST(crypto_merkle_tree, test_assert_check_membership_fail)
 
     printf("num gates = %zu\n", builder.get_num_gates());
 
-    bool result = builder.check_circuit();
+    bool result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(result, false);
 }
 // To test whether both old hash path and new hash path works for the same Merkle tree
@@ -133,7 +133,7 @@ TEST(crypto_merkle_tree, test_update_members)
 
         printf("num gates = %zu\n", builder.get_num_gates());
 
-        bool result = builder.check_circuit();
+        bool result = UltraCircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
     {
@@ -157,7 +157,7 @@ TEST(crypto_merkle_tree, test_update_members)
 
         printf("num gates = %zu\n", builder.get_num_gates());
 
-        bool result = builder.check_circuit();
+        bool result = UltraCircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 }
@@ -180,7 +180,7 @@ TEST(crypto_merkle_tree, test_tree)
 
     printf("num gates = %zu\n", builder.get_num_gates());
 
-    bool result = builder.check_circuit();
+    bool result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
 
@@ -243,6 +243,6 @@ TEST(crypto_merkle_tree, test_update_memberships)
     update_memberships(old_root_ct, new_roots_ct, new_values_ct, old_values_ct, old_hash_paths_ct, old_indices_ct);
 
     printf("num gates = %zu\n", builder.get_num_gates());
-    bool result = builder.check_circuit();
+    bool result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }

@@ -364,7 +364,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         create_inner_circuit(builder, inputs);
 
-        bool result = builder.check_circuit();
+        bool result = UltraCircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 

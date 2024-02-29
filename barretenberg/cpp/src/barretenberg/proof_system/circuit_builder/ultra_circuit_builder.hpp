@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/proof_system/circuit_builder/check_circuit_ultra.hpp"
 #include "barretenberg/proof_system/execution_trace/execution_trace.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/proof_system/plookup_tables/plookup_tables.hpp"

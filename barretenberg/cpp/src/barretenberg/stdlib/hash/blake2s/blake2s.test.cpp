@@ -30,7 +30,7 @@ using public_witness_t = public_witness_t<Builder>;
 
 //     info("num gates = %zu\n", builder.get_num_gates());
 
-//     bool proof_result = builder.check_circuit();
+//     bool proof_result = UltraCircuitChecker::check(builder);
 //     EXPECT_EQ(proof_result, true);
 // }
 
@@ -49,7 +49,7 @@ TEST(stdlib_blake2s, test_single_block_plookup)
 
     info("builder gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -68,7 +68,7 @@ TEST(stdlib_blake2s, test_single_block_plookup)
 
 //     info("num gates = %zu\n", builder.get_num_gates());
 
-//     bool proof_result = builder.check_circuit();
+//     bool proof_result = UltraCircuitChecker::check(builder);
 //     EXPECT_EQ(proof_result, true);
 // }
 
@@ -87,6 +87,6 @@ TEST(stdlib_blake2s, test_double_block_plookup)
 
     info("builder gates = ", builder.get_num_gates());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = UltraCircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }

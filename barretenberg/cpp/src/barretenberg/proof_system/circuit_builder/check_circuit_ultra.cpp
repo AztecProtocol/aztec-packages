@@ -73,22 +73,21 @@ namespace bb {
  * @return fr
  */
 
-    UltraCircuitChecker::FF UltraCircuitChecker::compute_arithmetic_identity(
-    UltraCircuitChecker::FF q_arith_value,
-    UltraCircuitChecker::FF q_1_value,
-    UltraCircuitChecker::FF q_2_value,
-    UltraCircuitChecker::FF q_3_value,
-    UltraCircuitChecker::FF q_4_value,
-    UltraCircuitChecker::FF q_m_value,
-    UltraCircuitChecker::FF q_c_value,
-    UltraCircuitChecker::FF w_1_value,
-    UltraCircuitChecker::FF w_2_value,
-    UltraCircuitChecker::FF w_3_value,
-    UltraCircuitChecker::FF w_4_value,
-    UltraCircuitChecker::FF w_1_shifted_value,
-    UltraCircuitChecker::FF w_4_shifted_value,
-    UltraCircuitChecker::FF alpha_base,
-    UltraCircuitChecker::FF alpha)
+UltraCircuitChecker::FF UltraCircuitChecker::compute_arithmetic_identity(UltraCircuitChecker::FF q_arith_value,
+                                                                         UltraCircuitChecker::FF q_1_value,
+                                                                         UltraCircuitChecker::FF q_2_value,
+                                                                         UltraCircuitChecker::FF q_3_value,
+                                                                         UltraCircuitChecker::FF q_4_value,
+                                                                         UltraCircuitChecker::FF q_m_value,
+                                                                         UltraCircuitChecker::FF q_c_value,
+                                                                         UltraCircuitChecker::FF w_1_value,
+                                                                         UltraCircuitChecker::FF w_2_value,
+                                                                         UltraCircuitChecker::FF w_3_value,
+                                                                         UltraCircuitChecker::FF w_4_value,
+                                                                         UltraCircuitChecker::FF w_1_shifted_value,
+                                                                         UltraCircuitChecker::FF w_4_shifted_value,
+                                                                         UltraCircuitChecker::FF alpha_base,
+                                                                         UltraCircuitChecker::FF alpha)
 {
     constexpr FF neg_half = FF(-2).invert();
     // The main arithmetic identity that gets activated for q_arith_value == 1
@@ -138,15 +137,14 @@ namespace bb {
  * @param alpha
  * @return fr
  */
-UltraCircuitChecker::FF UltraCircuitChecker::compute_genperm_sort_identity(
-    UltraCircuitChecker::FF q_sort_value,
-    UltraCircuitChecker::FF w_1_value,
-    UltraCircuitChecker::FF w_2_value,
-    UltraCircuitChecker::FF w_3_value,
-    UltraCircuitChecker::FF w_4_value,
-    UltraCircuitChecker::FF w_1_shifted_value,
-    UltraCircuitChecker::FF alpha_base,
-    UltraCircuitChecker::FF alpha)
+UltraCircuitChecker::FF UltraCircuitChecker::compute_genperm_sort_identity(UltraCircuitChecker::FF q_sort_value,
+                                                                           UltraCircuitChecker::FF w_1_value,
+                                                                           UltraCircuitChecker::FF w_2_value,
+                                                                           UltraCircuitChecker::FF w_3_value,
+                                                                           UltraCircuitChecker::FF w_4_value,
+                                                                           UltraCircuitChecker::FF w_1_shifted_value,
+                                                                           UltraCircuitChecker::FF alpha_base,
+                                                                           UltraCircuitChecker::FF alpha)
 {
     // Power of alpha to separate individual delta relations
     // TODO(kesha): This is a repeated computation which can be efficiently optimized
@@ -197,18 +195,17 @@ UltraCircuitChecker::FF UltraCircuitChecker::compute_genperm_sort_identity(
  * @param w_4_shifted_value y₃
  * @return fr
  */
-UltraCircuitChecker::FF UltraCircuitChecker::compute_elliptic_identity(
-    UltraCircuitChecker::FF q_elliptic_value,
-    UltraCircuitChecker::FF q_1_value,
-    UltraCircuitChecker::FF q_m_value,
-    UltraCircuitChecker::FF w_2_value,
-    UltraCircuitChecker::FF w_3_value,
-    UltraCircuitChecker::FF w_1_shifted_value,
-    UltraCircuitChecker::FF w_2_shifted_value,
-    UltraCircuitChecker::FF w_3_shifted_value,
-    UltraCircuitChecker::FF w_4_shifted_value,
-    UltraCircuitChecker::FF alpha_base,
-    UltraCircuitChecker::FF alpha)
+UltraCircuitChecker::FF UltraCircuitChecker::compute_elliptic_identity(UltraCircuitChecker::FF q_elliptic_value,
+                                                                       UltraCircuitChecker::FF q_1_value,
+                                                                       UltraCircuitChecker::FF q_m_value,
+                                                                       UltraCircuitChecker::FF w_2_value,
+                                                                       UltraCircuitChecker::FF w_3_value,
+                                                                       UltraCircuitChecker::FF w_1_shifted_value,
+                                                                       UltraCircuitChecker::FF w_2_shifted_value,
+                                                                       UltraCircuitChecker::FF w_3_shifted_value,
+                                                                       UltraCircuitChecker::FF w_4_shifted_value,
+                                                                       UltraCircuitChecker::FF alpha_base,
+                                                                       UltraCircuitChecker::FF alpha)
 {
     const FF x_1 = w_2_value;
     const FF y_1 = w_3_value;
@@ -280,26 +277,25 @@ UltraCircuitChecker::FF UltraCircuitChecker::compute_elliptic_identity(
  *
  */
 
-UltraCircuitChecker::FF UltraCircuitChecker::compute_auxilary_identity(
-    UltraCircuitChecker::FF q_aux_value,
-    UltraCircuitChecker::FF q_arith_value,
-    UltraCircuitChecker::FF q_1_value,
-    UltraCircuitChecker::FF q_2_value,
-    UltraCircuitChecker::FF q_3_value,
-    UltraCircuitChecker::FF q_4_value,
-    UltraCircuitChecker::FF q_m_value,
-    UltraCircuitChecker::FF q_c_value,
-    UltraCircuitChecker::FF w_1_value,
-    UltraCircuitChecker::FF w_2_value,
-    UltraCircuitChecker::FF w_3_value,
-    UltraCircuitChecker::FF w_4_value,
-    UltraCircuitChecker::FF w_1_shifted_value,
-    UltraCircuitChecker::FF w_2_shifted_value,
-    UltraCircuitChecker::FF w_3_shifted_value,
-    UltraCircuitChecker::FF w_4_shifted_value,
-    UltraCircuitChecker::FF alpha_base,
-    UltraCircuitChecker::FF alpha,
-    UltraCircuitChecker::FF eta)
+UltraCircuitChecker::FF UltraCircuitChecker::compute_auxilary_identity(UltraCircuitChecker::FF q_aux_value,
+                                                                       UltraCircuitChecker::FF q_arith_value,
+                                                                       UltraCircuitChecker::FF q_1_value,
+                                                                       UltraCircuitChecker::FF q_2_value,
+                                                                       UltraCircuitChecker::FF q_3_value,
+                                                                       UltraCircuitChecker::FF q_4_value,
+                                                                       UltraCircuitChecker::FF q_m_value,
+                                                                       UltraCircuitChecker::FF q_c_value,
+                                                                       UltraCircuitChecker::FF w_1_value,
+                                                                       UltraCircuitChecker::FF w_2_value,
+                                                                       UltraCircuitChecker::FF w_3_value,
+                                                                       UltraCircuitChecker::FF w_4_value,
+                                                                       UltraCircuitChecker::FF w_1_shifted_value,
+                                                                       UltraCircuitChecker::FF w_2_shifted_value,
+                                                                       UltraCircuitChecker::FF w_3_shifted_value,
+                                                                       UltraCircuitChecker::FF w_4_shifted_value,
+                                                                       UltraCircuitChecker::FF alpha_base,
+                                                                       UltraCircuitChecker::FF alpha,
+                                                                       UltraCircuitChecker::FF eta)
 {
     constexpr FF LIMB_SIZE(uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     // TODO(kesha): Replace with a constant defined in header
@@ -550,14 +546,14 @@ UltraCircuitChecker::FF UltraCircuitChecker::compute_auxilary_identity(
  *
  * @details The method switches the circuit to the "in-the-head" version, finalizes it, checks gates, lookups and
  * permutations and then switches it back from the in-the-head version, discarding the updates
- * @note We want to check that the whole circuit works, but ultra circuits need to have ram, rom and range gates added in the end for the check to be complete as
- * well as the set permutation check, so we finalize the circuit when we check it. This structure allows us to
- * restore the circuit to the state before the finalization.
+ * @note We want to check that the whole circuit works, but ultra circuits need to have ram, rom and range gates added
+ * in the end for the check to be complete as well as the set permutation check, so we finalize the circuit when we
+ * check it. This structure allows us to restore the circuit to the state before the finalization.
  *
  * @return true
  * @return false
  */
-bool UltraCircuitChecker::execute(UltraCircuitBuilder circuit)
+bool UltraCircuitChecker::check(UltraCircuitBuilder circuit)
 {
     bool result = true;
 

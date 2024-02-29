@@ -113,7 +113,7 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
 
         create_inner_circuit(builder);
 
-        bool result = builder.check_circuit();
+        bool result = UltraCircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
