@@ -93,8 +93,6 @@ We have a `write` method on the `PublicMutable` struct that takes the value to w
 
 `PublicImmutable` is a type that can be written once during a contract deployment and read later on from public only.
 
-This makes the immutable public variables useful for stuff that you would usually have in `immutable` values in solidity. For example this can be the name of a token or its number of decimals.
-
 Just like the `PublicMutable` it is generic over the variable type `T`. The type `MUST` implement Serialize and Deserialize traits.
 
 You can find the details of `PublicImmutable` in the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/public_immutable.nr).
@@ -110,12 +108,6 @@ Is done exactly like the `PublicMutable` struct, but with the `PublicImmutable` 
 ### `initialize`
 
 #include_code initialize_public_immutable /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
-
-:::warning Should only be called as part of the deployment.
-If this is called outside the deployment transaction multiple values could be used down the line, potentially breaking the contract.
-
-Currently this is not constrained as we are in the middle of changing deployments.
-:::
 
 ### `read`
 
