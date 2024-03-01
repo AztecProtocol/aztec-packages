@@ -92,7 +92,7 @@ export function assertItemsLength<
  * @param indexes - The indices of the original array which the permutation should map to.
  * @param isEqual - A function to compare the elements of the original and permutation arrays.
  */
-export function assertPermutation<T extends { toString(): string }>(
+export function assertPermutation<T>(
   original: T[],
   permutation: T[],
   indexes: number[],
