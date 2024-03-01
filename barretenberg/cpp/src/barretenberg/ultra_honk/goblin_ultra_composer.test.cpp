@@ -60,11 +60,11 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
      * @brief Construct and a verify a Honk proof
      *
      */
-    bool construct_and_verify_honk_proof(auto& composer, auto& builder)
+    bool construct_and_verify_honk_proof([[maybe_unused]] auto& composer, auto& builder)
     {
         auto instance = std::make_shared<ProverInstance_<GoblinUltraFlavor>>(builder);
         GoblinUltraProver prover(instance);
-        auto verifier = composer.create_verifier(instance->verification_key);
+        GoblinUltraVerifier verifier(instance->verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
 

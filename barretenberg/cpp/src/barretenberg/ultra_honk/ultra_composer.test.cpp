@@ -33,11 +33,11 @@ std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> v
     return res;
 }
 
-void prove_and_verify(auto& circuit_builder, auto& composer, bool expected_result)
+void prove_and_verify(auto& circuit_builder, [[maybe_unused]] auto& composer, bool expected_result)
 {
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
     UltraProver prover(instance);
-    auto verifier = composer.create_verifier(instance->verification_key);
+    UltraVerifier verifier(instance->verification_key);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
     EXPECT_EQ(verified, expected_result);
@@ -198,10 +198,9 @@ TEST_F(UltraHonkComposerTests, create_gates_from_plookup_accumulators)
             expected_scalar >>= table_bits;
         }
     }
-    auto composer = UltraComposer();
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
     UltraProver prover(instance);
-    auto verifier = composer.create_verifier(instance->verification_key);
+    UltraVerifier verifier(instance->verification_key);
     auto proof = prover.construct_proof();
 
     bool result = verifier.verify_proof(proof);

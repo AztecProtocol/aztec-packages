@@ -81,13 +81,11 @@ TEST_F(DataBusComposerTests, CallDataRead)
         builder.calldata_read_counts[read_index]++;
     }
 
-    auto composer = GoblinUltraComposer();
-
     // Construct and verify Honk proof
     auto instance = std::make_shared<ProverInstance_<GoblinUltraFlavor>>(builder);
     // For debugging, use "instance_inspector::print_databus_info(instance)"
     GoblinUltraProver prover(instance);
-    auto verifier = composer.create_verifier(instance->verification_key);
+    GoblinUltraVerifier verifier(instance->verification_key);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
     EXPECT_TRUE(verified);

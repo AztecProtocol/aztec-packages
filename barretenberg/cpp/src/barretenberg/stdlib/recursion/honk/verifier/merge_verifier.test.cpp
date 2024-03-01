@@ -81,10 +81,9 @@ class RecursiveMergeVerifierTest : public testing::Test {
 
         // Check 3: Construct and verify a (goblin) ultra honk proof of the Merge recursive verifier circuit
         {
-            GoblinUltraComposer composer;
             auto instance = std::make_shared<InnerProverInstance>(outer_circuit);
             GoblinUltraProver prover(instance);
-            auto verifier = composer.create_verifier(instance->verification_key);
+            GoblinUltraVerifier verifier(instance->verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 

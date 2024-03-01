@@ -14,6 +14,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     using Composer = ::bb::UltraComposer_<NativeFlavor>;
     using Builder = typename RecursiveFlavor::CircuitBuilder;
     using Prover = UltraProver_<NativeFlavor>;
+    using Verifier = UltraVerifier_<NativeFlavor>;
     using ProverInstance = ::bb::ProverInstance_<NativeFlavor>;
     using VerifierInstance = ::bb::VerifierInstance_<NativeFlavor>;
     using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
@@ -203,10 +204,9 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         // Check for a failure flag in the recursive verifier circuit
 
         {
-            auto composer = Composer();
             auto instance = std::make_shared<ProverInstance>(folding_circuit);
             Prover prover(instance);
-            auto verifier = composer.create_verifier(instance->verification_key);
+            Verifier verifier(instance->verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 
@@ -293,10 +293,9 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 
         // Construct and verify a proof of the recursive decider verifier circuit
         {
-            auto composer = Composer();
             auto instance = std::make_shared<ProverInstance>(decider_circuit);
             Prover prover(instance);
-            auto verifier = composer.create_verifier(instance->verification_key);
+            Verifier verifier(instance->verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 

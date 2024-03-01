@@ -26,6 +26,7 @@ template <typename BuilderType> class HonkRecursiveVerifierTest : public testing
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerComposer = UltraComposer;
     using InnerProver = UltraProver;
+    using InnerVerifier = UltraVerifier;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
     using InnerCurve = bn254<InnerBuilder>;
     using Commitment = InnerFlavor::Commitment;
@@ -39,6 +40,8 @@ template <typename BuilderType> class HonkRecursiveVerifierTest : public testing
         std::conditional_t<std::same_as<BuilderType, GoblinUltraCircuitBuilder>, GoblinUltraFlavor, UltraFlavor>;
     using OuterProver =
         std::conditional_t<std::same_as<BuilderType, GoblinUltraCircuitBuilder>, GoblinUltraProver, UltraProver>;
+    using OuterVerifier =
+        std::conditional_t<std::same_as<BuilderType, GoblinUltraCircuitBuilder>, GoblinUltraVerifier, UltraVerifier>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
@@ -166,7 +169,6 @@ template <typename BuilderType> class HonkRecursiveVerifierTest : public testing
         create_inner_circuit(inner_circuit);
 
         // Generate a proof over the inner circuit
-        InnerComposer inner_composer;
         auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
         InnerProver inner_prover(instance);
         auto inner_proof = inner_prover.construct_proof();
@@ -182,7 +184,7 @@ template <typename BuilderType> class HonkRecursiveVerifierTest : public testing
 
         // Check 1: Perform native verification then perform the pairing on the outputs of the recursive
         // verifier and check that the result agrees.
-        auto native_verifier = inner_composer.create_verifier(instance->verification_key);
+        InnerVerifier native_verifier(instance->verification_key);
         auto native_result = native_verifier.verify_proof(inner_proof);
         auto recursive_result = native_verifier.key->pcs_verification_key->pairing_check(pairing_points[0].get_value(),
                                                                                          pairing_points[1].get_value());
@@ -198,10 +200,9 @@ template <typename BuilderType> class HonkRecursiveVerifierTest : public testing
 
         // Check 3: Construct and verify a proof of the recursive verifier circuit
         {
-            auto composer = get_outer_composer<OuterBuilder>();
             auto instance = std::make_shared<OuterProverInstance>(outer_circuit);
             OuterProver prover(instance);
-            auto verifier = composer.create_verifier(instance->verification_key);
+            OuterVerifier verifier(instance->verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 
