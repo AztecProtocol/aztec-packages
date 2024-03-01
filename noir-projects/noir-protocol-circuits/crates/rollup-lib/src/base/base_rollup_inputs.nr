@@ -264,8 +264,8 @@ impl BaseRollupInputs {
         // 2 l2 -> l1 messages -> 2 fields
         // 32 public data update requests -> 64 fields
         // 1 contract deployments -> 3 fields
-        // 1 encrypted logs hash --> 1 sha256 hash -> 2 fields --> 64 bytes
-        // 1 unencrypted logs hash --> 1 sha256 hash -> 2 fields --> 64 bytes
+        // 1 encrypted logs hash --> 1 sha256 hash -> 2 fields --> 32 bytes
+        // 1 unencrypted logs hash --> 1 sha256 hash -> 2 fields --> 32 bytes
         let mut calldata_hash_inputs = [0; CALLDATA_HASH_INPUT_SIZE];
 
         let new_note_hashes = combined.new_note_hashes;
@@ -595,7 +595,7 @@ mod tests {
         NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT,
         NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT,
         PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-        NUM_FIELDS_PER_SHA256
+        NUM_FIELDS_PER_SHA256, MAX_NEW_L2_TO_L1_MSGS_PER_TX
     },
         contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
         hash::assert_check_membership, merkle_tree::{calculate_empty_tree_root, calculate_subtree},
@@ -1258,6 +1258,31 @@ mod tests {
             assert_eq(outputs.calldata_hash[i], expected_calldata_hash[i]);
         }
     }
+
+    #[test]
+    unconstrained fn empty_block_out_hash() {
+        let outputs = BaseRollupInputsBuilder::new().execute();
+
+        let hash_input_flattened = [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX * 32];
+        let sha_digest = dep::std::hash::sha256(hash_input_flattened);
+        let expected_out_hash = U256::from_bytes32(sha_digest).to_u128_limbs();
+        for i in 0..NUM_FIELDS_PER_SHA256 {
+            assert_eq(outputs.out_hash[i], expected_out_hash[i]);
+        }
+    }
+
+    // #[test]
+    // unconstrained fn block_out_hash() {
+    //     let mut end: CombinedAccumulatedData = dep::std::unsafe::zeroed();
+    //     end.new_l2_to_l1_msgs[0] = 123;
+    //     end.new_l2_to_l1_msgs[MAX_NEW_L2_TO_L1_MSGS_PER_TX - 1] = 123;
+
+    //     let mut outputs = BaseRollupInputs::components_compute_kernel_out_hash(end);
+
+    //     for i in 0..NUM_FIELDS_PER_SHA256 {
+    //         assert_eq(outputs[i], 123);
+    //     }
+    // }
 
     #[test(should_fail_with = "membership check failed")]
     unconstrained fn compute_membership_archive_negative() {
