@@ -63,7 +63,7 @@ bool ClientIVC::verify(Proof& proof, const std::vector<VerifierAccumulator>& ver
     auto folding_verifier = composer.create_folding_verifier({ verifier_instances[0], verifier_instances[1] });
     auto verifier_accumulator = folding_verifier.verify_folding_proof(proof.fold_proof);
 
-    auto decider_verifier = composer.create_decider_verifier(verifier_accumulator);
+    ClientIVC::DeciderVerifier decider_verifier(verifier_accumulator);
     bool decision = decider_verifier.verify_proof(proof.decider_proof);
     return goblin_verified && decision;
 }
@@ -75,8 +75,7 @@ bool ClientIVC::verify(Proof& proof, const std::vector<VerifierAccumulator>& ver
  */
 HonkProof ClientIVC::decider_prove() const
 {
-    Composer composer;
-    auto decider_prover = composer.create_decider_prover(prover_fold_output.accumulator);
+    GoblinUltraDeciderProver decider_prover(prover_fold_output.accumulator);
     return decider_prover.construct_proof();
 }
 

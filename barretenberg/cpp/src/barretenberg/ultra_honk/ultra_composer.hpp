@@ -25,17 +25,6 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
     using ProverInstances = ProverInstances_<Flavor>;
     using VerifierInstances = VerifierInstances_<Flavor>;
 
-    DeciderProver_<Flavor> create_decider_prover(
-        const std::shared_ptr<ProverInstance>&,
-        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-
-    DeciderVerifier_<Flavor> create_decider_verifier(
-        const std::shared_ptr<VerifierInstance>&,
-        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    UltraVerifier_<Flavor> create_verifier(CircuitBuilder& circuit);
-
-    UltraVerifier_<Flavor> create_ultra_with_keccak_verifier(CircuitBuilder& circuit);
-
     ProtoGalaxyProver_<ProverInstances> create_folding_prover(
         const std::vector<std::shared_ptr<ProverInstance>>& instances)
     {

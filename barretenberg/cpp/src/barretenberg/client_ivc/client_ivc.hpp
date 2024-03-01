@@ -24,6 +24,8 @@ class ClientIVC {
     using ProverInstance = ProverInstance_<GoblinUltraFlavor>;
     using VerifierInstance = VerifierInstance_<GoblinUltraFlavor>;
     using ClientCircuit = GoblinUltraCircuitBuilder; // can only be GoblinUltra
+    using DeciderProver = DeciderProver_<Flavor>;
+    using DeciderVerifier = DeciderVerifier_<Flavor>;
 
     // A full proof for the IVC scheme
     struct Proof {

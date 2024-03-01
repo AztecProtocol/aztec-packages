@@ -1,25 +1,6 @@
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/composer/composer_lib.hpp"
-#include "barretenberg/proof_system/composer/permutation_lib.hpp"
-#include "barretenberg/proof_system/library/grand_product_library.hpp"
 
 namespace bb {
-
-template <IsUltraFlavor Flavor>
-DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(const std::shared_ptr<ProverInstance>& accumulator,
-                                                                     const std::shared_ptr<Transcript>& transcript)
-{
-    return DeciderProver_<Flavor>(accumulator, transcript);
-}
-
-template <IsUltraFlavor Flavor>
-DeciderVerifier_<Flavor> UltraComposer_<Flavor>::create_decider_verifier(
-    const std::shared_ptr<VerifierInstance>& accumulator, const std::shared_ptr<Transcript>& transcript)
-{
-    return DeciderVerifier_<Flavor>(transcript, accumulator);
-}
-
 template class UltraComposer_<UltraFlavor>;
 template class UltraComposer_<GoblinUltraFlavor>;
 } // namespace bb

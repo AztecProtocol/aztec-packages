@@ -29,6 +29,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using PowPolynomial = bb::PowPolynomial<FF>;
+    using DeciderProver = DeciderProver_<Flavor>;
+    using DeciderVerifier = DeciderVerifier_<Flavor>;
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
@@ -93,13 +95,13 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
     static void decide_and_verify(std::shared_ptr<ProverInstance>& prover_accumulator,
                                   std::shared_ptr<VerifierInstance>& verifier_accumulator,
-                                  Composer& composer,
+                                  [[maybe_unused]] Composer& composer,
                                   bool expected_result)
     {
-        auto decider_prover = composer.create_decider_prover(prover_accumulator);
-        auto decider_verifier = composer.create_decider_verifier(verifier_accumulator);
-        auto decider_proof = decider_prover.construct_proof();
-        auto verified = decider_verifier.verify_proof(decider_proof);
+        DeciderProver decider_prover(prover_accumulator);
+        DeciderVerifier decider_verifier(verifier_accumulator);
+        HonkProof decider_proof = decider_prover.construct_proof();
+        bool verified = decider_verifier.verify_proof(decider_proof);
         EXPECT_EQ(verified, expected_result);
     }
 

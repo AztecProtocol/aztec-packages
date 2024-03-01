@@ -21,11 +21,12 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     using Curve = bn254<Builder>;
     using Commitment = typename NativeFlavor::Commitment;
     using FF = typename NativeFlavor::FF;
+    using DeciderProver = DeciderProver_<NativeFlavor>;
 
     using RecursiveVerifierInstances = ::bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
     using FoldingRecursiveVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
-    using DeciderVerifier = DeciderVerifier_<NativeFlavor>;
+    using NativeDeciderVerifier = DeciderVerifier_<NativeFlavor>;
     using NativeVerifierInstances = VerifierInstances_<NativeFlavor, 2>;
     using NativeFoldingVerifier = ProtoGalaxyVerifier_<NativeVerifierInstances>;
 
@@ -265,7 +266,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
             EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i]);
         }
 
-        auto decider_prover = composer.create_decider_prover(folding_proof.accumulator);
+        DeciderProver decider_prover(folding_proof.accumulator);
         auto decider_proof = decider_prover.construct_proof();
 
         Builder decider_circuit;
@@ -275,9 +276,9 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();
 
-        // Perform native verification then perform the pairing on the outputs of the recursive
-        //  decider verifier and check that the result agrees.
-        DeciderVerifier native_decider_verifier = composer.create_decider_verifier(verifier_accumulator);
+        // Perform native verification then perform the pairing on the outputs of the recursive decider verifier and
+        // check that the result agrees.
+        NativeDeciderVerifier native_decider_verifier(verifier_accumulator);
         auto native_result = native_decider_verifier.verify_proof(decider_proof);
         auto recursive_result = native_decider_verifier.accumulator->pcs_verification_key->pairing_check(
             pairing_points[0].get_value(), pairing_points[1].get_value());
@@ -313,7 +314,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         verifier_accumulator->target_sum = FF::random_element();
 
         // Create a decider proof for the relaxed instance obtained through folding
-        auto decider_prover = composer.create_decider_prover(prover_accumulator);
+        DeciderProver decider_prover(prover_accumulator);
         auto decider_proof = decider_prover.construct_proof();
 
         // Create a decider verifier circuit for recursively verifying the decider proof

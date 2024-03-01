@@ -32,6 +32,8 @@ class ClientIVCTests : public ::testing::Test {
     using RecursiveVerifierInstances = ::bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+    using DeciderProver = ClientIVC::DeciderProver;
+    using DeciderVerifier = ClientIVC::DeciderVerifier;
 
     /**
      * @brief Construct mock circuit with arithmetic gates and goblin ops
@@ -89,8 +91,8 @@ class ClientIVCTests : public ::testing::Test {
         auto verifier_accumulator = folding_verifier.verify_folding_proof(fold_proof);
 
         // Run decider
-        auto decider_prover = composer.create_decider_prover(prover_accumulator);
-        auto decider_verifier = composer.create_decider_verifier(verifier_accumulator);
+        DeciderProver decider_prover(prover_accumulator);
+        DeciderVerifier decider_verifier(verifier_accumulator);
         auto decider_proof = decider_prover.construct_proof();
         bool decision = decider_verifier.verify_proof(decider_proof);
         EXPECT_TRUE(decision);
