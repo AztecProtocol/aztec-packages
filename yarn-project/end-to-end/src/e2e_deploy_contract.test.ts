@@ -24,7 +24,7 @@ import {
   deployInstance,
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
-import { ContractClassIdPreimage, Point, PublicKey } from '@aztec/circuits.js';
+import { ContractClassIdPreimage, Point } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { StatefulTestContract } from '@aztec/noir-contracts.js';
