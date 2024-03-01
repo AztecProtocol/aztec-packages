@@ -42,8 +42,8 @@ HonkProof Execution::run_and_prove(std::vector<uint8_t> const& bytecode, std::ve
     return proof;
 }
 
-std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove_vk(std::vector<uint8_t> const& bytecode,
-                                                                      std::vector<FF> const& calldata)
+std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<uint8_t> const& bytecode,
+                                                                   std::vector<FF> const& calldata)
 {
     auto instructions = Deserialization::parse(bytecode);
     auto trace = gen_trace(instructions, calldata);
@@ -54,10 +54,11 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove_vk(std::vecto
     auto prover = composer.create_prover(circuit_builder);
     auto verifier = composer.create_verifier(circuit_builder);
     auto proof = prover.construct_proof();
-    // todo: Might need to return PCS vk when full verify is supported
+    // TODO(#4887): Might need to return PCS vk when full verify is supported
     return std::make_tuple(*verifier.key, proof);
 }
-bool Execution::verify(AvmFlavor::VerificationKey vk, const HonkProof& proof)
+
+bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
 {
     auto verification_key = std::make_shared<AvmFlavor::VerificationKey>(vk);
     AvmVerifier verifier(verification_key);
