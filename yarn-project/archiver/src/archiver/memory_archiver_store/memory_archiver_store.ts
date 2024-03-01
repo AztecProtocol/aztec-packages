@@ -119,11 +119,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful (always in this implementation).
    */
   public addBlocks(blocks: L2Block[]): Promise<boolean> {
-    this.l2BlockContexts.push(
-      ...blocks.map(block => {
-        return new L2BlockContext(block);
-      }),
-    );
+    this.l2BlockContexts.push(...blocks.map(block => new L2BlockContext(block)));
     this.l2Txs.push(...blocks.flatMap(b => b.getTxs()));
     return Promise.resolve(true);
   }
