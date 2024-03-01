@@ -47,44 +47,27 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
     }
 }
 
-// ultrahonk
-inline UltraProver get_prover([[maybe_unused]] UltraComposer& composer,
-                              void (*test_circuit_function)(UltraComposer::CircuitBuilder&, size_t),
-                              size_t num_iterations)
+template <typename Prover>
+Prover get_prover(void (*test_circuit_function)(typename Prover::Flavor::CircuitBuilder&, size_t),
+                  size_t num_iterations)
 {
-    UltraComposer::CircuitBuilder builder;
-    test_circuit_function(builder, num_iterations);
-    return UltraProver(builder);
-}
+    using Flavor = typename Prover::Flavor;
+    using Builder = typename Flavor::CircuitBuilder;
 
-inline GoblinUltraProver get_prover([[maybe_unused]] GoblinUltraComposer& composer,
-                                    void (*test_circuit_function)(GoblinUltraComposer::CircuitBuilder&, size_t),
-                                    size_t num_iterations)
-{
-    GoblinUltraComposer::CircuitBuilder builder;
+    Builder builder;
     test_circuit_function(builder, num_iterations);
-    return GoblinUltraProver(builder);
-}
+    // This is gross but it's going away soon.
+    if constexpr (IsPlonkFlavor<Flavor>) {
+        // If Flavor is Ultra, alias UltraComposer, otherwise alias StandardComposer
+        using Composer = std::
+            conditional_t<std::same_as<Flavor, plonk::flavor::Ultra>, plonk::UltraComposer, plonk::StandardComposer>;
+        Composer composer;
+        return composer.create_prover(builder);
+    } else {
+        return Prover(builder);
+    }
+};
 
-// standard plonk
-inline plonk::Prover get_prover(plonk::StandardComposer& composer,
-                                void (*test_circuit_function)(StandardCircuitBuilder&, size_t),
-                                size_t num_iterations)
-{
-    StandardCircuitBuilder builder;
-    test_circuit_function(builder, num_iterations);
-    return composer.create_prover(builder);
-}
-
-// ultraplonk
-inline plonk::UltraProver get_prover(plonk::UltraComposer& composer,
-                                     void (*test_circuit_function)(UltraComposer::CircuitBuilder&, size_t),
-                                     size_t num_iterations)
-{
-    plonk::UltraComposer::CircuitBuilder builder;
-    test_circuit_function(builder, num_iterations);
-    return composer.create_prover(builder);
-}
 /**
  * @brief Performs proof constuction for benchmarks based on a provided circuit function
  *
@@ -95,20 +78,18 @@ inline plonk::UltraProver get_prover(plonk::UltraComposer& composer,
  * @param state
  * @param test_circuit_function
  */
-template <typename Composer>
-void construct_proof_with_specified_num_iterations(benchmark::State& state,
-                                                   void (*test_circuit_function)(typename Composer::CircuitBuilder&,
-                                                                                 size_t),
-                                                   size_t num_iterations)
+template <typename Prover>
+void construct_proof_with_specified_num_iterations(
+    benchmark::State& state,
+    void (*test_circuit_function)(typename Prover::Flavor::CircuitBuilder&, size_t),
+    size_t num_iterations)
 {
     srs::init_crs_factory("../srs_db/ignition");
-
-    Composer composer;
 
     for (auto _ : state) {
         // Construct circuit and prover; don't include this part in measurement
         state.PauseTiming();
-        auto prover = get_prover(composer, test_circuit_function, num_iterations);
+        Prover prover = get_prover<Prover>(test_circuit_function, num_iterations);
         state.ResumeTiming();
 
         // Construct proof

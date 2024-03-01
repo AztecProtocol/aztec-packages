@@ -14,7 +14,7 @@ static void construct_proof_goblinultrahonk(State& state,
                                             void (*test_circuit_function)(GoblinUltraCircuitBuilder&, size_t)) noexcept
 {
     size_t num_iterations = 10; // 10x the circuit
-    bb::mock_proofs::construct_proof_with_specified_num_iterations<GoblinUltraComposer>(
+    bb::mock_proofs::construct_proof_with_specified_num_iterations<GoblinUltraProver>(
         state, test_circuit_function, num_iterations);
 }
 
@@ -24,7 +24,7 @@ static void construct_proof_goblinultrahonk(State& state,
 static void construct_proof_goblinultrahonk_power_of_2(State& state) noexcept
 {
     auto log2_of_gates = static_cast<size_t>(state.range(0));
-    bb::mock_proofs::construct_proof_with_specified_num_iterations<GoblinUltraComposer>(
+    bb::mock_proofs::construct_proof_with_specified_num_iterations<GoblinUltraProver>(
         state, &bb::mock_proofs::generate_basic_arithmetic_circuit<GoblinUltraCircuitBuilder>, log2_of_gates);
 }
 

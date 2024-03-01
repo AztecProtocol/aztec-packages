@@ -47,7 +47,6 @@ class ClientIVC {
 
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;
-    using Composer = GoblinUltraComposer;
     // Note: We need to save the last instance that was folded in order to compute its verification key, this will not
     // be needed in the real IVC as they are provided as inputs
 

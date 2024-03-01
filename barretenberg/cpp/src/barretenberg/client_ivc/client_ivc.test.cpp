@@ -20,7 +20,6 @@ class ClientIVCTests : public ::testing::Test {
     using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;
     using Builder = ClientIVC::ClientCircuit;
-    using Composer = GoblinUltraComposer;
     using ProverAccumulator = ClientIVC::ProverAccumulator;
     using VerifierAccumulator = ClientIVC::VerifierAccumulator;
     using VerifierInstance = ClientIVC::VerifierInstance;

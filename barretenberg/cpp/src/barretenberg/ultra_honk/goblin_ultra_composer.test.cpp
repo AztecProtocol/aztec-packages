@@ -60,7 +60,7 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
      * @brief Construct and a verify a Honk proof
      *
      */
-    bool construct_and_verify_honk_proof([[maybe_unused]] auto& composer, auto& builder)
+    bool construct_and_verify_honk_proof(auto& builder)
     {
         auto instance = std::make_shared<ProverInstance_<GoblinUltraFlavor>>(builder);
         GoblinUltraProver prover(instance);
@@ -105,10 +105,8 @@ TEST_F(GoblinUltraHonkComposerTests, SingleCircuit)
 
     generate_test_circuit(builder);
 
-    auto composer = GoblinUltraComposer();
-
     // Construct and verify Honk proof
-    auto honk_verified = construct_and_verify_honk_proof(composer, builder);
+    bool honk_verified = construct_and_verify_honk_proof(builder);
     EXPECT_TRUE(honk_verified);
 
     // Construct and verify Goblin ECC op queue Merge proof
@@ -162,10 +160,8 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkOnly)
 
         generate_test_circuit(builder);
 
-        auto composer = GoblinUltraComposer();
-
         // Construct and verify Honk proof
-        auto honk_verified = construct_and_verify_honk_proof(composer, builder);
+        bool honk_verified = construct_and_verify_honk_proof(builder);
         EXPECT_TRUE(honk_verified);
     }
 }
@@ -190,10 +186,8 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkAndMerge)
 
         generate_test_circuit(builder);
 
-        auto composer = GoblinUltraComposer();
-
         // Construct and verify Honk proof
-        auto honk_verified = construct_and_verify_honk_proof(composer, builder);
+        bool honk_verified = construct_and_verify_honk_proof(builder);
         EXPECT_TRUE(honk_verified);
 
         // Construct and verify Goblin ECC op queue Merge proof

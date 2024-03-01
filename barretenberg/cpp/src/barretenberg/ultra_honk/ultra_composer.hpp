@@ -26,7 +26,4 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
     using VerifierInstances = VerifierInstances_<Flavor>;
 };
 
-// TODO(#532): this pattern is weird; is this not instantiating the templates?
-using UltraComposer = UltraComposer_<UltraFlavor>;
-using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
 } // namespace bb

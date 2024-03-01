@@ -10,7 +10,9 @@
 
 namespace bb {
 
-template <IsUltraFlavor Flavor> class UltraProver_ {
+template <IsUltraFlavor Flavor_> class UltraProver_ {
+  public:
+    using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     using Builder = typename Flavor::CircuitBuilder;
     using Commitment = typename Flavor::Commitment;
@@ -24,7 +26,6 @@ template <IsUltraFlavor Flavor> class UltraProver_ {
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
-  public:
     explicit UltraProver_(const std::shared_ptr<Instance>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
