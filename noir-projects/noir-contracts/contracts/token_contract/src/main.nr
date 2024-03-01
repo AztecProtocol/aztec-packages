@@ -313,6 +313,7 @@ contract Token {
 
     // docs:start:initialize
     #[aztec(public)]
+    #[aztec(noinitcheck)]
     internal fn _initialize(
         new_admin: AztecAddress,
         name: FieldCompressedString,

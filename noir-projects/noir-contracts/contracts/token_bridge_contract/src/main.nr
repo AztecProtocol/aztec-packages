@@ -138,6 +138,7 @@ contract TokenBridge {
     // docs:end:read_token
 
     #[aztec(public)]
+    #[aztec(noinitcheck)]
     internal fn _initialize(token: AztecAddress) {
         storage.token.write(token);
     }

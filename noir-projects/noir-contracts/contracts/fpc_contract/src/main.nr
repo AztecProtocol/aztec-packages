@@ -23,6 +23,7 @@ contract FPC {
     }
 
     #[aztec(public)]
+    #[aztec(noinitcheck)]
     internal fn _initialize(other_asset: AztecAddress, fee_asset: AztecAddress) {
         storage.other_asset.initialize(other_asset);
         storage.fee_asset.initialize(fee_asset);
