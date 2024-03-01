@@ -348,7 +348,7 @@ impl BaseRollupInputs {
     fn components_compute_kernel_out_hash(combined: CombinedAccumulatedData) -> [Field; NUM_FIELDS_PER_SHA256] {
         let mut out_hash_inputs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX] = combined.new_l2_to_l1_msgs;
 
-        let mut hash_input_flattened = [0; CALL_DATA_HASH_FULL_FIELDS * 32];
+        let mut hash_input_flattened = [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX * 32];
         for offset in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
             let input_as_bytes = out_hash_inputs[offset].to_be_bytes(32);
             for byte_index in 0..32 {

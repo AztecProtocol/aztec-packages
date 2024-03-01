@@ -44,7 +44,7 @@ export class BaseOrMergeRollupPublicInputs {
      */
     public calldataHash: [Fr, Fr],
     /**
-     * SHA256 hashes of calldata. Used to make public inputs constant-sized (to then be unpacked on-chain).
+     * SHA256 hashes of outhash. Used to make public inputs constant-sized (to then be unpacked on-chain).
      * Note: Length 2 for high and low.
      */
     public outHash: [Fr, Fr],
