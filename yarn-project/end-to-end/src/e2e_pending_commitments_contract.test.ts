@@ -4,7 +4,7 @@ import { PendingCommitmentsContract } from '@aztec/noir-contracts.js/PendingComm
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_pending_commitments_contract', () => {
-  let aztecNode: AztecNode | undefined;
+  let aztecNode: AztecNode;
   let wallet: Wallet;
   let logger: DebugLogger;
   let owner: AztecAddress;
@@ -20,8 +20,8 @@ describe('e2e_pending_commitments_contract', () => {
   afterEach(() => teardown());
 
   const expectNoteHashesSquashedExcept = async (exceptFirstFew: number) => {
-    const blockNum = await aztecNode!.getBlockNumber();
-    const block = (await aztecNode!.getBlocks(blockNum, 1))[0];
+    const blockNum = await aztecNode.getBlockNumber();
+    const block = (await aztecNode.getBlocks(blockNum, 1))[0];
 
     const noteHashes = block.body.txEffects.flatMap(txEffect => txEffect.noteHashes);
 
@@ -36,8 +36,8 @@ describe('e2e_pending_commitments_contract', () => {
   };
 
   const expectNullifiersSquashedExcept = async (exceptFirstFew: number) => {
-    const blockNum = await aztecNode!.getBlockNumber();
-    const block = (await aztecNode!.getBlocks(blockNum, 1))[0];
+    const blockNum = await aztecNode.getBlockNumber();
+    const block = (await aztecNode.getBlocks(blockNum, 1))[0];
 
     const nullifierArray = block.body.txEffects.flatMap(txEffect => txEffect.nullifiers);
 
