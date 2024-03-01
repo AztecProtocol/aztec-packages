@@ -52,18 +52,14 @@ contract NewInbox {
    * @notice Inserts an entry into the Inbox
    * @dev Will emit `LeafInserted` with data for easy access by the sequencer
    * @param _recipient - The recipient of the entry
-   * @param _deadline - The deadline to consume a message. Only after it, can a message be cancelled.
-   * it is uint32 to for slot packing of the Entry struct. Should work until Feb 2106.
    * @param _content - The content of the entry (application specific)
    * @param _secretHash - The secret hash of the entry (make it possible to hide when a specific entry is consumed on L2)
    * @return The key of the entry in the set
    */
-  function insert(
-    DataStructures.L2Actor memory _recipient,
-    uint32 _deadline,
-    bytes32 _content,
-    bytes32 _secretHash
-  ) external returns (bytes32) {
+  function insert(DataStructures.L2Actor memory _recipient, bytes32 _content, bytes32 _secretHash)
+    external
+    returns (bytes32)
+  {
     IFrontier currentTree = frontier[inProgress];
     if (currentTree.isFull()) {
       inProgress += 1;
@@ -76,7 +72,7 @@ contract NewInbox {
       recipient: _recipient,
       content: _content,
       secretHash: _secretHash,
-      deadline: _deadline,
+      deadline: 0, // TODO: nuke this (there will no longer be fees for messages)
       fee: 0 // TODO: nuke this (there will no longer be fees for messages)
     });
 
