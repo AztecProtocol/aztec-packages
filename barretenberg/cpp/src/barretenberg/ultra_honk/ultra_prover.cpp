@@ -22,7 +22,7 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const 
 /**
  * Create UltraProver_ from a circuit.
  *
- * @param instance Instance whose proof we want to generate.
+ * @param instance Circuit with witnesses whose validity we'd like to prove.
  *
  * @tparam a type of UltraFlavor
  * */
