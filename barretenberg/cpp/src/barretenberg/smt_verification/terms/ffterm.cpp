@@ -55,6 +55,11 @@ FFTerm FFTerm::operator-(const FFTerm& other) const
     return { res, this->solver };
 }
 
+FFTerm FFTerm::operator-() const{
+    cvc5::Term res = this->solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_NEG, { this->term });
+    return { res, this-> solver};
+}
+
 void FFTerm::operator-=(const FFTerm& other)
 {
     cvc5::Term tmp_term = this->solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_NEG, { other.term });
@@ -133,5 +138,34 @@ void FFTerm::operator!=(const FFTerm& other) const
     cvc5::Term eq = this->solver->s.mkTerm(cvc5::Kind::EQUAL, { this->term, other.term });
     eq = this->solver->s.mkTerm(cvc5::Kind::EQUAL, { eq, this->solver->s.mkBoolean(false) });
     this->solver->s.assertFormula(eq);
+}
+
+FFTerm operator+(const bb::fr& lhs, const FFTerm& rhs){
+    return rhs + lhs;
+}
+
+FFTerm operator-(const bb::fr& lhs, const FFTerm& rhs){
+    return (-rhs) + lhs;
+}
+
+FFTerm operator*(const bb::fr& lhs, const FFTerm& rhs){
+    return rhs * lhs;
+}
+
+FFTerm operator^(__attribute__((unused)) const bb::fr& lhs, __attribute__((unused)) const FFTerm& rhs){
+    info("Not compatible with Finite Field");
+    return {};
+}
+
+FFTerm operator/(const bb::fr& lhs, const FFTerm& rhs){
+    return FFTerm(lhs, rhs.solver) / rhs;
+}
+
+void operator==(const bb::fr& lhs, const FFTerm& rhs){
+    rhs == lhs;
+}
+
+void operator!=(const bb::fr& lhs, const FFTerm& rhs){
+    rhs != lhs;
 }
 } // namespace smt_terms
