@@ -6,8 +6,8 @@ use dep::protocol_types::{
     hash::pedersen_hash, utils::arr_copy_slice
 };
 
-fn compute_siloed_hash(contract_address: AztecAddress, inner_note_hash: Field) -> Field {
-    let inputs = [contract_address.to_field(), inner_note_hash];
+fn compute_siloed_hash(contract_address: AztecAddress, non_siloed_note_hash: Field) -> Field {
+    let inputs = [contract_address.to_field(), non_siloed_note_hash];
     pedersen_hash(inputs, GENERATOR_INDEX__SILOED_NOTE_HASH)
 }
 
@@ -16,7 +16,7 @@ fn compute_unique_hash(nonce: Field, siloed_note_hash: Field) -> Field {
     pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
-fn compute_inner_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
+fn compute_non_siloed_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
     let header = note.get_header();
     let note_hash = note.compute_note_content_hash();
 
@@ -27,9 +27,9 @@ fn compute_inner_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterfa
 fn compute_siloed_note_hash<Note, N>(note_with_header: Note) -> Field where Note: NoteInterface<N> {
     let header = note_with_header.get_header();
 
-    let inner_note_hash = compute_inner_note_hash(note_with_header);
+    let non_siloed_note_hash = compute_non_siloed_note_hash(note_with_header);
 
-    compute_siloed_hash(header.contract_address, inner_note_hash)
+    compute_siloed_hash(header.contract_address, non_siloed_note_hash)
 }
 
 fn compute_unique_siloed_note_hash<Note, N>(note_with_header: Note) -> Field where Note: NoteInterface<N> {
@@ -45,14 +45,14 @@ pub fn compute_siloed_nullifier<Note, N>(
     context: &mut PrivateContext
 ) -> Field where Note: NoteInterface<N> {
     let header = note_with_header.get_header();
-    let inner_nullifier = note_with_header.compute_nullifier(context);
+    let non_siloed_nullifier = note_with_header.compute_nullifier(context);
 
-    let input = [header.contract_address.to_field(), inner_nullifier];
+    let input = [header.contract_address.to_field(), non_siloed_nullifier];
     pedersen_hash(input, GENERATOR_INDEX__OUTER_NULLIFIER)
 }
 
 pub fn compute_note_hash_for_insertion<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
-    compute_inner_note_hash(note)
+    compute_non_siloed_note_hash(note)
 }
 
 pub fn compute_note_hash_for_consumption<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
@@ -63,8 +63,8 @@ pub fn compute_note_hash_for_consumption<Note, N>(note: Note) -> Field where Not
     // 3. The note was inserted in a previous transaction, and was inserted in private
 
     if (header.is_transient) {
-        // If a note is transient, we just read the inner_note_hash (kernel will silo by contract address).
-        compute_inner_note_hash(note)
+        // If a note is transient, we just read the non_siloed_note_hash (kernel will silo by contract address).
+        compute_non_siloed_note_hash(note)
     } else if (header.nonce == 0) {
         // If not transient and nonce is zero, that means we are reading a public note.
         compute_siloed_note_hash(note)
@@ -95,14 +95,14 @@ pub fn compute_note_hash_and_nullifier<T, N, S>(
     // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
     T::set_header((&mut note), note_header);
 
-    let inner_note_hash = compute_inner_note_hash(note);
+    let non_siloed_note_hash = compute_non_siloed_note_hash(note);
 
-    let siloed_note_hash = compute_siloed_hash(note_header.contract_address, inner_note_hash);
+    let siloed_note_hash = compute_siloed_hash(note_header.contract_address, non_siloed_note_hash);
 
     let unique_siloed_note_hash = compute_unique_hash(note_header.nonce, siloed_note_hash);
 
-    let inner_nullifier = note.compute_nullifier_without_context();
+    let non_siloed_nullifier = note.compute_nullifier_without_context();
     // docs:start:compute_note_hash_and_nullifier_returns
-    [inner_note_hash, siloed_note_hash, unique_siloed_note_hash, inner_nullifier]
+    [non_siloed_note_hash, siloed_note_hash, unique_siloed_note_hash, non_siloed_nullifier]
     // docs:end:compute_note_hash_and_nullifier_returns
 }

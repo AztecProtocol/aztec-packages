@@ -83,12 +83,12 @@ export class SimulatorOracle implements DBOracle {
       storageSlot,
       status,
     });
-    return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
+    return noteDaos.map(({ contractAddress, storageSlot, nonce, note, nonSiloedNoteHash, siloedNullifier, index }) => ({
       contractAddress,
       storageSlot,
       nonce,
       note,
-      innerNoteHash,
+      nonSiloedNoteHash,
       siloedNullifier,
       // PXE can use this index to get full MembershipWitness
       index,

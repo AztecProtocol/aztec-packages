@@ -61,8 +61,8 @@ describe('hash', () => {
 
   it('computes siloed nullifier', () => {
     const contractAddress = new AztecAddress(new Fr(123n).toBuffer());
-    const innerNullifier = new Fr(456);
-    const res = siloNullifier(contractAddress, innerNullifier);
+    const nonSiloedNullifier = new Fr(456);
+    const res = siloNullifier(contractAddress, nonSiloedNullifier);
     expect(res).toMatchSnapshot();
   });
 

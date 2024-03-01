@@ -29,7 +29,7 @@ export async function produceNoteDao(
   dataStartIndexForTx: number,
   excludedIndices: Set<number>,
 ): Promise<NoteDao> {
-  const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
+  const { commitmentIndex, nonce, nonSiloedNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
     simulator,
     newNoteHashes,
     txHash,
@@ -45,7 +45,7 @@ export async function produceNoteDao(
     payload.noteTypeId,
     txHash,
     nonce,
-    innerNoteHash,
+    nonSiloedNoteHash,
     siloedNullifier,
     index,
     publicKey,
@@ -76,10 +76,10 @@ async function findNoteIndexAndNullifier(
 ) {
   let commitmentIndex = 0;
   let nonce: Fr | undefined;
-  let innerNoteHash: Fr | undefined;
+  let nonSiloedNoteHash: Fr | undefined;
   let siloedNoteHash: Fr | undefined;
   let uniqueSiloedNoteHash: Fr | undefined;
-  let innerNullifier: Fr | undefined;
+  let nonSiloedNullifier: Fr | undefined;
   const firstNullifier = Fr.fromBuffer(txHash.toBuffer());
 
   for (; commitmentIndex < commitments.length; ++commitmentIndex) {
@@ -93,7 +93,7 @@ async function findNoteIndexAndNullifier(
     }
 
     const expectedNonce = computeCommitmentNonce(firstNullifier, commitmentIndex);
-    ({ innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
+    ({ nonSiloedNoteHash, siloedNoteHash, uniqueSiloedNoteHash, nonSiloedNullifier } =
       await simulator.computeNoteHashAndNullifier(contractAddress, expectedNonce, storageSlot, noteTypeId, note));
     if (commitment.equals(uniqueSiloedNoteHash)) {
       nonce = expectedNonce;
@@ -126,7 +126,7 @@ https://github.com/AztecProtocol/aztec-packages/issues/1641`;
   return {
     commitmentIndex,
     nonce,
-    innerNoteHash: innerNoteHash!,
-    siloedNullifier: siloNullifier(contractAddress, innerNullifier!),
+    nonSiloedNoteHash: nonSiloedNoteHash!,
+    siloedNullifier: siloNullifier(contractAddress, nonSiloedNullifier!),
   };
 }

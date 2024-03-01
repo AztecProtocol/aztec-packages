@@ -36,20 +36,20 @@ export class ExecutionNoteCache {
    * Add a nullifier to cache. It could be for a db note or a new note created during execution.
    * @param contractAddress - Contract address of the note.
    * @param storageSlot - Storage slot of the note.
-   * @param innerNullifier - Inner nullifier of the note.
-   * @param innerNoteHash - Inner note hash of the note. If this value equals 0, it means the
+   * @param nonSiloedNullifier - Inner nullifier of the note.
+   * @param nonSiloedNoteHash - Inner note hash of the note. If this value equals 0, it means the
    * note being nullified is from a previous transaction (and thus not a new note).
    */
-  public nullifyNote(contractAddress: AztecAddress, innerNullifier: Fr, innerNoteHash: Fr) {
-    const siloedNullifier = siloNullifier(contractAddress, innerNullifier);
+  public nullifyNote(contractAddress: AztecAddress, nonSiloedNullifier: Fr, nonSiloedNoteHash: Fr) {
+    const siloedNullifier = siloNullifier(contractAddress, nonSiloedNullifier);
     const nullifiers = this.getNullifiers(contractAddress);
     nullifiers.add(siloedNullifier.value);
     this.nullifiers.set(contractAddress.toBigInt(), nullifiers);
 
-    // Find and remove the matching new note if the emitted innerNoteHash is not empty.
-    if (!innerNoteHash.equals(Fr.ZERO)) {
+    // Find and remove the matching new note if the emitted nonSiloedNoteHash is not empty.
+    if (!nonSiloedNoteHash.equals(Fr.ZERO)) {
       const notes = this.newNotes.get(contractAddress.toBigInt()) ?? [];
-      const noteIndexToRemove = notes.findIndex(n => n.innerNoteHash.equals(innerNoteHash));
+      const noteIndexToRemove = notes.findIndex(n => n.nonSiloedNoteHash.equals(nonSiloedNoteHash));
       if (noteIndexToRemove === -1) {
         throw new Error('Attempt to remove a pending note that does not exist.');
       }
@@ -73,11 +73,11 @@ export class ExecutionNoteCache {
    * Check if a note exists in the newNotes array.
    * @param contractAddress - Contract address of the note.
    * @param storageSlot - Storage slot of the note.
-   * @param innerNoteHash - Inner note hash of the note.
+   * @param nonSiloedNoteHash - Inner note hash of the note.
    **/
-  public checkNoteExists(contractAddress: AztecAddress, innerNoteHash: Fr) {
+  public checkNoteExists(contractAddress: AztecAddress, nonSiloedNoteHash: Fr) {
     const notes = this.newNotes.get(contractAddress.toBigInt()) ?? [];
-    return notes.some(n => n.innerNoteHash.equals(innerNoteHash));
+    return notes.some(n => n.nonSiloedNoteHash.equals(nonSiloedNoteHash));
   }
 
   /**

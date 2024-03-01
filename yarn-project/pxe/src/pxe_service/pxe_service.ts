@@ -288,14 +288,18 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
-        await this.simulator.computeNoteHashAndNullifier(
-          note.contractAddress,
-          nonce,
-          note.storageSlot,
-          note.noteTypeId,
-          note.note,
-        );
+      const {
+        nonSiloedNoteHash,
+        siloedNoteHash,
+        uniqueSiloedNoteHash,
+        nonSiloedNullifier: nonSiloedNullifier,
+      } = await this.simulator.computeNoteHashAndNullifier(
+        note.contractAddress,
+        nonce,
+        note.storageSlot,
+        note.noteTypeId,
+        note.note,
+      );
 
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
       // This can always be `uniqueSiloedNoteHash` once notes added from public also include nonces.
@@ -305,7 +309,7 @@ export class PXEService implements PXE {
         throw new Error('Note does not exist.');
       }
 
-      const siloedNullifier = siloNullifier(note.contractAddress, innerNullifier!);
+      const siloedNullifier = siloNullifier(note.contractAddress, nonSiloedNullifier!);
       const nullifierIndex = await this.node.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, siloedNullifier);
       if (nullifierIndex !== undefined) {
         throw new Error('The note has been destroyed.');
@@ -319,7 +323,7 @@ export class PXEService implements PXE {
           note.noteTypeId,
           note.txHash,
           nonce,
-          innerNoteHash,
+          nonSiloedNoteHash,
           siloedNullifier,
           index,
           publicKey,

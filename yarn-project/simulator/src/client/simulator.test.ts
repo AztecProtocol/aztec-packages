@@ -51,10 +51,10 @@ describe('Simulator', () => {
 
       const note = createNote();
       const tokenNoteHash = hashFields(note.items);
-      const innerNoteHash = hashFields([storageSlot, tokenNoteHash]);
-      const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
+      const nonSiloedNoteHash = hashFields([storageSlot, tokenNoteHash]);
+      const siloedNoteHash = siloNoteHash(contractAddress, nonSiloedNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(nonce, siloedNoteHash);
-      const innerNullifier = hashFields([
+      const nonSiloedNullifier = hashFields([
         uniqueSiloedNoteHash,
         ownerNullifierSecretKey.low,
         ownerNullifierSecretKey.high,
@@ -63,10 +63,10 @@ describe('Simulator', () => {
       const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note);
 
       expect(result).toEqual({
-        innerNoteHash,
+        nonSiloedNoteHash,
         siloedNoteHash,
         uniqueSiloedNoteHash,
-        innerNullifier,
+        nonSiloedNullifier,
       });
     });
 

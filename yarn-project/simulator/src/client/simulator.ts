@@ -204,17 +204,17 @@ export class AcirSimulator {
       args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, extendedNoteItems]),
     };
 
-    const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(
+    const [nonSiloedNoteHash, siloedNoteHash, uniqueSiloedNoteHash, nonSiloedNullifier] = (await this.runUnconstrained(
       execRequest,
       artifact,
       contractAddress,
     )) as bigint[];
 
     return {
-      innerNoteHash: new Fr(innerNoteHash),
+      nonSiloedNoteHash: new Fr(nonSiloedNoteHash),
       siloedNoteHash: new Fr(siloedNoteHash),
       uniqueSiloedNoteHash: new Fr(uniqueSiloedNoteHash),
-      innerNullifier: new Fr(innerNullifier),
+      nonSiloedNullifier: new Fr(nonSiloedNullifier),
     };
   }
 
@@ -226,15 +226,15 @@ export class AcirSimulator {
    * @param note - The note.
    * @returns The note hash.
    */
-  public async computeInnerNoteHash(contractAddress: AztecAddress, storageSlot: Fr, noteTypeId: Fr, note: Note) {
-    const { innerNoteHash } = await this.computeNoteHashAndNullifier(
+  public async computeNonSiloedNoteHash(contractAddress: AztecAddress, storageSlot: Fr, noteTypeId: Fr, note: Note) {
+    const { nonSiloedNoteHash } = await this.computeNoteHashAndNullifier(
       contractAddress,
       Fr.ZERO,
       storageSlot,
       noteTypeId,
       note,
     );
-    return innerNoteHash;
+    return nonSiloedNoteHash;
   }
 
   /**
@@ -298,20 +298,20 @@ export class AcirSimulator {
    * @param note - The note.
    * @returns The note hash.
    */
-  public async computeInnerNullifier(
+  public async computeNonSiloedNullifier(
     contractAddress: AztecAddress,
     nonce: Fr,
     storageSlot: Fr,
     noteTypeId: Fr,
     note: Note,
   ) {
-    const { innerNullifier } = await this.computeNoteHashAndNullifier(
+    const { nonSiloedNullifier } = await this.computeNoteHashAndNullifier(
       contractAddress,
       nonce,
       storageSlot,
       noteTypeId,
       note,
     );
-    return innerNullifier;
+    return nonSiloedNullifier;
   }
 }

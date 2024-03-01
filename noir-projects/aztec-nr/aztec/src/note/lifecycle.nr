@@ -17,7 +17,7 @@ pub fn create_note<Note, N>(
     // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
     Note::set_header(note, header);
     // As `is_transient` is true, this will compute the inner note hsah
-    let inner_note_hash = compute_note_hash_for_insertion(*note);
+    let note_hash = compute_note_hash_for_insertion(*note);
 
     // TODO: Strong typing required because of https://github.com/noir-lang/noir/issues/4088
     let serialized_note: [Field; N] = Note::serialize_content(*note);
@@ -26,12 +26,12 @@ pub fn create_note<Note, N>(
         storage_slot,
         Note::get_note_type_id(),
         serialized_note,
-        inner_note_hash
+        note_hash
     )
         == 0
     );
 
-    context.push_new_note_hash(inner_note_hash);
+    context.push_new_note_hash(note_hash);
 
     if broadcast {
         Note::broadcast(*note, context, storage_slot);
@@ -48,9 +48,9 @@ pub fn create_note_hash_from_public<Note, N>(
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true };
     // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
     Note::set_header(note, header);
-    let inner_note_hash = compute_note_hash_for_insertion(*note);
+    let note_hash = compute_note_hash_for_insertion(*note);
 
-    context.push_new_note_hash(inner_note_hash);
+    context.push_new_note_hash(note_hash);
 }
 
 pub fn destroy_note<Note, N>(context: &mut PrivateContext, note: Note) where Note: NoteInterface<N> {
