@@ -1,15 +1,15 @@
 import { AztecAddress, AztecNode, CompleteAddress, DebugLogger, Fr, TxStatus, Wallet } from '@aztec/aztec.js';
-import { PendingCommitmentsContract } from '@aztec/noir-contracts.js/PendingCommitments';
+import { PendingNoteHashesContract } from '@aztec/noir-contracts.js/PendingNoteHashes';
 
 import { setup } from './fixtures/utils.js';
 
-describe('e2e_pending_commitments_contract', () => {
+describe('e2e_pending_note_hashes_contract', () => {
   let aztecNode: AztecNode;
   let wallet: Wallet;
   let logger: DebugLogger;
   let owner: AztecAddress;
   let teardown: () => Promise<void>;
-  let contract: PendingCommitmentsContract;
+  let contract: PendingNoteHashesContract;
 
   beforeEach(async () => {
     let accounts: CompleteAddress[];
@@ -53,7 +53,7 @@ describe('e2e_pending_commitments_contract', () => {
 
   const deployContract = async () => {
     logger(`Deploying L2 contract...`);
-    contract = await PendingCommitmentsContract.deploy(wallet).send().deployed();
+    contract = await PendingNoteHashesContract.deploy(wallet).send().deployed();
     logger('L2 contract deployed');
     return contract;
   };
