@@ -22,7 +22,7 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-using ProverInstance = typename UltraComposer::ProverInstance;
+using ProverInstance = ProverInstance_<UltraFlavor>;
 
 std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> variables)
 {
@@ -36,7 +36,7 @@ std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> v
 void prove_and_verify(auto& circuit_builder, auto& composer, bool expected_result)
 {
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
-    auto prover = composer.create_prover(instance);
+    UltraProver prover(instance);
     auto verifier = composer.create_verifier(instance->verification_key);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
@@ -68,9 +68,8 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
-    auto composer = UltraComposer();
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
-    auto prover = composer.create_prover(instance);
+    UltraProver prover(instance);
     auto proof = prover.construct_proof();
     auto proving_key = instance->proving_key;
 
@@ -201,7 +200,7 @@ TEST_F(UltraHonkComposerTests, create_gates_from_plookup_accumulators)
     }
     auto composer = UltraComposer();
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
-    auto prover = composer.create_prover(instance);
+    UltraProver prover(instance);
     auto verifier = composer.create_verifier(instance->verification_key);
     auto proof = prover.construct_proof();
 

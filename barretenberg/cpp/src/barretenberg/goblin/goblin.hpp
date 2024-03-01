@@ -11,6 +11,7 @@
 #include "barretenberg/ultra_honk/merge_prover.hpp"
 #include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 
 namespace bb {
 
@@ -103,9 +104,8 @@ class Goblin {
         }
 
         // Construct a Honk proof for the main circuit
-        GoblinUltraComposer composer;
         auto instance = std::make_shared<GoblinUltraProverInstance>(circuit_builder);
-        auto prover = composer.create_prover(instance);
+        GoblinUltraProver prover(instance);
         auto ultra_proof = prover.construct_proof();
 
         // Construct and store the merge proof to be recursively verified on the next call to accumulate
@@ -229,9 +229,8 @@ class Goblin {
         // }
 
         // Construct a Honk proof for the main circuit
-        GoblinUltraComposer composer;
         auto instance = std::make_shared<GoblinUltraProverInstance>(circuit_builder);
-        auto prover = composer.create_prover(instance);
+        GoblinUltraProver prover(instance);
         auto ultra_proof = prover.construct_proof();
 
         accumulator = { ultra_proof, instance->verification_key };

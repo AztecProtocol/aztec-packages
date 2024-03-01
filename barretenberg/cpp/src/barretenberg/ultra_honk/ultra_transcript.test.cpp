@@ -131,9 +131,8 @@ TEST_F(UltraTranscriptTests, ProverManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto composer = UltraComposer();
     auto instance = std::make_shared<ProverInstance>(builder);
-    auto prover = composer.create_prover(instance);
+    UltraProver prover(instance);
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
@@ -160,7 +159,7 @@ TEST_F(UltraTranscriptTests, VerifierManifestConsistency)
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto composer = UltraComposer();
     auto instance = std::make_shared<ProverInstance>(builder);
-    auto prover = composer.create_prover(instance);
+    UltraProver prover(instance);
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
@@ -211,7 +210,7 @@ TEST_F(UltraTranscriptTests, StructureTest)
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = UltraComposer();
     auto instance = std::make_shared<ProverInstance>(builder);
-    auto prover = composer.create_prover(instance);
+    UltraProver prover(instance);
     auto proof = prover.construct_proof();
     auto verifier = composer.create_verifier(instance->verification_key);
     EXPECT_TRUE(verifier.verify_proof(proof));

@@ -48,24 +48,22 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
 }
 
 // ultrahonk
-inline UltraProver get_prover(UltraComposer& composer,
+inline UltraProver get_prover([[maybe_unused]] UltraComposer& composer,
                               void (*test_circuit_function)(UltraComposer::CircuitBuilder&, size_t),
                               size_t num_iterations)
 {
     UltraComposer::CircuitBuilder builder;
     test_circuit_function(builder, num_iterations);
-    auto instance = std::make_shared<UltraComposer::ProverInstance>(builder);
-    return composer.create_prover(instance);
+    return UltraProver(builder);
 }
 
-inline GoblinUltraProver get_prover(GoblinUltraComposer& composer,
+inline GoblinUltraProver get_prover([[maybe_unused]] GoblinUltraComposer& composer,
                                     void (*test_circuit_function)(GoblinUltraComposer::CircuitBuilder&, size_t),
                                     size_t num_iterations)
 {
     GoblinUltraComposer::CircuitBuilder builder;
     test_circuit_function(builder, num_iterations);
-    auto instance = std::make_shared<GoblinUltraComposer::ProverInstance>(builder);
-    return composer.create_prover(instance);
+    return GoblinUltraProver(builder);
 }
 
 // standard plonk

@@ -25,9 +25,6 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
     using ProverInstances = ProverInstances_<Flavor>;
     using VerifierInstances = VerifierInstances_<Flavor>;
 
-    UltraProver_<Flavor> create_prover(const std::shared_ptr<ProverInstance>&,
-                                       const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-
     UltraVerifier_<Flavor> create_verifier(
         const std::shared_ptr<VerificationKey>&,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());

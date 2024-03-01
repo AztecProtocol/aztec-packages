@@ -24,6 +24,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = GoblinUltraFlavor;
     using InnerComposer = GoblinUltraComposer;
+    using InnerProver = GoblinUltraProver;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerCurve = bn254<InnerBuilder>;
@@ -34,6 +35,8 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
     using OuterBuilder = BuilderType;
     using OuterFlavor =
         std::conditional_t<std::same_as<BuilderType, GoblinUltraCircuitBuilder>, GoblinUltraFlavor, UltraFlavor>;
+    using OuterProver =
+        std::conditional_t<std::same_as<BuilderType, GoblinUltraCircuitBuilder>, GoblinUltraProver, UltraProver>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
     using RecursiveFlavor = GoblinUltraRecursiveFlavor_<OuterBuilder>;
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
@@ -151,9 +154,8 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         OuterBuilder outer_circuit;
 
         // Compute native verification key
-        InnerComposer inner_composer;
         auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
-        auto prover = inner_composer.create_prover(instance); // A prerequisite for computing VK
+        InnerProver prover(instance); // A prerequisite for computing VK
         auto verification_key = instance->verification_key;
         // Instantiate the recursive verifier using the native verification key
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
@@ -181,7 +183,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         // Generate a proof over the inner circuit
         InnerComposer inner_composer;
         auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
-        auto inner_prover = inner_composer.create_prover(instance);
+        InnerProver inner_prover(instance);
         auto inner_proof = inner_prover.construct_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
@@ -213,7 +215,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         {
             auto composer = get_outer_composer<OuterBuilder>();
             auto instance = std::make_shared<OuterProverInstance>(outer_circuit);
-            auto prover = composer.create_prover(instance);
+            OuterProver prover(instance);
             auto verifier = composer.create_verifier(instance->verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
@@ -234,9 +236,8 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         auto inner_circuit = create_inner_circuit();
 
         // Generate a proof over the inner circuit
-        InnerComposer inner_composer;
         auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
-        auto inner_prover = inner_composer.create_prover(instance);
+        InnerProver inner_prover(instance);
         auto inner_proof = inner_prover.construct_proof();
 
         // Arbitrarily tamper with the proof to be verified

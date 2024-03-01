@@ -83,7 +83,7 @@ class RecursiveMergeVerifierTest : public testing::Test {
         {
             GoblinUltraComposer composer;
             auto instance = std::make_shared<InnerProverInstance>(outer_circuit);
-            auto prover = composer.create_prover(instance);
+            GoblinUltraProver prover(instance);
             auto verifier = composer.create_verifier(instance->verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
