@@ -45,14 +45,13 @@ describe('e2e_non_contract_account', () => {
     const contractWithNoContractWallet = await TestContract.at(contract.address, nonContractAccountWallet);
 
     // Send transaction as arbitrary non-contract account
-    const { debugInfo } = await contractWithNoContractWallet.methods
-      .emit_msg_sender()
-      .send()
-      .wait({ interval: 0.1, debug: true });
+    const tx = contractWithNoContractWallet.methods.emit_msg_sender().send();
+    await tx.wait({ interval: 0.1 });
 
-    const logs = debugInfo!.unencryptedLogs;
+    const logs = (await tx.getUnencryptedLogs()).logs;
     expect(logs.length).toBe(1);
-    const msgSender = toBigInt(logs[0]);
+
+    const msgSender = toBigInt(logs[0].log.data);
     expect(msgSender).toBe(0n);
   }, 120_000);
 
@@ -62,10 +61,13 @@ describe('e2e_non_contract_account', () => {
   it('can set and get a constant', async () => {
     const value = 123n;
 
-    const receipt = await contract.methods.set_constant(value).send().wait({ interval: 0.1, debug: true });
+    const { txHash, debugInfo } = await contract.methods
+      .set_constant(value)
+      .send()
+      .wait({ interval: 0.1, debug: true });
 
     // check that 1 note hash was created
-    expect(receipt.debugInfo!.noteHashes.length).toBe(1);
+    expect(debugInfo!.noteHashes.length).toBe(1);
 
     // Add the note
     const note = new Note([new Fr(value)]);
@@ -78,7 +80,7 @@ describe('e2e_non_contract_account', () => {
       contract.address,
       storageSlot,
       noteTypeId,
-      receipt.txHash,
+      txHash,
     );
     await wallet.addNote(extendedNote);
 
