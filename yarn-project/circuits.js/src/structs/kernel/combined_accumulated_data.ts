@@ -162,7 +162,7 @@ export class CombinedAccumulatedData {
     /**
      * All the read requests made in this transaction.
      */
-    public readRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    public noteHashReadRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     /**
      * All the nullifier read requests made in this transaction.
      */
@@ -228,7 +228,7 @@ export class CombinedAccumulatedData {
 
   toBuffer() {
     return serializeToBuffer(
-      this.readRequests,
+      this.noteHashReadRequests,
       this.nullifierReadRequests,
       this.nullifierKeyValidationRequests,
       this.newNoteHashes,
@@ -360,7 +360,7 @@ export class CombinedAccumulatedData {
     );
 
     return new CombinedAccumulatedData(
-      revertible.readRequests,
+      revertible.noteHashReadRequests,
       revertible.nullifierReadRequests,
       revertible.nullifierKeyValidationRequests,
       newNoteHashes,
@@ -384,7 +384,7 @@ export class PublicAccumulatedRevertibleData {
     /**
      * All the read requests made in this transaction.
      */
-    public readRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    public noteHashReadRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     /**
      * All the read requests for nullifiers made in this transaction.
      */
@@ -453,7 +453,7 @@ export class PublicAccumulatedRevertibleData {
 
   toBuffer() {
     return serializeToBuffer(
-      this.readRequests,
+      this.noteHashReadRequests,
       this.nullifierKeyValidationRequests,
       this.newNoteHashes,
       this.newNullifiers,

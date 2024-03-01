@@ -10,9 +10,9 @@ import {
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
 import { MembershipWitness } from '../membership_witness.js';
+import { NoteHashReadRequestMembershipWitness } from '../note_hash_read_request_membership_witness.js';
 import { PrivateCallStackItem } from '../private_call_stack_item.js';
 import { Proof } from '../proof.js';
-import { ReadRequestMembershipWitness } from '../read_request_membership_witness.js';
 import { VerificationKey } from '../verification_key.js';
 
 /**
@@ -63,8 +63,8 @@ export class PrivateCallData {
     /**
      * The membership witnesses for read requests created by the function being invoked.
      */
-    public readRequestMembershipWitnesses: Tuple<
-      ReadRequestMembershipWitness,
+    public noteHashReadRequestMembershipWitnesses: Tuple<
+      NoteHashReadRequestMembershipWitness,
       typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
     >,
     /**
@@ -94,7 +94,7 @@ export class PrivateCallData {
       fields.publicKeysHash,
       fields.saltedInitializationHash,
       fields.functionLeafMembershipWitness,
-      fields.readRequestMembershipWitnesses,
+      fields.noteHashReadRequestMembershipWitnesses,
       fields.portalContractAddress,
       fields.acirHash,
     ] as const;
@@ -130,7 +130,7 @@ export class PrivateCallData {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(MembershipWitness.deserializer(FUNCTION_TREE_HEIGHT)),
-      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequestMembershipWitness),
+      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, NoteHashReadRequestMembershipWitness),
       reader.readObject(Fr),
       reader.readObject(Fr),
     );

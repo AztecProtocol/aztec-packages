@@ -52,7 +52,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * Read requests created by the corresponding function call.
      */
-    public readRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    public noteHashReadRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     /**
      * Nullifier read requests created by the corresponding function call.
      */
@@ -238,7 +238,7 @@ export class PrivateCircuitPublicInputs {
       this.argsHash.isZero() &&
       isZeroArray(this.returnValues) &&
       this.minRevertibleSideEffectCounter.isZero() &&
-      isEmptyArray(this.readRequests) &&
+      isEmptyArray(this.noteHashReadRequests) &&
       isEmptyArray(this.nullifierReadRequests) &&
       isEmptyArray(this.nullifierKeyValidationRequests) &&
       isEmptyArray(this.newNoteHashes) &&
@@ -268,7 +268,7 @@ export class PrivateCircuitPublicInputs {
       fields.argsHash,
       fields.returnValues,
       fields.minRevertibleSideEffectCounter,
-      fields.readRequests,
+      fields.noteHashReadRequests,
       fields.nullifierReadRequests,
       fields.nullifierKeyValidationRequests,
       fields.newNoteHashes,

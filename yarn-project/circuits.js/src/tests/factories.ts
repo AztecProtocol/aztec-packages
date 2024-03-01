@@ -74,6 +74,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_FIELDS_PER_SHA256,
   NewContractData,
+  NoteHashReadRequestMembershipWitness,
   NullifierKeyValidationRequest,
   NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
@@ -108,7 +109,6 @@ import {
   ROLLUP_VK_TREE_HEIGHT,
   ReadRequest,
   ReadRequestContext,
-  ReadRequestMembershipWitness,
   RollupTypes,
   RootRollupInputs,
   RootRollupPublicInputs,
@@ -557,8 +557,8 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
  * @param start - The start of the membership witness.
  * @returns A non-transient read request membership witness.
  */
-export function makeReadRequestMembershipWitness(start: number): ReadRequestMembershipWitness {
-  return new ReadRequestMembershipWitness(
+export function makeNoteHashReadRequestMembershipWitness(start: number): NoteHashReadRequestMembershipWitness {
+  return new NoteHashReadRequestMembershipWitness(
     new Fr(start),
     makeTuple(NOTE_HASH_TREE_HEIGHT, fr, start + 1),
     false,
@@ -571,8 +571,13 @@ export function makeReadRequestMembershipWitness(start: number): ReadRequestMemb
  * @param start - The start of the membership witness.
  * @returns Non-transient empty read request membership witness.
  */
-export function makeEmptyReadRequestMembershipWitness(): ReadRequestMembershipWitness {
-  return new ReadRequestMembershipWitness(new Fr(0), makeTuple(NOTE_HASH_TREE_HEIGHT, Fr.zero), false, new Fr(0));
+export function makeEmptyNoteHashReadRequestMembershipWitness(): NoteHashReadRequestMembershipWitness {
+  return new NoteHashReadRequestMembershipWitness(
+    new Fr(0),
+    makeTuple(NOTE_HASH_TREE_HEIGHT, Fr.zero),
+    false,
+    new Fr(0),
+  );
 }
 
 /**
@@ -812,9 +817,9 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
     publicKeysHash: fr(seed + 0x72),
     saltedInitializationHash: fr(seed + 0x73),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
-    readRequestMembershipWitnesses: makeTuple(
+    noteHashReadRequestMembershipWitnesses: makeTuple(
       MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-      makeReadRequestMembershipWitness,
+      makeNoteHashReadRequestMembershipWitness,
       seed + 0x70,
     ),
     portalContractAddress: makeEthAddress(seed + 0x40).toField(),
@@ -855,7 +860,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
     minRevertibleSideEffectCounter: fr(0),
-    readRequests: makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, sideEffectFromNumber, seed + 0x300),
+    noteHashReadRequests: makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, sideEffectFromNumber, seed + 0x300),
     nullifierReadRequests: makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, readRequestFromNumber, seed + 0x310),
     nullifierKeyValidationRequests: makeTuple(
       MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,

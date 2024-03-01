@@ -3,7 +3,7 @@ use dep::types::{
     abis::{
     call_request::CallRequest, accumulated_data::CombinedAccumulatedData, function_data::FunctionData,
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsBuilder,
-    membership_witness::ReadRequestMembershipWitness, new_contract_data::NewContractData,
+    membership_witness::NoteHashReadRequestMembershipWitness, new_contract_data::NewContractData,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     private_kernel::private_call_data::PrivateCallData,
     kernel_data::{PrivateKernelInnerData, PrivateKernelTailData},
@@ -55,7 +55,7 @@ pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
 pub fn validate_note_hash_read_requests(
     historical_note_hash_tree_root: Field,
     read_requests: [SideEffect; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    read_request_membership_witnesses: [ReadRequestMembershipWitness; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
+    read_request_membership_witnesses: [NoteHashReadRequestMembershipWitness; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 ) {
     // membership witnesses must resolve to the same note hash tree root
     // for every request in all kernel iterations

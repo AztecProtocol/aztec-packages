@@ -2,7 +2,7 @@ use crate::{
     abis::{
     call_request::{CallerContext, CallRequest}, private_call_stack_item::PrivateCallStackItem,
     function_data::FunctionData,
-    membership_witness::{ContractLeafMembershipWitness, FunctionLeafMembershipWitness, ReadRequestMembershipWitness},
+    membership_witness::{ContractLeafMembershipWitness, FunctionLeafMembershipWitness, NoteHashReadRequestMembershipWitness},
     private_circuit_public_inputs::{PrivateCircuitPublicInputs},
     private_kernel::private_call_data::PrivateCallData
 },
@@ -35,7 +35,7 @@ struct PrivateCallDataBuilder {
     contract_class_artifact_hash: Field,
     contract_class_public_bytecode_commitment: Field,
     function_leaf_membership_witness: FunctionLeafMembershipWitness,
-    note_hash_read_request_membership_witnesses: BoundedVec<ReadRequestMembershipWitness, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    note_hash_read_request_membership_witnesses: BoundedVec<NoteHashReadRequestMembershipWitness, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     portal_contract_address: EthAddress,
     acir_hash: Field,
 }
