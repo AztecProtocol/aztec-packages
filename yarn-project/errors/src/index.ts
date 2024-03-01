@@ -68,4 +68,12 @@ export class ArchiverError extends BaseError {
   static contractDataNotFound(blockNumber: number, txIndex: number): ArchiverError {
     return new ArchiverError(`Contract data not found. Block number: ${blockNumber}, tx-index: ${txIndex}`);
   }
+
+  static bodyNotFound(txsHash: Buffer): ArchiverError {
+    return new ArchiverError(`Block body not found. TxsHash: ${txsHash.toString('hex')}`);
+  }
+
+  static inconsistentSizes(sizeA: number, sizeB: number): ArchiverError {
+    return new ArchiverError(`Inconsistent sizes. ${sizeA} != ${sizeB}`);
+  }
 }

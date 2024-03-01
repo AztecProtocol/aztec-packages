@@ -107,7 +107,7 @@ export class BlockStore {
     const body = this.#blockBodyStore.getBlockBody(header.contentCommitment.txsHash);
 
     if (body === undefined) {
-      throw new Error('Body is not able to be retrieved from BodyStore');
+      throw ArchiverError.bodyNotFound(header.contentCommitment.txsHash);
     }
 
     return L2Block.fromFields({

@@ -148,12 +148,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
     const blockBodies = txsHashes.map(txsHash => this.l2BlockBodies.get(txsHash.toString('hex')));
-
-    if (blockBodies.some(bodyBuffer => bodyBuffer === undefined)) {
-      throw new Error('Block body is undefined');
-    }
-
-    return Promise.resolve(blockBodies as Body[]);
+    return Promise.resolve(
+      blockBodies.map((blockBody, index) => {
+        if (blockBody === undefined) {
+          throw ArchiverError.bodyNotFound(txsHashes[index]);
+        }
+        return blockBody;
+      }),
+    );
   }
 
   /**

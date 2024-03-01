@@ -267,7 +267,7 @@ export class Archiver implements ArchiveSource {
     const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
 
     if (retrievedBlockMetadata.retrievedData.length !== blockBodiesFromStore.length) {
-      throw new Error('Block headers length does not equal block bodies length');
+      throw ArchiverError.inconsistentSizes(retrievedBlockMetadata.retrievedData.length, blockBodiesFromStore.length);
     }
 
     const retrievedBlocks = {

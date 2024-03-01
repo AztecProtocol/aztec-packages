@@ -1,4 +1,5 @@
 import { Body } from '@aztec/circuit-types';
+import { ArchiverError } from '@aztec/errors';
 import { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
 export class BlockBodyStore {
@@ -33,12 +34,12 @@ export class BlockBodyStore {
     const blockBodiesBuffer = await this.db.transaction(() =>
       txsHashes.map(txsHash => this.#blockBodies.get(txsHash.toString('hex'))),
     );
-
-    if (blockBodiesBuffer.some(bodyBuffer => bodyBuffer === undefined)) {
-      throw new Error('Block body buffer is undefined');
-    }
-
-    return blockBodiesBuffer.map(blockBodyBuffer => Body.fromBuffer(blockBodyBuffer!));
+    return blockBodiesBuffer.map((blockBodyBuffer, index) => {
+      if (blockBodyBuffer === undefined) {
+        throw ArchiverError.bodyNotFound(txsHashes[index]);
+      }
+      return Body.fromBuffer(blockBodyBuffer);
+    });
   }
 
   /**
