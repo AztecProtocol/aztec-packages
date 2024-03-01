@@ -8,6 +8,10 @@ major=${node_version%%.*}
 rest=${node_version#*.}
 minor=${rest%%.*}
 
+YELLOW="\033[93m"
+BOLD="\033[1m"
+RESET="\033[0m"
+
 if ((major < 18 || (major == 18 && minor < 19))); then
   echo "Node.js version is less than 18.19. Exiting."
   exit 1
@@ -27,8 +31,12 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
+# Fast build does not delete everything first.
+# It regenerates all generated code, then performs an incremental tsc build.
+echo -e "${YELLOW}${BOLD}Performing fast incremental build. If this has any issues, run 'yarn build'.${RESET}"
+echo
 yarn install --immutable
-yarn build
+yarn build:fast
 
 echo
 echo "Yarn project successfully built."
