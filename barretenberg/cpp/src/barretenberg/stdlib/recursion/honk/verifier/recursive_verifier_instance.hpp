@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/instance/verifier_instance.hpp"
@@ -46,7 +47,9 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     RecursiveVerifierInstance_(Builder* builder, std::shared_ptr<NativeVerificationKey> vk)
         : builder(builder)
         , verification_key(std::make_shared<VerificationKey>(builder, vk))
-    {}
+    {
+        verification_key->pcs_verification_key = vk->pcs_verification_key;
+    }
 
     RecursiveVerifierInstance_(Builder* builder, const std::shared_ptr<VerifierInstance>& instance)
         : pub_inputs_offset((instance->pub_inputs_offset))
@@ -63,6 +66,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
             public_input_idx++;
         }
         verification_key = std::make_shared<VerificationKey>(instance_size, public_input_size);
+        verification_key->pcs_verification_key = instance->verification_key->pcs_verification_key;
         auto other_vks = instance->verification_key->get_all();
         size_t vk_idx = 0;
         for (auto& vk : verification_key->get_all()) {
@@ -106,6 +110,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     VerifierInstance get_value()
     {
         auto inst_verification_key = std::make_shared<NativeVerificationKey>(instance_size, public_input_size);
+        inst_verification_key->pcs_verification_key = verification_key->pcs_verification_key;
         for (auto [vk, inst_vk] : zip_view(verification_key->get_all(), inst_verification_key->get_all())) {
             inst_vk = vk.get_value();
         }
