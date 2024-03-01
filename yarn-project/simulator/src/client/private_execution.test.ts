@@ -618,7 +618,6 @@ describe('Private Execution test suite', () => {
       });
 
       it('Invalid membership proof', async () => {
-        // Where is this one failing? Because we are not updating the header?
         preimage = computePreimage();
 
         args = computeArgs();

@@ -52,7 +52,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     user1Wallet = wallets[0];
     user2Wallet = wallets[1];
     await publicDeployAccounts(wallets[0], accounts.slice(0, 2));
-  }, 300_00);
+  }, 30_000);
 
   beforeEach(async () => {
     crossChainTestHarness = await CrossChainTestHarness.new(
@@ -324,7 +324,7 @@ describe('e2e_public_cross_chain_messaging', () => {
         { value: fee } as any,
       );
 
-      // We check that the message was correctly injected by checking the emitted even
+      // We check that the message was correctly injected by checking the emitted event
       {
         const txReceipt = await crossChainTestHarness.publicClient.waitForTransactionReceipt({
           hash: txHash,

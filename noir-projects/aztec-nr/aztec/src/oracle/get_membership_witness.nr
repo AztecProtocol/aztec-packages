@@ -2,7 +2,6 @@ use dep::protocol_types::{constants::{ARCHIVE_HEIGHT, CONTRACT_TREE_HEIGHT, NOTE
 
 global CONTRACT_TREE_ID = 0;
 global NOTE_HASH_TREE_ID = 2;
-global L1_TO_L2_MESSAGE_TREE = 4;
 global ARCHIVE_TREE_ID = 5;
 
 // Note: We have M here because we need to somehow set it when calling get_membership_witness function and one way to
