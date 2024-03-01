@@ -156,6 +156,7 @@ function main(): void {
 
   // Solidity
   const solidityTargetPath = join(__dirname, SOLIDITY_CONSTANTS_FILE);
+  fs.mkdirSync(dirname(solidityTargetPath), { recursive: true });
   generateSolidityConstants(parsedContent, solidityTargetPath);
 }
 
