@@ -16,12 +16,19 @@ fn compute_unique_hash(nonce: Field, siloed_note_hash: Field) -> Field {
     pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
+fn compute_partial_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
+    let header = note.get_header();
+    let inner_content_hash = note.compute_inner_note_content_hash();
+    pedersen_hash([header.storage_slot, inner_content_hash], 0)
+}
+
 fn compute_non_siloed_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
     let header = note.get_header();
-    let note_hash = note.compute_note_content_hash();
+    let partial_note_hash = compute_partial_note_hash(note);
+    let outer_content_hash = note.compute_outer_note_content_hash();
 
     // TODO(#1205) Do we need a generator index here?
-    pedersen_hash([header.storage_slot, note_hash], 0)
+    pedersen_hash([partial_note_hash, outer_content_hash], 0)
 }
 
 fn compute_siloed_note_hash<Note, N>(note_with_header: Note) -> Field where Note: NoteInterface<N> {

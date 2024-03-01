@@ -368,9 +368,13 @@ describe('ACIR public execution simulator', () => {
       // Assert the note hash was created
       expect(result.newNoteHashes.length).toEqual(1);
 
-      const expectedNoteHash = pedersenHash([amount.toBuffer(), secretHash.toBuffer()]);
+      const expectedInnerNoteContentHash = pedersenHash([amount.toBuffer(), secretHash.toBuffer()]);
+      const expectedOuterNoteContentHash = Fr.ZERO;
       const storageSlot = new Fr(5); // for pending_shields
-      const expectedNonSiloedNoteHash = pedersenHash([storageSlot, expectedNoteHash].map(f => f.toBuffer()));
+      const expectedNonSiloedNoteHash = pedersenHash([
+        pedersenHash([storageSlot, expectedInnerNoteContentHash].map(f => f.toBuffer())).toBuffer(),
+        expectedOuterNoteContentHash.toBuffer(),
+      ]);
       expect(result.newNoteHashes[0].value).toEqual(expectedNonSiloedNoteHash);
     });
 

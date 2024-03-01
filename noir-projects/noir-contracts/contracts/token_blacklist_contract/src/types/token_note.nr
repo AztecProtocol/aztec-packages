@@ -13,8 +13,8 @@ global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 struct TokenNote {
     // the amount of tokens in the note
     amount: U128,
-    // the provider of secrets for the nullifier. The owner (recipient) to ensure that the note 
-    // can be privately spent. When nullifier secret and encryption private key is same 
+    // the provider of secrets for the nullifier. The owner (recipient) to ensure that the note
+    // can be privately spent. When nullifier secret and encryption private key is same
     // we can simply use the owner for this one.
     owner: AztecAddress,
     // randomness of the note to hide contents.
@@ -39,9 +39,13 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
         }
     }
 
-    fn compute_note_content_hash(self) -> Field {
+    fn compute_inner_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash(self.serialize_content(), 0)
+    }
+
+    fn compute_outer_note_content_hash(self) -> Field {
+        0
     }
 
     // docs:start:nullifier
@@ -116,5 +120,5 @@ impl OwnedNote for TokenNote {
     fn get_owner(self) -> AztecAddress {
         self.owner
     }
-   
+
 }

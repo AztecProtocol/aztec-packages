@@ -42,7 +42,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
 
         let last_x = self.x[31] as Field;
         let last_y = self.y[31] as Field;
-        
+
         [x, last_x, y, last_y, self.owner.to_field()]
     }
 
@@ -65,9 +65,13 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(serialized_note[4]), header: NoteHeader::empty() }
     }
 
-    fn compute_note_content_hash(note: EcdsaPublicKeyNote) -> Field {
+    fn compute_inner_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(note.serialize_content(), 0)
+        pedersen_hash(self.serialize_content(), 0)
+    }
+
+    fn compute_outer_note_content_hash(self) -> Field {
+        0
     }
 
    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {

@@ -7,7 +7,9 @@ trait NoteInterface<N> {
 
     fn deserialize_content(fields: [Field; N]) -> Self;
 
-    fn compute_note_content_hash(self) -> Field;
+    fn compute_inner_note_content_hash(self) -> Field;
+
+    fn compute_outer_note_content_hash(self) -> Field;
 
     fn get_header(self) -> NoteHeader;
 
@@ -22,4 +24,3 @@ trait NoteInterface<N> {
     fn get_note_type_id() -> Field;
 }
 // docs:end:note_interface
-
