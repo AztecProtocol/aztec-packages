@@ -19,19 +19,19 @@ describe('e2e_pending_commitments_contract', () => {
 
   afterEach(() => teardown());
 
-  const expectCommitmentsSquashedExcept = async (exceptFirstFew: number) => {
+  const expectNoteHashesSquashedExcept = async (exceptFirstFew: number) => {
     const blockNum = await aztecNode!.getBlockNumber();
     const block = (await aztecNode!.getBlocks(blockNum, 1))[0];
 
-    const commitmentsArray = block.body.txEffects.flatMap(txEffect => txEffect.noteHashes);
+    const noteHashes = block.body.txEffects.flatMap(txEffect => txEffect.noteHashes);
 
-    // all new commitments should be zero (should be squashed)
+    // all new note hashes should be zero (should be squashed)
     for (let c = 0; c < exceptFirstFew; c++) {
-      expect(commitmentsArray[c]).not.toEqual(Fr.ZERO);
+      expect(noteHashes).not.toEqual(Fr.ZERO);
     }
 
-    for (let c = exceptFirstFew; c < commitmentsArray.length; c++) {
-      expect(commitmentsArray[c]).toEqual(Fr.ZERO);
+    for (let c = exceptFirstFew; c < noteHashes.length; c++) {
+      expect(noteHashes).toEqual(Fr.ZERO);
     }
   };
 
@@ -90,7 +90,7 @@ describe('e2e_pending_commitments_contract', () => {
 
     expect(receipt.status).toBe(TxStatus.MINED);
 
-    await expectCommitmentsSquashedExcept(0);
+    await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
   }, 60_000);
 
@@ -113,7 +113,7 @@ describe('e2e_pending_commitments_contract', () => {
 
     expect(receipt.status).toBe(TxStatus.MINED);
 
-    await expectCommitmentsSquashedExcept(0);
+    await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
   }, 60_000);
 
@@ -137,7 +137,7 @@ describe('e2e_pending_commitments_contract', () => {
 
     expect(receipt.status).toBe(TxStatus.MINED);
 
-    await expectCommitmentsSquashedExcept(1);
+    await expectNoteHashesSquashedExcept(1);
     await expectNullifiersSquashedExcept(0);
   }, 60_000);
 
@@ -155,7 +155,7 @@ describe('e2e_pending_commitments_contract', () => {
     const receipt0 = await deployedContract.methods.insert_note(mintAmount, owner).send().wait();
     expect(receipt0.status).toBe(TxStatus.MINED);
 
-    await expectCommitmentsSquashedExcept(1); // first TX just creates 1 persistent note
+    await expectNoteHashesSquashedExcept(1); // first TX just creates 1 persistent note
     await expectNullifiersSquashedExcept(0);
 
     // create another note, and nullify it and AND nullify the above-created note in the same TX
@@ -173,7 +173,7 @@ describe('e2e_pending_commitments_contract', () => {
     expect(receipt1.status).toBe(TxStatus.MINED);
 
     // second TX creates 1 note, but it is squashed!
-    await expectCommitmentsSquashedExcept(0);
+    await expectNoteHashesSquashedExcept(0);
     // the nullifier corresponding to this transient note is squashed, but the
     // other nullifier corresponding to the persistent note becomes persistent itself.
     await expectNullifiersSquashedExcept(1);
@@ -192,8 +192,8 @@ describe('e2e_pending_commitments_contract', () => {
 
     expect(receipt.status).toBe(TxStatus.MINED);
 
-    // There is a single new commitment/note.
-    await expectCommitmentsSquashedExcept(1);
+    // There is a single new note hash.
+    await expectNoteHashesSquashedExcept(1);
 
     const receipt2 = await deployedContract.methods
       .test_insert_then_get_then_nullify_all_in_nested_calls(
