@@ -9,6 +9,8 @@ rest=${node_version#*.}
 minor=${rest%%.*}
 
 YELLOW="\033[93m"
+BLUE="\033[34m"
+GREEN="\033[32m"
 BOLD="\033[1m"
 RESET="\033[0m"
 
@@ -33,10 +35,15 @@ fi
 
 # Fast build does not delete everything first.
 # It regenerates all generated code, then performs an incremental tsc build.
-echo -e "${YELLOW}${BOLD}Performing fast incremental build. If this has any issues, run 'yarn build'.${RESET}"
+echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
 echo
 yarn install --immutable
-yarn build:fast
+
+if ! yarn build:fast; then
+  echo -e "${YELLOW}${BOLD}Incremental build failed for some reason, attempting full build...${RESET}"
+  echo
+  yarn build
+fi
 
 echo
-echo "Yarn project successfully built."
+echo -e "${GREEN}Yarn project successfully built!${RESET}"
