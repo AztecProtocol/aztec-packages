@@ -6,12 +6,17 @@ import {Test} from "forge-std/Test.sol";
 import {NewInbox} from "../src/core/messagebridge/NewInbox.sol";
 import {Constants} from "../src/core/libraries/ConstantsGen.sol";
 import {Errors} from "../src/core/libraries/Errors.sol";
+import {Hash} from "../src/core/libraries/Hash.sol";
 
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
 
 contract NewInboxTest is Test {
+  using Hash for DataStructures.L1ToL2Msg;
+
   NewInbox internal inbox;
   uint256 internal version = 0;
+
+  event LeafInserted(uint256 indexed treeNumber, uint256 indexed index, bytes32 value);
 
   function setUp() public {
     address rollup = address(this);
@@ -36,5 +41,29 @@ contract NewInboxTest is Test {
     vm.prank(address(0x1));
     vm.expectRevert(Errors.Inbox__Unauthorized.selector);
     inbox.consume();
+  }
+
+  function testFuzzSendL2Msg(DataStructures.L1ToL2Msg memory _message) public {
+    // fix message.sender and deadline:
+    _message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
+    // ensure actor fits in a field
+    _message.recipient.actor = bytes32(uint256(_message.recipient.actor) % Constants.P);
+    // ensure content fits in a field
+    _message.content = bytes32(uint256(_message.content) % Constants.P);
+    // ensure secret hash fits in a field
+    _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
+
+    // TODO: nuke the following 2 values from the struct once the new message model is in place
+    _message.deadline = 0;
+    _message.fee = 0;
+
+    bytes32 leaf = _message.sha256ToField();
+    vm.expectEmit(true, true, true, true);
+    // event we expect
+    emit LeafInserted(1, 1, leaf);
+    // event we will get
+    bytes32 insertedLeaf = inbox.insert(_message.recipient, _message.content, _message.secretHash);
+
+    assertEq(insertedLeaf, leaf);
   }
 }
