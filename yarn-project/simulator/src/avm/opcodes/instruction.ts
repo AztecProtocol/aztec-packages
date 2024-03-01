@@ -32,6 +32,9 @@ export abstract class Instruction {
     let instructionStr = this.constructor.name + ': ';
     // assumes that all properties are flags or operands
     for (const prop of Object.getOwnPropertyNames(this) as (keyof Instruction)[]) {
+      if (this[prop] == undefined) {
+        console.log(`Trying to print instruction[${prop}] (undefined)`);
+      }
       instructionStr += `${prop}:${this[prop].toString()}, `;
     }
     return instructionStr;

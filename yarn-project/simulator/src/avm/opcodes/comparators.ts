@@ -12,13 +12,14 @@ export class Eq extends ThreeOperandInstruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
+    //context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.get(this.aOffset);
     const b = context.machineState.memory.get(this.bOffset);
 
     // Result will be of the same type as 'a'.
-    const dest = a.build(a.equals(b) ? 1n : 0n);
+    //const dest = a.build(a.equals(b) ? 1n : 0n);
+    const dest = a.build(a.toBigInt() == b.toBigInt() ? 1n : 0n);
     context.machineState.memory.set(this.dstOffset, dest);
 
     context.machineState.incrementPc();
@@ -34,14 +35,17 @@ export class Lt extends ThreeOperandInstruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
-    TaggedMemory.checkIsIntegralTag(this.inTag);
+    //context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
+    //TaggedMemory.checkIsIntegralTag(this.inTag);
 
-    const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
-    const b = context.machineState.memory.getAs<IntegralValue>(this.bOffset);
+    //const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
+    //const b = context.machineState.memory.getAs<IntegralValue>(this.bOffset);
+    const a = context.machineState.memory.get(this.aOffset);
+    const b = context.machineState.memory.get(this.bOffset);
 
     // Result will be of the same type as 'a'.
-    const dest = a.build(a.lt(b) ? 1n : 0n);
+    //const dest = a.build(a.lt(b) ? 1n : 0n);
+    const dest = a.build(a.toBigInt() < b.toBigInt() ? 1n : 0n);
     context.machineState.memory.set(this.dstOffset, dest);
 
     context.machineState.incrementPc();
@@ -57,14 +61,17 @@ export class Lte extends ThreeOperandInstruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
-    TaggedMemory.checkIsIntegralTag(this.inTag);
+    //context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
+    //TaggedMemory.checkIsIntegralTag(this.inTag);
 
-    const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
-    const b = context.machineState.memory.getAs<IntegralValue>(this.bOffset);
+    //const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
+    //const b = context.machineState.memory.getAs<IntegralValue>(this.bOffset);
+    const a = context.machineState.memory.get(this.aOffset);
+    const b = context.machineState.memory.get(this.bOffset);
 
     // Result will be of the same type as 'a'.
-    const dest = a.build(a.equals(b) || a.lt(b) ? 1n : 0n);
+    //const dest = a.build(a.equals(b) || a.lt(b) ? 1n : 0n);
+    const dest = a.build(a.toBigInt() == b.toBigInt() || a.toBigInt() < b.toBigInt() ? 1n : 0n);
     context.machineState.memory.set(this.dstOffset, dest);
 
     context.machineState.incrementPc();
