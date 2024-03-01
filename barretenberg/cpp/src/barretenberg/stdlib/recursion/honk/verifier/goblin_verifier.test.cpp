@@ -16,7 +16,7 @@ namespace bb::stdlib::recursion::honk {
  *
  * @tparam Builder Circuit builder for the recursive verifier circuit
  */
-template <typename BuilderType> class GoblinRecursiveVerifierTest : public testing::Test {
+template <typename OuterFlavor> class GoblinRecursiveVerifierTest : public testing::Test {
 
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = GoblinUltraFlavor;
@@ -29,13 +29,9 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
     using InnerFF = InnerFlavor::FF;
 
     // Types for recursive verifier circuit
-    using OuterBuilder = BuilderType;
-    using OuterFlavor =
-        std::conditional_t<std::same_as<BuilderType, GoblinUltraCircuitBuilder>, GoblinUltraFlavor, UltraFlavor>;
-    using OuterProver =
-        std::conditional_t<std::same_as<BuilderType, GoblinUltraCircuitBuilder>, GoblinUltraProver, UltraProver>;
-    using OuterVerifier =
-        std::conditional_t<std::same_as<BuilderType, GoblinUltraCircuitBuilder>, GoblinUltraVerifier, UltraVerifier>;
+    using OuterBuilder = typename OuterFlavor::CircuitBuilder;
+    using OuterProver = UltraProver_<OuterFlavor>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
     using RecursiveFlavor = GoblinUltraRecursiveFlavor_<OuterBuilder>;
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
@@ -244,9 +240,9 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 };
 
 // Run the recursive verifier tests with conventional Ultra builder and Goblin builder
-using BuilderTypes = testing::Types<UltraCircuitBuilder, GoblinUltraCircuitBuilder>;
+using Flavors = testing::Types<UltraFlavor, GoblinUltraFlavor>;
 
-TYPED_TEST_SUITE(GoblinRecursiveVerifierTest, BuilderTypes);
+TYPED_TEST_SUITE(GoblinRecursiveVerifierTest, Flavors);
 
 HEAVY_TYPED_TEST(GoblinRecursiveVerifierTest, InnerCircuit)
 {
