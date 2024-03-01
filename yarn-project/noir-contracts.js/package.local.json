@@ -1,7 +1,7 @@
 {
   "scripts": {
     "build": "yarn clean && yarn generate",
-    "generate": "./scripts/generate-types.sh",
+    "generate": "./scripts/generate-types.sh && yarn formatting:fix",
     "clean": "rm -rf .tsbuildinfo ./artifacts ./codegenCache.json"
   }
 }
