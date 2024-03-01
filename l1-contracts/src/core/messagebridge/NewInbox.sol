@@ -35,7 +35,7 @@ contract NewInbox {
 
   mapping(uint256 treeNumber => IFrontier tree) public frontier;
 
-  event LeafInserted(uint256 indexed treeNumber, uint256 indexed index, bytes32 value);
+  event LeafInserted(uint256 treeNumber, uint256 index, bytes32 value);
 
   constructor(address _rollup, uint256 _height, bytes32 _zero) {
     ROLLUP = _rollup;
@@ -72,14 +72,16 @@ contract NewInbox {
       recipient: _recipient,
       content: _content,
       secretHash: _secretHash,
-      deadline: 0, // TODO: nuke this (there will no longer be fees for messages)
-      fee: 0 // TODO: nuke this (there will no longer be fees for messages)
+      // TODO: nuke the following 2 values from the struct once the new message model is in place
+      deadline: 0,
+      fee: 0
     });
 
     bytes32 leaf = message.sha256ToField();
     uint256 nextIndex = currentTree.insertLeaf(leaf);
     emit LeafInserted(inProgress, nextIndex, leaf);
 
+    // TODO: do we really need to return this?
     return leaf;
   }
 
