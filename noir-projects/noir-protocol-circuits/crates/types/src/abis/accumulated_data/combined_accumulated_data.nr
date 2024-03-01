@@ -29,7 +29,7 @@ use crate::traits::is_empty;
 use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
 struct CombinedAccumulatedData {
-    read_requests: [SideEffect; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    note_hash_read_requests: [SideEffect; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     nullifier_read_requests: [ReadRequestContext; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
     nullifier_key_validation_requests: [NullifierKeyValidationRequestContext; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
 
@@ -66,7 +66,7 @@ impl CombinedAccumulatedData {
         revertible: PublicAccumulatedRevertibleData
     ) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
-            read_requests: revertible.read_requests,
+            note_hash_read_requests: revertible.note_hash_read_requests,
             nullifier_read_requests: revertible.nullifier_read_requests,
             nullifier_key_validation_requests: revertible.nullifier_key_validation_requests,
             new_note_hashes: array_concat(non_revertible.new_note_hashes, revertible.new_note_hashes),

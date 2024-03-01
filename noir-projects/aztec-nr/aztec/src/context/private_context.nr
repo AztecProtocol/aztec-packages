@@ -46,7 +46,7 @@ struct PrivateContext {
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    note_hash_read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
@@ -119,7 +119,7 @@ impl PrivateContext {
             min_revertible_side_effect_counter,
             args_hash,
             return_values: BoundedVec::new(),
-            read_requests: BoundedVec::new(),
+            note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_key_validation_requests: BoundedVec::new(),
             new_note_hashes: BoundedVec::new(),
@@ -169,7 +169,7 @@ impl PrivateContext {
             // I've had to initialize the counter here so that it would work for contract deployments
             // the above checks should be doable after we figure out fee payments for contract deployments
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
-            read_requests: self.read_requests.storage,
+            note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
             new_note_hashes: self.new_note_hashes.storage,
@@ -194,9 +194,9 @@ impl PrivateContext {
         self.min_revertible_side_effect_counter = self.side_effect_counter;
     }
 
-    pub fn push_read_request(&mut self, read_request: Field) {
-        let side_effect = SideEffect { value: read_request, counter: self.side_effect_counter };
-        self.read_requests.push(side_effect);
+    pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
+        let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
+        self.note_hash_read_requests.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 

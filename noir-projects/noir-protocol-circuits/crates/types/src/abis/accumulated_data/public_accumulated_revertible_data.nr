@@ -16,7 +16,7 @@ use crate::constants::{
 };
 
 struct PublicAccumulatedRevertibleData {
-    read_requests: [SideEffect; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    note_hash_read_requests: [SideEffect; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     nullifier_read_requests: [ReadRequestContext; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
     nullifier_key_validation_requests: [NullifierKeyValidationRequestContext; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
 

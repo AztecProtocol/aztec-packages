@@ -25,7 +25,7 @@ struct PrivateCallData {
     contract_class_public_bytecode_commitment: Field,
     function_leaf_membership_witness: FunctionLeafMembershipWitness,
     
-    read_request_membership_witnesses: [ReadRequestMembershipWitness; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    note_hash_read_request_membership_witnesses: [ReadRequestMembershipWitness; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
 
     portal_contract_address: EthAddress,
     acir_hash: Field,

@@ -89,7 +89,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
     fn match_reads_to_commitments(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
         let new_note_hashes = public_inputs.end.new_note_hashes;
-        let read_requests = public_inputs.end.read_requests;
+        let read_requests = public_inputs.end.note_hash_read_requests;
 
         // match reads to commitments from the previous call(s)
         for rr_idx in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_TX {
@@ -106,7 +106,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
         }
 
         // Empty out read requests after matching them to commitments
-        public_inputs.end.read_requests = BoundedVec::new();
+        public_inputs.end.note_hash_read_requests = BoundedVec::new();
     }
 
     fn assert_sorted_counters<T, N>(
@@ -454,8 +454,8 @@ mod tests {
         builder.append_transient_commitments(1);
         builder.add_transient_read(0);
         // Tweak the read request so that it does not match the hash at index 0;
-        let read_request = builder.previous_kernel.end.read_requests.pop();
-        builder.previous_kernel.end.read_requests.push(SideEffect { value: read_request.value + 1, counter: 0 });
+        let read_request = builder.previous_kernel.end.note_hash_read_requests.pop();
+        builder.previous_kernel.end.note_hash_read_requests.push(SideEffect { value: read_request.value + 1, counter: 0 });
         builder.failed();
     }
 

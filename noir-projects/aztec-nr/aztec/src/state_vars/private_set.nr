@@ -63,7 +63,7 @@ impl<Note> PrivateSet<Note> {
     pub fn remove<N>(self, note: Note) where Note: NoteInterface<N> {
         let context = self.context.private.unwrap();
         let note_hash = compute_note_hash_for_consumption(note);
-        let has_been_read = context.read_requests.any(|r: SideEffect| r.value == note_hash);
+        let has_been_read = context.note_hash_read_requests.any(|r: SideEffect| r.value == note_hash);
         assert(has_been_read, "Can only remove a note that has been read from the set.");
 
         destroy_note(context, note);

@@ -20,7 +20,7 @@ use crate::constants::{
 };
 
 struct AccumulatedRevertibleDataBuilder {
-    read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    note_hash_read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
 
@@ -63,7 +63,7 @@ impl AccumulatedRevertibleDataBuilder {
 
     pub fn to_public(self) -> PublicAccumulatedRevertibleData {
         PublicAccumulatedRevertibleData {
-            read_requests: self.read_requests.storage,
+            note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
             new_note_hashes: self.new_note_hashes.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,

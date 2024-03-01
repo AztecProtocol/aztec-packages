@@ -34,7 +34,7 @@ pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
     // to extend_from_array_to_array() routines which rely on the passed arrays to be well-formed.
 
     validate_array(app_public_inputs.return_values);
-    validate_array(app_public_inputs.read_requests);
+    validate_array(app_public_inputs.note_hash_read_requests);
     validate_array(app_public_inputs.nullifier_read_requests);
     validate_array(app_public_inputs.nullifier_key_validation_requests);
     validate_array(app_public_inputs.new_note_hashes);
@@ -52,7 +52,7 @@ pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
 // More info here:
 // - https://discourse.aztec.network/t/to-read-or-not-to-read/178
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
-pub fn validate_read_requests(
+pub fn validate_note_hash_read_requests(
     historical_note_hash_tree_root: Field,
     read_requests: [SideEffect; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     read_request_membership_witnesses: [ReadRequestMembershipWitness; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
@@ -92,7 +92,7 @@ pub fn initialize_end_values(
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
 
-    public_inputs.end.read_requests = array_to_bounded_vec(start.read_requests);
+    public_inputs.end.note_hash_read_requests = array_to_bounded_vec(start.note_hash_read_requests);
     public_inputs.end.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
     public_inputs.end.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
 
@@ -180,8 +180,8 @@ pub fn update_end_values(
 
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
-    let read_requests = private_call_public_inputs.read_requests;
-    let read_request_membership_witnesses = private_call.read_request_membership_witnesses;
+    let read_requests = private_call_public_inputs.note_hash_read_requests;
+    let read_request_membership_witnesses = private_call.note_hash_read_request_membership_witnesses;
     let mut siloed_read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
         let read_request = read_requests[i].value;
@@ -192,7 +192,7 @@ pub fn update_end_values(
             )
         }
     }
-    public_inputs.end.read_requests.extend_from_bounded_vec(siloed_read_requests);
+    public_inputs.end.note_hash_read_requests.extend_from_bounded_vec(siloed_read_requests);
 
     // Nullifier read request.
     let nullifier_read_requests = private_call_public_inputs.nullifier_read_requests;
