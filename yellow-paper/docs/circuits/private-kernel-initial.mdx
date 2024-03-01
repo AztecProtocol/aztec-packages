@@ -117,14 +117,14 @@ Counters are employed to validate the following aspects:
 1. **Read Requests**: Verify that a read request is reading a value created before the request is submitted.
    - Refer to [Read Request Reset Private Kernel Circuit](./private-kernel-reset.md#read-request-reset-private-kernel-circuit) for verification details.
 2. **Ordered Emission**: Ensure that side effects (note hashes, nullifiers, logs) are emitted in the same order as they were created.
-   - Refer to [Tail Private Kernel Circuit](./private-kernel-tail.md#verifying-ordered-arrays) for order enforcement.
+   - Refer to [Tail Private Kernel Circuit](./private-kernel-tail.md#verifying-and-splitting-ordered-data) for order enforcement.
 
 For these operations to be effective, specific requirements for the counters must be met:
 
 - Each counter for values of the same type must be unique, avoiding confusion about the order.
 - Values emitted within a function call must not be mistaken for values emitted from another function call.
 
-The circuit undergoes the following validations for data within [`private_inputs`](#privateinputs).[`private_call`](#privatecall):
+The circuit undergoes the following validations for data within [`private_inputs`](#privateinputs).[`private_call`](#privatecall).[public_inputs](./private-function.md#public-inputs):
 
 1.  Validate the counter range of [`call_stack_item`](#privatecallstackitem).
 
@@ -147,6 +147,7 @@ The circuit undergoes the following validations for data within [`private_inputs
 
     - `note_hashes`
     - `nullifiers`
+    - `l2_to_l1_messages`
     - `unencrypted_log_hashes`
     - `encrypted_log_hashes`
     - `encrypted_note_preimage_hashes`
@@ -215,7 +216,7 @@ This circuit verifies that the values in [`private_inputs`](#private-inputs)[`.p
 - `nullifier_contexts`
   - `value`, `counter`
 - `l2_to_l1_message_contexts`
-  - `value`
+  - `value`, `counter`
 - `note_hash_read_requests`
   - `value`, `contract_address`, `counter`
 - `nullifier_read_requests`
@@ -280,6 +281,10 @@ It verifies that:
 
 - The `tx_context` in the [`constant_data`](#constantdata) matches the `tx_context` in the [`transaction_request`](#transactionrequest).
 - The `block_header` must align with the one used in the private function circuit, as verified [earlier](#verifying-the-public-inputs-of-the-private-function-circuit).
+
+#### Verifying the `min_revertible_side_effect_counter`.
+
+It verifies that the `min_revertible_side_effect_counter` equals the value in the [`public_inputs`](./private-function.md#public-inputs) of the private function circuit.
 
 ## Diagram
 
@@ -399,8 +404,6 @@ class PrivateCallStackItem {
     contract_address: AztecAddress
     function_data: FunctionData
     public_inputs: PrivateFunctionPublicInputs
-    counter_start: field
-    counter_end: field
 }
 PrivateCallStackItem *-- FunctionData: function_data
 PrivateCallStackItem *-- PrivateFunctionPublicInputs: public_inputs
@@ -440,6 +443,9 @@ class PrivateFunctionPublicInputs {
     encrypted_note_preimage_hashes: List~EncryptedNotePreimageHash~
     public_call_requests: List~PublicCallRequest~
     private_call_requests: List~PrivateCallRequest~
+    counter_start: u32
+    counter_end: u32
+    min_revertible_side_effect_counter: u32
     block_header: BlockHeader
     chain_id: field
     version: field
@@ -723,10 +729,11 @@ Data that holds details about the current private function call.
 
 ## `PublicInputs`
 
-| Field                        | Type                                                    | Description |
-| ---------------------------- | ------------------------------------------------------- | ----------- |
-| `constant_data`              | [`ConstantData`](#constantdata)                         |             |
-| `transient_accumulated_data` | [`TransientAccumulatedData`](#transientaccumulateddata) |             |
+| Field                                | Type                                                    | Description |
+| ------------------------------------ | ------------------------------------------------------- | ----------- |
+| `constant_data`                      | [`ConstantData`](#constantdata)                         |             |
+| `transient_accumulated_data`         | [`TransientAccumulatedData`](#transientaccumulateddata) |             |
+| `min_revertible_side_effect_counter` | `u32`                                                   |             |
 
 ### `ConstantData`
 
@@ -797,8 +804,6 @@ Public functions and unconstrained functions won't be stored in a function tree;
 | `contract_address` | `AztecAddress`                                                       | Address of the contract on which the function is invoked. |
 | `function_data`    | [`FunctionData`](#functiondata)                                      | Data of the function being called.                        |
 | `public_inputs`    | [`PrivateFunctionPublicInputs`](./private-function.md#public-inputs) | Public inputs of the private function circuit.            |
-| `counter_start`    | `u32`                                                                | Counter at which the function call was initiated.         |
-| `counter_end`      | `u32`                                                                | Counter at which the function call ended.                 |
 
 <!--
 What's the mental model for when a PrivateCallStackItem should be used vs a CallRequest. They look very similar, and seem to contain very similar information.
@@ -862,6 +867,7 @@ etc.
 | Field                     | Type           | Description                                      |
 | ------------------------- | -------------- | ------------------------------------------------ |
 | `value`                   | `field`        | L2-to-l2 message.                                |
+| `counter`                 | `u32`          | Counter at which the message was emitted.        |
 | `portal_contract_address` | `AztecAddress` | Address of the portal contract to the contract.  |
 | `contract_address`        | `AztecAddress` | Address of the contract the message was created. |
 

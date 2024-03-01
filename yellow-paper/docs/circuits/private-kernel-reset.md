@@ -104,7 +104,7 @@ In the event that a pending note is nullified within the same transaction, its n
 
    Initialize both `notes_kept` and `notes_removed` to `0`.
 
-   For each `note_hash` at index `i` in `note_hash_contexts` within the `private_inputs`, find the index of its nullifer at `transient_nullifier_indices[i]`, provided as [hints](#hints-for-transient-note-reset-private-kernel-circuit):
+   For each `note_hash` at index `i` in `note_hash_contexts` within the `private_inputs`, find the index of its nullifier at `transient_nullifier_indices[i]`, provided as [hints](#hints-for-transient-note-reset-private-kernel-circuit):
 
    - If `transient_nullifier_indices[i] == nullifier_contexts.len()`:
      - Verify that the `note_hash` remains within the [transient_accumulated_data](./private-kernel-initial.mdx#transientaccumulateddata) in the `public_inputs`:
@@ -138,7 +138,7 @@ In the event that a pending note is nullified within the same transaction, its n
      - Increment `nullifiers_removed` by 1: `nullifiers_removed += 1`
      - Ensure that an empty `nullifier` is appended to the end of `nullifier_contexts` in the `public_inputs`:
        - `public_inputs.transient_accumulated_data.nullifier_contexts[N - nullifiers_removed].is_empty() == true`
-       - Where `N` is the length of `nullifer_contexts`.
+       - Where `N` is the length of `nullifier_contexts`.
 
    After these steps, ensure that all nullifiers associated with transient note hashes have been identified and removed:
 
@@ -202,9 +202,9 @@ All arrays in the `transient_accumulated_data` in the [`public_inputs`](#public-
 3. [Parent secret key validation request reset circuit](#nullifier-key-validation-request-reset-private-kernel-circuit) (for nullifier keys): `nullifier_key_validation_request_contexts`
 4. [Transient note reset circuit](#transient-note-reset-private-kernel-circuit): `note_hash_contexts` and `nullifier_contexts`
 
-#### Verifying the constant data.
+#### Verifying other data.
 
-This section follows the same [process](./private-kernel-inner.mdx#verifying-the-constant-data) as outlined in the inner private kernel circuit.
+This section follows the same [process](./private-kernel-inner.mdx#verifying-other-data) as outlined in the inner private kernel circuit.
 
 ## `PrivateInputs`
 

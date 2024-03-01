@@ -44,7 +44,7 @@ This circuit will:
 
    - `call_request.call_stack_item_hash == private_call.call_stack_item.hash()`
    - The hash of the `call_stack_item` is computed as:
-     - `hash(contract_address, function_data.hash(), public_inputs.hash(), counter_start, counter_end)` <!-- TODO: concrete hashing explanation -->
+     - `hash(contract_address, function_data.hash(), public_inputs.hash())` <!-- TODO: concrete hashing explanation -->
      - Where `function_data.hash()` and `public_inputs.hash()` are the hashes of the serialized field elements. <!-- TODO: concrete hashing explanations -->
 
 #### Ensuring this function is called with the correct context.
@@ -116,9 +116,9 @@ For each array in the `transient_accumulated_data`, this circuit verifies that:
 
 2. As for the subsequent items appended after the values from the previous iterations, they constitute the values from the `private_call`, and each must undergo the same [verification](./private-kernel-initial.mdx#verifying-the-transient-accumulated-data) as outlined in the initial private kernel circuit.
 
-#### Verifying the constant data.
+#### Verifying other data.
 
-It verifies that the [`constant_data`](./private-kernel-initial.mdx#constantdata) in the [`public_inputs`](#public-inputs) matches the `constant_data` in [`private_inputs`](#private-inputs)[`.previous_kernel`](#previouskernel)[`.public_inputs`](./private-kernel-initial.mdx#public-inputs).
+It verifies that the [`constant_data`](./private-kernel-initial.mdx#constantdata) and the `min_revertible_side_effect_counter` in the [`public_inputs`](#public-inputs) align with the corresponding values in [`private_inputs`](#private-inputs)[`.previous_kernel`](#previouskernel)[`.public_inputs`](./private-kernel-initial.mdx#public-inputs).
 
 <!-- This is a bodge to make the diagram legible (it was being shrunk to be too small, otherwise). -->
 
@@ -200,8 +200,6 @@ class PrivateCallStackItem {
     contract_address: AztecAddress
     function_data: FunctionData
     public_inputs: PrivateFunctionPublicInputs
-    counter_start: field
-    counter_end: field
 }
 PrivateCallStackItem *-- FunctionData: function_data
 PrivateCallStackItem *-- PrivateFunctionPublicInputs: public_inputs
@@ -241,6 +239,9 @@ class PrivateFunctionPublicInputs {
     nullifier_key_validation_requests: List~ParentSecretKeyValidationRequest~
     public_call_requests: List~PublicCallRequest~
     private_call_requests: List~PrivateCallRequest~
+    counter_start: u32
+    counter_end: u32
+    min_revertible_side_effect_counter: u32
     block_header: BlockHeader
     chain_id: field
     version: field
