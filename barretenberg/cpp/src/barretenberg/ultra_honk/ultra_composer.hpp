@@ -24,22 +24,6 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
     using Transcript = typename Flavor::Transcript;
     using ProverInstances = ProverInstances_<Flavor>;
     using VerifierInstances = VerifierInstances_<Flavor>;
-
-    ProtoGalaxyProver_<ProverInstances> create_folding_prover(
-        const std::vector<std::shared_ptr<ProverInstance>>& instances)
-    {
-        ProtoGalaxyProver_<ProverInstances> output_state(instances);
-
-        return output_state;
-    };
-
-    ProtoGalaxyVerifier_<VerifierInstances> create_folding_verifier(
-        const std::vector<std::shared_ptr<VerifierInstance>>& instances)
-    {
-        ProtoGalaxyVerifier_<VerifierInstances> output_state(instances);
-
-        return output_state;
-    };
 };
 
 // TODO(#532): this pattern is weird; is this not instantiating the templates?

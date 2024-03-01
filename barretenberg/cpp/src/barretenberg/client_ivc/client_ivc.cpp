@@ -30,9 +30,8 @@ void ClientIVC::initialize(ClientCircuit& circuit)
 ClientIVC::FoldProof ClientIVC::accumulate(ClientCircuit& circuit)
 {
     goblin.merge(circuit); // Add recursive merge verifier and construct new merge proof
-    Composer composer;
     prover_instance = std::make_shared<ProverInstance>(circuit);
-    auto folding_prover = composer.create_folding_prover({ prover_fold_output.accumulator, prover_instance });
+    FoldingProver folding_prover({ prover_fold_output.accumulator, prover_instance });
     prover_fold_output = folding_prover.fold_instances();
     return prover_fold_output.folding_data;
 }
@@ -59,8 +58,7 @@ bool ClientIVC::verify(Proof& proof, const std::vector<VerifierAccumulator>& ver
     bool goblin_verified = goblin.verify(proof.goblin_proof);
 
     // Decider verification
-    Composer composer;
-    auto folding_verifier = composer.create_folding_verifier({ verifier_instances[0], verifier_instances[1] });
+    ClientIVC::FoldingVerifier folding_verifier({ verifier_instances[0], verifier_instances[1] });
     auto verifier_accumulator = folding_verifier.verify_folding_proof(proof.fold_proof);
 
     ClientIVC::DeciderVerifier decider_verifier(verifier_accumulator);

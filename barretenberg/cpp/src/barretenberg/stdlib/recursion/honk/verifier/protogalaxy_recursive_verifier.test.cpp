@@ -29,6 +29,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     using NativeDeciderVerifier = DeciderVerifier_<NativeFlavor>;
     using NativeVerifierInstances = VerifierInstances_<NativeFlavor, 2>;
     using NativeFoldingVerifier = ProtoGalaxyVerifier_<NativeVerifierInstances>;
+    using NativeProverInstances = ProverInstances_<NativeFlavor>;
+    using NativeFoldingProver = ProtoGalaxyProver_<NativeProverInstances>;
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
     /**
@@ -98,7 +100,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     };
 
     static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify_native(
-        Composer& composer)
+        [[maybe_unused]] Composer& composer)
     {
         Builder builder1;
         create_function_circuit(builder1);
@@ -110,8 +112,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto prover_instance_2 = std::make_shared<ProverInstance>(builder2);
         auto verifier_instance_1 = std::make_shared<VerifierInstance>(prover_instance_1->verification_key);
         auto verifier_instance_2 = std::make_shared<VerifierInstance>(prover_instance_2->verification_key);
-        auto folding_prover = composer.create_folding_prover({ prover_instance_1, prover_instance_2 });
-        auto folding_verifier = composer.create_folding_verifier({ verifier_instance_1, verifier_instance_2 });
+        NativeFoldingProver folding_prover({ prover_instance_1, prover_instance_2 });
+        NativeFoldingVerifier folding_verifier({ verifier_instance_1, verifier_instance_2 });
 
         auto [prover_accumulator, folding_proof] = folding_prover.fold_instances();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
@@ -171,13 +173,12 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         builder2.add_public_variable(FF(1));
         create_function_circuit(builder2);
 
-        Composer composer = Composer();
         auto prover_instance_1 = std::make_shared<ProverInstance>(builder1);
         auto verifier_instance_1 = std::make_shared<VerifierInstance>(prover_instance_1->verification_key);
         auto prover_instance_2 = std::make_shared<ProverInstance>(builder2);
         auto verifier_instance_2 = std::make_shared<VerifierInstance>(prover_instance_2->verification_key);
         // Generate a folding proof
-        auto folding_prover = composer.create_folding_prover({ prover_instance_1, prover_instance_2 });
+        NativeFoldingProver folding_prover({ prover_instance_1, prover_instance_2 });
         auto folding_proof = folding_prover.fold_instances();
 
         // Create a recursive folding verifier circuit for the folding proof of the two instances
@@ -190,7 +191,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
-        auto native_folding_verifier = composer.create_folding_verifier({ verifier_instance_1, verifier_instance_2 });
+        NativeFoldingVerifier native_folding_verifier({ verifier_instance_1, verifier_instance_2 });
         native_folding_verifier.verify_folding_proof(folding_proof.folding_data);
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
@@ -232,13 +233,12 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 
         create_function_circuit(builder2);
 
-        Composer composer = Composer();
         auto prover_instance_1 = std::make_shared<ProverInstance>(builder1);
         auto verifier_instance_1 = std::make_shared<VerifierInstance>(prover_instance_1->verification_key);
         auto prover_instance_2 = std::make_shared<ProverInstance>(builder2);
         auto verifier_instance_2 = std::make_shared<VerifierInstance>(prover_instance_2->verification_key);
         // Generate a folding proof
-        auto folding_prover = composer.create_folding_prover({ prover_instance_1, prover_instance_2 });
+        NativeFoldingProver folding_prover({ prover_instance_1, prover_instance_2 });
         auto folding_proof = folding_prover.fold_instances();
 
         // Create a recursive folding verifier circuit for the folding proof of the two instances
@@ -254,7 +254,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
-        auto native_folding_verifier = composer.create_folding_verifier({ verifier_instance_1, verifier_instance_2 });
+        NativeFoldingVerifier native_folding_verifier({ verifier_instance_1, verifier_instance_2 });
         auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.folding_data);
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
@@ -343,7 +343,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 
         // Generate a folding proof with the incorrect polynomials which would result in the prover having the wrong
         // target sum
-        auto folding_prover = composer.create_folding_prover({ prover_accumulator, prover_inst });
+        NativeFoldingProver folding_prover({ prover_accumulator, prover_inst });
         auto folding_proof = folding_prover.fold_instances();
 
         // Create a recursive folding verifier circuit for the folding proof of the two instances with the untampered

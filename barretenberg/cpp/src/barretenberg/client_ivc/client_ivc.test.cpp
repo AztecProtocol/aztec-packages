@@ -34,6 +34,10 @@ class ClientIVCTests : public ::testing::Test {
         bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using DeciderProver = ClientIVC::DeciderProver;
     using DeciderVerifier = ClientIVC::DeciderVerifier;
+    using ProverInstances = ProverInstances_<Flavor>;
+    using FoldingProver = ProtoGalaxyProver_<ProverInstances>;
+    using VerifierInstances = VerifierInstances_<Flavor>;
+    using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
 
     /**
      * @brief Construct mock circuit with arithmetic gates and goblin ops
@@ -85,9 +89,8 @@ class ClientIVCTests : public ::testing::Test {
         const std::shared_ptr<Flavor::VerificationKey>& verifier_inst_vk)
     {
         // Verify fold proof
-        Composer composer;
         auto new_verifier_inst = std::make_shared<VerifierInstance>(verifier_inst_vk);
-        auto folding_verifier = composer.create_folding_verifier({ prev_verifier_accumulator, new_verifier_inst });
+        FoldingVerifier folding_verifier({ prev_verifier_accumulator, new_verifier_inst });
         auto verifier_accumulator = folding_verifier.verify_folding_proof(fold_proof);
 
         // Run decider

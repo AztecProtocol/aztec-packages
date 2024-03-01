@@ -31,6 +31,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     using PowPolynomial = bb::PowPolynomial<FF>;
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
+    using FoldingProver = ProtoGalaxyProver_<ProverInstances>;
+    using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
@@ -66,10 +68,10 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify(
         const std::vector<std::shared_ptr<ProverInstance>>& prover_instances,
         const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances,
-        Composer& composer)
+        [[maybe_unused]] Composer& composer)
     {
-        auto folding_prover = composer.create_folding_prover(prover_instances);
-        auto folding_verifier = composer.create_folding_verifier(verifier_instances);
+        FoldingProver folding_prover(prover_instances);
+        FoldingVerifier folding_verifier(verifier_instances);
 
         auto [prover_accumulator, folding_proof] = folding_prover.fold_instances();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
