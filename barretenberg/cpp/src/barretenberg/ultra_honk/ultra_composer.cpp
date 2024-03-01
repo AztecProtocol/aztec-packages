@@ -7,14 +7,6 @@
 namespace bb {
 
 template <IsUltraFlavor Flavor>
-std::shared_ptr<VerifierInstance_<Flavor>> UltraComposer_<Flavor>::create_verifier_instance(
-    std::shared_ptr<ProverInstance_<Flavor>>& prover_instance)
-{
-    auto instance = std::make_shared<VerifierInstance>(prover_instance->verification_key);
-    return instance;
-}
-
-template <IsUltraFlavor Flavor>
 UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr<ProverInstance>& instance,
                                                            const std::shared_ptr<Transcript>& transcript)
 {

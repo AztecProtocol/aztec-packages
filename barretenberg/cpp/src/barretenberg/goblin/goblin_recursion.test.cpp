@@ -21,12 +21,13 @@ class GoblinRecursionTests : public ::testing::Test {
     using GoblinUltraBuilder = GoblinUltraCircuitBuilder;
     using KernelInput = Goblin::AccumulationOutput;
     using ProverInstance = ProverInstance_<GoblinUltraFlavor>;
+    using VerifierInstance = VerifierInstance_<GoblinUltraFlavor>;
 
     static Goblin::AccumulationOutput construct_accumulator(GoblinUltraBuilder& builder)
     {
         GoblinUltraComposer composer;
         auto prover_instance = std::make_shared<ProverInstance>(builder);
-        auto verifier_instance = composer.create_verifier_instance(prover_instance);
+        auto verifier_instance = std::make_shared<VerifierInstance>(prover_instance->verification_key);
         auto prover = composer.create_prover(prover_instance);
         auto ultra_proof = prover.construct_proof();
         return { ultra_proof, verifier_instance->verification_key };
