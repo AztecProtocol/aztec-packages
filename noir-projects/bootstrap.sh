@@ -18,11 +18,6 @@ fi
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
-PROJECTS=(
-  noir-contracts
-  noir-protocol-circuits
-)
-
 g="\033[32m"  # Green
 b="\033[34m"  # Blue
 r="\033[0m"   # Reset
