@@ -2,6 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
@@ -66,7 +67,7 @@ let functionTreeRootCalculator: MerkleTreeCalculator | undefined;
  */
 function getFunctionTreeRootCalculator() {
   if (!functionTreeRootCalculator) {
-    const functionTreeZeroLeaf = pedersenHash(new Array(5).fill(Buffer.alloc(32)));
+    const functionTreeZeroLeaf = pedersenHash(new Array(5).fill(Buffer.alloc(32))).toBuffer();
     functionTreeRootCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
   }
   return functionTreeRootCalculator;
@@ -102,8 +103,9 @@ export function computeFunctionTreeRoot(fnLeaves: Fr[]) {
  * @returns The constructor hash.
  */
 export function hashConstructor(functionData: FunctionData, argsHash: Fr, constructorVKHash: Buffer): Fr {
-  return Fr.fromBuffer(
-    pedersenHash([functionData.hash().toBuffer(), argsHash.toBuffer(), constructorVKHash], GeneratorIndex.CONSTRUCTOR),
+  return pedersenHash(
+    [functionData.hash().toBuffer(), argsHash.toBuffer(), constructorVKHash],
+    GeneratorIndex.CONSTRUCTOR,
   );
 }
 
@@ -114,22 +116,18 @@ export function hashConstructor(functionData: FunctionData, argsHash: Fr, constr
  * @returns A commitment nonce.
  */
 export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: number): Fr {
-  return Fr.fromBuffer(
-    pedersenHash([nullifierZero.toBuffer(), numToUInt32BE(commitmentIndex, 32)], GeneratorIndex.COMMITMENT_NONCE),
-  );
+  return pedersenHash([nullifierZero.toBuffer(), numToUInt32BE(commitmentIndex, 32)], GeneratorIndex.NOTE_HASH_NONCE);
 }
 
 /**
  * Computes a siloed commitment, given the contract address and the commitment itself.
  * A siloed commitment effectively namespaces a commitment to a specific contract.
  * @param contract - The contract address
- * @param innerCommitment - The commitment to silo.
+ * @param innerNoteHash - The commitment to silo.
  * @returns A siloed commitment.
  */
-export function siloCommitment(contract: AztecAddress, innerCommitment: Fr): Fr {
-  return Fr.fromBuffer(
-    pedersenHash([contract.toBuffer(), innerCommitment.toBuffer()], GeneratorIndex.SILOED_COMMITMENT),
-  );
+export function siloNoteHash(contract: AztecAddress, innerNoteHash: Fr): Fr {
+  return pedersenHash([contract.toBuffer(), innerNoteHash.toBuffer()], GeneratorIndex.SILOED_NOTE_HASH);
 }
 
 /**
@@ -139,7 +137,7 @@ export function siloCommitment(contract: AztecAddress, innerCommitment: Fr): Fr 
  * @returns A unique commitment.
  */
 export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
-  return Fr.fromBuffer(pedersenHash([nonce.toBuffer(), siloedCommitment.toBuffer()], GeneratorIndex.UNIQUE_COMMITMENT));
+  return pedersenHash([nonce.toBuffer(), siloedCommitment.toBuffer()], GeneratorIndex.UNIQUE_NOTE_HASH);
 }
 
 /**
@@ -150,7 +148,7 @@ export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
  * @returns A siloed nullifier.
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
-  return Fr.fromBuffer(pedersenHash([contract.toBuffer(), innerNullifier.toBuffer()], GeneratorIndex.OUTER_NULLIFIER));
+  return pedersenHash([contract.toBuffer(), innerNullifier.toBuffer()], GeneratorIndex.OUTER_NULLIFIER);
 }
 
 /**
@@ -171,9 +169,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
 
  */
 export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Fr {
-  return Fr.fromBuffer(
-    pedersenHash([contractAddress.toBuffer(), storageSlot.toBuffer()], GeneratorIndex.PUBLIC_LEAF_INDEX),
-  );
+  return pedersenHash([contractAddress.toBuffer(), storageSlot.toBuffer()], GeneratorIndex.PUBLIC_LEAF_INDEX);
 }
 
 /**
@@ -185,19 +181,21 @@ export function computeVarArgsHash(args: Fr[]) {
   if (args.length === 0) {
     return Fr.ZERO;
   }
-  if (args.length > ARGS_HASH_CHUNK_LENGTH * ARGS_HASH_CHUNK_COUNT) {
-    throw new Error(`Cannot hash more than ${ARGS_HASH_CHUNK_LENGTH * ARGS_HASH_CHUNK_COUNT} arguments`);
+  const maxLen = ARGS_HASH_CHUNK_LENGTH * ARGS_HASH_CHUNK_COUNT;
+  if (args.length > maxLen) {
+    // TODO(@spalladino): This should throw instead of warning. And we should implement
+    // the same check on the Noir side, which is currently missing.
+    args = args.slice(0, maxLen);
+    createDebugLogger('aztec:circuits:abis').warn(`Hashing ${args.length} args exceeds max of ${maxLen}`);
   }
 
   let chunksHashes = chunk(args, ARGS_HASH_CHUNK_LENGTH).map(c => {
     if (c.length < ARGS_HASH_CHUNK_LENGTH) {
       c = padArrayEnd(c, Fr.ZERO, ARGS_HASH_CHUNK_LENGTH);
     }
-    return Fr.fromBuffer(
-      pedersenHash(
-        c.map(a => a.toBuffer()),
-        GeneratorIndex.FUNCTION_ARGS,
-      ),
+    return pedersenHash(
+      c.map(a => a.toBuffer()),
+      GeneratorIndex.FUNCTION_ARGS,
     );
   });
 
@@ -205,11 +203,9 @@ export function computeVarArgsHash(args: Fr[]) {
     chunksHashes = padArrayEnd(chunksHashes, Fr.ZERO, ARGS_HASH_CHUNK_COUNT);
   }
 
-  return Fr.fromBuffer(
-    pedersenHash(
-      chunksHashes.map(a => a.toBuffer()),
-      GeneratorIndex.FUNCTION_ARGS,
-    ),
+  return pedersenHash(
+    chunksHashes.map(a => a.toBuffer()),
+    GeneratorIndex.FUNCTION_ARGS,
   );
 }
 
@@ -230,5 +226,5 @@ export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
  * @returns the hash
  */
 export function computeMessageSecretHash(secretMessage: Fr) {
-  return Fr.fromBuffer(pedersenHash([secretMessage.toBuffer()], GeneratorIndex.L1_TO_L2_MESSAGE_SECRET));
+  return pedersenHash([secretMessage.toBuffer()], GeneratorIndex.L1_TO_L2_MESSAGE_SECRET);
 }

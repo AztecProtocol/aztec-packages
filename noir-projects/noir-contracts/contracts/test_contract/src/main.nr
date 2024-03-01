@@ -14,12 +14,13 @@ contract Test {
         context::{Context, inputs::private_context_inputs::PrivateContextInputs}, hash::pedersen_hash,
         context::PrivateContext,
         note::{
-        note_header::NoteHeader, utils as note_utils, lifecycle::{create_note, destroy_note},
-        note_getter::{get_notes, view_notes}, note_getter_options::{NoteGetterOptions, NoteStatus},
-        note_viewer_options::NoteViewerOptions
-    },
+            note_header::NoteHeader, utils as note_utils, lifecycle::{create_note, destroy_note},
+            note_getter::{get_notes, view_notes}, note_getter_options::{NoteGetterOptions, NoteStatus},
+            note_viewer_options::NoteViewerOptions
+        },
+        deploy::{deploy_contract as aztec_deploy_contract},
         oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, rand::rand},
-        state_vars::immutable_singleton::ImmutableSingleton, log::emit_unencrypted_log_from_private
+        state_vars::PrivateImmutable, log::emit_unencrypted_log_from_private
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::FieldNote;
@@ -31,7 +32,7 @@ contract Test {
     }
 
     struct Storage {
-        example_constant: ImmutableSingleton<FieldNote>,
+        example_constant: PrivateImmutable<FieldNote>,
     }
 
     #[aztec(private)]
@@ -171,7 +172,7 @@ contract Test {
         a_struct: DummyNote,
         a_deep_struct: DeepStruct
     ) -> distinct pub PrivateCircuitPublicInputs {
-        let mut args: BoundedVec<Field, 17> = BoundedVec::new(0);
+        let mut args: BoundedVec<Field, 17> = BoundedVec::new();
         args.push(a_field);
         args.push(a_bool as Field);
         args.push(a_number as Field);
@@ -347,6 +348,11 @@ contract Test {
     #[aztec(public)]
     fn assert_header_public(header_hash: Field) {
         assert(context.historical_header.hash() == header_hash, "Invalid header hash");
+    }
+
+    #[aztec(private)]
+    fn deploy_contract(target: AztecAddress) {
+        aztec_deploy_contract(&mut context, target);
     }
 
     unconstrained fn get_constant() -> pub Field {

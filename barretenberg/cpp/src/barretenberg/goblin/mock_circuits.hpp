@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
@@ -30,7 +31,20 @@ class GoblinMockCircuits {
     using RecursiveFlavor = bb::GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
     using KernelInput = Goblin::AccumulationOutput;
+    using VerifierInstance = bb::VerifierInstance_<Flavor>;
+    using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
+    using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveVerifierInstance>;
+    using VerificationKey = Flavor::VerificationKey;
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
+
+    /**
+     * @brief Information required by the verifier to verify a folding round besides the previous accumulator.
+     */
+    struct VerifierFoldData {
+        std::vector<FF> fold_proof; // folding proof
+        std::shared_ptr<VerificationKey>
+            inst_vk; // Verification key of the instance to be folded (note: this would be a vector if k > 1 )
+    };
 
     /**
      * @brief Populate a builder with a specified number of arithmetic gates; includes a PI
@@ -38,9 +52,9 @@ class GoblinMockCircuits {
      * @param builder
      * @param num_gates
      */
-    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t log2_num_gates = 0)
+    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t log_num_gates = 0)
     {
-        size_t num_gates = 1 << log2_num_gates;
+        size_t num_gates = 1 << log_num_gates;
         // For good measure, include a gate with some public inputs
         {
             FF a = FF::random_element();
@@ -95,6 +109,7 @@ class GoblinMockCircuits {
      */
     static void construct_mock_function_circuit(GoblinUltraBuilder& builder, bool large = false)
     {
+        BB_OP_COUNT_TIME();
         // Determine number of times to execute the below operations that constitute the mock circuit logic. Note that
         // the circuit size does not scale linearly with number of iterations due to e.g. amortization of lookup costs
         const size_t NUM_ITERATIONS_LARGE = 13; // results in circuit size 2^19 (521327 gates)
@@ -105,8 +120,9 @@ class GoblinMockCircuits {
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS); // min gates: ~41k
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_ITERATIONS);  // min gates: ~29k
 
-        // Note: its not clear whether goblin ops will be supported for function circuits initially but currently UGH
-        // can only be used if some op gates are included so for now we'll assume each function circuit has some.
+        // Note: its not clear whether goblin ops will be supported for function circuits initially but currently
+        // UGH can only be used if some op gates are included so for now we'll assume each function circuit has
+        // some.
         construct_goblin_ecc_op_circuit(builder);
     }
 
@@ -132,8 +148,7 @@ class GoblinMockCircuits {
         op_queue->set_size_data();
 
         // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
-        auto crs_factory_ = bb::srs::get_crs_factory();
-        auto commitment_key = CommitmentKey(op_queue->get_current_size(), crs_factory_);
+        auto commitment_key = CommitmentKey(op_queue->get_current_size());
         std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;
         size_t idx = 0;
         for (auto& entry : op_queue->get_aggregate_transcript()) {
@@ -212,29 +227,41 @@ class GoblinMockCircuits {
      * @param function_fold_proof
      * @param kernel_fold_proof
      */
-    static void construct_mock_folding_kernel(GoblinUltraBuilder& builder,
-                                              const std::vector<FF>& function_fold_proof,
-                                              const std::vector<FF>& kernel_fold_proof)
+    static std::shared_ptr<VerifierInstance> construct_mock_folding_kernel(
+        GoblinUltraBuilder& builder,
+        const VerifierFoldData& func,
+        const VerifierFoldData& kernel,
+        std::shared_ptr<VerifierInstance>& prev_kernel_accum)
     {
+        BB_OP_COUNT_TIME();
         using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
-        using RecursiveVerifierInstances = ::bb::VerifierInstances_<GURecursiveFlavor, 2>;
+        using RecursiveVerifierInstances =
+            bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;
         using FoldingRecursiveVerifier =
             bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
 
-        // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make the
-        // kernel "full" within the dyadic size 2^17 (130914 gates)
-        const size_t NUM_MERKLE_CHECKS = 20;
+        // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
+        // the kernel "full" within the dyadic size 2^17 (130914 gates)
+        const size_t NUM_MERKLE_CHECKS = 25;
         const size_t NUM_ECDSA_VERIFICATIONS = 1;
         const size_t NUM_SHA_HASHES = 1;
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
         stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
 
-        FoldingRecursiveVerifier verifier_1{ &builder };
-        verifier_1.verify_folding_proof(function_fold_proof);
+        // Initial kernel iteration does not have a previous kernel to fold
+        if (kernel.fold_proof.empty()) {
+            FoldingRecursiveVerifier verifier_1{ &builder, prev_kernel_accum, { func.inst_vk } };
+            auto fctn_verifier_accum = verifier_1.verify_folding_proof(func.fold_proof);
+            return std::make_shared<VerifierInstance>(fctn_verifier_accum->get_value());
+        }
 
-        FoldingRecursiveVerifier verifier_2{ &builder };
-        verifier_2.verify_folding_proof(kernel_fold_proof);
+        FoldingRecursiveVerifier verifier_2{ &builder, prev_kernel_accum, { kernel.inst_vk } };
+        auto kernel_verifier_accum = verifier_2.verify_folding_proof(kernel.fold_proof);
+        auto native_acc = std::make_shared<VerifierInstance>(kernel_verifier_accum->get_value());
+        FoldingRecursiveVerifier verifier_1{ &builder, native_acc, { func.inst_vk } };
+        auto fctn_verifier_accum = verifier_1.verify_folding_proof(func.fold_proof);
+        return std::make_shared<VerifierInstance>(fctn_verifier_accum->get_value());
     }
 
     /**

@@ -5,9 +5,10 @@ import {
   L1NotePayload,
   L2BlockContext,
   L2BlockL2Logs,
+  TaggedNote,
 } from '@aztec/circuit-types';
 import { NoteProcessorStats } from '@aztec/circuit-types/stats';
-import { MAX_NEW_COMMITMENTS_PER_TX, PublicKey } from '@aztec/circuits.js';
+import { MAX_NEW_NOTE_HASHES_PER_TX, PublicKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -123,17 +124,18 @@ export class NoteProcessor {
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
         this.stats.txs++;
         const dataStartIndexForTx =
-          dataEndIndexForBlock - (txLogs.length - indexOfTxInABlock) * MAX_NEW_COMMITMENTS_PER_TX;
-        const newCommitments = block.body.txEffects[indexOfTxInABlock].newNoteHashes;
+          dataEndIndexForBlock - (txLogs.length - indexOfTxInABlock) * MAX_NEW_NOTE_HASHES_PER_TX;
+        const newNoteHashes = block.body.txEffects[indexOfTxInABlock].newNoteHashes;
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
         const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
         const excludedIndices: Set<number> = new Set();
         for (const functionLogs of txFunctionLogs) {
-          for (const logs of functionLogs.logs) {
+          for (const log of functionLogs.logs) {
             this.stats.seen++;
-            const payload = L1NotePayload.fromEncryptedBuffer(logs, privateKey, curve);
-            if (payload) {
+            const taggedNote = TaggedNote.fromEncryptedBuffer(log, privateKey, curve);
+            if (taggedNote?.notePayload) {
+              const { notePayload: payload } = taggedNote;
               // We have successfully decrypted the data.
               const txHash = blockContext.getTxHash(indexOfTxInABlock);
               try {
@@ -142,7 +144,7 @@ export class NoteProcessor {
                   this.publicKey,
                   payload,
                   txHash,
-                  newCommitments,
+                  newNoteHashes,
                   dataStartIndexForTx,
                   excludedIndices,
                 );
@@ -159,7 +161,7 @@ export class NoteProcessor {
                     payload.storageSlot,
                     payload.noteTypeId,
                     txHash,
-                    newCommitments,
+                    newNoteHashes,
                     dataStartIndexForTx,
                   );
                   deferredNoteDaos.push(deferredNoteDao);
@@ -254,7 +256,7 @@ export class NoteProcessor {
     const excludedIndices: Set<number> = new Set();
     const noteDaos: NoteDao[] = [];
     for (const deferredNote of deferredNoteDaos) {
-      const { note, contractAddress, storageSlot, noteTypeId, txHash, newCommitments, dataStartIndexForTx } =
+      const { note, contractAddress, storageSlot, noteTypeId, txHash, newNoteHashes, dataStartIndexForTx } =
         deferredNote;
       const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
 
@@ -264,7 +266,7 @@ export class NoteProcessor {
           this.publicKey,
           payload,
           txHash,
-          newCommitments,
+          newNoteHashes,
           dataStartIndexForTx,
           excludedIndices,
         );

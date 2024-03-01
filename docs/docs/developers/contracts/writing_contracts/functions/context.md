@@ -15,7 +15,7 @@ On this page, you'll learn
 - The details and functionalities of the private context in Aztec.nr
 - Difference between the private and public contexts and their unified APIs
 - Components of the private context, such as inputs, block header, and contract deployment data
-- Elements like return values, read requests, new commitments, and nullifiers in transaction processing
+- Elements like return values, read requests, new note hashes, and nullifiers in transaction processing
 - Differences between the private and public contexts, especially the unique features and variables in the public context
 
 ## Two contexts, one API
@@ -46,7 +46,7 @@ As shown in the snippet, the application context is made up of 4 main structures
 
 First of all, the call context.
 
-#include_code call-context /noir-projects/noir-protocol-circuits/src/crates/types/src/abis/call_context.nr rust
+#include_code call-context /noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr rust
 
 The call context contains information about the current call being made:
 
@@ -75,13 +75,13 @@ Another structure that is contained within the context is the Header object.
 In the private context this is a header of a block which used to generate proofs against.
 In the public context this header is set by sequencer (sequencer executes public calls) and it is set to 1 block before the block in which the transaction is included.
 
-#include_code header /noir-projects/noir-protocol-circuits/src/crates/types/src/header.nr rust
+#include_code header /noir-projects/noir-protocol-circuits/crates/types/src/header.nr rust
 
 ### Contract Deployment Data
 
 Just like with the `is_contract_deployment` flag mentioned earlier. This data will only be set to true when the current transaction is one in which a contract is being deployed.
 
-#include_code contract-deployment-data /noir-projects/noir-protocol-circuits/src/crates/types/src/contrakt/deployment_data.nr rust
+#include_code contract-deployment-data /noir-projects/noir-protocol-circuits/crates/types/src/contrakt/contract_deployment_data.nr rust
 
 ### Private Global Variables
 
@@ -105,18 +105,18 @@ The return values are a set of values that are returned from an applications exe
 
 <!-- TODO(maddiaa): leaving as todo until their is further clarification around their implementation in the protocol -->
 
-### New Commitments
+### New Note Hashes
 
-New commitments contains an array of all of the commitments created in the current execution context.
+New note hashes contains an array of all of the note hashes created in the current execution context.
 
 ### New Nullifiers
 
 New nullifiers contains an array of the new nullifiers emitted from the current execution context.
 
-### Nullified Commitments
+### Nullified Note Hashes
 
-Nullified commitments is an optimization for introduced to help reduce state growth. There are often cases where commitments are created and nullified within the same transaction.
-In these cases there is no reason that these commitments should take up space on the node's commitment/nullifier trees. Keeping track of nullified commitments allows us to "cancel out" and prove these cases.
+Nullified note hashes is an optimization for introduced to help reduce state growth. There are often cases where note hashes are created and nullified within the same transaction.
+In these cases there is no reason that these note hashes should take up space on the node's commitment/nullifier trees. Keeping track of nullified note hashes allows us to "cancel out" and prove these cases.
 
 ### Private Call Stack
 
@@ -145,4 +145,4 @@ In the current version of the system, the public context is almost a clone of th
 
 The public global variables are provided by the rollup sequencer and consequently contain some more values than the private global variables.
 
-#include_code global-variables /noir-projects/noir-protocol-circuits/src/crates/types/src/abis/global_variables.nr rust
+#include_code global-variables /noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr rust

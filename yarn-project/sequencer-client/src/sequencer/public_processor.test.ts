@@ -34,7 +34,7 @@ import {
   makePrivateKernelTailCircuitPublicInputs,
   makePublicCallRequest,
   makeSelector,
-} from '@aztec/circuits.js/factories';
+} from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/simulator';
@@ -374,7 +374,7 @@ function makePublicExecutionResultFromRequest(item: PublicCallRequest): PublicEx
     execution: item,
     nestedExecutions: [],
     returnValues: [new Fr(1n)],
-    newCommitments: [],
+    newNoteHashes: [],
     newL2ToL1Messages: [],
     newNullifiers: [],
     contractStorageReads: [],
@@ -399,7 +399,7 @@ function makePublicExecutionResult(
     execution,
     nestedExecutions,
     returnValues: [],
-    newCommitments: [],
+    newNoteHashes: [],
     newNullifiers: [],
     newL2ToL1Messages: [],
     contractStorageReads: [],

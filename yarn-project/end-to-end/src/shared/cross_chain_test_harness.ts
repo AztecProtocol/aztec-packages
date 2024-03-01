@@ -73,8 +73,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   const underlyingERC20 = getContract({
     address: underlyingERC20Address.toString(),
     abi: PortalERC20Abi,
-    walletClient,
-    publicClient,
+    client: walletClient,
   });
 
   // deploy the token portal
@@ -82,8 +81,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   const tokenPortal = getContract({
     address: tokenPortalAddress.toString(),
     abi: TokenPortalAbi,
-    walletClient,
-    publicClient,
+    client: walletClient,
   });
 
   // deploy l2 token
@@ -138,15 +136,13 @@ export class CrossChainTestHarness {
     const inbox = getContract({
       address: l1ContractAddresses.inboxAddress.toString(),
       abi: InboxAbi,
-      walletClient,
-      publicClient,
+      client: walletClient,
     });
 
     const outbox = getContract({
       address: l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
-      walletClient,
-      publicClient,
+      client: walletClient,
     });
 
     // Deploy and initialize all required contracts
@@ -440,7 +436,7 @@ export class CrossChainTestHarness {
   }
 
   async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {
-    this.logger('Spending commitment in private call');
+    this.logger('Spending note in private call');
     const privateTx = this.l2Token.methods.redeem_shield(this.ownerAddress, shieldAmount, secret).send();
     const privateReceipt = await privateTx.wait();
     expect(privateReceipt.status).toBe(TxStatus.MINED);
