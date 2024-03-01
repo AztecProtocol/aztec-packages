@@ -3,7 +3,7 @@
 pragma solidity >=0.8.18;
 
 // Interfaces
-import {IInbox} from "../interfaces/messagebridge/IInbox.sol";
+import {IFrontier} from "../interfaces/messagebridge/IFrontier.sol";
 import {IRegistry} from "../interfaces/messagebridge/IRegistry.sol";
 
 // Libraries
@@ -11,7 +11,9 @@ import {Constants} from "../libraries/ConstantsGen.sol";
 import {DataStructures} from "../libraries/DataStructures.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Hash} from "../libraries/Hash.sol";
-import {MessageBox} from "../libraries/MessageBox.sol";
+
+// Contracts
+import {FrontierMerkle} from "./frontier_tree/Frontier.sol";
 
 /**
  * @title Inbox
@@ -20,7 +22,9 @@ import {MessageBox} from "../libraries/MessageBox.sol";
  */
 // TODO: rename to Inbox once all the pieces of the new message model are in place.
 contract NewInbox {
-  IRegistry public immutable REGISTRY;
+  using Hash for DataStructures.L1ToL2Msg;
+
+  address public immutable ROLLUP;
 
   uint256 public immutable HEIGHT;
   uint256 public immutable SIZE;
@@ -29,69 +33,83 @@ contract NewInbox {
   uint256 private toInclude = 0;
   uint256 private inProgress = 1;
 
-  mapping(uint256 treeNumber => address tree) public frontier;
+  mapping(uint256 treeNumber => IFrontier tree) public frontier;
 
   event LeafInserted(uint256 indexed treeNumber, uint256 indexed index, bytes32 value);
 
-  constructor(address _registry, uint256 _height, bytes32 _zero) {
-    REGISTRY = IRegistry(_registry);
+  constructor(address _rollup, uint256 _height, bytes32 _zero) {
+    ROLLUP = _rollup;
 
     HEIGHT = _height;
-    SIZE = 2**_height;
+    SIZE = 2 ** _height;
     ZERO = _zero;
+
+    // We deploy the first tree
+    frontier[inProgress] = IFrontier(new FrontierMerkle(_height));
+  }
+
+  /**
+   * @notice Inserts an entry into the Inbox
+   * @dev Will emit `LeafInserted` with data for easy access by the sequencer
+   * @param _recipient - The recipient of the entry
+   * @param _deadline - The deadline to consume a message. Only after it, can a message be cancelled.
+   * it is uint32 to for slot packing of the Entry struct. Should work until Feb 2106.
+   * @param _content - The content of the entry (application specific)
+   * @param _secretHash - The secret hash of the entry (make it possible to hide when a specific entry is consumed on L2)
+   * @return The key of the entry in the set
+   */
+  function insert(
+    DataStructures.L2Actor memory _recipient,
+    uint32 _deadline,
+    bytes32 _content,
+    bytes32 _secretHash
+  ) external returns (bytes32) {
+    IFrontier currentTree = frontier[inProgress];
+    if (currentTree.isFull()) {
+      inProgress += 1;
+      currentTree = IFrontier(new FrontierMerkle(HEIGHT));
+      frontier[inProgress] = currentTree;
+    }
+
+    DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
+      sender: DataStructures.L1Actor(msg.sender, block.chainid),
+      recipient: _recipient,
+      content: _content,
+      secretHash: _secretHash,
+      deadline: _deadline,
+      fee: 0 // TODO: nuke this (there will no longer be fees for messages)
+    });
+
+    bytes32 leaf = message.sha256ToField();
+    uint256 nextIndex = currentTree.insertLeaf(leaf);
+    emit LeafInserted(inProgress, nextIndex, leaf);
+
+    return leaf;
+  }
+
+  /**
+   * @notice Consumes the current tree, and starts a new one if needed
+   * @dev Only callable by the rollup contract
+   * @return The root of the consumed tree
+   */
+  function consume() external returns (bytes32) {
+    if (msg.sender != ROLLUP) {
+      revert Errors.Inbox__Unauthorized();
+    }
+
+    bytes32 root = ZERO;
+    if (toInclude > 0) {
+      root = frontier[toInclude].root();
+    }
+
+    // If we are "catching up" we can skip the creation as it is already there
+    if (toInclude + 1 == inProgress) {
+      inProgress += 1;
+      frontier[inProgress] = IFrontier(new FrontierMerkle(HEIGHT));
+    }
+
+    toInclude += 1;
+
+    return root;
   }
 }
-
-// class Inbox:
-//   STATE_TRANSITIONER: immutable(address)
-//   ZERO: immutable(bytes32)
-
-//   HEIGHT: immutable(uint256)
-//   SIZE: immutable(uint256)
-
-//   trees: HashMap[uint256, FrontierTree]
-
-//   to_include: uint256 = 0
-//   in_progress: uint256 = 1
-
-//   def __init__(self, _height: uint256, _zero: bytes32, _state_transitioner: address):
-//     self.HEIGHT = _height
-//     self.SIZE = 2**_height
-//     self.ZERO = _zero
-//     self.STATE_TRANSITIONER = _state_transitioner
-
-//     self.trees[1] = FrontierTree(self.HEIGHT)
- 
-//   def insert(self, message: L1ToL2Message) -> bytes32:
-//     '''
-//     Insert into the next FrontierTree. If the tree is full, creates a new one
-//     '''
-//     if self.trees[self.in_progress].next_index == 2**self.HEIGHT:
-//       self.in_progress += 1
-//       self.trees[self.in_progress] = FrontierTree(self.HEIGHT)
-
-//     message.sender.actor = msg.sender
-//     message.sender.chain_id = block.chainid
-
-//     leaf = message.hash_to_field()
-//     self.trees[self.in_progress].insert(leaf)
-//     return leaf
-
-//   def consume(self) -> bytes32:
-//     '''
-//     Consumes the current tree, and starts a new one if needed
-//     '''
-//     assert msg.sender == self.STATE_TRANSITIONER
-
-//     root = self.ZERO
-//     if self.to_include > 0:
-//       root = self.trees[self.to_include].root()
-
-//     # If we are "catching up" we can skip the creation as it is already there
-//     if self.to_include + 1 == self.in_progress:
-//       self.in_progress += 1
-//       self.trees[self.in_progress] = FrontierTree(self.HEIGHT)
-
-//     self.to_include += 1
-
-//     return root

@@ -3,7 +3,9 @@
 pragma solidity >=0.8.18;
 
 interface IFrontier {
-  function insertLeaf(bytes32 _leaf) external;
+  function insertLeaf(bytes32 _leaf) external returns (uint256);
 
   function root() external view returns (bytes32);
+
+  function isFull() external view returns (bool);
 }
