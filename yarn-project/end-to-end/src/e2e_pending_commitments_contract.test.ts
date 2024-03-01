@@ -27,11 +27,11 @@ describe('e2e_pending_commitments_contract', () => {
 
     // all new note hashes should be zero (should be squashed)
     for (let c = 0; c < exceptFirstFew; c++) {
-      expect(noteHashes).not.toEqual(Fr.ZERO);
+      expect(noteHashes[c]).not.toEqual(Fr.ZERO);
     }
 
     for (let c = exceptFirstFew; c < noteHashes.length; c++) {
-      expect(noteHashes).toEqual(Fr.ZERO);
+      expect(noteHashes[c]).toEqual(Fr.ZERO);
     }
   };
 
