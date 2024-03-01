@@ -89,7 +89,7 @@ export class BlockStore {
   /**
    * Gets an L2 block.
    * @param blockNumber - The number of the block to return.
-   * @returns The requested L2 blocks
+   * @returns The requested L2 block.
    */
   getBlock(blockNumber: number): L2Block | undefined {
     const blockStorage = this.#blocks.get(blockNumber);
