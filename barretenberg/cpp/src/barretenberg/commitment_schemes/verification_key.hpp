@@ -80,7 +80,7 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
      * @param num_points specifies the length of the SRS
      * @param path is the location to the SRS file
      */
-    VerifierCommitmentKey(size_t num_points, std::shared_ptr<bb::srs::factories::CrsFactory<Curve>> crs_factory)
+    VerifierCommitmentKey(size_t num_points, const std::shared_ptr<bb::srs::factories::CrsFactory<Curve>>& crs_factory)
         : pippenger_runtime_state(num_points)
         , srs(crs_factory->get_verifier_crs(num_points))
 

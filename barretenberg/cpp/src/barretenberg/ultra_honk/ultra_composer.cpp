@@ -41,7 +41,6 @@ DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(const std::
                                                                      const std::shared_ptr<Transcript>& transcript)
 {
     return DeciderProver_<Flavor>(accumulator, transcript);
-    ;
 }
 
 template <IsUltraFlavor Flavor>

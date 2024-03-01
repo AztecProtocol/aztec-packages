@@ -10,7 +10,6 @@ namespace bb {
 template <typename Flavor> class DeciderVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
-    using CommitmentKey = typename Flavor::CommitmentKey;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Transcript = typename Flavor::Transcript;
