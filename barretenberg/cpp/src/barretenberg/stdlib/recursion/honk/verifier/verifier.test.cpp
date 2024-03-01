@@ -5,6 +5,7 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -19,15 +20,12 @@ namespace bb::stdlib::recursion::honk {
 template <typename BuilderType> class HonkRecursiveVerifierTest : public testing::Test {
 
     // Define types relevant for testing
-    using UltraComposer = UltraComposer_<UltraFlavor>;
-    using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
 
     using InnerFlavor = UltraFlavor;
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
-    using InnerComposer = UltraComposer;
     using InnerProver = UltraProver;
     using InnerVerifier = UltraVerifier;
-    using InnerBuilder = typename InnerComposer::CircuitBuilder;
+    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     using InnerCurve = bn254<InnerBuilder>;
     using Commitment = InnerFlavor::Commitment;
     using FF = InnerFlavor::FF;
@@ -45,16 +43,6 @@ template <typename BuilderType> class HonkRecursiveVerifierTest : public testing
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
-
-    // Helper for getting composer for prover/verifier of recursive (outer) circuit
-    template <typename BuilderT> static auto get_outer_composer()
-    {
-        if constexpr (IsGoblinBuilder<BuilderT>) {
-            return GoblinUltraComposer();
-        } else {
-            return UltraComposer();
-        }
-    }
 
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified

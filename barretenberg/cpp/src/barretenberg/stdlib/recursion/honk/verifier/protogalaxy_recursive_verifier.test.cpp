@@ -11,7 +11,6 @@ namespace bb::stdlib::recursion::honk {
 template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public testing::Test {
   public:
     using NativeFlavor = typename RecursiveFlavor::NativeFlavor;
-    using Composer = ::bb::UltraComposer_<NativeFlavor>;
     using Builder = typename RecursiveFlavor::CircuitBuilder;
     using Prover = UltraProver_<NativeFlavor>;
     using Verifier = UltraVerifier_<NativeFlavor>;
@@ -99,8 +98,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         }
     };
 
-    static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify_native(
-        [[maybe_unused]] Composer& composer)
+    static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify_native()
     {
         Builder builder1;
         create_function_circuit(builder1);
@@ -307,8 +305,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     static void test_tampered_decider_proof()
     {
         // Natively fold two circuits
-        auto composer = Composer();
-        auto [prover_accumulator, verifier_accumulator] = fold_and_verify_native(composer);
+        auto [prover_accumulator, verifier_accumulator] = fold_and_verify_native();
 
         // Tamper with the accumulator by changing the target sum
         verifier_accumulator->target_sum = FF::random_element();
@@ -330,8 +327,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     static void test_tampered_accumulator()
     {
         // Fold two circuits natively
-        auto composer = Composer();
-        auto [prover_accumulator, verifier_accumulator] = fold_and_verify_native(composer);
+        auto [prover_accumulator, verifier_accumulator] = fold_and_verify_native();
 
         // Create another circuit to do a second round of folding
         Builder builder;

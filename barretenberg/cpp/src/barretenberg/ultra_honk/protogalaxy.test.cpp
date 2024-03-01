@@ -12,7 +12,6 @@ auto& engine = numeric::get_debug_randomness();
 
 template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
   public:
-    using Composer = UltraComposer_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using ProverInstance = ProverInstance_<Flavor>;
     using ProverInstances = ProverInstances_<Flavor, 2>;
@@ -67,8 +66,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
     static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify(
         const std::vector<std::shared_ptr<ProverInstance>>& prover_instances,
-        const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances,
-        [[maybe_unused]] Composer& composer)
+        const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances)
     {
         FoldingProver folding_prover(prover_instances);
         FoldingVerifier folding_verifier(verifier_instances);
@@ -97,7 +95,6 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
     static void decide_and_verify(std::shared_ptr<ProverInstance>& prover_accumulator,
                                   std::shared_ptr<VerifierInstance>& verifier_accumulator,
-                                  [[maybe_unused]] Composer& composer,
                                   bool expected_result)
     {
         DeciderProver decider_prover(prover_accumulator);
@@ -298,7 +295,6 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      */
     static void test_full_protogalaxy()
     {
-        auto composer = Composer();
         auto builder_1 = typename Flavor::CircuitBuilder();
         construct_circuit(builder_1);
 
@@ -309,8 +305,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         construct_circuit(builder_2);
         auto prover_instance_2 = std::make_shared<ProverInstance>(builder_2);
         auto verifier_instance_2 = std::make_shared<VerifierInstance>(prover_instance_2->verification_key);
-        auto [prover_accumulator, verifier_accumulator] = fold_and_verify(
-            { prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 }, composer);
+        auto [prover_accumulator, verifier_accumulator] =
+            fold_and_verify({ prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 });
 
         check_accumulator_target_sum_manual(prover_accumulator, true);
 
@@ -319,12 +315,12 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         auto prover_instance_3 = std::make_shared<ProverInstance>(builder_3);
         auto verifier_instance_3 = std::make_shared<VerifierInstance>(prover_instance_3->verification_key);
 
-        auto [prover_accumulator_2, verifier_accumulator_2] = fold_and_verify(
-            { prover_accumulator, prover_instance_3 }, { verifier_accumulator, verifier_instance_3 }, composer);
+        auto [prover_accumulator_2, verifier_accumulator_2] =
+            fold_and_verify({ prover_accumulator, prover_instance_3 }, { verifier_accumulator, verifier_instance_3 });
 
         check_accumulator_target_sum_manual(prover_accumulator_2, true);
 
-        decide_and_verify(prover_accumulator_2, verifier_accumulator_2, composer, true);
+        decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
     }
 
     /**
@@ -333,7 +329,6 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      */
     static void test_tampered_commitment()
     {
-        auto composer = Composer();
         auto builder_1 = typename Flavor::CircuitBuilder();
         construct_circuit(builder_1);
 
@@ -344,8 +339,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         construct_circuit(builder_2);
         auto prover_instance_2 = std::make_shared<ProverInstance>(builder_2);
         auto verifier_instance_2 = std::make_shared<VerifierInstance>(prover_instance_2->verification_key);
-        auto [prover_accumulator, verifier_accumulator] = fold_and_verify(
-            { prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 }, composer);
+        auto [prover_accumulator, verifier_accumulator] =
+            fold_and_verify({ prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 });
         check_accumulator_target_sum_manual(prover_accumulator, true);
 
         verifier_accumulator->witness_commitments.w_l = Projective(Affine::random_element());
@@ -354,12 +349,12 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         auto prover_instance_3 = std::make_shared<ProverInstance>(builder_3);
         auto verifier_instance_3 = std::make_shared<VerifierInstance>(prover_instance_3->verification_key);
 
-        auto [prover_accumulator_2, verifier_accumulator_2] = fold_and_verify(
-            { prover_accumulator, prover_instance_3 }, { verifier_accumulator, verifier_instance_3 }, composer);
+        auto [prover_accumulator_2, verifier_accumulator_2] =
+            fold_and_verify({ prover_accumulator, prover_instance_3 }, { verifier_accumulator, verifier_instance_3 });
 
         check_accumulator_target_sum_manual(prover_accumulator_2, true);
 
-        decide_and_verify(prover_accumulator_2, verifier_accumulator_2, composer, false);
+        decide_and_verify(prover_accumulator_2, verifier_accumulator_2, false);
     }
 
     /**
@@ -369,7 +364,6 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      */
     static void test_tampered_accumulator_polynomial()
     {
-        auto composer = Composer();
         auto builder_1 = typename Flavor::CircuitBuilder();
         construct_circuit(builder_1);
 
@@ -380,8 +374,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         construct_circuit(builder_2);
         auto prover_instance_2 = std::make_shared<ProverInstance>(builder_2);
         auto verifier_instance_2 = std::make_shared<VerifierInstance>(prover_instance_2->verification_key);
-        auto [prover_accumulator, verifier_accumulator] = fold_and_verify(
-            { prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 }, composer);
+        auto [prover_accumulator, verifier_accumulator] =
+            fold_and_verify({ prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 });
         check_accumulator_target_sum_manual(prover_accumulator, true);
 
         auto builder_3 = typename Flavor::CircuitBuilder();
@@ -390,11 +384,11 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         auto verifier_instance_3 = std::make_shared<VerifierInstance>(prover_instance_3->verification_key);
 
         prover_accumulator->prover_polynomials.w_l[1] = FF::random_element();
-        auto [prover_accumulator_2, verifier_accumulator_2] = fold_and_verify(
-            { prover_accumulator, prover_instance_3 }, { verifier_accumulator, verifier_instance_3 }, composer);
+        auto [prover_accumulator_2, verifier_accumulator_2] =
+            fold_and_verify({ prover_accumulator, prover_instance_3 }, { verifier_accumulator, verifier_instance_3 });
 
         EXPECT_EQ(prover_accumulator_2->target_sum == verifier_accumulator_2->target_sum, false);
-        decide_and_verify(prover_accumulator_2, verifier_accumulator_2, composer, false);
+        decide_and_verify(prover_accumulator_2, verifier_accumulator_2, false);
     }
 };
 } // namespace

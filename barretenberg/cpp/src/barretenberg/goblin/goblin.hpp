@@ -12,6 +12,7 @@
 #include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb {
 
@@ -25,7 +26,6 @@ class Goblin {
     using Fr = bb::fr;
     using Transcript = NativeTranscript;
     using GoblinUltraProverInstance = ProverInstance_<GoblinUltraFlavor>;
-    using GoblinUltraComposer = bb::UltraComposer_<GoblinUltraFlavor>;
     using GoblinUltraVerifier = bb::UltraVerifier_<GoblinUltraFlavor>;
     using OpQueue = bb::ECCOpQueue;
     using ECCVMFlavor = bb::ECCVMFlavor;

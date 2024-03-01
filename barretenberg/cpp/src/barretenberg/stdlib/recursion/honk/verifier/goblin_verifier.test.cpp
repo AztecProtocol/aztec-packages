@@ -18,15 +18,11 @@ namespace bb::stdlib::recursion::honk {
  */
 template <typename BuilderType> class GoblinRecursiveVerifierTest : public testing::Test {
 
-    using UltraComposer = UltraComposer_<UltraFlavor>;
-    using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
-
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = GoblinUltraFlavor;
-    using InnerComposer = GoblinUltraComposer;
     using InnerProver = GoblinUltraProver;
     using InnerVerifier = GoblinUltraVerifier;
-    using InnerBuilder = typename InnerComposer::CircuitBuilder;
+    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerCurve = bn254<InnerBuilder>;
     using InnerCommitment = InnerFlavor::Commitment;
@@ -44,16 +40,6 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
     using RecursiveFlavor = GoblinUltraRecursiveFlavor_<OuterBuilder>;
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
-
-    // Helper for getting composer for prover/verifier of recursive (outer) circuit
-    template <typename BuilderT> static auto get_outer_composer()
-    {
-        if constexpr (IsGoblinBuilder<BuilderT>) {
-            return GoblinUltraComposer();
-        } else {
-            return UltraComposer();
-        }
-    }
 
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
