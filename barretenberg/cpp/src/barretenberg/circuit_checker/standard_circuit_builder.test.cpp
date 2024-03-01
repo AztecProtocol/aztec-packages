@@ -1,7 +1,7 @@
-#include "standard_circuit_builder.hpp"
+#include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/generators/generator_data.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
-#include "barretenberg/proof_system/circuit_builder/circuit_checker.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;

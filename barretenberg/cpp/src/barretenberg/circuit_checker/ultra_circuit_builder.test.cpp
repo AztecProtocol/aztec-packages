@@ -1,4 +1,5 @@
-#include "ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include <gtest/gtest.h>
 
@@ -10,6 +11,25 @@ auto& engine = numeric::get_debug_randomness();
 namespace bb {
 using plookup::ColumnIdx;
 using plookup::MultiTableId;
+
+TEST(ultra_circuit_constructor, simple)
+{
+    UltraCircuitBuilder builder;
+
+    for (size_t i = 0; i < 2; ++i) {
+        for (size_t j = 0; j < 2; ++j) {
+            uint32_t left_idx = builder.add_variable(fr(i));
+            uint32_t right_idx = builder.add_variable(fr(j));
+            uint32_t sum_idx = builder.add_variable(i + j);
+
+            uint32_t add_idx = builder.add_variable(builder.get_variable(left_idx) + builder.get_variable(right_idx) +
+                                                    builder.get_variable(sum_idx));
+            builder.create_big_add_gate({ left_idx, right_idx, sum_idx, add_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
+        }
+    }
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
 
 TEST(ultra_circuit_constructor, copy_constructor)
 {
@@ -29,6 +49,8 @@ TEST(ultra_circuit_constructor, copy_constructor)
                 { left_idx, right_idx, result_idx, add_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
     }
+
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     bool result = circuit_constructor.check_circuit();
     EXPECT_EQ(result, true);
