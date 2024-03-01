@@ -33,7 +33,7 @@ export class AvmSimulator {
       // continuing until the machine state signifies a halt
       while (!this.context.machineState.halted) {
         const instruction = instructions[this.context.machineState.pc];
-        assert(!!instruction); // This should never happen
+        assert(!!instruction, "AVM attempted to execute non-existent instruction. This should never happen (invalid bytecode or AVM simulator bug)!");
 
         this.log(`Executing PC=${this.context.machineState.pc}: ${instruction.toString()}`);
         // Execute the instruction.

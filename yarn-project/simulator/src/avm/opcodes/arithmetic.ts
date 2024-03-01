@@ -13,6 +13,10 @@ export class Add extends ThreeOperandInstruction {
   async execute(context: AvmContext): Promise<void> {
     const a = context.machineState.memory.get(this.aOffset);
     const b = context.machineState.memory.get(this.bOffset);
+    console.log(`typeof a: ${typeof a}`);
+    console.log(`aOffset: ${this.aOffset}, a: ${a.toBigInt()}`);
+    console.log(`typeof b: ${typeof b}`);
+    console.log(`bOffset: ${this.bOffset}, b: ${b.toBigInt()}`);
 
     const dest = a.add(b);
     context.machineState.memory.set(this.dstOffset, dest);

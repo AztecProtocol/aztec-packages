@@ -1,4 +1,4 @@
-import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 
 import { allSameExcept, initContext } from './fixtures/index.js';
 
@@ -9,7 +9,7 @@ describe('Avm Context', () => {
 
     const newAddress = AztecAddress.random();
     const newCalldata = [new Fr(1), new Fr(2)];
-    const newContext = context.createNestedContractCallContext(newAddress, newCalldata);
+    const newContext = context.createNestedContractCallContext(newAddress, newCalldata, FunctionSelector.empty());
 
     expect(newContext.environment).toEqual(
       allSameExcept(context.environment, {
@@ -35,7 +35,7 @@ describe('Avm Context', () => {
 
     const newAddress = AztecAddress.random();
     const newCalldata = [new Fr(1), new Fr(2)];
-    const newContext = context.createNestedContractStaticCallContext(newAddress, newCalldata);
+    const newContext = context.createNestedContractStaticCallContext(newAddress, newCalldata, FunctionSelector.empty());
 
     expect(newContext.environment).toEqual(
       allSameExcept(context.environment, {

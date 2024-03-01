@@ -248,6 +248,7 @@ fn handle_foreign_call(
         "avmOpcodeNullifierExists" => handle_nullifier_exists(avm_instrs, destinations, inputs),
         "avmOpcodeL1ToL2MsgExists" => handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs),
         "avmOpcodeSendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs),
+        "avmOpcodeCall" => handle_external_call(avm_instrs, destinations, inputs),
         "avmOpcodeKeccak256" | "avmOpcodeSha256" => {
             handle_2_field_hash_instruction(avm_instrs, function, destinations, inputs)
         }
@@ -469,6 +470,81 @@ fn handle_send_l2_to_l1_msg(
     });
 }
 
+/// Handle an AVM CALL
+/// (an external 'call' brillig foreign call was encountered)
+/// Adds the new instruction to the avm instructions list.
+fn handle_external_call(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    if destinations.len() != 2 || inputs.len() != 4 {
+        panic!(
+            "Transpiler expects ForeignCall::CALL to have 2 destinations and 4 inputs, got {} and {}.
+            Make sure your call instructions's input/return arrays have static length (`[Field; <size>]`)!",
+            destinations.len(),
+            inputs.len()
+        );
+    }
+    let gas_offset_maybe = inputs[0];
+    let gas_offset = match gas_offset_maybe {
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
+            assert!(size == 3, "Call instruction's gas input should be a HeapArray of size 3 (`[l1Gas, l2Gas, daGas]`)");
+            pointer.0 as u64
+        }
+        ValueOrArray::HeapVector(_) => panic!("Call instruction's gas input must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size as 3 (`[l1Gas, l2Gas, daGas]`)!"),
+        _ => panic!("Call instruction's gas input should be a HeapArray"),
+    };
+    let address_offset = match &inputs[1] {
+        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        _ => panic!("Call instruction's target address input should be a basic MemoryAddress",),
+    };
+    let args_offset_maybe = inputs[2];
+    let (args_offset, args_size) = match args_offset_maybe {
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0 as u64, size as u32),
+        ValueOrArray::HeapVector(_) => panic!("Call instruction's args must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size (`[arg0, arg1, ... argN]`)!"),
+        _ => panic!("Call instruction's args input should be a HeapArray input"),
+    };
+    let temporary_function_selector_offset = match &inputs[3] {
+        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        _ => panic!(
+            "Call instruction's temporary function selector input should be a basic MemoryAddress",
+        ),
+    };
+
+    let ret_offset_maybe = destinations[0];
+    let (ret_offset, ret_size) = match ret_offset_maybe {
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0 as u64, size as u32),
+        ValueOrArray::HeapVector(_) => panic!("Call instruction's return data must be a HeapArray, not a HeapVector. Make sure you are explicitly defining its size (`let returnData: [Field; <size>] = ...`)!"),
+        _ => panic!("Call instruction's returnData destination should be a HeapArray input"),
+    };
+    let success_offset = match &destinations[1] {
+        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        _ => panic!("Call instruction's success destination should be a basic MemoryAddress",),
+    };
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::CALL,
+        indirect: Some(0b01101), // (left to right) selector direct, ret offset INDIRECT, args offset INDIRECT, address offset direct, gas offset INDIRECT
+        operands: vec![
+            AvmOperand::U64 { value: gas_offset },
+            AvmOperand::U32 {
+                value: address_offset,
+            },
+            AvmOperand::U64 { value: args_offset },
+            AvmOperand::U32 { value: args_size },
+            AvmOperand::U64 { value: ret_offset },
+            AvmOperand::U32 { value: ret_size },
+            AvmOperand::U32 {
+                value: success_offset,
+            },
+            AvmOperand::U32 {
+                value: temporary_function_selector_offset,
+            },
+        ],
+        ..Default::default()
+    });
+}
+
 /// Two field hash instructions represent instruction's that's outputs are larger than a field element
 ///
 /// This includes:
@@ -511,13 +587,13 @@ fn handle_2_field_hash_instruction(
 
     avm_instrs.push(AvmInstruction {
         opcode,
-        indirect: Some(3), // 11 - addressing mode, indirect for input and output
+        indirect: Some(0b011), // dest offset and hash offset indirect
         operands: vec![
-            AvmOperand::U32 {
-                value: dest_offset as u32,
+            AvmOperand::U64 {
+                value: dest_offset as u64,
             },
-            AvmOperand::U32 {
-                value: hash_offset as u32,
+            AvmOperand::U64 {
+                value: hash_offset as u64,
             },
             AvmOperand::U32 {
                 value: hash_size as u32,
@@ -566,13 +642,13 @@ fn handle_single_field_hash_instruction(
 
     avm_instrs.push(AvmInstruction {
         opcode,
-        indirect: Some(1),
+        indirect: Some(0b10), // hash offset indirect
         operands: vec![
             AvmOperand::U32 {
                 value: dest_offset as u32,
             },
-            AvmOperand::U32 {
-                value: hash_offset as u32,
+            AvmOperand::U64 {
+                value: hash_offset as u64,
             },
             AvmOperand::U32 {
                 value: hash_size as u32,
@@ -733,7 +809,7 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::PEDERSEN,
-                indirect: Some(1),
+                indirect: Some(0b10), // hash offset indirect
                 operands: vec![
                     AvmOperand::U32 {
                         value: dest_offset as u32,

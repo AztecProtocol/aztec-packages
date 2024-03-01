@@ -16,7 +16,7 @@ export class Poseidon2 extends Instruction {
     OperandType.UINT8,
     OperandType.UINT8,
     OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT64, //!!
     OperandType.UINT32,
   ];
 
@@ -31,13 +31,13 @@ export class Poseidon2 extends Instruction {
 
   async execute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
-    const [hashOffset] = Addressing.fromWire(this.indirect).resolve([this.hashOffset], context.machineState.memory);
+    const [dstOffset, hashOffset] = Addressing.fromWire(this.indirect).resolve([this.dstOffset, this.hashOffset], context.machineState.memory);
 
     // Memory pointer will be indirect
     const hashData = context.machineState.memory.getSlice(hashOffset, this.hashSize).map(word => word.toBuffer());
 
     const hash = poseidonHash(hashData);
-    context.machineState.memory.set(this.dstOffset, new Field(hash));
+    context.machineState.memory.set(dstOffset, new Field(hash));
 
     context.machineState.incrementPc();
   }
@@ -51,8 +51,8 @@ export class Keccak extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT64, //!!
+    OperandType.UINT64, //!!
     OperandType.UINT32,
   ];
 
@@ -68,8 +68,8 @@ export class Keccak extends Instruction {
   // Note hash output is 32 bytes, so takes up two fields
   async execute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
-    const [hashOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.hashOffset, this.dstOffset],
+    const [dstOffset, hashOffset] = Addressing.fromWire(this.indirect).resolve(
+      [this.dstOffset, this.hashOffset],
       context.machineState.memory,
     );
 
@@ -96,8 +96,8 @@ export class Sha256 extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT64, //!!
+    OperandType.UINT64, //!!
     OperandType.UINT32,
   ];
 
@@ -156,14 +156,14 @@ export class Pedersen extends Instruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    const [hashOffset] = Addressing.fromWire(this.indirect).resolve([this.hashOffset], context.machineState.memory);
+    const [dstOffset, hashOffset] = Addressing.fromWire(this.indirect).resolve([this.dstOffset, this.hashOffset], context.machineState.memory);
 
     // We hash a set of field elements
     const hashData = context.machineState.memory.getSlice(hashOffset, this.hashSize).map(word => word.toBuffer());
 
     // No domain sep for now
     const hash = pedersenHash(hashData);
-    context.machineState.memory.set(this.dstOffset, new Field(hash));
+    context.machineState.memory.set(dstOffset, new Field(hash));
 
     context.machineState.incrementPc();
   }

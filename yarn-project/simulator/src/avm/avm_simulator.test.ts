@@ -443,6 +443,7 @@ describe('AVM simulator', () => {
         expect(context.persistableState.flush().newNullifiers).toEqual([utxo]);
       });
     });
+
     describe('Test tree access functions from noir contract (l1ToL2 messages)', () => {
       it(`Should execute contract function that checks if a message exists (it does not)`, async () => {
         const msgHash = new Fr(42);
@@ -499,6 +500,32 @@ describe('AVM simulator', () => {
         const trace = context.persistableState.flush();
         expect(trace.l1ToL2MessageChecks.length).toEqual(1);
         expect(trace.l1ToL2MessageChecks[0].exists).toEqual(true);
+      });
+    });
+
+    describe('Test nested external calls from noir contract', () => {
+      it(`Should execute contract function that makes a nested call`, async () => {
+        const calldata: Fr[] = [new Fr(1), new Fr(2)];
+
+        // Get contract function artifact
+        const callArtifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_raw_nested_call_to_add')!;
+        const addArtifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_addArgsReturn')!;
+
+        // Decode bytecode into instructions
+        const callBytecode = Buffer.from(callArtifact.bytecode, 'base64');
+        const addBytecode = Buffer.from(addArtifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          // first contract call is to the top-level one that makes a nested call
+          .mockReturnValueOnce(Promise.resolve(callBytecode))
+          // second contract call is the nested call to perform the add
+          .mockReturnValueOnce(Promise.resolve(addBytecode));
+
+        const results = await new AvmSimulator(context).execute();
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([new Fr(3)]);
       });
     });
   });

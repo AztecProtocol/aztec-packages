@@ -5,6 +5,8 @@ import { Field } from '../avm_memory_types.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Instruction } from './instruction.js';
+import { FunctionSelector } from '@aztec/circuits.js';
+import { createConsoleLogger } from '@aztec/foundation/log';
 
 export class Call extends Instruction {
   static type: string = 'CALL';
@@ -13,12 +15,14 @@ export class Call extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
+    OperandType.UINT64, //!!
+    OperandType.UINT32,
+    OperandType.UINT64, //!!
+    OperandType.UINT32,
+    OperandType.UINT64, //!!
     OperandType.UINT32,
     OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    /* temporary function selector */
     OperandType.UINT32,
   ];
 
@@ -31,6 +35,10 @@ export class Call extends Instruction {
     private retOffset: number,
     private retSize: number,
     private successOffset: number,
+    // Function selector is temporary since eventually public contract bytecode will be one blob
+    // containing all functions, and function selector will become an application-level mechanism
+    // (e.g. first few bytes of calldata + compiler-generated jump table)
+    private temporaryFunctionSelectorOffset: number,
   ) {
     super();
   }
@@ -38,9 +46,12 @@ export class Call extends Instruction {
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3992): there is no concept of remaining / available gas at this moment
   async execute(context: AvmContext): Promise<void> {
     const callAddress = context.machineState.memory.getAs<Field>(this.addrOffset);
-    const calldata = context.machineState.memory.getSlice(this.argsOffset, this.argsSize).map(f => f.toFr());
+    // "valueOf()" only necessary while argsOffset is u64
+    console.log(`typeof argsOffset: ${typeof this.argsOffset}`);
+    const calldata = context.machineState.memory.getSlice(Number(this.argsOffset), this.argsSize).map(f => f.toFr());
+    const functionSelector = context.machineState.memory.getAs<Field>(this.temporaryFunctionSelectorOffset).toFr();
 
-    const nestedContext = context.createNestedContractCallContext(callAddress.toFr(), calldata);
+    const nestedContext = context.createNestedContractCallContext(callAddress.toFr(), calldata, FunctionSelector.fromField(functionSelector));
 
     const nestedCallResults = await new AvmSimulator(nestedContext).execute();
     const success = !nestedCallResults.reverted;
@@ -51,7 +62,7 @@ export class Call extends Instruction {
 
     // Write our return data into memory
     context.machineState.memory.set(this.successOffset, new Field(success ? 1 : 0));
-    context.machineState.memory.setSlice(this.retOffset, convertedReturnData);
+    context.machineState.memory.setSlice(Number(this.retOffset), convertedReturnData);
 
     if (success) {
       context.persistableState.acceptNestedCallState(nestedContext.persistableState);
@@ -70,12 +81,14 @@ export class StaticCall extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
+    OperandType.UINT64, //!!
+    OperandType.UINT32,
+    OperandType.UINT64, //!!
+    OperandType.UINT32,
+    OperandType.UINT64, //!!
     OperandType.UINT32,
     OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    /* temporary function selector */
     OperandType.UINT32,
   ];
 
@@ -88,17 +101,18 @@ export class StaticCall extends Instruction {
     private retOffset: number,
     private retSize: number,
     private successOffset: number,
+    private temporaryFunctionSelectorOffset: number,
   ) {
     super();
   }
 
   async execute(context: AvmContext): Promise<void> {
     const callAddress = context.machineState.memory.get(this.addrOffset);
-    const calldata = context.machineState.memory
-      .getSlice(this.argsOffset, this.argsSize)
-      .map(f => new Fr(f.toBigInt()));
+    // "valueOf()" only necessary while argsOffset is u64
+    const calldata = context.machineState.memory.getSlice(Number(this.argsOffset), this.argsSize).map(f => f.toFr());
+    const functionSelector = context.machineState.memory.getAs<Field>(this.temporaryFunctionSelectorOffset).toFr();
 
-    const nestedContext = context.createNestedContractStaticCallContext(callAddress.toFr(), calldata);
+    const nestedContext = context.createNestedContractStaticCallContext(callAddress.toFr(), calldata, FunctionSelector.fromField(functionSelector));
 
     const nestedCallResults = await new AvmSimulator(nestedContext).execute();
     const success = !nestedCallResults.reverted;
@@ -109,7 +123,7 @@ export class StaticCall extends Instruction {
 
     // Write our return data into memory
     context.machineState.memory.set(this.successOffset, new Field(success ? 1 : 0));
-    context.machineState.memory.setSlice(this.retOffset, convertedReturnData);
+    context.machineState.memory.setSlice(Number(this.retOffset), convertedReturnData);
 
     if (success) {
       context.persistableState.acceptNestedCallState(nestedContext.persistableState);
