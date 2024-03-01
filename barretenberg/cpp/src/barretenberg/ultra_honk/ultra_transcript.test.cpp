@@ -14,6 +14,7 @@ class UltraTranscriptTests : public ::testing::Test {
 
     using Flavor = UltraFlavor;
     using FF = Flavor::FF;
+    using ProverInstance = ProverInstance_<Flavor>;
 
     /**
      * @brief Construct a manifest for a Ultra Honk proof
@@ -131,7 +132,7 @@ TEST_F(UltraTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = UltraComposer();
-    auto instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<ProverInstance>(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
 
@@ -158,7 +159,7 @@ TEST_F(UltraTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto composer = UltraComposer();
-    auto instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<ProverInstance>(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
 
@@ -209,7 +210,7 @@ TEST_F(UltraTranscriptTests, StructureTest)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = UltraComposer();
-    auto instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<ProverInstance>(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
     auto verifier = composer.create_verifier(instance->verification_key);

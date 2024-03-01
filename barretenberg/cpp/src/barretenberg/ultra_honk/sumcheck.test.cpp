@@ -148,8 +148,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         false);
 
     // Create a prover (it will compute proving key and witness)
-    auto composer = UltraComposer();
-    auto instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<ProverInstance_<UltraFlavor>>(builder);
 
     // Generate eta, beta and gamma
     FF eta = FF::random_element();

@@ -13,6 +13,7 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     using Flavor = GoblinUltraFlavor;
+    using ProverInstance = ProverInstance_<Flavor>;
     using FF = Flavor::FF;
 
     /**
@@ -145,7 +146,7 @@ TEST_F(GoblinUltraTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = GoblinUltraComposer();
-    auto instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<ProverInstance>(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
 
@@ -172,7 +173,7 @@ TEST_F(GoblinUltraTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto composer = GoblinUltraComposer();
-    auto instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<ProverInstance>(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
 
@@ -223,7 +224,7 @@ TEST_F(GoblinUltraTranscriptTests, StructureTest)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = GoblinUltraComposer();
-    auto instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<ProverInstance>(builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
     auto verifier = composer.create_verifier(instance->verification_key);

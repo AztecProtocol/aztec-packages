@@ -48,7 +48,6 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
                                                                    { kernel_fold_proof, ivc.vks.first_kernel_vk },
                                                                    { func_fold_proof, ivc.vks.func_vk },
                                                                    kernel_acc);
-    GoblinUltraComposer composer;
-    auto instance = composer.create_prover_instance(kernel_circuit);
+    auto instance = std::make_shared<ClientIVC::ProverInstance>(kernel_circuit);
     EXPECT_EQ(instance->proving_key->log_circuit_size, 17);
 }

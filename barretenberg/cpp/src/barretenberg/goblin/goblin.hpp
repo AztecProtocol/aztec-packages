@@ -16,7 +16,6 @@ namespace bb {
 
 class Goblin {
     using GoblinUltraCircuitBuilder = bb::GoblinUltraCircuitBuilder;
-
     using Commitment = GoblinUltraFlavor::Commitment;
     using FF = GoblinUltraFlavor::FF;
 
@@ -24,6 +23,7 @@ class Goblin {
     using Builder = GoblinUltraCircuitBuilder;
     using Fr = bb::fr;
     using Transcript = NativeTranscript;
+    using GoblinUltraProverInstance = ProverInstance_<GoblinUltraFlavor>;
     using GoblinUltraComposer = bb::UltraComposer_<GoblinUltraFlavor>;
     using GoblinUltraVerifier = bb::UltraVerifier_<GoblinUltraFlavor>;
     using OpQueue = bb::ECCOpQueue;
@@ -104,7 +104,7 @@ class Goblin {
 
         // Construct a Honk proof for the main circuit
         GoblinUltraComposer composer;
-        auto instance = composer.create_prover_instance(circuit_builder);
+        auto instance = std::make_shared<GoblinUltraProverInstance>(circuit_builder);
         auto prover = composer.create_prover(instance);
         auto ultra_proof = prover.construct_proof();
 
@@ -230,7 +230,7 @@ class Goblin {
 
         // Construct a Honk proof for the main circuit
         GoblinUltraComposer composer;
-        auto instance = composer.create_prover_instance(circuit_builder);
+        auto instance = std::make_shared<GoblinUltraProverInstance>(circuit_builder);
         auto prover = composer.create_prover(instance);
         auto ultra_proof = prover.construct_proof();
 

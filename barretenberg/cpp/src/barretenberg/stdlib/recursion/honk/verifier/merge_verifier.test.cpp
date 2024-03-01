@@ -22,6 +22,7 @@ class RecursiveMergeVerifierTest : public testing::Test {
     // Define types relevant for inner circuit
     using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
     using InnerFlavor = GoblinUltraFlavor;
+    using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerComposer = GoblinUltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
 
@@ -81,7 +82,7 @@ class RecursiveMergeVerifierTest : public testing::Test {
         // Check 3: Construct and verify a (goblin) ultra honk proof of the Merge recursive verifier circuit
         {
             GoblinUltraComposer composer;
-            auto instance = composer.create_prover_instance(outer_circuit);
+            auto instance = std::make_shared<InnerProverInstance>(outer_circuit);
             auto prover = composer.create_prover(instance);
             auto verifier = composer.create_verifier(instance->verification_key);
             auto proof = prover.construct_proof();

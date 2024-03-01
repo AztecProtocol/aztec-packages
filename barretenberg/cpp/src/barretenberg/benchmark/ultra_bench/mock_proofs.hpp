@@ -54,7 +54,7 @@ inline UltraProver get_prover(UltraComposer& composer,
 {
     UltraComposer::CircuitBuilder builder;
     test_circuit_function(builder, num_iterations);
-    std::shared_ptr<UltraComposer::ProverInstance> instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<UltraComposer::ProverInstance>(builder);
     return composer.create_prover(instance);
 }
 
@@ -64,7 +64,7 @@ inline GoblinUltraProver get_prover(GoblinUltraComposer& composer,
 {
     GoblinUltraComposer::CircuitBuilder builder;
     test_circuit_function(builder, num_iterations);
-    std::shared_ptr<GoblinUltraComposer::ProverInstance> instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<GoblinUltraComposer::ProverInstance>(builder);
     return composer.create_prover(instance);
 }
 

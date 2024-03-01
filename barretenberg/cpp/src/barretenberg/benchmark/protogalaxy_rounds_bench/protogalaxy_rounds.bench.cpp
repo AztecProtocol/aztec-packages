@@ -8,16 +8,16 @@ using namespace benchmark;
 
 namespace bb {
 
-template <typename Composer>
-void _bench_round(::benchmark::State& state,
-                  void (*F)(ProtoGalaxyProver_<ProverInstances_<typename Composer::Flavor, 2>>&))
+template <typename Flavor>
+void _bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<ProverInstances_<Flavor, 2>>&))
 {
-    using Flavor = typename Composer::Flavor;
     using Builder = typename Flavor::CircuitBuilder;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using Instances = ProverInstances_<Flavor, 2>;
+    using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
 
     bb::srs::init_crs_factory("../srs_db/ignition");
     auto log2_num_gates = static_cast<size_t>(state.range(0));
-    auto composer = Composer();
 
     const auto construct_instance = [&]() {
         Builder builder;
@@ -27,13 +27,13 @@ void _bench_round(::benchmark::State& state,
             static_assert(std::same_as<Flavor, UltraFlavor>);
             bb::mock_proofs::generate_basic_arithmetic_circuit(builder, log2_num_gates);
         }
-        return composer.create_prover_instance(builder);
+        return std::make_shared<ProverInstance>(builder);
     };
 
-    auto prover_instance_1 = construct_instance();
-    auto prover_instance_2 = construct_instance();
+    std::shared_ptr<ProverInstance> prover_instance_1 = construct_instance();
+    std::shared_ptr<ProverInstance> prover_instance_2 = construct_instance();
 
-    auto folding_prover = composer.create_folding_prover({ prover_instance_1, prover_instance_2 });
+    ProtoGalaxyProver folding_prover({ prover_instance_1, prover_instance_2 });
 
     // prepare the prover state
     folding_prover.state.accumulator = prover_instance_1;
@@ -50,13 +50,13 @@ void _bench_round(::benchmark::State& state,
 
 void bench_round_ultra(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 2>>&))
 {
-    _bench_round<UltraComposer>(state, F);
+    _bench_round<UltraFlavor>(state, F);
 }
 
 void bench_round_goblin_ultra(::benchmark::State& state,
                               void (*F)(ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 2>>&))
 {
-    _bench_round<GoblinUltraComposer>(state, F);
+    _bench_round<GoblinUltraFlavor>(state, F);
 }
 
 BENCHMARK_CAPTURE(bench_round_ultra, preparation, [](auto& prover) { prover.preparation_round(); })
