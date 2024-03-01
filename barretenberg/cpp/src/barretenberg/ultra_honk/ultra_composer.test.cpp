@@ -1,4 +1,3 @@
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -10,11 +9,9 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
-#include <cstddef>
-#include <cstdint>
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
+
 #include <gtest/gtest.h>
-#include <string>
-#include <vector>
 
 using namespace bb;
 

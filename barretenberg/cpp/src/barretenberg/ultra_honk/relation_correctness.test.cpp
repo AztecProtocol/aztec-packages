@@ -1,4 +1,6 @@
 #include "barretenberg/flavor/goblin_translator.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
@@ -9,7 +11,8 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
+#include "barretenberg/sumcheck/instance/prover_instance.hpp"
+
 #include <gtest/gtest.h>
 using namespace bb;
 

@@ -10,7 +10,6 @@
 #include "barretenberg/translator_vm/goblin_translator_composer.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
 #include "barretenberg/ultra_honk/merge_verifier.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -26,7 +25,6 @@ class Goblin {
     using Fr = bb::fr;
     using Transcript = NativeTranscript;
     using GoblinUltraProverInstance = ProverInstance_<GoblinUltraFlavor>;
-    using GoblinUltraVerifier = bb::UltraVerifier_<GoblinUltraFlavor>;
     using OpQueue = bb::ECCOpQueue;
     using ECCVMFlavor = bb::ECCVMFlavor;
     using ECCVMBuilder = bb::ECCVMCircuitBuilder<ECCVMFlavor>;

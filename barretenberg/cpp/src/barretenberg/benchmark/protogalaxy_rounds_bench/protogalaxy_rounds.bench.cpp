@@ -2,7 +2,8 @@
 
 #include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
+#include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
+#include "barretenberg/sumcheck/instance/instances.hpp"
 
 using namespace benchmark;
 

@@ -2,7 +2,6 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/merge_recursive_verifier.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 namespace bb::stdlib::recursion::goblin {
 

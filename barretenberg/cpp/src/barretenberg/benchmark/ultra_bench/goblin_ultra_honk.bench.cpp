@@ -2,7 +2,6 @@
 
 #include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 using namespace benchmark;
 using namespace bb;

@@ -4,7 +4,6 @@
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/protogalaxy_recursive_verifier.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 #include <gtest/gtest.h>
 using namespace bb;
