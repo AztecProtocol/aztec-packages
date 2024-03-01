@@ -1,14 +1,16 @@
 import {
+  Body,
   ContractData,
   ExtendedContractData,
   GetUnencryptedLogsResponse,
   L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
-  L2Tx,
   LogFilter,
   LogType,
+  TxEffect,
   TxHash,
+  TxReceipt,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -39,6 +41,21 @@ export interface ArchiverDataStore {
   addBlocks(blocks: L2Block[]): Promise<boolean>;
 
   /**
+   * Append new block bodies to the store's list.
+   * @param blockBodies - The L2 block bodies to be added to the store.
+   * @returns True if the operation is successful.
+   */
+  addBlockBodies(blockBodies: Body[]): Promise<boolean>;
+
+  /**
+   * Gets block bodies that have the same txsHashes as we supply.
+   *
+   * @param txsHashes - A list of txsHashes (body hashes).
+   * @returns The requested L2 block bodies
+   */
+  getBlockBodies(txsHashes: Buffer[]): Promise<Body[]>;
+
+  /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
@@ -47,11 +64,18 @@ export interface ArchiverDataStore {
   getBlocks(from: number, limit: number): Promise<L2Block[]>;
 
   /**
-   * Gets an l2 tx.
-   * @param txHash - The txHash of the l2 tx.
-   * @returns The requested L2 tx.
+   * Gets a tx effect.
+   * @param txHash - The txHash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect (or undefined if not found).
    */
-  getL2Tx(txHash: TxHash): Promise<L2Tx | undefined>;
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
+
+  /**
+   * Gets a receipt of a settled tx.
+   * @param txHash - The hash of a tx we try to get the receipt for.
+   * @returns The requested tx receipt (or undefined if not found).
+   */
+  getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined>;
 
   /**
    * Append new logs to the store's list.

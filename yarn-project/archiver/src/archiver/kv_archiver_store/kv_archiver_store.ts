@@ -1,14 +1,16 @@
 import {
+  Body,
   ContractData,
   ExtendedContractData,
   GetUnencryptedLogsResponse,
   L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
-  L2Tx,
   LogFilter,
   LogType,
+  TxEffect,
   TxHash,
+  TxReceipt,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -17,6 +19,7 @@ import { AztecKVStore } from '@aztec/kv-store';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
+import { BlockBodyStore } from './block_body_store.js';
 import { BlockStore } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
@@ -29,6 +32,7 @@ import { MessageStore } from './message_store.js';
  */
 export class KVArchiverDataStore implements ArchiverDataStore {
   #blockStore: BlockStore;
+  #blockBodyStore: BlockBodyStore;
   #logStore: LogStore;
   #contractStore: ContractStore;
   #messageStore: MessageStore;
@@ -38,7 +42,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   #log = createDebugLogger('aztec:archiver:data-store');
 
   constructor(db: AztecKVStore, logsMaxPageSize: number = 1000) {
-    this.#blockStore = new BlockStore(db);
+    this.#blockBodyStore = new BlockBodyStore(db);
+    this.#blockStore = new BlockStore(db, this.#blockBodyStore);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#contractStore = new ContractStore(db, this.#blockStore);
     this.#messageStore = new MessageStore(db);
@@ -67,6 +72,25 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
+   * Append new block bodies to the store's list.
+   * @param blockBodies - The L2 block bodies to be added to the store.
+   * @returns True if the operation is successful.
+   */
+  addBlockBodies(blockBodies: Body[]): Promise<boolean> {
+    return this.#blockBodyStore.addBlockBodies(blockBodies);
+  }
+
+  /**
+   * Gets block bodies that have the same txHashes as we supply.
+   *
+   * @param txsHashes - A list of txsHashes (body hashes).
+   * @returns The requested L2 block bodies
+   */
+  getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
+    return this.#blockBodyStore.getBlockBodies(txsHashes);
+  }
+
+  /**
    * Append new blocks to the store's list.
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
@@ -77,11 +101,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
-   * The blocks returned do not contain any logs.
    *
    * @param start - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
-   * @returns The requested L2 blocks, without any logs attached
+   * @returns The requested L2 blocks
    */
   getBlocks(start: number, limit: number): Promise<L2Block[]> {
     try {
@@ -93,12 +116,21 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets an l2 tx.
-   * @param txHash - The txHash of the l2 tx.
-   * @returns The requested L2 tx.
+   * Gets a tx effect.
+   * @param txHash - The txHash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect (or undefined if not found).
    */
-  getL2Tx(txHash: TxHash): Promise<L2Tx | undefined> {
-    return Promise.resolve(this.#blockStore.getL2Tx(txHash));
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return Promise.resolve(this.#blockStore.getTxEffect(txHash));
+  }
+
+  /**
+   * Gets a receipt of a settled tx.
+   * @param txHash - The hash of a tx we try to get the receipt for.
+   * @returns The requested tx receipt (or undefined if not found).
+   */
+  getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+    return Promise.resolve(this.#blockStore.getSettledTxReceipt(txHash));
   }
 
   /**

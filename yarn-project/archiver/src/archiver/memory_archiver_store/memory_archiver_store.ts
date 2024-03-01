@@ -1,4 +1,5 @@
 import {
+  Body,
   ContractData,
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
@@ -8,11 +9,13 @@ import {
   L2Block,
   L2BlockContext,
   L2BlockL2Logs,
-  L2Tx,
   LogFilter,
   LogId,
   LogType,
+  TxEffect,
   TxHash,
+  TxReceipt,
+  TxStatus,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
@@ -32,9 +35,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l2BlockContexts: L2BlockContext[] = [];
 
   /**
-   * An array containing all the L2 Txs in the L2 blocks that have been fetched so far.
+   * A mapping of body hash to body
    */
-  private l2Txs: L2Tx[] = [];
+  private l2BlockBodies: Map<string, Body> = new Map();
+
+  /**
+   * An array containing all the the tx effects in the L2 blocks that have been fetched so far.
+   */
+  private txEffects: TxEffect[] = [];
 
   /**
    * An array containing all the encrypted logs that have been fetched so far.
@@ -114,8 +122,37 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   public addBlocks(blocks: L2Block[]): Promise<boolean> {
     this.l2BlockContexts.push(...blocks.map(block => new L2BlockContext(block)));
-    this.l2Txs.push(...blocks.flatMap(b => b.getTxs()));
+    this.txEffects.push(...blocks.flatMap(b => b.getTxs()));
     return Promise.resolve(true);
+  }
+
+  /**
+   * Append new block bodies to the store's list.
+   * @param blockBodies - The L2 block bodies to be added to the store.
+   * @returns True if the operation is successful.
+   */
+  addBlockBodies(blockBodies: Body[]): Promise<boolean> {
+    for (const body of blockBodies) {
+      void this.l2BlockBodies.set(body.getCalldataHash().toString('hex'), body);
+    }
+
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Gets block bodies that have the same txHashes as we supply.
+   *
+   * @param txsHashes - A list of txsHashes (body hashes).
+   * @returns The requested L2 block bodies
+   */
+  getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
+    const blockBodies = txsHashes.map(txsHash => this.l2BlockBodies.get(txsHash.toString('hex')));
+
+    if (blockBodies.some(bodyBuffer => bodyBuffer === undefined)) {
+      throw new Error('Block body is undefined');
+    }
+
+    return Promise.resolve(blockBodies as Body[]);
   }
 
   /**
@@ -181,6 +218,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   public confirmL1ToL2EntryKeys(entryKeys: Fr[]): Promise<boolean> {
     entryKeys.forEach(entryKey => {
+      if (entryKey.equals(Fr.ZERO)) {
+        return;
+      }
+
       this.confirmedL1ToL2Messages.addMessage(entryKey, this.pendingL1ToL2Messages.getMessage(entryKey)!);
       this.pendingL1ToL2Messages.removeMessage(entryKey);
     });
@@ -232,13 +273,31 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets an l2 tx.
-   * @param txHash - The txHash of the l2 tx.
-   * @returns The requested L2 tx.
+   * Gets a tx effect.
+   * @param txHash - The txHash of the tx effect.
+   * @returns The requested tx effect.
    */
-  public getL2Tx(txHash: TxHash): Promise<L2Tx | undefined> {
-    const l2Tx = this.l2Txs.find(tx => tx.txHash.equals(txHash));
-    return Promise.resolve(l2Tx);
+  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    const txEffect = this.txEffects.find(tx => tx.txHash.equals(txHash));
+    return Promise.resolve(txEffect);
+  }
+
+  /**
+   * Gets a receipt of a settled tx.
+   * @param txHash - The hash of a tx we try to get the receipt for.
+   * @returns The requested tx receipt (or undefined if not found).
+   */
+  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+    for (const blockContext of this.l2BlockContexts) {
+      for (const currentTxHash of blockContext.getTxHashes()) {
+        if (currentTxHash.equals(txHash)) {
+          return Promise.resolve(
+            new TxReceipt(txHash, TxStatus.MINED, '', blockContext.block.hash().toBuffer(), blockContext.block.number),
+          );
+        }
+      }
+    }
+    return Promise.resolve(undefined);
   }
 
   /**
