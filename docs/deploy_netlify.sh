@@ -36,6 +36,7 @@ else
 
     # Regular deploy if the argument is not "master" and docs changed
     DEPLOY_OUTPUT=$(netlify deploy --site aztec-docs-dev)
+    echo "$DEPLOY_OUTPUT"
     UNIQUE_DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -E "https://.*aztec-docs-dev.netlify.app" | awk '{print $4}')
     echo "Unique deploy URL: $UNIQUE_DEPLOY_URL"
 
