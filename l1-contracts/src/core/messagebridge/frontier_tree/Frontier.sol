@@ -26,7 +26,7 @@ contract FrontierMerkle is IFrontier {
     }
   }
 
-  function insertLeaf(bytes32 _leaf) external override(IFrontier) {
+  function insertLeaf(bytes32 _leaf) external override(IFrontier) returns (uint256) {
     uint256 level = _computeLevel(nextIndex);
     bytes32 right = _leaf;
     for (uint256 i = 0; i < level; i++) {
@@ -34,6 +34,8 @@ contract FrontierMerkle is IFrontier {
     }
     frontier[level] = right;
     nextIndex++;
+
+    return nextIndex;
   }
 
   function root() external view override(IFrontier) returns (bytes32) {
@@ -69,6 +71,10 @@ contract FrontierMerkle is IFrontier {
     }
 
     return temp;
+  }
+
+  function isFull() external view override(IFrontier) returns (bool) {
+    return nextIndex == SIZE;
   }
 
   function _computeLevel(uint256 _leafIndex) internal pure returns (uint256) {
