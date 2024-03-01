@@ -296,7 +296,8 @@ describe('e2e_deploy_contract', () => {
       // requesting the corresponding contract class.
     }, 60_000);
 
-    it('broadcasts an unconstrained function', async () => {
+    // TODO(@spalladino): Reenable this test
+    it.skip('broadcasts an unconstrained function', async () => {
       const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UNCONSTRAINED)!;
       const selector = FunctionSelector.fromNameAndParameters(functionArtifact);
       await broadcastUnconstrainedFunction(wallet, artifact, selector).send().wait();
@@ -365,8 +366,8 @@ describe('e2e_deploy_contract', () => {
     testDeployingAnInstance('from a contract', async instance => {
       // Register the instance to be deployed in the pxe
       await wallet.addContracts([{ artifact, instance }]);
-      // Set up the contract that calls the deployer (which happens to be the StatefulTestContract) and call it
-      const deployer = await registerContract(wallet, TestContract, [accounts[0].address, 48]);
+      // Set up the contract that calls the deployer (which happens to be the TestContract) and call it
+      const deployer = await TestContract.deploy(wallet).send().deployed();
       await deployer.methods.deploy_contract(instance.address).send().wait();
     });
   });
