@@ -142,6 +142,11 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     next_accumulator->instance_size = accumulator->instance_size;
     next_accumulator->log_instance_size = accumulator->log_instance_size;
     next_accumulator->is_accumulator = true;
+    // std::shared_ptr<Instance> next_accumulator = accumulator;
+    // next_accumulator->instance_size = accumulator->instance_size;
+    // next_accumulator->log_instance_size = accumulator->log_instance_size;
+    // next_accumulator->is_accumulator = true;
+
     // Compute next folding parameters
     next_accumulator->target_sum =
         perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
@@ -200,6 +205,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
 
     next_accumulator->verification_key =
         std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
+    next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
     size_t vk_idx = 0;
     for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
         size_t inst = 0;
