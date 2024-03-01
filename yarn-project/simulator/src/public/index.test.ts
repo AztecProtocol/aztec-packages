@@ -17,7 +17,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { ChildContractArtifact } from '@aztec/noir-contracts.js/Child';
 import { ParentContractArtifact } from '@aztec/noir-contracts.js/Parent';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { TestTokenContractArtifact } from '@aztec/noir-contracts.js/TestToken';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
@@ -60,7 +60,7 @@ describe('ACIR public execution simulator', () => {
     describe('mint', () => {
       it('should run the mint_public function', async () => {
         const contractAddress = AztecAddress.random();
-        const mintArtifact = TokenContractArtifact.functions.find(f => f.name === 'mint_public')!;
+        const mintArtifact = TestTokenContractArtifact.functions.find(f => f.name === 'mint_public')!;
         const functionData = FunctionData.fromAbi(mintArtifact);
 
         const mintAmount = 140n;
@@ -138,7 +138,7 @@ describe('ACIR public execution simulator', () => {
 
       beforeEach(() => {
         contractAddress = AztecAddress.random();
-        transferArtifact = TokenContractArtifact.functions.find(f => f.name === 'transfer_public')!;
+        transferArtifact = TestTokenContractArtifact.functions.find(f => f.name === 'transfer_public')!;
         functionData = new FunctionData(FunctionSelector.empty(), false, false, false);
         sender = AztecAddress.random();
         args = encodeArguments(transferArtifact, [sender, recipient, 140n, 0n]);
@@ -303,7 +303,7 @@ describe('ACIR public execution simulator', () => {
     });
 
     it('Should be able to create a note hash from the public context', async () => {
-      const shieldArtifact = TokenContractArtifact.functions.find(f => f.name === 'shield')!;
+      const shieldArtifact = TestTokenContractArtifact.functions.find(f => f.name === 'shield')!;
       const msgSender = AztecAddress.random();
       const secretHash = Fr.random();
 
