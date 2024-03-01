@@ -86,7 +86,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 
 mod tests {
     use crate::private_kernel_inner::PrivateKernelInnerCircuitPrivateInputs;
-    use dep::types::constants::{MAX_READ_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_TX};
+    use dep::types::constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_TX};
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
@@ -644,7 +644,7 @@ mod tests {
     fn native_max_read_requests_works() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.append_read_requests(MAX_READ_REQUESTS_PER_CALL);
+        builder.private_call.append_read_requests(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
         let public_inputs = builder.execute();
 
@@ -670,7 +670,7 @@ mod tests {
 
         builder.private_call.append_read_requests(1);
         builder.private_call.append_transient_read_requests(1);
-        builder.private_call.append_read_requests(MAX_READ_REQUESTS_PER_CALL - 2);
+        builder.private_call.append_read_requests(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL - 2);
 
         let public_inputs = builder.execute();
 
@@ -682,12 +682,12 @@ mod tests {
     fn native_max_read_requests_all_transient_works() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        builder.private_call.append_transient_read_requests(MAX_READ_REQUESTS_PER_CALL);
+        builder.private_call.append_transient_read_requests(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), MAX_READ_REQUESTS_PER_CALL);
+        assert_eq(array_length(public_inputs.end.read_requests), MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
     }
 
     #[test]

@@ -127,7 +127,7 @@ mod tests {
         side_effect::{SideEffect, SideEffectLinkedToNoteHash}
     },
         address::{AztecAddress, EthAddress, compute_initialization_hash},
-        constants::MAX_READ_REQUESTS_PER_CALL, grumpkin_point::GrumpkinPoint,
+        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, grumpkin_point::GrumpkinPoint,
         grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_constructor_hash, compute_logs_hash, stdlib_recursion_verification_key_compress_native_vk},
         messaging::l2_to_l1_message::L2ToL1Message,
@@ -552,7 +552,7 @@ mod tests {
     fn native_max_read_requests_works() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        builder.private_call.append_read_requests(MAX_READ_REQUESTS_PER_CALL);
+        builder.private_call.append_read_requests(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
         let public_inputs = builder.execute();
 
@@ -585,7 +585,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
         builder.private_call.append_transient_read_requests(1);
-        builder.private_call.append_read_requests(MAX_READ_REQUESTS_PER_CALL - 1);
+        builder.private_call.append_read_requests(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL - 1);
 
         let public_inputs = builder.execute();
 
@@ -601,7 +601,7 @@ mod tests {
     fn native_max_read_requests_all_transient_works() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        builder.private_call.append_transient_read_requests(MAX_READ_REQUESTS_PER_CALL);
+        builder.private_call.append_transient_read_requests(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
         let public_inputs = builder.execute();
 
@@ -610,7 +610,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.read_requests), MAX_READ_REQUESTS_PER_CALL);
+        assert_eq(array_length(public_inputs.end.read_requests), MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
     }
 
     #[test]

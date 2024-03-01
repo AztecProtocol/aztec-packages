@@ -4,9 +4,9 @@ import { FieldsOf } from '@aztec/foundation/types';
 
 import {
   FUNCTION_TREE_HEIGHT,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  MAX_READ_REQUESTS_PER_CALL,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
 import { MembershipWitness } from '../membership_witness.js';
@@ -63,7 +63,10 @@ export class PrivateCallData {
     /**
      * The membership witnesses for read requests created by the function being invoked.
      */
-    public readRequestMembershipWitnesses: Tuple<ReadRequestMembershipWitness, typeof MAX_READ_REQUESTS_PER_CALL>,
+    public readRequestMembershipWitnesses: Tuple<
+      ReadRequestMembershipWitness,
+      typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
+    >,
     /**
      * The address of the portal contract corresponding to the contract on which the function is being invoked.
      */
@@ -127,7 +130,7 @@ export class PrivateCallData {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(MembershipWitness.deserializer(FUNCTION_TREE_HEIGHT)),
-      reader.readArray(MAX_READ_REQUESTS_PER_CALL, ReadRequestMembershipWitness),
+      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequestMembershipWitness),
       reader.readObject(Fr),
       reader.readObject(Fr),
     );

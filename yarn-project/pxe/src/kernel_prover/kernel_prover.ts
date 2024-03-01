@@ -4,9 +4,9 @@ import {
   Fr,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  MAX_READ_REQUESTS_PER_CALL,
   PrivateCallData,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
@@ -129,7 +129,7 @@ export class KernelProver {
 
       // fill in witnesses for remaining/empty read requests
       readRequestMembershipWitnesses.push(
-        ...Array(MAX_READ_REQUESTS_PER_CALL - readRequestMembershipWitnesses.length)
+        ...Array(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL - readRequestMembershipWitnesses.length)
           .fill(0)
           .map(() => ReadRequestMembershipWitness.empty(BigInt(0))),
       );
@@ -273,7 +273,11 @@ export class KernelProver {
       contractClassPublicBytecodeCommitment,
       saltedInitializationHash,
       functionLeafMembershipWitness,
-      readRequestMembershipWitnesses: makeTuple(MAX_READ_REQUESTS_PER_CALL, i => readRequestMembershipWitnesses[i], 0),
+      readRequestMembershipWitnesses: makeTuple(
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+        i => readRequestMembershipWitnesses[i],
+        0,
+      ),
       portalContractAddress: portalContractAddress.toField(),
       acirHash,
     });

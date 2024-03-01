@@ -16,7 +16,7 @@ use crate::{
 };
 use crate::constants::{
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-    MAX_READ_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256
+    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256
 };
 
 struct PrivateCallDataBuilder {
@@ -35,7 +35,7 @@ struct PrivateCallDataBuilder {
     contract_class_artifact_hash: Field,
     contract_class_public_bytecode_commitment: Field,
     function_leaf_membership_witness: FunctionLeafMembershipWitness,
-    read_request_membership_witnesses: BoundedVec<ReadRequestMembershipWitness, MAX_READ_REQUESTS_PER_CALL>,
+    read_request_membership_witnesses: BoundedVec<ReadRequestMembershipWitness, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     portal_contract_address: EthAddress,
     acir_hash: Field,
 }

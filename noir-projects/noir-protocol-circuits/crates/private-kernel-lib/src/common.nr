@@ -13,7 +13,7 @@ use dep::types::{
     contract_class_id::ContractClassId, contrakt::contract_deployment_data::ContractDeploymentData,
     constants::{
     MAX_NEW_NULLIFIERS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
-    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_READ_REQUESTS_PER_CALL,
+    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL
 },
     grumpkin_private_key::GrumpkinPrivateKey,
@@ -54,12 +54,12 @@ pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
 pub fn validate_read_requests(
     historical_note_hash_tree_root: Field,
-    read_requests: [SideEffect; MAX_READ_REQUESTS_PER_CALL],
-    read_request_membership_witnesses: [ReadRequestMembershipWitness; MAX_READ_REQUESTS_PER_CALL]
+    read_requests: [SideEffect; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    read_request_membership_witnesses: [ReadRequestMembershipWitness; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 ) {
     // membership witnesses must resolve to the same note hash tree root
     // for every request in all kernel iterations
-    for rr_idx in 0..MAX_READ_REQUESTS_PER_CALL {
+    for rr_idx in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
         let read_request = read_requests[rr_idx].value;
         let witness = read_request_membership_witnesses[rr_idx];
 
@@ -182,8 +182,8 @@ pub fn update_end_values(
     // We silo the read requests (domain separation per contract address)
     let read_requests = private_call_public_inputs.read_requests;
     let read_request_membership_witnesses = private_call.read_request_membership_witnesses;
-    let mut siloed_read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL> = BoundedVec::new();
-    for i in 0..MAX_READ_REQUESTS_PER_CALL {
+    let mut siloed_read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = BoundedVec::new();
+    for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
         let read_request = read_requests[i].value;
         let witness = read_request_membership_witnesses[i];
         if witness.is_transient & (read_request != 0) { // only forward transient to public inputs

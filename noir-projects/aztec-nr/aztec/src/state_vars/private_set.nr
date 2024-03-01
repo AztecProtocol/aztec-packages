@@ -1,6 +1,6 @@
 use dep::std::option::Option;
 use dep::protocol_types::{
-    constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL},
+    constants::{MAX_NOTES_PER_PAGE, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
     abis::side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 };
 use crate::context::{PrivateContext, PublicContext, Context};
@@ -74,7 +74,7 @@ impl<Note> PrivateSet<Note> {
     pub fn get_notes<N, FILTER_ARGS>(
         self,
         options: NoteGetterOptions<Note, N, FILTER_ARGS>
-    ) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
+    ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
         let storage_slot = self.storage_slot;
         let opt_notes = get_notes(self.context.private.unwrap(), storage_slot, options);
         opt_notes

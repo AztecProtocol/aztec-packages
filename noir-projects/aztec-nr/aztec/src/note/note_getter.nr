@@ -1,7 +1,7 @@
 use dep::std::option::Option;
 use dep::protocol_types::{
     constants::{
-    MAX_READ_REQUESTS_PER_CALL, GET_NOTE_ORACLE_RETURN_LENGTH, GET_NOTES_ORACLE_RETURN_LENGTH,
+    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, GET_NOTE_ORACLE_RETURN_LENGTH, GET_NOTES_ORACLE_RETURN_LENGTH,
     MAX_NOTES_PER_PAGE, VIEW_NOTE_ORACLE_RETURN_LENGTH
 }
 };
@@ -83,7 +83,7 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, FILTER_ARGS>
-) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
+) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
     let opt_notes = get_notes_internal(storage_slot, options);
     let mut num_notes = 0;
     let mut prev_fields = [0; N];
@@ -137,9 +137,9 @@ unconstrained fn get_note_internal<Note, N>(storage_slot: Field) -> Note where N
 unconstrained fn get_notes_internal<Note, N, FILTER_ARGS>(
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, FILTER_ARGS>
-) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
+) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
     let (num_selects, select_by, select_values, select_comparators, sort_by, sort_order) = flatten_options(options.selects, options.sorts);
-    let placeholder_opt_notes = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
+    let placeholder_opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let placeholder_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
     let placeholder_note_length = [0; N];
     let opt_notes = oracle::notes::get_notes(

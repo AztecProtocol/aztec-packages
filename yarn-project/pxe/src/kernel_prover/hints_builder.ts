@@ -3,9 +3,9 @@ import {
   GrumpkinScalar,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
   NullifierKeyValidationRequestContext,
@@ -57,11 +57,11 @@ export class HintsBuilder {
    *  corresponding to the read request. In other words we have readRequests[i] == noteHashes[hints[i]].
    */
   getReadRequestHints(
-    readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
+    readRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     noteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
-  ): Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX> {
-    const hints = makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero);
-    for (let i = 0; i < MAX_READ_REQUESTS_PER_TX && !readRequests[i].isEmpty(); i++) {
+  ): Tuple<Fr, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX> {
+    const hints = makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, Fr.zero);
+    for (let i = 0; i < MAX_NOTE_HASH_READ_REQUESTS_PER_TX && !readRequests[i].isEmpty(); i++) {
       const equalToRR = (cmt: SideEffect) => cmt.value.equals(readRequests[i].value);
       const result = noteHashes.findIndex(equalToRR);
       if (result == -1) {

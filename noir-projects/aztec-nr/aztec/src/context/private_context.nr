@@ -1,7 +1,6 @@
 use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
-    key::nullifier_key::validate_nullifier_key_against_address,
-    messaging::process_l1_to_l2_message,
+    key::nullifier_key::validate_nullifier_key_against_address, messaging::process_l1_to_l2_message,
     oracle::{
     arguments, call_private_function::call_private_function_internal,
     enqueue_public_function_call::enqueue_public_function_call_internal, context::get_portal_address,
@@ -11,21 +10,20 @@ use crate::{
 };
 use dep::protocol_types::{
     abis::{
-        call_context::CallContext, function_data::FunctionData, function_selector::FunctionSelector,
-        nullifier_key_validation_request::NullifierKeyValidationRequest,
-        private_call_stack_item::PrivateCallStackItem,
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        public_call_stack_item::PublicCallStackItem,
-        public_circuit_public_inputs::PublicCircuitPublicInputs,
-        read_request::ReadRequest,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
-    },
+    call_context::CallContext, function_data::FunctionData, function_selector::FunctionSelector,
+    nullifier_key_validation_request::NullifierKeyValidationRequest,
+    private_call_stack_item::PrivateCallStackItem,
+    private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    public_call_stack_item::PublicCallStackItem,
+    public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+},
     address::{AztecAddress, EthAddress},
     constants::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-    MAX_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
+    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256, RETURN_VALUES_LENGTH
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
@@ -48,7 +46,7 @@ struct PrivateContext {
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
+    read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
