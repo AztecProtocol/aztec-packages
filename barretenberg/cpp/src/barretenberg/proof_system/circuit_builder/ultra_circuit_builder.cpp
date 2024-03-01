@@ -947,24 +947,39 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
         check_selector_length_consistency();
     }
     // dummy gate needed because of sort widget's check of next row
-    blocks.main.populate_wires(
-        variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
-    ++this->num_gates;
-    blocks.main.q_m().emplace_back(0);
-    blocks.main.q_1().emplace_back(0);
-    blocks.main.q_2().emplace_back(0);
-    blocks.main.q_3().emplace_back(0);
-    blocks.main.q_c().emplace_back(0);
-    blocks.main.q_arith().emplace_back(0);
-    blocks.main.q_4().emplace_back(0);
-    blocks.main.q_sort().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_aux().emplace_back(0);
+    create_dummy_gate(
+        blocks.main, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
+}
+
+/**
+ * @brief Create a gate with no constraints but with possibly non-trivial wire values
+ * @details A dummy gate can be used to provide wire values to be accessed via shifts by the gate that proceeds it. The
+ * dummy gate itself does not have to satisfy any constraints (all selectors are zero).
+ *
+ * @tparam Arithmetization
+ * @param variable_index
+ */
+template <typename Arithmetization>
+void UltraCircuitBuilder_<Arithmetization>::create_dummy_gate(
+    auto& block, const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
+{
+    block.populate_wires(idx_1, idx_2, idx_3, idx_4);
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(0);
+    block.q_2().emplace_back(0);
+    block.q_3().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.q_arith().emplace_back(0);
+    block.q_4().emplace_back(0);
+    block.q_sort().emplace_back(0);
+    block.q_elliptic().emplace_back(0);
+    block.q_lookup_type().emplace_back(0);
+    block.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
+        block.pad_additional();
     }
     check_selector_length_consistency();
+    ++this->num_gates;
 }
 
 // useful to put variables in the witness that aren't already used - e.g. the dummy variables of the range constraint in
@@ -982,23 +997,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_dummy_constraints(const std::
     this->assert_valid_variables(padded_list);
 
     for (size_t i = 0; i < padded_list.size(); i += gate_width) {
-        blocks.main.populate_wires(padded_list[i], padded_list[i + 1], padded_list[i + 2], padded_list[i + 3]);
-        ++this->num_gates;
-        blocks.main.q_m().emplace_back(0);
-        blocks.main.q_1().emplace_back(0);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_sort().emplace_back(0);
-        blocks.main.q_elliptic().emplace_back(0);
-        blocks.main.q_lookup_type().emplace_back(0);
-        blocks.main.q_aux().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
-        }
-        check_selector_length_consistency();
+        create_dummy_gate(blocks.main, padded_list[i], padded_list[i + 1], padded_list[i + 2], padded_list[i + 3]);
     }
 }
 
@@ -1012,8 +1011,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     ASSERT(variable_index.size() % gate_width == 0 && variable_index.size() > gate_width);
     this->assert_valid_variables(variable_index);
 
-    // enforce range checks of first row and starting at start
-    blocks.main.populate_wires(variable_index[0], variable_index[1], variable_index[2], variable_index[3]);
+    // Add an arithmetic gate to ensure the first input is equal to the start value of the range being checked
+    blocks.main.populate_wires(variable_index[0], this->zero_idx, this->zero_idx, this->zero_idx);
     ++this->num_gates;
     blocks.main.q_m().emplace_back(0);
     blocks.main.q_1().emplace_back(1);
@@ -1022,7 +1021,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     blocks.main.q_c().emplace_back(-start);
     blocks.main.q_arith().emplace_back(1);
     blocks.main.q_4().emplace_back(0);
-    blocks.main.q_sort().emplace_back(1);
+    blocks.main.q_sort().emplace_back(0);
     blocks.main.q_elliptic().emplace_back(0);
     blocks.main.q_lookup_type().emplace_back(0);
     blocks.main.q_aux().emplace_back(0);
@@ -1030,8 +1029,9 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
         blocks.main.pad_additional();
     }
     check_selector_length_consistency();
-    // enforce range check for middle rows
-    for (size_t i = gate_width; i < variable_index.size() - gate_width; i += gate_width) {
+
+    // enforce range check for all but the final row
+    for (size_t i = 0; i < variable_index.size() - gate_width; i += gate_width) {
 
         blocks.main.populate_wires(
             variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
@@ -1078,24 +1078,20 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
 
     // dummy gate needed because of sort widget's check of next row
     // use this gate to check end condition
-    blocks.main.populate_wires(
-        variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
-    ++this->num_gates;
-    blocks.main.q_m().emplace_back(0);
-    blocks.main.q_1().emplace_back(1);
-    blocks.main.q_2().emplace_back(0);
-    blocks.main.q_3().emplace_back(0);
-    blocks.main.q_c().emplace_back(-end);
-    blocks.main.q_arith().emplace_back(1);
-    blocks.main.q_4().emplace_back(0);
-    blocks.main.q_sort().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_aux().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
-    }
-    check_selector_length_consistency();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This was formerly a single arithmetic gate. A
+    // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing the
+    // arithmetic gate to occur out of sequence.
+    create_dummy_gate(
+        blocks.main, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
+    create_big_add_gate({ variable_index[variable_index.size() - 1],
+                          this->zero_idx,
+                          this->zero_idx,
+                          this->zero_idx,
+                          1,
+                          0,
+                          0,
+                          0,
+                          -end });
 }
 
 // range constraint a value by decomposing it into limbs whose size should be the default range constraint size
@@ -2033,7 +2029,8 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     blocks.main.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
-    record.gate_index = this->num_gates;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
+    record.gate_index = this->blocks.main.size() - 1;
     ++this->num_gates;
 }
 
@@ -2052,7 +2049,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_ROM_gate(RomRecord& re
     blocks.main.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
-    record.gate_index = this->num_gates;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
+    record.gate_index = this->blocks.main.size() - 1;
     ++this->num_gates;
 }
 
@@ -2097,7 +2095,8 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     blocks.main.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
-    record.gate_index = this->num_gates;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
+    record.gate_index = this->blocks.main.size() - 1;
     ++this->num_gates;
 }
 
@@ -2117,7 +2116,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_RAM_gate(RamRecord& re
     blocks.main.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
-    record.gate_index = this->num_gates;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
+    record.gate_index = this->blocks.main.size() - 1;
     ++this->num_gates;
 }
 
@@ -2131,13 +2131,25 @@ template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_final_sorted_RAM_gate(RamRecord& record, const size_t ram_array_size)
 {
     record.record_witness = this->add_variable(0);
-    record.gate_index = this->num_gates;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
+    record.gate_index = this->blocks.main.size(); // no -1 since we havent added the gate yet
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This method used to add a single arithmetic gate
+    // with two purposes: (1) to provide wire values to the previous RAM gate via shifts, and (2) to perform a
+    // consistency check on the value in wire 1. These two purposes have been split into a dummy gate and a simplified
+    // arithmetic gate, respectively. This allows both purposes to be served even after arithmetic gates are sorted out
+    // of sequence with the RAM gates.
+
+    // Create a final gate with all selectors zero; wire values are accessed by the previous RAM gate via shifted wires
+    create_dummy_gate(
+        blocks.main, record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
+
+    // Create an add gate ensuring the final index is consistent with the size of the RAM array
     create_big_add_gate({
         record.index_witness,
-        record.timestamp_witness,
-        record.value_witness,
-        record.record_witness,
+        this->zero_idx,
+        this->zero_idx,
+        this->zero_idx,
         1,
         0,
         0,
@@ -2477,6 +2489,10 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     // we have validated that all ROM reads are correctly constrained
     FF max_index_value((uint64_t)rom_array.state.size());
     uint32_t max_index = this->add_variable(max_index_value);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This was formerly a single arithmetic gate. A
+    // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing the
+    // arithmetic gate to occur out of sequence.
+    create_dummy_gate(blocks.main, max_index, this->zero_idx, this->zero_idx, this->zero_idx);
     create_big_add_gate(
         {
             max_index,
@@ -2621,17 +2637,8 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     // add the index/timestamp values of the last sorted record in an empty add gate.
     // (the previous gate will access the wires on this gate and requires them to be those of the last record)
     const auto& last = sorted_ram_records[ram_array.records.size() - 1];
-    create_big_add_gate({
-        last.index_witness,
-        last.timestamp_witness,
-        this->zero_idx,
-        this->zero_idx,
-        0,
-        0,
-        0,
-        0,
-        0,
-    });
+    create_dummy_gate(blocks.main, last.index_witness, last.timestamp_witness, this->zero_idx, this->zero_idx);
+
     // Step 3: validate difference in timestamps is monotonically increasing. i.e. is <= maximum timestamp
     const size_t max_timestamp = ram_array.access_count - 1;
     for (auto& w : timestamp_deltas) {
@@ -3296,7 +3303,8 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
         }
     };
     // For each gate
-    for (size_t i = 0; i < this->num_gates; i++) {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): only checking the main block. check all blocks
+    for (size_t i = 0; i < this->blocks.main.size(); i++) {
         FF q_arith_value;
         FF q_aux_value;
         FF q_elliptic_value;
@@ -3348,7 +3356,8 @@ template <typename Arithmetization> bool UltraCircuitBuilder_<Arithmetization>::
         FF w_2_shifted_value;
         FF w_3_shifted_value;
         FF w_4_shifted_value;
-        if (i < (this->num_gates - 1)) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): gate index based on block containing ram/rom
+        if (i < (this->blocks.main.size() - 1)) {
             w_1_shifted_value = this->get_variable(blocks.main.w_l()[i + 1]);
             w_2_shifted_value = this->get_variable(blocks.main.w_r()[i + 1]);
             w_3_shifted_value = this->get_variable(blocks.main.w_o()[i + 1]);
