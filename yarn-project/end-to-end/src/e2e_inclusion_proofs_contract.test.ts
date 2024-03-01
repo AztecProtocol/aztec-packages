@@ -96,17 +96,15 @@ describe('e2e_inclusion_proofs_contract', () => {
         await contract.methods.test_note_validity(owner, false, 0n, false).send().wait();
       });
 
-      describe('we will test the vailure case by nullifying a note', () => {
-        let receipt: any;
-        let currentBlockNumber: any;
+      describe('we will test the failure case by nullifying a note', () => {
+        let currentBlockNumber: number;
+
         // We test the failure case now --> The proof should fail when the nullifier already exists
         it('nullifies a note and grabs block number', async () => {
-          receipt = await contract.methods.nullify_note(owner).send().wait({ debug: true });
+          const { debugInfo } = await contract.methods.nullify_note(owner).send().wait({ debug: true });
           currentBlockNumber = await pxe.getBlockNumber();
 
-          const { newNullifiers } = receipt!.debugInfo!;
-          expect(newNullifiers.length).toBe(2);
-          // const nullifier = newNullifiers[1];
+          expect(debugInfo!.nullifiers.length).toBe(2);
         });
 
         // Note: getLowNullifierMembershipWitness returns the membership witness of the nullifier itself and not
