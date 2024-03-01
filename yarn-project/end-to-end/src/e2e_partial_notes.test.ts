@@ -8,6 +8,8 @@ import {
   TxHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
+import { L2Tx } from '@aztec/circuit-types';
+import { MAX_NEW_NOTE_HASHES_PER_TX, Vector } from '@aztec/circuits.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { BufferReader, serializeToBufferArray } from '@aztec/foundation/serialize';
 import { TokenContract } from '@aztec/noir-contracts.js';
@@ -42,6 +44,18 @@ describe('e2e_partial_notes', () => {
 
   it('should split', async () => {
     const out = await bananaCoin.methods.split_it(ctx.wallets[1].getAddress(), 250n, 150n).send().wait({ debug: true });
+    const block = await ctx.pxe.getBlock(out.blockNumber!);
+    const txs = block!.getTxs();
+    let dataStartIndexForTx = block!.header.state.partial.noteHashTree.nextAvailableLeafIndex - 1;
+    let tx: L2Tx;
+    for (let i = txs.length - 1; i >= 0; i--) {
+      tx = txs[i];
+      dataStartIndexForTx -= MAX_NEW_NOTE_HASHES_PER_TX;
+      if (tx.txHash.equals(out.txHash)) {
+        break;
+      }
+    }
+
     const logs = await ctx.aztecNode.getUnencryptedLogs({
       txHash: out.txHash,
     });
@@ -50,9 +64,9 @@ describe('e2e_partial_notes', () => {
     const randomness = BufferReader.asReader(logs.logs[1].log.data).readArray(2, Fr);
     const slots = BufferReader.asReader(logs.logs[2].log.data).readArray(2, Fr);
     const privateContentHashes = BufferReader.asReader(logs.logs[3].log.data).readArray(2, Fr);
-    const amounts = BufferReader.asReader(logs.logs[4].log.data).readArray(2, Fr);
-    // const inneroteHashes = BufferReader.asReader(logs.logs[5].log.data).readArray(2, Fr);
-    const noteTypeId = new Fr(8411110710111078111116101n); // TokenNote
+    // const amounts = BufferReader.asReader(logs.logs[4].log.data).readArray(2, Fr);
+    const patch1 = BufferReader.asReader(logs.logs[4].log.data).readArray(2, Fr);
+    const patch2 = BufferReader.asReader(logs.logs[5].log.data).readArray(2, Fr);
 
     const prettyPrint = (x: Fr[]) => '\n' + x.map(n => '\t- ' + n.toString()).join('\n');
 
@@ -83,7 +97,7 @@ describe('e2e_partial_notes', () => {
       ]),
     );
 
-    console.log('amounts', prettyPrint(amounts));
+    // console.log('amounts', prettyPrint(amounts));
     console.log('note hashes:', prettyPrint(out.debugInfo?.newNoteHashes ?? []));
 
     let notes = await ctx.pxe.getNotes({
@@ -97,28 +111,19 @@ describe('e2e_partial_notes', () => {
       console.log('Storage slot of note', storageSlot.toString());
     }
 
-    // the pxe could keep track of partial notes and recreate them
-    // for now, just add the notes manually
-    await ctx.wallets[0].addNote(
-      new ExtendedNote(
-        new Note([amounts[0], ctx.wallets[0].getAddress(), randomness[0]]),
-        ctx.wallets[0].getAddress(),
-        bananaCoin.address,
-        slots[0],
-        noteTypeId,
-        out.txHash,
-      ),
+    await ctx.pxe.completePartialNotes(
+      bananaCoin.address,
+      new Fr(8411110710111078111116101n),
+      [[patch1[0].toNumber(), patch1[1]]],
+      tx!,
+      dataStartIndexForTx,
     );
-
-    await ctx.wallets[1].addNote(
-      new ExtendedNote(
-        new Note([amounts[1], ctx.wallets[1].getAddress(), randomness[1]]),
-        ctx.wallets[1].getAddress(),
-        bananaCoin.address,
-        slots[1],
-        noteTypeId,
-        out.txHash,
-      ),
+    await ctx.pxe.completePartialNotes(
+      bananaCoin.address,
+      new Fr(8411110710111078111116101n),
+      [[patch2[0].toNumber(), patch2[1]]],
+      tx!,
+      dataStartIndexForTx,
     );
 
     notes = await ctx.pxe.getNotes({

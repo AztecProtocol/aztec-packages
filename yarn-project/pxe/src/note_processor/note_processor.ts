@@ -5,9 +5,10 @@ import {
   L1NotePayload,
   L2BlockContext,
   L2BlockL2Logs,
+  L2Tx,
 } from '@aztec/circuit-types';
 import { NoteProcessorStats } from '@aztec/circuit-types/stats';
-import { MAX_NEW_NOTE_HASHES_PER_TX, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, MAX_NEW_NOTE_HASHES_PER_TX, PublicKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -17,7 +18,9 @@ import { ContractNotFoundError } from '@aztec/simulator';
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
+import { PartialNoteDao } from '../database/partial_note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
+import { ChoppedNoteError } from './chopped_note_error.js';
 import { produceNoteDao } from './produce_note_dao.js';
 
 /**
@@ -43,7 +46,16 @@ export class NoteProcessor {
   public readonly timer: Timer = new Timer();
 
   /** Stats accumulated for this processor. */
-  public readonly stats: NoteProcessorStats = { seen: 0, decrypted: 0, deferred: 0, failed: 0, blocks: 0, txs: 0 };
+  public readonly stats: NoteProcessorStats = {
+    seen: 0,
+    decrypted: 0,
+    deferred: 0,
+    partial: 0,
+    completed: 0,
+    failed: 0,
+    blocks: 0,
+    txs: 0,
+  };
 
   constructor(
     /**
@@ -105,6 +117,7 @@ export class NoteProcessor {
     const blocksAndNotes: ProcessedData[] = [];
     // Keep track of notes that we couldn't process because the contract was not found.
     const deferredNoteDaos: DeferredNoteDao[] = [];
+    const partialNoteDaos: PartialNoteDao[] = [];
 
     // Iterate over both blocks and encrypted logs.
     for (let blockIndex = 0; blockIndex < encryptedL2BlockLogs.length; ++blockIndex) {
@@ -163,6 +176,19 @@ export class NoteProcessor {
                     dataStartIndexForTx,
                   );
                   deferredNoteDaos.push(deferredNoteDao);
+                } else if (e instanceof ChoppedNoteError) {
+                  this.stats.partial++;
+                  this.log.warn(e.message);
+                  const partialNoteDao = new PartialNoteDao(
+                    this.publicKey,
+                    payload.note,
+                    payload.contractAddress,
+                    payload.storageSlot,
+                    payload.noteTypeId,
+                    txHash,
+                    e.siloedNoteHash,
+                  );
+                  partialNoteDaos.push(partialNoteDao);
                 } else {
                   this.stats.failed++;
                   this.log.warn(`Could not process note because of "${e}". Discarding note...`);
@@ -181,6 +207,7 @@ export class NoteProcessor {
 
     await this.processBlocksAndNotes(blocksAndNotes);
     await this.processDeferredNotes(deferredNoteDaos);
+    await this.processPartialNotes(partialNoteDaos);
 
     const syncedToBlock = l2BlockContexts[l2BlockContexts.length - 1].block.number;
     await this.db.setSynchedBlockNumberForPublicKey(this.publicKey, syncedToBlock);
@@ -241,6 +268,19 @@ export class NoteProcessor {
     }
   }
 
+  private async processPartialNotes(partialNoteDaos: PartialNoteDao[]): Promise<void> {
+    if (partialNoteDaos.length) {
+      await this.db.addPartialNotes(partialNoteDaos);
+      partialNoteDaos.forEach(noteDao => {
+        this.log(
+          `Partial note for contract ${noteDao.contractAddress} at slot ${
+            noteDao.storageSlot
+          } in tx ${noteDao.txHash.toString()}`,
+        );
+      });
+    }
+  }
+
   /**
    * Retry decoding the given deferred notes because we now have the contract code.
    *
@@ -278,4 +318,56 @@ export class NoteProcessor {
 
     return noteDaos;
   }
+
+  public async completePartialNotes(
+    contractAddress: AztecAddress,
+    noteTypeId: Fr,
+    patches: [Fr | number, Fr][],
+    tx: L2Tx,
+    dataStartIndexForTx: number,
+  ): Promise<void> {
+    const excludedIndices: Set<number> = new Set();
+    const noteDaos: NoteDao[] = [];
+    const completedNoteIds: string[] = [];
+    const partialNotes = await this.db.getPartialNotesByContract(contractAddress);
+    for (const partialNote of partialNotes) {
+      if (!partialNote.publicKey.equals(this.publicKey)) {
+        continue;
+      }
+
+      if (!partialNote.noteTypeId.equals(noteTypeId)) {
+        continue;
+      }
+
+      const { note, storageSlot } = partialNote;
+      for (const patch of patches) {
+        note.items[new Fr(patch[0]).toNumber()] = patch[1];
+      }
+      console.log('note after the patch', prettyPrint(note.items));
+      console.log('storageSlot', storageSlot.toString());
+
+      const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
+      try {
+        const noteDao = await produceNoteDao(
+          this.simulator,
+          this.publicKey,
+          payload,
+          tx.txHash,
+          tx.newNoteHashes,
+          dataStartIndexForTx,
+          excludedIndices,
+        );
+        noteDaos.push(noteDao);
+        completedNoteIds.push(partialNote.siloedNoteHash.toString());
+        this.stats.completed++;
+      } catch (e) {
+        this.log.warn(`Could not complete partial note because of "${e}". Skipping note...`);
+      }
+    }
+
+    await this.db.removePartialNotes(completedNoteIds);
+    await this.db.addNotes(noteDaos);
+  }
 }
+
+const prettyPrint = (x: Fr[]) => '\n' + x.map(n => '\t- ' + n.toString()).join('\n');

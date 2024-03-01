@@ -492,8 +492,10 @@ contract Token {
         let mut token_note_2 = TokenNote::from_partial(U128::from_integer(amounts[1]), 0);
         complete_partial_note_from_public(&mut context, partial_note_hashes[1], &mut token_note_2);
         // create_note_hash_from_public(&mut context, slots[1], &mut token_note_2);
+        // emit_unencrypted_log(&mut context, amounts);
 
-        emit_unencrypted_log(&mut context, amounts);
+        emit_unencrypted_log(&mut context, [0, amounts[0]]);
+        emit_unencrypted_log(&mut context, [0, amounts[1]]);
     }
 }
 // docs:end:token_all

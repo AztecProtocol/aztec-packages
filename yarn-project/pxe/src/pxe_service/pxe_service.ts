@@ -235,6 +235,16 @@ export class PXEService implements PXE {
     }
   }
 
+  public completePartialNotes(
+    contractAddress: AztecAddress,
+    noteTypeId: Fr,
+    patches: [number | Fr, Fr][],
+    tx: L2Tx,
+    dataStartIndexForTx: number,
+  ) {
+    return this.synchronizer.processPartialNotes(contractAddress, noteTypeId, patches, tx, dataStartIndexForTx);
+  }
+
   private async addArtifactsAndInstancesFromDeployedContracts(contracts: DeployedContract[]) {
     for (const contract of contracts) {
       const artifact = contract.artifact;

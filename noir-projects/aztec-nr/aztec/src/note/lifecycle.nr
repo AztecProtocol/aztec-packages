@@ -64,7 +64,7 @@ pub fn complete_partial_note_from_public<Note, N>(
     context: &mut PublicContext,
     inner_note_hash: Field,
     note: &mut Note
-) -> Field where Note: NoteInterface<N> + PartialNoteInterface {
+) where Note: NoteInterface<N> + PartialNoteInterface {
     let contract_address = (*context).this_address();
 
     let header = NoteHeader { contract_address, storage_slot: 0, nonce: 0, is_transient: true, is_partial: true, inner_note_hash };
@@ -73,10 +73,9 @@ pub fn complete_partial_note_from_public<Note, N>(
     // As `is_transient` is true, this will compute the inner note hsah
     let note_hash = compute_note_hash_for_insertion(*note);
 
-    context.push_new_note_hash(note_hash);
     // no broadcasting. Whoever created the partial note "should" already be able to add it to their PXE
     // also broadcsating requries the storage slot, which we don't want to reveal in public
-    note_hash
+    context.push_new_note_hash(note_hash);
 }
 
 pub fn create_note_hash_from_public<Note, N>(

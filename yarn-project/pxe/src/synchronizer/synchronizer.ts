@@ -4,6 +4,7 @@ import {
   KeyStore,
   L2BlockContext,
   L2BlockL2Logs,
+  L2Tx,
   MerkleTreeId,
   TxHash,
 } from '@aztec/circuit-types';
@@ -326,6 +327,30 @@ export class Synchronizer {
    */
   public reprocessDeferredNotesForContract(contractAddress: AztecAddress): Promise<void> {
     return this.jobQueue.put(() => this.#reprocessDeferredNotesForContract(contractAddress));
+  }
+
+  public processPartialNotes(
+    contractAddress: AztecAddress,
+    noteTypeId: Fr,
+    patches: [number | Fr, Fr][],
+    tx: L2Tx,
+    dataStartIndexForTx: number,
+  ): Promise<void> {
+    return this.jobQueue.put(() =>
+      this.#processPartialNotes(contractAddress, noteTypeId, patches, tx, dataStartIndexForTx),
+    );
+  }
+
+  async #processPartialNotes(
+    contractAddress: AztecAddress,
+    noteTypeId: Fr,
+    patches: [number | Fr, Fr][],
+    tx: L2Tx,
+    dataStartIndexForTx: number,
+  ) {
+    for (const processor of this.noteProcessors) {
+      await processor.completePartialNotes(contractAddress, noteTypeId, patches, tx, dataStartIndexForTx);
+    }
   }
 
   async #reprocessDeferredNotesForContract(contractAddress: AztecAddress): Promise<void> {

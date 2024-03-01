@@ -111,8 +111,12 @@ export type NoteProcessorStats = {
   seen: number;
   /** How many notes had decryption deferred due to a missing contract */
   deferred: number;
+  /** How many partial notes we've discovered so far */
+  partial: number;
   /** How many notes were successfully decrypted. */
   decrypted: number;
+  /** How many partial notes were completed */
+  completed: number;
   /** How many notes failed processing. */
   failed: number;
   /** How many blocks were spanned.  */

@@ -1,5 +1,7 @@
+import { Fr } from '@aztec/foundation/fields';
+
 export class ChoppedNoteError extends Error {
-  constructor(public readonly siloedNoteHash: string) {
+  constructor(public readonly siloedNoteHash: Fr) {
     const errorString = `We decrypted a log, but couldn't find a corresponding note in the tree.
 This might be because the note was nullified in the same tx which created it.
 In that case, everything is fine. To check whether this is the case, look back through

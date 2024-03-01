@@ -287,5 +287,13 @@ export interface PXE {
    * @param id - Identifier of the class.
    */
   isContractClassPubliclyRegistered(id: Fr): Promise<boolean>;
+
+  completePartialNotes(
+    contractAddress: AztecAddress,
+    noteTypeId: Fr,
+    patches: [number | Fr, Fr][],
+    tx: L2Tx,
+    dataStartIndexForTx: number,
+  ): Promise<void>;
 }
 // docs:end:pxe-interface

@@ -7,6 +7,7 @@ import { ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
 import { ContractInstanceDatabase } from './contracts/contract_instance_db.js';
 import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
+import { PartialNoteDao } from './partial_note_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
@@ -74,6 +75,24 @@ export interface PxeDatabase extends ContractDatabase, ContractArtifactDatabase,
    * @param contractAddress - The contract address to get the deferred notes for.
    */
   getDeferredNotesByContract(contractAddress: AztecAddress): Promise<DeferredNoteDao[]>;
+
+  /**
+   * Add partial notes to the database
+   * @param partialNotes - An array of partial notes.
+   */
+  addPartialNotes(partialNotes: PartialNoteDao[]): Promise<void>;
+
+  /**
+   * Add partial notes to the database
+   * @param contractAddress - The contract address to get the partial notes for.
+   */
+  getPartialNotesByContract(contractAddress: AztecAddress): Promise<PartialNoteDao[]>;
+
+  /**
+   * Removes partial notes from the database
+   * @param noteIds - An array of note ids to remove.
+   */
+  removePartialNotes(noteIds: string[]): Promise<void>;
 
   /**
    * Remove deferred notes for a given contract address.
