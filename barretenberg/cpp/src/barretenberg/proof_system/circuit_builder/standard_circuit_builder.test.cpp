@@ -1,6 +1,7 @@
 #include "standard_circuit_builder.hpp"
 #include "barretenberg/crypto/generators/generator_data.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/proof_system/circuit_builder/circuit_checker.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -15,7 +16,7 @@ TEST(standard_circuit_constructor, base_case)
     fr a = fr::one();
     circuit_constructor.add_public_variable(a);
 
-    bool result = circuit_constructor.check_circuit();
+    bool result = CircuitChecker::check(circuit_constructor);
     EXPECT_EQ(result, true);
 }
 
