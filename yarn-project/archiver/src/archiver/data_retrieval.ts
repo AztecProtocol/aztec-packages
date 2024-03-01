@@ -20,7 +20,7 @@ import {
 /**
  * Data retrieved from logs
  */
-export type DataRetrieval<T> = {
+type DataRetrieval<T> = {
   /**
    * The next block number.
    */
@@ -32,7 +32,7 @@ export type DataRetrieval<T> = {
 };
 
 /**
- * Fetches new L2 block metadata (header, archive root).
+ * Fetches new L2 block metadata (header, archive snapshot).
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param rollupAddress - The address of the rollup contract.
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.

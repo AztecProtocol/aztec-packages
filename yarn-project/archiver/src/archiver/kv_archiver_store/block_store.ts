@@ -82,7 +82,7 @@ export class BlockStore {
    */
   *getBlocks(start: number, limit: number): IterableIterator<L2Block> {
     for (const blockStorage of this.#blocks.values(this.#computeBlockRange(start, limit))) {
-      yield this.getFullBlockFromBlockStorage(blockStorage);
+      yield this.getBlockFromBlockStorage(blockStorage);
     }
   }
 
@@ -97,10 +97,10 @@ export class BlockStore {
       return undefined;
     }
 
-    return this.getFullBlockFromBlockStorage(blockStorage);
+    return this.getBlockFromBlockStorage(blockStorage);
   }
 
-  private getFullBlockFromBlockStorage(blockStorage: BlockStorage) {
+  private getBlockFromBlockStorage(blockStorage: BlockStorage) {
     const header = Header.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const body = this.#blockBodyStore.getBlockBody(header.contentCommitment.txsHash);
