@@ -158,9 +158,9 @@ describe('e2e_inclusion_proofs_contract', () => {
         const receipt = await contract.methods.create_note(owner, value).send().wait({ debug: true });
 
         noteCreationBlockNumber = receipt.blockNumber!;
-        const { noteHashes: newNoteHashes, visibleNotes } = receipt.debugInfo!;
+        const { noteHashes, visibleNotes } = receipt.debugInfo!;
 
-        expect(newNoteHashes.length).toBe(1);
+        expect(noteHashes.length).toBe(1);
         expect(visibleNotes.length).toBe(1);
         const [receivedValue, receivedOwner, _randomness] = visibleNotes[0].note.items;
         expect(receivedValue.toBigInt()).toBe(value);
