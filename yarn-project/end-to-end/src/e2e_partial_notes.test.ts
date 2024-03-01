@@ -8,7 +8,7 @@ import {
   TxHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { L2Tx } from '@aztec/circuit-types';
+import { L2Tx, MerkleTreeId } from '@aztec/circuit-types';
 import { MAX_NEW_NOTE_HASHES_PER_TX, Vector } from '@aztec/circuits.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { BufferReader, serializeToBufferArray } from '@aztec/foundation/serialize';
@@ -46,7 +46,7 @@ describe('e2e_partial_notes', () => {
     const out = await bananaCoin.methods.split_it(ctx.wallets[1].getAddress(), 250n, 150n).send().wait({ debug: true });
     const block = await ctx.pxe.getBlock(out.blockNumber!);
     const txs = block!.getTxs();
-    let dataStartIndexForTx = block!.header.state.partial.noteHashTree.nextAvailableLeafIndex - 1;
+    let dataStartIndexForTx = block!.header.state.partial.noteHashTree.nextAvailableLeafIndex;
     let tx: L2Tx;
     for (let i = txs.length - 1; i >= 0; i--) {
       tx = txs[i];
@@ -109,6 +109,11 @@ describe('e2e_partial_notes', () => {
     for (const { note, storageSlot } of notes) {
       console.log('Note', prettyPrint(note.items));
       console.log('Storage slot of note', storageSlot.toString());
+    }
+
+    for (const hash of tx!.newNoteHashes) {
+      const index = await ctx.aztecNode.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, hash);
+      console.log('note hash %s is at index %s', hash, index);
     }
 
     await ctx.pxe.completePartialNotes(

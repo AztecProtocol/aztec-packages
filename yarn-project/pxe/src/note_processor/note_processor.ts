@@ -6,10 +6,12 @@ import {
   L2BlockContext,
   L2BlockL2Logs,
   L2Tx,
+  MerkleTreeId,
 } from '@aztec/circuit-types';
 import { NoteProcessorStats } from '@aztec/circuit-types/stats';
 import { AztecAddress, MAX_NEW_NOTE_HASHES_PER_TX, PublicKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -240,7 +242,12 @@ export class NoteProcessor {
     const newNullifiers: Fr[] = blocksAndNotes.flatMap(b =>
       b.blockContext.block.body.txEffects.flatMap(txEffect => txEffect.newNullifiers),
     );
+
+    const actual = newNullifiers.filter(x => !x.isZero());
+
+    this.log(`Have ${actual.length} nullifiers to remove: ${prettyPrint(actual)}`);
     const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.publicKey);
+    this.log(`Actually remove ${removedNotes.length} notes`);
     removedNotes.forEach(noteDao => {
       this.log(
         `Removed note for contract ${noteDao.contractAddress} at slot ${
@@ -357,6 +364,13 @@ export class NoteProcessor {
           dataStartIndexForTx,
           excludedIndices,
         );
+
+        noteDao.index = (await this.node.findLeafIndex(
+          'latest',
+          MerkleTreeId.NOTE_HASH_TREE,
+          siloNoteHash(contractAddress, noteDao.unsiloedNoteHash),
+        ))!;
+
         noteDaos.push(noteDao);
         completedNoteIds.push(partialNote.siloedNoteHash.toString());
         this.stats.completed++;

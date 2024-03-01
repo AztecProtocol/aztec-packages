@@ -30,7 +30,7 @@ export async function produceNoteDao(
   dataStartIndexForTx: number,
   excludedIndices: Set<number>,
 ): Promise<NoteDao> {
-  const { commitmentIndex, nonce, unsiloedNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
+  const { commitmentIndex, nonce, unsiloedNoteHash, siloedNullifier, siloedNoteHash } = await findNoteIndexAndNullifier(
     simulator,
     newNoteHashes,
     txHash,
@@ -38,7 +38,8 @@ export async function produceNoteDao(
     excludedIndices,
   );
   const index = BigInt(dataStartIndexForTx + commitmentIndex);
-  console.log('\n\n\n found note index: ', index);
+  console.log('\n\n\n creating new note %s with nullifier %s at index %s', siloedNoteHash, siloedNullifier, index);
+
   excludedIndices?.add(commitmentIndex);
   return new NoteDao(
     payload.note,
@@ -97,14 +98,9 @@ async function findNoteIndexAndNullifier(
     const expectedNonce = computeCommitmentNonce(firstNullifier, commitmentIndex);
     ({ unsiloedNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
       await simulator.computeNoteHashAndNullifier(contractAddress, expectedNonce, storageSlot, noteTypeId, note));
-    console.log('unsiloedNoteHash', unsiloedNoteHash.toString(), typeof siloedNoteHash);
-    console.log('siloedNoteHash', siloedNoteHash.toString(), typeof siloedNoteHash);
-    console.log('uniqueSiloedNoteHash', uniqueSiloedNoteHash.toString(), typeof uniqueSiloedNoteHash);
-    console.log('commitment', commitment.toString(), typeof commitment);
     if (commitment.equals(siloedNoteHash)) {
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
       // Remove this once notes added from public also include nonces.
-      console.log('\n\n\nfound a note created in public, without a nonce!');
       nonce = Fr.ZERO;
       break;
     }
@@ -114,21 +110,22 @@ async function findNoteIndexAndNullifier(
     }
   }
 
-  console.log('after running, nonce:', nonce?.toString());
-  console.log('after running, siloedNoteHash:', siloedNoteHash?.toString());
-
   if (!nonce) {
     if (siloedNoteHash == undefined) {
       throw new Error('Cannot find a matching commitment for the note.');
     } else {
       throw new ChoppedNoteError(siloedNoteHash);
     }
+  } else if (nonce.isZero()) {
+    ({ unsiloedNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
+      await simulator.computeNoteHashAndNullifier(contractAddress, Fr.ZERO, storageSlot, noteTypeId, note));
   }
 
   return {
     commitmentIndex,
     nonce,
     unsiloedNoteHash: unsiloedNoteHash!,
+    siloedNoteHash: siloedNoteHash!,
     siloedNullifier: siloNullifier(contractAddress, innerNullifier!),
   };
 }
