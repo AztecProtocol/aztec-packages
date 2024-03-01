@@ -11,7 +11,7 @@ import { L1ToL2MessageAndIndex } from '../../l1_to_l2_message.js';
 import { L2Block } from '../../l2_block.js';
 import { ExtendedUnencryptedL2Log, L2BlockL2Logs, LogId } from '../../logs/index.js';
 import { SiblingPath } from '../../sibling_path/index.js';
-import { Tx, TxHash } from '../../tx/index.js';
+import { Tx, TxHash, TxReceipt } from '../../tx/index.js';
 import { TxEffect } from '../../tx_effect.js';
 
 /**
@@ -40,7 +40,7 @@ export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecN
       SiblingPath,
       L1ToL2MessageAndIndex,
     },
-    { Tx, L2BlockL2Logs },
+    { Tx, TxReceipt, L2BlockL2Logs },
     false,
     'node',
     fetch,
