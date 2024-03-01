@@ -17,8 +17,6 @@ template <typename Flavor> class DeciderVerifier_ {
 
   public:
     explicit DeciderVerifier_();
-    explicit DeciderVerifier_(const std::shared_ptr<Transcript>& transcript,
-                              const std::shared_ptr<VerifierInstance>& accumulator = nullptr);
     explicit DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator,
                               const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
