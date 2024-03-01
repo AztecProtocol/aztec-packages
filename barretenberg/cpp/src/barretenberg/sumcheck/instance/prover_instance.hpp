@@ -122,10 +122,6 @@ template <class Flavor> class ProverInstance_ {
 
     void construct_table_polynomials(Circuit&, size_t);
 
-    void add_memory_records_to_proving_key(Circuit&);
-
-    void add_table_column_selector_poly_to_proving_key(bb::polynomial& small, const std::string& tag);
-
     void add_plookup_memory_records_to_wire_4(FF);
 };
 
