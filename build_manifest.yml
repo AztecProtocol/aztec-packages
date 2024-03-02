@@ -162,6 +162,7 @@ yarn-project:
     - l1-contracts
     - boxes-files
     - noir-projects
+  multiarch: host
 
 # Productionifies yarn-project (removes all dev dependencies, multiarch).
 yarn-project-prod:
