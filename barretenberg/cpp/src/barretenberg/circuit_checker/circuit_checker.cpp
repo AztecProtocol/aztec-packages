@@ -31,15 +31,12 @@ template <> bool CircuitChecker::check<StandardCircuitBuilder_<bb::fr>>(Standard
 template <>
 bool CircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(UltraCircuitBuilder_<UltraArith<bb::fr>>& builder)
 {
-    bool result = true;
-    result = result && check_arithmetic_relation(builder);
-    return result;
+    return check_relation<Arithmetic>(builder) && check_relation<Elliptic>(builder) &&
+           check_relation<Auxiliary>(builder) && check_relation<GenPermSort>(builder);
 };
 
-template <typename Builder> bool CircuitChecker::check_arithmetic_relation(Builder& builder)
+template <typename Relation, typename Builder> bool CircuitChecker::check_relation(Builder& builder)
 {
-    using FF = bb::fr;
-    using Relation = UltraArithmeticRelation<FF>;
     using Values = UltraFlavor::AllValues;
     using SubrelationEvaluations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
     using Params = RelationParameters<FF>;
@@ -51,37 +48,9 @@ template <typename Builder> bool CircuitChecker::check_arithmetic_relation(Build
         eval = 0;
     }
 
-    auto& block = builder.blocks.main;
-
     for (size_t idx = 0; idx < builder.num_gates; ++idx) {
 
-        values.w_l = builder.get_variable(block.w_l()[idx]);
-        values.w_r = builder.get_variable(block.w_r()[idx]);
-        values.w_o = builder.get_variable(block.w_o()[idx]);
-        values.w_4 = builder.get_variable(block.w_4()[idx]);
-        values.q_m = block.q_m()[idx];
-        values.q_c = block.q_c()[idx];
-        values.q_l = block.q_1()[idx];
-        values.q_r = block.q_2()[idx];
-        values.q_o = block.q_3()[idx];
-        values.q_4 = block.q_4()[idx];
-        values.q_arith = block.q_arith()[idx];
-
-        values.w_4_shift = idx < builder.num_gates - 1 ? builder.get_variable(block.w_4()[idx + 1]) : 0;
-
-        // info("Arithmetic relation index ", idx);
-        // info("values.w_l = ", values.w_l);
-        // info("values.w_r = ", values.w_r);
-        // info("values.w_o = ", values.w_o);
-        // info("values.w_4 = ", values.w_4);
-        // info("values.q_m = ", values.q_m);
-        // info("values.q_c = ", values.q_c);
-        // info("values.q_l = ", values.q_l);
-        // info("values.q_r = ", values.q_r);
-        // info("values.q_o = ", values.q_o);
-        // info("values.q_4 = ", values.q_4);
-        // info("values.q_arith = ", values.q_arith);
-        // info("values.w_4_shift = ", values.w_4_shift);
+        populate_values(builder, values, idx);
 
         // Evaluate each constraint in the relation and check that each is satisfied
         Relation::accumulate(subrelation_evaluations, values, params, 1);
@@ -97,5 +66,50 @@ template <typename Builder> bool CircuitChecker::check_arithmetic_relation(Build
 
     return true;
 };
+
+template <typename Builder> bool CircuitChecker::check_arithmetic_relation(Builder& builder)
+{
+    return check_relation<UltraArithmeticRelation<FF>>(builder);
+};
+
+template <typename Builder> void CircuitChecker::populate_values(Builder& builder, auto& values, size_t idx)
+{
+    auto& block = builder.blocks.main;
+
+    values.w_l = builder.get_variable(block.w_l()[idx]);
+    values.w_r = builder.get_variable(block.w_r()[idx]);
+    values.w_o = builder.get_variable(block.w_o()[idx]);
+    values.w_4 = builder.get_variable(block.w_4()[idx]);
+    values.q_m = block.q_m()[idx];
+    values.q_c = block.q_c()[idx];
+    values.q_l = block.q_1()[idx];
+    values.q_r = block.q_2()[idx];
+    values.q_o = block.q_3()[idx];
+    values.q_4 = block.q_4()[idx];
+    values.q_arith = block.q_arith()[idx];
+    values.q_sort = block.q_sort()[idx];
+    values.q_elliptic = block.q_elliptic()[idx];
+    values.q_aux = block.q_aux()[idx];
+    values.q_lookup = block.q_lookup_type()[idx];
+
+    values.w_l_shift = idx < block.size() - 1 ? builder.get_variable(block.w_l()[idx + 1]) : 0;
+    values.w_r_shift = idx < block.size() - 1 ? builder.get_variable(block.w_r()[idx + 1]) : 0;
+    values.w_o_shift = idx < block.size() - 1 ? builder.get_variable(block.w_o()[idx + 1]) : 0;
+    values.w_4_shift = idx < block.size() - 1 ? builder.get_variable(block.w_4()[idx + 1]) : 0;
+
+    // info("Arithmetic relation index ", idx);
+    // info("values.w_l = ", values.w_l);
+    // info("values.w_r = ", values.w_r);
+    // info("values.w_o = ", values.w_o);
+    // info("values.w_4 = ", values.w_4);
+    // info("values.q_m = ", values.q_m);
+    // info("values.q_c = ", values.q_c);
+    // info("values.q_l = ", values.q_l);
+    // info("values.q_r = ", values.q_r);
+    // info("values.q_o = ", values.q_o);
+    // info("values.q_4 = ", values.q_4);
+    // info("values.q_arith = ", values.q_arith);
+    // info("values.w_4_shift = ", values.w_4_shift);
+}
 
 } // namespace bb

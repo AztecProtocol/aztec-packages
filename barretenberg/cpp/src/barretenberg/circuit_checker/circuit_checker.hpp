@@ -21,8 +21,18 @@ using namespace bb;
 
 class CircuitChecker {
   public:
+    using FF = bb::fr;
+    using Arithmetic = UltraArithmeticRelation<FF>;
+    using Elliptic = EllipticRelation<FF>;
+    using Auxiliary = AuxiliaryRelation<FF>;
+    using GenPermSort = GenPermSortRelation<FF>;
+
     template <typename Builder> static bool check(Builder& builder);
 
+    template <typename Relation, typename Builder> static bool check_relation(Builder& builder);
+
     template <typename Builder> static bool check_arithmetic_relation(Builder& builder);
+
+    template <typename Builder> static void populate_values(Builder& builder, auto& values, size_t idx);
 };
 } // namespace bb
