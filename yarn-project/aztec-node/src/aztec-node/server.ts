@@ -32,6 +32,7 @@ import {
   Fr,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
+  L2_TO_L1_MESSAGE_LENGTH,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   NullifierLeafPreimage,
@@ -62,6 +63,7 @@ import {
 } from '@aztec/world-state';
 
 import { AztecNodeConfig } from './config.js';
+import { Pedersen, StandardTree } from '@aztec/merkle-tree';
 
 /**
  * The aztec node.
@@ -422,6 +424,32 @@ export class AztecNodeService implements AztecNode {
   ): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     const committedDb = await this.#getWorldState(blockNumber);
     return committedDb.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
+  }
+
+  public async getL2ToL1MessageSiblingPath(
+    blockNumber: number | 'latest',
+    l2ToL1Message: Fr,
+  ): Promise<SiblingPath<number>> {
+    const block = await this.blockSource.getBlock(blockNumber === 'latest' ? await this.getBlockNumber() : blockNumber);
+
+    if (block === undefined) {
+      throw new Error('Block is not defined');
+    }
+
+    // Note: This is how I would calculate it (with assumed tx/block val), but would rather have a hardcoded value in a const file
+    const transactionsPerBlock = 16;
+    const treeHeight = Math.log2(L2_TO_L1_MESSAGE_LENGTH * transactionsPerBlock);
+
+    const tree = new StandardTree(AztecLmdbStore.open(), new Pedersen(), 'temp_outhash_sibling_path', treeHeight);
+    await tree.appendLeaves(block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs.map(l2ToL1Msg => l2ToL1Msg.toBuffer())));
+
+    const indexOfL2ToL1Message = tree.findLeafIndex(l2ToL1Message.toBuffer(), true);
+
+    if (indexOfL2ToL1Message === undefined) {
+      throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
+    }
+
+    return tree.getSiblingPath(indexOfL2ToL1Message, true);
   }
 
   /**

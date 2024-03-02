@@ -3,6 +3,7 @@ import {
   CONTRACT_TREE_HEIGHT,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
+  L2_TO_L1_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -92,6 +93,12 @@ export interface AztecNode {
     blockNumber: BlockNumber,
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
+
+  getL2ToL1MessageSiblingPath(
+    blockNumber: BlockNumber,
+    l2ToL1Message: Fr,
+    // TODO: Replace with actual temp tree height
+  ): Promise<SiblingPath<number>>;
 
   /**
    * Returns a sibling path for a leaf in the committed historic blocks tree.
