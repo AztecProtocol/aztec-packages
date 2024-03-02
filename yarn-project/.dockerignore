@@ -8,10 +8,11 @@
 */data*
 **/dest
 **/node_modules
+**/artifacts
 **/Dockerfile*
 **/*.tsbuildinfo
-
-./accounts/src/artifacts
+**/codegenCache.json
 
 noir-contracts.js/src
-noir-contracts.js/target
+noir-protocol-circuits-types/src/target
+noir-protocol-circuits-types/src/types

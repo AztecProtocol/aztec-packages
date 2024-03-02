@@ -148,19 +148,6 @@ boxes-files:
   buildDir: boxes
   dockerfile: Dockerfile.files
 
-# Contains just the npm/js dependencies needed by yarn-project.
-# It's its own thing, to avoid continuously downloading all dependencies every build.
-yarn-project-base:
-  buildDir: yarn-project
-  projectDir: yarn-project/yarn-project-base
-  rebuildPatterns:
-    - ^yarn-project/yarn-project-base/
-    - ^yarn-project/yarn.lock
-    - ^yarn-project/.*/package.json$
-  dependencies:
-    - bb.js
-    - noir-packages
-
 # Builds all of yarn-project, with all developer dependencies.
 # Creates a runnable container used to run tests and formatting checks.
 yarn-project:
@@ -170,7 +157,8 @@ yarn-project:
     - ^yarn-project/Dockerfile$
     - ^yarn-project/cli/aztec-cli
   dependencies:
-    - yarn-project-base
+    - bb.js
+    - noir-packages
     - l1-contracts
     - boxes-files
     - noir-projects
