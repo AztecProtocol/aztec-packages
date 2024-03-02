@@ -483,42 +483,6 @@ jobs:
           command: create_ecr_manifest yarn-project x86_64,arm64
           aztec_manifest_key: yarn-project
 
-  yarn-project-prod:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: Build
-          command: build yarn-project-prod | add_timestamps
-          aztec_manifest_key: yarn-project-prod
-
-  yarn-project-formatting:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: Check Formatting
-          command: cond_spot_run_container yarn-project 8 formatting | add_timestamps
-          aztec_manifest_key: yarn-project
-
-  yarn-project-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: Test
-          command: cond_spot_run_container yarn-project 64 test | add_timestamps
-          aztec_manifest_key: yarn-project
-
   aztec-package:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1331,11 +1295,6 @@ defaults_yarn_project: &defaults_yarn_project
     - yarn-project-ecr-manifest
   <<: *defaults
 
-defaults_yarn_project_prod: &defaults_yarn_project_prod
-  requires:
-    - yarn-project-prod
-  <<: *defaults
-
 defaults_deploy: &defaults_deploy
   requires:
     - end
@@ -1457,16 +1416,13 @@ workflows:
             - yarn-project-x86_64
             - yarn-project-arm64
           <<: *defaults
-      - yarn-project-prod: *defaults_yarn_project
-      - yarn-project-formatting: *defaults_yarn_project
-      - yarn-project-tests: *defaults_yarn_project
       - end-to-end: *defaults_yarn_project
       - build-docs: *defaults_yarn_project
 
       # Artifacts
-      - aztec-package: *defaults_yarn_project_prod
-      - cli: *defaults_yarn_project_prod
-      - aztec-faucet: *defaults_yarn_project_prod
+      - aztec-package: *defaults_yarn_project
+      - cli: *defaults_yarn_project
+      - aztec-faucet: *defaults_yarn_project
 
       # Boxes.
       - boxes:

@@ -164,36 +164,26 @@ yarn-project:
     - noir-projects
   multiarch: host
 
-# Productionifies yarn-project (removes all dev dependencies, multiarch).
-yarn-project-prod:
-  buildDir: yarn-project
-  dockerfile: Dockerfile.prod
-  rebuildPatterns:
-    - ^yarn-project/Dockerfile.prod
-  dependencies:
-    - yarn-project
-  multiarch: buildx
-
 # A runnable container, sets entrypoint to be the aztec infrastructure entrypoint.
 aztec:
   buildDir: yarn-project
   projectDir: yarn-project/aztec
   dependencies:
-    - yarn-project-prod
+    - yarn-project
   multiarch: buildx
 
 aztec-faucet:
   buildDir: yarn-project
   projectDir: yarn-project/aztec-faucet
   dependencies:
-    - yarn-project-prod
+    - yarn-project
 
 # A runnable container, sets entrypoint to be the aztec-cli entrypoint.
 cli:
   buildDir: yarn-project
   projectDir: yarn-project/cli
   dependencies:
-    - yarn-project-prod
+    - yarn-project
   multiarch: buildx
 
 # Builds all the boxes. They are then independently tested in the container.
