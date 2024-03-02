@@ -456,7 +456,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build yarn-project 32
+          command: cond_spot_run_build yarn-project 64
           aztec_manifest_key: yarn-project
 
   yarn-project-arm64:
@@ -468,7 +468,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_spot_run_build yarn-project 32 arm64
+          command: cond_spot_run_build yarn-project 64 arm64
           aztec_manifest_key: yarn-project
 
   yarn-project-ecr-manifest:
