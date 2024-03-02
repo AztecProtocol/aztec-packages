@@ -11,5 +11,3 @@ contracts=(
 for contract in "${contracts[@]}"; do
   cp "../../noir-projects/noir-contracts/target/$contract.json" ./src/artifacts/${contract#*-}.json
 done
-
-yarn run -T prettier -w ./src/artifacts
