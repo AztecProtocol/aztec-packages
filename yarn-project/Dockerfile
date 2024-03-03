@@ -1,5 +1,3 @@
-# This base dockerfile adds all the remaining source files and builds the project.
-# See yarn-project-base/Dockerfile for why we have separate base Dockerfile.
 FROM --platform=linux/amd64 aztecprotocol/bb.js as bb.js
 FROM --platform=linux/amd64 aztecprotocol/noir-packages as noir-packages
 FROM --platform=linux/amd64 aztecprotocol/l1-contracts as contracts
@@ -27,18 +25,14 @@ COPY . .
 # by initialising the module more than once. So at present I don't see a viable alternative.
 RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
-RUN ./bootstrap.sh
-
-# Check package.json inheritance and tsconfig project references.
-RUN yarn prepare:check && yarn formatting && yarn test
+RUN yarn install
+RUN yarn build:fast
+RUN yarn workspaces focus @aztec/cli @aztec/aztec @aztec/aztec-faucet @aztec/aztec.js --production && yarn cache clean
 
 # TODO: Use release-please to update package.json directly, and remove this!
 # It's here to ensure the image rebuilds if the commit tag changes (as the content hash won't).
 ARG COMMIT_TAG=""
 RUN ./scripts/version_packages.sh
-
-# Productionify.
-RUN yarn workspaces focus @aztec/cli @aztec/aztec @aztec/aztec-faucet @aztec/aztec.js --production && yarn cache clean
 
 # We no longer need nargo.
 RUN rm -rf /usr/src/noir/noir-repo
@@ -46,8 +40,6 @@ RUN rm -rf /usr/src/noir/noir-repo
 # Create fresh minimal size image.
 # Installs our specific version of node, stripping out the unnecessary.
 # We could probably just apt install nodejs, but it's both a different version, and seemingly a bit slower.
-# We could also use distroless, to get us about 20mb off, but meh. It's actually useful to shell into containers.
-#FROM gcr.io/distroless/nodejs18-debian12
 FROM ubuntu:lunar
 ARG COMMIT_TAG=""
 ENV COMMIT_TAG=$COMMIT_TAG
@@ -73,14 +65,5 @@ RUN ARCH= && \
   --exclude "*/include/*" && \
   rm "node-v$NODE_VERSION-linux-$ARCH.tar.gz" && \
   node --version
-# Yarn is used for unboxing.
-ENV YARN_VERSION=1.22.19
-RUN curl -fsSLO --compressed "https://yarnpkg.com/downloads/$YARN_VERSION/yarn-v$YARN_VERSION.tar.gz" && \
-  mkdir -p /opt && \
-  tar -xzf yarn-v$YARN_VERSION.tar.gz -C /opt/ && \
-  ln -s /opt/yarn-v$YARN_VERSION/bin/yarn /usr/local/bin/yarn && \
-  ln -s /opt/yarn-v$YARN_VERSION/bin/yarnpkg /usr/local/bin/yarnpkg && \
-  rm yarn-v$YARN_VERSION.tar.gz && \
-  yarn --version
 COPY --from=builder /usr/src /usr/src
 ENTRYPOINT ["/usr/bin/node"]

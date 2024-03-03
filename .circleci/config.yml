@@ -483,6 +483,18 @@ jobs:
           command: create_ecr_manifest yarn-project x86_64,arm64
           aztec_manifest_key: yarn-project
 
+  yarn-project-test:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: cond_spot_run_build yarn-project-test 64
+          aztec_manifest_key: yarn-project-test
+
   aztec-package:
     machine:
       image: ubuntu-2204:2023.07.2
@@ -1395,6 +1407,14 @@ workflows:
           <<: *defaults
 
       # Yarn Project
+      - yarn-project-test:
+          requires:
+            - bb-js
+            - noir-packages
+            - l1-contracts
+            - noir-projects
+            - boxes-files
+          <<: *defaults
       - yarn-project-x86_64:
           requires:
             - bb-js
