@@ -25,7 +25,10 @@ COPY . .
 # by initialising the module more than once. So at present I don't see a viable alternative.
 RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
-RUN yarn install && yarn generate
+# TODO: Replace puppeteer with puppeteer-core to avoid this.
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
+RUN ./bootstrap.sh
 RUN yarn prepare:check && yarn formatting && yarn test
 
 # Avoid pushing some huge container back to ecr.

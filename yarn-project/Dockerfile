@@ -25,8 +25,12 @@ COPY . .
 # by initialising the module more than once. So at present I don't see a viable alternative.
 RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
-RUN yarn install
-RUN yarn build:fast
+# TODO: Replace puppeteer with puppeteer-core to avoid this.
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
+RUN ./bootstrap.sh
+# Build web bundle for browser tests
+RUN yarn workspace @aztec/end-to-end run build:web
 RUN yarn workspaces focus @aztec/cli @aztec/aztec @aztec/aztec-faucet @aztec/aztec.js --production && yarn cache clean
 
 # TODO: Use release-please to update package.json directly, and remove this!
