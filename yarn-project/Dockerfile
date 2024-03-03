@@ -27,43 +27,19 @@ RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 RUN ./bootstrap.sh
-RUN yarn workspaces focus @aztec/cli @aztec/aztec @aztec/aztec-faucet @aztec/aztec.js --production && yarn cache clean
+RUN yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache clean
 
 # TODO: Use release-please to update package.json directly, and remove this!
 # It's here to ensure the image rebuilds if the commit tag changes (as the content hash won't).
 ARG COMMIT_TAG=""
 RUN ./scripts/version_packages.sh
 
-# We no longer need nargo.
-RUN rm -rf /usr/src/noir/noir-repo
+# We no longer need nargo etc.
+RUN rm -rf /usr/src/noir/noir-repo /usr/src/noir-projects /usr/src/l1-contracts
 
-# Create fresh minimal size image.
-# Installs our specific version of node, stripping out the unnecessary.
-# We could probably just apt install nodejs, but it's both a different version, and seemingly a bit slower.
-FROM ubuntu:lunar
+# Create minimal size image.
+FROM node:18.19.1-slim
 ARG COMMIT_TAG=""
 ENV COMMIT_TAG=$COMMIT_TAG
-# RUN apt update && apt install -y nodejs && rm -rf /var/lib/apt/lists/* && apt-get clean
-RUN apt update && apt install -y curl && rm -rf /var/lib/apt/lists/* && apt-get clean
-ENV NODE_VERSION=18.19.0
-RUN ARCH= && \
-  dpkgArch="$(dpkg --print-architecture)" && \
-  case "${dpkgArch##*-}" in \
-  amd64) ARCH='x64';; \
-  arm64) ARCH='arm64';; \
-  *) echo "unsupported architecture"; exit 1 ;; \
-  esac && \
-  curl -fsSLO --compressed "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$ARCH.tar.gz" && \
-  tar zxf "node-v$NODE_VERSION-linux-$ARCH.tar.gz" -C /usr --strip-components=1 --no-same-owner \
-  --exclude "*/share/*" \
-  --exclude "*/bin/corepack" \
-  --exclude "*/bin/npx" \
-  --exclude "*/bin/npm" \
-  --exclude "*/corepack/*" \
-  --exclude "*/npm/man/*" \
-  --exclude "*/npm/docs/*" \
-  --exclude "*/include/*" && \
-  rm "node-v$NODE_VERSION-linux-$ARCH.tar.gz" && \
-  node --version
 COPY --from=builder /usr/src /usr/src
 ENTRYPOINT ["/usr/bin/node"]

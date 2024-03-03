@@ -31,41 +31,54 @@ RUN ./bootstrap.sh
 RUN yarn workspace @aztec/end-to-end run build:web
 RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
 
-RUN rm -rf /usr/src/l1-contract /usr/src/noir-projects
+# We no longer need nargo etc.
+RUN rm -rf /usr/src/noir/noir-repo /usr/src/noir-projects /usr/src/l1-contracts
 
 # Create minimal image.
-FROM ubuntu:lunar
-RUN apt update && apt install -y curl chromium-browser && rm -rf /var/lib/apt/lists/* && apt-get clean
-ENV CHROME_BIN="/usr/bin/chromium-browser"
-ENV NODE_VERSION=18.19.0
-RUN ARCH= && \
-  dpkgArch="$(dpkg --print-architecture)" && \
-  case "${dpkgArch##*-}" in \
-  amd64) ARCH='x64';; \
-  arm64) ARCH='arm64';; \
-  *) echo "unsupported architecture"; exit 1 ;; \
-  esac && \
-  curl -fsSLO --compressed "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$ARCH.tar.gz" && \
-  tar zxf "node-v$NODE_VERSION-linux-$ARCH.tar.gz" -C /usr --strip-components=1 --no-same-owner \
-  --exclude "*/share/*" \
-  --exclude "*/bin/corepack" \
-  --exclude "*/bin/npx" \
-  --exclude "*/bin/npm" \
-  --exclude "*/corepack/*" \
-  --exclude "*/npm/man/*" \
-  --exclude "*/npm/docs/*" \
-  --exclude "*/include/*" && \
-  rm "node-v$NODE_VERSION-linux-$ARCH.tar.gz" && \
-  node --version
-# Yarn.
-ENV YARN_VERSION=1.22.19
-RUN curl -fsSLO --compressed "https://yarnpkg.com/downloads/$YARN_VERSION/yarn-v$YARN_VERSION.tar.gz" && \
-  mkdir -p /opt && \
-  tar -xzf yarn-v$YARN_VERSION.tar.gz -C /opt/ && \
-  ln -s /opt/yarn-v$YARN_VERSION/bin/yarn /usr/local/bin/yarn && \
-  ln -s /opt/yarn-v$YARN_VERSION/bin/yarnpkg /usr/local/bin/yarnpkg && \
-  rm yarn-v$YARN_VERSION.tar.gz && \
-  yarn --version
+FROM node:18.19.1-slim
+RUN apt-get update && apt-get install gnupg wget -y && \
+    wget --quiet --output-document=- https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /etc/apt/trusted.gpg.d/google-archive.gpg && \
+    sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' && \
+    apt-get update && \
+    apt-get install google-chrome-stable -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+ENV CHROME_BIN="/usr/bin/google-chrome-stable"
 COPY --from=builder /usr/src /usr/src
 WORKDIR /usr/src/yarn-project/end-to-end
 ENTRYPOINT ["yarn", "test"]
+
+# FROM ubuntu:lunar
+# RUN apt update && apt install -y curl jq && rm -rf /var/lib/apt/lists/* && apt-get clean
+# # ENV CHROME_BIN="/usr/bin/chromium-browser"
+# ENV NODE_VERSION=18.19.0
+# RUN ARCH= && \
+#   dpkgArch="$(dpkg --print-architecture)" && \
+#   case "${dpkgArch##*-}" in \
+#   amd64) ARCH='x64';; \
+#   arm64) ARCH='arm64';; \
+#   *) echo "unsupported architecture"; exit 1 ;; \
+#   esac && \
+#   curl -fsSLO --compressed "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$ARCH.tar.gz" && \
+#   tar zxf "node-v$NODE_VERSION-linux-$ARCH.tar.gz" -C /usr --strip-components=1 --no-same-owner \
+#   --exclude "*/share/*" \
+#   --exclude "*/bin/corepack" \
+#   --exclude "*/bin/npx" \
+#   --exclude "*/bin/npm" \
+#   --exclude "*/corepack/*" \
+#   --exclude "*/npm/man/*" \
+#   --exclude "*/npm/docs/*" \
+#   --exclude "*/include/*" && \
+#   rm "node-v$NODE_VERSION-linux-$ARCH.tar.gz" && \
+#   node --version
+# # Yarn.
+# ENV YARN_VERSION=1.22.19
+# RUN curl -fsSLO --compressed "https://yarnpkg.com/downloads/$YARN_VERSION/yarn-v$YARN_VERSION.tar.gz" && \
+#   mkdir -p /opt && \
+#   tar -xzf yarn-v$YARN_VERSION.tar.gz -C /opt/ && \
+#   ln -s /opt/yarn-v$YARN_VERSION/bin/yarn /usr/local/bin/yarn && \
+#   ln -s /opt/yarn-v$YARN_VERSION/bin/yarnpkg /usr/local/bin/yarnpkg && \
+#   rm yarn-v$YARN_VERSION.tar.gz && \
+#   yarn --version
+# COPY --from=builder /usr/src /usr/src
+# WORKDIR /usr/src/yarn-project/end-to-end
+# ENTRYPOINT ["yarn", "test"]
