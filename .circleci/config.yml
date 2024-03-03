@@ -435,17 +435,14 @@ jobs:
           command: build noir-projects
           aztec_manifest_key: noir-projects
 
-  boxes-files:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: medium
+  yarn-project-pre-join:
+    docker:
+      - image: cimg/base:2023.09
+    resource_class: small
     steps:
-      - *checkout
-      - *setup_env
       - run:
-          name: "Build"
-          command: build boxes-files
-          aztec_manifest_key: boxes-files
+          name: "Noop"
+          command: echo Noop
 
   yarn-project-x86_64:
     docker:
@@ -1302,6 +1299,11 @@ defaults: &defaults
         event: fail
         branch_pattern: "master"
 
+defaults_yarn_project_pre_join: &defaults_yarn_project_pre_join
+  requires:
+    - yarn-project-pre-join
+  <<: *defaults
+
 defaults_yarn_project: &defaults_yarn_project
   requires:
     - yarn-project-ecr-manifest
@@ -1398,8 +1400,6 @@ workflows:
 
       - yellow-paper: *defaults
 
-      - boxes-files: *defaults
-
       - noir-projects:
           requires:
             - avm-transpiler
@@ -1407,42 +1407,28 @@ workflows:
           <<: *defaults
 
       # Yarn Project
-      - yarn-project-test:
+      - yarn-project-pre-join:
           requires:
             - bb-js
             - noir-packages
             - l1-contracts
             - noir-projects
-            - boxes-files
           <<: *defaults
-      - yarn-project-x86_64:
-          requires:
-            - bb-js
-            - noir-packages
-            - l1-contracts
-            - noir-projects
-            - boxes-files
-          <<: *defaults
-      - yarn-project-arm64:
-          requires:
-            - bb-js
-            - noir-packages
-            - l1-contracts
-            - noir-projects
-            - boxes-files
-          <<: *defaults
+      - end-to-end: *defaults_yarn_project_pre_join
+      - aztec-faucet: *defaults_yarn_project_pre_join
+      - yarn-project-test: *defaults_yarn_project_pre_join
+      - yarn-project-x86_64: *defaults_yarn_project_pre_join
+      - yarn-project-arm64: *defaults_yarn_project_pre_join
       - yarn-project-ecr-manifest:
           requires:
             - yarn-project-x86_64
             - yarn-project-arm64
           <<: *defaults
-      - end-to-end: *defaults_yarn_project
-      - build-docs: *defaults_yarn_project
 
       # Artifacts
+      - build-docs: *defaults_yarn_project
       - aztec-package: *defaults_yarn_project
       - cli: *defaults_yarn_project
-      - aztec-faucet: *defaults_yarn_project
 
       # Boxes.
       - boxes:
