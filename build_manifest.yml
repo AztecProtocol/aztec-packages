@@ -150,6 +150,7 @@ yarn-project:
     - l1-contracts
     - boxes-files
     - noir-projects
+    - noir
 
 yarn-project-prod:
   buildDir: yarn-project

@@ -306,6 +306,7 @@ export async function setup(
     config.acvmWorkingDirectory = acvmConfig.proverWorkingDirectory;
     config.acvmBinaryPath = acvmConfig.expectedAcvmPath;
   }
+  config.l1BlockPublishRetryIntervalMS = 100;
   const aztecNode = await AztecNodeService.createAndSync(config);
   const sequencer = aztecNode.getSequencer();
 
