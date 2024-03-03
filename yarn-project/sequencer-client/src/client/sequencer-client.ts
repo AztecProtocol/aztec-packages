@@ -1,4 +1,4 @@
-import { ContractDataSource, L1ToL2MessageSource, L2BlockSource } from '@aztec/circuit-types';
+import { ContractDataSource, L1ToL2MessageSource, L2BlockSource, SimulationError } from '@aztec/circuit-types';
 import { P2P } from '@aztec/p2p';
 import { WorldStateSynchronizer } from '@aztec/world-state';
 
@@ -11,6 +11,28 @@ import { getL1Publisher } from '../publisher/index.js';
 import { Sequencer, SequencerConfig } from '../sequencer/index.js';
 import { PublicProcessorFactory } from '../sequencer/public_processor.js';
 import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
+import { SimulationProvider } from '../simulator/simulation_provider.js';
+import { createDebugLogger } from '@aztec/foundation/log';
+import * as fs from 'fs/promises';
+import { NativeACVMSimulator } from '../simulator/acvm_native.js';
+import { WASMSimulator } from '../simulator/acvm_wasm.js';
+
+const logger = createDebugLogger('aztec:sequencer-client');
+
+async function getSimulationProvider(config: SequencerClientConfig): Promise<SimulationProvider> {
+  if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
+    const pathToAcvm = `${config.acvmBinaryPath}/acvm`;
+    try {      
+      await fs.access(pathToAcvm, fs.constants.R_OK);
+      await fs.access(config.acvmWorkingDirectory!, fs.constants.W_OK);
+      logger(`Using native ACVM at ${config.acvmBinaryPath}`);
+      return new NativeACVMSimulator(config.acvmWorkingDirectory, pathToAcvm);
+    } catch {
+      logger(`Failed to access ACVM at ${pathToAcvm}, falling back to WASM`);
+    } 
+  }
+  return new WASMSimulator();
+}
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -40,14 +62,16 @@ export class SequencerClient {
     const globalsBuilder = getGlobalVariableBuilder(config);
     const merkleTreeDb = worldStateSynchronizer.getLatest();
 
+    const simulationProvider = await getSimulationProvider(config);
+
     const blockBuilder = new SoloBlockBuilder(
       merkleTreeDb,
       getVerificationKeys(),
-      new RealRollupCircuitSimulator(),
+      new RealRollupCircuitSimulator(simulationProvider),
       new EmptyRollupProver(),
     );
 
-    const publicProcessorFactory = new PublicProcessorFactory(merkleTreeDb, contractDataSource, l1ToL2MessageSource);
+    const publicProcessorFactory = new PublicProcessorFactory(merkleTreeDb, contractDataSource, l1ToL2MessageSource, simulationProvider);
 
     const sequencer = new Sequencer(
       publisher,

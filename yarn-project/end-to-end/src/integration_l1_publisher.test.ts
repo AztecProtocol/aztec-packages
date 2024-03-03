@@ -38,6 +38,7 @@ import {
   L1Publisher,
   RealRollupCircuitSimulator,
   SoloBlockBuilder,
+  WASMSimulator,
   getL1Publisher,
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
@@ -139,7 +140,7 @@ describe('L1Publisher integration', () => {
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     const vks = getVerificationKeys();
-    const simulator = new RealRollupCircuitSimulator();
+    const simulator = new RealRollupCircuitSimulator(new WASMSimulator());
     const prover = new EmptyRollupProver();
     builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
 

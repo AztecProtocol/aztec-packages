@@ -55,6 +55,8 @@ import { foundry } from 'viem/chains';
 
 import { MNEMONIC } from './fixtures.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import * as fs from 'fs/promises';
+import * as p from 'path';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
@@ -63,6 +65,19 @@ const { PXE_URL = '' } = process.env;
 const getAztecUrl = () => {
   return PXE_URL;
 };
+
+// Determines if we have access to the acvm binary and a tmp folder for temp files
+const getACVMConfig = async () => {
+  try {
+    const expectedAcvmPath = p.resolve('../../noir/target/release');
+    await fs.access(`${expectedAcvmPath}/acvm`, fs.constants.R_OK);
+    const proverWorkingDirectory = '/tmp/acvm';
+    await fs.mkdir(proverWorkingDirectory, { recursive: true });
+    return {proverWorkingDirectory, expectedAcvmPath };
+  }  catch (err) {
+    return undefined;
+  }
+}
 
 export const setupL1Contracts = async (
   l1RpcUrl: string,
@@ -286,6 +301,11 @@ export async function setup(
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
   logger('Creating and synching an aztec node...');
+  const acvmConfig = await getACVMConfig();
+  if (acvmConfig) {
+    config.acvmWorkingDirectory = acvmConfig.proverWorkingDirectory;
+    config.acvmBinaryPath = acvmConfig.expectedAcvmPath;
+  }
   const aztecNode = await AztecNodeService.createAndSync(config);
   const sequencer = aztecNode.getSequencer();
 

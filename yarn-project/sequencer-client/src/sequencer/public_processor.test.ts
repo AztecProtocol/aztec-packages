@@ -48,6 +48,7 @@ import { ContractsDataSourcePublicDB, WorldStatePublicDB } from '../simulator/pu
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { ProcessedTx } from './processed_tx.js';
 import { PublicProcessor } from './public_processor.js';
+import { WASMSimulator } from '../simulator/acvm_wasm.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
@@ -162,7 +163,7 @@ describe('public_processor', () => {
     beforeEach(() => {
       const path = times(PUBLIC_DATA_TREE_HEIGHT, i => Buffer.alloc(32, i));
       db.getSiblingPath.mockResolvedValue(new SiblingPath<number>(PUBLIC_DATA_TREE_HEIGHT, path));
-      publicKernel = new RealPublicKernelCircuitSimulator();
+      publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
       processor = new PublicProcessor(
         db,
         publicExecutor,

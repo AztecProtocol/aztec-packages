@@ -6,11 +6,13 @@
 # Any subsequent build steps needed to support downstream containers should be done in those containers build files.
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-projects as noir-projects
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir as noir
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/boxes-files as boxes-files
 
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base
 COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
+COPY --from=noir /usr/src/noir/target /usr/src/noir/target
 COPY --from=boxes-files /usr/src/boxes /usr/src/boxes
 COPY . .
 # Generate L1 contract TypeScript artifacts.

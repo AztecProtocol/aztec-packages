@@ -15,6 +15,7 @@ noir:
     - ^noir/tooling/nargo_toml
     - ^noir/tooling/nargo_fmt
     - ^noir/tooling/noirc_abi
+    - ^noir/tooling/acvm_cli
   multiarch: host
 
 noir-packages:

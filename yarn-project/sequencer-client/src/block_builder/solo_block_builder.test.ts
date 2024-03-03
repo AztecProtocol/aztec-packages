@@ -76,6 +76,7 @@ import {
 import { RollupSimulator } from '../simulator/index.js';
 import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
+import { WASMSimulator } from '../simulator/acvm_wasm.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -303,7 +304,7 @@ describe('sequencer/solo_block_builder', () => {
 
   describe('circuits simulator', () => {
     beforeEach(() => {
-      const simulator = new RealRollupCircuitSimulator();
+      const simulator = new RealRollupCircuitSimulator(new WASMSimulator());
       const prover = new EmptyRollupProver();
       builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
     });
@@ -423,7 +424,7 @@ describe('sequencer/solo_block_builder', () => {
 
     // This test specifically tests nullifier values which previously caused e2e_private_token test to fail
     it('e2e_private_token edge case regression test on nullifier values', async () => {
-      const simulator = new RealRollupCircuitSimulator();
+      const simulator = new RealRollupCircuitSimulator(new WASMSimulator());
       const prover = new EmptyRollupProver();
       builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
       // update the starting tree

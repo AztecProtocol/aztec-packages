@@ -1,4 +1,4 @@
-import { Body, ContractData, L2Block, MerkleTreeId, PublicDataWrite, TxEffect, TxL2Logs } from '@aztec/circuit-types';
+import { Body, ContractData, L2Block, MerkleTreeId, PublicDataWrite, Tx, TxEffect, TxL2Logs } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -188,22 +188,33 @@ export class SoloBlockBuilder implements BlockBuilder {
     // padArrayEnd throws if the array is already full. Otherwise it pads till we reach the required size
     const newL1ToL2MessagesTuple = padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
-    // Run the base rollup circuits for the txs
-    const baseRollupOutputs: [BaseOrMergeRollupPublicInputs, Proof][] = [];
+    const baseRollupInputs: BaseRollupInputs[] = [];
+    const treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>[] = []
     for (const tx of txs) {
-      baseRollupOutputs.push(await this.baseRollupCircuit(tx, globalVariables));
+      const input = await this.buildBaseRollupInput(tx, globalVariables);
+      baseRollupInputs.push(input);
+      const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.CONTRACT_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(async (id: MerkleTreeId) => {
+        return { key: id, value: await this.getTreeSnapshot(id)};
+      });
+      const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map((await Promise.all(promises)).map((obj) => [obj.key, obj.value]));
+      treeSnapshots.push(snapshots);
+    }
+
+    // Run the base rollup circuits for the txs
+    const baseRollupOutputs: Promise<[BaseOrMergeRollupPublicInputs, Proof]>[] = [];
+    for (let i = 0; i < txs.length; i++) {
+      baseRollupOutputs.push(this.baseRollupCircuit(txs[i], baseRollupInputs[i], treeSnapshots[i]));
     }
 
     // Run merge rollups in layers until we have only two outputs
-    let mergeRollupInputs: [BaseOrMergeRollupPublicInputs, Proof][] = baseRollupOutputs;
-    let mergeRollupOutputs: [BaseOrMergeRollupPublicInputs, Proof][] = [];
+    let mergeRollupInputs: [BaseOrMergeRollupPublicInputs, Proof][] = await Promise.all(baseRollupOutputs);
     while (mergeRollupInputs.length > 2) {
+      const promises: Promise<[BaseOrMergeRollupPublicInputs, Proof]>[] = [];
       for (const pair of chunk(mergeRollupInputs, 2)) {
         const [r1, r2] = pair;
-        mergeRollupOutputs.push(await this.mergeRollupCircuit(r1, r2));
+        promises.push(this.mergeRollupCircuit(r1, r2));
       }
-      mergeRollupInputs = mergeRollupOutputs;
-      mergeRollupOutputs = [];
+      mergeRollupInputs = await Promise.all(promises);
     }
 
     // Run the root rollup with the last two merge rollups (or base, if no merge layers)
@@ -213,13 +224,13 @@ export class SoloBlockBuilder implements BlockBuilder {
 
   protected async baseRollupCircuit(
     tx: ProcessedTx,
-    globalVariables: GlobalVariables,
+    inputs: BaseRollupInputs,
+    treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
   ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     this.debug(`Running base rollup for ${tx.hash}`);
-    const rollupInput = await this.buildBaseRollupInput(tx, globalVariables);
-    const rollupOutput = await this.simulator.baseRollupCircuit(rollupInput);
-    await this.validatePartialState(rollupOutput.end);
-    const proof = await this.prover.getBaseRollupProof(rollupInput, rollupOutput);
+    const rollupOutput = await this.simulator.baseRollupCircuit(inputs);
+    this.validatePartialState(rollupOutput.end, treeSnapshots);
+    const proof = await this.prover.getBaseRollupProof(inputs, rollupOutput);
     return [rollupOutput, proof];
   }
 
@@ -278,40 +289,40 @@ export class SoloBlockBuilder implements BlockBuilder {
     return [rootOutput, rootProof];
   }
 
-  protected async validatePartialState(partialState: PartialStateReference) {
-    await Promise.all([
-      this.validateSimulatedTree(
-        await this.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
-        partialState.noteHashTree,
-        'NoteHashTree',
-      ),
-      this.validateSimulatedTree(
-        await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
-        partialState.nullifierTree,
-        'NullifierTree',
-      ),
-      this.validateSimulatedTree(
-        await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE),
-        partialState.contractTree,
-        'ContractTree',
-      ),
-      this.validateSimulatedTree(
-        await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
-        partialState.publicDataTree,
-        'PublicDataTree',
-      ),
-    ]);
+  protected validatePartialState(partialState: PartialStateReference, treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>) {    
+    this.validateSimulatedTree(
+      treeSnapshots.get(MerkleTreeId.NOTE_HASH_TREE)!,
+      partialState.noteHashTree,
+      'NoteHashTree',
+    );
+    this.validateSimulatedTree(
+      treeSnapshots.get(MerkleTreeId.NULLIFIER_TREE)!,
+      partialState.nullifierTree,
+      'NullifierTree',
+    );
+    this.validateSimulatedTree(
+      treeSnapshots.get(MerkleTreeId.CONTRACT_TREE)!,
+      partialState.contractTree,
+      'ContractTree',
+    );
+    this.validateSimulatedTree(
+      treeSnapshots.get(MerkleTreeId.PUBLIC_DATA_TREE)!,
+      partialState.publicDataTree,
+      'PublicDataTree',
+    );
   }
 
   protected async validateState(state: StateReference) {
-    await Promise.all([
-      this.validateSimulatedTree(
-        await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
-        state.l1ToL2MessageTree,
-        'L1ToL2MessageTree',
-      ),
-      this.validatePartialState(state.partial),
-    ]);
+    const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.CONTRACT_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(async (id: MerkleTreeId) => {
+      return { key: id, value: await this.getTreeSnapshot(id)};
+    });
+    const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map((await Promise.all(promises)).map((obj) => [obj.key, obj.value]));
+    this.validatePartialState(state.partial, snapshots),
+    this.validateSimulatedTree(
+      await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
+      state.l1ToL2MessageTree,
+      'L1ToL2MessageTree',
+    );
   }
 
   // Validate that the roots of all local trees match the output of the root circuit simulation
@@ -585,7 +596,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   // Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
-  protected async buildBaseRollupInput(tx: ProcessedTx, globalVariables: GlobalVariables) {
+  public async buildBaseRollupInput(tx: ProcessedTx, globalVariables: GlobalVariables) {
     // Get trees info before any changes hit
     const constants = await this.getConstantRollupData(globalVariables);
     const start = new PartialStateReference(

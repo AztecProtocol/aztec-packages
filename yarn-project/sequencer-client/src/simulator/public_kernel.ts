@@ -3,18 +3,27 @@ import { PublicKernelCircuitPrivateInputs, PublicKernelCircuitPublicInputs } fro
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import {
-  executePublicKernelAppLogic,
-  executePublicKernelSetup,
-  executePublicKernelTeardown,
+  PublicKernelAppLogicArtifact,
+  PublicKernelSetupArtifact,
+  PublicKernelTeardownArtifact,
+  convertPublicInnerRollupInputs,
+  convertPublicInnerRollupOutput,
+  convertPublicSetupRollupInputs,
+  convertPublicSetupRollupOutput,
+  convertPublicTailRollupInputs,
+  convertPublicTailRollupOutput,
 } from '@aztec/noir-protocol-circuits-types';
 
 import { PublicKernelCircuitSimulator } from './index.js';
+import { SimulationProvider } from './simulation_provider.js';
 
 /**
  * Implements the PublicKernelCircuitSimulator.
  */
 export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimulator {
   private log = createDebugLogger('aztec:public-kernel-simulator');
+
+  constructor(private simulator: SimulationProvider) {}
 
   /**
    * Simulates the public kernel setup circuit from its inputs.
@@ -27,7 +36,9 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
     if (!input.previousKernel.publicInputs.needsSetup) {
       throw new Error(`Expected previous kernel inputs to need setup`);
     }
-    const [duration, result] = await elapsed(() => executePublicKernelSetup(input));
+    const inputWitness = convertPublicSetupRollupInputs(input);
+    const [duration, witness] = await elapsed(async () => await this.simulator.simulateCircuit(inputWitness, PublicKernelSetupArtifact));
+    const result = convertPublicSetupRollupOutput(witness);
     this.log(`Simulated public kernel setup circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'public-kernel-setup',
@@ -49,7 +60,9 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
     if (!input.previousKernel.publicInputs.needsAppLogic) {
       throw new Error(`Expected previous kernel inputs to need app logic`);
     }
-    const [duration, result] = await elapsed(() => executePublicKernelAppLogic(input));
+    const inputWitness = convertPublicInnerRollupInputs(input);
+    const [duration, witness] = await elapsed(async () => await this.simulator.simulateCircuit(inputWitness, PublicKernelAppLogicArtifact));
+    const result = convertPublicInnerRollupOutput(witness);
     this.log(`Simulated public kernel app logic circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'public-kernel-app-logic',
@@ -71,7 +84,9 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
     if (!input.previousKernel.publicInputs.needsTeardown) {
       throw new Error(`Expected previous kernel inputs to need teardown`);
     }
-    const [duration, result] = await elapsed(() => executePublicKernelTeardown(input));
+    const inputWitness = convertPublicTailRollupInputs(input);
+    const [duration, witness] = await elapsed(async () => await this.simulator.simulateCircuit(inputWitness, PublicKernelTeardownArtifact));
+    const result = convertPublicTailRollupOutput(witness);
     this.log(`Simulated public kernel teardown circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'public-kernel-teardown',

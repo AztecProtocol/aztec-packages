@@ -8,9 +8,10 @@ import {
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
-import { executeBaseRollup, executeMergeRollup, executeRootRollup } from '@aztec/noir-protocol-circuits-types';
 
 import { RollupSimulator } from './index.js';
+import { BaseRollupArtifact, MergeRollupArtifact, RootRollupArtifact, convertBaseRollupInputs, convertBaseRollupOutputs, convertMergeRollupInputs, convertMergeRollupOutputs, convertRootRollupInputs, convertRootRollupOutputs } from '@aztec/noir-protocol-circuits-types';
+import { SimulationProvider } from './simulation_provider.js';
 
 /**
  * Implements the rollup circuit simulator.
@@ -18,13 +19,19 @@ import { RollupSimulator } from './index.js';
 export class RealRollupCircuitSimulator implements RollupSimulator {
   private log = createDebugLogger('aztec:rollup-simulator');
 
+  constructor(private simulationProvider: SimulationProvider){}
+
   /**
    * Simulates the base rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
   public async baseRollupCircuit(input: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
-    const [duration, result] = await elapsed(() => executeBaseRollup(input));
+    const witnessMap = convertBaseRollupInputs(input);
+
+    const [duration, witness] = await elapsed(async () => await this.simulationProvider.simulateCircuit(witnessMap, BaseRollupArtifact));
+
+    const result = convertBaseRollupOutputs(witness);
 
     this.log(`Simulated base rollup circuit`, {
       eventName: 'circuit-simulation',
@@ -42,7 +49,11 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
    * @returns The public inputs as outputs of the simulation.
    */
   public async mergeRollupCircuit(input: MergeRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
-    const [duration, result] = await elapsed(() => executeMergeRollup(input));
+    const witnessMap = convertMergeRollupInputs(input);
+
+    const [duration, witness] = await elapsed(async () => await this.simulationProvider.simulateCircuit(witnessMap, MergeRollupArtifact));
+
+    const result = convertMergeRollupOutputs(witness);
 
     this.log(`Simulated merge rollup circuit`, {
       eventName: 'circuit-simulation',
@@ -61,7 +72,11 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
    * @returns The public inputs as outputs of the simulation.
    */
   public async rootRollupCircuit(input: RootRollupInputs): Promise<RootRollupPublicInputs> {
-    const [duration, result] = await elapsed(() => executeRootRollup(input));
+    const witnessMap = convertRootRollupInputs(input);
+
+    const [duration, witness] = await elapsed(async () => await this.simulationProvider.simulateCircuit(witnessMap, RootRollupArtifact));
+
+    const result = convertRootRollupOutputs(witness);
 
     this.log(`Simulated root rollup circuit`, {
       eventName: 'circuit-simulation',
