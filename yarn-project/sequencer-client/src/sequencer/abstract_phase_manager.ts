@@ -13,6 +13,7 @@ import {
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
@@ -33,6 +34,7 @@ import {
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
   RETURN_VALUES_LENGTH,
+  ReadRequest,
   SideEffect,
   SideEffectLinkedToNoteHash,
   VK_TREE_HEIGHT,
@@ -320,6 +322,11 @@ export abstract class AbstractPhaseManager {
       newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
+      nullifierReadRequests: padArrayEnd(
+        result.nullifierReadRequests,
+        ReadRequest.empty(),
+        MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
+      ),
       contractStorageReads: padArrayEnd(
         result.contractStorageReads,
         ContractStorageRead.empty(),

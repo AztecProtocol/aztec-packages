@@ -1231,6 +1231,7 @@ export function mapPublicAccumulatedNonRevertibleDataToNoir(
   data: PublicAccumulatedNonRevertibleData,
 ): PublicAccumulatedNonRevertibleDataNoir {
   return {
+    nullifier_read_requests: mapTuple(data.nullifierReadRequests, mapSideEffectToNoir),
     new_note_hashes: mapTuple(data.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(data.newNullifiers, mapSideEffectLinkedToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
@@ -1417,6 +1418,7 @@ export function mapPublicAccumulatedNonRevertibleDataFromNoir(
   data: PublicAccumulatedNonRevertibleDataNoir,
 ): PublicAccumulatedNonRevertibleData {
   return new PublicAccumulatedNonRevertibleData(
+    mapTupleFromNoir(data.nullifier_read_requests, MAX_NULLIFIER_READ_REQUESTS_PER_TX, mapReadRequestContextFromNoir),
     mapTupleFromNoir(data.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(data.new_nullifiers, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -1547,6 +1549,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     call_context: mapCallContextToNoir(publicInputs.callContext),
     args_hash: mapFieldToNoir(publicInputs.argsHash),
     return_values: mapTuple(publicInputs.returnValues, mapFieldToNoir),
+    nullifier_read_requests: mapTuple(publicInputs.nullifierReadRequests, mapReadRequestToNoir),
     contract_storage_update_requests: mapTuple(
       publicInputs.contractStorageUpdateRequests,
       mapStorageUpdateRequestToNoir,
