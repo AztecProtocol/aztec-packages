@@ -50,8 +50,8 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
 
       const note = createNote();
-      const tokenNoteInnerHash = hashFields([note.items[0], note.items[1], note.items[2]]);
-      const tokenNoteOuterHash = Fr.ZERO;
+      const tokenNoteInnerHash = hashFields([note.items[1], note.items[2]]);
+      const tokenNoteOuterHash = hashFields([note.items[0]]);
       const partialNoteHash = hashFields([storageSlot, tokenNoteInnerHash]);
       const nonSiloedNoteHash = hashFields([partialNoteHash, tokenNoteOuterHash]);
       const siloedNoteHash = siloNoteHash(contractAddress, nonSiloedNoteHash);

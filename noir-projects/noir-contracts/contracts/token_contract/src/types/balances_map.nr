@@ -55,6 +55,13 @@ impl<T> BalancesMap<T> {
         balance
     }
 
+    pub fn add_partial<T_SERIALIZED_LEN>(self: Self, owner: AztecAddress) -> T where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
+        let mut addend_note = T::new(U128::empty(), owner);
+        let _partial_note_hash = self.map.at(owner).insert_partial(&mut addend_note, true);
+        // TODO once PXE tracks partial notes, just return the hash instead of the whole note
+        addend_note
+    }
+
     pub fn add<T_SERIALIZED_LEN>(
         self: Self,
         owner: AztecAddress,

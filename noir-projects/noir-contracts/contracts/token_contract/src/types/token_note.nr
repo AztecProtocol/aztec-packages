@@ -44,11 +44,12 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
 
     fn compute_inner_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(self.serialize_content(), 0)
+        pedersen_hash([self.owner.to_field(), self.randomness], 0)
     }
 
     fn compute_outer_note_content_hash(self) -> Field {
-        0
+        // should this just return the actual amount? should be cheaper
+        pedersen_hash([self.amount.to_field()], 0)
     }
 
     // docs:start:nullifier
@@ -86,7 +87,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
       // We only bother inserting the note if non-empty to save funds on gas.
-      if !(self.amount == U128::from_integer(0)) {
+      if !(self.amount == U128::from_integer(0)) | self.header.is_partial() {
           let encryption_pub_key = get_public_key(self.owner);
           emit_encrypted_log(
               context,
@@ -123,5 +124,10 @@ impl OwnedNote for TokenNote {
     fn get_owner(self) -> AztecAddress {
         self.owner
     }
-   
+}
+
+impl TokenNote {
+    pub fn new_from_public(amount: U128) -> Self {
+        Self { amount, owner: AztecAddress::empty(), randomness: 0, header: NoteHeader::empty() }
+    }
 }

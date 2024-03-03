@@ -970,6 +970,17 @@ jobs:
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
+  e2e-partial-token-notes:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_partial_token_notes.test.ts
+          aztec_manifest_key: end-to-end
   e2e-dapp-subscription:
     steps:
       - *checkout
@@ -1423,6 +1434,7 @@ workflows:
       - e2e-avm-simulator: *e2e_test
       - e2e-fees: *e2e_test
       - e2e-dapp-subscription: *e2e_test
+      - e2e-partial-token-notes: *e2e_test
       - pxe: *e2e_test
       - cli-docs-sandbox: *e2e_test
       - e2e-docs-examples: *e2e_test
@@ -1488,6 +1500,7 @@ workflows:
             - e2e-avm-simulator
             - e2e-fees
             - e2e-dapp-subscription
+            - e2e-partial-token-notes
             - pxe
             - boxes-vanilla
             - boxes-react

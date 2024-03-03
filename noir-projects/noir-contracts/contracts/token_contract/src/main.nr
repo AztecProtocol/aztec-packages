@@ -18,13 +18,19 @@ contract Token {
         NoteGetterOptions, NoteHeader, Map, PublicMutable, SharedImmutable, PrivateSet,
         FunctionSelector, AztecAddress
     };
-    use dep::aztec::hash::compute_secret_hash;
+    use dep::aztec::{
+        hash::compute_secret_hash, note::lifecycle::complete_partial_note_from_public,
+        log::{emit_unencrypted_log, emit_unencrypted_log_from_private}
+    };
 
     // docs:start:import_authwit
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
     // docs:end:import_authwit
 
-    use crate::types::{transparent_note::TransparentNote, token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap};
+    use crate::types::{
+        transparent_note::TransparentNote, token_note::{TokenNote, TOKEN_NOTE_LEN},
+        balances_map::BalancesMap, partial_note::{compute_partial_notes_pair_hash, PartialNotesHash}
+    };
     // docs:end::imports
 
     // docs:start:storage_struct
@@ -47,6 +53,7 @@ contract Token {
         name: SharedImmutable<FieldCompressedString>,
         // docs:start:storage_decimals
         decimals: SharedImmutable<u8>,
+        partial_notes: Map<PartialNotesHash, PublicMutable<bool>>,
         // docs:end:storage_decimals
     }
     // docs:end:storage_struct
@@ -363,5 +370,80 @@ contract Token {
         storage.public_balances.at(owner).read().to_integer()
     }
     // docs:end:balance_of_public
+
+    #[aztec(private)]
+    fn split_to_partial_notes(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) -> [Field; 2] {
+        if (!from.eq(context.msg_sender())) {
+            assert_current_call_valid_authwit(&mut context, from);
+        } else {
+            assert(nonce == 0, "invalid nonce");
+        }
+
+        storage.balances.sub(from, U128::from_integer(amount));
+
+        let partial_note_0 = storage.balances.add_partial(from);
+        let partial_note_1 = storage.balances.add_partial(to);
+
+        let partial_note_hash_0 = partial_note_0.get_header().partial_note_hash;
+        let partial_note_hash_1 = partial_note_1.get_header().partial_note_hash;
+
+        let hash = compute_partial_notes_pair_hash(
+            partial_note_hash_0,
+            partial_note_hash_1,
+            context.msg_sender(),
+            amount
+        );
+
+        context.call_public_function(
+            context.this_address(),
+            FunctionSelector::from_signature("auth_partial_notes((Field))"),
+            [hash.to_field()]
+        );
+
+        // HACK: emit private data as unencrypted logs until PXE can track partial notes
+        // (the partial note is emitted as an encrypted log but the PXE drops it because its not in the tree)
+        emit_unencrypted_log_from_private(
+            &mut context,
+            [partial_note_0.randomness, partial_note_1.randomness]
+        );
+
+        emit_unencrypted_log_from_private(
+            &mut context,
+            [partial_note_0.get_header().storage_slot, partial_note_1.get_header().storage_slot]
+        );
+
+        // emit as unencrypted for e2e testing as return values are not accessible there
+        emit_unencrypted_log_from_private(&mut context, [partial_note_hash_0, partial_note_hash_1]);
+
+        [partial_note_hash_0, partial_note_hash_1]
+    }
+
+    #[aztec(public)]
+    #[aztec(internal)]
+    fn auth_partial_notes(hash: PartialNotesHash) {
+        storage.partial_notes.at(hash).write(true);
+    }
+
+    #[aztec(public)]
+    fn complete_partial_notes(partial_note_hashes: [Field; 2], amounts: [Field; 2]) {
+        let hash = compute_partial_notes_pair_hash(
+            partial_note_hashes[0],
+            partial_note_hashes[1],
+            context.msg_sender(),
+            amounts[0] + amounts[1]
+        );
+
+        assert(storage.partial_notes.at(hash).read(), "Partial notes not authorized");
+        // only completable once
+        context.push_new_nullifier(hash.to_field(), 0);
+
+        let mut token_note_0 = TokenNote::new_from_public(U128::from_integer(amounts[0]));
+        complete_partial_note_from_public(&mut context, partial_note_hashes[0], &mut token_note_0);
+
+        let mut token_note_1 = TokenNote::new_from_public(U128::from_integer(amounts[1]));
+        complete_partial_note_from_public(&mut context, partial_note_hashes[1], &mut token_note_1);
+
+        emit_unencrypted_log(&mut context, amounts);
+    }
 }
 // docs:end:token_all

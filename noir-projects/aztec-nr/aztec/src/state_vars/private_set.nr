@@ -4,7 +4,7 @@ use dep::protocol_types::{
 };
 use crate::context::{PrivateContext, PublicContext, Context};
 use crate::note::{
-    lifecycle::{create_note, create_note_hash_from_public, destroy_note},
+    lifecycle::{create_note, create_partial_note, create_note_hash_from_public, destroy_note},
     note_getter::{get_notes, view_notes}, note_getter_options::NoteGetterOptions,
     note_header::NoteHeader, note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_consumption
@@ -37,6 +37,19 @@ impl<Note> PrivateSet<Note> {
         );
     }
     // docs:end:insert
+
+    pub fn insert_partial<N>(
+        self,
+        note: &mut Note,
+        broadcast: bool
+    ) -> Field where Note: NoteInterface<N> {
+        create_partial_note(
+            self.context.private.unwrap(),
+            self.storage_slot,
+            note,
+            broadcast
+        )
+    }
 
     // docs:start:insert_from_public
     pub fn insert_from_public<N>(self, note: &mut Note) where Note: NoteInterface<N> {

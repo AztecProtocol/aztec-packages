@@ -1,7 +1,7 @@
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
     note_header::NoteHeader, note_interface::NoteInterface,
-    utils::{compute_note_hash_for_insertion, compute_note_hash_for_consumption}
+    utils::{compute_note_hash_for_insertion, compute_note_hash_for_consumption, compute_partial_note_hash}
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 
@@ -13,7 +13,7 @@ pub fn create_note<Note, N>(
 ) where Note: NoteInterface<N> {
     let contract_address = (*context).this_address();
 
-    let header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true };
+    let header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true, partial_note_hash: 0 };
     // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
     Note::set_header(note, header);
     // As `is_transient` is true, this will compute the inner note hsah
@@ -38,6 +38,50 @@ pub fn create_note<Note, N>(
     }
 }
 
+pub fn create_partial_note<Note, N>(
+    context: &mut PrivateContext,
+    storage_slot: Field,
+    note: &mut Note,
+    broadcast: bool
+) -> Field where Note: NoteInterface<N> {
+    let contract_address = (*context).this_address();
+
+    let mut header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true, partial_note_hash: 0 };
+    // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
+    Note::set_header(note, header);
+    // As `is_transient` is true, this will compute the inner note hsah
+    let partial_note_hash = compute_partial_note_hash(*note);
+    header.partial_note_hash = partial_note_hash;
+
+    // have to set the header again so that the partial_note_hash is updated
+    Note::set_header(note, header);
+
+    if broadcast {
+        Note::broadcast(*note, context, storage_slot);
+    }
+
+    partial_note_hash
+}
+
+pub fn complete_partial_note_from_public<Note, N>(
+    context: &mut PublicContext,
+    partial_note_hash: Field,
+    note: &mut Note
+) where Note: NoteInterface<N> {
+    let contract_address = (*context).this_address();
+
+    let header = NoteHeader { contract_address, storage_slot: 0, nonce: 0, is_transient: true, partial_note_hash };
+    // TODO: change this to note.setHeader(header) once
+    Note::set_header(note, header);
+    // As `is_transient` is true, this will compute the inner note hsah
+    let note_hash = compute_note_hash_for_insertion(*note);
+
+    // No need to broadcast.
+    // Whoever created the partial note "should" already have the missing info ncessary to complete the note in their PXE.
+    // Also broadcsating would require the note's storage slot.
+    context.push_new_note_hash(note_hash);
+}
+
 pub fn create_note_hash_from_public<Note, N>(
     context: &mut PublicContext,
     storage_slot: Field,
@@ -45,7 +89,7 @@ pub fn create_note_hash_from_public<Note, N>(
 ) where Note: NoteInterface<N> {
     let contract_address = (*context).this_address();
 
-    let header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true };
+    let header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true, partial_note_hash: 0 };
     // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
     Note::set_header(note, header);
     let note_hash = compute_note_hash_for_insertion(*note);
