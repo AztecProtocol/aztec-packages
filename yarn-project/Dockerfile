@@ -1,10 +1,10 @@
 # This base dockerfile adds all the remaining source files and builds the project.
 # See yarn-project-base/Dockerfile for why we have separate base Dockerfile.
-FROM aztecprotocol/bb.js as bb.js
-FROM aztecprotocol/noir-packages as noir-packages
-FROM aztecprotocol/l1-contracts as contracts
-FROM aztecprotocol/noir-projects as noir-projects
-FROM aztecprotocol/boxes-files as boxes-files
+FROM --platform=linux/amd64 aztecprotocol/bb.js as bb.js
+FROM --platform=linux/amd64 aztecprotocol/noir-packages as noir-packages
+FROM --platform=linux/amd64 aztecprotocol/l1-contracts as contracts
+FROM --platform=linux/amd64 aztecprotocol/noir-projects as noir-projects
+FROM --platform=linux/amd64 aztecprotocol/boxes-files as boxes-files
 
 FROM node:18.19.0 as builder
 RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
