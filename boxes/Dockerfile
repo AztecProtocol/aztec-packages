@@ -10,6 +10,7 @@ RUN apt update && apt install netcat-openbsd
 COPY --from=aztec /usr/src /usr/src
 COPY --from=noir /usr/src/noir/noir-repo/target/release/nargo /usr/src/noir/noir-repo/target/release/nargo
 COPY --from=noir-projects /usr/src/noir-projects/aztec-nr /usr/src/noir-projects/aztec-nr
+COPY --from=noir-projects /usr/src/noir-projects/noir-protocol-circuits/crates/types /usr/src/noir-projects/noir-protocol-circuits/crates/types
 WORKDIR /usr/src/boxes
 COPY . .
 ENV AZTEC_NARGO=/usr/src/noir/noir-repo/target/release/nargo
