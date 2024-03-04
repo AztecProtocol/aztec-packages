@@ -70,7 +70,7 @@ const getAztecUrl = () => {
 };
 
 // Determines if we have access to the acvm binary and a tmp folder for temp files
-const getACVMConfig = async (logger: DebugLogger) => {
+const getACVMConfig = async () => {
   try {
     const expectedAcvmPath = path.resolve(`../../noir/${NOIR_RELEASE_DIR}`);
     await fs.access(`${expectedAcvmPath}/acvm`, fs.constants.R_OK);
