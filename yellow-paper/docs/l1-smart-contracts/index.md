@@ -33,12 +33,19 @@ def process(block: ProvenBlock, proof: Proof):
     assert self.outbox.insert(
         block_number, 
         header.content_commitment.out_hash, 
-        header.content_commitment.tx_tree_height + 1
+        header.content_commitment.tx_tree_height + math.ceil(log2(MAX_NEW_L2_TO_L1_MSGS_PER_TX))
     )
     self.archive = block.archive
 
     emit BlockProcessed(block_number)
 ```
+
+:::info Why `math.ceil(log2(MAX_NEW_L2_TO_L1_MSGS_PER_TX))`?
+The argument to the `insert` function is the `outbox` is the heigh of the message tree.
+Since every transaction can hold more than 1 message, it might add multiple layers to the tree.
+For a binary tree, the number of extra layers to add is computed as `math.ceil(log2(MAX_NEW_L2_TO_L1_MSGS_PER_TX))`.
+Currently, `MAX_NEW_L2_TO_L1_MSGS_PER_TX = 2` which means that we are simply adding 1 extra layer. 
+:::
 
 While the `ProvenBlock` must be published and available for nodes to build the state of the rollup, we can build the validating light node (the contract) such that as long as the node can be _convinced_ that the data is available we can progress the state. 
 This means our light node can be built to only require a subset of the `ProvenBlock` to be published to Ethereum L1 as calldata and use a different data availability layer for most of the block body.
@@ -119,7 +126,7 @@ class StateTransitioner:
         assert self.OUTBOX.insert(
             block_number, 
             header.content_commitment.out_hash, 
-            header.content_commitment.tx_tree_height + 1
+            header.content_commitment.tx_tree_height + math.ceil(log2(MAX_NEW_L2_TO_L1_MSGS_PER_TX))
         )
         self.archive = archive
         emit BlockProcessed(block_number)
