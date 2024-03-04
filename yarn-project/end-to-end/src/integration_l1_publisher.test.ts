@@ -1,6 +1,7 @@
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AztecAddress,
+  Body,
   Fr,
   GlobalVariables,
   L2Actor,
@@ -32,7 +33,7 @@ import {
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
   L1Publisher,
@@ -55,6 +56,7 @@ import {
   HttpTransport,
   PublicClient,
   WalletClient,
+  decodeEventLog,
   encodeFunctionData,
   getAbiItem,
   getAddress,
@@ -83,11 +85,7 @@ describe('L1Publisher integration', () => {
   let outboxAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
-  let inbox: GetContractReturnType<
-    typeof InboxAbi,
-    PublicClient<HttpTransport, Chain>,
-    WalletClient<HttpTransport, Chain>
-  >;
+  let inbox: GetContractReturnType<typeof InboxAbi, WalletClient<HttpTransport, Chain>>;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
@@ -124,18 +122,17 @@ describe('L1Publisher integration', () => {
     rollup = getContract({
       address: rollupAddress,
       abi: RollupAbi,
-      publicClient,
+      client: publicClient,
     });
     inbox = getContract({
       address: inboxAddress,
       abi: InboxAbi,
-      publicClient,
-      walletClient,
+      client: walletClient,
     });
     outbox = getContract({
       address: outboxAddress,
       abi: OutboxAbi,
-      publicClient,
+      client: publicClient,
     });
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
@@ -262,7 +259,7 @@ describe('L1Publisher integration', () => {
       messages: {
         l1ToL2Messages: l1ToL2Messages.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
         l2ToL1Messages: block.body.txEffects
-          .flatMap(txEffect => txEffect.newL2ToL1Msgs)
+          .flatMap(txEffect => txEffect.l2ToL1Msgs)
           .map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
       },
       block: {
@@ -327,6 +324,29 @@ describe('L1Publisher integration', () => {
     const output = JSON.stringify(jsonObject, null, 2);
     fs.writeFileSync(path, output, 'utf8');
   };
+
+  it('Block body is correctly published to AvailabilityOracle', async () => {
+    const body = Body.random();
+    // `sendPublishTx` function is private so I am hacking around TS here. I think it's ok for test purposes.
+    const txHash = await (publisher as any).sendPublishTx(body.toBuffer());
+    const txReceipt = await publicClient.waitForTransactionReceipt({
+      hash: txHash,
+    });
+
+    // Exactly 1 event should be emitted in the transaction
+    expect(txReceipt.logs.length).toBe(1);
+
+    // We decode the event log before checking it
+    const txLog = txReceipt.logs[0];
+    const topics = decodeEventLog({
+      abi: AvailabilityOracleAbi,
+      data: txLog.data,
+      topics: txLog.topics,
+    });
+
+    // We check that the txsHash in the TxsPublished event is as expected
+    expect(topics.args.txsHash).toEqual(`0x${body.getCalldataHash().toString('hex')}`);
+  });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
@@ -396,7 +416,7 @@ describe('L1Publisher integration', () => {
         expect(await inbox.read.contains([l1ToL2Messages[j].toString()])).toBeTruthy();
       }
 
-      const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs);
+      const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
       // check that values are not in the outbox
       for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {

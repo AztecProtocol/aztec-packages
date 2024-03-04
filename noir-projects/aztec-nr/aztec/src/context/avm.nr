@@ -49,8 +49,14 @@ impl AVMContext {
     // #[oracle(contractCallDepth)]
     // pub fn contract_call_depth(self) -> Field {}
 
+    #[oracle(avmOpcodeNoteHashExists)]
+    pub fn note_hash_exists(self, note_hash: Field, leaf_index: Field) -> u8 {}
+
     #[oracle(emitNoteHash)]
     pub fn emit_note_hash(self, note_hash: Field) {}
+
+    #[oracle(nullifierExists)]
+    pub fn check_nullifier_exists(self, nullifier: Field) -> u8 {}
 
     #[oracle(emitNullifier)]
     pub fn emit_nullifier(self, nullifier: Field) {}

@@ -1,12 +1,14 @@
+import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AccountWalletWithPrivateKey,
   AztecAddress,
   AztecNode,
+  BatchCall,
   CheatCodes,
   CompleteAddress,
-  Contract,
+  ContractMethod,
   DebugLogger,
   DeployL1Contracts,
   EthCheatCodes,
@@ -15,6 +17,7 @@ import {
   LogType,
   PXE,
   SentTx,
+  Wallet,
   createAztecNodeClient,
   createDebugLogger,
   createPXEClient,
@@ -22,6 +25,7 @@ import {
   makeFetch,
   waitForPXE,
 } from '@aztec/aztec.js';
+import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
@@ -339,6 +343,22 @@ export async function setup(
 }
 
 /**
+ * Registers the contract class used for test accounts and publicly deploys the instances requested.
+ * Use this when you need to make a public call to an account contract, such as for requesting a public authwit.
+ * @param sender - Wallet to send the deployment tx.
+ * @param accountsToDeploy - Which accounts to publicly deploy.
+ */
+export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: (CompleteAddress | AztecAddress)[]) {
+  const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
+  const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
+  const batch = new BatchCall(sender, [
+    (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
+    ...instances.map(instance => deployInstance(sender, instance!).request()),
+  ]);
+  await batch.send().wait();
+}
+
+/**
  * Sets the timestamp of the next block.
  * @param rpcUrl - rpc url of the blockchain instance to connect to
  * @param timestamp - the timestamp for the next block
@@ -432,14 +452,14 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessag
   expect(asciiLogs).toStrictEqual(logMessages);
 };
 
-export type PublicBalancesFn = ReturnType<typeof getPublicBalancesFn>;
-export function getPublicBalancesFn(
+export type BalancesFn = ReturnType<typeof getBalancesFn>;
+export function getBalancesFn(
   symbol: string,
-  contract: Contract,
+  method: ContractMethod,
   logger: any,
 ): (...addresses: AztecAddress[]) => Promise<bigint[]> {
   const balances = async (...addresses: AztecAddress[]) => {
-    const b = await Promise.all(addresses.map(address => contract.methods.balance_of_public(address).view()));
+    const b = await Promise.all(addresses.map(address => method(address).view()));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger(debugString);
     return b;
@@ -448,13 +468,14 @@ export function getPublicBalancesFn(
   return balances;
 }
 
-export async function assertPublicBalances(
-  balances: PublicBalancesFn,
-  addresses: AztecAddress[],
-  expectedBalances: bigint[],
-) {
-  const actualBalances = await balances(...addresses);
-  for (let i = 0; i < addresses.length; i++) {
-    expect(actualBalances[i]).toBe(expectedBalances[i]);
-  }
+export async function expectMapping<K, V>(
+  fn: (...k: K[]) => Promise<V[]>,
+  inputs: K[],
+  expectedOutputs: V[],
+): Promise<void> {
+  expect(inputs.length).toBe(expectedOutputs.length);
+
+  const outputs = await fn(...inputs);
+
+  expect(outputs).toEqual(expectedOutputs);
 }

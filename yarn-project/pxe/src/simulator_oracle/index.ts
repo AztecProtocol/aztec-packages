@@ -19,6 +19,7 @@ import {
 import { FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { DBOracle, KeyPair, MessageLoadOracleInputs } from '@aztec/simulator';
+import { ContractInstance } from '@aztec/types/contracts';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { PxeDatabase } from '../database/index.js';
@@ -50,6 +51,14 @@ export class SimulatorOracle implements DBOracle {
       );
     }
     return completeAddress;
+  }
+
+  async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+    const instance = await this.db.getContractInstance(address);
+    if (!instance) {
+      throw new Error(`No contract instance found for address ${address.toString()}`);
+    }
+    return instance;
   }
 
   async getAuthWitness(messageHash: Fr): Promise<Fr[]> {
@@ -119,19 +128,18 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Retrieves the L1ToL2Message associated with a specific message key
-   * Throws an error if the message key is not found
+   * Retrieves the L1ToL2Message associated with a specific entry key
+   * Throws an error if the entry key is not found
    *
-   * @param msgKey - The key of the message to be retrieved
+   * @param entryKey - The key of the message to be retrieved
    * @returns A promise that resolves to the message data, a sibling path and the
    *          index of the message in the l1ToL2MessageTree
    */
-  async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    const messageAndIndex = await this.aztecNode.getL1ToL2MessageAndIndex(msgKey);
-    const message = messageAndIndex.message;
+  async getL1ToL2MembershipWitness(entryKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+    const messageAndIndex = await this.aztecNode.getL1ToL2MessageAndIndex(entryKey);
     const index = messageAndIndex.index;
     const siblingPath = await this.aztecNode.getL1ToL2MessageSiblingPath('latest', index);
-    return new MessageLoadOracleInputs(message, index, siblingPath);
+    return new MessageLoadOracleInputs(index, siblingPath);
   }
 
   /**
@@ -166,6 +174,10 @@ export class SimulatorOracle implements DBOracle {
       default:
         throw new Error('Not implemented');
     }
+  }
+
+  public async getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr) {
+    return this.getNullifierMembershipWitness(await this.getBlockNumber(), nullifier);
   }
 
   public getNullifierMembershipWitness(

@@ -140,6 +140,11 @@ contract AvmTest {
     //     context.contract_call_depth()
     // }
 
+    #[aztec(public-vm)]
+    fn note_hash_exists(note_hash: Field, leaf_index: Field) -> pub u8 {
+        context.note_hash_exists(note_hash, leaf_index)
+    }
+
     // Use the standard context interface to emit a new note hash
     #[aztec(public-vm)]
     fn new_note_hash(note_hash: Field) {
@@ -150,6 +155,20 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn new_nullifier(nullifier: Field) {
         context.push_new_nullifier(nullifier, 0);
+    }
+
+    // Use the standard context interface to emit a new nullifier
+    #[aztec(public-vm)]
+    fn check_nullifier_exists(nullifier: Field) -> pub u8 {
+        context.check_nullifier_exists(nullifier)
+    }
+
+    // Use the standard context interface to emit a new nullifier
+    #[aztec(public-vm)]
+    fn emit_nullifier_and_check(nullifier: Field) {
+        context.emit_nullifier(nullifier);
+        let exists = context.check_nullifier_exists(nullifier);
+        assert(exists == 1, "Nullifier was just created, but its existence wasn't detected!");
     }
 
     // Create the same nullifier twice (shouldn't work!)

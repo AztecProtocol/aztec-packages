@@ -1,5 +1,5 @@
 use dep::std::option::Option;
-use dep::protocol_types::{constants::MAX_READ_REQUESTS_PER_CALL};
+use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL};
 use crate::note::note_interface::NoteInterface;
 
 struct ComparatorEnum {
@@ -65,9 +65,9 @@ global NoteStatus = NoteStatusEnum {
 };
 
 fn return_all_notes<Note, N>(
-    notes: [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
+    notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     _p: Field
-) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] {
+) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     notes
 }
 
@@ -77,7 +77,7 @@ struct NoteGetterOptions<Note, N, FILTER_ARGS> {
     sorts: BoundedVec<Option<Sort>, N>,
     limit: u32,
     offset: u32,
-    filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
+    filter: fn ([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     filter_args: FILTER_ARGS,
     status: u8,
 }
@@ -91,9 +91,9 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
     // This function initializes a NoteGetterOptions that simply returns the maximum number of notes allowed in a call.
     pub fn new() -> NoteGetterOptions<Note, N, Field> where Note: NoteInterface<N> {
         NoteGetterOptions {
-            selects: BoundedVec::new(Option::none()),
-            sorts: BoundedVec::new(Option::none()),
-            limit: MAX_READ_REQUESTS_PER_CALL as u32,
+            selects: BoundedVec::new(),
+            sorts: BoundedVec::new(),
+            limit: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32,
             offset: 0,
             filter: return_all_notes,
             filter_args: 0,
@@ -104,13 +104,13 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
     // This function initializes a NoteGetterOptions with a filter, which takes the notes returned from the database and filter_args as its parameters.
     // `filter_args` allows you to provide additional data or context to the custom filter.
     pub fn with_filter(
-        filter: fn([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
+        filter: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
         filter_args: FILTER_ARGS
     ) -> Self where Note: NoteInterface<N> {
         NoteGetterOptions {
-            selects: BoundedVec::new(Option::none()),
-            sorts: BoundedVec::new(Option::none()),
-            limit: MAX_READ_REQUESTS_PER_CALL as u32,
+            selects: BoundedVec::new(),
+            sorts: BoundedVec::new(),
+            limit: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32,
             offset: 0,
             filter,
             filter_args,
@@ -136,7 +136,7 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
 
     // This method lets you set a limit for the maximum number of notes to be retrieved in a single query result.
     pub fn set_limit(&mut self, limit: u32) -> Self {
-        assert(limit <= MAX_READ_REQUESTS_PER_CALL as u32);
+        assert(limit <= MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32);
         self.limit = limit;
         *self
     }

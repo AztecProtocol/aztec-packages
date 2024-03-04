@@ -49,7 +49,6 @@ class RecursiveMergeVerifierTest : public testing::Test {
         GoblinMockCircuits::construct_simple_initial_circuit(sample_circuit);
 
         // Generate a proof over the inner circuit
-        InnerComposer inner_composer;
         MergeProver merge_prover{ op_queue };
         auto merge_proof = merge_prover.construct_proof();
 
@@ -65,7 +64,7 @@ class RecursiveMergeVerifierTest : public testing::Test {
         // verifier and check that the result agrees.
         MergeVerifier native_verifier;
         bool verified_native = native_verifier.verify_proof(merge_proof);
-        VerifierCommitmentKey pcs_verification_key(0, srs::get_crs_factory());
+        VerifierCommitmentKey pcs_verification_key;
         auto verified_recursive =
             pcs_verification_key.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value());
         EXPECT_EQ(verified_native, verified_recursive);
@@ -82,9 +81,9 @@ class RecursiveMergeVerifierTest : public testing::Test {
         // Check 3: Construct and verify a (goblin) ultra honk proof of the Merge recursive verifier circuit
         {
             GoblinUltraComposer composer;
-            auto instance = composer.create_instance(outer_circuit);
+            auto instance = composer.create_prover_instance(outer_circuit);
             auto prover = composer.create_prover(instance);
-            auto verifier = composer.create_verifier(instance);
+            auto verifier = composer.create_verifier(instance->verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 

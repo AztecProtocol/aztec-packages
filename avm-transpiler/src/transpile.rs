@@ -238,12 +238,14 @@ fn handle_foreign_call(
     inputs: &Vec<ValueOrArray>,
 ) {
     match function.as_str() {
+        "avmOpcodeNoteHashExists" => handle_note_hash_exists(avm_instrs, destinations, inputs),
         "emitNoteHash" | "emitNullifier" => handle_emit_note_hash_or_nullifier(
             function.as_str() == "emitNullifier",
             avm_instrs,
             destinations,
             inputs,
         ),
+        "nullifierExists" => handle_nullifier_exists(avm_instrs, destinations, inputs),
         "keccak256" | "sha256" => {
             handle_2_field_hash_instruction(avm_instrs, function, destinations, inputs)
         }
@@ -252,6 +254,46 @@ fn handle_foreign_call(
         }
         _ => handle_getter_instruction(avm_instrs, function, destinations, inputs),
     }
+}
+
+/// Handle an AVM NOTEHASHEXISTS instruction
+/// Adds the new instruction to the avm instructions list.
+fn handle_note_hash_exists(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    let (note_hash_offset_operand, leaf_index_offset_operand) = match &inputs[..] {
+        [
+            ValueOrArray::MemoryAddress(nh_offset),
+            ValueOrArray::MemoryAddress(li_offset)
+        ] => (nh_offset.to_usize() as u32, li_offset.to_usize() as u32),
+        _ => panic!(
+            "Transpiler expects ForeignCall::NOTEHASHEXISTS to have 2 inputs of type MemoryAddress, got {:?}", inputs
+        ),
+    };
+    let exists_offset_operand = match &destinations[..] {
+        [ValueOrArray::MemoryAddress(offset)] => offset.to_usize() as u32,
+        _ => panic!(
+            "Transpiler expects ForeignCall::NOTEHASHEXISTS to have 1 output of type MemoryAddress, got {:?}", destinations
+        ),
+    };
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::NOTEHASHEXISTS,
+        indirect: Some(ALL_DIRECT),
+        operands: vec![
+            AvmOperand::U32 {
+                value: note_hash_offset_operand,
+            },
+            AvmOperand::U32 {
+                value: leaf_index_offset_operand,
+            },
+            AvmOperand::U32 {
+                value: exists_offset_operand,
+            },
+        ],
+        ..Default::default()
+    });
 }
 
 /// Handle an AVM EMITNOTEHASH or EMITNULLIFIER instruction
@@ -294,6 +336,40 @@ fn handle_emit_note_hash_or_nullifier(
         operands: vec![AvmOperand::U32 {
             value: offset_operand,
         }],
+        ..Default::default()
+    });
+}
+
+/// Handle an AVM NULLIFIEREXISTS instruction
+/// (a nullifierExists brillig foreign call was encountered)
+/// Adds the new instruction to the avm instructions list.
+fn handle_nullifier_exists(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    if destinations.len() != 1 || inputs.len() != 1 {
+        panic!("Transpiler expects ForeignCall::CHECKNULLIFIEREXISTS to have 1 destinations and 1 input, got {} and {}", destinations.len(), inputs.len());
+    }
+    let nullifier_offset_operand = match &inputs[0] {
+        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
+    };
+    let exists_offset_operand = match &destinations[0] {
+        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
+    };
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::NULLIFIEREXISTS,
+        indirect: Some(ALL_DIRECT),
+        operands: vec![
+            AvmOperand::U32 {
+                value: nullifier_offset_operand,
+            },
+            AvmOperand::U32 {
+                value: exists_offset_operand,
+            },
+        ],
         ..Default::default()
     });
 }

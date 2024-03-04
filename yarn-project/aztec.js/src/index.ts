@@ -32,7 +32,6 @@ export {
 } from './contract/index.js';
 
 export { ContractDeployer } from './deployment/index.js';
-export { LegacyContractDeployer } from './deployment/legacy/legacy_contract_deployer.js';
 
 export {
   generatePublicKey,
@@ -45,6 +44,8 @@ export {
   isContractDeployed,
   EthCheatCodes,
   computeAuthWitMessageHash,
+  computeInnerAuthWitHash,
+  computeOuterAuthWitHash,
   waitForPXE,
   waitForAccountSynch,
 } from './utils/index.js';
@@ -79,6 +80,7 @@ export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 export {
   AuthWitness,
   AztecNode,
+  Body,
   CompleteAddress,
   ContractData,
   DeployedContract,
@@ -87,6 +89,8 @@ export {
   FunctionCall,
   GrumpkinPrivateKey,
   INITIAL_L2_BLOCK_NUM,
+  L1ToL2Message,
+  L1Actor,
   L2Actor,
   L2Block,
   L2BlockL2Logs,

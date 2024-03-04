@@ -4,6 +4,7 @@ use crate::{
 };
 use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize}};
 
+// Just like PublicImmutable but with the ability to read from private functions.
 struct SharedImmutable<T>{
     context: Context,
     storage_slot: Field,
@@ -63,7 +64,7 @@ impl<T> SharedImmutable<T> {
             // - a membership proof of the value in the public tree of the header 
             prove_public_value_inclusion(
                 fields[i],
-                self.storage_slot + i,
+                self.storage_slot + i as Field,
                 (*private_context).this_address(),
                 (*private_context)
             )

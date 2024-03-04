@@ -3,11 +3,15 @@ import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serial
 import {
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_READ_REQUESTS_PER_TX,
 } from '../../constants.gen.js';
 import { GrumpkinPrivateKey } from '../../index.js';
 import { Fr, GrumpkinScalar } from '../index.js';
+import {
+  NullifierReadRequestResetHints,
+  nullifierReadRequestResetHintsFromBuffer,
+} from '../read_request_reset_hints.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 import { PrivateKernelInnerData } from './private_kernel_inner_data.js';
 
@@ -31,7 +35,7 @@ export class PrivateKernelTailCircuitPrivateInputs {
     /**
      * Contains hints for the transient read requests to localize corresponding commitments.
      */
-    public readCommitmentHints: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
+    public readCommitmentHints: Tuple<Fr, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     /**
      * The sorted new nullifiers. Maps original to sorted.
      */
@@ -40,6 +44,10 @@ export class PrivateKernelTailCircuitPrivateInputs {
      * The sorted new nullifiers indexes.
      */
     public sortedNewNullifiersIndexes: Tuple<number, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    /**
+     * Contains hints for the nullifier read requests to locate corresponding pending or settled nullifiers.
+     */
+    public nullifierReadRequestResetHints: NullifierReadRequestResetHints,
     /**
      * Contains hints for the transient nullifiers to localize corresponding commitments.
      */
@@ -62,6 +70,7 @@ export class PrivateKernelTailCircuitPrivateInputs {
       this.readCommitmentHints,
       this.sortedNewNullifiers,
       this.sortedNewNullifiersIndexes,
+      this.nullifierReadRequestResetHints,
       this.nullifierCommitmentHints,
       this.masterNullifierSecretKeys,
     );
@@ -78,9 +87,10 @@ export class PrivateKernelTailCircuitPrivateInputs {
       reader.readObject(PrivateKernelInnerData),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect),
       reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
-      reader.readArray(MAX_READ_REQUESTS_PER_TX, Fr),
+      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
+      reader.readObject({ fromBuffer: nullifierReadRequestResetHintsFromBuffer }),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar),
     );

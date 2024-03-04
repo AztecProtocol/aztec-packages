@@ -895,14 +895,14 @@ class GoblinTranslatorFlavor {
      * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve
      * inherit from ProvingKey.
      */
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>> {
+    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey> {
       public:
         BF batching_challenge_v = { 0 };
         BF evaluation_input_x = { 0 };
         ProvingKey() = default;
 
         // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
+        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
         using Base::Base;
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810): get around this by properly having
@@ -919,7 +919,7 @@ class GoblinTranslatorFlavor {
         }
 
         ProvingKey(const size_t circuit_size)
-            : ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>(circuit_size, 0)
+            : ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>(circuit_size, 0)
 
             , batching_challenge_v(0)
             , evaluation_input_x(0)
@@ -934,7 +934,7 @@ class GoblinTranslatorFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
+    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
 
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials

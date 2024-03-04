@@ -1,31 +1,14 @@
-import { Body, ContractData, L2Tx, LogType, PublicDataWrite, TxEffect, TxHash, TxL2Logs } from '@aztec/circuit-types';
-import {
-  AppendOnlyTreeSnapshot,
-  Header,
-  MAX_NEW_CONTRACTS_PER_TX,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  STRING_ENCODING,
-} from '@aztec/circuits.js';
+import { Body, TxEffect, TxHash } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, Header, STRING_ENCODING } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeHeader } from '@aztec/circuits.js/testing';
-import { makeTuple } from '@aztec/foundation/array';
-import { times } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
- * TODO: Reuse data types and serialization functions from circuits package.
  */
 export class L2Block {
-  /* Having logger static to avoid issues with comparing 2 blocks */
-  private static logger = createDebugLogger('aztec:l2_block');
-
   #l1BlockNumber?: bigint;
 
   constructor(
@@ -80,16 +63,14 @@ export class L2Block {
 
   /**
    * Serializes a block
-   * @remarks This can be used specifying no logs, which is used when the block is being served via JSON-RPC because the logs are expected to be served
-   * separately.
-   * @returns A serialized L2 block logs.
+   * @returns A serialized L2 block as a Buffer.
    */
   toBuffer() {
     return serializeToBuffer(this.header, this.archive, this.body);
   }
 
   /**
-   * Deserializes L2 block without logs from a buffer.
+   * Deserializes L2 block from a buffer.
    * @param str - A serialized L2 block.
    * @returns Deserialized L2 block.
    */
@@ -98,10 +79,8 @@ export class L2Block {
   }
 
   /**
-   * Serializes a block without logs to a string.
-   * @remarks This is used when the block is being served via JSON-RPC because the logs are expected to be served
-   * separately.
-   * @returns A serialized L2 block without logs.
+   * Serializes a block to a string.
+   * @returns A serialized L2 block as a string.
    */
   toString(): string {
     return this.toBuffer().toString(STRING_ENCODING);
@@ -124,29 +103,23 @@ export class L2Block {
     numPublicCallsPerTx = 3,
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
+    numL1ToL2MessagesPerCall = 2,
   ): L2Block {
-    const txEffects = [...new Array(txsPerBlock)].map(
-      _ =>
-        new TxEffect(
-          makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, Fr.random),
-          makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
-          makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random),
-          makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
-          makeTuple(MAX_NEW_CONTRACTS_PER_TX, Fr.random),
-          makeTuple(MAX_NEW_CONTRACTS_PER_TX, ContractData.random),
-          TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED),
-          TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
-        ),
+    const body = Body.random(
+      txsPerBlock,
+      numPrivateCallsPerTx,
+      numPublicCallsPerTx,
+      numEncryptedLogsPerCall,
+      numUnencryptedLogsPerCall,
+      numL1ToL2MessagesPerCall,
     );
 
-    const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
-
-    const body = new Body(newL1ToL2Messages, txEffects);
+    const txsHash = body.getCalldataHash();
 
     return L2Block.fromFields(
       {
         archive: makeAppendOnlyTreeSnapshot(1),
-        header: makeHeader(0, l2BlockNum),
+        header: makeHeader(0, l2BlockNum, txsHash),
         body,
       },
       // just for testing purposes, each random L2 block got emitted in the equivalent L1 block
@@ -190,11 +163,11 @@ export class L2Block {
    * The same output as the hash of RootRollupPublicInputs.
    * @returns The public input hash for the L2 block as a field element.
    */
+  // TODO(#4844)
   getPublicInputsHash(): Fr {
     const buf = serializeToBuffer(
       this.header.globalVariables,
-      // TODO(#3868)
-      AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot / committments,
+      AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot / commitments,
       AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startContractTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startPublicDataTreeSnapshot,
@@ -217,10 +190,10 @@ export class L2Block {
    * Computes the start state hash (should equal contract data before block).
    * @returns The start state hash for the L2 block.
    */
+  // TODO(#4844)
   getStartStateHash() {
     const inputValue = serializeToBuffer(
       new Fr(Number(this.header.globalVariables.blockNumber.toBigInt()) - 1),
-      // TODO(#3868)
       AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startContractTreeSnapshot,
@@ -235,6 +208,7 @@ export class L2Block {
    * Computes the end state hash (should equal contract data after block).
    * @returns The end state hash for the L2 block.
    */
+  // TODO(#4844)
   getEndStateHash() {
     const inputValue = serializeToBuffer(
       this.header.globalVariables.blockNumber,
@@ -264,28 +238,9 @@ export class L2Block {
    * @param txIndex - The index of the tx in the block.
    * @returns The tx.
    */
-  getTx(txIndex: number) {
+  getTx(txIndex: number): TxEffect {
     this.assertIndexInRange(txIndex);
-
-    const txEffect = this.body.txEffects[txIndex];
-
-    const newNoteHashes = txEffect.newNoteHashes.filter(x => !x.isZero());
-    const newNullifiers = txEffect.newNullifiers.filter(x => !x.isZero());
-    const newPublicDataWrites = txEffect.newPublicDataWrites.filter(x => !x.isEmpty());
-    const newL2ToL1Msgs = txEffect.newL2ToL1Msgs.filter(x => !x.isZero());
-    const newContracts = txEffect.contractLeaves.filter(x => !x.isZero());
-    const newContractData = txEffect.contractData.filter(x => !x.isEmpty());
-
-    return new L2Tx(
-      newNoteHashes,
-      newNullifiers,
-      newPublicDataWrites,
-      newL2ToL1Msgs,
-      newContracts,
-      newContractData,
-      this.hash(),
-      Number(this.header.globalVariables.blockNumber.toBigInt()),
-    );
+    return this.body.txEffects[txIndex];
   }
 
   /**
@@ -297,7 +252,7 @@ export class L2Block {
     this.assertIndexInRange(txIndex);
 
     // Gets the first nullifier of the tx specified by txIndex
-    const firstNullifier = this.body.txEffects[txIndex].newNullifiers[0];
+    const firstNullifier = this.body.txEffects[txIndex].nullifiers[0];
 
     return new TxHash(firstNullifier.toBuffer());
   }
