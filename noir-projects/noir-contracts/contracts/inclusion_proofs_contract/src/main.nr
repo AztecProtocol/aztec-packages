@@ -20,10 +20,7 @@ contract InclusionProofs {
         prove_nullifier_inclusion, prove_nullifier_inclusion_at, prove_note_is_nullified,
         prove_note_is_nullified_at
     },
-        nullifier_non_inclusion::{
-        prove_nullifier_not_included, prove_nullifier_not_included_at, prove_note_not_nullified,
-        prove_note_not_nullified_at
-    },
+        nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
         public_value_inclusion::{prove_public_value_inclusion, prove_public_value_inclusion_at}
     };
     // docs:end:imports
@@ -37,6 +34,7 @@ contract InclusionProofs {
     }
 
     #[aztec(private)]
+    #[aztec(initializer)]
     fn constructor(public_value: Field) {
         let selector = FunctionSelector::from_signature("_initialize(Field)");
         context.call_public_function(context.this_address(), selector, [public_value]);
@@ -175,7 +173,7 @@ contract InclusionProofs {
     fn test_nullifier_inclusion(
         nullifier: Field,
         use_block_number: bool,
-        block_number: u32 // The block at which we'll prove that the nullifier not exists in the tree
+        block_number: u32 // The block at which we'll prove that the nullifier exists in the nullifier tree
     ) {
         if (use_block_number) {
             // docs:start:prove_nullifier_inclusion
@@ -184,6 +182,12 @@ contract InclusionProofs {
         } else {
             prove_nullifier_inclusion(nullifier, context);
         }
+    }
+
+    // Proves nullifier existed at latest block
+    #[aztec(public)]
+    fn test_nullifier_inclusion_from_public(nullifier: Field) {
+        prove_nullifier_inclusion(nullifier, context);
     }
 
     #[aztec(private)]

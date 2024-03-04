@@ -1,4 +1,4 @@
-import { FunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
+import { FunctionL2Logs, NullifierMembershipWitness, UnencryptedL2Log } from '@aztec/circuit-types';
 import { CallContext, FunctionData, FunctionSelector, GlobalVariables, Header } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -86,11 +86,11 @@ export class PublicExecutionContext extends TypedOracle {
 
   /**
    * Fetches the a message from the db, given its key.
-   * @param msgKey - A buffer representing the message key.
+   * @param entryKey - A buffer representing the entry key.
    * @returns The l1 to l2 message data
    */
-  public async getL1ToL2Message(msgKey: Fr) {
-    return await this.commitmentsDb.getL1ToL2Message(msgKey);
+  public async getL1ToL2MembershipWitness(entryKey: Fr) {
+    return await this.commitmentsDb.getL1ToL2MembershipWitness(entryKey);
   }
 
   /**
@@ -138,7 +138,7 @@ export class PublicExecutionContext extends TypedOracle {
   public async storageWrite(startStorageSlot: Fr, values: Fr[]) {
     const newValues = [];
     for (let i = 0; i < values.length; i++) {
-      const storageSlot = new Fr(startStorageSlot.value + BigInt(i));
+      const storageSlot = new Fr(startStorageSlot.toBigInt() + BigInt(i));
       const newValue = values[i];
       const sideEffectCounter = this.sideEffectCounter.count();
       this.storageActions.write(storageSlot, newValue, sideEffectCounter);
@@ -225,5 +225,15 @@ export class PublicExecutionContext extends TypedOracle {
     this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
 
     return childExecutionResult.returnValues;
+  }
+
+  public async getNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    if (!this.header.globalVariables.blockNumber.equals(new Fr(blockNumber))) {
+      throw new Error(`Public execution oracle can only access nullifier membership witnesses for the current block`);
+    }
+    return await this.commitmentsDb.getNullifierMembershipWitnessAtLatestBlock(nullifier);
   }
 }
