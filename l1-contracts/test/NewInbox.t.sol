@@ -58,7 +58,7 @@ contract NewInboxTest is Test {
     inbox.consume();
   }
 
-  function testFuzzSendL2Msg(DataStructures.L1ToL2Msg memory _message) public {
+  function testFuzzInsert(DataStructures.L1ToL2Msg memory _message) public {
     // fix message.sender and deadline:
     _message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
     // ensure actor fits in a field
@@ -69,7 +69,7 @@ contract NewInboxTest is Test {
     _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
 
     // TODO: nuke the following 2 values from the struct once the new message model is in place
-    _message.deadline = 0;
+    _message.deadline = 2 ** 32 - 1;
     _message.fee = 0;
 
     bytes32 leaf = _message.sha256ToField();
@@ -142,7 +142,7 @@ contract NewInboxTest is Test {
       message.recipient.version = version;
 
       // TODO: nuke the following 2 values from the struct once the new message model is in place
-      message.deadline = 0;
+      message.deadline = 2 ** 32 - 1;
       message.fee = 0;
 
       inbox.insert(message.recipient, message.content, message.secretHash);
