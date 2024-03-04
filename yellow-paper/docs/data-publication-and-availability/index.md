@@ -95,7 +95,8 @@ You could say that the transactions are pre-confirmed until they convince the va
 
 If there is no explicit consensus for the Rollup, staking can still be utilized for leader selection, picking a distinct sequencer which will have a period to propose a block and convince the validating light-client.
 The user can as earlier define his own confirmation rules and could decide that if the sequencer acknowledge his transaction, then he sees it as confirmed.
-This can be done fully on trust, of with some signed message the user could take to the host and "slash" the sequencer for not upholding his part of the deal.
+This have a weaker guarantees than the consensus based as the sequencer could be malicious and not uphold his part of the deal.
+Nevertheless, the user could always do an out of protocol agreement with the sequencer, where the sequencer guarantees that he will include the transaction or the user will be able to slash him and get compensated.
 
 :::info Fernet
 Fernet lives in this category if you have a single sequencer active from the proposal to proof inclusion stage.
