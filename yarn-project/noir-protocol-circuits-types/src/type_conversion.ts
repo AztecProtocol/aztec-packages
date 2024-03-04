@@ -84,6 +84,7 @@ import {
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
+  PublicKernelTailCircuitPrivateInputs,
   ReadRequest,
   ReadRequestContext,
   ReadRequestStatus,
@@ -164,6 +165,7 @@ import {
   StorageRead as StorageReadNoir,
   StorageUpdateRequest as StorageUpdateRequestNoir,
 } from './types/public_kernel_setup_types.js';
+import { PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir } from './types/public_kernel_tail_types.js';
 import {
   ArchiveRootMembershipWitness as ArchiveRootMembershipWitnessNoir,
   BaseRollupInputs as BaseRollupInputsNoir,
@@ -1397,6 +1399,14 @@ export function mapPublicKernelCircuitPrivateInputsToNoir(
   return {
     previous_kernel: mapPublicKernelDataToNoir(inputs.previousKernel),
     public_call: mapPublicCallDataToNoir(inputs.publicCall),
+  };
+}
+
+export function mapPublicKernelTailCircuitPrivateInputsToNoir(
+  inputs: PublicKernelTailCircuitPrivateInputs,
+): PublicKernelTailCircuitPrivateInputsNoir {
+  return {
+    previous_kernel: mapPublicKernelDataToNoir(inputs.previousKernel),
   };
 }
 

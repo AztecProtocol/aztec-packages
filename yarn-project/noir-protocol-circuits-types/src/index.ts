@@ -9,6 +9,7 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
+  PublicKernelTailCircuitPrivateInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
 } from '@aztec/circuits.js';
@@ -27,6 +28,8 @@ import PublicKernelAppLogicJson from './target/public_kernel_app_logic.json' ass
 import PublicKernelAppLogicSimulatedJson from './target/public_kernel_app_logic_simulated.json' assert { type: 'json' };
 import PublicKernelSetupJson from './target/public_kernel_setup.json' assert { type: 'json' };
 import PublicKernelSetupSimulatedJson from './target/public_kernel_setup_simulated.json' assert { type: 'json' };
+import PublicKernelTailJson from './target/public_kernel_tail.json' assert { type: 'json' };
+import PublicKernelTailSimulatedJson from './target/public_kernel_tail_simulated.json' assert { type: 'json' };
 import PublicKernelTeardownJson from './target/public_kernel_teardown.json' assert { type: 'json' };
 import PublicKernelTeardownSimulatedJson from './target/public_kernel_teardown_simulated.json' assert { type: 'json' };
 import BaseRollupSimulatedJson from './target/rollup_base_simulated.json' assert { type: 'json' };
@@ -43,6 +46,7 @@ import {
   mapPrivateKernelTailCircuitPublicInputsFromNoir,
   mapPublicKernelCircuitPrivateInputsToNoir,
   mapPublicKernelCircuitPublicInputsFromNoir,
+  mapPublicKernelTailCircuitPrivateInputsToNoir,
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
 } from './type_conversion.js';
@@ -57,6 +61,10 @@ import {
   InputType as PublicSetupInputType,
   ReturnType as PublicSetupReturnType,
 } from './types/public_kernel_setup_types.js';
+import {
+  InputType as PublicTailInputType,
+  ReturnType as PublicTailReturnType,
+} from './types/public_kernel_tail_types.js';
 import { InputType as BaseRollupInputType, ReturnType as BaseRollupReturnType } from './types/rollup_base_types.js';
 import { InputType as MergeRollupInputType, ReturnType as MergeRollupReturnType } from './types/rollup_merge_types.js';
 import { InputType as RootRollupInputType, ReturnType as RootRollupReturnType } from './types/rollup_root_types.js';
@@ -87,6 +95,8 @@ export const PublicKernelSetupArtifact = PublicKernelSetupJson as NoirCompiledCi
 export const PublicKernelAppLogicArtifact = PublicKernelAppLogicJson as NoirCompiledCircuit;
 
 export const PublicKernelTeardownArtifact = PublicKernelTeardownJson as NoirCompiledCircuit;
+
+export const PublicKernelTailArtifact = PublicKernelTailJson as NoirCompiledCircuit;
 
 /**
  * Executes the init private kernel.
@@ -194,6 +204,21 @@ export async function executePublicKernelTeardown(
   };
 
   const returnType = await executePublicKernelTeardownWithACVM(params);
+
+  return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Executes the public kernel tail.
+ * @param publicKernelPrivateInputs - The public kernel teardown circuit private inputs.
+ * @returns The public inputs.
+ */
+export async function executePublicKernelTail(
+  privateInputs: PublicKernelTailCircuitPrivateInputs,
+): Promise<PublicKernelCircuitPublicInputs> {
+  const returnType = await executePublicKernelTailWithACVM({
+    input: mapPublicKernelTailCircuitPrivateInputsToNoir(privateInputs),
+  });
 
   return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
 }
@@ -398,6 +423,29 @@ async function executePublicKernelTeardownWithACVM(
 
   // Cast the inputs as the return type
   return decodedInputs.return_value as PublicPublicPreviousReturnType;
+}
+
+/**
+ * Executes the public tail kernel with the given inputs using the acvm.
+ */
+async function executePublicKernelTailWithACVM(input: PublicTailInputType): Promise<PublicTailReturnType> {
+  const initialWitnessMap = abiEncode(PublicKernelTailSimulatedJson.abi as Abi, input as any);
+  const decodedBytecode = Buffer.from(PublicKernelTailSimulatedJson.bytecode, 'base64');
+  // Execute the circuit
+  const _witnessMap = await executeCircuitWithBlackBoxSolver(
+    await getSolver(),
+    decodedBytecode,
+    initialWitnessMap,
+    () => {
+      throw Error('unexpected oracle during execution');
+    },
+  );
+
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(PublicKernelTailSimulatedJson.abi as Abi, _witnessMap);
+
+  // Cast the inputs as the return type
+  return decodedInputs.return_value;
 }
 
 /**

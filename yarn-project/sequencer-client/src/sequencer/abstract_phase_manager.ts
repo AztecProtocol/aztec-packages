@@ -33,6 +33,7 @@ import {
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
+  PublicKernelTailCircuitPrivateInputs,
   RETURN_VALUES_LENGTH,
   ReadRequest,
   SideEffect,
@@ -64,12 +65,14 @@ export enum PublicKernelPhase {
   SETUP = 'setup',
   APP_LOGIC = 'app-logic',
   TEARDOWN = 'teardown',
+  TAIL = 'tail',
 }
 
 export const PhaseIsRevertible: Record<PublicKernelPhase, boolean> = {
   [PublicKernelPhase.SETUP]: false,
   [PublicKernelPhase.APP_LOGIC]: true,
   [PublicKernelPhase.TEARDOWN]: false,
+  [PublicKernelPhase.TAIL]: false,
 };
 
 export abstract class AbstractPhaseManager {
@@ -129,6 +132,7 @@ export abstract class AbstractPhaseManager {
         [PublicKernelPhase.SETUP]: [],
         [PublicKernelPhase.APP_LOGIC]: [],
         [PublicKernelPhase.TEARDOWN]: [],
+        [PublicKernelPhase.TAIL]: [],
       };
     }
 
@@ -142,12 +146,14 @@ export abstract class AbstractPhaseManager {
         [PublicKernelPhase.SETUP]: [],
         [PublicKernelPhase.APP_LOGIC]: publicCallsStack,
         [PublicKernelPhase.TEARDOWN]: [],
+        [PublicKernelPhase.TAIL]: [],
       };
     } else {
       return {
         [PublicKernelPhase.SETUP]: publicCallsStack.slice(0, firstRevertibleCallIndex - 1),
         [PublicKernelPhase.APP_LOGIC]: publicCallsStack.slice(firstRevertibleCallIndex),
         [PublicKernelPhase.TEARDOWN]: [publicCallsStack[firstRevertibleCallIndex - 1]],
+        [PublicKernelPhase.TAIL]: [],
       };
     }
   }
@@ -243,7 +249,7 @@ export abstract class AbstractPhaseManager {
         executionStack.push(...result.nestedExecutions);
         const callData = await this.getPublicCallData(result, isExecutionRequest);
 
-        [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, kernelOutput, kernelProof);
+        [kernelOutput, kernelProof] = await this.runKernelCircuitWithCallData(callData, kernelOutput, kernelProof);
 
         if (!enqueuedExecutionResult) {
           enqueuedExecutionResult = result;
@@ -260,22 +266,41 @@ export abstract class AbstractPhaseManager {
     return [kernelOutput, kernelProof, newUnencryptedFunctionLogs];
   }
 
-  protected async runKernelCircuit(
+  public async runKernelCircuit(
+    previousOutput: PublicKernelCircuitPublicInputs,
+    previousProof: Proof,
+  ): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
+    const output = await this.getKernelCircuitOutput(previousOutput, previousProof);
+    const proof = await this.publicProver.getPublicKernelCircuitProof(output);
+    return [output, proof];
+  }
+
+  protected async runKernelCircuitWithCallData(
     callData: PublicCallData,
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
   ): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
-    const output = await this.getKernelCircuitOutput(callData, previousOutput, previousProof);
+    const output = await this.getKernelCircuitOutput(previousOutput, previousProof, callData);
     const proof = await this.publicProver.getPublicKernelCircuitProof(output);
     return [output, proof];
   }
 
   protected getKernelCircuitOutput(
-    callData: PublicCallData,
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
+    callData?: PublicCallData,
   ): Promise<PublicKernelCircuitPublicInputs> {
     const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
+
+    if (this.phase === PublicKernelPhase.TAIL) {
+      const inputs = new PublicKernelTailCircuitPrivateInputs(previousKernel);
+      return this.publicKernel.publicKernelCircuitTail(inputs);
+    }
+
+    if (!callData) {
+      throw new Error(`Cannot run public kernel circuit without call data for phase '${this.phase}'.`);
+    }
+
     const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
     switch (this.phase) {
       case PublicKernelPhase.SETUP:

@@ -1,10 +1,15 @@
 import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
-import { PublicKernelCircuitPrivateInputs, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
+import {
+  PublicKernelCircuitPrivateInputs,
+  PublicKernelCircuitPublicInputs,
+  PublicKernelTailCircuitPrivateInputs,
+} from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import {
   executePublicKernelAppLogic,
   executePublicKernelSetup,
+  executePublicKernelTail,
   executePublicKernelTeardown,
 } from '@aztec/noir-protocol-circuits-types';
 
@@ -75,6 +80,25 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
     this.log(`Simulated public kernel teardown circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'public-kernel-teardown',
+      duration,
+      inputSize: input.toBuffer().length,
+      outputSize: result.toBuffer().length,
+    } satisfies CircuitSimulationStats);
+    return result;
+  }
+
+  /**
+   * Simulates the public kernel tail circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  public async publicKernelCircuitTail(
+    input: PublicKernelTailCircuitPrivateInputs,
+  ): Promise<PublicKernelCircuitPublicInputs> {
+    const [duration, result] = await elapsed(() => executePublicKernelTail(input));
+    this.log(`Simulated public kernel tail circuit`, {
+      eventName: 'circuit-simulation',
+      circuitName: 'public-kernel-tail',
       duration,
       inputSize: input.toBuffer().length,
       outputSize: result.toBuffer().length,
