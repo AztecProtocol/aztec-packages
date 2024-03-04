@@ -43,7 +43,9 @@ import {
 import { PXEService, PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { SequencerClient } from '@aztec/sequencer-client';
 
+import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as p from 'path';
 import {
   Account,
   Chain,
@@ -59,8 +61,6 @@ import { foundry } from 'viem/chains';
 
 import { MNEMONIC } from './fixtures.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
-import * as fs from 'fs/promises';
-import * as p from 'path';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
@@ -77,11 +77,11 @@ const getACVMConfig = async () => {
     await fs.access(`${expectedAcvmPath}/acvm`, fs.constants.R_OK);
     const proverWorkingDirectory = '/tmp/acvm';
     await fs.mkdir(proverWorkingDirectory, { recursive: true });
-    return {proverWorkingDirectory, expectedAcvmPath };
-  }  catch (err) {
+    return { proverWorkingDirectory, expectedAcvmPath };
+  } catch (err) {
     return undefined;
   }
-}
+};
 
 export const setupL1Contracts = async (
   l1RpcUrl: string,

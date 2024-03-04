@@ -37,7 +37,9 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
       throw new Error(`Expected previous kernel inputs to need setup`);
     }
     const inputWitness = convertPublicSetupRollupInputs(input);
-    const [duration, witness] = await elapsed(async () => await this.simulator.simulateCircuit(inputWitness, PublicKernelSetupArtifact));
+    const [duration, witness] = await elapsed(
+      async () => await this.simulator.simulateCircuit(inputWitness, PublicKernelSetupArtifact),
+    );
     const result = convertPublicSetupRollupOutput(witness);
     this.log(`Simulated public kernel setup circuit`, {
       eventName: 'circuit-simulation',
@@ -61,7 +63,9 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
       throw new Error(`Expected previous kernel inputs to need app logic`);
     }
     const inputWitness = convertPublicInnerRollupInputs(input);
-    const [duration, witness] = await elapsed(async () => await this.simulator.simulateCircuit(inputWitness, PublicKernelAppLogicArtifact));
+    const [duration, witness] = await elapsed(
+      async () => await this.simulator.simulateCircuit(inputWitness, PublicKernelAppLogicArtifact),
+    );
     const result = convertPublicInnerRollupOutput(witness);
     this.log(`Simulated public kernel app logic circuit`, {
       eventName: 'circuit-simulation',
@@ -85,7 +89,9 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
       throw new Error(`Expected previous kernel inputs to need teardown`);
     }
     const inputWitness = convertPublicTailRollupInputs(input);
-    const [duration, witness] = await elapsed(async () => await this.simulator.simulateCircuit(inputWitness, PublicKernelTeardownArtifact));
+    const [duration, witness] = await elapsed(
+      async () => await this.simulator.simulateCircuit(inputWitness, PublicKernelTeardownArtifact),
+    );
     const result = convertPublicTailRollupOutput(witness);
     this.log(`Simulated public kernel teardown circuit`, {
       eventName: 'circuit-simulation',

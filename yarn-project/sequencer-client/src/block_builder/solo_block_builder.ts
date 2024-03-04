@@ -1,4 +1,4 @@
-import { Body, ContractData, L2Block, MerkleTreeId, PublicDataWrite, Tx, TxEffect, TxL2Logs } from '@aztec/circuit-types';
+import { Body, ContractData, L2Block, MerkleTreeId, PublicDataWrite, TxEffect, TxL2Logs } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -191,14 +191,21 @@ export class SoloBlockBuilder implements BlockBuilder {
     const newL1ToL2MessagesTuple = padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
     const baseRollupInputs: BaseRollupInputs[] = [];
-    const treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>[] = []
+    const treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>[] = [];
     for (const tx of txs) {
       const input = await this.buildBaseRollupInput(tx, globalVariables);
       baseRollupInputs.push(input);
-      const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.CONTRACT_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(async (id: MerkleTreeId) => {
-        return { key: id, value: await this.getTreeSnapshot(id)};
+      const promises = [
+        MerkleTreeId.NOTE_HASH_TREE,
+        MerkleTreeId.CONTRACT_TREE,
+        MerkleTreeId.NULLIFIER_TREE,
+        MerkleTreeId.PUBLIC_DATA_TREE,
+      ].map(async (id: MerkleTreeId) => {
+        return { key: id, value: await this.getTreeSnapshot(id) };
       });
-      const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map((await Promise.all(promises)).map((obj) => [obj.key, obj.value]));
+      const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map(
+        (await Promise.all(promises)).map(obj => [obj.key, obj.value]),
+      );
       treeSnapshots.push(snapshots);
     }
 
@@ -291,7 +298,10 @@ export class SoloBlockBuilder implements BlockBuilder {
     return [rootOutput, rootProof];
   }
 
-  protected validatePartialState(partialState: PartialStateReference, treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>) {    
+  protected validatePartialState(
+    partialState: PartialStateReference,
+    treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
+  ) {
     this.validateSimulatedTree(
       treeSnapshots.get(MerkleTreeId.NOTE_HASH_TREE)!,
       partialState.noteHashTree,
@@ -315,16 +325,23 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected async validateState(state: StateReference) {
-    const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.CONTRACT_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(async (id: MerkleTreeId) => {
-      return { key: id, value: await this.getTreeSnapshot(id)};
+    const promises = [
+      MerkleTreeId.NOTE_HASH_TREE,
+      MerkleTreeId.CONTRACT_TREE,
+      MerkleTreeId.NULLIFIER_TREE,
+      MerkleTreeId.PUBLIC_DATA_TREE,
+    ].map(async (id: MerkleTreeId) => {
+      return { key: id, value: await this.getTreeSnapshot(id) };
     });
-    const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map((await Promise.all(promises)).map((obj) => [obj.key, obj.value]));
-    this.validatePartialState(state.partial, snapshots),
-    this.validateSimulatedTree(
-      await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
-      state.l1ToL2MessageTree,
-      'L1ToL2MessageTree',
+    const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map(
+      (await Promise.all(promises)).map(obj => [obj.key, obj.value]),
     );
+    this.validatePartialState(state.partial, snapshots),
+      this.validateSimulatedTree(
+        await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
+        state.l1ToL2MessageTree,
+        'L1ToL2MessageTree',
+      );
   }
 
   // Validate that the roots of all local trees match the output of the root circuit simulation

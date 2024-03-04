@@ -839,6 +839,8 @@ __metadata:
     "@aztec/types": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
+    "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
+    "@noir-lang/types": "portal:../../noir/packages/types"
     "@types/jest": ^29.5.0
     "@types/levelup": ^5.1.2
     "@types/lodash.chunk": ^4.2.7

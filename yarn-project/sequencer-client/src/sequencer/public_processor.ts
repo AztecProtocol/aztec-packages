@@ -11,10 +11,10 @@ import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
+import { SimulationProvider } from '../simulator/simulation_provider.js';
 import { AbstractPhaseManager } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
 import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-import { SimulationProvider } from '../simulator/simulation_provider.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.

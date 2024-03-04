@@ -73,10 +73,10 @@ import {
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '../sequencer/processed_tx.js';
+import { WASMSimulator } from '../simulator/acvm_wasm.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
-import { WASMSimulator } from '../simulator/acvm_wasm.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 

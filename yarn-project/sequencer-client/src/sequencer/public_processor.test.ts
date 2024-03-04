@@ -48,12 +48,12 @@ import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { PublicProver } from '../prover/index.js';
+import { WASMSimulator } from '../simulator/acvm_wasm.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { ProcessedTx } from './processed_tx.js';
 import { PublicProcessor } from './public_processor.js';
-import { WASMSimulator } from '../simulator/acvm_wasm.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;

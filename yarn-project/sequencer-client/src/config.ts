@@ -49,7 +49,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     COINBASE,
     FEE_RECIPIENT,
     ACVM_WORKING_DIRECTORY,
-    ACVM_BINARY_PATH, 
+    ACVM_BINARY_PATH,
   } = process.env;
 
   const publisherPrivateKey: Hex = SEQ_PUBLISHER_PRIVATE_KEY
