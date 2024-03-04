@@ -25,6 +25,7 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using MergeProver = MergeProver_<GoblinUltraFlavor>;
     using MergeVerifier = MergeVerifier_<GoblinUltraFlavor>;
+    using VerificationKey = GoblinUltraFlavor::VerificationKey;
 
     /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
@@ -64,7 +65,8 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
     {
         auto instance = composer.create_prover_instance(builder);
         auto prover = composer.create_prover(instance);
-        auto verifier = composer.create_verifier(instance->verification_key);
+        auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+        auto verifier = composer.create_verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
 

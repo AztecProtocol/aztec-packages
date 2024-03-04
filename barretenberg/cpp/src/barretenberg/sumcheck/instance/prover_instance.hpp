@@ -88,8 +88,6 @@ template <class Flavor> class ProverInstance_ {
         proving_key->contains_recursive_proof = contains_recursive_proof;
 
         sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
-
-        verification_key = std::make_shared<VerificationKey>(proving_key);
     }
 
     ProverInstance_() = default;
