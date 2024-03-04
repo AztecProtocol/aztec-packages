@@ -1410,7 +1410,7 @@ workflows:
           <<: *defaults
 
       # Yarn Project
-      - yarn-project-pre-join:
+      - yarn-project-base:
           requires:
             - bb-js
             - noir-packages
