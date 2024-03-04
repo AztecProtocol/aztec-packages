@@ -91,7 +91,7 @@ contract NewInbox {
 
     bytes32 leaf = message.sha256ToField();
     uint256 nextIndex = currentTree.insertLeaf(leaf);
-    emit LeafInserted(inProgress, nextIndex, leaf);
+    emit LeafInserted(inProgress, nextIndex - 1, leaf);
 
     return leaf;
   }
