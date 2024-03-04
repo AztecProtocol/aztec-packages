@@ -212,15 +212,8 @@ fn function_modifiers() -> impl NoirParser<(bool, bool, bool, bool, bool)> {
         .then(is_pub_crate())
         .then(keyword(Keyword::Pub).or_not())
         .then(keyword(Keyword::Open).or_not())
-        .then(keyword(Keyword::Internal).or_not())
-        .map(|((((unconstrained, pub_crate), public), open), internal)| {
-            (
-                unconstrained.is_some(),
-                pub_crate,
-                open.is_some(),
-                internal.is_some(),
-                public.is_some(),
-            )
+        .map(|(((unconstrained, pub_crate), public), open)| {
+            (unconstrained.is_some(), pub_crate, open.is_some(), false, public.is_some())
         })
 }
 
