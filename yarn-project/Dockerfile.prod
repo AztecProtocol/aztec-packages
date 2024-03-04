@@ -13,7 +13,7 @@ RUN ./scripts/version_packages.sh
 # Productionify. See comment in yarn-project-base/Dockerfile.
 RUN yarn workspaces focus @aztec/cli @aztec/aztec @aztec/aztec-faucet @aztec/aztec.js --production && yarn cache clean
 
-# We no longer need nargo.
+# We no longer need nargo. But keep acvm.
 RUN rm /usr/src/noir/noir-repo/target/release/nargo
 
 # Create fresh minimal size image.
