@@ -11,17 +11,22 @@ import {Hash} from "../src/core/libraries/Hash.sol";
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
 import {IFrontier} from "../src/core/interfaces/messagebridge/IFrontier.sol";
 
+import "forge-std/console.sol";
+
 contract NewInboxTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
 
   NewInbox internal inbox;
   uint256 internal version = 0;
+  bytes32 internal emptyTreeRoot;
 
   event LeafInserted(uint256 treeNumber, uint256 index, bytes32 value);
 
   function setUp() public {
     address rollup = address(this);
-    inbox = new NewInbox(rollup, 10, 0);
+    // We set low depth (5) to ensure we sufficiently test tree transitions
+    inbox = new NewInbox(rollup, 5, 0);
+    emptyTreeRoot = inbox.frontier(1).root();
   }
 
   function _fakeMessage() internal view returns (DataStructures.L1ToL2Msg memory) {
@@ -36,6 +41,18 @@ contract NewInboxTest is Test {
       fee: 0,
       deadline: 0
     });
+  }
+
+  function _getNumTrees() internal view returns (uint256) {
+    uint256 treeNumber = 1;
+    while (address(inbox.frontier(treeNumber)) != address(0)) {
+      treeNumber++;
+    }
+    return treeNumber - 1;
+  }
+
+  function _divideAndRoundUp(uint256 a, uint256 b) internal pure returns (uint256) {
+    return (a + b - 1) / b;
   }
 
   function testRevertIfNotConsumingFromRollup() public {
@@ -75,9 +92,7 @@ contract NewInboxTest is Test {
     bytes32 leaf3 = inbox.insert(message.recipient, message.content, message.secretHash);
 
     // Only 1 tree should be non-zero
-    assertEq(address(inbox.frontier(0)), address(0));
-    assertNotEq(address(inbox.frontier(1)), address(0));
-    assertEq(address(inbox.frontier(2)), address(0));
+    assertEq(_getNumTrees(), 1);
 
     // All the leaves should be the same
     assertEq(leaf1, leaf2);
@@ -107,5 +122,56 @@ contract NewInboxTest is Test {
       abi.encodeWithSelector(Errors.Inbox__SecretHashTooLarge.selector, message.secretHash)
     );
     inbox.insert(message.recipient, message.content, message.secretHash);
+  }
+
+  function testFuzzConsume(DataStructures.L1ToL2Msg[] memory _messages, uint256 _numTreesToConsume)
+    public
+  {
+    // insert messages:
+    for (uint256 i = 0; i < _messages.length; i++) {
+      DataStructures.L1ToL2Msg memory message = _messages[i];
+      // fix message.sender and deadline to be more than current time:
+      message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
+      // ensure actor fits in a field
+      message.recipient.actor = bytes32(uint256(message.recipient.actor) % Constants.P);
+      if (message.deadline <= block.timestamp) {
+        message.deadline = uint32(block.timestamp + 100);
+      }
+      // ensure content fits in a field
+      message.content = bytes32(uint256(message.content) % Constants.P);
+      // ensure secret hash fits in a field
+      message.secretHash = bytes32(uint256(message.secretHash) % Constants.P);
+      // update version
+      message.recipient.version = version;
+
+      // TODO: nuke the following 2 values from the struct once the new message model is in place
+      message.deadline = 0;
+      message.fee = 0;
+
+      inbox.insert(message.recipient, message.content, message.secretHash);
+    }
+
+    uint256 expectedNumTrees = _divideAndRoundUp(_messages.length, inbox.SIZE());
+    if (expectedNumTrees == 0) {
+      // This occurs when there are no messages but we initialize the first tree in the constructor so there are never
+      // zero trees
+      expectedNumTrees = 1;
+    }
+    uint256 numTrees = _getNumTrees();
+    assertEq(numTrees, expectedNumTrees);
+
+    // We use (numTrees * 2) as upper bound here because we want to test the case where we go beyond the currently
+    // initalized number of trees. When consuming the newly initialized trees we should get zero roots.
+    uint256 numTreesToConsume = bound(_numTreesToConsume, 1, numTrees * 2);
+
+    // Now we consume the trees
+    for (uint256 i = 0; i < numTreesToConsume; i++) {
+      bytes32 root = inbox.consume();
+      if (i < numTrees) {
+        assertNotEq(root, emptyTreeRoot, "Root should not be zero");
+      } else {
+        assertEq(root, emptyTreeRoot, "Root should be zero");
+      }
+    }
   }
 }
