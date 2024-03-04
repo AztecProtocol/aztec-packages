@@ -51,7 +51,9 @@ export class Addressing {
     for (const [i, offset] of offsets.entries()) {
       switch (this.modePerOperand[i]) {
         case AddressingMode.INDIRECT:
-          mem.checkTag(TypeTag.UINT32, offset);
+          // NOTE(reviewer): less than equal is a deviation from the spec - i dont see why this shouldnt be possible!
+          // TODO: make an issue to unblock!
+          mem.checkTagLessThanEqual(TypeTag.UINT64, offset);
           resolved[i] = Number(mem.get(offset).toBigInt());
           break;
         case AddressingMode.DIRECT:

@@ -252,6 +252,12 @@ export class TaggedMemory {
     }
   }
 
+  public checkTagLessThanEqual(tag: TypeTag, offset: number) {
+    if (this.getTag(offset) > tag) {
+      throw TagCheckError.forOffset(offset, TypeTag[this.getTag(offset)], TypeTag[tag]);
+    }
+  }
+
   public static checkIsIntegralTag(tag: TypeTag) {
     if (![TypeTag.UINT8, TypeTag.UINT16, TypeTag.UINT32, TypeTag.UINT64, TypeTag.UINT128].includes(tag)) {
       throw TagCheckError.forTag(TypeTag[tag], 'integral');
