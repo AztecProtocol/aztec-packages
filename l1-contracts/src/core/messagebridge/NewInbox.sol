@@ -85,7 +85,7 @@ contract NewInbox {
       content: _content,
       secretHash: _secretHash,
       // TODO: nuke the following 2 values from the struct once the new message model is in place
-      deadline: 2 ** 32 - 1,
+      deadline: type(uint32).max,
       fee: 0
     });
 

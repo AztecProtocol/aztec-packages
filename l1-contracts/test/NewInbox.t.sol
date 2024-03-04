@@ -38,7 +38,7 @@ contract NewInboxTest is Test {
       content: 0x2000000000000000000000000000000000000000000000000000000000000000,
       secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000,
       fee: 0,
-      deadline: 0
+      deadline: type(uint32).max
     });
   }
 
@@ -71,7 +71,7 @@ contract NewInboxTest is Test {
     _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
 
     // TODO: nuke the following 2 values from the struct once the new message model is in place
-    _message.deadline = 2 ** 32 - 1;
+    _message.deadline = type(uint32).max;
     _message.fee = 0;
 
     bytes32 leaf = _message.sha256ToField();
@@ -144,7 +144,7 @@ contract NewInboxTest is Test {
       message.recipient.version = version;
 
       // TODO: nuke the following 2 values from the struct once the new message model is in place
-      message.deadline = 2 ** 32 - 1;
+      message.deadline = type(uint32).max;
       message.fee = 0;
 
       inbox.insert(message.recipient, message.content, message.secretHash);
