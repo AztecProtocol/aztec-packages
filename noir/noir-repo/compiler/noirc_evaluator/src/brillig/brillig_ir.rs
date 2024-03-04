@@ -560,11 +560,7 @@ impl BrilligContext {
     ) {
         self.debug_show.const_instruction(result, constant);
 
-        self.push_opcode(BrilligOpcode::Const {
-            destination: result,
-            value: constant,
-            bit_size,
-        });
+        self.push_opcode(BrilligOpcode::Const { destination: result, value: constant, bit_size });
     }
 
     pub(crate) fn usize_const(&mut self, result: MemoryAddress, constant: Value) {
