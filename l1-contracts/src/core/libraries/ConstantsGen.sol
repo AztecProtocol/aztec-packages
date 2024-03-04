@@ -125,4 +125,6 @@ library Constants {
   uint256 internal constant CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP_UNPADDED = 52;
   uint256 internal constant L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
+  uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
+  uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
 }

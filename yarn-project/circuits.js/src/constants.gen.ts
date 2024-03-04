@@ -150,3 +150,5 @@ export enum GeneratorIndex {
   AUTHWIT_INNER = 45,
   AUTHWIT_OUTER = 46,
 }
+export const INITIAL_L2_BLOCK_NUM = 1;
+export const BLOB_SIZE_IN_BYTES = 126976;
