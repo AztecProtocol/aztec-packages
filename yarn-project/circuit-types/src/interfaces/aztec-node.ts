@@ -99,10 +99,7 @@ export interface AztecNode {
    * @param l2ToL1Message - The l2ToL1Message get the sibling path for.
    * @returns The sibling path.
    */
-  getL2ToL1MessageSiblingPath(
-    blockNumber: BlockNumber,
-    l2ToL1Message: Fr,
-  ): Promise<SiblingPath<number>>;
+  getL2ToL1MessageSiblingPath(blockNumber: BlockNumber, l2ToL1Message: Fr): Promise<SiblingPath<number>>;
 
   /**
    * Returns a sibling path for a leaf in the committed historic blocks tree.

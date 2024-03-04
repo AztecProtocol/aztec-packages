@@ -46,6 +46,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
+import { SHA256, StandardTree } from '@aztec/merkle-tree';
 import { AztecKVTxPool, P2P, createP2PClient } from '@aztec/p2p';
 import {
   GlobalVariableBuilder,
@@ -63,7 +64,6 @@ import {
 } from '@aztec/world-state';
 
 import { AztecNodeConfig } from './config.js';
-import { SHA256, StandardTree } from '@aztec/merkle-tree';
 
 /**
  * The aztec node.
@@ -442,7 +442,9 @@ export class AztecNodeService implements AztecNode {
       throw new Error('L2 to L1 Messages are not padded');
     }
 
-    const indexOfL2ToL1Message = l2ToL1Messages.findIndex(l2ToL1MessageInBlock => l2ToL1MessageInBlock.equals(l2ToL1Message));
+    const indexOfL2ToL1Message = l2ToL1Messages.findIndex(l2ToL1MessageInBlock =>
+      l2ToL1MessageInBlock.equals(l2ToL1Message),
+    );
 
     if (indexOfL2ToL1Message === -1) {
       throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
