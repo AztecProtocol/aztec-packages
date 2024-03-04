@@ -436,9 +436,7 @@ export class AztecNodeService implements AztecNode {
       throw new Error('Block is not defined');
     }
 
-    // Note: This is how I would calculate it (with assumed tx/block val), but would rather have a hardcoded value in a const file
-    const transactionsPerBlock = 16;
-    const treeHeight = Math.ceil(Math.log2(L2_TO_L1_MESSAGE_LENGTH * transactionsPerBlock));
+    const treeHeight = Math.ceil(Math.log2(L2_TO_L1_MESSAGE_LENGTH * block.body.txEffects.length));
 
     const tree = new StandardTree(AztecLmdbStore.open(), new Pedersen(), 'temp_outhash_sibling_path', treeHeight);
     await tree.appendLeaves(block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs.map(l2ToL1Msg => l2ToL1Msg.toBuffer())));
