@@ -21,7 +21,7 @@ RUN apk update && apk add --no-cache \
   ca-certificates \
   ttf-freefont
 
-ENV CHROME_BIN="/usr/bin/chromium-browser" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true"
+ENV CHROME_BIN="/usr/bin/chromium-browser" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true" NOIR_RELEASE_DIR="noir-repo/target/release"
 COPY --from=builder /usr/src /usr/src
 
 WORKDIR /usr/src/yarn-project/end-to-end

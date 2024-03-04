@@ -8,7 +8,7 @@ FROM aztecprotocol/boxes-files as boxes-files
 FROM aztecprotocol/yarn-project-base
 COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
-COPY --from=noir /usr/src/noir/target /usr/src/noir/target
+COPY --from=noir /usr/src/noir/noir-repo/target /usr/src/noir/noir-repo/target
 COPY --from=boxes-files /usr/src/boxes /usr/src/boxes
 COPY . .
 RUN ./bootstrap.sh
