@@ -4,13 +4,16 @@ import {
   ExtendedNote,
   Fr,
   FunctionSelector,
+  GrumpkinScalar,
   Note,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxHash,
   computeMessageSecretHash,
+  generatePublicKey,
 } from '@aztec/aztec.js';
 import { ContractArtifact, decodeFunctionSignature } from '@aztec/foundation/abi';
+import { BufferReader } from '@aztec/foundation/serialize';
 import {
   TokenContract as BananaCoin,
   FPCContract,
@@ -56,6 +59,7 @@ describe('e2e_fees', () => {
     e2eContext = await setup(3);
 
     const { accounts, logger, aztecNode, pxe, deployL1ContractsValues, wallets } = e2eContext;
+    await publicDeployAccounts(wallets[0], accounts);
 
     logFunctionSignatures(BananaCoin.artifact, logger);
     logFunctionSignatures(FPCContract.artifact, logger);
@@ -86,9 +90,17 @@ describe('e2e_fees', () => {
 
     logger(`BananaCoin deployed at ${bananaCoin.address}`);
 
-    bananaFPC = await FPCContract.deploy(wallets[0], bananaCoin.address, gasTokenContract.address).send().deployed();
+    const fpcPrivateKey = GrumpkinScalar.random();
+    bananaFPC = await FPCContract.deployWithPublicKey(
+      generatePublicKey(fpcPrivateKey),
+      wallets[0],
+      bananaCoin.address,
+      gasTokenContract.address,
+    )
+      .send()
+      .deployed();
+    await e2eContext.pxe.registerAccount(fpcPrivateKey, bananaFPC.partialAddress);
     logger(`bananaPay deployed at ${bananaFPC.address}`);
-    await publicDeployAccounts(wallets[0], accounts);
 
     await gasBridgeTestHarness.bridgeFromL1ToL2(BRIDGED_FPC_GAS, BRIDGED_FPC_GAS, bananaFPC.address);
 
@@ -244,7 +256,7 @@ describe('e2e_fees', () => {
      *   increase alice BC.public by RefundAmount
      *
      */
-    await bananaCoin.methods
+    const tx = await bananaCoin.methods
       .mint_public(aliceAddress, AppLogicMintedBananasAmount)
       .send({
         fee: {
@@ -254,19 +266,17 @@ describe('e2e_fees', () => {
       })
       .wait();
 
+    await completePartialTokenNotes([RefundAmount, FeeAmount], tx.txHash);
+
     await expectMapping(
       bananaPrivateBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePrivateBananas + PrivateMintedBananasAmount - MaxFee, initialFPCPrivateBananas, 0n],
+      [initialAlicePrivateBananas + PrivateMintedBananasAmount - FeeAmount, initialFPCPrivateBananas + FeeAmount, 0n],
     );
     await expectMapping(
       bananaPublicBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [
-        initialAlicePublicBananas + AppLogicMintedBananasAmount + RefundAmount,
-        initialFPCPublicBananas + MaxFee - RefundAmount,
-        0n,
-      ],
+      [initialAlicePublicBananas + AppLogicMintedBananasAmount, initialFPCPublicBananas, 0n],
     );
     await expectMapping(
       gasBalances,
@@ -310,5 +320,33 @@ describe('e2e_fees', () => {
       txHash,
     );
     await e2eContext.wallets[accountIndex].addNote(extendedNote);
+  };
+
+  const completePartialTokenNotes = async (expectedAmounts: (bigint | number)[], completionTxHash: TxHash) => {
+    // TODO use a dedicated event selector for these completion events once implemented
+    const logs = await e2eContext.pxe.getUnencryptedLogs({ txHash: completionTxHash });
+    // logs[0] contains the partial note hashes created in private
+    const completedEvent0 = BufferReader.asReader(logs.logs[1].log.data).readArray(2, Fr);
+    const completedEvent1 = BufferReader.asReader(logs.logs[2].log.data).readArray(2, Fr);
+
+    // constant value taken from the Noir contract
+    const tokenNoteId = new Fr(8411110710111078111116101n);
+
+    expect(completedEvent0).toEqual([tokenNoteId, new Fr(expectedAmounts[0])]);
+    expect(completedEvent1).toEqual([tokenNoteId, new Fr(expectedAmounts[1])]);
+
+    await e2eContext.pxe.completePartialNote(
+      bananaCoin.address,
+      tokenNoteId,
+      [[0, new Fr(expectedAmounts[0])]],
+      completionTxHash,
+    );
+
+    await e2eContext.pxe.completePartialNote(
+      bananaCoin.address,
+      tokenNoteId,
+      [[0, new Fr(expectedAmounts[1])]],
+      completionTxHash,
+    );
   };
 });

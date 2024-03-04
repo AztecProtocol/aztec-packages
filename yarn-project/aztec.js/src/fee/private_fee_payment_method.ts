@@ -54,7 +54,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     const messageHash = computeAuthWitMessageHash(this.paymentContract, {
       args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
       functionData: new FunctionData(
-        FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)'),
+        FunctionSelector.fromSignature('split_into_partial_notes_pair((Field),(Field),Field,Field)'),
         false,
         true,
         false,

@@ -372,7 +372,7 @@ contract Token {
     // docs:end:balance_of_public
 
     #[aztec(private)]
-    fn split_to_partial_notes(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) -> [Field; 2] {
+    fn split_into_partial_notes_pair(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) -> [Field; 2] {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
@@ -393,7 +393,7 @@ contract Token {
 
         context.call_public_function(
             context.this_address(),
-            FunctionSelector::from_signature("auth_partial_notes((Field))"),
+            FunctionSelector::from_signature("auth_partial_notes_pair((Field))"),
             [hash.to_field()]
         );
 
@@ -405,12 +405,12 @@ contract Token {
 
     #[aztec(public)]
     #[aztec(internal)]
-    fn auth_partial_notes(hash: PartialNotesHash) {
+    fn auth_partial_notes_pair(hash: PartialNotesHash) {
         storage.partial_notes.at(hash).write(true);
     }
 
     #[aztec(public)]
-    fn complete_partial_notes(partial_note_hashes: [Field; 2], amounts: [Field; 2]) {
+    fn complete_partial_notes_pair(partial_note_hashes: [Field; 2], amounts: [Field; 2]) {
         let hash = compute_partial_notes_pair_hash(
             partial_note_hashes[0],
             partial_note_hashes[1],

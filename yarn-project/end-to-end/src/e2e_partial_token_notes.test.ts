@@ -41,7 +41,7 @@ describe('e2e_partial_token_notes', () => {
     await expect(tokenContract.methods.balance_of_private(ctx.wallets[0].getAddress()).view()).resolves.toEqual(0n);
 
     const completeNotesTx = await tokenContract.methods
-      .complete_partial_notes(partialNoteHashes, [400, 600])
+      .complete_partial_notes_pair(partialNoteHashes, [400, 600])
       .send()
       .wait();
 
@@ -71,9 +71,9 @@ describe('e2e_partial_token_notes', () => {
 
   it('partial notes are completable only once', async () => {
     const partialNoteHashes = await createPartialNotes(10n);
-    await tokenContract.methods.complete_partial_notes(partialNoteHashes, [5n, 5n]).send().wait();
+    await tokenContract.methods.complete_partial_notes_pair(partialNoteHashes, [5n, 5n]).send().wait();
     await expect(
-      tokenContract.methods.complete_partial_notes(partialNoteHashes, [5n, 5n]).send().wait(),
+      tokenContract.methods.complete_partial_notes_pair(partialNoteHashes, [5n, 5n]).send().wait(),
     ).rejects.toThrow(/was dropped/);
   });
 
@@ -81,7 +81,7 @@ describe('e2e_partial_token_notes', () => {
     const partialNoteHashes = await createPartialNotes(10n);
 
     await expect(
-      tokenContract.methods.complete_partial_notes(partialNoteHashes, [5n, 6n]).send().wait(),
+      tokenContract.methods.complete_partial_notes_pair(partialNoteHashes, [5n, 6n]).send().wait(),
     ).rejects.toThrow(/Partial notes not authorized/);
   });
 
@@ -91,7 +91,7 @@ describe('e2e_partial_token_notes', () => {
     await expect(
       tokenContract
         .withWallet(ctx.wallets[1])
-        .methods.complete_partial_notes(partialNoteHashes, [5n, 5n])
+        .methods.complete_partial_notes_pair(partialNoteHashes, [5n, 5n])
         .send()
         .wait(),
     ).rejects.toThrow(/Partial notes not authorized/);
@@ -99,7 +99,7 @@ describe('e2e_partial_token_notes', () => {
 
   const createPartialNotes = async (totalAmount: bigint | number) => {
     const { txHash } = await tokenContract.methods
-      .split_to_partial_notes(ctx.wallets[0].getAddress(), ctx.wallets[1].getAddress(), totalAmount, 0)
+      .split_into_partial_notes_pair(ctx.wallets[0].getAddress(), ctx.wallets[1].getAddress(), totalAmount, 0)
       .send()
       .wait();
 
