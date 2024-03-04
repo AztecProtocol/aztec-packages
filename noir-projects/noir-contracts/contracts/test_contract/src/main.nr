@@ -1,9 +1,12 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract Test {
-    use dep::std::option::Option;
+    use dep::aztec::prelude::{
+        AztecAddress, EthAddress, NoteHeader, NoteGetterOptions, NoteViewerOptions, PrivateContext,
+        PrivateImmutable, PrivateSet
+    };
+
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        address::{AztecAddress, EthAddress},
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTES_PER_PAGE}, hash::hash_args
     };
     // docs:start:unencrypted_import
@@ -11,17 +14,15 @@ contract Test {
     // docs:end:unencrypted_import
 
     use dep::aztec::{
-        context::{Context, inputs::private_context_inputs::PrivateContextInputs}, 
+        context::{Context, inputs::private_context_inputs::PrivateContextInputs},
         hash::{pedersen_hash, compute_secret_hash},
-        context::PrivateContext,
         note::{
-        note_header::NoteHeader, utils as note_utils, lifecycle::{create_note, destroy_note},
-        note_getter::{get_notes, view_notes}, note_getter_options::{NoteGetterOptions, NoteStatus},
-        note_viewer_options::NoteViewerOptions
+        utils as note_utils, lifecycle::{create_note, destroy_note},
+        note_getter::{get_notes, view_notes}, note_getter_options::NoteStatus
     },
         deploy::{deploy_contract as aztec_deploy_contract},
         oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, rand::rand},
-        state_vars::{PrivateImmutable, PrivateSet}, log::emit_unencrypted_log_from_private
+        log::emit_unencrypted_log_from_private
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::FieldNote;

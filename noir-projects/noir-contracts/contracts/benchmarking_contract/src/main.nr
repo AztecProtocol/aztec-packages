@@ -5,6 +5,7 @@
 // arise from code changes.
 
 contract Benchmarking {
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector};
     use dep::value_note::{utils::{increment, decrement}, value_note::ValueNote};
 
     use dep::aztec::{

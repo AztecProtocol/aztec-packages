@@ -9,7 +9,7 @@ contract StatefulTest {
         state_vars::{Map, PublicMutable, PrivateSet},
         oracle::get_contract_instance::get_contract_instance,
         initializer::{mark_as_initialized, assert_is_initialized},
-        protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector},
+        protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector}
     };
 
     struct Storage {
@@ -64,7 +64,6 @@ contract StatefulTest {
         let recipient_notes = storage.notes.at(recipient);
         increment(recipient_notes, amount, recipient);
     }
-
 
     #[aztec(public)]
     fn increment_public_value(owner: AztecAddress, value: Field) {

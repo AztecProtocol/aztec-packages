@@ -4,14 +4,9 @@
 // be read/nullified before their creation etc.
 contract PendingNoteHashes {
     // Libs
-    use dep::std::option::Option;
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map, PrivateSet};
     use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
-    use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context}, log::emit_encrypted_log,
-        note::{note_getter::NoteGetterOptions, note_header::NoteHeader, utils as note_utils},
-        state_vars::{Map, PrivateSet}
-    };
-    use dep::aztec::protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector};
+    use dep::aztec::{context::{PublicContext, Context}, log::emit_encrypted_log, note::utils as note_utils};
 
     struct Storage {
         balances: Map<AztecAddress, PrivateSet<ValueNote>>,
