@@ -114,7 +114,7 @@ jobs:
 
   noir-ecr-manifest:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: medium
     steps:
       - *checkout
@@ -259,7 +259,7 @@ jobs:
 
   barretenberg-docs:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -313,7 +313,7 @@ jobs:
     machine:
       # NOTE: we usually use alpine build image when making spot images, but
       # we are not able to upload to S3 with it
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: medium
     steps:
       - *checkout
@@ -377,7 +377,7 @@ jobs:
 
   bb-js:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -413,7 +413,7 @@ jobs:
 
   l1-contracts:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -425,7 +425,7 @@ jobs:
 
   noir-projects:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -437,7 +437,7 @@ jobs:
 
   boxes-files:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: medium
     steps:
       - *checkout
@@ -449,7 +449,7 @@ jobs:
 
   yarn-project-base:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -461,7 +461,7 @@ jobs:
 
   yarn-project:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -473,7 +473,7 @@ jobs:
 
   yarn-project-prod:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -509,7 +509,7 @@ jobs:
 
   aztec-package:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -521,7 +521,7 @@ jobs:
 
   cli:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -533,7 +533,7 @@ jobs:
 
   mainnet-fork:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -545,7 +545,7 @@ jobs:
 
   aztec-faucet:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -593,7 +593,7 @@ jobs:
 
   end-to-end:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -893,7 +893,7 @@ jobs:
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_inclusion_proofs_contract.test.ts
           aztec_manifest_key: end-to-end
 
-  e2e-pending-commitments-contract:
+  e2e-pending-note-hashes-contract:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -902,7 +902,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_pending_commitments_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_pending_note_hashes_contract.test.ts
           aztec_manifest_key: end-to-end
 
   e2e-ordering:
@@ -1135,7 +1135,7 @@ jobs:
 
   build-docs:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -1144,28 +1144,19 @@ jobs:
           name: "Copy docs dockerignore"
           command: cp docs/.dockerignore .
       - run:
-          name: "Require released code"
-          command: |
-            LAST_TAG="aztec-packages-v$(jq -r '.["."]' .release-please-manifest.json)"
-            if git ls-remote --tags origin | grep "$LAST_TAG" > /dev/null; then
-              echo "Using code released from $LAST_TAG"
-              echo "INCLUDE_RELEASED_CODE=1" >> docs/.env
-              git fetch origin --refetch --no-filter refs/tags/$LAST_TAG:refs/tags/$LAST_TAG
-            else
-              echo "Skipping as $LAST_TAG is not yet published"
-            fi
-      - run:
           name: "Build docs"
           command: |
             echo "Building docs"
             build docs
-
+      - run:
+          name: "Deploy docs"
+          command: |
             echo "Deploying docs"
             docs/deploy_netlify.sh $BRANCH $PULL_REQUEST
 
   yellow-paper:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -1195,7 +1186,7 @@ jobs:
 
   bench-summary:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     steps:
       - *checkout
       - *setup_env
@@ -1206,7 +1197,7 @@ jobs:
   # Deploy & release jobs.
   deploy-and-release:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: medium
     steps:
       - *checkout
@@ -1493,7 +1484,7 @@ workflows:
       - e2e-account-contracts: *e2e_test
       - e2e-escrow-contract: *e2e_test
       - e2e-inclusion-proofs-contract: *e2e_test
-      - e2e-pending-commitments-contract: *e2e_test
+      - e2e-pending-note-hashes-contract: *e2e_test
       - e2e-ordering: *e2e_test
       - e2e-counter: *e2e_test
       - e2e-private-voting: *e2e_test
@@ -1539,7 +1530,7 @@ workflows:
             - e2e-account-contracts
             - e2e-escrow-contract
             - e2e-inclusion-proofs-contract
-            - e2e-pending-commitments-contract
+            - e2e-pending-note-hashes-contract
             - e2e-ordering
             - e2e-counter
             - e2e-private-voting

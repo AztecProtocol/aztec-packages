@@ -30,7 +30,7 @@ global MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL: u64 = 4;
 global MAX_NEW_L2_TO_L1_MSGS_PER_CALL: u64 = 2;
 global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: u64 = 16;
 global MAX_PUBLIC_DATA_READS_PER_CALL: u64 = 16;
-global MAX_READ_REQUESTS_PER_CALL: u64 = 32;
+global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u64 = 32;
 global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u64 = 2; // Change it to a larger value when there's a seperate reset circuit.
 global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL: u64 = 1;
 
@@ -59,7 +59,7 @@ global MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX: u64 = 16;
 
 global MAX_NEW_L2_TO_L1_MSGS_PER_TX: u64 = 2;
 global MAX_NEW_CONTRACTS_PER_TX: u64 = 1;
-global MAX_READ_REQUESTS_PER_TX: u64 = 128;
+global MAX_NOTE_HASH_READ_REQUESTS_PER_TX: u64 = 128;
 global MAX_NULLIFIER_READ_REQUESTS_PER_TX: u64 = 8; // Change it to a larger value when there's a seperate reset circuit.
 global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX: u64 = 4;
 global NUM_ENCRYPTED_LOGS_HASHES_PER_TX: u64 = 1;
@@ -104,6 +104,9 @@ global ARGS_HASH_CHUNK_COUNT: u64 = 32;
 // The initialization slot is computed by adding the constant bellow to the variable's storage slot. This constant has
 // to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
 global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
+global INITIAL_L2_BLOCK_NUM: Field = 1;
+// 126976 = 31 * 4096;
+global BLOB_SIZE_IN_BYTES: Field = 126976;
 
 // CONTRACT CLASS CONSTANTS
 global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u64 = 8000;
@@ -130,7 +133,7 @@ global DEPLOYER_CONTRACT_ADDRESS = 0x0747a20ed0c86035e44ea5606f30de459f40b55c5e8
 // Some are defined here because Noir doesn't yet support globals referencing other globals yet.
 // Move these constants to a noir file once the issue below is resolved:
 // https://github.com/noir-lang/noir/issues/1734
-global L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH: u64 = 25;
+global L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH: u64 = 17;
 global MAX_NOTE_FIELDS_LENGTH: u64 = 20;
 // GET_NOTE_ORACLE_RETURN_LENGT = MAX_NOTE_FIELDS_LENGTH + 1 + 2
 // The plus 1 is 1 extra field for nonce.

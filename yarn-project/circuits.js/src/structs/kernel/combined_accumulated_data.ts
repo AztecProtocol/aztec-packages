@@ -14,13 +14,13 @@ import {
   MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_READ_REQUESTS_PER_TX,
   MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
   MAX_REVERTIBLE_NULLIFIERS_PER_TX,
   MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
@@ -86,6 +86,10 @@ export class PublicDataRead {
   toFriendlyJSON() {
     return `Leaf=${this.leafSlot.toFriendlyJSON()}: ${this.value.toFriendlyJSON()}`;
   }
+
+  equals(other: PublicDataRead) {
+    return this.leafSlot.equals(other.leafSlot) && this.value.equals(other.value);
+  }
 }
 
 /**
@@ -128,6 +132,10 @@ export class PublicDataUpdateRequest {
     return this.leafSlot.isZero() && this.newValue.isZero();
   }
 
+  static isEmpty(x: PublicDataUpdateRequest) {
+    return x.isEmpty();
+  }
+
   equals(other: PublicDataUpdateRequest) {
     return this.leafSlot.equals(other.leafSlot) && this.newValue.equals(other.newValue);
   }
@@ -154,7 +162,7 @@ export class CombinedAccumulatedData {
     /**
      * All the read requests made in this transaction.
      */
-    public readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
+    public noteHashReadRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     /**
      * All the nullifier read requests made in this transaction.
      */
@@ -220,7 +228,7 @@ export class CombinedAccumulatedData {
 
   toBuffer() {
     return serializeToBuffer(
-      this.readRequests,
+      this.noteHashReadRequests,
       this.nullifierReadRequests,
       this.nullifierKeyValidationRequests,
       this.newNoteHashes,
@@ -250,7 +258,7 @@ export class CombinedAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
-      reader.readArray(MAX_READ_REQUESTS_PER_TX, SideEffect),
+      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect),
@@ -279,7 +287,7 @@ export class CombinedAccumulatedData {
 
   static empty() {
     return new CombinedAccumulatedData(
-      makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
       makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect.empty),
@@ -325,8 +333,22 @@ export class CombinedAccumulatedData {
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
 
+    const nonSquashedWrites = [
+      ...revertible.publicDataUpdateRequests,
+      ...nonRevertible.publicDataUpdateRequests,
+    ].filter(x => !x.isEmpty());
+
+    const squashedWrites = Array.from(
+      nonSquashedWrites
+        .reduce<Map<string, PublicDataUpdateRequest>>((acc, curr) => {
+          acc.set(curr.leafSlot.toString(), curr);
+          return acc;
+        }, new Map())
+        .values(),
+    );
+
     const publicDataUpdateRequests = padArrayEnd(
-      [...nonRevertible.publicDataUpdateRequests, ...revertible.publicDataUpdateRequests].filter(x => !x.isEmpty()),
+      squashedWrites,
       PublicDataUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
@@ -338,7 +360,7 @@ export class CombinedAccumulatedData {
     );
 
     return new CombinedAccumulatedData(
-      revertible.readRequests,
+      revertible.noteHashReadRequests,
       revertible.nullifierReadRequests,
       revertible.nullifierKeyValidationRequests,
       newNoteHashes,
@@ -362,7 +384,7 @@ export class PublicAccumulatedRevertibleData {
     /**
      * All the read requests made in this transaction.
      */
-    public readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
+    public noteHashReadRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     /**
      * All the read requests for nullifiers made in this transaction.
      */
@@ -431,7 +453,7 @@ export class PublicAccumulatedRevertibleData {
 
   toBuffer() {
     return serializeToBuffer(
-      this.readRequests,
+      this.noteHashReadRequests,
       this.nullifierKeyValidationRequests,
       this.newNoteHashes,
       this.newNullifiers,
@@ -460,7 +482,7 @@ export class PublicAccumulatedRevertibleData {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(
-      reader.readArray(MAX_READ_REQUESTS_PER_TX, SideEffect),
+      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext),
       reader.readArray(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect),
@@ -480,7 +502,7 @@ export class PublicAccumulatedRevertibleData {
 
   static fromPrivateAccumulatedRevertibleData(finalData: PrivateAccumulatedRevertibleData) {
     return new this(
-      makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
       makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
       padArrayEnd(finalData.newNoteHashes, SideEffect.empty(), MAX_REVERTIBLE_NOTE_HASHES_PER_TX),
@@ -509,7 +531,7 @@ export class PublicAccumulatedRevertibleData {
 
   static empty() {
     return new this(
-      makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
       makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
       makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),

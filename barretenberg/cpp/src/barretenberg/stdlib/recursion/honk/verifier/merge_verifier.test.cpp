@@ -2,7 +2,6 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/merge_recursive_verifier.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 namespace bb::stdlib::recursion::goblin {
 
@@ -20,10 +19,9 @@ class RecursiveMergeVerifierTest : public testing::Test {
     using RecursiveMergeVerifier = MergeRecursiveVerifier_<RecursiveBuilder>;
 
     // Define types relevant for inner circuit
-    using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
     using InnerFlavor = GoblinUltraFlavor;
-    using InnerComposer = GoblinUltraComposer;
-    using InnerBuilder = typename InnerComposer::CircuitBuilder;
+    using InnerProverInstance = ProverInstance_<InnerFlavor>;
+    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
 
     // Define additional types for testing purposes
     using Commitment = InnerFlavor::Commitment;
@@ -49,7 +47,6 @@ class RecursiveMergeVerifierTest : public testing::Test {
         GoblinMockCircuits::construct_simple_initial_circuit(sample_circuit);
 
         // Generate a proof over the inner circuit
-        InnerComposer inner_composer;
         MergeProver merge_prover{ op_queue };
         auto merge_proof = merge_prover.construct_proof();
 
@@ -65,7 +62,7 @@ class RecursiveMergeVerifierTest : public testing::Test {
         // verifier and check that the result agrees.
         MergeVerifier native_verifier;
         bool verified_native = native_verifier.verify_proof(merge_proof);
-        VerifierCommitmentKey pcs_verification_key(0, srs::get_bn254_crs_factory());
+        VerifierCommitmentKey pcs_verification_key;
         auto verified_recursive =
             pcs_verification_key.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value());
         EXPECT_EQ(verified_native, verified_recursive);
@@ -81,10 +78,10 @@ class RecursiveMergeVerifierTest : public testing::Test {
 
         // Check 3: Construct and verify a (goblin) ultra honk proof of the Merge recursive verifier circuit
         {
-            GoblinUltraComposer composer;
-            auto instance = composer.create_prover_instance(outer_circuit);
-            auto prover = composer.create_prover(instance);
-            auto verifier = composer.create_verifier(instance->verification_key);
+            auto instance = std::make_shared<InnerProverInstance>(outer_circuit);
+            GoblinUltraProver prover(instance);
+            auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(instance->proving_key);
+            GoblinUltraVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 

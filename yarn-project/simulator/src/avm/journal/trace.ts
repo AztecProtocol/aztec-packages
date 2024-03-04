@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { TracedNullifierCheck } from './trace_types.js';
+import { TracedL1toL2MessageCheck, TracedNoteHashCheck, TracedNullifierCheck } from './trace_types.js';
 
 export class WorldStateAccessTrace {
   public accessCounter: number;
@@ -11,13 +11,13 @@ export class WorldStateAccessTrace {
   //public publicStorageWrites: Array<TracedPublicStorageWrite> = [];
   public publicStorageWrites: Map<bigint, Map<bigint, Fr[]>> = new Map();
 
-  //public noteHashChecks: TracedNoteHashCheck[] = [];
+  public noteHashChecks: TracedNoteHashCheck[] = [];
   //public newNoteHashes: TracedNoteHash[] = [];
   public newNoteHashes: Fr[] = [];
   public nullifierChecks: TracedNullifierCheck[] = [];
   //public newNullifiers: TracedNullifier[] = [];
   public newNullifiers: Fr[] = [];
-  //public l1toL2MessageReads: TracedL1toL2MessageRead[] = [];
+  public l1ToL2MessageChecks: TracedL1toL2MessageCheck[] = [];
   //public archiveChecks: TracedArchiveLeafCheck[] = [];
 
   constructor(parentTrace?: WorldStateAccessTrace) {
@@ -58,6 +58,20 @@ export class WorldStateAccessTrace {
     //};
     //this.publicStorageWrites.push(traced);
     this.journalWrite(storageAddress, slot, value);
+    this.incrementAccessCounter();
+  }
+
+  public traceNoteHashCheck(storageAddress: Fr, noteHash: Fr, exists: boolean, leafIndex: Fr) {
+    const traced: TracedNoteHashCheck = {
+      callPointer: Fr.ZERO, // FIXME
+      storageAddress,
+      noteHash,
+      exists,
+      counter: new Fr(this.accessCounter),
+      endLifetime: Fr.ZERO,
+      leafIndex,
+    };
+    this.noteHashChecks.push(traced);
     this.incrementAccessCounter();
   }
 
@@ -105,6 +119,19 @@ export class WorldStateAccessTrace {
     this.incrementAccessCounter();
   }
 
+  public traceL1ToL2MessageCheck(msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
+    // TODO(4805): check if some threshold is reached for max message reads
+    const traced: TracedL1toL2MessageCheck = {
+      //callPointer: Fr.ZERO, // FIXME
+      leafIndex: msgLeafIndex,
+      msgHash: msgHash,
+      exists: exists,
+      //endLifetime: Fr.ZERO, // FIXME
+    };
+    this.l1ToL2MessageChecks.push(traced);
+    this.incrementAccessCounter();
+  }
+
   private incrementAccessCounter() {
     this.accessCounter++;
   }
@@ -122,9 +149,11 @@ export class WorldStateAccessTrace {
     mergeContractJournalMaps(this.publicStorageReads, incomingTrace.publicStorageReads);
     mergeContractJournalMaps(this.publicStorageWrites, incomingTrace.publicStorageWrites);
     // Merge new note hashes and nullifiers
+    this.noteHashChecks = this.noteHashChecks.concat(incomingTrace.noteHashChecks);
     this.newNoteHashes = this.newNoteHashes.concat(incomingTrace.newNoteHashes);
     this.nullifierChecks = this.nullifierChecks.concat(incomingTrace.nullifierChecks);
     this.newNullifiers = this.newNullifiers.concat(incomingTrace.newNullifiers);
+    this.l1ToL2MessageChecks = this.l1ToL2MessageChecks.concat(incomingTrace.l1ToL2MessageChecks);
     // it is assumed that the incoming trace was initialized with this as parent, so accept counter
     this.accessCounter = incomingTrace.accessCounter;
   }

@@ -1,7 +1,6 @@
 use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
-    key::nullifier_key::validate_nullifier_key_against_address,
-    messaging::process_l1_to_l2_message,
+    key::nullifier_key::validate_nullifier_key_against_address, messaging::process_l1_to_l2_message,
     oracle::{
     arguments, call_private_function::call_private_function_internal,
     enqueue_public_function_call::enqueue_public_function_call_internal, context::get_portal_address,
@@ -11,21 +10,20 @@ use crate::{
 };
 use dep::protocol_types::{
     abis::{
-        call_context::CallContext, function_data::FunctionData, function_selector::FunctionSelector,
-        nullifier_key_validation_request::NullifierKeyValidationRequest,
-        private_call_stack_item::PrivateCallStackItem,
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        public_call_stack_item::PublicCallStackItem,
-        public_circuit_public_inputs::PublicCircuitPublicInputs,
-        read_request::ReadRequest,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
-    },
+    call_context::CallContext, function_data::FunctionData, function_selector::FunctionSelector,
+    nullifier_key_validation_request::NullifierKeyValidationRequest,
+    private_call_stack_item::PrivateCallStackItem,
+    private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    public_call_stack_item::PublicCallStackItem,
+    public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+},
     address::{AztecAddress, EthAddress},
     constants::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-    MAX_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
+    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256, RETURN_VALUES_LENGTH
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
@@ -48,7 +46,7 @@ struct PrivateContext {
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
+    note_hash_read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
@@ -95,6 +93,12 @@ impl ContextInterface for PrivateContext {
         self.inputs.call_context.function_selector
     }
 
+    // Returns the header of a block whose state is used during private execution (not the block the transaction is
+    // included in).
+    pub fn get_header(self) -> Header {
+        self.historical_header
+    }
+
     fn push_new_note_hash(&mut self, note_hash: Field) {
         let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
         self.new_note_hashes.push(side_effect);
@@ -121,7 +125,7 @@ impl PrivateContext {
             min_revertible_side_effect_counter,
             args_hash,
             return_values: BoundedVec::new(),
-            read_requests: BoundedVec::new(),
+            note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_key_validation_requests: BoundedVec::new(),
             new_note_hashes: BoundedVec::new(),
@@ -140,12 +144,6 @@ impl PrivateContext {
     pub fn is_deployment(self) -> bool {
         // TODO(#4738): Implement this
         false
-    }
-
-    // Returns the header of a block whose state is used during private execution (not the block the transaction is
-    // included in).
-    pub fn get_header(self) -> Header {
-        self.historical_header
     }
 
     // Returns the header of an arbitrary block whose block number is less than or equal to the block number
@@ -171,7 +169,7 @@ impl PrivateContext {
             // I've had to initialize the counter here so that it would work for contract deployments
             // the above checks should be doable after we figure out fee payments for contract deployments
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
-            read_requests: self.read_requests.storage,
+            note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
             new_note_hashes: self.new_note_hashes.storage,
@@ -196,9 +194,9 @@ impl PrivateContext {
         self.min_revertible_side_effect_counter = self.side_effect_counter;
     }
 
-    pub fn push_read_request(&mut self, read_request: Field) {
-        let side_effect = SideEffect { value: read_request, counter: self.side_effect_counter };
-        self.read_requests.push(side_effect);
+    pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
+        let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
+        self.note_hash_read_requests.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 
@@ -237,7 +235,7 @@ impl PrivateContext {
 
     // docs:start:context_consume_l1_to_l2_message
     // docs:start:consume_l1_to_l2_message
-    pub fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field, sender: EthAddress) {
+    pub fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress) {
         // docs:end:context_consume_l1_to_l2_message
         let nullifier = process_l1_to_l2_message(
             self.historical_header.state.l1_to_l2_message_tree.root,
@@ -245,7 +243,6 @@ impl PrivateContext {
             sender,
             self.chain_id(),
             self.version(),
-            msg_key,
             content,
             secret
         );
