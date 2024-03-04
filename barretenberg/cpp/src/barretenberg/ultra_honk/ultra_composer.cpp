@@ -3,6 +3,7 @@
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 
 namespace bb {
 
@@ -133,5 +134,6 @@ DeciderVerifier_<Flavor> UltraComposer_<Flavor>::create_decider_verifier(const s
 }
 
 template class UltraComposer_<UltraFlavor>;
+template class UltraComposer_<UltraKeccakFlavor>;
 template class UltraComposer_<GoblinUltraFlavor>;
 } // namespace bb

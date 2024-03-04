@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/crypto/keccak/keccak.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -408,4 +409,64 @@ static bb::StdlibProof<Builder> convert_proof_to_witness(Builder* builder, const
 
 using NativeTranscript = BaseTranscript<NativeTranscriptParams>;
 
+///////////////////////////////////////////
+// Solidity Transcript
+///////////////////////////////////////////
+
+// TODO: Keccak hasher
+// -> This is a simple wrapper around the keccak256 function from ethash
+inline bb::fr keccak_hash_uint256(std::vector<bb::fr> const& data)
+// Losing 2 bits of this is not an issue -> we can just reduce mod p
+{
+    // cast into uint256_t
+    std::vector<uint8_t> buffer = to_buffer(data);
+
+    keccak256 hash_result = ethash_keccak256(&buffer[0], buffer.size());
+    for (auto& word : hash_result.word64s) {
+        if (is_little_endian()) {
+            word = __builtin_bswap64(word);
+        }
+    }
+    std::array<uint8_t, 32> result;
+
+    for (size_t i = 0; i < 4; ++i) {
+        for (size_t j = 0; j < 8; ++j) {
+            uint8_t byte = static_cast<uint8_t>(hash_result.word64s[i] >> (56 - (j * 8)));
+            result[i * 8 + j] = byte;
+        }
+    }
+
+    auto result_fr = from_buffer<bb::fr>(result);
+
+    return result_fr;
+}
+
+// TODO(md): We want to use the keccak transcript for solidity - types may change here!
+struct SolidityTranscriptParams {
+    // Note fr here is actually a uint256_t
+    using Fr = bb::fr;
+    using Proof = HonkProof;
+
+    static inline Fr hash(const std::vector<Fr>& data) { return keccak_hash_uint256(data); }
+
+    template <typename T> static inline T convert_challenge(const Fr& challenge)
+    {
+        return bb::field_conversion::convert_challenge<T>(challenge);
+    }
+    template <typename T> static constexpr size_t calc_num_bn254_frs()
+    {
+        return bb::field_conversion::calc_num_bn254_frs<T>();
+    }
+    template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
+    {
+        return bb::field_conversion::convert_from_bn254_frs<T>(frs);
+    }
+    template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
+    {
+        return bb::field_conversion::convert_to_bn254_frs(element);
+    }
+};
+
 } // namespace bb
+
+using SolidityTranscript = BaseTranscript<SolidityTranscriptParams>;

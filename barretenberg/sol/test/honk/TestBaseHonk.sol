@@ -5,13 +5,14 @@ import {TestBase} from "../base/TestBase.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";
 import {IVerifier} from "../../src/interfaces/IVerifier.sol";
 
-contract TestBaseUltra is TestBase {
+
+contract TestBaseHonk is TestBase {
     IVerifier public verifier;
     DifferentialFuzzer public fuzzer;
     uint256 public PUBLIC_INPUT_COUNT;
 
     function setUp() public virtual {
-        fuzzer = new DifferentialFuzzer().with_plonk_flavour(DifferentialFuzzer.PlonkFlavour.Ultra);
+        fuzzer = new DifferentialFuzzer().with_plonk_flavour(DifferentialFuzzer.PlonkFlavour.Honk);
     }
 
     function testValidProof() public {

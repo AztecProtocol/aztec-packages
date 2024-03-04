@@ -1,5 +1,10 @@
 
+import { HonkTypes } from "./HonkVerifierTypes.sol";
 
+// TODO: this should be somewhat dynamic across the board
+import { Add2HonkVerificationKey } from "./keys/Add2HonkVerificationKey.sol";
+
+import "forge-std/console.sol";
 
 /// Smart contract verifier of honk proofs
 contract HonkVerifier {
@@ -23,76 +28,15 @@ contract HonkVerifier {
     /// Log of the circuit size - precomputed
     uint256 constant LOG_N = 4;
 
-    struct Proof {
-        // Free wires
-        uint256 w1;
-        uint256 w2;
-        uint256 w3;
-        uint256 w4;
-
-        // Lookup helpers - classic plookup
-        uint256 sortedAccum;
-        uint256 zPerm;
-        uint256 zLookup;
-
-        // Sumcheck
-        // TODO: [uinvariate[batched_relation_partial_length]] - not sure how to represent a univariate
-        uint256[LOG_N][BATCHED_RELATION_PARTIAL_LENGTH] sumcheckUnivariates;
-        uint256[NUMBER_OF_ENTITIES] sumcheckEvaluations;
-
-        // Zero morph
-        uint256[LOG_N] zmCqs;
-        uint256 zmCq;
-        uint256 zmPi;
-    }
-
-    struct VerificationKey {
-        // Misc Params
-        uint256 circuitSize;
-        uint256 publicInputsSize;
-        uint256 publicInputsOffset;
-
-        // Selectors
-        uint256 qm;
-        uint256 qc;
-        uint256 ql;
-        uint256 qr;
-        uint256 qo;
-        uint256 q4;
-        uint256 qArith; // Arithmetic widget
-        uint256 qSort; // Gen perm sort
-        uint256 qAux; // Auxillary
-        uint256 qLookup; // Lookup
-        // Copy constraints
-        uint256 s1;
-        uint256 s2;
-        uint256 s3;
-        uint256 s4;
-        // Copy identity
-        uint256 id1;
-        uint256 id2;
-        uint256 id3;
-        uint256 id4;
-        // Precomputed lookup table
-        uint256 t1;
-        uint256 t2;
-        uint256 t3;
-        uint256 t4;
-        // Fixed first and last 
-        uint256 lagrangeFirst;
-        uint256 lagrangeLast;
-    }
-
     struct ProofParameters {
         uint256 logCircuitSize;
 
     }
 
-
     struct TranscriptParameters {
         // Relation Challenges
-        uint256[] alphas;
-        uint256[] gateChallenges;
+        uint256[NUMBER_OF_SUBRELATIONS] alphas;
+        uint256[LOG_N] gateChallenges;
 
         // perm challenges
         uint256 beta;
@@ -103,15 +47,94 @@ contract HonkVerifier {
     }
 
     /// Check how the challenges are calculated on the otherside
-
-    function loadVerificationKey() internal returns (VerificationKey memory) {
+    function loadVerificationKey() internal returns (HonkTypes.VerificationKey memory) {
         // Load the verification key -> this can be hardcoded
-
+        return Add2HonkVerificationKey.loadVerificationKey();
     } 
 
+    function loadProof(bytes calldata proof) internal returns (HonkTypes.Proof memory) {
+        HonkTypes.Proof memory p;
 
-    function loadProof() internal returns (Proof memory) {
-        // Load the proof -> this will be dymanic
+        // Metadata
+        p.circuitSize = uint256(bytes32(proof[0x00:0x20]));
+        p.publicInputsSize = uint256(bytes32(proof[0x20:0x40]));
+        p.publicInputsOffset = uint256(bytes32(proof[0x40:0x60]));
+
+        // Commitments
+        p.w1 =  HonkTypes.G1Point({
+            x: uint256(bytes32(proof[0x60:0x80])),
+            y: uint256(bytes32(proof[0x80:0xa0]))
+        });
+        p.w2 = HonkTypes.G1Point({
+            x: uint256(bytes32(proof[0xa0:0xc0])),
+            y: uint256(bytes32(proof[0xc0:0xe0]))
+        });
+        p.w3 = HonkTypes.G1Point({
+
+            x: uint256(bytes32(proof[0xe0:0x100])),
+            y: uint256(bytes32(proof[0x100:0x120]))
+        });
+
+        // Lookup / Permutation Helper Commitments
+        p.sortedAccum =  HonkTypes.G1Point({
+            x: uint256(bytes32(proof[0x120:0x140])),
+            y: uint256(bytes32(proof[0x140:0x160]))
+        });
+        p.w4 =  HonkTypes.G1Point({
+            x: uint256(bytes32(proof[0x160:0x180])),
+            y: uint256(bytes32(proof[0x180:0x1a0]))
+        });
+        p.zPerm =  HonkTypes.G1Point({
+            x: uint256(bytes32(proof[0x1a0:0x1c0])),
+            y: uint256(bytes32(proof[0x1c0:0x1e0]))
+        });
+        p.zLookup = HonkTypes.G1Point({
+            x: uint256(bytes32(proof[0x1e0:0x200])),
+            y: uint256(bytes32(proof[0x200:0x220]))
+        });
+
+        // Sumcheck univariates
+        // TODO: in this case we know what log_n is - so we hard code it, we would want this to be included in
+        // a cpp template for different circuit sizes
+        for (uint256 i = 0; i < LOG_N; i++) {
+            for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
+                uint256 start = 0x220 + i * BATCHED_RELATION_PARTIAL_LENGTH * 0x20 + j * 0x20;
+                uint256 end = start + 0x20;
+                p.sumcheckUnivariates[i][j] = uint256(bytes32(proof[start:end]));
+            }
+        }
+
+        // Sumcheck evaluations
+        for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
+            uint256 start = 0x220 + LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * 0x20 + i * 0x20;
+            uint256 end = start + 0x20;
+            p.sumcheckEvaluations[i] = uint256(bytes32(proof[start:end]));
+        }
+
+        // Zero morph Commitments
+        for (uint256 i = 0; i < LOG_N; i++) {
+            uint256 xStart = 0x220 + LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * 0x20 + NUMBER_OF_ENTITIES * 0x20 + i * 0x40;
+            uint256 xEnd = xStart + 0x20;
+            uint256 yStart = xEnd;
+            uint256 yEnd = yStart + 0x20;
+            p.zmCqs[i] = HonkTypes.G1Point({
+                x: uint256(bytes32(proof[xStart:xEnd])),
+                y: uint256(bytes32(proof[yStart:yEnd]))
+            });
+        }
+
+        // TODO: the hardcoded figures here will be wrong
+        // Probably worth just preprocessing these
+        p.zmCq =  HonkTypes.G1Point({
+            x: uint256(bytes32(proof[0x220 + LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * 0x20 + NUMBER_OF_ENTITIES * 0x20 + LOG_N * 0x40:0x240])),
+            y: uint256(bytes32(proof[0x240:0x260]))
+        });
+        p.zmPi =  HonkTypes.G1Point({
+            x: uint256(bytes32(proof[0x260:0x280])),
+            y: uint256(bytes32(proof[0x280:0x2a0]))
+        });
+
+        return p;
     }
 
 
@@ -119,15 +142,15 @@ contract HonkVerifier {
     error PublicInputsLengthWrong();
 
     function verify(bytes calldata proof, uint256[] calldata publicInputs) public returns (bool) {
-        VerificationKey memory vk = loadVerificationKey();
-        Proof memory p = loadProof();
+        HonkTypes.VerificationKey memory vk = loadVerificationKey();
+        HonkTypes.Proof memory p = loadProof(proof);
 
         if (vk.publicInputsSize != publicInputs.length) {
             revert PublicInputsLengthWrong();
         }
 
         // Perform each of the rounds 
-        TranscriptParameters memory tp = computeChallenges(p, publicInputs);
+        TranscriptParameters memory tp = computeChallenges(p, vk, publicInputs);
 
         // Compute the public input delta
         uint256 publicInputDelta = computePublicInputDelta(
@@ -135,7 +158,7 @@ contract HonkVerifier {
             tp.beta, 
             tp.gamma,
             vk.circuitSize,
-            vk.publicInputsOffset
+            p.publicInputsOffset
         );
 
         uint256 grandProductPlookupDelta = computeLookupGrandProductDelta(
@@ -147,32 +170,39 @@ contract HonkVerifier {
 
     }
 
-    function computeChallenges(Proof memory proof, VerificationKey memory vk, uint256[] calldata publicInputs) {
+    function computeChallenges(HonkTypes.Proof memory proof, HonkTypes.VerificationKey memory vk, uint256[] calldata publicInputs) internal returns (TranscriptParameters memory) {
         TranscriptParameters memory tp;
 
         // We generate the first challenge by hashing the public inputs
         // TODO: check the length here
-        bytes32[3 + publicInputs.length] memory round0;
-        round0[0] = bytes32(vk.circuitSize);
-        round0[1] = bytes32(vk.publicInputsSize);
-        round0[2] = bytes32(vk.publicInputsOffset);
+        
+        // publicInputs.length = 3 - this will be templated in the end!!!
+        bytes32[3 + 6] memory round0;
+        round0[0] = bytes32(proof.circuitSize);
+        round0[1] = bytes32(proof.publicInputsSize);
+        round0[2] = bytes32(proof.publicInputsOffset); 
         for (uint256 i = 0; i < publicInputs.length; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
 
         // Create the first challenge
         // Note: w4 is added to the challenge later on
-        round0[3 + publicInputs.length] = bytes32(proof.w1);
-        round0[3 + publicInputs.length + 1] = bytes32(proof.w2);
-        round0[3 + publicInputs.length + 2] = bytes32(proof.w3);
+        round0[3 + publicInputs.length] = bytes32(proof.w1.x);
+        round0[3 + publicInputs.length + 1] = bytes32(proof.w1.y);
+        round0[3 + publicInputs.length + 2] = bytes32(proof.w2.x);
+        round0[3 + publicInputs.length + 3] = bytes32(proof.w2.y);
+        round0[3 + publicInputs.length + 4] = bytes32(proof.w3.x);
+        round0[3 + publicInputs.length + 5] = bytes32(proof.w3.y);
 
         uint256 eta = uint256(keccak256(abi.encodePacked(round0)));
 
         // We generate the beta and gamma challenges by appending eta with the sorted_accumulator and w4
-        bytes32[3] memory round1;
+        bytes32[5] memory round1;
         round1[0] = bytes32(eta);
-        round1[1] = bytes32(proof.sortedAccum);
-        round1[1] = bytes32(proof.w4);
+        round1[1] = bytes32(proof.sortedAccum.x);
+        round1[2] = bytes32(proof.sortedAccum.y);
+        round1[3] = bytes32(proof.w4.x);
+        round1[4] = bytes32(proof.w4.y);
 
         uint256 beta = uint256(keccak256(abi.encodePacked(round1)));
 
@@ -184,40 +214,40 @@ contract HonkVerifier {
         uint256[NUMBER_OF_SUBRELATIONS] memory alphas = generateAlphaChallenges(gamma);
         tp.alphas = alphas;
 
-        uint256[LOG_N] memory gate_challenges = generateGateChallenges(alphas[NUMBER_OF_SUBRELATIONS - 1]);
-        tp.gate_challenges = gate_challenges;
+        uint256[LOG_N] memory gateChallenges = generateGateChallenges(alphas[NUMBER_OF_SUBRELATIONS - 1]);
+        tp.gateChallenges = gateChallenges;
 
-        uint256[LOG_N] sumCheckUChallenges = generateSumcheckChallenges(proof, gate_challenges[LOG_N - 1]);
+        uint256[LOG_N] memory sumCheckUChallenges = generateSumcheckChallenges(proof, gateChallenges[LOG_N - 1]);
         uint256 rhoChallenge = generateRhoChallenge(proof, sumCheckUChallenges[LOG_N - 1]);
 
-        uint256 zmY = generateZmYChallenge(proof, rhoChallenge);
+        // uint256 zmY = generateZmYChallenge(proof, rhoChallenge);
 
 
 
     }
 
     // Alpha challenges non-linearise the gate contributions 
-    function generateAlphaChallenges(uint256 previousChallenge) internal returns (uint256[] memory) {
+    function generateAlphaChallenges(uint256 previousChallenge) internal returns (uint256[NUMBER_OF_SUBRELATIONS] memory) {
         uint256[NUMBER_OF_SUBRELATIONS] memory alphas;
         uint256 prevChallenge = previousChallenge;
         for (uint256 i = 0; i < NUMBER_OF_SUBRELATIONS; i++) {
-            prevChallenge = uint256(keccak256(bytes32(prevChallenge)));
+            prevChallenge = uint256(keccak256(abi.encodePacked(prevChallenge)));
             alphas[i] = prevChallenge;
         }
         return alphas;
     }
 
-    function generateGateChallenges(uint256 previousChalenge) internal returns (uint256[] memory) {
+    function generateGateChallenges(uint256 previousChalenge) internal returns (uint256[LOG_N] memory) {
         uint256[LOG_N] memory gate_challanges;
         uint256 prevChallenge = previousChalenge;
         for (uint256 i = 0; i < LOG_N; i++) {
-            prevChallenge = uint256(keccak256(bytes32(prevChallenge)));
+            prevChallenge = uint256(keccak256(abi.encodePacked(prevChallenge)));
             gate_challanges[i] = prevChallenge;
         }
         return gate_challanges;
     }
 
-    function generateSumcheckChallenges(Proof memory proof, uint256 prevChallenge) internal return (uint256[] memory) {
+    function generateSumcheckChallenges(HonkTypes.Proof memory proof, uint256 prevChallenge) internal returns (uint256[LOG_N] memory) {
         uint256[LOG_N] memory sumcheckChallenges;
         uint256 prevChallenge = prevChallenge;
         for (uint256 i = 0; i < LOG_N; i++) {
@@ -229,21 +259,22 @@ contract HonkVerifier {
                 multivariateChal[j + 1] = proof.sumcheckUnivariates[i][j];
             }
 
-            sumcheckChallenges = uint256(keccak256(multivariate));
+            // TOOD(md): not too sure about the encode here
+            sumcheckChallenges[i] = uint256(keccak256(abi.encodePacked(multivariateChal)));
         }
 
         return sumcheckChallenges;
     }
 
-    function generateRhoChallenge(Proof memory proof, prevChallenge) internal return (uint256) {
-        uint256[NUMBER_OF_ENTITIES + 1] rhoChallengeElements;
+    function generateRhoChallenge(HonkTypes.Proof memory proof, uint256 prevChallenge) internal returns (uint256) {
+        uint256[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
         rhoChallengeElements[0] = prevChallenge;
 
         // TODO: memcpy
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
             rhoChallengeElements[i + 1] = proof.sumcheckEvaluations[i];
         }
-        return uint256(keccak256(rhoChallengeElements));
+        return uint256(keccak256(abi.encodePacked(rhoChallengeElements)));
     }
 
     // We add an offset to the public inputs, this adds the values of our public inputs
@@ -280,8 +311,8 @@ contract HonkVerifier {
         return gammaByOnePlusBeta ** domainSize;
     }
 
-    function verifySumcheck() {}
+    // function verifySumcheck() {}
 
-    function verifyZeroMorph() {}
+    // function verifyZeroMorph() {}
 
 }

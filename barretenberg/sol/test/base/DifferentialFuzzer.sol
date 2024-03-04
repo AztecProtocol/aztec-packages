@@ -11,7 +11,8 @@ contract DifferentialFuzzer is TestBase {
     enum PlonkFlavour {
         Invalid,
         Standard,
-        Ultra
+        Ultra,
+        Honk
     }
     enum CircuitFlavour {
         Invalid,
@@ -52,6 +53,8 @@ contract DifferentialFuzzer is TestBase {
             return "standard";
         } else if (plonkFlavour == PlonkFlavour.Ultra) {
             return "ultra";
+        } else if (plonkFlavour == PlonkFlavour.Honk) {
+            return "honk";
         } else {
             revert("Invalid flavour");
         }

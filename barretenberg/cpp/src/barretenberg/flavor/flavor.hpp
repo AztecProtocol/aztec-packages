@@ -263,6 +263,11 @@ namespace bb {
 class UltraFlavor;
 class ECCVMFlavor;
 class GoblinUltraFlavor;
+
+// TODO(md): research this forward declaration pattern
+// - howing of file existence is enough
+class UltraKeccakFlavor;
+
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class GoblinUltraRecursiveFlavor_;
 } // namespace bb
@@ -289,14 +294,16 @@ concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra
 template <typename T>
 concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra>;
 
+// TODO: dirty adding this to is goblin flavor
 template <typename T> 
-concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, GoblinUltraFlavor>;
+concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, GoblinUltraFlavor>;
 
 template <typename T> 
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, GoblinUltraFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor,  UltraKeccakFlavor, GoblinUltraFlavor>;
 
 template <typename T> 
 concept IsGoblinFlavor = IsAnyOf<T, GoblinUltraFlavor,
+                                    // UltraKeccakFlavor,
                                     GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
                                     GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 

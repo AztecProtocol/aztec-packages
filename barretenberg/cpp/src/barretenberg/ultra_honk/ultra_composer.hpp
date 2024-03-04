@@ -107,5 +107,6 @@ template <IsUltraFlavor Flavor_> class UltraComposer_ {
 
 // TODO(#532): this pattern is weird; is this not instantiating the templates?
 using UltraComposer = UltraComposer_<UltraFlavor>;
+using UltraSolidityComposer = UltraComposer_<UltraKeccakFlavor>;
 using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
 } // namespace bb
