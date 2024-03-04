@@ -18,7 +18,7 @@ contract DocsExample {
         PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable, PrivateSet, SharedImmutable
     };
     use dep::aztec::{
-        note::{note_getter_options::Comparator, note_viewer_options::NoteViewerOptions, utils as note_utils},
+        note::{note_getter_options::Comparator, note_viewer_options::NoteViewerOptions},
         context::{PublicContext, Context}
     };
     // how to import methods from other files/folders within your workspace

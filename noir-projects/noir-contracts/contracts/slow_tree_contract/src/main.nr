@@ -13,10 +13,7 @@ contract SlowTree {
     };
 
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
-    use dep::aztec::{
-        context::{PublicContext, Context}, note::utils as note_utils,
-        protocol_types::type_serialization::FIELD_SERIALIZED_LEN
-    };
+    use dep::aztec::{context::{PublicContext, Context}, protocol_types::type_serialization::FIELD_SERIALIZED_LEN};
     use dep::slow_updates_tree::{SlowMap, Leaf, SlowUpdateProof, compute_merkle_root, deserialize_slow_update_proof};
 
     // docs:start:import_pop_capsule

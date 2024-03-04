@@ -4,8 +4,7 @@ contract StatefulTest {
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
         deploy::{deploy_contract as aztec_deploy_contract},
-        context::{PrivateContext, PublicContext, Context},
-        note::{note_header::NoteHeader, utils as note_utils},
+        context::{PrivateContext, PublicContext, Context}, note::{note_header::NoteHeader},
         state_vars::{Map, PublicMutable, PrivateSet},
         oracle::get_contract_instance::get_contract_instance,
         initializer::{mark_as_initialized, assert_is_initialized},

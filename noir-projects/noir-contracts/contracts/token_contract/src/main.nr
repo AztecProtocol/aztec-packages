@@ -16,7 +16,7 @@ contract Token {
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader, utils as note_utils},
+        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
         hash::{compute_secret_hash}, state_vars::{Map, PublicMutable, SharedImmutable, PrivateSet},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress}
     };

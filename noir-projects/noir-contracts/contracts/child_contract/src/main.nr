@@ -4,7 +4,7 @@ contract Child {
 
     use dep::aztec::{
         context::{PublicContext, Context}, protocol_types::{abis::{call_context::CallContext}},
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader, utils as note_utils}
+        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader}
     };
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 

@@ -1,6 +1,5 @@
 contract Vanilla {
     use dep::aztec::prelude::{AztecAddress, PrivateMutable, Map, NoteInterface, NoteHeader};
-    use dep::aztec::note::utils as note_utils;
 
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 

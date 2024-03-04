@@ -8,7 +8,7 @@ contract CardGame {
     use dep::std::option::Option;
     use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
 
-    use dep::aztec::note::{note_header::NoteHeader, utils as note_utils};
+    use dep::aztec::note::note_header::NoteHeader;
 
     use crate::cards::{PACK_CARDS, Deck, Card, get_pack_cards, compute_deck_strength};
     use crate::game::{NUMBER_OF_PLAYERS, NUMBER_OF_CARDS_DECK, PLAYABLE_CARDS, PlayerEntry, Game, GAME_SERIALIZED_LEN};
