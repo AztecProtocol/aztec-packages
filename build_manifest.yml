@@ -223,7 +223,15 @@ mainnet-fork:
   projectDir: iac/mainnet-fork
 
 docs:
-  buildDir: docs
+  buildDir: .
+  dockerfile: docs/Dockerfile
+  rebuildPatterns:
+    - ^docs/
+    - ^.*\.cpp$
+    - ^.*\.hpp$
+    - ^.*\.ts$
+    - ^.release-please-manifest\.json$
+    - ^.*\.nr$
   dependencies:
     - bb.js
     - noir-packages

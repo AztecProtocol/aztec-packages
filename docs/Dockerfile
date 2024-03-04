@@ -15,6 +15,14 @@ COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
 WORKDIR /usr/src
 COPY . .
 
+# We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
+# walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
+# correctly for portalled packages, is to use --preserve-symlinks when running node.
+# This does kind of work, but jest doesn't honor it correctly, so this seems like a neat workaround.
+# Also, --preserve-symlinks causes duplication of portalled instances such as bb.js, and breaks the singleton logic
+# by initialising the module more than once. So at present I don't see a viable alternative.
+RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
+
 # TODO: Replace puppeteer with puppeteer-core to avoid this.
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
@@ -23,3 +31,10 @@ RUN ./bootstrap.sh
 
 WORKDIR /usr/src/docs
 RUN yarn && yarn build
+
+WORKDIR /usr/src/yarn-project
+RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
+
+FROM node:18.19.1-slim
+COPY --from=builder /usr/src/docs /usr/src/docs
+COPY --from=builder /usr/src/yarn-project /usr/src/yarn-project

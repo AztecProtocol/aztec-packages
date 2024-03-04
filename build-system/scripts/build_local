@@ -69,6 +69,12 @@ for E in "${PROJECTS[@]}"; do
     fi
   fi
 
+  # Build a dockerignore file that only permits git files and untracked files
+  DOCKERIGNOREFILE=$DOCKERFILE.dockerignore
+  echo '*' > $DOCKERIGNOREFILE
+  (git ls-files; git ls-files --others --exclude-standard) | sort -u | sed 's/^/!/' >> $DOCKERIGNOREFILE
+  echo '**/Dockerfile*' > $DOCKERIGNOREFILE
+
   DEPLOY_IMAGE_URI=aztecprotocol/$REPO:latest
   CACHE_IMAGE_URI=$(calculate_image_uri $REPO)
   ARR=(${CACHE_IMAGE_URI//:/ })
