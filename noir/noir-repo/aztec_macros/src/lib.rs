@@ -485,7 +485,7 @@ fn transform_module(
                 storage_defined,
                 is_initializer,
                 insert_init_check,
-                is_internal
+                is_internal,
             )
             .map_err(|err| (err, crate_graph.root_file_id))?;
             has_transformed_module = true;
@@ -1214,11 +1214,12 @@ fn create_internal_check(fname: &str) -> Statement {
     make_statement(StatementKind::Constrain(ConstrainStatement(
         make_eq(
             method_call(variable("context"), "msg_sender", vec![]),
-            method_call(variable("context"), "this_address", vec![])
+            method_call(variable("context"), "this_address", vec![]),
         ),
-        Some(expression(ExpressionKind::Literal(Literal::Str(
-            format!("Function {} can only be called internally", fname),
-        )))),
+        Some(expression(ExpressionKind::Literal(Literal::Str(format!(
+            "Function {} can only be called internally",
+            fname
+        ))))),
         ConstrainKind::Assert,
     )))
 }
