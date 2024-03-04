@@ -199,16 +199,14 @@ Install the [Noir Language Support extension](https://marketplace.visualstudio.c
 
 Once the extension is installed, check your nargo binary by hovering over `Nargo` in the status bar on the bottom right of the application window. Click to choose the path to `aztec-nargo` (or regular `nargo`, if you have that installed).
 
-:::tip
-To specify a custom nargo executable, go to the VSCode settings and search for "noir", or click extension settings on the `noir-lang` LSP plugin.
-Update the `Noir: Nargo Path` field to point to your desired `aztec-nargo` executable.
-:::tip
-
 You can print the path of your `aztec-nargo` executable by running:
 
 ```bash
 which aztec-nargo
 ```
+
+To specify a custom nargo executable, go to the VSCode settings and search for "noir", or click extension settings on the `noir-lang` LSP plugin.
+Update the `Noir: Nargo Path` field to point to your desired `aztec-nargo` executable.
 
 ## What's next?
 
