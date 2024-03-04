@@ -45,7 +45,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
-import { initStoreForRollup } from '@aztec/kv-store/utils';
+import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
 import { AztecKVTxPool, P2P, createP2PClient } from '@aztec/p2p';
 import {
   GlobalVariableBuilder,
@@ -450,7 +450,9 @@ export class AztecNodeService implements AztecNode {
 
     const treeHeight = Math.ceil(Math.log2(l2ToL1Messages.length));
 
-    const tree = new StandardTree(AztecLmdbStore.open(), new Pedersen(), 'temp_outhash_sibling_path', treeHeight);
+    // @TODO: Figure out a way to make the below in memory only
+    // Replace this with SHA hasher
+    const tree = new StandardTree(openTmpStore(), new Pedersen(), 'temp_outhash_sibling_path', treeHeight);
     await tree.appendLeaves(l2ToL1Messages.map(l2ToL1Msg => l2ToL1Msg.toBuffer()));
 
     return tree.getSiblingPath(BigInt(indexOfL2ToL1Message), true);
