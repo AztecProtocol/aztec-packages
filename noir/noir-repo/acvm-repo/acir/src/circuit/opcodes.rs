@@ -32,12 +32,12 @@ pub enum Opcode {
     /// Calls to functions represented as a separate circuit. A call opcode allows us
     /// to build a call stack when executing the outer-most circuit.
     Call {
-        /// Id for the function being called. It is the responsibility of the executor 
-        /// to fetch the appropriate circuit from this id. 
+        /// Id for the function being called. It is the responsibility of the executor
+        /// to fetch the appropriate circuit from this id.
         id: u32,
         /// Inputs to the function call
         inputs: Vec<Witness>,
-        /// Outputs of the function call 
+        /// Outputs of the function call
         outputs: Vec<Witness>,
     },
 }
