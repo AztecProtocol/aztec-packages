@@ -42,4 +42,5 @@ FROM node:18.19.1-slim
 ARG COMMIT_TAG=""
 ENV COMMIT_TAG=$COMMIT_TAG
 COPY --from=builder /usr/src /usr/src
+WORKDIR /usr/src/yarn-project
 ENTRYPOINT ["yarn"]

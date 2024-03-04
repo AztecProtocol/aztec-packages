@@ -39,6 +39,6 @@ else
     UNIQUE_DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -E "https://.*aztec-docs-dev.netlify.app" | awk '{print $4}')
     echo "Unique deploy URL: $UNIQUE_DEPLOY_URL"
 
-    cd /usr/src/extracted-repo/yarn-project/scripts
+    cd /usr/src/extracted-repo/src/yarn-project/scripts
     UNIQUE_DEPLOY_URL=$UNIQUE_DEPLOY_URL yarn docs-preview-comment
 fi
