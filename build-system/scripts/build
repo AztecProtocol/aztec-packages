@@ -118,6 +118,9 @@ for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
   sed -i "s#^FROM \\(.*\\)${DEPLOY_URI}\\( \|$\\)#FROM \\1${PARENT_IMAGE_URI}\\2#" $DOCKERFILE
 done
 
+# Build a dockerignore file that only permits git files and untracked files.
+create_dockerignore $REPOSITORY
+
 COMMIT_TAG_VERSION=$(extract_tag_version $REPOSITORY false)
 echo "Commit tag version: $COMMIT_TAG_VERSION"
 
