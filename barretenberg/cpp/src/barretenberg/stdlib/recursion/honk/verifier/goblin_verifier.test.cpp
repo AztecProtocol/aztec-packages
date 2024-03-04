@@ -211,6 +211,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
             auto composer = get_outer_composer<OuterBuilder>();
             auto instance = composer.create_prover_instance(outer_circuit);
             auto prover = composer.create_prover(instance);
+        TODO: // github.com/AztecProtocol/barretenberg/issues/892
             auto verifier_instance = composer.create_verifier_instance(instance);
             auto verifier = composer.create_verifier(verifier_instance->verification_key);
             auto proof = prover.construct_proof();
@@ -222,8 +223,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
     /**
      * @brief Construct a verifier circuit for a proof whose data has been tampered with. Expect failure
-     * TODO(bberg #656): For now we get a "bad" proof by arbitrarily tampering with bits in a valid proof. It would
-     be
+     * TODO(bberg #656): For now we get a "bad" proof by arbitrarily tampering with bits in a valid proof. It would be
      * much nicer to explicitly change meaningful components, e.g. such that one of the multilinear evaluations is
      * wrong. This is difficult now but should be straightforward if the proof is a struct.
      */

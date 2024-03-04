@@ -83,6 +83,7 @@ class RecursiveMergeVerifierTest : public testing::Test {
             GoblinUltraComposer composer;
             auto instance = composer.create_prover_instance(outer_circuit);
             auto prover = composer.create_prover(instance);
+            // TODO: github.com/AztecProtocol/barretenberg/issues/892
             auto verifier_instance = composer.create_verifier_instance(instance);
             auto verifier = composer.create_verifier(verifier_instance->verification_key);
             auto proof = prover.construct_proof();
