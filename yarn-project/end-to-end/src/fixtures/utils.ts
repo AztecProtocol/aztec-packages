@@ -78,7 +78,6 @@ const getACVMConfig = async (logger: DebugLogger) => {
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
     return { acvmWorkingDirectory, expectedAcvmPath };
   } catch (err) {
-    logger(`Unable to use native simulation ${err}`);
     return undefined;
   }
 };
@@ -307,7 +306,7 @@ export async function setup(
   logger('Creating and synching an aztec node...');
   const acvmConfig = await getACVMConfig(logger);
   if (acvmConfig) {
-    config.acvmWorkingDirectory = acvmConfig.proverWorkingDirectory;
+    config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
     config.acvmBinaryPath = acvmConfig.expectedAcvmPath;
   }
   config.l1BlockPublishRetryIntervalMS = 100;
