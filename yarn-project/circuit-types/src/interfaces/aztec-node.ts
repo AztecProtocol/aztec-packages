@@ -3,7 +3,6 @@ import {
   CONTRACT_TREE_HEIGHT,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  L2_TO_L1_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -94,10 +93,15 @@ export interface AztecNode {
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
+  /**
+   * Returns a sibling path for a leaf in a virtual l2 to l1 data tree.
+   * @param blockNumber - The block number at which to get the data.
+   * @param l2ToL1Message - The l2ToL1Message get the sibling path for.
+   * @returns The sibling path.
+   */
   getL2ToL1MessageSiblingPath(
     blockNumber: BlockNumber,
     l2ToL1Message: Fr,
-    // TODO: Replace with actual temp tree height
   ): Promise<SiblingPath<number>>;
 
   /**

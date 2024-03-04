@@ -63,7 +63,7 @@ import {
 } from '@aztec/world-state';
 
 import { AztecNodeConfig } from './config.js';
-import { Pedersen, StandardTree } from '@aztec/merkle-tree';
+import { SHA256, StandardTree } from '@aztec/merkle-tree';
 
 /**
  * The aztec node.
@@ -451,8 +451,7 @@ export class AztecNodeService implements AztecNode {
     const treeHeight = Math.ceil(Math.log2(l2ToL1Messages.length));
 
     // @TODO: Figure out a way to make the below in memory only
-    // Replace this with SHA hasher
-    const tree = new StandardTree(openTmpStore(), new Pedersen(), 'temp_outhash_sibling_path', treeHeight);
+    const tree = new StandardTree(openTmpStore(), new SHA256(), 'temp_outhash_sibling_path', treeHeight);
     await tree.appendLeaves(l2ToL1Messages.map(l2ToL1Msg => l2ToL1Msg.toBuffer()));
 
     return tree.getSiblingPath(BigInt(indexOfL2ToL1Message), true);
