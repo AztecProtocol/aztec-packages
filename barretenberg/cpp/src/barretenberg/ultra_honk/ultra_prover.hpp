@@ -29,7 +29,7 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
     explicit UltraProver_(const std::shared_ptr<Instance>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    explicit UltraProver_(Builder&, const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    explicit UltraProver_(Builder&);
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();
