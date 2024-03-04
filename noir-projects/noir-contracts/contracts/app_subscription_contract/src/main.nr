@@ -88,7 +88,8 @@ contract AppSubscription {
     }
 
     #[aztec(public)]
-    internal fn init(
+    #[aztec(internal)]
+    fn init(
         target_address: AztecAddress,
         subscription_token_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
@@ -103,12 +104,14 @@ contract AppSubscription {
     }
 
     #[aztec(public)]
-    internal fn assert_not_expired(expiry_block_number: Field) {
+    #[aztec(internal)]
+    fn assert_not_expired(expiry_block_number: Field) {
         assert((context.block_number()) as u64 < expiry_block_number as u64);
     }
 
     #[aztec(public)]
-    internal fn assert_block_number(expiry_block_number: Field) {
+    #[aztec(internal)]
+    fn assert_block_number(expiry_block_number: Field) {
         assert(
             (context.block_number() + SUBSCRIPTION_DURATION_IN_BLOCKS) as u64
             >= expiry_block_number as u64
