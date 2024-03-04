@@ -65,8 +65,9 @@ export class PublicStorage {
    */
   public write(storageAddress: Fr, key: Fr, values: Fr[]) {
     for (const [index, value] of Object.entries(values)) {
-      // TODO: yuck
+      // TODO: temporary
       const adjustedIndex = key.add(new Fr(BigInt(index)));
+
       this.cache.write(storageAddress, adjustedIndex, value);
     }
   }

@@ -59,7 +59,7 @@ export class WorldStateAccessTrace {
     //this.publicStorageWrites.push(traced);
 
     for (const [index, value] of Object.entries(values)) {
-      // TODO: yuck
+      // TODO: temporary
       const adjustedSlot = slot.add(new Fr(BigInt(index)));
 
       this.journalWrite(storageAddress, adjustedSlot, value);
