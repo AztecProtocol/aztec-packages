@@ -27,6 +27,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     using Commitment = typename NativeFlavor::Commitment;
     using FF = typename NativeFlavor::FF;
     using DeciderProver = DeciderProver_<NativeFlavor>;
+    using VerificationKey = typename NativeFlavor::VerificationKey;
 
     using RecursiveVerifierInstances = ::bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
     using FoldingRecursiveVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
@@ -178,9 +179,11 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         create_function_circuit(builder2);
 
         auto prover_instance_1 = std::make_shared<ProverInstance>(builder1);
-        auto verifier_instance_1 = std::make_shared<VerifierInstance>(prover_instance_1->verification_key);
+        auto verification_key_1 = std::make_shared<VerificationKey>(prover_instance_1->proving_key);
+        auto verifier_instance_1 = std::make_shared<VerifierInstance>(verification_key_1);
         auto prover_instance_2 = std::make_shared<ProverInstance>(builder2);
-        auto verifier_instance_2 = std::make_shared<VerifierInstance>(prover_instance_2->verification_key);
+        auto verification_key_2 = std::make_shared<VerificationKey>(prover_instance_2->proving_key);
+        auto verifier_instance_2 = std::make_shared<VerifierInstance>(verification_key_2);
         // Generate a folding proof
         NativeFoldingProver folding_prover({ prover_instance_1, prover_instance_2 });
         auto folding_proof = folding_prover.fold_instances();
@@ -212,7 +215,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         {
             auto instance = std::make_shared<ProverInstance>(folding_circuit);
             Prover prover(instance);
-            Verifier verifier(instance->verification_key);
+            auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+            Verifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 
@@ -238,9 +242,11 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         create_function_circuit(builder2);
 
         auto prover_instance_1 = std::make_shared<ProverInstance>(builder1);
-        auto verifier_instance_1 = std::make_shared<VerifierInstance>(prover_instance_1->verification_key);
+        auto verification_key_1 = std::make_shared<VerificationKey>(prover_instance_1->proving_key);
+        auto verifier_instance_1 = std::make_shared<VerifierInstance>(verification_key_1);
         auto prover_instance_2 = std::make_shared<ProverInstance>(builder2);
-        auto verifier_instance_2 = std::make_shared<VerifierInstance>(prover_instance_2->verification_key);
+        auto verification_key_2 = std::make_shared<VerificationKey>(prover_instance_2->proving_key);
+        auto verifier_instance_2 = std::make_shared<VerifierInstance>(verification_key_2);
         // Generate a folding proof
         NativeFoldingProver folding_prover({ prover_instance_1, prover_instance_2 });
         auto folding_proof = folding_prover.fold_instances();
@@ -300,7 +306,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         {
             auto instance = std::make_shared<ProverInstance>(decider_circuit);
             Prover prover(instance);
-            Verifier verifier(instance->verification_key);
+            auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+            Verifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 

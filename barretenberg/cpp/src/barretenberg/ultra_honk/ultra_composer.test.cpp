@@ -20,6 +20,7 @@ auto& engine = numeric::get_debug_randomness();
 }
 
 using ProverInstance = ProverInstance_<UltraFlavor>;
+using VerificationKey = UltraFlavor::VerificationKey;
 
 std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> variables)
 {
@@ -34,7 +35,8 @@ void prove_and_verify(auto& circuit_builder, bool expected_result)
 {
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
     UltraProver prover(instance);
-    UltraVerifier verifier(instance->verification_key);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    UltraVerifier verifier(verification_key);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
     EXPECT_EQ(verified, expected_result);
@@ -195,7 +197,8 @@ TEST_F(UltraHonkComposerTests, create_gates_from_plookup_accumulators)
     }
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
     UltraProver prover(instance);
-    UltraVerifier verifier(instance->verification_key);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    UltraVerifier verifier(verification_key);
     auto proof = prover.construct_proof();
 
     bool result = verifier.verify_proof(proof);
