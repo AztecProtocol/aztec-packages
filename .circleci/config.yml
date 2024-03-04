@@ -435,14 +435,17 @@ jobs:
           command: build noir-projects
           aztec_manifest_key: noir-projects
 
-  yarn-project-pre-join:
-    docker:
-      - image: cimg/base:2023.09
-    resource_class: small
+  yarn-project-base:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    resource_class: large
     steps:
+      - *checkout
+      - *setup_env
       - run:
-          name: "Noop"
-          command: echo Noop
+          name: "Build"
+          command: build yarn-project-base
+          aztec_manifest_key: yarn-project-base
 
   yarn-project-x86_64:
     docker:
@@ -1299,9 +1302,9 @@ defaults: &defaults
         event: fail
         branch_pattern: "master"
 
-defaults_yarn_project_pre_join: &defaults_yarn_project_pre_join
+defaults_yarn_project_base: &defaults_yarn_project_base
   requires:
-    - yarn-project-pre-join
+    - yarn-project-base
   <<: *defaults
 
 defaults_yarn_project: &defaults_yarn_project
@@ -1414,11 +1417,11 @@ workflows:
             - l1-contracts
             - noir-projects
           <<: *defaults
-      - end-to-end: *defaults_yarn_project_pre_join
-      - aztec-faucet: *defaults_yarn_project_pre_join
-      - yarn-project-test: *defaults_yarn_project_pre_join
-      - yarn-project-x86_64: *defaults_yarn_project_pre_join
-      - yarn-project-arm64: *defaults_yarn_project_pre_join
+      - end-to-end: *defaults_yarn_project_base
+      - aztec-faucet: *defaults_yarn_project_base
+      - yarn-project-test: *defaults_yarn_project_base
+      - yarn-project-x86_64: *defaults_yarn_project_base
+      - yarn-project-arm64: *defaults_yarn_project_base
       - yarn-project-ecr-manifest:
           requires:
             - yarn-project-x86_64

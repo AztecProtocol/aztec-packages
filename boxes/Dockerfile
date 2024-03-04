@@ -1,4 +1,3 @@
-# Builds the boxes (they were copied into yarn-project-base so the cli can unbox).
 # Produces a container that can be run to test a specific box. See docker-compose.yml.
 FROM aztecprotocol/aztec AS aztec
 FROM aztecprotocol/noir as noir
