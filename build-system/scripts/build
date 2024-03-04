@@ -93,7 +93,7 @@ for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
   DEPLOY_URI=aztecprotocol/$PARENT_REPO
   PARENT_IMAGE_URI=$ECR_URL/$PARENT_REPO:$PARENT_IMAGE_TAG
   retry docker pull $PARENT_IMAGE_URI
-  docker tag $PARENT_IMAGE_TAG $DEPLOY_URI
+  docker tag $PARENT_IMAGE_URI $DEPLOY_URI
 done
 
 # Build a dockerignore file that only permits git files and untracked files.
