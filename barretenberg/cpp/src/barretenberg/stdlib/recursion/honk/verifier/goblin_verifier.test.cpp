@@ -149,7 +149,6 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         // Compute native verification key
         InnerComposer inner_composer;
         auto instance = inner_composer.create_prover_instance(inner_circuit);
-        // auto prover = inner_composer.create_prover(instance); // A prerequisite for computing VK
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
         // Instantiate the recursive verifier using the native verification key
         RecursiveVerifier verifier{ &outer_circuit, verification_key };

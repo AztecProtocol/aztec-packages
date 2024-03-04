@@ -115,7 +115,6 @@ void ClientIVC::precompute_folding_verification_keys()
         kernel_circuit, { function_fold_proof, vks.func_vk }, {}, initial_verifier_acc);
     auto kernel_fold_proof = accumulate(kernel_circuit);
     vks.first_kernel_vk = std::make_shared<VerificationKey>(prover_instance->proving_key);
-    ;
 
     // Create another mock function circuit to run the full kernel
     function_circuit = ClientCircuit{ goblin.op_queue };
@@ -129,7 +128,6 @@ void ClientIVC::precompute_folding_verification_keys()
     kernel_fold_proof = accumulate(kernel_circuit);
 
     vks.kernel_vk = std::make_shared<VerificationKey>(prover_instance->proving_key);
-    ;
 
     // Clean the ivc state
     goblin.op_queue = std::make_shared<Goblin::OpQueue>();
