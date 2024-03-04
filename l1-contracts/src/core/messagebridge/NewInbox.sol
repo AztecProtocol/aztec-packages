@@ -51,12 +51,12 @@ contract NewInbox {
   }
 
   /**
-   * @notice Inserts an entry into the Inbox
-   * @dev Will emit `LeafInserted` with data for easy access by the sequencer
-   * @param _recipient - The recipient of the entry
-   * @param _content - The content of the entry (application specific)
-   * @param _secretHash - The secret hash of the entry (make it possible to hide when a specific entry is consumed on L2)
-   * @return The key of the entry in the set
+   * @notice Inserts a new message into the Inbox
+   * @dev Emits `LeafInserted` with data for easy access by the sequencer
+   * @param _recipient - The recipient of the message
+   * @param _content - The content of the message (application specific)
+   * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
+   * @return The key of the message in the set
    */
   function insert(DataStructures.L2Actor memory _recipient, bytes32 _content, bytes32 _secretHash)
     external
@@ -100,7 +100,7 @@ contract NewInbox {
    * @notice Consumes the current tree, and starts a new one if needed
    * @dev Only callable by the rollup contract
    * @dev In the first iteration we return empty tree root because first block's messages tree is always
-   * empty because there has to be a 1 block lag to prevent sequencer DOS attacks.
+   * empty because there has to be a 1 block lag to prevent sequencer DOS attacks
    * @return The root of the consumed tree
    */
   function consume() external returns (bytes32) {
@@ -113,7 +113,7 @@ contract NewInbox {
       root = frontier[toInclude].root();
     }
 
-    // If we are "catching up" we can skip the creation as it is already there
+    // If we are "catching up" we skip the tree creation as it is already there
     if (toInclude == inProgress) {
       inProgress += 1;
       frontier[inProgress] = IFrontier(new FrontierMerkle(HEIGHT));
