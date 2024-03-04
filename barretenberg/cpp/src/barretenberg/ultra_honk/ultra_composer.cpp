@@ -7,13 +7,22 @@
 namespace bb {
 
 template <IsUltraFlavor Flavor>
-std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_instance(CircuitBuilder& circuit)
+std::shared_ptr<ProverInstance_<Flavor>> UltraComposer_<Flavor>::create_prover_instance(CircuitBuilder& circuit)
 {
-    return std::make_shared<Instance>(circuit);
+    return std::make_shared<ProverInstance>(circuit);
 }
 
 template <IsUltraFlavor Flavor>
-UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr<Instance>& instance,
+std::shared_ptr<VerifierInstance_<Flavor>> UltraComposer_<Flavor>::create_verifier_instance(
+    std::shared_ptr<ProverInstance_<Flavor>>& prover_instance)
+{
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->proving_key);
+    auto instance = std::make_shared<VerifierInstance>(verification_key);
+    return instance;
+}
+
+template <IsUltraFlavor Flavor>
+UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr<ProverInstance>& instance,
                                                            const std::shared_ptr<Transcript>& transcript)
 {
     UltraProver_<Flavor> output_state(instance, transcript);
@@ -22,48 +31,24 @@ UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(const std::shared_ptr
 }
 
 template <IsUltraFlavor Flavor>
-UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared_ptr<Instance>& instance,
+UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const std::shared_ptr<VerificationKey>& verification_key,
                                                                const std::shared_ptr<Transcript>& transcript)
 {
-    auto& verification_key = instance->verification_key;
-    UltraVerifier_<Flavor> output_state(transcript, verification_key);
-    auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
-    output_state.pcs_verification_key = std::move(pcs_verification_key);
-
-    return output_state;
+    return UltraVerifier_<Flavor>(transcript, verification_key);
 }
 
 template <IsUltraFlavor Flavor>
-DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(const std::shared_ptr<Instance>& accumulator,
+DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(const std::shared_ptr<ProverInstance>& accumulator,
                                                                      const std::shared_ptr<Transcript>& transcript)
 {
-    commitment_key = compute_commitment_key(accumulator->instance_size);
-    DeciderProver_<Flavor> output_state(accumulator, commitment_key, transcript);
-
-    return output_state;
+    return DeciderProver_<Flavor>(accumulator, transcript);
 }
 
 template <IsUltraFlavor Flavor>
-DeciderProver_<Flavor> UltraComposer_<Flavor>::create_decider_prover(
-    const std::shared_ptr<Instance>& accumulator,
-    const std::shared_ptr<CommitmentKey>& commitment_key,
-    const std::shared_ptr<Transcript>& transcript)
+DeciderVerifier_<Flavor> UltraComposer_<Flavor>::create_decider_verifier(
+    const std::shared_ptr<VerifierInstance>& accumulator, const std::shared_ptr<Transcript>& transcript)
 {
-    DeciderProver_<Flavor> output_state(accumulator, commitment_key, transcript);
-
-    return output_state;
-}
-
-template <IsUltraFlavor Flavor>
-DeciderVerifier_<Flavor> UltraComposer_<Flavor>::create_decider_verifier(const std::shared_ptr<Instance>& accumulator,
-                                                                         const std::shared_ptr<Transcript>& transcript)
-{
-    auto& verification_key = accumulator->verification_key;
-    DeciderVerifier_<Flavor> output_state(transcript, verification_key);
-    auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(accumulator->instance_size, crs_factory_);
-    output_state.pcs_verification_key = std::move(pcs_verification_key);
-
-    return output_state;
+    return DeciderVerifier_<Flavor>(transcript, accumulator);
 }
 
 template class UltraComposer_<UltraFlavor>;

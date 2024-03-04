@@ -482,7 +482,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     uint32_t put_constant_variable(const FF& variable);
 
   public:
-    size_t get_num_constant_gates() const override { return 0; }
+    size_t get_num_constant_gates() const override
+    {
+        return 0;
+    }
     /**
      * @brief Get the final number of gates in a circuit, which consists of the sum of:
      * 1) Current number number of actual gates
@@ -702,6 +705,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         const uint32_t variable_index,
         const size_t num_bits,
         std::string const& msg = "decompose_into_default_range_better_for_oddlimbnum");
+    void create_dummy_gate(auto& block, const uint32_t&, const uint32_t&, const uint32_t&, const uint32_t&);
     void create_dummy_constraints(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint_with_edges(const std::vector<uint32_t>& variable_index, const FF&, const FF&);

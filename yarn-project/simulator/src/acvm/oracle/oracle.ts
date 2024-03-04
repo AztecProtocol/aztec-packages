@@ -99,9 +99,7 @@ export class Oracle {
 
     const witness = await this.typedOracle.getNullifierMembershipWitness(parsedBlockNumber, parsedNullifier);
     if (!witness) {
-      throw new Error(
-        `Low nullifier witness not found for nullifier ${parsedNullifier} at block ${parsedBlockNumber}.`,
-      );
+      throw new Error(`Nullifier witness not found for nullifier ${parsedNullifier} at block ${parsedBlockNumber}.`);
     }
     return witness.toFields().map(toACVMField);
   }
@@ -239,8 +237,8 @@ export class Oracle {
     return toACVMField(exists);
   }
 
-  async getL1ToL2Message([msgKey]: ACVMField[]): Promise<ACVMField[]> {
-    const message = await this.typedOracle.getL1ToL2Message(fromACVMField(msgKey));
+  async getL1ToL2MembershipWitness([entryKey]: ACVMField[]): Promise<ACVMField[]> {
+    const message = await this.typedOracle.getL1ToL2MembershipWitness(fromACVMField(entryKey));
     return message.toFields().map(toACVMField);
   }
 

@@ -1,6 +1,6 @@
 use dep::aztec::{
-    protocol_types::constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL}, context::Context,
-    note::note_getter::view_notes
+    protocol_types::constants::{MAX_NOTES_PER_PAGE, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    context::Context, note::note_getter::view_notes
 };
 use dep::std;
 use dep::std::{option::Option};
@@ -61,10 +61,10 @@ struct Deck {
 }
 
 pub fn filter_cards<N>(
-    notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL],
+    notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     desired_cards: [Card; N]
-) -> [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL] {
-    let mut selected = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
+) -> [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+    let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let mut found = [false; N];
 

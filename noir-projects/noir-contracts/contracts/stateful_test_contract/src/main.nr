@@ -12,15 +12,14 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
+    #[aztec(initializer)]
     fn constructor(owner: AztecAddress, value: Field) {
-        let selector = FunctionSelector::from_signature("internal_create_note((Field),Field)");
+        let selector = FunctionSelector::from_signature("create_note_no_init_check((Field),Field)");
         let _res = context.call_private_function(context.this_address(), selector, [owner.to_field(), value]);
-        mark_as_initialized(&mut context);
     }
 
     #[aztec(private)]
     fn create_note(owner: AztecAddress, value: Field) {
-        assert_is_initialized(&mut context);
         if (value != 0) {
             let loc = storage.notes.at(owner);
             increment(loc, value, owner);
@@ -28,7 +27,8 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
-    internal fn internal_create_note(owner: AztecAddress, value: Field) {
+    #[aztec(noinitcheck)]
+    fn create_note_no_init_check(owner: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
             increment(loc, value, owner);
@@ -47,8 +47,28 @@ contract StatefulTest {
         increment(recipient_notes, amount, recipient);
     }
 
+    #[aztec(private)]
+    #[aztec(noinitcheck)]
+    fn destroy_and_create_no_init_check(recipient: AztecAddress, amount: Field) {
+        let sender = context.msg_sender();
+
+        let sender_notes = storage.notes.at(sender);
+        decrement(sender_notes, amount, sender);
+
+        let recipient_notes = storage.notes.at(recipient);
+        increment(recipient_notes, amount, recipient);
+    }
+
+
     #[aztec(public)]
     fn increment_public_value(owner: AztecAddress, value: Field) {
+        assert_is_initialized(&mut context);
+        let loc = storage.public_values.at(owner);
+        loc.write(loc.read() + value);
+    }
+
+    #[aztec(public)]
+    fn increment_public_value_no_init_check(owner: AztecAddress, value: Field) {
         let loc = storage.public_values.at(owner);
         loc.write(loc.read() + value);
     }
@@ -62,11 +82,5 @@ contract StatefulTest {
 
     unconstrained fn get_public_value(owner: AztecAddress) -> pub Field {
         storage.public_values.at(owner).read()
-    }
-
-    // This method is here because we've hit the 32 function limit for the TestContract
-    #[aztec(private)]
-    fn deploy_contract(target: AztecAddress) {
-        aztec_deploy_contract(&mut context, target);
     }
 }

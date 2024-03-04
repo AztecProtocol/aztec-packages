@@ -114,7 +114,7 @@ jobs:
 
   noir-ecr-manifest:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: medium
     steps:
       - *checkout
@@ -123,6 +123,18 @@ jobs:
           name: "Create ECR manifest"
           command: create_ecr_manifest noir x86_64,arm64
           aztec_manifest_key: noir
+
+  noir-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build noir-tests 32
+          aztec_manifest_key: noir-tests
 
   noir-packages:
     docker:
@@ -135,6 +147,18 @@ jobs:
           name: "Build"
           command: cond_spot_run_build noir-packages 32
           aztec_manifest_key: noir-packages
+
+  noir-packages-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build noir-packages-tests 32
+          aztec_manifest_key: noir-packages-tests
 
   noir-compile-acir-tests:
     docker:
@@ -235,7 +259,7 @@ jobs:
 
   barretenberg-docs:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -289,7 +313,7 @@ jobs:
     machine:
       # NOTE: we usually use alpine build image when making spot images, but
       # we are not able to upload to S3 with it
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: medium
     steps:
       - *checkout
@@ -353,7 +377,7 @@ jobs:
 
   bb-js:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -389,7 +413,7 @@ jobs:
 
   l1-contracts:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -401,7 +425,7 @@ jobs:
 
   noir-projects:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -413,7 +437,7 @@ jobs:
 
   boxes-files:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: medium
     steps:
       - *checkout
@@ -425,7 +449,7 @@ jobs:
 
   yarn-project-base:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -437,7 +461,7 @@ jobs:
 
   yarn-project:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -449,7 +473,7 @@ jobs:
 
   yarn-project-prod:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -485,7 +509,7 @@ jobs:
 
   aztec-package:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -497,7 +521,7 @@ jobs:
 
   cli:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -509,7 +533,7 @@ jobs:
 
   mainnet-fork:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -521,7 +545,7 @@ jobs:
 
   aztec-faucet:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -569,7 +593,7 @@ jobs:
 
   end-to-end:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -869,7 +893,7 @@ jobs:
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_inclusion_proofs_contract.test.ts
           aztec_manifest_key: end-to-end
 
-  e2e-pending-commitments-contract:
+  e2e-pending-note-hashes-contract:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -878,7 +902,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_pending_commitments_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_pending_note_hashes_contract.test.ts
           aztec_manifest_key: end-to-end
 
   e2e-ordering:
@@ -1111,7 +1135,7 @@ jobs:
 
   build-docs:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -1141,7 +1165,7 @@ jobs:
 
   yellow-paper:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -1171,7 +1195,7 @@ jobs:
 
   bench-summary:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     steps:
       - *checkout
       - *setup_env
@@ -1182,7 +1206,7 @@ jobs:
   # Deploy & release jobs.
   deploy-and-release:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: medium
     steps:
       - *checkout
@@ -1335,7 +1359,12 @@ workflows:
             - noir-x86_64
             - noir-arm64
           <<: *defaults
+      - noir-tests: *defaults
       - noir-packages: *defaults
+      - noir-packages-tests:
+          requires:
+            - noir-ecr-manifest
+          <<: *defaults
       - noir-compile-acir-tests:
           requires:
             - noir-ecr-manifest
@@ -1464,7 +1493,7 @@ workflows:
       - e2e-account-contracts: *e2e_test
       - e2e-escrow-contract: *e2e_test
       - e2e-inclusion-proofs-contract: *e2e_test
-      - e2e-pending-commitments-contract: *e2e_test
+      - e2e-pending-note-hashes-contract: *e2e_test
       - e2e-ordering: *e2e_test
       - e2e-counter: *e2e_test
       - e2e-private-voting: *e2e_test
@@ -1510,7 +1539,7 @@ workflows:
             - e2e-account-contracts
             - e2e-escrow-contract
             - e2e-inclusion-proofs-contract
-            - e2e-pending-commitments-contract
+            - e2e-pending-note-hashes-contract
             - e2e-ordering
             - e2e-counter
             - e2e-private-voting

@@ -1,7 +1,7 @@
 mod subscription_note;
 mod dapp_payload;
 
-contract AppSubscriptionContract {
+contract AppSubscription {
     use dep::std;
     use crate::dapp_payload::DAppPayload;
 
@@ -28,6 +28,7 @@ contract AppSubscriptionContract {
 
     // Constructs the contract
     #[aztec(private)]
+    #[aztec(initializer)]
     fn constructor(
         target_address: AztecAddress,
         subscription_recipient_address: AztecAddress,

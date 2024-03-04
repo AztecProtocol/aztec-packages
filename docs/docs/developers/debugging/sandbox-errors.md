@@ -160,7 +160,7 @@ Circuits work by having a fixed size array. As such, we have limits on how many 
 - too many transient read requests in one tx
 - too many transient read request membership witnesses in one tx
 
-You can have a look at our current constants/limitations in [constants.nr](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-protocol-circuits/src/crates/types/src/constants.nr)
+You can have a look at our current constants/limitations in [constants.nr](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr)
 
 #### 7008 - MEMBERSHIP_CHECK_FAILED
 
@@ -177,9 +177,9 @@ Users may create a proof against a historical state in Aztec. The rollup circuit
 
 ## Archiver Errors
 
-- "L1 to L2 Message with key ${messageKey.toString()} not found in the confirmed messages store" - happens when the L1 to L2 message doesn't exist or is "pending", when the user has sent a message on L1 via the Inbox contract but it has yet to be included in an L2 block by the sequencer - user has to wait for sequencer to pick it up and the archiver to sync the respective L2 block. You can get the sequencer to pick it up by doing an arbitrary transaction on L2 (eg send DAI to yourself). This would give the sequencer a transaction to process and as a side effect it would look for any pending messages it should include.
+- "L1 to L2 Message with key ${entryKey.toString()} not found in the confirmed messages store" - happens when the L1 to L2 message doesn't exist or is "pending", when the user has sent a message on L1 via the Inbox contract but it has yet to be included in an L2 block by the sequencer - user has to wait for sequencer to pick it up and the archiver to sync the respective L2 block. You can get the sequencer to pick it up by doing an arbitrary transaction on L2 (eg send DAI to yourself). This would give the sequencer a transaction to process and as a side effect it would look for any pending messages it should include.
 
-- "Unable to remove message: L1 to L2 Message with key ${messageKeyBigInt} not found in store" - happens when trying to confirm a non-existent pending message or cancelling such a message. Perhaps the sequencer has already confirmed the message?
+- "Unable to remove message: L1 to L2 Message with key ${entryKeyBigInt} not found in store" - happens when trying to confirm a non-existent pending message or cancelling such a message. Perhaps the sequencer has already confirmed the message?
 
 - "Block number mismatch: expected ${l2BlockNum} but got ${block.number}" - The archiver keeps track of the next expected L2 block number. It throws this error if it got a different one when trying to sync with the rollup contract's events on L1.
 

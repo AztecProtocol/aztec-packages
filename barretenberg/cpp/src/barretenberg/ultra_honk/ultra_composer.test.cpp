@@ -22,6 +22,8 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
+using VerificationKey = UltraFlavor::VerificationKey;
+
 std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> variables)
 {
     std::vector<uint32_t> res;
@@ -33,9 +35,10 @@ std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> v
 
 void prove_and_verify(auto& circuit_builder, auto& composer, bool expected_result)
 {
-    auto instance = composer.create_instance(circuit_builder);
+    auto instance = composer.create_prover_instance(circuit_builder);
     auto prover = composer.create_prover(instance);
-    auto verifier = composer.create_verifier(instance);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verifier = composer.create_verifier(verification_key);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
     EXPECT_EQ(verified, expected_result);
@@ -67,7 +70,7 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
     auto circuit_builder = UltraCircuitBuilder();
 
     auto composer = UltraComposer();
-    auto instance = composer.create_instance(circuit_builder);
+    auto instance = composer.create_prover_instance(circuit_builder);
     auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
     auto proving_key = instance->proving_key;
@@ -137,7 +140,7 @@ TEST_F(UltraHonkComposerTests, XorConstraint)
     circuit_builder.create_gates_from_plookup_accumulators(
         plookup::MultiTableId::UINT32_XOR, lookup_accumulators, left_witness_index, right_witness_index);
 
-    auto composer = UltraComposer(bb::srs::get_bn254_crs_factory());
+    UltraComposer composer;
     prove_and_verify(circuit_builder, composer, /*expected_result=*/true);
 }
 
@@ -198,9 +201,10 @@ TEST_F(UltraHonkComposerTests, create_gates_from_plookup_accumulators)
         }
     }
     auto composer = UltraComposer();
-    auto instance = composer.create_instance(circuit_builder);
+    auto instance = composer.create_prover_instance(circuit_builder);
     auto prover = composer.create_prover(instance);
-    auto verifier = composer.create_verifier(instance);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verifier = composer.create_verifier(verification_key);
     auto proof = prover.construct_proof();
 
     bool result = verifier.verify_proof(proof);
