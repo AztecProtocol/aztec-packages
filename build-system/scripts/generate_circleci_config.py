@@ -69,7 +69,7 @@ def get_already_built_manifest_job_names():
             key, content_hash = future.result()
             if key is not None:
                 eprint("Detected cached manifest key:", key, "with content hash", content_hash)
-                yield result
+                yield key
 
 def remove_jobs_from_workflow(jobs, to_remove):
     """
