@@ -70,7 +70,7 @@ describe('ACIR public execution simulator', () => {
     );
     await nullifierTree.init(1);
     const initializationNullifier = siloNullifier(contractAddress, contractAddress.toField());
-    nullifierTree.appendLeaves([initializationNullifier.toBuffer()]);
+    await nullifierTree.appendLeaves([initializationNullifier.toBuffer()]);
     header.state.partial.nullifierTree.root = Fr.fromBuffer(nullifierTree.getRoot(true));
     commitmentsDb.getNullifierMembershipWitnessAtLatestBlock.mockImplementation(async nullifier => {
       if (nullifier.equals(initializationNullifier)) {
