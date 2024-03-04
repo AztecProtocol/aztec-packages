@@ -1,4 +1,5 @@
 import { L1ToL2Message } from '@aztec/circuit-types';
+import { MessageBoxError } from '@aztec/errors';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -66,7 +67,7 @@ export class PendingL1ToL2MessageStore extends L1ToL2MessageStore {
     const entryKeyBigInt = entryKey.value;
     const msgAndCount = this.store.get(entryKeyBigInt);
     if (!msgAndCount) {
-      throw new Error(`Unable to remove message: L1 to L2 Message with key ${entryKeyBigInt} not found in store`);
+      throw MessageBoxError.messageCannotBeRemoved(entryKey);
     }
     if (msgAndCount.count > 1) {
       msgAndCount.count--;
