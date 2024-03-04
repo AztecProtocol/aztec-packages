@@ -1416,6 +1416,7 @@ workflows:
           <<: *defaults
       - end-to-end: *defaults_yarn_project_pre_join
       - aztec-faucet: *defaults_yarn_project_pre_join
+      - build-docs: *defaults_yarn_project_pre_join
       - yarn-project-test: *defaults_yarn_project_pre_join
       - yarn-project-x86_64: *defaults_yarn_project_pre_join
       - yarn-project-arm64: *defaults_yarn_project_pre_join
@@ -1426,7 +1427,6 @@ workflows:
           <<: *defaults
 
       # Artifacts
-      - build-docs: *defaults_yarn_project
       - aztec-package: *defaults_yarn_project
       - cli: *defaults_yarn_project
 

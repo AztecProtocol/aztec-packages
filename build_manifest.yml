@@ -225,7 +225,10 @@ mainnet-fork:
 docs:
   buildDir: docs
   dependencies:
-    - yarn-project
+    - bb.js
+    - noir-packages
+    - l1-contracts
+    - noir-projects
 
 yellow-paper:
   buildDir: yellow-paper

@@ -9,6 +9,7 @@ docs/node_modules
 !barretenberg/cpp/src/barretenberg
 !.release-please-manifest.json
 !boxes
+!yarn-project
 
 # Docs build fetches code snippets from the last release using git show.
 !.git
