@@ -1,11 +1,11 @@
 use dep::aztec::prelude::{
-    AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, PrivateContext, PrivateSet, Map,
-    emit_encrypted_log
+    AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, NoteInterface, PrivateContext,
+    PrivateSet, Map, emit_encrypted_log
 };
 use dep::aztec::{
     context::{PublicContext, Context}, hash::pedersen_hash,
     protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    note::{note_getter::view_notes, note_getter_options::SortOrder, note_interface::NoteInterface}
+    note::{note_getter::view_notes, note_getter_options::SortOrder}
 };
 use crate::types::token_note::{TokenNote, OwnedNote};
 
