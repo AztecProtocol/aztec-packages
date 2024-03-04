@@ -27,14 +27,13 @@ const logger = createDebugLogger('aztec:sequencer-client');
  */
 async function getSimulationProvider(config: SequencerClientConfig): Promise<SimulationProvider> {
   if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
-    const pathToAcvm = `${config.acvmBinaryPath}/acvm`;
     try {
-      await fs.access(pathToAcvm, fs.constants.R_OK);
+      await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
       await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
       logger(`Using native ACVM at ${config.acvmBinaryPath}`);
-      return new NativeACVMSimulator(config.acvmWorkingDirectory, pathToAcvm);
+      return new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath);
     } catch {
-      logger(`Failed to access ACVM at ${pathToAcvm}, falling back to WASM`);
+      logger(`Failed to access ACVM at ${config.acvmBinaryPath}, falling back to WASM`);
     }
   }
   logger('Using WASM ACVM simulation');

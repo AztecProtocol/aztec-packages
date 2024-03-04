@@ -1,6 +1,6 @@
 FROM aztecprotocol/yarn-project-prod AS yarn-project-prod
 # ENV vars for using native ACVM simulation
-ENV ACVM_BINARY_PATH="/usr/src/noir/noir-repo/target/release" ACVM_WORKING_DIRECTORY="/tmp/acvm"
+ENV ACVM_BINARY_PATH="/usr/src/noir/noir-repo/target/release/acvm" ACVM_WORKING_DIRECTORY="/tmp/acvm"
 ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
 EXPOSE 8080
 

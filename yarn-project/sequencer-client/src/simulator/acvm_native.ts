@@ -5,6 +5,7 @@ import * as proc from 'child_process';
 import fs from 'fs/promises';
 
 import { SimulationProvider } from './simulation_provider.js';
+import { randomBytes } from '@aztec/foundation/crypto';
 
 /**
  * Parses a TOML format witness map string into a Map structure
@@ -94,7 +95,6 @@ export async function executeNativeCircuit(
 }
 
 export class NativeACVMSimulator implements SimulationProvider {
-  private count = 0;
   constructor(private workingDirectory: string, private pathToAcvm: string) {}
   async simulateCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
     // Execute the circuit on those initial witness values
@@ -103,8 +103,7 @@ export class NativeACVMSimulator implements SimulationProvider {
     const decodedBytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
 
     // Provide a unique working directory so we don't get clashes with parallel executions
-    const directory = `${this.workingDirectory}/${this.count}`;
-    ++this.count;
+    const directory = `${this.workingDirectory}/${randomBytes(32).toString('hex')}`;
     // Execute the circuit
     const _witnessMap = await executeNativeCircuit(input, decodedBytecode, directory, this.pathToAcvm);
 

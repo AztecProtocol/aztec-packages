@@ -7,11 +7,11 @@ mod fs;
 
 const GIT_HASH: &str = env!("GIT_COMMIT");
 const IS_DIRTY: &str = env!("GIT_DIRTY");
-const NARGO_VERSION: &str = env!("CARGO_PKG_VERSION");
+const ACVM_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 static VERSION_STRING: &str = formatcp!(
     "version = {}\n(git version hash: {}, is dirty: {})",
-    NARGO_VERSION,
+    ACVM_VERSION,
     GIT_HASH,
     IS_DIRTY
 );

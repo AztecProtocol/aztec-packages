@@ -22,6 +22,7 @@ import {
   createDebugLogger,
   createPXEClient,
   deployL1Contracts,
+  fileURLToPath,
   makeFetch,
   waitForPXE,
 } from '@aztec/aztec.js';
@@ -70,14 +71,16 @@ const getAztecUrl = () => {
 };
 
 // Determines if we have access to the acvm binary and a tmp folder for temp files
-const getACVMConfig = async () => {
+const getACVMConfig = async (logger: DebugLogger) => {
   try {
-    const expectedAcvmPath = path.resolve(`../../noir/${NOIR_RELEASE_DIR}`);
+    const expectedAcvmPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../noir/', NOIR_RELEASE_DIR);
     await fs.access(`${expectedAcvmPath}/acvm`, fs.constants.R_OK);
     const acvmWorkingDirectory = `${TEMP_DIR}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
+    logger(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
     return { acvmWorkingDirectory, expectedAcvmPath };
   } catch (err) {
+    logger(`Native ACVM not available`);
     return undefined;
   }
 };
@@ -304,7 +307,7 @@ export async function setup(
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
   logger('Creating and synching an aztec node...');
-  const acvmConfig = await getACVMConfig();
+  const acvmConfig = await getACVMConfig(logger);
   if (acvmConfig) {
     config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
     config.acvmBinaryPath = acvmConfig.expectedAcvmPath;

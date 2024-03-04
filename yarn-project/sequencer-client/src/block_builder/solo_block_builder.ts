@@ -628,7 +628,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   // Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
-  public async buildBaseRollupInput(tx: ProcessedTx, globalVariables: GlobalVariables) {
+  protected async buildBaseRollupInput(tx: ProcessedTx, globalVariables: GlobalVariables) {
     // Get trees info before any changes hit
     const constants = await this.getConstantRollupData(globalVariables);
     const start = new PartialStateReference(

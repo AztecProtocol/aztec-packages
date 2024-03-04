@@ -150,7 +150,7 @@ export async function executeTail(
  * @param inputs - The base rollup inputs.
  * @returns The witness map
  */
-export function convertBaseRollupInputs(inputs: BaseRollupInputs): WitnessMap {
+export function convertBaseRollupInputsToWitnessMap(inputs: BaseRollupInputs): WitnessMap {
   const mapped = mapBaseRollupInputsToNoir(inputs);
   const initialWitnessMap = abiEncode(BaseRollupSimulatedJson.abi as Abi, { inputs: mapped as any });
   return initialWitnessMap;
@@ -161,7 +161,7 @@ export function convertBaseRollupInputs(inputs: BaseRollupInputs): WitnessMap {
  * @param inputs - The merge rollup inputs.
  * @returns The witness map
  */
-export function convertMergeRollupInputs(inputs: MergeRollupInputs): WitnessMap {
+export function convertMergeRollupInputsToWitnessMap(inputs: MergeRollupInputs): WitnessMap {
   const mapped = mapMergeRollupInputsToNoir(inputs);
   const initialWitnessMap = abiEncode(MergeRollupJson.abi as Abi, { inputs: mapped as any });
   return initialWitnessMap;
@@ -172,7 +172,7 @@ export function convertMergeRollupInputs(inputs: MergeRollupInputs): WitnessMap 
  * @param inputs - The root rollup inputs.
  * @returns The witness map
  */
-export function convertRootRollupInputs(inputs: RootRollupInputs): WitnessMap {
+export function convertRootRollupInputsToWitnessMap(inputs: RootRollupInputs): WitnessMap {
   const mapped = mapRootRollupInputsToNoir(inputs);
   const initialWitnessMap = abiEncode(RootRollupJson.abi as Abi, { inputs: mapped as any });
   return initialWitnessMap;
@@ -182,7 +182,7 @@ export function convertRootRollupInputs(inputs: RootRollupInputs): WitnessMap {
  * @param inputs - The public kernel inputs.
  * @returns The witness map
  */
-export function convertPublicSetupRollupInputs(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
+export function convertPublicSetupRollupInputsToWitnessMap(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
   const mapped = mapPublicKernelCircuitPrivateInputsToNoir(inputs);
   const initialWitnessMap = abiEncode(PublicKernelSetupSimulatedJson.abi as Abi, { input: mapped as any });
   return initialWitnessMap;
@@ -193,7 +193,7 @@ export function convertPublicSetupRollupInputs(inputs: PublicKernelCircuitPrivat
  * @param inputs - The public kernel inputs.
  * @returns The witness map
  */
-export function convertPublicInnerRollupInputs(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
+export function convertPublicInnerRollupInputsToWitnessMap(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
   const mapped = mapPublicKernelCircuitPrivateInputsToNoir(inputs);
   const initialWitnessMap = abiEncode(PublicKernelAppLogicSimulatedJson.abi as Abi, { input: mapped as any });
   return initialWitnessMap;
@@ -204,7 +204,7 @@ export function convertPublicInnerRollupInputs(inputs: PublicKernelCircuitPrivat
  * @param inputs - The public kernel inputs.
  * @returns The witness map
  */
-export function convertPublicTailRollupInputs(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
+export function convertPublicTailRollupInputsToWitnessMap(inputs: PublicKernelCircuitPrivateInputs): WitnessMap {
   const mapped = mapPublicKernelCircuitPrivateInputsToNoir(inputs);
   const initialWitnessMap = abiEncode(PublicKernelTeardownSimulatedJson.abi as Abi, { input: mapped as any });
   return initialWitnessMap;
@@ -215,7 +215,7 @@ export function convertPublicTailRollupInputs(inputs: PublicKernelCircuitPrivate
  * @param outputs - The base rollup outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertBaseRollupOutputs(outputs: WitnessMap): BaseOrMergeRollupPublicInputs {
+export function convertBaseRollupOutputsFromWitnessMap(outputs: WitnessMap): BaseOrMergeRollupPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(BaseRollupSimulatedJson.abi as Abi, outputs);
 
@@ -230,7 +230,7 @@ export function convertBaseRollupOutputs(outputs: WitnessMap): BaseOrMergeRollup
  * @param outputs - The merge rollup outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertMergeRollupOutputs(outputs: WitnessMap): BaseOrMergeRollupPublicInputs {
+export function convertMergeRollupOutputsFromWitnessMap(outputs: WitnessMap): BaseOrMergeRollupPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(MergeRollupJson.abi as Abi, outputs);
 
@@ -245,7 +245,7 @@ export function convertMergeRollupOutputs(outputs: WitnessMap): BaseOrMergeRollu
  * @param outputs - The root rollup outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertRootRollupOutputs(outputs: WitnessMap): RootRollupPublicInputs {
+export function convertRootRollupOutputsFromWitnessMap(outputs: WitnessMap): RootRollupPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(RootRollupJson.abi as Abi, outputs);
 
@@ -260,7 +260,7 @@ export function convertRootRollupOutputs(outputs: WitnessMap): RootRollupPublicI
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertPublicSetupRollupOutput(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
+export function convertPublicSetupRollupOutputFromWitnessMap(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(PublicKernelSetupSimulatedJson.abi as Abi, outputs);
 
@@ -275,7 +275,7 @@ export function convertPublicSetupRollupOutput(outputs: WitnessMap): PublicKerne
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertPublicInnerRollupOutput(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
+export function convertPublicInnerRollupOutputFromWitnessMap(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(PublicKernelAppLogicSimulatedJson.abi as Abi, outputs);
 
@@ -290,7 +290,7 @@ export function convertPublicInnerRollupOutput(outputs: WitnessMap): PublicKerne
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertPublicTailRollupOutput(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
+export function convertPublicTailRollupOutputFromWitnessMap(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(PublicKernelTeardownSimulatedJson.abi as Abi, outputs);
 
