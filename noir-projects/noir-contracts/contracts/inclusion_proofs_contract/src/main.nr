@@ -33,16 +33,9 @@ contract InclusionProofs {
         public_unused_value: PublicMutable<Field>,
     }
 
-    #[aztec(private)]
+    #[aztec(public)]
     #[aztec(initializer)]
     fn constructor(public_value: Field) {
-        let selector = FunctionSelector::from_signature("_initialize(Field)");
-        context.call_public_function(context.this_address(), selector, [public_value]);
-    }
-
-    #[aztec(public)]
-    #[aztec(noinitcheck)]
-    internal fn _initialize(value: Field) {
         storage.public_value.write(value);
     }
 
