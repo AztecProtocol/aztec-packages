@@ -65,7 +65,7 @@ style I3 fill:#1976D2;
 
 The output of the "combined" circuit will be the `converted_root` which is the root of the snark-friendly message tree.
 And the `sha_root` which must match the root of the sha256 message tree from the L1 Inbox.
-The circuit must simply compute the two trees using the same inputs, and then we ensure that the elements of the trees match the inbox later at the [state transitioner](./../l1-smart-contracts/index.md#overview).
+The circuit computes the two trees using the same inputs, and then we ensure that the elements of the trees match the inbox later in the [state transitioner](./../l1-smart-contracts/index.md#overview).
 It proves parity of the leaves in the two trees.
 
 

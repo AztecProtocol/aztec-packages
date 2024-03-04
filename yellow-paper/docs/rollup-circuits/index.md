@@ -16,7 +16,7 @@ This works very well for the case where we want many actors to be able to partic
 
 Note that we have two different types of "merger" circuits, depending on what they are combining. 
 
-For transaction compression we have:
+For transactions we have:
 - The `merge` rollup
   - Merges two `base` rollup proofs OR two `merge` rollup proofs
 - The `root` rollup
@@ -28,8 +28,6 @@ And for the message parity we have:
 - The `leaf` circuit
   - Merges `N` l1 to l2 messages in a subtree 
 
-In the diagram the sizes of the trees are limited for show.
-In reality larger trees would have more layers between the leafs and the root.
 In the diagram the size of the tree is limited for demonstration purposes, but a larger tree would have more layers of merge rollups proofs. 
 Circles mark the different types of proofs, while squares mark the different circuit types.
 
