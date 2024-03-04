@@ -10,7 +10,7 @@ contract Test {
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTES_PER_PAGE}, hash::hash_args
     };
     // docs:start:unencrypted_import
-    use dep::aztec::log::emit_unencrypted_log;
+    use dep::aztec::prelude::emit_unencrypted_log;
     // docs:end:unencrypted_import
 
     use dep::aztec::{
