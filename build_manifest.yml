@@ -142,9 +142,10 @@ barretenberg-docs:
 l1-contracts:
   buildDir: l1-contracts
 
-yarn-project-base:
+# Runs all yarn-projects checks and tests.
+yarn-project-test:
   buildDir: yarn-project
-  dockerfile: Dockerfile.base
+  dockerfile: Dockerfile.test
   rebuildPatterns:
     - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml|snap)$
     - ^yarn-project/Dockerfile$
@@ -155,19 +156,19 @@ yarn-project-base:
     - l1-contracts
     - noir-projects
 
-# Runs all yarn-projects checks and tests.
-yarn-project-test:
-  buildDir: yarn-project
-  dockerfile: Dockerfile.test
-  dependencies:
-    - yarn-project-base
-
 # Builds all of yarn-project, with all developer dependencies.
 # Creates a runnable container used to run tests and formatting checks.
 yarn-project:
   buildDir: yarn-project
+  rebuildPatterns:
+    - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml|snap)$
+    - ^yarn-project/Dockerfile$
+    - ^yarn-project/cli/aztec-cli
   dependencies:
-    - yarn-project-base
+    - bb.js
+    - noir-packages
+    - l1-contracts
+    - noir-projects
   multiarch: host
 
 # A runnable container, sets entrypoint to be the aztec infrastructure entrypoint.
@@ -222,15 +223,7 @@ mainnet-fork:
   projectDir: iac/mainnet-fork
 
 docs:
-  buildDir: .
-  dockerfile: docs/Dockerfile
-  rebuildPatterns:
-    - ^docs/
-    - ^.*\.cpp$
-    - ^.*\.hpp$
-    - ^.*\.ts$
-    - ^.release-please-manifest\.json$
-    - ^.*\.nr$
+  buildDir: docs
   dependencies:
     - yarn-project
 
