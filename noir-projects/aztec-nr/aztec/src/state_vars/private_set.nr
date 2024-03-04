@@ -6,8 +6,8 @@ use crate::context::{PrivateContext, PublicContext, Context};
 use crate::note::{
     lifecycle::{create_note, create_partial_note, create_note_hash_from_public, destroy_note},
     note_getter::{get_notes, view_notes}, note_getter_options::NoteGetterOptions,
-    note_header::NoteHeader, note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_consumption
+    note_header::NoteHeader, note_interface::{NoteInterface, CompletableNoteInterface},
+    note_viewer_options::NoteViewerOptions, utils::compute_note_hash_for_consumption
 };
 use crate::state_vars::storage::Storage;
 
@@ -42,7 +42,7 @@ impl<Note> PrivateSet<Note> {
         self,
         note: &mut Note,
         broadcast: bool
-    ) -> Field where Note: NoteInterface<N> {
+    ) -> Field where Note: NoteInterface<N> + CompletableNoteInterface {
         create_partial_note(
             self.context.private.unwrap(),
             self.storage_slot,

@@ -5,7 +5,7 @@ use dep::aztec::prelude::{
 use dep::aztec::{
     context::{PublicContext, Context}, hash::pedersen_hash,
     protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    note::{note_getter::view_notes, note_getter_options::SortOrder}
+    note::{note_getter::view_notes, note_getter_options::SortOrder, note_interface::CompletableNoteInterface}
 };
 use crate::types::token_note::{TokenNote, OwnedNote};
 
@@ -55,11 +55,13 @@ impl<T> BalancesMap<T> {
         balance
     }
 
-    pub fn add_partial<T_SERIALIZED_LEN>(self: Self, owner: AztecAddress) -> T where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
+    pub fn add_partial<T_SERIALIZED_LEN>(
+        self: Self,
+        owner: AztecAddress
+    ) -> Field where T: NoteInterface<T_SERIALIZED_LEN> + CompletableNoteInterface + OwnedNote {
         let mut addend_note = T::new(U128::empty(), owner);
-        let _partial_note_hash = self.map.at(owner).insert_partial(&mut addend_note, true);
-        // TODO once PXE tracks partial notes, just return the hash instead of the whole note
-        addend_note
+        let partial_note_hash = self.map.at(owner).insert_partial(&mut addend_note, true);
+        partial_note_hash
     }
 
     pub fn add<T_SERIALIZED_LEN>(

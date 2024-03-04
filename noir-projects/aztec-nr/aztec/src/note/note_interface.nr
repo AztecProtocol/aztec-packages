@@ -1,4 +1,4 @@
-use crate::context::PrivateContext;
+use crate::context::{PrivateContext, PublicContext};
 use crate::note::note_header::NoteHeader;
 
 // docs:start:note_interface
@@ -24,3 +24,8 @@ trait NoteInterface<N> {
     fn get_note_type_id() -> Field;
 }
 // docs:end:note_interface
+
+trait CompletableNoteInterface {
+    fn broadcast_partial_data(self, context: &mut PrivateContext, slot: Field) -> ();
+    fn broadcast_completion_from_public(self, context: &mut PublicContext) -> ();
+}

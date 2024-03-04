@@ -381,11 +381,8 @@ contract Token {
 
         storage.balances.sub(from, U128::from_integer(amount));
 
-        let partial_note_0 = storage.balances.add_partial(from);
-        let partial_note_1 = storage.balances.add_partial(to);
-
-        let partial_note_hash_0 = partial_note_0.get_header().partial_note_hash;
-        let partial_note_hash_1 = partial_note_1.get_header().partial_note_hash;
+        let partial_note_hash_0 = storage.balances.add_partial(from);
+        let partial_note_hash_1 = storage.balances.add_partial(to);
 
         let hash = compute_partial_notes_pair_hash(
             partial_note_hash_0,
@@ -398,18 +395,6 @@ contract Token {
             context.this_address(),
             FunctionSelector::from_signature("auth_partial_notes((Field))"),
             [hash.to_field()]
-        );
-
-        // HACK: emit private data as unencrypted logs until PXE can track partial notes
-        // (the partial note is emitted as an encrypted log but the PXE drops it because its not in the tree)
-        emit_unencrypted_log_from_private(
-            &mut context,
-            [partial_note_0.randomness, partial_note_1.randomness]
-        );
-
-        emit_unencrypted_log_from_private(
-            &mut context,
-            [partial_note_0.get_header().storage_slot, partial_note_1.get_header().storage_slot]
         );
 
         // emit as unencrypted for e2e testing as return values are not accessible there
@@ -438,12 +423,10 @@ contract Token {
         context.push_new_nullifier(hash.to_field(), 0);
 
         let mut token_note_0 = TokenNote::new_from_public(U128::from_integer(amounts[0]));
-        complete_partial_note_from_public(&mut context, partial_note_hashes[0], &mut token_note_0);
+        complete_partial_note_from_public(&mut context, partial_note_hashes[0], &mut token_note_0, true);
 
         let mut token_note_1 = TokenNote::new_from_public(U128::from_integer(amounts[1]));
-        complete_partial_note_from_public(&mut context, partial_note_hashes[1], &mut token_note_1);
-
-        emit_unencrypted_log(&mut context, amounts);
+        complete_partial_note_from_public(&mut context, partial_note_hashes[1], &mut token_note_1, true);
     }
 }
 // docs:end:token_all

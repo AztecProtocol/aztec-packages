@@ -9,6 +9,7 @@ import { ContractInstanceWithAddress, SerializableContractInstance } from '@azte
 
 import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
+import { PartialNoteDao } from './partial_note_dao.js';
 import { PxeDatabase } from './pxe_database.js';
 
 /**
@@ -34,6 +35,8 @@ export class KVPxeDatabase implements PxeDatabase {
   #nullifiedNotesByOwner: AztecMultiMap<string, string>;
   #deferredNotes: AztecArray<Buffer | null>;
   #deferredNotesByContract: AztecMultiMap<string, number>;
+  #partialNotes: AztecMap<string, Buffer>;
+  #partialNotesByContract: AztecMultiMap<string, string>;
   #syncedBlockPerPublicKey: AztecMap<string, number>;
   #contractArtifacts: AztecMap<string, Buffer>;
   #contractInstances: AztecMap<string, Buffer>;
@@ -71,6 +74,9 @@ export class KVPxeDatabase implements PxeDatabase {
 
     this.#deferredNotes = db.openArray('deferred_notes');
     this.#deferredNotesByContract = db.openMultiMap('deferred_notes_by_contract');
+
+    this.#partialNotes = db.openMap('partial_notes');
+    this.#partialNotesByContract = db.openMultiMap('partial_notes_by_contract');
   }
 
   public async addContractArtifact(id: Fr, contract: ContractArtifact): Promise<void> {
@@ -160,6 +166,39 @@ export class KVPxeDatabase implements PxeDatabase {
     }
 
     return Promise.resolve(notes);
+  }
+
+  addPartialNotes(partialNotes: PartialNoteDao[]): Promise<void> {
+    return this.db.transaction(() => {
+      for (const note of partialNotes) {
+        const key = note.siloedNoteHash.toString();
+        void this.#partialNotes.set(key, note.toBuffer());
+        void this.#partialNotesByContract.set(note.contractAddress.toString(), key);
+      }
+    });
+  }
+
+  getPartialNotesByContract(contractAddress: AztecAddress): Promise<PartialNoteDao[]> {
+    const noteIds = this.#partialNotesByContract.getValues(contractAddress.toString());
+    const notes: PartialNoteDao[] = [];
+    for (const noteId of noteIds) {
+      const serializedNote = this.#partialNotes.get(noteId);
+      if (!serializedNote) {
+        continue;
+      }
+
+      const note = PartialNoteDao.fromBuffer(serializedNote);
+      notes.push(note);
+    }
+    return Promise.resolve(notes);
+  }
+
+  removePartialNotes(noteIds: string[]): Promise<void> {
+    return this.db.transaction(() => {
+      for (const noteId of noteIds) {
+        void this.#partialNotes.delete(noteId);
+      }
+    });
   }
 
   /**

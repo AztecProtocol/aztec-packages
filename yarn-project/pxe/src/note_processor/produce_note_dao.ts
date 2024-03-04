@@ -4,6 +4,7 @@ import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { AcirSimulator } from '@aztec/simulator';
 
 import { NoteDao } from '../database/note_dao.js';
+import { ChoppedNoteError } from './chopped_note_error.js';
 
 /**
  * Decodes a note from a transaction that we know was intended for us.
@@ -95,6 +96,12 @@ async function findNoteIndexAndNullifier(
     const expectedNonce = computeCommitmentNonce(firstNullifier, commitmentIndex);
     ({ nonSiloedNoteHash, siloedNoteHash, uniqueSiloedNoteHash, nonSiloedNullifier } =
       await simulator.computeNoteHashAndNullifier(contractAddress, expectedNonce, storageSlot, noteTypeId, note));
+    if (commitment.equals(siloedNoteHash)) {
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+      // Remove this once notes added from public also include nonces.
+      nonce = Fr.ZERO;
+      break;
+    }
     if (commitment.equals(uniqueSiloedNoteHash)) {
       nonce = expectedNonce;
       break;
@@ -102,25 +109,23 @@ async function findNoteIndexAndNullifier(
   }
 
   if (!nonce) {
-    let errorString;
     if (siloedNoteHash == undefined) {
-      errorString = 'Cannot find a matching commitment for the note.';
+      throw new Error('Cannot find a matching commitment for the note.');
     } else {
-      errorString = `We decrypted a log, but couldn't find a corresponding note in the tree.
-This might be because the note was nullified in the same tx which created it.
-In that case, everything is fine. To check whether this is the case, look back through
-the logs for a notification
-'important: chopped commitment for siloed inner hash note
-${siloedNoteHash.toString()}'.
-If you can see that notification. Everything's fine.
-If that's not the case, and you can't find such a notification, something has gone wrong.
-There could be a problem with the way you've defined a custom note, or with the way you're
-serializing / deserializing / hashing / encrypting / decrypting that note.
-Please see the following github issue to track an improvement that we're working on:
-https://github.com/AztecProtocol/aztec-packages/issues/1641`;
+      throw new ChoppedNoteError(siloedNoteHash);
     }
-
-    throw new Error(errorString);
+  } else if (nonce.isZero()) {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+    // this note was inserted from public so its nonce is 0
+    // recompute the note hash and nullifier with nonce 0, this is needed because the "nonSiloedNullifier"  is
+    // actually computed from the note's unique hash (ie note content hash + storage slot + contract address + nonce)
+    ({ nonSiloedNoteHash, nonSiloedNullifier } = await simulator.computeNoteHashAndNullifier(
+      contractAddress,
+      Fr.ZERO,
+      storageSlot,
+      noteTypeId,
+      note,
+    ));
   }
 
   return {

@@ -23,10 +23,6 @@ impl NoteHeader {
     pub fn new(contract_address: AztecAddress, nonce: Field, storage_slot: Field) -> Self {
         NoteHeader { contract_address, nonce, storage_slot, is_transient: false, partial_note_hash: 0 }
     }
-
-    pub fn is_partial(self) -> bool {
-        self.partial_note_hash != 0
-    }
 }
 
 impl Serialize<4> for NoteHeader {

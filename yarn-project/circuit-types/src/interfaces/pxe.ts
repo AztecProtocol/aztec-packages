@@ -297,5 +297,20 @@ export interface PXE {
    * @param id - Identifier of the class.
    */
   isContractClassPubliclyRegistered(id: Fr): Promise<boolean>;
+
+  /**
+   * Attempts to complete a partial note.
+   *
+   * @param contractAddress - The contract whose note is to be completed.
+   * @param noteTypeId - The type of the note to be completed.
+   * @param patches - The patches to apply to the serialized partial note data
+   * @param completionTxHash - The hash of the transaction that completed the partial note.
+   */
+  completePartialNote(
+    contractAddress: AztecAddress,
+    noteTypeId: Fr,
+    patches: [number | Fr, Fr][],
+    completionTxHash: TxHash,
+  ): Promise<void>;
 }
 // docs:end:pxe-interface

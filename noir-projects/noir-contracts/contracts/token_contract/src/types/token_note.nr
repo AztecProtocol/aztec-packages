@@ -1,8 +1,11 @@
 use dep::aztec::prelude::{
     AztecAddress, NoteInterface, NoteGetterOptions, NoteViewerOptions, NoteHeader, PrivateContext,
-    PrivateSet, Map, emit_encrypted_log
+    PrivateSet, Map, emit_encrypted_log, emit_unencrypted_log
 };
-use dep::aztec::{note::utils::compute_note_hash_for_consumption, hash::pedersen_hash};
+use dep::aztec::{
+    note::{utils::compute_note_hash_for_consumption, note_interface::CompletableNoteInterface},
+    hash::pedersen_hash, protocol_types::traits::is_empty, context::PublicContext
+};
 use dep::aztec::oracle::{rand::rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key};
 
 trait OwnedNote {
@@ -87,7 +90,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
       // We only bother inserting the note if non-empty to save funds on gas.
-      if !(self.amount == U128::from_integer(0)) | self.header.is_partial() {
+      if !is_empty(self.amount) {
           let encryption_pub_key = get_public_key(self.owner);
           emit_encrypted_log(
               context,
@@ -123,6 +126,31 @@ impl OwnedNote for TokenNote {
 
     fn get_owner(self) -> AztecAddress {
         self.owner
+    }
+}
+
+impl CompletableNoteInterface for TokenNote {
+    fn broadcast_partial_data(self, context: &mut PrivateContext, slot: Field) {
+        let encryption_pub_key = get_public_key(self.owner);
+
+        emit_encrypted_log(
+            context,
+            (*context).this_address(),
+            slot,
+            TokenNote::get_note_type_id(),
+            encryption_pub_key,
+            self.serialize_content(),
+        );
+    }
+
+    fn broadcast_completion_from_public(self, context: &mut PublicContext) {
+        if !is_empty(self.amount) {
+            // TODO change this with a well-structured Event so the PXE can listen for them
+            emit_unencrypted_log(
+                context,
+                [TokenNote::get_note_type_id(), self.amount.to_field()]
+            );
+        }
     }
 }
 

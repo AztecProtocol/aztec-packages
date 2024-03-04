@@ -1,6 +1,6 @@
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
-    note_header::NoteHeader, note_interface::NoteInterface,
+    note_header::NoteHeader, note_interface::{NoteInterface, CompletableNoteInterface},
     utils::{compute_note_hash_for_insertion, compute_note_hash_for_consumption, compute_partial_note_hash}
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
@@ -43,7 +43,7 @@ pub fn create_partial_note<Note, N>(
     storage_slot: Field,
     note: &mut Note,
     broadcast: bool
-) -> Field where Note: NoteInterface<N> {
+) -> Field where Note: NoteInterface<N> + CompletableNoteInterface {
     let contract_address = (*context).this_address();
 
     let mut header = NoteHeader { contract_address, storage_slot, nonce: 0, is_transient: true, partial_note_hash: 0 };
@@ -57,7 +57,7 @@ pub fn create_partial_note<Note, N>(
     Note::set_header(note, header);
 
     if broadcast {
-        Note::broadcast(*note, context, storage_slot);
+        CompletableNoteInterface::broadcast_partial_data(*note, context, storage_slot);
     }
 
     partial_note_hash
@@ -66,8 +66,9 @@ pub fn create_partial_note<Note, N>(
 pub fn complete_partial_note_from_public<Note, N>(
     context: &mut PublicContext,
     partial_note_hash: Field,
-    note: &mut Note
-) where Note: NoteInterface<N> {
+    note: &mut Note,
+    broadcast: bool
+) where Note: NoteInterface<N> + CompletableNoteInterface {
     let contract_address = (*context).this_address();
 
     let header = NoteHeader { contract_address, storage_slot: 0, nonce: 0, is_transient: true, partial_note_hash };
@@ -76,10 +77,11 @@ pub fn complete_partial_note_from_public<Note, N>(
     // As `is_transient` is true, this will compute the inner note hsah
     let note_hash = compute_note_hash_for_insertion(*note);
 
-    // No need to broadcast.
-    // Whoever created the partial note "should" already have the missing info ncessary to complete the note in their PXE.
-    // Also broadcsating would require the note's storage slot.
     context.push_new_note_hash(note_hash);
+
+    if broadcast {
+        CompletableNoteInterface::broadcast_completion_from_public(*note, context);
+    }
 }
 
 pub fn create_note_hash_from_public<Note, N>(

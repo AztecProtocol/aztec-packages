@@ -21,6 +21,7 @@ import {
   TxHash,
   TxL2Logs,
   TxReceipt,
+  TxStatus,
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
@@ -31,6 +32,7 @@ import {
   CompleteAddress,
   FunctionData,
   GrumpkinPrivateKey,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
@@ -232,6 +234,55 @@ export class PXEService implements PXE {
       this.log.info(`Added contract ${contract.name} at ${contractAztecAddress}${portalInfo}`);
       await this.synchronizer.reprocessDeferredNotesForContract(contractAztecAddress);
     }
+  }
+
+  /**
+   * Attempts to complete a partial note.
+   *
+   * @param contractAddress - The contract whose note is to be completed.
+   * @param noteTypeId - The type of the note to be completed.
+   * @param patches - The patches to apply to the serialized partial note data
+   * @param completionTxHash - The hash of the transaction that completed the partial note.
+   */
+  public async completePartialNote(
+    contractAddress: AztecAddress,
+    noteTypeId: Fr,
+    patches: [number | Fr, Fr][],
+    completionTxHash: TxHash,
+  ) {
+    const txReceipt = await this.getTxReceipt(completionTxHash);
+    if (txReceipt.status !== TxStatus.MINED || typeof txReceipt.blockNumber !== 'number') {
+      throw new Error(`Tx ${completionTxHash} not mined`);
+    }
+
+    const block = await this.getBlock(txReceipt.blockNumber);
+    if (!block) {
+      throw new Error(`Block ${txReceipt.blockNumber} not found`);
+    }
+
+    // up to which leaf has this block written to in the note hash tree
+    const blockEndLeafIndex = block.header.state.partial.noteHashTree.nextAvailableLeafIndex;
+    // how many txs this block had, including empty txs
+    const blockSize = block.body.encryptedLogs.txLogs.length;
+    let completionTxStartLeafIndex = 0;
+    let completionTx: TxEffect;
+
+    // find the tx in the block and the start leaf index
+    for (const [i, tx] of block.getTxs().entries()) {
+      completionTxStartLeafIndex = blockEndLeafIndex - (blockSize - i) * MAX_NEW_NOTE_HASHES_PER_TX;
+      if (tx.txHash.equals(completionTxHash)) {
+        completionTx = tx;
+        break;
+      }
+    }
+
+    return this.synchronizer.processPartialNotes(
+      contractAddress,
+      noteTypeId,
+      patches,
+      completionTx!,
+      completionTxStartLeafIndex,
+    );
   }
 
   private async addArtifactsAndInstancesFromDeployedContracts(contracts: DeployedContract[]) {
