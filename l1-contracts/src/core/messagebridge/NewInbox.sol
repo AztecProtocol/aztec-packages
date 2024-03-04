@@ -58,10 +58,11 @@ contract NewInbox {
    * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
    * @return The key of the message in the set
    */
-  function insert(DataStructures.L2Actor memory _recipient, bytes32 _content, bytes32 _secretHash)
-    external
-    returns (bytes32)
-  {
+  function sendL2Message(
+    DataStructures.L2Actor memory _recipient,
+    bytes32 _content,
+    bytes32 _secretHash
+  ) external returns (bytes32) {
     if (uint256(_recipient.actor) > Constants.MAX_FIELD_VALUE) {
       revert Errors.Inbox__ActorTooLarge(_recipient.actor);
     }

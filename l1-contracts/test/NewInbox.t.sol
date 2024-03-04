@@ -79,16 +79,17 @@ contract NewInboxTest is Test {
     // event we expect
     emit LeafInserted(FIRST_REAL_TREE_NUM, 0, leaf);
     // event we will get
-    bytes32 insertedLeaf = inbox.insert(_message.recipient, _message.content, _message.secretHash);
+    bytes32 insertedLeaf =
+      inbox.sendL2Message(_message.recipient, _message.content, _message.secretHash);
 
     assertEq(insertedLeaf, leaf);
   }
 
   function testSendMultipleSameL2Messages() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    bytes32 leaf1 = inbox.insert(message.recipient, message.content, message.secretHash);
-    bytes32 leaf2 = inbox.insert(message.recipient, message.content, message.secretHash);
-    bytes32 leaf3 = inbox.insert(message.recipient, message.content, message.secretHash);
+    bytes32 leaf1 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    bytes32 leaf2 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+    bytes32 leaf3 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
 
     // Only 1 tree should be non-zero
     assertEq(_getNumTrees(), 1);
@@ -104,14 +105,14 @@ contract NewInboxTest is Test {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Inbox__ActorTooLarge.selector, message.recipient.actor)
     );
-    inbox.insert(message.recipient, message.content, message.secretHash);
+    inbox.sendL2Message(message.recipient, message.content, message.secretHash);
   }
 
   function testRevertIfContentTooLarge() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     message.content = bytes32(Constants.MAX_FIELD_VALUE + 1);
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__ContentTooLarge.selector, message.content));
-    inbox.insert(message.recipient, message.content, message.secretHash);
+    inbox.sendL2Message(message.recipient, message.content, message.secretHash);
   }
 
   function testRevertIfSecretHashTooLarge() public {
@@ -120,61 +121,68 @@ contract NewInboxTest is Test {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Inbox__SecretHashTooLarge.selector, message.secretHash)
     );
-    inbox.insert(message.recipient, message.content, message.secretHash);
+    inbox.sendL2Message(message.recipient, message.content, message.secretHash);
   }
 
   function testFuzzConsume(DataStructures.L1ToL2Msg[] memory _messages, uint256 _numTreesToConsume)
     public
   {
-    // insert messages:
-    for (uint256 i = 0; i < _messages.length; i++) {
-      DataStructures.L1ToL2Msg memory message = _messages[i];
-      // fix message.sender and deadline to be more than current time:
-      message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
-      // ensure actor fits in a field
-      message.recipient.actor = bytes32(uint256(message.recipient.actor) % Constants.P);
-      if (message.deadline <= block.timestamp) {
-        message.deadline = uint32(block.timestamp + 100);
+    uint256 numTrees;
+
+    // Send the messages
+    {
+      for (uint256 i = 0; i < _messages.length; i++) {
+        DataStructures.L1ToL2Msg memory message = _messages[i];
+        // fix message.sender and deadline to be more than current time:
+        message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
+        // ensure actor fits in a field
+        message.recipient.actor = bytes32(uint256(message.recipient.actor) % Constants.P);
+        if (message.deadline <= block.timestamp) {
+          message.deadline = uint32(block.timestamp + 100);
+        }
+        // ensure content fits in a field
+        message.content = bytes32(uint256(message.content) % Constants.P);
+        // ensure secret hash fits in a field
+        message.secretHash = bytes32(uint256(message.secretHash) % Constants.P);
+        // update version
+        message.recipient.version = version;
+
+        // TODO: nuke the following 2 values from the struct once the new message model is in place
+        message.deadline = type(uint32).max;
+        message.fee = 0;
+
+        inbox.sendL2Message(message.recipient, message.content, message.secretHash);
       }
-      // ensure content fits in a field
-      message.content = bytes32(uint256(message.content) % Constants.P);
-      // ensure secret hash fits in a field
-      message.secretHash = bytes32(uint256(message.secretHash) % Constants.P);
-      // update version
-      message.recipient.version = version;
 
-      // TODO: nuke the following 2 values from the struct once the new message model is in place
-      message.deadline = type(uint32).max;
-      message.fee = 0;
-
-      inbox.insert(message.recipient, message.content, message.secretHash);
+      uint256 expectedNumTrees = _divideAndRoundUp(_messages.length, inbox.SIZE());
+      if (expectedNumTrees == 0) {
+        // This occurs when there are no messages but we initialize the first tree in the constructor so there are never
+        // zero trees
+        expectedNumTrees = 1;
+      }
+      numTrees = _getNumTrees();
+      assertEq(numTrees, expectedNumTrees);
     }
 
-    uint256 expectedNumTrees = _divideAndRoundUp(_messages.length, inbox.SIZE());
-    if (expectedNumTrees == 0) {
-      // This occurs when there are no messages but we initialize the first tree in the constructor so there are never
-      // zero trees
-      expectedNumTrees = 1;
-    }
-    uint256 numTrees = _getNumTrees();
-    assertEq(numTrees, expectedNumTrees);
+    // Consume the messages
+    {
+      // We use (numTrees * 2) as upper bound here because we want to test the case where we go beyond the currently
+      // initalized number of trees. When consuming the newly initialized trees we should get zero roots.
+      uint256 numTreesToConsume = bound(_numTreesToConsume, 1, numTrees * 2);
 
-    // We use (numTrees * 2) as upper bound here because we want to test the case where we go beyond the currently
-    // initalized number of trees. When consuming the newly initialized trees we should get zero roots.
-    uint256 numTreesToConsume = bound(_numTreesToConsume, 1, numTrees * 2);
+      // Now we consume the trees
+      for (uint256 i = 0; i < numTreesToConsume; i++) {
+        bytes32 root = inbox.consume();
 
-    // Now we consume the trees
-    for (uint256 i = 0; i < numTreesToConsume; i++) {
-      bytes32 root = inbox.consume();
-
-      // Notes:
-      // 1) For i = 0 we should always get empty tree root because first block's messages tree is always
-      // empty because we introduced a 1 block lag to prevent sequencer DOS attacks.
-      // 2) For _messages.length = 0 and i = 1 we get empty root as well
-      if (i != 0 && i <= numTrees && _messages.length > 0) {
-        assertNotEq(root, emptyTreeRoot, "Root should not be zero");
-      } else {
-        assertEq(root, emptyTreeRoot, "Root should be zero");
+        // Notes:
+        // 1) For i = 0 we should always get empty tree root because first block's messages tree is always
+        // empty because we introduced a 1 block lag to prevent sequencer DOS attacks.
+        // 2) For _messages.length = 0 and i = 1 we get empty root as well
+        if (i != 0 && i <= numTrees && _messages.length > 0) {
+          assertNotEq(root, emptyTreeRoot, "Root should not be zero");
+        } else {
+          assertEq(root, emptyTreeRoot, "Root should be zero");
+        }
       }
     }
   }
