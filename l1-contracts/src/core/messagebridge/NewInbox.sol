@@ -60,6 +60,16 @@ contract NewInbox {
     external
     returns (bytes32)
   {
+    if (uint256(_recipient.actor) > Constants.MAX_FIELD_VALUE) {
+      revert Errors.Inbox__ActorTooLarge(_recipient.actor);
+    }
+    if (uint256(_content) > Constants.MAX_FIELD_VALUE) {
+      revert Errors.Inbox__ContentTooLarge(_content);
+    }
+    if (uint256(_secretHash) > Constants.MAX_FIELD_VALUE) {
+      revert Errors.Inbox__SecretHashTooLarge(_secretHash);
+    }
+
     IFrontier currentTree = frontier[inProgress];
     if (currentTree.isFull()) {
       inProgress += 1;

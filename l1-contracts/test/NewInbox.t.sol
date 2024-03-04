@@ -9,6 +9,7 @@ import {Errors} from "../src/core/libraries/Errors.sol";
 import {Hash} from "../src/core/libraries/Hash.sol";
 
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
+import {IFrontier} from "../src/core/interfaces/messagebridge/IFrontier.sol";
 
 contract NewInboxTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -73,11 +74,38 @@ contract NewInboxTest is Test {
     bytes32 leaf2 = inbox.insert(message.recipient, message.content, message.secretHash);
     bytes32 leaf3 = inbox.insert(message.recipient, message.content, message.secretHash);
 
+    // Only 1 tree should be non-zero
     assertEq(address(inbox.frontier(0)), address(0));
     assertNotEq(address(inbox.frontier(1)), address(0));
     assertEq(address(inbox.frontier(2)), address(0));
 
+    // All the leaves should be the same
     assertEq(leaf1, leaf2);
     assertEq(leaf2, leaf3);
+  }
+
+  function testRevertIfActorTooLarge() public {
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
+    message.recipient.actor = bytes32(Constants.MAX_FIELD_VALUE + 1);
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Inbox__ActorTooLarge.selector, message.recipient.actor)
+    );
+    inbox.insert(message.recipient, message.content, message.secretHash);
+  }
+
+  function testRevertIfContentTooLarge() public {
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
+    message.content = bytes32(Constants.MAX_FIELD_VALUE + 1);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__ContentTooLarge.selector, message.content));
+    inbox.insert(message.recipient, message.content, message.secretHash);
+  }
+
+  function testRevertIfSecretHashTooLarge() public {
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
+    message.secretHash = bytes32(Constants.MAX_FIELD_VALUE + 1);
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Inbox__SecretHashTooLarge.selector, message.secretHash)
+    );
+    inbox.insert(message.recipient, message.content, message.secretHash);
   }
 }
