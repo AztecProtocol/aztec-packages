@@ -436,18 +436,24 @@ export class AztecNodeService implements AztecNode {
       throw new Error('Block is not defined');
     }
 
-    const treeHeight = Math.ceil(Math.log2(L2_TO_L1_MESSAGE_LENGTH * block.body.txEffects.length));
+    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-    const tree = new StandardTree(AztecLmdbStore.open(), new Pedersen(), 'temp_outhash_sibling_path', treeHeight);
-    await tree.appendLeaves(block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs.map(l2ToL1Msg => l2ToL1Msg.toBuffer())));
+    if (l2ToL1Messages.length !== L2_TO_L1_MESSAGE_LENGTH * block.body.txEffects.length) {
+      throw new Error('L2 to L1 Messages are not padded');
+    }
 
-    const indexOfL2ToL1Message = tree.findLeafIndex(l2ToL1Message.toBuffer(), true);
+    const indexOfL2ToL1Message = l2ToL1Messages.findIndex(l2ToL1MessageInBlock => l2ToL1MessageInBlock.equals(l2ToL1Message));
 
-    if (indexOfL2ToL1Message === undefined) {
+    if (indexOfL2ToL1Message === -1) {
       throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
     }
 
-    return tree.getSiblingPath(indexOfL2ToL1Message, true);
+    const treeHeight = Math.ceil(Math.log2(l2ToL1Messages.length));
+
+    const tree = new StandardTree(AztecLmdbStore.open(), new Pedersen(), 'temp_outhash_sibling_path', treeHeight);
+    await tree.appendLeaves(l2ToL1Messages.map(l2ToL1Msg => l2ToL1Msg.toBuffer()));
+
+    return tree.getSiblingPath(BigInt(indexOfL2ToL1Message), true);
   }
 
   /**
