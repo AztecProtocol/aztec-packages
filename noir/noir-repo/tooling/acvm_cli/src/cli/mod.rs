@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
-use const_format::formatcp;
 use color_eyre::eyre;
+use const_format::formatcp;
 
 mod execute_cmd;
 mod fs;
