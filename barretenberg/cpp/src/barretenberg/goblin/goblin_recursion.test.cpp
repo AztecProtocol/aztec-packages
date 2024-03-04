@@ -24,7 +24,8 @@ class GoblinRecursionTests : public ::testing::Test {
     static Goblin::AccumulationOutput construct_accumulator(GoblinUltraCircuitBuilder& builder)
     {
         auto prover_instance = std::make_shared<ProverInstance>(builder);
-        auto verifier_instance = std::make_shared<VerifierInstance>(prover_instance->verification_key);
+        auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(prover_instance->proving_key);
+        auto verifier_instance = std::make_shared<VerifierInstance>(verification_key);
         GoblinUltraProver prover(prover_instance);
         auto ultra_proof = prover.construct_proof();
         return { ultra_proof, verifier_instance->verification_key };

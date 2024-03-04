@@ -302,12 +302,14 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         construct_circuit(builder_1);
 
         auto prover_instance_1 = std::make_shared<ProverInstance>(builder_1);
-        auto verifier_instance_1 = std::make_shared<VerifierInstance>(prover_instance_1->verification_key);
+        auto verification_key_1 = std::make_shared<VerificationKey>(prover_instance_1->proving_key);
+        auto verifier_instance_1 = std::make_shared<VerifierInstance>(verification_key_1);
 
         auto builder_2 = typename Flavor::CircuitBuilder();
         construct_circuit(builder_2);
         auto prover_instance_2 = std::make_shared<ProverInstance>(builder_2);
-        auto verifier_instance_2 = std::make_shared<VerifierInstance>(prover_instance_2->verification_key);
+        auto verification_key_2 = std::make_shared<VerificationKey>(prover_instance_2->proving_key);
+        auto verifier_instance_2 = std::make_shared<VerifierInstance>(verification_key_2);
         auto [prover_accumulator, verifier_accumulator] =
             fold_and_verify({ prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 });
 
@@ -316,7 +318,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         auto builder_3 = typename Flavor::CircuitBuilder();
         construct_circuit(builder_3);
         auto prover_instance_3 = std::make_shared<ProverInstance>(builder_3);
-        auto verifier_instance_3 = std::make_shared<VerifierInstance>(prover_instance_3->verification_key);
+        auto verification_key_3 = std::make_shared<VerificationKey>(prover_instance_3->proving_key);
+        auto verifier_instance_3 = std::make_shared<VerifierInstance>(verification_key_3);
 
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, prover_instance_3 }, { verifier_accumulator, verifier_instance_3 });
@@ -336,12 +339,14 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         construct_circuit(builder_1);
 
         auto prover_instance_1 = std::make_shared<ProverInstance>(builder_1);
-        auto verifier_instance_1 = std::make_shared<VerifierInstance>(prover_instance_1->verification_key);
+        auto verification_key_1 = std::make_shared<VerificationKey>(prover_instance_1->proving_key);
+        auto verifier_instance_1 = std::make_shared<VerifierInstance>(verification_key_1);
 
         auto builder_2 = typename Flavor::CircuitBuilder();
         construct_circuit(builder_2);
         auto prover_instance_2 = std::make_shared<ProverInstance>(builder_2);
-        auto verifier_instance_2 = std::make_shared<VerifierInstance>(prover_instance_2->verification_key);
+        auto verification_key_2 = std::make_shared<VerificationKey>(prover_instance_2->proving_key);
+        auto verifier_instance_2 = std::make_shared<VerifierInstance>(verification_key_2);
         auto [prover_accumulator, verifier_accumulator] =
             fold_and_verify({ prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 });
         check_accumulator_target_sum_manual(prover_accumulator, true);
@@ -350,7 +355,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         auto builder_3 = typename Flavor::CircuitBuilder();
         construct_circuit(builder_3);
         auto prover_instance_3 = std::make_shared<ProverInstance>(builder_3);
-        auto verifier_instance_3 = std::make_shared<VerifierInstance>(prover_instance_3->verification_key);
+        auto verification_key_3 = std::make_shared<VerificationKey>(prover_instance_3->proving_key);
+        auto verifier_instance_3 = std::make_shared<VerifierInstance>(verification_key_3);
 
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, prover_instance_3 }, { verifier_accumulator, verifier_instance_3 });
@@ -371,12 +377,14 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         construct_circuit(builder_1);
 
         auto prover_instance_1 = std::make_shared<ProverInstance>(builder_1);
-        auto verifier_instance_1 = std::make_shared<VerifierInstance>(prover_instance_1->verification_key);
+        auto verification_key_1 = std::make_shared<VerificationKey>(prover_instance_1->proving_key);
+        auto verifier_instance_1 = std::make_shared<VerifierInstance>(verification_key_1);
 
         auto builder_2 = typename Flavor::CircuitBuilder();
         construct_circuit(builder_2);
         auto prover_instance_2 = std::make_shared<ProverInstance>(builder_2);
-        auto verifier_instance_2 = std::make_shared<VerifierInstance>(prover_instance_2->verification_key);
+        auto verification_key_2 = std::make_shared<VerificationKey>(prover_instance_2->proving_key);
+        auto verifier_instance_2 = std::make_shared<VerifierInstance>(verification_key_2);
         auto [prover_accumulator, verifier_accumulator] =
             fold_and_verify({ prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 });
         check_accumulator_target_sum_manual(prover_accumulator, true);
@@ -384,7 +392,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         auto builder_3 = typename Flavor::CircuitBuilder();
         construct_circuit(builder_3);
         auto prover_instance_3 = std::make_shared<ProverInstance>(builder_3);
-        auto verifier_instance_3 = std::make_shared<VerifierInstance>(prover_instance_3->verification_key);
+        auto verification_key_3 = std::make_shared<VerificationKey>(prover_instance_3->proving_key);
+        auto verifier_instance_3 = std::make_shared<VerifierInstance>(verification_key_3);
 
         prover_accumulator->prover_polynomials.w_l[1] = FF::random_element();
         auto [prover_accumulator_2, verifier_accumulator_2] =

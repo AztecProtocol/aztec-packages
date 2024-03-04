@@ -114,9 +114,11 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         create_function_circuit(builder2);
 
         auto prover_instance_1 = std::make_shared<ProverInstance>(builder1);
+        auto verification_key_1 = std::make_shared<VerificationKey>(prover_instance_1->proving_key);
+        auto verifier_instance_1 = std::make_shared<VerifierInstance>(verification_key_1);
         auto prover_instance_2 = std::make_shared<ProverInstance>(builder2);
-        auto verifier_instance_1 = std::make_shared<VerifierInstance>(prover_instance_1->verification_key);
-        auto verifier_instance_2 = std::make_shared<VerifierInstance>(prover_instance_2->verification_key);
+        auto verification_key_2 = std::make_shared<VerificationKey>(prover_instance_2->proving_key);
+        auto verifier_instance_2 = std::make_shared<VerifierInstance>(verification_key_2);
         NativeFoldingProver folding_prover({ prover_instance_1, prover_instance_2 });
         NativeFoldingVerifier folding_verifier({ verifier_instance_1, verifier_instance_2 });
 
@@ -346,7 +348,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         Builder builder;
         create_function_circuit(builder);
         auto prover_inst = std::make_shared<ProverInstance>(builder);
-        auto verifier_inst = std::make_shared<VerifierInstance>(prover_inst->verification_key);
+        auto verification_key = std::make_shared<VerificationKey>(prover_inst->proving_key);
+        auto verifier_inst = std::make_shared<VerifierInstance>(verification_key);
 
         prover_accumulator->prover_polynomials.w_l[1] = FF::random_element();
 
