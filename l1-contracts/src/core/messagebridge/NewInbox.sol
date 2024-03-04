@@ -30,12 +30,12 @@ contract NewInbox {
   uint256 public immutable SIZE;
   bytes32 private immutable EMPTY_ROOT; // The root of an empty frontier tree
 
-  uint256 private toInclude = 0;
-  uint256 private inProgress = 1;
+  uint256 private toInclude = 1;
+  uint256 private inProgress = 2;
 
-  mapping(uint256 treeNumber => IFrontier tree) public frontier;
+  mapping(uint256 blockNumber => IFrontier tree) public frontier;
 
-  event LeafInserted(uint256 treeNumber, uint256 index, bytes32 value);
+  event LeafInserted(uint256 indexed blockNumber, uint256 index, bytes32 value);
 
   constructor(address _rollup, uint256 _height) {
     ROLLUP = _rollup;
@@ -109,7 +109,7 @@ contract NewInbox {
     }
 
     bytes32 root = EMPTY_ROOT;
-    if (toInclude > 0) {
+    if (toInclude > Constants.INITIAL_L2_BLOCK_NUM) {
       root = frontier[toInclude].root();
     }
 
