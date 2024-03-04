@@ -158,5 +158,5 @@
   ],
   "rust-analyzer.linkedProjects": [
     "noir/noir-repo/Cargo.toml"
-  ]
+  ] 
 }
