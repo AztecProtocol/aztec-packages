@@ -684,10 +684,11 @@ fn transform_function(
     let inputs_name = format!("{}ContextInputs", ty);
     let return_type_name = format!("{}CircuitPublicInputs", ty);
 
-    // Add check that msg sender equals this address
+    // Add check that msg sender equals this address and flag function as internal
     if is_internal {
         let is_internal_check = create_internal_check(func.name());
         func.def.body.0.insert(0, is_internal_check);
+        func.def.is_internal = true;
     }
 
     // Add initialization check
