@@ -70,7 +70,7 @@ const getAztecUrl = () => {
 };
 
 // Determines if we have access to the acvm binary and a tmp folder for temp files
-const getACVMConfig = async () => {
+const getACVMConfig = async (logger: DebugLogger) => {
   try {
     const expectedAcvmPath = path.resolve(`../../noir/${NOIR_RELEASE_DIR}`);
     await fs.access(`${expectedAcvmPath}/acvm`, fs.constants.R_OK);
@@ -78,6 +78,7 @@ const getACVMConfig = async () => {
     await fs.mkdir(proverWorkingDirectory, { recursive: true });
     return { proverWorkingDirectory, expectedAcvmPath };
   } catch (err) {
+    logger(`Unable to use native simulation ${err}`);
     return undefined;
   }
 };
@@ -304,7 +305,7 @@ export async function setup(
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
   logger('Creating and synching an aztec node...');
-  const acvmConfig = await getACVMConfig();
+  const acvmConfig = await getACVMConfig(logger);
   if (acvmConfig) {
     config.acvmWorkingDirectory = acvmConfig.proverWorkingDirectory;
     config.acvmBinaryPath = acvmConfig.expectedAcvmPath;

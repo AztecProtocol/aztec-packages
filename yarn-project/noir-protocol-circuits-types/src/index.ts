@@ -16,6 +16,7 @@ import { NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { WasmBlackBoxFunctionSolver, createBlackBoxSolver, executeCircuitWithBlackBoxSolver } from '@noir-lang/acvm_js';
 import { Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
+import { WitnessMap } from '@noir-lang/types';
 
 import PrivateKernelInitJson from './target/private_kernel_init.json' assert { type: 'json' };
 import PrivateKernelInitSimulatedJson from './target/private_kernel_init_simulated.json' assert { type: 'json' };
@@ -23,16 +24,12 @@ import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert {
 import PrivateKernelInnerSimulatedJson from './target/private_kernel_inner_simulated.json' assert { type: 'json' };
 import PrivateKernelTailJson from './target/private_kernel_tail.json' assert { type: 'json' };
 import PrivateKernelTailSimulatedJson from './target/private_kernel_tail_simulated.json' assert { type: 'json' };
-import PublicKernelAppLogicJson from './target/public_kernel_app_logic.json' assert { type: 'json' };
 import PublicKernelAppLogicSimulatedJson from './target/public_kernel_app_logic_simulated.json' assert { type: 'json' };
-import PublicKernelSetupJson from './target/public_kernel_setup.json' assert { type: 'json' };
 import PublicKernelSetupSimulatedJson from './target/public_kernel_setup_simulated.json' assert { type: 'json' };
-import PublicKernelTeardownJson from './target/public_kernel_teardown.json' assert { type: 'json' };
 import PublicKernelTeardownSimulatedJson from './target/public_kernel_teardown_simulated.json' assert { type: 'json' };
 import BaseRollupSimulatedJson from './target/rollup_base_simulated.json' assert { type: 'json' };
 import MergeRollupJson from './target/rollup_merge.json' assert { type: 'json' };
 import RootRollupJson from './target/rollup_root.json' assert { type: 'json' };
-
 import {
   mapBaseOrMergeRollupPublicInputsFromNoir,
   mapBaseRollupInputsToNoir,
@@ -44,28 +41,17 @@ import {
   mapPrivateKernelTailCircuitPublicInputsFromNoir,
   mapPublicKernelCircuitPrivateInputsToNoir,
   mapPublicKernelCircuitPublicInputsFromNoir,
-  mapPublicKernelCircuitPublicInputsToNoir,
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
 } from './type_conversion.js';
 import { InputType as InitInputType, ReturnType as InitReturnType } from './types/private_kernel_init_types.js';
 import { InputType as InnerInputType, ReturnType as InnerReturnType } from './types/private_kernel_inner_types.js';
 import { InputType as TailInputType, ReturnType as TailReturnType } from './types/private_kernel_tail_types.js';
-import {
-  InputType as PublicPublicPreviousInputType,
-  ReturnType as PublicPublicPreviousReturnType,
-} from './types/public_kernel_app_logic_types.js';
-import {
-  InputType as PublicSetupInputType,
-  ReturnType as PublicSetupReturnType,
-  PublicCircuitPublicInputs as PublicCircuitPublicInputsNoir,
-  PublicKernelCircuitPublicInputs as PublicKernelCircuitPublicInputsNoir,
-  PublicKernelSetupCircuitPrivateInputs as PublicKernelSetupCircuitPrivateInputsNoir,
-} from './types/public_kernel_setup_types.js';
-import { InputType as BaseRollupInputType, ReturnType as BaseRollupReturnType, BaseRollupInputs as BaseRollupInputsNoir } from './types/rollup_base_types.js';
-import { InputType as MergeRollupInputType, ReturnType as MergeRollupReturnType, MergeRollupInputs as MergeRollupInputsNoir } from './types/rollup_merge_types.js';
-import { InputType as RootRollupInputType, ReturnType as RootRollupReturnType, RootRollupInputs as RootRollupInputsNoir } from './types/rollup_root_types.js';
-import { WitnessMap } from '@noir-lang/types';
+import { ReturnType as PublicPublicPreviousReturnType } from './types/public_kernel_app_logic_types.js';
+import { ReturnType as PublicSetupReturnType } from './types/public_kernel_setup_types.js';
+import { ReturnType as BaseRollupReturnType } from './types/rollup_base_types.js';
+import { ReturnType as MergeRollupReturnType } from './types/rollup_merge_types.js';
+import { ReturnType as RootRollupReturnType } from './types/rollup_root_types.js';
 
 // TODO(Tom): This should be exported from noirc_abi
 /**
@@ -166,7 +152,7 @@ export async function executeTail(
  */
 export function convertBaseRollupInputs(inputs: BaseRollupInputs): WitnessMap {
   const mapped = mapBaseRollupInputsToNoir(inputs);
-  const initialWitnessMap = abiEncode(BaseRollupSimulatedJson.abi as Abi, { inputs: mapped as any } );
+  const initialWitnessMap = abiEncode(BaseRollupSimulatedJson.abi as Abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
 

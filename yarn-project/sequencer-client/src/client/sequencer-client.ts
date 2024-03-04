@@ -37,6 +37,7 @@ async function getSimulationProvider(config: SequencerClientConfig): Promise<Sim
       logger(`Failed to access ACVM at ${pathToAcvm}, falling back to WASM`);
     }
   }
+  logger('Using WASM ACVM simulation');
   return new WASMSimulator();
 }
 
