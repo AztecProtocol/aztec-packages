@@ -13,17 +13,19 @@ import {DataStructures} from "../src/core/libraries/DataStructures.sol";
 contract NewInboxTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
 
+  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
+
   NewInbox internal inbox;
   uint256 internal version = 0;
   bytes32 internal emptyTreeRoot;
 
-  event LeafInserted(uint256 treeNumber, uint256 index, bytes32 value);
+  event LeafInserted(uint256 indexed blockNumber, uint256 index, bytes32 value);
 
   function setUp() public {
     address rollup = address(this);
     // We set low depth (5) to ensure we sufficiently test the tree transitions
     inbox = new NewInbox(rollup, 5);
-    emptyTreeRoot = inbox.frontier(1).root();
+    emptyTreeRoot = inbox.frontier(2).root();
   }
 
   function _fakeMessage() internal view returns (DataStructures.L1ToL2Msg memory) {
@@ -41,11 +43,11 @@ contract NewInboxTest is Test {
   }
 
   function _getNumTrees() internal view returns (uint256) {
-    uint256 treeNumber = 1;
-    while (address(inbox.frontier(treeNumber)) != address(0)) {
-      treeNumber++;
+    uint256 blockNumber = FIRST_REAL_TREE_NUM;
+    while (address(inbox.frontier(blockNumber)) != address(0)) {
+      blockNumber++;
     }
-    return treeNumber - 1;
+    return blockNumber - 2; // -2 because first real tree is included in block 2
   }
 
   function _divideAndRoundUp(uint256 a, uint256 b) internal pure returns (uint256) {
@@ -75,7 +77,7 @@ contract NewInboxTest is Test {
     bytes32 leaf = _message.sha256ToField();
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit LeafInserted(1, 1, leaf);
+    emit LeafInserted(FIRST_REAL_TREE_NUM, 1, leaf);
     // event we will get
     bytes32 insertedLeaf = inbox.insert(_message.recipient, _message.content, _message.secretHash);
 
