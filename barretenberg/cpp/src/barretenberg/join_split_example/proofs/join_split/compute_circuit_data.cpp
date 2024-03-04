@@ -57,17 +57,4 @@ join_split_tx noop_tx()
     return tx;
 }
 
-circuit_data get_circuit_data(std::shared_ptr<bb::srs::factories::CrsFactory<curve::BN254>> const& srs, bool mock)
-{
-    std::cerr << "Getting join-split circuit data..." << std::endl;
-
-    auto build_circuit = [&](Builder& builder) {
-        join_split_tx tx(noop_tx());
-        join_split_circuit(builder, tx);
-    };
-
-    return proofs::get_circuit_data<Composer>(
-        "join split", "", srs, "", true, false, false, true, true, true, mock, build_circuit);
-}
-
 } // namespace bb::join_split_example::proofs::join_split
