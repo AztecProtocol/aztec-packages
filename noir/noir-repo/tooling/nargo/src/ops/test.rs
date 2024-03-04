@@ -8,7 +8,6 @@ use crate::{errors::try_to_diagnose_runtime_error, NargoError};
 
 use super::{execute_circuit, DefaultForeignCallExecutor};
 
-#[derive(Debug)]
 pub enum TestStatus {
     Pass,
     Fail { message: String, error_diagnostic: Option<FileDiagnostic> },
