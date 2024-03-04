@@ -1261,17 +1261,19 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn block_out_hash() {
+    unconstrained fn nonempty_block_out_hash() {
         let mut end: CombinedAccumulatedData = dep::std::unsafe::zeroed();
         end.new_l2_to_l1_msgs[MAX_NEW_L2_TO_L1_MSGS_PER_TX - 1] = 123;
 
-        let mut outputs = BaseRollupInputs::components_compute_kernel_out_hash(end);
+        let out_hash = BaseRollupInputs::components_compute_kernel_out_hash(end);
+
+        let mut hash_input_flattened = [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX * 32];
+        hash_input_flattened[MAX_NEW_L2_TO_L1_MSGS_PER_TX * 32 - 1] = 123;
+        let sha_digest = dep::std::hash::sha256(hash_input_flattened);
+        let expected_out_hash = U256::from_bytes32(sha_digest).to_u128_limbs();
 
         for i in 0..NUM_FIELDS_PER_SHA256 {
-            // When running the test, use show output flag
-            std::println;
-
-            assert_eq(outputs[i], 123);
+            assert_eq(out_hash[i], expected_out_hash[i]);
         }
     }
 
