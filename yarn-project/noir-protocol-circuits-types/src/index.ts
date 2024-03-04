@@ -160,40 +160,6 @@ export async function executeTail(
 }
 
 /**
- * Executes the public kernel in the setup phase.
- * @param publicKernelPrivateInputs - The public kernel setup circuit private inputs.
- * @returns The public inputs.
- */
-export async function executePublicKernelSetup(
-  publicKernelPrivateInputs: PublicKernelCircuitPrivateInputs,
-): Promise<PublicKernelCircuitPublicInputs> {
-  const params: PublicSetupInputType = {
-    input: mapPublicKernelCircuitPrivateInputsToNoir(publicKernelPrivateInputs),
-  };
-
-  const returnType = await executePublicKernelSetupWithACVM(params);
-
-  return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
-}
-
-/**
- * Executes the public kernel in the teardown phase.
- * @param publicKernelPrivateInputs - The public kernel teardown circuit private inputs.
- * @returns The public inputs.
- */
-export async function executePublicKernelTeardown(
-  publicKernelPrivateInputs: PublicKernelCircuitPrivateInputs,
-): Promise<PublicKernelCircuitPublicInputs> {
-  const params: PublicPublicPreviousInputType = {
-    input: mapPublicKernelCircuitPrivateInputsToNoir(publicKernelPrivateInputs),
-  };
-
-  const returnType = await executePublicKernelTeardownWithACVM(params);
-
-  return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
-}
-
-/**
  * Converts the inputs to the base rollup circuit into a witness map.
  * @param inputs - The base rollup inputs.
  * @returns The witness map
@@ -334,23 +300,6 @@ export function convertPublicInnerRollupOutput(outputs: WitnessMap): PublicKerne
 }
 
 /**
- * Executes the public kernel in the app logic phase.
- * @param publicKernelPrivateInputs - The public kernel app logic circuit private inputs.
- * @returns The public inputs.
- */
-export async function executePublicKernelAppLogic(
-  publicKernelPrivateInputs: PublicKernelCircuitPrivateInputs,
-): Promise<PublicKernelCircuitPublicInputs> {
-  const params: PublicPublicPreviousInputType = {
-    input: mapPublicKernelCircuitPrivateInputsToNoir(publicKernelPrivateInputs),
-  };
-
-  const returnType = await executePublicKernelAppLogicWithACVM(params);
-
-  return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
-}
-
-/**
  * Converts the outputs to the public tail circuit.
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
@@ -448,76 +397,4 @@ async function executePrivateKernelTailWithACVM(input: TailInputType): Promise<T
 
   // Cast the inputs as the return type
   return decodedInputs.return_value as TailReturnType;
-}
-
-/**
- * Executes the public setup kernel with the given inputs
- */
-async function executePublicKernelSetupWithACVM(input: PublicSetupInputType): Promise<PublicSetupReturnType> {
-  const initialWitnessMap = abiEncode(PublicKernelSetupSimulatedJson.abi as Abi, input as any);
-  const decodedBytecode = Buffer.from(PublicKernelSetupSimulatedJson.bytecode, 'base64');
-  // Execute the circuit
-  const _witnessMap = await executeCircuitWithBlackBoxSolver(
-    await getSolver(),
-    decodedBytecode,
-    initialWitnessMap,
-    () => {
-      throw Error('unexpected oracle during execution');
-    },
-  );
-
-  // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(PublicKernelSetupSimulatedJson.abi as Abi, _witnessMap);
-  // Cast the inputs as the return type
-  return decodedInputs.return_value as PublicSetupReturnType;
-}
-
-/**
- * Executes the public app logic kernel with the given inputs using the acvm.
- */
-async function executePublicKernelAppLogicWithACVM(
-  input: PublicPublicPreviousInputType,
-): Promise<PublicPublicPreviousReturnType> {
-  const initialWitnessMap = abiEncode(PublicKernelAppLogicSimulatedJson.abi as Abi, input as any);
-  const decodedBytecode = Buffer.from(PublicKernelAppLogicSimulatedJson.bytecode, 'base64');
-  // Execute the circuit
-  const _witnessMap = await executeCircuitWithBlackBoxSolver(
-    await getSolver(),
-    decodedBytecode,
-    initialWitnessMap,
-    () => {
-      throw Error('unexpected oracle during execution');
-    },
-  );
-
-  // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(PublicKernelAppLogicSimulatedJson.abi as Abi, _witnessMap);
-
-  // Cast the inputs as the return type
-  return decodedInputs.return_value as PublicPublicPreviousReturnType;
-}
-
-/**
- * Executes the public teardown kernel with the given inputs using the acvm.
- */
-async function executePublicKernelTeardownWithACVM(
-  input: PublicPublicPreviousInputType,
-): Promise<PublicPublicPreviousReturnType> {
-  const initialWitnessMap = abiEncode(PublicKernelTeardownSimulatedJson.abi as Abi, input as any);
-  const decodedBytecode = Buffer.from(PublicKernelTeardownSimulatedJson.bytecode, 'base64');
-  // Execute the circuit
-  const _witnessMap = await executeCircuitWithBlackBoxSolver(
-    await getSolver(),
-    decodedBytecode,
-    initialWitnessMap,
-    () => {
-      throw Error('unexpected oracle during execution');
-    },
-  );
-
-  // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(PublicKernelTeardownSimulatedJson.abi as Abi, _witnessMap);
-
-  // Cast the inputs as the return type
-  return decodedInputs.return_value as PublicPublicPreviousReturnType;
 }
