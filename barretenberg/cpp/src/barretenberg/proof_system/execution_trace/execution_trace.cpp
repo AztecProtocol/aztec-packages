@@ -66,8 +66,8 @@ void ExecutionTrace_<Flavor>::add_memory_records_to_proving_key(
 }
 
 template <class Flavor>
-typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(
-    Builder& builder, size_t dyadic_circuit_size)
+typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(Builder& builder,
+                                                                                          size_t dyadic_circuit_size)
 {
     TraceData trace_data{ dyadic_circuit_size, builder };
 
@@ -130,8 +130,8 @@ template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_blo
 }
 
 template <class Flavor>
-void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
-                                                              const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
+void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(
+    Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
     requires IsGoblinFlavor<Flavor>
 {
     // Initialize the ecc op wire polynomials to zero on the whole domain
