@@ -63,7 +63,7 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
-const { PXE_URL = '', NOIR_RELEASE_DIR = 'noir-repo/target/release' } = process.env;
+const { PXE_URL = '', NOIR_RELEASE_DIR = 'noir-repo/target/release', TEMP_DIR = '/tmp' } = process.env;
 
 const getAztecUrl = () => {
   return PXE_URL;
@@ -76,8 +76,8 @@ const getACVMConfig = async (logger: DebugLogger) => {
     const expectedAcvmPath = path.resolve(`../../noir/${NOIR_RELEASE_DIR}`);
     logger(`PATH ${expectedAcvmPath}`);
     await fs.access(`${expectedAcvmPath}/acvm`, fs.constants.R_OK);
-    logger('Access granted');
-    const proverWorkingDirectory = '/tmp/acvm';
+    const proverWorkingDirectory = `${TEMP_DIR}/acvm`;
+    logger(`Access granted now checking ${proverWorkingDirectory}`);
     await fs.mkdir(proverWorkingDirectory, { recursive: true });
     logger(`Made temp directory ${proverWorkingDirectory}`);
     return { proverWorkingDirectory, expectedAcvmPath };
