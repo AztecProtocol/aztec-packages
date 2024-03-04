@@ -27,4 +27,21 @@ contract MerkleTest is Test {
       assertEq(merkle.computeRoot(), frontier.root(), "Frontier Roots should be equal");
     }
   }
+
+  function testNaive() public {
+    uint256 upper = merkle.SIZE();
+
+    // function for bounding the test env
+    // uint idx = bound(_index, 0, upper - 1);
+    uint256 idx = 128;
+
+    for (uint256 i = 0; i < upper; i++) {
+      bytes32 leaf = sha256(abi.encode(i + 1));
+      merkle.insertLeaf(leaf);
+    }
+
+    (bytes32[] memory path, bytes32 leaf) = merkle.computeSiblingPath(idx);
+
+    assertTrue(merkle.verifyMembership(path, leaf, idx));
+  }
 }

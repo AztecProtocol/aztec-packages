@@ -2,7 +2,9 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-contract NaiveMerkle {
+import {Test} from "forge-std/Test.sol";
+
+contract NaiveMerkle is Test {
   uint256 public immutable DEPTH;
   uint256 public immutable SIZE;
 
@@ -33,5 +35,26 @@ contract NaiveMerkle {
       size /= 2;
     }
     return nodes[0];
+  }
+
+  function computeSiblingPath(uint256 _index) public view returns (bytes32[] memory, bytes32) {
+    bytes32[] memory path = new bytes32[](DEPTH);
+
+    // IMPLEMENT
+    return (path, leafs[_index]);
+  }
+
+  function verifyMembership(bytes32[] memory _path, bytes32 _leaf, uint256 _index) public returns (bool) {
+    bytes32 root;
+    uint256 index = _index;
+
+    for (uint256 i = 0; i < _path.length; i++) {
+      if (i == 0) {
+        root = sha256(bytes.concat(_leaf, _path[i]));
+      }
+      emit log_named_bytes32("Root", root);
+    }
+
+    return computeRoot() == root;
   }
 }
