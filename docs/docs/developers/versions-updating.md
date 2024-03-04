@@ -5,7 +5,7 @@ title: Versions and Updating
 
 ## Versions
 Aztec tools (sandbox, cli, nargo), dependencies (aztec-nr), and sample contracts are constantly being improved.
-When developing and referring to example .nr files/snippets, it is helpful to verify the versions of different components (below), and if required keep them in lock-step by [updating](./versions-and-updating.md#updating).
+When developing and referring to example .nr files/snippets, it is helpful to verify the versions of different components (below), and if required keep them in lock-step by [updating](#updating).
 
 ### Checking tool versions
 To check your version of Aztec tools, you can use `aztec-cli -V`
@@ -56,7 +56,8 @@ The second point requires a restart of the extension.
 When using the LSP in VSCode, reference older versions of Noir code in a separate window or a browser.
 :::tip
 
-## Updating TL;DR
+## Updating
+### TL;DR
 
 1. Updating the sandbox and CLI:
 
