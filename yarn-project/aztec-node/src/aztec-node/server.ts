@@ -12,7 +12,6 @@ import {
   L2BlockL2Logs,
   L2BlockSource,
   L2LogsSource,
-  L2Tx,
   LogFilter,
   LogType,
   MerkleTreeId,
@@ -21,7 +20,10 @@ import {
   SequencerConfig,
   SiblingPath,
   Tx,
+  TxEffect,
   TxHash,
+  TxReceipt,
+  TxStatus,
 } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
@@ -87,7 +89,8 @@ export class AztecNodeService implements AztecNode {
       `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
       `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
       `Outbox: ${config.l1Contracts.outboxAddress.toString()}\n` +
-      `Contract Emitter: ${config.l1Contracts.contractDeploymentEmitterAddress.toString()}`;
+      `Contract Emitter: ${config.l1Contracts.contractDeploymentEmitterAddress.toString()}\n` +
+      `Availability Oracle: ${config.l1Contracts.availabilityOracleAddress.toString()}`;
     this.log(message);
   }
 
@@ -284,8 +287,27 @@ export class AztecNodeService implements AztecNode {
     await this.p2pClient!.sendTx(tx);
   }
 
-  public getTx(txHash: TxHash): Promise<L2Tx | undefined> {
-    return this.blockSource.getL2Tx(txHash);
+  public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+    let txReceipt = new TxReceipt(txHash, TxStatus.DROPPED, 'Tx dropped by P2P node.');
+
+    // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
+    // for mined and then for pending there could be a race condition where the tx is mined between the two checks
+    // and we would incorrectly return a TxReceipt with status DROPPED
+    const pendingTx = await this.getPendingTxByHash(txHash);
+    if (pendingTx) {
+      txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
+    }
+
+    const settledTxReceipt = await this.blockSource.getSettledTxReceipt(txHash);
+    if (settledTxReceipt) {
+      txReceipt = settledTxReceipt;
+    }
+
+    return txReceipt;
+  }
+
+  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return this.blockSource.getTxEffect(txHash);
   }
 
   /**
@@ -376,15 +398,15 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Gets a confirmed/consumed L1 to L2 message for the given message key
+   * Gets a confirmed/consumed L1 to L2 message for the given entry key
    * and its index in the merkle tree.
-   * @param messageKey - The message key.
+   * @param entryKey - The entry key.
    * @returns The map containing the message and index.
    */
-  public async getL1ToL2MessageAndIndex(messageKey: Fr): Promise<L1ToL2MessageAndIndex> {
+  public async getL1ToL2MessageAndIndex(entryKey: Fr): Promise<L1ToL2MessageAndIndex> {
     // todo: #697 - make this one lookup.
-    const index = (await this.findLeafIndex('latest', MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messageKey))!;
-    const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(messageKey);
+    const index = (await this.findLeafIndex('latest', MerkleTreeId.L1_TO_L2_MESSAGE_TREE, entryKey))!;
+    const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(entryKey);
     return Promise.resolve(new L1ToL2MessageAndIndex(index, message));
   }
 

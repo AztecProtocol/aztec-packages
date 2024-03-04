@@ -1,6 +1,5 @@
 import {
   CompleteAddress,
-  L1ToL2Message,
   MerkleTreeId,
   Note,
   NoteStatus,
@@ -21,6 +20,7 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { ContractInstance } from '@aztec/types/contracts';
 
 /**
  * A pair of public key and secret key.
@@ -58,8 +58,6 @@ export interface NoteData {
 
 export class MessageLoadOracleInputs<N extends number> {
   constructor(
-    /** The message. */
-    public message: L1ToL2Message,
     /** The index of the message commitment in the merkle tree. */
     public index: bigint,
     /** The path in the merkle tree to the message. */
@@ -67,7 +65,7 @@ export class MessageLoadOracleInputs<N extends number> {
   ) {}
 
   toFields(): Fr[] {
-    return [...this.message.toFields(), new Fr(this.index), ...this.siblingPath.toFields()];
+    return [new Fr(this.index), ...this.siblingPath.toFields()];
   }
 }
 
@@ -90,6 +88,10 @@ export abstract class TypedOracle {
   }
 
   getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
+    throw new Error('Not available.');
+  }
+
+  getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
     throw new Error('Not available.');
   }
 
@@ -159,7 +161,7 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  getL1ToL2Message(_msgKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+  getL1ToL2MembershipWitness(_entryKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     throw new Error('Not available.');
   }
 

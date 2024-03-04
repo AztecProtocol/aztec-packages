@@ -7,18 +7,18 @@ import {
   FunctionCall,
   GetUnencryptedLogsResponse,
   L2Block,
-  L2Tx,
   LogFilter,
   NoteFilter,
   PXE,
   SyncStatus,
   Tx,
+  TxEffect,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
 } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
-import { ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
 import { FeeOptions } from '../account/interface.js';
@@ -38,6 +38,9 @@ export abstract class BaseWallet implements Wallet {
 
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.pxe.getContractInstance(address);
+  }
+  getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
+    return this.pxe.getContractClass(id);
   }
   addCapsule(capsule: Fr[]): Promise<void> {
     return this.pxe.addCapsule(capsule);
@@ -72,8 +75,8 @@ export abstract class BaseWallet implements Wallet {
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
   }
-  getTx(txHash: TxHash): Promise<L2Tx | undefined> {
-    return this.pxe.getTx(txHash);
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return this.pxe.getTxEffect(txHash);
   }
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.pxe.getTxReceipt(txHash);
@@ -119,5 +122,8 @@ export abstract class BaseWallet implements Wallet {
   }
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);
+  }
+  isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
+    return this.pxe.isContractClassPubliclyRegistered(id);
   }
 }

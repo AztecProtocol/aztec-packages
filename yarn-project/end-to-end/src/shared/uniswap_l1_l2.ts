@@ -16,6 +16,7 @@ import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 import { jest } from '@jest/globals';
 import { Chain, HttpTransport, PublicClient, getContract, parseEther } from 'viem';
 
+import { publicDeployAccounts } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 
 // PSA: This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
@@ -96,6 +97,8 @@ export const uniswapL1L2TestSuite = (
       sponsorAddress = sponsorWallet.getAddress();
       ownerEthAddress = EthAddress.fromString((await walletClient.getAddresses())[0]);
 
+      await publicDeployAccounts(ownerWallet, [ownerAddress, sponsorAddress]);
+
       logger('Deploying DAI Portal, initializing and deploying l2 contract...');
       daiCrossChainHarness = await CrossChainTestHarness.new(
         pxe,
@@ -126,8 +129,7 @@ export const uniswapL1L2TestSuite = (
       uniswapPortal = getContract({
         address: uniswapPortalAddress.toString(),
         abi: UniswapPortalAbi,
-        walletClient,
-        publicClient,
+        client: walletClient,
       });
       // deploy l2 uniswap contract and attach to portal
       uniswapL2Contract = await UniswapContract.deploy(ownerWallet)
@@ -159,7 +161,7 @@ export const uniswapL1L2TestSuite = (
       const [secretForMintingWeth, secretHashForMintingWeth] = wethCrossChainHarness.generateClaimSecret();
       const [secretForRedeemingWeth, secretHashForRedeemingWeth] = wethCrossChainHarness.generateClaimSecret();
 
-      const messageKey = await wethCrossChainHarness.sendTokensToPortalPrivate(
+      const entryKey = await wethCrossChainHarness.sendTokensToPortalPrivate(
         secretHashForRedeemingWeth,
         wethAmountToBridge,
         secretHashForMintingWeth,
@@ -171,6 +173,7 @@ export const uniswapL1L2TestSuite = (
       expect(await wethCrossChainHarness.getL1BalanceOf(wethCrossChainHarness.tokenPortalAddress)).toBe(
         wethAmountToBridge,
       );
+      expect(await wethCrossChainHarness.inbox.read.contains([entryKey.toString()])).toBe(true);
 
       // Wait for the archiver to process the message
       await sleep(5000);
@@ -183,7 +186,6 @@ export const uniswapL1L2TestSuite = (
       await wethCrossChainHarness.consumeMessageOnAztecAndMintSecretly(
         secretHashForRedeemingWeth,
         wethAmountToBridge,
-        messageKey,
         secretForMintingWeth,
       );
       await wethCrossChainHarness.redeemShieldPrivatelyOnL2(wethAmountToBridge, secretForRedeemingWeth);
@@ -257,13 +259,9 @@ export const uniswapL1L2TestSuite = (
         ownerEthAddress.toString(),
         true,
       ] as const;
-      const { result: depositDaiMessageKeyHex } = await uniswapPortal.simulate.swapPrivate(swapArgs, {
-        account: ownerEthAddress.toString(),
-      } as any);
 
       // this should also insert a message into the inbox.
       await uniswapPortal.write.swapPrivate(swapArgs, {} as any);
-      const depositDaiMessageKey = Fr.fromString(depositDaiMessageKeyHex);
 
       // weth was swapped to dai and send to portal
       const daiL1BalanceOfPortalAfter = await daiCrossChainHarness.getL1BalanceOf(
@@ -282,7 +280,6 @@ export const uniswapL1L2TestSuite = (
       await daiCrossChainHarness.consumeMessageOnAztecAndMintSecretly(
         secretHashForRedeemingDai,
         daiAmountToBridge,
-        depositDaiMessageKey,
         secretForDepositingSwappedDai,
       );
       await daiCrossChainHarness.redeemShieldPrivatelyOnL2(daiAmountToBridge, secretForRedeemingDai);
@@ -306,7 +303,7 @@ export const uniswapL1L2TestSuite = (
       // 1. Approve and deposit weth to the portal and move to L2
       const [secretForMintingWeth, secretHashForMintingWeth] = wethCrossChainHarness.generateClaimSecret();
 
-      const messageKey = await wethCrossChainHarness.sendTokensToPortalPublic(
+      const entryKey = await wethCrossChainHarness.sendTokensToPortalPublic(
         wethAmountToBridge,
         secretHashForMintingWeth,
       );
@@ -317,6 +314,7 @@ export const uniswapL1L2TestSuite = (
       expect(await wethCrossChainHarness.getL1BalanceOf(wethCrossChainHarness.tokenPortalAddress)).toBe(
         wethAmountToBridge,
       );
+      expect(await wethCrossChainHarness.inbox.read.contains([entryKey.toString()])).toBe(true);
 
       // Wait for the archiver to process the message
       await sleep(5000);
@@ -326,11 +324,7 @@ export const uniswapL1L2TestSuite = (
 
       // 2. Claim WETH on L2
       logger('Minting weth on L2');
-      await wethCrossChainHarness.consumeMessageOnAztecAndMintPublicly(
-        wethAmountToBridge,
-        messageKey,
-        secretForMintingWeth,
-      );
+      await wethCrossChainHarness.consumeMessageOnAztecAndMintPublicly(wethAmountToBridge, secretForMintingWeth);
       await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, wethAmountToBridge);
 
       // Store balances
@@ -405,13 +399,9 @@ export const uniswapL1L2TestSuite = (
         ownerEthAddress.toString(),
         true,
       ] as const;
-      const { result: depositDaiMessageKeyHex } = await uniswapPortal.simulate.swapPublic(swapArgs, {
-        account: ownerEthAddress.toString(),
-      } as any);
 
       // this should also insert a message into the inbox.
       await uniswapPortal.write.swapPublic(swapArgs, {} as any);
-      const depositDaiMessageKey = Fr.fromString(depositDaiMessageKeyHex);
       // weth was swapped to dai and send to portal
       const daiL1BalanceOfPortalAfter = await daiCrossChainHarness.getL1BalanceOf(
         daiCrossChainHarness.tokenPortalAddress,
@@ -426,11 +416,7 @@ export const uniswapL1L2TestSuite = (
 
       // 6. claim dai on L2
       logger('Consuming messages to mint dai on L2');
-      await daiCrossChainHarness.consumeMessageOnAztecAndMintPublicly(
-        daiAmountToBridge,
-        depositDaiMessageKey,
-        secretForDepositingSwappedDai,
-      );
+      await daiCrossChainHarness.consumeMessageOnAztecAndMintPublicly(daiAmountToBridge, secretForDepositingSwappedDai);
       await daiCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, daiL2BalanceBeforeSwap + daiAmountToBridge);
 
       const wethL2BalanceAfterSwap = await wethCrossChainHarness.getL2PublicBalanceOf(ownerAddress);
@@ -589,7 +575,7 @@ export const uniswapL1L2TestSuite = (
 
       // Swap!
       await expect(action.simulate()).rejects.toThrowError(
-        "Assertion failed: Message not authorized by account 'result == IS_VALID_SELECTOR'",
+        "Assertion failed: Message not authorized by account 'is_valid == true'",
       );
     });
 
@@ -623,7 +609,7 @@ export const uniswapL1L2TestSuite = (
             Fr.ZERO,
           )
           .simulate(),
-      ).rejects.toThrowError(`Assertion failed: Message not authorized by account 'result == IS_VALID_SELECTOR'`);
+      ).rejects.toThrowError(`Assertion failed: Message not authorized by account 'is_valid == true'`);
     });
 
     // tests when trying to mix private and public flows:

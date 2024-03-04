@@ -7,12 +7,13 @@ import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/cl
 
 import { ContractData, ExtendedContractData } from '../../contract_data.js';
 import { AztecNode } from '../../interfaces/aztec-node.js';
+import { NullifierMembershipWitness } from '../../interfaces/nullifier_tree.js';
 import { L1ToL2MessageAndIndex } from '../../l1_to_l2_message.js';
 import { L2Block } from '../../l2_block.js';
-import { L2Tx } from '../../l2_tx.js';
 import { ExtendedUnencryptedL2Log, L2BlockL2Logs, LogId } from '../../logs/index.js';
 import { SiblingPath } from '../../sibling_path/index.js';
-import { Tx, TxHash } from '../../tx/index.js';
+import { Tx, TxHash, TxReceipt } from '../../tx/index.js';
+import { TxEffect } from '../../tx_effect.js';
 
 /**
  * Creates a JSON-RPC client to remotely talk to an Aztec Node.
@@ -34,13 +35,13 @@ export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecN
       FunctionSelector,
       Header,
       L2Block,
-      L2Tx,
+      TxEffect,
       LogId,
       TxHash,
       SiblingPath,
       L1ToL2MessageAndIndex,
     },
-    { Tx, L2BlockL2Logs },
+    { Tx, TxReceipt, L2BlockL2Logs, NullifierMembershipWitness },
     false,
     'node',
     fetch,
