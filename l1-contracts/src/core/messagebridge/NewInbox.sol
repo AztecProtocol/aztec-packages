@@ -28,24 +28,26 @@ contract NewInbox {
 
   uint256 public immutable HEIGHT;
   uint256 public immutable SIZE;
-  bytes32 private immutable ZERO;
+  bytes32 private immutable EMPTY_ROOT; // The root of an empty frontier tree
 
-  uint256 private toInclude = 1;
+  uint256 private toInclude = 0;
   uint256 private inProgress = 1;
 
   mapping(uint256 treeNumber => IFrontier tree) public frontier;
 
   event LeafInserted(uint256 treeNumber, uint256 index, bytes32 value);
 
-  constructor(address _rollup, uint256 _height, bytes32 _zero) {
+  constructor(address _rollup, uint256 _height) {
     ROLLUP = _rollup;
 
     HEIGHT = _height;
     SIZE = 2 ** _height;
-    ZERO = _zero;
 
     // We deploy the first tree
-    frontier[inProgress] = IFrontier(new FrontierMerkle(_height));
+    IFrontier firstTree = IFrontier(new FrontierMerkle(_height));
+    frontier[inProgress] = firstTree;
+
+    EMPTY_ROOT = firstTree.root();
   }
 
   /**
@@ -91,13 +93,14 @@ contract NewInbox {
     uint256 nextIndex = currentTree.insertLeaf(leaf);
     emit LeafInserted(inProgress, nextIndex, leaf);
 
-    // TODO: do we really need to return this?
     return leaf;
   }
 
   /**
    * @notice Consumes the current tree, and starts a new one if needed
    * @dev Only callable by the rollup contract
+   * @dev In the first iteration we return empty tree root because first block's messages tree is always
+   * empty because there has to be a 1 block lag to prevent sequencer DOS attacks.
    * @return The root of the consumed tree
    */
   function consume() external returns (bytes32) {
@@ -105,7 +108,10 @@ contract NewInbox {
       revert Errors.Inbox__Unauthorized();
     }
 
-    bytes32 root = frontier[toInclude].root();
+    bytes32 root = EMPTY_ROOT;
+    if (toInclude > 0) {
+      root = frontier[toInclude].root();
+    }
 
     // If we are "catching up" we can skip the creation as it is already there
     if (toInclude == inProgress) {

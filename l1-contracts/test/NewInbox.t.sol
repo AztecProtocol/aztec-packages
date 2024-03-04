@@ -21,8 +21,8 @@ contract NewInboxTest is Test {
 
   function setUp() public {
     address rollup = address(this);
-    // We set low depth (5) to ensure we sufficiently test tree transitions
-    inbox = new NewInbox(rollup, 5, 0);
+    // We set low depth (5) to ensure we sufficiently test the tree transitions
+    inbox = new NewInbox(rollup, 5);
     emptyTreeRoot = inbox.frontier(1).root();
   }
 
@@ -164,7 +164,12 @@ contract NewInboxTest is Test {
     // Now we consume the trees
     for (uint256 i = 0; i < numTreesToConsume; i++) {
       bytes32 root = inbox.consume();
-      if (i < numTrees && _messages.length > 0) {
+
+      // Notes:
+      // 1) For i = 0 we should always get empty tree root because first block's messages tree is always
+      // empty because we introduced a 1 block lag to prevent sequencer DOS attacks.
+      // 2) For _messages.length = 0 and i = 1 we get empty root as well
+      if (i != 0 && i <= numTrees && _messages.length > 0) {
         assertNotEq(root, emptyTreeRoot, "Root should not be zero");
       } else {
         assertEq(root, emptyTreeRoot, "Root should be zero");
