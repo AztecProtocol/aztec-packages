@@ -59,7 +59,8 @@ Most rollups have a contract on this host blockchain which validates its state t
 
 With its state being validated by the host chain, the security properties can eventually be enforced by the host-chain if the rollup chain itself is not progressing.
 Bluntly, the rollup is renting security from the host.
-The essential difference between a L1 and a rollup then comes down to who are required for block production (liveness) and to convince the validating light-node (security), for the L1 it is the nodes of the L1, and for the Rollup the nodes of its host (eventually).
+The essential difference between an L1 and a rollup then comes down to who are required for block production (liveness) and to convince the validating light-node (security).
+For the L1 it is the nodes of the L1, and for the Rollup the nodes of its host (eventually).
 This in practice means that we can get some better properties for how easy it is to get sufficient assurance that no trickery is happening.
 
 <!-- prettier-ignore -->
@@ -107,7 +108,7 @@ If the user is not satisfied with the guarantee provided by the sequencer, he ca
 
 As alluded to earlier, we belong to the school of thought that Data Availability and Publication is different things.
 Generally, what is often referred to as Data Availability is merely Data Publication, e.g., whether or not the data have been published somewhere.
-For data published on Ethereum you will currently have no issues getting a hold of the data because there are many full nodes and they behave nicely, but they could are not guaranteed to be so.
+For data published on Ethereum you will currently have no issues getting a hold of the data because there are many full nodes and they behave nicely, but they are not guaranteed to continue doing so.
 New nodes are essentially bootstrapped by other friendly nodes.
 
 With that out the way, it would be prudent to elaborate on our definition from earlier:
@@ -117,7 +118,7 @@ With that out the way, it would be prudent to elaborate on our definition from e
 
 With this split, we can map the methods of which we can include data for our rollup.
 Below we have included only systems that are live or close to live where we have good ideas around the throughput and latency of the data.
-The latency is based on using Ethereum L1 as the home of the validating light node, and will therefore be the latency from being included in the data layer until statements can be included in the host chain.
+The latency is based on using Ethereum L1 as the home of the validating light node, and will therefore be the latency between point in time when data is included on the data layer until a point when statements about the data can be included in the host chain.
 
 <!-- prettier-ignore -->
 |Method | Publication | Availability | Quantity | Latency | Description |
@@ -131,7 +132,8 @@ The latency is based on using Ethereum L1 as the home of the validating light no
 ### Data Layer outside host
 
 When using a data layer that is not the host chain, cost (and safety guarantees) are reduced, and we rely on some "bridge" to tell the host chain about the data.
-This must happen before our validating light node can progress the block, hence the block must be published, and the host must know about it before the host can use it as input to block validation.
+This must happen before our validating light node can progress the block.
+Therefore the block must be published, and the host must know about it before the host can use it as input to block validation.
 
 This influences how blocks can practically be built, since short "cycles" of publishing and then including blocks might not be possible for bridges with significant delay.
 This means that a suitable data layer has both sufficient data throughput but also low (enough) latency at the bridge level.
@@ -146,13 +148,17 @@ Briefly the concerns we must have for any supported data layer that is outside t
 #### Celestia
 
 Celestia mainnet is starting with a limit of 2 mb/block with 12 second blocks supporting ~166 KB/s.
-But they are working on increasing this to 8 mb/block.
+:::note
+They are working on increasing this to 8 mb/block.
+:::
 
 As Celestia has just recently launched, it is unclear how much competition there will be for the data throughput, and thereby how much we could expect to get a hold of.
-Since the security assumptions differ greatly from the host chain (Ethereum) few L2's have been built on top of it yet, and the demand is to be gauged in the future.
+Since the security assumptions differ greatly from the host chain (Ethereum) few L2s have been built on top of it yet, and the demand is to be gauged in the future.
 
-Beyond the pure data throughput, we also need Ethereum L1 to know that the data was made available on Celestia, which here will require the [blobstream](https://blog.celestia.org/introducing-blobstream/) (formerly the quantum gravity bridge) to relay data roots that the rollup contract can process.This is currently done approximately every 100 minutes.
-Note however, that a separate blobstream is being build with Succinct labs (live on goerli) which should make relays cheaper and more frequent.
+Beyond the pure data throughput, we also need Ethereum L1 to know that the data was made available on Celestia.
+This will require the [blobstream](https://blog.celestia.org/introducing-blobstream/) (formerly the quantum gravity bridge) to relay data roots that the rollup contract can process.
+This is currently done approximately every 100 minutes.
+Note however, that a separate blobstream is being build by Succinct labs (live on goerli) which should make relays cheaper and more frequent.
 
 Neat structure of what the availability oracles will look like created by the Celestia team:
 ![image.png](https://lh7-us.googleusercontent.com/EB8CtN-MvqApiPSeulWS3zmix6VZP1EEjilx7cRPxaWzAp1QYQI0tclzn7SyfGwxe-VTuf68DYs83Rl9hVCiUzHYZuOvEpNmvoHEFfBu6_vVRIU45wmA4ZqWIp3gBXgiv32YIKiu1ZAYK04zri9M2CE)
@@ -193,8 +199,9 @@ Also, beware that the state for L2 -> L1 messages is split between the data laye
 We need to know what these things are to be able to progress the state.
 Without having the state, we don't know how the output of a state transition should look and cannot prove it.
 
-Beyond the above data that is important to everyone, we also have data that is important to _someone_, these are the logs, both unencrypted and encrypted.
-Knowing the historic logs are not required to progress the chain, but are important for the users to ensure that they learn about their notes etc.
+Beyond the above data that is important to everyone, we also have data that is important to _someone_.
+These are encrypted and unencrypted logs.
+Knowing the historic logs is not required to progress the chain, but they are important for the users to ensure that they learn about their notes etc.
 
 A few transaction examples based on our E2E tests have the following data footprints.
 We will need a few more bytes to specify the sizes of these lists but it will land us in the right ball park.
