@@ -47,9 +47,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     RecursiveVerifierInstance_(Builder* builder, std::shared_ptr<NativeVerificationKey> vk)
         : builder(builder)
         , verification_key(std::make_shared<VerificationKey>(builder, vk))
-    {
-        verification_key->pcs_verification_key = vk->pcs_verification_key;
-    }
+    {}
 
     RecursiveVerifierInstance_(Builder* builder, const std::shared_ptr<VerifierInstance>& instance)
         : pub_inputs_offset((instance->pub_inputs_offset))
