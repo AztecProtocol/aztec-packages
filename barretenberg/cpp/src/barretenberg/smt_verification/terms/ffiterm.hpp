@@ -41,7 +41,7 @@ class FFITerm {
     static FFITerm Const(const std::string& val, Solver* slv, uint32_t base = 16);
 
     explicit FFITerm(bb::fr value, Solver* s){
-        std::stringstream buf; // TODO(alex): looks bad. Would be great to create tostring() converter
+        std::stringstream buf; // TODO(#893)
         buf << value;
         std::string tmp = buf.str();
         tmp[1] = '0';          // avoiding `x` in 0x prefix
