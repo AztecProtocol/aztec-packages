@@ -1907,7 +1907,7 @@ fn generate_compute_note_hash_and_nullifier_source(note_types: &Vec<String>) -> 
                 note_type_id: Field,
                 serialized_note: [Field; 20]
             ) -> pub [Field; 4] {{
-                let note_header = dep::aztec::NoteHeader::new(contract_address, nonce, storage_slot);
+                let note_header = dep::aztec::prelude::NoteHeader::new(contract_address, nonce, storage_slot);
 
                 {}
             }}",
