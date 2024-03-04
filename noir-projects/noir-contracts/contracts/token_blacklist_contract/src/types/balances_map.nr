@@ -1,4 +1,4 @@
-use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, NoteViewerOptions};
+use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, NoteGetterOptions, NoteViewerOptions, PrivateSet, Map};
 use dep::aztec::{
     context::Context, protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
     note::{note_getter::view_notes, note_getter_options::SortOrder}

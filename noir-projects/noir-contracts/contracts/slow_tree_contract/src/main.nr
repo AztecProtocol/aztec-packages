@@ -7,9 +7,11 @@ mod types;
 // This is made as a separate contract for one thing mainly. Making it simpler to use.
 // TODO(#4760): Rename slow updates to shared mutable and ideally move the impl to state-vars in aztec-nr.
 contract SlowTree {
-    use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, NoteViewerOptions, PrivateContext, Map, PublicMutable, PrivateSet};
+    use dep::aztec::prelude::{
+        AztecAddress, FunctionSelector, NoteHeader, NoteInterface, NoteViewerOptions, PrivateContext,
+        Map, PublicMutable, PrivateSet
+    };
 
-    use dep::std::option::Option;
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
     use dep::aztec::{
         context::{PublicContext, Context}, note::utils as note_utils,
