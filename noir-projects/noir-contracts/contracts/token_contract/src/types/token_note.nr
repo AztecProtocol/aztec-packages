@@ -1,8 +1,8 @@
 use dep::aztec::prelude::{
-    AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, PrivateContext, PrivateSet, Map,
-    emit_encrypted_log
+    AztecAddress, NoteInterface, NoteGetterOptions, NoteViewerOptions, NoteHeader, PrivateContext,
+    PrivateSet, Map, emit_encrypted_log
 };
-use dep::aztec::{note::{note_interface::NoteInterface, utils::compute_note_hash_for_consumption}, hash::pedersen_hash};
+use dep::aztec::{note::utils::compute_note_hash_for_consumption, hash::pedersen_hash};
 use dep::aztec::oracle::{rand::rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key};
 
 trait OwnedNote {
