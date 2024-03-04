@@ -1125,9 +1125,6 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Copy docs dockerignore"
-          command: cp docs/.dockerignore .
-      - run:
           name: "Require released code"
           command: |
             LAST_TAG="aztec-packages-v$(jq -r '.["."]' .release-please-manifest.json)"
@@ -1143,7 +1140,6 @@ jobs:
           command: |
             echo "Building docs"
             build docs
-
             echo "Deploying docs"
             docs/deploy_netlify.sh $BRANCH $PULL_REQUEST
 
