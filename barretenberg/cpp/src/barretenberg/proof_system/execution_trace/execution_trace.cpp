@@ -50,9 +50,8 @@ void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(
 }
 
 template <class Flavor>
-void ExecutionTrace_<Flavor>::add_memory_records_to_proving_key(TraceData& trace_data,
-                                                                Builder& builder,
-                                                                const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
+void ExecutionTrace_<Flavor>::add_memory_records_to_proving_key(
+    TraceData& trace_data, Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
     requires IsUltraPlonkOrHonk<Flavor>
 {
     ASSERT(proving_key->memory_read_records.empty() && proving_key->memory_write_records.empty());
@@ -67,8 +66,8 @@ void ExecutionTrace_<Flavor>::add_memory_records_to_proving_key(TraceData& trace
 }
 
 template <class Flavor>
-typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(Builder& builder,
-                                                                                          size_t dyadic_circuit_size)
+typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(
+    Builder& builder, size_t dyadic_circuit_size)
 {
     TraceData trace_data{ dyadic_circuit_size, builder };
 

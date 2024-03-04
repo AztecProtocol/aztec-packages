@@ -68,10 +68,10 @@ template <class Flavor> class ExecutionTrace_ {
      * @param builder
      * @param proving_key
      */
-    static void add_memory_records_to_proving_key(
-        TraceData& trace_data,
-        Builder& builder,
-        const std::shared_ptr<typename Flavor::ProvingKey>& proving_key) requires IsUltraPlonkOrHonk<Flavor>;
+    static void add_memory_records_to_proving_key(TraceData& trace_data,
+                                                  Builder& builder,
+                                                  const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
+        requires IsUltraPlonkOrHonk<Flavor>;
 
     /**
      * @brief Construct wire polynomials, selector polynomials and copy cycles from raw circuit data
@@ -98,9 +98,9 @@ template <class Flavor> class ExecutionTrace_ {
      * @param builder
      * @param proving_key
      */
-    static void add_ecc_op_wires_to_proving_key(
-        Builder& builder,
-        const std::shared_ptr<typename Flavor::ProvingKey>& proving_key) requires IsGoblinFlavor<Flavor>;
+    static void add_ecc_op_wires_to_proving_key(Builder& builder,
+                                                const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
+        requires IsGoblinFlavor<Flavor>;
 };
 
 } // namespace bb
