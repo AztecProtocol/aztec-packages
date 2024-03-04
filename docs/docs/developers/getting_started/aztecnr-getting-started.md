@@ -197,7 +197,7 @@ Congratulations, you have now written, compiled, and deployed your first Aztec.n
 
 Install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) to get syntax highlighting, syntax error detection and go-to definitions for your Aztec contracts.
 
-Once the extension is installed, check your nargo binary by hovering over `Nargo` in the status bar. Then click to choose the (default) path to `aztec-nargo`.
+Once the extension is installed, check your nargo binary by hovering over `Nargo` in the status bar on the bottom right of the application window. Click to choose the path to `aztec-nargo` (or regular `nargo`, if you have that installed).
 
 :::tip
 To specify a custom nargo executable, go to the VSCode settings and search for "noir", or click extension settings on the `noir-lang` LSP plugin.
