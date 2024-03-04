@@ -30,7 +30,7 @@ contract NewInbox {
   uint256 public immutable SIZE;
   bytes32 private immutable ZERO;
 
-  uint256 private toInclude = 0;
+  uint256 private toInclude = 1;
   uint256 private inProgress = 1;
 
   mapping(uint256 treeNumber => IFrontier tree) public frontier;
@@ -105,13 +105,10 @@ contract NewInbox {
       revert Errors.Inbox__Unauthorized();
     }
 
-    bytes32 root = ZERO;
-    if (toInclude > 0) {
-      root = frontier[toInclude].root();
-    }
+    bytes32 root = frontier[toInclude].root();
 
     // If we are "catching up" we can skip the creation as it is already there
-    if (toInclude + 1 == inProgress) {
+    if (toInclude == inProgress) {
       inProgress += 1;
       frontier[inProgress] = IFrontier(new FrontierMerkle(HEIGHT));
     }

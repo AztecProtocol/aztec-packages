@@ -3,15 +3,12 @@
 pragma solidity >=0.8.18;
 
 import {Test} from "forge-std/Test.sol";
+
 import {NewInbox} from "../src/core/messagebridge/NewInbox.sol";
 import {Constants} from "../src/core/libraries/ConstantsGen.sol";
 import {Errors} from "../src/core/libraries/Errors.sol";
 import {Hash} from "../src/core/libraries/Hash.sol";
-
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
-import {IFrontier} from "../src/core/interfaces/messagebridge/IFrontier.sol";
-
-import "forge-std/console.sol";
 
 contract NewInboxTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -167,7 +164,7 @@ contract NewInboxTest is Test {
     // Now we consume the trees
     for (uint256 i = 0; i < numTreesToConsume; i++) {
       bytes32 root = inbox.consume();
-      if (i < numTrees) {
+      if (i < numTrees && _messages.length > 0) {
         assertNotEq(root, emptyTreeRoot, "Root should not be zero");
       } else {
         assertEq(root, emptyTreeRoot, "Root should be zero");
