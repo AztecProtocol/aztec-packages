@@ -75,7 +75,7 @@ jobs:
   generate-config:
     docker:
       - image: aztecprotocol/alpine-build-image
-    resource_class: large
+    resource_class: xlarge
     steps:
       - *checkout
       - *setup_env
@@ -84,7 +84,6 @@ jobs:
           command: |
             # filter our circleci config to the minimal pipeline
             build-system/scripts/generate_circleci_config.py > .circleci/generated_config.yml
-            echo stopearly > .circleci/generated_config.yml
       - continuation/continue:
           configuration_path: .circleci/generated_config.yml
 
@@ -1517,21 +1516,6 @@ workflows:
       # Everything that must complete before deployment.
       - end:
           requires:
-            - barretenberg-x86_64-linux-gcc
-            - barretenberg-x86_64-linux-clang
-            - barretenberg-x86_64-linux-clang-assert
-            - barretenberg-x86_64-linux-clang-fuzzing
-            - barretenberg-wasm-linux-clang
-            - barretenberg-x86_64-linux-clang-sol
-            - barretenberg-bench
-            - barretenberg-proof-system-tests
-            - barretenberg-dsl-tests
-            - barretenberg-tests
-            - barretenberg-stdlib-tests
-            - barretenberg-stdlib-recursion-ultra-tests
-            - barretenberg-join-split-tests
-            - barretenberg-acir-tests-bb
-            - barretenberg-docs
             - mainnet-fork
             - e2e-2-pxes
             - e2e-note-getter
