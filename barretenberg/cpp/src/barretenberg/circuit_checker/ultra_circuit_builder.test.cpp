@@ -121,6 +121,7 @@ TEST(ultra_circuit_constructor, create_gates_from_plookup_accumulators)
 
     UltraCircuitBuilder circuit_copy{ circuit_builder };
     bool result = circuit_builder.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
 
     EXPECT_EQ(result, true);
     // Ensure that check_circuit did not alter the circuit
@@ -133,6 +134,7 @@ TEST(ultra_circuit_constructor, base_case)
     fr a = fr::one();
     circuit_constructor.add_public_variable(a);
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
     EXPECT_EQ(result, true);
 }
 TEST(ultra_circuit_constructor, test_no_lookup_proof)
@@ -155,6 +157,7 @@ TEST(ultra_circuit_constructor, test_no_lookup_proof)
     }
 
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
     EXPECT_EQ(result, true);
 }
 
@@ -180,6 +183,7 @@ TEST(ultra_circuit_constructor, test_elliptic_gate)
 
     UltraCircuitBuilder circuit_copy{ circuit_constructor };
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     EXPECT_EQ(result, true);
     // Ensure that check_circuit did not alter the circuit
@@ -188,6 +192,7 @@ TEST(ultra_circuit_constructor, test_elliptic_gate)
     circuit_constructor.create_ecc_add_gate({ x1 + 1, y1, x2, y2, x3, y3, 1 });
 
     EXPECT_EQ(circuit_constructor.check_circuit(), false);
+    EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
 }
 
 TEST(ultra_circuit_constructor, test_elliptic_double_gate)
@@ -208,6 +213,7 @@ TEST(ultra_circuit_constructor, test_elliptic_double_gate)
 
     UltraCircuitBuilder circuit_copy{ circuit_constructor };
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     EXPECT_EQ(result, true);
     // Ensure that check_circuit did not alter the circuit
@@ -240,6 +246,7 @@ TEST(ultra_circuit_constructor, non_trivial_tag_permutation)
 
     UltraCircuitBuilder circuit_copy{ circuit_constructor };
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     EXPECT_EQ(result, true);
     // Ensure that check_circuit did not alter the circuit
@@ -248,6 +255,7 @@ TEST(ultra_circuit_constructor, non_trivial_tag_permutation)
     // Break the tag
     circuit_constructor.real_variable_tags[circuit_constructor.real_variable_index[a_idx]] = 2;
     EXPECT_EQ(circuit_constructor.check_circuit(), false);
+    EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
 }
 
 TEST(ultra_circuit_constructor, non_trivial_tag_permutation_and_cycles)
@@ -286,6 +294,7 @@ TEST(ultra_circuit_constructor, non_trivial_tag_permutation_and_cycles)
 
     UltraCircuitBuilder circuit_copy{ circuit_constructor };
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     EXPECT_EQ(result, true);
     // Ensure that check_circuit did not alter the circuit
@@ -294,6 +303,7 @@ TEST(ultra_circuit_constructor, non_trivial_tag_permutation_and_cycles)
     // Break the tag
     circuit_constructor.real_variable_tags[circuit_constructor.real_variable_index[a_idx]] = 2;
     EXPECT_EQ(circuit_constructor.check_circuit(), false);
+    EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
 }
 TEST(ultra_circuit_constructor, bad_tag_permutation)
 {
@@ -311,6 +321,7 @@ TEST(ultra_circuit_constructor, bad_tag_permutation)
 
     UltraCircuitBuilder circuit_copy{ circuit_constructor };
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     EXPECT_EQ(result, true);
     // Ensure that check_circuit did not alter the circuit
@@ -325,6 +336,7 @@ TEST(ultra_circuit_constructor, bad_tag_permutation)
     circuit_constructor.assign_tag(d_idx, 2);
 
     result = circuit_constructor.check_circuit();
+    EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
     EXPECT_EQ(result, false);
 }
 
@@ -343,6 +355,7 @@ TEST(ultra_circuit_constructor, sort_widget)
     circuit_constructor.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
 
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     EXPECT_EQ(result, true);
 }
@@ -379,6 +392,7 @@ TEST(ultra_circuit_constructor, sort_with_edges_gate)
         circuit_constructor.create_sort_constraint_with_edges(
             { a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, a, h);
         bool result = circuit_constructor.check_circuit();
+        EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
         EXPECT_EQ(result, true);
     }
@@ -397,6 +411,7 @@ TEST(ultra_circuit_constructor, sort_with_edges_gate)
             { a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, a, g);
 
         bool result = circuit_constructor.check_circuit();
+        EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
 
         EXPECT_EQ(result, false);
     }
@@ -414,6 +429,7 @@ TEST(ultra_circuit_constructor, sort_with_edges_gate)
             { a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, b, h);
 
         bool result = circuit_constructor.check_circuit();
+        EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
 
         EXPECT_EQ(result, false);
     }
@@ -430,6 +446,7 @@ TEST(ultra_circuit_constructor, sort_with_edges_gate)
         circuit_constructor.create_sort_constraint_with_edges(
             { a_idx, b2_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, b, h);
         bool result = circuit_constructor.check_circuit();
+        EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
 
         EXPECT_EQ(result, false);
     }
@@ -439,6 +456,7 @@ TEST(ultra_circuit_constructor, sort_with_edges_gate)
                                                         26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
         circuit_constructor.create_sort_constraint_with_edges(idx, 1, 45);
         bool result = circuit_constructor.check_circuit();
+        EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
         EXPECT_EQ(result, true);
     }
@@ -449,6 +467,7 @@ TEST(ultra_circuit_constructor, sort_with_edges_gate)
 
         circuit_constructor.create_sort_constraint_with_edges(idx, 1, 29);
         bool result = circuit_constructor.check_circuit();
+        EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
 
         EXPECT_EQ(result, false);
     }
@@ -465,6 +484,7 @@ TEST(ultra_circuit_constructor, range_constraint)
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
         circuit_constructor.create_sort_constraint(indices);
         bool result = circuit_constructor.check_circuit();
+        EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
         EXPECT_EQ(result, true);
     }
@@ -477,6 +497,7 @@ TEST(ultra_circuit_constructor, range_constraint)
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
         circuit_constructor.create_dummy_constraints(indices);
         bool result = circuit_constructor.check_circuit();
+        EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
         EXPECT_EQ(result, true);
     }
@@ -488,6 +509,7 @@ TEST(ultra_circuit_constructor, range_constraint)
         }
         circuit_constructor.create_sort_constraint(indices);
         bool result = circuit_constructor.check_circuit();
+        EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
 
         EXPECT_EQ(result, false);
     }
@@ -500,6 +522,7 @@ TEST(ultra_circuit_constructor, range_constraint)
         }
         circuit_constructor.create_dummy_constraints(indices);
         bool result = circuit_constructor.check_circuit();
+        EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
         EXPECT_EQ(result, true);
     }
@@ -512,6 +535,7 @@ TEST(ultra_circuit_constructor, range_constraint)
         }
         circuit_constructor.create_dummy_constraints(indices);
         bool result = circuit_constructor.check_circuit();
+        EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
 
         EXPECT_EQ(result, false);
     }
@@ -524,6 +548,7 @@ TEST(ultra_circuit_constructor, range_constraint)
         }
         circuit_constructor.create_dummy_constraints(indices);
         bool result = circuit_constructor.check_circuit();
+        EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
 
         EXPECT_EQ(result, false);
     }
@@ -546,6 +571,7 @@ TEST(ultra_circuit_constructor, range_with_gates)
     circuit_constructor.create_add_gate(
         { idx[6], idx[7], circuit_constructor.zero_idx, fr::one(), fr::one(), fr::zero(), -15 });
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     EXPECT_EQ(result, true);
 }
@@ -567,6 +593,7 @@ TEST(ultra_circuit_constructor, range_with_gates_where_range_is_not_a_power_of_t
     circuit_constructor.create_add_gate(
         { idx[6], idx[7], circuit_constructor.zero_idx, fr::one(), fr::one(), fr::zero(), -15 });
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     EXPECT_EQ(result, true);
 }
@@ -583,6 +610,7 @@ TEST(ultra_circuit_constructor, sort_widget_complex)
         circuit_constructor.create_sort_constraint(ind);
 
         bool result = circuit_constructor.check_circuit();
+        EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
         EXPECT_EQ(result, true);
     }
     {
@@ -595,6 +623,7 @@ TEST(ultra_circuit_constructor, sort_widget_complex)
         circuit_constructor.create_sort_constraint(ind);
 
         bool result = circuit_constructor.check_circuit();
+        EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
         EXPECT_EQ(result, false);
     }
 }
@@ -613,6 +642,7 @@ TEST(ultra_circuit_constructor, sort_widget_neg)
     circuit_constructor.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
 
     bool result = circuit_constructor.check_circuit();
+    EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
     EXPECT_EQ(result, false);
 }
 
@@ -628,6 +658,7 @@ TEST(ultra_circuit_constructor, composed_range_constraint)
     circuit_constructor.decompose_into_default_range(a_idx, 134);
 
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
     EXPECT_EQ(result, true);
 }
 
@@ -686,6 +717,7 @@ TEST(ultra_circuit_constructor, non_native_field_multiplication)
     UltraCircuitBuilder circuit_copy{ circuit_constructor };
 
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     EXPECT_EQ(result, true);
     // Ensure that check_circuit did not alter the circuit
@@ -731,6 +763,7 @@ TEST(ultra_circuit_constructor, rom)
     });
 
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
     EXPECT_EQ(result, true);
 }
 
@@ -766,6 +799,7 @@ TEST(ultra_circuit_constructor, ram_simple)
     });
 
     EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST(ultra_circuit_constructor, ram)
@@ -831,6 +865,7 @@ TEST(ultra_circuit_constructor, ram)
 
     UltraCircuitBuilder circuit_copy{ circuit_constructor };
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     EXPECT_EQ(result, true);
 
@@ -876,6 +911,7 @@ TEST(ultra_circuit_constructor, range_checks_on_duplicates)
         },
         false);
     bool result = circuit_constructor.check_circuit();
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
     EXPECT_EQ(result, true);
 }
 
@@ -894,18 +930,21 @@ TEST(ultra_circuit_constructor, check_circuit_showcase)
 
     // We can check if this works
     EXPECT_EQ(circuit_constructor.check_circuit(), true);
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     // Now let's create a range constraint for b
     circuit_constructor.create_new_range_constraint(b, 0xbeef);
 
     // We can check if this works
     EXPECT_EQ(circuit_constructor.check_circuit(), true);
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 
     // But what if we now assert b to be equal to a?
     circuit_constructor.assert_equal(a, b, "Oh no");
 
     // It fails, because a is 0xdead and it can't fit in the range constraint
     EXPECT_EQ(circuit_constructor.check_circuit(), false);
+    EXPECT_FALSE(CircuitChecker::check(circuit_constructor));
 
     // But if we force them both back to be 0xbeef...
     uint32_t c = circuit_constructor.add_variable(0xbeef);
@@ -913,6 +952,7 @@ TEST(ultra_circuit_constructor, check_circuit_showcase)
 
     // The circuit will magically pass again
     EXPECT_EQ(circuit_constructor.check_circuit(), true);
+    EXPECT_TRUE(CircuitChecker::check(circuit_constructor));
 }
 
 } // namespace bb
