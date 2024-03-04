@@ -29,7 +29,6 @@ members = [
     "contracts/slow_tree_contract",
     "contracts/stateful_test_contract",
     "contracts/test_contract",
-    "contracts/test_token_contract",
     "contracts/token_contract",
     "contracts/token_blacklist_contract",
     "contracts/token_bridge_contract",
