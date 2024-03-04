@@ -11,8 +11,8 @@ COPY --from=aztec /usr/src /usr/src
 COPY --from=noir /usr/src/noir/noir-repo/target/release/nargo /usr/src/noir/noir-repo/target/release/nargo
 COPY --from=noir-projects /usr/src/noir-projects/aztec-nr /usr/src/noir-projects/aztec-nr
 WORKDIR /usr/src/boxes
-RUN npx -y playwright@1.41.1 install --with-deps
 ENV AZTEC_NARGO=/usr/src/noir/noir-repo/target/release/nargo
 ENV AZTEC_CLI=/usr/src/yarn-project/cli/aztec-cli-dest
 RUN yarn && yarn build
+RUN npx -y playwright@1.42 install --with-deps
 ENTRYPOINT ["/bin/sh", "-c"]
