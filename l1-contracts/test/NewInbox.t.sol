@@ -16,7 +16,7 @@ contract NewInboxTest is Test {
   NewInbox internal inbox;
   uint256 internal version = 0;
 
-  event LeafInserted(uint256 indexed treeNumber, uint256 indexed index, bytes32 value);
+  event LeafInserted(uint256 treeNumber, uint256 index, bytes32 value);
 
   function setUp() public {
     address rollup = address(this);
