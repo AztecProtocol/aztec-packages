@@ -6,6 +6,11 @@ import fs from 'fs/promises';
 
 import { SimulationProvider } from './simulation_provider.js';
 
+/**
+ * Parses a TOML format witness map string into a Map structure
+ * @param outputString - The witness map in TOML format
+ * @returns The parsed witness map
+ */
 function parseIntoWitnessMap(outputString: string) {
   const lines = outputString.split('\n');
   return new Map<number, string>(
@@ -18,6 +23,14 @@ function parseIntoWitnessMap(outputString: string) {
   );
 }
 
+/**
+ * 
+ * @param inputWitness - The circuit's input witness
+ * @param bytecode - The circuit buytecode
+ * @param workingDirectory - A directory to use for temporary files by the ACVM
+ * @param pathToAcvm - The path to the ACVm binary
+ * @returns The completed partial witness outputted from the circuit
+ */
 export async function executeNativeCircuit(
   inputWitness: WitnessMap,
   bytecode: Buffer,
@@ -26,15 +39,22 @@ export async function executeNativeCircuit(
 ) {
   const bytecodeFilename = 'bytecode';
   const witnessFilename = 'input_witness.toml';
+
+  // convert the witness map to TOML format
   let witnessMap = '';
   inputWitness.forEach((value: string, key: number) => {
     witnessMap = witnessMap.concat(`${key} = '${value}'\n`);
   });
 
+  // In case the directory is still around from some time previously, remove it
   await fs.rm(workingDirectory, { recursive: true, force: true });
+  // Create the new working directory
   await fs.mkdir(workingDirectory, { recursive: true });
+  // Write the bytecode and input witness to the working directory
   await fs.writeFile(`${workingDirectory}/${bytecodeFilename}`, bytecode);
   await fs.writeFile(`${workingDirectory}/${witnessFilename}`, witnessMap);
+
+  // Execute the ACVM using the given args
   const args = [
     `execute`,
     `--working-directory`,
@@ -68,6 +88,7 @@ export async function executeNativeCircuit(
     const output = await processPromise;
     return parseIntoWitnessMap(output);
   } finally {
+    // Clean up the working directory before we leave
     await fs.rm(workingDirectory, { recursive: true, force: true });
   }
 }
@@ -77,13 +98,14 @@ export class NativeACVMSimulator implements SimulationProvider {
   constructor(private workingDirectory: string, private pathToAcvm: string) {}
   async simulateCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
     // Execute the circuit on those initial witness values
-    //
+
     // Decode the bytecode from base64 since the acvm does not know about base64 encoding
     const decodedBytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
-    //
-    // Execute the circuit
+
+    // Provide a unique working directory so we don't get clashes with parallel executions
     const directory = `${this.workingDirectory}/${this.count}`;
     ++this.count;
+    // Execute the circuit
     const _witnessMap = await executeNativeCircuit(input, decodedBytecode, directory, this.pathToAcvm);
 
     return _witnessMap;

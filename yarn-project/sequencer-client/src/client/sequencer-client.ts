@@ -20,6 +20,11 @@ import { SimulationProvider } from '../simulator/simulation_provider.js';
 
 const logger = createDebugLogger('aztec:sequencer-client');
 
+/**
+ * Factory function to create a simulation provider. Will attempt to use native binary simulation falling back to WASM if unavailable.
+ * @param config - The provided sequencer client configuration
+ * @returns The constructed simulation provider
+ */
 async function getSimulationProvider(config: SequencerClientConfig): Promise<SimulationProvider> {
   if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
     const pathToAcvm = `${config.acvmBinaryPath}/acvm`;
