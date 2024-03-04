@@ -35,11 +35,6 @@ void init_proving_key(bool mock)
     }
 }
 
-void release_proving_key()
-{
-    proving_key.reset();
-}
-
 void init_verification_key()
 {
     if (!proving_key) {

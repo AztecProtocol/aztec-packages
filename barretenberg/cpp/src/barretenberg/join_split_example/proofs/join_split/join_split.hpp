@@ -7,8 +7,6 @@ namespace bb::join_split_example::proofs::join_split {
 
 void init_proving_key(bool mock);
 
-void release_proving_key();
-
 void init_verification_key();
 
 Prover new_join_split_prover(join_split_tx const& tx, bool mock);
