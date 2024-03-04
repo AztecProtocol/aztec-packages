@@ -596,7 +596,6 @@ impl<'block> BrilligBlock<'block> {
                 };
 
                 let index_variable = self.convert_ssa_single_addr_value(*index, dfg);
-                // dbg!("validate", &index_variable);
                 self.validate_array_index(array_variable, index_variable);
                 self.retrieve_variable_from_array(
                     array_pointer,
@@ -754,8 +753,6 @@ impl<'block> BrilligBlock<'block> {
             BrilligVariable::BrilligVector(BrilligVector { size, .. }) => (size, false),
             _ => unreachable!("ICE: validate array index on non-array"),
         };
-
-        // dbg!("validate array index", &size_as_register, &index_register);
 
         let condition = self.brillig_context.allocate_register();
 

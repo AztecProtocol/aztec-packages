@@ -253,11 +253,11 @@ fn handle_foreign_call(
         }
         "poseidon" => {
             handle_single_field_hash_instruction(avm_instrs, function, destinations, inputs)
-        },
+        }
         "storageWrite" => emit_storage_write(avm_instrs, destinations, inputs),
         "storageRead" => emit_storage_read(avm_instrs, destinations, inputs),
         // Getters.
-        _ if inputs.len() == 0 && destinations.len() == 1 => {
+        _ if inputs.is_empty() && destinations.len() == 1 => {
             handle_getter_instruction(avm_instrs, function, destinations, inputs)
         }
         // Anything else.
@@ -357,8 +357,8 @@ fn handle_emit_note_hash_or_nullifier(
 fn emit_storage_write(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>) 
-    {
+    inputs: &Vec<ValueOrArray>,
+) {
     // For the foreign calls we want to handle, we do not want inputs, as they are getters
     assert!(inputs.len() == 2);
     assert!(destinations.len() == 1); // TODO: we want this to be empty - change aztec nr?
@@ -398,7 +398,7 @@ fn emit_storage_write(
 fn emit_storage_read(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>
+    inputs: &Vec<ValueOrArray>,
 ) {
     // For the foreign calls we want to handle, we do not want inputs, as they are getters
     assert!(inputs.len() == 2); // output, len - but we dont use this len - its for the oracle
@@ -527,7 +527,7 @@ fn handle_send_l2_to_l1_msg(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
-    if destinations.len() != 0 || inputs.len() != 2 {
+    if !destinations.is_empty() || inputs.len() != 2 {
         panic!(
             "Transpiler expects ForeignCall::SENDL2TOL1MSG to have 0 destinations and 2 inputs, got {} and {}",
             destinations.len(),

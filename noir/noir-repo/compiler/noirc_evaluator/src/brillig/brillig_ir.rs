@@ -221,7 +221,6 @@ impl BrilligContext {
         index: MemoryAddress,
         result: MemoryAddress,
     ) {
-        // dbg!("Array Get");
         self.debug_show.array_get(array_ptr, index, result);
         // Computes array_ptr + index, ie array[index]
         let index_of_element_in_memory = self.allocate_register();
