@@ -114,7 +114,7 @@ contract NewInbox {
     }
 
     // If we are "catching up" we skip the tree creation as it is already there
-    if (toInclude == inProgress) {
+    if (toInclude + 1 == inProgress) {
       inProgress += 1;
       frontier[inProgress] = IFrontier(new FrontierMerkle(HEIGHT));
     }
