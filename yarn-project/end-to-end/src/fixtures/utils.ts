@@ -72,15 +72,11 @@ const getAztecUrl = () => {
 // Determines if we have access to the acvm binary and a tmp folder for temp files
 const getACVMConfig = async (logger: DebugLogger) => {
   try {
-    logger(`NOIR RELEASE DIR ${NOIR_RELEASE_DIR}`);
     const expectedAcvmPath = path.resolve(`../../noir/${NOIR_RELEASE_DIR}`);
-    logger(`PATH ${expectedAcvmPath}`);
     await fs.access(`${expectedAcvmPath}/acvm`, fs.constants.R_OK);
-    const proverWorkingDirectory = `${TEMP_DIR}/acvm`;
-    logger(`Access granted now checking ${proverWorkingDirectory}`);
-    await fs.mkdir(proverWorkingDirectory, { recursive: true });
-    logger(`Made temp directory ${proverWorkingDirectory}`);
-    return { proverWorkingDirectory, expectedAcvmPath };
+    const acvmWorkingDirectory = `${TEMP_DIR}/acvm`;
+    await fs.mkdir(acvmWorkingDirectory, { recursive: true });
+    return { acvmWorkingDirectory, expectedAcvmPath };
   } catch (err) {
     logger(`Unable to use native simulation ${err}`);
     return undefined;

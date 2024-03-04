@@ -13,9 +13,6 @@ RUN ./scripts/version_packages.sh
 # Productionify. See comment in yarn-project-base/Dockerfile.
 RUN yarn workspaces focus @aztec/cli @aztec/aztec @aztec/aztec-faucet @aztec/aztec.js --production && yarn cache clean
 
-# We no longer need nargo.
-RUN rm -rf /usr/src/noir/noir-repo/target
-
 # Create fresh minimal size image.
 # Installs our specific version of node, stripping out the unnecessary.
 # We could probably just apt install nodejs, but it's both a different version, and seemingly a bit slower.

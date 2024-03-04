@@ -30,7 +30,7 @@ async function getSimulationProvider(config: SequencerClientConfig): Promise<Sim
     const pathToAcvm = `${config.acvmBinaryPath}/acvm`;
     try {
       await fs.access(pathToAcvm, fs.constants.R_OK);
-      await fs.access(config.acvmWorkingDirectory!, fs.constants.W_OK);
+      await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
       logger(`Using native ACVM at ${config.acvmBinaryPath}`);
       return new NativeACVMSimulator(config.acvmWorkingDirectory, pathToAcvm);
     } catch {
