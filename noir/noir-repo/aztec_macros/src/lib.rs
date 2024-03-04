@@ -440,7 +440,7 @@ fn transform_module(
             .attributes
             .secondary
             .iter()
-            .any(|attr| is_custom_attribute(&attr, "aztec(initializer)"))
+            .any(|attr| is_custom_attribute(attr, "aztec(initializer)"))
     });
 
     for func in module.functions.iter_mut() {

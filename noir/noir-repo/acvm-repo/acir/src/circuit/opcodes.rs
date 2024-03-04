@@ -38,7 +38,7 @@ pub enum Opcode {
         inputs: Vec<Witness>,
         /// Outputs of the function call
         outputs: Vec<Witness>,
-    }
+    },
 }
 
 impl std::fmt::Display for Opcode {
