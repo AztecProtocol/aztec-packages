@@ -71,7 +71,7 @@ In the Storage struct:
 
 #### Public Example
 
-When declaring a public mapping in Storage, we have to specify that the type is public by declaring it as `PublicState` instead of specifying a note type like with private storage above.
+When declaring a public mapping in Storage, we have to specify that the type is public by declaring it as `PublicMutable` instead of specifying a note type like with private storage above.
 
 #include_code storage_minters /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
