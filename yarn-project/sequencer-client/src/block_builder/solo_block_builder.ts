@@ -190,6 +190,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     // padArrayEnd throws if the array is already full. Otherwise it pads till we reach the required size
     const newL1ToL2MessagesTuple = padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
+    // Perform all tree insertions and retrieve snapshots for all base rollups
     const baseRollupInputs: BaseRollupInputs[] = [];
     const treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>[] = [];
     for (const tx of txs) {
@@ -209,13 +210,14 @@ export class SoloBlockBuilder implements BlockBuilder {
       treeSnapshots.push(snapshots);
     }
 
-    // Run the base rollup circuits for the txs
+    // Run the base rollup circuits for the txs in parallel
     const baseRollupOutputs: Promise<[BaseOrMergeRollupPublicInputs, Proof]>[] = [];
     for (let i = 0; i < txs.length; i++) {
       baseRollupOutputs.push(this.baseRollupCircuit(txs[i], baseRollupInputs[i], treeSnapshots[i]));
     }
 
     // Run merge rollups in layers until we have only two outputs
+    // All merge circuits for each layer are simulated in parallel
     let mergeRollupInputs: [BaseOrMergeRollupPublicInputs, Proof][] = await Promise.all(baseRollupOutputs);
     while (mergeRollupInputs.length > 2) {
       const promises: Promise<[BaseOrMergeRollupPublicInputs, Proof]>[] = [];
