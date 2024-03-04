@@ -1260,18 +1260,20 @@ mod tests {
         }
     }
 
-    // #[test]
-    // unconstrained fn block_out_hash() {
-    //     let mut end: CombinedAccumulatedData = dep::std::unsafe::zeroed();
-    //     end.new_l2_to_l1_msgs[0] = 123;
-    //     end.new_l2_to_l1_msgs[MAX_NEW_L2_TO_L1_MSGS_PER_TX - 1] = 123;
+    #[test]
+    unconstrained fn block_out_hash() {
+        let mut end: CombinedAccumulatedData = dep::std::unsafe::zeroed();
+        end.new_l2_to_l1_msgs[MAX_NEW_L2_TO_L1_MSGS_PER_TX - 1] = 123;
 
-    //     let mut outputs = BaseRollupInputs::components_compute_kernel_out_hash(end);
+        let mut outputs = BaseRollupInputs::components_compute_kernel_out_hash(end);
 
-    //     for i in 0..NUM_FIELDS_PER_SHA256 {
-    //         assert_eq(outputs[i], 123);
-    //     }
-    // }
+        for i in 0..NUM_FIELDS_PER_SHA256 {
+            // When running the test, use show output flag
+            std::println;
+
+            assert_eq(outputs[i], 123);
+        }
+    }
 
     #[test(should_fail_with = "membership check failed")]
     unconstrained fn compute_membership_archive_negative() {
