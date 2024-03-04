@@ -9,3 +9,4 @@ src/contracts/target
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+codegenCache.json
