@@ -5,6 +5,7 @@ import {
   L1NotePayload,
   Note,
   NoteStatus,
+  TaggedNote,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
@@ -13,8 +14,8 @@ import {
   FunctionData,
   FunctionSelector,
   Header,
+  NoteHashReadRequestMembershipWitness,
   PublicCallRequest,
-  ReadRequestMembershipWitness,
   SideEffect,
   TxContext,
 } from '@aztec/circuits.js';
@@ -118,17 +119,17 @@ export class ClientExecutionContext extends ViewDataOracle {
    * or to flag non-transient reads with their leafIndex.
    * The KernelProver will use this to fully populate witnesses and provide hints to
    * the kernel regarding which commitments each transient read request corresponds to.
-   * @param readRequests - SideEffect containing Note hashed of the notes being read and counter.
+   * @param noteHashReadRequests - SideEffect containing Note hashed of the notes being read and counter.
    * @returns An array of partially filled in read request membership witnesses.
    */
-  public getReadRequestPartialWitnesses(readRequests: SideEffect[]) {
-    return readRequests
+  public getNoteHashReadRequestPartialWitnesses(noteHashReadRequests: SideEffect[]) {
+    return noteHashReadRequests
       .filter(r => !r.isEmpty())
       .map(r => {
         const index = this.gotNotes.get(r.value.toBigInt());
         return index !== undefined
-          ? ReadRequestMembershipWitness.empty(index)
-          : ReadRequestMembershipWitness.emptyTransient();
+          ? NoteHashReadRequestMembershipWitness.empty(index)
+          : NoteHashReadRequestMembershipWitness.emptyTransient();
       });
   }
 
@@ -293,7 +294,8 @@ export class ClientExecutionContext extends ViewDataOracle {
   public emitEncryptedLog(contractAddress: AztecAddress, storageSlot: Fr, noteTypeId: Fr, publicKey: Point, log: Fr[]) {
     const note = new Note(log);
     const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
-    const encryptedNote = l1NotePayload.toEncryptedBuffer(publicKey, this.curve);
+    const taggedNote = new TaggedNote(l1NotePayload);
+    const encryptedNote = taggedNote.toEncryptedBuffer(publicKey, this.curve);
     this.encryptedLogs.push(encryptedNote);
   }
 

@@ -10,8 +10,8 @@ For a higher level overview of the state model in Aztec, see the [state model](.
 
 The `PublicMutable` (formerly known as `PublicState`) struct is generic over the variable type `T`. The type _must_ implement Serialize and Deserialize traits, as specified here:
 
-#include_code serialize /noir-projects/noir-protocol-circuits/src/crates/types/src/traits.nr rust
-#include_code deserialize /noir-projects/noir-protocol-circuits/src/crates/types/src/traits.nr rust
+#include_code serialize /noir-projects/noir-protocol-circuits/crates/types/src/traits.nr rust
+#include_code deserialize /noir-projects/noir-protocol-circuits/crates/types/src/traits.nr rust
 
 The struct contains a `storage_slot` which, similar to Ethereum, is used to figure out _where_ in storage the variable is located. Notice that while we don't have the exact same [state model](../../../../learn/concepts/hybrid_state/main.md) as EVM chains it will look similar from the contract developers point of view.
 
@@ -31,33 +31,11 @@ Say that we wish to add `admin` public state variable into our storage struct. I
 
 #include_code storage-leader-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-And then when initializing it in the `Storage::init` function we can do:
-
-#include_code storage-leader-init /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
-
-We have specified that we are storing a `Field` that should be placed in storage slot `1`. This is just a single value, and is similar to the following in solidity:
-
-```solidity
-address internal admin;
-```
-
 #### Mapping example
 
 Say we want to have a group of `minters` that are able to mint assets in our contract, and we want them in public storage, because [access control in private is quite cumbersome](../../../../learn/concepts/communication/cross_chain_calls.md#a-note-on-l2-access-control). In the `Storage` struct we can add it as follows:
 
 #include_code storage-minters-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
-
-And then when initializing it in the `Storage::init` function we can do it as follows:
-
-#include_code storage-minters-init /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
-
-In this case, specifying that we are dealing with a map of Fields, and that it should be put at slot 2.
-
-This would be similar to the following in solidity:
-
-```solidity
-mapping(address => bool) internal minters;
-```
 
 ### `read`
 

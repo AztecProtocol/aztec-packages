@@ -18,15 +18,14 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
+    #[aztec(initializer)]
     fn constructor(owner: AztecAddress, value: Field) {
         let selector = FunctionSelector::from_signature("create_note_no_init_check((Field),Field)");
         let _res = context.call_private_function(context.this_address(), selector, [owner.to_field(), value]);
-        mark_as_initialized(&mut context);
     }
 
     #[aztec(private)]
     fn create_note(owner: AztecAddress, value: Field) {
-        assert_is_initialized(&mut context);
         if (value != 0) {
             let loc = storage.notes.at(owner);
             increment(loc, value, owner);
@@ -34,6 +33,7 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
+    #[aztec(noinitcheck)]
     fn create_note_no_init_check(owner: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
@@ -54,6 +54,7 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
+    #[aztec(noinitcheck)]
     fn destroy_and_create_no_init_check(recipient: AztecAddress, amount: Field) {
         let sender = context.msg_sender();
 
@@ -67,6 +68,13 @@ contract StatefulTest {
 
     #[aztec(public)]
     fn increment_public_value(owner: AztecAddress, value: Field) {
+        assert_is_initialized(&mut context);
+        let loc = storage.public_values.at(owner);
+        loc.write(loc.read() + value);
+    }
+
+    #[aztec(public)]
+    fn increment_public_value_no_init_check(owner: AztecAddress, value: Field) {
         let loc = storage.public_values.at(owner);
         loc.write(loc.read() + value);
     }

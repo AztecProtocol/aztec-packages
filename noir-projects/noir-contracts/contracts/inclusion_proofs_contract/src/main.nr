@@ -34,6 +34,7 @@ contract InclusionProofs {
     }
 
     #[aztec(private)]
+    #[aztec(initializer)]
     fn constructor(public_value: Field) {
         let selector = FunctionSelector::from_signature("_initialize(Field)");
         context.call_public_function(context.this_address(), selector, [public_value]);
@@ -181,6 +182,12 @@ contract InclusionProofs {
         } else {
             prove_nullifier_inclusion(nullifier, context);
         }
+    }
+
+    // Proves nullifier existed at latest block
+    #[aztec(public)]
+    fn test_nullifier_inclusion_from_public(nullifier: Field) {
+        prove_nullifier_inclusion(nullifier, context);
     }
 
     #[aztec(private)]
