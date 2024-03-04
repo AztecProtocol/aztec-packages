@@ -41,7 +41,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
 
     static constexpr size_t NUM_WIRES = GoblinUltraFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often

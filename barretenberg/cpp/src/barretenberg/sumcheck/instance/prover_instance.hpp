@@ -33,9 +33,6 @@ template <class Flavor> class ProverInstance_ {
 
   public:
     std::shared_ptr<ProvingKey> proving_key;
-    // currently commitment_key needs to be here, and not accessed through the proving key, since sometimes the proving
-    // key is null during protogalaxy proving (TODO(https://github.com/AztecProtocol/barretenberg/issues/881)?)
-
     ProverPolynomials prover_polynomials;
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
