@@ -10,7 +10,7 @@ auto& engine = bb::numeric::get_debug_randomness();
 
 using namespace smt_terms;
 
-TEST(integermod, addition)
+TEST(FFITerm, addition)
 {
     bb::fr a = bb::fr::random_element();
     bb::fr b = bb::fr::random_element();
@@ -21,7 +21,6 @@ TEST(integermod, addition)
     FFITerm y = FFITerm::Var("y", &s);
     FFITerm bval = FFITerm(b, &s);
     FFITerm z = x + y;
-    z.mod();
     
     z == c;
     x == a;
@@ -32,7 +31,7 @@ TEST(integermod, addition)
     ASSERT_EQ(bvals, yvals);
 }
 
-TEST(integermod, subtraction)
+TEST(FFITerm, subtraction)
 {
     bb::fr a = bb::fr::random_element();
     bb::fr b = bb::fr::random_element();
@@ -43,7 +42,6 @@ TEST(integermod, subtraction)
     FFITerm y = FFITerm::Var("y", &s);
     FFITerm bval = FFITerm(b, &s);
     FFITerm z = x - y;
-    z.mod();
     
     z == c;
     x == a;
@@ -54,7 +52,7 @@ TEST(integermod, subtraction)
     ASSERT_EQ(bvals, yvals);
 }
 
-TEST(integermod, multiplication)
+TEST(FFITerm, multiplication)
 {
     bb::fr a = bb::fr::random_element();
     bb::fr b = bb::fr::random_element();
@@ -65,7 +63,6 @@ TEST(integermod, multiplication)
     FFITerm y = FFITerm::Var("y", &s);
     FFITerm bval = FFITerm(b, &s);
     FFITerm z = x * y;
-    z.mod();
     
     z == c;
     x == a;
@@ -76,7 +73,7 @@ TEST(integermod, multiplication)
     ASSERT_EQ(bvals, yvals);
 }
 
-TEST(integermod, division)
+TEST(FFITerm, division)
 {
     bb::fr a = bb::fr::random_element();
     bb::fr b = bb::fr::random_element();
@@ -87,7 +84,6 @@ TEST(integermod, division)
     FFITerm y = FFITerm::Var("y", &s);
     FFITerm bval = FFITerm(b, &s);
     FFITerm z = x / y;
-    //z.mod(); TODO(alex): something bad
     
     z == c;
     x == a;
@@ -97,5 +93,3 @@ TEST(integermod, division)
     std::string bvals = s.s.getValue(bval.term).getIntegerValue();
     ASSERT_EQ(bvals, yvals);
 }
-
-// TODO(alex): range_constraints, xor

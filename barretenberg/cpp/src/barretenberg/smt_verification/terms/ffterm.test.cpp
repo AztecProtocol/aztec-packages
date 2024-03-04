@@ -10,7 +10,7 @@ auto& engine = bb::numeric::get_debug_randomness();
 
 using namespace smt_terms;
 
-TEST(finitefield, addition)
+TEST(FFTerm, addition)
 {
     bb::fr a = bb::fr::random_element();
     bb::fr b = bb::fr::random_element();
@@ -31,7 +31,7 @@ TEST(finitefield, addition)
     ASSERT_EQ(bvals, yvals);
 }
 
-TEST(finitefield, subtraction)
+TEST(FFTerm, subtraction)
 {
     bb::fr a = bb::fr::random_element();
     bb::fr b = bb::fr::random_element();
@@ -52,7 +52,7 @@ TEST(finitefield, subtraction)
     ASSERT_EQ(bvals, yvals);
 }
 
-TEST(finitefield, multiplication)
+TEST(FFTerm, multiplication)
 {
     bb::fr a = bb::fr::random_element();
     bb::fr b = bb::fr::random_element();
@@ -73,7 +73,7 @@ TEST(finitefield, multiplication)
     ASSERT_EQ(bvals, yvals);
 }
 
-TEST(finitefield, division)
+TEST(FFTerm, division)
 {
     bb::fr a = bb::fr::random_element();
     bb::fr b = bb::fr::random_element();
