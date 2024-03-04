@@ -66,4 +66,18 @@ contract NewInboxTest is Test {
 
     assertEq(insertedLeaf, leaf);
   }
+
+  function testSendMultipleSameL2Messages() public {
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
+    bytes32 leaf1 = inbox.insert(message.recipient, message.content, message.secretHash);
+    bytes32 leaf2 = inbox.insert(message.recipient, message.content, message.secretHash);
+    bytes32 leaf3 = inbox.insert(message.recipient, message.content, message.secretHash);
+
+    assertEq(address(inbox.frontier(0)), address(0));
+    assertNotEq(address(inbox.frontier(1)), address(0));
+    assertEq(address(inbox.frontier(2)), address(0));
+
+    assertEq(leaf1, leaf2);
+    assertEq(leaf2, leaf3);
+  }
 }
