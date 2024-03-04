@@ -5,7 +5,6 @@ contract Delegator {
         PublicMutable, PrivateSet
     };
 
-    use dep::aztec::note::utils as note_utils;
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
     struct Storage {

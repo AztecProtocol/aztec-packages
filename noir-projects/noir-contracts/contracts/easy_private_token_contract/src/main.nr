@@ -1,7 +1,6 @@
 // docs:start:easy_private_token_contract
 contract EasyPrivateToken {
     use dep::aztec::prelude::{AztecAddress, NoteHeader, Map};
-    use dep::aztec::note::utils as note_utils;
     use dep::value_note::{balance_utils, value_note::ValueNote};
     use dep::easy_private_state::EasyPrivateUint;
 

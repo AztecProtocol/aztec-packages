@@ -17,8 +17,8 @@ contract Test {
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
         hash::{pedersen_hash, compute_secret_hash},
         note::{
-        utils as note_utils, lifecycle::{create_note, destroy_note},
-        note_getter::{get_notes, view_notes}, note_getter_options::NoteStatus
+        lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
+        note_getter_options::NoteStatus
     },
         deploy::{deploy_contract as aztec_deploy_contract},
         oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, rand::rand},

@@ -5,10 +5,7 @@ contract DelegatedOn {
         emit_unencrypted_log, PublicMutable, PrivateSet, PrivateContext
     };
 
-    use dep::aztec::{
-        context::{PublicContext, Context}, protocol_types::abis::call_context::CallContext,
-        note::utils as note_utils
-    };
+    use dep::aztec::{context::{PublicContext, Context}, protocol_types::abis::call_context::CallContext};
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
     struct Storage {
