@@ -1,4 +1,3 @@
-export * from './constants.js';
 export * from './contract_dao.js';
 export * from './contract_database.js';
 export * from './contract_data.js';
@@ -11,7 +10,6 @@ export * from './body.js';
 export * from './l2_block_context.js';
 export * from './l2_block_downloader/index.js';
 export * from './l2_block_source.js';
-export * from './l2_tx.js';
 export * from './tx_effect.js';
 export * from './logs/index.js';
 export * from './merkle_tree_id.js';

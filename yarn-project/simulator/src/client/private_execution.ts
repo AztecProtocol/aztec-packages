@@ -23,7 +23,7 @@ export async function executePrivateFunction(
   log = createDebugLogger('aztec:simulator:secret_execution'),
 ): Promise<ExecutionResult> {
   const functionSelector = functionData.selector;
-  log(`Executing external function ${contractAddress}:${functionSelector}`);
+  log(`Executing external function ${contractAddress}:${functionSelector}(${artifact.name})`);
   const acir = Buffer.from(artifact.bytecode, 'base64');
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
@@ -54,7 +54,9 @@ export async function executePrivateFunction(
 
   const callStackItem = new PrivateCallStackItem(contractAddress, functionData, publicInputs);
   const returnValues = decodeReturnValues(artifact, publicInputs.returnValues);
-  const readRequestPartialWitnesses = context.getReadRequestPartialWitnesses(publicInputs.readRequests);
+  const noteHashReadRequestPartialWitnesses = context.getNoteHashReadRequestPartialWitnesses(
+    publicInputs.noteHashReadRequests,
+  );
   const newNotes = context.getNewNotes();
   const nestedExecutions = context.getNestedExecutions();
   const enqueuedPublicFunctionCalls = context.getEnqueuedPublicFunctionCalls();
@@ -66,7 +68,7 @@ export async function executePrivateFunction(
     partialWitness,
     callStackItem,
     returnValues,
-    readRequestPartialWitnesses,
+    noteHashReadRequestPartialWitnesses,
     newNotes,
     vk: Buffer.from(artifact.verificationKey!, 'hex'),
     nestedExecutions,

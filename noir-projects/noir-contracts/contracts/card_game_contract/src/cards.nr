@@ -1,5 +1,5 @@
 use dep::aztec::{
-    protocol_types::{address::AztecAddress, constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL}},
+    protocol_types::{address::AztecAddress, constants::{MAX_NOTES_PER_PAGE, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL}},
     context::{PrivateContext, PublicContext, Context},
     note::{
     note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
@@ -66,10 +66,10 @@ struct Deck {
 }
 
 pub fn filter_cards<N>(
-    notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL],
+    notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     desired_cards: [Card; N]
-) -> [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL] {
-    let mut selected = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
+) -> [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+    let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let mut found = [false; N];
 
@@ -169,7 +169,7 @@ pub fn get_pack_cards(seed: Field, owner: AztecAddress, context: &mut PrivateCon
 
     let mut cards = [Card::from_field(0); PACK_CARDS];
     // we generate PACK_CARDS cards
-    assert((PACK_CARDS as u64) < 8, "Cannot generate more than 8 cards");
+    assert(PACK_CARDS < 8, "Cannot generate more than 8 cards");
     for i in 0..PACK_CARDS {
         let strength = (random_bytes[i] as u32) + (random_bytes[i + 1] as u32) * 256;
         let points = (random_bytes[i + 2] as u32) + (random_bytes[i + 3] as u32) * 256;

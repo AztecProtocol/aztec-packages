@@ -34,13 +34,13 @@ import {
   MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_READ_REQUESTS_PER_TX,
   MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
   MAX_REVERTIBLE_NULLIFIERS_PER_TX,
   MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
@@ -51,6 +51,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NUM_FIELDS_PER_SHA256,
   NewContractData,
+  NoteHashReadRequestMembershipWitness,
   NullifierKeyValidationRequest,
   NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
@@ -85,8 +86,9 @@ import {
   PublicKernelData,
   ReadRequest,
   ReadRequestContext,
-  ReadRequestMembershipWitness,
   ReadRequestStatus,
+  RollupKernelCircuitPublicInputs,
+  RollupKernelData,
   RootRollupInputs,
   RootRollupPublicInputs,
   SettledReadHint,
@@ -117,6 +119,7 @@ import {
   EthAddress as NoirEthAddress,
   Field as NoirField,
   GrumpkinPoint as NoirPoint,
+  NoteHashReadRequestMembershipWitness as NoteHashReadRequestMembershipWitnessNoir,
   NullifierKeyValidationRequestContext as NullifierKeyValidationRequestContextNoir,
   NullifierKeyValidationRequest as NullifierKeyValidationRequestNoir,
   PrivateCallData as PrivateCallDataNoir,
@@ -126,7 +129,6 @@ import {
   PublicDataRead as PublicDataReadNoir,
   PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
   ReadRequestContext as ReadRequestContextNoir,
-  ReadRequestMembershipWitness as ReadRequestMembershipWitnessNoir,
   ReadRequest as ReadRequestNoir,
   SideEffectLinkedToNoteHash as SideEffectLinkedToNoteHashNoir,
   SideEffect as SideEffectNoir,
@@ -170,6 +172,8 @@ import {
   PublicDataMembershipWitness as PublicDataMembershipWitnessNoir,
   PublicDataTreeLeaf as PublicDataTreeLeafNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
+  RollupKernelCircuitPublicInputs as RollupKernelCircuitPublicInputsNoir,
+  RollupKernelData as RollupKernelDataNoir,
   StateDiffHints as StateDiffHintsNoir,
 } from './types/rollup_base_types.js';
 import { MergeRollupInputs as MergeRollupInputsNoir } from './types/rollup_merge_types.js';
@@ -718,7 +722,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     call_context: mapCallContextToNoir(privateCircuitPublicInputs.callContext),
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
     return_values: mapTuple(privateCircuitPublicInputs.returnValues, mapFieldToNoir),
-    read_requests: mapTuple(privateCircuitPublicInputs.readRequests, mapSideEffectToNoir),
+    note_hash_read_requests: mapTuple(privateCircuitPublicInputs.noteHashReadRequests, mapSideEffectToNoir),
     nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapSideEffectToNoir),
     nullifier_key_validation_requests: mapTuple(
       privateCircuitPublicInputs.nullifierKeyValidationRequests,
@@ -771,17 +775,17 @@ function mapFunctionLeafMembershipWitnessToNoir(
 
 /**
  * Maps a read request membership witness to a noir read request membership witness.
- * @param readRequestMembershipWitness - The read request membership witness.
+ * @param noteHashReadRequestMembershipWitness - The read request membership witness.
  * @returns The noir read request membership witness.
  */
-export function mapReadRequestMembershipWitnessToNoir(
-  readRequestMembershipWitness: ReadRequestMembershipWitness,
-): ReadRequestMembershipWitnessNoir {
+export function mapNoteHashReadRequestMembershipWitnessToNoir(
+  noteHashReadRequestMembershipWitness: NoteHashReadRequestMembershipWitness,
+): NoteHashReadRequestMembershipWitnessNoir {
   return {
-    leaf_index: mapFieldToNoir(readRequestMembershipWitness.leafIndex),
-    sibling_path: mapTuple(readRequestMembershipWitness.siblingPath, mapFieldToNoir),
-    is_transient: readRequestMembershipWitness.isTransient,
-    hint_to_note_hash: mapFieldToNoir(readRequestMembershipWitness.hintToNoteHash),
+    leaf_index: mapFieldToNoir(noteHashReadRequestMembershipWitness.leafIndex),
+    sibling_path: mapTuple(noteHashReadRequestMembershipWitness.siblingPath, mapFieldToNoir),
+    is_transient: noteHashReadRequestMembershipWitness.isTransient,
+    hint_to_note_hash: mapFieldToNoir(noteHashReadRequestMembershipWitness.hintToNoteHash),
   };
 }
 
@@ -800,9 +804,9 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
     function_leaf_membership_witness: mapFunctionLeafMembershipWitnessToNoir(
       privateCallData.functionLeafMembershipWitness,
     ),
-    read_request_membership_witnesses: mapTuple(
-      privateCallData.readRequestMembershipWitnesses,
-      mapReadRequestMembershipWitnessToNoir,
+    note_hash_read_request_membership_witnesses: mapTuple(
+      privateCallData.noteHashReadRequestMembershipWitnesses,
+      mapNoteHashReadRequestMembershipWitnessToNoir,
     ),
     contract_class_artifact_hash: mapFieldToNoir(privateCallData.contractClassArtifactHash),
     contract_class_public_bytecode_commitment: mapFieldToNoir(privateCallData.contractClassPublicBytecodeCommitment),
@@ -968,7 +972,11 @@ export function mapCombinedAccumulatedDataFromNoir(
   combinedAccumulatedData: CombinedAccumulatedDataNoir,
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
-    mapTupleFromNoir(combinedAccumulatedData.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(
+      combinedAccumulatedData.note_hash_read_requests,
+      MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+      mapSideEffectFromNoir,
+    ),
     mapTupleFromNoir(
       combinedAccumulatedData.nullifier_read_requests,
       MAX_NULLIFIER_READ_REQUESTS_PER_TX,
@@ -1108,7 +1116,7 @@ export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
-    read_requests: mapTuple(combinedAccumulatedData.readRequests, mapSideEffectToNoir),
+    note_hash_read_requests: mapTuple(combinedAccumulatedData.noteHashReadRequests, mapSideEffectToNoir),
     nullifier_read_requests: mapTuple(combinedAccumulatedData.nullifierReadRequests, mapReadRequestContextToNoir),
     nullifier_key_validation_requests: mapTuple(
       combinedAccumulatedData.nullifierKeyValidationRequests,
@@ -1184,11 +1192,21 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
   };
 }
 
+export function mapRollupKernelCircuitPublicInputsToNoir(
+  inputs: RollupKernelCircuitPublicInputs,
+): RollupKernelCircuitPublicInputsNoir {
+  return {
+    aggregation_object: {},
+    constants: mapCombinedConstantDataToNoir(inputs.constants),
+    end: mapCombinedAccumulatedDataToNoir(inputs.end),
+  };
+}
+
 export function mapPublicAccumulatedRevertibleDataToNoir(
   data: PublicAccumulatedRevertibleData,
 ): PublicAccumulatedRevertibleDataNoir {
   return {
-    read_requests: mapTuple(data.readRequests, mapSideEffectToNoir),
+    note_hash_read_requests: mapTuple(data.noteHashReadRequests, mapSideEffectToNoir),
     nullifier_read_requests: mapTuple(data.nullifierReadRequests, mapReadRequestContextToNoir),
     nullifier_key_validation_requests: mapTuple(
       data.nullifierKeyValidationRequests,
@@ -1233,6 +1251,16 @@ export function mapPublicKernelDataToNoir(publicKernelData: PublicKernelData): P
     vk: {},
     vk_index: mapFieldToNoir(new Fr(publicKernelData.vkIndex)),
     vk_path: mapTuple(publicKernelData.vkPath, mapFieldToNoir),
+  };
+}
+
+export function mapRollupKernelDataToNoir(rollupKernelData: RollupKernelData): RollupKernelDataNoir {
+  return {
+    public_inputs: mapRollupKernelCircuitPublicInputsToNoir(rollupKernelData.publicInputs),
+    proof: {},
+    vk: {},
+    vk_index: mapFieldToNoir(new Fr(rollupKernelData.vkIndex)),
+    vk_path: mapTuple(rollupKernelData.vkPath, mapFieldToNoir),
   };
 }
 
@@ -1409,7 +1437,7 @@ export function mapPublicAccumulatedRevertibleDataFromNoir(
   data: PublicAccumulatedRevertibleDataNoir,
 ): PublicAccumulatedRevertibleData {
   return new PublicAccumulatedRevertibleData(
-    mapTupleFromNoir(data.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(data.note_hash_read_requests, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(data.nullifier_read_requests, MAX_NULLIFIER_READ_REQUESTS_PER_TX, mapReadRequestContextFromNoir),
     mapTupleFromNoir(
       data.nullifier_key_validation_requests,
@@ -1924,7 +1952,7 @@ export function mapStateDiffHintsToNoir(hints: StateDiffHints): StateDiffHintsNo
  */
 export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupInputsNoir {
   return {
-    kernel_data: mapPublicKernelDataToNoir(inputs.kernelData),
+    kernel_data: mapRollupKernelDataToNoir(inputs.kernelData),
     start: mapPartialStateReferenceToNoir(inputs.start),
     state_diff_hints: mapStateDiffHintsToNoir(inputs.stateDiffHints),
 

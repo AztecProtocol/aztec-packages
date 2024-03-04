@@ -1,4 +1,4 @@
-import { Body, L2Tx, TxHash } from '@aztec/circuit-types';
+import { Body, TxEffect, TxHash } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header, STRING_ENCODING } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeHeader } from '@aztec/circuits.js/testing';
 import { sha256 } from '@aztec/foundation/crypto';
@@ -63,16 +63,14 @@ export class L2Block {
 
   /**
    * Serializes a block
-   * @remarks This can be used specifying no logs, which is used when the block is being served via JSON-RPC because the logs are expected to be served
-   * separately.
-   * @returns A serialized L2 block logs.
+   * @returns A serialized L2 block as a Buffer.
    */
   toBuffer() {
     return serializeToBuffer(this.header, this.archive, this.body);
   }
 
   /**
-   * Deserializes L2 block without logs from a buffer.
+   * Deserializes L2 block from a buffer.
    * @param str - A serialized L2 block.
    * @returns Deserialized L2 block.
    */
@@ -81,10 +79,8 @@ export class L2Block {
   }
 
   /**
-   * Serializes a block without logs to a string.
-   * @remarks This is used when the block is being served via JSON-RPC because the logs are expected to be served
-   * separately.
-   * @returns A serialized L2 block without logs.
+   * Serializes a block to a string.
+   * @returns A serialized L2 block as a string.
    */
   toString(): string {
     return this.toBuffer().toString(STRING_ENCODING);
@@ -107,18 +103,24 @@ export class L2Block {
     numPublicCallsPerTx = 3,
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
+    numL1ToL2MessagesPerCall = 2,
   ): L2Block {
+    const body = Body.random(
+      txsPerBlock,
+      numPrivateCallsPerTx,
+      numPublicCallsPerTx,
+      numEncryptedLogsPerCall,
+      numUnencryptedLogsPerCall,
+      numL1ToL2MessagesPerCall,
+    );
+
+    const txsHash = body.getCalldataHash();
+
     return L2Block.fromFields(
       {
         archive: makeAppendOnlyTreeSnapshot(1),
-        header: makeHeader(0, l2BlockNum),
-        body: Body.random(
-          txsPerBlock,
-          numPrivateCallsPerTx,
-          numPublicCallsPerTx,
-          numEncryptedLogsPerCall,
-          numUnencryptedLogsPerCall,
-        ),
+        header: makeHeader(0, l2BlockNum, txsHash),
+        body,
       },
       // just for testing purposes, each random L2 block got emitted in the equivalent L1 block
       BigInt(l2BlockNum),
@@ -236,28 +238,9 @@ export class L2Block {
    * @param txIndex - The index of the tx in the block.
    * @returns The tx.
    */
-  getTx(txIndex: number) {
+  getTx(txIndex: number): TxEffect {
     this.assertIndexInRange(txIndex);
-
-    const txEffect = this.body.txEffects[txIndex];
-
-    const newNoteHashes = txEffect.newNoteHashes.filter(x => !x.isZero());
-    const newNullifiers = txEffect.newNullifiers.filter(x => !x.isZero());
-    const newPublicDataWrites = txEffect.newPublicDataWrites.filter(x => !x.isEmpty());
-    const newL2ToL1Msgs = txEffect.newL2ToL1Msgs.filter(x => !x.isZero());
-    const newContracts = txEffect.contractLeaves.filter(x => !x.isZero());
-    const newContractData = txEffect.contractData.filter(x => !x.isEmpty());
-
-    return new L2Tx(
-      newNoteHashes,
-      newNullifiers,
-      newPublicDataWrites,
-      newL2ToL1Msgs,
-      newContracts,
-      newContractData,
-      this.hash(),
-      Number(this.header.globalVariables.blockNumber.toBigInt()),
-    );
+    return this.body.txEffects[txIndex];
   }
 
   /**
@@ -269,7 +252,7 @@ export class L2Block {
     this.assertIndexInRange(txIndex);
 
     // Gets the first nullifier of the tx specified by txIndex
-    const firstNullifier = this.body.txEffects[txIndex].newNullifiers[0];
+    const firstNullifier = this.body.txEffects[txIndex].nullifiers[0];
 
     return new TxHash(firstNullifier.toBuffer());
   }
