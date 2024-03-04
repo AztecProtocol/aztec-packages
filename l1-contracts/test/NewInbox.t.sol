@@ -77,7 +77,7 @@ contract NewInboxTest is Test {
     bytes32 leaf = _message.sha256ToField();
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit LeafInserted(FIRST_REAL_TREE_NUM, 1, leaf);
+    emit LeafInserted(FIRST_REAL_TREE_NUM, 0, leaf);
     // event we will get
     bytes32 insertedLeaf = inbox.insert(_message.recipient, _message.content, _message.secretHash);
 
