@@ -64,7 +64,8 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
     {
         auto instance = composer.create_prover_instance(builder);
         auto prover = composer.create_prover(instance);
-        auto verifier = composer.create_verifier(instance->verification_key);
+        auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(instance->proving_key);
+        auto verifier = composer.create_verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
 
@@ -135,8 +136,6 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsMergeOnly)
         auto builder = GoblinUltraCircuitBuilder{ op_queue };
 
         generate_test_circuit(builder);
-
-        auto composer = GoblinUltraComposer();
 
         // Construct and verify Goblin ECC op queue Merge proof
         auto merge_verified = construct_and_verify_merge_proof(op_queue);

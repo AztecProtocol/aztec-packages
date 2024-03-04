@@ -19,6 +19,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     using Curve = bn254<Builder>;
     using Commitment = typename NativeFlavor::Commitment;
     using FF = typename NativeFlavor::FF;
+    using VerificationKey = typename NativeFlavor::VerificationKey;
 
     using RecursiveVerifierInstances = ::bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
     using FoldingRecursiveVerifier = ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
@@ -205,7 +206,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
             auto composer = Composer();
             auto instance = composer.create_prover_instance(folding_circuit);
             auto prover = composer.create_prover(instance);
-            auto verifier = composer.create_verifier(instance->verification_key);
+            auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+            auto verifier = composer.create_verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 
@@ -278,7 +280,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         //  decider verifier and check that the result agrees.
         DeciderVerifier native_decider_verifier = composer.create_decider_verifier(verifier_accumulator);
         auto native_result = native_decider_verifier.verify_proof(decider_proof);
-        auto recursive_result = native_decider_verifier.pcs_verification_key->pairing_check(
+        auto recursive_result = native_decider_verifier.accumulator->pcs_verification_key->pairing_check(
             pairing_points[0].get_value(), pairing_points[1].get_value());
         EXPECT_EQ(native_result, recursive_result);
 
@@ -295,7 +297,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
             auto composer = Composer();
             auto instance = composer.create_prover_instance(decider_circuit);
             auto prover = composer.create_prover(instance);
-            auto verifier = composer.create_verifier(instance->verification_key);
+            auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+            auto verifier = composer.create_verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 
