@@ -8,6 +8,27 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## 0.25.0
 
+### `internal` is now a macro
+
+The `internal` keyword is now removed from Noir, and is replaced by an `aztec(internal)` attribute in the function. The resulting behavior is exactly the same: these functions will only be callable from within the same contract.
+
+Before:
+```rust
+#[aztec(private)]
+internal fn double(input: Field) -> Field {
+    input * 2
+}
+```
+
+After:
+```rust
+#[aztec(private)]
+#[aztec(internal)]
+fn double(input: Field) -> Field {
+    input * 2
+}
+```
+
 ### [Aztec.nr] No SafeU120 anymore!
 Noir now have overflow checks by default. So we don't need SafeU120 like libraries anymore.
 
