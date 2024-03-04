@@ -84,6 +84,7 @@ jobs:
           command: |
             # filter our circleci config to the minimal pipeline
             build-system/scripts/generate_circleci_config.py > .circleci/generated_config.yml
+            echo stopearly > .circleci/generated_config.yml
       - continuation/continue:
           configuration_path: .circleci/generated_config.yml
 
