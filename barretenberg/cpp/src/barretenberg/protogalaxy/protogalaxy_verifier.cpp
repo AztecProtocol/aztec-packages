@@ -138,7 +138,8 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
 
-    std::shared_ptr<Instance> next_accumulator = accumulator;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
+    auto next_accumulator = std::make_shared<Instance>(accumulator->verification_key);
     next_accumulator->instance_size = accumulator->instance_size;
     next_accumulator->log_instance_size = accumulator->log_instance_size;
     next_accumulator->is_accumulator = true;
