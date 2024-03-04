@@ -55,11 +55,11 @@ contract Token {
     #[aztec(public)]
     #[aztec(initializer)]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
-        assert(!new_admin.is_zero(), "invalid admin");
-        storage.admin.write(new_admin);
-        storage.minters.at(new_admin).write(true);
-        storage.name.initialize(name);
-        storage.symbol.initialize(symbol);
+        assert(!admin.is_zero(), "invalid admin");
+        storage.admin.write(admin);
+        storage.minters.at(admin).write(true);
+        storage.name.initialize(FieldCompressedString::from_string(name));
+        storage.symbol.initialize(FieldCompressedString::from_string(symbol));
         // docs:start:initialize_decimals
         storage.decimals.initialize(decimals);
         // docs:end:initialize_decimals

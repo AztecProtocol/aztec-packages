@@ -44,8 +44,8 @@ contract TokenBlacklist {
     #[aztec(initializer)]
     fn constructor(admin: AztecAddress, slow_updates_contract: AztecAddress) {
         // docs:end:constructor
-        assert(!new_admin.is_zero(), "invalid admin");
-        storage.admin.write(new_admin);
+        assert(!admin.is_zero(), "invalid admin");
+        storage.admin.write(admin);
         // docs:start:write_slow_update_public
         storage.slow_update.initialize(slow_updates_contract);
         // docs:end:write_slow_update_public
