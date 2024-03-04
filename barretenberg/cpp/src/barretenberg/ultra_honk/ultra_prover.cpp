@@ -29,6 +29,7 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const 
 template <IsUltraFlavor Flavor>
 UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     : instance(std::make_shared<ProverInstance>(circuit))
+    , transcript(std::make_shared<Transcript>())
     , commitment_key(instance->proving_key->commitment_key)
 {
     instance->initialize_prover_polynomials();
