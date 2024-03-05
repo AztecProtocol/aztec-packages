@@ -1,5 +1,4 @@
-import { AztecNode, Fr } from '@aztec/aztec.js';
-import { SiblingPath } from '@aztec/circuit-types';
+import { AztecNode, Fr, SiblingPath } from '@aztec/aztec.js';
 import { SHA256 } from '@aztec/merkle-tree';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
