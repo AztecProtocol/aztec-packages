@@ -6,8 +6,8 @@ mod util;
 // Has two separate flows for private and public respectively
 // Uses the token bridge contract, which tells which input token we need to talk to and handles the exit funds to L1 
 contract Uniswap {
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
-    use dep::aztec::{oracle::{context::get_portal_address}, state_vars::{Map, PublicMutable}};
+    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, Map, PublicMutable};
+    use dep::aztec::oracle::context::get_portal_address;
 
     use dep::authwit::auth::{
         IS_VALID_SELECTOR, assert_current_call_valid_authwit_public, compute_call_authwit_hash,
@@ -195,7 +195,8 @@ contract Uniswap {
     // Note that private can't read public return values so created an internal public that handles everything
     // this method is used for both private and public swaps.
     #[aztec(public)]
-    internal fn _approve_bridge_and_exit_input_asset_to_L1(token: AztecAddress, token_bridge: AztecAddress, amount: Field) {
+    #[aztec(internal)]
+    fn _approve_bridge_and_exit_input_asset_to_L1(token: AztecAddress, token_bridge: AztecAddress, amount: Field) {
         // approve bridge to burn this contract's funds (required when exiting on L1, as it burns funds on L2):
         let nonce_for_burn_approval = storage.nonce_for_burn_approval.read();
         let selector = FunctionSelector::from_signature("burn_public((Field),Field,Field)");
@@ -223,7 +224,8 @@ contract Uniswap {
 
     // docs:start:assert_token_is_same
     #[aztec(public)]
-    internal fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
+    #[aztec(internal)]
+    fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
         assert(
             token.eq(TokenBridge::at(token_bridge).token(context)), "input_asset address is not the same as seen in the bridge contract"
         );
