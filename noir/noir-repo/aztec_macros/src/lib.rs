@@ -1340,7 +1340,7 @@ fn abstract_return_values(func: &NoirFunction) -> Option<Statement> {
     // Doesn't need done until we have settled on a kernel size
     // TODO: support tuples here and in inputs -> convert into an issue
     // Check if the return type is an expression, if it is, we can handle it
-    match last_statement? {
+    match last_statement {
         Statement { kind: StatementKind::Expression(expression), .. } => {
             match current_return_type {
                 // Call serialize on structs, push the whole array, calling push_array
