@@ -11,7 +11,7 @@ use noirc_frontend::macros_api::FieldElement;
 use noirc_frontend::macros_api::{
     BlockExpression, CallExpression, CastExpression, Distinctness, Expression, ExpressionKind,
     ForLoopStatement, ForRange, FunctionDefinition, FunctionReturnType, FunctionVisibility,
-    HirContext, HirExpression, HirLiteral, HirStatement, Ident, ImportStatement, IndexExpression,
+    HirContext, HirExpression, HirLiteral, HirStatement, Ident, IndexExpression,
     LetStatement, Literal, MemberAccessExpression, MethodCallExpression, NoirFunction, NoirStruct,
     Param, Path, PathKind, Pattern, PrefixExpression, SecondaryAttribute, Signedness, Span,
     Statement, StatementKind, StructType, Type, TypeImpl, UnaryOp, UnresolvedType,
