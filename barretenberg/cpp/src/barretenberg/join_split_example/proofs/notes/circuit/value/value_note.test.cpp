@@ -19,7 +19,7 @@ class ValueNote : public ::testing::Test {
 TEST_F(ValueNote, Commits)
 {
     auto user = join_split_example::fixtures::create_user_context();
-    auto builder = Builder();
+    auto builder = CircuitBuilder();
 
     fr note_value = fr::random_element();
     note_value.data[3] = note_value.data[3] & 0x0FFFFFFFFFFFFFFFULL;
@@ -52,7 +52,7 @@ TEST_F(ValueNote, Commits)
 
 TEST_F(ValueNote, CommitsWith0Value)
 {
-    auto builder = Builder();
+    auto builder = CircuitBuilder();
 
     auto user = join_split_example::fixtures::create_user_context();
 
@@ -89,7 +89,7 @@ TEST_F(ValueNote, CommitsWith0Value)
 
 TEST_F(ValueNote, CommitWithOversizedAssetIdFails)
 {
-    auto builder = Builder();
+    auto builder = CircuitBuilder();
 
     auto user = join_split_example::fixtures::create_user_context();
 
