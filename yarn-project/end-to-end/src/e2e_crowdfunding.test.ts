@@ -208,39 +208,26 @@ describe('e2e_crowdfunding', () => {
     );
 
     await Promise.all([
-      donationToken.withWallet(donorWallets[0])
+      donationToken
+        .withWallet(donorWallets[0])
         .methods.redeem_shield(donorWallets[0].getAddress(), 1234n, secret)
         .send()
         .wait(),
-      donationToken.withWallet(donorWallets[1])
+      donationToken
+        .withWallet(donorWallets[1])
         .methods.redeem_shield(donorWallets[1].getAddress(), 2345n, secret)
         .send()
         .wait(),
-      donationToken.withWallet(donorWallets[2])
+      donationToken
+        .withWallet(donorWallets[2])
         .methods.redeem_shield(donorWallets[2].getAddress(), 3456n, secret)
         .send()
         .wait(),
     ]);
 
-    console.log(
-      'balance of 1',
-      await donationToken.withWallet(donorWallets[0]).methods.balance_of_private(donorWallets[0].getAddress()).view(),
-    );
-    console.log(
-      'balance of 2',
-      await donationToken.withWallet(donorWallets[1]).methods.balance_of_private(donorWallets[1].getAddress()).view(),
-    );
-    console.log(
-      'balance of 3',
-      await donationToken.withWallet(donorWallets[2]).methods.balance_of_private(donorWallets[2].getAddress()).view(),
-    );
-
-    const action = donationToken.withWallet(donorWallets[0]).methods.transfer(
-      donorWallets[0].getAddress(),
-      crowdfunding.address,
-      1000n,
-      0,
-    );
+    const action = donationToken
+      .withWallet(donorWallets[0])
+      .methods.transfer(donorWallets[0].getAddress(), crowdfunding.address, 1000n, 0);
     const messageHash = computeAuthWitMessageHash(crowdfunding.address, action.request());
     const witness = await donorWallets[0].createAuthWitness(messageHash);
     await donorWallets[0].addAuthWitness(witness);
@@ -255,19 +242,18 @@ describe('e2e_crowdfunding', () => {
 
     expect(allCampaignNotes?.length).toEqual(1);
 
-    console.log('rewardnote ', allCampaignNotes![0]);
-
     const noteNonces = await pxe.getNoteNonces(allCampaignNotes![0]);
-
     expect(noteNonces?.length).toEqual(1);
 
-    console.log('noteNonce ', noteNonces![0]);
-
-    await claims.withWallet(donorWallets[0])
+    await claims
+      .withWallet(donorWallets[0])
       .methods.claim({
         header: {
+          // eslint-disable-next-line camelcase
           contract_address: crowdfunding.address,
+          // eslint-disable-next-line camelcase
           storage_slot: 3,
+          // eslint-disable-next-line camelcase
           is_transient: false,
           nonce: noteNonces![0],
         },
@@ -280,11 +266,15 @@ describe('e2e_crowdfunding', () => {
 
     // Should not be able to claim a non-existent note
     await expect(
-      claims.withWallet(donorWallets[0])
+      claims
+        .withWallet(donorWallets[0])
         .methods.claim({
           header: {
+            // eslint-disable-next-line camelcase
             contract_address: crowdfunding.address,
+            // eslint-disable-next-line camelcase
             storage_slot: 3,
+            // eslint-disable-next-line camelcase
             is_transient: false,
             nonce: noteNonces![0],
           },
@@ -298,11 +288,15 @@ describe('e2e_crowdfunding', () => {
 
     // Should not be able to claim again
     await expect(
-      claims.withWallet(donorWallets[0])
+      claims
+        .withWallet(donorWallets[0])
         .methods.claim({
           header: {
+            // eslint-disable-next-line camelcase
             contract_address: crowdfunding.address,
+            // eslint-disable-next-line camelcase
             storage_slot: 3,
+            // eslint-disable-next-line camelcase
             is_transient: false,
             nonce: noteNonces![0],
           },
