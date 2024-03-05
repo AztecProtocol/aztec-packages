@@ -1,20 +1,12 @@
 #include "circuit_checker.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include <barretenberg/plonk/proof_system/constants.hpp>
-#include <barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp>
-#include <unordered_map>
 #include <unordered_set>
 
 namespace bb {
 
-/**
- * @brief Circuit check functionality for Standard arithmetization
- *
- * @param builder
- */
-template <> bool CircuitChecker::check<StandardCircuitBuilder_<bb::fr>>(const StandardCircuitBuilder_<bb::fr>& builder)
+template <typename FF> bool CircuitChecker::check(const StandardCircuitBuilder_<FF>& builder)
 {
-    using FF = bb::fr;
     const auto& block = builder.blocks.arithmetic;
     for (size_t i = 0; i < builder.num_gates; i++) {
         FF left = builder.get_variable(block.w_l()[i]);
@@ -28,29 +20,7 @@ template <> bool CircuitChecker::check<StandardCircuitBuilder_<bb::fr>>(const St
         }
     }
     return true;
-};
-/**
- * @brief Circuit check functionality for Standard arithmetization
- *
- * @param builder
- */
-template <> bool CircuitChecker::check<StandardCircuitBuilder_<bb::fq>>(const StandardCircuitBuilder_<bb::fq>& builder)
-{
-    using FF = bb::fq;
-    const auto& block = builder.blocks.arithmetic;
-    for (size_t i = 0; i < builder.num_gates; i++) {
-        FF left = builder.get_variable(block.w_l()[i]);
-        FF right = builder.get_variable(block.w_r()[i]);
-        FF output = builder.get_variable(block.w_o()[i]);
-        FF gate_sum = block.q_m()[i] * left * right + block.q_1()[i] * left + block.q_2()[i] * right +
-                      block.q_3()[i] * output + block.q_c()[i];
-        if (!gate_sum.is_zero()) {
-            info("gate number", i);
-            return false;
-        }
-    }
-    return true;
-};
+}
 
 template <> auto CircuitChecker::init_empty_values<UltraCircuitBuilder_<UltraArith<bb::fr>>>()
 {
@@ -62,15 +32,8 @@ template <> auto CircuitChecker::init_empty_values<GoblinUltraCircuitBuilder_<bb
     return GoblinUltraFlavor::AllValues{};
 }
 
-/**
- * @brief Circuit check functionality for Ultra arithmetization
- *
- * @param builder
- */
 template <typename Builder> bool CircuitChecker::check(const Builder& builder_in)
 {
-    using Params = RelationParameters<FF>;
-
     // Create a copy of the input circuit and finalize it
     Builder builder{ builder_in };
     builder.finalize_circuit();
@@ -85,15 +48,18 @@ template <typename Builder> bool CircuitChecker::check(const Builder& builder_in
     }
 
     // Construct hash table for memory read/write indices to efficiently determine if a row is a memory read/write
-    TagCheckData tag_data{ builder };
+    TagCheckData tag_data;
+    MemoryCheckData memory_data{ builder };
 
+    // Initialize empty AllValues of the correct Flavor based on Builder type; for input to Relation::accumulate
     auto values = init_empty_values<Builder>();
     Params params;
-    params.eta = tag_data.eta;
+    params.eta = memory_data.eta; // used in Auxiliary relation for RAM/ROM consistency
 
+    // Perform checks on each gate defined in the builder
     bool result = true;
     for (size_t idx = 0; idx < builder.num_gates; ++idx) {
-        populate_values(builder, values, tag_data, idx);
+        populate_values(builder, values, tag_data, memory_data, idx);
 
         result = result && check_relation<Arithmetic>(values, params);
         result = result && check_relation<Elliptic>(values, params);
@@ -106,20 +72,15 @@ template <typename Builder> bool CircuitChecker::check(const Builder& builder_in
         }
     }
 
+    // Tag check is only expected to pass after all gates have been processed
     result = result && check_tag_data(tag_data);
 
     return result;
 };
 
-/**
- * @brief Check that a given relation is satisfied for the provided inputs corresponding to a single row
- *
- * @tparam Relation
- * @param values Values of the relation inputs at a single row
- * @param params
- */
 template <typename Relation> bool CircuitChecker::check_relation(auto& values, auto& params)
 {
+    // Define zero initialized array to store the evaluation of each sub-relation
     using SubrelationEvaluations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
     SubrelationEvaluations subrelation_evaluations;
     for (auto& eval : subrelation_evaluations) {
@@ -132,23 +93,15 @@ template <typename Relation> bool CircuitChecker::check_relation(auto& values, a
     // Ensure each subrelation evaluates to zero
     for (auto& eval : subrelation_evaluations) {
         if (eval != 0) {
-            // info("Relation fails at index ", idx);
             return false;
         }
     }
-
     return true;
 }
 
-/**
- * @brief Check whether the values in a lookup gate are contained within the hash table representing all lookup table
- * data used in the circuit
- *
- * @param values
- * @param lookup_hash_table
- */
 bool CircuitChecker::check_lookup(auto& values, auto& lookup_hash_table)
 {
+    // If this is a lookup gate, check the inputs are in the hash table containing all table entries
     if (!values.q_lookup.is_zero()) {
         return lookup_hash_table.contains({ values.w_l + values.q_r * values.w_l_shift,
                                             values.w_r + values.q_m * values.w_r_shift,
@@ -158,27 +111,14 @@ bool CircuitChecker::check_lookup(auto& values, auto& lookup_hash_table)
     return true;
 };
 
-/**
- * @brief Check whether the left and right tag products are equal
- *
- * @param tag_data
- */
 bool CircuitChecker::check_tag_data(const TagCheckData& tag_data)
 {
     return tag_data.left_product == tag_data.right_product;
 };
 
-/**
- * @brief Populate the values required to check the correctness of a single "row" of the circuit
- *
- * @tparam Builder
- * @param builder
- * @param values
- * @param tag_data
- * @param idx
- */
 template <typename Builder>
-void CircuitChecker::populate_values(Builder& builder, auto& values, TagCheckData& tag_data, size_t idx)
+void CircuitChecker::populate_values(
+    Builder& builder, auto& values, TagCheckData& tag_data, MemoryCheckData& memory_data, size_t idx)
 {
     auto& block = builder.blocks.main;
 
@@ -207,10 +147,10 @@ void CircuitChecker::populate_values(Builder& builder, auto& values, TagCheckDat
     values.w_l = builder.get_variable(block.w_l()[idx]);
     values.w_r = builder.get_variable(block.w_r()[idx]);
     values.w_o = builder.get_variable(block.w_o()[idx]);
-    if (tag_data.memory_read_record_gates.contains(idx)) {
-        values.w_4 = compute_memory_record_term(values.w_l, values.w_r, values.w_o, tag_data.eta);
-    } else if (tag_data.memory_write_record_gates.contains(idx)) {
-        values.w_4 = compute_memory_record_term(values.w_l, values.w_r, values.w_o, tag_data.eta) + FF::one();
+    if (memory_data.read_record_gates.contains(idx)) {
+        values.w_4 = compute_memory_record_term(values.w_l, values.w_r, values.w_o, memory_data.eta);
+    } else if (memory_data.write_record_gates.contains(idx)) {
+        values.w_4 = compute_memory_record_term(values.w_l, values.w_r, values.w_o, memory_data.eta) + FF::one();
     } else {
         values.w_4 = builder.get_variable(block.w_4()[idx]);
     }
@@ -219,12 +159,13 @@ void CircuitChecker::populate_values(Builder& builder, auto& values, TagCheckDat
     values.w_l_shift = idx < block.size() - 1 ? builder.get_variable(block.w_l()[idx + 1]) : 0;
     values.w_r_shift = idx < block.size() - 1 ? builder.get_variable(block.w_r()[idx + 1]) : 0;
     values.w_o_shift = idx < block.size() - 1 ? builder.get_variable(block.w_o()[idx + 1]) : 0;
-    if (tag_data.memory_read_record_gates.contains(idx + 1)) {
+    if (memory_data.read_record_gates.contains(idx + 1)) {
         values.w_4_shift =
-            compute_memory_record_term(values.w_l_shift, values.w_r_shift, values.w_o_shift, tag_data.eta);
-    } else if (tag_data.memory_write_record_gates.contains(idx + 1)) {
+            compute_memory_record_term(values.w_l_shift, values.w_r_shift, values.w_o_shift, memory_data.eta);
+    } else if (memory_data.write_record_gates.contains(idx + 1)) {
         values.w_4_shift =
-            compute_memory_record_term(values.w_l_shift, values.w_r_shift, values.w_o_shift, tag_data.eta) + FF::one();
+            compute_memory_record_term(values.w_l_shift, values.w_r_shift, values.w_o_shift, memory_data.eta) +
+            FF::one();
     } else {
         values.w_4_shift = idx < block.size() - 1 ? builder.get_variable(block.w_4()[idx + 1]) : 0;
     }
@@ -253,6 +194,9 @@ void CircuitChecker::populate_values(Builder& builder, auto& values, TagCheckDat
     }
 }
 
+// Template method instantiations for each check method
+template bool CircuitChecker::check<bb::fr>(const StandardCircuitBuilder_<bb::fr>& builder);
+template bool CircuitChecker::check<bb::fq>(const StandardCircuitBuilder_<bb::fq>& builder);
 template bool CircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(
     const UltraCircuitBuilder_<UltraArith<bb::fr>>& builder_in);
 template bool CircuitChecker::check<GoblinUltraCircuitBuilder_<bb::fr>>(
