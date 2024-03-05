@@ -38,7 +38,15 @@ class CircuitChecker {
      * @tparam Builder
      * @param builder
      */
-    template <typename Builder> static bool check(const Builder& builder)
+    template <typename Builder> static bool check(const Builder& builder);
+
+    /**
+     * @brief Specialized circuit checker for the Standard builder
+     *
+     * @tparam FF Allows for use with scalar field for bn254 or grumpkin
+     * @param builder
+     */
+    template <typename FF> static bool check(const StandardCircuitBuilder_<FF>& builder)
     {
         const auto& block = builder.blocks.arithmetic;
         for (size_t i = 0; i < builder.num_gates; i++) {
@@ -54,14 +62,6 @@ class CircuitChecker {
         }
         return true;
     }
-
-    /**
-     * @brief Specialized circuit checker for the Standard builder
-     *
-     * @tparam FF Allows for use with scalar field for bn254 or grumpkin
-     * @param builder
-     */
-    template <typename FF> static bool check(const StandardCircuitBuilder_<FF>& builder);
 
   private:
     struct TagCheckData;
