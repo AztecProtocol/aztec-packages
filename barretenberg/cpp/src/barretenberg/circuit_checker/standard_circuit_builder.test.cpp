@@ -62,7 +62,7 @@ TEST(standard_circuit_constructor, grumpkin_base_case)
                                           grumpkin::fr::neg_one(),
                                           grumpkin::fr::zero() });
 
-    bool result = circuit_constructor.check_circuit();
+    bool result = CircuitChecker::check(circuit_constructor);
     EXPECT_EQ(result, true);
 }
 
@@ -115,7 +115,7 @@ TEST(standard_circuit_constructor, test_add_gate)
     circuit_constructor.create_add_gate({ a_idx, b_idx, c_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
     circuit_constructor.create_add_gate({ a_idx, b_idx, c_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
 
-    bool result = circuit_constructor.check_circuit(); // instance, prover.reference_string.SRS_T2);
+    bool result = CircuitChecker::check(circuit_constructor); // instance, prover.reference_string.SRS_T2);
     EXPECT_EQ(result, true);
 }
 
@@ -188,7 +188,7 @@ TEST(standard_circuit_constructor, test_mul_gate_proofs)
     circuit_constructor.create_add_gate({ a_idx, b_idx, c_idx, q[0], q[1], q[2], q[3] });
     circuit_constructor.create_mul_gate({ a_idx, b_idx, d_idx, q[4], q[5], q[6] });
 
-    bool result = circuit_constructor.check_circuit();
+    bool result = CircuitChecker::check(circuit_constructor);
     EXPECT_EQ(result, true);
 }
 
@@ -226,7 +226,7 @@ TEST(standard_circuit_constructor, range_constraint)
     circuit_constructor.create_big_add_gate(
         { zero_idx, zero_idx, zero_idx, one_idx, fr::one(), fr::one(), fr::one(), fr::one(), fr::neg_one() });
 
-    bool result = circuit_constructor.check_circuit();
+    bool result = CircuitChecker::check(circuit_constructor);
 
     EXPECT_EQ(result, true);
 }
@@ -240,7 +240,7 @@ TEST(standard_circuit_constructor, range_constraint_fail)
 
     circuit_constructor.decompose_into_base4_accumulators(witness_index, 23);
 
-    bool result = circuit_constructor.check_circuit();
+    bool result = CircuitChecker::check(circuit_constructor);
 
     EXPECT_EQ(result, false);
 }
@@ -308,7 +308,7 @@ TEST(standard_circuit_constructor, and_constraint)
     circuit_constructor.create_big_add_gate(
         { zero_idx, zero_idx, zero_idx, one_idx, fr::one(), fr::one(), fr::one(), fr::one(), fr::neg_one() });
 
-    bool result = circuit_constructor.check_circuit();
+    bool result = CircuitChecker::check(circuit_constructor);
 
     EXPECT_EQ(result, true);
 }
@@ -375,7 +375,7 @@ TEST(standard_circuit_constructor, xor_constraint)
     circuit_constructor.create_big_add_gate(
         { zero_idx, zero_idx, zero_idx, one_idx, fr::one(), fr::one(), fr::one(), fr::one(), fr::neg_one() });
 
-    bool result = circuit_constructor.check_circuit();
+    bool result = CircuitChecker::check(circuit_constructor);
 
     EXPECT_EQ(result, true);
 }
@@ -412,7 +412,7 @@ TEST(standard_circuit_constructor, big_add_gate_with_bit_extract)
     generate_constraints(2);
     generate_constraints(3);
 
-    bool result = circuit_constructor.check_circuit();
+    bool result = CircuitChecker::check(circuit_constructor);
     EXPECT_EQ(result, true);
 }
 
@@ -422,7 +422,7 @@ TEST(standard_circuit_constructor, test_range_constraint_fail)
     uint32_t witness_index = circuit_constructor.add_variable(fr::neg_one());
     circuit_constructor.decompose_into_base4_accumulators(witness_index, 32);
 
-    bool result = circuit_constructor.check_circuit();
+    bool result = CircuitChecker::check(circuit_constructor);
 
     EXPECT_EQ(result, false);
 }
@@ -443,7 +443,7 @@ TEST(standard_circuit_constructor, test_check_circuit_correct)
 
     circuit_constructor.create_add_gate({ d_idx, c_idx, a_idx, fr::one(), fr::neg_one(), fr::neg_one(), fr::zero() });
 
-    bool result = circuit_constructor.check_circuit();
+    bool result = CircuitChecker::check(circuit_constructor);
     EXPECT_EQ(result, true);
 }
 
@@ -463,6 +463,6 @@ TEST(standard_circuit_constructor, test_check_circuit_broken)
 
     circuit_constructor.create_add_gate({ d_idx, c_idx, a_idx, fr::one(), fr::neg_one(), fr::neg_one(), fr::zero() });
 
-    bool result = circuit_constructor.check_circuit();
+    bool result = CircuitChecker::check(circuit_constructor);
     EXPECT_EQ(result, false);
 }

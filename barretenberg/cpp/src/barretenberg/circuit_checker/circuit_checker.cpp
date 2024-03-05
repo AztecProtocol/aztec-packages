@@ -29,6 +29,28 @@ template <> bool CircuitChecker::check<StandardCircuitBuilder_<bb::fr>>(const St
     }
     return true;
 };
+/**
+ * @brief Circuit check functionality for Standard arithmetization
+ *
+ * @param builder
+ */
+template <> bool CircuitChecker::check<StandardCircuitBuilder_<bb::fq>>(const StandardCircuitBuilder_<bb::fq>& builder)
+{
+    using FF = bb::fq;
+    const auto& block = builder.blocks.arithmetic;
+    for (size_t i = 0; i < builder.num_gates; i++) {
+        FF left = builder.get_variable(block.w_l()[i]);
+        FF right = builder.get_variable(block.w_r()[i]);
+        FF output = builder.get_variable(block.w_o()[i]);
+        FF gate_sum = block.q_m()[i] * left * right + block.q_1()[i] * left + block.q_2()[i] * right +
+                      block.q_3()[i] * output + block.q_c()[i];
+        if (!gate_sum.is_zero()) {
+            info("gate number", i);
+            return false;
+        }
+    }
+    return true;
+};
 
 template <> auto CircuitChecker::init_empty_values<UltraCircuitBuilder_<UltraArith<bb::fr>>>()
 {

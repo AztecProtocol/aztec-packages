@@ -124,8 +124,7 @@ template <typename OuterFlavor> class GoblinRecursiveVerifierTest : public testi
     {
         auto inner_circuit = create_inner_circuit();
 
-        bool result = inner_circuit.check_circuit();
-        EXPECT_TRUE(CircuitChecker::check(inner_circuit));
+        bool result = CircuitChecker::check(inner_circuit);
 
         EXPECT_EQ(result, true);
     }
@@ -244,7 +243,7 @@ template <typename OuterFlavor> class GoblinRecursiveVerifierTest : public testi
         verifier.verify_proof(inner_proof);
 
         // We expect the circuit check to fail due to the bad proof
-        EXPECT_FALSE(outer_circuit.check_circuit());
+        EXPECT_FALSE(CircuitChecker::check(outer_circuit));
     }
 };
 
