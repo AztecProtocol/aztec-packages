@@ -62,7 +62,7 @@ contract NewInboxTest is Test {
     // update version
     _message.recipient.version = version;
 
-    // TODO: nuke the following 2 values from the struct once the new message model is in place
+    // TODO(#4833): nuke the following 2 values from the struct once the new message model is in place
     _message.deadline = type(uint32).max;
     _message.fee = 0;
 

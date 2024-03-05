@@ -84,7 +84,7 @@ contract NewInbox is INewInbox {
       recipient: _recipient,
       content: _content,
       secretHash: _secretHash,
-      // TODO: nuke the following 2 values from the struct once the new message model is in place
+      // TODO(#4833): nuke the following 2 values from the struct once the new message model is in place
       deadline: type(uint32).max,
       fee: 0
     });
