@@ -102,9 +102,9 @@ template <typename Curve> class IPA {
      *U\f$
      *   3. Send \f$L_{i-1}\f$ and \f$R_{i-1}\f$ to the verifier
      *   4. Receive round challenge \f$u_{i-1}\f$ from the verifier​
-     *   5. Compute \f$\vec{a}_{i-1}=\vec{a}_{i\_low}+u_{i-1}\cdot \vec{a}_{i\_high}\f$
-     *   6. Compute \f$\vec{b}_{i-1}=\vec{b}_{i\_low}+u_{i-1}^{-1}\cdot \vec{b}_{i\_high}\f$​
-     *   7. Compute \f$\vec{G}_{i-1}=\vec{G}_{i\_low}+u_{i-1}^{-1}\cdot \vec{G}_{i\_high}\f$
+     *   5. Compute \f$\vec{G}_{i-1}=\vec{G}_{i\_low}+u_{i-1}^{-1}\cdot \vec{G}_{i\_high}\f$
+     *   6. Compute \f$\vec{a}_{i-1}=\vec{a}_{i\_low}+u_{i-1}\cdot \vec{a}_{i\_high}\f$
+     *   7. Compute \f$\vec{b}_{i-1}=\vec{b}_{i\_low}+u_{i-1}^{-1}\cdot \vec{b}_{i\_high}\f$​
      *
      *7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier
      */
@@ -115,14 +115,22 @@ template <typename Curve> class IPA {
     {
         ASSERT(opening_pair.challenge != 0 && "The challenge point should not be zero");
         auto poly_degree_plus_1 = static_cast<size_t>(polynomial.size());
+
+        // Step 1. Send polynomial degree + 1 = d to the verifier
         transcript->send_to_verifier("IPA:poly_degree_plus_1", static_cast<uint32_t>(poly_degree_plus_1));
+
+        // Step 2. Receieve challenge for the auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+
+        // Step 3. Compute auxiliary generator U
         auto aux_generator = Commitment::one() * generator_challenge;
+
         // Checks poly_degree is greater than zero and a power of two
         // In the future, we might want to consider if non-powers of two are needed
         ASSERT((poly_degree_plus_1 > 0) && (!(poly_degree_plus_1 & (poly_degree_plus_1 - 1))) &&
                "The polynomial degree plus 1 should be positive and a power of two");
 
+        // Step 4. Set initial vector a to the polynomial monomial coefficients and load vector G
         auto a_vec = polynomial;
         auto* srs_elements = ck->srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_degree_plus_1);
@@ -145,6 +153,7 @@ template <typename Curve> class IPA {
             /*scalar_multiplications_per_iteration=*/0,
             /*sequential_copy_ops_per_iteration=*/1);
 
+        // Step 5. Compute vector b (vector of the powers of the challenge)
         std::vector<Fr> b_vec(poly_degree_plus_1);
         run_loop_in_parallel_if_effective(
             poly_degree_plus_1,
@@ -160,71 +169,83 @@ template <typename Curve> class IPA {
 
         // Iterate for log(poly_degree) rounds to compute the round commitments.
         auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_degree_plus_1));
-        std::vector<GroupElement> L_elements(log_poly_degree);
-        std::vector<GroupElement> R_elements(log_poly_degree);
+
+        // Allocate space for L_i and R_i elements
+        GroupElement L_i;
+        GroupElement R_i;
         std::size_t round_size = poly_degree_plus_1;
 
-        // Allocate vectors for parallel storage of partial products
-        const size_t num_cpus = get_num_cpus();
-        std::vector<Fr> partial_inner_prod_L(num_cpus);
-        std::vector<Fr> partial_inner_prod_R(num_cpus);
-        // Perform IPA rounds
+#ifndef NO_MULTITHREADING
+        //  The inner products we'll be computing in parallel need a mutex to be thread-safe during the last
+        //  accumulation
+        std::mutex inner_product_accumulation_mutex;
+#endif
+        // Step 6. Perform IPA reduction rounds
         for (size_t i = 0; i < log_poly_degree; i++) {
             round_size >>= 1;
-            // Set partial products to zero
-            memset(&partial_inner_prod_L[0], 0, sizeof(Fr) * num_cpus);
-            memset(&partial_inner_prod_R[0], 0, sizeof(Fr) * num_cpus);
             // Compute inner_prod_L := < a_vec_lo, b_vec_hi > and inner_prod_R := < a_vec_hi, b_vec_lo >
             Fr inner_prod_L = Fr::zero();
             Fr inner_prod_R = Fr::zero();
-            // Run scalar product in parallel
-            run_loop_in_parallel_if_effective_with_index(
+            // Run scalar products in parallel
+            run_loop_in_parallel_if_effective(
                 round_size,
-                [&a_vec, &b_vec, round_size, &partial_inner_prod_L, &partial_inner_prod_R](
-                    size_t start, size_t end, size_t workload_index) {
+                [&a_vec, &b_vec, round_size, &inner_prod_L, &inner_prod_R, &inner_product_accumulation_mutex](
+                    size_t start, size_t end) {
                     Fr current_inner_prod_L = Fr::zero();
                     Fr current_inner_prod_R = Fr::zero();
                     for (size_t j = start; j < end; j++) {
                         current_inner_prod_L += a_vec[j] * b_vec[round_size + j];
                         current_inner_prod_R += a_vec[round_size + j] * b_vec[j];
                     }
-                    partial_inner_prod_L[workload_index] = current_inner_prod_L;
-                    partial_inner_prod_R[workload_index] = current_inner_prod_R;
+                    // Update the accumulated results thread-safely
+                    {
+#ifndef NO_MULTITHREADING
+                        std::unique_lock<std::mutex> lock(inner_product_accumulation_mutex);
+#endif
+                        inner_prod_L += current_inner_prod_L;
+                        inner_prod_R += current_inner_prod_R;
+                    }
                 },
                 /*finite_field_additions_per_iteration=*/2,
                 /*finite_field_multiplications_per_iteration=*/2);
-            for (size_t j = 0; j < num_cpus; j++) {
-                inner_prod_L += partial_inner_prod_L[j];
-                inner_prod_R += partial_inner_prod_R[j];
-            }
 
+            // Step 6.1
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
-            L_elements[i] = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
+            L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
                 &a_vec[0], &G_vec_local[round_size], round_size, ck->pippenger_runtime_state);
-            L_elements[i] += aux_generator * inner_prod_L;
+            L_i += aux_generator * inner_prod_L;
 
+            // Step 6.2
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
-            R_elements[i] = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
+            R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
                 &a_vec[round_size], &G_vec_local[0], round_size, ck->pippenger_runtime_state);
-            R_elements[i] += aux_generator * inner_prod_R;
+            R_i += aux_generator * inner_prod_R;
 
-            std::string index = std::to_string(i);
-            transcript->send_to_verifier("IPA:L_" + index, Commitment(L_elements[i]));
-            transcript->send_to_verifier("IPA:R_" + index, Commitment(R_elements[i]));
+            // Step 6.3
+            // Send commitments to the verifier
+            std::string index = std::to_string(log_poly_degree - i - 1);
+            transcript->send_to_verifier("IPA:L_" + index, Commitment(L_i));
+            transcript->send_to_verifier("IPA:R_" + index, Commitment(R_i));
 
-            // Generate the round challenge.
+            // Step 6.4
+            // Receive the challenge from the verifier
             const Fr round_challenge = transcript->get_challenge<Fr>("IPA:round_challenge_" + index);
             const Fr round_challenge_inv = round_challenge.invert();
 
-            auto G_hi = GroupElement::batch_mul_with_endomorphism(
+            // Step 6.5
+            // G_vec_new = G_vec_lo + G_vec_hi * round_challenge_inv
+            auto G_hi_by_inverse_challenge = GroupElement::batch_mul_with_endomorphism(
                 std::span{ G_vec_local.begin() + static_cast<long>(round_size),
                            G_vec_local.begin() + static_cast<long>(round_size * 2) },
                 round_challenge_inv);
+            GroupElement::batch_affine_add(
+                std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<long>(round_size) },
+                G_hi_by_inverse_challenge,
+                G_vec_local);
 
-            // Update the vectors a_vec, b_vec and G_vec.
-            // a_vec_next = a_vec_lo + a_vec_hi * round_challenge
-            // b_vec_next = b_vec_lo + b_vec_hi * round_challenge_inv
-            // G_vec_next = G_vec_lo + G_vec_hi * round_challenge_inv
+            // Steps 6.6 and 6.7 Update the vectors a_vec, b_vec.
+            // a_vec_new = a_vec_lo + a_vec_hi * round_challenge
+            // b_vec_new = b_vec_lo + b_vec_hi * round_challenge_inv
             run_loop_in_parallel_if_effective(
                 round_size,
                 [&a_vec, &b_vec, round_challenge, round_challenge_inv, round_size](size_t start, size_t end) {
@@ -236,12 +257,10 @@ template <typename Curve> class IPA {
                 /*finite_field_additions_per_iteration=*/4,
                 /*finite_field_multiplications_per_iteration=*/8,
                 /*finite_field_inversions_per_iteration=*/1);
-            GroupElement::batch_affine_add(
-                std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<long>(round_size) },
-                G_hi,
-                G_vec_local);
         }
 
+        // Step 7
+        // Send a_0 to the verifier
         transcript->send_to_verifier("IPA:a_0", a_vec[0]);
     }
 
