@@ -14,7 +14,7 @@ RUN ./scripts/version_packages.sh
 RUN yarn workspaces focus @aztec/cli @aztec/aztec @aztec/aztec-faucet @aztec/aztec.js --production && yarn cache clean
 
 # We no longer need nargo. But keep acvm.
-RUN rm /usr/src/noir/noir-repo/target/release/nargo
+RUN find /usr/src/noir/noir-repo/target/release ! -name 'acvm' -type f -exec rm -f {} +
 
 # Create fresh minimal size image.
 # Installs our specific version of node, stripping out the unnecessary.
