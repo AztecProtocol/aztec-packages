@@ -187,7 +187,7 @@ fn function_definition(allow_self: bool) -> impl NoirParser<NoirFunction> {
                 is_internal: false,
                 visibility: if modifiers.1 {
                     FunctionVisibility::PublicCrate
-                } else if modifiers.4 {
+                } else if modifiers.3 {
                     FunctionVisibility::Public
                 } else {
                     FunctionVisibility::Private
