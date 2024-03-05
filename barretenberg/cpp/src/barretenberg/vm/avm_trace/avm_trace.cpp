@@ -769,6 +769,10 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_alu_alu_u64_tag = FF(static_cast<uint32_t>(src.alu_u64_tag));
         dest.avm_alu_alu_u128_tag = FF(static_cast<uint32_t>(src.alu_u128_tag));
 
+        dest.avm_alu_alu_in_tag = dest.avm_alu_alu_u8_tag + FF(2) * dest.avm_alu_alu_u16_tag +
+                                  FF(3) * dest.avm_alu_alu_u32_tag + FF(4) * dest.avm_alu_alu_u64_tag +
+                                  FF(5) * dest.avm_alu_alu_u128_tag + FF(6) * dest.avm_alu_alu_ff_tag;
+
         dest.avm_alu_alu_ia = src.alu_ia;
         dest.avm_alu_alu_ib = src.alu_ib;
         dest.avm_alu_alu_ic = src.alu_ic;

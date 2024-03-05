@@ -12,7 +12,7 @@ namespace bb {
 class equiv_inter_reg_alu_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 4;
+    constexpr static size_t COLUMNS_PER_SET = 10;
 
     /**
      * @brief If this method returns true on a row of values, then the inverse polynomial at this index. Otherwise the
@@ -54,10 +54,22 @@ class equiv_inter_reg_alu_permutation_settings {
                                      in.avm_main_ia,
                                      in.avm_main_ib,
                                      in.avm_main_ic,
+                                     in.avm_main_sel_op_add,
+                                     in.avm_main_sel_op_sub,
+                                     in.avm_main_sel_op_mul,
+                                     in.avm_main_sel_op_eq,
+                                     in.avm_main_sel_op_not,
+                                     in.avm_main_in_tag,
                                      in.avm_alu_alu_clk,
                                      in.avm_alu_alu_ia,
                                      in.avm_alu_alu_ib,
-                                     in.avm_alu_alu_ic);
+                                     in.avm_alu_alu_ic,
+                                     in.avm_alu_alu_op_add,
+                                     in.avm_alu_alu_op_sub,
+                                     in.avm_alu_alu_op_mul,
+                                     in.avm_alu_alu_op_eq,
+                                     in.avm_alu_alu_op_not,
+                                     in.avm_alu_alu_in_tag);
     }
 
     /**
@@ -88,10 +100,22 @@ class equiv_inter_reg_alu_permutation_settings {
                                      in.avm_main_ia,
                                      in.avm_main_ib,
                                      in.avm_main_ic,
+                                     in.avm_main_sel_op_add,
+                                     in.avm_main_sel_op_sub,
+                                     in.avm_main_sel_op_mul,
+                                     in.avm_main_sel_op_eq,
+                                     in.avm_main_sel_op_not,
+                                     in.avm_main_in_tag,
                                      in.avm_alu_alu_clk,
                                      in.avm_alu_alu_ia,
                                      in.avm_alu_alu_ib,
-                                     in.avm_alu_alu_ic);
+                                     in.avm_alu_alu_ic,
+                                     in.avm_alu_alu_op_add,
+                                     in.avm_alu_alu_op_sub,
+                                     in.avm_alu_alu_op_mul,
+                                     in.avm_alu_alu_op_eq,
+                                     in.avm_alu_alu_op_not,
+                                     in.avm_alu_alu_in_tag);
     }
 };
 
