@@ -70,8 +70,8 @@ contract AppSubscription {
     #[aztec(initializer)]
     fn constructor(
         target_address: AztecAddress,
-        subscription_token_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
+        subscription_token_address: AztecAddress,
         subscription_price: Field,
         gas_token_address: AztecAddress
     ) {
