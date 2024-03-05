@@ -3,14 +3,13 @@ contract CrowdFunding {
 
     use dep::aztec::protocol_types::address::AztecAddress;
     use dep::aztec::{
-        log::emit_unencrypted_log_from_private, context::{PrivateContext, Context},
-        note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{map::Map, set::Set, immutable_singleton::ImmutableSingleton},
+        log::emit_unencrypted_log_from_private,
+        state_vars::{PrivateSet, PrivateImmutable},
         protocol_types::traits::Serialize
     };
     use dep::field_note::field_note::FieldNote;
     use dep::value_note::value_note::ValueNote;
-    use interfaces::{Token, PrivateToken};
+    use interfaces::Token;
 
     #[event]
     struct WithdrawalProcessed {
@@ -25,9 +24,9 @@ contract CrowdFunding {
     }
 
     struct Storage {
-        donation_token: ImmutableSingleton<FieldNote>,
-        operator: ImmutableSingleton<FieldNote>,
-        donation: Set<ValueNote>,
+        donation_token: PrivateImmutable<FieldNote>,
+        operator: PrivateImmutable<FieldNote>,
+        donation: PrivateSet<ValueNote>,
     }
 
     #[aztec(private)]

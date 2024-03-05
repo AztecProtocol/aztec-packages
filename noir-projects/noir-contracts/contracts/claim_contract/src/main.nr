@@ -1,33 +1,18 @@
 contract Claim {
     mod interfaces;
 
-    use dep::aztec::protocol_types::address::AztecAddress;
     use dep::aztec::{
-        context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{map::Map, set::Set, immutable_singleton::ImmutableSingleton}
+        protocol_types::address::AztecAddress,
+        state_vars::PrivateImmutable,
     };
     use dep::field_note::field_note::FieldNote;
     use dep::value_note::value_note::ValueNote;
-    use interfaces::{Token};
-
-    use dep::aztec::history::{
-        contract_inclusion::{prove_contract_inclusion, prove_contract_inclusion_at},
-        note_inclusion::{prove_note_inclusion, prove_note_inclusion_at},
-        note_validity::{prove_note_validity, prove_note_validity_at},
-        nullifier_inclusion::{
-        prove_nullifier_inclusion, prove_nullifier_inclusion_at, prove_note_is_nullified,
-        prove_note_is_nullified_at
-    },
-        nullifier_non_inclusion::{
-        prove_nullifier_not_included, prove_nullifier_not_included_at, prove_note_not_nullified,
-        prove_note_not_nullified_at
-    },
-        public_value_inclusion::{prove_public_value_inclusion, prove_public_value_inclusion_at}
-    };
+    use interfaces::Token;
+    use dep::aztec::history::note_inclusion::prove_note_inclusion;
 
     struct Storage {
-      campaign_contract: ImmutableSingleton<FieldNote>,
-      reward_token: ImmutableSingleton<FieldNote>,
+      campaign_contract: PrivateImmutable<FieldNote>,
+      reward_token: PrivateImmutable<FieldNote>,
     }
 
     #[aztec(private)]
