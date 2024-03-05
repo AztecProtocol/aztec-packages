@@ -37,22 +37,51 @@ contract NaiveMerkle is Test {
     return nodes[0];
   }
 
-  function computeSiblingPath(uint256 _index) public view returns (bytes32[] memory, bytes32) {
+  function computeSiblingPath(uint256 _index) public returns (bytes32[] memory, bytes32) {
+    bytes32[] memory nodes = new bytes32[](SIZE / 2);
     bytes32[] memory path = new bytes32[](DEPTH);
 
-    // IMPLEMENT
+    uint256 idx = _index;
+
+    uint256 size = SIZE;
+    for (uint256 i = 0; i < DEPTH; i++) {
+      bool isRight = (idx & 1) == 1;
+      if (i > 0) {
+        path[i] = isRight ? nodes[idx - 1] : nodes[idx + 1];
+      } else {
+        path[i] = isRight ? leafs[idx - 1] : leafs[idx + 1];
+      }
+
+      for (uint256 j = 0; j < size; j += 2) {
+        if (i == 0) {
+          nodes[j / 2] = sha256(bytes.concat(leafs[j], leafs[j + 1]));
+        } else {
+          nodes[j / 2] = sha256(bytes.concat(nodes[j], nodes[j + 1]));
+        }
+      }
+
+      idx /= 2;
+      size /= 2;
+    }
+
     return (path, leafs[_index]);
   }
 
-  function verifyMembership(bytes32[] memory _path, bytes32 _leaf, uint256 _index) public returns (bool) {
+  function verifyMembership(bytes32[] memory _path, bytes32 _leaf, uint256 _index)
+    public
+    returns (bool)
+  {
     bytes32 root;
     uint256 index = _index;
 
     for (uint256 i = 0; i < _path.length; i++) {
-      if (i == 0) {
-        root = sha256(bytes.concat(_leaf, _path[i]));
-      }
-      emit log_named_bytes32("Root", root);
+      bool isRight = (index & 1) == 1;
+
+      root = isRight
+        ? sha256(bytes.concat(_path[i], i == 0 ? _leaf : root))
+        : sha256(bytes.concat(i == 0 ? _leaf : root, _path[i]));
+
+      index /= 2;
     }
 
     return computeRoot() == root;

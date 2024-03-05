@@ -46,6 +46,11 @@ library Errors {
     uint32 storedDeadline,
     uint32 deadlinePassed
   ); // 0x5e789f34
+  error Outbox__InvalidPathLength(uint256 expected, uint256 actual);
+  error Outbox__InvalidRoot(bytes32 expected, bytes32 actual);
+  error Outbox__RootAlreadySet(uint256 l2BlockNumber);
+  error Outbox__InvalidRecipient(address expected, address actual);
+  error Outbox__AlreadyNullified(uint256 l2BlockNumber, uint256 leafIndex);
 
   // Rollup
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
