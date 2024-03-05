@@ -1,6 +1,8 @@
 [workspace]
 members = [
+    "contracts/app_subscription_contract",
     "contracts/avm_test_contract",
+    "contracts/fpc_contract",
     "contracts/benchmarking_contract",
     "contracts/card_game_contract",
     "contracts/child_contract",
@@ -21,7 +23,7 @@ members = [
     "contracts/inclusion_proofs_contract",
     "contracts/lending_contract",
     "contracts/parent_contract",
-    "contracts/pending_commitments_contract",
+    "contracts/pending_note_hashes_contract",
     "contracts/price_feed_contract",
     "contracts/schnorr_account_contract",
     "contracts/schnorr_hardcoded_account_contract",

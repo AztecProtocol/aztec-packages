@@ -10,23 +10,17 @@ import {
   L2BlockL2Logs,
   L2BlockSource,
   L2LogsSource,
-  L2Tx,
   LogFilter,
   LogType,
+  TxEffect,
   TxHash,
+  TxReceipt,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import {
-  ContractClassRegisteredEvent,
-  FunctionSelector,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
-} from '@aztec/circuits.js';
-import { ContractInstanceDeployedEvent, computeSaltedInitializationHash } from '@aztec/circuits.js/contract';
+import { ContractClassRegisteredEvent, FunctionSelector } from '@aztec/circuits.js';
+import { ContractInstanceDeployedEvent } from '@aztec/circuits.js/contract';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -45,7 +39,8 @@ import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'vi
 import { ArchiverDataStore } from './archiver_store.js';
 import { ArchiverConfig } from './config.js';
 import {
-  retrieveBlocks,
+  retrieveBlockBodiesFromAvailabilityOracle,
+  retrieveBlockMetadataFromRollup,
   retrieveNewCancelledL1ToL2Messages,
   retrieveNewContractData,
   retrieveNewPendingL1ToL2Messages,
@@ -72,12 +67,6 @@ export class Archiver implements ArchiveSource {
    */
   private lastLoggedL1BlockNumber = 0n;
 
-  /** Address of the ClassRegisterer contract with a salt=1 */
-  private classRegistererAddress = ClassRegistererAddress;
-
-  /** Address of the InstanceDeployer contract with a salt=1 */
-  private instanceDeployerAddress = InstanceDeployerAddress;
-
   /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
@@ -92,6 +81,7 @@ export class Archiver implements ArchiveSource {
   constructor(
     private readonly publicClient: PublicClient<HttpTransport, Chain>,
     private readonly rollupAddress: EthAddress,
+    private readonly availabilityOracleAddress: EthAddress,
     private readonly inboxAddress: EthAddress,
     private readonly registryAddress: EthAddress,
     private readonly contractDeploymentEmitterAddress: EthAddress,
@@ -122,6 +112,7 @@ export class Archiver implements ArchiveSource {
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
+      config.l1Contracts.availabilityOracleAddress,
       config.l1Contracts.inboxAddress,
       config.l1Contracts.registryAddress,
       config.l1Contracts.contractDeploymentEmitterAddress,
@@ -225,9 +216,9 @@ export class Archiver implements ArchiveSource {
       messagesByBlock.set(blockNumber, messages);
     }
 
-    for (const [messageKey, blockNumber] of retrievedCancelledL1ToL2Messages.retrievedData) {
+    for (const [entryKey, blockNumber] of retrievedCancelledL1ToL2Messages.retrievedData) {
       const messages = messagesByBlock.get(blockNumber) || [[], []];
-      messages[1].push(messageKey);
+      messages[1].push(entryKey);
       messagesByBlock.set(blockNumber, messages);
     }
 
@@ -239,14 +230,27 @@ export class Archiver implements ArchiveSource {
         `Adding ${newMessages.length} new messages and ${cancelledMessages.length} cancelled messages in L1 block ${l1Block}`,
       );
       await this.store.addPendingL1ToL2Messages(newMessages, l1Block);
-      await this.store.cancelPendingL1ToL2Messages(cancelledMessages, l1Block);
+      await this.store.cancelPendingL1ToL2EntryKeys(cancelledMessages, l1Block);
     }
 
     // ********** Events that are processed per L2 block **********
 
     // Read all data from chain and then write to our stores at the end
     const nextExpectedL2BlockNum = BigInt((await this.store.getBlockNumber()) + 1);
-    const retrievedBlocks = await retrieveBlocks(
+
+    const retrievedBlockBodies = await retrieveBlockBodiesFromAvailabilityOracle(
+      this.publicClient,
+      this.availabilityOracleAddress,
+      blockUntilSynced,
+      lastL1Blocks.addedBlock + 1n,
+      currentL1BlockNumber,
+    );
+
+    const blockBodies = retrievedBlockBodies.retrievedData.map(([blockBody]) => blockBody);
+
+    await this.store.addBlockBodies(blockBodies);
+
+    const retrievedBlockMetadata = await retrieveBlockMetadataFromRollup(
       this.publicClient,
       this.rollupAddress,
       blockUntilSynced,
@@ -254,6 +258,23 @@ export class Archiver implements ArchiveSource {
       currentL1BlockNumber,
       nextExpectedL2BlockNum,
     );
+
+    const retrievedBodyHashes = retrievedBlockMetadata.retrievedData.map(
+      ([header]) => header.contentCommitment.txsHash,
+    );
+
+    const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
+
+    if (retrievedBlockMetadata.retrievedData.length !== blockBodiesFromStore.length) {
+      throw new Error('Block headers length does not equal block bodies length');
+    }
+
+    const retrievedBlocks = {
+      retrievedData: retrievedBlockMetadata.retrievedData.map(
+        (blockMetadata, i) =>
+          new L2Block(blockMetadata[1], blockMetadata[0], blockBodiesFromStore[i], blockMetadata[2]),
+      ),
+    };
 
     if (retrievedBlocks.retrievedData.length === 0) {
       return;
@@ -268,7 +289,7 @@ export class Archiver implements ArchiveSource {
     // create the block number -> block hash mapping to ensure we retrieve the appropriate events
     const blockNumberToBodyHash: { [key: number]: Buffer | undefined } = {};
     retrievedBlocks.retrievedData.forEach((block: L2Block) => {
-      blockNumberToBodyHash[block.number] = block.body.getCalldataHash();
+      blockNumberToBodyHash[block.number] = block.header.contentCommitment.txsHash;
     });
     const retrievedContracts = await retrieveNewContractData(
       this.publicClient,
@@ -315,26 +336,13 @@ export class Archiver implements ArchiveSource {
     );
 
     // from retrieved L2Blocks, confirm L1 to L2 messages that have been published
-    // from each l2block fetch all messageKeys in a flattened array:
+    // from each l2block fetch all entryKeys in a flattened array:
     this.log(`Confirming l1 to l2 messages in store`);
     for (const block of retrievedBlocks.retrievedData) {
-      await this.store.confirmL1ToL2Messages(block.body.l1ToL2Messages);
+      await this.store.confirmL1ToL2EntryKeys(block.body.l1ToL2Messages);
     }
 
-    // store retrieved L2 blocks after removing new logs information.
-    // remove logs to serve "lightweight" block information. Logs can be fetched separately if needed.
-    await this.store.addBlocks(
-      retrievedBlocks.retrievedData.map(block => {
-        // Ensure we pad the L1 to L2 message array to the full size before storing.
-        block.body.l1ToL2Messages = padArrayEnd(
-          block.body.l1ToL2Messages,
-          Fr.ZERO,
-          NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        );
-
-        return block;
-      }),
-    );
+    await this.store.addBlocks(retrievedBlocks.retrievedData);
   }
 
   /**
@@ -342,22 +350,9 @@ export class Archiver implements ArchiveSource {
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
   private async storeRegisteredContractClasses(allLogs: UnencryptedL2Log[], blockNum: number) {
-    const contractClasses: ContractClassPublic[] = [];
-    for (const log of allLogs) {
-      try {
-        if (
-          !log.contractAddress.equals(this.classRegistererAddress) ||
-          toBigIntBE(log.data.subarray(0, 32)) !== REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE
-        ) {
-          continue;
-        }
-        const event = ContractClassRegisteredEvent.fromLogData(log.data);
-        contractClasses.push(event.toContractClassPublic());
-      } catch (err) {
-        this.log.warn(`Error processing log ${log.toHumanReadable()}: ${err}`);
-      }
-    }
-
+    const contractClasses = ContractClassRegisteredEvent.fromLogs(allLogs, ClassRegistererAddress).map(e =>
+      e.toContractClassPublic(),
+    );
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.log(`Registering contract class ${c.id.toString()}`));
       await this.store.addContractClasses(contractClasses, blockNum);
@@ -369,22 +364,9 @@ export class Archiver implements ArchiveSource {
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
   private async storeDeployedContractInstances(allLogs: UnencryptedL2Log[], blockNum: number) {
-    const contractInstances: ContractInstanceWithAddress[] = [];
-    for (const log of allLogs) {
-      try {
-        if (
-          !log.contractAddress.equals(this.instanceDeployerAddress) ||
-          !ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log.data)
-        ) {
-          continue;
-        }
-        const event = ContractInstanceDeployedEvent.fromLogData(log.data);
-        contractInstances.push(event.toContractInstance());
-      } catch (err) {
-        this.log.warn(`Error processing log ${log.toHumanReadable()}: ${err}`);
-      }
-    }
-
+    const contractInstances = ContractInstanceDeployedEvent.fromLogs(allLogs, InstanceDeployerAddress).map(e =>
+      e.toContractInstance(),
+    );
     if (contractInstances.length > 0) {
       contractInstances.forEach(c => this.log(`Storing contract instance at ${c.address.toString()}`));
       await this.store.addContractInstances(contractInstances, blockNum);
@@ -453,8 +435,12 @@ export class Archiver implements ArchiveSource {
     return blocks.length === 0 ? undefined : blocks[0];
   }
 
-  public getL2Tx(txHash: TxHash): Promise<L2Tx | undefined> {
-    return this.store.getL2Tx(txHash);
+  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return this.store.getTxEffect(txHash);
+  }
+
+  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+    return this.store.getSettledTxReceipt(txHash);
   }
 
   /**
@@ -480,19 +466,11 @@ export class Archiver implements ArchiveSource {
 
     const contractClass = await this.store.getContractClass(instance.contractClassId);
     if (!contractClass) {
-      this.log.warn(
-        `Contract class ${instance.contractClassId.toString()} for address ${address.toString()} not found`,
-      );
+      this.log.warn(`Class ${instance.contractClassId.toString()} for address ${address.toString()} not found`);
       return undefined;
     }
 
-    return new ExtendedContractData(
-      new ContractData(address, instance.portalContractAddress),
-      contractClass.publicFunctions.map(f => new EncodedContractFunction(f.selector, f.isInternal, f.bytecode)),
-      contractClass.id,
-      computeSaltedInitializationHash(instance),
-      instance.publicKeysHash,
-    );
+    return ExtendedContractData.fromClassAndInstance(contractClass, instance);
   }
 
   /**
@@ -510,8 +488,21 @@ export class Archiver implements ArchiveSource {
    * @param contractAddress - The contract data address.
    * @returns ContractData with the portal address (if we didn't throw an error).
    */
-  public getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return this.store.getContractData(contractAddress);
+  public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
+    return (await this.store.getContractData(contractAddress)) ?? this.makeContractDataFor(contractAddress);
+  }
+
+  /**
+   * Temporary method for creating a fake contract data out of classes and instances registered in the node.
+   * Used as a fallback if the extended contract data is not found.
+   */
+  private async makeContractDataFor(address: AztecAddress): Promise<ContractData | undefined> {
+    const instance = await this.store.getContractInstance(address);
+    if (!instance) {
+      return undefined;
+    }
+
+    return new ContractData(address, instance.portalContractAddress);
   }
 
   /**
@@ -579,17 +570,21 @@ export class Archiver implements ArchiveSource {
    * @param limit - The number of messages to return.
    * @returns The requested L1 to L2 messages' keys.
    */
-  getPendingL1ToL2Messages(limit: number): Promise<Fr[]> {
-    return this.store.getPendingL1ToL2MessageKeys(limit);
+  getPendingL1ToL2EntryKeys(limit: number): Promise<Fr[]> {
+    return this.store.getPendingL1ToL2EntryKeys(limit);
   }
 
   /**
-   * Gets the confirmed/consumed L1 to L2 message associated with the given message key
-   * @param messageKey - The message key.
+   * Gets the confirmed/consumed L1 to L2 message associated with the given entry key
+   * @param entryKey - The entry key.
    * @returns The L1 to L2 message (throws if not found).
    */
-  getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
-    return this.store.getConfirmedL1ToL2Message(messageKey);
+  getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message> {
+    return this.store.getConfirmedL1ToL2Message(entryKey);
+  }
+
+  getContractClassIds(): Promise<Fr[]> {
+    return this.store.getContractClassIds();
   }
 }
 

@@ -1,4 +1,5 @@
-import { BLOB_SIZE_IN_BYTES, ExtendedContractData, L2Block } from '@aztec/circuit-types';
+import { ExtendedContractData, L2Block } from '@aztec/circuit-types';
+import { BLOB_SIZE_IN_BYTES } from '@aztec/circuits.js/constants';
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvailabilityOracleAbi, ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -33,17 +34,14 @@ import {
 export class ViemTxSender implements L1PublisherTxSender {
   private availabilityOracleContract: GetContractReturnType<
     typeof AvailabilityOracleAbi,
-    PublicClient<HttpTransport, chains.Chain>,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
   private rollupContract: GetContractReturnType<
     typeof RollupAbi,
-    PublicClient<HttpTransport, chains.Chain>,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
   private contractDeploymentEmitterContract: GetContractReturnType<
     typeof ContractDeploymentEmitterAbi,
-    PublicClient<HttpTransport, chains.Chain>,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
 
@@ -69,20 +67,17 @@ export class ViemTxSender implements L1PublisherTxSender {
     this.availabilityOracleContract = getContract({
       address: getAddress(l1Contracts.availabilityOracleAddress.toString()),
       abi: AvailabilityOracleAbi,
-      publicClient: this.publicClient,
-      walletClient,
+      client: walletClient,
     });
     this.rollupContract = getContract({
       address: getAddress(l1Contracts.rollupAddress.toString()),
       abi: RollupAbi,
-      publicClient: this.publicClient,
-      walletClient,
+      client: walletClient,
     });
     this.contractDeploymentEmitterContract = getContract({
       address: getAddress(l1Contracts.contractDeploymentEmitterAddress.toString()),
       abi: ContractDeploymentEmitterAbi,
-      publicClient: this.publicClient,
-      walletClient,
+      client: walletClient,
     });
   }
 

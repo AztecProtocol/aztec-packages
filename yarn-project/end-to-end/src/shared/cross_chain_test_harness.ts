@@ -73,8 +73,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   const underlyingERC20 = getContract({
     address: underlyingERC20Address.toString(),
     abi: PortalERC20Abi,
-    walletClient,
-    publicClient,
+    client: walletClient,
   });
 
   // deploy the token portal
@@ -82,8 +81,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   const tokenPortal = getContract({
     address: tokenPortalAddress.toString(),
     abi: TokenPortalAbi,
-    walletClient,
-    publicClient,
+    client: walletClient,
   });
 
   // deploy l2 token
@@ -138,15 +136,13 @@ export class CrossChainTestHarness {
     const inbox = getContract({
       address: l1ContractAddresses.inboxAddress.toString(),
       abi: InboxAbi,
-      walletClient,
-      publicClient,
+      client: walletClient,
     });
 
     const outbox = getContract({
       address: l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
-      walletClient,
-      publicClient,
+      client: walletClient,
     });
 
     // Deploy and initialize all required contracts
@@ -222,7 +218,8 @@ export class CrossChainTestHarness {
 
   async mintTokensOnL1(amount: bigint) {
     this.logger('Minting tokens on L1');
-    await this.underlyingERC20.write.mint([this.ethAccount.toString(), amount], {} as any);
+    const txHash = await this.underlyingERC20.write.mint([this.ethAccount.toString(), amount], {} as any);
+    await this.publicClient.waitForTransactionReceipt({ hash: txHash });
     expect(await this.underlyingERC20.read.balanceOf([this.ethAccount.toString()])).toBe(amount);
   }
 
@@ -231,7 +228,11 @@ export class CrossChainTestHarness {
   }
 
   async sendTokensToPortalPublic(bridgeAmount: bigint, secretHash: Fr) {
-    await this.underlyingERC20.write.approve([this.tokenPortalAddress.toString(), bridgeAmount], {} as any);
+    const txHash1 = await this.underlyingERC20.write.approve(
+      [this.tokenPortalAddress.toString(), bridgeAmount],
+      {} as any,
+    );
+    await this.publicClient.waitForTransactionReceipt({ hash: txHash1 });
 
     // Deposit tokens to the TokenPortal
     const deadline = 2 ** 32 - 1; // max uint32
@@ -244,12 +245,13 @@ export class CrossChainTestHarness {
       deadline,
       secretHash.toString(),
     ] as const;
-    const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
+    const { result: entryKeyHex } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
       account: this.ethAccount.toString(),
     } as any);
-    await this.tokenPortal.write.depositToAztecPublic(args, {} as any);
+    const txHash2 = await this.tokenPortal.write.depositToAztecPublic(args, {} as any);
+    await this.publicClient.waitForTransactionReceipt({ hash: txHash2 });
 
-    return Fr.fromString(messageKeyHex);
+    return Fr.fromString(entryKeyHex);
   }
 
   async sendTokensToPortalPrivate(
@@ -257,8 +259,11 @@ export class CrossChainTestHarness {
     bridgeAmount: bigint,
     secretHashForL2MessageConsumption: Fr,
   ) {
-    await this.underlyingERC20.write.approve([this.tokenPortalAddress.toString(), bridgeAmount], {} as any);
-
+    const txHash1 = await this.underlyingERC20.write.approve(
+      [this.tokenPortalAddress.toString(), bridgeAmount],
+      {} as any,
+    );
+    await this.publicClient.waitForTransactionReceipt({ hash: txHash1 });
     // Deposit tokens to the TokenPortal
     const deadline = 2 ** 32 - 1; // max uint32
 
@@ -270,12 +275,13 @@ export class CrossChainTestHarness {
       deadline,
       secretHashForL2MessageConsumption.toString(),
     ] as const;
-    const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {
+    const { result: entryKeyHex } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {
       account: this.ethAccount.toString(),
     } as any);
-    await this.tokenPortal.write.depositToAztecPrivate(args, {} as any);
+    const txHash2 = await this.tokenPortal.write.depositToAztecPrivate(args, {} as any);
+    await this.publicClient.waitForTransactionReceipt({ hash: txHash2 });
 
-    return Fr.fromString(messageKeyHex);
+    return Fr.fromString(entryKeyHex);
   }
 
   async mintTokensPublicOnL2(amount: bigint) {
@@ -304,19 +310,12 @@ export class CrossChainTestHarness {
   async consumeMessageOnAztecAndMintSecretly(
     secretHashForRedeemingMintedNotes: Fr,
     bridgeAmount: bigint,
-    messageKey: Fr,
     secretForL2MessageConsumption: Fr,
   ) {
     this.logger('Consuming messages on L2 secretively');
     // Call the mint tokens function on the Aztec.nr contract
     const consumptionTx = this.l2Bridge.methods
-      .claim_private(
-        secretHashForRedeemingMintedNotes,
-        bridgeAmount,
-        this.ethAccount,
-        messageKey,
-        secretForL2MessageConsumption,
-      )
+      .claim_private(secretHashForRedeemingMintedNotes, bridgeAmount, this.ethAccount, secretForL2MessageConsumption)
       .send();
     const consumptionReceipt = await consumptionTx.wait();
     expect(consumptionReceipt.status).toBe(TxStatus.MINED);
@@ -324,12 +323,10 @@ export class CrossChainTestHarness {
     await this.addPendingShieldNoteToPXE(bridgeAmount, secretHashForRedeemingMintedNotes, consumptionReceipt.txHash);
   }
 
-  async consumeMessageOnAztecAndMintPublicly(bridgeAmount: bigint, messageKey: Fr, secret: Fr) {
+  async consumeMessageOnAztecAndMintPublicly(bridgeAmount: bigint, secret: Fr) {
     this.logger('Consuming messages on L2 Publicly');
     // Call the mint tokens function on the Aztec.nr contract
-    const tx = this.l2Bridge.methods
-      .claim_public(this.ownerAddress, bridgeAmount, this.ethAccount, messageKey, secret)
-      .send();
+    const tx = this.l2Bridge.methods.claim_public(this.ownerAddress, bridgeAmount, this.ethAccount, secret).send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
   }
@@ -440,7 +437,7 @@ export class CrossChainTestHarness {
   }
 
   async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {
-    this.logger('Spending commitment in private call');
+    this.logger('Spending note in private call');
     const privateTx = this.l2Token.methods.redeem_shield(this.ownerAddress, shieldAmount, secret).send();
     const privateReceipt = await privateTx.wait();
     expect(privateReceipt.status).toBe(TxStatus.MINED);

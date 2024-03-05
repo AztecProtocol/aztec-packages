@@ -1,27 +1,18 @@
-use dep::std::option::Option;
 use dep::protocol_types::{
     constants::{
-        MAX_READ_REQUESTS_PER_CALL,
-        GET_NOTE_ORACLE_RETURN_LENGTH,
-        GET_NOTES_ORACLE_RETURN_LENGTH,
-        MAX_NOTES_PER_PAGE,
-        VIEW_NOTE_ORACLE_RETURN_LENGTH,
-    },
+    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, GET_NOTE_ORACLE_RETURN_LENGTH, GET_NOTES_ORACLE_RETURN_LENGTH,
+    MAX_NOTES_PER_PAGE, VIEW_NOTE_ORACLE_RETURN_LENGTH
+}
 };
 use crate::context::PrivateContext;
 use crate::note::{
     note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, Comparator, NoteStatus},
-    note_interface::NoteInterface,
-    note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_consumption,
+    note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
+    utils::compute_note_hash_for_consumption
 };
 use crate::oracle;
 
-fn check_note_header<Note, N>(
-    context: PrivateContext,
-    storage_slot: Field,
-    note: Note
-) where Note: NoteInterface<N> {
+fn check_note_header<Note, N>(context: PrivateContext, storage_slot: Field, note: Note) where Note: NoteInterface<N> {
     let header = note.get_header();
     let contract_address = context.this_address();
     assert(header.contract_address.eq(contract_address));
@@ -60,7 +51,7 @@ fn check_notes_order<N>(
     for i in 0..sorts.len {
         let sort = sorts.get_unchecked(i).unwrap_unchecked();
         let eq = fields_0[sort.field_index] == fields_1[sort.field_index];
-        let lt = fields_0[sort.field_index] as u120 < fields_1[sort.field_index] as u120;
+        let lt = fields_0[sort.field_index].lt(fields_1[sort.field_index]);
         if sort.order == SortOrder.ASC {
             assert(eq | lt, "Return notes not sorted in ascending order.");
         } else if !eq {
@@ -79,7 +70,7 @@ pub fn get_note<Note, N>(
 
     let note_hash_for_read_request = compute_note_hash_for_consumption(note);
 
-    context.push_read_request(note_hash_for_read_request);
+    context.push_note_hash_read_request(note_hash_for_read_request);
     note
 }
 
@@ -87,7 +78,7 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, FILTER_ARGS>
-) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
+) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
     let opt_notes = get_notes_internal(storage_slot, options);
     let mut num_notes = 0;
     let mut prev_fields = [0; N];
@@ -106,7 +97,7 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
             let note_hash_for_read_request = compute_note_hash_for_consumption(note);
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1410): test to ensure
             // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
-            context.push_read_request(note_hash_for_read_request);
+            context.push_note_hash_read_request(note_hash_for_read_request);
 
             num_notes += 1;
         };
@@ -141,9 +132,9 @@ unconstrained fn get_note_internal<Note, N>(storage_slot: Field) -> Note where N
 unconstrained fn get_notes_internal<Note, N, FILTER_ARGS>(
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, FILTER_ARGS>
-) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
+) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
     let (num_selects, select_by, select_values, select_comparators, sort_by, sort_order) = flatten_options(options.selects, options.sorts);
-    let placeholder_opt_notes = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
+    let placeholder_opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let placeholder_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
     let placeholder_note_length = [0; N];
     let opt_notes = oracle::notes::get_notes(
@@ -195,7 +186,7 @@ unconstrained pub fn view_notes<Note, N>(
 unconstrained fn flatten_options<Note, N>(
     selects: BoundedVec<Option<Select>, N>,
     sorts: BoundedVec<Option<Sort>, N>
-) -> (u8, [u8; N], [Field; N], [u3; N], [u8; N], [u2; N]) {
+) -> (u8, [u8; N], [Field; N], [u8; N], [u8; N], [u8; N]) {
     let mut num_selects = 0;
     let mut select_by = [0; N];
     let mut select_values = [0; N];

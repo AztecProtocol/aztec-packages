@@ -1,4 +1,3 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { ContractData } from '../contract_data.js';
@@ -42,10 +41,6 @@ export class TxReceipt {
      */
     public blockNumber?: number,
     /**
-     * The deployed contract's address.
-     */
-    public contractAddress?: AztecAddress,
-    /**
      * Information useful for testing/debugging, set when test flag is set to true in `waitOpts`.
      */
     public debugInfo?: DebugInfo,
@@ -62,7 +57,6 @@ export class TxReceipt {
       error: this.error,
       blockHash: this.blockHash?.toString('hex'),
       blockNumber: this.blockNumber,
-      contractAddress: this.contractAddress?.toString(),
     };
   }
 
@@ -77,8 +71,7 @@ export class TxReceipt {
     const error = obj.error;
     const blockHash = obj.blockHash ? Buffer.from(obj.blockHash, 'hex') : undefined;
     const blockNumber = obj.blockNumber ? Number(obj.blockNumber) : undefined;
-    const contractAddress = obj.contractAddress ? AztecAddress.fromString(obj.contractAddress) : undefined;
-    return new TxReceipt(txHash, status, error, blockHash, blockNumber, contractAddress);
+    return new TxReceipt(txHash, status, error, blockHash, blockNumber);
   }
 }
 
@@ -88,29 +81,29 @@ export class TxReceipt {
  */
 interface DebugInfo {
   /**
-   * New commitments created by the transaction.
+   * New note hashes created by the transaction.
    */
-  newCommitments: Fr[];
+  noteHashes: Fr[];
   /**
    * New nullifiers created by the transaction.
    */
-  newNullifiers: Fr[];
+  nullifiers: Fr[];
   /**
    * New public data writes created by the transaction.
    */
-  newPublicDataWrites: PublicDataWrite[];
+  publicDataWrites: PublicDataWrite[];
   /**
    * New L2 to L1 messages created by the transaction.
    */
-  newL2ToL1Msgs: Fr[];
+  l2ToL1Msgs: Fr[];
   /**
-   * New contracts leafs created by the transaction to be inserted into the contract tree.
+   * New contracts leaves created by the transaction to be inserted into the contract tree.
    */
-  newContracts: Fr[];
+  contractsLeaves: Fr[];
   /**
    * New contract data created by the transaction.
    */
-  newContractData: ContractData[];
+  contractData: ContractData[];
   /**
    * Notes created in this tx which belong to accounts which are registered in the PXE which was used to submit the
    * tx. You will not receive notes of accounts which are not registered in the PXE here even though they were

@@ -5,18 +5,17 @@
 // arise from code changes.
 
 contract Benchmarking {
+    use dep::aztec::prelude::{
+        AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, emit_unencrypted_log, Map,
+        PublicMutable, PrivateSet
+    };
     use dep::value_note::{utils::{increment, decrement}, value_note::ValueNote};
 
-    use dep::aztec::{
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        context::{Context},
-        note::{utils as note_utils, note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        log::emit_unencrypted_log, state_vars::{map::Map, public_state::PublicState, set::Set}
-    };
+    use dep::aztec::{context::{Context}};
 
     struct Storage {
-        notes: Map<AztecAddress, Set<ValueNote>>,
-        balances: Map<AztecAddress, PublicState<Field>>,
+        notes: Map<AztecAddress, PrivateSet<ValueNote>>,
+        balances: Map<AztecAddress, PublicMutable<Field>>,
     }
 
     #[aztec(private)]

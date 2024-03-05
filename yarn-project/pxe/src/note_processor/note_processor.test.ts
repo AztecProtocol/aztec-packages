@@ -1,7 +1,6 @@
 import {
   AztecNode,
   FunctionL2Logs,
-  INITIAL_L2_BLOCK_NUM,
   KeyPair,
   KeyStore,
   L1NotePayload,
@@ -9,12 +8,14 @@ import {
   L2BlockContext,
   L2BlockL2Logs,
   Note,
+  TaggedNote,
   TxL2Logs,
 } from '@aztec/circuit-types';
-import { Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
+import { Fr, INITIAL_L2_BLOCK_NUM, MAX_NEW_NOTE_HASHES_PER_TX } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Point } from '@aztec/foundation/fields';
+import { Tuple } from '@aztec/foundation/serialize';
 import { ConstantKeyPair } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AcirSimulator } from '@aztec/simulator';
@@ -39,34 +40,35 @@ describe('Note Processor', () => {
   let keyStore: MockProxy<KeyStore>;
   let simulator: MockProxy<AcirSimulator>;
   const firstBlockNum = 123;
-  const numCommitmentsPerBlock = TXS_PER_BLOCK * MAX_NEW_COMMITMENTS_PER_TX;
+  const numCommitmentsPerBlock = TXS_PER_BLOCK * MAX_NEW_NOTE_HASHES_PER_TX;
   const firstBlockDataStartIndex = (firstBlockNum - 1) * numCommitmentsPerBlock;
   const firstBlockDataEndIndex = firstBlockNum * numCommitmentsPerBlock;
 
   const computeMockNoteHash = (note: Note) => pedersenHash(note.items.map(i => i.toBuffer()));
 
   // ownedData: [tx1, tx2, ...], the numbers in each tx represents the indices of the note hashes the account owns.
-  const createEncryptedLogsAndOwnedL1NotePayloads = (ownedData: number[][], ownedNotes: L1NotePayload[]) => {
-    const newNotes: L1NotePayload[] = [];
+  const createEncryptedLogsAndOwnedL1NotePayloads = (ownedData: number[][], ownedNotes: TaggedNote[]) => {
+    const newNotes: TaggedNote[] = [];
     const ownedL1NotePayloads: L1NotePayload[] = [];
     const txLogs: TxL2Logs[] = [];
     let usedOwnedNote = 0;
     for (let i = 0; i < TXS_PER_BLOCK; ++i) {
       const ownedDataIndices = ownedData[i] || [];
-      if (ownedDataIndices.some(index => index >= MAX_NEW_COMMITMENTS_PER_TX)) {
-        throw new Error(`Data index should be less than ${MAX_NEW_COMMITMENTS_PER_TX}.`);
+      if (ownedDataIndices.some(index => index >= MAX_NEW_NOTE_HASHES_PER_TX)) {
+        throw new Error(`Data index should be less than ${MAX_NEW_NOTE_HASHES_PER_TX}.`);
       }
 
       const logs: FunctionL2Logs[] = [];
-      for (let noteIndex = 0; noteIndex < MAX_NEW_COMMITMENTS_PER_TX; ++noteIndex) {
+      for (let noteIndex = 0; noteIndex < MAX_NEW_NOTE_HASHES_PER_TX; ++noteIndex) {
         const isOwner = ownedDataIndices.includes(noteIndex);
         const publicKey = isOwner ? owner.getPublicKey() : Point.random();
-        const note = (isOwner && ownedNotes[usedOwnedNote]) || L1NotePayload.random();
+        const note = (isOwner && ownedNotes[usedOwnedNote]) || TaggedNote.random();
         usedOwnedNote += note === ownedNotes[usedOwnedNote] ? 1 : 0;
         newNotes.push(note);
         if (isOwner) {
-          ownedL1NotePayloads.push(note);
+          ownedL1NotePayloads.push(note.notePayload);
         }
+        // const encryptedNote =
         const log = note.toEncryptedBuffer(publicKey, grumpkin);
         // 1 tx containing 1 function invocation containing 1 log
         logs.push(new FunctionL2Logs([log]));
@@ -79,10 +81,10 @@ describe('Note Processor', () => {
   };
 
   const mockData = (
-    ownedData: number[][],
+    ownedData: number[][], // = [[2]]
     prependedBlocks = 0,
     appendedBlocks = 0,
-    ownedNotes: L1NotePayload[] = [],
+    ownedNotes: TaggedNote[] = [], // L1NotePayload[] = [],
   ) => {
     if (ownedData.length > TXS_PER_BLOCK) {
       throw new Error(`Tx size should be less than ${TXS_PER_BLOCK}.`);
@@ -106,9 +108,12 @@ describe('Note Processor', () => {
       encryptedLogsArr.push(encryptedLogs);
       ownedL1NotePayloads.push(...payloads);
       for (let i = 0; i < TXS_PER_BLOCK; i++) {
-        block.body.txEffects[i].newNoteHashes = newNotes
-          .map(n => computeMockNoteHash(n.note))
-          .slice(i * MAX_NEW_COMMITMENTS_PER_TX, (i + 1) * MAX_NEW_COMMITMENTS_PER_TX);
+        block.body.txEffects[i].noteHashes = newNotes
+          .map(n => computeMockNoteHash(n.notePayload.note))
+          .slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX) as Tuple<
+          Fr,
+          typeof MAX_NEW_NOTE_HASHES_PER_TX
+        >;
       }
 
       const randomBlockContext = new L2BlockContext(block);
@@ -183,17 +188,17 @@ describe('Note Processor', () => {
       expect.objectContaining({
         ...ownedL1NotePayloads[0],
         // Index 1 log in the 2nd tx.
-        index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (2 - 1) + 1),
+        index: BigInt(thisBlockDataStartIndex + MAX_NEW_NOTE_HASHES_PER_TX * (2 - 1) + 1),
       }),
       expect.objectContaining({
         ...ownedL1NotePayloads[1],
         // Index 0 log in the 4th tx.
-        index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 0),
+        index: BigInt(thisBlockDataStartIndex + MAX_NEW_NOTE_HASHES_PER_TX * (4 - 1) + 0),
       }),
       expect.objectContaining({
         ...ownedL1NotePayloads[2],
         // Index 2 log in the 4th tx.
-        index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 2),
+        index: BigInt(thisBlockDataStartIndex + MAX_NEW_NOTE_HASHES_PER_TX * (4 - 1) + 2),
       }),
     ]);
   }, 30_000);
@@ -204,8 +209,8 @@ describe('Note Processor', () => {
   });
 
   it('should be able to recover two note payloads with containing the same note', async () => {
-    const note = L1NotePayload.random();
-    const note2 = L1NotePayload.random();
+    const note = TaggedNote.random(); // L1NotePayload.random();
+    const note2 = TaggedNote.random(); // L1NotePayload.random();
     // All note payloads except one have the same contract address, storage slot, and the actual note.
     const notes = [note, note, note, note2, note];
     const { blockContexts, encryptedLogsArr, ownedL1NotePayloads } = mockData([[0, 2], [], [0, 1, 3]], 0, 0, notes);

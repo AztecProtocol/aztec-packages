@@ -310,10 +310,10 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve
      * inherit from ProvingKey.
      */
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>> {
+    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey> {
       public:
         // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>>;
+        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
         using Base::Base;
 
         auto get_to_be_shifted() { return ECCVMBase::get_to_be_shifted<Polynomial>(*this); }
@@ -329,7 +329,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
+    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
 
     /**
      * @brief A container for polynomials produced after the first round of sumcheck.

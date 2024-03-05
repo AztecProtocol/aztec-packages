@@ -2,6 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { Buffer } from 'buffer';
@@ -115,18 +116,18 @@ export function hashConstructor(functionData: FunctionData, argsHash: Fr, constr
  * @returns A commitment nonce.
  */
 export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: number): Fr {
-  return pedersenHash([nullifierZero.toBuffer(), numToUInt32BE(commitmentIndex, 32)], GeneratorIndex.COMMITMENT_NONCE);
+  return pedersenHash([nullifierZero.toBuffer(), numToUInt32BE(commitmentIndex, 32)], GeneratorIndex.NOTE_HASH_NONCE);
 }
 
 /**
  * Computes a siloed commitment, given the contract address and the commitment itself.
  * A siloed commitment effectively namespaces a commitment to a specific contract.
  * @param contract - The contract address
- * @param innerCommitment - The commitment to silo.
+ * @param innerNoteHash - The commitment to silo.
  * @returns A siloed commitment.
  */
-export function siloCommitment(contract: AztecAddress, innerCommitment: Fr): Fr {
-  return pedersenHash([contract.toBuffer(), innerCommitment.toBuffer()], GeneratorIndex.SILOED_COMMITMENT);
+export function siloNoteHash(contract: AztecAddress, innerNoteHash: Fr): Fr {
+  return pedersenHash([contract.toBuffer(), innerNoteHash.toBuffer()], GeneratorIndex.SILOED_NOTE_HASH);
 }
 
 /**
@@ -136,7 +137,7 @@ export function siloCommitment(contract: AztecAddress, innerCommitment: Fr): Fr 
  * @returns A unique commitment.
  */
 export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
-  return pedersenHash([nonce.toBuffer(), siloedCommitment.toBuffer()], GeneratorIndex.UNIQUE_COMMITMENT);
+  return pedersenHash([nonce.toBuffer(), siloedCommitment.toBuffer()], GeneratorIndex.UNIQUE_NOTE_HASH);
 }
 
 /**
@@ -180,8 +181,12 @@ export function computeVarArgsHash(args: Fr[]) {
   if (args.length === 0) {
     return Fr.ZERO;
   }
-  if (args.length > ARGS_HASH_CHUNK_LENGTH * ARGS_HASH_CHUNK_COUNT) {
-    throw new Error(`Cannot hash more than ${ARGS_HASH_CHUNK_LENGTH * ARGS_HASH_CHUNK_COUNT} arguments`);
+  const maxLen = ARGS_HASH_CHUNK_LENGTH * ARGS_HASH_CHUNK_COUNT;
+  if (args.length > maxLen) {
+    // TODO(@spalladino): This should throw instead of warning. And we should implement
+    // the same check on the Noir side, which is currently missing.
+    args = args.slice(0, maxLen);
+    createDebugLogger('aztec:circuits:abis').warn(`Hashing ${args.length} args exceeds max of ${maxLen}`);
   }
 
   let chunksHashes = chunk(args, ARGS_HASH_CHUNK_LENGTH).map(c => {

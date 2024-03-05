@@ -16,3 +16,5 @@ cmake-build-debug
 
 .graphite*
 .DS_Store
+
+**/*.dockerignore

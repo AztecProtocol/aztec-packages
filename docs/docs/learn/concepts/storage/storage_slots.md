@@ -39,13 +39,12 @@ If we include the storage slot, as part of the note whose commitment is stored i
 Similarly to how we siloed the public storage slots, we can silo our private storage by hashing the logical storage slot together with the note content.
 
 ```rust
-note_hash  = H(...note_content);
-commitment = H(logical_storage_slot, note_hash);
+note_hash = H(logical_storage_slot, note_content_hash);
 ```
 
 This siloing (there will be more) is done in the application circuit, since it is not necessary for security of the network (but only the application). 
 :::info
-The private variable wrappers `Set` and `Singleton` in Aztec.nr include the `logical_storage_slot` in the commitments they compute, to make it easier for developers to write contracts without having to think about how to correctly handle storage slots.
+The private variable wrappers `PrivateSet` and `PrivateMutable` in Aztec.nr include the `logical_storage_slot` in the commitments they compute, to make it easier for developers to write contracts without having to think about how to correctly handle storage slots.
 ::: 
 
 When reading the values for these notes, the application circuit can then constrain the values to only read notes with a specific logical storage slot.
@@ -53,7 +52,7 @@ When reading the values for these notes, the application circuit can then constr
 To ensure that one contract cannot insert storage that other contracts would believe is theirs, we do a second siloing by hashing the `commitment` with the contract address. 
 
 ```rust
-siloed_commitment = H(contract_address, commitment);
+siloed_note_hash = H(contract_address, note_hash);
 ```
 
 By doing this address-siloing at the kernel circuit we *force* the inserted commitments to include and not lie about the `contract_address`.

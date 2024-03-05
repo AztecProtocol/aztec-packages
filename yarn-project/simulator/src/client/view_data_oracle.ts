@@ -12,6 +12,7 @@ import { siloNullifier } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { ContractInstance } from '@aztec/types/contracts';
 
 import { NoteData, TypedOracle } from '../acvm/index.js';
 import { DBOracle } from './db_oracle.js';
@@ -130,6 +131,15 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
+   * Returns a contract instance associated with an address or throws if not found.
+   * @param address - Address.
+   * @returns A contract instance.
+   */
+  public getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+    return this.db.getContractInstance(address);
+  }
+
+  /**
    * Returns an auth witness for the given message hash. Checks on the list of transient witnesses
    * for this transaction first, and falls back to the local database if not found.
    * @param messageHash - Hash of the message to authenticate.
@@ -207,11 +217,11 @@ export class ViewDataOracle extends TypedOracle {
 
   /**
    * Fetches the a message from the db, given its key.
-   * @param msgKey - A buffer representing the message key.
+   * @param entryKey - A buffer representing the entry key.
    * @returns The l1 to l2 message data
    */
-  public async getL1ToL2Message(msgKey: Fr) {
-    return await this.db.getL1ToL2Message(msgKey);
+  public async getL1ToL2MembershipWitness(entryKey: Fr) {
+    return await this.db.getL1ToL2MembershipWitness(entryKey);
   }
 
   /**

@@ -39,18 +39,10 @@ This is an abstraction library for using private variables like [`EasyPrivateUin
 ## Protocol Types
 
 ```toml
-protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-protocol-circuits/src/crates/types"}
+protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-protocol-circuits/crates/types"}
 ```
 
-This library contains types that are used in the Aztec protocol. Find it on [GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-protocol-circuits/src/crates/types/src).
-
-## Safe math
-
-```toml
-safe_math = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/safe-math" }
-```
-
-This is a library for safe arithmetic, similar to OpenZeppelin's safe math library. Find it on [GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr/safe-math).
+This library contains types that are used in the Aztec protocol. Find it on [GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-protocol-circuits/crates/types/src).
 
 ## Value note
 

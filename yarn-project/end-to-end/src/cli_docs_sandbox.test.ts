@@ -96,6 +96,7 @@ Rollup Address: 0x0dcd1bf9a1b36ce34237eeafef220932846bcd82
     const docs = `
 // docs:start:example-contracts
 % aztec-cli example-contracts
+AppSubscriptionContractArtifact
 BenchmarkingContractArtifact
 CardGameContractArtifact
 ChildContractArtifact
@@ -109,12 +110,13 @@ EasyPrivateTokenContractArtifact
 EasyPrivateVotingContractArtifact
 EcdsaAccountContractArtifact
 EscrowContractArtifact
+FPCContractArtifact
 GasTokenContractArtifact
 ImportTestContractArtifact
 InclusionProofsContractArtifact
 LendingContractArtifact
 ParentContractArtifact
-PendingCommitmentsContractArtifact
+PendingNoteHashesContractArtifact
 PriceFeedContractArtifact
 ReaderContractArtifact
 SchnorrAccountContractArtifact
@@ -260,13 +262,17 @@ Accounts found:
     // Test deploy
     docs = `
 // docs:start:deploy
-% aztec-cli deploy TokenContractArtifact --args $ADDRESS TokenName TKN 18
+% aztec-cli deploy TokenContractArtifact --private-key $PRIVATE_KEY --args $ADDRESS TokenName TKN 18
 
 Contract deployed at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
 // docs:end:deploy
     `;
 
-    command = docs.split('\n')[2].split('aztec-cli ')[1].replace('$ADDRESS', newAddress.toString());
+    command = docs
+      .split('\n')[2]
+      .split('aztec-cli ')[1]
+      .replace('$ADDRESS', newAddress.toString())
+      .replace('$PRIVATE_KEY', foundPrivateKey!);
     await run(command);
 
     let foundContractAddress = findInLogs(/Contract\sdeployed\sat\s(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;

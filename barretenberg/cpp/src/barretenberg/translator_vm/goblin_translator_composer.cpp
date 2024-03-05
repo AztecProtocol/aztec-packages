@@ -190,6 +190,7 @@ void GoblinTranslatorComposer::compute_witness(CircuitBuilder& circuit_builder)
 GoblinTranslatorProver GoblinTranslatorComposer::create_prover(CircuitBuilder& circuit_builder,
                                                                const std::shared_ptr<Transcript>& transcript)
 {
+    BB_OP_COUNT_TIME_NAME("GoblinTranslatorComposer::create_prover");
 
     // Compute total number of gates, dyadic circuit size, etc.
     compute_circuit_size_parameters(circuit_builder);
@@ -222,7 +223,7 @@ GoblinTranslatorVerifier GoblinTranslatorComposer::create_verifier(const Circuit
 
     GoblinTranslatorVerifier output_state(verification_key);
 
-    auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
+    auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>();
     output_state.pcs_verification_key = std::move(pcs_verification_key);
     output_state.transcript = transcript;
 

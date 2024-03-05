@@ -1,16 +1,9 @@
 contract AvmTest {
     // Libs
-    use dep::aztec::protocol_types::address::{AztecAddress, EthAddress};
+    use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH};
 
     // avm lib
-    use dep::aztec::avm::{
-        context::AvmContext,
-        hash::{
-            keccak256,
-            poseidon,
-            sha256
-        }
-    };
+    use dep::aztec::avm::hash::{keccak256, poseidon, sha256};
 
     #[aztec(private)]
     fn constructor() {}
@@ -141,8 +134,58 @@ contract AvmTest {
     fn getTimestamp() -> pub Field {
         context.timestamp()
     }
+
     // #[aztec(public-vm)]
     // fn getContractCallDepth() -> pub Field {
     //     context.contract_call_depth()
     // }
+
+    #[aztec(public-vm)]
+    fn note_hash_exists(note_hash: Field, leaf_index: Field) -> pub u8 {
+        context.note_hash_exists(note_hash, leaf_index)
+    }
+
+    // Use the standard context interface to emit a new note hash
+    #[aztec(public-vm)]
+    fn new_note_hash(note_hash: Field) {
+        context.push_new_note_hash(note_hash);
+    }
+
+    // Use the standard context interface to emit a new nullifier
+    #[aztec(public-vm)]
+    fn new_nullifier(nullifier: Field) {
+        context.push_new_nullifier(nullifier, 0);
+    }
+
+    // Use the standard context interface to emit a new nullifier
+    #[aztec(public-vm)]
+    fn nullifier_exists(nullifier: Field) -> pub u8 {
+        context.nullifier_exists(nullifier)
+    }
+
+    // Use the standard context interface to emit a new nullifier
+    #[aztec(public-vm)]
+    fn emit_nullifier_and_check(nullifier: Field) {
+        context.emit_nullifier(nullifier);
+        let exists = context.nullifier_exists(nullifier);
+        assert(exists == 1, "Nullifier was just created, but its existence wasn't detected!");
+    }
+
+    // Create the same nullifier twice (shouldn't work!)
+    #[aztec(public-vm)]
+    fn nullifier_collision(nullifier: Field) {
+        context.push_new_nullifier(nullifier, 0);
+        // Can't do this twice!
+        context.push_new_nullifier(nullifier, 0);
+    }
+
+    #[aztec(public-vm)]
+    fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> pub u8 {
+        context.l1_to_l2_msg_exists(msg_hash, msg_leaf_index)
+    }
+
+    #[aztec(public-vm)]
+    fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
+        context.message_portal(recipient, content)
+    }
 }
