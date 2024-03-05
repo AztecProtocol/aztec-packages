@@ -54,14 +54,12 @@ contract NewInboxTest is Test {
     return (a + b - 1) / b;
   }
 
-  function testRevertIfNotConsumingFromRollup() public {
-    vm.prank(address(0x1));
-    vm.expectRevert(Errors.Inbox__Unauthorized.selector);
-    inbox.consume();
-  }
-
-  function testFuzzInsert(DataStructures.L1ToL2Msg memory _message) public {
-    // fix message.sender and deadline:
+  function _boundMessage(DataStructures.L1ToL2Msg memory _message)
+    internal
+    view
+    returns (DataStructures.L1ToL2Msg memory)
+  {
+    // fix message.sender and deadline to be more than current time:
     _message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
     // ensure actor fits in a field
     _message.recipient.actor = bytes32(uint256(_message.recipient.actor) % Constants.P);
@@ -69,18 +67,32 @@ contract NewInboxTest is Test {
     _message.content = bytes32(uint256(_message.content) % Constants.P);
     // ensure secret hash fits in a field
     _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
+    // update version
+    _message.recipient.version = version;
 
     // TODO: nuke the following 2 values from the struct once the new message model is in place
     _message.deadline = type(uint32).max;
     _message.fee = 0;
 
-    bytes32 leaf = _message.sha256ToField();
+    return _message;
+  }
+
+  function testRevertIfNotConsumingFromRollup() public {
+    vm.prank(address(0x1));
+    vm.expectRevert(Errors.Inbox__Unauthorized.selector);
+    inbox.consume();
+  }
+
+  function testFuzzInsert(DataStructures.L1ToL2Msg memory _message) public {
+    DataStructures.L1ToL2Msg memory message = _boundMessage(_message);
+
+    bytes32 leaf = message.sha256ToField();
     vm.expectEmit(true, true, true, true);
     // event we expect
     emit LeafInserted(FIRST_REAL_TREE_NUM, 0, leaf);
     // event we will get
     bytes32 insertedLeaf =
-      inbox.sendL2Message(_message.recipient, _message.content, _message.secretHash);
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
 
     assertEq(insertedLeaf, leaf);
   }
@@ -132,24 +144,7 @@ contract NewInboxTest is Test {
     // Send the messages
     {
       for (uint256 i = 0; i < _messages.length; i++) {
-        DataStructures.L1ToL2Msg memory message = _messages[i];
-        // fix message.sender and deadline to be more than current time:
-        message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
-        // ensure actor fits in a field
-        message.recipient.actor = bytes32(uint256(message.recipient.actor) % Constants.P);
-        if (message.deadline <= block.timestamp) {
-          message.deadline = uint32(block.timestamp + 100);
-        }
-        // ensure content fits in a field
-        message.content = bytes32(uint256(message.content) % Constants.P);
-        // ensure secret hash fits in a field
-        message.secretHash = bytes32(uint256(message.secretHash) % Constants.P);
-        // update version
-        message.recipient.version = version;
-
-        // TODO: nuke the following 2 values from the struct once the new message model is in place
-        message.deadline = type(uint32).max;
-        message.fee = 0;
+        DataStructures.L1ToL2Msg memory message = _boundMessage(_messages[i]);
 
         inbox.sendL2Message(message.recipient, message.content, message.secretHash);
       }
