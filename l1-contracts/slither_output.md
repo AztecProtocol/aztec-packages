@@ -132,23 +132,23 @@ src/core/messagebridge/Inbox.sol#L122-L143
 Impact: Low
 Confidence: Medium
  - [ ] ID-12
-[NewInbox.constructor(address,uint256)._rollup](src/core/messagebridge/NewInbox.sol#L40) lacks a zero-check on :
-		- [ROLLUP = _rollup](src/core/messagebridge/NewInbox.sol#L41)
+[NewInbox.constructor(address,uint256)._rollup](src/core/messagebridge/NewInbox.sol#L39) lacks a zero-check on :
+		- [ROLLUP = _rollup](src/core/messagebridge/NewInbox.sol#L40)
 
-src/core/messagebridge/NewInbox.sol#L40
+src/core/messagebridge/NewInbox.sol#L39
 
 
 ## reentrancy-events
 Impact: Low
 Confidence: Medium
  - [ ] ID-13
-Reentrancy in [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L61-L98):
+Reentrancy in [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L60-L97):
 	External calls:
-	- [nextIndex = currentTree.insertLeaf(leaf)](src/core/messagebridge/NewInbox.sol#L94)
+	- [nextIndex = currentTree.insertLeaf(leaf)](src/core/messagebridge/NewInbox.sol#L93)
 	Event emitted after the call(s):
-	- [LeafInserted(inProgress,nextIndex - 1,leaf)](src/core/messagebridge/NewInbox.sol#L95)
+	- [LeafInserted(inProgress,nextIndex - 1,leaf)](src/core/messagebridge/NewInbox.sol#L94)
 
-src/core/messagebridge/NewInbox.sol#L61-L98
+src/core/messagebridge/NewInbox.sol#L60-L97
 
 
  - [ ] ID-14
@@ -239,10 +239,10 @@ src/core/messagebridge/Inbox.sol#L21-L231
 
 
  - [ ] ID-24
-The following public functions could be turned into external in [NewInbox](src/core/messagebridge/NewInbox.sol#L24-L127) contract:
-	[NewInbox.constructor(address,uint256)](src/core/messagebridge/NewInbox.sol#L40-L51)
+The following public functions could be turned into external in [NewInbox](src/core/messagebridge/NewInbox.sol#L25-L126) contract:
+	[NewInbox.constructor(address,uint256)](src/core/messagebridge/NewInbox.sol#L39-L50)
 
-src/core/messagebridge/NewInbox.sol#L24-L127
+src/core/messagebridge/NewInbox.sol#L25-L126
 
 
 ## assembly
@@ -346,9 +346,9 @@ src/core/Rollup.sol#L37
 Impact: Optimization
 Confidence: High
  - [ ] ID-38
-In a function [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L61-L98) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L34) is read multiple times
+In a function [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L60-L97) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L35) is read multiple times
 
-src/core/messagebridge/NewInbox.sol#L61-L98
+src/core/messagebridge/NewInbox.sol#L60-L97
 
 
  - [ ] ID-39
@@ -358,15 +358,15 @@ src/core/messagebridge/frontier_tree/Frontier.sol#L41-L74
 
 
  - [ ] ID-40
-In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L107-L126) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L34) is read multiple times
+In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L106-L125) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L35) is read multiple times
 
-src/core/messagebridge/NewInbox.sol#L107-L126
+src/core/messagebridge/NewInbox.sol#L106-L125
 
 
  - [ ] ID-41
-In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L107-L126) variable [NewInbox.toConsume](src/core/messagebridge/NewInbox.sol#L33) is read multiple times
+In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L106-L125) variable [NewInbox.toConsume](src/core/messagebridge/NewInbox.sol#L34) is read multiple times
 
-src/core/messagebridge/NewInbox.sol#L107-L126
+src/core/messagebridge/NewInbox.sol#L106-L125
 
 
  - [ ] ID-42
