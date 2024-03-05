@@ -171,7 +171,7 @@ export interface PXE {
    */
   getNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
 
-    /**
+  /**
    * Finds the nonce(s) for a given note.
    * @param note - The note to find the nonces for.
    * @returns The nonces of the note.
