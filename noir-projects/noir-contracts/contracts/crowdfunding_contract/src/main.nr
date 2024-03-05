@@ -71,7 +71,7 @@ contract CrowdFunding {
 
         donation_token.transfer(&mut context, this, sender, amount as Field, 0);
 
-        let event = WithdrawalProcessed { amount: amount as u64, who: this };
+        let event = WithdrawalProcessed { amount: amount as u64, who: sender };
         emit_unencrypted_log_from_private(&mut context, event.serialize());
     }
 }
