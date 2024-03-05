@@ -149,7 +149,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
 
     auto next_accumulator = std::make_shared<Instance>(builder);
-    next_accumulator->verification_key->circuit_size = accumulator->verification_key->circuit_size;
+    next_accumulator->verification_key = accumulator->verification_key;
     next_accumulator->verification_key->log_circuit_size = accumulator->verification_key->log_circuit_size;
     next_accumulator->is_accumulator = true;
 

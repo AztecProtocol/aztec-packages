@@ -45,6 +45,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 instance->prover_polynomials = std::move(prover_polynomials);
+                instance->proving_key = std::make_shared<Flavor::ProvingKey>();
                 instance->proving_key->circuit_size = 2;
                 instance_data[idx] = instance;
             }
@@ -77,6 +78,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 instance->prover_polynomials = std::move(prover_polynomials);
+                instance->proving_key = std::make_shared<Flavor::ProvingKey>();
                 instance->proving_key->circuit_size = 2;
                 instance_data[idx] = instance;
             }
@@ -167,6 +169,7 @@ TEST(Protogalaxy, CombinerOn4Instances)
             auto prover_polynomials = get_zero_prover_polynomials<Flavor>(
                 /*log_circuit_size=*/1);
             instance->prover_polynomials = std::move(prover_polynomials);
+            instance->proving_key = std::make_shared<Flavor::ProvingKey>();
             instance->proving_key->circuit_size = 2;
             instance_data[idx] = instance;
         }

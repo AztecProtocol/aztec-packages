@@ -98,9 +98,6 @@ template <class Flavor> void ProverInstance_<Flavor>::initialize_prover_polynomi
         size_t idx = i + pub_inputs_offset;
         public_inputs.emplace_back(public_wires_source[idx]);
     }
-
-    proving_key->circuit_size = proving_key->circuit_size;
-    proving_key->log_circuit_size = static_cast<size_t>(numeric::get_msb(proving_key->circuit_size));
 }
 
 template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
