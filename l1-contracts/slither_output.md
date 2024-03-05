@@ -358,13 +358,13 @@ src/core/messagebridge/frontier_tree/Frontier.sol#L41-L74
 
 
  - [ ] ID-40
-In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L107-L126) variable [NewInbox.toInclude](src/core/messagebridge/NewInbox.sol#L33) is read multiple times
+In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L107-L126) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L34) is read multiple times
 
 src/core/messagebridge/NewInbox.sol#L107-L126
 
 
  - [ ] ID-41
-In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L107-L126) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L34) is read multiple times
+In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L107-L126) variable [NewInbox.toConsume](src/core/messagebridge/NewInbox.sol#L33) is read multiple times
 
 src/core/messagebridge/NewInbox.sol#L107-L126
 
