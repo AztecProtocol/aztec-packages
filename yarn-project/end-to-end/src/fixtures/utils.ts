@@ -80,7 +80,7 @@ const getACVMConfig = async (logger: DebugLogger) => {
     logger(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
     return { acvmWorkingDirectory, expectedAcvmPath };
   } catch (err) {
-    logger(`Native ACVM not available`);
+    logger(`Native ACVM not available, error: ${err}`);
     return undefined;
   }
 };
