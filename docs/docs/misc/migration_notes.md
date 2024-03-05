@@ -14,16 +14,18 @@ A new `prelude` module to include common Aztec modules and types.
 This simplifies dependency syntax. For example:
 ```rust
 use dep::aztec::protocol_types::address::AztecAddress;
-    use dep::aztec::{
-        context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::Map
-    };
+use dep::aztec::{
+    context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
+    state_vars::Map
+};
 ```
 Becomes:
 ```rust
-    use dep::aztec::prelude::{AztecAddress, Map};
-    use dep::aztec::context::Context;
+use dep::aztec::prelude::{AztecAddress, NoteHeader, PrivateContext, Map};
+use dep::aztec::context::Context;
+use dep::aztec::notes::utils as note_utils;
 ```
+
 This will be further simplified in future versions (See [4496](https://github.com/AztecProtocol/aztec-packages/pull/4496) for further details).
 
 The prelude consists of
