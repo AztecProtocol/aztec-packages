@@ -132,7 +132,7 @@ src/core/messagebridge/Inbox.sol#L122-L143
 Impact: Low
 Confidence: Medium
  - [ ] ID-12
-[NewInbox.constructor(address,uint256,bytes32)._rollup](src/core/messagebridge/NewInbox.sol#L40) lacks a zero-check on :
+[NewInbox.constructor(address,uint256)._rollup](src/core/messagebridge/NewInbox.sol#L40) lacks a zero-check on :
 		- [ROLLUP = _rollup](src/core/messagebridge/NewInbox.sol#L41)
 
 src/core/messagebridge/NewInbox.sol#L40
@@ -142,6 +142,16 @@ src/core/messagebridge/NewInbox.sol#L40
 Impact: Low
 Confidence: Medium
  - [ ] ID-13
+Reentrancy in [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L61-L98):
+	External calls:
+	- [nextIndex = currentTree.insertLeaf(leaf)](src/core/messagebridge/NewInbox.sol#L94)
+	Event emitted after the call(s):
+	- [LeafInserted(inProgress,nextIndex - 1,leaf)](src/core/messagebridge/NewInbox.sol#L95)
+
+src/core/messagebridge/NewInbox.sol#L61-L98
+
+
+ - [ ] ID-14
 Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L53-L91):
 	External calls:
 	- [inbox.batchConsume(l1ToL2Msgs,msg.sender)](src/core/Rollup.sol#L85)
@@ -150,16 +160,6 @@ Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L5
 	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L90)
 
 src/core/Rollup.sol#L53-L91
-
-
- - [ ] ID-14
-Reentrancy in [NewInbox.insert(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L59-L96):
-	External calls:
-	- [nextIndex = currentTree.insertLeaf(leaf)](src/core/messagebridge/NewInbox.sol#L91)
-	Event emitted after the call(s):
-	- [LeafInserted(inProgress,nextIndex,leaf)](src/core/messagebridge/NewInbox.sol#L92)
-
-src/core/messagebridge/NewInbox.sol#L59-L96
 
 
 ## timestamp
@@ -201,34 +201,27 @@ src/core/messagebridge/Inbox.sol#L102-L113
 Impact: Low
 Confidence: Medium
  - [ ] ID-19
-The following public functions could be turned into external in [NewInbox](src/core/messagebridge/NewInbox.sol#L24-L120) contract:
-	[NewInbox.constructor(address,uint256,bytes32)](src/core/messagebridge/NewInbox.sol#L40-L49)
-
-src/core/messagebridge/NewInbox.sol#L24-L120
-
-
- - [ ] ID-20
 The following public functions could be turned into external in [FrontierMerkle](src/core/messagebridge/frontier_tree/Frontier.sol#L7-L91) contract:
 	[FrontierMerkle.constructor(uint256)](src/core/messagebridge/frontier_tree/Frontier.sol#L19-L27)
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L7-L91
 
 
- - [ ] ID-21
+ - [ ] ID-20
 The following public functions could be turned into external in [Registry](src/core/messagebridge/Registry.sol#L22-L129) contract:
 	[Registry.constructor()](src/core/messagebridge/Registry.sol#L29-L33)
 
 src/core/messagebridge/Registry.sol#L22-L129
 
 
- - [ ] ID-22
+ - [ ] ID-21
 The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L27-L100) contract:
 	[Rollup.constructor(IRegistry,IAvailabilityOracle)](src/core/Rollup.sol#L39-L44)
 
 src/core/Rollup.sol#L27-L100
 
 
- - [ ] ID-23
+ - [ ] ID-22
 The following public functions could be turned into external in [Outbox](src/core/messagebridge/Outbox.sol#L21-L148) contract:
 	[Outbox.constructor(address)](src/core/messagebridge/Outbox.sol#L29-L31)
 	[Outbox.get(bytes32)](src/core/messagebridge/Outbox.sol#L77-L84)
@@ -237,12 +230,19 @@ The following public functions could be turned into external in [Outbox](src/cor
 src/core/messagebridge/Outbox.sol#L21-L148
 
 
- - [ ] ID-24
+ - [ ] ID-23
 The following public functions could be turned into external in [Inbox](src/core/messagebridge/Inbox.sol#L21-L231) contract:
 	[Inbox.constructor(address)](src/core/messagebridge/Inbox.sol#L30-L32)
 	[Inbox.contains(bytes32)](src/core/messagebridge/Inbox.sol#L174-L176)
 
 src/core/messagebridge/Inbox.sol#L21-L231
+
+
+ - [ ] ID-24
+The following public functions could be turned into external in [NewInbox](src/core/messagebridge/NewInbox.sol#L24-L127) contract:
+	[NewInbox.constructor(address,uint256)](src/core/messagebridge/NewInbox.sol#L40-L51)
+
+src/core/messagebridge/NewInbox.sol#L24-L127
 
 
 ## assembly
@@ -346,38 +346,38 @@ src/core/Rollup.sol#L37
 Impact: Optimization
 Confidence: High
  - [ ] ID-38
+In a function [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L61-L98) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L34) is read multiple times
+
+src/core/messagebridge/NewInbox.sol#L61-L98
+
+
+ - [ ] ID-39
 In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L41-L74) variable [FrontierMerkle.HEIGHT](src/core/messagebridge/frontier_tree/Frontier.sol#L8) is read multiple times
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L41-L74
 
 
- - [ ] ID-39
-In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L103-L119) variable [NewInbox.toInclude](src/core/messagebridge/NewInbox.sol#L33) is read multiple times
-
-src/core/messagebridge/NewInbox.sol#L103-L119
-
-
  - [ ] ID-40
-In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L103-L119) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L34) is read multiple times
+In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L107-L126) variable [NewInbox.toInclude](src/core/messagebridge/NewInbox.sol#L33) is read multiple times
 
-src/core/messagebridge/NewInbox.sol#L103-L119
+src/core/messagebridge/NewInbox.sol#L107-L126
 
 
  - [ ] ID-41
+In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L107-L126) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L34) is read multiple times
+
+src/core/messagebridge/NewInbox.sol#L107-L126
+
+
+ - [ ] ID-42
 In a function [FrontierMerkle.insertLeaf(bytes32)](src/core/messagebridge/frontier_tree/Frontier.sol#L29-L39) variable [FrontierMerkle.nextIndex](src/core/messagebridge/frontier_tree/Frontier.sol#L11) is read multiple times
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L29-L39
 
 
- - [ ] ID-42
+ - [ ] ID-43
 In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L41-L74) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L41-L74
-
-
- - [ ] ID-43
-In a function [NewInbox.insert(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L59-L96) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L34) is read multiple times
-
-src/core/messagebridge/NewInbox.sol#L59-L96
 
 
