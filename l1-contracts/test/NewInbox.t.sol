@@ -71,7 +71,8 @@ contract NewInboxTest is Test {
 
   // Since there is a 1 block lag between tree to be consumed and tree in progress the following invariant should never
   // be violated
-  function _checkInvariant() internal {
+  modifier checkInvariant() {
+    _;
     assertLt(inbox.getToConsume(), inbox.getInProgress());
   }
 
@@ -81,7 +82,7 @@ contract NewInboxTest is Test {
     inbox.consume();
   }
 
-  function testFuzzInsert(DataStructures.L1ToL2Msg memory _message) public {
+  function testFuzzInsert(DataStructures.L1ToL2Msg memory _message) public checkInvariant {
     DataStructures.L1ToL2Msg memory message = _boundMessage(_message);
 
     bytes32 leaf = message.sha256ToField();
@@ -95,7 +96,7 @@ contract NewInboxTest is Test {
     assertEq(insertedLeaf, leaf);
   }
 
-  function testSendMultipleSameL2Messages() public {
+  function testSendMultipleSameL2Messages() public checkInvariant {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     bytes32 leaf1 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
     bytes32 leaf2 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
@@ -153,7 +154,7 @@ contract NewInboxTest is Test {
     _consume(_numTreesToConsumeSecondBatch, _messagesSecondBatch.length);
   }
 
-  function _send(DataStructures.L1ToL2Msg[] memory _messages) internal {
+  function _send(DataStructures.L1ToL2Msg[] memory _messages) internal checkInvariant {
     bool isFirstRun = inbox.getInProgress() == inbox.FIRST_REAL_TREE_NUM();
     bytes32 toConsumeRoot = inbox.getToConsumeRoot();
 
@@ -162,8 +163,6 @@ contract NewInboxTest is Test {
 
       // We send the message and check that toConsume root did not change.
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-      // We check that the "toConsume < inProgress" invariant is maintained
-      _checkInvariant();
     }
 
     // Root of a tree waiting to be consumed should not change because we introduced a 1 block lag to prevent sequencer
@@ -187,7 +186,7 @@ contract NewInboxTest is Test {
     }
   }
 
-  function _consume(uint256 _numTreesToConsume, uint256 _numMessages) internal {
+  function _consume(uint256 _numTreesToConsume, uint256 _numMessages) internal checkInvariant {
     bool isFirstRun = inbox.getToConsume() == Constants.INITIAL_L2_BLOCK_NUM;
     uint256 numTrees = inbox.getNumTrees();
 
@@ -198,8 +197,6 @@ contract NewInboxTest is Test {
     // Now we consume the trees
     for (uint256 i = 0; i < numTreesToConsume; i++) {
       bytes32 root = inbox.consume();
-      // We check that the "toConsume < inProgress" invariant is maintained
-      _checkInvariant();
 
       // We perform empty roots check only after first batch because after second one the following simple accounting
       // does not work
