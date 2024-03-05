@@ -20,8 +20,8 @@ use noirc_frontend::hir::ParsedFiles;
 use crate::backends::Backend;
 use crate::errors::CliError;
 
-use super::fs::program::only_acir;
-use super::fs::program::{read_program_from_file, save_contract_to_file, save_program_to_file};
+use fs::only_acir;
+use fs::{read_program_from_file, save_contract_to_file, save_program_to_file};
 use super::NargoConfig;
 use rayon::prelude::*;
 

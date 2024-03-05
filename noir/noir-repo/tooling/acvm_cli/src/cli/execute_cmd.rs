@@ -5,12 +5,11 @@ use acir::native_types::WitnessMap;
 use bn254_blackbox_solver::Bn254BlackBoxSolver;
 use clap::Args;
 
-use crate::cli::fs::inputs::{read_bytecode_from_file, read_inputs_from_file};
-use crate::cli::fs::witness::save_witness_to_dir;
+use fs::{read_bytecode_from_file, read_input_witness_from_toml_file, save_witness_to_file};
 use crate::errors::CliError;
 use nargo::ops::{execute_circuit, DefaultForeignCallExecutor};
 
-use super::fs::witness::create_output_witness_string;
+use super::witness::create_output_witness_string;
 
 /// Executes a circuit to calculate its return value
 #[derive(Debug, Clone, Args)]
@@ -42,11 +41,11 @@ pub(crate) struct ExecuteCommand {
 
 fn run_command(args: ExecuteCommand) -> Result<String, CliError> {
     let bytecode = read_bytecode_from_file(&args.working_directory, &args.bytecode)?;
-    let circuit_inputs = read_inputs_from_file(&args.working_directory, &args.input_witness)?;
+    let circuit_inputs = read_input_witness_from_toml_file(&args.working_directory, &args.input_witness)?;
     let output_witness = execute_program_from_witness(&circuit_inputs, &bytecode, None)?;
     let output_witness_string = create_output_witness_string(&output_witness)?;
     if args.output_witness.is_some() {
-        save_witness_to_dir(
+        save_witness_to_file(
             &output_witness_string,
             &args.working_directory,
             &args.output_witness.unwrap(),

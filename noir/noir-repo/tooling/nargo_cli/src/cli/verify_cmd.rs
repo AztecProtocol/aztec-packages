@@ -1,5 +1,5 @@
 use super::compile_cmd::report_errors;
-use super::fs::{inputs::read_inputs_from_file, load_hex_data};
+use fs::{read_inputs_from_file, load_hex_data};
 use super::NargoConfig;
 use crate::{backends::Backend, errors::CliError};
 

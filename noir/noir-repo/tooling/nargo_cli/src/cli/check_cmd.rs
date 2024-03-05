@@ -19,7 +19,7 @@ use noirc_frontend::{
     hir::{Context, ParsedFiles},
 };
 
-use super::fs::write_to_file;
+use fs::write_to_file;
 use super::NargoConfig;
 
 /// Checks the constraint system for errors

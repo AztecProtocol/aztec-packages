@@ -1,6 +1,6 @@
 use crate::errors::CliError;
 
-use super::fs::{create_named_dir, write_to_file};
+use fs::{create_named_dir, write_to_file};
 use super::NargoConfig;
 use clap::Args;
 use nargo::constants::{PKG_FILE, SRC_DIR};

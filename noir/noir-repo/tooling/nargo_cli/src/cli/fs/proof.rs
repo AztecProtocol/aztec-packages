@@ -2,9 +2,9 @@ use std::path::{Path, PathBuf};
 
 use nargo::constants::PROOF_EXT;
 
-use crate::errors::FilesystemError;
+use fs::errors::FilesystemError;
 
-use super::{create_named_dir, write_to_file};
+use fs::{create_named_dir, write_to_file};
 
 pub(crate) fn save_proof_to_dir<P: AsRef<Path>>(
     proof: &[u8],

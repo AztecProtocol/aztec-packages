@@ -1,4 +1,4 @@
-use super::fs::{create_named_dir, write_to_file};
+use fs::{create_named_dir, write_to_file};
 use super::NargoConfig;
 use crate::backends::Backend;
 use crate::cli::compile_cmd::report_errors;
