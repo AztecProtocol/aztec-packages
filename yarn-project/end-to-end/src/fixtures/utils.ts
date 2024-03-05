@@ -64,7 +64,7 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
-const { PXE_URL = '', NOIR_RELEASE_DIR = 'noir-repo/target/release', TEMP_DIR = '/tmp' } = process.env;
+const { PXE_URL = '', NOIR_RELEASE_DIR = 'noir-repo/target/release', TEMP_DIR = '/tmp', ACVM_BINARY_PATH = '', ACVM_WORKING_DIRECTORY = '' } = process.env;
 
 const getAztecUrl = () => {
   return PXE_URL;
@@ -73,13 +73,13 @@ const getAztecUrl = () => {
 // Determines if we have access to the acvm binary and a tmp folder for temp files
 const getACVMConfig = async (logger: DebugLogger) => {
   try {
-    const expectedAcvmPath = path.resolve(
+    const expectedAcvmPath = ACVM_BINARY_PATH ? ACVM_BINARY_PATH : `${path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
       '../../../../noir/',
       NOIR_RELEASE_DIR,
-    );
-    await fs.access(`${expectedAcvmPath}/acvm`, fs.constants.R_OK);
-    const acvmWorkingDirectory = `${TEMP_DIR}/acvm`;
+    )}/acvm`;
+    await fs.access(expectedAcvmPath, fs.constants.R_OK);
+    const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${TEMP_DIR}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
     logger(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
     return { acvmWorkingDirectory, expectedAcvmPath };
