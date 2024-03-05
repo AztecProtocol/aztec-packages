@@ -10,6 +10,8 @@
 #include "barretenberg/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
+#include "barretenberg/relations/poseidon2_external_relation.hpp"
+#include "barretenberg/relations/poseidon2_internal_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 
@@ -26,6 +28,8 @@ class CircuitChecker {
     using Elliptic = EllipticRelation<FF>;
     using Auxiliary = AuxiliaryRelation<FF>;
     using GenPermSort = GenPermSortRelation<FF>;
+    using PoseidonExternal = Poseidon2ExternalRelation<FF>;
+    using PoseidonInternal = Poseidon2InternalRelation<FF>;
 
     template <typename Builder> static bool check(const Builder& builder);
 

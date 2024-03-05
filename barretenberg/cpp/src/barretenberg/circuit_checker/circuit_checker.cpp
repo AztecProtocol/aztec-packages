@@ -35,7 +35,7 @@ template <> auto CircuitChecker::init_empty_values<UltraCircuitBuilder_<UltraAri
     return UltraFlavor::AllValues{};
 }
 
-template <> auto CircuitChecker::init_empty_values<GoblinUltraCircuitBuilder_<UltraHonkArith<bb::fr>>>()
+template <> auto CircuitChecker::init_empty_values<GoblinUltraCircuitBuilder_<bb::fr>>()
 {
     return GoblinUltraFlavor::AllValues{};
 }
@@ -45,13 +45,9 @@ template <> auto CircuitChecker::init_empty_values<GoblinUltraCircuitBuilder_<Ul
  *
  * @param builder
  */
-template <>
-bool CircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(
-    const UltraCircuitBuilder_<UltraArith<bb::fr>>& builder_in)
+template <typename Builder> bool CircuitChecker::check(const Builder& builder_in)
 {
-    using Values = UltraFlavor::AllValues;
     using Params = RelationParameters<FF>;
-    using Builder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
 
     // Create a copy of the input circuit and finalize it
     Builder builder{ builder_in };
@@ -69,8 +65,7 @@ bool CircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(
     // Construct hash table for memory read/write indices to efficiently determine if a row is a memory read/write
     TagCheckData tag_data{ builder };
 
-    Values values;
-    // auto values = init_empty_values<Builder>();
+    auto values = init_empty_values<Builder>();
     Params params;
     params.eta = tag_data.eta;
 
@@ -83,6 +78,10 @@ bool CircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(
         result = result && check_relation<Auxiliary>(values, params);
         result = result && check_relation<GenPermSort>(values, params);
         result = result && check_lookup(values, lookup_hash_table);
+        if constexpr (IsGoblinBuilder<Builder>) {
+            result = result && check_relation<PoseidonInternal>(values, params);
+            result = result && check_relation<PoseidonExternal>(values, params);
+        }
     }
 
     result = result && check_tag_data(tag_data);
@@ -226,18 +225,15 @@ void CircuitChecker::populate_values(Builder& builder, auto& values, TagCheckDat
     values.q_elliptic = block.q_elliptic()[idx];
     values.q_aux = block.q_aux()[idx];
     values.q_lookup = block.q_lookup_type()[idx];
+    if constexpr (IsGoblinBuilder<Builder>) {
+        values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
+        values.q_poseidon2_external = block.q_poseidon2_external()[idx];
+    }
 }
 
-// /**
-//  * @brief Circuit check functionality for Ultra arithmetization
-//  *
-//  * @param builder
-//  */
-// template <>
-// bool CircuitChecker::check<GoblinUltraCircuitBuilder_<bb::fr>>(
-//     const GoblinUltraCircuitBuilder_<bb::fr>& builder_in)
-// {
-//     check<UltraCircuitBuilder_<UltraArith<bb::fr>>>()
-// };
+template bool CircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(
+    const UltraCircuitBuilder_<UltraArith<bb::fr>>& builder_in);
+template bool CircuitChecker::check<GoblinUltraCircuitBuilder_<bb::fr>>(
+    const GoblinUltraCircuitBuilder_<bb::fr>& builder_in);
 
 } // namespace bb

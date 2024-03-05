@@ -1,3 +1,4 @@
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/flavor/ultra_recursive.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
@@ -124,6 +125,8 @@ template <typename OuterFlavor> class GoblinRecursiveVerifierTest : public testi
         auto inner_circuit = create_inner_circuit();
 
         bool result = inner_circuit.check_circuit();
+        EXPECT_TRUE(CircuitChecker::check(inner_circuit));
+
         EXPECT_EQ(result, true);
     }
 
