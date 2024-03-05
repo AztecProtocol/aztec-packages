@@ -13,7 +13,7 @@ Summary
  - [low-level-calls](#low-level-calls) (1 results) (Informational)
  - [similar-names](#similar-names) (3 results) (Informational)
  - [constable-states](#constable-states) (1 results) (Optimization)
- - [pess-multiple-storage-read](#pess-multiple-storage-read) (6 results) (Optimization)
+ - [pess-multiple-storage-read](#pess-multiple-storage-read) (5 results) (Optimization)
 ## pess-unprotected-setter
 Impact: High
 Confidence: Medium
@@ -128,7 +128,7 @@ Dubious typecast in [Inbox.batchConsume(bytes32[],address)](src/core/messagebrid
 src/core/messagebridge/Inbox.sol#L122-L143
 
 
-## reentrancy-events
+## missing-zero-check
 Impact: Low
 Confidence: Medium
  - [ ] ID-12
@@ -144,9 +144,9 @@ Confidence: Medium
  - [ ] ID-13
 Reentrancy in [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L60-L97):
 	External calls:
-	- [nextIndex = currentTree.insertLeaf(leaf)](src/core/messagebridge/NewInbox.sol#L93)
+	- [index = currentTree.insertLeaf(leaf)](src/core/messagebridge/NewInbox.sol#L93)
 	Event emitted after the call(s):
-	- [LeafInserted(inProgress,nextIndex - 1,leaf)](src/core/messagebridge/NewInbox.sol#L94)
+	- [LeafInserted(inProgress,index,leaf)](src/core/messagebridge/NewInbox.sol#L94)
 
 src/core/messagebridge/NewInbox.sol#L60-L97
 
@@ -201,10 +201,10 @@ src/core/messagebridge/Inbox.sol#L102-L113
 Impact: Low
 Confidence: Medium
  - [ ] ID-19
-The following public functions could be turned into external in [FrontierMerkle](src/core/messagebridge/frontier_tree/Frontier.sol#L7-L91) contract:
+The following public functions could be turned into external in [FrontierMerkle](src/core/messagebridge/frontier_tree/Frontier.sol#L7-L90) contract:
 	[FrontierMerkle.constructor(uint256)](src/core/messagebridge/frontier_tree/Frontier.sol#L19-L27)
 
-src/core/messagebridge/frontier_tree/Frontier.sol#L7-L91
+src/core/messagebridge/frontier_tree/Frontier.sol#L7-L90
 
 
  - [ ] ID-20
@@ -248,7 +248,7 @@ src/core/messagebridge/NewInbox.sol#L25-L126
 ## assembly
 Impact: Informational
 Confidence: High
- - [ ] ID-22
+ - [ ] ID-25
 [MessagesDecoder.decode(bytes)](src/core/libraries/decoders/MessagesDecoder.sol#L60-L150) uses assembly
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L79-L81)
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L112-L118)
@@ -256,7 +256,7 @@ Confidence: High
 src/core/libraries/decoders/MessagesDecoder.sol#L60-L150
 
 
- - [ ] ID-23
+ - [ ] ID-26
 [TxsDecoder.computeRoot(bytes32[])](src/core/libraries/decoders/TxsDecoder.sol#L291-L310) uses assembly
 	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L298-L300)
 
@@ -352,9 +352,9 @@ src/core/messagebridge/NewInbox.sol#L60-L97
 
 
  - [ ] ID-39
-In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L41-L74) variable [FrontierMerkle.HEIGHT](src/core/messagebridge/frontier_tree/Frontier.sol#L8) is read multiple times
+In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L40-L73) variable [FrontierMerkle.HEIGHT](src/core/messagebridge/frontier_tree/Frontier.sol#L8) is read multiple times
 
-src/core/messagebridge/frontier_tree/Frontier.sol#L41-L74
+src/core/messagebridge/frontier_tree/Frontier.sol#L40-L73
 
 
  - [ ] ID-40
@@ -370,14 +370,8 @@ src/core/messagebridge/NewInbox.sol#L106-L125
 
 
  - [ ] ID-42
-In a function [FrontierMerkle.insertLeaf(bytes32)](src/core/messagebridge/frontier_tree/Frontier.sol#L29-L39) variable [FrontierMerkle.nextIndex](src/core/messagebridge/frontier_tree/Frontier.sol#L11) is read multiple times
+In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L40-L73) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
 
-src/core/messagebridge/frontier_tree/Frontier.sol#L29-L39
-
-
- - [ ] ID-43
-In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L41-L74) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
-
-src/core/messagebridge/frontier_tree/Frontier.sol#L41-L74
+src/core/messagebridge/frontier_tree/Frontier.sol#L40-L73
 
 
