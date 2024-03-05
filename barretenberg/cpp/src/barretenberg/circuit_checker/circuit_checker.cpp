@@ -47,7 +47,7 @@ template <typename Builder> bool CircuitChecker::check(const Builder& builder_in
         }
     }
 
-    // Construct hash table for memory read/write indices to efficiently determine if a row is a memory read/write
+    // Instantiate structs used for checking tag and memory record correctness
     TagCheckData tag_data;
     MemoryCheckData memory_data{ builder };
 
@@ -56,10 +56,14 @@ template <typename Builder> bool CircuitChecker::check(const Builder& builder_in
     Params params;
     params.eta = memory_data.eta; // used in Auxiliary relation for RAM/ROM consistency
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): Once we sort gates into their respective blocks
+    // we'll need to either naively run this on all blocks or run only the relevant checks on each block.
+    auto& block = builder.blocks.main;
+
     // Perform checks on each gate defined in the builder
     bool result = true;
-    for (size_t idx = 0; idx < builder.num_gates; ++idx) {
-        populate_values(builder, values, tag_data, memory_data, idx);
+    for (size_t idx = 0; idx < block.size(); ++idx) {
+        populate_values(builder, block, values, tag_data, memory_data, idx);
 
         result = result && check_relation<Arithmetic>(values, params);
         result = result && check_relation<Elliptic>(values, params);
@@ -118,10 +122,8 @@ bool CircuitChecker::check_tag_data(const TagCheckData& tag_data)
 
 template <typename Builder>
 void CircuitChecker::populate_values(
-    Builder& builder, auto& values, TagCheckData& tag_data, MemoryCheckData& memory_data, size_t idx)
+    Builder& builder, auto& block, auto& values, TagCheckData& tag_data, MemoryCheckData& memory_data, size_t idx)
 {
-    auto& block = builder.blocks.main;
-
     // Function to quickly update tag products and encountered variable set by index and value
     auto update_tag_check_data = [&](const size_t variable_index, const FF& value) {
         size_t real_index = builder.real_variable_index[variable_index];

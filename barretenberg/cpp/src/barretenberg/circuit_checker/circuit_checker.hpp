@@ -131,7 +131,7 @@ class CircuitChecker {
      */
     template <typename Builder>
     static void populate_values(
-        Builder& builder, auto& values, TagCheckData& tag_data, MemoryCheckData& memory_data, size_t idx);
+        Builder& builder, auto& block, auto& values, TagCheckData& tag_data, MemoryCheckData& memory_data, size_t idx);
 
     // Define a hash table for efficiently checking if lookups are present in the set of tables used by the circuit
     using Key = std::array<FF, 4>; // key value is the four wire inputs for a lookup gates
