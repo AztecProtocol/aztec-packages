@@ -149,21 +149,21 @@ contract NewInboxTest is Test {
 
   function _send(DataStructures.L1ToL2Msg[] memory _messages) internal {
     bool isFirstRun = inbox.getInProgress() == inbox.FIRST_REAL_TREE_NUM();
-    bytes32 toIncludeRoot = inbox.getToIncludeRoot();
+    bytes32 toConsumeRoot = inbox.getToConsumeRoot();
 
     for (uint256 i = 0; i < _messages.length; i++) {
       DataStructures.L1ToL2Msg memory message = _boundMessage(_messages[i]);
 
-      // We send the message and check that toInclude root did not change.
+      // We send the message and check that toConsume root did not change.
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);
     }
 
-    // Root of a tree waiting to be included should not change because we introduced a 1 block lag to prevent sequencer
+    // Root of a tree waiting to be consumed should not change because we introduced a 1 block lag to prevent sequencer
     // DOS attacks
     assertEq(
-      inbox.getToIncludeRoot(),
-      toIncludeRoot,
-      "Root of a tree waiting to be included should not change"
+      inbox.getToConsumeRoot(),
+      toConsumeRoot,
+      "Root of a tree waiting to be consumed should not change"
     );
 
     // We perform expected num trees check only after first batch because after second one the following accounting
@@ -180,7 +180,7 @@ contract NewInboxTest is Test {
   }
 
   function _consume(uint256 _numTreesToConsume, uint256 _numMessages) internal {
-    bool isFirstRun = inbox.getToInclude() == Constants.INITIAL_L2_BLOCK_NUM;
+    bool isFirstRun = inbox.getToConsume() == Constants.INITIAL_L2_BLOCK_NUM;
     uint256 numTrees = inbox.getNumTrees();
 
     // We use (numTrees * 2) as upper bound here because we want to test the case where we go beyond the currently

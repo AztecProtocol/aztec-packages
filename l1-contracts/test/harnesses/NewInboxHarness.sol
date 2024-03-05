@@ -21,18 +21,18 @@ contract NewInboxHarness is NewInbox {
     return EMPTY_ROOT;
   }
 
-  function getToInclude() external view returns (uint256) {
-    return toInclude;
+  function getToConsume() external view returns (uint256) {
+    return toConsume;
   }
 
   function getInProgress() external view returns (uint256) {
     return inProgress;
   }
 
-  function getToIncludeRoot() external view returns (bytes32) {
+  function getToConsumeRoot() external view returns (bytes32) {
     bytes32 root = EMPTY_ROOT;
-    if (toInclude > Constants.INITIAL_L2_BLOCK_NUM) {
-      root = trees[toInclude].root();
+    if (toConsume > Constants.INITIAL_L2_BLOCK_NUM) {
+      root = trees[toConsume].root();
     }
     return root;
   }
