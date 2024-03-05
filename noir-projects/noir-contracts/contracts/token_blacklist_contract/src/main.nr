@@ -14,7 +14,6 @@ mod interfaces;
 
 contract TokenBlacklist {
     // Libs
-    use dep::std::option::Option;
 
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
     use dep::aztec::{

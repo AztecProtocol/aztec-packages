@@ -3,7 +3,6 @@ mod dapp_payload;
 
 contract AppSubscription {
     use dep::std;
-    use dep::std::option::Option;
     use crate::dapp_payload::DAppPayload;
 
     use dep::aztec::prelude::{

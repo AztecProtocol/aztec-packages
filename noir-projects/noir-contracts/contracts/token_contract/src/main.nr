@@ -11,7 +11,6 @@ mod types;
 
 contract Token {
     // Libs
-    use dep::std::option::Option;
 
     use dep::compressed_string::FieldCompressedString;
 

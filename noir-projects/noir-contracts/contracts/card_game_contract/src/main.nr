@@ -5,7 +5,6 @@ contract CardGame {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, constants::MAX_NOTES_PER_PAGE};
     use dep::aztec::{context::Context, hash::pedersen_hash, state_vars::{Map, PublicMutable}};
 
-    use dep::std::option::Option;
     use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
 
     use dep::aztec::note::note_header::NoteHeader;
