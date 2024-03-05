@@ -4,7 +4,7 @@
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -16,34 +16,26 @@ namespace bb::stdlib::recursion::honk {
  *
  * @tparam Builder Circuit builder for the recursive verifier circuit
  */
-template <typename BuilderType> class GoblinRecursiveVerifierTest : public testing::Test {
-
-    using UltraComposer = UltraComposer_<UltraFlavor>;
-    using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
+template <typename OuterFlavor> class GoblinRecursiveVerifierTest : public testing::Test {
 
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = GoblinUltraFlavor;
-    using InnerComposer = GoblinUltraComposer;
-    using InnerBuilder = typename InnerComposer::CircuitBuilder;
+    using InnerProver = GoblinUltraProver;
+    using InnerVerifier = GoblinUltraVerifier;
+    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
+    using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerCurve = bn254<InnerBuilder>;
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
 
     // Types for recursive verifier circuit
-    using OuterBuilder = BuilderType;
+    using OuterBuilder = typename OuterFlavor::CircuitBuilder;
+    using OuterProver = UltraProver_<OuterFlavor>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    using OuterProverInstance = ProverInstance_<OuterFlavor>;
     using RecursiveFlavor = GoblinUltraRecursiveFlavor_<OuterBuilder>;
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
-
-    // Helper for getting composer for prover/verifier of recursive (outer) circuit
-    template <typename BuilderT> static auto get_outer_composer()
-    {
-        if constexpr (IsGoblinBuilder<BuilderT>) {
-            return GoblinUltraComposer();
-        } else {
-            return UltraComposer();
-        }
-    }
 
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
@@ -147,10 +139,9 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         OuterBuilder outer_circuit;
 
         // Compute native verification key
-        InnerComposer inner_composer;
-        auto instance = inner_composer.create_prover_instance(inner_circuit);
-        auto prover = inner_composer.create_prover(instance); // A prerequisite for computing VK
-        auto verification_key = instance->verification_key;
+        auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        InnerProver prover(instance); // A prerequisite for computing VK
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
         // Instantiate the recursive verifier using the native verification key
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
@@ -166,7 +157,8 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
     }
 
     /**
-     * @brief Construct a recursive verification circuit for the proof of an inner circuit then call check_circuit on it
+     * @brief Construct a recursive verification circuit for the proof of an inner circuit then call check_circuit on
+     it
      *
      */
     static void test_recursive_verification()
@@ -175,14 +167,14 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         auto inner_circuit = create_inner_circuit();
 
         // Generate a proof over the inner circuit
-        InnerComposer inner_composer;
-        auto instance = inner_composer.create_prover_instance(inner_circuit);
-        auto inner_prover = inner_composer.create_prover(instance);
+        auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        InnerProver inner_prover(instance);
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
         auto inner_proof = inner_prover.construct_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, instance->verification_key };
+        RecursiveVerifier verifier{ &outer_circuit, verification_key };
         auto pairing_points = verifier.verify_proof(inner_proof);
         info("Recursive Verifier Goblin: num gates = ", outer_circuit.num_gates);
 
@@ -191,7 +183,7 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
         // Check 1: Perform native verification then perform the pairing on the outputs of the recursive
         // verifier and check that the result agrees.
-        auto native_verifier = inner_composer.create_verifier(instance->verification_key);
+        InnerVerifier native_verifier(verification_key);
         auto native_result = native_verifier.verify_proof(inner_proof);
         auto recursive_result = native_verifier.key->pcs_verification_key->pairing_check(pairing_points[0].get_value(),
                                                                                          pairing_points[1].get_value());
@@ -207,10 +199,10 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 
         // Check 3: Construct and verify a proof of the recursive verifier circuit
         {
-            auto composer = get_outer_composer<OuterBuilder>();
-            auto instance = composer.create_prover_instance(outer_circuit);
-            auto prover = composer.create_prover(instance);
-            auto verifier = composer.create_verifier(instance->verification_key);
+            auto instance = std::make_shared<OuterProverInstance>(outer_circuit);
+            OuterProver prover(instance);
+            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
+            OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 
@@ -230,9 +222,8 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         auto inner_circuit = create_inner_circuit();
 
         // Generate a proof over the inner circuit
-        InnerComposer inner_composer;
-        auto instance = inner_composer.create_prover_instance(inner_circuit);
-        auto inner_prover = inner_composer.create_prover(instance);
+        auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        InnerProver inner_prover(instance);
         auto inner_proof = inner_prover.construct_proof();
 
         // Arbitrarily tamper with the proof to be verified
@@ -241,9 +232,12 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
         inner_prover.transcript->serialize_full_transcript();
         inner_proof = inner_prover.export_proof();
 
+        // Generate the corresponding inner verification key
+        auto inner_verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
+
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, instance->verification_key };
+        RecursiveVerifier verifier{ &outer_circuit, inner_verification_key };
         verifier.verify_proof(inner_proof);
 
         // We expect the circuit check to fail due to the bad proof
@@ -252,9 +246,9 @@ template <typename BuilderType> class GoblinRecursiveVerifierTest : public testi
 };
 
 // Run the recursive verifier tests with conventional Ultra builder and Goblin builder
-using BuilderTypes = testing::Types<UltraCircuitBuilder, GoblinUltraCircuitBuilder>;
+using Flavors = testing::Types<UltraFlavor, GoblinUltraFlavor>;
 
-TYPED_TEST_SUITE(GoblinRecursiveVerifierTest, BuilderTypes);
+TYPED_TEST_SUITE(GoblinRecursiveVerifierTest, Flavors);
 
 HEAVY_TYPED_TEST(GoblinRecursiveVerifierTest, InnerCircuit)
 {
