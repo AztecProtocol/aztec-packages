@@ -9,9 +9,9 @@ When developing and referring to example .nr files/snippets, it is helpful to ve
 
 ### Checking tool versions
 To check your version of Aztec tools, you can use `aztec-cli -V`
-::note
+:::note
 The `aztec-nargo` versions follow `nargo` versions, which is different to the Aztec tool versions.
-::note
+:::note
 The latest version of the Aztec tooling is currently `#include_aztec_version` , updating roughly every week.
 
 ### Dependency versions
@@ -24,14 +24,20 @@ The folder structure changed at **0.24.0** from `yarn-project/aztec-nr` to `noir
 :::note
 
 That is, BEFORE `aztec-packages-v0.24.0`:
-`aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="aztec-packages-v0.23.0", directory="yarn-project/aztec-nr/aztec" }`
+```toml
+`aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="aztec-packages-v0.23.0", directory="yarn-project/aztec-nr/aztec" }
+```
+
 At/after `aztec-packages-v0.24.0`:
-`aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="aztec-packages-v0.24.0", directory="noir-projects/aztec-nr/aztec" }`
+```toml
+`aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="aztec-packages-v0.24.0", directory="noir-projects/aztec-nr/aztec" }
+```
 
 ### Example contract versions
-Example contracts serve as an especially helpful reference between versions of the aztec-nr framework.
+Example contracts serve as a helpful reference between versions of the aztec-nr framework since they are strictly maintained with each release.
 
-Code referenced in the documentation is sourced from a directory in the `aztec-packages` repository.
+Code referenced in the documentation is sourced from contracts within [this directory](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts).
+
 As in the previous section, the location of the noir contracts moved at version `0.24.0`, from `yarn-project/noir-contracts` before, to `noir-projects/noir-contracts`.
 
 :::tip
@@ -43,14 +49,17 @@ Notice the difference between the sample Counter contract from `0.23.0` to `0.24
 ```
 :::tip
 
-### Language server version (nargo)
+### Language server version (aztec-nargo)
 The [Noir LSP](https://docs.aztec.network/developers/contracts/main#install-noir-lsp-recommended) uses your local version of `aztec-nargo`, and thus also `aztec-nargo compile`.
-The path of the former (once installed) can be seen by hovering over "Nargo" in the bottom status bar, and the latter via `which aztec-nargo`.
+The path of the former (once installed) can be seen by hovering over "Nargo" in the bottom status bar of VS Code, and the latter via the `which aztec-nargo` command.
+:::caution
+For Aztec contract files, this should be `aztec-nargo` and for noir-only files this should be `nargo`. Mismatching tools and file types will generate misleading syntax and compiler errors.
+:::
 
-This can present confusion when opening older noir contracts (and dependencies), such as:
+This can present confusion when opening older contracts (and dependencies) written in older version of noir, such as:
 - Logs filled with errors from the dependencies
 - Or the LSP fails (re-runs automatically then stops)
-The second point requires a restart of the extension.
+The second point requires a restart of the extension, which you can trigger with the command palette (Ctrl + Shift + P) and typing "Reload Window".
 
 :::tip
 When using the LSP in VSCode, reference older versions of Noir code in a separate window or a browser.
