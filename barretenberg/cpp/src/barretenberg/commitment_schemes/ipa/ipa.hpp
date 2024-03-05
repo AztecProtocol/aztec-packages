@@ -195,8 +195,16 @@ template <typename Curve> class IPA {
             // Run scalar products in parallel
             run_loop_in_parallel_if_effective(
                 round_size,
-                [&a_vec, &b_vec, round_size, &inner_prod_L, &inner_prod_R, &inner_product_accumulation_mutex](
-                    size_t start, size_t end) {
+                [&a_vec,
+                 &b_vec,
+                 round_size,
+                 &inner_prod_L,
+                 &inner_prod_R
+#ifndef NO_MULTITHREADING
+                 ,
+                 &inner_product_accumulation_mutex
+#endif
+            ](size_t start, size_t end) {
                     Fr current_inner_prod_L = Fr::zero();
                     Fr current_inner_prod_R = Fr::zero();
                     for (size_t j = start; j < end; j++) {
