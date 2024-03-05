@@ -59,7 +59,6 @@ contract CrowdFunding {
     // Withdraws balance. Requires that msg.sender is registered as an owner.
     #[aztec(private)]
     fn withdraw(amount: Field) {
-        // check end time
         let operator_address = AztecAddress::from_field(storage.operator.get_note().value);
 
         let this = context.this_address();

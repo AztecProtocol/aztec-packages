@@ -12,7 +12,7 @@ impl Token {
 
     fn mint_public(self: Self, context: &mut PrivateContext, to: AztecAddress, amount: Field) {
         let _ret = context.call_public_function(
-            self.address, //! NOT THIS USE THE TOKEN CONTRACT
+            self.address,
             FunctionSelector::from_signature("mint_public((Field),Field)"),
             [to.to_field(), amount]
         );

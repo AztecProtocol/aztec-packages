@@ -82,7 +82,7 @@ describe('e2e_crowdfunding', () => {
     )
       .send()
       .deployed();
-    logger(`ETH Token deployed to ${donationToken.address}`);
+    logger(`Donation Token deployed to ${donationToken.address}`);
 
     rewardToken = await TokenContract.deploy(
       operatorWallet,
