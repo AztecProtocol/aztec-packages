@@ -5,6 +5,7 @@ pragma solidity >=0.8.18;
 // Interfaces
 import {IFrontier} from "../interfaces/messagebridge/IFrontier.sol";
 import {IRegistry} from "../interfaces/messagebridge/IRegistry.sol";
+import {INewInbox} from "../interfaces/messagebridge/INewInbox.sol";
 
 // Libraries
 import {Constants} from "../libraries/ConstantsGen.sol";
@@ -21,7 +22,7 @@ import {FrontierMerkle} from "./frontier_tree/Frontier.sol";
  * @notice Lives on L1 and is used to pass messages into the rollup, e.g., L1 -> L2 messages.
  */
 // TODO: rename to Inbox once all the pieces of the new message model are in place.
-contract NewInbox {
+contract NewInbox is INewInbox {
   using Hash for DataStructures.L1ToL2Msg;
 
   address public immutable ROLLUP;
@@ -34,8 +35,6 @@ contract NewInbox {
   uint256 internal inProgress = 2;
 
   mapping(uint256 blockNumber => IFrontier tree) internal trees;
-
-  event LeafInserted(uint256 indexed blockNumber, uint256 index, bytes32 value);
 
   constructor(address _rollup, uint256 _height) {
     ROLLUP = _rollup;
@@ -62,7 +61,7 @@ contract NewInbox {
     DataStructures.L2Actor memory _recipient,
     bytes32 _content,
     bytes32 _secretHash
-  ) external returns (bytes32) {
+  ) external override(INewInbox) returns (bytes32) {
     if (uint256(_recipient.actor) > Constants.MAX_FIELD_VALUE) {
       revert Errors.Inbox__ActorTooLarge(_recipient.actor);
     }
@@ -104,7 +103,7 @@ contract NewInbox {
    * empty because there has to be a 1 block lag to prevent sequencer DOS attacks
    * @return The root of the consumed tree
    */
-  function consume() external returns (bytes32) {
+  function consume() external override(INewInbox) returns (bytes32) {
     if (msg.sender != ROLLUP) {
       revert Errors.Inbox__Unauthorized();
     }
