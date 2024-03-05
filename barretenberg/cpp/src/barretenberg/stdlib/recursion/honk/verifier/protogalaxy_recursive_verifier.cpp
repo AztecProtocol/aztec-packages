@@ -12,8 +12,9 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     const auto instance_size = transcript->template receive_from_prover<FF>(domain_separator + "_instance_size");
     const auto public_input_size =
         transcript->template receive_from_prover<FF>(domain_separator + "_public_input_size");
-    inst->instance_size = uint32_t(instance_size.get_value());
-    inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
+    inst->verification_key->circuit_size = uint32_t(instance_size.get_value());
+    inst->verification_key->log_circuit_size =
+        static_cast<size_t>(numeric::get_msb(inst->verification_key->circuit_size));
     inst->public_input_size = uint32_t(public_input_size.get_value());
 
     for (size_t i = 0; i < inst->public_input_size; ++i) {
@@ -72,8 +73,9 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
 
     // Compute correction terms for grand products
     const FF public_input_delta = compute_public_input_delta<Flavor>(
-        inst->public_inputs, beta, gamma, inst->instance_size, inst->pub_inputs_offset);
-    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
+        inst->public_inputs, beta, gamma, inst->verification_key->circuit_size, inst->pub_inputs_offset);
+    const FF lookup_grand_product_delta =
+        compute_lookup_grand_product_delta<FF>(beta, gamma, inst->verification_key->circuit_size);
     inst->relation_parameters =
         RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
 
@@ -94,7 +96,7 @@ template <class VerifierInstances> void ProtoGalaxyRecursiveVerifier_<VerifierIn
     if (!inst->is_accumulator) {
         receive_and_finalise_instance(inst, domain_separator);
         inst->target_sum = 0;
-        inst->gate_challenges = std::vector<FF>(inst->log_instance_size, 0);
+        inst->gate_challenges = std::vector<FF>(inst->verification_key->log_circuit_size, 0);
     }
     index++;
 
@@ -117,11 +119,11 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
 
     auto delta = transcript->template get_challenge<FF>("delta");
     auto accumulator = get_accumulator();
-    auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
+    auto deltas = compute_round_challenge_pows(accumulator->verification_key->log_circuit_size, delta);
 
-    std::vector<FF> perturbator_coeffs(accumulator->log_instance_size + 1, 0);
+    std::vector<FF> perturbator_coeffs(accumulator->verification_key->log_circuit_size + 1, 0);
     if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= accumulator->log_instance_size; idx++) {
+        for (size_t idx = 1; idx <= accumulator->verification_key->log_circuit_size; idx++) {
             perturbator_coeffs[idx] =
                 transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
         }
@@ -147,8 +149,8 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
 
     auto next_accumulator = std::make_shared<Instance>(builder);
-    next_accumulator->instance_size = accumulator->instance_size;
-    next_accumulator->log_instance_size = accumulator->log_instance_size;
+    next_accumulator->verification_key->circuit_size = accumulator->verification_key->circuit_size;
+    next_accumulator->verification_key->log_circuit_size = accumulator->verification_key->log_circuit_size;
     next_accumulator->is_accumulator = true;
 
     // Compute next folding parameters and verify against the ones received from the prover
@@ -173,7 +175,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         comm_idx++;
     }
 
-    next_accumulator->public_input_size = instances[0]->public_input_size;
+    next_accumulator->public_input_size = accumulator->public_input_size;
     next_accumulator->public_inputs = std::vector<FF>(next_accumulator->public_input_size, 0);
     size_t public_input_idx = 0;
     for (auto& public_input : next_accumulator->public_inputs) {
@@ -211,7 +213,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     }
 
     next_accumulator->verification_key =
-        std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
+        std::make_shared<VerificationKey>(accumulator->verification_key->circuit_size, accumulator->public_input_size);
     size_t vk_idx = 0;
     for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
         size_t inst = 0;

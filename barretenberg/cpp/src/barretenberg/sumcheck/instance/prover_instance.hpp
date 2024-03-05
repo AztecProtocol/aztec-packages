@@ -60,9 +60,6 @@ template <class Flavor> class ProverInstance_ {
     std::vector<FF> gate_challenges;
     FF target_sum;
 
-    size_t instance_size;
-    size_t log_instance_size;
-
     ProverInstance_(Circuit& circuit)
     {
         BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");

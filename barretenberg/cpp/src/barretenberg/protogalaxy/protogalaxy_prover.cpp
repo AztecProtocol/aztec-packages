@@ -7,7 +7,7 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
 {
     instance->initialize_prover_polynomials();
 
-    const auto instance_size = static_cast<uint32_t>(instance->instance_size);
+    const auto instance_size = static_cast<uint32_t>(instance->proving_key->circuit_size);
     const auto num_public_inputs = static_cast<uint32_t>(instance->public_inputs.size());
     transcript->send_to_verifier(domain_separator + "_instance_size", instance_size);
     transcript->send_to_verifier(domain_separator + "_public_input_size", num_public_inputs);
@@ -102,7 +102,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     if (!instance->is_accumulator) {
         finalise_and_send_instance(instance, domain_separator);
         instance->target_sum = 0;
-        instance->gate_challenges = std::vector<FF>(instance->log_instance_size, 0);
+        instance->gate_challenges = std::vector<FF>(instance->proving_key->log_circuit_size, 0);
     }
 
     idx++;
@@ -132,8 +132,8 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::make_shared<Instance>();
     next_accumulator->is_accumulator = true;
-    next_accumulator->instance_size = instances[0]->instance_size;
-    next_accumulator->log_instance_size = instances[0]->log_instance_size;
+    next_accumulator->proving_key = instances[0]->proving_key;
+    // next_accumulator->proving_key->log_circuit_size = instances[0]->proving_key->log_circuit_size;
     next_accumulator->commitment_key = instances[0]->commitment_key;
 
     // Compute the next target sum and send the next folding parameters to the verifier
@@ -146,7 +146,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // Initialize prover polynomials
     ProverPolynomials acc_prover_polynomials;
     for (auto& polynomial : acc_prover_polynomials.get_all()) {
-        polynomial = typename Flavor::Polynomial(instances[0]->instance_size);
+        polynomial = typename Flavor::Polynomial(instances[0]->proving_key->circuit_size);
     }
 
     // Fold the prover polynomials
@@ -208,14 +208,14 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
 {
     state.accumulator = get_accumulator();
     FF delta = transcript->template get_challenge<FF>("delta");
-    state.deltas = compute_round_challenge_pows(state.accumulator->log_instance_size, delta);
-    state.perturbator = Polynomial<FF>(state.accumulator->log_instance_size + 1); // initialize to all zeros
+    state.deltas = compute_round_challenge_pows(state.accumulator->proving_key->log_circuit_size, delta);
+    state.perturbator = Polynomial<FF>(state.accumulator->proving_key->log_circuit_size + 1); // initialize to all zeros
     // compute perturbator only if this is not the first round and has an accumulator
     if (state.accumulator->is_accumulator) {
         state.perturbator = compute_perturbator(state.accumulator, state.deltas);
         // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
         // the accumulator which the folding verifier has from the previous iteration.
-        for (size_t idx = 1; idx <= state.accumulator->log_instance_size; idx++) {
+        for (size_t idx = 1; idx <= state.accumulator->proving_key->log_circuit_size; idx++) {
             transcript->send_to_verifier("perturbator_" + std::to_string(idx), state.perturbator[idx]);
         }
     }
