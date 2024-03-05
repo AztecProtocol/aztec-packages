@@ -69,6 +69,12 @@ contract NewInboxTest is Test {
     return _message;
   }
 
+  // Since there is a 1 block lag between tree to be consumed and tree in progress the following invariant should never
+  // be violated
+  function _checkInvariant() internal {
+    assertLt(inbox.getToConsume(), inbox.getInProgress());
+  }
+
   function testRevertIfNotConsumingFromRollup() public {
     vm.prank(address(0x1));
     vm.expectRevert(Errors.Inbox__Unauthorized.selector);
@@ -156,6 +162,8 @@ contract NewInboxTest is Test {
 
       // We send the message and check that toConsume root did not change.
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+      // We check that the "toConsume < inProgress" invariant is maintained
+      _checkInvariant();
     }
 
     // Root of a tree waiting to be consumed should not change because we introduced a 1 block lag to prevent sequencer
@@ -190,6 +198,8 @@ contract NewInboxTest is Test {
     // Now we consume the trees
     for (uint256 i = 0; i < numTreesToConsume; i++) {
       bytes32 root = inbox.consume();
+      // We check that the "toConsume < inProgress" invariant is maintained
+      _checkInvariant();
 
       // We perform empty roots check only after first batch because after second one the following simple accounting
       // does not work
