@@ -13,7 +13,6 @@ import {DataStructures} from "../../libraries/DataStructures.sol";
 interface INewInbox {
   event LeafInserted(uint256 indexed blockNumber, uint256 index, bytes32 value);
 
-  // docs:start:send_l1_to_l2_message
   /**
    * @notice Inserts a new message into the Inbox
    * @dev Emits `LeafInserted` with data for easy access by the sequencer
@@ -27,9 +26,7 @@ interface INewInbox {
     bytes32 _content,
     bytes32 _secretHash
   ) external returns (bytes32);
-  // docs:end:send_l1_to_l2_message
 
-  // docs:start:inbox_batch_consume
   /**
    * @notice Consumes the current tree, and starts a new one if needed
    * @dev Only callable by the rollup contract
@@ -38,5 +35,4 @@ interface INewInbox {
    * @return The root of the consumed tree
    */
   function consume() external returns (bytes32);
-  // docs:end:inbox_batch_consume
 }
