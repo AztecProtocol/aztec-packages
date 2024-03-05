@@ -20,6 +20,13 @@ contract StatefulTest {
         let _res = context.call_private_function(context.this_address(), selector, [owner.to_field(), value]);
     }
 
+    #[aztec(public)]
+    #[aztec(initializer)]
+    fn public_constructor(owner: AztecAddress, value: Field) {
+        let selector = FunctionSelector::from_signature("increment_public_value_no_init_check((Field),Field)");
+        let _res = context.call_public_function(context.this_address(), selector, [owner.to_field(), value]);
+    }
+
     #[aztec(private)]
     fn create_note(owner: AztecAddress, value: Field) {
         if (value != 0) {
@@ -63,12 +70,12 @@ contract StatefulTest {
 
     #[aztec(public)]
     fn increment_public_value(owner: AztecAddress, value: Field) {
-        assert_is_initialized(&mut context);
         let loc = storage.public_values.at(owner);
         loc.write(loc.read() + value);
     }
 
     #[aztec(public)]
+    #[aztec(noinitcheck)]
     fn increment_public_value_no_init_check(owner: AztecAddress, value: Field) {
         let loc = storage.public_values.at(owner);
         loc.write(loc.read() + value);
