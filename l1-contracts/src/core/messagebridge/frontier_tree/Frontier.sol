@@ -33,9 +33,8 @@ contract FrontierMerkle is IFrontier {
       right = sha256(bytes.concat(frontier[i], right));
     }
     frontier[level] = right;
-    nextIndex++;
 
-    return nextIndex;
+    return nextIndex++;
   }
 
   function root() external view override(IFrontier) returns (bytes32) {
