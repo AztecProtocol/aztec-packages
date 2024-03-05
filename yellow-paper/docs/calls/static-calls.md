@@ -15,7 +15,7 @@ In particular, the following fields of the returned `CallStackItem` must be zero
 - `encrypted_log_preimages_length`
 - `unencrypted_log_preimages_length`
 
-From the point a static call is made, every subsequent nested call is forced to be static by setting a flag in the derived `CallContext`.
+From the moment a static call is made, every subsequent nested call is forced to be static by setting a flag in the derived `CallContext`, which propagates through the call stack.
 
 At the protocol level, a static call is identified by a `is_static_call` flag in the `CircuitPublicInputs` of the `CallStackItem`. The kernel is responsible for asserting that the call and all nested calls do not emit any forbidden side effects.
 
