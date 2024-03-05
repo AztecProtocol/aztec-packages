@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2023 Aztec Labs.
+pragma solidity >=0.8.18;
+
+import {NewInbox} from "../../src/core/messagebridge/NewInbox.sol";
+
+// Libraries
+import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
+
+// TODO: rename to InboxHarness once all the pieces of the new message model are in place.
+contract NewInboxHarness is NewInbox {
+  uint256 public constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
+
+  constructor(address _rollup, uint256 _height) NewInbox(_rollup, _height) {}
+
+  function getSize() external view returns (uint256) {
+    return SIZE;
+  }
+
+  function getEmptyRoot() external view returns (bytes32) {
+    return EMPTY_ROOT;
+  }
+
+  function getToIncludeRoot() external view returns (bytes32) {
+    bytes32 root = EMPTY_ROOT;
+    if (toInclude > Constants.INITIAL_L2_BLOCK_NUM) {
+      root = trees[toInclude].root();
+    }
+    return root;
+  }
+
+  function getNumTrees() external view returns (uint256) {
+    uint256 blockNumber = FIRST_REAL_TREE_NUM;
+    while (address(trees[blockNumber]) != address(0)) {
+      blockNumber++;
+    }
+    return blockNumber - 2; // -2 because first real tree is included in block 2
+  }
+}

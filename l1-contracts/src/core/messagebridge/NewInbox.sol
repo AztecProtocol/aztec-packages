@@ -26,14 +26,14 @@ contract NewInbox {
 
   address public immutable ROLLUP;
 
-  uint256 public immutable HEIGHT;
-  uint256 public immutable SIZE;
-  bytes32 private immutable EMPTY_ROOT; // The root of an empty frontier tree
+  uint256 internal immutable HEIGHT;
+  uint256 internal immutable SIZE;
+  bytes32 internal immutable EMPTY_ROOT; // The root of an empty frontier tree
 
-  uint256 private toInclude = 1;
-  uint256 private inProgress = 2;
+  uint256 internal toInclude = 1;
+  uint256 internal inProgress = 2;
 
-  mapping(uint256 blockNumber => IFrontier tree) public frontier;
+  mapping(uint256 blockNumber => IFrontier tree) internal trees;
 
   event LeafInserted(uint256 indexed blockNumber, uint256 index, bytes32 value);
 
@@ -45,7 +45,7 @@ contract NewInbox {
 
     // We deploy the first tree
     IFrontier firstTree = IFrontier(new FrontierMerkle(_height));
-    frontier[inProgress] = firstTree;
+    trees[inProgress] = firstTree;
 
     EMPTY_ROOT = firstTree.root();
   }
@@ -73,11 +73,11 @@ contract NewInbox {
       revert Errors.Inbox__SecretHashTooLarge(_secretHash);
     }
 
-    IFrontier currentTree = frontier[inProgress];
+    IFrontier currentTree = trees[inProgress];
     if (currentTree.isFull()) {
       inProgress += 1;
       currentTree = IFrontier(new FrontierMerkle(HEIGHT));
-      frontier[inProgress] = currentTree;
+      trees[inProgress] = currentTree;
     }
 
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
@@ -111,13 +111,13 @@ contract NewInbox {
 
     bytes32 root = EMPTY_ROOT;
     if (toInclude > Constants.INITIAL_L2_BLOCK_NUM) {
-      root = frontier[toInclude].root();
+      root = trees[toInclude].root();
     }
 
     // If we are "catching up" we skip the tree creation as it is already there
     if (toInclude + 1 == inProgress) {
       inProgress += 1;
-      frontier[inProgress] = IFrontier(new FrontierMerkle(HEIGHT));
+      trees[inProgress] = IFrontier(new FrontierMerkle(HEIGHT));
     }
 
     toInclude += 1;
