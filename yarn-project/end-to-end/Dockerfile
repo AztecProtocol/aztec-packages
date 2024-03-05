@@ -24,6 +24,8 @@ RUN apk update && apk add --no-cache \
 ENV CHROME_BIN="/usr/bin/chromium-browser" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true" ACVM_BINARY_PATH="/usr/src/noir/noir-repo/target/release/acvm" ACVM_WORKING_DIRECTORY="/tmp/acvm"
 COPY --from=builder /usr/src /usr/src
 
+RUN ls /usr/src/noir/noir-repo/target/release
+
 WORKDIR /usr/src/yarn-project/end-to-end
 
 ENTRYPOINT ["yarn", "test"]

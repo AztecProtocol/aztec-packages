@@ -10,6 +10,7 @@ COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
 COPY --from=noir /usr/src/noir/noir-repo/target /usr/src/noir/noir-repo/target
 COPY --from=boxes-files /usr/src/boxes /usr/src/boxes
+RUN ls /usr/src/noir/noir-repo/target/release
 COPY . .
 RUN ./bootstrap.sh
 ENTRYPOINT ["yarn"]
