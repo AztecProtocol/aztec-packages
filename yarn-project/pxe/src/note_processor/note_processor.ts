@@ -1,14 +1,6 @@
-import {
-  AztecNode,
-  INITIAL_L2_BLOCK_NUM,
-  KeyStore,
-  L1NotePayload,
-  L2BlockContext,
-  L2BlockL2Logs,
-  TaggedNote,
-} from '@aztec/circuit-types';
+import { AztecNode, KeyStore, L1NotePayload, L2BlockContext, L2BlockL2Logs, TaggedNote } from '@aztec/circuit-types';
 import { NoteProcessorStats } from '@aztec/circuit-types/stats';
-import { MAX_NEW_NOTE_HASHES_PER_TX, PublicKey } from '@aztec/circuits.js';
+import { INITIAL_L2_BLOCK_NUM, MAX_NEW_NOTE_HASHES_PER_TX, PublicKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -125,7 +117,7 @@ export class NoteProcessor {
         this.stats.txs++;
         const dataStartIndexForTx =
           dataEndIndexForBlock - (txLogs.length - indexOfTxInABlock) * MAX_NEW_NOTE_HASHES_PER_TX;
-        const newNoteHashes = block.body.txEffects[indexOfTxInABlock].newNoteHashes;
+        const newNoteHashes = block.body.txEffects[indexOfTxInABlock].noteHashes;
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
         const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
@@ -213,7 +205,7 @@ export class NoteProcessor {
     }
 
     const newNullifiers: Fr[] = blocksAndNotes.flatMap(b =>
-      b.blockContext.block.body.txEffects.flatMap(txEffect => txEffect.newNullifiers),
+      b.blockContext.block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
     );
     const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.publicKey);
     removedNotes.forEach(noteDao => {

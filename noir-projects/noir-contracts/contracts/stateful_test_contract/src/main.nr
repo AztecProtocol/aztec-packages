@@ -1,15 +1,11 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract StatefulTest {
-    use dep::std::option::Option;
+    use dep::aztec::prelude::{PrivateContext, NoteHeader, Map, PublicMutable, PrivateSet, AztecAddress, FunctionSelector};
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
-        deploy::{deploy_contract as aztec_deploy_contract},
-        context::{PrivateContext, PublicContext, Context},
-        note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{Map, PublicMutable, PrivateSet},
+        deploy::{deploy_contract as aztec_deploy_contract}, context::{PublicContext, Context},
         oracle::get_contract_instance::get_contract_instance,
-        initializer::{mark_as_initialized, assert_is_initialized},
-        protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector},
+        initializer::{mark_as_initialized, assert_is_initialized}
     };
 
     struct Storage {
@@ -25,7 +21,6 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
-    #[aztec(initcheck)]
     fn create_note(owner: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
@@ -34,6 +29,7 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
+    #[aztec(noinitcheck)]
     fn create_note_no_init_check(owner: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
@@ -54,6 +50,7 @@ contract StatefulTest {
     }
 
     #[aztec(private)]
+    #[aztec(noinitcheck)]
     fn destroy_and_create_no_init_check(recipient: AztecAddress, amount: Field) {
         let sender = context.msg_sender();
 
@@ -64,9 +61,15 @@ contract StatefulTest {
         increment(recipient_notes, amount, recipient);
     }
 
-
     #[aztec(public)]
     fn increment_public_value(owner: AztecAddress, value: Field) {
+        assert_is_initialized(&mut context);
+        let loc = storage.public_values.at(owner);
+        loc.write(loc.read() + value);
+    }
+
+    #[aztec(public)]
+    fn increment_public_value_no_init_check(owner: AztecAddress, value: Field) {
         let loc = storage.public_values.at(owner);
         loc.write(loc.read() + value);
     }

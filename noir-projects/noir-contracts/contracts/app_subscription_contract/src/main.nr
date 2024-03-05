@@ -1,18 +1,16 @@
 mod subscription_note;
 mod dapp_payload;
 
-contract AppSubscriptionContract {
+contract AppSubscription {
     use dep::std;
-    use dep::std::option::Option;
     use crate::dapp_payload::DAppPayload;
 
-    use dep::aztec::protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector};
-
-    use dep::aztec::{
-        context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
-        oracle::get_public_key::get_public_key,
-        state_vars::{Map, PrivateMutable, PublicMutable, SharedImmutable}
+    use dep::aztec::prelude::{
+        AztecAddress, FunctionSelector, PrivateContext, NoteHeader, Map, PrivateMutable, PublicMutable,
+        SharedImmutable
     };
+
+    use dep::aztec::{context::Context, oracle::get_public_key::get_public_key};
     use dep::authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
 
     use crate::subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN};
@@ -35,6 +33,7 @@ contract AppSubscriptionContract {
 
     // Constructs the contract
     #[aztec(private)]
+    #[aztec(initializer)]
     fn constructor(
         target_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
@@ -87,7 +86,8 @@ contract AppSubscriptionContract {
     }
 
     #[aztec(public)]
-    internal fn init(
+    #[aztec(internal)]
+    fn init(
         target_address: AztecAddress,
         subscription_token_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
@@ -102,12 +102,14 @@ contract AppSubscriptionContract {
     }
 
     #[aztec(public)]
-    internal fn assert_not_expired(expiry_block_number: Field) {
+    #[aztec(internal)]
+    fn assert_not_expired(expiry_block_number: Field) {
         assert((context.block_number()) as u64 < expiry_block_number as u64);
     }
 
     #[aztec(public)]
-    internal fn assert_block_number(expiry_block_number: Field) {
+    #[aztec(internal)]
+    fn assert_block_number(expiry_block_number: Field) {
         assert(
             (context.block_number() + SUBSCRIPTION_DURATION_IN_BLOCKS) as u64
             >= expiry_block_number as u64

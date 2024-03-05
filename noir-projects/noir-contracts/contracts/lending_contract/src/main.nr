@@ -11,9 +11,9 @@ mod interfaces;
 // - A way to repay all debt at once
 // - Liquidations
 contract Lending {
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
-    use dep::std::option::Option;
-    use dep::aztec::{context::{PrivateContext, PublicContext, Context}, state_vars::{Map, PublicMutable}};
+    use dep::aztec::prelude::{FunctionSelector, AztecAddress, PrivateContext, Map, PublicMutable};
+    use dep::aztec::context::{PublicContext, Context};
+
     use crate::asset::Asset;
     use crate::interest_math::compute_multiplier;
     use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value, compute_identifier};
@@ -36,6 +36,7 @@ contract Lending {
 
     // Constructs the contract.
     #[aztec(private)]
+    #[aztec(initializer)]
     fn constructor(
     ) {}
 
@@ -129,7 +130,8 @@ contract Lending {
     }
 
     #[aztec(public)]
-    internal fn _deposit(owner: AztecAddress, amount: Field, collateral_asset: AztecAddress) {
+    #[aztec(internal)]
+    fn _deposit(owner: AztecAddress, amount: Field, collateral_asset: AztecAddress) {
         let _asset = Lending::at(context.this_address()).update_accumulator(context);
 
         let coll_asset = storage.collateral_asset.read();
@@ -162,7 +164,8 @@ contract Lending {
     }
 
     #[aztec(public)]
-    internal fn _withdraw(owner: AztecAddress, recipient: AztecAddress, amount: Field) {
+    #[aztec(internal)]
+    fn _withdraw(owner: AztecAddress, recipient: AztecAddress, amount: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle).get_price(context);
 
@@ -219,7 +222,8 @@ contract Lending {
     }
 
     #[aztec(public)]
-    internal fn _borrow(owner: AztecAddress, to: AztecAddress, amount: Field) {
+    #[aztec(internal)]
+    fn _borrow(owner: AztecAddress, to: AztecAddress, amount: Field) {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle).get_price(context);
 
@@ -281,7 +285,8 @@ contract Lending {
     }
 
     #[aztec(public)]
-    internal fn _repay(owner: AztecAddress, amount: Field, stable_coin: AztecAddress) {
+    #[aztec(internal)]
+    fn _repay(owner: AztecAddress, amount: Field, stable_coin: AztecAddress) {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
 
         // To ensure that private is using the correct token.

@@ -8,7 +8,12 @@ import { jest } from '@jest/globals';
 
 import { TypeTag } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
-import { initContext, initExecutionEnvironment, initGlobalVariables } from './fixtures/index.js';
+import {
+  initContext,
+  initExecutionEnvironment,
+  initGlobalVariables,
+  initL1ToL2MessageOracleInput,
+} from './fixtures/index.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 
@@ -237,7 +242,62 @@ describe('AVM simulator', () => {
       });
     });
 
-    describe('Test tree access functions from noir contract', () => {
+    describe('Test tree access functions from noir contract (notes & nullifiers)', () => {
+      it(`Should execute contract function that checks if a note hash exists (it does not)`, async () => {
+        const noteHash = new Fr(42);
+        const leafIndex = new Fr(7);
+        const calldata = [noteHash, leafIndex];
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_note_hash_exists')!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        await new AvmSimulator(context).execute();
+        const results = await new AvmSimulator(context).execute();
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([/*exists=false*/ new Fr(0)]);
+
+        // Note hash existence check should be in trace
+        const trace = context.persistableState.flush();
+        expect(trace.noteHashChecks).toEqual([expect.objectContaining({ noteHash, leafIndex, exists: false })]);
+      });
+      it(`Should execute contract function that checks if a note hash exists (it does)`, async () => {
+        const noteHash = new Fr(42);
+        const leafIndex = new Fr(7);
+        const calldata = [noteHash, leafIndex];
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_note_hash_exists')!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        // note hash exists!
+        jest
+          .spyOn(context.persistableState.hostStorage.commitmentsDb, 'getCommitmentIndex')
+          .mockReturnValue(Promise.resolve(BigInt(7)));
+
+        await new AvmSimulator(context).execute();
+        const results = await new AvmSimulator(context).execute();
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([/*exists=true*/ new Fr(1)]);
+
+        // Note hash existence check should be in trace
+        const trace = context.persistableState.flush();
+        expect(trace.noteHashChecks).toEqual([expect.objectContaining({ noteHash, leafIndex, exists: true })]);
+      });
       it(`Should execute contract function to emit note hash (should be traced)`, async () => {
         const utxo = new Fr(42);
         const calldata = [utxo];
@@ -280,12 +340,12 @@ describe('AVM simulator', () => {
 
         expect(context.persistableState.flush().newNullifiers).toEqual([utxo]);
       });
-      it(`Should execute contract function that checks if a nullifier existence (it does not)`, async () => {
+      it(`Should execute contract function that checks if a nullifier exists (it does not)`, async () => {
         const utxo = new Fr(42);
         const calldata = [utxo];
 
         // Get contract function artifact
-        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_check_nullifier_exists')!;
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_nullifier_exists')!;
 
         // Decode bytecode into instructions
         const bytecode = Buffer.from(artifact.bytecode, 'base64');
@@ -301,16 +361,16 @@ describe('AVM simulator', () => {
         expect(results.output).toEqual([/*exists=false*/ new Fr(0)]);
 
         // Nullifier existence check should be in trace
-        const sideEffects = context.persistableState.flush();
-        expect(sideEffects.nullifierChecks.length).toEqual(1);
-        expect(sideEffects.nullifierChecks[0].exists).toEqual(false);
+        const trace = context.persistableState.flush();
+        expect(trace.nullifierChecks.length).toEqual(1);
+        expect(trace.nullifierChecks[0].exists).toEqual(false);
       });
-      it(`Should execute contract function that checks if a nullifier existence (it does)`, async () => {
+      it(`Should execute contract function that checks if a nullifier exists (it does)`, async () => {
         const utxo = new Fr(42);
         const calldata = [utxo];
 
         // Get contract function artifact
-        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_check_nullifier_exists')!;
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_nullifier_exists')!;
 
         // Decode bytecode into instructions
         const bytecode = Buffer.from(artifact.bytecode, 'base64');
@@ -331,9 +391,9 @@ describe('AVM simulator', () => {
         expect(results.output).toEqual([/*exists=true*/ new Fr(1)]);
 
         // Nullifier existence check should be in trace
-        const sideEffects = context.persistableState.flush();
-        expect(sideEffects.nullifierChecks.length).toEqual(1);
-        expect(sideEffects.nullifierChecks[0].exists).toEqual(true);
+        const trace = context.persistableState.flush();
+        expect(trace.nullifierChecks.length).toEqual(1);
+        expect(trace.nullifierChecks[0].exists).toEqual(true);
       });
       it(`Should execute contract function that checks emits a nullifier and checks its existence`, async () => {
         const utxo = new Fr(42);
@@ -355,10 +415,10 @@ describe('AVM simulator', () => {
         expect(results.reverted).toBe(false);
 
         // Nullifier existence check should be in trace
-        const sideEffects = context.persistableState.flush();
-        expect(sideEffects.newNullifiers).toEqual([utxo]);
-        expect(sideEffects.nullifierChecks.length).toEqual(1);
-        expect(sideEffects.nullifierChecks[0].exists).toEqual(true);
+        const trace = context.persistableState.flush();
+        expect(trace.newNullifiers).toEqual([utxo]);
+        expect(trace.nullifierChecks.length).toEqual(1);
+        expect(trace.nullifierChecks[0].exists).toEqual(true);
       });
       it(`Should execute contract function that emits same nullifier twice (should fail)`, async () => {
         const utxo = new Fr(42);
@@ -381,6 +441,64 @@ describe('AVM simulator', () => {
 
         // Only the first nullifier should be in the trace, second one failed to add
         expect(context.persistableState.flush().newNullifiers).toEqual([utxo]);
+      });
+    });
+    describe('Test tree access functions from noir contract (l1ToL2 messages)', () => {
+      it(`Should execute contract function that checks if a message exists (it does not)`, async () => {
+        const msgHash = new Fr(42);
+        const leafIndex = new Fr(24);
+        const calldata = [msgHash, leafIndex];
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_l1_to_l2_msg_exists')!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        await new AvmSimulator(context).execute();
+        const results = await new AvmSimulator(context).execute();
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([/*exists=false*/ new Fr(0)]);
+
+        // Message existence check should be in trace
+        const trace = context.persistableState.flush();
+        expect(trace.l1ToL2MessageChecks.length).toEqual(1);
+        expect(trace.l1ToL2MessageChecks[0].exists).toEqual(false);
+      });
+      it(`Should execute contract function that checks if a message exists (it does)`, async () => {
+        const msgHash = new Fr(42);
+        const leafIndex = new Fr(24);
+        const calldata = [msgHash, leafIndex];
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_l1_to_l2_msg_exists')!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        jest
+          .spyOn(context.persistableState.hostStorage.commitmentsDb, 'getL1ToL2MembershipWitness')
+          .mockResolvedValue(initL1ToL2MessageOracleInput(leafIndex.toBigInt()));
+
+        await new AvmSimulator(context).execute();
+        const results = await new AvmSimulator(context).execute();
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([/*exists=false*/ new Fr(1)]);
+
+        // Message existence check should be in trace
+        const trace = context.persistableState.flush();
+        expect(trace.l1ToL2MessageChecks.length).toEqual(1);
+        expect(trace.l1ToL2MessageChecks[0].exists).toEqual(true);
       });
     });
   });

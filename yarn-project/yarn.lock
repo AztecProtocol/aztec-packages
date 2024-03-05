@@ -633,6 +633,7 @@ __metadata:
   resolution: "@aztec/noir-contracts.js@workspace:noir-contracts.js"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/noir-compiler": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     jest: ^29.5.0
@@ -942,12 +943,6 @@ __metadata:
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
-  languageName: unknown
-  linkType: soft
-
-"@aztec/yarn-project-base@workspace:yarn-project-base":
-  version: 0.0.0-use.local
-  resolution: "@aztec/yarn-project-base@workspace:yarn-project-base"
   languageName: unknown
   linkType: soft
 

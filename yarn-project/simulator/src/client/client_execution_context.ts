@@ -14,8 +14,8 @@ import {
   FunctionData,
   FunctionSelector,
   Header,
+  NoteHashReadRequestMembershipWitness,
   PublicCallRequest,
-  ReadRequestMembershipWitness,
   SideEffect,
   TxContext,
 } from '@aztec/circuits.js';
@@ -119,17 +119,17 @@ export class ClientExecutionContext extends ViewDataOracle {
    * or to flag non-transient reads with their leafIndex.
    * The KernelProver will use this to fully populate witnesses and provide hints to
    * the kernel regarding which commitments each transient read request corresponds to.
-   * @param readRequests - SideEffect containing Note hashed of the notes being read and counter.
+   * @param noteHashReadRequests - SideEffect containing Note hashed of the notes being read and counter.
    * @returns An array of partially filled in read request membership witnesses.
    */
-  public getReadRequestPartialWitnesses(readRequests: SideEffect[]) {
-    return readRequests
+  public getNoteHashReadRequestPartialWitnesses(noteHashReadRequests: SideEffect[]) {
+    return noteHashReadRequests
       .filter(r => !r.isEmpty())
       .map(r => {
         const index = this.gotNotes.get(r.value.toBigInt());
         return index !== undefined
-          ? ReadRequestMembershipWitness.empty(index)
-          : ReadRequestMembershipWitness.emptyTransient();
+          ? NoteHashReadRequestMembershipWitness.empty(index)
+          : NoteHashReadRequestMembershipWitness.emptyTransient();
       });
   }
 
@@ -343,6 +343,8 @@ export class ClientExecutionContext extends ViewDataOracle {
       `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
     );
 
+    isStaticCall = isStaticCall || this.callContext.isStaticCall;
+
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const targetFunctionData = FunctionData.fromAbi(targetArtifact);
 
@@ -412,6 +414,8 @@ export class ClientExecutionContext extends ViewDataOracle {
     isStaticCall: boolean,
     isDelegateCall: boolean,
   ): Promise<PublicCallRequest> {
+    isStaticCall = isStaticCall || this.callContext.isStaticCall;
+
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const derivedCallContext = await this.deriveCallContext(
       targetContractAddress,

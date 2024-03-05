@@ -1,6 +1,5 @@
 import {
   ExtendedContractData,
-  INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
   L2Block,
   L2BlockContext,
@@ -10,7 +9,7 @@ import {
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
-import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { ContractClassPublic, ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
@@ -156,7 +155,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
     });
 
-    describe('getL2Tx', () => {
+    describe('getTxEffect', () => {
       beforeEach(async () => {
         await Promise.all(
           blocks.map(block => store.addLogs(block.body.encryptedLogs, block.body.unencryptedLogs, block.number)),
@@ -173,12 +172,12 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         () => blocks[1].getTx(0),
       ])('retrieves a previously stored transaction', async getExpectedTx => {
         const expectedTx = getExpectedTx();
-        const actualTx = await store.getL2Tx(expectedTx.txHash);
+        const actualTx = await store.getTxEffect(expectedTx.txHash);
         expect(actualTx).toEqual(expectedTx);
       });
 
       it('returns undefined if tx is not found', async () => {
-        await expect(store.getL2Tx(new TxHash(Fr.random().toBuffer()))).resolves.toBeUndefined();
+        await expect(store.getTxEffect(new TxHash(Fr.random().toBuffer()))).resolves.toBeUndefined();
       });
     });
 

@@ -11,15 +11,14 @@ mod types;
 
 contract Token {
     // Libs
-    use dep::std::option::Option;
 
     use dep::compressed_string::FieldCompressedString;
 
-    use dep::aztec::{
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader, utils as note_utils},
-        hash::{compute_secret_hash}, state_vars::{Map, PublicMutable, SharedImmutable, PrivateSet},
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress}
+    use dep::aztec::prelude::{
+        NoteGetterOptions, NoteHeader, Map, PublicMutable, SharedImmutable, PrivateSet,
+        FunctionSelector, AztecAddress
     };
+    use dep::aztec::hash::compute_secret_hash;
 
     // docs:start:import_authwit
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
@@ -54,6 +53,7 @@ contract Token {
 
     // docs:start:constructor
     #[aztec(private)]
+    #[aztec(initializer)]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
         let selector = FunctionSelector::from_signature("_initialize((Field),(Field),(Field),u8)");
         let name_s = FieldCompressedString::from_string(name);
@@ -176,7 +176,8 @@ contract Token {
     }
 
     #[aztec(public)]
-    internal fn assert_minter_and_mint(minter: AztecAddress, amount: Field) {
+    #[aztec(internal)]
+    fn assert_minter_and_mint(minter: AztecAddress, amount: Field) {
         assert(storage.minters.at(minter).read(), "caller is not minter");
         let supply = storage.total_supply.read() + U128::from_integer(amount);
         storage.total_supply.write(supply);
@@ -312,7 +313,8 @@ contract Token {
 
     // docs:start:initialize
     #[aztec(public)]
-    internal fn _initialize(
+    #[aztec(internal)]
+    fn _initialize(
         new_admin: AztecAddress,
         name: FieldCompressedString,
         symbol: FieldCompressedString,
@@ -333,7 +335,8 @@ contract Token {
 
     // docs:start:increase_public_balance
     #[aztec(public)]
-    internal fn _increase_public_balance(to: AztecAddress, amount: Field) {
+    #[aztec(internal)]
+    fn _increase_public_balance(to: AztecAddress, amount: Field) {
         let new_balance = storage.public_balances.at(to).read().add(U128::from_integer(amount));
         storage.public_balances.at(to).write(new_balance);
     }
@@ -341,7 +344,8 @@ contract Token {
 
     // docs:start:reduce_total_supply
     #[aztec(public)]
-    internal fn _reduce_total_supply(amount: Field) {
+    #[aztec(internal)]
+    fn _reduce_total_supply(amount: Field) {
         // Only to be called from burn.
         let new_supply = storage.total_supply.read().sub(U128::from_integer(amount));
         storage.total_supply.write(new_supply);

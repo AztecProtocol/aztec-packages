@@ -11,13 +11,13 @@ You control this storage in Aztec using the `Storage` struct. This struct serves
 
 These state variables come in two forms: public and private. Public variables are visible to anyone, and private variables remain hidden within the contract.
 
-Aztec.nr has a few abstractions to help define the type of data your contract holds. These include PrivateMutable, PublicMutable, PrivateSet, and SharedImmutable.
+Aztec.nr has a few abstractions to help define the type of data your contract holds. These include PrivateMutable, PrivateImmutable, PublicMutable, PrivateSet, and SharedImmutable.
 
 On this and the following pages in this section, you’ll learn:
 
 - How to manage a smart contract's storage structure
 - The distinctions and applications of public and private state variables
-- How to use Singleton, ImmutableSingleton, Set, and Map
+- How to use PrivateMutable, PrivateImmutable, PrivateSet, PublicMutable, SharedImmutable and Map
 - An overview of 'notes' and the UTXO model
 - Practical implications of Storage in real smart contracts
   In an Aztec.nr contract, storage is to be defined as a single struct, that contains both public and private state variables.
@@ -63,11 +63,11 @@ We will see examples of map constructors for public and private variables in lat
 
 #### As private storage
 
-When declaring a mapping in private storage, we have to specify which type of Note to use. In the example below, we are specifying that we want to use the `Singleton` note type.
+When declaring a mapping in private storage, we have to specify which type of Note to use. In the example below, we are specifying that we want to use the `PrivateMutable` note type.
 
 In the Storage struct:
 
-#include_code storage-map-singleton-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code storage-private-mutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 #### Public Example
 
