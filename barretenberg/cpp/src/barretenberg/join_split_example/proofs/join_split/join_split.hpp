@@ -9,11 +9,9 @@ void init_proving_key(bool mock);
 
 void init_verification_key();
 
-Prover new_join_split_prover(join_split_tx const& tx, bool mock);
+Builder new_join_split_prover(join_split_tx const& tx);
 
-bool verify_proof(plonk::proof const& proof);
-
-std::shared_ptr<plonk::proving_key> get_proving_key();
+bool verify_proof(Builder& builder);
 
 std::shared_ptr<plonk::verification_key> get_verification_key();
 

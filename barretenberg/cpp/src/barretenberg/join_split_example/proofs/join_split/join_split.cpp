@@ -45,7 +45,7 @@ void init_verification_key()
         bb::plonk::compute_verification_key_common(proving_key, srs::get_bn254_crs_factory()->get_verifier_crs());
 }
 
-Prover new_join_split_prover(join_split_tx const& tx, bool mock)
+Builder new_join_split_prover(join_split_tx const& tx)
 {
     Builder builder;
     join_split_circuit(builder, tx);
@@ -57,32 +57,14 @@ Prover new_join_split_prover(join_split_tx const& tx, bool mock)
 
     info("public inputs: ", builder.public_inputs.size());
 
-    Composer composer;
-    if (!mock) {
-        info("composer gates: ", builder.get_num_gates());
-        return composer.create_prover(builder);
-    } else {
-        Composer mock_proof_composer(proving_key, nullptr);
-        bb::join_split_example::proofs::mock::mock_circuit(builder, builder.get_public_inputs());
-        info("mock composer gates: ", builder.get_num_gates());
-        return mock_proof_composer.create_prover(builder);
-    }
+    info("num gates before finalization: ", builder.get_num_gates());
+
+    return builder;
 }
 
-bool verify_proof(plonk::proof const& proof)
+bool verify_proof(Builder& builder)
 {
-    Verifier verifier(verification_key, Composer::create_manifest(verification_key->num_public_inputs));
-
-    std::unique_ptr<plonk::KateCommitmentScheme<plonk::ultra_settings>> kate_commitment_scheme =
-        std::make_unique<plonk::KateCommitmentScheme<plonk::ultra_settings>>();
-    verifier.commitment_scheme = std::move(kate_commitment_scheme);
-
-    return verifier.verify_proof(proof);
-}
-
-std::shared_ptr<plonk::proving_key> get_proving_key()
-{
-    return proving_key;
+    return builder.check_circuit();
 }
 
 std::shared_ptr<plonk::verification_key> get_verification_key()
