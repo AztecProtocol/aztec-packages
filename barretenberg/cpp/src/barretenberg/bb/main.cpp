@@ -474,7 +474,7 @@ void acvm_info(const std::string& output_path)
  */
 void avm_prove(const std::filesystem::path& bytecode_path,
                const std::filesystem::path& calldata_path,
-               const std::filesystem::path& crs_path,
+               const std::string& crs_path,
                const std::filesystem::path& output_path)
 {
     // Get Bytecode
@@ -596,7 +596,7 @@ int main(int argc, char* argv[])
         } else if (command == "avm_prove") {
             std::filesystem::path avm_bytecode_path = get_option(args, "-b", "./target/avm_bytecode.bin");
             std::filesystem::path calldata_path = get_option(args, "-d", "./target/call_data.bin");
-            std::filesystem::path crs_path = get_option(args, "-c", "../srs_db/ignition");
+            std::string crs_path = get_option(args, "-c", "../srs_db/ignition");
             std::filesystem::path output_path = get_option(args, "-o", "./proofs/avm_proof");
             avm_prove(avm_bytecode_path, calldata_path, crs_path, output_path);
         } else if (command == "avm_verify") {
