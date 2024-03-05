@@ -129,50 +129,76 @@ contract NewInboxTest is Test {
   }
 
   function testFuzzSendAndConsume(
-    DataStructures.L1ToL2Msg[] memory _messages,
-    uint256 _numTreesToConsume
+    DataStructures.L1ToL2Msg[] memory _messagesFirstBatch,
+    DataStructures.L1ToL2Msg[] memory _messagesSecondBatch,
+    uint256 _numTreesToConsumeFirstBatch,
+    uint256 _numTreesToConsumeSecondBatch
   ) public {
-    uint256 numTrees;
+    // Send first batch of messages
+    _send(_messagesFirstBatch);
 
-    // Send the messages
-    {
-      for (uint256 i = 0; i < _messages.length; i++) {
-        DataStructures.L1ToL2Msg memory message = _boundMessage(_messages[i]);
+    // Consume first few trees
+    _consume(_numTreesToConsumeFirstBatch, _messagesFirstBatch.length);
 
-        bytes32 toIncludeRoot = inbox.getToIncludeRoot();
-        inbox.sendL2Message(message.recipient, message.content, message.secretHash);
-        assertEq(
-          inbox.getToIncludeRoot(),
-          toIncludeRoot,
-          "Root of a tree waiting to be included should not change"
-        );
-      }
+    // Send second batch of messages
+    _send(_messagesSecondBatch);
 
-      uint256 expectedNumTrees = _divideAndRoundUp(_messages.length, inbox.getSize());
-      if (expectedNumTrees == 0) {
-        // This occurs when there are no messages but we initialize the first tree in the constructor so there are never
-        // zero trees
-        expectedNumTrees = 1;
-      }
-      numTrees = inbox.getNumTrees();
-      assertEq(numTrees, expectedNumTrees);
+    // Consume second batch of trees
+    _consume(_numTreesToConsumeSecondBatch, _messagesSecondBatch.length);
+  }
+
+  function _send(DataStructures.L1ToL2Msg[] memory _messages) internal {
+    bool isFirstRun = inbox.getInProgress() == inbox.FIRST_REAL_TREE_NUM();
+    bytes32 toIncludeRoot = inbox.getToIncludeRoot();
+
+    for (uint256 i = 0; i < _messages.length; i++) {
+      DataStructures.L1ToL2Msg memory message = _boundMessage(_messages[i]);
+
+      // We send the message and check that toInclude root did not change.
+      inbox.sendL2Message(message.recipient, message.content, message.secretHash);
     }
 
-    // Consume the messages
-    {
-      // We use (numTrees * 2) as upper bound here because we want to test the case where we go beyond the currently
-      // initalized number of trees. When consuming the newly initialized trees we should get zero roots.
-      uint256 numTreesToConsume = bound(_numTreesToConsume, 1, numTrees * 2);
+    // Root of a tree waiting to be included should not change because we introduced a 1 block lag to prevent sequencer
+    // DOS attacks
+    assertEq(
+      inbox.getToIncludeRoot(),
+      toIncludeRoot,
+      "Root of a tree waiting to be included should not change"
+    );
 
-      // Now we consume the trees
-      for (uint256 i = 0; i < numTreesToConsume; i++) {
-        bytes32 root = inbox.consume();
+    // We perform expected num trees check only after first batch because after second one the following accounting
+    // does not work because a tree might have been consumed when not full or we might have consumed an empty tree
+    if (isFirstRun) {
+      uint256 expectedNumTrees = _divideAndRoundUp(_messages.length, inbox.getSize());
+      if (expectedNumTrees == 0) {
+        // This occurs when there are no messages but we initialize the first tree in the constructor so there are
+        // never zero trees
+        expectedNumTrees = 1;
+      }
+      assertEq(inbox.getNumTrees(), expectedNumTrees);
+    }
+  }
 
+  function _consume(uint256 _numTreesToConsume, uint256 _numMessages) internal {
+    bool isFirstRun = inbox.getToInclude() == Constants.INITIAL_L2_BLOCK_NUM;
+    uint256 numTrees = inbox.getNumTrees();
+
+    // We use (numTrees * 2) as upper bound here because we want to test the case where we go beyond the currently
+    // initalized number of trees. When consuming the newly initialized trees we should get zero roots.
+    uint256 numTreesToConsume = bound(_numTreesToConsume, 1, numTrees * 2);
+
+    // Now we consume the trees
+    for (uint256 i = 0; i < numTreesToConsume; i++) {
+      bytes32 root = inbox.consume();
+
+      // We perform empty roots check only after first batch because after second one the following simple accounting
+      // does not work
+      if (isFirstRun) {
         // Notes:
         // 1) For i = 0 we should always get empty tree root because first block's messages tree is always
         // empty because we introduced a 1 block lag to prevent sequencer DOS attacks.
-        // 2) For _messages.length = 0 and i = 1 we get empty root as well
-        if (i != 0 && i <= numTrees && _messages.length > 0) {
+        // 2) For _numMessages = 0 and i = 1 we get empty root as well
+        if (i != 0 && i <= numTrees && _numMessages > 0) {
           assertNotEq(root, emptyTreeRoot, "Root should not be zero");
         } else {
           assertEq(root, emptyTreeRoot, "Root should be zero");
