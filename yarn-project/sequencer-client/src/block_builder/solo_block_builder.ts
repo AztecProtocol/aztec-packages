@@ -337,12 +337,12 @@ export class SoloBlockBuilder implements BlockBuilder {
     const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map(
       (await Promise.all(promises)).map(obj => [obj.key, obj.value]),
     );
-    this.validatePartialState(state.partial, snapshots),
-      this.validateSimulatedTree(
-        await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
-        state.l1ToL2MessageTree,
-        'L1ToL2MessageTree',
-      );
+    this.validatePartialState(state.partial, snapshots);
+    this.validateSimulatedTree(
+      await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
+      state.l1ToL2MessageTree,
+      'L1ToL2MessageTree',
+    );
   }
 
   // Validate that the roots of all local trees match the output of the root circuit simulation
