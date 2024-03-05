@@ -5,8 +5,6 @@
 
 namespace bb::join_split_example::proofs::join_split {
 
-void init_proving_key(bool mock);
-
 void init_verification_key();
 
 Builder new_join_split_prover(join_split_tx const& tx);
