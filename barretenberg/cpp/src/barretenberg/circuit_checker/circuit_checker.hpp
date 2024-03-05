@@ -15,8 +15,6 @@
 
 namespace bb {
 
-using namespace bb;
-
 class CircuitChecker {
   public:
     using FF = bb::fr;
@@ -40,7 +38,22 @@ class CircuitChecker {
      * @tparam Builder
      * @param builder
      */
-    template <typename Builder> static bool check(const Builder& builder);
+    template <typename Builder> static bool check(const Builder& builder)
+    {
+        const auto& block = builder.blocks.arithmetic;
+        for (size_t i = 0; i < builder.num_gates; i++) {
+            FF left = builder.get_variable(block.w_l()[i]);
+            FF right = builder.get_variable(block.w_r()[i]);
+            FF output = builder.get_variable(block.w_o()[i]);
+            FF gate_sum = block.q_m()[i] * left * right + block.q_1()[i] * left + block.q_2()[i] * right +
+                          block.q_3()[i] * output + block.q_c()[i];
+            if (!gate_sum.is_zero()) {
+                info("gate number", i);
+                return false;
+            }
+        }
+        return true;
+    }
 
     /**
      * @brief Specialized circuit checker for the Standard builder
@@ -51,37 +64,8 @@ class CircuitChecker {
     template <typename FF> static bool check(const StandardCircuitBuilder_<FF>& builder);
 
   private:
-    /**
-     * @brief Struct for managing the running tag product data for ensuring tag correctness
-     */
-    struct TagCheckData {
-        FF left_product = FF::one();           // product of (value + γ ⋅ tag)
-        FF right_product = FF::one();          // product of (value + γ ⋅ tau[tag])
-        const FF gamma = FF::random_element(); // randomness for the tag check
-
-        // We need to include each variable only once
-        std::unordered_set<size_t> encountered_variables;
-    };
-
-    /**
-     * @brief Struct for managing memory record data for ensuring RAM/ROM correctness
-     */
-    struct MemoryCheckData {
-        FF eta = FF::random_element(); // randomness for constructing wire 4 mem records
-
-        std::unordered_set<size_t> read_record_gates;  // row indices for gates containing RAM/ROM read mem record
-        std::unordered_set<size_t> write_record_gates; // row indices for gates containing RAM/ROM write mem record
-        // Construct hash tables for memory read/write indices to efficiently determine if row is a memory record
-        MemoryCheckData(const auto& builder)
-        {
-            for (const auto& gate_idx : builder.memory_read_records) {
-                read_record_gates.insert(gate_idx);
-            }
-            for (const auto& gate_idx : builder.memory_write_records) {
-                write_record_gates.insert(gate_idx);
-            }
-        }
-    };
+    struct TagCheckData;
+    struct MemoryCheckData;
 
     /**
      * @brief Check that a given relation is satisfied for the provided inputs corresponding to a single row
@@ -132,6 +116,38 @@ class CircuitChecker {
     template <typename Builder>
     static void populate_values(
         Builder& builder, auto& block, auto& values, TagCheckData& tag_data, MemoryCheckData& memory_data, size_t idx);
+
+    /**
+     * @brief Struct for managing the running tag product data for ensuring tag correctness
+     */
+    struct TagCheckData {
+        FF left_product = FF::one();           // product of (value + γ ⋅ tag)
+        FF right_product = FF::one();          // product of (value + γ ⋅ tau[tag])
+        const FF gamma = FF::random_element(); // randomness for the tag check
+
+        // We need to include each variable only once
+        std::unordered_set<size_t> encountered_variables;
+    };
+
+    /**
+     * @brief Struct for managing memory record data for ensuring RAM/ROM correctness
+     */
+    struct MemoryCheckData {
+        FF eta = FF::random_element(); // randomness for constructing wire 4 mem records
+
+        std::unordered_set<size_t> read_record_gates;  // row indices for gates containing RAM/ROM read mem record
+        std::unordered_set<size_t> write_record_gates; // row indices for gates containing RAM/ROM write mem record
+        // Construct hash tables for memory read/write indices to efficiently determine if row is a memory record
+        MemoryCheckData(const auto& builder)
+        {
+            for (const auto& gate_idx : builder.memory_read_records) {
+                read_record_gates.insert(gate_idx);
+            }
+            for (const auto& gate_idx : builder.memory_write_records) {
+                write_record_gates.insert(gate_idx);
+            }
+        }
+    };
 
     // Define a hash table for efficiently checking if lookups are present in the set of tables used by the circuit
     using Key = std::array<FF, 4>; // key value is the four wire inputs for a lookup gates
