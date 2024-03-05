@@ -26,6 +26,10 @@ Becomes:
 ```
 This will be further simplified in future versions (See [4496](https://github.com/AztecProtocol/aztec-packages/pull/4496) for further details).
 
+The prelude consists of
+
+#include_code prelude /noir-projects/aztec-nr/aztec/src/prelude.nr rust
+
 ### [Aztec.nr] No SafeU120 anymore!
 Noir now have overflow checks by default. So we don't need SafeU120 like libraries anymore.
 
