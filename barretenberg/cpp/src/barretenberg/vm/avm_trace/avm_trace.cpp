@@ -52,6 +52,8 @@ void AvmTraceBuilder::op_add(uint32_t a_offset, uint32_t b_offset, uint32_t dst_
     // a + b = c
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
+
+    // In case of a memory tag error, we must not generate an entry in the ALU table.
     FF c = tag_match ? alu_trace_builder.op_add(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
@@ -97,6 +99,8 @@ void AvmTraceBuilder::op_sub(uint32_t a_offset, uint32_t b_offset, uint32_t dst_
     // a - b = c
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
+
+    // In case of a memory tag error, we must not generate an entry in the ALU table.
     FF c = tag_match ? alu_trace_builder.op_sub(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
@@ -142,6 +146,8 @@ void AvmTraceBuilder::op_mul(uint32_t a_offset, uint32_t b_offset, uint32_t dst_
     // a * b = c
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
+
+    // In case of a memory tag error, we must not generate an entry in the ALU table.
     FF c = tag_match ? alu_trace_builder.op_mul(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
@@ -243,11 +249,9 @@ void AvmTraceBuilder::op_not(uint32_t a_offset, uint32_t dst_offset, AvmMemoryTa
 
     // ~a = c
     FF a = read_a.tag_match ? read_a.val : FF(0);
-    // TODO(4613): If tag_match == false, then the value of c
-    // will not be zero which would not satisfy the constraint that
-    // ic == 0 whenever tag_err == 1. This constraint might be removed
-    // as part of #4613.
-    FF c = alu_trace_builder.op_not(a, in_tag, clk);
+
+    // In case of a memory tag error, we must not generate an entry in the ALU table.
+    FF c = read_a.tag_match ? alu_trace_builder.op_not(a, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
@@ -290,11 +294,8 @@ void AvmTraceBuilder::op_eq(uint32_t a_offset, uint32_t b_offset, uint32_t dst_o
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
 
-    // TODO(4613): If tag_match == false, then the value of c
-    // will not be zero which would not satisfy the constraint that
-    // ic == 0 whenever tag_err == 1. This constraint might be removed
-    // as part of #4613.
-    FF c = alu_trace_builder.op_eq(a, b, in_tag, clk);
+    // In case of a memory tag error, we must not generate an entry in the ALU table.
+    FF c = tag_match ? alu_trace_builder.op_eq(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
