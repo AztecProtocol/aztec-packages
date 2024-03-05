@@ -42,6 +42,6 @@ contract NewInboxHarness is NewInbox {
     while (address(trees[blockNumber]) != address(0)) {
       blockNumber++;
     }
-    return blockNumber - 2; // -2 because first real tree is included in block 2
+    return blockNumber - 2; // - 2 because first real tree is included in block 2
   }
 }
