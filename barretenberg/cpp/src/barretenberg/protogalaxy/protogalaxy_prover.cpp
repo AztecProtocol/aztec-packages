@@ -133,8 +133,6 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     auto next_accumulator = std::make_shared<Instance>();
     next_accumulator->is_accumulator = true;
     next_accumulator->proving_key = instances[0]->proving_key;
-    // next_accumulator->proving_key->log_circuit_size = instances[0]->proving_key->log_circuit_size;
-    next_accumulator->commitment_key = instances[0]->commitment_key;
 
     // Compute the next target sum and send the next folding parameters to the verifier
     FF next_target_sum =
