@@ -97,14 +97,6 @@ interface DebugInfo {
    */
   l2ToL1Msgs: Fr[];
   /**
-   * New contracts leaves created by the transaction to be inserted into the contract tree.
-   */
-  contractsLeaves: Fr[];
-  /**
-   * New contract data created by the transaction.
-   */
-  contractData: ContractData[];
-  /**
    * Notes created in this tx which belong to accounts which are registered in the PXE which was used to submit the
    * tx. You will not receive notes of accounts which are not registered in the PXE here even though they were
    * created in this tx.

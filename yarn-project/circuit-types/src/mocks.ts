@@ -2,7 +2,6 @@ import {
   AztecAddress,
   CallRequest,
   Fr,
-  MAX_NEW_CONTRACTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   Proof,
@@ -38,10 +37,6 @@ export const mockTx = (seed = 1, logs = true) => {
     logs ? TxL2Logs.random(8, 3) : TxL2Logs.empty(), // 8 priv function invocations creating 3 encrypted logs each
     logs ? TxL2Logs.random(11, 2) : TxL2Logs.empty(), // 8 priv + 3 pub function invocations creating 2 unencrypted logs each
     times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
-    times(MAX_NEW_CONTRACTS_PER_TX, () => ExtendedContractData.random()) as Tuple<
-      ExtendedContractData,
-      typeof MAX_NEW_CONTRACTS_PER_TX
-    >,
   );
 
   tx.data.endNonRevertibleData.publicCallStack = [

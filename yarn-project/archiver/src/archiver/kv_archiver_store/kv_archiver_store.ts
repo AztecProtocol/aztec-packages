@@ -273,35 +273,6 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Lookup all extended contract data in an L2 block.
-   * @param blockNumber - The block number to get all contract data from.
-   * @returns All extended contract data in the block (if found).
-   */
-  getExtendedContractDataInBlock(blockNumber: number): Promise<ExtendedContractData[]> {
-    return Promise.resolve(Array.from(this.#contractStore.getExtendedContractDataInBlock(blockNumber)));
-  }
-
-  /**
-   * Get basic info for an L2 contract.
-   * Contains contract address & the ethereum portal address.
-   * @param contractAddress - The contract data address.
-   * @returns ContractData with the portal address (if we didn't throw an error).
-   */
-  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return Promise.resolve(this.#contractStore.getContractData(contractAddress));
-  }
-
-  /**
-   * Get basic info for an all L2 contracts deployed in a block.
-   * Contains contract address & the ethereum portal address.
-   * @param blockNumber - Number of the L2 block where contracts were deployed.
-   * @returns ContractData with the portal address (if we didn't throw an error).
-   */
-  getContractDataInBlock(blockNumber: number): Promise<ContractData[]> {
-    return Promise.resolve(Array.from(this.#contractStore.getContractDataInBlock(blockNumber)));
-  }
-
-  /**
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
