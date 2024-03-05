@@ -98,6 +98,8 @@ jobs:
           # force_sync_staging: Push to our aztec-packages staging branch.
           function force_sync_staging() {
             echo "$COMMIT" > $SUBREPO_PATH/.aztec-sync-commit && git add $SUBREPO_PATH/.aztec-sync-commit
+            # force gitrepo to point to the right HEAD (we ignore .gitrepo contents otherwise)
+            git config --file="$SUBREPO_PATH/.gitrepo" subrepo.commit "$BASE_NOIR_COMMIT"
             # make a new commit with our previous message
             git commit -am "$COMMIT_MESSAGE"
             # Now push to it with subrepo with computed commit messages
