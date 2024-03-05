@@ -70,6 +70,3 @@ pub(super) fn optimize_internal(acir: Circuit) -> (Circuit, Vec<usize>) {
     // ConstantBackpropagationOptimizer::backpropagate_constants(acir, acir_opcode_positions);
 
     info!("Number of opcodes after: {}", acir.opcodes.len());
-
-    (acir, acir_opcode_positions)
-}
