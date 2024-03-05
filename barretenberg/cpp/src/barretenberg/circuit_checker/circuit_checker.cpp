@@ -1,10 +1,44 @@
 #include "circuit_checker.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
 #include <barretenberg/plonk/proof_system/constants.hpp>
 #include <barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp>
 #include <unordered_map>
 #include <unordered_set>
 
 namespace bb {
+
+/**
+ * @brief Circuit check functionality for Standard arithmetization
+ *
+ * @param builder
+ */
+template <> bool CircuitChecker::check<StandardCircuitBuilder_<bb::fr>>(const StandardCircuitBuilder_<bb::fr>& builder)
+{
+    using FF = bb::fr;
+    const auto& block = builder.blocks.arithmetic;
+    for (size_t i = 0; i < builder.num_gates; i++) {
+        FF left = builder.get_variable(block.w_l()[i]);
+        FF right = builder.get_variable(block.w_r()[i]);
+        FF output = builder.get_variable(block.w_o()[i]);
+        FF gate_sum = block.q_m()[i] * left * right + block.q_1()[i] * left + block.q_2()[i] * right +
+                      block.q_3()[i] * output + block.q_c()[i];
+        if (!gate_sum.is_zero()) {
+            info("gate number", i);
+            return false;
+        }
+    }
+    return true;
+};
+
+template <> auto CircuitChecker::init_empty_values<UltraCircuitBuilder_<UltraArith<bb::fr>>>()
+{
+    return UltraFlavor::AllValues{};
+}
+
+template <> auto CircuitChecker::init_empty_values<GoblinUltraCircuitBuilder_<UltraHonkArith<bb::fr>>>()
+{
+    return GoblinUltraFlavor::AllValues{};
+}
 
 /**
  * @brief Circuit check functionality for Ultra arithmetization
@@ -17,12 +51,13 @@ bool CircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(
 {
     using Values = UltraFlavor::AllValues;
     using Params = RelationParameters<FF>;
+    using Builder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
 
     // Create a copy of the input circuit and finalize it
-    UltraCircuitBuilder_<UltraArith<bb::fr>> builder{ builder_in };
+    Builder builder{ builder_in };
     builder.finalize_circuit();
 
-    // Construct a hash table for table entries to efficiently determine if a lookup gate is valid
+    // Construct a hash table for lookup table entries to efficiently determine if a lookup gate is valid
     LookupHashTable lookup_hash_table;
     for (const auto& table : builder.lookup_tables) {
         const FF table_index(table.table_index);
@@ -35,6 +70,7 @@ bool CircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(
     TagCheckData tag_data{ builder };
 
     Values values;
+    // auto values = init_empty_values<Builder>();
     Params params;
     params.eta = tag_data.eta;
 
@@ -192,27 +228,16 @@ void CircuitChecker::populate_values(Builder& builder, auto& values, TagCheckDat
     values.q_lookup = block.q_lookup_type()[idx];
 }
 
-/**
- * @brief Circuit check functionality for Standard arithmetization
- *
- * @param builder
- */
-template <> bool CircuitChecker::check<StandardCircuitBuilder_<bb::fr>>(const StandardCircuitBuilder_<bb::fr>& builder)
-{
-    using FF = bb::fr;
-    const auto& block = builder.blocks.arithmetic;
-    for (size_t i = 0; i < builder.num_gates; i++) {
-        FF left = builder.get_variable(block.w_l()[i]);
-        FF right = builder.get_variable(block.w_r()[i]);
-        FF output = builder.get_variable(block.w_o()[i]);
-        FF gate_sum = block.q_m()[i] * left * right + block.q_1()[i] * left + block.q_2()[i] * right +
-                      block.q_3()[i] * output + block.q_c()[i];
-        if (!gate_sum.is_zero()) {
-            info("gate number", i);
-            return false;
-        }
-    }
-    return true;
-};
+// /**
+//  * @brief Circuit check functionality for Ultra arithmetization
+//  *
+//  * @param builder
+//  */
+// template <>
+// bool CircuitChecker::check<GoblinUltraCircuitBuilder_<bb::fr>>(
+//     const GoblinUltraCircuitBuilder_<bb::fr>& builder_in)
+// {
+//     check<UltraCircuitBuilder_<UltraArith<bb::fr>>>()
+// };
 
 } // namespace bb

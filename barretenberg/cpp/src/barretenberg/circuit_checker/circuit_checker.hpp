@@ -32,11 +32,11 @@ class CircuitChecker {
   private:
     // We use a running tag product mechanism to ensure tag correctness
     struct TagCheckData {
-        FF left_product = FF::one();  // product of (value + γ ⋅ tag)
-        FF right_product = FF::one(); // product of (value + γ ⋅ tau[tag])
-        // Randomness for the tag check
-        const FF gamma = FF::random_element();
-        const FF eta = FF::random_element();
+        FF left_product = FF::one();           // product of (value + γ ⋅ tag)
+        FF right_product = FF::one();          // product of (value + γ ⋅ tau[tag])
+        const FF gamma = FF::random_element(); // randomness for the tag check
+        const FF eta = FF::random_element();   // randomness for constructing wire 4 mem records
+
         // We need to include each variable only once
         std::unordered_set<size_t> encountered_variables;
 
@@ -59,6 +59,8 @@ class CircuitChecker {
     static bool check_lookup(auto& values, auto& lookup_hash_table);
 
     static bool check_tag_data(const TagCheckData& tag_data);
+
+    template <typename Builder> static auto init_empty_values();
 
     template <typename Builder>
     static void populate_values(Builder& builder, auto& values, TagCheckData& tag_data, size_t idx);
