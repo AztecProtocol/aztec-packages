@@ -1,6 +1,6 @@
 #pragma once
+#include "barretenberg/join_split_example/fixtures/user_context.hpp"
 #include "compute_circuit_data.hpp"
-#include "create_proof.hpp"
 #include "join_split.hpp"
 #include "join_split_circuit.hpp"
 #include "join_split_tx.hpp"

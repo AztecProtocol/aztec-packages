@@ -44,7 +44,6 @@ class join_split_tests : public ::testing::Test {
     static void SetUpTestCase()
     {
         srs::init_crs_factory("../srs_db/ignition");
-        init_proving_key(false);
         auto crs_factory = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
         init_verification_key();
         info("vk hash: ", get_verification_key()->sha256_hash());
