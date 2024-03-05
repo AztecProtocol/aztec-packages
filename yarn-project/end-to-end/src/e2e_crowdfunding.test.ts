@@ -242,6 +242,7 @@ describe('e2e_crowdfunding', () => {
 
     expect(allCampaignNotes?.length).toEqual(1);
 
+    // TODO(#4956): Make the following call unnecessary
     const noteNonces = await pxe.getNoteNonces(allCampaignNotes![0]);
     expect(noteNonces?.length).toEqual(1);
 
