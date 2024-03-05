@@ -25,12 +25,12 @@ The folder structure changed at **0.24.0** from `yarn-project/aztec-nr` to `noir
 
 That is, BEFORE `aztec-packages-v0.24.0`:
 ```toml
-`aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="aztec-packages-v0.23.0", directory="yarn-project/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="aztec-packages-v0.23.0", directory="yarn-project/aztec-nr/aztec" }
 ```
 
 At/after `aztec-packages-v0.24.0`:
 ```toml
-`aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="aztec-packages-v0.24.0", directory="noir-projects/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="aztec-packages-v0.24.0", directory="noir-projects/aztec-nr/aztec" }
 ```
 
 ### Example contract versions
