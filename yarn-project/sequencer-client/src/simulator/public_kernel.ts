@@ -37,8 +37,8 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
       throw new Error(`Expected previous kernel inputs to need setup`);
     }
     const inputWitness = convertPublicSetupRollupInputsToWitnessMap(input);
-    const [duration, witness] = await elapsed(
-      () => this.simulator.simulateCircuit(inputWitness, PublicKernelSetupArtifact),
+    const [duration, witness] = await elapsed(() =>
+      this.simulator.simulateCircuit(inputWitness, PublicKernelSetupArtifact),
     );
     const result = convertPublicSetupRollupOutputFromWitnessMap(witness);
     this.log(`Simulated public kernel setup circuit`, {
@@ -63,8 +63,8 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
       throw new Error(`Expected previous kernel inputs to need app logic`);
     }
     const inputWitness = convertPublicInnerRollupInputsToWitnessMap(input);
-    const [duration, witness] = await elapsed(
-      () => this.simulator.simulateCircuit(inputWitness, PublicKernelAppLogicArtifact),
+    const [duration, witness] = await elapsed(() =>
+      this.simulator.simulateCircuit(inputWitness, PublicKernelAppLogicArtifact),
     );
     const result = convertPublicInnerRollupOutputFromWitnessMap(witness);
     this.log(`Simulated public kernel app logic circuit`, {
@@ -89,8 +89,8 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
       throw new Error(`Expected previous kernel inputs to need teardown`);
     }
     const inputWitness = convertPublicTailRollupInputsToWitnessMap(input);
-    const [duration, witness] = await elapsed(
-      () => this.simulator.simulateCircuit(inputWitness, PublicKernelTeardownArtifact),
+    const [duration, witness] = await elapsed(() =>
+      this.simulator.simulateCircuit(inputWitness, PublicKernelTeardownArtifact),
     );
     const result = convertPublicTailRollupOutputFromWitnessMap(witness);
     this.log(`Simulated public kernel teardown circuit`, {

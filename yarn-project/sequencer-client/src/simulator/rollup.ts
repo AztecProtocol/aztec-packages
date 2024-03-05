@@ -39,8 +39,8 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async baseRollupCircuit(input: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
     const witnessMap = convertBaseRollupInputsToWitnessMap(input);
 
-    const [duration, witness] = await elapsed(
-      () => this.simulationProvider.simulateCircuit(witnessMap, BaseRollupArtifact),
+    const [duration, witness] = await elapsed(() =>
+      this.simulationProvider.simulateCircuit(witnessMap, BaseRollupArtifact),
     );
 
     const result = convertBaseRollupOutputsFromWitnessMap(witness);
@@ -63,8 +63,8 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async mergeRollupCircuit(input: MergeRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
     const witnessMap = convertMergeRollupInputsToWitnessMap(input);
 
-    const [duration, witness] = await elapsed(
-      () => this.simulationProvider.simulateCircuit(witnessMap, MergeRollupArtifact),
+    const [duration, witness] = await elapsed(() =>
+      this.simulationProvider.simulateCircuit(witnessMap, MergeRollupArtifact),
     );
 
     const result = convertMergeRollupOutputsFromWitnessMap(witness);
@@ -88,8 +88,8 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async rootRollupCircuit(input: RootRollupInputs): Promise<RootRollupPublicInputs> {
     const witnessMap = convertRootRollupInputsToWitnessMap(input);
 
-    const [duration, witness] = await elapsed(
-      () => this.simulationProvider.simulateCircuit(witnessMap, RootRollupArtifact),
+    const [duration, witness] = await elapsed(() =>
+      this.simulationProvider.simulateCircuit(witnessMap, RootRollupArtifact),
     );
 
     const result = convertRootRollupOutputsFromWitnessMap(witness);

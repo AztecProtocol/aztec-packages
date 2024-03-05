@@ -1,3 +1,4 @@
+import { randomBytes } from '@aztec/foundation/crypto';
 import { NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { WitnessMap } from '@noir-lang/types';
@@ -5,7 +6,6 @@ import * as proc from 'child_process';
 import fs from 'fs/promises';
 
 import { SimulationProvider } from './simulation_provider.js';
-import { randomBytes } from '@aztec/foundation/crypto';
 
 /**
  * Parses a TOML format witness map string into a Map structure
