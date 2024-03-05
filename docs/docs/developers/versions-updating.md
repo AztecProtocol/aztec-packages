@@ -61,10 +61,6 @@ This can present confusion when opening older contracts (and dependencies) writt
 - Or the LSP fails (re-runs automatically then stops)
 The second point requires a restart of the extension, which you can trigger with the command palette (Ctrl + Shift + P) and typing "Reload Window".
 
-:::tip
-When using the LSP in VSCode, reference older versions of Noir code in a separate window or a browser.
-:::tip
-
 ## Updating
 ### TL;DR
 
