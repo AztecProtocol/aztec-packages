@@ -8,6 +8,8 @@ use color_eyre::eyre;
 
 use crate::backends::get_active_backend;
 
+mod fs;
+
 mod backend_cmd;
 mod check_cmd;
 mod codegen_verifier_cmd;

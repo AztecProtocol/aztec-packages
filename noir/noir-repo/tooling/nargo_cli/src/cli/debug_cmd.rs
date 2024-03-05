@@ -23,7 +23,8 @@ use noirc_frontend::graph::CrateName;
 use noirc_frontend::hir::ParsedFiles;
 
 use super::compile_cmd::report_errors;
-use fs::{read_inputs_from_file, save_witness_to_dir};
+use fs::read_inputs_from_file;
+use super::fs::witness::save_witness_to_dir;
 use super::NargoConfig;
 use crate::backends::Backend;
 use crate::errors::CliError;

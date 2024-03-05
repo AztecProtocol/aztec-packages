@@ -13,8 +13,9 @@ use noirc_frontend::graph::CrateName;
 
 use super::compile_cmd::report_errors;
 use fs::{
-    read_inputs_from_file, write_inputs_to_file, save_proof_to_dir
+    read_inputs_from_file, write_inputs_to_file
 };
+use super::fs::proof::save_proof_to_dir;
 use super::NargoConfig;
 use crate::{backends::Backend, cli::execute_cmd::execute_program, errors::CliError};
 
