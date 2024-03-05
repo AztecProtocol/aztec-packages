@@ -354,7 +354,7 @@ template <typename Curve> class IPA {
 
         //  Step 6.
         // Compute b_zero where b_zero can be computed using the polynomial:
-        //  g(X) = ∏_{i ∈ [k]} (1 + u_{k-i}^{-1}.X^{2^{i-1}}).
+        //  g(X) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}.X^{2^{i-1}}).
         //  b_zero = g(evaluation) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}. (evaluation)^{2^{i-1}})
         Fr b_zero = Fr::one();
         for (size_t i = 0; i < log_poly_degree; i++) {
