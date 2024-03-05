@@ -14,10 +14,11 @@ contract Test {
         context::{Context, inputs::private_context_inputs::PrivateContextInputs}, hash::pedersen_hash,
         context::PrivateContext,
         note::{
-        note_header::NoteHeader, utils as note_utils, lifecycle::{create_note, destroy_note},
-        note_getter::{get_notes, view_notes}, note_getter_options::{NoteGetterOptions, NoteStatus},
-        note_viewer_options::NoteViewerOptions
-    },
+            note_header::NoteHeader, utils as note_utils, lifecycle::{create_note, destroy_note},
+            note_getter::{get_notes, view_notes}, note_getter_options::{NoteGetterOptions, NoteStatus},
+            note_viewer_options::NoteViewerOptions
+        },
+        deploy::{deploy_contract as aztec_deploy_contract},
         oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, rand::rand},
         state_vars::PrivateImmutable, log::emit_unencrypted_log_from_private
     };
@@ -262,12 +263,11 @@ contract Test {
         to: AztecAddress,
         amount: Field,
         canceller: EthAddress,
-        msg_key: Field,
         secret: Field
     ) {
         let content_hash = get_mint_public_content_hash(to, amount, canceller);
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(msg_key, content_hash, secret, context.this_portal_address());
+        context.consume_l1_to_l2_message(content_hash, secret, context.this_portal_address());
     }
 
     #[aztec(private)]
@@ -275,13 +275,11 @@ contract Test {
         secret_hash_for_redeeming_minted_notes: Field,
         amount: Field,
         canceller: EthAddress,
-        msg_key: Field,
         secret_for_L1_to_L2_message_consumption: Field
     ) {
         // Consume L1 to L2 message and emit nullifier
         let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller);
         context.consume_l1_to_l2_message(
-            msg_key,
             content_hash,
             secret_for_L1_to_L2_message_consumption,
             context.this_portal_address()
@@ -290,24 +288,22 @@ contract Test {
 
     #[aztec(public)]
     fn consume_message_from_arbitrary_sender_public(
-        msg_key: Field,
         content: Field,
         secret: Field,
         sender: EthAddress
     ) {
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(msg_key, content, secret, sender);
+        context.consume_l1_to_l2_message(content, secret, sender);
     }
 
     #[aztec(private)]
     fn consume_message_from_arbitrary_sender_private(
-        msg_key: Field,
         content: Field,
         secret: Field,
         sender: EthAddress
     ) {
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(msg_key, content, secret, sender);
+        context.consume_l1_to_l2_message(content, secret, sender);
     }
 
     #[aztec(private)]
@@ -347,6 +343,11 @@ contract Test {
     #[aztec(public)]
     fn assert_header_public(header_hash: Field) {
         assert(context.historical_header.hash() == header_hash, "Invalid header hash");
+    }
+
+    #[aztec(private)]
+    fn deploy_contract(target: AztecAddress) {
+        aztec_deploy_contract(&mut context, target);
     }
 
     unconstrained fn get_constant() -> pub Field {

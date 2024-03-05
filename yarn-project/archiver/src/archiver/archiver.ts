@@ -16,15 +16,10 @@ import {
   TxHash,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import {
-  ContractClassRegisteredEvent,
-  FunctionSelector,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/circuits.js';
+import { ContractClassRegisteredEvent, FunctionSelector } from '@aztec/circuits.js';
 import { ContractInstanceDeployedEvent } from '@aztec/circuits.js/contract';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -43,7 +38,8 @@ import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'vi
 import { ArchiverDataStore } from './archiver_store.js';
 import { ArchiverConfig } from './config.js';
 import {
-  retrieveBlocks,
+  retrieveBlockBodiesFromAvailabilityOracle,
+  retrieveBlockMetadataFromRollup,
   retrieveNewCancelledL1ToL2Messages,
   retrieveNewContractData,
   retrieveNewPendingL1ToL2Messages,
@@ -84,6 +80,7 @@ export class Archiver implements ArchiveSource {
   constructor(
     private readonly publicClient: PublicClient<HttpTransport, Chain>,
     private readonly rollupAddress: EthAddress,
+    private readonly availabilityOracleAddress: EthAddress,
     private readonly inboxAddress: EthAddress,
     private readonly registryAddress: EthAddress,
     private readonly contractDeploymentEmitterAddress: EthAddress,
@@ -114,6 +111,7 @@ export class Archiver implements ArchiveSource {
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
+      config.l1Contracts.availabilityOracleAddress,
       config.l1Contracts.inboxAddress,
       config.l1Contracts.registryAddress,
       config.l1Contracts.contractDeploymentEmitterAddress,
@@ -217,9 +215,9 @@ export class Archiver implements ArchiveSource {
       messagesByBlock.set(blockNumber, messages);
     }
 
-    for (const [messageKey, blockNumber] of retrievedCancelledL1ToL2Messages.retrievedData) {
+    for (const [entryKey, blockNumber] of retrievedCancelledL1ToL2Messages.retrievedData) {
       const messages = messagesByBlock.get(blockNumber) || [[], []];
-      messages[1].push(messageKey);
+      messages[1].push(entryKey);
       messagesByBlock.set(blockNumber, messages);
     }
 
@@ -231,14 +229,27 @@ export class Archiver implements ArchiveSource {
         `Adding ${newMessages.length} new messages and ${cancelledMessages.length} cancelled messages in L1 block ${l1Block}`,
       );
       await this.store.addPendingL1ToL2Messages(newMessages, l1Block);
-      await this.store.cancelPendingL1ToL2Messages(cancelledMessages, l1Block);
+      await this.store.cancelPendingL1ToL2EntryKeys(cancelledMessages, l1Block);
     }
 
     // ********** Events that are processed per L2 block **********
 
     // Read all data from chain and then write to our stores at the end
     const nextExpectedL2BlockNum = BigInt((await this.store.getBlockNumber()) + 1);
-    const retrievedBlocks = await retrieveBlocks(
+
+    const retrievedBlockBodies = await retrieveBlockBodiesFromAvailabilityOracle(
+      this.publicClient,
+      this.availabilityOracleAddress,
+      blockUntilSynced,
+      lastL1Blocks.addedBlock + 1n,
+      currentL1BlockNumber,
+    );
+
+    const blockBodies = retrievedBlockBodies.retrievedData.map(([blockBody]) => blockBody);
+
+    await this.store.addBlockBodies(blockBodies);
+
+    const retrievedBlockMetadata = await retrieveBlockMetadataFromRollup(
       this.publicClient,
       this.rollupAddress,
       blockUntilSynced,
@@ -246,6 +257,23 @@ export class Archiver implements ArchiveSource {
       currentL1BlockNumber,
       nextExpectedL2BlockNum,
     );
+
+    const retrievedBodyHashes = retrievedBlockMetadata.retrievedData.map(
+      ([header]) => header.contentCommitment.txsHash,
+    );
+
+    const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
+
+    if (retrievedBlockMetadata.retrievedData.length !== blockBodiesFromStore.length) {
+      throw new Error('Block headers length does not equal block bodies length');
+    }
+
+    const retrievedBlocks = {
+      retrievedData: retrievedBlockMetadata.retrievedData.map(
+        (blockMetadata, i) =>
+          new L2Block(blockMetadata[1], blockMetadata[0], blockBodiesFromStore[i], blockMetadata[2]),
+      ),
+    };
 
     if (retrievedBlocks.retrievedData.length === 0) {
       return;
@@ -260,7 +288,7 @@ export class Archiver implements ArchiveSource {
     // create the block number -> block hash mapping to ensure we retrieve the appropriate events
     const blockNumberToBodyHash: { [key: number]: Buffer | undefined } = {};
     retrievedBlocks.retrievedData.forEach((block: L2Block) => {
-      blockNumberToBodyHash[block.number] = block.body.getCalldataHash();
+      blockNumberToBodyHash[block.number] = block.header.contentCommitment.txsHash;
     });
     const retrievedContracts = await retrieveNewContractData(
       this.publicClient,
@@ -307,26 +335,13 @@ export class Archiver implements ArchiveSource {
     );
 
     // from retrieved L2Blocks, confirm L1 to L2 messages that have been published
-    // from each l2block fetch all messageKeys in a flattened array:
+    // from each l2block fetch all entryKeys in a flattened array:
     this.log(`Confirming l1 to l2 messages in store`);
     for (const block of retrievedBlocks.retrievedData) {
-      await this.store.confirmL1ToL2Messages(block.body.l1ToL2Messages);
+      await this.store.confirmL1ToL2EntryKeys(block.body.l1ToL2Messages);
     }
 
-    // store retrieved L2 blocks after removing new logs information.
-    // remove logs to serve "lightweight" block information. Logs can be fetched separately if needed.
-    await this.store.addBlocks(
-      retrievedBlocks.retrievedData.map(block => {
-        // Ensure we pad the L1 to L2 message array to the full size before storing.
-        block.body.l1ToL2Messages = padArrayEnd(
-          block.body.l1ToL2Messages,
-          Fr.ZERO,
-          NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        );
-
-        return block;
-      }),
-    );
+    await this.store.addBlocks(retrievedBlocks.retrievedData);
   }
 
   /**
@@ -550,17 +565,17 @@ export class Archiver implements ArchiveSource {
    * @param limit - The number of messages to return.
    * @returns The requested L1 to L2 messages' keys.
    */
-  getPendingL1ToL2Messages(limit: number): Promise<Fr[]> {
-    return this.store.getPendingL1ToL2MessageKeys(limit);
+  getPendingL1ToL2EntryKeys(limit: number): Promise<Fr[]> {
+    return this.store.getPendingL1ToL2EntryKeys(limit);
   }
 
   /**
-   * Gets the confirmed/consumed L1 to L2 message associated with the given message key
-   * @param messageKey - The message key.
+   * Gets the confirmed/consumed L1 to L2 message associated with the given entry key
+   * @param entryKey - The entry key.
    * @returns The L1 to L2 message (throws if not found).
    */
-  getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
-    return this.store.getConfirmedL1ToL2Message(messageKey);
+  getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message> {
+    return this.store.getConfirmedL1ToL2Message(entryKey);
   }
 
   getContractClassIds(): Promise<Fr[]> {

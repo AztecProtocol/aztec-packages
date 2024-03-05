@@ -151,14 +151,14 @@ describe('Private Execution test suite', () => {
     // Create a new snapshot.
     const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
 
-    if (name === 'noteHash') {
+    if (name === 'noteHash' || name === 'l1ToL2Messages') {
       header = new Header(
         header.lastArchive,
         header.contentCommitment,
         new StateReference(
-          header.state.l1ToL2MessageTree,
+          name === 'l1ToL2Messages' ? newSnap : header.state.l1ToL2MessageTree,
           new PartialStateReference(
-            newSnap,
+            name === 'noteHash' ? newSnap : header.state.partial.noteHashTree,
             header.state.partial.nullifierTree,
             header.state.partial.contractTree,
             header.state.partial.publicDataTree,
@@ -337,7 +337,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should run the create_note function', async () => {
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_note');
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_note_no_init_check');
 
       const result = await runSimulator({ args: [owner, 140], artifact });
 
@@ -364,7 +364,7 @@ describe('Private Execution test suite', () => {
 
     it('should run the destroy_and_create function', async () => {
       const amountToTransfer = 100n;
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create');
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner);
       const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient);
@@ -411,8 +411,7 @@ describe('Private Execution test suite', () => {
       expect(changeNote.note.items[0]).toEqual(new Fr(40n));
 
       const readRequests = sideEffectArrayToValueArray(
-        // We remove the first element which is the read request for the initialization commitment
-        nonEmptySideEffects(result.callStackItem.publicInputs.readRequests.slice(1)),
+        nonEmptySideEffects(result.callStackItem.publicInputs.readRequests),
       );
 
       expect(readRequests).toHaveLength(consumedNotes.length);
@@ -422,7 +421,7 @@ describe('Private Execution test suite', () => {
     it('should be able to destroy_and_create with dummy notes', async () => {
       const amountToTransfer = 100n;
       const balance = 160n;
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create');
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner);
       const noteTypeId = new Fr(869710811710178111116101n); // ValueNote
@@ -558,7 +557,6 @@ describe('Private Execution test suite', () => {
 
       let crossChainMsgRecipient: AztecAddress | undefined;
       let crossChainMsgSender: EthAddress | undefined;
-      let messageKey: Fr | undefined;
 
       let preimage: L1ToL2Message;
 
@@ -570,7 +568,6 @@ describe('Private Execution test suite', () => {
 
         crossChainMsgRecipient = undefined;
         crossChainMsgSender = undefined;
-        messageKey = undefined;
       });
 
       const computePreimage = () =>
@@ -586,25 +583,23 @@ describe('Private Execution test suite', () => {
           secretHashForRedeemingNotes,
           bridgedAmount,
           canceller.toField(),
-          messageKey ?? preimage.hash(),
           secretForL1ToL2MessageConsumption,
         ]);
 
-      const mockOracles = async () => {
-        const tree = await insertLeaves([messageKey ?? preimage.hash()], 'l1ToL2Messages');
-        oracle.getL1ToL2Message.mockImplementation(async () => {
-          return Promise.resolve(new MessageLoadOracleInputs(preimage, 0n, await tree.getSiblingPath(0n, false)));
+      const mockOracles = async (updateHeader = true) => {
+        const tree = await insertLeaves([preimage.hash()], 'l1ToL2Messages');
+        oracle.getL1ToL2MembershipWitness.mockImplementation(async () => {
+          return Promise.resolve(new MessageLoadOracleInputs(0n, await tree.getSiblingPath(0n, true)));
         });
+        if (updateHeader) {
+          oracle.getHeader.mockResolvedValue(header);
+        }
       };
 
       it('Should be able to consume a dummy cross chain message', async () => {
         preimage = computePreimage();
-
         args = computeArgs();
-
         await mockOracles();
-        // Update state
-        oracle.getHeader.mockResolvedValue(header);
 
         const result = await runSimulator({
           contractAddress,
@@ -622,34 +617,13 @@ describe('Private Execution test suite', () => {
         expect(newNullifiers).toHaveLength(1);
       });
 
-      it('Message not matching requested key', async () => {
-        messageKey = Fr.random();
-
-        preimage = computePreimage();
-
-        args = computeArgs();
-
-        await mockOracles();
-        // Update state
-        oracle.getHeader.mockResolvedValue(header);
-
-        await expect(
-          runSimulator({
-            contractAddress,
-            artifact,
-            args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
-          }),
-        ).rejects.toThrowError('Message not matching requested key');
-      });
-
       it('Invalid membership proof', async () => {
         preimage = computePreimage();
 
         args = computeArgs();
 
-        await mockOracles();
+        // Don't update the header so the message is not in state
+        await mockOracles(false);
 
         await expect(
           runSimulator({
@@ -681,7 +655,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Invalid recipient');
+        ).rejects.toThrowError('Message not in state');
       });
 
       it('Invalid sender', async () => {
@@ -702,7 +676,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Invalid sender');
+        ).rejects.toThrowError('Message not in state');
       });
 
       it('Invalid chainid', async () => {
@@ -722,7 +696,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(2n) },
           }),
-        ).rejects.toThrowError('Invalid Chainid');
+        ).rejects.toThrowError('Message not in state');
       });
 
       it('Invalid version', async () => {
@@ -742,7 +716,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(2n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Invalid Version');
+        ).rejects.toThrowError('Message not in state');
       });
 
       it('Invalid content', async () => {
@@ -763,7 +737,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Invalid Content');
+        ).rejects.toThrowError('Message not in state');
       });
 
       it('Invalid Secret', async () => {
@@ -784,7 +758,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Invalid message secret');
+        ).rejects.toThrowError('Message not in state');
       });
     });
 
