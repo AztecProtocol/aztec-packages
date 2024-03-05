@@ -21,7 +21,7 @@ TEST(FFITerm, addition)
     FFITerm y = FFITerm::Var("y", &s);
     FFITerm bval = FFITerm(b, &s);
     FFITerm z = x + y;
-    
+
     z == c;
     x == a;
     ASSERT_TRUE(s.check());
@@ -42,7 +42,7 @@ TEST(FFITerm, subtraction)
     FFITerm y = FFITerm::Var("y", &s);
     FFITerm bval = FFITerm(b, &s);
     FFITerm z = x - y;
-    
+
     z == c;
     x == a;
     ASSERT_TRUE(s.check());
@@ -63,7 +63,7 @@ TEST(FFITerm, multiplication)
     FFITerm y = FFITerm::Var("y", &s);
     FFITerm bval = FFITerm(b, &s);
     FFITerm z = x * y;
-    
+
     z == c;
     x == a;
     ASSERT_TRUE(s.check());
@@ -84,7 +84,7 @@ TEST(FFITerm, division)
     FFITerm y = FFITerm::Var("y", &s);
     FFITerm bval = FFITerm(b, &s);
     FFITerm z = x / y;
-    
+
     z == c;
     x == a;
     ASSERT_TRUE(s.check());

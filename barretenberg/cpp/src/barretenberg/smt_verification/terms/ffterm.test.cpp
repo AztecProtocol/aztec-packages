@@ -21,7 +21,7 @@ TEST(FFTerm, addition)
     FFTerm y = FFTerm::Var("y", &s);
     FFTerm bval = FFTerm(b, &s);
     FFTerm z = x + y;
-    
+
     z == c;
     x == a;
     ASSERT_TRUE(s.check());
@@ -42,7 +42,7 @@ TEST(FFTerm, subtraction)
     FFTerm y = FFTerm::Var("y", &s);
     FFTerm bval = FFTerm(b, &s);
     FFTerm z = x - y;
-    
+
     z == c;
     x == a;
     ASSERT_TRUE(s.check());
@@ -63,7 +63,7 @@ TEST(FFTerm, multiplication)
     FFTerm y = FFTerm::Var("y", &s);
     FFTerm bval = FFTerm(b, &s);
     FFTerm z = x * y;
-    
+
     z == c;
     x == a;
     ASSERT_TRUE(s.check());
@@ -84,7 +84,7 @@ TEST(FFTerm, division)
     FFTerm y = FFTerm::Var("y", &s);
     FFTerm bval = FFTerm(b, &s);
     FFTerm z = x / y;
-    
+
     z == c;
     x == a;
     ASSERT_TRUE(s.check());

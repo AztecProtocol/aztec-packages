@@ -40,12 +40,13 @@ class FFITerm {
     static FFITerm Var(const std::string& name, Solver* slv);
     static FFITerm Const(const std::string& val, Solver* slv, uint32_t base = 16);
 
-    explicit FFITerm(bb::fr value, Solver* s){
+    explicit FFITerm(bb::fr value, Solver* s)
+    {
         std::stringstream buf; // TODO(#893)
         buf << value;
         std::string tmp = buf.str();
-        tmp[1] = '0';          // avoiding `x` in 0x prefix
-        
+        tmp[1] = '0'; // avoiding `x` in 0x prefix
+
         *this = Const(tmp, s);
     }
 
@@ -57,7 +58,7 @@ class FFITerm {
     FFITerm operator-(const FFITerm& other) const;
     void operator-=(const FFITerm& other);
     FFITerm operator-() const;
-    
+
     FFITerm operator*(const FFITerm& other) const;
     void operator*=(const FFITerm& other);
     FFITerm operator/(const FFITerm& other) const;
@@ -76,7 +77,10 @@ class FFITerm {
 
     ~FFITerm() = default;
 
-    friend std::ostream& operator<<(std::ostream& out, const FFITerm& term) { return out << static_cast<std::string>(term); }
+    friend std::ostream& operator<<(std::ostream& out, const FFITerm& term)
+    {
+        return out << static_cast<std::string>(term);
+    }
 
     friend FFITerm batch_add(const std::vector<FFITerm>& children)
     {
@@ -95,51 +99,26 @@ class FFITerm {
         res = slv->s.mkTerm(cvc5::Kind::INTS_MODULUS, { res, children[0].modulus });
         return { res, slv };
     }
-    
+
     // arithmetic compatibility with Fr
 
-    FFITerm operator+(const bb::fr& other) const{
-        return *this + FFITerm(other, this->solver);
-    }
-    void operator+=(const bb::fr& other){
-        *this += FFITerm(other, this->solver);
-    }
-    FFITerm operator-(const bb::fr& other) const{
-        return *this - FFITerm(other, this->solver);
-    }
-    void operator-=(const bb::fr& other){
-        *this -= FFITerm(other, this->solver);
-    }
-    FFITerm operator*(const bb::fr& other) const{
-        return *this * FFITerm(other, this->solver);
-    }
-    void operator*=(const bb::fr& other){
-        *this *= FFITerm(other, this->solver);
-    }
-    FFITerm operator/(const bb::fr& other) const{
-        return *this / FFITerm(other, this->solver);
-    }
-    void operator/=(const bb::fr& other){
-        *this /= FFITerm(other, this->solver);
-    }
+    FFITerm operator+(const bb::fr& other) const { return *this + FFITerm(other, this->solver); }
+    void operator+=(const bb::fr& other) { *this += FFITerm(other, this->solver); }
+    FFITerm operator-(const bb::fr& other) const { return *this - FFITerm(other, this->solver); }
+    void operator-=(const bb::fr& other) { *this -= FFITerm(other, this->solver); }
+    FFITerm operator*(const bb::fr& other) const { return *this * FFITerm(other, this->solver); }
+    void operator*=(const bb::fr& other) { *this *= FFITerm(other, this->solver); }
+    FFITerm operator/(const bb::fr& other) const { return *this / FFITerm(other, this->solver); }
+    void operator/=(const bb::fr& other) { *this /= FFITerm(other, this->solver); }
 
-    void operator==(const bb::fr& other) const{
-        *this == FFITerm(other, this->solver);
-    }
-    void operator!=(const bb::fr& other) const{
-        *this != FFITerm(other, this->solver);
-    }
-    FFITerm operator^(const bb::fr& other) const{
-        return *this ^ FFITerm(other, this->solver);
-    }
-    void operator^=(const bb::fr& other){
-        *this ^= FFITerm(other, this->solver);
-    }
+    void operator==(const bb::fr& other) const { *this == FFITerm(other, this->solver); }
+    void operator!=(const bb::fr& other) const { *this != FFITerm(other, this->solver); }
+    FFITerm operator^(const bb::fr& other) const { return *this ^ FFITerm(other, this->solver); }
+    void operator^=(const bb::fr& other) { *this ^= FFITerm(other, this->solver); }
     void operator<(const bb::fr& other) const;
     void operator<=(const bb::fr& other) const;
     void operator>(const bb::fr& other) const;
     void operator>=(const bb::fr& other) const;
-
 };
 
 FFITerm operator+(const bb::fr& lhs, const FFITerm& rhs);

@@ -55,9 +55,10 @@ FFTerm FFTerm::operator-(const FFTerm& other) const
     return { res, this->solver };
 }
 
-FFTerm FFTerm::operator-() const{
+FFTerm FFTerm::operator-() const
+{
     cvc5::Term res = this->solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_NEG, { this->term });
-    return { res, this-> solver};
+    return { res, this->solver };
 }
 
 void FFTerm::operator-=(const FFTerm& other)
@@ -89,17 +90,21 @@ void FFTerm::operator*=(const FFTerm& other)
  */
 FFTerm FFTerm::operator/(const FFTerm& other) const
 {
-   other != bb::fr(0);
-   FFTerm res = Var("df8b586e3fa7a1224ec95a886e17a7da_div_" + static_cast<std::string>(*this) + "_" + static_cast<std::string>(other), this->solver);
-   res * other == *this;
-   return res;
+    other != bb::fr(0);
+    FFTerm res = Var("df8b586e3fa7a1224ec95a886e17a7da_div_" + static_cast<std::string>(*this) + "_" +
+                         static_cast<std::string>(other),
+                     this->solver);
+    res* other == *this;
+    return res;
 }
 
 void FFTerm::operator/=(const FFTerm& other)
 {
     other != bb::fr(0);
-    FFTerm res = Var("df8b586e3fa7a1224ec95a886e17a7da_div_" + static_cast<std::string>(*this) + "_" + static_cast<std::string>(other), this->solver);
-    res * other == *this;
+    FFTerm res = Var("df8b586e3fa7a1224ec95a886e17a7da_div_" + static_cast<std::string>(*this) + "_" +
+                         static_cast<std::string>(other),
+                     this->solver);
+    res* other == *this;
     this->term = res.term;
 }
 
@@ -124,32 +129,39 @@ void FFTerm::operator!=(const FFTerm& other) const
     this->solver->s.assertFormula(eq);
 }
 
-FFTerm operator+(const bb::fr& lhs, const FFTerm& rhs){
+FFTerm operator+(const bb::fr& lhs, const FFTerm& rhs)
+{
     return rhs + lhs;
 }
 
-FFTerm operator-(const bb::fr& lhs, const FFTerm& rhs){
+FFTerm operator-(const bb::fr& lhs, const FFTerm& rhs)
+{
     return (-rhs) + lhs;
 }
 
-FFTerm operator*(const bb::fr& lhs, const FFTerm& rhs){
+FFTerm operator*(const bb::fr& lhs, const FFTerm& rhs)
+{
     return rhs * lhs;
 }
 
-FFTerm operator^(__attribute__((unused)) const bb::fr& lhs, __attribute__((unused)) const FFTerm& rhs){
+FFTerm operator^(__attribute__((unused)) const bb::fr& lhs, __attribute__((unused)) const FFTerm& rhs)
+{
     info("Not compatible with Finite Field");
     return {};
 }
 
-FFTerm operator/(const bb::fr& lhs, const FFTerm& rhs){
+FFTerm operator/(const bb::fr& lhs, const FFTerm& rhs)
+{
     return FFTerm(lhs, rhs.solver) / rhs;
 }
 
-void operator==(const bb::fr& lhs, const FFTerm& rhs){
+void operator==(const bb::fr& lhs, const FFTerm& rhs)
+{
     rhs == lhs;
 }
 
-void operator!=(const bb::fr& lhs, const FFTerm& rhs){
+void operator!=(const bb::fr& lhs, const FFTerm& rhs)
+{
     rhs != lhs;
 }
 } // namespace smt_terms

@@ -19,7 +19,7 @@ class FFTerm {
 
     static bool isFiniteField() { return true; };
     static bool isInteger() { return false; };
- 
+
     FFTerm()
         : solver(nullptr)
         , term(cvc5::Term()){};
@@ -36,15 +36,16 @@ class FFTerm {
     static FFTerm Var(const std::string& name, Solver* slv);
     static FFTerm Const(const std::string& val, Solver* slv, uint32_t base = 16);
 
-    FFTerm(bb::fr value, Solver* s){
+    FFTerm(bb::fr value, Solver* s)
+    {
         std::stringstream buf; // TODO(#893)
         buf << value;
         std::string tmp = buf.str();
-        tmp[1] = '0';          // avoiding `x` in 0x prefix
-        
+        tmp[1] = '0'; // avoiding `x` in 0x prefix
+
         *this = Const(tmp, s);
     }
-    
+
     FFTerm& operator=(const FFTerm& right) = default;
     FFTerm& operator=(FFTerm&& right) = default;
 
@@ -62,23 +63,24 @@ class FFTerm {
     void operator==(const FFTerm& other) const;
     void operator!=(const FFTerm& other) const;
 
-    FFTerm operator^(__attribute__((unused)) const FFTerm& other) const{
+    FFTerm operator^(__attribute__((unused)) const FFTerm& other) const
+    {
         info("Not compatible with Finite Field");
         return {};
     }
-    void operator^=(__attribute__((unused)) const FFTerm& other){
-        info("Not compatible with Finite Field");
-    };
-
+    void operator^=(__attribute__((unused)) const FFTerm& other) { info("Not compatible with Finite Field"); };
 
     void mod(){};
 
     operator std::string() const { return term.isFiniteFieldValue() ? term.getFiniteFieldValue() : term.toString(); };
     operator cvc5::Term() const { return term; };
- 
+
     ~FFTerm() = default;
 
-    friend std::ostream& operator<<(std::ostream& out, const FFTerm& term) { return out << static_cast<std::string>(term); };
+    friend std::ostream& operator<<(std::ostream& out, const FFTerm& term)
+    {
+        return out << static_cast<std::string>(term);
+    };
 
     friend FFTerm batch_add(const std::vector<FFTerm>& children)
     {
@@ -98,57 +100,28 @@ class FFTerm {
 
     // arithmetic compatibility with Fr
 
-    FFTerm operator+(const bb::fr& rhs) const{
-        return *this + FFTerm(rhs, this->solver);
-    }
-    void operator+=(const bb::fr& other){
-        *this += FFTerm(other, this->solver);
-    }
-    FFTerm operator-(const bb::fr& other) const{
-        return *this - FFTerm(other, this->solver);
-    }
-    void operator-=(const bb::fr& other){
-        *this -= FFTerm(other, this->solver);
-    }
-    FFTerm operator*(const bb::fr& other) const{
-        return *this * FFTerm(other, this->solver);
-    }
-    void operator*=(const bb::fr& other){
-        *this *= FFTerm(other, this->solver);
-    }
-    FFTerm operator/(const bb::fr& other) const{
-        return *this / FFTerm(other, this->solver);
-    }
-    void operator/=(const bb::fr& other){
-        *this /= FFTerm(other, this->solver);
-    }
+    FFTerm operator+(const bb::fr& rhs) const { return *this + FFTerm(rhs, this->solver); }
+    void operator+=(const bb::fr& other) { *this += FFTerm(other, this->solver); }
+    FFTerm operator-(const bb::fr& other) const { return *this - FFTerm(other, this->solver); }
+    void operator-=(const bb::fr& other) { *this -= FFTerm(other, this->solver); }
+    FFTerm operator*(const bb::fr& other) const { return *this * FFTerm(other, this->solver); }
+    void operator*=(const bb::fr& other) { *this *= FFTerm(other, this->solver); }
+    FFTerm operator/(const bb::fr& other) const { return *this / FFTerm(other, this->solver); }
+    void operator/=(const bb::fr& other) { *this /= FFTerm(other, this->solver); }
 
-    void operator==(const bb::fr& other) const{
-        *this == FFTerm(other, this->solver);
-    }
-    void operator!=(const bb::fr& other) const{
-        *this != FFTerm(other, this->solver);
-    }
+    void operator==(const bb::fr& other) const { *this == FFTerm(other, this->solver); }
+    void operator!=(const bb::fr& other) const { *this != FFTerm(other, this->solver); }
 
-    FFTerm operator^(__attribute__((unused)) const bb::fr& other) const{
+    FFTerm operator^(__attribute__((unused)) const bb::fr& other) const
+    {
         info("Not compatible with Finite Field");
         return {};
     }
-    void operator^=(__attribute__((unused)) const bb::fr& other){
-        info("Not compatible with Finite Field");
-    }
-    void operator<(__attribute__((unused)) const bb::fr& other) const{
-        info("Not compatible with Finite Field");
-    }
-    void operator<=(__attribute__((unused)) const bb::fr& other) const{
-        info("Not compatible with Finite Field");
-    }
-    void operator>(__attribute__((unused)) const bb::fr& other) const{
-        info("Not compatible with Finite Field");
-    }
-    void operator>=(__attribute__((unused)) const bb::fr& other) const{
-        info("Not compatible with Finite Field");
-    }
+    void operator^=(__attribute__((unused)) const bb::fr& other) { info("Not compatible with Finite Field"); }
+    void operator<(__attribute__((unused)) const bb::fr& other) const { info("Not compatible with Finite Field"); }
+    void operator<=(__attribute__((unused)) const bb::fr& other) const { info("Not compatible with Finite Field"); }
+    void operator>(__attribute__((unused)) const bb::fr& other) const { info("Not compatible with Finite Field"); }
+    void operator>=(__attribute__((unused)) const bb::fr& other) const { info("Not compatible with Finite Field"); }
 };
 
 FFTerm operator+(const bb::fr& lhs, const FFTerm& rhs);
