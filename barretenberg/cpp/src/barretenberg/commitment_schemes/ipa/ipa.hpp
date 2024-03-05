@@ -35,8 +35,10 @@ namespace bb {
  *
  *1. Originally we have two vectors \f$\vec{a}\f$ and \f$\vec{b}\f$, which the product of which we want to prove, but
  *the prover can't just send vector \f$\vec{a}\f$ to the verifier, it can only provide a commitment
- \f$langle\vec{a},\vec{G}\rangle\f$ *2. The verifier computes the \f$C'=C+f(\beta)\cdot U\f$ to "bind" together the
- commitment and the evaluation *3. The prover wants to reduce the problem of verifying the inner product of
+ \f$\langle\vec{a},\vec{G}\rangle\f$
+ *2. The verifier computes the \f$C'=C+f(\beta)\cdot U\f$ to "bind" together the
+ commitment and the evaluation
+ *3. The prover wants to reduce the problem of verifying the inner product of
  \f$\vec{a}\f$, \f$\vec{b}\f$ of length
  *\f$n\f$ to a problem of verifying the IPA of 2 vectors \f$\vec{a}_{new}\f$, \f$\vec{b}_{new}\f$ of size
  *\f$\frac{n}{2}\f$​
