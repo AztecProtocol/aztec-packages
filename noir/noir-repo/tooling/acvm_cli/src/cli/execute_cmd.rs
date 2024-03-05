@@ -31,10 +31,6 @@ pub(crate) struct ExecuteCommand {
     #[clap(long, short)]
     working_directory: String,
 
-    /// JSON RPC url to solve oracle calls
-    #[clap(long)]
-    oracle_resolver: Option<String>,
-
     /// Set to print output witness to stdout
     #[clap(long, short, action)]
     print: bool,
