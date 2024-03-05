@@ -33,8 +33,8 @@ describe('e2e_crowdfunding', () => {
     decimals: 18n,
   };
 
-  const rewardsTokenMetadata = {
-    name: 'Rewards Token',
+  const rewardTokenMetadata = {
+    name: 'Reward Token',
     symbol: 'RWT',
     decimals: 18n,
   };
@@ -87,9 +87,9 @@ describe('e2e_crowdfunding', () => {
     rewardToken = await TokenContract.deploy(
       operatorWallet,
       operatorWallet.getAddress(),
-      rewardsTokenMetadata.name,
-      rewardsTokenMetadata.symbol,
-      rewardsTokenMetadata.decimals,
+      rewardTokenMetadata.name,
+      rewardTokenMetadata.symbol,
+      rewardTokenMetadata.decimals,
     )
       .send()
       .deployed();
@@ -136,7 +136,7 @@ describe('e2e_crowdfunding', () => {
       crowdfundingDeploymentReceipt.txHash,
     );
 
-    logger(`JBT deployed to ${rewardToken.address}`);
+    logger(`Reward Token deployed to ${rewardToken.address}`);
 
     const claimContractReceipt = await ClaimContract.deploy(operatorWallet, crowdfunding.address, rewardToken.address)
       .send()
