@@ -19,7 +19,7 @@ class ValueNote : public ::testing::Test {
 TEST_F(ValueNote, Commits)
 {
     auto user = join_split_example::fixtures::create_user_context();
-    auto builder = CircuitBuilder();
+    CircuitBuilder builder;
 
     fr note_value = fr::random_element();
     note_value.data[3] = note_value.data[3] & 0x0FFFFFFFFFFFFFFFULL;
@@ -37,24 +37,14 @@ TEST_F(ValueNote, Commits)
     auto result = circuit_note.commitment;
     result.assert_equal(expected);
 
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
     EXPECT_FALSE(builder.failed());
-    info("composer gates = %zu\n", builder.get_num_gates());
-    auto verifier = composer.create_verifier(builder);
-
-    plonk::proof proof = prover.construct_proof();
-
-    bool proof_result = verifier.verify_proof(proof);
-    EXPECT_EQ(proof_result, true);
+    EXPECT_EQ(builder.check_circuit(), true);
 }
 
 TEST_F(ValueNote, CommitsWith0Value)
 {
-    auto builder = CircuitBuilder();
-
     auto user = join_split_example::fixtures::create_user_context();
+    CircuitBuilder builder;
 
     uint32_t asset_id_value = 0x2abbccddULL; // needs to be less than 30 bits
 
@@ -67,31 +57,20 @@ TEST_F(ValueNote, CommitsWith0Value)
         .creator_pubkey = 0,
         .input_nullifier = fr::random_element(),
     };
+
     auto expected = note.commit();
     auto circuit_note = circuit::value::value_note(witness_data(builder, note));
 
     auto result = circuit_note.commitment;
     result.assert_equal(expected);
 
-    Composer composer = Composer();
-
-    auto prover = composer.create_prover(builder);
-
-    EXPECT_FALSE(builder.failed());
-    info("composer gates = %zu\n", builder.get_num_gates());
-    auto verifier = composer.create_verifier(builder);
-
-    plonk::proof proof = prover.construct_proof();
-
-    bool proof_result = verifier.verify_proof(proof);
-    EXPECT_EQ(proof_result, true);
+    EXPECT_EQ(builder.check_circuit(), true);
 }
 
 TEST_F(ValueNote, CommitWithOversizedAssetIdFails)
 {
-    auto builder = CircuitBuilder();
-
     auto user = join_split_example::fixtures::create_user_context();
+    CircuitBuilder builder;
 
     native::value::value_note note = {
         .value = 0,
@@ -108,16 +87,7 @@ TEST_F(ValueNote, CommitWithOversizedAssetIdFails)
     auto result = circuit_note.commitment;
     result.assert_equal(expected);
 
-    Composer composer = Composer();
-    auto prover = composer.create_prover(builder);
-
     EXPECT_TRUE(builder.failed());
-    info("composer gates = %zu\n", builder.get_num_gates());
-    auto verifier = composer.create_verifier(builder);
-
-    plonk::proof proof = prover.construct_proof();
-
-    bool proof_result = verifier.verify_proof(proof);
-    EXPECT_EQ(proof_result, false);
+    EXPECT_EQ(builder.check_circuit(), false);
 }
 } // namespace bb::join_split_example
