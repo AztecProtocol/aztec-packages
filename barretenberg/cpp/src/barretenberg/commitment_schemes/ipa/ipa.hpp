@@ -116,13 +116,16 @@ template <typename Curve> class IPA {
         ASSERT(opening_pair.challenge != 0 && "The challenge point should not be zero");
         auto poly_degree_plus_1 = static_cast<size_t>(polynomial.size());
 
-        // Step 1. Send polynomial degree + 1 = d to the verifier
+        // Step 1.
+        // Send polynomial degree + 1 = d to the verifier
         transcript->send_to_verifier("IPA:poly_degree_plus_1", static_cast<uint32_t>(poly_degree_plus_1));
 
-        // Step 2. Receieve challenge for the auxiliary generator
+        // Step 2.
+        // Receive challenge for the auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
 
-        // Step 3. Compute auxiliary generator U
+        // Step 3.
+        // Compute auxiliary generator U
         auto aux_generator = Commitment::one() * generator_challenge;
 
         // Checks poly_degree is greater than zero and a power of two
@@ -130,7 +133,8 @@ template <typename Curve> class IPA {
         ASSERT((poly_degree_plus_1 > 0) && (!(poly_degree_plus_1 & (poly_degree_plus_1 - 1))) &&
                "The polynomial degree plus 1 should be positive and a power of two");
 
-        // Step 4. Set initial vector a to the polynomial monomial coefficients and load vector G
+        // Step 4.
+        // Set initial vector a to the polynomial monomial coefficients and load vector G
         auto a_vec = polynomial;
         auto* srs_elements = ck->srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_degree_plus_1);
@@ -153,7 +157,8 @@ template <typename Curve> class IPA {
             /*scalar_multiplications_per_iteration=*/0,
             /*sequential_copy_ops_per_iteration=*/1);
 
-        // Step 5. Compute vector b (vector of the powers of the challenge)
+        // Step 5.
+        // Compute vector b (vector of the powers of the challenge)
         std::vector<Fr> b_vec(poly_degree_plus_1);
         run_loop_in_parallel_if_effective(
             poly_degree_plus_1,
@@ -180,7 +185,8 @@ template <typename Curve> class IPA {
         //  accumulation
         std::mutex inner_product_accumulation_mutex;
 #endif
-        // Step 6. Perform IPA reduction rounds
+        // Step 6.
+        // Perform IPA reduction rounds
         for (size_t i = 0; i < log_poly_degree; i++) {
             round_size >>= 1;
             // Compute inner_prod_L := < a_vec_lo, b_vec_hi > and inner_prod_R := < a_vec_hi, b_vec_lo >
@@ -243,7 +249,8 @@ template <typename Curve> class IPA {
                 G_hi_by_inverse_challenge,
                 G_vec_local);
 
-            // Steps 6.6 and 6.7 Update the vectors a_vec, b_vec.
+            // Steps 6.6 and 6.7
+            // Update the vectors a_vec, b_vec.
             // a_vec_new = a_vec_lo + a_vec_hi * round_challenge
             // b_vec_new = b_vec_lo + b_vec_hi * round_challenge_inv
             run_loop_in_parallel_if_effective(
@@ -268,8 +275,8 @@ template <typename Curve> class IPA {
      * @brief Verify the correctness of a Proof
      *
      * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
-     * @param proof The proof containg L_vec, R_vec and a_zero
-     * @param pub_input Data required to verify the proof
+     * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
+     * @param transcript Transcript with elements from the prover and generated challenges
      *
      * @return true/false depending on if the proof verifies
      *
@@ -283,7 +290,7 @@ template <typename Curve> class IPA {
      *6. Compute \f$b_0=g(\beta)=\prod_{i=0}^{k-1}(1+u_{i}^{-1}x^{2^{i}})\f$
      *7. Compute vector \f$\vec{s}=(1,u_{0}^{-1},u_{1}^{-1},u_{0}^{-1}u_{1}^{-1},...,\prod_{i=0}^{k-1}u_{i}^{-1})\f$
      *8. Compute \f$G_s=\langle \vec{s},\vec{G}\rangle\f$
-     *9. Receive \f$\vec{a}_{k-1}\f$ of length 1
+     *9. Receive \f$\vec{a}_{0}\f$ of length 1
      *10. Compute \f$C_{right}=a_{0}G_{s}+a_{0}b_{0}U\f$
      *11. Check that \f$C_{right} = C_0\f$. If they match, return true. Otherwise return false.
      *
@@ -293,26 +300,33 @@ template <typename Curve> class IPA {
                        const OpeningClaim<Curve>& opening_claim,
                        const std::shared_ptr<NativeTranscript>& transcript)
     {
+        // Step 1.
+        // Receive polynomial_degree + 1 = d from the prover
         auto poly_degree_plus_1 =
             static_cast<uint32_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
                 "IPA:poly_degree_plus_1")); // note this is base field because this is a uint32_t, which should map to a
                                             // bb::fr, not a grumpkin::fr, which is a BaseField element for Grumpkin
+        // Step 2.
+        // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         auto aux_generator = Commitment::one() * generator_challenge;
 
-        auto log_poly_degree_plus_1 = static_cast<size_t>(numeric::get_msb(poly_degree_plus_1));
+        auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_degree_plus_1));
 
-        // Compute C_prime
+        // Step 3.
+        // Compute C' = C + f(\beta) ⋅ U
         GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
 
-        // Compute C_zero = C_prime + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
-        auto pippenger_size = 2 * log_poly_degree_plus_1;
-        std::vector<Fr> round_challenges(log_poly_degree_plus_1);
-        std::vector<Fr> round_challenges_inv(log_poly_degree_plus_1);
+        auto pippenger_size = 2 * log_poly_degree;
+        std::vector<Fr> round_challenges(log_poly_degree);
+        std::vector<Fr> round_challenges_inv(log_poly_degree);
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
-        for (size_t i = 0; i < log_poly_degree_plus_1; i++) {
-            std::string index = std::to_string(i);
+
+        // Step 4.
+        // Receive all L_i and R_i and prepare for MSM
+        for (size_t i = 0; i < log_poly_degree; i++) {
+            std::string index = std::to_string(log_poly_degree - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
@@ -324,46 +338,47 @@ template <typename Curve> class IPA {
             msm_scalars[2 * i + 1] = round_challenges[i];
         }
 
+        // Step 5.
+        // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
         GroupElement LR_sums = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
             &msm_scalars[0], &msm_elements[0], pippenger_size, vk->pippenger_runtime_state);
         GroupElement C_zero = C_prime + LR_sums;
 
-        //  Compute b_zero where b_zero can be computed using the polynomial:
-
+        //  Step 6.
+        // Compute b_zero where b_zero can be computed using the polynomial:
         //  g(X) = ∏_{i ∈ [k]} (1 + u_{k-i}^{-1}.X^{2^{i-1}}).
-
-        //  b_zero = g(evaluation) = ∏_{i ∈ [k]} (1 + u_{k-i}^{-1}. (evaluation)^{2^{i-1}})
-
+        //  b_zero = g(evaluation) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}. (evaluation)^{2^{i-1}})
         Fr b_zero = Fr::one();
-        for (size_t i = 0; i < log_poly_degree_plus_1; i++) {
+        for (size_t i = 0; i < log_poly_degree; i++) {
             auto exponent = static_cast<uint64_t>(Fr(2).pow(i));
-            b_zero *= Fr::one() + (round_challenges_inv[log_poly_degree_plus_1 - 1 - i] *
+            b_zero *= Fr::one() + (round_challenges_inv[log_poly_degree - 1 - i] *
                                    opening_claim.opening_pair.challenge.pow(exponent));
         }
 
-        // Compute G_zero
-        // First construct s_vec
+        // Step 7.
+        // Construct vector s
         std::vector<Fr> s_vec(poly_degree_plus_1);
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/857): This code is not efficient as its O(nlogn).
         // This can be optimized to be linear by computing a tree of products. Its very readable, so we're
         // leaving it unoptimized for now.
         run_loop_in_parallel_if_effective(
             poly_degree_plus_1,
-            [&s_vec, &round_challenges_inv, log_poly_degree_plus_1](size_t start, size_t end) {
+            [&s_vec, &round_challenges_inv, log_poly_degree](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     Fr s_vec_scalar = Fr::one();
-                    for (size_t j = (log_poly_degree_plus_1 - 1); j != size_t(-1); j--) {
+                    for (size_t j = (log_poly_degree - 1); j != size_t(-1); j--) {
                         auto bit = (i >> j) & 1;
                         bool b = static_cast<bool>(bit);
                         if (b) {
-                            s_vec_scalar *= round_challenges_inv[log_poly_degree_plus_1 - 1 - j];
+                            s_vec_scalar *= round_challenges_inv[log_poly_degree - 1 - j];
                         }
                     }
                     s_vec[i] = s_vec_scalar;
                 }
             },
             /*finite_field_additions_per_iteration=*/0,
-            /*finite_field_multiplications_per_iteration=*/log_poly_degree_plus_1);
+            /*finite_field_multiplications_per_iteration=*/log_poly_degree);
 
         auto* srs_elements = vk->srs->get_monomial_points();
 
@@ -388,13 +403,21 @@ template <typename Curve> class IPA {
             /*scalar_multiplications_per_iteration=*/0,
             /*sequential_copy_ops_per_iteration=*/1);
 
+        // Step 8.
+        // Compute G₀
         auto G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
             &s_vec[0], &G_vec_local[0], poly_degree_plus_1, vk->pippenger_runtime_state);
 
+        // Step 9.
+        // Receive a₀ from the prover
         auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
+        // Step 10.
+        // Compute C_right
         GroupElement right_hand_side = G_zero * a_zero + aux_generator * a_zero * b_zero;
 
+        // Step 11.
+        // Check if C_right == C₀
         return (C_zero.normalize() == right_hand_side.normalize());
     }
 };
