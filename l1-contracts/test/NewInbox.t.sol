@@ -196,7 +196,12 @@ contract NewInboxTest is Test {
 
     // Now we consume the trees
     for (uint256 i = 0; i < numTreesToConsume; i++) {
+      uint256 expectedNumTrees =
+        (inbox.getToConsume() + 1 == inbox.getInProgress()) ? numTrees + 1 : numTrees;
       bytes32 root = inbox.consume();
+
+      // We perform this check to verify that new tree initialization works as expected
+      assertEq(inbox.getNumTrees(), expectedNumTrees, "Unexptected number of trees");
 
       // We perform empty roots check only after first batch because after second one the following simple accounting
       // does not work
