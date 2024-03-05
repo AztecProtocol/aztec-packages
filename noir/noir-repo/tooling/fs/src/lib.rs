@@ -17,8 +17,8 @@ use std::collections::BTreeMap;
 use noirc_abi::input_parser::{Format, InputValue};
 use noirc_abi::InputMap;
 use noirc_abi::{Abi, MAIN_RETURN_NAME};
-use nargo::artifacts::program::ProgramArtifact;
-use nargo::artifacts::contract::ContractArtifact;
+use nargo::artifacts::{ program::ProgramArtifact, contract::ContractArtifact };
+use nargo::constants::{ WITNESS_EXT, PROOF_EXT };
 use noirc_frontend::graph::CrateName;
 use acvm::acir::circuit::Circuit;
 
@@ -71,7 +71,7 @@ pub fn read_bytecode_from_file<P: AsRef<Path>>(
 }
 
 /// Saves the provided output witness to a flat toml file created at the given location
-pub fn save_witness_to_file<P: AsRef<Path>>(
+pub fn save_witness_string_to_file<P: AsRef<Path>>(
     output_witness: &String,
     witness_dir: P,
     file_name: &String,
@@ -227,6 +227,34 @@ pub fn load_hex_data<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, FilesystemError
     let raw_bytes = hex::decode(hex_data).map_err(FilesystemError::HexArtifactNotValid)?;
 
     Ok(raw_bytes)
+}
+
+pub fn save_witness_to_dir<P: AsRef<Path>>(
+    witnesses: WitnessMap,
+    witness_name: &str,
+    witness_dir: P,
+) -> Result<PathBuf, FilesystemError> {
+    create_named_dir(witness_dir.as_ref(), "witness");
+    let witness_path = witness_dir.as_ref().join(witness_name).with_extension(WITNESS_EXT);
+
+    let buf: Vec<u8> = witnesses.try_into()?;
+
+    write_to_file(buf.as_slice(), &witness_path);
+
+    Ok(witness_path)
+}
+
+pub fn save_proof_to_dir<P: AsRef<Path>>(
+    proof: &[u8],
+    proof_name: &str,
+    proof_dir: P,
+) -> Result<PathBuf, FilesystemError> {
+    create_named_dir(proof_dir.as_ref(), "proof");
+    let proof_path = proof_dir.as_ref().join(proof_name).with_extension(PROOF_EXT);
+
+    write_to_file(hex::encode(proof).as_bytes(), &proof_path);
+
+    Ok(proof_path)
 }
 
 #[cfg(test)]

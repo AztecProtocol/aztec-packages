@@ -2733,7 +2733,6 @@ dependencies = [
  "dirs",
  "fm",
  "fs",
- "hex",
  "iai",
  "iter-extended",
  "nargo",
