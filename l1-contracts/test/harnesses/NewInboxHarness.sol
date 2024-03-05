@@ -38,10 +38,6 @@ contract NewInboxHarness is NewInbox {
   }
 
   function getNumTrees() external view returns (uint256) {
-    uint256 blockNumber = FIRST_REAL_TREE_NUM;
-    while (address(trees[blockNumber]) != address(0)) {
-      blockNumber++;
-    }
-    return blockNumber - 2; // - 2 because first real tree is included in block 2
+    return inProgress - 1; // -1 because tree number 1 is not real
   }
 }
