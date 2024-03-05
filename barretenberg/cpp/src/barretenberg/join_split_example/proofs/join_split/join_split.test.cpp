@@ -705,11 +705,11 @@ TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
 
     // The below part detects any changes in the join-split circuit
     constexpr uint32_t CIRCUIT_GATE_COUNT = 49492;
-    constexpr uint32_t GATES_NEXT_POWER_OF_TWO = 65535;
-    const uint256_t VK_HASH("29f333ac68164d4e079b3d4243c95425432f317aa26ad67fd668ca883b28e236");
+    constexpr uint32_t DYADIC_CIRCUIT_SIZE = 1 << 16;
+    const uint256_t VK_HASH("0x31a30cb5c3eed4a4b06701b4f7b0865b1b8f40607afba560f36b5f85a65df61a");
 
     auto number_of_gates_js = result.number_of_gates;
-    uint256_t vk_hash_js = 0;
+    uint256_t vk_hash_js = circuit.fingerprint();
 
     if (!CIRCUIT_CHANGE_EXPECTED) {
         EXPECT_EQ(number_of_gates_js, CIRCUIT_GATE_COUNT) << "The gate count for the join_split circuit is changed.";
@@ -718,7 +718,7 @@ TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
 
     // For the next power of two limit, we need to consider that we reserve four gates for adding
     // randomness/zero-knowledge
-    EXPECT_LE(number_of_gates_js, GATES_NEXT_POWER_OF_TWO /* - Composer::NUM_RESERVED_GATES WORKTODO */)
+    EXPECT_LE(number_of_gates_js, DYADIC_CIRCUIT_SIZE /* - Composer::NUM_RESERVED_GATES WORKTODO */)
         << "You have exceeded the next power of two limit for the join_split circuit.";
 }
 

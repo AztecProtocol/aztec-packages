@@ -2659,6 +2659,19 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     }
 }
 
+template <typename Arithmetization> uint256_t UltraCircuitBuilder_<Arithmetization>::fingerprint()
+{
+    finalize_circuit();
+    auto& selectors = blocks.main.selectors;
+    std::vector<uint8_t> to_hash(Arithmetization::NUM_SELECTORS * selectors[0].size() * sizeof(FF));
+    for (auto& selector : selectors) {
+        std::vector<uint8_t> buffer = to_buffer(selector);
+        to_hash.insert(to_hash.end(), buffer.begin(), buffer.end());
+    };
+
+    return from_buffer<uint256_t>(crypto::sha256(to_hash));
+}
+
 template class UltraCircuitBuilder_<UltraArith<bb::fr>>;
 template class UltraCircuitBuilder_<UltraHonkArith<bb::fr>>;
 // To enable this we need to template plookup
