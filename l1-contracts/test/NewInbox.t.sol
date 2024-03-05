@@ -4,7 +4,7 @@ pragma solidity >=0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 
-import {NewInbox} from "../src/core/messagebridge/NewInbox.sol";
+import {NewInboxHarness} from "./harnesses/NewInboxHarness.sol";
 import {Constants} from "../src/core/libraries/ConstantsGen.sol";
 import {Errors} from "../src/core/libraries/Errors.sol";
 import {Hash} from "../src/core/libraries/Hash.sol";
@@ -15,7 +15,7 @@ contract NewInboxTest is Test {
 
   uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
 
-  NewInbox internal inbox;
+  NewInboxHarness internal inbox;
   uint256 internal version = 0;
   bytes32 internal emptyTreeRoot;
 
@@ -24,8 +24,8 @@ contract NewInboxTest is Test {
   function setUp() public {
     address rollup = address(this);
     // We set low depth (5) to ensure we sufficiently test the tree transitions
-    inbox = new NewInbox(rollup, 5);
-    emptyTreeRoot = inbox.frontier(2).root();
+    inbox = new NewInboxHarness(rollup, 5);
+    emptyTreeRoot = inbox.getEmptyRoot();
   }
 
   function _fakeMessage() internal view returns (DataStructures.L1ToL2Msg memory) {
@@ -40,14 +40,6 @@ contract NewInboxTest is Test {
       fee: 0,
       deadline: type(uint32).max
     });
-  }
-
-  function _getNumTrees() internal view returns (uint256) {
-    uint256 blockNumber = FIRST_REAL_TREE_NUM;
-    while (address(inbox.frontier(blockNumber)) != address(0)) {
-      blockNumber++;
-    }
-    return blockNumber - 2; // -2 because first real tree is included in block 2
   }
 
   function _divideAndRoundUp(uint256 a, uint256 b) internal pure returns (uint256) {
@@ -104,7 +96,7 @@ contract NewInboxTest is Test {
     bytes32 leaf3 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
 
     // Only 1 tree should be non-zero
-    assertEq(_getNumTrees(), 1);
+    assertEq(inbox.getNumTrees(), 1);
 
     // All the leaves should be the same
     assertEq(leaf1, leaf2);
@@ -136,9 +128,10 @@ contract NewInboxTest is Test {
     inbox.sendL2Message(message.recipient, message.content, message.secretHash);
   }
 
-  function testFuzzConsume(DataStructures.L1ToL2Msg[] memory _messages, uint256 _numTreesToConsume)
-    public
-  {
+  function testFuzzSendAndConsume(
+    DataStructures.L1ToL2Msg[] memory _messages,
+    uint256 _numTreesToConsume
+  ) public {
     uint256 numTrees;
 
     // Send the messages
@@ -146,16 +139,22 @@ contract NewInboxTest is Test {
       for (uint256 i = 0; i < _messages.length; i++) {
         DataStructures.L1ToL2Msg memory message = _boundMessage(_messages[i]);
 
+        bytes32 toIncludeRoot = inbox.getToIncludeRoot();
         inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+        assertEq(
+          inbox.getToIncludeRoot(),
+          toIncludeRoot,
+          "Root of a tree waiting to be included should not change"
+        );
       }
 
-      uint256 expectedNumTrees = _divideAndRoundUp(_messages.length, inbox.SIZE());
+      uint256 expectedNumTrees = _divideAndRoundUp(_messages.length, inbox.getSize());
       if (expectedNumTrees == 0) {
         // This occurs when there are no messages but we initialize the first tree in the constructor so there are never
         // zero trees
         expectedNumTrees = 1;
       }
-      numTrees = _getNumTrees();
+      numTrees = inbox.getNumTrees();
       assertEq(numTrees, expectedNumTrees);
     }
 
