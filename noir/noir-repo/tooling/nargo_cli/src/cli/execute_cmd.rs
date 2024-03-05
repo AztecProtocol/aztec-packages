@@ -16,8 +16,7 @@ use noirc_driver::{
 };
 use noirc_frontend::graph::CrateName;
 
-use fs::read_inputs_from_file;
-use super::fs::witness::save_witness_to_dir;
+use super::fs::{inputs::read_inputs_from_file, witness::save_witness_to_dir};
 use super::NargoConfig;
 use crate::backends::Backend;
 use crate::cli::compile_cmd::report_errors;

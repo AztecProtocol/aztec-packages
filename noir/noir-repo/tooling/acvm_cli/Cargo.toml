@@ -27,7 +27,6 @@ nargo.workspace = true
 const_format.workspace = true
 bn254_blackbox_solver.workspace = true
 acir.workspace = true
-fs.workspace = true
 
 # Logs
 tracing-subscriber.workspace = true

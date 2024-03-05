@@ -3,7 +3,7 @@ use color_eyre::eyre;
 use const_format::formatcp;
 
 mod execute_cmd;
-mod witness;
+mod fs;
 
 const GIT_HASH: &str = env!("GIT_COMMIT");
 const IS_DIRTY: &str = env!("GIT_DIRTY");

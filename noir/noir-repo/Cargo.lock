@@ -76,7 +76,6 @@ dependencies = [
  "clap",
  "color-eyre",
  "const_format",
- "fs",
  "nargo",
  "paste",
  "proptest",
@@ -1751,22 +1750,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fs"
-version = "0.24.0"
-dependencies = [
- "acir",
- "acvm",
- "hex",
- "nargo",
- "noirc_abi",
- "noirc_frontend",
- "serde",
- "serde_json",
- "thiserror",
- "toml 0.7.6",
-]
-
-[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2732,7 +2715,6 @@ dependencies = [
  "dap",
  "dirs",
  "fm",
- "fs",
  "hex",
  "iai",
  "iter-extended",

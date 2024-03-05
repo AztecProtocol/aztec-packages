@@ -19,7 +19,7 @@ use dap::types::Capabilities;
 use serde_json::Value;
 
 use super::debug_cmd::compile_bin_package_for_debugging;
-use fs::read_inputs_from_file;
+use super::fs::inputs::read_inputs_from_file;
 use crate::errors::CliError;
 
 use super::NargoConfig;
