@@ -23,13 +23,11 @@
     },
     "yarn-project/cli": {
       "release-type": "node",
-      "component": "aztec-cli",
-      "package-name": "aztec-cli"
+      "component": "aztec-cli"
     },
     "yarn-project/aztec": {
       "release-type": "node",
-      "component": "aztec-package",
-      "package-name": "aztec-package"
+      "component": "aztec-package"
     },
     "barretenberg/ts": {
       "release-type": "node",
@@ -44,6 +42,9 @@
     }
   },
   "plugins": [
+    {
+      "type": "node-workspace"
+    },
     {
       "type": "linked-versions",
       "groupName": "aztec-packages",
