@@ -158,10 +158,10 @@ contract NewInboxTest is Test {
     bool isFirstRun = inbox.getInProgress() == inbox.FIRST_REAL_TREE_NUM();
     bytes32 toConsumeRoot = inbox.getToConsumeRoot();
 
+    // We send the messages and then check that toConsume root did not change.
     for (uint256 i = 0; i < _messages.length; i++) {
       DataStructures.L1ToL2Msg memory message = _boundMessage(_messages[i]);
 
-      // We send the message and check that toConsume root did not change.
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);
     }
 
