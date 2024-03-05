@@ -30,7 +30,7 @@ contract NewInbox {
   uint256 internal immutable SIZE;
   bytes32 internal immutable EMPTY_ROOT; // The root of an empty frontier tree
 
-  uint256 internal toInclude = 1;
+  uint256 internal toConsume = 1;
   uint256 internal inProgress = 2;
 
   mapping(uint256 blockNumber => IFrontier tree) internal trees;
@@ -110,17 +110,17 @@ contract NewInbox {
     }
 
     bytes32 root = EMPTY_ROOT;
-    if (toInclude > Constants.INITIAL_L2_BLOCK_NUM) {
-      root = trees[toInclude].root();
+    if (toConsume > Constants.INITIAL_L2_BLOCK_NUM) {
+      root = trees[toConsume].root();
     }
 
     // If we are "catching up" we skip the tree creation as it is already there
-    if (toInclude + 1 == inProgress) {
+    if (toConsume + 1 == inProgress) {
       inProgress += 1;
       trees[inProgress] = IFrontier(new FrontierMerkle(HEIGHT));
     }
 
-    toInclude += 1;
+    toConsume += 1;
 
     return root;
   }
