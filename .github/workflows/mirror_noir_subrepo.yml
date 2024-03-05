@@ -36,7 +36,7 @@ jobs:
           PR_URL=$(gh pr list --repo noir-lang/noir --head aztec-packages --json url --jq ".[0].url")
           echo "PR_URL=$PR_URL" >> $GITHUB_ENV
           # What was our last merge?
-          LAST_PR_MERGE=`gh pr list --repo=noir-lang/noir --state merged --head aztec-packages --json mergeCommit --jq=.[0].mergeCommit`
+          LAST_PR_MERGE=`gh pr list --repo=noir-lang/noir --state merged --head aztec-packages --json mergeCommit --jq=.[0].mergeCommit.oid`
           echo "LAST_PR_MERGE=$LAST_PR_MERGE" >> $GITHUB_ENV
 
       - name: Generate PR body
