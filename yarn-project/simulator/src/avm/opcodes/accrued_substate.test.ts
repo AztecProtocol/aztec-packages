@@ -1,4 +1,6 @@
+import { UnencryptedL2Log } from '@aztec/circuit-types';
 import { EthAddress, Fr } from '@aztec/circuits.js';
+import { EventSelector } from '@aztec/foundation/abi';
 
 import { mock } from 'jest-mock-extended';
 
@@ -191,8 +193,9 @@ describe('Accrued Substate', () => {
       expect(exists).toEqual(new Uint8(0));
 
       const journalState = context.persistableState.flush();
-      expect(journalState.nullifierChecks.length).toEqual(1);
-      expect(journalState.nullifierChecks[0].exists).toEqual(false);
+      expect(journalState.nullifierChecks).toEqual([
+        expect.objectContaining({ nullifier: value.toFr(), exists: false }),
+      ]);
     });
 
     it('Should correctly show true when nullifier exists', async () => {
@@ -214,8 +217,9 @@ describe('Accrued Substate', () => {
       expect(exists).toEqual(new Uint8(1));
 
       const journalState = context.persistableState.flush();
-      expect(journalState.nullifierChecks.length).toEqual(1);
-      expect(journalState.nullifierChecks[0].exists).toEqual(true);
+      expect(journalState.nullifierChecks).toEqual([
+        expect.objectContaining({ nullifier: value.toFr(), exists: true }),
+      ]);
     });
   });
 
@@ -278,7 +282,7 @@ describe('Accrued Substate', () => {
     });
   });
 
-  describe('L1ToL1MessageExists', () => {
+  describe('L1ToL2MessageExists', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         L1ToL2MessageExists.opcode, // opcode
@@ -314,8 +318,9 @@ describe('Accrued Substate', () => {
       expect(exists).toEqual(new Uint8(0));
 
       const journalState = context.persistableState.flush();
-      expect(journalState.l1ToL2MessageChecks.length).toEqual(1);
-      expect(journalState.l1ToL2MessageChecks[0].exists).toEqual(false);
+      expect(journalState.l1ToL2MessageChecks).toEqual([
+        expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: false }),
+      ]);
     });
 
     it('Should correctly show true when L1ToL2 message exists', async () => {
@@ -340,8 +345,9 @@ describe('Accrued Substate', () => {
       expect(exists).toEqual(new Uint8(1));
 
       const journalState = context.persistableState.flush();
-      expect(journalState.l1ToL2MessageChecks.length).toEqual(1);
-      expect(journalState.l1ToL2MessageChecks[0].exists).toEqual(true);
+      expect(journalState.l1ToL2MessageChecks).toEqual([
+        expect.objectContaining({ leafIndex: leafIndex.toFr(), msgHash: msgHash.toFr(), exists: true }),
+      ]);
     });
   });
 
@@ -350,10 +356,16 @@ describe('Accrued Substate', () => {
       const buf = Buffer.from([
         EmitUnencryptedLog.opcode, // opcode
         0x01, // indirect
+        ...Buffer.from('02345678', 'hex'), // event selector offset
         ...Buffer.from('12345678', 'hex'), // offset
         ...Buffer.from('a2345678', 'hex'), // length
       ]);
-      const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*offset=*/ 0x12345678, /*length=*/ 0xa2345678);
+      const inst = new EmitUnencryptedLog(
+        /*indirect=*/ 0x01,
+        /*eventSelectorOffset=*/ 0x02345678,
+        /*offset=*/ 0x12345678,
+        /*length=*/ 0xa2345678,
+      );
 
       expect(EmitUnencryptedLog.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
@@ -361,17 +373,25 @@ describe('Accrued Substate', () => {
 
     it('Should append unencrypted logs correctly', async () => {
       const startOffset = 0;
+      const eventSelector = 5;
+      const eventSelectorOffset = 10;
 
       const values = [new Field(69n), new Field(420n), new Field(Field.MODULUS - 1n)];
-      context.machineState.memory.setSlice(0, values);
+      context.machineState.memory.setSlice(startOffset, values);
+      context.machineState.memory.set(eventSelectorOffset, new Field(eventSelector));
 
-      const length = values.length;
-
-      await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, length).execute(context);
+      await new EmitUnencryptedLog(
+        /*indirect=*/ 0,
+        eventSelectorOffset,
+        /*offset=*/ startOffset,
+        values.length,
+      ).execute(context);
 
       const journalState = context.persistableState.flush();
-      const expected = values.map(v => v.toFr());
-      expect(journalState.newLogs).toEqual([expected]);
+      const expectedLog = Buffer.concat(values.map(v => v.toFr().toBuffer()));
+      expect(journalState.newLogs).toEqual([
+        new UnencryptedL2Log(context.environment.address, new EventSelector(eventSelector), expectedLog),
+      ]);
     });
   });
 
@@ -393,7 +413,7 @@ describe('Accrued Substate', () => {
       expect(inst.serialize()).toEqual(buf);
     });
 
-    it('Should append l1 to l2 messages correctly', async () => {
+    it('Should append l2 to l1 messages correctly', async () => {
       const recipientOffset = 0;
       const recipient = new Fr(42);
       const contentOffset = 1;
@@ -419,7 +439,7 @@ describe('Accrued Substate', () => {
     const instructions = [
       new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ 0),
       new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0),
-      new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ 0, 1),
+      new EmitUnencryptedLog(/*indirect=*/ 0, /*eventSelector=*/ 0, /*offset=*/ 0, /*logSize=*/ 1),
       new SendL2ToL1Message(/*indirect=*/ 0, /*recipientOffset=*/ 0, /*contentOffset=*/ 1),
     ];
 

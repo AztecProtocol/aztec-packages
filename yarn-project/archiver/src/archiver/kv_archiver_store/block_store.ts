@@ -1,5 +1,5 @@
-import { INITIAL_L2_BLOCK_NUM, L2Block, TxEffect, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, AztecAddress, Header } from '@aztec/circuits.js';
+import { L2Block, TxEffect, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap, Range } from '@aztec/kv-store';
 
@@ -53,9 +53,6 @@ export class BlockStore {
         });
 
         block.getTxs().forEach((tx, i) => {
-          if (tx.txHash.isZero()) {
-            return;
-          }
           void this.#txIndex.set(tx.txHash.toString(), [block.number, i]);
         });
 

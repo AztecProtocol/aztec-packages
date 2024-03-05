@@ -299,7 +299,6 @@ impl BaseRollupInputs {
 
         let new_contracts = combined.new_contracts;
         calldata_hash_inputs[offset] = new_contracts[0].contract_address.to_field();
-        // TODO(#3938): make portal address 20 bytes here when updating the hashing
         calldata_hash_inputs[offset + 1] = new_contracts[0].portal_contract_address.to_field();
 
         offset += MAX_NEW_CONTRACTS_PER_TX * 2;
@@ -488,7 +487,7 @@ fn validate_public_data_reads(
 #[test]
 fn consistent_not_hash_subtree_width() {
     assert_eq(
-        MAX_NEW_NOTE_HASHES_PER_TX, 2.pow_32(NOTE_HASH_SUBTREE_HEIGHT as Field) as u64, "note hash subtree width is incorrect"
+        MAX_NEW_NOTE_HASHES_PER_TX as Field, 2.pow_32(NOTE_HASH_SUBTREE_HEIGHT as Field), "note hash subtree width is incorrect"
     );
 }
 
@@ -583,7 +582,6 @@ mod tests {
     },
         utils::{field::full_field_less_than, uint256::U256}
     };
-    use dep::std::option::Option;
 
     struct NullifierInsertion {
         existing_index: u64,
@@ -644,7 +642,7 @@ mod tests {
         );
 
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            if (i as u64) < MAX_PUBLIC_DATA_WRITES_PER_TEST {
+            if i < MAX_PUBLIC_DATA_WRITES_PER_TEST {
                 let (low_leaf_index, leaf): (u64, PublicDataTreeLeaf) = sorted_write_tuples[i].value;
 
                 sorted_public_data_writes[i] = leaf;
@@ -765,7 +763,7 @@ mod tests {
             let mut pre_existing_nullifiers = self.pre_existing_nullifiers;
 
             for i in 0..MAX_NEW_NULLIFIERS_PER_TEST {
-                if (i as u64) < (self.new_nullifiers.len()) {
+                if i < self.new_nullifiers.len() {
                     let sorted_tuple = sorted_new_nullifier_tuples[i];
                     let new_nullifier = sorted_tuple.value;
                     let original_index = sorted_tuple.original_index;
@@ -1034,10 +1032,7 @@ mod tests {
         assert(outputs.start.note_hash_tree.eq(expected_start_note_hash_tree_snapshot));
 
         for i in 0..new_note_hashes.len() {
-            expected_commitments_tree.update_leaf(
-                (i as u64) + (MAX_NEW_NOTE_HASHES_PER_TX as u64),
-                new_note_hashes[i]
-            );
+            expected_commitments_tree.update_leaf(i + MAX_NEW_NOTE_HASHES_PER_TX, new_note_hashes[i]);
         }
         let expected_end_note_hash_tree_snapshot = AppendOnlyTreeSnapshot {
             root: expected_commitments_tree.get_root(),
