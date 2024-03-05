@@ -90,8 +90,8 @@ contract NewInbox is INewInbox {
     });
 
     bytes32 leaf = message.sha256ToField();
-    uint256 nextIndex = currentTree.insertLeaf(leaf);
-    emit LeafInserted(inProgress, nextIndex - 1, leaf);
+    uint256 index = currentTree.insertLeaf(leaf);
+    emit LeafInserted(inProgress, index, leaf);
 
     return leaf;
   }
