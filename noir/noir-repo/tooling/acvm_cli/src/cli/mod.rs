@@ -7,10 +7,7 @@ mod fs;
 
 const ACVM_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-static VERSION_STRING: &str = formatcp!(
-    "version = {}\n",
-    ACVM_VERSION,
-);
+static VERSION_STRING: &str = formatcp!("version = {}\n", ACVM_VERSION,);
 
 #[derive(Parser, Debug)]
 #[command(name="acvm", author, version=VERSION_STRING, about, long_about = None)]
