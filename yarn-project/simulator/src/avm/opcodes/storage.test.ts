@@ -51,7 +51,7 @@ describe('Storage Instructions', () => {
 
       await new SStore(/*indirect=*/ 0, /*srcOffset=*/ 1, /*size=*/ 1, /*slotOffset=*/ 0).execute(context);
 
-      expect(journal.writeStorage).toHaveBeenCalledWith(address, new Fr(a.toBigInt()), [new Fr(b.toBigInt())]);
+      expect(journal.writeStorage).toHaveBeenCalledWith(address, new Fr(a.toBigInt()), new Fr(b.toBigInt()));
     });
 
     it('Should not be able to write to storage in a static call', async () => {
