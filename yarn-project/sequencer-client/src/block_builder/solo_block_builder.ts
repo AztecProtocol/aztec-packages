@@ -62,6 +62,8 @@ import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { BlockBuilder } from './index.js';
 import { TreeNames } from './types.js';
+import { elapsed } from '@aztec/foundation/timer';
+import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 
@@ -217,14 +219,36 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Run merge rollups in layers until we have only two outputs
     // All merge circuits for each layer are simulated in parallel
-    let mergeRollupInputs: [BaseOrMergeRollupPublicInputs, Proof][] = await Promise.all(baseRollupOutputs);
+    const [duration, mergeInputs] = await elapsed(() => Promise.all(baseRollupOutputs));
+    for (let i = 0; i < mergeInputs.length; i++) {
+      this.debug(`Simulated base rollup circuit`, {
+        eventName: 'circuit-simulation',
+        circuitName: 'base-rollup',
+        duration: duration / mergeInputs.length,
+        inputSize: baseRollupInputs[i].toBuffer().length,
+        outputSize: mergeInputs[i][0].toBuffer().length,
+      } satisfies CircuitSimulationStats);
+    }
+    let mergeRollupInputs: [BaseOrMergeRollupPublicInputs, Proof][] = mergeInputs;
     while (mergeRollupInputs.length > 2) {
-      const promises: Promise<[BaseOrMergeRollupPublicInputs, Proof]>[] = [];
+      const mergeInputStructs: MergeRollupInputs[] = [];
       for (const pair of chunk(mergeRollupInputs, 2)) {
         const [r1, r2] = pair;
-        promises.push(this.mergeRollupCircuit(r1, r2));
+        mergeInputStructs.push(this.createMergeRollupInputs(r1, r2));
       }
-      mergeRollupInputs = await Promise.all(promises);
+
+      const [duration, mergeOutputs] = await elapsed(() => Promise.all(mergeInputStructs.map(async (input) => await this.mergeRollupCircuit(input))));
+
+      for (let i = 0; i < mergeOutputs.length; i++) {
+        this.debug(`Simulated merge rollup circuit`, {
+          eventName: 'circuit-simulation',
+          circuitName: 'merge-rollup',
+          duration: duration / mergeOutputs.length,
+          inputSize: mergeInputStructs[i].toBuffer().length,
+          outputSize: mergeOutputs[i][0].toBuffer().length,
+        } satisfies CircuitSimulationStats);
+      }
+      mergeRollupInputs = mergeOutputs;
     }
 
     // Run the root rollup with the last two merge rollups (or base, if no merge layers)
@@ -244,16 +268,21 @@ export class SoloBlockBuilder implements BlockBuilder {
     return [rollupOutput, proof];
   }
 
-  protected async mergeRollupCircuit(
+  protected createMergeRollupInputs(
     left: [BaseOrMergeRollupPublicInputs, Proof],
     right: [BaseOrMergeRollupPublicInputs, Proof],
-  ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
+  ) {
     const vk = this.getVerificationKey(left[0].rollupType);
     const mergeInputs = new MergeRollupInputs([
       this.getPreviousRollupDataFromPublicInputs(left[0], left[1], vk),
       this.getPreviousRollupDataFromPublicInputs(right[0], right[1], vk),
     ]);
+    return mergeInputs;
+  }
 
+  protected async mergeRollupCircuit(
+    mergeInputs: MergeRollupInputs
+  ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     this.debug(`Running merge rollup circuit`);
     const output = await this.simulator.mergeRollupCircuit(mergeInputs);
     const proof = await this.prover.getMergeRollupProof(mergeInputs, output);

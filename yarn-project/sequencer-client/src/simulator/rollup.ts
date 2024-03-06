@@ -42,19 +42,9 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async baseRollupCircuit(input: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
     const witnessMap = convertBaseRollupInputsToWitnessMap(input);
 
-    const [duration, witness] = await elapsed(() =>
-      this.simulationProvider.simulateCircuit(witnessMap, BaseRollupArtifact),
-    );
+    const witness = await this.simulationProvider.simulateCircuit(witnessMap, BaseRollupArtifact);
 
     const result = convertBaseRollupOutputsFromWitnessMap(witness);
-
-    this.log(`Simulated base rollup circuit`, {
-      eventName: 'circuit-simulation',
-      circuitName: 'base-rollup',
-      duration,
-      inputSize: input.toBuffer().length,
-      outputSize: result.toBuffer().length,
-    } satisfies CircuitSimulationStats);
 
     return Promise.resolve(result);
   }
@@ -66,19 +56,9 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async mergeRollupCircuit(input: MergeRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
     const witnessMap = convertMergeRollupInputsToWitnessMap(input);
 
-    const [duration, witness] = await elapsed(() =>
-      this.wasmSimulator.simulateCircuit(witnessMap, MergeRollupArtifact),
-    );
+    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, MergeRollupArtifact);
 
     const result = convertMergeRollupOutputsFromWitnessMap(witness);
-
-    this.log(`Simulated merge rollup circuit`, {
-      eventName: 'circuit-simulation',
-      circuitName: 'merge-rollup',
-      duration,
-      inputSize: input.toBuffer().length,
-      outputSize: result.toBuffer().length,
-    } satisfies CircuitSimulationStats);
 
     return result;
   }
