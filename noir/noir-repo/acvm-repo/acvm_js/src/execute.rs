@@ -1,5 +1,5 @@
 use acvm::{
-    acir::circuit::Circuit,
+    acir::circuit::Program,
     pwg::{ACVMStatus, ErrorLocation, OpcodeResolutionError, ACVM},
 };
 use bn254_blackbox_solver::Bn254BlackBoxSolver;
@@ -56,13 +56,17 @@ pub async fn execute_circuit(
 #[wasm_bindgen(js_name = executeCircuitWithBlackBoxSolver, skip_jsdoc)]
 pub async fn execute_circuit_with_black_box_solver(
     solver: &WasmBlackBoxFunctionSolver,
+    // TODO(https://github.com/noir-lang/noir/issues/4428): These need to be updated to match the same interfaces
+    // as the native ACVM executor. Right now native execution still only handles one circuit so I do not feel the need
+    // to break the JS interface just yet.
     circuit: Vec<u8>,
     initial_witness: JsWitnessMap,
     foreign_call_handler: ForeignCallHandler,
 ) -> Result<JsWitnessMap, Error> {
     console_error_panic_hook::set_once();
-    let circuit: Circuit = Circuit::deserialize_circuit(&circuit)
+    let program: Program = Program::deserialize_program(&circuit)
         .map_err(|_| JsExecutionError::new("Failed to deserialize circuit. This is likely due to differing serialization formats between ACVM_JS and your compiler".to_string(), None))?;
+    let circuit = &program.functions[0];
 
     let mut acvm = ACVM::new(&solver.0, &circuit.opcodes, initial_witness.into());
 
