@@ -1,4 +1,6 @@
-import { EthAddress } from '@aztec/circuits.js';
+import { UnencryptedL2Log } from '@aztec/circuit-types';
+import { AztecAddress, EthAddress } from '@aztec/circuits.js';
+import { EventSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -70,7 +72,7 @@ describe('journal', () => {
       expect(exists).toEqual(false);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.nullifierChecks.map(c => [c.nullifier, c.exists])).toEqual([[utxo, false]]);
+      expect(journalUpdates.nullifierChecks).toEqual([expect.objectContaining({ nullifier: utxo, exists: false })]);
     });
     it('checkNullifierExists works for existing nullifiers', async () => {
       const contractAddress = new Fr(1);
@@ -82,7 +84,7 @@ describe('journal', () => {
       expect(exists).toEqual(true);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.nullifierChecks.map(c => [c.nullifier, c.exists])).toEqual([[utxo, true]]);
+      expect(journalUpdates.nullifierChecks).toEqual([expect.objectContaining({ nullifier: utxo, exists: true })]);
     });
     it('Should maintain nullifiers', async () => {
       const contractAddress = new Fr(1);
@@ -100,8 +102,8 @@ describe('journal', () => {
       expect(exists).toEqual(false);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.l1ToL2MessageChecks.map(c => [c.leafIndex, c.msgHash, c.exists])).toEqual([
-        [leafIndex, utxo, false],
+      expect(journalUpdates.l1ToL2MessageChecks).toEqual([
+        expect.objectContaining({ leafIndex: leafIndex, msgHash: utxo, exists: false }),
       ]);
     });
     it('checkL1ToL2MessageExists works for existing nullifiers', async () => {
@@ -113,8 +115,8 @@ describe('journal', () => {
       expect(exists).toEqual(true);
 
       const journalUpdates = journal.flush();
-      expect(journalUpdates.l1ToL2MessageChecks.map(c => [c.leafIndex, c.msgHash, c.exists])).toEqual([
-        [leafIndex, utxo, true],
+      expect(journalUpdates.l1ToL2MessageChecks).toEqual([
+        expect.objectContaining({ leafIndex: leafIndex, msgHash: utxo, exists: true }),
       ]);
     });
     it('Should maintain nullifiers', async () => {
@@ -150,15 +152,15 @@ describe('journal', () => {
     const recipient = EthAddress.fromField(new Fr(42));
     const commitment = new Fr(10);
     const commitmentT1 = new Fr(20);
-    const logs = [new Fr(1), new Fr(2)];
-    const logsT1 = [new Fr(3), new Fr(4)];
+    const log = { address: 10n, selector: 5, data: [new Fr(5), new Fr(6)] };
+    const logT1 = { address: 20n, selector: 8, data: [new Fr(7), new Fr(8)] };
     const index = new Fr(42);
     const indexT1 = new Fr(24);
 
     journal.writeStorage(contractAddress, key, value);
     await journal.readStorage(contractAddress, key);
     journal.writeNoteHash(commitment);
-    journal.writeLog(logs);
+    journal.writeLog(new Fr(log.address), new Fr(log.selector), log.data);
     journal.writeL1Message(recipient, commitment);
     await journal.writeNullifier(contractAddress, commitment);
     await journal.checkNullifierExists(contractAddress, commitment);
@@ -168,7 +170,7 @@ describe('journal', () => {
     childJournal.writeStorage(contractAddress, key, valueT1);
     await childJournal.readStorage(contractAddress, key);
     childJournal.writeNoteHash(commitmentT1);
-    childJournal.writeLog(logsT1);
+    childJournal.writeLog(new Fr(logT1.address), new Fr(logT1.selector), logT1.data);
     childJournal.writeL1Message(recipient, commitmentT1);
     await childJournal.writeNullifier(contractAddress, commitmentT1);
     await childJournal.checkNullifierExists(contractAddress, commitmentT1);
@@ -195,19 +197,30 @@ describe('journal', () => {
     expect(slotWrites).toEqual([value, valueT1]);
 
     expect(journalUpdates.newNoteHashes).toEqual([commitment, commitmentT1]);
-    expect(journalUpdates.newLogs).toEqual([logs, logsT1]);
+    expect(journalUpdates.newLogs).toEqual([
+      new UnencryptedL2Log(
+        AztecAddress.fromBigInt(log.address),
+        new EventSelector(log.selector),
+        Buffer.concat(log.data.map(f => f.toBuffer())),
+      ),
+      new UnencryptedL2Log(
+        AztecAddress.fromBigInt(logT1.address),
+        new EventSelector(logT1.selector),
+        Buffer.concat(logT1.data.map(f => f.toBuffer())),
+      ),
+    ]);
     expect(journalUpdates.newL1Messages).toEqual([
       { recipient, content: commitment },
       { recipient, content: commitmentT1 },
     ]);
-    expect(journalUpdates.nullifierChecks.map(c => [c.nullifier, c.exists])).toEqual([
-      [commitment, true],
-      [commitmentT1, true],
+    expect(journalUpdates.nullifierChecks).toEqual([
+      expect.objectContaining({ nullifier: commitment, exists: true }),
+      expect.objectContaining({ nullifier: commitmentT1, exists: true }),
     ]);
     expect(journalUpdates.newNullifiers).toEqual([commitment, commitmentT1]);
-    expect(journalUpdates.l1ToL2MessageChecks.map(c => [c.leafIndex, c.msgHash, c.exists])).toEqual([
-      [index, commitment, false],
-      [indexT1, commitmentT1, false],
+    expect(journalUpdates.l1ToL2MessageChecks).toEqual([
+      expect.objectContaining({ leafIndex: index, msgHash: commitment, exists: false }),
+      expect.objectContaining({ leafIndex: indexT1, msgHash: commitmentT1, exists: false }),
     ]);
   });
 
@@ -228,8 +241,8 @@ describe('journal', () => {
     const recipient = EthAddress.fromField(new Fr(42));
     const commitment = new Fr(10);
     const commitmentT1 = new Fr(20);
-    const logs = [new Fr(1), new Fr(2)];
-    const logsT1 = [new Fr(3), new Fr(4)];
+    const log = { address: 10n, selector: 5, data: [new Fr(5), new Fr(6)] };
+    const logT1 = { address: 20n, selector: 8, data: [new Fr(7), new Fr(8)] };
     const index = new Fr(42);
     const indexT1 = new Fr(24);
 
@@ -239,7 +252,7 @@ describe('journal', () => {
     await journal.writeNullifier(contractAddress, commitment);
     await journal.checkNullifierExists(contractAddress, commitment);
     await journal.checkL1ToL2MessageExists(commitment, index);
-    journal.writeLog(logs);
+    journal.writeLog(new Fr(log.address), new Fr(log.selector), log.data);
     journal.writeL1Message(recipient, commitment);
 
     const childJournal = new AvmPersistableStateManager(journal.hostStorage, journal);
@@ -249,7 +262,7 @@ describe('journal', () => {
     await childJournal.writeNullifier(contractAddress, commitmentT1);
     await childJournal.checkNullifierExists(contractAddress, commitmentT1);
     await journal.checkL1ToL2MessageExists(commitmentT1, indexT1);
-    childJournal.writeLog(logsT1);
+    childJournal.writeLog(new Fr(logT1.address), new Fr(logT1.selector), logT1.data);
     childJournal.writeL1Message(recipient, commitmentT1);
 
     journal.rejectNestedCallState(childJournal);
@@ -274,18 +287,24 @@ describe('journal', () => {
 
     // Check that the world state _traces_ are merged even on rejection
     expect(journalUpdates.newNoteHashes).toEqual([commitment, commitmentT1]);
-    expect(journalUpdates.nullifierChecks.map(c => [c.nullifier, c.exists])).toEqual([
-      [commitment, true],
-      [commitmentT1, true],
+    expect(journalUpdates.nullifierChecks).toEqual([
+      expect.objectContaining({ nullifier: commitment, exists: true }),
+      expect.objectContaining({ nullifier: commitmentT1, exists: true }),
     ]);
     expect(journalUpdates.newNullifiers).toEqual([commitment, commitmentT1]);
-    expect(journalUpdates.l1ToL2MessageChecks.map(c => [c.leafIndex, c.msgHash, c.exists])).toEqual([
-      [index, commitment, false],
-      [indexT1, commitmentT1, false],
+    expect(journalUpdates.l1ToL2MessageChecks).toEqual([
+      expect.objectContaining({ leafIndex: index, msgHash: commitment, exists: false }),
+      expect.objectContaining({ leafIndex: indexT1, msgHash: commitmentT1, exists: false }),
     ]);
 
     // Check that rejected Accrued Substate is absent
-    expect(journalUpdates.newLogs).toEqual([logs]);
+    expect(journalUpdates.newLogs).toEqual([
+      new UnencryptedL2Log(
+        AztecAddress.fromBigInt(log.address),
+        new EventSelector(log.selector),
+        Buffer.concat(log.data.map(f => f.toBuffer())),
+      ),
+    ]);
     expect(journalUpdates.newL1Messages).toEqual([{ recipient, content: commitment }]);
   });
 

@@ -1,16 +1,12 @@
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
-    use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress},
-        grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId
+    use dep::aztec::prelude::{
+        AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map,
+        PrivateSet, PublicMutable
     };
-    use dep::aztec::{
-        state_vars::{Map, PrivateSet, PublicMutable}, context::Context,
-        note::{
-        note_getter_options::NoteGetterOptions, note_getter_options::NoteStatus,
-        note_header::NoteHeader, utils as note_utils
-    }
-    };
+
+    use dep::aztec::protocol_types::{grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId};
+    use dep::aztec::{context::Context, note::note_getter_options::NoteStatus};
     // docs:start:imports
     use dep::aztec::history::{
         contract_inclusion::{prove_contract_inclusion, prove_contract_inclusion_at},
@@ -33,16 +29,10 @@ contract InclusionProofs {
         public_unused_value: PublicMutable<Field>,
     }
 
-    #[aztec(private)]
+    #[aztec(public)]
     #[aztec(initializer)]
     fn constructor(public_value: Field) {
-        let selector = FunctionSelector::from_signature("_initialize(Field)");
-        context.call_public_function(context.this_address(), selector, [public_value]);
-    }
-
-    #[aztec(public)]
-    internal fn _initialize(value: Field) {
-        storage.public_value.write(value);
+        storage.public_value.write(public_value);
     }
 
     // docs:start:create_note

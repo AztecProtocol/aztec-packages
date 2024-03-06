@@ -30,7 +30,6 @@ use dep::protocol_types::{
     grumpkin_private_key::GrumpkinPrivateKey, hash::hash_args, header::Header,
     messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::is_empty
 };
-use dep::std::option::Option;
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
 // use dep::std::collections::vec::Vec;
@@ -329,6 +328,7 @@ impl PrivateContext {
         is_static_call: bool,
         is_delegate_call: bool
     ) -> [Field; RETURN_VALUES_LENGTH] {
+        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let item = call_private_function_internal(
             contract_address,
             function_selector,
@@ -435,6 +435,7 @@ impl PrivateContext {
         is_static_call: bool,
         is_delegate_call: bool
     ) {
+        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let fields = enqueue_public_function_call_internal(
             contract_address,
             function_selector,

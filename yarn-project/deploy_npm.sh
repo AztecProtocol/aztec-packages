@@ -7,7 +7,8 @@ if [ -z "$COMMIT_TAG" ]; then
   exit 0
 fi
 
-extract_repo yarn-project-prod /usr/src project
+retry ecr_login
+extract_repo yarn-project /usr/src project
 cd project/src/yarn-project
 
 echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >.npmrc

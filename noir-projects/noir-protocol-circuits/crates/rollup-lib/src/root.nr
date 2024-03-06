@@ -45,7 +45,7 @@ impl RootRollupInputs {
             tx_tree_height: right.height_in_block_tree + 1,
             txs_hash: components::compute_calldata_hash(self.previous_rollup_data),
             in_hash: [0, 0],
-            out_hash: [0, 0]
+            out_hash: components::compute_out_hash(self.previous_rollup_data)
         };
 
         let header = Header {
@@ -71,7 +71,7 @@ impl RootRollupInputs {
             aggregation_object,
             archive,
             header,
-            // TODO(#3938): Nuke this once body hash/calldata hash is updated
+            // TODO(#4492): update this when implementing the new message model
             l1_to_l2_messages_hash: compute_messages_hash(self.new_l1_to_l2_messages)
         }
     }

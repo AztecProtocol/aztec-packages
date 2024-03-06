@@ -238,20 +238,23 @@ fn handle_foreign_call(
     inputs: &Vec<ValueOrArray>,
 ) {
     match function {
+        "amvOpcodeEmitUnencryptedLog" => {
+            handle_emit_unencrypted_log(avm_instrs, destinations, inputs)
+        },
         "avmOpcodeNoteHashExists" => handle_note_hash_exists(avm_instrs, destinations, inputs),
-        "emitNoteHash" | "emitNullifier" => handle_emit_note_hash_or_nullifier(
-            function == "emitNullifier",
+        "avmOpcodeEmitNoteHash" | "avmOpcodeEmitNullifier" => handle_emit_note_hash_or_nullifier(
+            function == "avmOpcodeEmitNullifier",
             avm_instrs,
             destinations,
             inputs,
         ),
-        "nullifierExists" => handle_nullifier_exists(avm_instrs, destinations, inputs),
-        "l1ToL2MsgExists" => handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs),
-        "sendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs),
-        "keccak256" | "sha256" => {
+        "avmOpcodeNullifierExists" => handle_nullifier_exists(avm_instrs, destinations, inputs),
+        "avmOpcodeL1ToL2MsgExists" => handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs),
+        "avmOpcodeSendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs),
+        "avmOpcodeKeccak256" | "avmOpcodeSha256" => {
             handle_2_field_hash_instruction(avm_instrs, function, destinations, inputs)
         }
-        "poseidon" => {
+        "avmOpcodePoseidon" => {
             handle_single_field_hash_instruction(avm_instrs, function, destinations, inputs)
         }
         // Getters.
@@ -300,6 +303,43 @@ fn handle_note_hash_exists(
             },
             AvmOperand::U32 {
                 value: exists_offset_operand,
+            },
+        ],
+        ..Default::default()
+    });
+}
+
+fn handle_emit_unencrypted_log(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    if destinations.len() != 0 || inputs.len() != 2 {
+        panic!(
+            "Transpiler expects ForeignCall::EMITUNENCRYPTEDLOG to have 0 destinations and 3 inputs, got {} and {}",
+            destinations.len(),
+            inputs.len()
+        );
+    }
+    let (event_offset, message_array) = match &inputs[..] {
+        [ValueOrArray::MemoryAddress(offset), ValueOrArray::HeapArray(array)] => {
+            (offset.to_usize() as u32, array)
+        }
+        _ => panic!("Unexpected inputs for ForeignCall::EMITUNENCRYPTEDLOG: {:?}", inputs),
+    };
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::EMITUNENCRYPTEDLOG,
+        // The message array from Brillig is indirect.
+        indirect: Some(FIRST_OPERAND_INDIRECT),
+        operands: vec![
+            AvmOperand::U32 {
+                value: event_offset,
+            },
+            AvmOperand::U32 {
+                value: message_array.pointer.to_usize() as u32,
+            },
+            AvmOperand::U32 {
+                value: message_array.size as u32,
             },
         ],
         ..Default::default()
@@ -509,8 +549,8 @@ fn handle_2_field_hash_instruction(
     };
 
     let opcode = match function {
-        "keccak256" => AvmOpcode::KECCAK,
-        "sha256" => AvmOpcode::SHA256,
+        "avmOpcodeKeccak256" => AvmOpcode::KECCAK,
+        "avmOpcodeSha256" => AvmOpcode::SHA256,
         _ => panic!(
             "Transpiler doesn't know how to process ForeignCall function {:?}",
             function
@@ -565,7 +605,7 @@ fn handle_single_field_hash_instruction(
     };
 
     let opcode = match function {
-        "poseidon" => AvmOpcode::POSEIDON,
+        "avmOpcodePoseidon" => AvmOpcode::POSEIDON,
         _ => panic!(
             "Transpiler doesn't know how to process ForeignCall function {:?}",
             function
@@ -615,18 +655,18 @@ fn handle_getter_instruction(
     };
 
     let opcode = match function {
-        "address" => AvmOpcode::ADDRESS,
-        "storageAddress" => AvmOpcode::STORAGEADDRESS,
-        "origin" => AvmOpcode::ORIGIN,
-        "sender" => AvmOpcode::SENDER,
-        "portal" => AvmOpcode::PORTAL,
-        "feePerL1Gas" => AvmOpcode::FEEPERL1GAS,
-        "feePerL2Gas" => AvmOpcode::FEEPERL2GAS,
-        "feePerDaGas" => AvmOpcode::FEEPERDAGAS,
-        "chainId" => AvmOpcode::CHAINID,
-        "version" => AvmOpcode::VERSION,
-        "blockNumber" => AvmOpcode::BLOCKNUMBER,
-        "timestamp" => AvmOpcode::TIMESTAMP,
+        "avmOpcodeAddress" => AvmOpcode::ADDRESS,
+        "avmOpcodeStorageAddress" => AvmOpcode::STORAGEADDRESS,
+        "avmOpcodeOrigin" => AvmOpcode::ORIGIN,
+        "avmOpcodeSender" => AvmOpcode::SENDER,
+        "avmOpcodePortal" => AvmOpcode::PORTAL,
+        "avmOpcodeFeePerL1Gas" => AvmOpcode::FEEPERL1GAS,
+        "avmOpcodeFeePerL2Gas" => AvmOpcode::FEEPERL2GAS,
+        "avmOpcodeFeePerDaGas" => AvmOpcode::FEEPERDAGAS,
+        "avmOpcodeChainId" => AvmOpcode::CHAINID,
+        "avmOpcodeVersion" => AvmOpcode::VERSION,
+        "avmOpcodeBlockNumber" => AvmOpcode::BLOCKNUMBER,
+        "avmOpcodeTimestamp" => AvmOpcode::TIMESTAMP,
         // "callStackDepth" => AvmOpcode::CallStackDepth,
         _ => panic!(
             "Transpiler doesn't know how to process ForeignCall function {:?}",
