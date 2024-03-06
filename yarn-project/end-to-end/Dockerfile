@@ -36,7 +36,7 @@ RUN yarn workspace @aztec/end-to-end run build:web
 RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
 
 # We no longer need these
-RUN rm -f /usr/src/noir-projects /usr/src/l1-contracts
+RUN rm -rf /usr/src/noir-projects /usr/src/l1-contracts
 
 # Create minimal image.
 FROM node:18.19.1-slim
