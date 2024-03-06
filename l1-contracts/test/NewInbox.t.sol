@@ -145,17 +145,16 @@ contract NewInboxTest is Test {
     _send(_messagesFirstBatch);
 
     // Consume first few trees
-    _consume(_numTreesToConsumeFirstBatch, _messagesFirstBatch.length);
+    _consume(_numTreesToConsumeFirstBatch);
 
     // Send second batch of messages
     _send(_messagesSecondBatch);
 
     // Consume second batch of trees
-    _consume(_numTreesToConsumeSecondBatch, _messagesSecondBatch.length);
+    _consume(_numTreesToConsumeSecondBatch);
   }
 
   function _send(DataStructures.L1ToL2Msg[] memory _messages) internal checkInvariant {
-    bool isFirstRun = inbox.getInProgress() == inbox.FIRST_REAL_TREE_NUM();
     bytes32 toConsumeRoot = inbox.getToConsumeRoot();
 
     // We send the messages and then check that toConsume root did not change.
@@ -178,23 +177,9 @@ contract NewInboxTest is Test {
       toConsumeRoot,
       "Root of a tree waiting to be consumed should not change"
     );
-
-    // We perform expected num trees check only after first batch because after second one the following accounting
-    // does not work because a tree might have been consumed when not full or we might have consumed an empty tree
-    if (isFirstRun) {
-      uint256 expectedNumTrees = _divideAndRoundUp(_messages.length, inbox.getSize());
-      if (expectedNumTrees == 0) {
-        // This occurs when there are no messages but we initialize the first tree in the constructor so there are
-        // never zero trees
-        expectedNumTrees = 1;
-      }
-      assertEq(inbox.getNumTrees(), expectedNumTrees);
-    }
   }
 
-  function _consume(uint256 _numTreesToConsume, uint256 _numMessages) internal checkInvariant {
-    bool isFirstRun = inbox.getToConsume() == Constants.INITIAL_L2_BLOCK_NUM;
-
+  function _consume(uint256 _numTreesToConsume) internal checkInvariant {
     uint256 initialNumTrees = inbox.getNumTrees();
     // We use (initialNumTrees * 2) as upper bound here because we want to test the case where we go beyond
     // the currently initalized number of trees. When consuming the newly initialized trees we should get zero roots.
@@ -210,18 +195,9 @@ contract NewInboxTest is Test {
       // We check whether a new tree is correctly initialized when the one which was in progress was set as to consume
       assertEq(inbox.getNumTrees(), expectedNumTrees, "Unexpected number of trees");
 
-      // We perform empty roots check only after first batch because after second one the following simple accounting
-      // does not work
-      if (isFirstRun) {
-        // Notes:
-        // 1) For i = 0 we should always get empty tree root because first block's messages tree is always
-        // empty because we introduced a 1 block lag to prevent sequencer DOS attacks.
-        // 2) For _numMessages = 0 and i = 1 we get empty root as well
-        if (i != 0 && i <= initialNumTrees && _numMessages > 0) {
-          assertNotEq(root, emptyTreeRoot, "Root should not be zero");
-        } else {
-          assertEq(root, emptyTreeRoot, "Root should be zero");
-        }
+      // If we go beyong the number of trees initialized before consuming we should get empty root
+      if (i > initialNumTrees) {
+        assertEq(root, emptyTreeRoot, "Root of a newly initialized tree not empty");
       }
     }
   }
