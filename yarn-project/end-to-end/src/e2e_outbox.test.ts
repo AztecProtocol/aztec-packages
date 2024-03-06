@@ -34,7 +34,7 @@ describe('E2E Outbox Tests', () => {
       txEffect.l2ToL1Msgs.map(l2ToL1Message => l2ToL1Message.toBuffer()),
     );
 
-    const siblingPath = await aztecNode.getL2ToL1MessageSiblingPath(blockNumber!, Fr.ZERO);
+    const [, siblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(blockNumber!, Fr.ZERO);
 
     expect(siblingPath.pathSize).toBe(2);
 
@@ -45,7 +45,7 @@ describe('E2E Outbox Tests', () => {
 
     expect(siblingPath.toString()).toBe(expectedSiblingPath.toString());
 
-    const siblingPathAlt = await aztecNode.getL2ToL1MessageSiblingPath(blockNumber!, Fr.fromBuffer(l2ToL1Messages![0]));
+    const [, siblingPathAlt] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(blockNumber!, Fr.fromBuffer(l2ToL1Messages![0]));
 
     expect(siblingPathAlt.pathSize).toBe(2);
 
