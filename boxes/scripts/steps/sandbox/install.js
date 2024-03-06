@@ -53,20 +53,23 @@ function findOutUserVersion() {
   let sandboxVersion = null;
   let dockerOutput = null;
   try {
-    dockerOutput = execSync("docker image inspect aztecprotocol/aztec 2>&1", {
-      encoding: "utf8",
-    });
+    dockerOutput = execSync(
+      "docker image inspect --format '{{json .Config.Env}}' aztecprotocol/aztec 2>&1",
+      {
+        encoding: "utf8",
+      },
+    );
   } catch (error) {
     // Something went wrong with the docker command
     // So we assume sandbox is not installed
-    sandboxVersion == null;
+    sandboxVersion = null;
   }
 
   if (!dockerOutput) return sandboxVersion;
 
   // parsing the docker output to get the commit tag
-  sandboxVersion = JSON.parse(dockerOutput)[0]
-    .Config.Env.find((env) => env.includes("COMMIT_TAG"))
+  sandboxVersion = JSON.parse(dockerOutput)
+    .find((env) => env.includes("COMMIT_TAG"))
     .split("=")[1];
 
   // There's no tag yet, so the user is on master

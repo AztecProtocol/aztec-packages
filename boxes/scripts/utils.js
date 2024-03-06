@@ -2,10 +2,18 @@ import path from "path";
 import os from "os";
 import fs from "fs";
 import { parse, stringify } from "@iarna/toml";
-import axios from "axios";
+import { default as axiosBase } from "axios";
 
 const { log, warn, info } = console;
 const targetDir = path.join(os.homedir(), ".aztec/bin"); // Use os.homedir() to get $HOME
+
+const { GITHUB_TOKEN } = process.env;
+const axiosOpts = {};
+if (GITHUB_TOKEN) {
+  axiosOpts.headers = { Authorization: `token ${GITHUB_TOKEN}` };
+}
+
+export const axios = axiosBase.create(axiosOpts);
 
 export async function getAvailableBoxes(tag, version) {
   const { GITHUB_TOKEN } = process.env;

@@ -31,7 +31,7 @@ export async function sandboxRun(version) {
     spinner.stop();
     const answer = await confirm({
       message:
-        "I can't reach the Sandbox on localhost:8080. Do you want to start it?",
+        "Sandbox can't be reached on localhost:8080. Do you want to start it?",
       default: true,
     });
 
