@@ -2,12 +2,15 @@ contract Claim {
     mod interfaces;
 
     use dep::aztec::{
-        protocol_types::address::AztecAddress,
+        history::note_inclusion::prove_note_inclusion,
+        protocol_types::{
+            abis::function_selector::FunctionSelector,
+            address::AztecAddress,
+        },
         state_vars::SharedImmutable,
     };
     use dep::value_note::value_note::ValueNote;
     use interfaces::Token;
-    use dep::aztec::history::note_inclusion::prove_note_inclusion;
 
     struct Storage {
       campaign_contract: SharedImmutable<AztecAddress>,
@@ -20,7 +23,7 @@ contract Claim {
         context.call_public_function(
             context.this_address(),
             selector,
-            [other_asset.to_field(), fee_asset.to_field()]
+            [campaign_contract.to_field(), reward_token.to_field()]
         );
     }
 

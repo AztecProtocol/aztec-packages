@@ -1,11 +1,14 @@
 contract CrowdFunding {
     mod interfaces;
 
-    use dep::aztec::protocol_types::address::AztecAddress;
     use dep::aztec::{
         log::emit_unencrypted_log_from_private,
+        protocol_types::{
+            abis::function_selector::FunctionSelector,
+            address::AztecAddress,
+            traits::Serialize
+        },
         state_vars::{PrivateSet, SharedImmutable},
-        protocol_types::traits::Serialize
     };
     use dep::value_note::value_note::ValueNote;
     use interfaces::Token;
@@ -77,7 +80,7 @@ contract CrowdFunding {
         donation_token.transfer(&mut context, context.this_address(), operator_address, amount as Field, 0);
 
         // Finally we emit an unencrypted event so that anyone can verify how much the operator has withdrawn
-        let event = WithdrawalProcessed { amount, who: sender };
+        let event = WithdrawalProcessed { amount, who: operator_address };
         emit_unencrypted_log_from_private(&mut context, event.serialize());
     }
 }
