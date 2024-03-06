@@ -110,6 +110,11 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     bb::EvaluationDomain<FF> evaluation_domain;
     std::shared_ptr<CommitmentKey_> commitment_key;
 
+    // offset due to placing zero wires at the start of execution trace
+    // non-zero  for Instances constructed from circuits, this concept doesn't exist for accumulated
+    // instances
+    size_t pub_inputs_offset = 0;
+
     std::vector<std::string> get_labels() const
     {
         return concatenate(PrecomputedPolynomials::get_labels(), WitnessPolynomials::get_labels());

@@ -17,7 +17,7 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
         transcript->send_to_verifier(domain_separator + "_public_input_" + std::to_string(i), public_input_i);
     }
     transcript->send_to_verifier(domain_separator + "_pub_inputs_offset",
-                                 static_cast<uint32_t>(instance->pub_inputs_offset));
+                                 static_cast<uint32_t>(instance->proving_key->pub_inputs_offset));
 
     auto& witness_commitments = instance->witness_commitments;
 

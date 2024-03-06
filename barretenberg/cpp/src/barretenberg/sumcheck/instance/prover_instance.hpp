@@ -42,10 +42,7 @@ template <class Flavor> class ProverInstance_ {
     // The number of public inputs has to be the same for all instances because they are
     // folded element by element.
     std::vector<FF> public_inputs;
-    // offset due to placing zero wires at the start of execution trace
-    // non-zero  for Instances constructed from circuits, this concept doesn't exist for accumulated
-    // instances
-    size_t pub_inputs_offset = 0;
+
     RelationSeparator alphas;
     bb::RelationParameters<FF> relation_parameters;
 
@@ -77,10 +74,6 @@ template <class Flavor> class ProverInstance_ {
 
         construct_table_polynomials(circuit, dyadic_circuit_size);
 
-        // proving_key->recursive_proof_public_input_indices = std::vector<uint32_t>(
-        //     recursive_proof_public_input_indices.begin(), recursive_proof_public_input_indices.end());
-        // proving_key->contains_recursive_proof = contains_recursive_proof;
-
         sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
     }
 
@@ -104,7 +97,6 @@ template <class Flavor> class ProverInstance_ {
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
-    // bool contains_recursive_proof = false;
     size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
 
     size_t compute_dyadic_size(Circuit&);
