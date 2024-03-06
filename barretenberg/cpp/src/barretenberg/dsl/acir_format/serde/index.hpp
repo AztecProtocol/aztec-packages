@@ -16,6 +16,6 @@
 #pragma GCC diagnostic ignored "-Wsign-conversion"
 #pragma GCC diagnostic ignored "-Wconversion"
 #include "acir.hpp"
-#include "witness_map.hpp"
+#include "witness_stack.hpp"
 #pragma GCC diagnostic pop
 #endif
