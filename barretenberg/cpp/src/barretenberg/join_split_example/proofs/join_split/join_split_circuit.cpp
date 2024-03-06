@@ -268,7 +268,7 @@ join_split_outputs join_split_circuit_component(join_split_inputs const& inputs)
              public_asset_id, tx_fee,     bridge_call_data,         defi_deposit_value };
 }
 
-void join_split_circuit(CircuitBuilder& builder, join_split_tx const& tx)
+void join_split_circuit(Builder& builder, join_split_tx const& tx)
 {
     join_split_inputs inputs = {
         .proof_id = witness_ct(&builder, tx.proof_id),

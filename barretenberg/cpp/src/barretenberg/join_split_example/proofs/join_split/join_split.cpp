@@ -8,9 +8,9 @@ namespace bb::join_split_example::proofs::join_split {
 using namespace bb::plonk;
 using namespace bb::crypto::merkle_tree;
 
-CircuitBuilder new_join_split_circuit(join_split_tx const& tx)
+Builder new_join_split_circuit(join_split_tx const& tx)
 {
-    CircuitBuilder builder;
+    Builder builder;
     join_split_circuit(builder, tx);
 
     if (builder.failed()) {

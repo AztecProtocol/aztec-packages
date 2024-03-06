@@ -17,20 +17,20 @@
 
 namespace bb::join_split_example {
 
-using CircuitBuilder = bb::UltraCircuitBuilder;
+using Builder = bb::UltraCircuitBuilder;
 
-using witness_ct = stdlib::witness_t<CircuitBuilder>;
-using public_witness_ct = stdlib::public_witness_t<CircuitBuilder>;
-using bool_ct = stdlib::bool_t<CircuitBuilder>;
-using byte_array_ct = stdlib::byte_array<CircuitBuilder>;
-using field_ct = stdlib::field_t<CircuitBuilder>;
-using suint_ct = stdlib::safe_uint_t<CircuitBuilder>;
-using uint32_ct = stdlib::uint32<CircuitBuilder>;
-using group_ct = stdlib::cycle_group<CircuitBuilder>;
-using pedersen_commitment = stdlib::pedersen_commitment<CircuitBuilder>;
-using pedersen_hash = stdlib::pedersen_hash<CircuitBuilder>;
-using bn254 = stdlib::bn254<CircuitBuilder>;
-using hash_path_ct = crypto::merkle_tree::hash_path<CircuitBuilder>;
-using schnorr_signature_bits = stdlib::schnorr_signature_bits<CircuitBuilder>;
+using witness_ct = stdlib::witness_t<Builder>;
+using public_witness_ct = stdlib::public_witness_t<Builder>;
+using bool_ct = stdlib::bool_t<Builder>;
+using byte_array_ct = stdlib::byte_array<Builder>;
+using field_ct = stdlib::field_t<Builder>;
+using suint_ct = stdlib::safe_uint_t<Builder>;
+using uint32_ct = stdlib::uint32<Builder>;
+using group_ct = stdlib::cycle_group<Builder>;
+using pedersen_commitment = stdlib::pedersen_commitment<Builder>;
+using pedersen_hash = stdlib::pedersen_hash<Builder>;
+using bn254 = stdlib::bn254<Builder>;
+using hash_path_ct = crypto::merkle_tree::hash_path<Builder>;
+using schnorr_signature_bits = stdlib::schnorr_signature_bits<Builder>;
 
 } // namespace bb::join_split_example

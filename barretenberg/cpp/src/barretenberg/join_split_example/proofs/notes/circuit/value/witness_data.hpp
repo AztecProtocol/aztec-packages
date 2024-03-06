@@ -15,7 +15,7 @@ struct witness_data {
     field_ct creator_pubkey;
     field_ct input_nullifier;
 
-    witness_data(CircuitBuilder& builder, native::value::value_note const& note)
+    witness_data(Builder& builder, native::value::value_note const& note)
     {
         secret = witness_ct(&builder, note.secret);
         owner = group_ct(witness_ct(&builder, note.owner.x), witness_ct(&builder, note.owner.y), false);

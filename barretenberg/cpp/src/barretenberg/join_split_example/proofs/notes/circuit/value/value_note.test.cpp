@@ -20,7 +20,7 @@ class ValueNote : public ::testing::Test {
 TEST_F(ValueNote, Commits)
 {
     auto user = join_split_example::fixtures::create_user_context();
-    CircuitBuilder builder;
+    Builder builder;
 
     fr note_value = fr::random_element();
     note_value.data[3] = note_value.data[3] & 0x0FFFFFFFFFFFFFFFULL;
@@ -45,7 +45,7 @@ TEST_F(ValueNote, Commits)
 TEST_F(ValueNote, CommitsWith0Value)
 {
     auto user = join_split_example::fixtures::create_user_context();
-    CircuitBuilder builder;
+    Builder builder;
 
     uint32_t asset_id_value = 0x2abbccddULL; // needs to be less than 30 bits
 
@@ -71,7 +71,7 @@ TEST_F(ValueNote, CommitsWith0Value)
 TEST_F(ValueNote, CommitWithOversizedAssetIdFails)
 {
     auto user = join_split_example::fixtures::create_user_context();
-    CircuitBuilder builder;
+    Builder builder;
 
     native::value::value_note note = {
         .value = 0,

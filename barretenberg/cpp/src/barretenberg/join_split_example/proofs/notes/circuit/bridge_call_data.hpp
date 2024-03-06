@@ -34,7 +34,7 @@ struct bridge_call_data {
         bool_ct second_output_in_use;
 
         bit_config(){};
-        bit_config(CircuitBuilder* builder, uint256_t const& bridge_call_data)
+        bit_config(Builder* builder, uint256_t const& bridge_call_data)
         {
             ASSERT(builder != nullptr);
 
@@ -85,11 +85,11 @@ struct bridge_call_data {
     suint_ct aux_data = 0;
 
     bridge_call_data(){};
-    bridge_call_data(CircuitBuilder* builder, const native::bridge_call_data& native_id)
+    bridge_call_data(Builder* builder, const native::bridge_call_data& native_id)
         : bridge_call_data(builder, native_id.to_uint256_t())
     {}
 
-    bridge_call_data(CircuitBuilder* builder, uint256_t const& bridge_call_data)
+    bridge_call_data(Builder* builder, uint256_t const& bridge_call_data)
     {
         // constants
         constexpr auto one = uint256_t(1);

@@ -257,7 +257,7 @@ class join_split_tests : public ::testing::Test {
         return tx;
     }
 
-    CircuitBuilder sign_and_create_circuit(join_split_tx& tx, key_pair const& signing_key)
+    Builder sign_and_create_circuit(join_split_tx& tx, key_pair const& signing_key)
     {
         tx.signature = sign_join_split_tx(tx, signing_key);
         circuit = new_join_split_circuit(tx);
@@ -279,7 +279,7 @@ class join_split_tests : public ::testing::Test {
 
     verify_result verify_logic(join_split_tx& tx)
     {
-        circuit = CircuitBuilder();
+        circuit = Builder();
         join_split_circuit(circuit, tx);
         if (circuit.failed()) {
             info("Logic failed: ", circuit.err());
@@ -293,7 +293,7 @@ class join_split_tests : public ::testing::Test {
         return verify_logic(tx);
     }
 
-    CircuitBuilder circuit;
+    Builder circuit;
     join_split_example::fixtures::user_context user;
     std::unique_ptr<MemoryStore> store;
     std::unique_ptr<MerkleTree<MemoryStore, PedersenHashPolicy>> tree;
@@ -2198,7 +2198,7 @@ TEST_F(join_split_tests, test_deposit)
      *   - fee = 3
      */
 
-    CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
+    Builder circuit = sign_and_create_circuit(tx, user.owner);
     EXPECT_TRUE(CircuitChecker::check(circuit));
 }
 
@@ -2219,7 +2219,7 @@ TEST_F(join_split_tests, test_withdraw)
      *   - 3 paid as fee (in1's asset_id)
      */
 
-    CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
+    Builder circuit = sign_and_create_circuit(tx, user.owner);
     EXPECT_TRUE(CircuitChecker::check(circuit));
 }
 
@@ -2236,7 +2236,7 @@ TEST_F(join_split_tests, test_private_send)
      *   - 3 paid as fee (in1's asset_id)
      */
 
-    CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
+    Builder circuit = sign_and_create_circuit(tx, user.owner);
 
     EXPECT_TRUE(CircuitChecker::check(circuit));
 }
@@ -2266,7 +2266,7 @@ TEST_F(join_split_tests, test_defi_deposit)
      *   - 10 paid as fee (in1's asset_id)
      */
 
-    CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
+    Builder circuit = sign_and_create_circuit(tx, user.owner);
     EXPECT_TRUE(CircuitChecker::check(circuit));
 }
 
@@ -2297,7 +2297,7 @@ TEST_F(join_split_tests, test_repayment)
     tx.partial_claim_note.bridge_call_data = bridge_call_data.to_uint256_t();
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
-    CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
+    Builder circuit = sign_and_create_circuit(tx, user.owner);
     EXPECT_TRUE(CircuitChecker::check(circuit));
 }
 
