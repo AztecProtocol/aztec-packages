@@ -2,9 +2,7 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-
-contract NaiveMerkle is Test {
+contract NaiveMerkle {
   uint256 public immutable DEPTH;
   uint256 public immutable SIZE;
 

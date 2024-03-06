@@ -62,31 +62,36 @@ contract NewOutbox is INewOutbox {
       revert Errors.Outbox__InvalidChainId();
     }
 
+    if (roots[_l2BlockNumber].root == 0) {
+      revert Errors.Outbox__NothingToConsumeAtBlock(_l2BlockNumber);
+    }
+
     if (roots[_l2BlockNumber].nullified[_leafIndex]) {
       revert Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex);
     }
 
-    bytes32 root = roots[_l2BlockNumber].root;
+    uint256 expectedHeight = roots[_l2BlockNumber].height;
+
+    if (expectedHeight != _path.length) {
+      revert Errors.Outbox__InvalidPathLength(expectedHeight, _path.length);
+    }
+
+    bytes32 expectedRoot = roots[_l2BlockNumber].root;
 
     bytes32 messageHash =
-      _verifyMembership(_path, _message, _leafIndex, root, roots[_l2BlockNumber].height);
+      _verifyMembership(_path, _message, _leafIndex, expectedRoot);
 
     roots[_l2BlockNumber].nullified[_leafIndex] = true;
 
-    emit MessageConsumed(_l2BlockNumber, root, messageHash);
+    emit MessageConsumed(_l2BlockNumber, expectedRoot, messageHash);
   }
 
   function _verifyMembership(
     bytes32[] memory _path,
     DataStructures.L2ToL1Msg memory _message,
     uint256 _index,
-    bytes32 _root,
-    uint256 _height
+    bytes32 _expectedRoot
   ) internal pure returns (bytes32) {
-    if (_height != _path.length) {
-      revert Errors.Outbox__InvalidPathLength(_height, _path.length);
-    }
-
     bytes32 leaf = _message.sha256ToField();
 
     bytes32 root;
@@ -102,8 +107,8 @@ contract NewOutbox is INewOutbox {
       index /= 2;
     }
 
-    if (root != _root) {
-      revert Errors.Outbox__InvalidRoot(_root, root);
+    if (root != _expectedRoot) {
+      revert Errors.Outbox__InvalidRoot(_expectedRoot, root);
     }
 
     return leaf;

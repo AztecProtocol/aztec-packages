@@ -51,6 +51,7 @@ library Errors {
   error Outbox__RootAlreadySet(uint256 l2BlockNumber);
   error Outbox__InvalidRecipient(address expected, address actual);
   error Outbox__AlreadyNullified(uint256 l2BlockNumber, uint256 leafIndex);
+  error Outbox__NothingToConsumeAtBlock(uint256 l2BlockNumber);
 
   // Rollup
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
