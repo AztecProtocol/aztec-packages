@@ -113,7 +113,7 @@ export class AztecNodeService implements AztecNode {
     const log = createDebugLogger('aztec:node');
     const storeLog = createDebugLogger('aztec:node:lmdb');
     const store = await initStoreForRollup(
-      AztecLmdbStore.open(config.dataDirectory, storeLog),
+      AztecLmdbStore.open(config.dataDirectory, false, storeLog),
       config.l1Contracts.rollupAddress,
       storeLog,
     );
@@ -452,8 +452,7 @@ export class AztecNodeService implements AztecNode {
 
     const treeHeight = Math.ceil(Math.log2(l2ToL1Messages.length));
 
-    // @TODO: Figure out a way to make the below in memory only
-    const tree = new StandardTree(openTmpStore(), new SHA256(), 'temp_outhash_sibling_path', treeHeight);
+    const tree = new StandardTree(openTmpStore(true), new SHA256(), 'temp_outhash_sibling_path', treeHeight);
     await tree.appendLeaves(l2ToL1Messages.map(l2ToL1Msg => l2ToL1Msg.toBuffer()));
 
     return tree.getSiblingPath(BigInt(indexOfL2ToL1Message), true);
