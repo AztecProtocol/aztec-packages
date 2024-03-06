@@ -1,10 +1,10 @@
 import { AccountWalletWithPrivateKey, AztecNode, EthAddress, Fr, SiblingPath } from '@aztec/aztec.js';
 import { SHA256 } from '@aztec/merkle-tree';
+import { TestContract } from '@aztec/noir-contracts.js';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
-import { TestContract } from '@aztec/noir-contracts.js';
 
 describe('E2E Outbox Tests', () => {
   let teardown: () => void;
@@ -12,7 +12,6 @@ describe('E2E Outbox Tests', () => {
   const sha256 = new SHA256();
   let contract: TestContract;
   let wallets: AccountWalletWithPrivateKey[];
-
 
   beforeEach(async () => {
     ({ teardown, aztecNode, wallets } = await setup(1));
@@ -24,7 +23,10 @@ describe('E2E Outbox Tests', () => {
   afterAll(() => teardown());
 
   it('Inserts a new out message, and verifies sibling paths of both the new message, and its zeroed sibling', async () => {
-    const { blockNumber } = await contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(42069, EthAddress.ZERO).send().wait();
+    const { blockNumber } = await contract.methods
+      .create_l2_to_l1_message_arbitrary_recipient_public(42069, EthAddress.ZERO)
+      .send()
+      .wait();
 
     const block = await aztecNode.getBlock(blockNumber!);
 
@@ -53,6 +55,5 @@ describe('E2E Outbox Tests', () => {
     ]);
 
     expect(siblingPathAlt.toString()).toBe(expectedSiblingPathAlt.toString());
-
   }, 360_000);
 });
