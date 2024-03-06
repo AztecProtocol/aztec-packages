@@ -9,8 +9,6 @@ import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
 
 // TODO: rename to InboxHarness once all the pieces of the new message model are in place.
 contract NewInboxHarness is NewInbox {
-  uint256 public constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
-
   constructor(address _rollup, uint256 _height) NewInbox(_rollup, _height) {}
 
   function getSize() external view returns (uint256) {
@@ -42,6 +40,7 @@ contract NewInboxHarness is NewInbox {
   }
 
   function getNumTrees() external view returns (uint256) {
-    return inProgress - 1; // -1 because tree number 1 is not real
+    // -INITIAL_L2_BLOCK_NUM because tree number INITIAL_L2_BLOCK_NUM is not real
+    return inProgress - Constants.INITIAL_L2_BLOCK_NUM;
   }
 }

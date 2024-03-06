@@ -27,14 +27,17 @@ contract FrontierMerkle is IFrontier {
   }
 
   function insertLeaf(bytes32 _leaf) external override(IFrontier) returns (uint256) {
-    uint256 level = _computeLevel(nextIndex);
+    uint256 index = nextIndex;
+    uint256 level = _computeLevel(index);
     bytes32 right = _leaf;
     for (uint256 i = 0; i < level; i++) {
       right = sha256(bytes.concat(frontier[i], right));
     }
     frontier[level] = right;
 
-    return nextIndex++;
+    nextIndex++;
+
+    return index;
   }
 
   function root() external view override(IFrontier) returns (bytes32) {
