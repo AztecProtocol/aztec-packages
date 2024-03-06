@@ -45,6 +45,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * different rollup instances.
    *
    * @param path - A path on the disk to store the database. Optional
+   * @param ephemeral - true if the store should only exist in memory and not automatically be flushed to disk. Optional
    * @param log - A logger to use. Optional
    * @returns The store
    */
