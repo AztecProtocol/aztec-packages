@@ -8,6 +8,61 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## 0.25.0
 
+### [Aztec.nr] Static calls
+
+It is now possible to perform static calls from both public and private functions. Static calls forbid any modification to the state, including L2->L1 messages or log generation. Once a static context is set through a static all, every subsequent call will also be treated as static via context propagation.
+
+```rust
+context.static_call_private_function(targetContractAddress, targetSelector, args);
+
+context.static_call_public_function(targetContractAddress, targetSelector, args);
+```
+
+### [Aztec.nr] Introduction to `prelude`
+
+A new `prelude` module to include common Aztec modules and types.
+This simplifies dependency syntax. For example:
+```rust
+use dep::aztec::protocol_types::address::AztecAddress;
+use dep::aztec::{
+    context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
+    state_vars::Map
+};
+```
+Becomes:
+```rust
+use dep::aztec::prelude::{AztecAddress, NoteHeader, PrivateContext, Map};
+use dep::aztec::context::Context;
+use dep::aztec::notes::utils as note_utils;
+```
+
+This will be further simplified in future versions (See [4496](https://github.com/AztecProtocol/aztec-packages/pull/4496) for further details).
+
+The prelude consists of
+
+#include_code prelude /noir-projects/aztec-nr/aztec/src/prelude.nr rust
+
+### `internal` is now a macro
+
+The `internal` keyword is now removed from Noir, and is replaced by an `aztec(internal)` attribute in the function. The resulting behavior is exactly the same: these functions will only be callable from within the same contract.
+
+Before:
+```rust
+#[aztec(private)]
+internal fn double(input: Field) -> Field {
+    input * 2
+}
+```
+
+After:
+```rust
+#[aztec(private)]
+#[aztec(internal)]
+fn double(input: Field) -> Field {
+    input * 2
+}
+```
+
 ### [Aztec.nr] No SafeU120 anymore!
 Noir now have overflow checks by default. So we don't need SafeU120 like libraries anymore.
 
