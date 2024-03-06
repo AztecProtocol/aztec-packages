@@ -20,7 +20,7 @@ import {
   convertRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 
-import { RollupSimulator } from './index.js';
+import { RollupSimulator, WASMSimulator } from './index.js';
 import { SimulationProvider } from './simulation_provider.js';
 
 /**
@@ -28,6 +28,9 @@ import { SimulationProvider } from './simulation_provider.js';
  */
 export class RealRollupCircuitSimulator implements RollupSimulator {
   private log = createDebugLogger('aztec:rollup-simulator');
+
+  // Some circuits are so small it is faster to use WASM
+  private wasmSimulator: WASMSimulator = new WASMSimulator();
 
   constructor(private simulationProvider: SimulationProvider) {}
 
@@ -64,7 +67,7 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
     const witnessMap = convertMergeRollupInputsToWitnessMap(input);
 
     const [duration, witness] = await elapsed(() =>
-      this.simulationProvider.simulateCircuit(witnessMap, MergeRollupArtifact),
+      this.wasmSimulator.simulateCircuit(witnessMap, MergeRollupArtifact),
     );
 
     const result = convertMergeRollupOutputsFromWitnessMap(witness);
@@ -88,9 +91,7 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async rootRollupCircuit(input: RootRollupInputs): Promise<RootRollupPublicInputs> {
     const witnessMap = convertRootRollupInputsToWitnessMap(input);
 
-    const [duration, witness] = await elapsed(() =>
-      this.simulationProvider.simulateCircuit(witnessMap, RootRollupArtifact),
-    );
+    const [duration, witness] = await elapsed(() => this.wasmSimulator.simulateCircuit(witnessMap, RootRollupArtifact));
 
     const result = convertRootRollupOutputsFromWitnessMap(witness);
 

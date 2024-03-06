@@ -14,7 +14,7 @@ import {
   convertPublicTailRollupOutputFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 
-import { PublicKernelCircuitSimulator } from './index.js';
+import { PublicKernelCircuitSimulator, WASMSimulator } from './index.js';
 import { SimulationProvider } from './simulation_provider.js';
 
 /**
@@ -22,6 +22,9 @@ import { SimulationProvider } from './simulation_provider.js';
  */
 export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimulator {
   private log = createDebugLogger('aztec:public-kernel-simulator');
+
+  // Some circuits are so small it is faster to use WASM
+  private wasmSimulator: WASMSimulator = new WASMSimulator();
 
   constructor(private simulator: SimulationProvider) {}
 
@@ -38,7 +41,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
     }
     const inputWitness = convertPublicSetupRollupInputsToWitnessMap(input);
     const [duration, witness] = await elapsed(() =>
-      this.simulator.simulateCircuit(inputWitness, PublicKernelSetupArtifact),
+      this.wasmSimulator.simulateCircuit(inputWitness, PublicKernelSetupArtifact),
     );
     const result = convertPublicSetupRollupOutputFromWitnessMap(witness);
     this.log(`Simulated public kernel setup circuit`, {
@@ -64,7 +67,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
     }
     const inputWitness = convertPublicInnerRollupInputsToWitnessMap(input);
     const [duration, witness] = await elapsed(() =>
-      this.simulator.simulateCircuit(inputWitness, PublicKernelAppLogicArtifact),
+      this.wasmSimulator.simulateCircuit(inputWitness, PublicKernelAppLogicArtifact),
     );
     const result = convertPublicInnerRollupOutputFromWitnessMap(witness);
     this.log(`Simulated public kernel app logic circuit`, {
@@ -90,7 +93,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
     }
     const inputWitness = convertPublicTailRollupInputsToWitnessMap(input);
     const [duration, witness] = await elapsed(() =>
-      this.simulator.simulateCircuit(inputWitness, PublicKernelTeardownArtifact),
+      this.wasmSimulator.simulateCircuit(inputWitness, PublicKernelTeardownArtifact),
     );
     const result = convertPublicTailRollupOutputFromWitnessMap(witness);
     this.log(`Simulated public kernel teardown circuit`, {
