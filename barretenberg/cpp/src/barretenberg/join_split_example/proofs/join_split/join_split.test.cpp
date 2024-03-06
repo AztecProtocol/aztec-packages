@@ -3,6 +3,7 @@
 #include "../../constants.hpp"
 #include "../inner_proof_data/inner_proof_data.hpp"
 #include "../notes/native/index.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/merkle_tree/index.hpp"
@@ -266,7 +267,7 @@ class join_split_tests : public ::testing::Test {
     bool sign_and_check_circuit(join_split_tx& tx, key_pair const& signing_key)
     {
         circuit = sign_and_create_circuit(tx, signing_key);
-        return circuit.check_circuit();
+        return CircuitChecker::check(circuit);
     }
 
     struct verify_result {
@@ -2198,7 +2199,7 @@ TEST_F(join_split_tests, test_deposit)
      */
 
     CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
-    EXPECT_TRUE(circuit.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(circuit));
 }
 
 TEST_F(join_split_tests, test_withdraw)
@@ -2219,7 +2220,7 @@ TEST_F(join_split_tests, test_withdraw)
      */
 
     CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
-    EXPECT_TRUE(circuit.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(circuit));
 }
 
 TEST_F(join_split_tests, test_private_send)
@@ -2237,7 +2238,7 @@ TEST_F(join_split_tests, test_private_send)
 
     CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
 
-    EXPECT_TRUE(circuit.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(circuit));
 }
 
 TEST_F(join_split_tests, test_defi_deposit)
@@ -2266,7 +2267,7 @@ TEST_F(join_split_tests, test_defi_deposit)
      */
 
     CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
-    EXPECT_TRUE(circuit.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(circuit));
 }
 
 TEST_F(join_split_tests, test_repayment)
@@ -2297,7 +2298,7 @@ TEST_F(join_split_tests, test_repayment)
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
     CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
-    EXPECT_TRUE(circuit.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(circuit));
 }
 
 } // namespace bb::join_split_example::proofs::join_split

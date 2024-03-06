@@ -1,6 +1,7 @@
 #include "../../native/value/value_note.hpp"
 #include "../../../../fixtures/user_context.hpp"
 #include "../../constants.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 #include "value_note.hpp"
 #include <gtest/gtest.h>
@@ -38,7 +39,7 @@ TEST_F(ValueNote, Commits)
     result.assert_equal(expected);
 
     EXPECT_FALSE(builder.failed());
-    EXPECT_EQ(builder.check_circuit(), true);
+    EXPECT_EQ(CircuitChecker::check(builder), true);
 }
 
 TEST_F(ValueNote, CommitsWith0Value)
@@ -64,7 +65,7 @@ TEST_F(ValueNote, CommitsWith0Value)
     auto result = circuit_note.commitment;
     result.assert_equal(expected);
 
-    EXPECT_EQ(builder.check_circuit(), true);
+    EXPECT_EQ(CircuitChecker::check(builder), true);
 }
 
 TEST_F(ValueNote, CommitWithOversizedAssetIdFails)
@@ -88,6 +89,6 @@ TEST_F(ValueNote, CommitWithOversizedAssetIdFails)
     result.assert_equal(expected);
 
     EXPECT_TRUE(builder.failed());
-    EXPECT_EQ(builder.check_circuit(), false);
+    EXPECT_EQ(CircuitChecker::check(builder), false);
 }
 } // namespace bb::join_split_example
