@@ -38,7 +38,7 @@ export interface EventAbi {
 export interface NoirFunctionEntry {
   /** The name of the function. */
   name: string;
-  /** The type of the function. */
+  /** The custom attributes applied to the function. */
   custom_attributes: string[];
   /** The ABI of the function. */
   abi: Abi;
