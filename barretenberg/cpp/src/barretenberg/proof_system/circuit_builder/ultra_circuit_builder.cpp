@@ -243,6 +243,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate_with_bit_extract
  *
  * @param in Structure containing variables and witness selectors
  */
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/873): Some issue arises using this method (via
+// evaluate_polynomial_identity) if these are moved to arithmetic block. E.g. biggroup twin_mul (etc) fails.
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_big_mul_gate(const mul_quad_<FF>& in)
 {
@@ -344,21 +346,21 @@ void UltraCircuitBuilder_<Arithmetization>::create_bool_gate(const uint32_t vari
 {
     this->assert_valid_variables({ variable_index });
 
-    blocks.main.populate_wires(variable_index, variable_index, this->zero_idx, this->zero_idx);
-    blocks.main.q_m().emplace_back(1);
-    blocks.main.q_1().emplace_back(-1);
-    blocks.main.q_2().emplace_back(0);
-    blocks.main.q_3().emplace_back(0);
-    blocks.main.q_c().emplace_back(0);
-    blocks.main.q_sort().emplace_back(0);
+    blocks.arithmetic.populate_wires(variable_index, variable_index, this->zero_idx, this->zero_idx);
+    blocks.arithmetic.q_m().emplace_back(1);
+    blocks.arithmetic.q_1().emplace_back(-1);
+    blocks.arithmetic.q_2().emplace_back(0);
+    blocks.arithmetic.q_3().emplace_back(0);
+    blocks.arithmetic.q_c().emplace_back(0);
+    blocks.arithmetic.q_sort().emplace_back(0);
 
-    blocks.main.q_arith().emplace_back(1);
-    blocks.main.q_4().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
-    blocks.main.q_aux().emplace_back(0);
+    blocks.arithmetic.q_arith().emplace_back(1);
+    blocks.arithmetic.q_4().emplace_back(0);
+    blocks.arithmetic.q_lookup_type().emplace_back(0);
+    blocks.arithmetic.q_elliptic().emplace_back(0);
+    blocks.arithmetic.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
+        blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
@@ -375,21 +377,21 @@ void UltraCircuitBuilder_<Arithmetization>::create_poly_gate(const poly_triple_<
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    blocks.main.populate_wires(in.a, in.b, in.c, this->zero_idx);
-    blocks.main.q_m().emplace_back(in.q_m);
-    blocks.main.q_1().emplace_back(in.q_l);
-    blocks.main.q_2().emplace_back(in.q_r);
-    blocks.main.q_3().emplace_back(in.q_o);
-    blocks.main.q_c().emplace_back(in.q_c);
-    blocks.main.q_sort().emplace_back(0);
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->zero_idx);
+    blocks.arithmetic.q_m().emplace_back(in.q_m);
+    blocks.arithmetic.q_1().emplace_back(in.q_l);
+    blocks.arithmetic.q_2().emplace_back(in.q_r);
+    blocks.arithmetic.q_3().emplace_back(in.q_o);
+    blocks.arithmetic.q_c().emplace_back(in.q_c);
+    blocks.arithmetic.q_sort().emplace_back(0);
 
-    blocks.main.q_arith().emplace_back(1);
-    blocks.main.q_4().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
-    blocks.main.q_aux().emplace_back(0);
+    blocks.arithmetic.q_arith().emplace_back(1);
+    blocks.arithmetic.q_4().emplace_back(0);
+    blocks.arithmetic.q_lookup_type().emplace_back(0);
+    blocks.arithmetic.q_elliptic().emplace_back(0);
+    blocks.arithmetic.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
+        blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
