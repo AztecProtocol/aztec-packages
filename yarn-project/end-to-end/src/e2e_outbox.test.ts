@@ -45,7 +45,10 @@ describe('E2E Outbox Tests', () => {
 
     expect(siblingPath.toString()).toBe(expectedSiblingPath.toString());
 
-    const [, siblingPathAlt] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(blockNumber!, Fr.fromBuffer(l2ToL1Messages![0]));
+    const [, siblingPathAlt] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      blockNumber!,
+      Fr.fromBuffer(l2ToL1Messages![0]),
+    );
 
     expect(siblingPathAlt.pathSize).toBe(2);
 
