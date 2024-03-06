@@ -82,7 +82,7 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
 
     // Some relations depend on wire shifts so we add another gate with
     // wires set to 0 to ensure corresponding constraints are satisfied
-    create_poly_gate({ this->zero_idx, this->zero_idx, this->zero_idx, 0, 0, 0, 0, 0 });
+    create_dummy_gate(blocks.main, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // Add nonzero values in w_4 and q_c (q_4*w_4 + q_c --> 1*1 - 1 = 0)
     this->one_idx = put_constant_variable(FF::one());
@@ -414,54 +414,59 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
      * we can chain successive ecc_add_gates if x3 y3 of previous gate equals x1 y1 of current gate
      **/
 
+    auto& block = blocks.main;
+
     this->assert_valid_variables({ in.x1, in.x2, in.x3, in.y1, in.y2, in.y3 });
 
-    bool can_fuse_into_previous_gate = true;
-    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (blocks.main.w_r()[this->num_gates - 1] == in.x1);
-    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (blocks.main.w_o()[this->num_gates - 1] == in.y1);
-    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (blocks.main.q_3()[this->num_gates - 1] == 0);
-    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (blocks.main.q_4()[this->num_gates - 1] == 0);
-    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (blocks.main.q_1()[this->num_gates - 1] == 0);
-    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (blocks.main.q_arith()[this->num_gates - 1] == 0);
-    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (blocks.main.q_m()[this->num_gates - 1] == 0);
+    bool previous_elliptic_gate_exists = block.size() > 0;
+    bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
+    if (can_fuse_into_previous_gate) {
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.w_r()[block.size() - 1] == in.x1);
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.w_o()[block.size() - 1] == in.y1);
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_3()[block.size() - 1] == 0);
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_4()[block.size() - 1] == 0);
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_1()[block.size() - 1] == 0);
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_arith()[block.size() - 1] == 0);
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_m()[block.size() - 1] == 0);
+    }
 
     if (can_fuse_into_previous_gate) {
-        blocks.main.q_1()[this->num_gates - 1] = in.sign_coefficient;
-        blocks.main.q_elliptic()[this->num_gates - 1] = 1;
+        block.q_1()[block.size() - 1] = in.sign_coefficient;
+        block.q_elliptic()[block.size() - 1] = 1;
     } else {
-        blocks.main.populate_wires(this->zero_idx, in.x1, in.y1, this->zero_idx);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_1().emplace_back(in.sign_coefficient);
+        block.populate_wires(this->zero_idx, in.x1, in.y1, this->zero_idx);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_1().emplace_back(in.sign_coefficient);
 
-        blocks.main.q_arith().emplace_back(0);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_m().emplace_back(0);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_sort().emplace_back(0);
-        blocks.main.q_lookup_type().emplace_back(0);
-        blocks.main.q_elliptic().emplace_back(1);
-        blocks.main.q_aux().emplace_back(0);
+        block.q_arith().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_sort().emplace_back(0);
+        block.q_lookup_type().emplace_back(0);
+        block.q_elliptic().emplace_back(1);
+        block.q_aux().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         ++this->num_gates;
     }
-    blocks.main.populate_wires(in.x2, in.x3, in.y3, in.y2);
-    blocks.main.q_m().emplace_back(0);
-    blocks.main.q_1().emplace_back(0);
-    blocks.main.q_2().emplace_back(0);
-    blocks.main.q_3().emplace_back(0);
-    blocks.main.q_c().emplace_back(0);
-    blocks.main.q_arith().emplace_back(0);
-    blocks.main.q_4().emplace_back(0);
-    blocks.main.q_sort().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
-    blocks.main.q_aux().emplace_back(0);
+    block.populate_wires(in.x2, in.x3, in.y3, in.y2);
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(0);
+    block.q_2().emplace_back(0);
+    block.q_3().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.q_arith().emplace_back(0);
+    block.q_4().emplace_back(0);
+    block.q_sort().emplace_back(0);
+    block.q_lookup_type().emplace_back(0);
+    block.q_elliptic().emplace_back(0);
+    block.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
+        block.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
@@ -1518,7 +1523,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::decompose_non_nat
  *
  * N.B.: This method does NOT evaluate the prime field component of non-native field multiplications.
  **/
-
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/873): this method interleaves arithmetic gates
+// (big_add_gate) with auxiliary gates. Sorting will cause circuits using this functionality to fail.
 template <typename Arithmetization>
 std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_native_field_multiplication(
     const non_native_field_witnesses<FF>& input, const bool range_constrain_quotient_and_remainder)
