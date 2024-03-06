@@ -8,7 +8,7 @@ namespace bb::join_split_example::proofs::join_split {
 using namespace bb::plonk;
 using namespace bb::crypto::merkle_tree;
 
-CircuitBuilder new_join_split_prover(join_split_tx const& tx)
+CircuitBuilder new_join_split_circuit(join_split_tx const& tx)
 {
     CircuitBuilder builder;
     join_split_circuit(builder, tx);
@@ -23,11 +23,6 @@ CircuitBuilder new_join_split_prover(join_split_tx const& tx)
     info("num gates before finalization: ", builder.get_num_gates());
 
     return builder;
-}
-
-bool verify_proof(CircuitBuilder& builder)
-{
-    return builder.check_circuit();
 }
 
 } // namespace bb::join_split_example::proofs::join_split

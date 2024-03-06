@@ -261,18 +261,17 @@ class join_split_tests : public ::testing::Test {
         return tx;
     }
 
-    CircuitBuilder sign_and_create_proof(join_split_tx& tx, key_pair const& signing_key)
+    CircuitBuilder sign_and_create_circuit(join_split_tx& tx, key_pair const& signing_key)
     {
         tx.signature = sign_join_split_tx(tx, signing_key);
-
-        circuit = new_join_split_prover(tx);
+        circuit = new_join_split_circuit(tx);
         return circuit;
     }
 
-    bool sign_and_verify(join_split_tx& tx, key_pair const& signing_key)
+    bool sign_and_check_circuit(join_split_tx& tx, key_pair const& signing_key)
     {
-        circuit = sign_and_create_proof(tx, signing_key);
-        return verify_proof(circuit);
+        circuit = sign_and_create_circuit(tx, signing_key);
+        return circuit.check_circuit();
     }
 
     struct verify_result {
@@ -2204,8 +2203,8 @@ TEST_F(join_split_tests, test_deposit_construct_proof)
      *   - fee = 3
      */
 
-    auto proof = sign_and_create_proof(tx, user.owner);
-    EXPECT_TRUE(verify_proof(proof));
+    CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
+    EXPECT_TRUE(circuit.check_circuit());
 }
 
 TEST_F(join_split_tests, test_withdraw_full_proof)
@@ -2225,8 +2224,8 @@ TEST_F(join_split_tests, test_withdraw_full_proof)
      *   - 3 paid as fee (in1's asset_id)
      */
 
-    auto proof = sign_and_create_proof(tx, user.owner);
-    EXPECT_TRUE(verify_proof(proof));
+    CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
+    EXPECT_TRUE(circuit.check_circuit());
 }
 
 TEST_F(join_split_tests, test_private_send_full_proof)
@@ -2242,9 +2241,9 @@ TEST_F(join_split_tests, test_private_send_full_proof)
      *   - 3 paid as fee (in1's asset_id)
      */
 
-    auto proof = sign_and_create_proof(tx, user.owner);
+    CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
 
-    EXPECT_TRUE(verify_proof(proof));
+    EXPECT_TRUE(circuit.check_circuit());
 }
 
 TEST_F(join_split_tests, test_defi_deposit_full_proof)
@@ -2272,8 +2271,8 @@ TEST_F(join_split_tests, test_defi_deposit_full_proof)
      *   - 10 paid as fee (in1's asset_id)
      */
 
-    auto proof = sign_and_create_proof(tx, user.owner);
-    EXPECT_TRUE(verify_proof(proof));
+    CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
+    EXPECT_TRUE(circuit.check_circuit());
 }
 
 TEST_F(join_split_tests, test_repayment_full_proof)
@@ -2303,8 +2302,8 @@ TEST_F(join_split_tests, test_repayment_full_proof)
     tx.partial_claim_note.bridge_call_data = bridge_call_data.to_uint256_t();
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
-    auto proof = sign_and_create_proof(tx, user.owner);
-    EXPECT_TRUE(verify_proof(proof));
+    CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
+    EXPECT_TRUE(circuit.check_circuit());
 }
 
 TEST_F(join_split_tests, test_send_two_virtual_notes_full_proof)
@@ -2319,9 +2318,9 @@ TEST_F(join_split_tests, test_send_two_virtual_notes_full_proof)
      *   - 0 out2
      */
 
-    auto proof = sign_and_create_proof(tx, user.owner);
+    CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
 
-    EXPECT_TRUE(verify_proof(proof));
+    EXPECT_TRUE(circuit.check_circuit());
 }
 
 } // namespace bb::join_split_example::proofs::join_split

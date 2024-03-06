@@ -5,8 +5,6 @@
 
 namespace bb::join_split_example::proofs::join_split {
 
-CircuitBuilder new_join_split_prover(join_split_tx const& tx);
-
-bool verify_proof(CircuitBuilder& builder);
+CircuitBuilder new_join_split_circuit(join_split_tx const& tx);
 
 } // namespace bb::join_split_example::proofs::join_split
