@@ -69,6 +69,8 @@ class CircuitChecker {
 
     /**
      * @brief Check that a given relation is satisfied for the provided inputs corresponding to a single row
+     * @note Assumes the relation constraints should evaluate to zero on each row and thus does not apply to linearly
+     * dependent relations like the log derivative lookup argument.
      *
      * @tparam Relation
      * @param values Values of the relation inputs at a single row
