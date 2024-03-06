@@ -27,7 +27,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
 
     std::shared_ptr<VerificationKey> verification_key;
     std::vector<FF> public_inputs;
-    size_t public_input_size;
     RelationParameters<FF> relation_parameters;
     RelationSeparator alphas;
     bool is_accumulator = false;
@@ -47,18 +46,16 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     {}
 
     RecursiveVerifierInstance_(Builder* builder, const std::shared_ptr<VerifierInstance>& instance)
-        : public_input_size((instance->public_input_size))
-        , is_accumulator(bool(instance->is_accumulator))
+        : is_accumulator(bool(instance->is_accumulator))
     {
-
         size_t public_input_idx = 0;
-        public_inputs = std::vector<FF>(public_input_size);
+        public_inputs = std::vector<FF>(instance->verification_key->num_public_inputs);
         for (auto& public_input : instance->public_inputs) {
             public_inputs[public_input_idx] = FF::from_witness(builder, public_input);
             public_input_idx++;
         }
-        verification_key =
-            std::make_shared<VerificationKey>(instance->verification_key->circuit_size, public_input_size);
+        verification_key = std::make_shared<VerificationKey>(instance->verification_key->circuit_size,
+                                                             instance->verification_key->num_public_inputs);
         verification_key->pub_inputs_offset = instance->verification_key->pub_inputs_offset;
         verification_key->pcs_verification_key = instance->verification_key->pcs_verification_key;
         auto other_vks = instance->verification_key->get_all();
@@ -103,18 +100,17 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
      */
     VerifierInstance get_value()
     {
-        auto inst_verification_key =
-            std::make_shared<NativeVerificationKey>(verification_key->circuit_size, public_input_size);
+        auto inst_verification_key = std::make_shared<NativeVerificationKey>(verification_key->circuit_size,
+                                                                             verification_key->num_public_inputs);
         inst_verification_key->pcs_verification_key = verification_key->pcs_verification_key;
         for (auto [vk, inst_vk] : zip_view(verification_key->get_all(), inst_verification_key->get_all())) {
             inst_vk = vk.get_value();
         }
 
         VerifierInstance inst(inst_verification_key);
-        inst.public_input_size = public_input_size;
         inst.is_accumulator = is_accumulator;
 
-        inst.public_inputs = std::vector<NativeFF>(public_input_size);
+        inst.public_inputs = std::vector<NativeFF>(verification_key->num_public_inputs);
         for (auto [public_input, inst_public_input] : zip_view(public_inputs, inst.public_inputs)) {
             inst_public_input = public_input.get_value();
         }

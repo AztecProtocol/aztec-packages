@@ -11,10 +11,10 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
     inst->verification_key->log_circuit_size =
         static_cast<size_t>(numeric::get_msb(inst->verification_key->circuit_size));
-    inst->public_input_size =
+    inst->verification_key->num_public_inputs =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
 
-    for (size_t i = 0; i < inst->public_input_size; ++i) {
+    for (size_t i = 0; i < inst->verification_key->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
         inst->public_inputs.emplace_back(public_input_i);
@@ -167,14 +167,14 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
         comm_idx++;
     }
 
-    next_accumulator->public_input_size = accumulator->public_input_size;
-    next_accumulator->public_inputs = std::vector<FF>(next_accumulator->public_input_size, 0);
+    next_accumulator->verification_key->num_public_inputs = accumulator->verification_key->num_public_inputs;
+    next_accumulator->public_inputs = std::vector<FF>(next_accumulator->verification_key->num_public_inputs, 0);
     size_t public_input_idx = 0;
     for (auto& public_input : next_accumulator->public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/830)
-            if (instance->public_inputs.size() >= next_accumulator->public_input_size) {
+            if (instance->public_inputs.size() >= next_accumulator->verification_key->num_public_inputs) {
                 public_input += instance->public_inputs[public_input_idx] * lagranges[inst];
                 inst++;
             }
@@ -204,8 +204,8 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
             instance->relation_parameters.lookup_grand_product_delta * lagranges[inst_idx];
     }
 
-    next_accumulator->verification_key =
-        std::make_shared<VerificationKey>(accumulator->verification_key->circuit_size, accumulator->public_input_size);
+    next_accumulator->verification_key = std::make_shared<VerificationKey>(
+        accumulator->verification_key->circuit_size, accumulator->verification_key->num_public_inputs);
     next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
     size_t vk_idx = 0;
     for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
