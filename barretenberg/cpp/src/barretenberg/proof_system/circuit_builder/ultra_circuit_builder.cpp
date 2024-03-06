@@ -414,9 +414,10 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
      * we can chain successive ecc_add_gates if x3 y3 of previous gate equals x1 y1 of current gate
      **/
 
-    auto& block = blocks.main;
-
     this->assert_valid_variables({ in.x1, in.x2, in.x3, in.y1, in.y2, in.y3 });
+
+    // WORKTODO: keep this?
+    auto& block = blocks.main;
 
     bool previous_elliptic_gate_exists = block.size() > 0;
     bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
@@ -480,6 +481,9 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
 {
+    // WORKTODO: keep this?
+    auto& block = blocks.main;
+
     /**
      * gate structure:
      * | 1  | 2  | 3  | 4  |
@@ -488,51 +492,53 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_dbl_gate(const ecc_dbl_ga
      * we can chain an ecc_add_gate + an ecc_dbl_gate if x3 y3 of previous add_gate equals x1 y1 of current gate
      * can also chain double gates together
      **/
-    bool can_fuse_into_previous_gate = true;
-    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (blocks.main.w_r()[this->num_gates - 1] == in.x1);
-    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (blocks.main.w_o()[this->num_gates - 1] == in.y1);
-    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (blocks.main.q_arith()[this->num_gates - 1] == 0);
-    can_fuse_into_previous_gate =
-        can_fuse_into_previous_gate && (blocks.main.q_lookup_type()[this->num_gates - 1] == 0);
-    can_fuse_into_previous_gate = can_fuse_into_previous_gate && (blocks.main.q_aux()[this->num_gates - 1] == 0);
+    bool previous_elliptic_gate_exists = block.size() > 0;
+    bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
+    if (can_fuse_into_previous_gate) {
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.w_r()[block.size() - 1] == in.x1);
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.w_o()[block.size() - 1] == in.y1);
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_arith()[block.size() - 1] == 0);
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_lookup_type()[block.size() - 1] == 0);
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_aux()[block.size() - 1] == 0);
+    }
 
     if (can_fuse_into_previous_gate) {
-        blocks.main.q_elliptic()[this->num_gates - 1] = 1;
-        blocks.main.q_m()[this->num_gates - 1] = 1;
+        block.q_elliptic()[block.size() - 1] = 1;
+        block.q_m()[block.size() - 1] = 1;
     } else {
-        blocks.main.populate_wires(this->zero_idx, in.x1, in.y1, this->zero_idx);
-        blocks.main.q_elliptic().emplace_back(1);
-        blocks.main.q_m().emplace_back(1);
-        blocks.main.q_1().emplace_back(0);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_sort().emplace_back(0);
-        blocks.main.q_lookup_type().emplace_back(0);
-        blocks.main.q_aux().emplace_back(0);
+        block.populate_wires(this->zero_idx, in.x1, in.y1, this->zero_idx);
+        block.q_elliptic().emplace_back(1);
+        block.q_m().emplace_back(1);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_sort().emplace_back(0);
+        block.q_lookup_type().emplace_back(0);
+        block.q_aux().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         ++this->num_gates;
     }
 
-    blocks.main.populate_wires(this->zero_idx, in.x3, in.y3, this->zero_idx);
-    blocks.main.q_m().emplace_back(0);
-    blocks.main.q_1().emplace_back(0);
-    blocks.main.q_2().emplace_back(0);
-    blocks.main.q_3().emplace_back(0);
-    blocks.main.q_c().emplace_back(0);
-    blocks.main.q_arith().emplace_back(0);
-    blocks.main.q_4().emplace_back(0);
-    blocks.main.q_sort().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
-    blocks.main.q_aux().emplace_back(0);
+    block.populate_wires(this->zero_idx, in.x3, in.y3, this->zero_idx);
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(0);
+    block.q_2().emplace_back(0);
+    block.q_3().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.q_arith().emplace_back(0);
+    block.q_4().emplace_back(0);
+    block.q_sort().emplace_back(0);
+    block.q_lookup_type().emplace_back(0);
+    block.q_elliptic().emplace_back(0);
+    block.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
+        block.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
