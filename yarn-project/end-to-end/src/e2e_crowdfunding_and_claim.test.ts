@@ -22,11 +22,10 @@ import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 200_000;
+jest.setTimeout(200_000);
 
-describe('e2e_crowdfunding', () => {
-  jest.setTimeout(TIMEOUT);
-
+// Tests crowdfunding via the Crowdfunding contract and claiming the reward token via the Claim contract
+describe('e2e_crowdfunding_and_claim', () => {
   const donationTokenMetadata = {
     name: 'Donation Token',
     symbol: 'DNT',
