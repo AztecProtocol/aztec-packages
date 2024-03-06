@@ -255,9 +255,9 @@ export class TaggedMemory {
     }
   }
 
-  public checkTagLessThanEqual(tag: TypeTag, offset: number) {
-    if (this.getTag(offset) > tag) {
-      throw TagCheckError.forOffset(offset, TypeTag[this.getTag(offset)], TypeTag[tag]);
+  public checkIsValidMemoryOffsetTag(offset: number) {
+    if (this.getTag(offset) > TypeTag.UINT64) {
+      throw TagCheckError.forOffset(offset, TypeTag[this.getTag(offset)], "UINT64");
     }
   }
 
