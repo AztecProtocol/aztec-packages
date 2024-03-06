@@ -588,7 +588,7 @@ jobs:
           command: build end-to-end
           aztec_manifest_key: end-to-end
 
-e2e-resource-class:
+e2e-resource-class: &e2e-resource-class
   resource_class: small
 
   e2e-2-pxes:
