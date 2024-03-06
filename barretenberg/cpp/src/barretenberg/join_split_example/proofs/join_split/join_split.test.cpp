@@ -41,11 +41,6 @@ auto create_account_leaf_data(fr const& account_alias_hash,
 class join_split_tests : public ::testing::Test {
   protected:
     static constexpr size_t ACCOUNT_INDEX = 14;
-    static void SetUpTestCase()
-    {
-        srs::init_crs_factory("../srs_db/ignition");
-        auto crs_factory = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
-    }
 
     virtual void SetUp()
     {
