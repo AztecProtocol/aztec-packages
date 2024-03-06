@@ -510,7 +510,7 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
             auto read_b =
                 mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, mem_idx_b, AvmMemoryTag::FF);
             tag_match = tag_match && read_b.tag_match;
-            FF ib = read_b.val;
+            ib = read_b.val;
             returnMem.push_back(ib);
         }
 
@@ -522,7 +522,7 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
             auto read_c =
                 mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IC, mem_idx_c, AvmMemoryTag::FF);
             tag_match = tag_match && read_c.tag_match;
-            FF ic = read_c.val;
+            ic = read_c.val;
             returnMem.push_back(ic);
         }
 
