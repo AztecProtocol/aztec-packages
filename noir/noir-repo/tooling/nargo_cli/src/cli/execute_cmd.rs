@@ -136,6 +136,7 @@ pub(crate) fn execute_program(
 
     let initial_witness = compiled_program.abi.encode(inputs_map, None)?;
 
+    // TODO(https://github.com/noir-lang/noir/issues/4428)
     let solved_witness_err = nargo::ops::execute_circuit(
         &compiled_program.program.functions[0],
         initial_witness,

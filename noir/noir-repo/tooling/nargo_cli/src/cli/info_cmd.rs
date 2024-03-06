@@ -268,6 +268,7 @@ fn count_opcodes_and_gates_in_program(
     Ok(ProgramInfo {
         name: package.name.to_string(),
         expression_width,
+        // TODO(https://github.com/noir-lang/noir/issues/4428)
         acir_opcodes: compiled_program.program.functions[0].opcodes.len(),
         circuit_size: backend.get_exact_circuit_size(&compiled_program.program)?,
     })

@@ -366,7 +366,7 @@ void handle_memory_op(Program::Opcode::MemoryOp const& mem_op, BlockConstraint& 
 AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
 {
     // TODO(maxim): Handle the new `Program` structure once ACVM supports a function call stack.
-    // For now we still expect a single ACIR function.s
+    // For now we expect a single ACIR function
     auto circuit = Program::Program::bincodeDeserialize(buf).functions[0];
 
     AcirFormat af;
