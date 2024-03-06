@@ -260,12 +260,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
         auto gates_before = builder.get_num_gates();
         fibbonaci(builder);
         auto gates_after = builder.get_num_gates();
-        if constexpr (IsAnyOf<bb::StandardCircuitBuilder, Builder>) {
-            EXPECT_EQ(builder.get_variable(builder.blocks.arithmetic.w_l()[builder.get_num_gates() - 1]), fr(4181));
-        }
-        if constexpr (IsAnyOf<bb::UltraCircuitBuilder, Builder>) {
-            EXPECT_EQ(builder.get_variable(builder.blocks.main.w_l()[builder.get_num_gates() - 1]), fr(4181));
-        }
+        auto& block = builder.blocks.arithmetic;
+        EXPECT_EQ(builder.get_variable(block.w_l()[block.size() - 1]), fr(4181));
         EXPECT_EQ(gates_after - gates_before, 18UL);
 
         bool result = CircuitChecker::check(builder);
