@@ -64,8 +64,6 @@ pub enum ResolverError {
     IncorrectGenericCount { span: Span, item_name: String, actual: usize, expected: usize },
     #[error("{0}")]
     ParserError(Box<ParserError>),
-    #[error("Function is not defined in a contract yet sets its contract visibility")]
-    ContractFunctionTypeInNormalFunction { span: Span },
     #[error("Cannot create a mutable reference to {variable}, it was declared to be immutable")]
     MutableReferenceToImmutableVariable { variable: String, span: Span },
     #[error("Mutable references to array indices are unsupported")]
@@ -278,11 +276,6 @@ impl From<ResolverError> for Diagnostic {
                 )
             }
             ResolverError::ParserError(error) => (*error).into(),
-            ResolverError::ContractFunctionTypeInNormalFunction { span } => Diagnostic::simple_error(
-                "Only functions defined within contracts can set their contract function type".into(),
-                "Non-contract functions cannot be 'open'".into(),
-                span,
-            ),
             ResolverError::MutableReferenceToImmutableVariable { variable, span } => {
                 Diagnostic::simple_error(format!("Cannot mutably reference the immutable variable {variable}"), format!("{variable} is immutable"), span)
             },
