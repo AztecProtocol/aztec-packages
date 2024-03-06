@@ -59,6 +59,7 @@ import { env } from 'process';
 import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { HintsBuilder } from './hints_builder.js';
 import { FailedTx } from './processed_tx.js';
 
 export enum PublicKernelPhase {
@@ -76,6 +77,7 @@ export const PhaseIsRevertible: Record<PublicKernelPhase, boolean> = {
 };
 
 export abstract class AbstractPhaseManager {
+  protected hintsBuilder: HintsBuilder;
   protected log: DebugLogger;
   constructor(
     protected db: MerkleTreeOperations,
@@ -86,6 +88,7 @@ export abstract class AbstractPhaseManager {
     protected historicalHeader: Header,
     public phase: PublicKernelPhase,
   ) {
+    this.hintsBuilder = new HintsBuilder(db);
     this.log = createDebugLogger(`aztec:sequencer:${phase}`);
   }
   /**
@@ -249,7 +252,7 @@ export abstract class AbstractPhaseManager {
         executionStack.push(...result.nestedExecutions);
         const callData = await this.getPublicCallData(result, isExecutionRequest);
 
-        [kernelOutput, kernelProof] = await this.runKernelCircuitWithCallData(callData, kernelOutput, kernelProof);
+        [kernelOutput, kernelProof] = await this.runKernelCircuit(kernelOutput, kernelProof, callData);
 
         if (!enqueuedExecutionResult) {
           enqueuedExecutionResult = result;
@@ -266,26 +269,17 @@ export abstract class AbstractPhaseManager {
     return [kernelOutput, kernelProof, newUnencryptedFunctionLogs];
   }
 
-  public async runKernelCircuit(
+  protected async runKernelCircuit(
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
-  ): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
-    const output = await this.getKernelCircuitOutput(previousOutput, previousProof);
-    const proof = await this.publicProver.getPublicKernelCircuitProof(output);
-    return [output, proof];
-  }
-
-  protected async runKernelCircuitWithCallData(
-    callData: PublicCallData,
-    previousOutput: PublicKernelCircuitPublicInputs,
-    previousProof: Proof,
+    callData?: PublicCallData,
   ): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
     const output = await this.getKernelCircuitOutput(previousOutput, previousProof, callData);
     const proof = await this.publicProver.getPublicKernelCircuitProof(output);
     return [output, proof];
   }
 
-  protected getKernelCircuitOutput(
+  protected async getKernelCircuitOutput(
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
     callData?: PublicCallData,
@@ -293,7 +287,14 @@ export abstract class AbstractPhaseManager {
     const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
 
     if (this.phase === PublicKernelPhase.TAIL) {
-      const inputs = new PublicKernelTailCircuitPrivateInputs(previousKernel);
+      const { endNonRevertibleData, end } = previousOutput;
+      const nullifierReadRequestResetHints = await this.hintsBuilder.getNullifierReadRequestResetHints(
+        endNonRevertibleData.nullifierReadRequests,
+        end.nullifierReadRequests,
+        endNonRevertibleData.newNullifiers,
+        end.newNullifiers,
+      );
+      const inputs = new PublicKernelTailCircuitPrivateInputs(previousKernel, nullifierReadRequestResetHints);
       return this.publicKernel.publicKernelCircuitTail(inputs);
     }
 

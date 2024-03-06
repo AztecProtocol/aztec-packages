@@ -134,9 +134,9 @@ impl PreviousKernelDataBuilder {
         }
     }
 
-    fn get_mock_nullifier_value(self, nullifier_index: u64) -> Field {
-        let first_nullifier = self.end.new_nullifiers.get(0);
-        first_nullifier.value + nullifier_index as Field
+    fn get_mock_nullifier_value(_self: Self, nullifier_index: u64) -> Field {
+        let value_offset = 5678;
+        value_offset + nullifier_index as Field
     }
 
     pub fn append_new_nullifiers_from_private(&mut self, num_extra_nullifier: u64) {
@@ -160,11 +160,29 @@ impl PreviousKernelDataBuilder {
 
     pub fn append_new_nullifiers_from_public(&mut self, num_extra_nullifier: u64) {
         let index_offset = self.end.new_nullifiers.len();
-        for i in 1..MAX_NEW_NULLIFIERS_PER_TX {
-            if i as u64 <= num_extra_nullifier as u64 {
+        for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
+            if i as u64 < num_extra_nullifier as u64 {
+                let mock_value = self.get_mock_nullifier_value(index_offset + i);
                 self.end.new_nullifiers.push(
                     SideEffectLinkedToNoteHash {
-                    value: self.get_mock_nullifier_value(index_offset + i),
+                    value: silo_nullifier(self.storage_contract_address, mock_value),
+                    note_hash: 0,
+                    counter: self.next_sideffect_counter()
+                }
+                );
+            }
+        }
+    }
+
+    pub fn append_new_nullifiers_non_revertible_from_public(&mut self, num_extra_nullifier: u64) {
+        let index_offset = self.end_non_revertible.new_nullifiers.len();
+        // Includes the tx nullifier at index 0.
+        for i in 0..MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX {
+            if i as u64 < num_extra_nullifier as u64 {
+                let mock_value = self.get_mock_nullifier_value(index_offset + i);
+                self.end.new_nullifiers.push(
+                    SideEffectLinkedToNoteHash {
+                    value: silo_nullifier(self.storage_contract_address, mock_value),
                     note_hash: 0,
                     counter: self.next_sideffect_counter()
                 }
@@ -175,8 +193,8 @@ impl PreviousKernelDataBuilder {
 
     pub fn append_new_nullifiers_non_revertible(&mut self, num_extra_nullifier: u64) {
         let index_offset = self.end_non_revertible.new_nullifiers.len();
-        for i in 1..MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX {
-            if i as u64 <= num_extra_nullifier as u64 {
+        for i in 0..MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX {
+            if i as u64 < num_extra_nullifier as u64 {
                 self.end_non_revertible.new_nullifiers.push(
                     SideEffectLinkedToNoteHash {
                     value: self.get_mock_nullifier_value(index_offset + i),
@@ -197,6 +215,18 @@ impl PreviousKernelDataBuilder {
             contract_address: self.storage_contract_address
         };
         self.end.nullifier_read_requests.push(read_request);
+        read_request_index
+    }
+
+    pub fn add_read_request_for_pending_nullifier_non_revertible(&mut self, nullifier_index: u64) -> u64 {
+        let read_request_index = self.end_non_revertible.nullifier_read_requests.len();
+        let unsiloed_nullifier = self.get_mock_nullifier_value(nullifier_index);
+        let read_request = ReadRequestContext {
+            value: unsiloed_nullifier,
+            counter: self.next_sideffect_counter(),
+            contract_address: self.storage_contract_address
+        };
+        self.end_non_revertible.nullifier_read_requests.push(read_request);
         read_request_index
     }
 

@@ -1407,6 +1407,7 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
 ): PublicKernelTailCircuitPrivateInputsNoir {
   return {
     previous_kernel: mapPublicKernelDataToNoir(inputs.previousKernel),
+    nullifier_read_request_reset_hints: mapNullifierReadRequestResetHintsToNoir(inputs.nullifierReadRequestResetHints),
   };
 }
 
