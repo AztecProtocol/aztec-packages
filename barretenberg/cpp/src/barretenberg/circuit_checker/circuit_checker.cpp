@@ -34,14 +34,29 @@ template <typename Builder> bool CircuitChecker::check(const Builder& builder_in
     TagCheckData tag_data;
     MemoryCheckData memory_data{ builder };
 
+    bool result = true;
+    // WORKTODO: note/todo about checking only the relevant constraints for each block
+    for (auto& block : builder.blocks.get()) {
+        result = result && check_block(builder, block, tag_data, memory_data, lookup_hash_table);
+    }
+
+    // Tag check is only expected to pass after entire execution trace (all blocks) have been processed
+    result = result && check_tag_data(tag_data);
+
+    return result;
+};
+
+template <typename Builder>
+bool CircuitChecker::check_block(Builder& builder,
+                                 auto& block,
+                                 TagCheckData& tag_data,
+                                 MemoryCheckData& memory_data,
+                                 LookupHashTable& lookup_hash_table)
+{
     // Initialize empty AllValues of the correct Flavor based on Builder type; for input to Relation::accumulate
     auto values = init_empty_values<Builder>();
     Params params;
     params.eta = memory_data.eta; // used in Auxiliary relation for RAM/ROM consistency
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): Once we sort gates into their respective blocks
-    // we'll need to either naively run this on all blocks or run only the relevant checks on each block.
-    auto& block = builder.blocks.main;
 
     // Perform checks on each gate defined in the builder
     bool result = true;
@@ -58,9 +73,6 @@ template <typename Builder> bool CircuitChecker::check(const Builder& builder_in
             result = result && check_relation<PoseidonExternal>(values, params);
         }
     }
-
-    // Tag check is only expected to pass after all gates have been processed
-    result = result && check_tag_data(tag_data);
 
     return result;
 };
