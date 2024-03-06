@@ -12,8 +12,8 @@ COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
 COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
 COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
-COPY --from=noir /usr/src/noir/noir-repo/target /usr/src/noir/noir-repo/target
-RUN ls /usr/src/noir/noir-repo/target/release
+# We want the native ACVM binary
+COPY --from=noir /usr/src/noir/noir-repo/target/release/acvm /usr/src/noir/noir-repo/target/release/acvm
 
 WORKDIR /usr/src/yarn-project
 COPY . .
@@ -37,8 +37,8 @@ RUN yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache cle
 # ARG COMMIT_TAG=""
 # RUN ./scripts/version_packages.sh
 
-# We no longer need nargo etc.
-RUN rm -rf /usr/src/noir/noir-repo /usr/src/noir-projects /usr/src/l1-contracts
+# We no longer need these.
+RUN rm -rf /usr/src/noir-projects /usr/src/l1-contracts
 
 # Create minimal size image.
 FROM node:18.19.1-slim
