@@ -48,12 +48,16 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param log - A logger to use. Optional
    * @returns The store
    */
-  static open(path?: string, ephemeral: boolean = false, log = createDebugLogger('aztec:kv-store:lmdb')): AztecLmdbStore {
+  static open(
+    path?: string,
+    ephemeral: boolean = false,
+    log = createDebugLogger('aztec:kv-store:lmdb'),
+  ): AztecLmdbStore {
     log.info(`Opening LMDB database at ${path || 'temporary location'}`);
-    const rootDb = open({ 
+    const rootDb = open({
       path,
       noSync: ephemeral,
-     });
+    });
     return new AztecLmdbStore(rootDb);
   }
 
