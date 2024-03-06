@@ -20,6 +20,7 @@
  *
  *
  * \example
+ * Example usage of zip view.
  * std::vector<int> as{1,2},bs{1,2,3};
  * for(auto [index, a,b]: zip(as,bs)){
  *  a++;

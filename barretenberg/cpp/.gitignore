@@ -1,5 +1,6 @@
 .cache/
 build*/
+.doxygen/
 src/wasi-sdk-*
 src/barretenberg/proof_system/proving_key/fixtures
 src/barretenberg/rollup/proofs/*/fixtures

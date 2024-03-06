@@ -1,3 +1,4 @@
+# SMT Verification
 # Building cvc5
 
 As for now it's required to build cvc5 library manually.
