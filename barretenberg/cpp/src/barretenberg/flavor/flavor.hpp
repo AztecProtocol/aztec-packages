@@ -164,11 +164,11 @@ class VerificationKey_ : public PrecomputedCommitments {
 
     template <typename ProvingKeyPtr> VerificationKey_(const ProvingKeyPtr& proving_key)
     {
+        this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         this->circuit_size = proving_key->circuit_size;
         this->log_circuit_size = numeric::get_msb(this->circuit_size);
         this->num_public_inputs = proving_key->num_public_inputs;
         this->pub_inputs_offset = proving_key->pub_inputs_offset;
-        this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
 
         for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
             commitment = proving_key->commitment_key->commit(polynomial);

@@ -75,6 +75,19 @@ template <class Flavor> class ProverInstance_ {
         construct_table_polynomials(circuit, dyadic_circuit_size);
 
         sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
+
+        std::span<FF> public_wires_source = proving_key->w_r;
+
+        // Determine public input offsets in the circuit relative to the 0th index for Ultra flavors
+        proving_key->pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
+        if constexpr (IsGoblinFlavor<Flavor>) {
+            proving_key->pub_inputs_offset += proving_key->num_ecc_op_gates;
+        }
+        // Construct the public inputs array
+        for (size_t i = 0; i < proving_key->num_public_inputs; ++i) {
+            size_t idx = i + proving_key->pub_inputs_offset;
+            public_inputs.emplace_back(public_wires_source[idx]);
+        }
     }
 
     ProverInstance_() = default;
