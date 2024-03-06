@@ -588,13 +588,12 @@ jobs:
           command: build end-to-end
           aztec_manifest_key: end-to-end
 
-e2e-resource-class: &e2e-resource-class
-  resource_class: small
-
-  e2e-2-pxes:
+e2e-test-defaults: &e2e-test-defaults
     docker:
       - image: aztecprotocol/alpine-build-image
-    resource_class: *e2e-resource-class
+    resource_class: small
+
+  e2e-2-pxes:
     steps:
       - *checkout
       - *setup_env
@@ -602,6 +601,7 @@ e2e-resource-class: &e2e-resource-class
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_2_pxes.test.ts
           aztec_manifest_key: end-to-end
+    <<: *e2e-test-defaults
 
   e2e-note-getter:
     docker:
