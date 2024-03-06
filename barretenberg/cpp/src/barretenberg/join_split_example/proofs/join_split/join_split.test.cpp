@@ -701,14 +701,15 @@ TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
     // The below part detects any changes in the join-split circuit
     constexpr size_t DYADIC_CIRCUIT_SIZE = 1 << 16;
 
-    const uint256_t VK_HASH("0x792ae05102a73979a20d1962e30720ea083f87341a79f7714f356adbe670222");
+    const uint256_t CIRCUIT_HASH("0x792ae05102a73979a20d1962e30720ea083f87341a79f7714f356adbe670222");
 
-    uint256_t vk_hash_js = circuit.hash_circuit();
+    uint256_t circuit_hash = circuit.hash_circuit();
     // circuit is finalized now
     if (!CIRCUIT_CHANGE_EXPECTED) {
         EXPECT_LT(circuit.get_num_gates(), DYADIC_CIRCUIT_SIZE)
             << "The gate count for the join-split circuit has crossed a power-of-two boundary.";
-        EXPECT_EQ(vk_hash_js, VK_HASH) << "The circuit hash for the join_split circuit has changed to: " << vk_hash_js;
+        EXPECT_EQ(circuit_hash, CIRCUIT_HASH)
+            << "The circuit hash for the join_split circuit has changed to: " << circuit_hash;
     }
 }
 
