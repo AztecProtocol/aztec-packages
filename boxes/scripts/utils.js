@@ -3,6 +3,7 @@ import os from "os";
 import fs from "fs";
 import { parse, stringify } from "@iarna/toml";
 import { default as axiosBase } from "axios";
+import { CONTRACTS_TO_SHOW } from "./config.js";
 
 const { log, warn, info } = console;
 const targetDir = path.join(os.homedir(), ".aztec/bin"); // Use os.homedir() to get $HOME
@@ -22,20 +23,15 @@ export async function getAvailableBoxes(tag, version) {
     axiosOpts.headers = { Authorization: `token ${GITHUB_TOKEN}` };
   }
 
-  // TODO: Remove this try catch. Boxes are currently in "boxes" but from this PR on, they will be in "boxes/boxes"
+  // TODO: Once the downstream zpedro/npx_improvs is merged, this path will change to boxes/boxes
   let data;
   try {
     ({ data } = await axios.get(
-      `https://api.github.com/repos/AztecProtocol/aztec-packages/contents/boxes/boxes${tag == "master" ? "" : `?ref=${tag}`}`,
+      `https://api.github.com/repos/AztecProtocol/aztec-packages/contents/boxes${tag == "master" ? "" : `?ref=${tag}`}`,
       axiosOpts,
     ));
   } catch (e) {
-    if (e.response.statusText === "Not Found") {
-      ({ data } = await axios.get(
-        `https://api.github.com/repos/AztecProtocol/aztec-packages/contents/boxes${tag == "master" ? "" : `?ref=${tag}`}`,
-        axiosOpts,
-      ));
-    }
+    log(e);
   }
 
   let availableBoxes = data
@@ -55,6 +51,30 @@ export async function getAvailableBoxes(tag, version) {
     });
 
   return await Promise.all(availableBoxes);
+}
+
+export async function getAvailableContracts(tag, version) {
+  const { GITHUB_TOKEN } = process.env;
+  const axiosOpts = {};
+  if (GITHUB_TOKEN) {
+    axiosOpts.headers = { Authorization: `token ${GITHUB_TOKEN}` };
+  }
+
+  let data;
+  try {
+    ({ data } = await axios.get(
+      `https://api.github.com/repos/AztecProtocol/aztec-packages/contents/noir-projects/noir-contracts/contracts${tag == "master" ? "" : `?ref=${tag}`}`,
+      axiosOpts,
+    ));
+  } catch (e) {
+    log(e);
+  }
+
+  let availableContracts = data.filter((content) =>
+    CONTRACTS_TO_SHOW.includes(content.name),
+  );
+
+  return await Promise.all(availableContracts);
 }
 
 export function prettyPrintNargoToml(config) {
@@ -103,15 +123,16 @@ export function updatePathEnvVar() {
   info(`Added ${targetDir} to PATH in ${shellProfile}.`);
 }
 
-export async function replacePaths(rootDir, tag, version) {
-  const files = fs.readdirSync(path.resolve(".", rootDir), {
+export async function replacePaths({ rootDir, tag, version, prefix = "" }) {
+  console.log("rootDir", rootDir);
+  const files = fs.readdirSync(path.resolve(rootDir), {
     withFileTypes: true,
   });
 
   files.forEach((file) => {
     const filePath = path.join(rootDir, file.name);
     if (file.isDirectory()) {
-      replacePaths(filePath, tag, version); // Recursively search subdirectories
+      replacePaths({ rootDir: filePath, tag, version, prefix }); // Recursively search subdirectories
     } else if (file.name === "Nargo.toml") {
       let content = parse(fs.readFileSync(filePath, "utf8"));
 
@@ -122,9 +143,9 @@ export async function replacePaths(rootDir, tag, version) {
             "",
           );
           content.dependencies[dep] = {
-            git: "https://github.com/AztecProtocol/aztec-packages/",
+            git: "https://github.com/AztecProtocol/aztec-packages",
             tag,
-            directory,
+            directory: `${prefix}/${directory}`,
           };
         });
       } catch (e) {

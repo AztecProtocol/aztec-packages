@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 const program = new Command();
-import { chooseAndCloneBox } from "./scripts/steps/chooseBox.js";
+import { chooseProject } from "./scripts/steps/chooseBox.js";
 import { sandboxRun } from "./scripts/steps/sandbox/run.js";
 import { sandboxInstallOrUpdate } from "./scripts/steps/sandbox/install.js";
 import { axios } from "./scripts/utils.js";
@@ -29,7 +29,7 @@ const tagToUse = versionToInstall.match(/^\d+\.\d+\.\d+$/)
 
 program.action(async () => {
   // STEP 1: Choose the boilerplate
-  await chooseAndCloneBox(tagToUse, versionToInstall);
+  await chooseProject(tagToUse, versionToInstall);
 
   // STEP 2: Install the Sandbox
   await sandboxInstallOrUpdate(latestStable, versionToInstall);
