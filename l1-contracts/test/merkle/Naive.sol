@@ -37,7 +37,7 @@ contract NaiveMerkle is Test {
     return nodes[0];
   }
 
-  function computeSiblingPath(uint256 _index) public returns (bytes32[] memory, bytes32) {
+  function computeSiblingPath(uint256 _index) public view returns (bytes32[] memory, bytes32) {
     bytes32[] memory nodes = new bytes32[](SIZE / 2);
     bytes32[] memory path = new bytes32[](DEPTH);
 
@@ -69,6 +69,7 @@ contract NaiveMerkle is Test {
 
   function verifyMembership(bytes32[] memory _path, bytes32 _leaf, uint256 _index)
     public
+    view
     returns (bool)
   {
     bytes32 root;

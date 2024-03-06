@@ -52,7 +52,7 @@ contract MerkleTest is Test {
     assertTrue(merkle.verifyMembership(path, leaf, idx));
   }
 
-    function testNaive(uint256 _idx) public {
+  function testNaive(uint256 _idx) public {
     uint256 upper = merkle.SIZE();
 
     // function for bounding the test env

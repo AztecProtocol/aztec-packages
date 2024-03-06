@@ -6,19 +6,16 @@ pragma solidity >=0.8.18;
 import {DataStructures} from "../libraries/DataStructures.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Hash} from "../libraries/Hash.sol";
-import {MessageBox} from "../libraries/MessageBox.sol";
+import {INewOutbox} from "../interfaces/messagebridge/INewOutbox.sol";
 
 /**
- * @title Outbox
+ * @title NewOutbox
  * @author Aztec Labs
  * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the rollup contract
  * and will be consumed by the portal contracts.
  */
-contract Outbox {
+contract NewOutbox is INewOutbox {
   using Hash for DataStructures.L2ToL1Msg;
-
-  event RootAdded(uint256 indexed l2BlockNumber, bytes32 indexed root, uint256 height);
-  event MessageConsumed(uint256 indexed l2BlockNumber, bytes32 indexed root, bytes32 indexed messageHash);
 
   struct RootData {
     bytes32 root;
@@ -27,14 +24,16 @@ contract Outbox {
   }
 
   address public immutable STATE_TRANSITIONER;
-
   mapping(uint256 l2BlockNumber => RootData) public roots;
 
   constructor(address _stateTransitioner) {
     STATE_TRANSITIONER = _stateTransitioner;
   }
 
-  function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _height) external {
+  function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _height)
+    external
+    override(INewOutbox)
+  {
     if (msg.sender != STATE_TRANSITIONER) {
       revert Errors.Outbox__Unauthorized();
     }
@@ -54,7 +53,7 @@ contract Outbox {
     uint256 _leafIndex,
     DataStructures.L2ToL1Msg memory _message,
     bytes32[] memory _path
-  ) public {
+  ) public override(INewOutbox) {
     if (msg.sender != _message.recipient.actor) {
       revert Errors.Outbox__InvalidRecipient(_message.recipient.actor, msg.sender);
     }
@@ -69,7 +68,8 @@ contract Outbox {
 
     bytes32 root = roots[_l2BlockNumber].root;
 
-    bytes32 messageHash = _verifyMembership(_path, _message, _leafIndex, root, roots[_l2BlockNumber].height);
+    bytes32 messageHash =
+      _verifyMembership(_path, _message, _leafIndex, root, roots[_l2BlockNumber].height);
 
     roots[_l2BlockNumber].nullified[_leafIndex] = true;
 
