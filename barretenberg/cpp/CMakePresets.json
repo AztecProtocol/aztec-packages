@@ -37,7 +37,6 @@
       "description": "Build with globally installed Clang-16",
       "inherits": "default",
       "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert",
         "CC": "clang-16",
         "CXX": "clang++-16"
       }
