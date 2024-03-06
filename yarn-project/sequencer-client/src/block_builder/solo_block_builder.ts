@@ -1,4 +1,5 @@
 import { Body, ContractData, L2Block, MerkleTreeId, PublicDataWrite, TxEffect, TxL2Logs } from '@aztec/circuit-types';
+import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -52,6 +53,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { elapsed } from '@aztec/foundation/timer';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import chunk from 'lodash.chunk';
@@ -62,8 +64,6 @@ import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { BlockBuilder } from './index.js';
 import { TreeNames } from './types.js';
-import { elapsed } from '@aztec/foundation/timer';
-import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 
@@ -237,7 +237,9 @@ export class SoloBlockBuilder implements BlockBuilder {
         mergeInputStructs.push(this.createMergeRollupInputs(r1, r2));
       }
 
-      const [duration, mergeOutputs] = await elapsed(() => Promise.all(mergeInputStructs.map(async (input) => await this.mergeRollupCircuit(input))));
+      const [duration, mergeOutputs] = await elapsed(() =>
+        Promise.all(mergeInputStructs.map(async input => await this.mergeRollupCircuit(input))),
+      );
 
       for (let i = 0; i < mergeOutputs.length; i++) {
         this.debug(`Simulated merge rollup circuit`, {
@@ -280,9 +282,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     return mergeInputs;
   }
 
-  protected async mergeRollupCircuit(
-    mergeInputs: MergeRollupInputs
-  ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
+  protected async mergeRollupCircuit(mergeInputs: MergeRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     this.debug(`Running merge rollup circuit`);
     const output = await this.simulator.mergeRollupCircuit(mergeInputs);
     const proof = await this.prover.getMergeRollupProof(mergeInputs, output);
