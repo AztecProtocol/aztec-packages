@@ -6,6 +6,7 @@ export * from './pedersen.js';
 export * from './sha_256.js';
 export * from './sparse_tree/sparse_tree.js';
 export { StandardIndexedTree } from './standard_indexed_tree/standard_indexed_tree.js';
+export { StandardIndexedTreeWithAppend } from './standard_indexed_tree/test/standard_indexed_tree_with_append.js';
 export * from './standard_tree/standard_tree.js';
 export { INITIAL_LEAF, getTreeMeta } from './tree_base.js';
 export { newTree } from './new_tree.js';
