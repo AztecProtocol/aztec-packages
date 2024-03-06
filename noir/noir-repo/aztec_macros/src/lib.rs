@@ -713,7 +713,7 @@ fn transform_function(
     func.def.return_visibility = Visibility::Public;
 
     // Distinct return types are only required for private functions
-    // Public functions should have open auto-inferred
+    // Public functions should have unconstrained auto-inferred
     match ty {
         "Private" => func.def.return_distinctness = Distinctness::Distinct,
         "Public" => func.def.is_unconstrained = true,
