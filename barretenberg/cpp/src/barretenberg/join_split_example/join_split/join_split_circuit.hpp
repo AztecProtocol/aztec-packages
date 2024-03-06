@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/crypto/schnorr/schnorr.hpp"
-#include "barretenberg/join_split_example//notes/circuit/claim/witness_data.hpp"
-#include "barretenberg/join_split_example//notes/circuit/value/witness_data.hpp"
+#include "barretenberg/join_split_example/notes/circuit/claim/witness_data.hpp"
+#include "barretenberg/join_split_example/notes/circuit/value/witness_data.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 #include "join_split_tx.hpp"
 
