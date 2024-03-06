@@ -78,11 +78,11 @@ export class AvmPersistableStateManager {
    * @param slot - the slot in the contract's storage being written to
    * @param value - the value being written to the slot
    */
-  public writeStorage(storageAddress: Fr, slot: Fr, values: /*temporarily an array*/ Fr[]) {
+  public writeStorage(storageAddress: Fr, slot: Fr, value: Fr) {
     // Cache storage writes for later reference/reads
-    this.publicStorage.write(storageAddress, slot, values);
+    this.publicStorage.write(storageAddress, slot, value);
     // Trace all storage writes (even reverted ones)
-    this.trace.tracePublicStorageWrite(storageAddress, slot, values);
+    this.trace.tracePublicStorageWrite(storageAddress, slot, value);
   }
 
   /**

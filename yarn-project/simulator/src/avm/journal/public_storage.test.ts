@@ -29,7 +29,7 @@ describe('avm public storage', () => {
       const slot = new Fr(2);
       const value = new Fr(3);
       // Write to cache
-      publicStorage.write(contractAddress, slot, [value]);
+      publicStorage.write(contractAddress, slot, value);
       const [exists, gotValue] = await publicStorage.read(contractAddress, slot);
       // exists because it was previously written
       expect(exists).toEqual(true);
@@ -53,7 +53,7 @@ describe('avm public storage', () => {
       const value = new Fr(3);
       const childStorage = new PublicStorage(publicDb, publicStorage);
 
-      publicStorage.write(contractAddress, slot, [value]);
+      publicStorage.write(contractAddress, slot, value);
       const [exists, gotValue] = await childStorage.read(contractAddress, slot);
       // exists because it was previously written!
       expect(exists).toEqual(true);
@@ -75,13 +75,13 @@ describe('avm public storage', () => {
       expect(cacheMissResult).toEqual(storedValue);
 
       // Write to storage
-      publicStorage.write(contractAddress, slot, [parentValue]);
+      publicStorage.write(contractAddress, slot, parentValue);
       // Reading from child should give value written in parent
       const [, valueFromParent] = await childStorage.read(contractAddress, slot);
       expect(valueFromParent).toEqual(parentValue);
 
       // Now write a value directly in child
-      childStorage.write(contractAddress, slot, [cachedValue]);
+      childStorage.write(contractAddress, slot, cachedValue);
 
       // Reading should now give the value written in child
       const [, cachedResult] = await childStorage.read(contractAddress, slot);
@@ -99,11 +99,11 @@ describe('avm public storage', () => {
     const valueT1 = new Fr(2);
 
     // Write initial value to parent
-    publicStorage.write(contractAddress, slot, [value]);
+    publicStorage.write(contractAddress, slot, value);
 
     const childStorage = new PublicStorage(publicDb, publicStorage);
     // Write valueT1 to child
-    childStorage.write(contractAddress, slot, [valueT1]);
+    childStorage.write(contractAddress, slot, valueT1);
 
     // Parent accepts child's staged writes
     publicStorage.acceptAndMerge(childStorage);

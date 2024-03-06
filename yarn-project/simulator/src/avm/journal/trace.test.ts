@@ -97,7 +97,7 @@ describe('world state access trace', () => {
     const msgHash = new Fr(10);
 
     let counter = 0;
-    trace.tracePublicStorageWrite(contractAddress, slot, [value]);
+    trace.tracePublicStorageWrite(contractAddress, slot, value);
     counter++;
     trace.tracePublicStorageRead(contractAddress, slot, value);
     counter++;
@@ -111,7 +111,7 @@ describe('world state access trace', () => {
     counter++;
     trace.traceL1ToL2MessageCheck(msgHash, msgLeafIndex, msgExists);
     counter++;
-    trace.tracePublicStorageWrite(contractAddress, slot, [value]);
+    trace.tracePublicStorageWrite(contractAddress, slot, value);
     counter++;
     trace.tracePublicStorageRead(contractAddress, slot, value);
     counter++;
@@ -166,7 +166,7 @@ describe('world state access trace', () => {
       exists: msgExistsT1,
     };
 
-    trace.tracePublicStorageWrite(contractAddress, slot, [value]);
+    trace.tracePublicStorageWrite(contractAddress, slot, value);
     trace.tracePublicStorageRead(contractAddress, slot, value);
     trace.traceNoteHashCheck(contractAddress, noteHash, noteHashExists, noteHashLeafIndex);
     trace.traceNewNoteHash(contractAddress, noteHash);
@@ -175,7 +175,7 @@ describe('world state access trace', () => {
     trace.traceL1ToL2MessageCheck(msgHash, msgLeafIndex, msgExists);
 
     const childTrace = new WorldStateAccessTrace(trace);
-    childTrace.tracePublicStorageWrite(contractAddress, slot, [valueT1]);
+    childTrace.tracePublicStorageWrite(contractAddress, slot, valueT1);
     childTrace.tracePublicStorageRead(contractAddress, slot, valueT1);
     childTrace.traceNoteHashCheck(contractAddress, noteHashT1, noteHashExistsT1, noteHashLeafIndexT1);
     childTrace.traceNewNoteHash(contractAddress, nullifierT1);

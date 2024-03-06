@@ -39,7 +39,7 @@ describe('journal', () => {
       expect(cacheMissResult).toEqual(storedValue);
 
       // Write to storage
-      journal.writeStorage(contractAddress, key, [cachedValue]);
+      journal.writeStorage(contractAddress, key, cachedValue);
 
       // Get the storage value
       const cachedResult = await journal.readStorage(contractAddress, key);
@@ -157,7 +157,7 @@ describe('journal', () => {
     const index = new Fr(42);
     const indexT1 = new Fr(24);
 
-    journal.writeStorage(contractAddress, key, [value]);
+    journal.writeStorage(contractAddress, key, value);
     await journal.readStorage(contractAddress, key);
     journal.writeNoteHash(commitment);
     journal.writeLog(new Fr(log.address), new Fr(log.selector), log.data);
@@ -167,7 +167,7 @@ describe('journal', () => {
     await journal.checkL1ToL2MessageExists(commitment, index);
 
     const childJournal = new AvmPersistableStateManager(journal.hostStorage, journal);
-    childJournal.writeStorage(contractAddress, key, [valueT1]);
+    childJournal.writeStorage(contractAddress, key, valueT1);
     await childJournal.readStorage(contractAddress, key);
     childJournal.writeNoteHash(commitmentT1);
     childJournal.writeLog(new Fr(logT1.address), new Fr(logT1.selector), logT1.data);
@@ -246,7 +246,7 @@ describe('journal', () => {
     const index = new Fr(42);
     const indexT1 = new Fr(24);
 
-    journal.writeStorage(contractAddress, key, [value]);
+    journal.writeStorage(contractAddress, key, value);
     await journal.readStorage(contractAddress, key);
     journal.writeNoteHash(commitment);
     await journal.writeNullifier(contractAddress, commitment);
@@ -256,7 +256,7 @@ describe('journal', () => {
     journal.writeL1Message(recipient, commitment);
 
     const childJournal = new AvmPersistableStateManager(journal.hostStorage, journal);
-    childJournal.writeStorage(contractAddress, key, [valueT1]);
+    childJournal.writeStorage(contractAddress, key, valueT1);
     await childJournal.readStorage(contractAddress, key);
     childJournal.writeNoteHash(commitmentT1);
     await childJournal.writeNullifier(contractAddress, commitmentT1);

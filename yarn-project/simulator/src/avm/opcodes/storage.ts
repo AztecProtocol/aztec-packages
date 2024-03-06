@@ -48,7 +48,10 @@ export class SStore extends BaseStorageInstruction {
     const slot = context.machineState.memory.get(slotOffset).toFr();
     const data = context.machineState.memory.getSlice(srcOffset, this.size).map(field => field.toFr());
 
-    context.persistableState.writeStorage(context.environment.storageAddress, slot, data);
+    for (const [index, value] of Object.entries(data)) {
+      const adjustedSlot = slot.add(new Fr(BigInt(index)));
+      context.persistableState.writeStorage(context.environment.storageAddress, adjustedSlot, value);
+    }
 
     context.machineState.incrementPc();
   }
