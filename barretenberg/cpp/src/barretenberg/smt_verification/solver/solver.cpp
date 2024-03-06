@@ -58,7 +58,7 @@ std::unordered_map<std::string, std::string> Solver::model(std::unordered_map<st
 /**
  * If the system is solvable, extract the values for the given symbolic variables.
  * The return map will contain the resulting values, which are available by the
- * names of the corresponding symboli variable.
+ * names of the corresponding symbolic variable.
  *
  * e.g. if the input vector is {a} and a is a term with name var78,
  * it will return {"var78": value_of_var78}
