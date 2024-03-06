@@ -5,15 +5,11 @@ use const_format::formatcp;
 mod execute_cmd;
 mod fs;
 
-const GIT_HASH: &str = env!("GIT_COMMIT");
-const IS_DIRTY: &str = env!("GIT_DIRTY");
 const ACVM_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 static VERSION_STRING: &str = formatcp!(
-    "version = {}\n(git version hash: {}, is dirty: {})",
+    "version = {}\n",
     ACVM_VERSION,
-    GIT_HASH,
-    IS_DIRTY
 );
 
 #[derive(Parser, Debug)]
