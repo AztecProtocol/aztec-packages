@@ -122,20 +122,6 @@ describe('e2e_crowdfunding', () => {
     crowdfunding = crowdfundingDeploymentReceipt.contract;
 
     logger(`Campaign contract deployed at ${crowdfunding.address}`);
-
-    await addFieldNote(
-      crowdfunding.address,
-      new Fr(1),
-      donationToken.address.toField(),
-      crowdfundingDeploymentReceipt.txHash,
-    );
-    await addFieldNote(
-      crowdfunding.address,
-      new Fr(2),
-      operatorWallet.getAddress().toField(),
-      crowdfundingDeploymentReceipt.txHash,
-    );
-
     logger(`Reward Token deployed to ${rewardToken.address}`);
 
     const claimContractReceipt = await ClaimContract.deploy(operatorWallet, crowdfunding.address, rewardToken.address)
@@ -144,30 +130,10 @@ describe('e2e_crowdfunding', () => {
 
     claims = claimContractReceipt.contract;
 
-    await addFieldNote(claims.address, new Fr(1), crowdfunding.address.toField(), claimContractReceipt.txHash);
-    await addFieldNote(claims.address, new Fr(2), rewardToken.address.toField(), claimContractReceipt.txHash);
-
     await rewardToken.methods.set_minter(claims.address, true).send().wait();
   }, 100_000);
 
   afterAll(() => teardown());
-
-  const addFieldNote = async (contractAddress: AztecAddress, storageSlot: Fr, field: Fr, txHash: TxHash) => {
-    // Add the note
-    const note = new Note([field]);
-    const noteTypeId = new Fr(7010510110810078111116101n); // FieldNote
-    for (const wallet of wallets) {
-      const extendedNote = new ExtendedNote(
-        note,
-        wallet.getCompleteAddress().address,
-        contractAddress,
-        storageSlot,
-        noteTypeId,
-        txHash,
-      );
-      await wallet.addNote(extendedNote);
-    }
-  };
 
   it('donor flow', async () => {
     const secret = new Fr(100);
