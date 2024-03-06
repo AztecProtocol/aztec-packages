@@ -3,7 +3,7 @@
 #![warn(unreachable_pub)]
 #![warn(clippy::semicolon_if_nothing_returned)]
 
-use acvm::acir::circuit::ExpressionWidth;
+use acvm::acir::circuit::{ExpressionWidth, Program};
 use clap::Args;
 use fm::{FileId, FileManager};
 use iter_extended::vecmap;
@@ -303,7 +303,7 @@ pub fn compile_main(
 
     if options.print_acir {
         println!("Compiled ACIR for main (unoptimized):");
-        println!("{}", compiled_program.circuit);
+        println!("{}", compiled_program.program);
     }
 
     Ok((compiled_program, warnings))
@@ -415,7 +415,7 @@ fn compile_contract_inner(
             function_type,
             is_internal: modifiers.is_internal.unwrap_or(false),
             abi: function.abi,
-            bytecode: function.circuit,
+            bytecode: function.program,
             debug: function.debug,
         });
     }
@@ -487,7 +487,8 @@ pub fn compile_no_check(
 
     Ok(CompiledProgram {
         hash,
-        circuit,
+        // TODO(https://github.com/noir-lang/noir/issues/4428)
+        program: Program { functions: vec![circuit] },
         debug,
         abi,
         file_map,

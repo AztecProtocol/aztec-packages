@@ -32,6 +32,13 @@ pub enum ExpressionWidth {
     },
 }
 
+/// A program represented by multiple ACIR circuits. The execution trace of these
+/// circuits is dictated by construction of the [crate::native_types::WitnessStack].
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct Program {
+    pub functions: Vec<Circuit>,
+}
+
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct Circuit {
     // current_witness_index is the highest witness index in the circuit. The next witness to be added to this circuit
@@ -203,6 +210,57 @@ impl Circuit {
     }
 }
 
+impl Program {
+    fn write<W: std::io::Write>(&self, writer: W) -> std::io::Result<()> {
+        let buf = bincode::serialize(self).unwrap();
+        let mut encoder = flate2::write::GzEncoder::new(writer, Compression::default());
+        encoder.write_all(&buf)?;
+        encoder.finish()?;
+        Ok(())
+    }
+
+    fn read<R: std::io::Read>(reader: R) -> std::io::Result<Self> {
+        let mut gz_decoder = flate2::read::GzDecoder::new(reader);
+        let mut buf_d = Vec::new();
+        gz_decoder.read_to_end(&mut buf_d)?;
+        bincode::deserialize(&buf_d)
+            .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))
+    }
+
+    pub fn serialize_program(program: &Program) -> Vec<u8> {
+        let mut program_bytes: Vec<u8> = Vec::new();
+        program.write(&mut program_bytes).expect("expected circuit to be serializable");
+        program_bytes
+    }
+
+    pub fn deserialize_program(serialized_circuit: &[u8]) -> std::io::Result<Self> {
+        Program::read(serialized_circuit)
+    }
+
+    // Serialize and base64 encode program
+    pub fn serialize_program_base64<S>(program: &Program, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let program_bytes = Program::serialize_program(program);
+        let encoded_b64 = base64::engine::general_purpose::STANDARD.encode(program_bytes);
+        s.serialize_str(&encoded_b64)
+    }
+    
+    // Deserialize and base64 decode program
+    pub fn deserialize_program_base64<'de, D>(deserializer: D) -> Result<Program, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytecode_b64: String = serde::Deserialize::deserialize(deserializer)?;
+        let program_bytes = base64::engine::general_purpose::STANDARD
+            .decode(bytecode_b64)
+            .map_err(D::Error::custom)?;
+        let circuit = Self::deserialize_program(&program_bytes).map_err(D::Error::custom)?;
+        Ok(circuit)
+    }
+}
+
 impl std::fmt::Display for Circuit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "current witness index : {}", self.current_witness_index)?;
@@ -235,6 +293,25 @@ impl std::fmt::Display for Circuit {
 }
 
 impl std::fmt::Debug for Circuit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self, f)
+    }
+}
+
+impl std::fmt::Display for Program {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut func_index = 0;
+        for function in self.functions.iter() {
+            writeln!(f, "func {}", func_index)?;
+            writeln!(f, "{}", function)?;
+            func_index += 1;
+        }
+        Ok(())
+
+    }
+}
+
+impl std::fmt::Debug for Program {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self, f)
     }
