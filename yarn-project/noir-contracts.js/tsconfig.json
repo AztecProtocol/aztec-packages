@@ -13,12 +13,6 @@
       "path": "../noir-compiler"
     }
   ],
-  "include": [
-    "src",
-    "artifacts",
-    "artifacts/*.json"
-  ],
-  "exclude": [
-    "dest"
-  ]
+  "include": ["src", "artifacts", "artifacts/*.json"],
+  "exclude": ["dest"]
 }
