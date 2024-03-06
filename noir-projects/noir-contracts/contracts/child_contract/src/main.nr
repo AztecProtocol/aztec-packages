@@ -1,12 +1,10 @@
 // A contract used along with `Parent` contract to test nested calls.
 contract Child {
-    use dep::std::option::Option;
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, emit_unencrypted_log};
 
     use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context}, log::emit_unencrypted_log,
-        state_vars::{PublicMutable, PrivateSet},
-        protocol_types::{abis::{function_selector::FunctionSelector, call_context::CallContext}, address::AztecAddress},
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader, utils as note_utils}
+        context::{PublicContext, Context}, protocol_types::{abis::{call_context::CallContext}},
+        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader}
     };
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
@@ -23,18 +21,11 @@ contract Child {
     fn value(input: Field) -> Field {
         input + context.chain_id() + context.version()
     }
-
-    fn check_sender(call_context: CallContext) {
-        assert(
-            call_context.msg_sender.eq(call_context.storage_contract_address), "Sender must be this contract"
-        );
-    }
-
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values. 
     // Can only be called from this contract.
     #[aztec(private)]
+    #[aztec(internal)]
     fn valueInternal(input: Field) -> Field {
-        check_sender(inputs.call_context);
         input + context.chain_id() + context.version()
     }
 
@@ -85,8 +76,8 @@ contract Child {
 
     // Increments `current_value` by `new_value`. Can only be called from this contract.
     #[aztec(public)] 
+    #[aztec(internal)]
     fn pubIncValueInternal(new_value: Field) -> Field {
-        check_sender(inputs.call_context);
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
         emit_unencrypted_log(&mut context, new_value);
