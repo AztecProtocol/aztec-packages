@@ -1,11 +1,7 @@
 #pragma once
 
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
-#include "barretenberg/ultra_honk/ultra_prover.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
-
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
-#include "barretenberg/plonk/proof_system/prover/prover.hpp"
+#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/encryption/schnorr/schnorr.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
@@ -17,7 +13,7 @@
 
 namespace bb::join_split_example {
 
-using Builder = bb::UltraCircuitBuilder;
+using Builder = UltraCircuitBuilder;
 
 using witness_ct = stdlib::witness_t<Builder>;
 using public_witness_ct = stdlib::public_witness_t<Builder>;
