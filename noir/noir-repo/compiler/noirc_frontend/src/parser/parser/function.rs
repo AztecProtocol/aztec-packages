@@ -36,9 +36,6 @@ pub(super) fn function_definition(allow_self: bool) -> impl NoirParser<NoirFunct
                 name,
                 attributes,
                 is_unconstrained: modifiers.0,
-                // Whether a function is internal or is open is now set through `aztec_macros`
-                is_open: false,
-                is_internal: false,
                 visibility: modifiers.1,
                 generics,
                 parameters,

@@ -1,6 +1,6 @@
 use acvm::acir::circuit::Circuit;
 use noirc_abi::{Abi, ContractEvent};
-use noirc_driver::{CompiledContract, ContractFunction, ContractFunctionType};
+use noirc_driver::{CompiledContract, ContractFunction};
 use serde::{Deserialize, Serialize};
 
 use noirc_driver::DebugFile;
@@ -43,9 +43,7 @@ impl From<CompiledContract> for ContractArtifact {
 pub struct ContractFunctionArtifact {
     pub name: String,
 
-    pub function_type: ContractFunctionType,
-
-    pub is_internal: bool,
+    pub custom_attributes: Vec<String>,
 
     pub abi: Abi,
 
@@ -66,8 +64,7 @@ impl From<ContractFunction> for ContractFunctionArtifact {
     fn from(func: ContractFunction) -> Self {
         ContractFunctionArtifact {
             name: func.name,
-            function_type: func.function_type,
-            is_internal: func.is_internal,
+            custom_attributes: func.custom_attributes,
             abi: func.abi,
             bytecode: func.bytecode,
             debug_symbols: func.debug,

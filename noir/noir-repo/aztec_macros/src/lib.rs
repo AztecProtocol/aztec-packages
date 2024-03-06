@@ -663,11 +663,10 @@ fn transform_function(
     let inputs_name = format!("{}ContextInputs", ty);
     let return_type_name = format!("{}CircuitPublicInputs", ty);
 
-    // Add check that msg sender equals this address and flag function as internal
+    // Add check that msg sender equals this address
     if is_internal {
         let is_internal_check = create_internal_check(func.name());
         func.def.body.0.insert(0, is_internal_check);
-        func.def.is_internal = true;
     }
 
     // Add initialization check
@@ -717,7 +716,7 @@ fn transform_function(
     // Public functions should have open auto-inferred
     match ty {
         "Private" => func.def.return_distinctness = Distinctness::Distinct,
-        "Public" => func.def.is_open = true,
+        "Public" => func.def.is_unconstrained = true,
         _ => (),
     }
 
@@ -734,7 +733,7 @@ fn transform_vm_function(
     func.def.body.0.insert(0, create_context);
 
     // We want the function to be seen as a public function
-    func.def.is_open = true;
+    func.def.is_unconstrained = true;
 
     // NOTE: the line below is a temporary hack to trigger external transpilation tools
     // It will be removed once the transpiler is integrated into the Noir compiler
