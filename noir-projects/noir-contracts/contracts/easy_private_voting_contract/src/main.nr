@@ -1,9 +1,10 @@
 contract EasyPrivateVoting {
     // docs:start:imports
-    use dep::aztec::{
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        context::{PrivateContext, Context}, state_vars::{Map, PublicMutable}
+    use dep::aztec::prelude::{
+        AztecAddress, FunctionSelector, NoteHeader, NoteInterface, NoteGetterOptions, PrivateContext,
+        Map, PublicMutable
     };
+    use dep::aztec::context::Context;
     // docs:end:imports
     // docs:start:storage_struct
     struct Storage {
@@ -14,24 +15,14 @@ contract EasyPrivateVoting {
     // docs:end:storage_struct
 
     // docs:start:constructor
-    #[aztec(private)]
-    #[aztec(initializer)] // annotation to mark function as private and expose private context
-    fn constructor(admin: AztecAddress) { // called when contract is deployed
-        context.call_public_function(
-            // we cannot update public state directly from private function but we can call public function (which queues it)
-            context.this_address(),// contract address whose method we want to call
-            FunctionSelector::from_signature("_initialize((Field))"), // function selector
-            [admin.to_field()] // parameters
-        );
-    }
-    // docs:end:constructor
-    // docs:start:initialize
-    #[aztec(public)] // annotation to mark function as public and expose public context
-    internal fn _initialize(admin: AztecAddress) { // internal - can only be called by contract
+    #[aztec(public)]
+    #[aztec(initializer)] // annotation to mark function as a constructor
+    fn constructor(admin: AztecAddress) {
         storage.admin.write(admin);
         storage.voteEnded.write(false);
     }
-    // docs:end:initialize
+    // docs:end:constructor
+
     // docs:start:cast_vote
     #[aztec(private)] // annotation to mark function as private and expose private context
     fn cast_vote(candidate: Field) {
@@ -48,7 +39,8 @@ contract EasyPrivateVoting {
 
     // docs:start:add_to_tally_public
     #[aztec(public)]
-    internal fn add_to_tally_public(candidate: Field) {
+    #[aztec(internal)]
+    fn add_to_tally_public(candidate: Field) {
         assert(storage.voteEnded.read() == false, "Vote has ended"); // assert that vote has not ended
         let new_tally = storage.tally.at(candidate).read() + 1;
         storage.tally.at(candidate).write(new_tally);

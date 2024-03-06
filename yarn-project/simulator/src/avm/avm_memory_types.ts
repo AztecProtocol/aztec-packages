@@ -13,6 +13,7 @@ export abstract class MemoryValue {
   public abstract div(rhs: MemoryValue): MemoryValue;
 
   public abstract equals(rhs: MemoryValue): boolean;
+  public abstract lt(rhs: MemoryValue): boolean;
 
   // We need this to be able to build an instance of the subclasses.
   public abstract build(n: bigint): MemoryValue;
@@ -37,8 +38,6 @@ export abstract class IntegralValue extends MemoryValue {
   public abstract or(rhs: IntegralValue): IntegralValue;
   public abstract xor(rhs: IntegralValue): IntegralValue;
   public abstract not(): IntegralValue;
-
-  public abstract lt(rhs: IntegralValue): boolean;
 }
 
 /**
@@ -164,6 +163,10 @@ export class Field extends MemoryValue {
     return this.rep.equals(rhs.rep);
   }
 
+  public lt(rhs: Field): boolean {
+    return this.rep.lt(rhs.rep);
+  }
+
   public toBigInt(): bigint {
     return this.rep.toBigInt();
   }
@@ -249,6 +252,12 @@ export class TaggedMemory {
   public checkTag(tag: TypeTag, offset: number) {
     if (this.getTag(offset) !== tag) {
       throw TagCheckError.forOffset(offset, TypeTag[this.getTag(offset)], TypeTag[tag]);
+    }
+  }
+
+  public checkIsValidMemoryOffsetTag(offset: number) {
+    if (this.getTag(offset) > TypeTag.UINT64) {
+      throw TagCheckError.forOffset(offset, TypeTag[this.getTag(offset)], 'UINT64');
     }
   }
 
