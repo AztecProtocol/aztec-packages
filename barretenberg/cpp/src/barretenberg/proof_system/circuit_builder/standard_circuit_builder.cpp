@@ -586,6 +586,7 @@ template <typename FF> msgpack::sbuffer StandardCircuitBuilder_<FF>::export_circ
         cir.selectors.push_back(tmp_sel);
         cir.wires.push_back(tmp_w);
     }
+    // TODO(alex): Add real_variable_index to schema
 
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, cir);
