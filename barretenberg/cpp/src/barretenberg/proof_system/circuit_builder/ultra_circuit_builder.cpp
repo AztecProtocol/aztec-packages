@@ -2659,7 +2659,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     }
 }
 
-template <typename Arithmetization> uint256_t UltraCircuitBuilder_<Arithmetization>::fingerprint()
+template <typename Arithmetization> uint256_t UltraCircuitBuilder_<Arithmetization>::hash_circuit()
 {
     finalize_circuit();
 

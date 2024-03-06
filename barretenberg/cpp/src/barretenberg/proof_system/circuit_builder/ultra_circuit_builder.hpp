@@ -793,7 +793,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     void process_RAM_array(const size_t ram_id);
     void process_RAM_arrays();
 
-    uint256_t fingerprint();
+    uint256_t hash_circuit();
 };
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
 } // namespace bb

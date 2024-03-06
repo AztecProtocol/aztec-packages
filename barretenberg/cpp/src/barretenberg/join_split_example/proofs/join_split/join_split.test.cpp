@@ -703,7 +703,7 @@ TEST_F(join_split_tests, test_0_input_notes_and_detect_circuit_change)
 
     const uint256_t VK_HASH("0x3792ae05102a73979a20d1962e30720ea083f87341a79f7714f356adbe670222");
 
-    uint256_t vk_hash_js = circuit.fingerprint();
+    uint256_t vk_hash_js = circuit.hash_circuit();
     // circuit is finalized now
     if (!CIRCUIT_CHANGE_EXPECTED) {
         EXPECT_LT(circuit.get_num_gates(), DYADIC_CIRCUIT_SIZE)
