@@ -26,7 +26,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     const auto pub_inputs_offset =
         transcript->template receive_from_prover<FF>(domain_separator + "_pub_inputs_offset");
 
-    inst->pub_inputs_offset = uint32_t(pub_inputs_offset.get_value());
+    inst->verification_key->pub_inputs_offset = uint32_t(pub_inputs_offset.get_value());
 
     // Get commitments to first three wire polynomials
     auto labels = inst->commitment_labels;
@@ -72,8 +72,11 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
 
     // Compute correction terms for grand products
-    const FF public_input_delta = compute_public_input_delta<Flavor>(
-        inst->public_inputs, beta, gamma, inst->verification_key->circuit_size, inst->pub_inputs_offset);
+    const FF public_input_delta = compute_public_input_delta<Flavor>(inst->public_inputs,
+                                                                     beta,
+                                                                     gamma,
+                                                                     inst->verification_key->circuit_size,
+                                                                     inst->verification_key->pub_inputs_offset);
     const FF lookup_grand_product_delta =
         compute_lookup_grand_product_delta<FF>(beta, gamma, inst->verification_key->circuit_size);
     inst->relation_parameters =

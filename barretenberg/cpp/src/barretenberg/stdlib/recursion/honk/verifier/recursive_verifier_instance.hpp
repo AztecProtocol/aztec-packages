@@ -27,7 +27,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
 
     std::shared_ptr<VerificationKey> verification_key;
     std::vector<FF> public_inputs;
-    size_t pub_inputs_offset = 0;
     size_t public_input_size;
     RelationParameters<FF> relation_parameters;
     RelationSeparator alphas;
@@ -48,8 +47,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     {}
 
     RecursiveVerifierInstance_(Builder* builder, const std::shared_ptr<VerifierInstance>& instance)
-        : pub_inputs_offset((instance->pub_inputs_offset))
-        , public_input_size((instance->public_input_size))
+        : public_input_size((instance->public_input_size))
         , is_accumulator(bool(instance->is_accumulator))
     {
 
@@ -61,6 +59,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
         }
         verification_key =
             std::make_shared<VerificationKey>(instance->verification_key->circuit_size, public_input_size);
+        verification_key->pub_inputs_offset = instance->verification_key->pub_inputs_offset;
         verification_key->pcs_verification_key = instance->verification_key->pcs_verification_key;
         auto other_vks = instance->verification_key->get_all();
         size_t vk_idx = 0;
@@ -112,7 +111,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
         }
 
         VerifierInstance inst(inst_verification_key);
-        inst.pub_inputs_offset = pub_inputs_offset;
         inst.public_input_size = public_input_size;
         inst.is_accumulator = is_accumulator;
 
