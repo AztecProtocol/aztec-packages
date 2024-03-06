@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
-describe('L1Publisher integration', () => {
+describe('E2E Outbox Tests', () => {
   let teardown: () => void;
   let aztecNode: AztecNode;
   const sha256 = new SHA256();
