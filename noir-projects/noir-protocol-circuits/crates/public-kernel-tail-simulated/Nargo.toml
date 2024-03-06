@@ -1,5 +1,5 @@
 [package]
-name = "public_kernel_teardown_simulated"
+name = "public_kernel_tail_simulated"
 type = "bin"
 authors = [""]
 compiler_version = ">=0.18.0"
