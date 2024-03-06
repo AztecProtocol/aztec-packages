@@ -4,10 +4,9 @@ contract CrowdFunding {
     use dep::aztec::protocol_types::address::AztecAddress;
     use dep::aztec::{
         log::emit_unencrypted_log_from_private,
-        state_vars::{PrivateSet, PrivateImmutable},
+        state_vars::{PrivateSet, SharedImmutable},
         protocol_types::traits::Serialize
     };
-    use dep::field_note::field_note::FieldNote;
     use dep::value_note::value_note::ValueNote;
     use interfaces::Token;
 
@@ -24,26 +23,34 @@ contract CrowdFunding {
     }
 
     struct Storage {
-        donation_token: PrivateImmutable<FieldNote>,
-        operator: PrivateImmutable<FieldNote>,
+        donation_token: SharedImmutable<AztecAddress>,
+        operator: SharedImmutable<AztecAddress>,
         donation: PrivateSet<ValueNote>,
     }
 
     #[aztec(private)]
     fn constructor(donation_token: AztecAddress, operator: AztecAddress) {
-        // Add end time
-        let mut donation_token = FieldNote::new(donation_token.to_field());
-        storage.donation_token.initialize(&mut donation_token, false);
+        // TODO: Add end time
+        let selector = FunctionSelector::from_signature("_initialize((Field),(Field))");
+        context.call_public_function(
+            context.this_address(),
+            selector,
+            [donation_token.to_field(), operator.to_field()]
+        );
+    }
 
-        let mut operator = FieldNote::new(operator.to_field());
-        storage.operator.initialize(&mut operator, false);
+    #[aztec(public)]
+    #[aztec(internal)]
+    #[aztec(noinitcheck)]
+    fn _initialize(donation_token: AztecAddress, operator: AztecAddress) {
+        storage.donation_token.initialize(donation_token);
+        storage.operator.initialize(operator);
     }
 
     #[aztec(private)]
     fn donate(amount: u64) {
-        let donation_token_address = AztecAddress::from_field(storage.donation_token.get_note().value);
-        let donation_token = Token::at(donation_token_address);
-
+        // First we transfer the donation tokens from donor to this contract
+        let donation_token = Token::at(storage.donation_token.read_private());
         donation_token.transfer(
             &mut context,
             context.msg_sender(),
@@ -52,26 +59,25 @@ contract CrowdFunding {
             0
         );
 
+        // Then we create a value note for the donor so that he can later on claim a rewards token in the Claim
+        // contract by proving that the hash of this note exists in the note hash tree.
         let mut note = ValueNote::new(amount as Field, context.msg_sender());
         storage.donation.insert(&mut note, true);
     }
 
-    // Withdraws balance. Requires that msg_sender() is the operator.
+    // Withdraws balance to the operator. Requires that msg_sender() is the operator.
     #[aztec(private)]
-    fn withdraw(amount: Field) {
-        let operator_address = AztecAddress::from_field(storage.operator.get_note().value);
+    fn withdraw(amount: u64) {
+        // First we check that msg_sender() is the operator
+        let operator_address = storage.operator.read_private();
+        assert(context.msg_sender() == operator_address, "Not an operator");
 
-        let this = context.this_address();
-        let sender = context.msg_sender();
+        // Then we transfer the donation tokens from this contract to the operator
+        let donation_token = Token::at(storage.donation_token.read_private());
+        donation_token.transfer(&mut context, context.this_address(), operator_address, amount as Field, 0);
 
-        assert(sender == operator_address, "Invalid sender");
-
-        let donation_token_address = AztecAddress::from_field(storage.donation_token.get_note().value);
-        let donation_token = Token::at(donation_token_address);
-
-        donation_token.transfer(&mut context, this, sender, amount as Field, 0);
-
-        let event = WithdrawalProcessed { amount: amount as u64, who: sender };
+        // Finally we emit an unencrypted event so that anyone can verify how much the operator has withdrawn
+        let event = WithdrawalProcessed { amount, who: sender };
         emit_unencrypted_log_from_private(&mut context, event.serialize());
     }
 }
