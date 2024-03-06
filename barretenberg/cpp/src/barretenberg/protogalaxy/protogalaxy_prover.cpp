@@ -8,7 +8,7 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
     instance->initialize_prover_polynomials();
 
     const auto instance_size = static_cast<uint32_t>(instance->proving_key->circuit_size);
-    const auto num_public_inputs = static_cast<uint32_t>(instance->public_inputs.size());
+    const auto num_public_inputs = static_cast<uint32_t>(instance->proving_key->num_public_inputs);
     transcript->send_to_verifier(domain_separator + "_instance_size", instance_size);
     transcript->send_to_verifier(domain_separator + "_public_input_size", num_public_inputs);
 
