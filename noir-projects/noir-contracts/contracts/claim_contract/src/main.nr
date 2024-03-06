@@ -3,35 +3,52 @@ contract Claim {
 
     use dep::aztec::{
         protocol_types::address::AztecAddress,
-        state_vars::PrivateImmutable,
+        state_vars::SharedImmutable,
     };
-    use dep::field_note::field_note::FieldNote;
     use dep::value_note::value_note::ValueNote;
     use interfaces::Token;
     use dep::aztec::history::note_inclusion::prove_note_inclusion;
 
     struct Storage {
-      campaign_contract: PrivateImmutable<FieldNote>,
-      reward_token: PrivateImmutable<FieldNote>,
+      campaign_contract: SharedImmutable<AztecAddress>,
+      reward_token: SharedImmutable<AztecAddress>,
     }
 
     #[aztec(private)]
     fn constructor(campaign_contract: AztecAddress, reward_token: AztecAddress) {
-        let mut campaign_contract = FieldNote::new(campaign_contract.to_field());
-        storage.campaign_contract.initialize(&mut campaign_contract, false);
+        let selector = FunctionSelector::from_signature("_initialize((Field),(Field))");
+        context.call_public_function(
+            context.this_address(),
+            selector,
+            [other_asset.to_field(), fee_asset.to_field()]
+        );
+    }
 
-        let mut reward_token = FieldNote::new(reward_token.to_field());
-        storage.reward_token.initialize(&mut reward_token, false);
+    #[aztec(public)]
+    #[aztec(internal)]
+    #[aztec(noinitcheck)]
+    fn _initialize(campaign_contract: AztecAddress, reward_token: AztecAddress) {
+        storage.campaign_contract.initialize(campaign_contract);
+        storage.reward_token.initialize(reward_token);
     }
 
     #[aztec(private)]
     fn claim(proof_note: ValueNote) {
-        prove_note_inclusion(proof_note, context); // Contract A
+        // First we check that the note corresponds to the campaign contract
+        let campaign_address = storage.campaign_contract.read_private();
+        assert(campaign_address == proof_note.header.contract_address, "Note does not correspond to the campaign contract");
+
+        // Now we prove that the note hash exists in the note hash tree
+        prove_note_inclusion(proof_note, context);
+
+        // Now we compute a nullifier which is unique to the note and this contract and we emit it to ensure the reward
+        // can be claimed only once with the given note.
+        // Note: The nullifier is unique to the note and THIS contract because the protocol siloes all nullifiers with
+        // the address of a contract it was emitted from.
         context.push_new_nullifier(proof_note.compute_nullifier(&mut context), 0);
 
-        let reward_token_address = AztecAddress::from_field(storage.reward_token.get_note().value);
-        let reward_token = Token::at(reward_token_address);
-
+        // Finally we mint the reward token to the sender of the transaction
+        let reward_token = Token::at(storage.reward_token.read_private());
         reward_token.mint_public(&mut context, context.msg_sender(), proof_note.value);
     }
 }
