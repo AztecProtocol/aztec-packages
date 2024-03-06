@@ -7,8 +7,8 @@
 namespace bb {
 
 template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<Transcript>& transcript,
-                                           const std::shared_ptr<VerifierInstance>& accumulator)
+DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator,
+                                           const std::shared_ptr<Transcript>& transcript)
     : accumulator(accumulator)
     , pcs_verification_key(accumulator->verification_key->pcs_verification_key)
     , transcript(transcript)
@@ -54,7 +54,8 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const Hon
                                             multivariate_challenge,
                                             transcript);
 
-    auto verified = accumulator->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    auto verified =
+        accumulator->verification_key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
     return sumcheck_verified.value() && verified;
 }
