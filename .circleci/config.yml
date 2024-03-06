@@ -588,10 +588,13 @@ jobs:
           command: build end-to-end
           aztec_manifest_key: end-to-end
 
+e2e-resource-class:
+  resource_class: small
+
   e2e-2-pxes:
     docker:
       - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    resource_class: *e2e-resource_class
     steps:
       - *checkout
       - *setup_env
