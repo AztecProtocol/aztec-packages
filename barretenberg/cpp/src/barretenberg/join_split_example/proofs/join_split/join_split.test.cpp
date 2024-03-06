@@ -1,12 +1,12 @@
 #include <gtest/gtest.h>
 
-#include "../../constants.hpp"
-#include "../inner_proof_data/inner_proof_data.hpp"
-#include "../notes/native/index.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/merkle_tree/index.hpp"
+#include "barretenberg/join_split_example/constants.hpp"
+#include "barretenberg/join_split_example/proofs/inner_proof_data/inner_proof_data.hpp"
+#include "barretenberg/join_split_example/proofs/notes/native/index.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "index.hpp"
