@@ -108,7 +108,6 @@ describe('e2e_crowdfunding_and_claim', () => {
     deadline = (await cheatCodes.eth.timestamp()) + 7 * 24 * 60 * 60;
 
     const args = [donationToken.address, operatorWallet.getAddress(), deadline];
-
     const deployInfo = getContractInstanceFromDeployParams(
       CrowdfundingContractArtifact,
       args,
@@ -116,7 +115,6 @@ describe('e2e_crowdfunding_and_claim', () => {
       crowdfundingPublicKey,
       EthAddress.ZERO,
     );
-
     await pxe.registerAccount(crowdfundingPrivateKey, computePartialAddress(deployInfo));
 
     const crowdfundingDeploymentReceipt = await CrowdfundingContract.deployWithPublicKey(
@@ -128,11 +126,8 @@ describe('e2e_crowdfunding_and_claim', () => {
     )
       .send({ contractAddressSalt: salt })
       .wait();
-
     crowdfundingContract = crowdfundingDeploymentReceipt.contract;
-
     logger(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
-    logger(`Reward Token deployed to ${rewardToken.address}`);
 
     const claimContractReceipt = await ClaimContract.deploy(
       operatorWallet,
@@ -141,8 +136,8 @@ describe('e2e_crowdfunding_and_claim', () => {
     )
       .send()
       .wait();
-
     claimContract = claimContractReceipt.contract;
+    logger(`Claim contract deployed at ${claimContract.address}`);
 
     await rewardToken.methods.set_minter(claimContract.address, true).send().wait();
 
@@ -271,6 +266,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   });
 
   it('cannot claim twice', async () => {
+    // The first claim was executed in the previous test
     await expect(claimContract.withWallet(donorWallets[0]).methods.claim(valueNote).send().wait()).rejects.toThrow();
   });
 
@@ -304,5 +300,27 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 4) Finally, check that the claim process fails
     await expect(claimContract.withWallet(donorWallets[0]).methods.claim(note).send().wait()).rejects.toThrow();
+  });
+
+  it('cannot donate after a deadline', async () => {
+    const donationAmount = 1000n;
+
+    // 1) We add authwit so that the Crowdfunding contract can transfer donor's DNT
+    {
+      const action = donationToken
+        .withWallet(donorWallets[1])
+        .methods.transfer(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
+      const messageHash = computeAuthWitMessageHash(crowdfundingContract.address, action.request());
+      const witness = await donorWallets[1].createAuthWitness(messageHash);
+      await donorWallets[1].addAuthWitness(witness);
+    }
+
+    // 2) We set next block timestamp to be after the deadline
+    cheatCodes.aztec.warp(deadline + 1);
+
+    // 3) We donate to the crowdfunding contract
+    await expect(
+      crowdfundingContract.withWallet(donorWallets[1]).methods.donate(donationAmount).send().wait(),
+    ).rejects.toThrow();
   });
 });
