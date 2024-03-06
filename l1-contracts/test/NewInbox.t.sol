@@ -188,14 +188,15 @@ contract NewInboxTest is Test {
 
   function _consume(uint256 _numTreesToConsume, uint256 _numMessages) internal checkInvariant {
     bool isFirstRun = inbox.getToConsume() == Constants.INITIAL_L2_BLOCK_NUM;
-    uint256 numTrees = inbox.getNumTrees();
 
-    // We use (numTrees * 2) as upper bound here because we want to test the case where we go beyond the currently
-    // initalized number of trees. When consuming the newly initialized trees we should get zero roots.
-    uint256 numTreesToConsume = bound(_numTreesToConsume, 1, numTrees * 2);
+    uint256 initialNumTrees = inbox.getNumTrees();
+    // We use (initialNumTrees * 2) as upper bound here because we want to test the case where we go beyond
+    // the currently initalized number of trees. When consuming the newly initialized trees we should get zero roots.
+    uint256 numTreesToConsume = bound(_numTreesToConsume, 1, initialNumTrees * 2);
 
     // Now we consume the trees
     for (uint256 i = 0; i < numTreesToConsume; i++) {
+      uint256 numTrees = inbox.getNumTrees();
       uint256 expectedNumTrees =
         (inbox.getToConsume() + 1 == inbox.getInProgress()) ? numTrees + 1 : numTrees;
       bytes32 root = inbox.consume();
@@ -210,7 +211,7 @@ contract NewInboxTest is Test {
         // 1) For i = 0 we should always get empty tree root because first block's messages tree is always
         // empty because we introduced a 1 block lag to prevent sequencer DOS attacks.
         // 2) For _numMessages = 0 and i = 1 we get empty root as well
-        if (i != 0 && i <= numTrees && _numMessages > 0) {
+        if (i != 0 && i <= initialNumTrees && _numMessages > 0) {
           assertNotEq(root, emptyTreeRoot, "Root should not be zero");
         } else {
           assertEq(root, emptyTreeRoot, "Root should be zero");
