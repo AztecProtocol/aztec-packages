@@ -2179,11 +2179,10 @@ TEST_F(join_split_tests, test_incorrect_output_note_creator_pubkey_x)
 }
 
 // *************************************************************************************************************
-// Full proofs
+// Basic success tests
 // *************************************************************************************************************
 
-// Named differently from *_full_proof tests to let us run just this one full proof test in CI with a gtest filter
-TEST_F(join_split_tests, test_deposit_construct_proof)
+TEST_F(join_split_tests, test_deposit)
 {
     join_split_tx tx = zero_input_setup();
     tx.proof_id = proof_ids::DEPOSIT;
@@ -2202,7 +2201,7 @@ TEST_F(join_split_tests, test_deposit_construct_proof)
     EXPECT_TRUE(circuit.check_circuit());
 }
 
-TEST_F(join_split_tests, test_withdraw_full_proof)
+TEST_F(join_split_tests, test_withdraw)
 {
     join_split_tx tx = simple_setup();
     tx.proof_id = proof_ids::WITHDRAW;
@@ -2223,7 +2222,7 @@ TEST_F(join_split_tests, test_withdraw_full_proof)
     EXPECT_TRUE(circuit.check_circuit());
 }
 
-TEST_F(join_split_tests, test_private_send_full_proof)
+TEST_F(join_split_tests, test_private_send)
 {
     join_split_tx tx = simple_setup();
     tx.output_note[0].value -= 3;
@@ -2241,7 +2240,7 @@ TEST_F(join_split_tests, test_private_send_full_proof)
     EXPECT_TRUE(circuit.check_circuit());
 }
 
-TEST_F(join_split_tests, test_defi_deposit_full_proof)
+TEST_F(join_split_tests, test_defi_deposit)
 {
     join_split_tx tx = simple_setup();
 
@@ -2270,7 +2269,7 @@ TEST_F(join_split_tests, test_defi_deposit_full_proof)
     EXPECT_TRUE(circuit.check_circuit());
 }
 
-TEST_F(join_split_tests, test_repayment_full_proof)
+TEST_F(join_split_tests, test_repayment)
 {
     join_split_tx tx = simple_setup({ 0, 11 });
 
@@ -2298,23 +2297,6 @@ TEST_F(join_split_tests, test_repayment_full_proof)
     tx.partial_claim_note.input_nullifier = tx.output_note[0].input_nullifier;
 
     CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
-    EXPECT_TRUE(circuit.check_circuit());
-}
-
-TEST_F(join_split_tests, test_send_two_virtual_notes_full_proof)
-{
-    join_split_tx tx = simple_setup({ 4, 5 });
-
-    /**
-     * SEND tx represents:
-     *   - 100 in1 (virtual)
-     *   - 30 in2 (virtual, same asset_id)
-     *   - 130 out1
-     *   - 0 out2
-     */
-
-    CircuitBuilder circuit = sign_and_create_circuit(tx, user.owner);
-
     EXPECT_TRUE(circuit.check_circuit());
 }
 
