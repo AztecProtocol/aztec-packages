@@ -23,20 +23,8 @@ If you get an error like: `Cannot read file ~/nargo/github.com/AztecProtocol/azt
 Check the `git=` github url, tag, and directory.
 
 :::note
-The folder structure changed at **0.24.0** from `yarn-project/aztec-nr` to `noir-projects/aztec-nr`.
+The folder structure changed at **0.24.0** from `yarn-project/aztec-nr` to `noir-projects/aztec-nr`.  More details [here](https://docs.aztec.network/misc/migration_notes#aztecnr-aztec-nr-contracts-location-change-in-nargotoml)
 :::note
-
-That is, BEFORE `aztec-packages-v0.24.0`:
-
-```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="aztec-packages-v0.23.0", directory="yarn-project/aztec-nr/aztec" }
-```
-
-At/after `aztec-packages-v0.24.0`:
-
-```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="aztec-packages-v0.24.0", directory="noir-projects/aztec-nr/aztec" }
-```
 
 ### Example contract versions
 Example contracts serve as a helpful reference between versions of the aztec-nr framework since they are strictly maintained with each release.
