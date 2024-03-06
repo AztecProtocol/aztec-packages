@@ -46,15 +46,14 @@ describe('e2e_crowdfunding_and_claim', () => {
 
   let donationToken: TokenContract;
   let rewardToken: TokenContract;
-  let crowdfunding: CrowdfundingContract;
-  let claims: ClaimContract;
+  let crowdfundingContract: CrowdfundingContract;
+  let claimContract: ClaimContract;
 
   let crowdfundingPrivateKey;
   let crowdfundingPublicKey;
   let pxe: PXE;
 
-  let valueNote!: ExtendedNote;
-  let valueNoteNonce!: Fr;
+  let valueNote!: any;
 
   const addPendingShieldNoteToPXE = async (
     wallet: AccountWallet,
@@ -121,18 +120,22 @@ describe('e2e_crowdfunding_and_claim', () => {
       .send({ contractAddressSalt: salt })
       .wait();
 
-    crowdfunding = crowdfundingDeploymentReceipt.contract;
+    crowdfundingContract = crowdfundingDeploymentReceipt.contract;
 
-    logger(`Crowdfunding contract deployed at ${crowdfunding.address}`);
+    logger(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
     logger(`Reward Token deployed to ${rewardToken.address}`);
 
-    const claimContractReceipt = await ClaimContract.deploy(operatorWallet, crowdfunding.address, rewardToken.address)
+    const claimContractReceipt = await ClaimContract.deploy(
+      operatorWallet,
+      crowdfundingContract.address,
+      rewardToken.address,
+    )
       .send()
       .wait();
 
-    claims = claimContractReceipt.contract;
+    claimContract = claimContractReceipt.contract;
 
-    await rewardToken.methods.set_minter(claims.address, true).send().wait();
+    await rewardToken.methods.set_minter(claimContract.address, true).send().wait();
 
     await mintDNTToDonors();
   });
@@ -203,54 +206,53 @@ describe('e2e_crowdfunding_and_claim', () => {
     {
       const action = donationToken
         .withWallet(donorWallets[0])
-        .methods.transfer(donorWallets[0].getAddress(), crowdfunding.address, donationAmount, 0);
-      const messageHash = computeAuthWitMessageHash(crowdfunding.address, action.request());
+        .methods.transfer(donorWallets[0].getAddress(), crowdfundingContract.address, donationAmount, 0);
+      const messageHash = computeAuthWitMessageHash(crowdfundingContract.address, action.request());
       const witness = await donorWallets[0].createAuthWitness(messageHash);
       await donorWallets[0].addAuthWitness(witness);
     }
 
     // 2) We donate to the crowdfunding contract
     {
-      const donateTxReceipt = await crowdfunding
+      const donateTxReceipt = await crowdfundingContract
         .withWallet(donorWallets[0])
         .methods.donate(donationAmount)
         .send()
         .wait({
           debug: true,
         });
-      const allCrowdfundingNotes = donateTxReceipt.debugInfo?.visibleNotes.filter(x =>
-        x.contractAddress.equals(crowdfunding.address),
+
+      // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the value note)
+      const notes = donateTxReceipt.debugInfo?.visibleNotes.filter(x =>
+        x.contractAddress.equals(crowdfundingContract.address),
       );
-      expect(allCrowdfundingNotes!.length).toEqual(1);
-      valueNote = allCrowdfundingNotes![0];
+      expect(notes!.length).toEqual(1);
+
+      // Set the value note in a format which can be passed to claim function
+      const extendedNote = notes![0];
+      // TODO(#4956): Make fetching the nonce manually unnecessary
+      // To be able to perform the inclusion proof we need to fetch the nonce of the value note
+      const noteNonces = await pxe.getNoteNonces(extendedNote);
+      expect(noteNonces?.length).toEqual(1);
+      valueNote = {
+        header: {
+          // eslint-disable-next-line camelcase
+          contract_address: crowdfundingContract.address,
+          // eslint-disable-next-line camelcase
+          storage_slot: 3,
+          // eslint-disable-next-line camelcase
+          is_transient: false,
+          nonce: noteNonces![0],
+        },
+        value: extendedNote.note.items[0],
+        owner: extendedNote.note.items[1],
+        randomness: extendedNote.note.items[2],
+      };
     }
 
     // 3) We claim the reward token via the Claim contract
     {
-      // TODO(#4956): Make fetching the nonce manually unnecessary
-      // To be able to perform the inclusion proof we need to fetch the nonce of the value note
-      const noteNonces = await pxe.getNoteNonces(valueNote);
-      expect(noteNonces?.length).toEqual(1);
-      valueNoteNonce = noteNonces![0];
-
-      await claims
-        .withWallet(donorWallets[0])
-        .methods.claim({
-          header: {
-            // eslint-disable-next-line camelcase
-            contract_address: crowdfunding.address,
-            // eslint-disable-next-line camelcase
-            storage_slot: 3,
-            // eslint-disable-next-line camelcase
-            is_transient: false,
-            nonce: valueNoteNonce,
-          },
-          value: valueNote.note.items[0],
-          owner: valueNote.note.items[1],
-          randomness: valueNote.note.items[2],
-        })
-        .send()
-        .wait();
+      await claimContract.withWallet(donorWallets[0]).methods.claim(valueNote).send().wait();
     }
 
     // Since the RWT is minted 1:1 with the DNT, the balance of the reward token should be equal to the donation amount
@@ -263,7 +265,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     expect(balanceDNTBeforeWithdrawal).toEqual(0n);
 
     // 4) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
-    await crowdfunding.methods.withdraw(donationAmount).send().wait();
+    await crowdfundingContract.methods.withdraw(donationAmount).send().wait();
 
     const balanceDNTAfterWithdrawal = await donationToken.methods
       .balance_of_private(operatorWallet.getAddress())
@@ -274,48 +276,16 @@ describe('e2e_crowdfunding_and_claim', () => {
   });
 
   it('should not be able to claim twice', async () => {
-    await expect(
-      claims
-        .withWallet(donorWallets[0])
-        .methods.claim({
-          header: {
-            // eslint-disable-next-line camelcase
-            contract_address: crowdfunding.address,
-            // eslint-disable-next-line camelcase
-            storage_slot: 3,
-            // eslint-disable-next-line camelcase
-            is_transient: false,
-            nonce: valueNoteNonce,
-          },
-          value: valueNote.note.items[0],
-          owner: valueNote.note.items[1],
-          randomness: valueNote.note.items[2],
-        })
-        .send()
-        .wait(),
-    ).rejects.toThrow();
+    await expect(claimContract.withWallet(donorWallets[0]).methods.claim(valueNote).send().wait()).rejects.toThrow();
   });
 
   it('should not be able to claim with a non-existent note', async () => {
+    // We get a non-existent note by copy the value note and change the randomness to a random value
+    const nonExistentNote = { ...valueNote };
+    nonExistentNote.randomness = Fr.random();
+
     await expect(
-      claims
-        .withWallet(donorWallets[0])
-        .methods.claim({
-          header: {
-            // eslint-disable-next-line camelcase
-            contract_address: crowdfunding.address,
-            // eslint-disable-next-line camelcase
-            storage_slot: 3,
-            // eslint-disable-next-line camelcase
-            is_transient: false,
-            nonce: valueNoteNonce,
-          },
-          value: valueNote.note.items[0],
-          owner: valueNote.note.items[1],
-          randomness: valueNote.note.items[2],
-        })
-        .send()
-        .wait(),
+      claimContract.withWallet(donorWallets[0]).methods.claim(nonExistentNote).send().wait(),
     ).rejects.toThrow();
   });
 });
