@@ -36,8 +36,14 @@ template <typename Builder> bool CircuitChecker::check(const Builder& builder_in
 
     bool result = true;
     // WORKTODO: note/todo about checking only the relevant constraints for each block
+    size_t block_idx = 0;
     for (auto& block : builder.blocks.get()) {
         result = result && check_block(builder, block, tag_data, memory_data, lookup_hash_table);
+        if (result == false) {
+            info("Failed at block idx = ", block_idx);
+            return false;
+        }
+        block_idx++;
     }
 
     // Tag check is only expected to pass after entire execution trace (all blocks) have been processed
@@ -61,6 +67,7 @@ bool CircuitChecker::check_block(Builder& builder,
     // Perform checks on each gate defined in the builder
     bool result = true;
     for (size_t idx = 0; idx < block.size(); ++idx) {
+
         populate_values(builder, block, values, tag_data, memory_data, idx);
 
         result = result && check_relation<Arithmetic>(values, params);
@@ -71,6 +78,10 @@ bool CircuitChecker::check_block(Builder& builder,
         if constexpr (IsGoblinBuilder<Builder>) {
             result = result && check_relation<PoseidonInternal>(values, params);
             result = result && check_relation<PoseidonExternal>(values, params);
+        }
+        if (result == false) {
+            info("Failed at row idx = ", idx);
+            return false;
         }
     }
 

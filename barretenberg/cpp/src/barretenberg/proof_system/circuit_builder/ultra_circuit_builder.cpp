@@ -248,20 +248,20 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_mul_gate(const mul_quad_<
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
 
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
-    blocks.arithmetic.q_m().emplace_back(in.mul_scaling);
-    blocks.arithmetic.q_1().emplace_back(in.a_scaling);
-    blocks.arithmetic.q_2().emplace_back(in.b_scaling);
-    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
-    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_arith().emplace_back(1);
-    blocks.arithmetic.q_4().emplace_back(in.d_scaling);
-    blocks.arithmetic.q_sort().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.main.populate_wires(in.a, in.b, in.c, in.d);
+    blocks.main.q_m().emplace_back(in.mul_scaling);
+    blocks.main.q_1().emplace_back(in.a_scaling);
+    blocks.main.q_2().emplace_back(in.b_scaling);
+    blocks.main.q_3().emplace_back(in.c_scaling);
+    blocks.main.q_c().emplace_back(in.const_scaling);
+    blocks.main.q_arith().emplace_back(1);
+    blocks.main.q_4().emplace_back(in.d_scaling);
+    blocks.main.q_sort().emplace_back(0);
+    blocks.main.q_lookup_type().emplace_back(0);
+    blocks.main.q_elliptic().emplace_back(0);
+    blocks.main.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.arithmetic.pad_additional();
+        blocks.main.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
@@ -344,21 +344,21 @@ void UltraCircuitBuilder_<Arithmetization>::create_bool_gate(const uint32_t vari
 {
     this->assert_valid_variables({ variable_index });
 
-    blocks.arithmetic.populate_wires(variable_index, variable_index, this->zero_idx, this->zero_idx);
-    blocks.arithmetic.q_m().emplace_back(1);
-    blocks.arithmetic.q_1().emplace_back(-1);
-    blocks.arithmetic.q_2().emplace_back(0);
-    blocks.arithmetic.q_3().emplace_back(0);
-    blocks.arithmetic.q_c().emplace_back(0);
-    blocks.arithmetic.q_sort().emplace_back(0);
+    blocks.main.populate_wires(variable_index, variable_index, this->zero_idx, this->zero_idx);
+    blocks.main.q_m().emplace_back(1);
+    blocks.main.q_1().emplace_back(-1);
+    blocks.main.q_2().emplace_back(0);
+    blocks.main.q_3().emplace_back(0);
+    blocks.main.q_c().emplace_back(0);
+    blocks.main.q_sort().emplace_back(0);
 
-    blocks.arithmetic.q_arith().emplace_back(1);
-    blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.main.q_arith().emplace_back(1);
+    blocks.main.q_4().emplace_back(0);
+    blocks.main.q_lookup_type().emplace_back(0);
+    blocks.main.q_elliptic().emplace_back(0);
+    blocks.main.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.arithmetic.pad_additional();
+        blocks.main.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
@@ -1530,7 +1530,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::decompose_non_nat
  * N.B.: This method does NOT evaluate the prime field component of non-native field multiplications.
  **/
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/873): this method interleaves arithmetic gates
-// (big_add_gate) with auxiliary gates. Sorting will cause circuits using this functionality to fail.
+// (big_add_gate) with auxiliary gates. Sorting will cause circuits using this functionality to fail. Issue is that the
+// add gates are set up to use the next row, which is sometimes an aux gate.
 template <typename Arithmetization>
 std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_native_field_multiplication(
     const non_native_field_witnesses<FF>& input, const bool range_constrain_quotient_and_remainder)
@@ -1850,6 +1851,8 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
     // | x.p | x.1 | y.1 | z.0 | (a.1  + b.1 - c.1 = 0)
     // | x.2 | y.2 | z.2 | z.1 | (a.2  + b.2 - c.2 = 0)
     // | x.3 | y.3 | z.3 | --- | (a.3  + b.3 - c.3 = 0)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/896): descrepency between above comment and the actual
+    // implementation below.
     blocks.main.populate_wires(y_p, x_0, y_0, x_p);
     blocks.main.populate_wires(z_p, x_1, y_1, z_0);
     blocks.main.populate_wires(x_2, y_2, z_2, z_1);
