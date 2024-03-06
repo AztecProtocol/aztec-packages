@@ -56,7 +56,7 @@ contract CrowdFunding {
         storage.donation.insert(&mut note, true);
     }
 
-    // Withdraws balance. Requires that msg.sender is registered as an owner.
+    // Withdraws balance. Requires that msg_sender() is the operator.
     #[aztec(private)]
     fn withdraw(amount: Field) {
         let operator_address = AztecAddress::from_field(storage.operator.get_note().value);
