@@ -29,6 +29,10 @@ contract NewInboxHarness is NewInbox {
     return inProgress;
   }
 
+  function treeInProgressFull() external view returns (bool) {
+    return trees[inProgress].isFull();
+  }
+
   function getToConsumeRoot() external view returns (bytes32) {
     bytes32 root = EMPTY_ROOT;
     if (toConsume > Constants.INITIAL_L2_BLOCK_NUM) {
