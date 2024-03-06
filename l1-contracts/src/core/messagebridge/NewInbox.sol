@@ -31,8 +31,10 @@ contract NewInbox is INewInbox {
   uint256 internal immutable SIZE;
   bytes32 internal immutable EMPTY_ROOT; // The root of an empty frontier tree
 
-  uint256 internal toConsume = Constants.INITIAL_L2_BLOCK_NUM;
-  uint256 internal inProgress = 2;
+  // Number of a tree which is ready to be consumed
+  uint256 public toConsume = Constants.INITIAL_L2_BLOCK_NUM;
+  // Number of a tree which is currently being filled
+  uint256 public inProgress = 2;
 
   mapping(uint256 blockNumber => IFrontier tree) internal trees;
 

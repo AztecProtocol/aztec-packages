@@ -19,14 +19,6 @@ contract NewInboxHarness is NewInbox {
     return EMPTY_ROOT;
   }
 
-  function getToConsume() external view returns (uint256) {
-    return toConsume;
-  }
-
-  function getInProgress() external view returns (uint256) {
-    return inProgress;
-  }
-
   function treeInProgressFull() external view returns (bool) {
     return trees[inProgress].isFull();
   }

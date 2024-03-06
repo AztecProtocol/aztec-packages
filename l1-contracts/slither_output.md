@@ -132,26 +132,16 @@ src/core/messagebridge/Inbox.sol#L122-L143
 Impact: Low
 Confidence: Medium
  - [ ] ID-12
-[NewInbox.constructor(address,uint256)._rollup](src/core/messagebridge/NewInbox.sol#L39) lacks a zero-check on :
-		- [ROLLUP = _rollup](src/core/messagebridge/NewInbox.sol#L40)
+[NewInbox.constructor(address,uint256)._rollup](src/core/messagebridge/NewInbox.sol#L41) lacks a zero-check on :
+		- [ROLLUP = _rollup](src/core/messagebridge/NewInbox.sol#L42)
 
-src/core/messagebridge/NewInbox.sol#L39
+src/core/messagebridge/NewInbox.sol#L41
 
 
 ## reentrancy-events
 Impact: Low
 Confidence: Medium
  - [ ] ID-13
-Reentrancy in [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L60-L97):
-	External calls:
-	- [index = currentTree.insertLeaf(leaf)](src/core/messagebridge/NewInbox.sol#L93)
-	Event emitted after the call(s):
-	- [LeafInserted(inProgress,index,leaf)](src/core/messagebridge/NewInbox.sol#L94)
-
-src/core/messagebridge/NewInbox.sol#L60-L97
-
-
- - [ ] ID-14
 Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L53-L91):
 	External calls:
 	- [inbox.batchConsume(l1ToL2Msgs,msg.sender)](src/core/Rollup.sol#L85)
@@ -160,6 +150,16 @@ Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L5
 	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L90)
 
 src/core/Rollup.sol#L53-L91
+
+
+ - [ ] ID-14
+Reentrancy in [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L62-L99):
+	External calls:
+	- [index = currentTree.insertLeaf(leaf)](src/core/messagebridge/NewInbox.sol#L95)
+	Event emitted after the call(s):
+	- [LeafInserted(inProgress,index,leaf)](src/core/messagebridge/NewInbox.sol#L96)
+
+src/core/messagebridge/NewInbox.sol#L62-L99
 
 
 ## timestamp
@@ -239,10 +239,10 @@ src/core/messagebridge/Inbox.sol#L21-L231
 
 
  - [ ] ID-24
-The following public functions could be turned into external in [NewInbox](src/core/messagebridge/NewInbox.sol#L25-L126) contract:
-	[NewInbox.constructor(address,uint256)](src/core/messagebridge/NewInbox.sol#L39-L50)
+The following public functions could be turned into external in [NewInbox](src/core/messagebridge/NewInbox.sol#L25-L128) contract:
+	[NewInbox.constructor(address,uint256)](src/core/messagebridge/NewInbox.sol#L41-L52)
 
-src/core/messagebridge/NewInbox.sol#L25-L126
+src/core/messagebridge/NewInbox.sol#L25-L128
 
 
 ## assembly
@@ -346,9 +346,9 @@ src/core/Rollup.sol#L37
 Impact: Optimization
 Confidence: High
  - [ ] ID-38
-In a function [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L60-L97) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L35) is read multiple times
+In a function [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L62-L99) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L37) is read multiple times
 
-src/core/messagebridge/NewInbox.sol#L60-L97
+src/core/messagebridge/NewInbox.sol#L62-L99
 
 
  - [ ] ID-39
@@ -358,15 +358,15 @@ src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76
 
 
  - [ ] ID-40
-In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L106-L125) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L35) is read multiple times
+In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L108-L127) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L37) is read multiple times
 
-src/core/messagebridge/NewInbox.sol#L106-L125
+src/core/messagebridge/NewInbox.sol#L108-L127
 
 
  - [ ] ID-41
-In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L106-L125) variable [NewInbox.toConsume](src/core/messagebridge/NewInbox.sol#L34) is read multiple times
+In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L108-L127) variable [NewInbox.toConsume](src/core/messagebridge/NewInbox.sol#L35) is read multiple times
 
-src/core/messagebridge/NewInbox.sol#L106-L125
+src/core/messagebridge/NewInbox.sol#L108-L127
 
 
  - [ ] ID-42

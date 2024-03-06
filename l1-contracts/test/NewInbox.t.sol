@@ -73,7 +73,7 @@ contract NewInboxTest is Test {
   // be violated
   modifier checkInvariant() {
     _;
-    assertLt(inbox.getToConsume(), inbox.getInProgress());
+    assertLt(inbox.toConsume(), inbox.inProgress());
   }
 
   function testRevertIfNotConsumingFromRollup() public {
@@ -189,7 +189,7 @@ contract NewInboxTest is Test {
     for (uint256 i = 0; i < numTreesToConsume; i++) {
       uint256 numTrees = inbox.getNumTrees();
       uint256 expectedNumTrees =
-        (inbox.getToConsume() + 1 == inbox.getInProgress()) ? numTrees + 1 : numTrees;
+        (inbox.toConsume() + 1 == inbox.inProgress()) ? numTrees + 1 : numTrees;
       bytes32 root = inbox.consume();
 
       // We check whether a new tree is correctly initialized when the one which was in progress was set as to consume
