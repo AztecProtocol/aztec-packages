@@ -94,12 +94,15 @@ export interface AztecNode {
   ): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
-   * Returns a sibling path for a leaf in a virtual l2 to l1 data tree.
+   * Returns the index of a l2ToL1Message in a virtual l2 to l1 data tree as well as its sibling path.
    * @param blockNumber - The block number at which to get the data.
-   * @param l2ToL1Message - The l2ToL1Message get the sibling path for.
-   * @returns The sibling path.
+   * @param l2ToL1Message - The l2ToL1Message get the index / sibling path for.
+   * @returns A tuple of the index and the sibling path of the L2ToL1Message.
    */
-  getL2ToL1MessageSiblingPath(blockNumber: BlockNumber, l2ToL1Message: Fr): Promise<SiblingPath<number>>;
+  getL2ToL1MessageIndexAndSiblingPath(
+    blockNumber: number | 'latest',
+    l2ToL1Message: Fr,
+  ): Promise<[number, SiblingPath<number>]>;
 
   /**
    * Returns a sibling path for a leaf in the committed historic blocks tree.
