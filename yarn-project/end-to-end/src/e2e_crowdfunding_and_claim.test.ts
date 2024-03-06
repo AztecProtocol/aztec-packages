@@ -316,7 +316,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     }
 
     // 2) We set next block timestamp to be after the deadline
-    cheatCodes.aztec.warp(deadline + 1);
+    await cheatCodes.aztec.warp(deadline + 1);
 
     // 3) We donate to the crowdfunding contract
     await expect(
