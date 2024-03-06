@@ -1,5 +1,5 @@
 #pragma once
-#include "../../constants.hpp"
+#include "barretenberg/join_split_example/constants.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <stddef.h>
 
