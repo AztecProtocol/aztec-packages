@@ -1,4 +1,4 @@
-use acvm::acir::circuit::{Circuit, Program};
+use acvm::acir::circuit::Program;
 use noirc_abi::{Abi, ContractEvent};
 use noirc_driver::{CompiledContract, ContractFunction, ContractFunctionType};
 use serde::{Deserialize, Serialize};

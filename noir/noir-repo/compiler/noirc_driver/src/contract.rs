@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-use acvm::acir::circuit::{Circuit, Program};
+use acvm::acir::circuit::Program;
 use fm::FileId;
 use noirc_abi::{Abi, ContractEvent};
 use noirc_errors::debug_info::DebugInfo;

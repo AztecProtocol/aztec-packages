@@ -300,11 +300,9 @@ impl std::fmt::Debug for Circuit {
 
 impl std::fmt::Display for Program {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut func_index = 0;
-        for function in self.functions.iter() {
+        for (func_index, function) in self.functions.iter().enumerate() {
             writeln!(f, "func {}", func_index)?;
             writeln!(f, "{}", function)?;
-            func_index += 1;
         }
         Ok(())
     }

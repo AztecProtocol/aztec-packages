@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use acvm::acir::circuit::{Circuit, Program};
+use acvm::acir::circuit::Program;
 use nargo::artifacts::{contract::ContractArtifact, program::ProgramArtifact};
 use noirc_frontend::graph::CrateName;
 
