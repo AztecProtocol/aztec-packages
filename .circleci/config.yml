@@ -1527,6 +1527,7 @@ workflows:
             - barretenberg-join-split-tests
             - barretenberg-acir-tests-bb
             - barretenberg-docs
+            - build-docs
             - mainnet-fork
             - e2e-2-pxes
             - e2e-note-getter
@@ -1574,6 +1575,7 @@ workflows:
             - guides-sample-dapp
             - guides-up-quick-start
             - yellow-paper
+            - yarn-project-test
           <<: *defaults
 
       # Benchmark jobs.
