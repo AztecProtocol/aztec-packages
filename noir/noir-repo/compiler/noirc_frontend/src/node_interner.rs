@@ -748,8 +748,6 @@ impl NodeInterner {
         module: ModuleId,
         location: Location,
     ) -> DefinitionId {
-        // We're filling in contract_function_type and is_internal now, but these will be verified
-        // later during name resolution.
         let modifiers = FunctionModifiers {
             name: function.name.0.contents.clone(),
             visibility: function.visibility,
