@@ -14,6 +14,7 @@ import {
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
 import { EthAddress, computePartialAddress } from '@aztec/circuits.js';
+import { InclusionProofsContract } from '@aztec/noir-contracts.js';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract, CrowdfundingContractArtifact } from '@aztec/noir-contracts.js/Crowdfunding';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -199,6 +200,29 @@ describe('e2e_crowdfunding_and_claim', () => {
     ]);
   };
 
+  // Processes extended note such that it can be passed to a claim function of Claim contract
+  const processExtendedNote = async (extendedNote: ExtendedNote) => {
+    // TODO(#4956): Make fetching the nonce manually unnecessary
+    // To be able to perform the inclusion proof we need to fetch the nonce of the value note
+    const noteNonces = await pxe.getNoteNonces(extendedNote);
+    expect(noteNonces?.length).toEqual(1);
+
+    return {
+      header: {
+        // eslint-disable-next-line camelcase
+        contract_address: extendedNote.contractAddress,
+        // eslint-disable-next-line camelcase
+        storage_slot: extendedNote.storageSlot,
+        // eslint-disable-next-line camelcase
+        is_transient: false,
+        nonce: noteNonces[0],
+      },
+      value: extendedNote.note.items[0],
+      owner: extendedNote.note.items[1],
+      randomness: extendedNote.note.items[2],
+    };
+  };
+
   it('full donor flow', async () => {
     const donationAmount = 1000n;
 
@@ -229,25 +253,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       expect(notes!.length).toEqual(1);
 
       // Set the value note in a format which can be passed to claim function
-      const extendedNote = notes![0];
-      // TODO(#4956): Make fetching the nonce manually unnecessary
-      // To be able to perform the inclusion proof we need to fetch the nonce of the value note
-      const noteNonces = await pxe.getNoteNonces(extendedNote);
-      expect(noteNonces?.length).toEqual(1);
-      valueNote = {
-        header: {
-          // eslint-disable-next-line camelcase
-          contract_address: crowdfundingContract.address,
-          // eslint-disable-next-line camelcase
-          storage_slot: 3,
-          // eslint-disable-next-line camelcase
-          is_transient: false,
-          nonce: noteNonces![0],
-        },
-        value: extendedNote.note.items[0],
-        owner: extendedNote.note.items[1],
-        randomness: extendedNote.note.items[2],
-      };
+      valueNote = await processExtendedNote(notes![0]);
     }
 
     // 3) We claim the reward token via the Claim contract
@@ -275,11 +281,11 @@ describe('e2e_crowdfunding_and_claim', () => {
     expect(balanceDNTAfterWithdrawal).toEqual(donationAmount);
   });
 
-  it('should not be able to claim twice', async () => {
+  it('cannot claim twice', async () => {
     await expect(claimContract.withWallet(donorWallets[0]).methods.claim(valueNote).send().wait()).rejects.toThrow();
   });
 
-  it('should not be able to claim with a non-existent note', async () => {
+  it('cannot claim with a non-existent note', async () => {
     // We get a non-existent note by copy the value note and change the randomness to a random value
     const nonExistentNote = { ...valueNote };
     nonExistentNote.randomness = Fr.random();
@@ -287,5 +293,27 @@ describe('e2e_crowdfunding_and_claim', () => {
     await expect(
       claimContract.withWallet(donorWallets[0]).methods.claim(nonExistentNote).send().wait(),
     ).rejects.toThrow();
+  });
+
+  it('cannot claim with existing note which was not emitted by the crowdfunding contract', async () => {
+    const owner = wallets[0].getAddress();
+
+    // 1) Deploy IncludeProofs contract
+    const inclusionsProofsContract = await InclusionProofsContract.deploy(wallets[0], 0n).send().deployed();
+
+    // 2) Create a note
+    let note: any;
+    {
+      const receipt = await inclusionsProofsContract.methods.create_note(owner, 5n).send().wait({ debug: true });
+      const { visibleNotes } = receipt.debugInfo!;
+      expect(visibleNotes.length).toEqual(1);
+      note = await processExtendedNote(visibleNotes![0]);
+    }
+
+    // 3) Test the note was included
+    await inclusionsProofsContract.methods.test_note_inclusion(owner, false, 0n, true).send().wait();
+
+    // 4) Finally, check that the claim process fails
+    await expect(claimContract.withWallet(donorWallets[0]).methods.claim(note).send().wait()).rejects.toThrow();
   });
 });
