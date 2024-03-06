@@ -480,11 +480,12 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
  *
  * @param in Elliptic curve point doubling gate parameters
  */
+// WORKTODO: this appears not to be used anywhere aside from test_elliptic_double_gate
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
 {
     // WORKTODO: keep this?
-    auto& block = blocks.main;
+    auto& block = blocks.elliptic;
 
     /**
      * gate structure:
@@ -557,20 +558,20 @@ void UltraCircuitBuilder_<Arithmetization>::fix_witness(const uint32_t witness_i
 {
     this->assert_valid_variables({ witness_index });
 
-    blocks.main.populate_wires(witness_index, this->zero_idx, this->zero_idx, this->zero_idx);
-    blocks.main.q_m().emplace_back(0);
-    blocks.main.q_1().emplace_back(1);
-    blocks.main.q_2().emplace_back(0);
-    blocks.main.q_3().emplace_back(0);
-    blocks.main.q_c().emplace_back(-witness_value);
-    blocks.main.q_arith().emplace_back(1);
-    blocks.main.q_4().emplace_back(0);
-    blocks.main.q_sort().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
-    blocks.main.q_aux().emplace_back(0);
+    blocks.arithmetic.populate_wires(witness_index, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.arithmetic.q_m().emplace_back(0);
+    blocks.arithmetic.q_1().emplace_back(1);
+    blocks.arithmetic.q_2().emplace_back(0);
+    blocks.arithmetic.q_3().emplace_back(0);
+    blocks.arithmetic.q_c().emplace_back(-witness_value);
+    blocks.arithmetic.q_arith().emplace_back(1);
+    blocks.arithmetic.q_4().emplace_back(0);
+    blocks.arithmetic.q_sort().emplace_back(0);
+    blocks.arithmetic.q_lookup_type().emplace_back(0);
+    blocks.arithmetic.q_elliptic().emplace_back(0);
+    blocks.arithmetic.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
+        blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
