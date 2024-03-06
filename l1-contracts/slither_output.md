@@ -201,10 +201,10 @@ src/core/messagebridge/Inbox.sol#L102-L113
 Impact: Low
 Confidence: Medium
  - [ ] ID-19
-The following public functions could be turned into external in [FrontierMerkle](src/core/messagebridge/frontier_tree/Frontier.sol#L7-L90) contract:
+The following public functions could be turned into external in [FrontierMerkle](src/core/messagebridge/frontier_tree/Frontier.sol#L7-L93) contract:
 	[FrontierMerkle.constructor(uint256)](src/core/messagebridge/frontier_tree/Frontier.sol#L19-L27)
 
-src/core/messagebridge/frontier_tree/Frontier.sol#L7-L90
+src/core/messagebridge/frontier_tree/Frontier.sol#L7-L93
 
 
  - [ ] ID-20
@@ -352,9 +352,9 @@ src/core/messagebridge/NewInbox.sol#L60-L97
 
 
  - [ ] ID-39
-In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L40-L73) variable [FrontierMerkle.HEIGHT](src/core/messagebridge/frontier_tree/Frontier.sol#L8) is read multiple times
+In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76) variable [FrontierMerkle.HEIGHT](src/core/messagebridge/frontier_tree/Frontier.sol#L8) is read multiple times
 
-src/core/messagebridge/frontier_tree/Frontier.sol#L40-L73
+src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76
 
 
  - [ ] ID-40
@@ -370,8 +370,8 @@ src/core/messagebridge/NewInbox.sol#L106-L125
 
 
  - [ ] ID-42
-In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L40-L73) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
+In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
 
-src/core/messagebridge/frontier_tree/Frontier.sol#L40-L73
+src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76
 
 
