@@ -1,7 +1,7 @@
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { PublicKernelData } from './public_kernel_data.js';
 import { NullifierReadRequestResetHints } from '../read_request_reset_hints.js';
+import { PublicKernelData } from './public_kernel_data.js';
 
 /**
  * Inputs to the public kernel circuit.
