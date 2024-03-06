@@ -1326,14 +1326,14 @@ bb_test: &bb_test
 
 # Workflows.
 workflows:
-  setup-workflow:
-    jobs:
-      - generate-config
+  # setup-workflow:
+  #   jobs:
+  #     - generate-config: *defaults
   system:
-    when:
-      # Used to generate a dynamic 'system' workflow
-      # This is rewritten to 'system' on the real workflow (otherwise this is ignored by circleci)
-      equal: [NEVER, << pipeline.parameters.workflow >>]
+    # when:
+    #   # Used to generate a dynamic 'system' workflow
+    #   # This is rewritten to 'system' on the real workflow (otherwise this is ignored by circleci)
+    #   equal: [NEVER, << pipeline.parameters.workflow >>]
     jobs:
       # Noir
       - noir-x86_64: *defaults
@@ -1514,6 +1514,7 @@ workflows:
             - barretenberg-join-split-tests
             - barretenberg-acir-tests-bb
             - barretenberg-docs
+            - build-docs
             - mainnet-fork
             - e2e-2-pxes
             - e2e-note-getter
@@ -1560,6 +1561,7 @@ workflows:
             - guides-sample-dapp
             - guides-up-quick-start
             - yellow-paper
+            - yarn-project-test
           <<: *defaults
 
       # Benchmark jobs.
