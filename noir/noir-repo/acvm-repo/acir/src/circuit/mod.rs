@@ -246,7 +246,7 @@ impl Program {
         let encoded_b64 = base64::engine::general_purpose::STANDARD.encode(program_bytes);
         s.serialize_str(&encoded_b64)
     }
-    
+
     // Deserialize and base64 decode program
     pub fn deserialize_program_base64<'de, D>(deserializer: D) -> Result<Program, D::Error>
     where
@@ -307,7 +307,6 @@ impl std::fmt::Display for Program {
             func_index += 1;
         }
         Ok(())
-
     }
 }
 

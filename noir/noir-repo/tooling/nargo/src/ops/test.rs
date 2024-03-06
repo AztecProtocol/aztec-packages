@@ -34,7 +34,11 @@ pub fn run_test<B: BlackBoxFunctionSolver>(
                 blackbox_solver,
                 &mut DefaultForeignCallExecutor::new(show_output, foreign_call_resolver_url),
             );
-            test_status_program_compile_pass(test_function, compiled_program.debug, circuit_execution)
+            test_status_program_compile_pass(
+                test_function,
+                compiled_program.debug,
+                circuit_execution,
+            )
         }
         Err(err) => test_status_program_compile_fail(err, test_function),
     }

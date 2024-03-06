@@ -2,7 +2,7 @@ use acvm::acir::circuit::ExpressionWidth;
 use iter_extended::vecmap;
 use noirc_driver::{CompiledContract, CompiledProgram};
 
-/// TODO(https://github.com/noir-lang/noir/issues/4428): Need to update how these passes are run to account for 
+/// TODO(https://github.com/noir-lang/noir/issues/4428): Need to update how these passes are run to account for
 /// multiple ACIR functions
 
 pub fn transform_program(

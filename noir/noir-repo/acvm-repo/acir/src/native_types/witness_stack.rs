@@ -1,6 +1,4 @@
-use std::{
-    io::Read,
-};
+use std::io::Read;
 
 use flate2::bufread::GzDecoder;
 use flate2::bufread::GzEncoder;
@@ -23,7 +21,7 @@ pub struct WitnessStackError(#[from] SerializationError);
 /// An ordered set of witness maps for separate circuits
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub struct WitnessStack {
-    pub stack: Vec<StackItem>
+    pub stack: Vec<StackItem>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Serialize, Deserialize)]

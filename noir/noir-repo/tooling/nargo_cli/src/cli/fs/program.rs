@@ -18,10 +18,7 @@ pub(crate) fn save_program_to_file<P: AsRef<Path>>(
 }
 
 /// Writes the bytecode as acir.gz
-pub(crate) fn only_acir<P: AsRef<Path>>(
-    program: Program,
-    circuit_dir: P,
-) -> PathBuf {
+pub(crate) fn only_acir<P: AsRef<Path>>(program: Program, circuit_dir: P) -> PathBuf {
     create_named_dir(circuit_dir.as_ref(), "target");
     let circuit_path = circuit_dir.as_ref().join("acir").with_extension("gz");
     let bytes = Program::serialize_program(&program);
