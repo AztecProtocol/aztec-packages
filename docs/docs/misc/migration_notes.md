@@ -8,6 +8,61 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## 0.25.0
 
+### [Aztec.nr] Static calls
+
+It is now possible to perform static calls from both public and private functions. Static calls forbid any modification to the state, including L2->L1 messages or log generation. Once a static context is set through a static all, every subsequent call will also be treated as static via context propagation.
+
+```rust
+context.static_call_private_function(targetContractAddress, targetSelector, args);
+
+context.static_call_public_function(targetContractAddress, targetSelector, args);
+```
+
+### [Aztec.nr] Introduction to `prelude`
+
+A new `prelude` module to include common Aztec modules and types.
+This simplifies dependency syntax. For example:
+```rust
+use dep::aztec::protocol_types::address::AztecAddress;
+use dep::aztec::{
+    context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
+    state_vars::Map
+};
+```
+Becomes:
+```rust
+use dep::aztec::prelude::{AztecAddress, NoteHeader, PrivateContext, Map};
+use dep::aztec::context::Context;
+use dep::aztec::notes::utils as note_utils;
+```
+
+This will be further simplified in future versions (See [4496](https://github.com/AztecProtocol/aztec-packages/pull/4496) for further details).
+
+The prelude consists of
+
+#include_code prelude /noir-projects/aztec-nr/aztec/src/prelude.nr rust
+
+### `internal` is now a macro
+
+The `internal` keyword is now removed from Noir, and is replaced by an `aztec(internal)` attribute in the function. The resulting behavior is exactly the same: these functions will only be callable from within the same contract.
+
+Before:
+```rust
+#[aztec(private)]
+internal fn double(input: Field) -> Field {
+    input * 2
+}
+```
+
+After:
+```rust
+#[aztec(private)]
+#[aztec(internal)]
+fn double(input: Field) -> Field {
+    input * 2
+}
+```
+
 ### [Aztec.nr] No SafeU120 anymore!
 Noir now have overflow checks by default. So we don't need SafeU120 like libraries anymore.
 
@@ -44,6 +99,46 @@ Public: not accessible from private, R/W from public
 Shared: R from private, R/W from public
 
 Note: `SlowUpdates` will be renamed to `SharedMutable` once the implementation is ready.
+
+### [Aztec.nr] Authwit updates
+
+Authentication Witnesses have been updates such that they are now cancellable and scoped to a specific consumer.
+This means that the `authwit` nullifier must be emitted from the account contract, which require changes to the interface.
+Namely, the `assert_current_call_valid_authwit_public` and `assert_current_call_valid_authwit` in `auth.nr` will **NO LONGER** emit a nullifier.
+Instead it will call a `spend_*_authwit` function in the account contract - which will emit the nullifier and perform a few checks.
+This means that the `is_valid` functions have been removed to not confuse it for a non-mutating function (static).
+Furthermore, the `caller` parameter of the "authwits" have been moved "further out" such that the account contract can use it in validation, allowing scoped approvals from the account POV.
+For most contracts, this won't be changing much, but for the account contract, it will require a few changes.
+
+Before:
+```rust
+#[aztec(public)]
+fn is_valid_public(message_hash: Field) -> Field {
+    let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+    actions.is_valid_public(message_hash)
+}
+
+#[aztec(private)]
+fn is_valid(message_hash: Field) -> Field {
+    let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+    actions.is_valid(message_hash)
+}
+```
+
+After:
+```rust
+#[aztec(private)]
+fn spend_private_authwit(inner_hash: Field) -> Field {
+    let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+    actions.spend_private_authwit(inner_hash)
+}
+
+#[aztec(public)]
+fn spend_public_authwit(inner_hash: Field) -> Field {
+    let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+    actions.spend_public_authwit(inner_hash)
+}
+```
 
 ## 0.24.0
 

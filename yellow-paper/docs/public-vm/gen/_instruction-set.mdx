@@ -391,6 +391,7 @@ if exists:
 {`context.accruedSubstate.unencryptedLogs.append(
     UnencryptedLog {
         address: context.environment.address,
+        eventSelector: M[eventSelectorOffset],
         log: M[logOffset:logOffset+logSize],
     }
 )`}
@@ -590,7 +591,7 @@ Less-than check (a < b)
 - **Category**: Compute - Comparators
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
-	- **inTag**: The [tag/size](./memory-model#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for this instruction.
+	- **inTag**: The [tag/size](./memory-model#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -611,7 +612,7 @@ Less-than-or-equals check (a <= b)
 - **Category**: Compute - Comparators
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
-	- **inTag**: The [tag/size](./memory-model#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for this instruction.
+	- **inTag**: The [tag/size](./memory-model#tags-and-tagged-memory) to check inputs against and tag the destination with.
 - **Args**: 
 	- **aOffset**: memory offset of the operation's left input
 	- **bOffset**: memory offset of the operation's right input
@@ -1566,6 +1567,7 @@ Emit an unencrypted log
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
 - **Args**: 
+	- **eventSelectorOffset**: memory offset of the event selector
 	- **logOffset**: memory offset of the data to log
 	- **logSize**: number of words to log
 - **Expression**: 
@@ -1573,11 +1575,12 @@ Emit an unencrypted log
 {`context.accruedSubstate.unencryptedLogs.append(
     UnencryptedLog {
         address: context.environment.address,
+        eventSelector: M[eventSelectorOffset],
         log: M[logOffset:logOffset+logSize],
     }
 )`}
 </CodeBlock>
-- **Bit-size**: 88
+- **Bit-size**: 120
 
 [![](./images/bit-formats/EMITUNENCRYPTEDLOG.png)](./images/bit-formats/EMITUNENCRYPTEDLOG.png)
 
