@@ -9,9 +9,11 @@ When developing and referring to example .nr files/snippets, it is helpful to ve
 
 ### Checking tool versions
 To check your version of Aztec tools, you can use `aztec-cli -V`
+
 :::note
 The `aztec-nargo` versions follow `nargo` versions, which is different to the Aztec tool versions.
 :::note
+
 The latest version of the Aztec tooling is currently `#include_aztec_version` , updating roughly every week.
 
 ### Dependency versions
@@ -19,16 +21,19 @@ Dependency versions in a contract's `Nargo.toml` file correspond to the `aztec-p
 
 If you get an error like: `Cannot read file ~/nargo/github.com/AztecProtocol/aztec-packages/...`
 Check the `git=` github url, tag, and directory.
+
 :::note
 The folder structure changed at **0.24.0** from `yarn-project/aztec-nr` to `noir-projects/aztec-nr`.
 :::note
 
 That is, BEFORE `aztec-packages-v0.24.0`:
+
 ```toml
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="aztec-packages-v0.23.0", directory="yarn-project/aztec-nr/aztec" }
 ```
 
 At/after `aztec-packages-v0.24.0`:
+
 ```toml
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="aztec-packages-v0.24.0", directory="noir-projects/aztec-nr/aztec" }
 ```
@@ -55,6 +60,7 @@ diff ~/nargo/github.com/AztecProtocol/aztec-packages-v0.23.0/yarn-project/noir-c
 ### Language server version (aztec-nargo)
 The [Noir LSP](https://docs.aztec.network/developers/contracts/main#install-noir-lsp-recommended) uses your local version of `aztec-nargo`, and thus also `aztec-nargo compile`.
 The path of the former (once installed) can be seen by hovering over "Nargo" in the bottom status bar of VS Code, and the latter via the `which aztec-nargo` command.
+
 :::caution
 For Aztec contract files, this should be `aztec-nargo` and for noir-only files this should be `nargo`. Mismatching tools and file types will generate misleading syntax and compiler errors.
 :::caution
