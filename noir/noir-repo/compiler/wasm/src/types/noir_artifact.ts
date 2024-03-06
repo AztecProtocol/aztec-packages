@@ -38,6 +38,8 @@ export interface EventAbi {
 export interface NoirFunctionEntry {
   /** The name of the function. */
   name: string;
+  /** Whether the function is unconstrained. */
+  is_unconstrained: boolean;
   /** The custom attributes applied to the function. */
   custom_attributes: string[];
   /** The ABI of the function. */

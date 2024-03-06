@@ -43,6 +43,8 @@ impl From<CompiledContract> for ContractArtifact {
 pub struct ContractFunctionArtifact {
     pub name: String,
 
+    pub is_unconstrained: bool,
+
     pub custom_attributes: Vec<String>,
 
     pub abi: Abi,
@@ -64,6 +66,7 @@ impl From<ContractFunction> for ContractFunctionArtifact {
     fn from(func: ContractFunction) -> Self {
         ContractFunctionArtifact {
             name: func.name,
+            is_unconstrained: func.is_unconstrained,
             custom_attributes: func.custom_attributes,
             abi: func.abi,
             bytecode: func.bytecode,

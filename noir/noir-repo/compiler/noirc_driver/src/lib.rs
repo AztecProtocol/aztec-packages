@@ -422,6 +422,7 @@ fn compile_contract_inner(
             abi: function.abi,
             bytecode: function.circuit,
             debug: function.debug,
+            is_unconstrained: modifiers.is_unconstrained,
         });
     }
 

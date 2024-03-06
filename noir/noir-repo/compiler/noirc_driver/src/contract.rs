@@ -38,6 +38,8 @@ pub struct CompiledContract {
 pub struct ContractFunction {
     pub name: String,
 
+    pub is_unconstrained: bool,
+
     pub custom_attributes: Vec<String>,
 
     pub abi: Abi,
