@@ -4,6 +4,7 @@
   "license": "Apache-2.0",
   "description": "Aztec contracts for the Ethereum mainnet and testnets",
   "devDependencies": {
+    "@defi-wonderland/natspec-smells": "^1.1.1",
     "solhint": "https://github.com/LHerskind/solhint#master"
   },
   "scripts": {
