@@ -426,6 +426,12 @@ export class AztecNodeService implements AztecNode {
     return committedDb.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
   }
 
+  /**
+   * Returns a sibling path for a leaf in a virtual l2 to l1 data tree.
+   * @param blockNumber - The block number at which to get the data.
+   * @param l2ToL1Message - The l2ToL1Message get the sibling path for.
+   * @returns The sibling path.
+   */
   public async getL2ToL1MessageSiblingPath(
     blockNumber: number | 'latest',
     l2ToL1Message: Fr,
