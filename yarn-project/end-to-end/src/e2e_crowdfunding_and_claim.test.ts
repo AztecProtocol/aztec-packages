@@ -1,6 +1,7 @@
 import {
   AccountWallet,
   AztecAddress,
+  CheatCodes,
   DebugLogger,
   ExtendedNote,
   Fr,
@@ -53,6 +54,8 @@ describe('e2e_crowdfunding_and_claim', () => {
   let crowdfundingPrivateKey;
   let crowdfundingPublicKey;
   let pxe: PXE;
+  let cheatCodes: CheatCodes;
+  let deadline: number; // end of crowdfunding period
 
   let valueNote!: any;
 
@@ -71,7 +74,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   };
 
   beforeAll(async () => {
-    ({ teardown, logger, pxe, wallets } = await setup(5));
+    ({ cheatCodes, teardown, logger, pxe, wallets } = await setup(5));
     operatorWallet = wallets[0];
     donorWallets = wallets.slice(1);
 
@@ -112,11 +115,15 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     await pxe.registerAccount(crowdfundingPrivateKey, computePartialAddress(deployInfo));
 
+    // We set the deadline to a week from now
+    deadline = (await cheatCodes.eth.timestamp()) + 7 * 24 * 60 * 60;
+
     const crowdfundingDeploymentReceipt = await CrowdfundingContract.deployWithPublicKey(
       crowdfundingPublicKey,
       operatorWallet,
       donationToken.address,
       operatorWallet.getAddress(),
+      deadline,
     )
       .send({ contractAddressSalt: salt })
       .wait();
