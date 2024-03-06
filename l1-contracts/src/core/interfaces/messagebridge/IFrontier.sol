@@ -18,7 +18,7 @@ interface IFrontier {
 
   /**
    * @notice Returns whether the tree is full
-   * @return Whether the tree is full
+   * @return True if full, false otherwise
    */
   function isFull() external view returns (bool);
 }
