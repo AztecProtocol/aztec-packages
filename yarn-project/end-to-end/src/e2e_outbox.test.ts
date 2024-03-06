@@ -19,11 +19,15 @@ describe('E2E Outbox Tests', () => {
   it('Checks the sibling path of the empty setup of two blocks of two empty tx effects each', async () => {
     const blockNumber = await aztecNode.getBlockNumber();
 
-    const block = await aztecNode.getBlock(blockNumber);
+    console.log(blockNumber);
+
+    const block = await aztecNode.getBlock(1);
 
     const l2ToL1Messages = block?.body.txEffects.flatMap(txEffect =>
       txEffect.l2ToL1Msgs.map(l2ToL1Message => l2ToL1Message.toBuffer()),
     );
+
+    console.log(block?.body.txEffects);
 
     expect(block?.body.txEffects.length).toBe(2);
 
