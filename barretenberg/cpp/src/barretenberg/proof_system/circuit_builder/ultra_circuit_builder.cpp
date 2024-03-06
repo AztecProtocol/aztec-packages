@@ -633,20 +633,20 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<Arithmetization>::create_gates_
         read_data[plookup::ColumnIdx::C3].push_back(third_idx);
         this->assert_valid_variables({ first_idx, second_idx, third_idx });
 
-        blocks.main.q_lookup_type().emplace_back(FF(1));
-        blocks.main.q_3().emplace_back(FF(table.table_index));
-        blocks.main.populate_wires(first_idx, second_idx, third_idx, this->zero_idx);
-        blocks.main.q_1().emplace_back(0);
-        blocks.main.q_2().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_1_step_sizes[i + 1]));
-        blocks.main.q_m().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_2_step_sizes[i + 1]));
-        blocks.main.q_c().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_3_step_sizes[i + 1]));
-        blocks.main.q_arith().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_sort().emplace_back(0);
-        blocks.main.q_elliptic().emplace_back(0);
-        blocks.main.q_aux().emplace_back(0);
+        blocks.lookup.q_lookup_type().emplace_back(FF(1));
+        blocks.lookup.q_3().emplace_back(FF(table.table_index));
+        blocks.lookup.populate_wires(first_idx, second_idx, third_idx, this->zero_idx);
+        blocks.lookup.q_1().emplace_back(0);
+        blocks.lookup.q_2().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_1_step_sizes[i + 1]));
+        blocks.lookup.q_m().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_2_step_sizes[i + 1]));
+        blocks.lookup.q_c().emplace_back((i == (num_lookups - 1) ? 0 : -multi_table.column_3_step_sizes[i + 1]));
+        blocks.lookup.q_arith().emplace_back(0);
+        blocks.lookup.q_4().emplace_back(0);
+        blocks.lookup.q_sort().emplace_back(0);
+        blocks.lookup.q_elliptic().emplace_back(0);
+        blocks.lookup.q_aux().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            blocks.lookup.pad_additional();
         }
         check_selector_length_consistency();
         ++this->num_gates;
@@ -775,7 +775,8 @@ std::vector<uint32_t> UltraCircuitBuilder_<Arithmetization>::decompose_into_defa
         uint256_t new_accumulator = accumulator - (uint256_t(round_sublimbs[0]) << shifts[0]) -
                                     (uint256_t(round_sublimbs[1]) << shifts[1]) -
                                     (uint256_t(round_sublimbs[2]) << shifts[2]);
-
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/873): potential issue here with using next gate,
+        // but maybe fine if they're all arithmetic.
         create_big_add_gate(
             {
                 new_limbs[0],
