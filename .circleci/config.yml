@@ -70,6 +70,11 @@ setup_env: &setup_env
     name: "Setup environment"
     command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH" "$CIRCLE_PULL_REQUEST"
 
+defaults_e2e_test: &defaults_e2e_test
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+
 jobs:
   # Dynamically filter our code, quickly figuring out which jobs we can skip.
   generate-config:
@@ -587,12 +592,6 @@ jobs:
           name: "Build"
           command: build end-to-end
           aztec_manifest_key: end-to-end
-
-
-defaults_e2e_test: &defaults_e2e_test
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
 
   e2e-2-pxes:
     steps:
