@@ -56,6 +56,7 @@ contract AvmTest {
     // fn setOpcodeUint128() -> pub u128 {
     //     1 << 120 as u128
     // }
+
     // Field should fit in 128 bits
     // ACIR only supports fields of up to 126 bits!
     // Same with internal fields for unconstrained functions, apprently.

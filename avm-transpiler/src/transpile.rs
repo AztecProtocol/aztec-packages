@@ -399,9 +399,8 @@ fn emit_storage_write(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
-    // For the foreign calls we want to handle, we do not want inputs, as they are getters
     assert!(inputs.len() == 2);
-    assert!(destinations.len() == 1); // TODO: we want this to be empty - change aztec nr?
+    assert!(destinations.len() == 0);
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
