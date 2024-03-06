@@ -151,7 +151,7 @@ template <typename FF_> class UltraArith {
     struct TraceBlocks {
         UltraTraceBlock pub_inputs;
         UltraTraceBlock arithmetic;
-        UltraTraceBlock sort;
+        UltraTraceBlock sort; // WORKTODO: change to genperm or something? "sort" is quite loaded
         UltraTraceBlock elliptic;
         UltraTraceBlock aux;
         UltraTraceBlock lookup;

@@ -941,29 +941,29 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
     this->assert_valid_variables(variable_index);
 
     for (size_t i = 0; i < variable_index.size(); i += gate_width) {
-        blocks.main.populate_wires(
+        blocks.sort.populate_wires(
             variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
 
         ++this->num_gates;
-        blocks.main.q_m().emplace_back(0);
-        blocks.main.q_1().emplace_back(0);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_sort().emplace_back(1);
-        blocks.main.q_elliptic().emplace_back(0);
-        blocks.main.q_lookup_type().emplace_back(0);
-        blocks.main.q_aux().emplace_back(0);
+        blocks.sort.q_m().emplace_back(0);
+        blocks.sort.q_1().emplace_back(0);
+        blocks.sort.q_2().emplace_back(0);
+        blocks.sort.q_3().emplace_back(0);
+        blocks.sort.q_c().emplace_back(0);
+        blocks.sort.q_arith().emplace_back(0);
+        blocks.sort.q_4().emplace_back(0);
+        blocks.sort.q_sort().emplace_back(1);
+        blocks.sort.q_elliptic().emplace_back(0);
+        blocks.sort.q_lookup_type().emplace_back(0);
+        blocks.sort.q_aux().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            blocks.sort.pad_additional();
         }
         check_selector_length_consistency();
     }
     // dummy gate needed because of sort widget's check of next row
     create_dummy_gate(
-        blocks.main, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
+        blocks.sort, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
 }
 
 /**
@@ -972,7 +972,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
  * dummy gate itself does not have to satisfy any constraints (all selectors are zero).
  *
  * @tparam Arithmetization
- * @param variable_index
+ * @param block Execution trace block into which the dummy gate is to be placed
  */
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_dummy_gate(
@@ -1017,6 +1017,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_dummy_constraints(const std::
 }
 
 // Check for a sequence of variables that neighboring differences are at most 3 (used for batched range checks)
+// WORKTODO: changing this to sort block passes for many tests that use it but not for "ram". hmm
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     const std::vector<uint32_t>& variable_index, const FF& start, const FF& end)
