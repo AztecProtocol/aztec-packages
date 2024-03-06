@@ -162,7 +162,13 @@ contract NewInboxTest is Test {
     for (uint256 i = 0; i < _messages.length; i++) {
       DataStructures.L1ToL2Msg memory message = _boundMessage(_messages[i]);
 
+      // We check whether a new tree is correctly initialized when the one in progress is full
+      uint256 numTrees = inbox.getNumTrees();
+      uint256 expectedNumTrees = inbox.treeInProgressFull() ? numTrees + 1 : numTrees;
+
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+
+      assertEq(inbox.getNumTrees(), expectedNumTrees, "Unexpected number of trees");
     }
 
     // Root of a tree waiting to be consumed should not change because we introduced a 1 block lag to prevent sequencer
@@ -201,8 +207,8 @@ contract NewInboxTest is Test {
         (inbox.getToConsume() + 1 == inbox.getInProgress()) ? numTrees + 1 : numTrees;
       bytes32 root = inbox.consume();
 
-      // We perform this check to verify that new tree initialization works as expected
-      assertEq(inbox.getNumTrees(), expectedNumTrees, "Unexptected number of trees");
+      // We check whether a new tree is correctly initialized when the one which was in progress was set as to consume
+      assertEq(inbox.getNumTrees(), expectedNumTrees, "Unexpected number of trees");
 
       // We perform empty roots check only after first batch because after second one the following simple accounting
       // does not work
