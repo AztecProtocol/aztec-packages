@@ -604,9 +604,6 @@ jobs:
     <<: *defaults_e2e_test
 
   e2e-note-getter:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -614,11 +611,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_note_getter.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-counter:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -626,11 +621,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_counter_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-private-voting:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -638,11 +631,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_private_voting_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-multiple-accounts-1-enc-key:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -650,11 +641,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_multiple_accounts_1_enc_key.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-deploy-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -662,11 +651,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_deploy_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-lending-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -674,11 +661,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_lending_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-token-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -686,11 +671,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_token_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-authwit-test:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -698,11 +681,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_authwit.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-blacklist-token-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -710,6 +691,7 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_blacklist_token_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   # TODO(3458): Investigate intermittent failure
   # e2e-slow-tree:
@@ -725,9 +707,6 @@ jobs:
   #         aztec_manifest_key: end-to-end
 
   e2e-sandbox-example:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -735,11 +714,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_sandbox_example.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-state-vars:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -747,11 +724,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_state_vars.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-block-building:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -759,11 +734,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_block_building.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-nested-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -771,11 +744,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_nested_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-static-calls:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -783,11 +754,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_static_calls.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-delegate-calls:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -795,11 +764,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_delegate_calls.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-non-contract-account:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -807,11 +774,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_non_contract_account.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-cross-chain-messaging:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -819,11 +784,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_cross_chain_messaging.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-public-cross-chain-messaging:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -831,11 +794,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_public_cross_chain_messaging.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-public-to-private-messaging:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -843,11 +804,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_public_to_private_messaging.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-account-contracts:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -855,11 +814,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_account_contracts.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-escrow-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -867,11 +824,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_escrow_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-inclusion-proofs-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -879,11 +834,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_inclusion_proofs_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-pending-note-hashes-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -891,11 +844,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_pending_note_hashes_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-ordering:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -903,11 +854,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_ordering.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   uniswap-trade-on-l1-from-l2:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -915,11 +864,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=uniswap_trade_on_l1_from_l2.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   integration-archiver-l1-to-l2:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -927,11 +874,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=integration_archiver_l1_to_l2.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   integration-l1-publisher:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -939,11 +884,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=integration_l1_publisher.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-cli:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -951,11 +894,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_cli.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-persistence:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -963,11 +904,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=e2e_persistence.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-browser:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -975,11 +914,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_aztec_js_browser.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-card-game:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -987,11 +924,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_card_game.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-avm-simulator:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -999,11 +934,9 @@ jobs:
           name: "Test"
           command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_avm_simulator.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-fees:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1011,11 +944,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_fees.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-dapp-subscription:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1023,11 +954,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_dapp_subscription.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   pxe:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1035,11 +964,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=pxe_sandbox.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   cli-docs-sandbox:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1047,11 +974,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=cli_docs_sandbox.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-docs-examples:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1059,11 +984,9 @@ jobs:
           name: "Test"
           command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=docs_examples_test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   guides-writing-an-account-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1071,11 +994,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=guides/writing_an_account_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   guides-dapp-testing:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1083,11 +1004,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=guides/dapp_testing.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   guides-sample-dapp:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1095,11 +1014,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=sample-dapp
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   guides-up-quick-start:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1107,11 +1024,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=guides/up_quick_start.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   bench-publish-rollup:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1119,11 +1034,9 @@ jobs:
           name: "Benchmark"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_publish_rollup.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   bench-process-history:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1131,6 +1044,7 @@ jobs:
           name: "Benchmark"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_process_history.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   build-docs:
     machine:
