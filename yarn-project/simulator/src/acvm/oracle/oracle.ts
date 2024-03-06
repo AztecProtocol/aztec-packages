@@ -253,7 +253,7 @@ export class Oracle {
     return values.map(toACVMField);
   }
 
-  storageWrite([startStorageSlot]: ACVMField[], values: ACVMField[])  {
+  storageWrite([startStorageSlot]: ACVMField[], values: ACVMField[]) {
     this.typedOracle.storageWrite(fromACVMField(startStorageSlot), values.map(fromACVMField));
 
     // We return 0 here as we MUST return something, but the value is not used.
