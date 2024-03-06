@@ -31,6 +31,7 @@ contract Crowdfunding {
         // Crowdfunding campaign operator
         operator: SharedImmutable<AztecAddress>,
         // End of the crowdfunding campaign after which no more donations are accepted
+        // TODO(#4990): Make deadline a u64 once the neccessary traits are implemented
         deadline: PublicImmutable<Field>,
         // Notes emitted to donors when they donate (later on used to claim rewards in the Claim contract)
         claim_notes: PrivateSet<ValueNote>,
@@ -49,6 +50,7 @@ contract Crowdfunding {
     #[aztec(public)]
     #[aztec(internal)]
     #[aztec(noinitcheck)]
+    // TODO(#4990): Make deadline a u64 once the neccessary traits are implemented
     fn _initialize(donation_token: AztecAddress, operator: AztecAddress, deadline: Field) {
         storage.donation_token.initialize(donation_token);
         storage.operator.initialize(operator);
@@ -58,6 +60,7 @@ contract Crowdfunding {
     #[aztec(public)]
     #[aztec(internal)]
     fn _check_deadline() {
+        // TODO(#4990): Remove the cast here once u64 is used directly
         let deadline = storage.deadline.read() as u64;
         assert(context.timestamp() as u64 < deadline, "Deadline has passed");
     }
