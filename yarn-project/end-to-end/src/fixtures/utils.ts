@@ -315,6 +315,7 @@ export async function setup(
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
   logger('Creating and synching an aztec node...');
+  
   const acvmConfig = await getACVMConfig(logger);
   if (acvmConfig) {
     config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
