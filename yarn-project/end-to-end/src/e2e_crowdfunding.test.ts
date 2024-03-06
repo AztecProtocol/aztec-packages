@@ -15,7 +15,7 @@ import {
 } from '@aztec/aztec.js';
 import { EthAddress, computePartialAddress } from '@aztec/circuits.js';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
-import { CrowdFundingContract, CrowdFundingContractArtifact } from '@aztec/noir-contracts.js/CrowdFunding';
+import { CrowdfundingContract, CrowdfundingContractArtifact } from '@aztec/noir-contracts.js/Crowdfunding';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
@@ -47,7 +47,7 @@ describe('e2e_crowdfunding', () => {
 
   let donationToken: TokenContract;
   let rewardToken: TokenContract;
-  let crowdfunding: CrowdFundingContract;
+  let crowdfunding: CrowdfundingContract;
   let claims: ClaimContract;
 
   let crowdfundingPrivateKey;
@@ -101,7 +101,7 @@ describe('e2e_crowdfunding', () => {
     const args = [donationToken.address, operatorWallet.getAddress()];
 
     const deployInfo = getContractInstanceFromDeployParams(
-      CrowdFundingContractArtifact,
+      CrowdfundingContractArtifact,
       args,
       salt,
       crowdfundingPublicKey,
@@ -110,7 +110,7 @@ describe('e2e_crowdfunding', () => {
 
     await pxe.registerAccount(crowdfundingPrivateKey, computePartialAddress(deployInfo));
 
-    const crowdfundingDeploymentReceipt = await CrowdFundingContract.deployWithPublicKey(
+    const crowdfundingDeploymentReceipt = await CrowdfundingContract.deployWithPublicKey(
       crowdfundingPublicKey,
       operatorWallet,
       donationToken.address,
@@ -121,7 +121,7 @@ describe('e2e_crowdfunding', () => {
 
     crowdfunding = crowdfundingDeploymentReceipt.contract;
 
-    logger(`Campaign contract deployed at ${crowdfunding.address}`);
+    logger(`Crowdfunding contract deployed at ${crowdfunding.address}`);
     logger(`Reward Token deployed to ${rewardToken.address}`);
 
     const claimContractReceipt = await ClaimContract.deploy(operatorWallet, crowdfunding.address, rewardToken.address)
@@ -202,14 +202,14 @@ describe('e2e_crowdfunding', () => {
       debug: true,
     });
 
-    const allCampaignNotes = donateTxReceipt.debugInfo?.visibleNotes.filter(x =>
+    const allCrowdfundingNotes = donateTxReceipt.debugInfo?.visibleNotes.filter(x =>
       x.contractAddress.equals(crowdfunding.address),
     );
 
-    expect(allCampaignNotes?.length).toEqual(1);
+    expect(allCrowdfundingNotes?.length).toEqual(1);
 
     // TODO(#4956): Make the following call unnecessary
-    const noteNonces = await pxe.getNoteNonces(allCampaignNotes![0]);
+    const noteNonces = await pxe.getNoteNonces(allCrowdfundingNotes![0]);
     expect(noteNonces?.length).toEqual(1);
 
     await claims
@@ -224,9 +224,9 @@ describe('e2e_crowdfunding', () => {
           is_transient: false,
           nonce: noteNonces![0],
         },
-        value: allCampaignNotes![0].note.items[0],
-        owner: allCampaignNotes![0].note.items[1],
-        randomness: allCampaignNotes![0].note.items[2],
+        value: allCrowdfundingNotes![0].note.items[0],
+        owner: allCrowdfundingNotes![0].note.items[1],
+        randomness: allCrowdfundingNotes![0].note.items[2],
       })
       .send()
       .wait();
@@ -245,8 +245,8 @@ describe('e2e_crowdfunding', () => {
             is_transient: false,
             nonce: noteNonces![0],
           },
-          value: allCampaignNotes![0].note.items[0],
-          owner: allCampaignNotes![0].note.items[1],
+          value: allCrowdfundingNotes![0].note.items[0],
+          owner: allCrowdfundingNotes![0].note.items[1],
           randomness: Fr.ZERO,
         })
         .send()
@@ -267,9 +267,9 @@ describe('e2e_crowdfunding', () => {
             is_transient: false,
             nonce: noteNonces![0],
           },
-          value: allCampaignNotes![0].note.items[0],
-          owner: allCampaignNotes![0].note.items[1],
-          randomness: allCampaignNotes![0].note.items[2],
+          value: allCrowdfundingNotes![0].note.items[0],
+          owner: allCrowdfundingNotes![0].note.items[1],
+          randomness: allCrowdfundingNotes![0].note.items[2],
         })
         .send()
         .wait(),
@@ -280,18 +280,18 @@ describe('e2e_crowdfunding', () => {
     // Balance of public reward token should be the amount claimed
     expect(balanceOfRewardToken).toEqual(1000n);
 
-    const balanceOfEthTokenBeforeWithdrawal = await donationToken.methods
+    const balanceDNTBeforeWithdrawal = await donationToken.methods
       .balance_of_private(operatorWallet.getAddress())
       .view();
 
-    expect(balanceOfEthTokenBeforeWithdrawal).toEqual(0n);
+    expect(balanceDNTBeforeWithdrawal).toEqual(0n);
 
     await crowdfunding.methods.withdraw(1000n).send().wait();
 
-    const balanceOfEthTokenAfterWithdrawal = await donationToken.methods
+    const balanceDNTAfterWithdrawal = await donationToken.methods
       .balance_of_private(operatorWallet.getAddress())
       .view();
 
-    expect(balanceOfEthTokenAfterWithdrawal).toEqual(1000n);
+    expect(balanceDNTAfterWithdrawal).toEqual(1000n);
   });
 });

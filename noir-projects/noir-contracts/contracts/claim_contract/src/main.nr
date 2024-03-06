@@ -13,33 +13,35 @@ contract Claim {
     use interfaces::Token;
 
     struct Storage {
-      campaign_contract: SharedImmutable<AztecAddress>,
+      // Address of a contract based on whose notes we distribute the rewards
+      target_contract: SharedImmutable<AztecAddress>,
+      // Token to be distributed as a reward when claiming
       reward_token: SharedImmutable<AztecAddress>,
     }
 
     #[aztec(private)]
-    fn constructor(campaign_contract: AztecAddress, reward_token: AztecAddress) {
+    fn constructor(target_contract: AztecAddress, reward_token: AztecAddress) {
         let selector = FunctionSelector::from_signature("_initialize((Field),(Field))");
         context.call_public_function(
             context.this_address(),
             selector,
-            [campaign_contract.to_field(), reward_token.to_field()]
+            [target_contract.to_field(), reward_token.to_field()]
         );
     }
 
     #[aztec(public)]
     #[aztec(internal)]
     #[aztec(noinitcheck)]
-    fn _initialize(campaign_contract: AztecAddress, reward_token: AztecAddress) {
-        storage.campaign_contract.initialize(campaign_contract);
+    fn _initialize(target_contract: AztecAddress, reward_token: AztecAddress) {
+        storage.target_contract.initialize(target_contract);
         storage.reward_token.initialize(reward_token);
     }
 
     #[aztec(private)]
     fn claim(proof_note: ValueNote) {
-        // First we check that the note corresponds to the campaign contract
-        let campaign_address = storage.campaign_contract.read_private();
-        assert(campaign_address == proof_note.header.contract_address, "Note does not correspond to the campaign contract");
+        // First we check that the note corresponds to the target contract
+        let target_address = storage.target_contract.read_private();
+        assert(target_address == proof_note.header.contract_address, "Note does not correspond to the target contract");
 
         // Now we prove that the note hash exists in the note hash tree
         prove_note_inclusion(proof_note, context);

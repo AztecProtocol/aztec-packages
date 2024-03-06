@@ -1,4 +1,4 @@
-contract CrowdFunding {
+contract Crowdfunding {
     mod interfaces;
 
     use dep::aztec::{
