@@ -57,7 +57,7 @@ The [Noir LSP](https://docs.aztec.network/developers/contracts/main#install-noir
 The path of the former (once installed) can be seen by hovering over "Nargo" in the bottom status bar of VS Code, and the latter via the `which aztec-nargo` command.
 :::caution
 For Aztec contract files, this should be `aztec-nargo` and for noir-only files this should be `nargo`. Mismatching tools and file types will generate misleading syntax and compiler errors.
-:::
+:::caution
 
 This can present confusion when opening older contracts (and dependencies) written in older version of noir, such as:
 - Logs filled with errors from the dependencies
