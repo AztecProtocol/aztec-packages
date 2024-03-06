@@ -225,7 +225,7 @@ describe('public_processor', () => {
       expect(processed).toEqual([expectedTxByHash(tx)]);
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(2);
       expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(0);
     });
 
@@ -273,7 +273,7 @@ describe('public_processor', () => {
       expect(processed).toEqual([expectedTxByHash(tx)]);
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(2);
       expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(0);
     });
 
@@ -439,7 +439,7 @@ describe('public_processor', () => {
       expect(appLogicSpy).toHaveBeenCalledTimes(1);
       expect(teardownSpy).toHaveBeenCalledTimes(3);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(3);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(4);
       expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(0);
       expect(
         arrayNonEmptyLength(processed[0].data.combinedData.publicDataUpdateRequests, PublicDataUpdateRequest.isEmpty),

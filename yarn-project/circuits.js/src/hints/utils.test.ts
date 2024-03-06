@@ -141,6 +141,19 @@ describe('hints utils', () => {
       expectEmptyArrays(nullifiers.slice(4));
     });
 
+    it('combines all items from both arrays', () => {
+      arr0 = makeTuple(length0, i => new TestItem(i + 1));
+      arr1 = makeTuple(length1, i => new TestItem(i + 999));
+      const nullifiers = concatAccumulatedData(length, arr0, arr1);
+      expect(nullifiers).toEqual([...arr0, ...arr1]);
+    });
+
+    it('throws if given length is incorrect', () => {
+      expect(() => concatAccumulatedData(length + 1, arr0, arr1)).toThrow(
+        /Provided length does not match combined length./,
+      );
+    });
+
     it('throws if arr0 contains non-continuous items', () => {
       arr0[0] = new TestItem(12);
       arr0[2] = new TestItem(34);

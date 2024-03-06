@@ -5,8 +5,7 @@ use dep::types::{
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
     kernel_data::PublicKernelData, side_effect::SideEffectLinkedToNoteHash
 },
-    constants::MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-    utils::{arrays::{array_length, array_merge, array_concat}}
+    constants::MAX_NEW_NULLIFIERS_PER_TX, utils::{arrays::{array_length, array_merge, array_concat}}
 };
 use dep::std::unsafe;
 
@@ -39,7 +38,7 @@ impl PublicKernelTailCircuitPrivateInputs {
             end.nullifier_read_requests
         );
 
-        let pending_nullifiers: [SideEffectLinkedToNoteHash; MAX_NULLIFIER_READ_REQUESTS_PER_TX] = array_concat(end_non_revertible.new_nullifiers, end.new_nullifiers);
+        let pending_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX] = array_concat(end_non_revertible.new_nullifiers, end.new_nullifiers);
 
         let hints = self.nullifier_read_request_reset_hints;
 

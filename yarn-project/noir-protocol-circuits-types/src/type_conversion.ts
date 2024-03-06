@@ -725,7 +725,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
     return_values: mapTuple(privateCircuitPublicInputs.returnValues, mapFieldToNoir),
     note_hash_read_requests: mapTuple(privateCircuitPublicInputs.noteHashReadRequests, mapSideEffectToNoir),
-    nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapSideEffectToNoir),
+    nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapReadRequestToNoir),
     nullifier_key_validation_requests: mapTuple(
       privateCircuitPublicInputs.nullifierKeyValidationRequests,
       mapNullifierKeyValidationRequestToNoir,
@@ -1233,7 +1233,7 @@ export function mapPublicAccumulatedNonRevertibleDataToNoir(
   data: PublicAccumulatedNonRevertibleData,
 ): PublicAccumulatedNonRevertibleDataNoir {
   return {
-    nullifier_read_requests: mapTuple(data.nullifierReadRequests, mapSideEffectToNoir),
+    nullifier_read_requests: mapTuple(data.nullifierReadRequests, mapReadRequestContextToNoir),
     new_note_hashes: mapTuple(data.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(data.newNullifiers, mapSideEffectLinkedToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),

@@ -66,6 +66,7 @@ pub fn array_cp<T, N, S>(array: [T; N]) -> [T; S] where T: Empty {
 }
 
 pub fn array_concat<T, N, S, M>(array1: [T; N], array2: [T; S]) -> [T; M] where T: Empty + Eq {
+    assert(N + S <= M, "combined array length exceeds length of return array");
     let mut result: [T; M] = [T::empty(); M];
     let mut i = 0;
     for elem in array1 {

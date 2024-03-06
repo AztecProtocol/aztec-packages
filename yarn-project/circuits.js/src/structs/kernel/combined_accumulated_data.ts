@@ -744,7 +744,14 @@ export class PublicAccumulatedNonRevertibleData {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.newNoteHashes, this.newNullifiers, this.publicCallStack);
+    return serializeToBuffer(
+      this.nullifierReadRequests,
+      this.newNoteHashes,
+      this.newNullifiers,
+      this.publicCallStack,
+      this.publicDataUpdateRequests,
+      this.publicDataReads,
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
