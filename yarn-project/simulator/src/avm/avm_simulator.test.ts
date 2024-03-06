@@ -137,7 +137,7 @@ describe('AVM simulator', () => {
         // Tracing
         const storageTrace = worldState.storageWrites.get(address.toBigInt())!;
         const slotTrace = storageTrace.get(slot);
-        expect(slotTrace).toEqual(sender.toField());
+        expect(slotTrace).toEqual([sender.toField()]);
       });
 
       it('Should read a value from storage', async () => {
@@ -160,12 +160,12 @@ describe('AVM simulator', () => {
         // Test read trace
         const storageReadTrace = worldState.storageReads.get(address.toBigInt())!;
         const slotReadTrace = storageReadTrace.get(1n);
-        expect(slotReadTrace).toEqual(sender.toField());
+        expect(slotReadTrace).toEqual([sender.toField()]);
 
         // Test write trace
         const storageWriteTrace = worldState.storageWrites.get(address.toBigInt())!;
         const slotWriteTrace = storageWriteTrace.get(1n);
-        expect(slotWriteTrace).toEqual(sender.toField());
+        expect(slotWriteTrace).toEqual([sender.toField()]);
       });
     });
 
