@@ -74,7 +74,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   };
 
   beforeAll(async () => {
-    ({ cheatCodes, teardown, logger, pxe, wallets } = await setup(5));
+    ({ cheatCodes, teardown, logger, pxe, wallets } = await setup(3));
     operatorWallet = wallets[0];
     donorWallets = wallets.slice(1);
 
@@ -152,19 +152,12 @@ describe('e2e_crowdfunding_and_claim', () => {
   afterAll(() => teardown());
 
   const mintDNTToDonors = async () => {
-    const secret = new Fr(100);
+    const secret = Fr.random();
     const secretHash = computeMessageSecretHash(secret);
 
-    await Promise.all([
-      donationToken.withWallet(operatorWallet).methods.set_minter(donorWallets[0].getAddress(), true).send().wait(),
-      donationToken.withWallet(operatorWallet).methods.set_minter(donorWallets[1].getAddress(), true).send().wait(),
-      donationToken.withWallet(operatorWallet).methods.set_minter(donorWallets[2].getAddress(), true).send().wait(),
-    ]);
-
-    const [txReceipt1, txReceipt2, txReceipt3] = await Promise.all([
-      donationToken.withWallet(donorWallets[0]).methods.mint_private(1234n, secretHash).send().wait(),
-      donationToken.withWallet(donorWallets[1]).methods.mint_private(2345n, secretHash).send().wait(),
-      donationToken.withWallet(donorWallets[2]).methods.mint_private(3456n, secretHash).send().wait(),
+    const [txReceipt1, txReceipt2] = await Promise.all([
+      donationToken.withWallet(operatorWallet).methods.mint_private(1234n, secretHash).send().wait(),
+      donationToken.withWallet(operatorWallet).methods.mint_private(2345n, secretHash).send().wait(),
     ]);
 
     await addPendingShieldNoteToPXE(
@@ -181,13 +174,6 @@ describe('e2e_crowdfunding_and_claim', () => {
       txReceipt2.txHash,
       donationToken.withWallet(operatorWallet).address,
     );
-    await addPendingShieldNoteToPXE(
-      donorWallets[2],
-      3456n,
-      secretHash,
-      txReceipt3.txHash,
-      donationToken.withWallet(operatorWallet).address,
-    );
 
     await Promise.all([
       donationToken
@@ -198,11 +184,6 @@ describe('e2e_crowdfunding_and_claim', () => {
       donationToken
         .withWallet(donorWallets[1])
         .methods.redeem_shield(donorWallets[1].getAddress(), 2345n, secret)
-        .send()
-        .wait(),
-      donationToken
-        .withWallet(donorWallets[2])
-        .methods.redeem_shield(donorWallets[2].getAddress(), 3456n, secret)
         .send()
         .wait(),
     ]);
