@@ -73,7 +73,7 @@ setup_env: &setup_env
 defaults_e2e_test: &defaults_e2e_test
     docker:
       - image: aztecprotocol/alpine-build-image
-    resource_class: large
+    resource_class: small
 
 jobs:
   # Dynamically filter our code, quickly figuring out which jobs we can skip.
