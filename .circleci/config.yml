@@ -588,7 +588,8 @@ jobs:
           command: build end-to-end
           aztec_manifest_key: end-to-end
 
-e2e-test-defaults: &e2e-test-defaults
+
+defaults_e2e_test: &defaults_e2e_test
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -601,7 +602,7 @@ e2e-test-defaults: &e2e-test-defaults
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_2_pxes.test.ts
           aztec_manifest_key: end-to-end
-    <<: *e2e-test-defaults
+    <<: *defaults_e2e_test
 
   e2e-note-getter:
     docker:
