@@ -39,10 +39,6 @@ template <class Flavor> class ProverInstance_ {
 
     std::array<Polynomial, 4> sorted_polynomials;
 
-    // The number of public inputs has to be the same for all instances because they are
-    // folded element by element.
-    std::vector<FF> public_inputs;
-
     RelationSeparator alphas;
     bb::RelationParameters<FF> relation_parameters;
 
@@ -86,7 +82,7 @@ template <class Flavor> class ProverInstance_ {
         // Construct the public inputs array
         for (size_t i = 0; i < proving_key->num_public_inputs; ++i) {
             size_t idx = i + proving_key->pub_inputs_offset;
-            public_inputs.emplace_back(public_wires_source[idx]);
+            proving_key->public_inputs.emplace_back(public_wires_source[idx]);
         }
     }
 

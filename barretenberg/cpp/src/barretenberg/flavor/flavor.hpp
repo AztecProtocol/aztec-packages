@@ -115,6 +115,10 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     // instances
     size_t pub_inputs_offset = 0;
 
+    // The number of public inputs has to be the same for all instances because they are
+    // folded element by element.
+    std::vector<FF> public_inputs;
+
     std::vector<std::string> get_labels() const
     {
         return concatenate(PrecomputedPolynomials::get_labels(), WitnessPolynomials::get_labels());

@@ -50,7 +50,7 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_preamble_roun
     transcript->send_to_verifier("pub_inputs_offset", static_cast<uint32_t>(proving_key->pub_inputs_offset));
 
     for (size_t i = 0; i < proving_key->num_public_inputs; ++i) {
-        auto public_input_i = instance->public_inputs[i];
+        auto public_input_i = proving_key->public_inputs[i];
         transcript->send_to_verifier("public_input_" + std::to_string(i), public_input_i);
     }
 }

@@ -12,8 +12,8 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
     transcript->send_to_verifier(domain_separator + "_instance_size", instance_size);
     transcript->send_to_verifier(domain_separator + "_public_input_size", num_public_inputs);
 
-    for (size_t i = 0; i < instance->public_inputs.size(); ++i) {
-        auto public_input_i = instance->public_inputs[i];
+    for (size_t i = 0; i < instance->proving_key->public_inputs.size(); ++i) {
+        auto public_input_i = instance->proving_key->public_inputs[i];
         transcript->send_to_verifier(domain_separator + "_public_input_" + std::to_string(i), public_input_i);
     }
     transcript->send_to_verifier(domain_separator + "_pub_inputs_offset",
@@ -162,14 +162,14 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // verification, the verifier will produce ϕ* as well and check it against what was sent by the prover.
 
     // Fold the public inputs and send to the verifier
-    next_accumulator->public_inputs = std::vector<FF>(instances[0]->public_inputs.size(), 0);
+    next_accumulator->proving_key->public_inputs = std::vector<FF>(instances[0]->proving_key->public_inputs.size(), 0);
     size_t el_idx = 0;
-    for (auto& el : next_accumulator->public_inputs) {
+    for (auto& el : next_accumulator->proving_key->public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/830)
-            if (instance->public_inputs.size() >= next_accumulator->public_inputs.size()) {
-                el += instance->public_inputs[el_idx] * lagranges[inst];
+            if (instance->proving_key->num_public_inputs >= next_accumulator->proving_key->num_public_inputs) {
+                el += instance->proving_key->public_inputs[el_idx] * lagranges[inst];
                 inst++;
             };
         }

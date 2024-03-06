@@ -192,7 +192,7 @@ void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
 template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
 {
     auto public_input_delta = compute_public_input_delta<Flavor>(
-        public_inputs, beta, gamma, proving_key->circuit_size, proving_key->pub_inputs_offset);
+        proving_key->public_inputs, beta, gamma, proving_key->circuit_size, proving_key->pub_inputs_offset);
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
     relation_parameters.public_input_delta = public_input_delta;
