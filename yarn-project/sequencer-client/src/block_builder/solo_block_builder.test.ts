@@ -221,12 +221,12 @@ describe('sequencer/solo_block_builder', () => {
     // Calculate what would be the tree roots after the first tx and update mock circuit output
     await updateExpectedTreesFromTxs([txs[0]]);
     baseRollupOutputLeft.end = await getPartialStateReference();
-    baseRollupOutputLeft.calldataHash = to2Fields(toTxEffect(tx).hash());
+    baseRollupOutputLeft.txsEffectsHash = to2Fields(toTxEffect(tx).hash());
 
     // Same for the tx on the right
     await updateExpectedTreesFromTxs([txs[1]]);
     baseRollupOutputRight.end = await getPartialStateReference();
-    baseRollupOutputRight.calldataHash = to2Fields(toTxEffect(tx).hash());
+    baseRollupOutputRight.txsEffectsHash = to2Fields(toTxEffect(tx).hash());
 
     // Update l1 to l2 message tree
     await updateL1ToL2MessageTree(mockL1ToL2Messages);
