@@ -38,6 +38,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
     fn public_kernel_setup(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        common::initialize_reverted_flag(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
@@ -396,11 +397,11 @@ mod tests {
 
         builder.public_call.append_update_requests(2);
         let storage = builder.get_current_public_data_update_requests();
-        let update_requests = [storage[0], storage[1]];
+        let _update_requests = [storage[0], storage[1]];
 
         builder.public_call.append_public_data_read_requests(3);
         let storage = builder.get_current_public_data_reads();
-        let read_requests = [storage[0], storage[1], storage[2]];
+        let _read_requests = [storage[0], storage[1], storage[2]];
 
         // Push the public call on top of the teardown call.
         let setup_call = builder.public_call.finish();

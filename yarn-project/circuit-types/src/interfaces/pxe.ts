@@ -124,6 +124,7 @@ export interface PXE {
    * @param simulatePublic - Whether to simulate the public part of the transaction.
    * @returns A transaction ready to be sent to the network for execution.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
+   * Also throws if simulatePublic is true and public simulation reverts.
    */
   simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
 
@@ -170,6 +171,15 @@ export interface PXE {
    * @returns The requested notes.
    */
   getNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
+
+  /**
+   * Finds the nonce(s) for a given note.
+   * @param note - The note to find the nonces for.
+   * @returns The nonces of the note.
+   * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
+   * TODO(#4956): Un-expose this
+   */
+  getNoteNonces(note: ExtendedNote): Promise<Fr[]>;
 
   /**
    * Adds a note to the database.
