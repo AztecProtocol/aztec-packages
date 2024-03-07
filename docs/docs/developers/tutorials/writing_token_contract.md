@@ -229,12 +229,12 @@ Below the dependencies, paste the following Storage struct:
 
 Reading through the storage variables:
 
-- `admin` a single Field value stored in public state. A `Field` is basically an unsigned integer with a maximum value determined by the underlying cryptographic curve.
-- `minters` is a mapping of Fields in public state. This will store whether an account is an approved minter on the contract.
+- `admin` an Aztec address stored in public state.
+- `minters` is a mapping of Aztec addresses in public state. This will store whether an account is an approved minter on the contract.
 - `balances` is a mapping of private balances. Private balances are stored in a `PrivateSet` of `ValueNote`s. The balance is the sum of all of an account's `ValueNote`s.
-- `total_supply` is a Field value stored in public state and represents the total number of tokens minted.
+- `total_supply` is an unsigned integer (max 128 bit value) stored in public state and represents the total number of tokens minted.
 - `pending_shields` is a `PrivateSet` of `TransparentNote`s stored in private state. What is stored publicly is a set of commitments to `TransparentNote`s.
-- `public_balances` is a mapping field elements in public state and represents the publicly viewable balances of accounts.
+- `public_balances` is a mapping of Aztec addresses in public state and represents the publicly viewable balances of accounts.
 
 You can read more about it [here](../contracts/writing_contracts/storage/main.md).
 
@@ -244,11 +244,9 @@ Copy and paste the body of each function into the appropriate place in your proj
 
 ### Constructor
 
-In the source code, the constructor logic is commented out due to some limitations of the current state of the development.
+This function sets the creator of the contract (passed as `msg_sender` from the constructor) as the admin and makes them a minter, and sets name, symbol, and decimals.
 
 #include_code constructor /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
-
-The constructor is a private function. There isn't any private state to set up in this function, but there is public state to set up. The `context` is a global variable that is available to private and public functions, but the available methods differ based on the context. You can see the implementation details [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/context.nr). The `context.call_public_function` allows a private function to call a public function on any contract. In this case, the constructor is passing the `msg_sender` as the argument to the `_initialize` function, which is also defined in this contract.
 
 ### Public function implementations
 
@@ -374,14 +372,6 @@ After initializing storage, the function checks that the `msg_sender` is authori
 ### Internal function implementations
 
 Internal functions are functions that can only be called by this contract. The following 3 functions are public functions that are called from the [private execution context](#execution-contexts). Marking these as `internal` ensures that only the desired private functions in this contract are able to call them. Private functions defer execution to public functions because private functions cannot update public state directly.
-
-#### `_initialize`
-
-This function is called via the [constructor](#constructor).
-
-This function sets the creator of the contract (passed as `msg_sender` from the constructor) as the admin and makes them a minter.
-
-#include_code initialize /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #### `_increase_public_balance`
 
