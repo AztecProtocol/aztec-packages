@@ -1060,6 +1060,176 @@ template curve::Grumpkin::Element pippenger_without_endomorphism_basis_points<cu
     const size_t num_initial_points,
     pippenger_runtime_state<curve::Grumpkin>& state);
 
+template <typename Curve> void batched_affine_add_in_place(MultipleAdditionSequences<Curve> addition_sequences)
+{
+    using G1 = typename Curve::AffineElement;
+    using Fq = typename Curve::BaseField;
+    std::cout << "enter" << std::endl;
+    const size_t num_points = addition_sequences.points.size();
+    if (num_points == 0 || num_points == 1) { // nothing to do
+        return;
+    }
+
+    std::vector<Fq> reserved_batch_inverse_space;
+    Fq* scratch_space;
+    if (!addition_sequences.scratch_space.has_value()) {
+        reserved_batch_inverse_space.resize(num_points);
+        scratch_space = &reserved_batch_inverse_space[0];
+    } else {
+        scratch_space = &addition_sequences.scratch_space.value()[0];
+    }
+
+    auto points = addition_sequences.points;
+    auto sequence_counts = addition_sequences.sequence_counts;
+
+    const size_t num_sequences = sequence_counts.size();
+
+    Fq accumulator = 1;
+    G1* point_ptr = &points[num_points - 2];
+    size_t cc = 0;
+    for (size_t i = 0; i < num_sequences; ++i) {
+        const size_t num_sequence_additions = sequence_counts[num_sequences - 1 - i] >> 1;
+        for (size_t j = 0; j < num_sequence_additions; ++j) {
+            const auto& x1 = point_ptr[0].x;
+            const auto& x2 = point_ptr[1].x;
+            //       std::cout << "t0 = " << accumulator << std::endl;
+            //   ASSERT(accumulator != 0);
+            *scratch_space = accumulator;
+            //      std::cout << "t1 = " << accumulator << std::endl;
+            //   ASSERT(accumulator != 0);
+            accumulator *= (x2 - x1);
+            //      std::cout << "t2 = " << accumulator << std::endl;
+            if (accumulator == 0) {
+                std::cout << "cc " << cc << std::endl;
+                std::cout << "diff = " << std::ptrdiff_t(&points[num_points - 2] - point_ptr) << std::endl;
+                ;
+            }
+            ASSERT(accumulator != 0);
+            point_ptr -= 2;
+            scratch_space += 1;
+            ++cc;
+        }
+        point_ptr += (sequence_counts[num_sequences - 1 - i] & 0x01ULL);
+    }
+
+    Fq inverse = accumulator.invert();
+
+    point_ptr = &points[0];
+    size_t output_point_count = 0;
+    size_t output_sequence_count = 0;
+    bool more_additions = false;
+    for (size_t i = 0; i < num_sequences; ++i) {
+        const size_t num_sequence_points = sequence_counts[i];
+        const size_t num_sequence_additions = num_sequence_points >> 1;
+        const bool overflow = static_cast<bool>(num_sequence_points & 0x01ULL);
+        if (overflow) {
+            points[output_point_count] = *point_ptr;
+            output_point_count += 1;
+            point_ptr += 1;
+        }
+        for (size_t j = 0; j < num_sequence_additions; ++j) {
+            const auto& x1 = point_ptr[0].x;
+            const auto& y1 = point_ptr[0].x;
+            const auto& x2 = point_ptr[1].x;
+            const auto& y2 = point_ptr[1].x;
+
+            const Fq denominator = inverse * (*scratch_space);
+            inverse *= (x2 - x1);
+
+            const Fq lambda = denominator * (y2 - y1);
+            Fq x3 = lambda.sqr() - x2 - x1;
+            Fq y3 = lambda * (x1 - x3) - y1;
+            points[output_point_count] = { x3, y3 };
+            scratch_space -= 1;
+            point_ptr += 2;
+            output_point_count += 1;
+        }
+        sequence_counts[output_sequence_count] =
+            static_cast<uint64_t>(num_sequence_additions) + static_cast<uint64_t>(overflow);
+        output_sequence_count++;
+
+        more_additions = more_additions || (sequence_counts[output_sequence_count] > 1);
+    }
+
+    std::cout << "output sequence count = " << output_sequence_count << std::endl;
+    if (more_additions) {
+        std::span<G1> next_points(&points[0], output_point_count);
+        std::span<uint64_t> next_sequences(&sequence_counts[0], output_sequence_count);
+        return batched_affine_add_in_place<Curve>(MultipleAdditionSequences<Curve>{
+            sequence_counts = next_sequences, points = next_points, addition_sequences.scratch_space });
+    }
+}
+
+// template <typename Curve> void batched_affine_add_in_place(MultipleAdditionSequences<Curve> addition_sequences)
+
+template void batched_affine_add_in_place<curve::Grumpkin>(
+    MultipleAdditionSequences<curve::Grumpkin> addition_sequences);
+template void batched_affine_add_in_place<curve::BN254>(MultipleAdditionSequences<curve::BN254> addition_sequences);
+
+template <typename Curve>
+void remove_duplicates(std::span<const typename Curve::ScalarField> polynomial,
+                       std::span<typename Curve::AffineElement> base_points,
+                       pippenger_runtime_state<Curve>& pippenger_runtime_state)
+{
+    using G1 = typename Curve::AffineElement;
+    using Fq = typename Curve::BaseField;
+    using Fr = typename Curve::ScalarField;
+
+    size_t* index_ptr = (size_t*)(pippenger_runtime_state.point_schedule);
+    std::span<size_t> index(index_ptr, polynomial.size());
+    std::iota(index.begin(), index.end(), 0);
+    // "Sort" the index array according to the value in the vector of doubles
+    std::sort(index.begin(), index.end(), [&](size_t n1, size_t n2) { return polynomial[n1] < polynomial[n2]; });
+
+    // we can store input points in point_pairs_1, and our final "result points" (the points we will be performing
+    // an MSM over) in state.point_pairs_2 the pippenger algo will map the input point data into state.point_pairs_2
+    // before performing computation
+    G1* mutable_base_points = pippenger_runtime_state.point_pairs_2;
+
+    // we can store our unique polynomial data in point_pairs_1 (point_pairs is twice as large as base_points).
+    // Disgusting! `compute_wnaf_state` will convert the input scalars into wnafs in wnaf_state prior to
+    // point_pairs_1 or point_pairs_2 being used
+    Fr* unique_polynomial_coefficients = (Fr*)(pippenger_runtime_state.point_pairs_2 + polynomial.size());
+
+    // we can re-use the point schedule to store our sequence count data
+    uint64_t* sequence_counts = pippenger_runtime_state.point_schedule;
+
+    unique_polynomial_coefficients[0] = polynomial[index[0]];
+    // sequence_counts[index[0]] = 1;
+    mutable_base_points[0] = base_points[index[0]];
+    std::cout << "indexes = " << index[0] << " : " << index[1] << std::endl;
+    std::cout << "p0, p1 = " << base_points[index[0]] << " : " << base_points[index[1]] << std::endl;
+    size_t count = 0;
+    sequence_counts[count] = 1;
+    for (size_t i = 1; i < polynomial.size(); ++i) {
+        if (polynomial[index[i]] == polynomial[index[i - 1]]) {
+            sequence_counts[count] += 1;
+        } else {
+            count++;
+            sequence_counts[count] = 1;
+            unique_polynomial_coefficients[count] = polynomial[index[i]];
+        }
+        mutable_base_points[i] = base_points[index[i]];
+    }
+
+    std::span<G1> unique_points(mutable_base_points, polynomial.size());
+    std::span<Fq> scratch_space(pippenger_runtime_state.scratch_space, polynomial.size());
+
+    std::cout << "initial sequence count = " << count << std::endl;
+    MultipleAdditionSequences<Curve> sequences{ .sequence_counts = std::span<uint64_t>(&sequence_counts[0], count),
+                                                .points = unique_points,
+                                                .scratch_space = scratch_space };
+    batched_affine_add_in_place<Curve>(sequences);
+}
+
+template void remove_duplicates<curve::Grumpkin>(std::span<const curve::Grumpkin::ScalarField> polynomial,
+                                                 std::span<curve::Grumpkin::AffineElement> base_points,
+                                                 pippenger_runtime_state<curve::Grumpkin>& state);
+
+template void remove_duplicates<curve::BN254>(std::span<const curve::BN254::ScalarField> polynomial,
+                                              std::span<curve::BN254::AffineElement> base_points,
+                                              pippenger_runtime_state<curve::BN254>& state);
+
 } // namespace bb::scalar_multiplication
 
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays, google-readability-casting)
