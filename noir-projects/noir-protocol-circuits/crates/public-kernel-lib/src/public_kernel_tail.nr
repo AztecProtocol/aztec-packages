@@ -15,6 +15,10 @@ struct PublicKernelTailCircuitPrivateInputs {
 }
 
 impl PublicKernelTailCircuitPrivateInputs {
+    fn propagate_reverted_flag(self, public_inputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+        public_inputs.reverted = self.previous_kernel.public_inputs.reverted;
+    }
+
     fn validate_inputs(self) {
         let previous_public_inputs = self.previous_kernel.public_inputs;
         assert(previous_public_inputs.needs_setup == false, "Previous kernel needs setup");
@@ -62,6 +66,8 @@ impl PublicKernelTailCircuitPrivateInputs {
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
 
         self.validate_inputs();
+
+        self.propagate_reverted_flag(&mut public_inputs);
 
         common::initialize_emitted_end_values(self.previous_kernel, &mut public_inputs);
 
