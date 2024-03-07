@@ -25,9 +25,7 @@ COPY . .
 RUN ./format.sh check && cmake --preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert -DCI=ON && cmake --build --preset clang16
 RUN srs_db/download_grumpkin.sh
 
-CMD ["/bin/bash"]
-
-# FROM ubuntu:lunar
-# RUN apt update && apt install curl libstdc++6 -y
-# COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
-# COPY --from=builder /usr/src/barretenberg/cpp/build/bin /usr/src/barretenberg/cpp/build/bin
+FROM ubuntu:lunar
+RUN apt update && apt install curl libstdc++6 -y
+COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
+COPY --from=builder /usr/src/barretenberg/cpp/build/bin /usr/src/barretenberg/cpp/build/bin
