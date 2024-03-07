@@ -25,26 +25,25 @@ REPOSITORY=$1
 DOCKERFILE=$(query_manifest dockerfile $REPOSITORY)
 PROJECT_DIR=$(query_manifest projectDir $REPOSITORY)
 BUILD_DIR=$(query_manifest buildDir $REPOSITORY)
+CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 
 echo "Repository: $REPOSITORY"
 echo "Working directory: $PWD"
 echo "Dockerfile: $DOCKERFILE"
 echo "Build directory: $BUILD_DIR"
+echo "Content hash: $CONTENT_HASH"
 
 # Login to ECR and ensure repository exists.
 # retry ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
 # Login to dockerhub.
 retry dockerhub_login
 
-CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
-echo "Content hash: $CONTENT_HASH"
-
 cd $BUILD_DIR
 
 # If we have previously successful commit, we can early out if nothing relevant has changed since.
 IMAGE_COMMIT_TAG=$(calculate_image_tag $REPOSITORY)
 if check_rebuild $IMAGE_COMMIT_TAG $REPOSITORY; then
-  echo "No rebuild necessary."
+  echo "No rebuild necessary for $REPOSITORY:$IMAGE_COMMIT_TAG."
   exit 0
 fi
 
@@ -120,7 +119,9 @@ function build {
 (build > >(awk -v c="$g" -v r="$r" '$0=c"x86_64: "r $0')) &
 (DOCKER_HOST=$DOCKER_HOST_ARM build > >(awk -v c="$b" -v r="$r" '$0=c"arm64: "r $0')) &
 
-wait
+for job in $(jobs -p); do
+  wait $job || exit 1
+done
 
 # MULTIARCH=$(query_manifest multiarch $REPOSITORY)
 
