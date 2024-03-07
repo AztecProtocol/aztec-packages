@@ -1,4 +1,5 @@
 import { L1ToL2Message, NewInboxLeaf } from '@aztec/circuit-types';
+import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -13,11 +14,34 @@ export class NewL1ToL2MessageStore {
    */
   protected store: Map<string, Buffer> = new Map();
 
+  #l1ToL2MessagesSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
+
   constructor() {}
 
   addMessage(message: NewInboxLeaf) {
     const key = `${message.blockNumber}-${message.index}`;
     this.store.set(key, message.leaf);
+  }
+
+  getMessages(blockNumber: bigint): Buffer[] {
+    const messages: Buffer[] = [];
+    let undefinedMessageFound = false;
+    for (let messageIndex = 0; messageIndex < this.#l1ToL2MessagesSubtreeSize; messageIndex++) {
+      // This is inefficient but probably fine for now.
+      const key = `${blockNumber}-${messageIndex}`;
+      const message = this.store.get(key);
+      if (message) {
+        if (undefinedMessageFound) {
+          throw new Error(`Undefined message found in the middle of the messages for block ${blockNumber}`);
+        }
+        messages.push(message);
+      } else {
+        undefinedMessageFound = true;
+        // We continue iterating over messages here to verify that there are no more messages after the undefined one.
+        // --> If this was the case this would imply there is some issue with log fetching.
+      }
+    }
+    return messages;
   }
 }
 

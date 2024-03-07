@@ -345,6 +345,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
+   * Gets new L1 to L2 message (to be) included in a given block.
+   * @param blockNumber - L2 block number to get messages for.
+   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
+   */
+  getNewL1ToL2Messages(blockNumber: bigint): Promise<Buffer[]> {
+    return Promise.resolve(this.newL1ToL2Messages.getMessages(blockNumber));
+  }
+
+  /**
    * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
    * @param limit - The number of logs to return.

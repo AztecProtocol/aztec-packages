@@ -213,6 +213,19 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
+   * Gets new L1 to L2 message (to be) included in a given block.
+   * @param blockNumber - L2 block number to get messages for.
+   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
+   */
+  getNewL1ToL2Messages(blockNumber: bigint): Promise<Buffer[]> {
+    try {
+      return Promise.resolve(this.#messageStore.getNewL1ToL2Messages(blockNumber));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  /**
    * Gets up to `limit` amount of logs starting from `from`.
    * @param start - Number of the L2 block to which corresponds the first logs to be returned.
    * @param limit - The number of logs to return.

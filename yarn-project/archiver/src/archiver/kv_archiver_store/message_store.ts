@@ -1,5 +1,5 @@
 import { L1ToL2Message, NewInboxLeaf } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { Fr, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecCounter, AztecKVStore, AztecMap, AztecSingleton } from '@aztec/kv-store';
 
@@ -28,6 +28,8 @@ export class MessageStore {
   #lastL1BlockCancellingMessages: AztecSingleton<bigint>;
 
   #log = createDebugLogger('aztec:archiver:message_store');
+
+  #l1ToL2MessagesSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
   constructor(private db: AztecKVStore) {
     this.#newMessages = db.openMap('archiver_l1_to_l2_new_messages');
@@ -201,5 +203,26 @@ export class MessageStore {
     }
 
     return entryKeys;
+  }
+
+  getNewL1ToL2Messages(blockNumber: bigint): Buffer[] {
+    const messages: Buffer[] = [];
+    let undefinedMessageFound = false;
+    for (let messageIndex = 0; messageIndex < this.#l1ToL2MessagesSubtreeSize; messageIndex++) {
+      // This is inefficient but probably fine for now.
+      const key = `${blockNumber}-${messageIndex}`;
+      const message = this.#newMessages.get(key);
+      if (message) {
+        if (undefinedMessageFound) {
+          throw new Error(`Undefined message found in the middle of the messages for block ${blockNumber}`);
+        }
+        messages.push(message);
+      } else {
+        undefinedMessageFound = true;
+        // We continue iterating over messages here to verify that there are no more messages after the undefined one.
+        // --> If this was the case this would imply there is some issue with log fetching.
+      }
+    }
+    return messages;
   }
 }

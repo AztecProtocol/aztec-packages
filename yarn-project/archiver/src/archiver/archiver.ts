@@ -600,6 +600,15 @@ export class Archiver implements ArchiveSource {
     return this.store.getConfirmedL1ToL2Message(entryKey);
   }
 
+  /**
+   * Gets new L1 to L2 message (to be) included in a given block.
+   * @param blockNumber - L2 block number to get messages for.
+   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
+   */
+  getNewL1ToL2Messages(blockNumber: bigint): Promise<Buffer[]> {
+    return this.store.getNewL1ToL2Messages(blockNumber);
+  }
+
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();
   }
