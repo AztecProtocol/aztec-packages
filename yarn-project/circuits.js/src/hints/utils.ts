@@ -50,9 +50,9 @@ export function concatAccumulatedData<T extends IsEmpty, NM extends number, N ex
 
   const numNonEmptyItems0 = countAccumulatedItems(arr0);
   const numNonEmptyItems1 = countAccumulatedItems(arr1);
-  const emptyItem = arr0[numNonEmptyItems0] || arr1[numNonEmptyItems1];
   const arr = [...arr0, ...arr1] as Tuple<T, NM>;
   if (numNonEmptyItems0 < arr0.length) {
+    const emptyItem = arr0[numNonEmptyItems0];
     arr1.slice(0, numNonEmptyItems1).forEach((item, i) => {
       arr[i + numNonEmptyItems0] = item;
       arr[arr0.length + i] = emptyItem;

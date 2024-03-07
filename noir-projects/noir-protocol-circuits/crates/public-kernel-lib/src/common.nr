@@ -51,12 +51,11 @@ pub fn initialize_emitted_end_values(
     circuit_outputs.end.new_note_hashes = array_to_bounded_vec(start.new_note_hashes);
     circuit_outputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
     circuit_outputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
-
-    // TODO - should be propagated only in initialize_end_values() since they will be squashed or cleared in the tail circuit.
     circuit_outputs.end.public_data_update_requests = array_to_bounded_vec(start.public_data_update_requests);
+    // TODO - should be propagated only in initialize_end_values() and clear them in the tail circuit.
     circuit_outputs.end.public_data_reads = array_to_bounded_vec(start.public_data_reads);
-
-    // Public kernel does not modify encrypted logs values --> we just copy them to output
+    circuit_outputs.end.unencrypted_logs_hash = start.unencrypted_logs_hash;
+    circuit_outputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
     circuit_outputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
     circuit_outputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
 
@@ -65,7 +64,6 @@ pub fn initialize_emitted_end_values(
     let start_non_revertible = previous_kernel.public_inputs.end_non_revertible;
     circuit_outputs.end_non_revertible.new_note_hashes = array_to_bounded_vec(start_non_revertible.new_note_hashes);
     circuit_outputs.end_non_revertible.new_nullifiers = array_to_bounded_vec(start_non_revertible.new_nullifiers);
-
     circuit_outputs.end_non_revertible.public_data_update_requests = array_to_bounded_vec(start_non_revertible.public_data_update_requests);
     circuit_outputs.end_non_revertible.public_data_reads = array_to_bounded_vec(start_non_revertible.public_data_reads);
 }
