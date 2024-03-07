@@ -1,2 +1,2 @@
 add_subdirectory(simple)
-add_subdirectory(join-split)
+add_subdirectory(join_split)
