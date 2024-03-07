@@ -8,7 +8,6 @@ import {
 } from '@aztec/foundation/abi';
 
 import {
-  AZTEC_INITIALIZER_ATTRIBUTE,
   AZTEC_INTERNAL_ATTRIBUTE,
   AZTEC_PRIVATE_ATTRIBUTE,
   AZTEC_PUBLIC_ATTRIBUTE,
