@@ -428,7 +428,7 @@ export class AztecNodeService implements AztecNode {
 
   /**
    * Returns the index of a l2ToL1Message in a virtual l2 to l1 data tree as well as its sibling path.
-   * This tree is considered virtual because it is created on-demand by: taking all the l2ToL1 messages
+   * @remarks This tree is considered virtual because it is created on-demand by: taking all the l2ToL1 messages
    * in a single block, and then using them to make a variable depth append-only tree with these messages as leaves.
    * The tree is discarded immediately after calculating what we need from it.
    * @param blockNumber - The block number at which to get the data.
