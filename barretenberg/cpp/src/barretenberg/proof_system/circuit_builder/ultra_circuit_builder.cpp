@@ -2668,10 +2668,10 @@ template <typename Arithmetization> uint256_t UltraCircuitBuilder_<Arithmetizati
         sum_of_block_sizes += block.size();
     }
 
-    size_t num_bytes_in_selectors_and_variables = sizeof(FF) * Arithmetization::NUM_SELECTORS * sum_of_block_sizes;
+    size_t num_bytes_in_selectors = sizeof(FF) * Arithmetization::NUM_SELECTORS * sum_of_block_sizes;
     size_t num_bytes_in_wires_and_copy_constraints =
         sizeof(uint32_t) * (Arithmetization::NUM_WIRES * sum_of_block_sizes + this->real_variable_index.size());
-    size_t num_bytes_to_hash = num_bytes_in_selectors_and_variables + num_bytes_in_wires_and_copy_constraints;
+    size_t num_bytes_to_hash = num_bytes_in_selectors + num_bytes_in_wires_and_copy_constraints;
 
     std::vector<uint8_t> to_hash(num_bytes_to_hash);
 
