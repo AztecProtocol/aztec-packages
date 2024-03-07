@@ -82,7 +82,7 @@ describe('sequencer', () => {
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
-      getPendingL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
+      getPendingL1ToL2EntryKeys: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getBlockNumber: () => Promise.resolve(lastBlockNumber),
     });
 
@@ -257,7 +257,7 @@ describe('sequencer', () => {
     );
 
     // check that the empty contract did not get published
-    expect(publisher.processNewContractData).toHaveBeenCalledWith(block.number, block.body.getCalldataHash(), [
+    expect(publisher.processNewContractData).toHaveBeenCalledWith(block.number, block.body.getTxsEffectsHash(), [
       txWithContract.newContracts[0],
     ]);
   });

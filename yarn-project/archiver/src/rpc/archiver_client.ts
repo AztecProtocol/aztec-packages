@@ -6,6 +6,8 @@ import {
   L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
+  NullifierMembershipWitness,
+  TxReceipt,
 } from '@aztec/circuit-types';
 import { EthAddress, Fr } from '@aztec/circuits.js';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
@@ -26,7 +28,7 @@ export const createArchiverClient = (url: string, fetch = makeFetch([1, 2, 3], t
       L2Block,
       L2BlockL2Logs,
     },
-    {},
+    { TxReceipt, NullifierMembershipWitness },
     false,
     'archiver',
     fetch,

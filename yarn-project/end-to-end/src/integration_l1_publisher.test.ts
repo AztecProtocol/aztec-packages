@@ -1,6 +1,7 @@
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AztecAddress,
+  Body,
   Fr,
   GlobalVariables,
   L2Actor,
@@ -38,6 +39,7 @@ import {
   L1Publisher,
   RealRollupCircuitSimulator,
   SoloBlockBuilder,
+  WASMSimulator,
   getL1Publisher,
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
@@ -54,6 +56,7 @@ import {
   HttpTransport,
   PublicClient,
   WalletClient,
+  decodeEventLog,
   encodeFunctionData,
   getAbiItem,
   getAddress,
@@ -77,7 +80,6 @@ describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
   let deployerAccount: PrivateKeyAccount;
 
-  let availabilityOracleAddress: Address;
   let rollupAddress: Address;
   let inboxAddress: Address;
   let outboxAddress: Address;
@@ -112,7 +114,6 @@ describe('L1Publisher integration', () => {
     } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger);
     publicClient = publicClient_;
 
-    availabilityOracleAddress = getAddress(l1ContractAddresses.availabilityOracleAddress.toString());
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
@@ -136,7 +137,7 @@ describe('L1Publisher integration', () => {
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     const vks = getVerificationKeys();
-    const simulator = new RealRollupCircuitSimulator();
+    const simulator = new RealRollupCircuitSimulator(new WASMSimulator());
     const prover = new EmptyRollupProver();
     builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
 
@@ -258,7 +259,7 @@ describe('L1Publisher integration', () => {
       messages: {
         l1ToL2Messages: l1ToL2Messages.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
         l2ToL1Messages: block.body.txEffects
-          .flatMap(txEffect => txEffect.newL2ToL1Msgs)
+          .flatMap(txEffect => txEffect.l2ToL1Msgs)
           .map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
       },
       block: {
@@ -266,13 +267,13 @@ describe('L1Publisher integration', () => {
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
         body: `0x${block.body.toBuffer().toString('hex')}`,
-        calldataHash: `0x${block.body.getCalldataHash().toString('hex').padStart(64, '0')}`,
+        txsEffectsHash: `0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
           contentCommitment: {
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
             txTreeHeight: Number(block.header.contentCommitment.txTreeHeight.toBigInt()),
-            txsHash: `0x${block.header.contentCommitment.txsHash.toString('hex').padStart(64, '0')}`,
+            txsEffectsHash: `0x${block.header.contentCommitment.txsEffectsHash.toString('hex').padStart(64, '0')}`,
           },
           globalVariables: {
             blockNumber: block.number,
@@ -325,27 +326,26 @@ describe('L1Publisher integration', () => {
   };
 
   it('Block body is correctly published to AvailabilityOracle', async () => {
-    const body = L2Block.random(4).body;
+    const body = Body.random();
     // `sendPublishTx` function is private so I am hacking around TS here. I think it's ok for test purposes.
     const txHash = await (publisher as any).sendPublishTx(body.toBuffer());
-
-    // We verify that the body was successfully published by fetching TxsPublished events from the AvailabilityOracle
-    // and checking if the txsHash in the event is as expected
-    const events = await publicClient.getLogs({
-      address: availabilityOracleAddress,
-      event: getAbiItem({
-        abi: AvailabilityOracleAbi,
-        name: 'TxsPublished',
-      }),
-      fromBlock: 0n,
+    const txReceipt = await publicClient.waitForTransactionReceipt({
+      hash: txHash,
     });
 
-    // We get the event just for the relevant transaction
-    const txEvents = events.filter(event => event.transactionHash === txHash);
+    // Exactly 1 event should be emitted in the transaction
+    expect(txReceipt.logs.length).toBe(1);
 
-    // We check that exactly 1 TxsPublished event was emitted and txsHash is as expected
-    expect(txEvents.length).toBe(1);
-    expect(txEvents[0].args.txsHash).toEqual(`0x${body.getCalldataHash().toString('hex')}`);
+    // We decode the event log before checking it
+    const txLog = txReceipt.logs[0];
+    const topics = decodeEventLog({
+      abi: AvailabilityOracleAbi,
+      data: txLog.data,
+      topics: txLog.topics,
+    });
+
+    // We check that the txsEffectsHash in the TxsPublished event is as expected
+    expect(topics.args.txsEffectsHash).toEqual(`0x${body.getTxsEffectsHash().toString('hex')}`);
   });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
@@ -416,7 +416,7 @@ describe('L1Publisher integration', () => {
         expect(await inbox.read.contains([l1ToL2Messages[j].toString()])).toBeTruthy();
       }
 
-      const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs);
+      const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
       // check that values are not in the outbox
       for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {

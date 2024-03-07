@@ -70,12 +70,17 @@ setup_env: &setup_env
     name: "Setup environment"
     command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH" "$CIRCLE_PULL_REQUEST"
 
+defaults_e2e_test: &defaults_e2e_test
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+
 jobs:
   # Dynamically filter our code, quickly figuring out which jobs we can skip.
   generate-config:
     docker:
       - image: aztecprotocol/alpine-build-image
-    resource_class: xlarge
+    resource_class: large
     steps:
       - *checkout
       - *setup_env
@@ -114,7 +119,7 @@ jobs:
 
   noir-ecr-manifest:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: medium
     steps:
       - *checkout
@@ -123,6 +128,18 @@ jobs:
           name: "Create ECR manifest"
           command: create_ecr_manifest noir x86_64,arm64
           aztec_manifest_key: noir
+
+  noir-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build noir-tests 32
+          aztec_manifest_key: noir-tests
 
   noir-packages:
     docker:
@@ -135,6 +152,18 @@ jobs:
           name: "Build"
           command: cond_spot_run_build noir-packages 32
           aztec_manifest_key: noir-packages
+
+  noir-packages-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build noir-packages-tests 32
+          aztec_manifest_key: noir-packages-tests
 
   noir-compile-acir-tests:
     docker:
@@ -235,7 +264,7 @@ jobs:
 
   barretenberg-docs:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -289,7 +318,7 @@ jobs:
     machine:
       # NOTE: we usually use alpine build image when making spot images, but
       # we are not able to upload to S3 with it
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: medium
     steps:
       - *checkout
@@ -353,7 +382,7 @@ jobs:
 
   bb-js:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -389,7 +418,7 @@ jobs:
 
   l1-contracts:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -401,7 +430,7 @@ jobs:
 
   noir-projects:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -411,55 +440,52 @@ jobs:
           command: build noir-projects
           aztec_manifest_key: noir-projects
 
-  boxes-files:
+  yarn-project-pre-join:
+    docker:
+      - image: cimg/base:2023.09
+    resource_class: small
+    steps:
+      - run:
+          name: "Noop"
+          command: echo Noop
+
+  yarn-project-x86_64:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build yarn-project 64
+          aztec_manifest_key: yarn-project
+
+  yarn-project-arm64:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build yarn-project 64 arm64
+          aztec_manifest_key: yarn-project
+
+  yarn-project-ecr-manifest:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: medium
     steps:
       - *checkout
       - *setup_env
       - run:
-          name: "Build"
-          command: build boxes-files
-          aztec_manifest_key: boxes-files
-
-  yarn-project-base:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: build yarn-project-base | add_timestamps
-          aztec_manifest_key: yarn-project-base
-
-  yarn-project:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: Build
-          command: build yarn-project | add_timestamps
+          name: "Create ECR manifest"
+          command: create_ecr_manifest yarn-project x86_64,arm64
           aztec_manifest_key: yarn-project
 
-  yarn-project-prod:
-    machine:
-      image: ubuntu-2204:2023.07.2
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: Build
-          command: build yarn-project-prod | add_timestamps
-          aztec_manifest_key: yarn-project-prod
-
-  yarn-project-formatting:
+  yarn-project-test:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -467,25 +493,13 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: Check Formatting
-          command: cond_spot_run_container yarn-project 8 formatting | add_timestamps
-          aztec_manifest_key: yarn-project
-
-  yarn-project-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: Test
-          command: cond_spot_run_container yarn-project 64 test | add_timestamps
-          aztec_manifest_key: yarn-project
+          name: "Build and test"
+          command: cond_spot_run_build yarn-project-test 64
+          aztec_manifest_key: yarn-project-test
 
   aztec-package:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -497,7 +511,7 @@ jobs:
 
   cli:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -509,7 +523,7 @@ jobs:
 
   mainnet-fork:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -521,7 +535,7 @@ jobs:
 
   aztec-faucet:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -552,7 +566,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-vanilla
+          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=vanilla
           aztec_manifest_key: boxes
 
   boxes-react:
@@ -564,12 +578,12 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=box-react
+          command: cond_spot_run_compose boxes 4 ./docker-compose.yml BOX=react
           aztec_manifest_key: boxes
 
   end-to-end:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -580,9 +594,6 @@ jobs:
           aztec_manifest_key: end-to-end
 
   e2e-2-pxes:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -590,11 +601,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_2_pxes.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-note-getter:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -602,11 +611,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_note_getter.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-counter:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -614,11 +621,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_counter_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-private-voting:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -626,11 +631,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_private_voting_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-multiple-accounts-1-enc-key:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -638,11 +641,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_multiple_accounts_1_enc_key.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-deploy-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -650,11 +651,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_deploy_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-lending-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -662,11 +661,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_lending_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-token-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -674,11 +671,19 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_token_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
+
+  e2e-authwit-test:
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_authwit.test.ts
+          aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-blacklist-token-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -686,6 +691,7 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_blacklist_token_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   # TODO(3458): Investigate intermittent failure
   # e2e-slow-tree:
@@ -701,9 +707,6 @@ jobs:
   #         aztec_manifest_key: end-to-end
 
   e2e-sandbox-example:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -711,11 +714,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_sandbox_example.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-state-vars:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -723,11 +724,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_state_vars.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-block-building:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -735,11 +734,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_block_building.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-nested-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -747,11 +744,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_nested_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-static-calls:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -759,11 +754,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_static_calls.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-delegate-calls:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -771,11 +764,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_delegate_calls.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-non-contract-account:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -783,11 +774,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_non_contract_account.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-cross-chain-messaging:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -795,11 +784,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_cross_chain_messaging.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-public-cross-chain-messaging:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -807,11 +794,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_public_cross_chain_messaging.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-public-to-private-messaging:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -819,11 +804,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_public_to_private_messaging.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-account-contracts:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -831,11 +814,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_account_contracts.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-escrow-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -843,11 +824,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_escrow_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-inclusion-proofs-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -855,23 +834,19 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_inclusion_proofs_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
-  e2e-pending-commitments-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+  e2e-pending-note-hashes-contract:
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_pending_commitments_contract.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_pending_note_hashes_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-ordering:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -879,11 +854,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_ordering.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   uniswap-trade-on-l1-from-l2:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -891,11 +864,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=uniswap_trade_on_l1_from_l2.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   integration-archiver-l1-to-l2:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -903,11 +874,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=integration_archiver_l1_to_l2.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   integration-l1-publisher:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -915,11 +884,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=integration_l1_publisher.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-cli:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -927,11 +894,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_cli.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-persistence:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -939,23 +904,19 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=e2e_persistence.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-browser:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-browser.yml TEST=e2e_aztec_js_browser.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_aztec_js_browser.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-card-game:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -963,11 +924,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_card_game.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-avm-simulator:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -975,11 +934,9 @@ jobs:
           name: "Test"
           command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_avm_simulator.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-fees:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -987,11 +944,19 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_fees.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
+
+  e2e-dapp-subscription:
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_dapp_subscription.test.ts
+          aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   pxe:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -999,11 +964,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=pxe_sandbox.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   cli-docs-sandbox:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1011,11 +974,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=cli_docs_sandbox.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   e2e-docs-examples:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1023,11 +984,9 @@ jobs:
           name: "Test"
           command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=docs_examples_test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   guides-writing-an-account-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1035,11 +994,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=guides/writing_an_account_contract.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   guides-dapp-testing:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1047,11 +1004,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=guides/dapp_testing.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   guides-sample-dapp:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1059,11 +1014,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=sample-dapp
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   guides-up-quick-start:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1071,11 +1024,9 @@ jobs:
           name: "Test"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=guides/up_quick_start.test.ts
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   bench-publish-rollup:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1083,11 +1034,9 @@ jobs:
           name: "Benchmark"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_publish_rollup.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   bench-process-history:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
     steps:
       - *checkout
       - *setup_env
@@ -1095,40 +1044,29 @@ jobs:
           name: "Benchmark"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_process_history.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
           aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   build-docs:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
-          name: "Copy docs dockerignore"
-          command: cp docs/.dockerignore .
-      - run:
-          name: "Require released code"
-          command: |
-            LAST_TAG="aztec-packages-v$(jq -r '.["."]' .release-please-manifest.json)"
-            if git ls-remote --tags origin | grep "$LAST_TAG" > /dev/null; then
-              echo "Using code released from $LAST_TAG"
-              echo "INCLUDE_RELEASED_CODE=1" >> docs/.env
-              git fetch origin --refetch --no-filter refs/tags/$LAST_TAG:refs/tags/$LAST_TAG
-            else
-              echo "Skipping as $LAST_TAG is not yet published"
-            fi
-      - run:
           name: "Build docs"
           command: |
             echo "Building docs"
             build docs
-
+      - run:
+          name: "Deploy docs"
+          command: |
             echo "Deploying docs"
             docs/deploy_netlify.sh $BRANCH $PULL_REQUEST
 
   yellow-paper:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: large
     steps:
       - *checkout
@@ -1158,7 +1096,7 @@ jobs:
 
   bench-summary:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     steps:
       - *checkout
       - *setup_env
@@ -1169,7 +1107,7 @@ jobs:
   # Deploy & release jobs.
   deploy-and-release:
     machine:
-      image: ubuntu-2204:2023.07.2
+      image: default
     resource_class: medium
     steps:
       - *checkout
@@ -1203,16 +1141,6 @@ jobs:
           command: |
             should_release || exit 0
             yarn-project/deploy_npm.sh latest
-      - run:
-          name: "Release canary to NPM: l1-contracts"
-          command: |
-            should_release || exit 0
-            deploy_npm l1-contracts canary
-      - run:
-          name: "Release latest to NPM: l1-contracts"
-          command: |
-            should_release || exit 0
-            deploy_npm l1-contracts latest
       - run:
           name: "Deploy mainnet fork"
           command: |
@@ -1278,14 +1206,14 @@ defaults: &defaults
         event: fail
         branch_pattern: "master"
 
-defaults_yarn_project: &defaults_yarn_project
+defaults_yarn_project_pre_join: &defaults_yarn_project_pre_join
   requires:
-    - yarn-project
+    - yarn-project-pre-join
   <<: *defaults
 
-defaults_yarn_project_prod: &defaults_yarn_project_prod
+defaults_yarn_project: &defaults_yarn_project
   requires:
-    - yarn-project-prod
+    - yarn-project-ecr-manifest
   <<: *defaults
 
 defaults_deploy: &defaults_deploy
@@ -1305,14 +1233,14 @@ bb_test: &bb_test
 
 # Workflows.
 workflows:
-  setup-workflow:
-    jobs:
-      - generate-config
+  # setup-workflow:
+  #   jobs:
+  #     - generate-config: *defaults
   system:
-    when:
-      # Used to generate a dynamic 'system' workflow
-      # This is rewritten to 'system' on the real workflow (otherwise this is ignored by circleci)
-      equal: [NEVER, << pipeline.parameters.workflow >>]
+    # when:
+    #   # Used to generate a dynamic 'system' workflow
+    #   # This is rewritten to 'system' on the real workflow (otherwise this is ignored by circleci)
+    #   equal: [NEVER, << pipeline.parameters.workflow >>]
     jobs:
       # Noir
       - noir-x86_64: *defaults
@@ -1322,7 +1250,12 @@ workflows:
             - noir-x86_64
             - noir-arm64
           <<: *defaults
+      - noir-tests: *defaults
       - noir-packages: *defaults
+      - noir-packages-tests:
+          requires:
+            - noir-ecr-manifest
+          <<: *defaults
       - noir-compile-acir-tests:
           requires:
             - noir-ecr-manifest
@@ -1374,8 +1307,6 @@ workflows:
 
       - yellow-paper: *defaults
 
-      - boxes-files: *defaults
-
       - noir-projects:
           requires:
             - avm-transpiler
@@ -1383,28 +1314,28 @@ workflows:
           <<: *defaults
 
       # Yarn Project
-      - yarn-project-base:
+      - yarn-project-pre-join:
           requires:
             - bb-js
             - noir-packages
-          <<: *defaults
-      - yarn-project:
-          requires:
-            - yarn-project-base
             - l1-contracts
             - noir-projects
-            - boxes-files
           <<: *defaults
-      - yarn-project-prod: *defaults_yarn_project
-      - yarn-project-formatting: *defaults_yarn_project
-      - yarn-project-tests: *defaults_yarn_project
-      - end-to-end: *defaults_yarn_project
-      - build-docs: *defaults_yarn_project
+      - end-to-end: *defaults_yarn_project_pre_join
+      - aztec-faucet: *defaults_yarn_project_pre_join
+      - build-docs: *defaults_yarn_project_pre_join
+      - yarn-project-test: *defaults_yarn_project_pre_join
+      - yarn-project-x86_64: *defaults_yarn_project_pre_join
+      - yarn-project-arm64: *defaults_yarn_project_pre_join
+      - yarn-project-ecr-manifest:
+          requires:
+            - yarn-project-x86_64
+            - yarn-project-arm64
+          <<: *defaults
 
       # Artifacts
-      - aztec-package: *defaults_yarn_project_prod
-      - cli: *defaults_yarn_project_prod
-      - aztec-faucet: *defaults_yarn_project_prod
+      - aztec-package: *defaults_yarn_project
+      - cli: *defaults_yarn_project
 
       # Boxes.
       - boxes:
@@ -1432,6 +1363,7 @@ workflows:
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
       - e2e-token-contract: *e2e_test
+      - e2e-authwit-test: *e2e_test
       - e2e-blacklist-token-contract: *e2e_test
       # TODO(3458): Investigate intermittent failure
       # - e2e-slow-tree: *e2e_test
@@ -1450,7 +1382,7 @@ workflows:
       - e2e-account-contracts: *e2e_test
       - e2e-escrow-contract: *e2e_test
       - e2e-inclusion-proofs-contract: *e2e_test
-      - e2e-pending-commitments-contract: *e2e_test
+      - e2e-pending-note-hashes-contract: *e2e_test
       - e2e-ordering: *e2e_test
       - e2e-counter: *e2e_test
       - e2e-private-voting: *e2e_test
@@ -1462,6 +1394,7 @@ workflows:
       - e2e-card-game: *e2e_test
       - e2e-avm-simulator: *e2e_test
       - e2e-fees: *e2e_test
+      - e2e-dapp-subscription: *e2e_test
       - pxe: *e2e_test
       - cli-docs-sandbox: *e2e_test
       - e2e-docs-examples: *e2e_test
@@ -1473,12 +1406,29 @@ workflows:
       # Everything that must complete before deployment.
       - end:
           requires:
+            - barretenberg-x86_64-linux-gcc
+            - barretenberg-x86_64-linux-clang
+            - barretenberg-x86_64-linux-clang-assert
+            - barretenberg-x86_64-linux-clang-fuzzing
+            - barretenberg-wasm-linux-clang
+            - barretenberg-x86_64-linux-clang-sol
+            - barretenberg-bench
+            - barretenberg-proof-system-tests
+            - barretenberg-dsl-tests
+            - barretenberg-tests
+            - barretenberg-stdlib-tests
+            - barretenberg-stdlib-recursion-ultra-tests
+            - barretenberg-join-split-tests
+            - barretenberg-acir-tests-bb
+            - barretenberg-docs
+            - build-docs
             - mainnet-fork
             - e2e-2-pxes
             - e2e-note-getter
             - e2e-deploy-contract
             - e2e-lending-contract
             - e2e-token-contract
+            - e2e-authwit-test
             - e2e-blacklist-token-contract
             - e2e-sandbox-example
             - e2e-state-vars
@@ -1495,7 +1445,7 @@ workflows:
             - e2e-account-contracts
             - e2e-escrow-contract
             - e2e-inclusion-proofs-contract
-            - e2e-pending-commitments-contract
+            - e2e-pending-note-hashes-contract
             - e2e-ordering
             - e2e-counter
             - e2e-private-voting
@@ -1507,6 +1457,7 @@ workflows:
             - e2e-card-game
             - e2e-avm-simulator
             - e2e-fees
+            - e2e-dapp-subscription
             - pxe
             - boxes-vanilla
             - boxes-react
@@ -1517,6 +1468,7 @@ workflows:
             - guides-sample-dapp
             - guides-up-quick-start
             - yellow-paper
+            - yarn-project-test
           <<: *defaults
 
       # Benchmark jobs.

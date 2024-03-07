@@ -53,7 +53,7 @@ contract Rollup is IRollup {
   function process(
     bytes calldata _header,
     bytes32 _archive,
-    bytes calldata _body, // TODO(#3938) Update this to pass in only th messages and not the whole body.
+    bytes calldata _body, // TODO(#4492) Nuke this when updating to the new message model
     bytes memory _proof
   ) external override(IRollup) {
     // Decode and validate header
@@ -61,8 +61,8 @@ contract Rollup is IRollup {
     HeaderLib.validate(header, VERSION, lastBlockTs, archive);
 
     // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
-    if (!AVAILABILITY_ORACLE.isAvailable(header.contentCommitment.txsHash)) {
-      revert Errors.Rollup__UnavailableTxs(header.contentCommitment.txsHash);
+    if (!AVAILABILITY_ORACLE.isAvailable(header.contentCommitment.txsEffectsHash)) {
+      revert Errors.Rollup__UnavailableTxs(header.contentCommitment.txsEffectsHash);
     }
 
     // Decode the cross-chain messages (Will be removed as part of message model change)

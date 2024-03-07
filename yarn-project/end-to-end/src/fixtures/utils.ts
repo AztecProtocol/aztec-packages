@@ -8,7 +8,7 @@ import {
   BatchCall,
   CheatCodes,
   CompleteAddress,
-  Contract,
+  ContractMethod,
   DebugLogger,
   DeployL1Contracts,
   EthCheatCodes,
@@ -22,6 +22,7 @@ import {
   createDebugLogger,
   createPXEClient,
   deployL1Contracts,
+  fileURLToPath,
   makeFetch,
   waitForPXE,
 } from '@aztec/aztec.js';
@@ -43,6 +44,7 @@ import {
 import { PXEService, PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { SequencerClient } from '@aztec/sequencer-client';
 
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import {
   Account,
@@ -62,10 +64,33 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
-const { PXE_URL = '' } = process.env;
+const {
+  PXE_URL = '',
+  NOIR_RELEASE_DIR = 'noir-repo/target/release',
+  TEMP_DIR = '/tmp',
+  ACVM_BINARY_PATH = '',
+  ACVM_WORKING_DIRECTORY = '',
+} = process.env;
 
 const getAztecUrl = () => {
   return PXE_URL;
+};
+
+// Determines if we have access to the acvm binary and a tmp folder for temp files
+const getACVMConfig = async (logger: DebugLogger) => {
+  try {
+    const expectedAcvmPath = ACVM_BINARY_PATH
+      ? ACVM_BINARY_PATH
+      : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../noir/', NOIR_RELEASE_DIR)}/acvm`;
+    await fs.access(expectedAcvmPath, fs.constants.R_OK);
+    const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${TEMP_DIR}/acvm`;
+    await fs.mkdir(acvmWorkingDirectory, { recursive: true });
+    logger(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
+    return { acvmWorkingDirectory, expectedAcvmPath };
+  } catch (err) {
+    logger(`Native ACVM not available, error: ${err}`);
+    return undefined;
+  }
 };
 
 export const setupL1Contracts = async (
@@ -290,6 +315,13 @@ export async function setup(
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
   logger('Creating and synching an aztec node...');
+
+  const acvmConfig = await getACVMConfig(logger);
+  if (acvmConfig) {
+    config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
+    config.acvmBinaryPath = acvmConfig.expectedAcvmPath;
+  }
+  config.l1BlockPublishRetryIntervalMS = 100;
   const aztecNode = await AztecNodeService.createAndSync(config);
   const sequencer = aztecNode.getSequencer();
 
@@ -431,14 +463,14 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessag
   expect(asciiLogs).toStrictEqual(logMessages);
 };
 
-export type PublicBalancesFn = ReturnType<typeof getPublicBalancesFn>;
-export function getPublicBalancesFn(
+export type BalancesFn = ReturnType<typeof getBalancesFn>;
+export function getBalancesFn(
   symbol: string,
-  contract: Contract,
+  method: ContractMethod,
   logger: any,
 ): (...addresses: AztecAddress[]) => Promise<bigint[]> {
   const balances = async (...addresses: AztecAddress[]) => {
-    const b = await Promise.all(addresses.map(address => contract.methods.balance_of_public(address).view()));
+    const b = await Promise.all(addresses.map(address => method(address).view()));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger(debugString);
     return b;
@@ -447,13 +479,14 @@ export function getPublicBalancesFn(
   return balances;
 }
 
-export async function assertPublicBalances(
-  balances: PublicBalancesFn,
-  addresses: AztecAddress[],
-  expectedBalances: bigint[],
-) {
-  const actualBalances = await balances(...addresses);
-  for (let i = 0; i < addresses.length; i++) {
-    expect(actualBalances[i]).toBe(expectedBalances[i]);
-  }
+export async function expectMapping<K, V>(
+  fn: (...k: K[]) => Promise<V[]>,
+  inputs: K[],
+  expectedOutputs: V[],
+): Promise<void> {
+  expect(inputs.length).toBe(expectedOutputs.length);
+
+  const outputs = await fn(...inputs);
+
+  expect(outputs).toEqual(expectedOutputs);
 }

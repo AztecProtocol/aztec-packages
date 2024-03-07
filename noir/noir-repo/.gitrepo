@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = https://github.com/noir-lang/noir
+	branch = master
+	commit = 5f57ebb7ff4b810802f90699a10f4325ef904f2e
+	parent = 8307dadd853d5091841e169c841ab6b09c223efb
+	method = merge
+	cmdver = 0.4.6

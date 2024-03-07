@@ -7,9 +7,9 @@ mod token_interface;
 // Bridge has to be set as a minter on the token before it can be used
 
 contract TokenBridge {
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
+    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, PublicMutable};
 
-    use dep::aztec::{context::{Context}, hash::{compute_secret_hash}, state_vars::{PublicMutable}};
+    use dep::aztec::{context::Context, hash::compute_secret_hash};
 
     use dep::token_portal_content_hash_lib::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 
@@ -24,6 +24,7 @@ contract TokenBridge {
 
     // Constructs the contract.
     #[aztec(private)]
+    #[aztec(initializer)]
     fn constructor(token: AztecAddress) {
         let selector = FunctionSelector::from_signature("_initialize((Field))");
         context.call_public_function(context.this_address(), selector, [token.to_field()]);
@@ -33,11 +34,11 @@ contract TokenBridge {
     // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[aztec(public)]
-    fn claim_public(to: AztecAddress, amount: Field, canceller: EthAddress, msg_key: Field, secret: Field) {
+    fn claim_public(to: AztecAddress, amount: Field, canceller: EthAddress, secret: Field) {
         let content_hash = get_mint_public_content_hash(to, amount, canceller);
 
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(msg_key, content_hash, secret, context.this_portal_address());
+        context.consume_l1_to_l2_message(content_hash, secret, context.this_portal_address());
 
         // Mint tokens
         Token::at(storage.token.read()).mint_public(context, to, amount);
@@ -70,13 +71,11 @@ contract TokenBridge {
         secret_hash_for_redeeming_minted_notes: Field, // secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
         amount: Field,
         canceller: EthAddress,
-        msg_key: Field, // L1 to L2 message key as derived from the inbox contract
         secret_for_L1_to_L2_message_consumption: Field // secret used to consume the L1 to L2 message
     ) {
         // Consume L1 to L2 message and emit nullifier
         let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller);
         context.consume_l1_to_l2_message(
-            msg_key,
             content_hash,
             secret_for_L1_to_L2_message_consumption,
             context.this_portal_address()
@@ -139,7 +138,9 @@ contract TokenBridge {
     // docs:end:read_token
 
     #[aztec(public)]
-    internal fn _initialize(token: AztecAddress) {
+    #[aztec(internal)]
+    #[aztec(noinitcheck)]
+    fn _initialize(token: AztecAddress) {
         storage.token.write(token);
     }
 
@@ -148,14 +149,16 @@ contract TokenBridge {
     // Also, note that user hashes their secret in private and only sends the hash in public
     // meaning only user can `redeem_shield` at a later time with their secret.
     #[aztec(public)]
-    internal fn _call_mint_on_token(amount: Field, secret_hash: Field) {
+    #[aztec(internal)]
+    fn _call_mint_on_token(amount: Field, secret_hash: Field) {
         Token::at(storage.token.read()).mint_private(context, amount, secret_hash);
     }
     // docs:end:call_mint_on_token
 
     // docs:start:assert_token_is_same
     #[aztec(public)]
-    internal fn _assert_token_is_same(token: AztecAddress) {
+    #[aztec(internal)]
+    fn _assert_token_is_same(token: AztecAddress) {
         assert(storage.token.read().eq(token), "Token address is not the same as seen in storage");
     }
     // docs:end:assert_token_is_same

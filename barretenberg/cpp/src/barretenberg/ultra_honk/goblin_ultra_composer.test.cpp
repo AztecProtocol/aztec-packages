@@ -7,8 +7,8 @@
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
 #include "barretenberg/ultra_honk/merge_verifier.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 using namespace bb;
 
@@ -60,11 +60,12 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
      * @brief Construct and a verify a Honk proof
      *
      */
-    bool construct_and_verify_honk_proof(auto& composer, auto& builder)
+    bool construct_and_verify_honk_proof(auto& builder)
     {
-        auto instance = composer.create_instance(builder);
-        auto prover = composer.create_prover(instance);
-        auto verifier = composer.create_verifier(instance);
+        auto instance = std::make_shared<ProverInstance_<GoblinUltraFlavor>>(builder);
+        GoblinUltraProver prover(instance);
+        auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(instance->proving_key);
+        GoblinUltraVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
 
@@ -105,10 +106,8 @@ TEST_F(GoblinUltraHonkComposerTests, SingleCircuit)
 
     generate_test_circuit(builder);
 
-    auto composer = GoblinUltraComposer();
-
     // Construct and verify Honk proof
-    auto honk_verified = construct_and_verify_honk_proof(composer, builder);
+    bool honk_verified = construct_and_verify_honk_proof(builder);
     EXPECT_TRUE(honk_verified);
 
     // Construct and verify Goblin ECC op queue Merge proof
@@ -136,8 +135,6 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsMergeOnly)
 
         generate_test_circuit(builder);
 
-        auto composer = GoblinUltraComposer();
-
         // Construct and verify Goblin ECC op queue Merge proof
         auto merge_verified = construct_and_verify_merge_proof(op_queue);
         EXPECT_TRUE(merge_verified);
@@ -164,10 +161,8 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkOnly)
 
         generate_test_circuit(builder);
 
-        auto composer = GoblinUltraComposer();
-
         // Construct and verify Honk proof
-        auto honk_verified = construct_and_verify_honk_proof(composer, builder);
+        bool honk_verified = construct_and_verify_honk_proof(builder);
         EXPECT_TRUE(honk_verified);
     }
 }
@@ -192,10 +187,8 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkAndMerge)
 
         generate_test_circuit(builder);
 
-        auto composer = GoblinUltraComposer();
-
         // Construct and verify Honk proof
-        auto honk_verified = construct_and_verify_honk_proof(composer, builder);
+        bool honk_verified = construct_and_verify_honk_proof(builder);
         EXPECT_TRUE(honk_verified);
 
         // Construct and verify Goblin ECC op queue Merge proof
@@ -206,8 +199,7 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuitsHonkAndMerge)
     // Compute the commitments to the aggregate op queue directly and check that they match those that were computed
     // iteratively during transcript aggregation by the provers and stored in the op queue.
     size_t aggregate_op_queue_size = op_queue->current_ultra_ops_size;
-    auto crs_factory = std::make_shared<bb::srs::factories::FileCrsFactory<Curve>>("../srs_db/ignition");
-    auto commitment_key = std::make_shared<CommitmentKey>(aggregate_op_queue_size, crs_factory);
+    auto commitment_key = std::make_shared<CommitmentKey>(aggregate_op_queue_size);
     size_t idx = 0;
     for (auto& result : op_queue->ultra_ops_commitments) {
         auto expected = commitment_key->commit(op_queue->ultra_ops[idx++]);

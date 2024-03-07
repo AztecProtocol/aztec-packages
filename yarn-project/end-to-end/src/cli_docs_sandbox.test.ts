@@ -96,7 +96,7 @@ Rollup Address: 0x0dcd1bf9a1b36ce34237eeafef220932846bcd82
     const docs = `
 // docs:start:example-contracts
 % aztec-cli example-contracts
-AppSubscriptionContractContractArtifact
+AppSubscriptionContractArtifact
 BenchmarkingContractArtifact
 CardGameContractArtifact
 ChildContractArtifact
@@ -116,7 +116,7 @@ ImportTestContractArtifact
 InclusionProofsContractArtifact
 LendingContractArtifact
 ParentContractArtifact
-PendingCommitmentsContractArtifact
+PendingNoteHashesContractArtifact
 PriceFeedContractArtifact
 ReaderContractArtifact
 SchnorrAccountContractArtifact

@@ -1,4 +1,5 @@
-import { BLOB_SIZE_IN_BYTES, ExtendedContractData, L2Block } from '@aztec/circuit-types';
+import { ExtendedContractData, L2Block } from '@aztec/circuit-types';
+import { BLOB_SIZE_IN_BYTES } from '@aztec/circuits.js/constants';
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvailabilityOracleAbi, ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -86,7 +87,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   }
 
   checkIfTxsAreAvailable(block: L2Block): Promise<boolean> {
-    const args = [`0x${block.body.getCalldataHash().toString('hex')}`] as const;
+    const args = [`0x${block.body.getTxsEffectsHash().toString('hex')}`] as const;
     return this.availabilityOracleContract.read.isAvailable(args);
   }
 
