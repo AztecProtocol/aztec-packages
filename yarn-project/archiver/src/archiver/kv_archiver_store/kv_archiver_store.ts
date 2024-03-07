@@ -149,6 +149,16 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
+   * Append new L1 to L2 messages to the store.
+   * @param messages - The L1 to L2 messages to be added to the store.
+   * @param l1BlockNumber - The L1 block number for which to add the messages.
+   * @returns True if the operation is successful.
+   */
+  addNewL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean> {
+    return Promise.resolve(this.#messageStore.addNewL1ToL2Messages(messages, l1BlockNumber));
+  }
+
+  /**
    * Append new pending L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
    * @param l1BlockNumber - The L1 block number for which to add the messages.

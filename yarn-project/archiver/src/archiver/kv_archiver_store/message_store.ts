@@ -21,6 +21,8 @@ type Message = {
 export class MessageStore {
   #messages: AztecMap<string, Message>;
   #pendingMessagesByFee: AztecCounter<[number, string]>;
+  #lastL1BlockNewMessages: AztecSingleton<bigint>;
+  // TODO(#4492): Nuke the following when purging the old inbox
   #lastL1BlockAddingMessages: AztecSingleton<bigint>;
   #lastL1BlockCancellingMessages: AztecSingleton<bigint>;
 
@@ -29,6 +31,7 @@ export class MessageStore {
   constructor(private db: AztecKVStore) {
     this.#messages = db.openMap('archiver_l1_to_l2_messages');
     this.#pendingMessagesByFee = db.openCounter('archiver_messages_by_fee');
+    this.#lastL1BlockNewMessages = db.openSingleton('archiver_last_l1_block_new_messages');
     this.#lastL1BlockAddingMessages = db.openSingleton('archiver_last_l1_block_adding_messages');
     this.#lastL1BlockCancellingMessages = db.openSingleton('archiver_last_l1_block_cancelling_messages');
   }
@@ -39,9 +42,45 @@ export class MessageStore {
    */
   getL1BlockNumber() {
     return {
+      newMessages: this.#lastL1BlockNewMessages.get() ?? 0n,
+      // TODO(#4492): Nuke the following when purging the old inbox
       addedMessages: this.#lastL1BlockAddingMessages.get() ?? 0n,
       cancelledMessages: this.#lastL1BlockCancellingMessages.get() ?? 0n,
     };
+  }
+
+  /**
+   * Append new L1 to L2 messages to the store.
+   * @param messages - The L1 to L2 messages to be added to the store.
+   * @param l1BlockNumber - The L1 block number for which to add the messages.
+   * @returns True if the operation is successful.
+   */
+  addNewL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean> {
+    return this.db.transaction(() => {
+      const lastL1BlockNumber = this.#lastL1BlockAddingMessages.get() ?? 0n;
+      if (lastL1BlockNumber >= l1BlockNumber) {
+        return false;
+      }
+
+      void this.#lastL1BlockNewMessages.set(l1BlockNumber);
+
+      for (const message of messages) {
+        const entryKey = message.entryKey?.toString();
+        if (!entryKey) {
+          throw new Error('Message does not have an entry key');
+        }
+
+        void this.#messages.setIfNotExists(entryKey, {
+          message: message.toBuffer(),
+          fee: message.fee,
+          confirmed: false,
+        });
+
+        void this.#pendingMessagesByFee.update([message.fee, entryKey], 1);
+      }
+
+      return true;
+    });
   }
 
   /**

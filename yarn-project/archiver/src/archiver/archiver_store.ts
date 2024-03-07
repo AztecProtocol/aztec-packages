@@ -91,10 +91,19 @@ export interface ArchiverDataStore {
   ): Promise<boolean>;
 
   /**
+   * Append new L1 to L2 messages to the store.
+   * @param messages - The L1 to L2 messages to be added to the store.
+   * @param l1BlockNumber - The block number of the L1 block that added the messages.
+   * @returns True if the operation is successful.
+   */
+  addNewL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean>;
+
+  /**
    * Append new pending L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
    * @param l1BlockNumber - The block number of the L1 block that added the messages.
    * @returns True if the operation is successful.
+   * TODO(#4492): Nuke the following when purging the old inbox
    */
   addPendingL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean>;
 
@@ -103,6 +112,7 @@ export interface ArchiverDataStore {
    * @param entryKeys - The entry keys to be removed from the store.
    * @param l1BlockNumber - The block number of the L1 block that cancelled the messages.
    * @returns True if the operation is successful.
+   * TODO(#4492): Nuke the following when purging the old inbox
    */
   cancelPendingL1ToL2EntryKeys(entryKeys: Fr[], l1BlockNumber: bigint): Promise<boolean>;
 

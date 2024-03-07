@@ -43,6 +43,7 @@ import {
   retrieveBlockMetadataFromRollup,
   retrieveNewCancelledL1ToL2Messages,
   retrieveNewContractData,
+  retrieveNewL1ToL2Messages,
   retrieveNewPendingL1ToL2Messages,
 } from './data_retrieval.js';
 
@@ -192,6 +193,15 @@ export class Archiver implements ArchiveSource {
 
     // ********** Events that are processed per L1 block **********
 
+    const retrievedNewL1ToL2Messages = await retrieveNewL1ToL2Messages(
+      this.publicClient,
+      this.inboxAddress,
+      blockUntilSynced,
+      lastL1Blocks.addedMessages + 1n,
+      currentL1BlockNumber,
+    );
+
+    // TODO(#4492): Nuke the following when purging the old inbox
     // Process l1ToL2Messages, these are consumed as time passes, not each block
     const retrievedPendingL1ToL2Messages = await retrieveNewPendingL1ToL2Messages(
       this.publicClient,
