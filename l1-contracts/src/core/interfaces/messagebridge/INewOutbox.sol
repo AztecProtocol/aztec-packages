@@ -20,9 +20,9 @@ interface INewOutbox {
   /*
    * @notice Inserts the root of a merkle tree containing all of the L2 to L1 messages in
    * a block specified by _blockNumber.
-   * @dev Only callable by the rollup contract (state transitioner)
-   * @dev Emits the `RootAdded` upon inserting the root successfully
-   * @param _l2BlockNumber - The L2 Block Number in which the L2 to L1 message reside
+   * @dev Only callable by the state transitioner (rollup contract)
+   * @dev Emits `RootAdded` upon inserting the root successfully
+   * @param _l2BlockNumber - The L2 Block Number in which the L2 to L1 messages reside
    * @param _root - The merkle root of the tree where all the L2 to L1 messages are leaves
    * @param _height - The height of the merkle tree that the root corresponds to
    */
@@ -31,9 +31,9 @@ interface INewOutbox {
   /*
    * @notice Consumes an entry from the Outbox
    * @dev Only meaningfully callable by portals / recipients of messages
-   * @dev Emits the `MessageConsumed` event when consuming messages
+   * @dev Emits `MessageConsumed` when consuming messages
    * @param _l2BlockNumber - The block number specifying the block that contains the message we want to consume
-   * @param _leafIndex - The index where the message resides inside the merkle tree
+   * @param _leafIndex - The index inside the merkle tree where the message is located
    * @param _message - The L2 to L1 message
    * @param _path - The sibling path used to prove inclusion of the message
    */

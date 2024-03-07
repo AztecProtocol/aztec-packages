@@ -9,13 +9,14 @@ import {DataStructures} from "../src/core/libraries/DataStructures.sol";
 import {Hash} from "../src/core/libraries/Hash.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 
-
 contract NewOutboxTest is Test {
   using Hash for DataStructures.L2ToL1Msg;
 
-  address internal constant STATE_TRANSITIONER = address(0x42069123);
-  uint256 internal constant TREE_HEIGHT = 2;
-  uint256 internal constant version = 0;
+  address internal constant _STATE_TRANSITIONER = address(0x42069123);
+  address internal constant _NOT_STATE_TRANSITIONER = address(0x69);
+  address internal constant _NOT_RECIPIENT = address(0x420);
+  uint256 internal constant _DEFAULT_TREE_HEIGHT = 2;
+  uint256 internal constant _VERSION = 0;
 
   NewOutbox internal outbox;
   NaiveMerkle internal zeroedTree;
@@ -26,17 +27,17 @@ contract NewOutboxTest is Test {
   );
 
   function setUp() public {
-    outbox = new NewOutbox(STATE_TRANSITIONER);
-    zeroedTree = new NaiveMerkle(TREE_HEIGHT);
+    outbox = new NewOutbox(_STATE_TRANSITIONER);
+    zeroedTree = new NaiveMerkle(_DEFAULT_TREE_HEIGHT);
   }
 
-  function _fakeMessage() internal view returns (DataStructures.L2ToL1Msg memory) {
+  function _fakeMessage(address _recipient) internal view returns (DataStructures.L2ToL1Msg memory) {
     return DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor({
         actor: 0x2000000000000000000000000000000000000000000000000000000000000000,
-        version: version
+        version: _VERSION
       }),
-      recipient: DataStructures.L1Actor({actor: address(this), chainId: block.chainid}),
+      recipient: DataStructures.L1Actor({actor: _recipient, chainId: block.chainid}),
       content: 0x3000000000000000000000000000000000000000000000000000000000000000
     });
   }
@@ -44,41 +45,50 @@ contract NewOutboxTest is Test {
   function testRevertIfInsertingFromNonRollup() public {
     bytes32 root = zeroedTree.computeRoot();
 
-    vm.prank(address(0x69));
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__Unauthorized.selector)
-    );
-    outbox.insert(1, root, TREE_HEIGHT);
+    vm.prank(_NOT_STATE_TRANSITIONER);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__Unauthorized.selector));
+    outbox.insert(1, root, _DEFAULT_TREE_HEIGHT);
   }
 
   function testRevertIfInsertingDuplicate() public {
     bytes32 root = zeroedTree.computeRoot();
 
-    vm.prank(STATE_TRANSITIONER);
-    outbox.insert(1, root, TREE_HEIGHT);
+    vm.prank(_STATE_TRANSITIONER);
+    outbox.insert(1, root, _DEFAULT_TREE_HEIGHT);
 
-    vm.prank(STATE_TRANSITIONER);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__RootAlreadySet.selector, 1)
-    );
-    outbox.insert(1, root, TREE_HEIGHT);
+    vm.prank(_STATE_TRANSITIONER);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__RootAlreadySet.selector, 1));
+    outbox.insert(1, root, _DEFAULT_TREE_HEIGHT);
   }
 
   function testRevertIfConsumingMessageBelongingToOther() public {
-    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage();
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
 
     (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
 
-    vm.prank(address(0x69));
+    vm.prank(_NOT_RECIPIENT);
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__InvalidRecipient.selector, address(this), address(0x69))
+      abi.encodeWithSelector(
+        Errors.Outbox__InvalidRecipient.selector, address(this), _NOT_RECIPIENT
+      )
     );
+    outbox.consume(1, 1, fakeMessage, path);
+  }
+
+  function testRevertIfConsumingMessageWithInvalidChainId() public {
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
+
+    (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
+
+    fakeMessage.recipient.chainId = block.chainid + 1;
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__InvalidChainId.selector));
     outbox.consume(1, 1, fakeMessage, path);
   }
 
   function testRevertIfNothingInsertedAtBlockNumber() public {
     uint256 blockNumber = 1;
-    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage();
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
 
     (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
 
@@ -88,168 +98,128 @@ contract NewOutboxTest is Test {
     outbox.consume(blockNumber, 1, fakeMessage, path);
   }
 
-  function testRevertIfConsumingMessageWithInvalidChainId() public {
-    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage();
-
-    (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
-
-    fakeMessage.recipient.chainId = block.chainid + 1;
-
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__InvalidChainId.selector)
-    );
-    outbox.consume(1, 1, fakeMessage, path);
-  }
-
   function testRevertIfTryingToConsumeSameMessage() public {
-    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage();
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
     bytes32 leaf = fakeMessage.sha256ToField();
 
-    NaiveMerkle tree = new NaiveMerkle(TREE_HEIGHT);    
+    NaiveMerkle tree = new NaiveMerkle(_DEFAULT_TREE_HEIGHT);
     tree.insertLeaf(leaf);
     bytes32 root = tree.computeRoot();
 
-    vm.prank(STATE_TRANSITIONER);
-    outbox.insert(1, root, TREE_HEIGHT);
+    vm.prank(_STATE_TRANSITIONER);
+    outbox.insert(1, root, _DEFAULT_TREE_HEIGHT);
 
     (bytes32[] memory path,) = tree.computeSiblingPath(0);
     outbox.consume(1, 0, fakeMessage, path);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, 1, 0)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, 1, 0));
     outbox.consume(1, 0, fakeMessage, path);
   }
 
   function testRevertIfPathHeightMismatch() public {
-    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage();
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
     bytes32 leaf = fakeMessage.sha256ToField();
 
-    NaiveMerkle tree = new NaiveMerkle(TREE_HEIGHT);    
+    NaiveMerkle tree = new NaiveMerkle(_DEFAULT_TREE_HEIGHT);
     tree.insertLeaf(leaf);
     bytes32 root = tree.computeRoot();
 
-    vm.prank(STATE_TRANSITIONER);
-    outbox.insert(1, root, TREE_HEIGHT);
+    vm.prank(_STATE_TRANSITIONER);
+    outbox.insert(1, root, _DEFAULT_TREE_HEIGHT);
 
-    NaiveMerkle biggerTree = new NaiveMerkle(TREE_HEIGHT + 1);    
+    NaiveMerkle biggerTree = new NaiveMerkle(_DEFAULT_TREE_HEIGHT + 1);
     tree.insertLeaf(leaf);
 
     (bytes32[] memory path,) = biggerTree.computeSiblingPath(0);
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__InvalidPathLength.selector, TREE_HEIGHT, TREE_HEIGHT + 1)
+      abi.encodeWithSelector(
+        Errors.Outbox__InvalidPathLength.selector, _DEFAULT_TREE_HEIGHT, _DEFAULT_TREE_HEIGHT + 1
+      )
     );
     outbox.consume(1, 0, fakeMessage, path);
   }
 
   function testRevertIfTryingToConsumeMessageNotInTree() public {
-    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage();
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
     bytes32 leaf = fakeMessage.sha256ToField();
-    fakeMessage.content = bytes32 (uint256(42069));
+    fakeMessage.content = bytes32(uint256(42069));
     bytes32 modifiedLeaf = fakeMessage.sha256ToField();
 
-    NaiveMerkle tree = new NaiveMerkle(TREE_HEIGHT);    
+    NaiveMerkle tree = new NaiveMerkle(_DEFAULT_TREE_HEIGHT);
     tree.insertLeaf(leaf);
     bytes32 root = tree.computeRoot();
 
-    NaiveMerkle modifiedTree = new NaiveMerkle(TREE_HEIGHT);    
+    NaiveMerkle modifiedTree = new NaiveMerkle(_DEFAULT_TREE_HEIGHT);
     modifiedTree.insertLeaf(modifiedLeaf);
     bytes32 modifiedRoot = modifiedTree.computeRoot();
 
-    vm.prank(STATE_TRANSITIONER);
-    outbox.insert(1, root, TREE_HEIGHT);
+    vm.prank(_STATE_TRANSITIONER);
+    outbox.insert(1, root, _DEFAULT_TREE_HEIGHT);
 
     (bytes32[] memory path,) = modifiedTree.computeSiblingPath(0);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__InvalidRoot.selector, root, modifiedRoot)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__InvalidRoot.selector, root, modifiedRoot));
     outbox.consume(1, 0, fakeMessage, path);
   }
 
-//   // fuzz batch insert -> check inserted. event emitted
-//   function testFuzzBatchInsert(bytes32[] memory _entryKeys) public {
-//     // expected events
-//     for (uint256 i = 0; i < _entryKeys.length; i++) {
-//       if (_entryKeys[i] == bytes32(0)) continue;
-//       vm.expectEmit(true, false, false, false);
-//       emit MessageAdded(_entryKeys[i]);
-//     }
+  function testInsertVariedLeafs(bytes32[] calldata _messageLeafs) public {
+    vm.assume(_messageLeafs.length < 256);
+    vm.assume(_messageLeafs.length > 128);
 
-//     outbox.sendL1Messages(_entryKeys);
-//     for (uint256 i = 0; i < _entryKeys.length; i++) {
-//       if (_entryKeys[i] == bytes32(0)) continue;
-//       bytes32 key = _entryKeys[i];
-//       DataStructures.Entry memory entry = outbox.get(key);
-//       assertGt(entry.count, 0);
-//       assertEq(entry.fee, 0);
-//       assertEq(entry.deadline, 0);
-//     }
-//   }
+    // This correct only when fuzzing using _messageLeafs.length 128 < length < 256
+    NaiveMerkle tree = new NaiveMerkle(8);
 
-//   function testRevertIfConsumingFromWrongRecipient() public {
-//     DataStructures.L2ToL1Msg memory message = _fakeMessage();
-//     message.recipient.actor = address(0x1);
-//     vm.expectRevert(Errors.Outbox__Unauthorized.selector);
-//     outbox.consume(message);
-//   }
+    for (uint256 i = 0; i < _messageLeafs.length; i++) {
+      vm.assume(_messageLeafs[i] != bytes32(0));
+      tree.insertLeaf(_messageLeafs[i]);
+    }
 
-//   function testRevertIfConsumingForWrongChain() public {
-//     DataStructures.L2ToL1Msg memory message = _fakeMessage();
-//     message.recipient.chainId = 2;
-//     vm.expectRevert(Errors.Outbox__InvalidChainId.selector);
-//     outbox.consume(message);
-//   }
+    bytes32 root = tree.computeRoot();
 
-//   function testRevertIfConsumingMessageThatDoesntExist() public {
-//     DataStructures.L2ToL1Msg memory message = _fakeMessage();
-//     bytes32 entryKey = outbox.computeEntryKey(message);
-//     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKey));
-//     outbox.consume(message);
-//   }
+    vm.expectEmit(true, true, true, true, address(outbox));
+    emit RootAdded(1, root, 8);
+    vm.prank(_STATE_TRANSITIONER);
+    outbox.insert(1, root, 8);
+  }
 
-//   function testRevertIfInsertingFromWrongRollup() public {
-//     address wrongRollup = address(0xbeeffeed);
-//     uint256 wrongVersion = registry.upgrade(wrongRollup, STATE_TRANSITIONER, address(outbox));
+  // This test takes awhile so to keep it somewhat reasonable wev'e set a limit on the amount of fuzz runs
+  /// forge-config: default.fuzz.runs = 16
+  function testInsertAndConsumeWithVariedRecipients(
+    address[] calldata _recipients,
+    uint256 _blockNumber
+  ) public {
+    // We most likely will not have > 128 L2 -> L1 Messages in a single block but are testing an upper bound here
+    vm.assume(_recipients.length < 256);
+    vm.assume(_recipients.length > 128);
+    DataStructures.L2ToL1Msg[] memory messages = new DataStructures.L2ToL1Msg[](_recipients.length);
 
-//     DataStructures.L2ToL1Msg memory message = _fakeMessage();
-//     // correctly set message.recipient to this address
-//     message.recipient = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
+    // This correct only when fuzzing using _messageLeafs.length 128 < length < 256 hence the assumption above
+    uint256 bigTreeHeight = 8;
 
-//     bytes32 expectedEntryKey = outbox.computeEntryKey(message);
-//     bytes32[] memory entryKeys = new bytes32[](1);
-//     entryKeys[0] = expectedEntryKey;
+    NaiveMerkle tree = new NaiveMerkle(bigTreeHeight);
 
-//     vm.prank(wrongRollup);
-//     outbox.sendL1Messages(entryKeys);
+    for (uint256 i = 0; i < _recipients.length; i++) {
+      vm.assume(_recipients[i] != address(0));
+      DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(_recipients[i]);
+      messages[i] = fakeMessage;
+      bytes32 modifiedLeaf = fakeMessage.sha256ToField();
 
-//     vm.prank(message.recipient.actor);
-//     vm.expectRevert(
-//       abi.encodeWithSelector(Errors.Outbox__InvalidVersion.selector, wrongVersion, version)
-//     );
-//     outbox.consume(message);
-//   }
+      tree.insertLeaf(modifiedLeaf);
+    }
 
-//   function testFuzzConsume(DataStructures.L2ToL1Msg memory _message) public {
-//     // correctly set message.recipient to this address
-//     _message.recipient = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
+    bytes32 root = tree.computeRoot();
 
-//     // correctly set the message.sender.version
-//     _message.sender.version = version;
+    vm.expectEmit(true, true, true, true, address(outbox));
+    emit RootAdded(_blockNumber, root, bigTreeHeight);
+    vm.prank(_STATE_TRANSITIONER);
+    outbox.insert(_blockNumber, root, bigTreeHeight);
 
-//     bytes32 expectedEntryKey = outbox.computeEntryKey(_message);
-//     bytes32[] memory entryKeys = new bytes32[](1);
-//     entryKeys[0] = expectedEntryKey;
-//     outbox.sendL1Messages(entryKeys);
+    for (uint256 i = 0; i < _recipients.length; i++) {
+      (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(i);
 
-//     vm.prank(_message.recipient.actor);
-//     vm.expectEmit(true, true, false, false);
-//     emit MessageConsumed(expectedEntryKey, _message.recipient.actor);
-//     outbox.consume(_message);
-
-//     // ensure no such message to consume:
-//     vm.expectRevert(
-//       abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, expectedEntryKey)
-//     );
-//     outbox.consume(_message);
-//   }
+      vm.expectEmit(true, true, true, true, address(outbox));
+      emit MessageConsumed(_blockNumber, root, leaf);
+      vm.prank(_recipients[i]);
+      outbox.consume(_blockNumber, i, messages[i], path);
+    }
+  }
 }
