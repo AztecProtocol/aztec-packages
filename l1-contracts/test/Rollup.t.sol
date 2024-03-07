@@ -128,7 +128,6 @@ contract RollupTest is DecoderBase {
     // We jump to the time of the block.
     vm.warp(full.block.decodedHeader.globalVariables.timestamp);
 
-    // TODO(#4492): Nuke the next line once the old inbox is purged
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
     for (uint256 i = 0; i < full.messages.l1ToL2Messages.length; i++) {

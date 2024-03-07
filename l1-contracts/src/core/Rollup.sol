@@ -89,8 +89,9 @@ contract Rollup is IRollup {
     IInbox inbox = REGISTRY.getInbox();
     inbox.batchConsume(l1ToL2Msgs, msg.sender);
 
-    bytes32 inHash = NEW_INBOX.consume();
-    // TODO(#4633): enable this check
+    // TODO(#4633): enable the inHash check
+    NEW_INBOX.consume();
+    // bytes32 inHash = NEW_INBOX.consume();
     // if (header.contentCommitment.inHash != inHash) {
     //   revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
     // }
