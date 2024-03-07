@@ -1,5 +1,25 @@
-import { L1ToL2Message } from '@aztec/circuit-types';
+import { L1ToL2Message, NewInboxLeaf } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
+
+/**
+ * A simple in-memory implementation of an L1 to L2 message store
+ * that handles message duplication.
+ * TODO(#4492): Clean this up
+ */
+export class NewL1ToL2MessageStore {
+  /**
+   * A map containing the entry key to the corresponding L1 to L2
+   * messages (and the number of times the message has been seen).
+   */
+  protected store: Map<string, Buffer> = new Map();
+
+  constructor() {}
+
+  addMessage(message: NewInboxLeaf) {
+    const key = `${message.blockNumber}-${message.index}`;
+    this.store.set(key, message.leaf);
+  }
+}
 
 /**
  * A simple in-memory implementation of an L1 to L2 message store

@@ -1,4 +1,4 @@
-import { L1ToL2Message } from '@aztec/circuit-types';
+import { L1ToL2Message, NewInboxLeaf } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecCounter, AztecKVStore, AztecMap, AztecSingleton } from '@aztec/kv-store';
@@ -19,16 +19,18 @@ type Message = {
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class MessageStore {
-  #messages: AztecMap<string, Message>;
-  #pendingMessagesByFee: AztecCounter<[number, string]>;
+  #newMessages: AztecMap<string, Buffer>;
   #lastL1BlockNewMessages: AztecSingleton<bigint>;
   // TODO(#4492): Nuke the following when purging the old inbox
+  #pendingMessagesByFee: AztecCounter<[number, string]>;
+  #messages: AztecMap<string, Message>;
   #lastL1BlockAddingMessages: AztecSingleton<bigint>;
   #lastL1BlockCancellingMessages: AztecSingleton<bigint>;
 
   #log = createDebugLogger('aztec:archiver:message_store');
 
   constructor(private db: AztecKVStore) {
+    this.#newMessages = db.openMap('archiver_l1_to_l2_new_messages');
     this.#messages = db.openMap('archiver_l1_to_l2_messages');
     this.#pendingMessagesByFee = db.openCounter('archiver_messages_by_fee');
     this.#lastL1BlockNewMessages = db.openSingleton('archiver_last_l1_block_new_messages');
@@ -52,31 +54,21 @@ export class MessageStore {
   /**
    * Append new L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
-   * @param l1BlockNumber - The L1 block number for which to add the messages.
+   * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
    * @returns True if the operation is successful.
    */
-  addNewL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean> {
+  addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
     return this.db.transaction(() => {
       const lastL1BlockNumber = this.#lastL1BlockAddingMessages.get() ?? 0n;
-      if (lastL1BlockNumber >= l1BlockNumber) {
+      if (lastL1BlockNumber >= lastMessageL1BlockNumber) {
         return false;
       }
 
-      void this.#lastL1BlockNewMessages.set(l1BlockNumber);
+      void this.#lastL1BlockNewMessages.set(lastMessageL1BlockNumber);
 
       for (const message of messages) {
-        const entryKey = message.entryKey?.toString();
-        if (!entryKey) {
-          throw new Error('Message does not have an entry key');
-        }
-
-        void this.#messages.setIfNotExists(entryKey, {
-          message: message.toBuffer(),
-          fee: message.fee,
-          confirmed: false,
-        });
-
-        void this.#pendingMessagesByFee.update([message.fee, entryKey], 1);
+        const key = `${message.blockNumber}-${message.index}`;
+        void this.#newMessages.setIfNotExists(key, message.leaf);
       }
 
       return true;

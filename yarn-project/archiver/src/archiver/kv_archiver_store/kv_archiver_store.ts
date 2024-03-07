@@ -8,6 +8,7 @@ import {
   L2BlockL2Logs,
   LogFilter,
   LogType,
+  NewInboxLeaf,
   TxEffect,
   TxHash,
   TxReceipt,
@@ -151,11 +152,11 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   /**
    * Append new L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
-   * @param l1BlockNumber - The L1 block number for which to add the messages.
+   * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
    * @returns True if the operation is successful.
    */
-  addNewL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean> {
-    return Promise.resolve(this.#messageStore.addNewL1ToL2Messages(messages, l1BlockNumber));
+  addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
+    return Promise.resolve(this.#messageStore.addNewL1ToL2Messages(messages, lastMessageL1BlockNumber));
   }
 
   /**
@@ -300,10 +301,11 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    */
   getL1BlockNumber(): Promise<ArchiverL1SynchPoint> {
     const addedBlock = this.#blockStore.getL1BlockNumber();
-    const { addedMessages, cancelledMessages } = this.#messageStore.getL1BlockNumber();
+    const { addedMessages, cancelledMessages, newMessages } = this.#messageStore.getL1BlockNumber();
     return Promise.resolve({
       addedBlock,
       addedMessages,
+      newMessages,
       cancelledMessages,
     });
   }

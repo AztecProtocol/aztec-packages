@@ -164,6 +164,7 @@ export class Archiver implements ArchiveSource {
 
     if (
       currentL1BlockNumber <= lastL1Blocks.addedBlock &&
+      currentL1BlockNumber <= lastL1Blocks.newMessages &&
       currentL1BlockNumber <= lastL1Blocks.addedMessages &&
       currentL1BlockNumber <= lastL1Blocks.cancelledMessages
     ) {
@@ -241,7 +242,7 @@ export class Archiver implements ArchiveSource {
       this.publicClient,
       this.inboxAddress,
       blockUntilSynced,
-      lastL1Blocks.addedMessages + 1n,
+      lastL1Blocks.newMessages + 1n,
       currentL1BlockNumber,
     );
     await this.store.addNewL1ToL2Messages(
