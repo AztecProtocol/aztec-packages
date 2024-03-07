@@ -27,9 +27,9 @@ pub struct WitnessStack {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub struct StackItem {
     /// Index into a [crate::circuit::Program] function list for which we have an associated witness
-    index: u32,
+    pub index: u32,
     /// A full witness for the respective constraint system specified by the index
-    witness: WitnessMap,
+    pub witness: WitnessMap,
 }
 
 impl From<WitnessMap> for WitnessStack {
