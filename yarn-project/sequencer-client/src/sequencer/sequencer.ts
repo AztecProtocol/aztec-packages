@@ -180,7 +180,6 @@ export class Sequencer {
       this.log.info(`Building block ${newBlockNumber} with ${validTxs.length} transactions`);
       this.state = SequencerState.CREATING_BLOCK;
 
-      // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       const processor = await this.publicProcessorFactory.create(historicalHeader, newGlobalVariables);
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs));
@@ -255,12 +254,12 @@ export class Sequencer {
       return;
     }
 
-    const blockCalldataHash = block.body.getCalldataHash();
+    const txsEffectsHash = block.body.getTxsEffectsHash();
     this.log.info(`Publishing ${newContracts.length} contracts in block ${block.number}`);
 
     const publishedContractData = await this.publisher.processNewContractData(
       block.number,
-      blockCalldataHash,
+      txsEffectsHash,
       newContracts,
     );
 

@@ -456,6 +456,7 @@ impl PrivateContext {
                 call_context: reader.read_struct(CallContext::deserialize),
                 args_hash: reader.read(),
                 return_values: [0; RETURN_VALUES_LENGTH],
+                nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
                 contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
                 contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
                 public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
@@ -465,7 +466,8 @@ impl PrivateContext {
                 unencrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
                 historical_header: Header::empty(),
-                prover_address: AztecAddress::zero()
+                prover_address: AztecAddress::zero(),
+                reverted: false
             },
             is_execution_request: true
         };

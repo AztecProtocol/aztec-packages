@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.26.5](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.26.4...aztec-packages-v0.26.5) (2024-03-07)
+
+
+### Features
+
+* Crowdfunding contract ([#4917](https://github.com/AztecProtocol/aztec-packages/issues/4917)) ([ba3aff2](https://github.com/AztecProtocol/aztec-packages/commit/ba3aff2d32f88218543082ab91060ae549f1666a))
+* Integrated native ACVM ([#4903](https://github.com/AztecProtocol/aztec-packages/issues/4903)) ([3fd7025](https://github.com/AztecProtocol/aztec-packages/commit/3fd7025ab43e705cab4aa67ca057e54316a1715b))
+
+
+### Bug Fixes
+
+* Dependency for yarn-project-tests ([#5031](https://github.com/AztecProtocol/aztec-packages/issues/5031)) ([4b5db50](https://github.com/AztecProtocol/aztec-packages/commit/4b5db50df68380e787cf499efac78835f927bea6))
+* **docs:** Update writing_token_contract.md ([#5020](https://github.com/AztecProtocol/aztec-packages/issues/5020)) ([5b0f38f](https://github.com/AztecProtocol/aztec-packages/commit/5b0f38f5e3b7f5c6ad950572341859d12bbf46bc))
+* End to end dependency fix ([#5029](https://github.com/AztecProtocol/aztec-packages/issues/5029)) ([191ad93](https://github.com/AztecProtocol/aztec-packages/commit/191ad9314263aae7fde75e510a6b866631d5d3de))
+* Missing dependency end-to-end =&gt; yarn-project ([#5018](https://github.com/AztecProtocol/aztec-packages/issues/5018)) ([f930bdd](https://github.com/AztecProtocol/aztec-packages/commit/f930bdd49bfdf77eed166634e07ef49c93ffce07))
+* **revert:** "feat(avm): storage" ([#5019](https://github.com/AztecProtocol/aztec-packages/issues/5019)) ([ba31016](https://github.com/AztecProtocol/aztec-packages/commit/ba3101610217ec1ac9976fed0962790b319cb01c))
+
+
+### Miscellaneous
+
+* **boxes:** Refactor npx to improve readability, added upgrade option and manual versioning ([#4855](https://github.com/AztecProtocol/aztec-packages/issues/4855)) ([ef76d3f](https://github.com/AztecProtocol/aztec-packages/commit/ef76d3f37dfc338bda1742baf006129ff9b3ed74))
+* Purging calldata hash ([#4984](https://github.com/AztecProtocol/aztec-packages/issues/4984)) ([f6f34b7](https://github.com/AztecProtocol/aztec-packages/commit/f6f34b7cebc757aa7974cd2c947815132ec703d6))
+
+
+### Documentation
+
+* Add versions section to updating doc ([#4916](https://github.com/AztecProtocol/aztec-packages/issues/4916)) ([d4d935f](https://github.com/AztecProtocol/aztec-packages/commit/d4d935f05ae7026420aca4550a2b80e196028299))
+
+## [0.26.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.26.3...aztec-packages-v0.26.4) (2024-03-06)
+
+
+### Features
+
+* **avm:** ALU &lt;--&gt; MAIN inter table relation on intermediate registers copy ([#4945](https://github.com/AztecProtocol/aztec-packages/issues/4945)) ([8708131](https://github.com/AztecProtocol/aztec-packages/commit/870813173e0fc760338a06485722387fdd1dfcab)), closes [#4613](https://github.com/AztecProtocol/aztec-packages/issues/4613)
+* Circuit checker class ([#4931](https://github.com/AztecProtocol/aztec-packages/issues/4931)) ([4eba266](https://github.com/AztecProtocol/aztec-packages/commit/4eba26675a39cf6c9539da57c7177ec28ee3a8fb))
+* Compute out hash in circuits [#4561](https://github.com/AztecProtocol/aztec-packages/issues/4561) ([#4873](https://github.com/AztecProtocol/aztec-packages/issues/4873)) ([06a9116](https://github.com/AztecProtocol/aztec-packages/commit/06a9116959a6a193a605aebe2fc4e33751e3ef1a))
+
+
+### Bug Fixes
+
+* **ci:** Noir mirror base commit ([#4969](https://github.com/AztecProtocol/aztec-packages/issues/4969)) ([546c666](https://github.com/AztecProtocol/aztec-packages/commit/546c666c62f495d258fe44d164a3bc184a8e5fed))
+* Fix release ([#4994](https://github.com/AztecProtocol/aztec-packages/issues/4994)) ([19a8728](https://github.com/AztecProtocol/aztec-packages/commit/19a872843b3eea1991fc76afab5f6d50fbe4a492))
+
+
+### Miscellaneous
+
+* Use public constructors where possible ([#4937](https://github.com/AztecProtocol/aztec-packages/issues/4937)) ([225aad6](https://github.com/AztecProtocol/aztec-packages/commit/225aad683ec940eaa06509b5a149797a179c865e))
+
 ## [0.26.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.26.2...aztec-packages-v0.26.3) (2024-03-06)
 
 
