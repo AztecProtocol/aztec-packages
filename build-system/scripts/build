@@ -114,11 +114,11 @@ b="\033[34m"  # Blue
 r="\033[0m"   # Reset
 
 function build {
-  docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg COMMIT_HASH=$COMMIT_HASH .
+  docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg COMMIT_HASH=$COMMIT_HASH . 2>&1
 }
 
-(build > >(awk -v c="$g" -v r="$r" '$0=c"contracts: "r $0')) &
-(DOCKER_HOST=$DOCKER_HOST_ARM build > >(awk -v c="$b" -v r="$r" '$0=c"contracts: "r $0')) &
+(build > >(awk -v c="$g" -v r="$r" '$0=c"x86_64: "r $0')) &
+(DOCKER_HOST=$DOCKER_HOST_ARM build > >(awk -v c="$b" -v r="$r" '$0=c"arm64: "r $0')) &
 
 wait
 

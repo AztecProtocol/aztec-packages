@@ -24,6 +24,6 @@ if [ -n "$COMMIT_TAG" ] && grep -qE "^ARG COMMIT_TAG=" $DOCKERFILE; then
 fi
 
 # If the image doesn't exist, we need to rebuild.
-if ! image_exists $REPOSITORY $TAG; then
+if ! image_exists $REPOSITORY $TAG || ! DOCKER_HOST=$DOCKER_HOST_ARM image_exists $REPOSITORY $TAG; then
   exit 1
 fi
