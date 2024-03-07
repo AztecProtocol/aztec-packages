@@ -1,9 +1,14 @@
 import path from "path";
 import os from "os";
-import fs from "fs";
+import fs from "fs/promises";
 import { parse, stringify } from "@iarna/toml";
 import { default as axiosBase } from "axios";
 import { CONTRACTS_TO_SHOW } from "./config.js";
+import chalk from "chalk";
+import ora from "ora";
+
+import input from "@inquirer/input";
+import tiged from "tiged";
 
 const { log, warn, info } = console;
 const targetDir = path.join(os.homedir(), ".aztec/bin"); // Use os.homedir() to get $HOME
@@ -15,6 +20,7 @@ if (GITHUB_TOKEN) {
 }
 
 export const axios = axiosBase.create(axiosOpts);
+export const spinner = ora({ color: "blue" });
 
 export async function getAvailableBoxes(tag, version) {
   const { GITHUB_TOKEN } = process.env;
@@ -77,6 +83,80 @@ export async function getAvailableContracts(tag, version) {
   return await Promise.all(availableContracts);
 }
 
+export async function clone({ path, choice, type, tag, version }) {
+  const appName = await input({
+    message: `Your ${type} name:`,
+    default: `my-aztec-${type}`,
+  });
+
+  spinner.text = `Cloning the ${type} code...`;
+  try {
+    spinner.start();
+
+    const emitter = tiged(
+      `AztecProtocol/aztec-packages/${path}/${choice}${tag && `#${tag}`}`,
+    );
+    emitter.on("info", log);
+    await emitter.clone(`./${appName}`);
+
+    if (type === "contract") {
+      spinner.text = `Cloning default contract project...`;
+      const baseEmitter = tiged(
+        `AztecProtocol/aztec-packages/boxes/contract-only${tag && `#${tag}`}`,
+      );
+      baseEmitter.on("info", log);
+      await baseEmitter.clone(`./${appName}/base`);
+      await fs.cp(`./${appName}/base`, `./${appName}`, {
+        recursive: true,
+        force: true,
+      });
+      await fs.rm(`./${appName}/base`, { recursive: true, force: true });
+    }
+    return `./${appName}`;
+  } catch (error) {
+    log(chalk.bgRed(error));
+    process.exit(1);
+  } finally {
+    spinner.stop();
+  }
+}
+
+export async function processProject({ rootDir, placeholder, contractName }) {
+  spinner.text = `Processing the code...`;
+  try {
+    spinner.start();
+    const processes = [];
+    const findAndReplace = async (dir, placeholder, contractName) => {
+      const files = await fs.readdir(dir, {
+        withFileTypes: true,
+      });
+      files.forEach(async (file) => {
+        const filePath = path.join(dir, file.name);
+        if (file.isDirectory()) {
+          findAndReplace(filePath, placeholder, contractName);
+        } else {
+          processes.push(
+            new Promise(async (resolve, reject) => {
+              const content = await fs.readFile(filePath, "utf8");
+              const newContent = content.replace(placeholder, contractName);
+              await fs.writeFile(filePath, newContent, "utf8");
+              resolve();
+            }),
+          );
+        }
+      });
+    };
+
+    await findAndReplace(path.resolve(rootDir), placeholder, contractName);
+    await Promise.all(processes);
+  } catch (error) {
+    log(chalk.bgRed(error));
+    process.exit(1);
+  } finally {
+    spinner.stop();
+  }
+}
+
 export function prettyPrintNargoToml(config) {
   const withoutDependencies = Object.fromEntries(
     Object.entries(config).filter(([key]) => key !== "dependencies"),
@@ -95,7 +175,7 @@ export function prettyPrintNargoToml(config) {
   );
 }
 
-export function updatePathEnvVar() {
+export async function updatePathEnvVar() {
   // Detect the user's shell profile file based on common shells and environment variables
   const homeDir = os.homedir();
   let shellProfile;
@@ -110,7 +190,7 @@ export function updatePathEnvVar() {
   }
 
   // Read the current content of the shell profile to check if the path is already included
-  const profileContent = fs.readFileSync(shellProfile, "utf8");
+  const profileContent = await fs.readFile(shellProfile, "utf8");
   if (profileContent.includes(targetDir)) {
     log(`${targetDir} is already in PATH.`);
     return;
@@ -118,56 +198,77 @@ export function updatePathEnvVar() {
 
   // Append the export command to the shell profile file
   const exportCmd = `\nexport PATH="$PATH:${targetDir}" # Added by Node.js script\n`;
-  fs.appendFileSync(shellProfile, exportCmd);
+  await fs.appendFile(shellProfile, exportCmd);
 
   info(`Added ${targetDir} to PATH in ${shellProfile}.`);
 }
 
 export async function replacePaths({ rootDir, tag, version, prefix = "" }) {
-  console.log("rootDir", rootDir);
-  const files = fs.readdirSync(path.resolve(rootDir), {
-    withFileTypes: true,
-  });
+  spinner.text = `Replacing paths...`;
 
-  files.forEach((file) => {
-    const filePath = path.join(rootDir, file.name);
-    if (file.isDirectory()) {
-      replacePaths({ rootDir: filePath, tag, version, prefix }); // Recursively search subdirectories
-    } else if (file.name === "Nargo.toml") {
-      let content = parse(fs.readFileSync(filePath, "utf8"));
+  try {
+    spinner.start();
+    const replaces = [];
+    const findAndReplace = async (dir, tag, version, prefix) => {
+      console.log(dir);
+      const files = await fs.readdir(dir, {
+        withFileTypes: true,
+      });
+      files.forEach(async (file) => {
+        const filePath = path.join(dir, file.name);
+        if (file.isDirectory()) {
+          findAndReplace(filePath, tag, version, prefix); // Recursively search subdirectories
+        } else if (file.name === "Nargo.toml") {
+          replaces.push(
+            new Promise(async (resolve, reject) => {
+              let content = parse(await fs.readFile(filePath, "utf8"));
 
-      try {
-        Object.keys(content.dependencies).forEach((dep) => {
-          const directory = content.dependencies[dep].path.replace(
-            /^(..\/)+/,
-            "",
+              Object.keys(content.dependencies).forEach((dep) => {
+                const directory = content.dependencies[dep].path.replace(
+                  /^(..\/)+/,
+                  "",
+                );
+                content.dependencies[dep] = {
+                  git: "https://github.com/AztecProtocol/aztec-packages",
+                  tag,
+                  directory: `${prefix}/${directory}`,
+                };
+              });
+
+              await fs.writeFile(
+                filePath,
+                prettyPrintNargoToml(content),
+                "utf8",
+              );
+              resolve();
+            }),
           );
-          content.dependencies[dep] = {
-            git: "https://github.com/AztecProtocol/aztec-packages",
-            tag,
-            directory: `${prefix}/${directory}`,
-          };
-        });
-      } catch (e) {
-        log(e);
-      }
-
-      fs.writeFileSync(filePath, prettyPrintNargoToml(content), "utf8");
-    } else if (file.name === "package.json") {
-      try {
-        let content = JSON.parse(fs.readFileSync(filePath, "utf8"));
-        Object.keys(content.dependencies)
-          .filter((deps) => deps.match("@aztec"))
-          // "master" actually means "latest" for the npm release
-          .map(
-            (dep) =>
-              (content.dependencies[dep] =
-                `${version === "master" ? "latest" : `^${version}`}`),
+        } else if (file.name === "package.json") {
+          replaces.push(
+            new Promise(async (resolve, reject) => {
+              let content = JSON.parse(await fs.readFile(filePath, "utf8"));
+              Object.keys(content.dependencies)
+                .filter((deps) => deps.match("@aztec"))
+                // "master" actually means "latest" for the npm release
+                .map(
+                  (dep) =>
+                    (content.dependencies[dep] =
+                      `${version === "master" ? "latest" : `^${version}`}`),
+                );
+              await fs.writeFile(filePath, JSON.stringify(content), "utf8");
+              resolve();
+            }),
           );
-        fs.writeFileSync(filePath, JSON.stringify(content), "utf8");
-      } catch (e) {
-        log("No package.json to update");
-      }
-    }
-  });
+        }
+      });
+    };
+
+    await findAndReplace(path.resolve(rootDir), tag, version, prefix);
+    return await Promise.all(replaces);
+  } catch (error) {
+    log(chalk.bgRed(error));
+    process.exit(1);
+  } finally {
+    spinner.stop();
+  }
 }

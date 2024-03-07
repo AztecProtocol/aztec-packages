@@ -1,26 +1,33 @@
-import { BoxReactContract } from '../artifacts/BoxReact.js';
-import { AccountWallet, Fr, Contract, TxStatus, createDebugLogger, ContractDeployer } from '@aztec/aztec.js';
-import { deployerEnv } from '../src/config.js';
+import { createPXEClient, PXE, GrumpkinScalar, AccountManager, Wallet } from '@aztec/aztec.js';
+import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
+import { derivePublicKey } from '@aztec/circuits.js';
 
-const logger = createDebugLogger('aztec:http-pxe-client');
+describe('Account Tests', () => {
+  const pxeURL = process.env.PXE_URL || 'http://localhost:8080';
+  let pxe: PXE;
+  let account: AccountManager;
+  let wallet: Wallet;
 
-describe('BoxReact Contract Tests', () => {
-  let wallet: AccountWallet;
-  let contract: Contract;
-  const { artifact } = BoxReactContract;
-  const numberToSet = Fr.random();
+  const privateKey = GrumpkinScalar.fromString('0x1234');
+  const expectedPublicKey = derivePublicKey(privateKey).toString();
 
-  test('Can deploy a contract', async () => {
-    wallet = await deployerEnv.getWallet();
-    const pxe = deployerEnv.pxe;
-    const deployer = new ContractDeployer(artifact, wallet);
-    const salt = Fr.random();
-    const { address: contractAddress } = await deployer
-      .deploy(Fr.random(), wallet.getCompleteAddress().address)
-      .send({ contractAddressSalt: salt })
-      .deployed();
-    contract = await BoxReactContract.at(contractAddress!, wallet);
+  test('Can start the PXE server', async () => {
+    pxe = createPXEClient(pxeURL);
+    const { chainId } = await pxe.getNodeInfo();
+    console.log(chainId);
+    expect(chainId).toBe(31337);
+  });
 
-    logger(`L2 contract deployed at ${contractAddress}`);
-  }, 60000);
+  test('Can create an account contract with a known address', async () => {
+    const accountContract = new SingleKeyAccountContract(privateKey);
+    account = new AccountManager(pxe, privateKey, accountContract);
+    const publicKey = account.getCompleteAddress().publicKey.toString();
+    expect(publicKey).toEqual(expectedPublicKey);
+  });
+
+  test('Can deploy a contract with a known address', async () => {
+    ({ wallet } = await (await account.deploy()).wait());
+    const publicKey = wallet.getCompleteAddress().publicKey.toString();
+    expect(publicKey).toEqual(expectedPublicKey);
+  });
 });

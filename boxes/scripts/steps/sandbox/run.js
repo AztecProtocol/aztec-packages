@@ -2,14 +2,11 @@ import confirm from "@inquirer/confirm";
 import { execSync } from "child_process";
 import chalk from "chalk";
 import axios from "axios";
-import ora from "ora";
+import { spinner } from "../../utils.js";
 const { log } = console;
 
 export async function sandboxRun(version) {
-  const spinner = ora({
-    text: "Trying to reach the sandbox...",
-    color: "blue",
-  });
+  spinner.text = "Trying to reach the sandbox...";
 
   try {
     spinner.start();

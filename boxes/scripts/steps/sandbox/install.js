@@ -22,8 +22,8 @@ const runPty = async (command, { success, error }) => {
 
       ptyProcess.write(command);
 
-      ptyProcess.on("exit", function (exitCode, signal) {
-        updatePathEnvVar();
+      ptyProcess.on("exit", async function (exitCode, signal) {
+        await updatePathEnvVar();
         resolve();
         if (exitCode === 0) {
           log(chalk.bgGreen(success));

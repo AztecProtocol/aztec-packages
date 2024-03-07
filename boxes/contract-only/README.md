@@ -1,6 +1,6 @@
-# Aztec Box
+# Contract-Only Box
 
-This box is a one-stop-shop for Aztec that will deploy a minimal barebones HTML+JS page. You can use it as a boilerplate to start developing your own Aztec app in seconds!
+This box is a one-stop-shop for Aztec with the %%contract_name%% example contract. You can use it as a boilerplate to start developing your own Aztec app in seconds!
 
 ## More information
 

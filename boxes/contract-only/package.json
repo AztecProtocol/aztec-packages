@@ -12,7 +12,7 @@
     "dev": "yarn prep && webpack serve --mode development",
     "build": "yarn prep && webpack",
     "serve": "webpack serve --no-open --mode development",
-    "test": "yarn prep && NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src"
   },
@@ -20,11 +20,29 @@
     "@aztec/accounts": "latest",
     "@aztec/aztec.js": "latest"
   },
+  "jest": {
+    "preset": "ts-jest/presets/default-esm",
+    "transform": {
+      "^.+\\.(ts|tsx)$": [
+        "ts-jest",
+        {
+          "useESM": true
+        }
+      ]
+    },
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "testRegex": "tests/.*\\.test\\.ts$",
+    "rootDir": "./"
+  },
   "devDependencies": {
     "@playwright/test": "1.42.0",
+    "@types/jest": "^29.5.0",
     "@types/node": "^20.11.17",
     "copy-webpack-plugin": "^11.0.0",
     "html-webpack-plugin": "^5.6.0",
+    "jest": "^29.6.4",
     "stream-browserify": "^3.0.0",
     "ts-loader": "^9.5.1",
     "tty-browserify": "^0.0.1",
