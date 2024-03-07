@@ -98,11 +98,11 @@ template <typename Curve> class IPA {
      *5. Compute the vector \f$\vec{b}_{k}=(1,\beta,\beta^2,...,\beta^{d-1})\f$
      *6. Perform \f$k\f$ rounds (for \f$i \in \{k,...,1\}\f$) of:
      *   1. Compute
-     *\f$L_{i-1}=\langle\vec{a}_{i\_low},\vec{G}_{i\_high}\rangle+\langle\vec{a}_{i\_low},\vec{b}_{i\_high}\rangle\cdot
-     *U\f$​
+     \f$L_{i-1}=\langle\vec{a}_{i\_low},\vec{G}_{i\_high}\rangle+\langle\vec{a}_{i\_low},\vec{b}_{i\_high}\rangle\cdot
+     U\f$​
      *   2. Compute
      *\f$R_{i-1}=\langle\vec{a}_{i\_high},\vec{G}_{i\_low}\rangle+\langle\vec{a}_{i\_high},\vec{b}_{i\_low}\rangle\cdot
-     *U\f$
+     U\f$
      *   3. Send \f$L_{i-1}\f$ and \f$R_{i-1}\f$ to the verifier
      *   4. Receive round challenge \f$u_{i-1}\f$ from the verifier​
      *   5. Compute \f$\vec{G}_{i-1}=\vec{G}_{i\_low}+u_{i-1}^{-1}\cdot \vec{G}_{i\_high}\f$
@@ -226,30 +226,30 @@ template <typename Curve> class IPA {
                 /*finite_field_additions_per_iteration=*/2,
                 /*finite_field_multiplications_per_iteration=*/2);
 
-            // Step 6.1
+            // Step 6.a (using letters, because doxygen automaticall converts the sublist counters to letters :( )
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
             L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
                 &a_vec[0], &G_vec_local[round_size], round_size, ck->pippenger_runtime_state);
             L_i += aux_generator * inner_prod_L;
 
-            // Step 6.2
+            // Step 6.b
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
             R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
                 &a_vec[round_size], &G_vec_local[0], round_size, ck->pippenger_runtime_state);
             R_i += aux_generator * inner_prod_R;
 
-            // Step 6.3
+            // Step 6.c
             // Send commitments to the verifier
             std::string index = std::to_string(log_poly_degree - i - 1);
             transcript->send_to_verifier("IPA:L_" + index, Commitment(L_i));
             transcript->send_to_verifier("IPA:R_" + index, Commitment(R_i));
 
-            // Step 6.4
+            // Step 6.d
             // Receive the challenge from the verifier
             const Fr round_challenge = transcript->get_challenge<Fr>("IPA:round_challenge_" + index);
             const Fr round_challenge_inv = round_challenge.invert();
 
-            // Step 6.5
+            // Step 6.e
             // G_vec_new = G_vec_lo + G_vec_hi * round_challenge_inv
             auto G_hi_by_inverse_challenge = GroupElement::batch_mul_with_endomorphism(
                 std::span{ G_vec_local.begin() + static_cast<long>(round_size),
@@ -260,7 +260,7 @@ template <typename Curve> class IPA {
                 G_hi_by_inverse_challenge,
                 G_vec_local);
 
-            // Steps 6.6 and 6.7
+            // Steps 6.e and 6.f
             // Update the vectors a_vec, b_vec.
             // a_vec_new = a_vec_lo + a_vec_hi * round_challenge
             // b_vec_new = b_vec_lo + b_vec_hi * round_challenge_inv
