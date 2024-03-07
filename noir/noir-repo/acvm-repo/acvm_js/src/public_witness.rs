@@ -40,7 +40,7 @@ pub fn get_return_witness(
     let witness_map = WitnessMap::from(witness_map);
 
     let return_witness =
-        extract_indices(&witness_map, circuit.return_values.0.into_iter().collect())?;
+        extract_indices(&witness_map, circuit.return_values.0.clone().into_iter().collect())?;
 
     Ok(JsWitnessMap::from(return_witness))
 }
@@ -63,7 +63,7 @@ pub fn get_public_parameters_witness(
     let witness_map = WitnessMap::from(solved_witness);
 
     let public_params_witness =
-        extract_indices(&witness_map, circuit.public_parameters.0.into_iter().collect())?;
+        extract_indices(&witness_map, circuit.public_parameters.0.clone().into_iter().collect())?;
 
     Ok(JsWitnessMap::from(public_params_witness))
 }
@@ -86,7 +86,7 @@ pub fn get_public_witness(
     let witness_map = WitnessMap::from(solved_witness);
 
     let public_witness =
-        extract_indices(&witness_map, circuit.public_inputs().0.into_iter().collect())?;
+        extract_indices(&witness_map, circuit.public_inputs().0.clone().into_iter().collect())?;
 
     Ok(JsWitnessMap::from(public_witness))
 }
