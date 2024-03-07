@@ -25,21 +25,3 @@ impl Token {
         );
     }
 }
-
-struct PrivateToken {
-  address: AztecAddress,
-}
-
-impl PrivateToken {
-    pub fn at(address: AztecAddress) -> Self {
-        Self { address }
-    }
-
-    pub fn mint(self: Self, context: &mut PrivateContext, amount: u64, recipient: AztecAddress) {
-        let _ret = context.call_private_function(
-            self.address,
-            FunctionSelector::from_signature("mint(u120,(Field))"),
-            [amount as Field, recipient.to_field()]
-        );
-    }
-}
