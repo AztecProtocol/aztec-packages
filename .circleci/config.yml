@@ -826,7 +826,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_crowdfunding_and_claim.test.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_crowdfunding_and_claim.test.ts
           aztec_manifest_key: end-to-end
 
   e2e-public-cross-chain-messaging:
