@@ -112,8 +112,9 @@ jobs:
         run: |
           set -xue # print commands
           # Formatted for updating the PR, overrides for release-please commit message parsing 
-          PR_BODY="""BEGIN_COMMIT_OVERRIDE
-          Development from [noir](https://github.com/noir-lang/noir)
+          PR_BODY="""
+          Automated pull of development from the [noir](https://github.com/noir-lang/noir) programming language, a dependency of Aztec.
+          BEGIN_COMMIT_OVERRIDE
           $(cat .PR_BODY_MESSAGE)
           END_COMMIT_OVERRIDE"""
           # for cross-opening PR in noir repo, we use aztecbot's token

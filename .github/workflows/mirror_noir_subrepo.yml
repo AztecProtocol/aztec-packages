@@ -75,6 +75,7 @@ jobs:
 
           # Get the last sync PR's last commit state
           COMMIT_MESSAGE=$(cat .PR_BODY_MESSAGE)
+          LINES=$(echo COMMIT_MESSAGE | wc -l)
 
           function force_sync_staging() {
             # reset to last noir merge
@@ -84,9 +85,12 @@ jobs:
             git push origin $STAGING_BRANCH --force
             # force gitrepo to point to the right HEAD (we ignore .gitrepo contents otherwise)
             git config --file="$SUBREPO_PATH/.gitrepo" subrepo.commit "$BASE_NOIR_COMMIT"
-            # make a new commit with our previous message
-            git commit -am "$COMMIT_MESSAGE"
+            # we need to commit for git-subrepo
+            git commit -am "[$LINES changes] $COMMIT_MESSAGE"
             if ./scripts/git-subrepo/lib/git-subrepo pull --force $SUBREPO_PATH --branch=master; then
+              git reset --soft "$BASE_AZTEC_COMMIT"
+              git checkout origin/master -- noir/noir-repo/.aztec-sync-commit
+              git commit -am "[$LINES changes] $COMMIT_MESSAGE"
               git push origin $STAGING_BRANCH --force
             else
               echo "Problems syncing noir. Needs manual attention, might be a merge conflict."
@@ -110,8 +114,9 @@ jobs:
         run: |
           set -xue # print commands
           # Formatted for updating the PR, overrides for release-please commit message parsing 
-          PR_BODY="""BEGIN_COMMIT_OVERRIDE
-          Development from [noir](https://github.com/noir-lang/noir)
+          PR_BODY="""
+          Automated pull of development from the [noir](https://github.com/noir-lang/noir) programming language, a dependency of Aztec.
+          BEGIN_COMMIT_OVERRIDE
           $(cat .PR_BODY_MESSAGE)
           END_COMMIT_OVERRIDE"""
           # for cross-opening PR in noir repo, we use aztecbot's token
