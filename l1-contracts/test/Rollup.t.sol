@@ -8,6 +8,7 @@ import {DataStructures} from "../src/core/libraries/DataStructures.sol";
 
 import {Registry} from "../src/core/messagebridge/Registry.sol";
 import {Inbox} from "../src/core/messagebridge/Inbox.sol";
+import {NewInbox} from "../src/core/messagebridge/NewInbox.sol";
 import {Outbox} from "../src/core/messagebridge/Outbox.sol";
 import {Errors} from "../src/core/libraries/Errors.sol";
 import {Rollup} from "../src/core/Rollup.sol";
@@ -22,6 +23,7 @@ contract RollupTest is DecoderBase {
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
+  NewInbox internal newInbox;
   AvailabilityOracle internal availabilityOracle;
 
   function setUp() public virtual {
@@ -30,6 +32,7 @@ contract RollupTest is DecoderBase {
     outbox = new Outbox(address(registry));
     availabilityOracle = new AvailabilityOracle();
     rollup = new Rollup(registry, availabilityOracle);
+    newInbox = NewInbox(address(rollup.NEW_INBOX()));
 
     registry.upgrade(address(rollup), address(inbox), address(outbox));
   }
@@ -125,6 +128,7 @@ contract RollupTest is DecoderBase {
     // We jump to the time of the block.
     vm.warp(full.block.decodedHeader.globalVariables.timestamp);
 
+    // TODO(#4492): Nuke the next line once the old inbox is purged
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
     for (uint256 i = 0; i < full.messages.l1ToL2Messages.length; i++) {
@@ -136,8 +140,12 @@ contract RollupTest is DecoderBase {
 
     availabilityOracle.publish(body);
 
+    uint256 toConsume = newInbox.toConsume();
+
     vm.record();
     rollup.process(header, archive, body, bytes(""));
+
+    assertEq(newInbox.toConsume(), toConsume + 1, "Message subtree not consumed");
 
     (, bytes32[] memory inboxWrites) = vm.accesses(address(inbox));
     (, bytes32[] memory outboxWrites) = vm.accesses(address(outbox));
