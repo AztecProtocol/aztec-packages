@@ -31,6 +31,8 @@ check_env
 
 export BRANCH
 
+echo "External IP: $(curl ifconfig.me)"
+echo
 echo "COMMIT_HASH=$COMMIT_HASH"
 echo "COMMIT_TAG=$COMMIT_TAG"
 echo "JOB_NAME=$JOB_NAME"
@@ -76,6 +78,7 @@ if [ -z "$BASH_ENV" ]; then
   BASH_ENV=$(mktemp)
 fi
 
+echo export DOCKER_HOST="ssh://ubuntu@18.191.162.117" >> $BASH_ENV
 echo export ROOT_PATH=$ROOT_PATH >> $BASH_ENV
 echo export BUILD_SYSTEM_PATH=$BUILD_SYSTEM_PATH >> $BASH_ENV
 echo export DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} >> $BASH_ENV
@@ -126,6 +129,9 @@ if [ -n "$COMMIT_HASH" ]; then
       exit 1
     fi
     chmod +x $BIN_PATH/yq
+  else
+    # Temp hack to add docker to alpine.
+    apk add docker
   fi
 
   # Install and ensure correct permissions on build instance key.
