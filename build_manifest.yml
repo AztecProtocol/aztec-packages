@@ -4,9 +4,6 @@
 # dockerfile: Path to a Dockerfile, relative to the buildDir. Defaults to Dockerfile. Useful if you have multiple.
 # rebuildPatterns: Either a string to file relative to projectDir containing patterns, or an array of patterns.
 #                  If any changed file path matches any pattern, the project will be rebuilt.
-# multiarch: Not defined: no multiarch
-#            host: Whichever host machine arch (determined in config.yml) determines target arch.
-#            buildx: Use dockers buildx emulation to build for both x86_64 and arm.
 # dependencies: An array of other projects that this project depends on.
 # runDependencies: Additional projects that are needed to run a container/compose file. Ensures they're pulled first.
 
@@ -15,7 +12,6 @@ noir:
   buildDir: noir
   dockerfile: Dockerfile.native
   rebuildPatterns: .rebuild_patterns_native
-  multiarch: buildx
 
 # Builds and runs noir native tests.
 noir-tests:
@@ -170,7 +166,6 @@ yarn-project:
     - l1-contracts
     - noir-projects
     - noir
-  multiarch: buildx
 
 # A runnable container, sets entrypoint to be the aztec infrastructure entrypoint.
 aztec:
@@ -178,7 +173,6 @@ aztec:
   projectDir: yarn-project/aztec
   dependencies:
     - yarn-project
-  multiarch: buildx
 
 # Aztec faucet server. Has these dependencies because it's part of workspace. Consider moving out?
 aztec-faucet:
@@ -194,7 +188,6 @@ cli:
   projectDir: yarn-project/cli
   dependencies:
     - yarn-project
-  multiarch: buildx
 
 # Builds all the boxes. They are then independently tested in the container.
 boxes:
