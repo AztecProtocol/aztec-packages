@@ -5,6 +5,7 @@ import {
   L2BlockContext,
   LogId,
   LogType,
+  NewInboxLeaf,
   TxHash,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -96,6 +97,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           addedBlock: 0n,
           addedMessages: 0n,
           cancelledMessages: 0n,
+          newMessages: 0n,
         });
       });
 
@@ -105,6 +107,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           addedBlock: blocks.at(-1)!.getL1BlockNumber(),
           addedMessages: 0n,
           cancelledMessages: 0n,
+          newMessages: 0n,
         });
       });
 
@@ -114,6 +117,16 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           addedBlock: 0n,
           addedMessages: 1n,
           cancelledMessages: 0n,
+          newMessages: 0n,
+        });
+      });
+      it('returns the L1 block number that most recently added messages from new inbox', async () => {
+        await store.addNewL1ToL2Messages([new NewInboxLeaf(0n, 0n, Buffer.alloc(32))], 1n);
+        await expect(store.getL1BlockNumber()).resolves.toEqual({
+          addedBlock: 0n,
+          addedMessages: 0n,
+          cancelledMessages: 0n,
+          newMessages: 1n,
         });
       });
       it('returns the L1 block number that most recently cancelled pending messages', async () => {
@@ -124,6 +137,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           addedBlock: 0n,
           addedMessages: 1n,
           cancelledMessages: 2n,
+          newMessages: 0n,
         });
       });
     });

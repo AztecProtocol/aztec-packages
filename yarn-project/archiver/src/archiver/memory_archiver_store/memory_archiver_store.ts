@@ -189,7 +189,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       return Promise.resolve(false);
     }
 
-    this.lastL1BlockAddedMessages = lastMessageL1BlockNumber;
+    this.lastL1BlockNewMessages = lastMessageL1BlockNumber;
     for (const message of messages) {
       this.newL1ToL2Messages.addMessage(message);
     }
