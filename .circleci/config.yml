@@ -591,6 +591,7 @@ jobs:
       - run:
           name: "Build"
           command: build end-to-end
+          aztec_manifest_key: end-to-end
 
   e2e-2-pxes:
     steps:
