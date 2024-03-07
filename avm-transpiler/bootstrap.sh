@@ -17,7 +17,7 @@ if [ -n "$CMD" ]; then
 fi
 
 # Attempt to just pull artefacts from CI and exit on success.
-if [ "$(uname)" != "Darwin" ] && [ -n "${USE_CACHE:-}" ]; then
+if [[ "$OSTYPE" != "darwin"* ]] && [ -n "${USE_CACHE:-}" ]; then
   ./bootstrap_cache.sh && exit
 fi
 
