@@ -45,12 +45,14 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     {}
 
     RecursiveVerifierInstance_(Builder* builder, const std::shared_ptr<VerifierInstance>& instance)
-        : is_accumulator(bool(instance->is_accumulator))
+        : verification_key(std::make_shared<VerificationKey>(instance->verification_key->circuit_size,
+                                                             instance->verification_key->num_public_inputs))
+        , is_accumulator(bool(instance->is_accumulator))
     {
-        verification_key = std::make_shared<VerificationKey>(instance->verification_key->circuit_size,
-                                                             instance->verification_key->num_public_inputs);
+
         verification_key->pub_inputs_offset = instance->verification_key->pub_inputs_offset;
         verification_key->pcs_verification_key = instance->verification_key->pcs_verification_key;
+        verification_key->public_inputs = std::vector<FF>(instance->verification_key->num_public_inputs);
         for (auto [public_input, native_public_input] :
              zip_view(verification_key->public_inputs, instance->verification_key->public_inputs)) {
             public_input = FF::from_witness(builder, native_public_input);

@@ -16,7 +16,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     inst->verification_key->log_circuit_size =
         static_cast<size_t>(numeric::get_msb(inst->verification_key->circuit_size));
     inst->verification_key->num_public_inputs = uint32_t(public_input_size.get_value());
-
+    inst->verification_key->public_inputs.clear();
     for (size_t i = 0; i < inst->verification_key->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
