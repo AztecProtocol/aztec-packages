@@ -38,6 +38,9 @@ export class InterruptibleSleep {
     const promise = new Promise<boolean>(resolve => (timeout = setTimeout(() => resolve(false), ms)));
     this.timeouts.push(timeout);
     const shouldThrow = await Promise.race([promise, this.interruptPromise]);
+    if (!shouldThrow) {
+      this.interruptPromise = new Promise(resolve => (this.interruptResolve = resolve));
+    }
     clearTimeout(timeout);
     this.timeouts.splice(this.timeouts.indexOf(timeout), 1);
     if (shouldThrow) {
