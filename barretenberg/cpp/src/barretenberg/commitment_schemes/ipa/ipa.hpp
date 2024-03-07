@@ -203,8 +203,9 @@ template <typename Curve> class IPA {
                  round_size,
                  &inner_prod_L,
                  &inner_prod_R
-#ifndef NO_MULTITHREADING,
-                     & inner_product_accumulation_mutex
+#ifndef NO_MULTITHREADING
+                 ,
+                 &inner_product_accumulation_mutex
 #endif
             ](size_t start, size_t end) {
                     Fr current_inner_prod_L = Fr::zero();
