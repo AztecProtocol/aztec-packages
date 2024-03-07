@@ -31,9 +31,9 @@ jobs:
           # What was our last merge on noir side?
           BASE_NOIR_COMMIT=`gh pr list --repo=noir-lang/noir --state merged --head aztec-packages --json headRefOid --jq=.[0].headRefOid`
           echo "BASE_NOIR_COMMIT=$BASE_NOIR_COMMIT" >> $GITHUB_ENV
-          # What was our last merge on aztec side?
-          LAST_PR_MERGE=`gh pr list --repo=noir-lang/noir --state merged --head aztec-packages --json mergeCommit --jq=.[0].mergeCommit.oid`
-          echo "LAST_PR_MERGE=$LAST_PR_MERGE" >> $GITHUB_ENV
+          # What was our last sync on aztec side?
+          BASE_AZTEC_COMMIT=`curl https://raw.githubusercontent.com/noir-lang/noir/master/.aztec-sync-commit`
+          echo "BASE_AZTEC_COMMIT=$BASE_AZTEC_COMMIT" >> $GITHUB_ENV
 
       - name: Generate PR body
         run: |
@@ -79,7 +79,7 @@ jobs:
           function force_sync_staging() {
             # reset to last noir merge
             git checkout $STAGING_BRANCH || git checkout -b $STAGING_BRANCH
-            git reset --hard "$LAST_PR_MERGE"
+            git reset --hard "$BASE_AZTEC_COMMIT"
             # Reset our branch to our expected target
             git push origin $STAGING_BRANCH --force
             # force gitrepo to point to the right HEAD (we ignore .gitrepo contents otherwise)
