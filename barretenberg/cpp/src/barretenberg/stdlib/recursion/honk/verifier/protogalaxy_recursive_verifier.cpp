@@ -20,7 +20,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     for (size_t i = 0; i < inst->verification_key->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
-        inst->public_inputs.emplace_back(public_input_i);
+        inst->verification_key->public_inputs.emplace_back(public_input_i);
     }
 
     const auto pub_inputs_offset =
@@ -72,7 +72,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
 
     // Compute correction terms for grand products
-    const FF public_input_delta = compute_public_input_delta<Flavor>(inst->public_inputs,
+    const FF public_input_delta = compute_public_input_delta<Flavor>(inst->verification_key->public_inputs,
                                                                      beta,
                                                                      gamma,
                                                                      inst->verification_key->circuit_size,
@@ -152,8 +152,24 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
 
     auto next_accumulator = std::make_shared<Instance>(builder);
-    next_accumulator->verification_key = accumulator->verification_key;
-    next_accumulator->verification_key->log_circuit_size = accumulator->verification_key->log_circuit_size;
+    next_accumulator->verification_key = std::make_shared<VerificationKey>(
+        accumulator->verification_key->circuit_size, accumulator->verification_key->num_public_inputs);
+    next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
+    next_accumulator->verification_key->pub_inputs_offset = accumulator->verification_key->pub_inputs_offset;
+    next_accumulator->verification_key->public_inputs = accumulator->verification_key->public_inputs;
+    size_t vk_idx = 0;
+    for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
+        size_t inst = 0;
+        std::vector<FF> scalars;
+        std::vector<Commitment> commitments;
+        for (auto& instance : instances) {
+            scalars.emplace_back(lagranges[inst]);
+            commitments.emplace_back(instance->verification_key->get_all()[vk_idx]);
+            inst++;
+        }
+        expected_vk = Commitment::batch_mul(commitments, scalars);
+        vk_idx++;
+    }
     next_accumulator->is_accumulator = true;
 
     // Compute next folding parameters and verify against the ones received from the prover
@@ -179,14 +195,15 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     }
 
     next_accumulator->verification_key->num_public_inputs = accumulator->verification_key->num_public_inputs;
-    next_accumulator->public_inputs = std::vector<FF>(next_accumulator->verification_key->num_public_inputs, 0);
+    next_accumulator->verification_key->public_inputs =
+        std::vector<FF>(next_accumulator->verification_key->num_public_inputs, 0);
     size_t public_input_idx = 0;
-    for (auto& public_input : next_accumulator->public_inputs) {
+    for (auto& public_input : next_accumulator->verification_key->public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
             if (instance->verification_key->num_public_inputs >=
                 next_accumulator->verification_key->num_public_inputs) {
-                public_input += instance->public_inputs[public_input_idx] * lagranges[inst];
+                public_input += instance->verification_key->public_inputs[public_input_idx] * lagranges[inst];
                 inst++;
             };
         }
@@ -214,23 +231,6 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
             instance->relation_parameters.public_input_delta * lagranges[inst_idx];
         expected_parameters.lookup_grand_product_delta +=
             instance->relation_parameters.lookup_grand_product_delta * lagranges[inst_idx];
-    }
-
-    next_accumulator->verification_key = std::make_shared<VerificationKey>(
-        accumulator->verification_key->circuit_size, accumulator->verification_key->num_public_inputs);
-    next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
-    size_t vk_idx = 0;
-    for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
-        size_t inst = 0;
-        std::vector<FF> scalars;
-        std::vector<Commitment> commitments;
-        for (auto& instance : instances) {
-            scalars.emplace_back(lagranges[inst]);
-            commitments.emplace_back(instance->verification_key->get_all()[vk_idx]);
-            inst++;
-        }
-        expected_vk = Commitment::batch_mul(commitments, scalars);
-        vk_idx++;
     }
     return next_accumulator;
 }
