@@ -247,6 +247,61 @@ TYPED_TEST(ScalarMultiplicationTests, ReduceBucketsSimple)
     }
 }
 
+TYPED_TEST(ScalarMultiplicationTests, RemoveDuplicates)
+{
+    using Curve = TypeParam;
+    using Element = typename Curve::Element;
+    using AffineElement = typename Curve::AffineElement;
+    using Fr = typename Curve::ScalarField;
+
+    constexpr size_t num_points = 8192;
+
+    Fr* scalars = (Fr*)aligned_alloc(32, sizeof(Fr) * num_points);
+
+    AffineElement* points = (AffineElement*)aligned_alloc(32, sizeof(AffineElement) * (num_points * 2 + 1));
+
+    std::vector<AffineElement> expected;
+    bool filling_scalars = true;
+    size_t num_filled_scalars = 0;
+    while (filling_scalars) {
+        size_t num_identical_scalars = static_cast<size_t>(engine.get_random_uint64()) % 32 + 1;
+        if (num_filled_scalars + num_identical_scalars > num_points) {
+            num_identical_scalars = num_points - num_filled_scalars;
+        }
+        auto scalar = Fr::random_element();
+        Element accumulator;
+        accumulator.self_set_infinity();
+        for (size_t i = 0; i < num_identical_scalars; ++i) {
+            Element point = Element::random_element();
+            scalars[num_filled_scalars + i] = scalar;
+            points[num_filled_scalars + i] = point;
+            accumulator += point;
+        }
+        expected.push_back(accumulator);
+        num_filled_scalars += num_identical_scalars;
+        if (num_filled_scalars == num_points) {
+            filling_scalars = false;
+        }
+    }
+
+    // for (size_t i = 0; i < num_points; ++i) {
+    //     scalars[i] = Fr::random_element();
+    //     points[i] = AffineElement(Element::random_element());
+    // }
+
+    scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
+    scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
+
+    scalar_multiplication::remove_duplicates<Curve>(
+        std::span<Fr>(scalars, num_points), std::span<AffineElement>(points, num_points), state);
+
+    AffineElement* result = state.point_pairs_2;
+
+    for (size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_EQ(result[i], expected[i]);
+    }
+}
+
 TYPED_TEST(ScalarMultiplicationTests, ReduceBuckets)
 {
     using Curve = TypeParam;

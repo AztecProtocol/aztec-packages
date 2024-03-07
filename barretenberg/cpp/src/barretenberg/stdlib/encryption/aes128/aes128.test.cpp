@@ -48,7 +48,10 @@ TEST(stdlib_aes128, encrypt_64_bytes)
     };
 
     const auto result = stdlib::aes128::encrypt_buffer_cbc(in_field, iv_field, key_field);
-
+    stdlib::aes128::encrypt_buffer_cbc(in_field, iv_field, key_field);
+    stdlib::aes128::encrypt_buffer_cbc(in_field, iv_field, key_field);
+    // 4229
+    // 12685
     for (size_t i = 0; i < 4; ++i) {
         EXPECT_EQ(result[i].get_value(), expected[i]);
     }
