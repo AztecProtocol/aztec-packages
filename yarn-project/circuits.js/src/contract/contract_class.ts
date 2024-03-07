@@ -16,12 +16,12 @@ export function getContractClassFromArtifact(
   const artifactHash = 'artifactHash' in artifact ? artifact.artifactHash : computeArtifactHash(artifact);
   const publicFunctions: ContractClass['publicFunctions'] = artifact.functions
     .filter(f => f.functionType === FunctionType.OPEN)
-    .sort((a, b) => a.name.localeCompare(b.name))
     .map(f => ({
       selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
       bytecode: Buffer.from(f.bytecode, 'base64'),
       isInternal: f.isInternal,
-    }));
+    }))
+    .sort((a, b) => a.selector.toField().cmp(b.selector.toField()));
   const packedBytecode = packBytecode(publicFunctions);
 
   const contractClass: ContractClass = {
