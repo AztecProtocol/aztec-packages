@@ -16,6 +16,7 @@ export function getContractClassFromArtifact(
   const artifactHash = 'artifactHash' in artifact ? artifact.artifactHash : computeArtifactHash(artifact);
   const publicFunctions: ContractClass['publicFunctions'] = artifact.functions
     .filter(f => f.functionType === FunctionType.OPEN)
+    .sort((a, b) => a.name.localeCompare(b.name))
     .map(f => ({
       selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
       bytecode: Buffer.from(f.bytecode, 'base64'),

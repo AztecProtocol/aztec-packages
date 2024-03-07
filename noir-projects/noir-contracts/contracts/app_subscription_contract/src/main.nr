@@ -10,6 +10,8 @@ contract AppSubscription {
         SharedImmutable
     };
 
+    use dep::aztec::protocol_types::traits::is_empty;
+
     use dep::aztec::{context::Context, oracle::get_public_key::get_public_key};
     use dep::authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
 
@@ -29,7 +31,7 @@ contract AppSubscription {
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS = 5;
     global SUBSCRIPTION_TXS = 5;
-    // global GAS_TOKEN_ADDRESS = AztecAddress::from_field(0x08c0e8041f92758ca49ccb62a77318b46090019d380552ddaec5cd0b54804636);
+    global CANONICAL_GAS_TOKEN_ADDRESS = AztecAddress::from_field(0x26eef20ec561113ae584e451e7af3ba304ff66c38a47f2ff7d0d679b2a9da811);
 
     #[aztec(private)]
     fn entrypoint(payload: pub DAppPayload, user_address: pub AztecAddress) {
@@ -79,7 +81,13 @@ contract AppSubscription {
         storage.subscription_token_address.initialize(subscription_token_address);
         storage.subscription_recipient_address.initialize(subscription_recipient_address);
         storage.subscription_price.initialize(subscription_price);
-        storage.gas_token_address.initialize(gas_token_address);
+
+        let actual_gas_token_address = if is_empty(gas_token_address) {
+            CANONICAL_GAS_TOKEN_ADDRESS
+        } else {
+            gas_token_address
+        };
+        storage.gas_token_address.initialize(actual_gas_token_address);
     }
 
     #[aztec(public)]
