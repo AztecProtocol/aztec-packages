@@ -380,6 +380,18 @@ jobs:
           command: cond_spot_run_build barretenberg-acir-tests-bb 32
           aztec_manifest_key: barretenberg-acir-tests-bb
 
+  barretenberg-acir-tests-bb-sol:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: cond_spot_run_build barretenberg-acir-tests-bb 32
+          aztec_manifest_key: barretenberg-acir-tests-bb-sol
+
   bb-js:
     machine:
       image: default
