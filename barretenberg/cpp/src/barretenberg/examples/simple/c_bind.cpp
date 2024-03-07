@@ -1,6 +1,6 @@
 #include "c_bind.hpp"
+#include "barretenberg/examples/simple/simple.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "simple/simple.hpp"
 
 using namespace bb::stdlib::types;
 
