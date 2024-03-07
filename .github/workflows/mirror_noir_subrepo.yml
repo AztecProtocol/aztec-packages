@@ -48,6 +48,7 @@ jobs:
             RAW_MESSAGE=$(git log --pretty=format:"%s" $BASE_NOIR_COMMIT..HEAD -- noir/noir-repo/  ':!noir/noir-repo/.gitrepo' | grep -v 'git subrepo' || true)
             # Fix Noir PR links and output message
             echo "$RAW_MESSAGE" | sed -E 's/\(#([0-9]+)\)/(https:\/\/github.com\/noir-lang\/noir\/pull\/\1)/g'
+            cd ..
           }
           echo "$(compute_commit_message)" >> .PR_BODY_MESSAGE
 
@@ -74,9 +75,6 @@ jobs:
 
           # Get the last sync PR's last commit state
           COMMIT_MESSAGE=$(cat .PR_BODY_MESSAGE)
-
-          # clone noir repo for manipulations, we use aztec bot token for writeability
-          git clone https://x-access-token:${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}@github.com/noir-lang/noir.git noir-repo
 
           function force_sync_staging() {
             # reset to last noir merge
