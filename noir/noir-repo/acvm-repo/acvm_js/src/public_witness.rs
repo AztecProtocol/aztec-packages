@@ -1,5 +1,5 @@
 use acvm::acir::{
-    circuit::{Circuit, Program},
+    circuit::Program,
     native_types::{Witness, WitnessMap},
 };
 use js_sys::JsString;
