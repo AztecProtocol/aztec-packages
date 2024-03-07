@@ -78,6 +78,9 @@ describe('e2e_crowdfunding_and_claim', () => {
     operatorWallet = wallets[0];
     donorWallets = wallets.slice(1);
 
+    // We set the deadline to a week from now
+    deadline = (await cheatCodes.eth.timestamp()) + 7 * 24 * 60 * 60;
+
     donationToken = await TokenContract.deploy(
       operatorWallet,
       operatorWallet.getAddress(),
@@ -104,9 +107,6 @@ describe('e2e_crowdfunding_and_claim', () => {
     crowdfundingPublicKey = generatePublicKey(crowdfundingPrivateKey);
     const salt = Fr.random();
 
-    // We set the deadline to a week from now
-    deadline = (await cheatCodes.eth.timestamp()) + 7 * 24 * 60 * 60;
-
     const args = [donationToken.address, operatorWallet.getAddress(), deadline];
     const deployInfo = getContractInstanceFromDeployParams(
       CrowdfundingContractArtifact,
@@ -117,7 +117,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     );
     await pxe.registerAccount(crowdfundingPrivateKey, computePartialAddress(deployInfo));
 
-    const crowdfundingDeploymentReceipt = await CrowdfundingContract.deployWithPublicKey(
+    crowdfundingContract = await CrowdfundingContract.deployWithPublicKey(
       crowdfundingPublicKey,
       operatorWallet,
       donationToken.address,
@@ -125,18 +125,12 @@ describe('e2e_crowdfunding_and_claim', () => {
       deadline,
     )
       .send({ contractAddressSalt: salt })
-      .wait();
-    crowdfundingContract = crowdfundingDeploymentReceipt.contract;
+      .deployed();
     logger(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
 
-    const claimContractReceipt = await ClaimContract.deploy(
-      operatorWallet,
-      crowdfundingContract.address,
-      rewardToken.address,
-    )
+    claimContract = await ClaimContract.deploy(operatorWallet, crowdfundingContract.address, rewardToken.address)
       .send()
-      .wait();
-    claimContract = claimContractReceipt.contract;
+      .deployed();
     logger(`Claim contract deployed at ${claimContract.address}`);
 
     await rewardToken.methods.set_minter(claimContract.address, true).send().wait();
