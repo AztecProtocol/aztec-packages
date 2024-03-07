@@ -23,7 +23,7 @@ TESTS=(
   goblin_tests
   client_ivc_tests
   dsl_tests
-  examples_tests
+  join_split_example_tests
   crypto_aes128_tests
   crypto_blake2s_tests
   crypto_blake3s_tests
