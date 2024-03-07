@@ -44,8 +44,6 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
     EXPECT_EQ(expected.normalize(), commitment.normalize());
 }
 
-
-
 TEST_F(IPATest, Commit)
 {
     constexpr size_t n = 128;
