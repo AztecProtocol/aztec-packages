@@ -76,14 +76,17 @@ fi
 for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
   # We want the parent image tag without any arch suffix.
   PARENT_IMAGE_TAG=$(calculate_image_tag $PARENT_REPO "")
+  echo "Looking for image $PARENT_REPO:$PARENT_IMAGE_TAG..."
 
   # Attempt to locate multiarch image.
   if ! image_exists $PARENT_REPO $PARENT_IMAGE_TAG; then
     # Attempt to locate our specific arch image.
     PARENT_IMAGE_TAG=$(calculate_image_tag $PARENT_REPO)
+    echo "Looking for image $PARENT_REPO:$PARENT_IMAGE_TAG..."
     if ! image_exists $PARENT_REPO $PARENT_IMAGE_TAG; then
       # Finally attempt to locate x86_64 image tag, as sometimes we build arch specific images from x86_64 images.
       PARENT_IMAGE_TAG=$(calculate_image_tag $PARENT_REPO x86_64)
+      echo "Looking for image $PARENT_REPO:$PARENT_IMAGE_TAG..."
       if ! image_exists $PARENT_REPO $PARENT_IMAGE_TAG; then
         echo "Failed to locate multiarch image, arch specific image, or x86_64 image for $PARENT_REPO. Aborting."
         exit 1
