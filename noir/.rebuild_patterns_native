@@ -1,4 +1,5 @@
 ^noir/Dockerfile
+^noir/scripts
 ^noir/noir-repo/acvm-repo
 ^noir/noir-repo/compiler
 ^noir/noir-repo/aztec_macros
