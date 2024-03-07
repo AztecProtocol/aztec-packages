@@ -6,6 +6,9 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
+// @remark - This does not test the Outbox Contract yet. All this test does is create L2 to L1 messages in a block,
+// verify their existence, and produce a sibling path that is also checked for validity against the circuit produced
+// out_hash in the header.
 describe('E2E Outbox Tests', () => {
   let teardown: () => void;
   let aztecNode: AztecNode;
@@ -42,21 +45,21 @@ describe('E2E Outbox Tests', () => {
       sentMessage2.wait(),
     ]);
 
+    // We verify that both transactions were processed in the same block
     expect(blockNumber1).toBe(blockNumber2);
 
     const block = await aztecNode.getBlock(blockNumber1!);
 
     const l2ToL1Messages = block?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-    // expect(l2ToL1Messages!.map(l2ToL1Message => l2ToL1Message.toString())).toStrictEqual([
-    //   '0x04da3cef62599a6fe6141d3bcfde4ecd80ee0c34c8392b79bfc5da146d5f59a1',
-    //   '0x2821af5da3956d9353aeb0768e8080f30b92947a6148362b67329c38b160cc62',
-    //   '0x1870ebdd5912ddef86240a7d89241d868254dcbaaf5f486ff606b8d4c380a672',
-    //   '0x1102e0512534c5c7343f1ab9ce05960dc0b7072c9b3dc2bd26acc0304839356b',
-    // ]);
+    // We make sure there are no suprise gifts inside the blocks L2 to L1 Messages
+    expect(l2ToL1Messages?.length).toStrictEqual(4);
 
+    // For each individual message, we are using our node API to grab the index and sibling path. We expect
+    // the index to match the order of the block we obtained earlier. We also then use this sibling path to hash up to the root,
+    // verifying that the expected root obtained through the message and the sibling path match the actual root
+    // that was returned by the circuits in the header as out_hash.
     const [index, siblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(blockNumber1!, l2ToL1Messages![0]);
-
     expect(siblingPath.pathSize).toBe(2);
     expect(index).toBe(0);
     const expectedRoot = calculateExpectedRoot(l2ToL1Messages![0], siblingPath as SiblingPath<2>, index);
