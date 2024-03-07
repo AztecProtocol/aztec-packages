@@ -73,6 +73,7 @@ export class Archiver implements ArchiveSource {
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param inboxAddress - Ethereum address of the inbox contract.
+   * @param newInboxAddress - Ethereum address of the new inbox contract.
    * @param registryAddress - Ethereum address of the registry contract.
    * @param contractDeploymentEmitterAddress - Ethereum address of the contractDeploymentEmitter contract.
    * @param pollingIntervalMs - The interval for polling for L1 logs (in milliseconds).
@@ -84,6 +85,7 @@ export class Archiver implements ArchiveSource {
     private readonly rollupAddress: EthAddress,
     private readonly availabilityOracleAddress: EthAddress,
     private readonly inboxAddress: EthAddress,
+    private readonly newInboxAddress: EthAddress,
     private readonly registryAddress: EthAddress,
     private readonly contractDeploymentEmitterAddress: EthAddress,
     private readonly store: ArchiverDataStore,
@@ -115,6 +117,7 @@ export class Archiver implements ArchiveSource {
       config.l1Contracts.rollupAddress,
       config.l1Contracts.availabilityOracleAddress,
       config.l1Contracts.inboxAddress,
+      config.l1Contracts.newInboxAddress,
       config.l1Contracts.registryAddress,
       config.l1Contracts.contractDeploymentEmitterAddress,
       archiverStore,
@@ -240,7 +243,7 @@ export class Archiver implements ArchiveSource {
 
     const retrievedNewL1ToL2Messages = await retrieveNewL1ToL2Messages(
       this.publicClient,
-      this.inboxAddress,
+      this.newInboxAddress,
       blockUntilSynced,
       lastL1Blocks.newMessages + 1n,
       currentL1BlockNumber,
