@@ -62,7 +62,9 @@ contract NewOutbox is INewOutbox {
       revert Errors.Outbox__InvalidChainId();
     }
 
-    if (roots[_l2BlockNumber].root == 0) {
+    bytes32 expectedRoot = roots[_l2BlockNumber].root;
+
+    if (expectedRoot == 0) {
       revert Errors.Outbox__NothingToConsumeAtBlock(_l2BlockNumber);
     }
 
@@ -75,8 +77,6 @@ contract NewOutbox is INewOutbox {
     if (expectedHeight != _path.length) {
       revert Errors.Outbox__InvalidPathLength(expectedHeight, _path.length);
     }
-
-    bytes32 expectedRoot = roots[_l2BlockNumber].root;
 
     bytes32 messageHash =
       _verifyMembership(_path, _message, _leafIndex, expectedRoot);

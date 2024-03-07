@@ -13,11 +13,12 @@ import {NaiveMerkle} from "./merkle/Naive.sol";
 contract NewOutboxTest is Test {
   using Hash for DataStructures.L2ToL1Msg;
 
-  uint256 internal immutable TREE_HEIGHT = 2;
+  address internal constant STATE_TRANSITIONER = address(0x42069123);
+  uint256 internal constant TREE_HEIGHT = 2;
+  uint256 internal constant version = 0;
+
   NewOutbox internal outbox;
   NaiveMerkle internal zeroedTree;
-  uint256 internal version = 0;
-
 
   event RootAdded(uint256 indexed l2BlockNumber, bytes32 indexed root, uint256 height);
   event MessageConsumed(
@@ -25,7 +26,7 @@ contract NewOutboxTest is Test {
   );
 
   function setUp() public {
-    outbox = new NewOutbox(address(0x0));
+    outbox = new NewOutbox(STATE_TRANSITIONER);
     zeroedTree = new NaiveMerkle(TREE_HEIGHT);
   }
 
@@ -53,10 +54,10 @@ contract NewOutboxTest is Test {
   function testRevertIfInsertingDuplicate() public {
     bytes32 root = zeroedTree.computeRoot();
 
-    vm.prank(address(0x0));
+    vm.prank(STATE_TRANSITIONER);
     outbox.insert(1, root, TREE_HEIGHT);
 
-    vm.prank(address(0x0));
+    vm.prank(STATE_TRANSITIONER);
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Outbox__RootAlreadySet.selector, 1)
     );
@@ -108,7 +109,7 @@ contract NewOutboxTest is Test {
     tree.insertLeaf(leaf);
     bytes32 root = tree.computeRoot();
 
-    vm.prank(address(0x0));
+    vm.prank(STATE_TRANSITIONER);
     outbox.insert(1, root, TREE_HEIGHT);
 
     (bytes32[] memory path,) = tree.computeSiblingPath(0);
@@ -127,7 +128,7 @@ contract NewOutboxTest is Test {
     tree.insertLeaf(leaf);
     bytes32 root = tree.computeRoot();
 
-    vm.prank(address(0x0));
+    vm.prank(STATE_TRANSITIONER);
     outbox.insert(1, root, TREE_HEIGHT);
 
     NaiveMerkle biggerTree = new NaiveMerkle(TREE_HEIGHT + 1);    
@@ -154,7 +155,7 @@ contract NewOutboxTest is Test {
     modifiedTree.insertLeaf(modifiedLeaf);
     bytes32 modifiedRoot = modifiedTree.computeRoot();
 
-    vm.prank(address(0x0));
+    vm.prank(STATE_TRANSITIONER);
     outbox.insert(1, root, TREE_HEIGHT);
 
     (bytes32[] memory path,) = modifiedTree.computeSiblingPath(0);
@@ -208,7 +209,7 @@ contract NewOutboxTest is Test {
 
 //   function testRevertIfInsertingFromWrongRollup() public {
 //     address wrongRollup = address(0xbeeffeed);
-//     uint256 wrongVersion = registry.upgrade(wrongRollup, address(0x0), address(outbox));
+//     uint256 wrongVersion = registry.upgrade(wrongRollup, STATE_TRANSITIONER, address(outbox));
 
 //     DataStructures.L2ToL1Msg memory message = _fakeMessage();
 //     // correctly set message.recipient to this address
