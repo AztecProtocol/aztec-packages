@@ -102,7 +102,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build noir
+          command: build noir
           aztec_manifest_key: noir
 
   noir-arm64:
@@ -114,7 +114,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build noir
+          command: build noir
           aztec_manifest_key: noir
 
   noir-ecr-manifest:
@@ -138,7 +138,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build noir-tests
+          command: build noir-tests
           aztec_manifest_key: noir-tests
 
   noir-packages:
@@ -150,7 +150,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build noir-packages
+          command: build noir-packages
           aztec_manifest_key: noir-packages
 
   noir-packages-tests:
@@ -162,7 +162,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build noir-packages-tests
+          command: build noir-packages-tests
           aztec_manifest_key: noir-packages-tests
 
   noir-compile-acir-tests:
@@ -174,7 +174,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build noir-compile-acir-tests
+          command: build noir-compile-acir-tests
           aztec_manifest_key: noir-compile-acir-tests
 
   avm-transpiler:
@@ -186,7 +186,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build avm-transpiler
+          command: build avm-transpiler
           aztec_manifest_key: avm-transpiler
 
   # Barretenberg
@@ -199,7 +199,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build barretenberg-wasm-linux-clang
+          command: build barretenberg-wasm-linux-clang
           aztec_manifest_key: barretenberg-wasm-linux-clang
 
   barretenberg-x86_64-linux-gcc:
@@ -211,7 +211,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build barretenberg-x86_64-linux-gcc
+          command: build barretenberg-x86_64-linux-gcc
           aztec_manifest_key: barretenberg-x86_64-linux-gcc
 
   barretenberg-x86_64-linux-clang:
@@ -223,7 +223,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build barretenberg-x86_64-linux-clang
+          command: build barretenberg-x86_64-linux-clang
           aztec_manifest_key: barretenberg-x86_64-linux-clang
 
   barretenberg-x86_64-linux-clang-fuzzing:
@@ -235,7 +235,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build barretenberg-x86_64-linux-clang-fuzzing
+          command: build barretenberg-x86_64-linux-clang-fuzzing
           aztec_manifest_key: barretenberg-x86_64-linux-clang-fuzzing
 
   barretenberg-x86_64-linux-clang-assert:
@@ -247,7 +247,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build barretenberg-x86_64-linux-clang-assert
+          command: build barretenberg-x86_64-linux-clang-assert
           aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-x86_64-linux-clang-sol:
@@ -259,7 +259,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build barretenberg-x86_64-linux-clang-sol
+          command: build barretenberg-x86_64-linux-clang-sol
           aztec_manifest_key: barretenberg-x86_64-linux-clang-sol
 
   barretenberg-docs:
@@ -325,7 +325,7 @@ jobs:
       - *setup_env
       - run:
           name: "Benchmark"
-          command: cond_run_build barretenberg-bench
+          command: build barretenberg-bench
           aztec_manifest_key: barretenberg-bench
       - run:
           name: "Upload"
@@ -377,7 +377,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: cond_run_build barretenberg-acir-tests-bb
+          command: build barretenberg-acir-tests-bb
           aztec_manifest_key: barretenberg-acir-tests-bb
 
   bb-js:
@@ -413,7 +413,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: cond_run_build barretenberg-acir-tests-bb.js
+          command: build barretenberg-acir-tests-bb.js
           aztec_manifest_key: barretenberg-acir-tests-bb.js
 
   l1-contracts:
@@ -458,7 +458,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build yarn-project
+          command: build yarn-project
           aztec_manifest_key: yarn-project
 
   yarn-project-arm64:
@@ -470,7 +470,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build yarn-project
+          command: build yarn-project
           aztec_manifest_key: yarn-project
 
   yarn-project-ecr-manifest:
@@ -494,7 +494,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: cond_run_build yarn-project-test
+          command: build yarn-project-test
           aztec_manifest_key: yarn-project-test
 
   aztec-package:
@@ -554,7 +554,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cond_run_build boxes
+          command: build boxes
           aztec_manifest_key: boxes
 
   boxes-vanilla:
