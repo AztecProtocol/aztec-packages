@@ -117,3 +117,14 @@ export function assertPermutation<T>(
     seenValue.add(index);
   }
 }
+
+export function assertRightPadded<T>(arr: T[], emptyElt: T) {
+  let seenEmpty = false;
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i] === emptyElt) {
+      seenEmpty = true;
+    } else if (seenEmpty) {
+      throw new Error(`Non-empty element at index [${i}] after empty element`);
+    }
+  }
+}
