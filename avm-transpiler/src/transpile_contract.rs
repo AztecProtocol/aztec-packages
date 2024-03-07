@@ -39,6 +39,7 @@ pub struct CompiledAcirContract {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AvmContractFunction {
     pub name: String,
+    pub is_unconstrained: bool,
     pub custom_attributes: Vec<String>,
     pub abi: serde_json::Value,
     pub bytecode: String, // base64
@@ -50,6 +51,7 @@ pub struct AvmContractFunction {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AcirContractFunction {
     pub name: String,
+    pub is_unconstrained: bool,
     pub custom_attributes: Vec<String>,
     pub abi: serde_json::Value,
     #[serde(
@@ -98,6 +100,7 @@ impl From<CompiledAcirContract> for TranspiledContract {
                 // Push modified function entry to ABI
                 functions.push(AvmOrAcirContractFunction::Avm(AvmContractFunction {
                     name: function.name,
+                    is_unconstrained: function.is_unconstrained,
                     custom_attributes: function.custom_attributes,
                     abi: function.abi,
                     bytecode: base64::prelude::BASE64_STANDARD.encode(avm_bytecode),
