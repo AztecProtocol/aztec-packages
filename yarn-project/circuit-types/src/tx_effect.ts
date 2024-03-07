@@ -100,19 +100,19 @@ export class TxEffect {
 
   hash() {
     assertLength(this.noteHashes, MAX_NEW_NOTE_HASHES_PER_TX);
-    assertRightPadded(this.noteHashes, Fr.ZERO);
+    assertRightPadded(this.noteHashes, Fr.isZero);
     const noteHashesBuffer = Buffer.concat(this.noteHashes.map(x => x.toBuffer()));
 
     assertLength(this.nullifiers, MAX_NEW_NULLIFIERS_PER_TX);
-    assertRightPadded(this.nullifiers, Fr.ZERO);
+    assertRightPadded(this.nullifiers, Fr.isZero);
     const nullifiersBuffer = Buffer.concat(this.nullifiers.map(x => x.toBuffer()));
 
     assertLength(this.l2ToL1Msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX);
-    assertRightPadded(this.l2ToL1Msgs, Fr.ZERO);
+    assertRightPadded(this.l2ToL1Msgs, Fr.isZero);
     const newL2ToL1MsgsBuffer = Buffer.concat(this.l2ToL1Msgs.map(x => x.toBuffer()));
 
     assertLength(this.publicDataWrites, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
-    assertRightPadded(this.publicDataWrites, PublicDataWrite.empty());
+    assertRightPadded(this.publicDataWrites, PublicDataWrite.isEmpty);
     const publicDataUpdateRequestsBuffer = Buffer.concat(this.publicDataWrites.map(x => x.toBuffer()));
 
     const encryptedLogsHashKernel0 = this.encryptedLogs.hash();

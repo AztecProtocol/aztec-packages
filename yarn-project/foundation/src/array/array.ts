@@ -118,10 +118,10 @@ export function assertPermutation<T>(
   }
 }
 
-export function assertRightPadded<T>(arr: T[], emptyElt: T) {
+export function assertRightPadded<T>(arr: T[], isEmpty: (item: T) => boolean) {
   let seenEmpty = false;
   for (let i = 0; i < arr.length; i++) {
-    if (arr[i] === emptyElt) {
+    if (isEmpty(arr[i])) {
       seenEmpty = true;
     } else if (seenEmpty) {
       throw new Error(`Non-empty element at index [${i}] after empty element`);
