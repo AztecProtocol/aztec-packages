@@ -31,7 +31,7 @@ contract AppSubscription {
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS = 5;
     global SUBSCRIPTION_TXS = 5;
-    global CANONICAL_GAS_TOKEN_ADDRESS = AztecAddress::from_field(0x29c599bd2616d348ec39dd3050488db2ca27daacd59437777aabf0c28a844f06);
+    global CANONICAL_GAS_TOKEN_ADDRESS = AztecAddress::from_field(0x22a29a9544c0cbdbc35bb21caa78b6f08903be4b390a65319e33afd7443f3499);
 
     #[aztec(private)]
     fn entrypoint(payload: pub DAppPayload, user_address: pub AztecAddress) {
