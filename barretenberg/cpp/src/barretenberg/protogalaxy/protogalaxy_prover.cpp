@@ -55,8 +55,9 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
                                      instance->witness_commitments.calldata_read_counts);
     }
 
-    auto eta = transcript->template get_challenge<FF>(domain_separator + "_eta");
-    instance->compute_sorted_accumulator_polynomials(eta);
+    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
+        domain_separator + "_eta", domain_separator + "_eta_two", domain_separator + "_eta_three");
+    instance->compute_sorted_accumulator_polynomials(eta, eta_two, eta_three);
 
     // Commit to the sorted withness-table accumulator and the finalized (i.e. with memory records) fourth wire
     // polynomial
@@ -253,6 +254,8 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     auto& combined_relation_parameters = instances.relation_parameters;
     auto folded_relation_parameters = bb::RelationParameters<FF>{
         combined_relation_parameters.eta.evaluate(challenge),
+        combined_relation_parameters.eta_two.evaluate(challenge),
+        combined_relation_parameters.eta_three.evaluate(challenge),
         combined_relation_parameters.beta.evaluate(challenge),
         combined_relation_parameters.gamma.evaluate(challenge),
         combined_relation_parameters.public_input_delta.evaluate(challenge),

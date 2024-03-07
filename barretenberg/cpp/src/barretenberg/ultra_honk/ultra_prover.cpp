@@ -91,9 +91,9 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_wire_commitme
  */
 template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_sorted_list_accumulator_round()
 {
-    FF eta = transcript->template get_challenge<FF>("eta");
+    const auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>("eta", "eta_two", "eta_three");
 
-    instance->compute_sorted_accumulator_polynomials(eta);
+    instance->compute_sorted_accumulator_polynomials(eta, eta_two, eta_three);
 
     auto& witness_commitments = instance->witness_commitments;
     // Commit to the sorted withness-table accumulator and the finalized (i.e. with memory records) fourth wire

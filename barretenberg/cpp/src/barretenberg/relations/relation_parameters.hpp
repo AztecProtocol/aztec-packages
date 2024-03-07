@@ -15,7 +15,9 @@ template <typename T> struct RelationParameters {
     static constexpr int NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR = 4;
     static constexpr int NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR = 1;
     static constexpr int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
-    T eta = T(0);                        // Lookup
+    T eta = T(0);                        // Lookup + Aux Memory
+    T eta_two = T(0);                    // Lookup + Aux Memory
+    T eta_three = T(0);                  // Lookup + Aux Memory
     T beta = T(0);                       // Permutation + Lookup
     T gamma = T(0);                      // Permutation + Lookup
     T public_input_delta = T(0);         // Permutation
@@ -39,12 +41,17 @@ template <typename T> struct RelationParameters {
                                    { T(0), T(0), T(0), T(0), T(0) } } };
 
     static constexpr int NUM_TO_FOLD = 5;
-    RefVector<T> get_to_fold() { return { eta, beta, gamma, public_input_delta, lookup_grand_product_delta }; }
+    RefVector<T> get_to_fold()
+    {
+        return { eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta };
+    }
 
     static RelationParameters get_random()
     {
         RelationParameters result;
         result.eta = T::random_element();
+        result.eta_two = T::random_element();
+        result.eta_three = T::random_element();
         result.beta = T::random_element();
         result.beta_sqr = result.beta * result.beta;
         result.beta_cube = result.beta_sqr * result.beta;

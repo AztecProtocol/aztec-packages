@@ -1151,7 +1151,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
                                  FF w_4_shifted_value,
                                  FF alpha_base,
                                  FF alpha,
-                                 FF eta) const;
+                                 FF eta,
+                                 FF eta_two,
+                                 FF eta_three) const;
     FF compute_elliptic_identity(FF q_elliptic_value,
                                  FF q_1_value,
                                  FF q_m_value,

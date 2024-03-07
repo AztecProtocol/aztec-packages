@@ -309,16 +309,21 @@ template <class Flavor> void ProverInstance_<Flavor>::initialize_prover_polynomi
     log_instance_size = static_cast<size_t>(numeric::get_msb(instance_size));
 }
 
-template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
+template <class Flavor>
+void ProverInstance_<Flavor>::compute_sorted_accumulator_polynomials(const FF& eta,
+                                                                     const FF& eta_two,
+                                                                     const FF& eta_three)
 {
     relation_parameters.eta = eta;
+    relation_parameters.eta_two = eta_two;
+    relation_parameters.eta_three = eta_three;
     // Compute sorted witness-table accumulator
-    compute_sorted_list_accumulator(eta);
+    compute_sorted_list_accumulator(eta, eta_two, eta_three);
     prover_polynomials.sorted_accum = proving_key->sorted_accum.share();
     prover_polynomials.sorted_accum_shift = proving_key->sorted_accum.shifted();
 
     // Finalize fourth wire polynomial by adding lookup memory records
-    add_plookup_memory_records_to_wire_4(eta);
+    add_plookup_memory_records_to_wire_4(eta, eta_two, eta_three);
     prover_polynomials.w_4 = proving_key->w_4.share();
     prover_polynomials.w_4_shift = proving_key->w_4.shifted();
 }
@@ -334,7 +339,8 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator
  * @param eta random challenge
  * @return Polynomial
  */
-template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_list_accumulator(FF eta)
+template <class Flavor>
+void ProverInstance_<Flavor>::compute_sorted_list_accumulator(const FF& eta, const FF& eta_two, const FF& eta_three)
 {
     const size_t circuit_size = proving_key->circuit_size;
 
@@ -342,12 +348,9 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_list_accumu
 
     // Construct s via Horner, i.e. s = s_1 + η(s_2 + η(s_3 + η*s_4))
     for (size_t i = 0; i < circuit_size; ++i) {
-        FF T0 = sorted_polynomials[3][i];
-        T0 *= eta;
-        T0 += sorted_polynomials[2][i];
-        T0 *= eta;
-        T0 += sorted_polynomials[1][i];
-        T0 *= eta;
+        FF T0 = sorted_polynomials[3][i] * eta_three;
+        T0 += sorted_polynomials[2][i] * eta_two;
+        T0 += sorted_polynomials[1][i] * eta;
         T0 += sorted_polynomials[0][i];
         sorted_list_accumulator[i] = T0;
     }
@@ -363,7 +366,10 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_list_accumu
  * @tparam Flavor
  * @param eta challenge produced after commitment to first three wire polynomials
  */
-template <class Flavor> void ProverInstance_<Flavor>::add_plookup_memory_records_to_wire_4(FF eta)
+template <class Flavor>
+void ProverInstance_<Flavor>::add_plookup_memory_records_to_wire_4(const FF& eta,
+                                                                   const FF& eta_two,
+                                                                   const FF& eta_three)
 {
     // The plookup memory record values are computed at the indicated indices as
     // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
@@ -372,22 +378,16 @@ template <class Flavor> void ProverInstance_<Flavor>::add_plookup_memory_records
 
     // Compute read record values
     for (const auto& gate_idx : proving_key->memory_read_records) {
-        wires[3][gate_idx] += wires[2][gate_idx];
-        wires[3][gate_idx] *= eta;
-        wires[3][gate_idx] += wires[1][gate_idx];
-        wires[3][gate_idx] *= eta;
-        wires[3][gate_idx] += wires[0][gate_idx];
-        wires[3][gate_idx] *= eta;
+        wires[3][gate_idx] += wires[2][gate_idx] * eta_three;
+        wires[3][gate_idx] += wires[1][gate_idx] * eta_two;
+        wires[3][gate_idx] += wires[0][gate_idx] * eta;
     }
 
     // Compute write record values
     for (const auto& gate_idx : proving_key->memory_write_records) {
-        wires[3][gate_idx] += wires[2][gate_idx];
-        wires[3][gate_idx] *= eta;
-        wires[3][gate_idx] += wires[1][gate_idx];
-        wires[3][gate_idx] *= eta;
-        wires[3][gate_idx] += wires[0][gate_idx];
-        wires[3][gate_idx] *= eta;
+        wires[3][gate_idx] += wires[2][gate_idx] * eta_three;
+        wires[3][gate_idx] += wires[1][gate_idx] * eta_two;
+        wires[3][gate_idx] += wires[0][gate_idx] * eta;
         wires[3][gate_idx] += 1;
     }
 }

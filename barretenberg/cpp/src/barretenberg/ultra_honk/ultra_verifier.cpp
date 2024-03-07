@@ -97,8 +97,10 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     }
 
     // Get challenge for sorted list batching and wire four memory records
-    FF eta = transcript->template get_challenge<FF>("eta");
+    const auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>("eta", "eta_two", "eta_three");
     relation_parameters.eta = eta;
+    relation_parameters.eta_two = eta_two;
+    relation_parameters.eta_three = eta_three;
 
     // Get commitments to sorted list accumulator and fourth wire
     commitments.sorted_accum = transcript->template receive_from_prover<Commitment>(commitment_labels.sorted_accum);

@@ -70,9 +70,9 @@ template <class Flavor> class ProverInstance_ {
 
     void initialize_prover_polynomials();
 
-    void compute_sorted_accumulator_polynomials(FF);
+    void compute_sorted_accumulator_polynomials(const FF&, const FF&, const FF&);
 
-    void compute_sorted_list_accumulator(FF);
+    void compute_sorted_list_accumulator(const FF&, const FF&, const FF&);
 
     void compute_logderivative_inverse(FF, FF)
         requires IsGoblinFlavor<Flavor>;
@@ -104,7 +104,7 @@ template <class Flavor> class ProverInstance_ {
 
     void add_table_column_selector_poly_to_proving_key(bb::polynomial& small, const std::string& tag);
 
-    void add_plookup_memory_records_to_wire_4(FF);
+    void add_plookup_memory_records_to_wire_4(const FF&, const FF&, const FF&);
 };
 
 } // namespace bb
