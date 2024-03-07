@@ -1,5 +1,5 @@
 barretenberg_module(
-  join_split_example_proofs_join_split
+  join_split_example
   crypto_schnorr
   stdlib_blake2s
   stdlib_sha256
