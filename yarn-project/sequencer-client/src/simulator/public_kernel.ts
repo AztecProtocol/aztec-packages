@@ -9,6 +9,7 @@ import { elapsed } from '@aztec/foundation/timer';
 import {
   PublicKernelAppLogicArtifact,
   PublicKernelSetupArtifact,
+  PublicKernelTailArtifact,
   PublicKernelTeardownArtifact,
   convertPublicInnerRollupInputsToWitnessMap,
   convertPublicInnerRollupOutputFromWitnessMap,
@@ -122,12 +123,12 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
   ): Promise<PublicKernelCircuitPublicInputs> {
     const inputWitness = convertPublicTailInputsToWitnessMap(input);
     const [duration, witness] = await elapsed(() =>
-      this.wasmSimulator.simulateCircuit(inputWitness, PublicKernelTeardownArtifact),
+      this.wasmSimulator.simulateCircuit(inputWitness, PublicKernelTailArtifact),
     );
     const result = convertPublicTailOutputFromWitnessMap(witness);
-    this.log(`Simulated public kernel teardown circuit`, {
+    this.log(`Simulated public kernel tail circuit`, {
       eventName: 'circuit-simulation',
-      circuitName: 'public-kernel-teardown',
+      circuitName: 'public-kernel-tail',
       duration,
       inputSize: input.toBuffer().length,
       outputSize: result.toBuffer().length,
