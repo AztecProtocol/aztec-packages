@@ -452,5 +452,4 @@ describe('AVM simulator', () => {
       });
     });
   });
-
 });
