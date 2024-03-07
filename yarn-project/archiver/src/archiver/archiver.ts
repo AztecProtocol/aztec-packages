@@ -25,6 +25,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { InstanceDeployerAddress } from '@aztec/protocol-contracts/instance-deployer';
 import {
@@ -34,7 +35,7 @@ import {
   ContractInstanceWithAddress,
 } from '@aztec/types/contracts';
 
-import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
+import { Chain, HttpTransport, PublicClient, createPublicClient, getAddress, getContract, http } from 'viem';
 
 import { ArchiverDataStore } from './archiver_store.js';
 import { ArchiverConfig } from './config.js';
@@ -112,12 +113,23 @@ export class Archiver implements ArchiveSource {
       pollingInterval: config.viemPollingIntervalMS,
     });
 
+    // TODO(#4492): Nuke this once the old inbox is purged
+    let newInboxAddress!: EthAddress;
+    {
+      const rollup = getContract({
+        address: getAddress(config.l1Contracts.rollupAddress.toString()),
+        abi: RollupAbi,
+        client: publicClient,
+      });
+      newInboxAddress = EthAddress.fromString(await rollup.read.NEW_INBOX());
+    }
+
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
       config.l1Contracts.availabilityOracleAddress,
       config.l1Contracts.inboxAddress,
-      config.l1Contracts.newInboxAddress,
+      newInboxAddress,
       config.l1Contracts.registryAddress,
       config.l1Contracts.contractDeploymentEmitterAddress,
       archiverStore,

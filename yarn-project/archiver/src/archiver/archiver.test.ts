@@ -6,7 +6,17 @@ import { sleep } from '@aztec/foundation/sleep';
 import { AvailabilityOracleAbi, ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
+import {
+  Chain,
+  HttpTransport,
+  Log,
+  PublicClient,
+  Transaction,
+  encodeFunctionData,
+  getAddress,
+  getContract,
+  toHex,
+} from 'viem';
 
 import { Archiver } from './archiver.js';
 import { ArchiverDataStore } from './archiver_store.js';
@@ -21,10 +31,21 @@ describe('Archiver', () => {
   const blockNumbers = [1, 2, 3];
   let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
   let archiverStore: ArchiverDataStore;
+  let newInboxAddress!: EthAddress;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     publicClient = mock<PublicClient<HttpTransport, Chain>>();
     archiverStore = new MemoryArchiverStore(1000);
+
+    // TODO(#4492): Nuke this once the old inbox is purged
+    {
+      const rollup = getContract({
+        address: getAddress(rollupAddress.toString()),
+        abi: RollupAbi,
+        client: publicClient,
+      });
+      newInboxAddress = EthAddress.fromString(await rollup.read.NEW_INBOX());
+    }
   });
 
   it('can start, sync and stop and handle l1 to l2 messages and logs', async () => {
@@ -33,6 +54,7 @@ describe('Archiver', () => {
       EthAddress.fromString(rollupAddress),
       EthAddress.fromString(availabilityOracleAddress),
       EthAddress.fromString(inboxAddress),
+      newInboxAddress,
       EthAddress.fromString(registryAddress),
       EthAddress.fromString(contractDeploymentEmitterAddress),
       archiverStore,
@@ -148,6 +170,7 @@ describe('Archiver', () => {
       EthAddress.fromString(rollupAddress),
       EthAddress.fromString(availabilityOracleAddress),
       EthAddress.fromString(inboxAddress),
+      newInboxAddress,
       EthAddress.fromString(registryAddress),
       EthAddress.fromString(contractDeploymentEmitterAddress),
       archiverStore,
@@ -232,6 +255,7 @@ describe('Archiver', () => {
       EthAddress.fromString(rollupAddress),
       EthAddress.fromString(availabilityOracleAddress),
       EthAddress.fromString(inboxAddress),
+      newInboxAddress,
       EthAddress.fromString(registryAddress),
       EthAddress.fromString(contractDeploymentEmitterAddress),
       archiverStore,
