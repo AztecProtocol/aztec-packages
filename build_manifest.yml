@@ -15,7 +15,7 @@ noir:
   buildDir: noir
   dockerfile: Dockerfile.native
   rebuildPatterns: .rebuild_patterns_native
-  multiarch: host
+  multiarch: buildx
 
 # Builds and runs noir native tests.
 noir-tests:
@@ -170,7 +170,7 @@ yarn-project:
     - l1-contracts
     - noir-projects
     - noir
-  multiarch: host
+  multiarch: buildx
 
 # A runnable container, sets entrypoint to be the aztec infrastructure entrypoint.
 aztec:

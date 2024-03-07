@@ -3,7 +3,7 @@
 set -euo pipefail
 
 REPOSITORY=$1
-SCRIPT=$3
+SCRIPT=$2
 shift 3
 
 # We provide scripts relative to the project root, as that makes more sense.

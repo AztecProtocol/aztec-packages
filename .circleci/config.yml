@@ -105,29 +105,29 @@ jobs:
           command: build noir
           aztec_manifest_key: noir
 
-  noir-arm64:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: build noir
-          aztec_manifest_key: noir
+  # noir-arm64:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Build"
+  #         command: build noir
+  #         aztec_manifest_key: noir
 
-  noir-ecr-manifest:
-    machine:
-      image: default
-    resource_class: medium
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Create ECR manifest"
-          command: create_ecr_manifest noir x86_64,arm64
-          aztec_manifest_key: noir
+  # noir-ecr-manifest:
+  #   machine:
+  #     image: default
+  #   resource_class: medium
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Create ECR manifest"
+  #         command: create_ecr_manifest noir x86_64,arm64
+  #         aztec_manifest_key: noir
 
   noir-tests:
     docker:
@@ -461,29 +461,29 @@ jobs:
           command: build yarn-project
           aztec_manifest_key: yarn-project
 
-  yarn-project-arm64:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: build yarn-project
-          aztec_manifest_key: yarn-project
+  # yarn-project-arm64:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Build"
+  #         command: build yarn-project
+  #         aztec_manifest_key: yarn-project
 
-  yarn-project-ecr-manifest:
-    machine:
-      image: default
-    resource_class: medium
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Create ECR manifest"
-          command: create_ecr_manifest yarn-project x86_64,arm64
-          aztec_manifest_key: yarn-project
+  # yarn-project-ecr-manifest:
+  #   machine:
+  #     image: default
+  #   resource_class: medium
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Create ECR manifest"
+  #         command: create_ecr_manifest yarn-project x86_64,arm64
+  #         aztec_manifest_key: yarn-project
 
   yarn-project-test:
     docker:
@@ -1225,7 +1225,7 @@ defaults_yarn_project_pre_join: &defaults_yarn_project_pre_join
 
 defaults_yarn_project: &defaults_yarn_project
   requires:
-    - yarn-project-ecr-manifest
+    - yarn-project-x86_64
   <<: *defaults
 
 defaults_deploy: &defaults_deploy
@@ -1256,21 +1256,21 @@ workflows:
     jobs:
       # Noir
       - noir-x86_64: *defaults
-      - noir-arm64: *defaults
-      - noir-ecr-manifest:
-          requires:
-            - noir-x86_64
-            - noir-arm64
-          <<: *defaults
+      # - noir-arm64: *defaults
+      # - noir-ecr-manifest:
+      #     requires:
+      #       - noir-x86_64
+      #       - noir-arm64
+      #     <<: *defaults
       - noir-tests: *defaults
       - noir-packages: *defaults
       - noir-packages-tests:
           requires:
-            - noir-ecr-manifest
+            - noir-x86_64
           <<: *defaults
       - noir-compile-acir-tests:
           requires:
-            - noir-ecr-manifest
+            - noir-x86_64
           <<: *defaults
 
       # Transpiler
@@ -1322,7 +1322,7 @@ workflows:
       - noir-projects:
           requires:
             - avm-transpiler
-            - noir-ecr-manifest
+            - noir-x86_64
           <<: *defaults
 
       # Yarn Project
@@ -1338,12 +1338,12 @@ workflows:
       - build-docs: *defaults_yarn_project_pre_join
       - yarn-project-test: *defaults_yarn_project
       - yarn-project-x86_64: *defaults_yarn_project_pre_join
-      - yarn-project-arm64: *defaults_yarn_project_pre_join
-      - yarn-project-ecr-manifest:
-          requires:
-            - yarn-project-x86_64
-            - yarn-project-arm64
-          <<: *defaults
+      # - yarn-project-arm64: *defaults_yarn_project_pre_join
+      # - yarn-project-ecr-manifest:
+      #     requires:
+      #       - yarn-project-x86_64
+      #       - yarn-project-arm64
+      #     <<: *defaults
 
       # Artifacts
       - aztec-package: *defaults_yarn_project
