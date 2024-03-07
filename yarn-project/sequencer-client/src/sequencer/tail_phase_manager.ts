@@ -9,9 +9,6 @@ import { ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 import { FailedTx } from './processed_tx.js';
 
-/**
- * The phase manager responsible for performing the fee preparation phase.
- */
 export class TailPhaseManager extends AbstractPhaseManager {
   constructor(
     protected db: MerkleTreeOperations,
@@ -27,20 +24,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
     super(db, publicExecutor, publicKernel, publicProver, globalVariables, historicalHeader, phase);
   }
 
-  async handle(
-    tx: Tx,
-    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
-    previousPublicKernelProof: Proof,
-  ): Promise<{
-    /**
-     * the output of the public kernel circuit for this phase
-     */
-    publicKernelOutput: PublicKernelCircuitPublicInputs;
-    /**
-     * the proof of the public kernel circuit for this phase
-     */
-    publicKernelProof: Proof;
-  }> {
+  async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs, previousPublicKernelProof: Proof) {
     this.log(`Processing tx ${tx.getTxHash()}`);
     this.log(`Executing tail circuit for tx ${tx.getTxHash()}`);
     const [publicKernelOutput, publicKernelProof] = await this.runKernelCircuit(
@@ -51,7 +35,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
     // commit the state updates from this transaction
     await this.publicStateDB.commit();
 
-    return { publicKernelOutput, publicKernelProof };
+    return { publicKernelOutput, publicKernelProof, revertReason: undefined };
   }
 
   async rollback(tx: Tx, err: unknown): Promise<FailedTx> {

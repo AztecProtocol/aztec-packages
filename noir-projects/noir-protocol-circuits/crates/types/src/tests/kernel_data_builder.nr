@@ -35,7 +35,8 @@ struct PreviousKernelDataBuilder {
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
     sideffect_counter: u32,
-    min_revertible_side_effect_counter: u32
+    min_revertible_side_effect_counter: u32,
+    reverted: bool
 }
 
 impl PreviousKernelDataBuilder {
@@ -69,7 +70,8 @@ impl PreviousKernelDataBuilder {
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
             sideffect_counter: 2,
-            min_revertible_side_effect_counter: 2
+            min_revertible_side_effect_counter: 2,
+            reverted: false
         }
     }
 
@@ -139,6 +141,11 @@ impl PreviousKernelDataBuilder {
         value_offset + nullifier_index as Field
     }
 
+    fn get_mock_nullifier_value_non_revertible(_self: Self, nullifier_index: u64) -> Field {
+        let value_offset = 987;
+        value_offset + nullifier_index as Field
+    }
+
     pub fn append_new_nullifiers_from_private(&mut self, num_extra_nullifier: u64) {
         // in private kernel, the nullifiers have not yet been partitioned
         // (that is part of the job of the private kernel tail)
@@ -178,7 +185,7 @@ impl PreviousKernelDataBuilder {
         let index_offset = self.end_non_revertible.new_nullifiers.len();
         for i in 0..MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX {
             if i < num_extra_nullifier {
-                let mock_value = self.get_mock_nullifier_value(index_offset + i);
+                let mock_value = self.get_mock_nullifier_value_non_revertible(index_offset + i);
                 self.end_non_revertible.new_nullifiers.push(
                     SideEffectLinkedToNoteHash {
                     value: silo_nullifier(self.storage_contract_address, mock_value),
@@ -204,7 +211,7 @@ impl PreviousKernelDataBuilder {
 
     pub fn add_read_request_for_pending_nullifier_non_revertible(&mut self, nullifier_index: u64) -> u64 {
         let read_request_index = self.end_non_revertible.nullifier_read_requests.len();
-        let unsiloed_nullifier = self.get_mock_nullifier_value(nullifier_index);
+        let unsiloed_nullifier = self.get_mock_nullifier_value_non_revertible(nullifier_index);
         let read_request = ReadRequestContext {
             value: unsiloed_nullifier,
             counter: self.next_sideffect_counter(),
@@ -301,7 +308,8 @@ impl PreviousKernelDataBuilder {
             constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context },
             needs_setup: end_non_revertible.needs_setup(),
             needs_app_logic: end.needs_app_logic(),
-            needs_teardown: end_non_revertible.needs_teardown()
+            needs_teardown: end_non_revertible.needs_teardown(),
+            reverted: self.reverted
         };
 
         PublicKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
