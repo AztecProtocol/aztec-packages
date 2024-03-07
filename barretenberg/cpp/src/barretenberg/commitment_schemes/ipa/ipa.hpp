@@ -117,11 +117,11 @@ template <typename Curve> class IPA {
                                       const std::shared_ptr<NativeTranscript>& transcript)
     {
         ASSERT(opening_pair.challenge != 0 && "The challenge point should not be zero");
-        auto poly_degree_plus_1 = static_cast<size_t>(polynomial.size());
+        auto poly_length = static_cast<size_t>(polynomial.size());
 
         // Step 1.
         // Send polynomial degree + 1 = d to the verifier
-        transcript->send_to_verifier("IPA:poly_degree_plus_1", static_cast<uint32_t>(poly_degree_plus_1));
+        transcript->send_to_verifier("IPA:poly_degree_plus_1", static_cast<uint32_t>(poly_length));
 
         // Step 2.
         // Receive challenge for the auxiliary generator
@@ -133,20 +133,20 @@ template <typename Curve> class IPA {
 
         // Checks poly_degree is greater than zero and a power of two
         // In the future, we might want to consider if non-powers of two are needed
-        ASSERT((poly_degree_plus_1 > 0) && (!(poly_degree_plus_1 & (poly_degree_plus_1 - 1))) &&
+        ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))) &&
                "The polynomial degree plus 1 should be positive and a power of two");
 
         // Step 4.
         // Set initial vector a to the polynomial monomial coefficients and load vector G
         auto a_vec = polynomial;
         auto* srs_elements = ck->srs->get_monomial_points();
-        std::vector<Commitment> G_vec_local(poly_degree_plus_1);
+        std::vector<Commitment> G_vec_local(poly_length);
 
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
         run_loop_in_parallel_if_effective(
-            poly_degree_plus_1,
+            poly_length,
             [&G_vec_local, srs_elements](size_t start, size_t end) {
                 for (size_t i = start * 2; i < end * 2; i += 2) {
                     G_vec_local[i >> 1] = srs_elements[i];
@@ -162,9 +162,9 @@ template <typename Curve> class IPA {
 
         // Step 5.
         // Compute vector b (vector of the powers of the challenge)
-        std::vector<Fr> b_vec(poly_degree_plus_1);
+        std::vector<Fr> b_vec(poly_length);
         run_loop_in_parallel_if_effective(
-            poly_degree_plus_1,
+            poly_length,
             [&b_vec, &opening_pair](size_t start, size_t end) {
                 Fr b_power = opening_pair.challenge.pow(start);
                 for (size_t i = start; i < end; i++) {
@@ -176,12 +176,12 @@ template <typename Curve> class IPA {
             /*finite_field_multiplications_per_iteration=*/1);
 
         // Iterate for log(poly_degree) rounds to compute the round commitments.
-        auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_degree_plus_1));
+        auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
 
         // Allocate space for L_i and R_i elements
         GroupElement L_i;
         GroupElement R_i;
-        std::size_t round_size = poly_degree_plus_1;
+        std::size_t round_size = poly_length;
 
 #ifndef NO_MULTITHREADING
         //  The inner products we'll be computing in parallel need a mutex to be thread-safe during the last
@@ -202,9 +202,9 @@ template <typename Curve> class IPA {
                  &b_vec,
                  round_size,
                  &inner_prod_L,
-                 &inner_prod_R,
-#ifndef NO_MULTITHREADING
-                 &inner_product_accumulation_mutex
+                 &inner_prod_R
+#ifndef NO_MULTITHREADING,
+                     & inner_product_accumulation_mutex
 #endif
             ](size_t start, size_t end) {
                     Fr current_inner_prod_L = Fr::zero();
@@ -312,16 +312,15 @@ template <typename Curve> class IPA {
     {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
-        auto poly_degree_plus_1 =
-            static_cast<uint32_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
-                "IPA:poly_degree_plus_1")); // note this is base field because this is a uint32_t, which should map to a
-                                            // bb::fr, not a grumpkin::fr, which is a BaseField element for Grumpkin
+        auto poly_length = static_cast<uint32_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
+            "IPA:poly_degree_plus_1")); // note this is base field because this is a uint32_t, which should map to a
+                                        // bb::fr, not a grumpkin::fr, which is a BaseField element for Grumpkin
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         auto aux_generator = Commitment::one() * generator_challenge;
 
-        auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_degree_plus_1));
+        auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
 
         // Step 3.
         // Compute C' = C + f(\beta) ⋅ U
@@ -367,13 +366,13 @@ template <typename Curve> class IPA {
 
         // Step 7.
         // Construct vector s
-        std::vector<Fr> s_vec(poly_degree_plus_1);
+        std::vector<Fr> s_vec(poly_length);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/857): This code is not efficient as its O(nlogn).
         // This can be optimized to be linear by computing a tree of products. Its very readable, so we're
         // leaving it unoptimized for now.
         run_loop_in_parallel_if_effective(
-            poly_degree_plus_1,
+            poly_length,
             [&s_vec, &round_challenges_inv, log_poly_degree](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     Fr s_vec_scalar = Fr::one();
@@ -393,13 +392,13 @@ template <typename Curve> class IPA {
         auto* srs_elements = vk->srs->get_monomial_points();
 
         // Copy the G_vector to local memory.
-        std::vector<Commitment> G_vec_local(poly_degree_plus_1);
+        std::vector<Commitment> G_vec_local(poly_length);
 
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
         run_loop_in_parallel_if_effective(
-            poly_degree_plus_1,
+            poly_length,
             [&G_vec_local, srs_elements](size_t start, size_t end) {
                 for (size_t i = start * 2; i < end * 2; i += 2) {
                     G_vec_local[i >> 1] = srs_elements[i];
@@ -416,7 +415,7 @@ template <typename Curve> class IPA {
         // Step 8.
         // Compute G₀
         auto G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            &s_vec[0], &G_vec_local[0], poly_degree_plus_1, vk->pippenger_runtime_state);
+            &s_vec[0], &G_vec_local[0], poly_length, vk->pippenger_runtime_state);
 
         // Step 9.
         // Receive a₀ from the prover
