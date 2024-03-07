@@ -193,14 +193,6 @@ export class Archiver implements ArchiveSource {
 
     // ********** Events that are processed per L1 block **********
 
-    const retrievedNewL1ToL2Messages = await retrieveNewL1ToL2Messages(
-      this.publicClient,
-      this.inboxAddress,
-      blockUntilSynced,
-      lastL1Blocks.addedMessages + 1n,
-      currentL1BlockNumber,
-    );
-
     // TODO(#4492): Nuke the following when purging the old inbox
     // Process l1ToL2Messages, these are consumed as time passes, not each block
     const retrievedPendingL1ToL2Messages = await retrieveNewPendingL1ToL2Messages(
@@ -244,6 +236,20 @@ export class Archiver implements ArchiveSource {
     }
 
     // ********** Events that are processed per L2 block **********
+
+    const retrievedNewL1ToL2Messages = await retrieveNewL1ToL2Messages(
+      this.publicClient,
+      this.inboxAddress,
+      blockUntilSynced,
+      lastL1Blocks.addedMessages + 1n,
+      currentL1BlockNumber,
+    );
+    await this.store.addNewL1ToL2Messages(
+      retrievedNewL1ToL2Messages.retrievedData,
+      // -1n because the function expects the last block in which the message was emitted and not the one after next
+      // TODO(#4492): Check whether this could be cleaned up - `nextEthBlockNumber` value doesn't seem to be used much
+      retrievedNewL1ToL2Messages.nextEthBlockNumber - 1n,
+    );
 
     // Read all data from chain and then write to our stores at the end
     const nextExpectedL2BlockNum = BigInt((await this.store.getBlockNumber()) + 1);

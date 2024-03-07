@@ -8,6 +8,7 @@ import {
   L2BlockL2Logs,
   LogFilter,
   LogType,
+  NewInboxLeaf,
   TxEffect,
   TxHash,
   TxReceipt,
@@ -93,10 +94,10 @@ export interface ArchiverDataStore {
   /**
    * Append new L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
-   * @param l1BlockNumber - The block number of the L1 block that added the messages.
+   * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
    * @returns True if the operation is successful.
    */
-  addNewL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean>;
+  addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean>;
 
   /**
    * Append new pending L1 to L2 messages to the store.

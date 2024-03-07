@@ -13,30 +13,28 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
-import { AvailabilityOracleAbi, ContractDeploymentEmitterAbi, InboxAbi, NewInboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import {
+  AvailabilityOracleAbi,
+  ContractDeploymentEmitterAbi,
+  InboxAbi,
+  NewInboxAbi,
+  RollupAbi,
+} from '@aztec/l1-artifacts';
 
 import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
 
 /**
  * Processes newly received LeafInserted (L1 to L2) logs.
  * @param logs - LeafInserted logs.
- * @returns Array of all Pending L1 to L2 messages that were processed
+ * @returns Array of all processed LeafInserted logs
  */
-export function processNewLeafInsertedLogs(
+export function processLeafInsertedLogs(
   logs: Log<bigint, number, false, undefined, true, typeof NewInboxAbi, 'LeafInserted'>[],
-): [NewInboxLeaf, bigint][] {
-  const leaves: [NewInboxLeaf, bigint][] = [];
+): NewInboxLeaf[] {
+  const leaves: NewInboxLeaf[] = [];
   for (const log of logs) {
-    const { blockNumber, index, value } =
-      log.args;
-    leaves.push([
-      new NewInboxLeaf(
-        blockNumber,
-        index,
-        Buffer.from(hexToBytes(value)),
-      ),
-      log.blockNumber!,
-    ]);
+    const { blockNumber, index, value } = log.args;
+    leaves.push(new NewInboxLeaf(blockNumber, index, Buffer.from(hexToBytes(value))));
   }
   return leaves;
 }

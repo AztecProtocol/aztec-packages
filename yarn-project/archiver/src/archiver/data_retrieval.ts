@@ -14,7 +14,7 @@ import {
   processCancelledL1ToL2MessagesLogs,
   processContractDeploymentLogs,
   processL2BlockProcessedLogs,
-  processNewLeafInsertedLogs,
+  processLeafInsertedLogs,
   processPendingL1ToL2MessageAddedLogs,
   processTxsPublishedLogs,
 } from './eth_log_handlers.js';
@@ -209,22 +209,17 @@ export async function retrieveNewL1ToL2Messages(
   blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
-): Promise<DataRetrieval<[NewInboxLeaf, bigint]>> {
-  const retrievedNewL1ToL2Messages: [NewInboxLeaf, bigint][] = [];
+): Promise<DataRetrieval<NewInboxLeaf>> {
+  const retrievedNewL1ToL2Messages: NewInboxLeaf[] = [];
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const leafInsertedLogs = await getLeafInsertedLogs(
-      publicClient,
-      newInboxAddress,
-      searchStartBlock,
-      searchEndBlock,
-    );
+    const leafInsertedLogs = await getLeafInsertedLogs(publicClient, newInboxAddress, searchStartBlock, searchEndBlock);
     if (leafInsertedLogs.length === 0) {
       break;
     }
-    const newL1ToL2Messages = processNewLeafInsertedLogs(leafInsertedLogs);
+    const newL1ToL2Messages = processLeafInsertedLogs(leafInsertedLogs);
     retrievedNewL1ToL2Messages.push(...newL1ToL2Messages);
     // handles the case when there are no new messages:
     searchStartBlock = (leafInsertedLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock) + 1n;
