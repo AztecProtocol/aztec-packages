@@ -45,7 +45,7 @@ jobs:
           function compute_commit_message() {
             cd noir-repo
             # Create a filtered git log for release-please changelog / metadata
-            RAW_MESSAGE=$(git log --pretty=format:"%s" $BASE_NOIR_COMMIT..HEAD -- noir/noir-repo/  ':!noir/noir-repo/.gitrepo' | grep -v 'git subrepo' || true)
+            RAW_MESSAGE=$(git log --pretty=format:"%s" $BASE_NOIR_COMMIT..HEAD || true)
             # Fix Noir PR links and output message
             echo "$RAW_MESSAGE" | sed -E 's/\(#([0-9]+)\)/(https:\/\/github.com\/noir-lang\/noir\/pull\/\1)/g'
             cd ..
@@ -79,7 +79,7 @@ jobs:
           function force_sync_staging() {
             # reset to last noir merge
             git checkout $STAGING_BRANCH || git checkout -b $STAGING_BRANCH
-            git reset --hard "$"
+            git reset --hard "$BASE_AZTEC_COMMIT"
             # Reset our branch to our expected target
             git push origin $STAGING_BRANCH --force
             # force gitrepo to point to the right HEAD (we ignore .gitrepo contents otherwise)
