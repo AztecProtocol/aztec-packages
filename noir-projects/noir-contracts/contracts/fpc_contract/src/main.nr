@@ -11,7 +11,7 @@ contract FPC {
         gas_token_address: SharedImmutable<AztecAddress>,
     }
 
-    global CANONICAL_GAS_TOKEN_ADDRESS = AztecAddress::from_field(0x26eef20ec561113ae584e451e7af3ba304ff66c38a47f2ff7d0d679b2a9da811);
+    global CANONICAL_GAS_TOKEN_ADDRESS = AztecAddress::from_field(0x29c599bd2616d348ec39dd3050488db2ca27daacd59437777aabf0c28a844f06);
 
     #[aztec(public)]
     #[aztec(initializer)]
