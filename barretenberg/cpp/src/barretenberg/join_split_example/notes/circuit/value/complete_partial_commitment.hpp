@@ -1,8 +1,9 @@
 #pragma once
 
-#include "barretenberg/join_split_example/constants.hpp"
+#include "barretenberg/join_split_example/notes/constants.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
+
 namespace bb::join_split_example::proofs::notes::circuit::value {
 
 inline auto complete_partial_commitment(field_ct const& value_note_partial_commitment,

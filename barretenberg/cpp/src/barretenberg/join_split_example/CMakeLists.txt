@@ -1,6 +1,5 @@
 barretenberg_module(
   join_split_example_proofs_join_split
-  join_split_example_proofs_notes
   crypto_schnorr
   stdlib_blake2s
   stdlib_sha256
@@ -8,5 +7,3 @@ barretenberg_module(
   stdlib_schnorr
   stdlib_primitives
   crypto_merkle_tree)
-  
-  add_subdirectory(notes)
