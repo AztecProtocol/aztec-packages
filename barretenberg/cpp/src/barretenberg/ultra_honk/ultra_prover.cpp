@@ -1,5 +1,6 @@
 #include "ultra_prover.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/ultra_honk/oink_prover.hpp"
 
 namespace bb {
 
@@ -15,9 +16,7 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const 
     : instance(std::move(inst))
     , transcript(transcript)
     , commitment_key(instance->proving_key->commitment_key)
-{
-    instance->initialize_prover_polynomials();
-}
+{}
 
 /**
  * Create UltraProver_ from a circuit.
@@ -31,9 +30,7 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     : instance(std::make_shared<ProverInstance>(circuit))
     , transcript(std::make_shared<Transcript>())
     , commitment_key(instance->proving_key->commitment_key)
-{
-    instance->initialize_prover_polynomials();
-}
+{}
 
 /**
  * @brief Add circuit size, public input size, and public inputs to transcript
@@ -202,20 +199,23 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::export_proof()
 
 template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof()
 {
-    // Add circuit size public input size and public inputs to transcript->
-    execute_preamble_round();
+    OinkProver<Flavor> oink_prover(instance, commitment_key, transcript, "");
+    oink_prover.do_everything();
 
-    // Compute first three wire commitments
-    execute_wire_commitments_round();
+    // // Add circuit size public input size and public inputs to transcript->
+    // execute_preamble_round();
 
-    // Compute sorted list accumulator and commitment
-    execute_sorted_list_accumulator_round();
+    // // Compute first three wire commitments
+    // execute_wire_commitments_round();
 
-    // Fiat-Shamir: beta & gamma
-    execute_log_derivative_inverse_round();
+    // // Compute sorted list accumulator and commitment
+    // execute_sorted_list_accumulator_round();
 
-    // Compute grand product(s) and commitments.
-    execute_grand_product_computation_round();
+    // // Fiat-Shamir: beta & gamma
+    // execute_log_derivative_inverse_round();
+
+    // // Compute grand product(s) and commitments.
+    // execute_grand_product_computation_round();
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.
