@@ -9,7 +9,8 @@
     "publish": "yarn npm publish"
   },
   "workspaces": [
-    "boxes/*"
+    "boxes/*",
+    "contract-only"
   ],
   "bin": "bin.js",
   "resolutions": {

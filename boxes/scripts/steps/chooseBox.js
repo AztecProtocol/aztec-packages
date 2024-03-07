@@ -69,9 +69,8 @@ async function chooseAndCloneBox(tag, version) {
 
   log(chalk.yellow(`You chose: ${appType}`));
 
-  // TODO: Once the downstream zpedro/npx_improvs is merged, this path will change to boxes/boxes
   await clone({
-    path: "boxes",
+    path: "boxes/boxes",
     choice: appType,
     type: "box",
     tag,
