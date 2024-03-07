@@ -1,9 +1,9 @@
 #pragma once
-#include "../constants.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/join_split_example/notes/constants.hpp"
 
 namespace bb::join_split_example::proofs::notes::native {
 

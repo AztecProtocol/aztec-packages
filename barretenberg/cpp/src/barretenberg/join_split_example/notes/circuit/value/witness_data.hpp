@@ -1,5 +1,5 @@
 #pragma once
-#include "../../native/value/value_note.hpp"
+#include "barretenberg/join_split_example/notes/native/value/value_note.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 
 namespace bb::join_split_example::proofs::notes::circuit::value {

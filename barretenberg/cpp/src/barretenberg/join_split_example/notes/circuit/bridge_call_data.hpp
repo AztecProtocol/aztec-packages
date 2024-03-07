@@ -1,7 +1,7 @@
 #pragma once
-#include "../constants.hpp"
-#include "../native/bridge_call_data.hpp"
 #include "./asset_id.hpp"
+#include "barretenberg/join_split_example/constants.hpp"
+#include "barretenberg/join_split_example/notes/native/bridge_call_data.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 
 namespace bb::join_split_example::proofs::notes::circuit {

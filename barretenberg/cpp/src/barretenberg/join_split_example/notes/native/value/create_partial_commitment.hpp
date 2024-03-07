@@ -1,8 +1,8 @@
 #pragma once
-#include "../../constants.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/join_split_example/constants.hpp"
 
 namespace bb::join_split_example::proofs::notes::native::value {
 

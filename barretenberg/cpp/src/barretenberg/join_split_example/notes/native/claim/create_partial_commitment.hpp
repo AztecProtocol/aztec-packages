@@ -1,6 +1,6 @@
 #pragma once
-#include "../../constants.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
+#include "barretenberg/join_split_example/constants.hpp"
 #include "claim_note.hpp"
 
 namespace bb::join_split_example::proofs::notes::native::claim {

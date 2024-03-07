@@ -1,8 +1,8 @@
 #pragma once
 #include "barretenberg/join_split_example/types.hpp"
 
-#include "../bridge_call_data.hpp"
-#include "../value/create_partial_commitment.hpp"
+#include "barretenberg/join_split_example/notes/circuit/bridge_call_data.hpp"
+#include "barretenberg/join_split_example/notes/circuit/value/create_partial_commitment.hpp"
 #include "complete_partial_commitment.hpp"
 #include "create_partial_commitment.hpp"
 #include "witness_data.hpp"

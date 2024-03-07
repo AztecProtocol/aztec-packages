@@ -1,8 +1,8 @@
-#include "../../native/value/value_note.hpp"
-#include "../../../../fixtures/user_context.hpp"
-#include "../../constants.hpp"
+#include "barretenberg/join_split_example/notes/native/value/value_note.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/join_split_example/constants.hpp"
 #include "barretenberg/join_split_example/types.hpp"
+#include "barretenberg/join_split_example/user_context.hpp"
 #include "value_note.hpp"
 #include <gtest/gtest.h>
 

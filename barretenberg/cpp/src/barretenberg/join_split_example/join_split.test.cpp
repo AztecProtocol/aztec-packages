@@ -5,7 +5,7 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/merkle_tree/index.hpp"
 #include "barretenberg/join_split_example/constants.hpp"
-#include "barretenberg/join_split_example/join_split/inner_proof_data.hpp"
+#include "barretenberg/join_split_example/inner_proof_data.hpp"
 #include "barretenberg/join_split_example/notes/native/index.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"

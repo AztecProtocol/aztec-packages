@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../../constants.hpp"
-#include "../../native/claim/claim_note.hpp"
-#include "../../native/claim/claim_note_tx_data.hpp"
-#include "../bridge_call_data.hpp"
+#include "barretenberg/join_split_example/constants.hpp"
+#include "barretenberg/join_split_example/notes/circuit/bridge_call_data.hpp"
+#include "barretenberg/join_split_example/notes/native/claim/claim_note.hpp"
+#include "barretenberg/join_split_example/notes/native/claim/claim_note_tx_data.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 
 namespace bb::join_split_example::proofs::notes::circuit::claim {

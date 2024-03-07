@@ -1,8 +1,8 @@
 #pragma once
-#include "../bridge_call_data.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/join_split_example/notes/native/bridge_call_data.hpp"
 #include "complete_partial_commitment.hpp"
 #include "create_partial_commitment.hpp"
 

@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/join_split_example//user_context.hpp"
+#include "barretenberg/join_split_example/user_context.hpp"
 #include "join_split.hpp"
 #include "join_split_circuit.hpp"
 #include "join_split_tx.hpp"

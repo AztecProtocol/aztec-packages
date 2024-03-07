@@ -1,4 +1,4 @@
-#include "../constants.hpp"
+#include "barretenberg/join_split_example/constants.hpp"
 #include "barretenberg/join_split_example/types.hpp"
 
 namespace bb::join_split_example::proofs::notes::circuit {

@@ -1,7 +1,7 @@
 #pragma once
-#include "../../constants.hpp"
 #include "account_note.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
+#include "barretenberg/join_split_example/notes/constants.hpp"
 
 namespace bb::join_split_example::proofs::notes::native::account {
 
