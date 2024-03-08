@@ -291,8 +291,7 @@ jobs:
       - run:
           name: "Test"
           command: |
-            setup_earthly
-            ./earthly --buildkit-host=tcp://$(hostname):8372 ./barretenberg/cpp+release-build
+            earthly ./barretenberg/cpp+release-build
       
       # - run:
       #     name: "Test"
