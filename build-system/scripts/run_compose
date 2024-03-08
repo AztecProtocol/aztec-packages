@@ -24,6 +24,9 @@ if check_rebuild $SUCCESS_TAG $REPOSITORY; then
   exit 0
 fi
 
+# Login to dockerhub.
+retry dockerhub_login
+
 cd $(query_manifest projectDir $REPOSITORY)
 
 # For each dependency and self, pull in the latest image and give it correct tag.
