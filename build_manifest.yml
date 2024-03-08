@@ -91,6 +91,8 @@ barretenberg-wasm-linux-clang:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
   rebuildPatterns: .rebuild_patterns
+  # WASI sdk toolchain not yet for arm.
+  multiarch: false
 
 barretenberg-x86_64-linux-clang-sol:
   buildDir: barretenberg
