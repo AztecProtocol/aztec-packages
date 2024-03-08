@@ -292,8 +292,7 @@ jobs:
           name: "Test"
           command: |
             setup_earthly
-            # Ugly hack - earthly special-cases normal usages of localhost
-            ./earthly --buildkit-host=tcp://127.0.0.2:8372 ./barretenberg/cpp+release-build
+            ./earthly --buildkit-host=tcp://earthly.remote:8372 ./barretenberg/cpp+release-build
       
       # - run:
       #     name: "Test"
