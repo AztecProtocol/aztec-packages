@@ -133,7 +133,7 @@ if [ -n "$COMMIT_HASH" ]; then
     chmod +x $BIN_PATH/yq
   else
     # Temp hack to add docker to alpine.
-    apk add docker
+    apk add docker docker-compose
   fi
 
   # Install and ensure correct permissions on build instance key.

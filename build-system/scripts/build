@@ -33,11 +33,6 @@ echo "Dockerfile: $DOCKERFILE"
 echo "Build directory: $BUILD_DIR"
 echo "Content hash: $CONTENT_HASH"
 
-# Login to ECR and ensure repository exists.
-# retry ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
-# Login to dockerhub.
-retry dockerhub_login
-
 cd $BUILD_DIR
 
 # If we have previously successful commit, we can early out if nothing relevant has changed since.
@@ -46,6 +41,9 @@ if check_rebuild $IMAGE_COMMIT_TAG $REPOSITORY; then
   echo "No rebuild necessary for $REPOSITORY:$IMAGE_COMMIT_TAG."
   exit 0
 fi
+
+# Login to dockerhub.
+retry dockerhub_login
 
 echo "Initializing submodules..."
 init_submodules $REPOSITORY
