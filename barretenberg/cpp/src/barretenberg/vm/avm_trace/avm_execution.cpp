@@ -8,6 +8,7 @@
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
 #include "barretenberg/vm/generated/avm_composer.hpp"
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -49,6 +50,9 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto trace = gen_trace(instructions, calldata);
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
+
+    // Temporarily use this until #4954 is resolved
+    assert(circuit_builder.check_circuit());
 
     auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
