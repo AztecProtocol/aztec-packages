@@ -1,0 +1,9 @@
+
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+
+set -eu
+
+wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O ./earthly;
+chmod +x ./earthly && ./earthly bootstrap
+./earthly --ci $@
