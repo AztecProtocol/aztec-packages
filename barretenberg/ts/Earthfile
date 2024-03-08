@@ -6,24 +6,37 @@ WORKDIR /build
 
 # minimum files to download yarn packages
 # keep timestamps for incremental builds
-COPY --keep-ts --dir .yarn .
-COPY --keep-ts package.json .
-COPY --keep-ts yarn.lock .
-COPY --keep-ts .yarnrc.yml .
+COPY --keep-ts --dir .yarn package.json yarn.lock .yarnrc.yml .
 RUN yarn --immutable
 
 # other source files
-COPY --keep-ts --dir src .
-COPY --keep-ts *.json .
-COPY --keep-ts *.js .
-COPY --keep-ts scripts/cjs_postprocess.sh scripts/
+COPY --keep-ts --dir src *.json *.js *.cjs .
+
+# copy over wasm build from cpp folder
+COPY cpp+build-wasm/build/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm
+# TODO for now there is no real single-threaded WASM. See if anyone hits problems.
+COPY cpp+build-wasm/build/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg.wasm
+COPY cpp+build-wasm/build/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
+COPY cpp+build-wasm/build/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
+
+build-esm:
+    RUN yarn build:esm
+
+build-cjs:
+    COPY --keep-ts scripts/cjs_postprocess.sh scripts/
+    RUN yarn build:cjs
+
+build-browser:
+    RUN yarn build:browser
+
+test-prettier-format:
+    RUN yarn formatting
 
 build:
-    COPY cpp+build-wasm/build/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm
-    # TODO for now there is no real single-threaded WASM. See if anyone hits problems.
-    COPY cpp+build-wasm/build/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg.wasm
-    RUN yarn build:esm
-    RUN yarn build:cjs
-    RUN yarn build:browser
-    COPY cpp+build-wasm/build/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
-    COPY cpp+build-wasm/build/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
+    BUILD +build-esm
+    BUILD +build-cjs
+    BUILD +build-browser
+
+test:
+    BUILD +test-prettier-format
+    RUN yarn test

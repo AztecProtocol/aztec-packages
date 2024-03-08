@@ -19,20 +19,13 @@ RUN apt-get update && apt-get install -y \
   libstdc++6 \
   clang-format
 
-RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16
-# let's not just spew files on /
 WORKDIR /build
-# WASM compiler, only redownload if this script changes
-COPY ./scripts/install-wasi-sdk.sh ./scripts/install-wasi-sdk.sh
-RUN ./scripts/install-wasi-sdk.sh
+RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16
 
-# minimum files to trigger rebuild
-# keep timestamps for incremental builds
-COPY --keep-ts src/barretenberg src/barretenberg
-COPY --keep-ts src/CMakeLists.txt src/CMakeLists.txt
-COPY --keep-ts CMakeLists.txt CMakeLists.txt
-COPY --keep-ts cmake cmake
-COPY --keep-ts CMakePresets.json CMakePresets.json
+# cpp source
+COPY --keep-ts --dir src/barretenberg src/CMakeLists.txt src
+# cmake source
+COPY --keep-ts --dir cmake CMakeLists.txt CMakePresets.json .
 
 # Targets
 build-ci:
@@ -47,6 +40,9 @@ build-release:
     DO +BUILD --configure="--preset clang16" --build="--target ultra_honk_rounds_bench --target bb"
 
 build-wasm:
+    # WASM compiler, only redownload if this script changes
+    COPY ./scripts/install-wasi-sdk.sh ./scripts/install-wasi-sdk.sh
+    RUN ./scripts/install-wasi-sdk.sh
     DO +BUILD --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
     RUN ./src/wasi-sdk-20.0/bin/llvm-strip ./build/bin/barretenberg.wasm
     SAVE ARTIFACT build
