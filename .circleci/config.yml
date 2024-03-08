@@ -294,7 +294,7 @@ jobs:
             echo "chmod +x ./earthly && ./earthly bootstrap --with-autocomplete" >> script
             # do above on remote 16 core machine
             chmod a+x script
-            spot_run_script barretenberg 16 $(uname -m) script
+            spot_run_script barretenberg barretenberg 16 $(uname -m) script
 
   barretenberg-stdlib-tests:
     docker:
