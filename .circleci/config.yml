@@ -1298,11 +1298,8 @@ workflows:
       - barretenberg-tests: *bb_test
       - barretenberg-stdlib-tests: *bb_test
       - barretenberg-stdlib-recursion-ultra-tests: *bb_test
-      - barretenberg-acir-tests-bb:
-          requires:
-            - barretenberg-x86_64-linux-clang-assert
-            - noir-compile-acir-tests
-          <<: *defaults
+      - barretenberg-acir-tests-bb: *bb_acir_tests
+      - barretenberg-acir-tests-bb-sol: *bb_acir_tests
       - barretenberg-docs: *defaults
       - bb-js:
           requires:
@@ -1436,6 +1433,7 @@ workflows:
             - barretenberg-tests
             - barretenberg-stdlib-tests
             - barretenberg-stdlib-recursion-ultra-tests
+            - barretenberg-join-split-tests
             - barretenberg-acir-tests-bb
             - barretenberg-acir-tests-bb-sol
             - barretenberg-docs
