@@ -1,5 +1,5 @@
-use dep::parity_lib::root::{RootParityInputs, RootParityPublicInputs};
+use dep::parity_lib::{RootParityInputs, ParityPublicInputs};
 
-fn main(inputs: RootParityInputs) -> pub RootParityInputsPublicInputs {
+fn main(inputs: RootParityInputs) -> pub ParityPublicInputs {
     inputs.root_parity_circuit()
 }
