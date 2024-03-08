@@ -1,0 +1,68 @@
+VERSION 0.8
+FROM ubuntu:lunar
+
+RUN apt-get update && apt-get install -y \
+  build-essential \
+  curl \
+  git \
+  cmake \
+  lsb-release \
+  wget \
+  software-properties-common \
+  gnupg \
+  ninja-build \
+  npm \
+  libssl-dev \
+  jq \
+  bash \
+  libstdc++6
+
+RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16
+# let's not just spew files on /
+WORKDIR /app
+
+wasm-compiler:
+    # WASM compiler, only redownload if this script changes
+    COPY ./scripts/install-wasi-sdk.sh ./scripts/install-wasi-sdk.sh
+    RUN ./scripts/install-wasi-sdk.sh
+    # save our installed wasi folder
+    SAVE ARTIFACT ./src/*
+
+source:
+    WORKDIR /source
+    # minimum files to trigger rebuild
+    COPY src/barretenberg src/barretenberg
+    COPY src/CMakeLists.txt src/CMakeLists.txt
+    COPY CMakeLists.txt CMakeLists.txt
+    COPY cmake cmake
+    COPY CMakePresets.json CMakePresets.json
+    # export source for other targets to use
+    SAVE ARTIFACT /source
+
+clang16-build:
+    COPY +source/source .
+    RUN cmake --preset clang16
+    RUN cmake --build --preset default --target ultra_honk_rounds_bench --target bb --target grumpkin_srs_gen
+ 
+wasm-build:
+    COPY +source/source .
+    RUN cmake --preset wasm-threads && cmake --build --preset wasm-threads
+    RUN ./scripts/strip-wasm.sh
+    SAVE ARTIFACT RUN build/bin build/bin
+
+gcc-build:
+    COPY +source/source .
+    # Build the entire project, as we want to check everything builds under gcc.
+    RUN cmake --preset gcc -DCI=ON && cmake --build --preset gcc
+
+fuzzing-build:
+    COPY +source/source .
+    # Build the entire project, as we want to build every fuzzer
+    RUN cmake --preset fuzzing && cmake --build --preset fuzzing
+
+bench:
+    COPY +srs_db:srs-db/grumpkin srs-db/grumpkin
+    COPY +srs_db:srs-db/grumpkin srs-db/grumpkin
+    RUN ls srs-db
+    COPY ./scripts/ci/ultra_honk_bench.sh ./scripts/ci/
+    RUN ./scripts/ci/ultra_honk_bench.sh

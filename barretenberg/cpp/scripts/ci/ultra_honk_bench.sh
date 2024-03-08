@@ -5,7 +5,7 @@ set -eu
 # enter script folder
 cd "$(dirname $0)"
 cd ../../srs_db
-./download_ignition.sh 1
+./download_ignition.sh
 ./download_grumpkin.sh
 cd ../build
 ./bin/ultra_honk_rounds_bench --benchmark_format=json | tee ultra_honk_rounds_bench.json
