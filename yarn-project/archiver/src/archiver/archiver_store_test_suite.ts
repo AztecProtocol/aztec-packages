@@ -10,7 +10,7 @@ import {
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
-import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
 import { makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { ContractClassPublic, ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
@@ -220,6 +220,30 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await expect(store.addPendingL1ToL2Messages([message], 1n)).resolves.toEqual(true);
         await expect(store.addPendingL1ToL2Messages([message], 1n)).resolves.toEqual(false);
         await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey!]);
+      });
+    });
+
+    describe('getNewL1ToL2Messages', () => {
+      const l1ToL2MessageSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
+
+      const generateBlockMessages = (blockNumber: bigint, numMessages: number) =>
+        Array.from({ length: numMessages }, (_, i) => new NewInboxLeaf(blockNumber, BigInt(i), randomBytes(32)));
+
+      it('returns messages in correct order', async () => {
+        const l2BlockNumber = 13n;
+
+        const msgs = generateBlockMessages(l2BlockNumber, l1ToL2MessageSubtreeSize);
+        const shuffledMessages = msgs.slice().sort(() => Math.random() - 0.5);
+        await store.addNewL1ToL2Messages(shuffledMessages, 100n);
+        const retrievedMessages = await store.getNewL1ToL2Messages(l2BlockNumber);
+
+        const expectedLeavesOrder = msgs.map(msg => msg.leaf);
+        expect(expectedLeavesOrder).toEqual(retrievedMessages);
+      });
+
+      it('throws an error if messages are sequenced incorrectly', async () => {
+        const msgs = [new NewInboxLeaf(1n, 0n, randomBytes(32)), new NewInboxLeaf(1n, 1n, randomBytes(32))];
+        await store.addNewL1ToL2Messages(msgs, 100n);
       });
     });
 
