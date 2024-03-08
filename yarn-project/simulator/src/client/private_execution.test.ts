@@ -788,7 +788,8 @@ describe('Private Execution test suite', () => {
   describe('enqueued calls', () => {
     it.each([false, true])('parent should enqueue call to child (internal %p)', async isInternal => {
       const parentArtifact = getFunctionArtifact(ParentContractArtifact, 'enqueueCallToChild');
-      const childContractArtifact = ParentContractArtifact.functions[0];
+      const childContractArtifact = ChildContractArtifact.functions.find(fn => fn.name === 'pubSetValue')!;
+      expect(childContractArtifact).toBeDefined();
       const childAddress = AztecAddress.random();
       const childPortalContractAddress = EthAddress.random();
       const childSelector = FunctionSelector.fromNameAndParameters(
