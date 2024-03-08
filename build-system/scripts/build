@@ -79,24 +79,18 @@ for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
 
   # Attempt to locate multiarch image.
   if ! image_exists $PARENT_REPO $PARENT_IMAGE_TAG; then
-    # Attempt to locate our specific arch image.
-    PARENT_IMAGE_TAG=$(calculate_image_tag $PARENT_REPO host)
-    echo "Looking for image $PARENT_REPO:$PARENT_IMAGE_TAG..."
-    if ! image_exists $PARENT_REPO $PARENT_IMAGE_TAG; then
-      # Finally attempt to locate x86_64 image tag, as sometimes we build arch specific images from x86_64 images.
-      PARENT_IMAGE_TAG=$(calculate_image_tag $PARENT_REPO x86_64)
-      echo "Looking for image $PARENT_REPO:$PARENT_IMAGE_TAG..."
-      if ! image_exists $PARENT_REPO $PARENT_IMAGE_TAG; then
-        echo "Failed to locate multiarch image, arch specific image, or x86_64 image for $PARENT_REPO. Aborting."
-        exit 1
-      fi
-    fi
+    echo "Image not available. Aborting."
+    exit 1
   fi
+
+  PARENT_MULTIARCH=$(query_manifest multiarch $PARENT_REPO)
+  PLATFORM=
+  [ "$PARENT_MULTIARCH" == "false" ] && PLATFORM='--platform=linux/amd64'
 
   # Substitute references to parent repo, with the relevent built image uri.
   DEPLOY_URI=aztecprotocol/$PARENT_REPO
   PARENT_IMAGE_URI=$ECR_URL/$PARENT_REPO:$PARENT_IMAGE_TAG
-  sed -i "s#^FROM \\(.*\\)${DEPLOY_URI}\\( \|$\\)#FROM \\1${PARENT_IMAGE_URI}\\2#" $DOCKERFILE
+  sed -i "s#^FROM \\(.*\\)${DEPLOY_URI}\\( \|$\\)#FROM $PLATFORM \\1${PARENT_IMAGE_URI}\\2#" $DOCKERFILE
 done
 
 # Build a dockerignore file that only permits git files and untracked files.
