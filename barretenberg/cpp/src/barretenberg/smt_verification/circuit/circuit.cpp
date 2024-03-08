@@ -3,7 +3,7 @@
 namespace smt_circuit {
 
 /**
- * @brief Check your circuit for witness uniqness
+ * @brief Check your circuit for witness uniqueness
  *
  * @details Creates two Circuit objects that represent the same
  * circuit, however you can choose which variables should be (not) equal in both cases,
