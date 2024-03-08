@@ -26,6 +26,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        common::initialize_reverted_flag(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
@@ -42,12 +43,14 @@ impl PublicKernelTeardownCircuitPrivateInputs {
 
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
 
-        common::accumulate_unencrypted_logs(
-            self.public_call,
-            self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
-            self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
-            &mut public_inputs
-        );
+        if public_inputs.reverted == false {
+            common::accumulate_unencrypted_logs(
+                self.public_call,
+                self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
+                self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
+                &mut public_inputs
+            );
+        }
 
         let mut output = public_inputs.to_inner();
 
@@ -141,22 +144,6 @@ mod tests {
         pub fn failed(&mut self) {
             let _ = self.execute();
         }
-    }
-
-    #[test(should_fail_with="Constructors cannot be public functions")]
-    fn constructor_should_fail() {
-        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
-        builder.public_call.function_data.is_constructor = true;
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="Contract deployment cannot be a public function")]
-    fn constructor_should_fail_2() {
-        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
-        builder.public_call.public_inputs.call_context.is_contract_deployment = true;
-
-        builder.failed();
     }
 
     #[test(should_fail_with="Bytecode hash cannot be zero")]

@@ -38,6 +38,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
     fn public_kernel_setup(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        common::initialize_reverted_flag(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
@@ -198,22 +199,6 @@ mod tests {
     //     let expected = [public_data_update_requests[0], public_data_update_requests[2]];
     //     assert_eq_public_data_update_requests(public_inputs.end.public_data_update_requests, expected);
     // }
-
-    #[test(should_fail_with="Constructors cannot be public functions")]
-    fn constructor_should_fail() {
-        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-        builder.public_call.function_data.is_constructor = true;
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="Contract deployment cannot be a public function")]
-    fn constructor_should_fail_2() {
-        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-        builder.public_call.public_inputs.call_context.is_contract_deployment = true;
-
-        builder.failed();
-    }
 
     #[test(should_fail_with="Bytecode hash cannot be zero")]
     fn no_bytecode_hash_should_fail() {
@@ -412,11 +397,11 @@ mod tests {
 
         builder.public_call.append_update_requests(2);
         let storage = builder.get_current_public_data_update_requests();
-        let update_requests = [storage[0], storage[1]];
+        let _update_requests = [storage[0], storage[1]];
 
         builder.public_call.append_public_data_read_requests(3);
         let storage = builder.get_current_public_data_reads();
-        let read_requests = [storage[0], storage[1], storage[2]];
+        let _read_requests = [storage[0], storage[1], storage[2]];
 
         // Push the public call on top of the teardown call.
         let setup_call = builder.public_call.finish();
