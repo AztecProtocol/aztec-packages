@@ -3,14 +3,15 @@ FROM ubuntu:lunar
 
 RUN apt-get update && apt-get install -y curl
 
-download:
+build:
+    WORKDIR /build
     COPY ./*.sh .
     RUN ./download_ignition.sh
     RUN ./download_grumpkin.sh
     # export srs-db for runners
     SAVE ARTIFACT /build
 
-download-local:
+build-local:
     # copy files locally
     FROM +download
     SAVE ARTIFACT ignition AS LOCAL ignition

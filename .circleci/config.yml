@@ -286,9 +286,8 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Test"
-          command: |
-            earthly ./barretenberg/cpp+ci-build
+          name: "Build"
+          command: cd barretenberg/cpp && earthly +ci-build
 
   barretenberg-benches:
     docker:

@@ -30,13 +30,12 @@ RUN ./scripts/install-wasi-sdk.sh
 # keep timestamps for incremental builds
 COPY --keep-ts src/barretenberg src/barretenberg
 COPY --keep-ts src/CMakeLists.txt src/CMakeLists.txt
-COPY --keep-ts scripts/fixup_incremental_build.sh scripts/fixup_incremental_build.sh
 COPY --keep-ts CMakeLists.txt CMakeLists.txt
 COPY --keep-ts cmake cmake
 COPY --keep-ts CMakePresets.json CMakePresets.json
 
 # Targets
-ci-build:
+build-ci:
     BUILD +release-build
     BUILD +wasm-build
     BUILD +gcc-build
@@ -44,30 +43,30 @@ ci-build:
     BUILD +clang-assert-build
     BUILD +clang-format-check
 
-release-build:
+build-release:
     DO +BUILD --configure="--preset clang16" --build="--target ultra_honk_rounds_bench --target bb"
 
-wasm-build:
+build-wasm:
     DO +BUILD --configure="--preset wasm-threads" --build="--target ultra_honk_rounds_bench --target bb"
     RUN ./scripts/strip-wasm.sh
     SAVE ARTIFACT build
 
-gcc-build:
+build-gcc:
     DO +BUILD --configure="--preset gcc" --build=""
 
-fuzzing-build:
+build-fuzzing:
     DO +BUILD --configure="--preset fuzzing" --build=""
 
-clang-assert-build:
+build-clang-assert:
     DO +BUILD --configure="--preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
 
-clang-format-check:
+test-clang-format:
     COPY .clang-format .
     COPY format.sh .
     RUN ./format.sh check
     SAVE ARTIFACT build/bin
 
-ci-bench:
+bench-ci:
     DO +BENCH --preset=clang16 --target=ultra_honk_bench
     DO +BENCH --preset=clang16 --target=client_ivc_bench
     DO +BENCH --preset=op-count-track --target=ultra_honk_bench
@@ -81,15 +80,22 @@ BUILD:
     FUNCTION
     ARG configure
     ARG build
-    # Use a mount for incremental builds. Set sharing to private, so if there is parallel builds we don't use the cache.
-    RUN --mount type=cache,id="$configure-build",target=/build/build,sharing=private \
-        cmake $configure -Bbuild && \
-        cmake --build build $build && \
-        ./scripts/fixup_incremental_build.sh && \
-        cp -r build/bin .
-    # reconstruct build folder, as it was used in cache
+    # builtin-arg, detects --ci
+    ARG EARTHLY_CI
+    IF [ $EARTHLY_CI ]
+        # Don't cache CI builds.
+        RUN cmake $configure -Bbuild && \
+            cmake --build build $build
+    ELSE
+        # Use a mount for incremental builds locally.
+        RUN --mount type=cache,id="$configure-build",target=/build/build \
+            cmake $configure -Bbuild && \
+            cmake --build build $build && \
+            cp -r build/bin .
+        # reconstruct build folder, as it was used in cache
+        RUN mkdir build && mv bin build
+    END
     SAVE ARTIFACT build
-    RUN mkdir build && mv bin build
 
 BENCH:
     FUNCTION
