@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Runs a docker-compose file.
+# Pulls the containers in the build manifests <project>.runDependencies property.
+# Uploads any logs to S3.
+# Can be used to test a built container (runDependencies would be self + dependency containers).
+# Can be used to build and test a container (runDependencies would just be dependency containers).
+# The trailing arguments are environment variables in the form KEY=VALUE, made available to docker-compose.
+
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+set -eu
+
+REPOSITORY=$1
+COMPOSE_FILE=$2
+shift 2
+
+IMAGE_URI=$(calculate_image_uri $REPOSITORY)
+BASE_TAG=$(calculate_image_tag $REPOSITORY)
+SUCCESS_TAG=$BASE_TAG-$JOB_NAME
+
+echo "Success tag: $SUCCESS_TAG"
+
+if check_rebuild $SUCCESS_TAG $REPOSITORY; then
+  echo "No re-run necessary for $IMAGE_URI."
+  exit 0
+fi
+
+# For each dependency and self, pull in the latest image and give it correct tag.
+# for REPO in $(query_manifest runDependencies $REPOSITORY $JOB_NAME); do
+#   echo "Pulling $REPO..."
+#   REPO_IMAGE_URI=$(calculate_image_uri $REPO)
+#   retry docker pull $REPO_IMAGE_URI
+#   docker tag $REPO_IMAGE_URI aztecprotocol/$REPO
+# done
+
+# For each dependency, substitute references to the dependency in compose file, with the relevent built image uri.
+# This is necessary vs retagging the image, as that would cause conflicts between ci runs.
+for DEP_REPO in $(query_manifest runDependencies $REPOSITORY); do
+  # We want the parent image tag without any arch suffix.
+  DEP_IMAGE_TAG=$(calculate_image_tag $DEP_REPO "")
+  echo "Looking for image $DEP_REPO:$DEP_IMAGE_TAG..."
+
+  # Attempt to locate image.
+  if ! image_exists $DEP_REPO $DEP_IMAGE_TAG; then
+    echo "Image not available. Aborting."
+    exit 1
+  fi
+
+  # Need to be specific about platform as sometimes we do arm builds from x86 images.
+  # DEP_MULTIARCH=$(query_manifest multiarch $DEP_REPO)
+  # if [ "$DEP_MULTIARCH" == "false" ]; then
+  #   PLATFORM='--platform=linux/amd64'
+  # else
+  #   PLATFORM=''
+  # fi
+
+  # Substitute references to parent repo, with the relevent built image uri.
+  DEPLOY_URI=aztecprotocol/$DEP_REPO
+  DEP_IMAGE_URI=$ECR_URL/$DEP_REPO:$DEP_IMAGE_TAG
+  sed -i "s#^image: ${DEPLOY_URI}$#image: ${DEP_IMAGE_URI}#" $DOCKERFILE
+done
+
+cd $(query_manifest projectDir $REPOSITORY)
+
+export $@
+if docker compose > /dev/null 2>&1; then
+  CMD="docker compose"
+else
+  CMD="docker-compose"
+fi
+$CMD -f $COMPOSE_FILE up --exit-code-from $REPOSITORY --force-recreate
+
+# upload_logs_to_s3 log
+
+docker tag $IMAGE_URI $ECR_URL/$REPOSITORY:$SUCCESS_TAG
