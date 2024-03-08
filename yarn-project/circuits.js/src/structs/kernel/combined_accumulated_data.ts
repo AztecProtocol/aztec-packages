@@ -1,7 +1,10 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { createDebugOnlyLogger } from '@aztec/foundation/log';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import { inspect } from 'util';
 
 import {
   MAX_NEW_CONTRACTS_PER_TX,
@@ -33,6 +36,8 @@ import { NullifierKeyValidationRequestContext } from '../nullifier_key_validatio
 import { ReadRequestContext } from '../read_request.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 import { NewContractData } from './new_contract_data.js';
+
+const log = createDebugOnlyLogger('aztec:combined_accumulated_data');
 
 /**
  * Read operations from the public state tree.
@@ -314,7 +319,13 @@ export class CombinedAccumulatedData {
   public static recombine(
     nonRevertible: PublicAccumulatedNonRevertibleData,
     revertible: PublicAccumulatedRevertibleData,
+    reverted: boolean,
   ): CombinedAccumulatedData {
+    if (reverted && !revertible.isEmpty()) {
+      log(inspect(revertible));
+      throw new Error('Revertible data should be empty if the transaction is reverted');
+    }
+
     const newNoteHashes = padArrayEnd(
       [...nonRevertible.newNoteHashes, ...revertible.newNoteHashes].filter(x => !x.isEmpty()),
       SideEffect.empty(),
@@ -472,6 +483,47 @@ export class PublicAccumulatedRevertibleData {
 
   toString() {
     return this.toBuffer().toString('hex');
+  }
+
+  isEmpty(): boolean {
+    return (
+      this.noteHashReadRequests.every(x => x.isEmpty()) &&
+      this.nullifierReadRequests.every(x => x.isEmpty()) &&
+      this.nullifierKeyValidationRequests.every(x => x.isEmpty()) &&
+      this.newNoteHashes.every(x => x.isEmpty()) &&
+      this.newNullifiers.every(x => x.isEmpty()) &&
+      this.privateCallStack.every(x => x.isEmpty()) &&
+      this.publicCallStack.every(x => x.isEmpty()) &&
+      this.newL2ToL1Msgs.every(x => x.isZero()) &&
+      this.encryptedLogsHash.every(x => x.isZero()) &&
+      this.unencryptedLogsHash.every(x => x.isZero()) &&
+      this.encryptedLogPreimagesLength.isZero() &&
+      this.unencryptedLogPreimagesLength.isZero() &&
+      this.newContracts.every(x => x.isEmpty()) &&
+      this.publicDataUpdateRequests.every(x => x.isEmpty()) &&
+      this.publicDataReads.every(x => x.isEmpty())
+    );
+  }
+
+  [inspect.custom]() {
+    // print out the non-empty fields
+    return `PublicAccumulatedRevertibleData {
+  noteHashReadRequests: [${this.noteHashReadRequests.map(h => h.toString()).join(', ')}],
+  nullifierReadRequests: [${this.nullifierReadRequests.map(h => h.toString()).join(', ')}],
+  nullifierKeyValidationRequests: [${this.nullifierKeyValidationRequests.map(h => h.toString()).join(', ')}],
+  newNoteHashes: [${this.newNoteHashes.map(h => h.toString()).join(', ')}],
+  newNullifiers: [${this.newNullifiers.map(h => h.toString()).join(', ')}],
+  privateCallStack: [${this.privateCallStack.map(h => h.toString()).join(', ')}],
+  publicCallStack: [${this.publicCallStack.map(h => h.toString()).join(', ')}],
+  newL2ToL1Msgs: [${this.newL2ToL1Msgs.map(h => h.toString()).join(', ')}],
+  encryptedLogsHash: [${this.encryptedLogsHash.map(h => h.toString()).join(', ')}],
+  unencryptedLogsHash: [${this.unencryptedLogsHash.map(h => h.toString()).join(', ')}],
+  encryptedLogPreimagesLength: ${this.encryptedLogPreimagesLength}
+  unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength}
+  newContracts: [${this.newContracts.map(h => h.toString()).join(', ')}],
+  publicDataUpdateRequests: [${this.publicDataUpdateRequests.map(h => h.toString()).join(', ')}],
+  publicDataReads: [${this.publicDataReads.map(h => h.toString()).join(', ')}],
+}`;
   }
 
   /**
@@ -715,6 +767,10 @@ export class PrivateAccumulatedNonRevertibleData {
 export class PublicAccumulatedNonRevertibleData {
   constructor(
     /**
+     * The nullifier read requests made in this transaction.
+     */
+    public nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    /**
      * The new non-revertible commitments made in this transaction.
      */
     public newNoteHashes: Tuple<SideEffect, typeof MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX>,
@@ -740,12 +796,20 @@ export class PublicAccumulatedNonRevertibleData {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.newNoteHashes, this.newNullifiers, this.publicCallStack);
+    return serializeToBuffer(
+      this.nullifierReadRequests,
+      this.newNoteHashes,
+      this.newNullifiers,
+      this.publicCallStack,
+      this.publicDataUpdateRequests,
+      this.publicDataReads,
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(
+      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext),
       reader.readArray(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect),
       reader.readArray(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
@@ -764,6 +828,7 @@ export class PublicAccumulatedNonRevertibleData {
 
   static empty() {
     return new this(
+      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
       makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
       makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
@@ -774,11 +839,22 @@ export class PublicAccumulatedNonRevertibleData {
 
   static fromPrivateAccumulatedNonRevertibleData(data: PrivateAccumulatedNonRevertibleData) {
     return new this(
+      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
       data.newNoteHashes,
       data.newNullifiers,
       data.publicCallStack,
       makeTuple(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
       makeTuple(MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
+  }
+
+  [inspect.custom]() {
+    return `PublicAccumulatedNonRevertibleData {
+  newNoteHashes: [${this.newNoteHashes.map(h => h.toString()).join(', ')}],
+  newNullifiers: [${this.newNullifiers.map(h => h.toString()).join(', ')}],
+  publicCallStack: [${this.publicCallStack.map(h => h.toString()).join(', ')}],
+  publicDataUpdateRequests: [${this.publicDataUpdateRequests.map(h => h.toString()).join(', ')}],
+  publicDataReads: [${this.publicDataReads.map(h => h.toString()).join(', ')}],
+}`;
   }
 }
