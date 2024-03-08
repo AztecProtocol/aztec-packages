@@ -32,6 +32,7 @@ export class BarretenbergBackend implements Backend {
 
   /** @ignore */
   async instantiate(): Promise<void> {
+    console.log("in instantiate");
     if (!this.api) {
       if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
         this.options.threads = navigator.hardwareConcurrency;
@@ -43,10 +44,13 @@ export class BarretenbergBackend implements Backend {
           console.log('Could not detect environment. Falling back to one thread.', e);
         }
       }
+      console.log("about to fetch bberg")
       const { Barretenberg, RawBuffer, Crs } = await import('@aztec/bb.js');
+      console.log("about to fetch bberg api");
       const api = await Barretenberg.new(this.options);
-
+      console.log("about to call acirGetCircuitSizes")
       const [_exact, _total, subgroupSize] = await api.acirGetCircuitSizes(this.acirUncompressedBytecode);
+      console.log("subgroupSize: ", subgroupSize);
       const crs = await Crs.new(subgroupSize + 1);
       await api.commonInitSlabAllocator(subgroupSize);
       await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
