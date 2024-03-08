@@ -67,7 +67,7 @@ if docker compose > /dev/null 2>&1; then
 else
   CMD="docker-compose"
 fi
-$CMD -f $COMPOSE_FILE up --exit-code-from $REPOSITORY --force-recreate
+$CMD -p ${COMMIT_HASH:-project} -f $COMPOSE_FILE up --exit-code-from $REPOSITORY --force-recreate
 
 # upload_logs_to_s3 log
 
