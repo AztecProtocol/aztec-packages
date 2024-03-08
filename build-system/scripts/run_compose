@@ -78,7 +78,7 @@ else
 fi
 
 trap "$CMD -p $PROJECT down" EXIT
-$CMD -p $PROJECT -f $COMPOSE_FILE up --exit-code-from $REPOSITORY --force-recreate || $CMD -p $PROJECT down && $CMD -p $PROJECT down
+$CMD -p $PROJECT -f $COMPOSE_FILE up --exit-code-from $REPOSITORY --force-recreate
 
 # upload_logs_to_s3 log
 
