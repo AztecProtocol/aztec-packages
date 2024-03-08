@@ -22,4 +22,4 @@ COPY . .
 # produces SNARK recursion friendly proofs, while the solidity verifier expects proofs
 # whose transcript uses Keccak hashing. 
 RUN (cd sol-test && yarn)
-RUN PARALLEL=1 FLOW=sol ./run_acir_tests.sh
+RUN PARALLEL=1 FLOW=sol ./run_acir_tests.sh assert_statement double_verify_proof double_verify_nested_proof
