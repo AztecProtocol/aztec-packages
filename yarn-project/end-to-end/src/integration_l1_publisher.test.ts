@@ -97,7 +97,7 @@ describe('L1Publisher integration', () => {
   let feeRecipient: AztecAddress;
 
   // To overwrite the test data, set this to true and run the tests.
-  const OVERWRITE_TEST_DATA = false;
+  const OVERWRITE_TEST_DATA = !!process.env.OVERWRITE_TEST_DATA;
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
