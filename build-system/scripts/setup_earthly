@@ -7,4 +7,5 @@ chmod +x ./earthly && ./earthly bootstrap --no-buildkit
 # forward ports to the earthly runner on our docker host (TODO use env var)
 ssh -o ExitOnForwardFailure=yes -f -N -L 8372:localhost:8372 ubuntu@18.191.162.117
 # turn off tls as we're already working through SSH
-echo 'global: {cache_size_mb: 24000, tls_enabled: false}' > ~/.earthly/config.yml
+./earthly config global.cache_size_mb 24000
+./earthly config global.tls_enabled false
