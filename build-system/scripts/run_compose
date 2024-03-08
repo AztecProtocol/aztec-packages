@@ -64,13 +64,15 @@ for DEP_REPO in $(query_manifest runDependencies $REPOSITORY); do
   fi
 done
 
+PROJECT=${COMMIT_HASH}-${JOB_NAME}
+
 export $@
 if docker compose > /dev/null 2>&1; then
   CMD="docker compose"
 else
   CMD="docker-compose"
 fi
-$CMD -p ${COMMIT_HASH:-project} -f $COMPOSE_FILE up --exit-code-from $REPOSITORY --force-recreate
+$CMD -p $PROJECT -f $COMPOSE_FILE up --exit-code-from $REPOSITORY --force-recreate
 
 # upload_logs_to_s3 log
 
