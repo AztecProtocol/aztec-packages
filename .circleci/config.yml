@@ -1308,7 +1308,8 @@ workflows:
       - avm-transpiler: *defaults
 
       # Barretenberg
-      - barretenberg: *defaults
+      - barretenberg-build: *defaults
+      - barretenberg-benches: *defaults
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
       - barretenberg-x86_64-linux-clang-assert: *defaults
@@ -1451,7 +1452,8 @@ workflows:
       # Everything that must complete before deployment.
       - end:
           requires:
-            - barretenberg
+            - barretenberg-benches
+            - barretenberg-build
             - barretenberg-x86_64-linux-gcc
             - barretenberg-x86_64-linux-clang
             - barretenberg-x86_64-linux-clang-assert
