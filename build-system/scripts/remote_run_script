@@ -34,5 +34,6 @@ ssh -A -F $SSH_CONFIG_PATH $IP "
   # temp while we transitioning to avm
   export AVM_ENABLED=${AVM_ENABLED:-}
   ./remote_initialize
+  cd project
   $@
 "
