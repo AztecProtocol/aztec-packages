@@ -89,4 +89,4 @@ In a nutshell:
 - Docker-like syntax defines all builds. We lean on docker heavily for when to rebuild and cache, and how to run in a reproducible manner.
 - It supports modularization of the build manifest into multiple directories that can be imported. Simple functions and conditional logic can be used.
 - We provide two modes, one for CI by passing --ci and one for local with incremental builds.
-- We do NOT provide a native execution story for anything but Linux and WASM currently.
+- We do NOT provide a native execution story for anything but Linux and WASM currently. 

@@ -64,7 +64,6 @@ test-clang-format:
     COPY .clang-format .
     COPY format.sh .
     RUN ./format.sh check
-    SAVE ARTIFACT build/bin
 
 bench-ci:
     DO +BENCH --preset=clang16 --target=ultra_honk_bench
@@ -103,7 +102,7 @@ BENCH:
     ARG target
     FROM +base
     DO +BUILD --configure="--preset $preset" --build="--target $target"
-    COPY srs_db:+download/build srs_db
+    COPY --dir srs_db:+build/. srs_db
     RUN cd build && ./bin/$target
 
 WASM_BENCH:
@@ -112,5 +111,5 @@ WASM_BENCH:
     FROM +base
     RUN curl https://wasmtime.dev/install.sh -sSf | bash
     DO +BUILD --configure="--preset wasm-threads" --build="--target $target"
-    COPY srs_db:+download/build srs_db
+    COPY --dir srs_db:+build/. srs_db/
     RUN cd build && ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target
