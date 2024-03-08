@@ -80,13 +80,14 @@ bench-with-args:
     ARG preset
     ARG target
     FROM +build-with-args --configure="--preset $preset" --build="--target $target"
-    COPY ./srs_db:+download/build srs_db
+    IMPORT srs_db AS srd_db
+    COPY srs_db:+download/build srs_db
     RUN cd build && ./bin/$target
 
 wasm-bench-with-args:
     ARG target
     FROM +build-with-args --configure="--preset wasm-threads" --build="--target $target"
-    COPY ./srs_db:+download/build srs_db
+    COPY srs_db:+download/build srs_db
     RUN cd build && wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target
 
 ci-bench:
