@@ -15,54 +15,64 @@ RUN apt-get update && apt-get install -y \
   libssl-dev \
   jq \
   bash \
-  libstdc++6
+  libstdc++6 \
+  clang-format
 
 RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16
 # let's not just spew files on /
-WORKDIR /app
-
-wasm-compiler:
-    # WASM compiler, only redownload if this script changes
-    COPY ./scripts/install-wasi-sdk.sh ./scripts/install-wasi-sdk.sh
-    RUN ./scripts/install-wasi-sdk.sh
-    # save our installed wasi folder
-    SAVE ARTIFACT ./src/*
+WORKDIR /build
+# WASM compiler, only redownload if this script changes
+COPY ./scripts/install-wasi-sdk.sh ./scripts/install-wasi-sdk.sh
+RUN ./scripts/install-wasi-sdk.sh
 
 source:
-    WORKDIR /source
     # minimum files to trigger rebuild
-    COPY src/barretenberg src/barretenberg
-    COPY src/CMakeLists.txt src/CMakeLists.txt
-    COPY CMakeLists.txt CMakeLists.txt
-    COPY cmake cmake
+    # keep timestamps for incremental builds
+    COPY --keep-ts src/barretenberg src/barretenberg
+    COPY --keep-ts src/CMakeLists.txt src/CMakeLists.txt
+    COPY --keep-ts CMakeLists.txt CMakeLists.txt
+    COPY --keep-ts cmake cmake
     COPY CMakePresets.json CMakePresets.json
-    # export source for other targets to use
-    SAVE ARTIFACT /source
 
-clang16-build:
-    COPY +source/source .
-    RUN cmake --preset clang16
-    RUN cmake --build --preset default --target ultra_honk_rounds_bench --target bb --target grumpkin_srs_gen
- 
+build:
+    FROM +source
+    ARG preset
+    ARG cmake_flags
+    # Use a mount for incremental builds.
+    RUN --mount type=cache,id=$preset-build,target=/build/build \
+        cmake --preset $preset && \
+        cmake --build --preset $preset $cmake_flags && \
+        cp -r build/bin .
+    # reconstruct build folder, as it was used in cache
+    RUN mkdir build && mv bin build
+    SAVE ARTIFACT build
+
+release-build:
+    FROM +build --preset=clang16 --cmake_flags="--target ultra_honk_rounds_bench --target bb"
+
 wasm-build:
-    COPY +source/source .
-    RUN cmake --preset wasm-threads && cmake --build --preset wasm-threads
+    FROM +build --preset=wasm-threads --cmake_flags="--target ultra_honk_rounds_bench --target bb"
     RUN ./scripts/strip-wasm.sh
-    SAVE ARTIFACT RUN build/bin build/bin
+    SAVE ARTIFACT build
 
 gcc-build:
-    COPY +source/source .
-    # Build the entire project, as we want to check everything builds under gcc.
-    RUN cmake --preset gcc -DCI=ON && cmake --build --preset gcc
+    FROM +build --preset=gcc --cmake_flags=""
 
 fuzzing-build:
-    COPY +source/source .
-    # Build the entire project, as we want to build every fuzzer
-    RUN cmake --preset fuzzing && cmake --build --preset fuzzing
+    FROM +build --preset=fuzzing --cmake_flags=""
+
+clang-assert-build:
+    FROM +build --preset=clang16 --cmake_flags="-DCMAKE_BUILD_TYPE=RelWithAssert"
+
+clang-format-check:
+    FROM +source
+    COPY .clang-format .
+    COPY format.sh .
+    RUN ./format.sh check
+    SAVE ARTIFACT build/bin
 
 bench:
-    COPY +srs_db:srs-db/grumpkin srs-db/grumpkin
-    COPY +srs_db:srs-db/grumpkin srs-db/grumpkin
-    RUN ls srs-db
-    COPY ./scripts/ci/ultra_honk_bench.sh ./scripts/ci/
-    RUN ./scripts/ci/ultra_honk_bench.sh
+    FROM +release-build
+    IMPORT ./srs_db AS srs_db
+    COPY srs_db:+download/build srs_db
+    RUN cd build && ./bin/ultra_honk_rounds_bench

@@ -3,18 +3,16 @@ IMPORT .. AS bb
 # use common base ubuntu
 FROM bb:+base
 
-srs-db:
+download:
     # minimum files to download SRS
     COPY ./*.sh .
     RUN ./download_ignition.sh
     RUN ./download_grumpkin.sh
     # export srs-db for runners
-    SAVE ARTIFACT ignition
-    SAVE ARTIFACT grumpkin
+    SAVE ARTIFACT /build
 
-srs-db-local:
+download-local:
     # copy files locally
-    COPY +srs-db/ignition ignition
-    COPY +srs-db/grumpkin grumpkin 
+    FROM +download
     SAVE ARTIFACT ignition AS LOCAL ignition
     SAVE ARTIFACT grumpkin AS LOCAL grumpkin
