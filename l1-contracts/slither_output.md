@@ -26,9 +26,9 @@ src/core/libraries/decoders/TxsDecoder.sol#L86
 
 
  - [ ] ID-2
-[NewOutbox._verifyMembership(bytes32[],DataStructures.L2ToL1Msg,uint256,bytes32).root](src/core/messagebridge/NewOutbox.sol#L114) is a local variable never initialized
+[NewOutbox._verifyMembership(bytes32[],DataStructures.L2ToL1Msg,uint256,bytes32).root](src/core/messagebridge/NewOutbox.sol#L125) is a local variable never initialized
 
-src/core/messagebridge/NewOutbox.sol#L114
+src/core/messagebridge/NewOutbox.sol#L125
 
 
 ## unused-return
