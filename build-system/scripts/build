@@ -84,7 +84,12 @@ for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
   fi
 
   # Need to be specific about platform as sometimes we do arm builds from x86 images.
-  PLATFORM=$(docker image inspect $ECR_URL/$PARENT_REPO:$PARENT_IMAGE_TAG --format '{{printf "--platform=%s/%s" .Os .Architecture}}')
+  PARENT_MULTIARCH=$(query_manifest multiarch $PARENT_REPO)
+  if [ "$PARENT_MULTIARCH" == "false" ]; then
+    PLATFORM='--platform=linux/amd64'
+  else
+    PLATFORM=''
+  fi
 
   # Substitute references to parent repo, with the relevent built image uri.
   DEPLOY_URI=aztecprotocol/$PARENT_REPO
