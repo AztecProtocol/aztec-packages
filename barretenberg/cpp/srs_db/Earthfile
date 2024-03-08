@@ -4,7 +4,6 @@ FROM ubuntu:lunar
 RUN apt-get update && apt-get install -y curl
 
 download:
-    # minimum files to download SRS
     COPY ./*.sh .
     RUN ./download_ignition.sh
     RUN ./download_grumpkin.sh
