@@ -1,7 +1,7 @@
 VERSION 0.8
-IMPORT .. AS bb
-# use common base ubuntu
-FROM bb:+base
+FROM ubuntu:lunar
+
+RUN apt-get update && apt-get install -y curl
 
 download:
     # minimum files to download SRS
