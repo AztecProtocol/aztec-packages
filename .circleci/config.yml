@@ -279,12 +279,12 @@ jobs:
             barretenberg/cpp/scripts/ci/upload_doxygen_to_s3.sh
 
   barretenberg:
-    # docker:
-    #   - image: aztecprotocol/alpine-build-image
-    # resource_class: small
-    machine:
-      image: default
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    # machine:
+    #   image: default
+    # resource_class: large
     steps:
       - *checkout
       - *setup_env
