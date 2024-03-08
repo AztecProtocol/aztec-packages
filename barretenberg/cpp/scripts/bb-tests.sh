@@ -3,12 +3,7 @@
 # Might be better to list exclusions here rather than inclusions as risky to maintain.
 set -eu
 
-# $(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null
-export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
-REPOSITORY=barretenberg-x86_64-linux-clang-assert
-# use the image rebuild patterns to compute a content hash, use this to get a URI
-IMAGE_URI=$(calculate_image_uri $REPOSITORY)
-retry docker pull $IMAGE_URI
+cd $(dirname $0)
 
 TESTS=(
   flavor_tests
@@ -43,10 +38,8 @@ TESTS=(
 )
 TESTS_STR="${TESTS[@]}"
 
-docker run --rm -t $IMAGE_URI /bin/sh -c "\
-  set -xe; \
-  cd /usr/src/barretenberg/cpp; \
-  srs_db/download_ignition.sh 1; \
-  srs_db/download_grumpkin.sh; \
-  cd build; \
-  for BIN in $TESTS_STR; do ./bin/\$BIN; done"
+cd /usr/src/barretenberg/cpp
+srs_db/download_ignition.sh 1
+srs_db/download_grumpkin.sh
+cd build
+for BIN in $TESTS_STR; do ./bin/$BIN; done
