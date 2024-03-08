@@ -321,9 +321,9 @@ src/core/messagebridge/Inbox.sol#L148-L153
 Impact: Informational
 Confidence: Medium
  - [ ] ID-35
-Variable [Constants.LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L128) is too similar to [Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L121)
+Variable [Constants.LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L129) is too similar to [Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L122)
 
-src/core/libraries/ConstantsGen.sol#L128
+src/core/libraries/ConstantsGen.sol#L129
 
 
  - [ ] ID-36
