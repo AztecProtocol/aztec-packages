@@ -77,15 +77,14 @@ for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
   PARENT_IMAGE_TAG=$(calculate_image_tag $PARENT_REPO "")
   echo "Looking for image $PARENT_REPO:$PARENT_IMAGE_TAG..."
 
-  # Attempt to locate multiarch image.
+  # Attempt to locate image.
   if ! image_exists $PARENT_REPO $PARENT_IMAGE_TAG; then
     echo "Image not available. Aborting."
     exit 1
   fi
 
-  PARENT_MULTIARCH=$(query_manifest multiarch $PARENT_REPO)
-  PLATFORM=
-  [ "$PARENT_MULTIARCH" == "false" ] && PLATFORM='--platform=linux/amd64'
+  # Need to be specific about platform as sometimes we do arm builds from x86 images.
+  PLATFORM=$(docker image inspect $ECR_URL/$PARENT_REPO:$PARENT_IMAGE_TAG --format '{{printf "--platform=%s/%s" .Os .Architecture}}')
 
   # Substitute references to parent repo, with the relevent built image uri.
   DEPLOY_URI=aztecprotocol/$PARENT_REPO
