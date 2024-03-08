@@ -1,0 +1,29 @@
+VERSION 0.8
+IMPORT ../cpp AS cpp
+
+FROM node:18.19.0
+WORKDIR /build
+
+# minimum files to download yarn packages
+# keep timestamps for incremental builds
+COPY --keep-ts --dir .yarn .
+COPY --keep-ts package.json .
+COPY --keep-ts yarn.lock .
+COPY --keep-ts .yarnrc.yml .
+RUN yarn --immutable
+
+# other source files
+COPY --keep-ts --dir src .
+COPY --keep-ts *.json .
+COPY --keep-ts *.js .
+COPY --keep-ts scripts/cjs_postprocess.sh scripts/
+
+build:
+    COPY cpp+build-wasm/build/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm
+    # TODO for now there is no real single-threaded WASM. See if anyone hits problems.
+    COPY cpp+build-wasm/build/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg.wasm
+    RUN yarn build:esm
+    RUN yarn build:cjs
+    RUN yarn build:browser
+    COPY cpp+build-wasm/build/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
+    COPY cpp+build-wasm/build/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
