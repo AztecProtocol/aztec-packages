@@ -44,6 +44,58 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
     EXPECT_EQ(expected.normalize(), commitment.normalize());
 }
 
+TEST_F(IPATest, OpenZeroPolynomial)
+{
+    using IPA = IPA<Curve>;
+    constexpr size_t n = 4;
+    Polynomial poly(n);
+    // Commit to a zero polynomial
+    GroupElement commitment = this->commit(poly);
+    EXPECT_TRUE(commitment.is_point_at_infinity());
+
+    auto [x, eval] = this->random_eval(poly);
+    EXPECT_EQ(eval, Fr::zero());
+    const OpeningPair<Curve> opening_pair = { x, eval };
+    const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
+
+    // initialize empty prover transcript
+    auto prover_transcript = std::make_shared<NativeTranscript>();
+    IPA::compute_opening_proof(this->ck(), opening_pair, poly, prover_transcript);
+
+    // initialize verifier transcript from proof data
+    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+
+    auto result = IPA::verify(this->vk(), opening_claim, verifier_transcript);
+    EXPECT_TRUE(result);
+
+    EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
+}
+
+TEST_F(IPATest, OpenAtZero)
+{
+    using IPA = IPA<Curve>;
+    // generate a random polynomial, degree needs to be a power of two
+    size_t n = 128;
+    auto poly = this->random_polynomial(n);
+    Fr x = Fr::zero();
+    auto eval = poly.evaluate(x);
+    auto commitment = this->commit(poly);
+    const OpeningPair<Curve> opening_pair = { x, eval };
+    const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
+
+    // initialize empty prover transcript
+    auto prover_transcript = std::make_shared<NativeTranscript>();
+    IPA::compute_opening_proof(this->ck(), opening_pair, poly, prover_transcript);
+
+    // initialize verifier transcript from proof data
+    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+
+    auto result = IPA::verify(this->vk(), opening_claim, verifier_transcript);
+    EXPECT_TRUE(result);
+
+    EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
+}
+
 TEST_F(IPATest, Commit)
 {
     constexpr size_t n = 128;

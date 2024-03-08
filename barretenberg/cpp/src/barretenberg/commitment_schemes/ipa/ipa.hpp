@@ -116,7 +116,6 @@ template <typename Curve> class IPA {
                                       const Polynomial& polynomial,
                                       const std::shared_ptr<NativeTranscript>& transcript)
     {
-        ASSERT(opening_pair.challenge != 0 && "The challenge point should not be zero");
         auto poly_length = static_cast<size_t>(polynomial.size());
 
         // Step 1.
