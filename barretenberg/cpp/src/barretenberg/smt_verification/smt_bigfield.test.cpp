@@ -208,7 +208,7 @@ TEST(bigfield, unique_square)
     Solver s(circuit_info.modulus);
 
     std::pair<Circuit<FFTerm>, Circuit<FFTerm>> cs =
-        unique_witness<FFTerm>(circuit_info,
+        unique_witness_ext<FFTerm>(circuit_info,
                                &s,
                                { "a_limb_0", "a_limb_1", "a_limb_2", "a_limb_3" },
                                { "c_limb_0", "c_limb_1", "c_limb_2", "c_limb_3" });
