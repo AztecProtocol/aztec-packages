@@ -25,17 +25,15 @@ WORKDIR /build
 COPY ./scripts/install-wasi-sdk.sh ./scripts/install-wasi-sdk.sh
 RUN ./scripts/install-wasi-sdk.sh
 
-source:
-    # minimum files to trigger rebuild
-    # keep timestamps for incremental builds
-    COPY --keep-ts src/barretenberg src/barretenberg
-    COPY --keep-ts src/CMakeLists.txt src/CMakeLists.txt
-    COPY --keep-ts CMakeLists.txt CMakeLists.txt
-    COPY --keep-ts cmake cmake
-    COPY CMakePresets.json CMakePresets.json
+# minimum files to trigger rebuild
+# keep timestamps for incremental builds
+COPY --keep-ts src/barretenberg src/barretenberg
+COPY --keep-ts src/CMakeLists.txt src/CMakeLists.txt
+COPY --keep-ts CMakeLists.txt CMakeLists.txt
+COPY --keep-ts cmake cmake
+COPY --keep-ts CMakePresets.json CMakePresets.json
 
-build:
-    FROM +source
+build-with-args:
     ARG preset
     ARG cmake_flags
     # Use a mount for incremental builds.
@@ -48,24 +46,23 @@ build:
     SAVE ARTIFACT build
 
 release-build:
-    FROM +build --preset=clang16 --cmake_flags="--target ultra_honk_rounds_bench --target bb"
+    FROM +build-with-args --preset=clang16 --cmake_flags="--target ultra_honk_rounds_bench --target bb"
 
 wasm-build:
-    FROM +build --preset=wasm-threads --cmake_flags="--target ultra_honk_rounds_bench --target bb"
+    FROM +build-with-args --preset=wasm-threads --cmake_flags="--target ultra_honk_rounds_bench --target bb"
     RUN ./scripts/strip-wasm.sh
     SAVE ARTIFACT build
 
 gcc-build:
-    FROM +build --preset=gcc --cmake_flags=""
+    FROM +build-with-args --preset=gcc --cmake_flags=""
 
 fuzzing-build:
-    FROM +build --preset=fuzzing --cmake_flags=""
+    FROM +build-with-args --preset=fuzzing --cmake_flags=""
 
 clang-assert-build:
-    FROM +build --preset=clang16 --cmake_flags="-DCMAKE_BUILD_TYPE=RelWithAssert"
+    FROM +build-with-args --preset=clang16 --cmake_flags="-DCMAKE_BUILD_TYPE=RelWithAssert"
 
 clang-format-check:
-    FROM +source
     COPY .clang-format .
     COPY format.sh .
     RUN ./format.sh check

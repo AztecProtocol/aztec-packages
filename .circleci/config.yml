@@ -278,6 +278,24 @@ jobs:
           command: |
             barretenberg/cpp/scripts/ci/upload_doxygen_to_s3.sh
 
+  barretenberg:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: 
+            # - download earthly build tool
+            echo "wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O ./earthly" >> script
+            # - bootstrap it
+            echo "chmod +x ./earthly && ./earthly bootstrap --with-autocomplete" >> script
+            # do above on remote 16 core machine
+            chmod a+x script
+            spot_run_script barretenberg 16 script
+
   barretenberg-stdlib-tests:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -1277,6 +1295,7 @@ workflows:
       - avm-transpiler: *defaults
 
       # Barretenberg
+      - barretenberg: *defaults
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
       - barretenberg-x86_64-linux-clang-assert: *defaults
@@ -1419,6 +1438,7 @@ workflows:
       # Everything that must complete before deployment.
       - end:
           requires:
+            - barretenberg
             - barretenberg-x86_64-linux-gcc
             - barretenberg-x86_64-linux-clang
             - barretenberg-x86_64-linux-clang-assert
