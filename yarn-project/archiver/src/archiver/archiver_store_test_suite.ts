@@ -241,9 +241,31 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         expect(expectedLeavesOrder).toEqual(retrievedMessages);
       });
 
-      it('throws an error if messages are sequenced incorrectly', async () => {
-        const msgs = [new NewInboxLeaf(1n, 0n, randomBytes(32)), new NewInboxLeaf(1n, 1n, randomBytes(32))];
+      it('throws if it is impossible to sequence messages correctly', async () => {
+        const l2BlockNumber = 13n;
+
+        const msgs = generateBlockMessages(l2BlockNumber, l1ToL2MessageSubtreeSize - 1);
+        // We replace a message with index 4 with a message with index at the end of the tree
+        // --> with that there will be a gap and it will be impossible to sequence the messages
+        msgs[4] = new NewInboxLeaf(l2BlockNumber, BigInt(l1ToL2MessageSubtreeSize - 1), randomBytes(32));
+
         await store.addNewL1ToL2Messages(msgs, 100n);
+        await expect(store.getNewL1ToL2Messages(l2BlockNumber)).rejects.toThrowError(
+          `Undefined message found in the middle of the messages for block ${l2BlockNumber}`,
+        );
+      });
+
+      it('throws if adding more messages than fits into a block', async () => {
+        const l2BlockNumber = 13n;
+
+        const msgs = generateBlockMessages(l2BlockNumber, l1ToL2MessageSubtreeSize + 1);
+        // We replace a message with index 4 with a message with index at the end of the tree
+        // --> with that there will be a gap and it will be impossible to sequence the messages
+        msgs[4] = new NewInboxLeaf(l2BlockNumber, BigInt(l1ToL2MessageSubtreeSize - 1), randomBytes(32));
+
+        await expect(store.addNewL1ToL2Messages(msgs, 100n)).rejects.toThrowError(
+          `Message index ${l1ToL2MessageSubtreeSize} out of subtree range`,
+        );
       });
     });
 

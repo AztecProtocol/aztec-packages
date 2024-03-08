@@ -19,6 +19,9 @@ export class NewL1ToL2MessageStore {
   constructor() {}
 
   addMessage(message: NewInboxLeaf) {
+    if (message.index >= this.#l1ToL2MessagesSubtreeSize) {
+      throw new Error(`Message index ${message.index} out of subtree range`);
+    }
     const key = `${message.blockNumber}-${message.index}`;
     this.store.set(key, message.leaf);
   }

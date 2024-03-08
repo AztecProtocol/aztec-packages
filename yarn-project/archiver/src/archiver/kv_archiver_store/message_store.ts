@@ -70,7 +70,7 @@ export class MessageStore {
 
       for (const message of messages) {
         if (message.index >= this.#l1ToL2MessagesSubtreeSize) {
-          throw new Error(`Message index ${message.index} is out of range`);
+          throw new Error(`Message index ${message.index} out of subtree range`);
         }
         const key = `${message.blockNumber}-${message.index}`;
         void this.#newMessages.setIfNotExists(key, message.leaf);
