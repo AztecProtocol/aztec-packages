@@ -21,11 +21,6 @@ orbs:
   continuation: circleci/continuation@1.0.0
   slack: circleci/slack@4.12.5
 
-parameters:
-  workflow:
-    type: string
-    default: "system"
-
 # This build step checks out the code from the repository. It has a hardcoded readonly key to allow the checkout.
 # Initially it just fetches the repo metadata for the current commit hash to a depth of 50 commits.
 # We need historical commit hashes to calculate diffs between previous and current commits.
@@ -76,22 +71,6 @@ defaults_e2e_test: &defaults_e2e_test
     resource_class: small
 
 jobs:
-  # Dynamically filter our code, quickly figuring out which jobs we can skip.
-  generate-config:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: Generate Pipeline generated_config.yml file
-          command: |
-            # filter our circleci config to the minimal pipeline
-            build-system/scripts/generate_circleci_config.py > .circleci/generated_config.yml
-      - continuation/continue:
-          configuration_path: .circleci/generated_config.yml
-
   # Noir
   noir-x86_64:
     docker:
@@ -298,7 +277,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run 16 "cd barretenberg/cpp && earthly_local +bench-ci"
+          command: aws_run 16 "cd barretenberg/cpp && earthly_local +bench-ci"
 
   barretenberg-stdlib-tests:
     docker:
