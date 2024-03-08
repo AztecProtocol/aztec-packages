@@ -76,7 +76,9 @@ if docker compose > /dev/null 2>&1; then
 else
   CMD="docker-compose"
 fi
-$CMD -p $PROJECT -f $COMPOSE_FILE up --exit-code-from $REPOSITORY --force-recreate
+
+trap "$CMD -p $PROJECT down" EXIT
+$CMD -p $PROJECT -f $COMPOSE_FILE up --exit-code-from $REPOSITORY --force-recreate || $CMD -p $PROJECT down && $CMD -p $PROJECT down
 
 # upload_logs_to_s3 log
 
