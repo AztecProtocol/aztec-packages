@@ -61,7 +61,7 @@ export class MessageStore {
    */
   addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
     return this.db.transaction(() => {
-      const lastL1BlockNumber = this.#lastL1BlockAddingMessages.get() ?? 0n;
+      const lastL1BlockNumber = this.#lastL1BlockNewMessages.get() ?? 0n;
       if (lastL1BlockNumber >= lastMessageL1BlockNumber) {
         return false;
       }
