@@ -38,12 +38,20 @@ build-with-args:
     ARG cmake_flags
     # Use a mount for incremental builds.
     RUN --mount type=cache,id=$preset-build,target=/build/build \
-        cmake --preset $preset && \
-        cmake --build --preset $preset $cmake_flags && \
+        cmake --preset $preset -Bbuild && \
+        cmake --build build $cmake_flags && \
         cp -r build/bin .
     # reconstruct build folder, as it was used in cache
     RUN mkdir build && mv bin build
     SAVE ARTIFACT build
+
+ci-build:
+    BUILD +release-build
+    BUILD +wasm-build
+    BUILD +gcc-build
+    BUILD +fuzzing-build
+    BUILD +clang-assert-build
+    BUILD +clang-format-check
 
 release-build:
     FROM +build-with-args --preset=clang16 --cmake_flags="--target ultra_honk_rounds_bench --target bb"
@@ -68,8 +76,25 @@ clang-format-check:
     RUN ./format.sh check
     SAVE ARTIFACT build/bin
 
-bench:
-    FROM +release-build
-    IMPORT ./srs_db AS srs_db
-    COPY srs_db:+download/build srs_db
-    RUN cd build && ./bin/ultra_honk_rounds_bench
+bench-with-args:
+    ARG preset
+    ARG target
+    FROM +build-with-args --preset=$preset --cmake_flags="--target $target"
+    COPY ./srs_db:+download/build srs_db
+    RUN cd build && ./bin/$target
+
+wasm-bench-with-args:
+    ARG target
+    FROM +build-with-args --preset=wasm-threads --cmake_flags="--target $target"
+    COPY ./srs_db:+download/build srs_db
+    RUN cd build && wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target
+
+ci-bench:
+    RUN curl https://wasmtime.dev/install.sh -sSf | bash
+    BUILD +bench-with-args --preset=clang16 --target=ultra_honk_bench
+    BUILD +bench-with-args --preset=clang16 --target=ivc_bench
+    BUILD +bench-with-args --preset=op-count-track --target=ultra_honk_bench
+    BUILD +bench-with-args --preset=op-count-track --target=ivc_bench
+    BUILD +bench-with-args --preset=op-count-time --target=ivc_bench
+    BUILD +wasm-bench-with-args --target=ultra_honk_bench
+    BUILD +wasm-bench-with-args --target=ivc_bench
