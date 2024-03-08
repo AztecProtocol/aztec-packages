@@ -1,4 +1,3 @@
-#include "ipa.hpp"
 #include "../gemini/gemini.hpp"
 #include "../shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
@@ -23,6 +22,9 @@ class IPATest : public CommitmentTest<Curve> {
     using Polynomial = bb::Polynomial<Fr>;
 };
 } // namespace
+
+#define IPA_TEST
+#include "ipa.hpp"
 
 TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
 {

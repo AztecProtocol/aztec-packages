@@ -10,7 +10,6 @@
 #include <vector>
 
 namespace bb {
-
 /**
  * @brief IPA (inner product argument) commitment scheme class.
  *
@@ -76,6 +75,10 @@ template <typename Curve> class IPA {
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = bb::Polynomial<Fr>;
+
+#ifdef IPA_TEST
+    friend IPATest;
+#endif
 
   public:
     /**
