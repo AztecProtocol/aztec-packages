@@ -119,7 +119,9 @@ function build {
 MULTIARCH=$(query_manifest multiarch $REPOSITORY)
 
 (build > >(awk -v c="$g" -v r="$r" '$0=c"x86_64: "r $0')) &
-[ "$MULTIARCH" == "true" ] && ((DOCKER_HOST=$DOCKER_HOST_ARM build > >(awk -v c="$b" -v r="$r" '$0=c"arm64: "r $0')) &)
+if [ "$MULTIARCH" == "true" ]; then
+  (DOCKER_HOST=$DOCKER_HOST_ARM build > >(awk -v c="$b" -v r="$r" '$0=c"arm64: "r $0')) &
+fi
 
 for job in $(jobs -p); do
   wait $job || exit 1
