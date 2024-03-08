@@ -34,12 +34,12 @@ COPY --keep-ts cmake cmake
 COPY --keep-ts CMakePresets.json CMakePresets.json
 
 build-with-args:
-    ARG preset
-    ARG cmake_flags
+    ARG configure
+    ARG build
     # Use a mount for incremental builds.
     RUN --mount type=cache,id=$preset-build,target=/build/build \
-        cmake --preset $preset -Bbuild && \
-        cmake --build build $cmake_flags && \
+        cmake $configure -Bbuild && \
+        cmake --build build $build && \
         cp -r build/bin .
     # reconstruct build folder, as it was used in cache
     RUN mkdir build && mv bin build
@@ -54,21 +54,21 @@ ci-build:
     BUILD +clang-format-check
 
 release-build:
-    FROM +build-with-args --preset=clang16 --cmake_flags="--target ultra_honk_rounds_bench --target bb"
+    FROM +build-with-args --configure="--preset clang16" --build="--target ultra_honk_rounds_bench --target bb"
 
 wasm-build:
-    FROM +build-with-args --preset=wasm-threads --cmake_flags="--target ultra_honk_rounds_bench --target bb"
+    FROM +build-with-args --configure="--preset wasm-threads" --build="--target ultra_honk_rounds_bench --target bb"
     RUN ./scripts/strip-wasm.sh
     SAVE ARTIFACT build
 
 gcc-build:
-    FROM +build-with-args --preset=gcc --cmake_flags=""
+    FROM +build-with-args --configure="--preset gcc" --build=""
 
 fuzzing-build:
-    FROM +build-with-args --preset=fuzzing --cmake_flags=""
+    FROM +build-with-args --configure="--preset fuzzing" --build=""
 
 clang-assert-build:
-    FROM +build-with-args --preset=clang16 --cmake_flags="-DCMAKE_BUILD_TYPE=RelWithAssert"
+    FROM +build-with-args --configure="--preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
 
 clang-format-check:
     COPY .clang-format .
@@ -79,13 +79,13 @@ clang-format-check:
 bench-with-args:
     ARG preset
     ARG target
-    FROM +build-with-args --preset=$preset --cmake_flags="--target $target"
+    FROM +build-with-args --configure="--preset $preset" --build="--target $target"
     COPY ./srs_db:+download/build srs_db
     RUN cd build && ./bin/$target
 
 wasm-bench-with-args:
     ARG target
-    FROM +build-with-args --preset=wasm-threads --cmake_flags="--target $target"
+    FROM +build-with-args --configure="--preset wasm-threads" --build="--target $target"
     COPY ./srs_db:+download/build srs_db
     RUN cd build && wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target
 
