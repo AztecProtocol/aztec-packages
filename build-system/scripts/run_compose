@@ -62,6 +62,7 @@ for DEP_REPO in $(query_manifest runDependencies $REPOSITORY); do
   if [ "$(yq .services.$DEP_REPO.image $COMPOSE_FILE)" != "null" ]; then
     yq -i ".services.$DEP_REPO.image = \"$DEP_IMAGE_URI\"" $COMPOSE_FILE
   fi
+  yq e 'del(.services[].ports)' $COMPOSE_FILE
 done
 
 PROJECT=${COMMIT_HASH}-${JOB_NAME}
