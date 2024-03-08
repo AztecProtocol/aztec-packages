@@ -18,6 +18,8 @@ noir-tests:
   buildDir: noir
   dockerfile: Dockerfile.native-test
   rebuildPatterns: .rebuild_patterns_native
+  # TODO: Fails on arm.
+  multiarch: false
 
 # Builds just the noir js packages needed by aztec.
 noir-packages:
@@ -32,6 +34,8 @@ noir-packages-tests:
   rebuildPatterns: .rebuild_patterns_packages
   dependencies:
     - noir
+  # TODO: Fails on arm.
+  multiarch: false
 
 # Builds the brillig to avm transpiler.
 avm-transpiler:
@@ -92,6 +96,8 @@ barretenberg-x86_64-linux-clang-sol:
   buildDir: barretenberg
   dockerfile: sol/Dockerfile
   rebuildPatterns: sol/.rebuild_patterns
+  # Foundry base image doesn't have arm.
+  multiarch: false
 
 # Builds bb.js. Container is runnable for running the tests independently.
 bb.js:
@@ -137,6 +143,8 @@ barretenberg-docs:
 # Compiles all l1 solidity contracts. Output is JSON abis.
 l1-contracts:
   buildDir: l1-contracts
+  # Foundry base image doesn't have arm.
+  multiarch: false
 
 # Runs all yarn-projects checks and tests.
 yarn-project-test:

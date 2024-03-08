@@ -129,6 +129,6 @@ case "$CMD" in
     fi
     ;;
   multiarch)
-    yq -r ".\"$REPO\".multiarch // false" $MANIFEST
+    yq -r ".\"$REPO\".multiarch // true" $MANIFEST
     ;;
 esac

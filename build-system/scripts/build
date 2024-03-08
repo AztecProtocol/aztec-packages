@@ -116,12 +116,20 @@ function build {
   docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg COMMIT_HASH=$COMMIT_HASH . 2>&1
 }
 
+MULTIARCH=$(query_manifest multiarch $REPOSITORY)
+
 (build > >(awk -v c="$g" -v r="$r" '$0=c"x86_64: "r $0')) &
-(DOCKER_HOST=$DOCKER_HOST_ARM build > >(awk -v c="$b" -v r="$r" '$0=c"arm64: "r $0')) &
+[ "$MULTIARCH" == "true" ] && (DOCKER_HOST=$DOCKER_HOST_ARM build > >(awk -v c="$b" -v r="$r" '$0=c"arm64: "r $0')) &
 
 for job in $(jobs -p); do
   wait $job || exit 1
 done
+
+if [ "$MULTIARCH" == "false" ]; then
+  echo "Multiarch disabled. Copying x86 image to arm host for downstream builds..."
+  docker save -o image.tar $IMAGE_COMMIT_URI
+  DOCKER_HOST=$DOCKER_HOST_ARM docker load -i image.tar
+fi
 
 # MULTIARCH=$(query_manifest multiarch $REPOSITORY)
 
