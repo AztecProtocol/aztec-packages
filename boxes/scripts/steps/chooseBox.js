@@ -6,12 +6,10 @@ import {
   replacePaths,
   clone,
 } from "../utils.js";
-import chalk from "chalk";
+import { getPlaceholders } from "../config.js";
 
-const { log } = console;
-
-async function chooseAndCloneBox(tag, version) {
-  const availableBoxes = await getAvailableBoxes(tag, version);
+async function chooseAndCloneBox() {
+  const availableBoxes = await getAvailableBoxes();
   const appType = await select({
     message: `Please choose your Aztec boilerplate:`,
     choices: [
@@ -21,8 +19,6 @@ async function chooseAndCloneBox(tag, version) {
       { value: "skip", name: "Skip this step" },
     ],
   });
-
-  log(chalk.yellow(`You chose: ${appType}`));
 
   const rootDir = await clone({
     path: "boxes/boxes",
@@ -38,11 +34,11 @@ async function chooseAndCloneBox(tag, version) {
     version,
     prefix: "",
   });
-  log(chalk.bgGreen("Your code is ready!"));
+  success("Your code is ready!");
 }
 
-async function chooseAndCloneContract(tag, version) {
-  const availableContracts = await getAvailableContracts(tag, version);
+async function chooseAndCloneContract() {
+  const availableContracts = await getAvailableContracts();
   // let user choose one of the contracts in noir-projects
   const contract = await select({
     message: `Please choose your Aztec boilerplate:`,
@@ -53,9 +49,6 @@ async function chooseAndCloneContract(tag, version) {
       { value: "skip", name: "Skip this step" },
     ],
   });
-
-  // clone that specific contract into the user's folder
-  log(chalk.yellow(`You chose: ${contract}`));
 
   const rootDir = await clone({
     path: "noir-projects/noir-contracts/contracts",
@@ -74,15 +67,14 @@ async function chooseAndCloneContract(tag, version) {
 
   await processProject({
     rootDir,
-    placeholder: "%%contract_name%%",
-    contractName: contract,
+    placeholders: getPlaceholders(contract),
   });
-  log(chalk.bgGreen("Your code is ready!"));
+  success("Your code is ready!");
 
   // get the e2e test for that contract from yarn-project/end-to-end
 }
 
-export async function chooseProject(tag, version) {
+export async function chooseProject() {
   const projectType = await select({
     message: `Please choose your type of project:`,
     choices: [
@@ -95,8 +87,8 @@ export async function chooseProject(tag, version) {
   if (projectType === "skip") {
     return;
   } else if (projectType === "contract_only") {
-    await chooseAndCloneContract(tag, version);
+    await chooseAndCloneContract();
   } else if (projectType === "fs_app") {
-    await chooseAndCloneBox(tag, version);
+    await chooseAndCloneBox();
   }
 }

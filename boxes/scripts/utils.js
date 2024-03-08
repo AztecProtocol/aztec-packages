@@ -2,88 +2,57 @@ import path from "path";
 import os from "os";
 import fs from "fs/promises";
 import { parse, stringify } from "@iarna/toml";
-import { default as axiosBase } from "axios";
-import { CONTRACTS_TO_SHOW } from "./config.js";
-import chalk from "chalk";
-import ora from "ora";
+import { CONTRACTS_TO_SHOW, AZTEC_REPO } from "./config.js";
 
 import input from "@inquirer/input";
 import tiged from "tiged";
 
-const { log, warn, info } = console;
 const targetDir = path.join(os.homedir(), ".aztec/bin"); // Use os.homedir() to get $HOME
 
-const { GITHUB_TOKEN } = process.env;
-const axiosOpts = {};
-if (GITHUB_TOKEN) {
-  axiosOpts.headers = { Authorization: `token ${GITHUB_TOKEN}` };
-}
-
-export const axios = axiosBase.create(axiosOpts);
-export const spinner = ora({ color: "blue" });
-
-export async function getAvailableBoxes(tag, version) {
-  const { GITHUB_TOKEN } = process.env;
-  const axiosOpts = {};
-  if (GITHUB_TOKEN) {
-    axiosOpts.headers = { Authorization: `token ${GITHUB_TOKEN}` };
-  }
-
-  // TODO: Once the downstream zpedro/npx_improvs is merged, this path will change to boxes/boxes
-  let data;
+export async function getAvailableBoxes() {
   try {
-    ({ data } = await axios.get(
-      `https://api.github.com/repos/AztecProtocol/aztec-packages/contents/boxes${tag == "master" ? "" : `?ref=${tag}`}`,
-      axiosOpts,
-    ));
-  } catch (e) {
-    log(e);
-  }
-
-  let availableBoxes = data
-    .filter(
-      (content) => content.type === "dir" && !content.name.startsWith("."),
-    )
-    .map(async ({ path, name }) => {
-      ({ data } = await axios.get(
-        `https://raw.githubusercontent.com/AztecProtocol/aztec-packages/${tag == "master" ? "master" : tag}/${path}/package.json`,
-        axiosOpts,
-      ));
-
-      return {
-        name,
-        description: data.description || name,
-      };
+    const data = await github({
+      path: `boxes/boxes${tag == "master" ? "" : `?ref=${tag}`}`,
     });
 
-  return await Promise.all(availableBoxes);
-}
+    let availableBoxes = data
+      .filter(
+        (content) => content.type === "dir" && !content.name.startsWith("."),
+      )
+      .map(async ({ path, name }) => {
+        const { description } = await github({
+          path: `${tag == "master" ? "master" : tag}/${path}/package.json`,
+          raw: true,
+        });
 
-export async function getAvailableContracts(tag, version) {
-  const { GITHUB_TOKEN } = process.env;
-  const axiosOpts = {};
-  if (GITHUB_TOKEN) {
-    axiosOpts.headers = { Authorization: `token ${GITHUB_TOKEN}` };
-  }
+        return {
+          name,
+          description: description || name,
+        };
+      });
 
-  let data;
-  try {
-    ({ data } = await axios.get(
-      `https://api.github.com/repos/AztecProtocol/aztec-packages/contents/noir-projects/noir-contracts/contracts${tag == "master" ? "" : `?ref=${tag}`}`,
-      axiosOpts,
-    ));
+    return await Promise.all(availableBoxes);
   } catch (e) {
-    log(e);
+    error(e);
   }
-
-  let availableContracts = data.filter((content) =>
-    CONTRACTS_TO_SHOW.includes(content.name),
-  );
-
-  return await Promise.all(availableContracts);
 }
 
-export async function clone({ path, choice, type, tag, version }) {
+export async function getAvailableContracts() {
+  try {
+    const data = await github({
+      path: `noir-projects/noir-contracts/contracts${tag == "master" ? "" : `?ref=${tag}`}`,
+    });
+    let availableContracts = data.filter((content) =>
+      CONTRACTS_TO_SHOW.includes(content.name),
+    );
+
+    return await Promise.all(availableContracts);
+  } catch (e) {
+    error(e);
+  }
+}
+
+export async function clone({ path, choice, type }) {
   const appName = await input({
     message: `Your ${type} name:`,
     default: `my-aztec-${type}`,
@@ -94,17 +63,21 @@ export async function clone({ path, choice, type, tag, version }) {
     spinner.start();
 
     const emitter = tiged(
-      `AztecProtocol/aztec-packages/${path}/${choice}${tag && `#${tag}`}`,
+      `${AZTEC_REPO}/${path}/${choice}${tag && `#${tag}`}`,
+      { verbose: true },
     );
-    emitter.on("info", log);
+    emitter.on("info", ({ message }) => debug(message));
+    emitter.on("warn", ({ message }) => error(message));
     await emitter.clone(`./${appName}`);
 
     if (type === "contract") {
       spinner.text = `Cloning default contract project...`;
       const baseEmitter = tiged(
-        `AztecProtocol/aztec-packages/boxes/contract-only${tag && `#${tag}`}`,
+        `${AZTEC_REPO}/boxes/contract-only${tag && `#${tag}`}`,
+        { verbose: true },
       );
-      baseEmitter.on("info", log);
+      baseEmitter.on("info", debug);
+      baseEmitter.on("warn", error);
       await baseEmitter.clone(`./${appName}/base`);
       await fs.cp(`./${appName}/base`, `./${appName}`, {
         recursive: true,
@@ -112,34 +85,37 @@ export async function clone({ path, choice, type, tag, version }) {
       });
       await fs.rm(`./${appName}/base`, { recursive: true, force: true });
     }
+    spinner.succeed();
     return `./${appName}`;
-  } catch (error) {
-    log(chalk.bgRed(error));
+  } catch (e) {
+    spinner.fail();
+    error(e);
     process.exit(1);
-  } finally {
-    spinner.stop();
   }
 }
 
-export async function processProject({ rootDir, placeholder, contractName }) {
+export async function processProject({ rootDir, placeholders }) {
   spinner.text = `Processing the code...`;
   try {
     spinner.start();
     const processes = [];
-    const findAndReplace = async (dir, placeholder, contractName) => {
+    const findAndReplace = async (dir, placeholders) => {
       const files = await fs.readdir(dir, {
         withFileTypes: true,
       });
       files.forEach(async (file) => {
         const filePath = path.join(dir, file.name);
         if (file.isDirectory()) {
-          findAndReplace(filePath, placeholder, contractName);
+          findAndReplace(filePath, placeholders);
         } else {
           processes.push(
             new Promise(async (resolve, reject) => {
-              const content = await fs.readFile(filePath, "utf8");
-              const newContent = content.replace(placeholder, contractName);
-              await fs.writeFile(filePath, newContent, "utf8");
+              let content = await fs.readFile(filePath, "utf8");
+              placeholders.forEach(({ key, value }) => {
+                content = content.replace(new RegExp(key, "g"), value);
+              });
+              await fs.writeFile(filePath, content, "utf8");
+
               resolve();
             }),
           );
@@ -147,13 +123,13 @@ export async function processProject({ rootDir, placeholder, contractName }) {
       });
     };
 
-    await findAndReplace(path.resolve(rootDir), placeholder, contractName);
+    await findAndReplace(path.resolve(rootDir), placeholders);
     await Promise.all(processes);
-  } catch (error) {
-    log(chalk.bgRed(error));
+    spinner.succeed();
+  } catch (e) {
+    spinner.fail();
+    error(e);
     process.exit(1);
-  } finally {
-    spinner.stop();
   }
 }
 
@@ -192,7 +168,7 @@ export async function updatePathEnvVar() {
   // Read the current content of the shell profile to check if the path is already included
   const profileContent = await fs.readFile(shellProfile, "utf8");
   if (profileContent.includes(targetDir)) {
-    log(`${targetDir} is already in PATH.`);
+    info(`${targetDir} is already in PATH.`);
     return;
   }
 
@@ -203,21 +179,20 @@ export async function updatePathEnvVar() {
   info(`Added ${targetDir} to PATH in ${shellProfile}.`);
 }
 
-export async function replacePaths({ rootDir, tag, version, prefix = "" }) {
+export async function replacePaths({ rootDir, prefix = "" }) {
   spinner.text = `Replacing paths...`;
 
   try {
     spinner.start();
     const replaces = [];
-    const findAndReplace = async (dir, tag, version, prefix) => {
-      console.log(dir);
+    const findAndReplace = async (dir, prefix) => {
       const files = await fs.readdir(dir, {
         withFileTypes: true,
       });
       files.forEach(async (file) => {
         const filePath = path.join(dir, file.name);
         if (file.isDirectory()) {
-          findAndReplace(filePath, tag, version, prefix); // Recursively search subdirectories
+          findAndReplace(filePath, prefix); // Recursively search subdirectories
         } else if (file.name === "Nargo.toml") {
           replaces.push(
             new Promise(async (resolve, reject) => {
@@ -229,7 +204,7 @@ export async function replacePaths({ rootDir, tag, version, prefix = "" }) {
                   "",
                 );
                 content.dependencies[dep] = {
-                  git: "https://github.com/AztecProtocol/aztec-packages",
+                  git: `https://github.com/${AZTEC_REPO}`,
                   tag,
                   directory: `${prefix}/${directory}`,
                 };
@@ -263,12 +238,13 @@ export async function replacePaths({ rootDir, tag, version, prefix = "" }) {
       });
     };
 
-    await findAndReplace(path.resolve(rootDir), tag, version, prefix);
-    return await Promise.all(replaces);
-  } catch (error) {
-    log(chalk.bgRed(error));
+    await findAndReplace(path.resolve(rootDir), prefix);
+    await Promise.all(replaces);
+    spinner.succeed();
+    return;
+  } catch (e) {
+    spinner.fail();
+    error(e);
     process.exit(1);
-  } finally {
-    spinner.stop();
   }
 }

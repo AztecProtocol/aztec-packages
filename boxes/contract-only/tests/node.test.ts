@@ -14,7 +14,6 @@ describe('Account Tests', () => {
   test('Can start the PXE server', async () => {
     pxe = createPXEClient(pxeURL);
     const { chainId } = await pxe.getNodeInfo();
-    console.log(chainId);
     expect(chainId).toBe(31337);
   });
 
