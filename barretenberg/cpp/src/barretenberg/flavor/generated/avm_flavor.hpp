@@ -342,20 +342,20 @@ class AvmFlavor {
                               perm_main_mem_c,
                               incl_main_tag_err,
                               incl_main_tag_err_counts,
+                              avm_mem_m_tag_shift,
+                              avm_mem_m_val_shift,
                               avm_mem_m_rw_shift,
                               avm_mem_m_addr_shift,
-                              avm_mem_m_val_shift,
-                              avm_mem_m_tag_shift,
-                              avm_alu_alu_u16_r2_shift,
-                              avm_alu_alu_u16_r1_shift,
+                              avm_alu_alu_u16_r5_shift,
+                              avm_alu_alu_u16_r3_shift,
                               avm_alu_alu_u16_r4_shift,
+                              avm_alu_alu_u16_r7_shift,
+                              avm_alu_alu_u16_r1_shift,
                               avm_alu_alu_u16_r0_shift,
                               avm_alu_alu_u16_r6_shift,
-                              avm_alu_alu_u16_r3_shift,
-                              avm_alu_alu_u16_r5_shift,
-                              avm_alu_alu_u16_r7_shift,
-                              avm_main_internal_return_ptr_shift,
-                              avm_main_pc_shift)
+                              avm_alu_alu_u16_r2_shift,
+                              avm_main_pc_shift,
+                              avm_main_internal_return_ptr_shift)
 
         RefVector<DataType> get_wires()
         {
@@ -442,20 +442,20 @@ class AvmFlavor {
                      perm_main_mem_c,
                      incl_main_tag_err,
                      incl_main_tag_err_counts,
+                     avm_mem_m_tag_shift,
+                     avm_mem_m_val_shift,
                      avm_mem_m_rw_shift,
                      avm_mem_m_addr_shift,
-                     avm_mem_m_val_shift,
-                     avm_mem_m_tag_shift,
-                     avm_alu_alu_u16_r2_shift,
-                     avm_alu_alu_u16_r1_shift,
+                     avm_alu_alu_u16_r5_shift,
+                     avm_alu_alu_u16_r3_shift,
                      avm_alu_alu_u16_r4_shift,
+                     avm_alu_alu_u16_r7_shift,
+                     avm_alu_alu_u16_r1_shift,
                      avm_alu_alu_u16_r0_shift,
                      avm_alu_alu_u16_r6_shift,
-                     avm_alu_alu_u16_r3_shift,
-                     avm_alu_alu_u16_r5_shift,
-                     avm_alu_alu_u16_r7_shift,
-                     avm_main_internal_return_ptr_shift,
-                     avm_main_pc_shift };
+                     avm_alu_alu_u16_r2_shift,
+                     avm_main_pc_shift,
+                     avm_main_internal_return_ptr_shift };
         };
         RefVector<DataType> get_unshifted()
         {
@@ -545,37 +545,23 @@ class AvmFlavor {
         };
         RefVector<DataType> get_to_be_shifted()
         {
-            return { avm_mem_m_rw,
-                     avm_mem_m_addr,
-                     avm_mem_m_val,
-                     avm_mem_m_tag,
-                     avm_alu_alu_u16_r2,
-                     avm_alu_alu_u16_r1,
-                     avm_alu_alu_u16_r4,
-                     avm_alu_alu_u16_r0,
-                     avm_alu_alu_u16_r6,
-                     avm_alu_alu_u16_r3,
-                     avm_alu_alu_u16_r5,
-                     avm_alu_alu_u16_r7,
-                     avm_main_internal_return_ptr,
-                     avm_main_pc };
+            return { avm_mem_m_tag,      avm_mem_m_val,
+                     avm_mem_m_rw,       avm_mem_m_addr,
+                     avm_alu_alu_u16_r5, avm_alu_alu_u16_r3,
+                     avm_alu_alu_u16_r4, avm_alu_alu_u16_r7,
+                     avm_alu_alu_u16_r1, avm_alu_alu_u16_r0,
+                     avm_alu_alu_u16_r6, avm_alu_alu_u16_r2,
+                     avm_main_pc,        avm_main_internal_return_ptr };
         };
         RefVector<DataType> get_shifted()
         {
-            return { avm_mem_m_rw_shift,
-                     avm_mem_m_addr_shift,
-                     avm_mem_m_val_shift,
-                     avm_mem_m_tag_shift,
-                     avm_alu_alu_u16_r2_shift,
-                     avm_alu_alu_u16_r1_shift,
-                     avm_alu_alu_u16_r4_shift,
-                     avm_alu_alu_u16_r0_shift,
-                     avm_alu_alu_u16_r6_shift,
-                     avm_alu_alu_u16_r3_shift,
-                     avm_alu_alu_u16_r5_shift,
-                     avm_alu_alu_u16_r7_shift,
-                     avm_main_internal_return_ptr_shift,
-                     avm_main_pc_shift };
+            return { avm_mem_m_tag_shift,      avm_mem_m_val_shift,
+                     avm_mem_m_rw_shift,       avm_mem_m_addr_shift,
+                     avm_alu_alu_u16_r5_shift, avm_alu_alu_u16_r3_shift,
+                     avm_alu_alu_u16_r4_shift, avm_alu_alu_u16_r7_shift,
+                     avm_alu_alu_u16_r1_shift, avm_alu_alu_u16_r0_shift,
+                     avm_alu_alu_u16_r6_shift, avm_alu_alu_u16_r2_shift,
+                     avm_main_pc_shift,        avm_main_internal_return_ptr_shift };
         };
     };
 
@@ -588,20 +574,13 @@ class AvmFlavor {
 
         RefVector<DataType> get_to_be_shifted()
         {
-            return { avm_mem_m_rw,
-                     avm_mem_m_addr,
-                     avm_mem_m_val,
-                     avm_mem_m_tag,
-                     avm_alu_alu_u16_r2,
-                     avm_alu_alu_u16_r1,
-                     avm_alu_alu_u16_r4,
-                     avm_alu_alu_u16_r0,
-                     avm_alu_alu_u16_r6,
-                     avm_alu_alu_u16_r3,
-                     avm_alu_alu_u16_r5,
-                     avm_alu_alu_u16_r7,
-                     avm_main_internal_return_ptr,
-                     avm_main_pc };
+            return { avm_mem_m_tag,      avm_mem_m_val,
+                     avm_mem_m_rw,       avm_mem_m_addr,
+                     avm_alu_alu_u16_r5, avm_alu_alu_u16_r3,
+                     avm_alu_alu_u16_r4, avm_alu_alu_u16_r7,
+                     avm_alu_alu_u16_r1, avm_alu_alu_u16_r0,
+                     avm_alu_alu_u16_r6, avm_alu_alu_u16_r2,
+                     avm_main_pc,        avm_main_internal_return_ptr };
         };
 
         // The plookup wires that store plookup read data.
