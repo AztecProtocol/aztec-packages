@@ -97,7 +97,12 @@ describe('Archiver', () => {
       .mockResolvedValueOnce([makeContractDeploymentEvent(103n, blocks[0])]) // the first loop of the archiver ends here at block 2500
       .mockResolvedValueOnce(l1ToL2MessageAddedEvents.slice(2, 4).flat())
       .mockResolvedValueOnce(makeL1ToL2MessageCancelledEvents(2503n, l1ToL2MessagesToCancel))
-      .mockResolvedValueOnce([makeLeafInsertedEvent(2504n, 2n, 0n), makeLeafInsertedEvent(2504n, 2n, 1n)])
+      .mockResolvedValueOnce([
+        makeLeafInsertedEvent(2504n, 2n, 0n),
+        makeLeafInsertedEvent(2505n, 2n, 1n),
+        makeLeafInsertedEvent(2505n, 2n, 2n),
+        makeLeafInsertedEvent(2506n, 3n, 1n),
+      ])
       .mockResolvedValueOnce([
         makeTxsPublishedEvent(2510n, blocks[1].body.getTxsEffectsHash()),
         makeTxsPublishedEvent(2520n, blocks[2].body.getTxsEffectsHash()),
@@ -120,6 +125,22 @@ describe('Archiver', () => {
 
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(3);
+
+    // New L1 to L2 messages
+    {
+      // Checks that I get correct amount of sequenced new messages for L2 blocks 1 and 2
+      let newL1ToL2Messages = await archiver.getNewL1ToL2Messages(1n);
+      expect(newL1ToL2Messages.length).toEqual(2);
+
+      newL1ToL2Messages = await archiver.getNewL1ToL2Messages(2n);
+      expect(newL1ToL2Messages.length).toEqual(2);
+
+      // Check that I cannot get messages for block 3 because there is a message gap (message with index 0 was not
+      // processed)
+      await expect(async () => {
+        await archiver.getNewL1ToL2Messages(3n);
+      }).rejects.toThrow(`L1 to L2 message gap found in block ${3}`);
+    }
 
     // Check that only 2 messages (l1ToL2MessageAddedEvents[3][2] and l1ToL2MessageAddedEvents[3][3]) are pending.
     // Other two (l1ToL2MessageAddedEvents[3][0..2]) were cancelled. And the previous messages were confirmed.

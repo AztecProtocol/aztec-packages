@@ -185,7 +185,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   public addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
-    if (lastMessageL1BlockNumber <= this.lastL1BlockAddedMessages) {
+    if (lastMessageL1BlockNumber <= this.lastL1BlockNewMessages) {
       return Promise.resolve(false);
     }
 
