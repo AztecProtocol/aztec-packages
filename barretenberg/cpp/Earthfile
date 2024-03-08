@@ -1,5 +1,6 @@
 VERSION 0.8
 FROM ubuntu:lunar
+IMPORT ./srs_db AS srs_db
 
 RUN apt-get update && apt-get install -y \
   build-essential \
@@ -33,7 +34,51 @@ COPY --keep-ts CMakeLists.txt CMakeLists.txt
 COPY --keep-ts cmake cmake
 COPY --keep-ts CMakePresets.json CMakePresets.json
 
-build-with-args:
+# Targets
+ci-build:
+    BUILD +release-build
+    BUILD +wasm-build
+    BUILD +gcc-build
+    BUILD +fuzzing-build
+    BUILD +clang-assert-build
+    BUILD +clang-format-check
+
+release-build:
+    DO +BUILD --configure="--preset clang16" --build="--target ultra_honk_rounds_bench --target bb"
+
+wasm-build:
+    DO +BUILD --configure="--preset wasm-threads" --build="--target ultra_honk_rounds_bench --target bb"
+    RUN ./scripts/strip-wasm.sh
+    SAVE ARTIFACT build
+
+gcc-build:
+    DO +BUILD --configure="--preset gcc" --build=""
+
+fuzzing-build:
+    DO +BUILD --configure="--preset fuzzing" --build=""
+
+clang-assert-build:
+    DO +BUILD --configure="--preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
+
+clang-format-check:
+    COPY .clang-format .
+    COPY format.sh .
+    RUN ./format.sh check
+    SAVE ARTIFACT build/bin
+
+ci-bench:
+    RUN curl https://wasmtime.dev/install.sh -sSf | bash
+    DO +BENCH --preset=clang16 --target=ultra_honk_bench
+    DO +BENCH --preset=clang16 --target=client_ivc_bench
+    DO +BENCH --preset=op-count-track --target=ultra_honk_bench
+    DO +BENCH --preset=op-count-track --target=client_ivc_bench
+    DO +BENCH --preset=op-count-time --target=client_ivc_bench
+    DO +WASM_BENCH --target=ultra_honk_bench
+    DO +WASM_BENCH --target=client_ivc_bench
+
+# Functions
+BUILD:
+    FUNCTION
     ARG configure
     ARG build
     # Use a mount for incremental builds.
@@ -45,57 +90,17 @@ build-with-args:
     RUN mkdir build && mv bin build
     SAVE ARTIFACT build
 
-ci-build:
-    BUILD +release-build
-    BUILD +wasm-build
-    BUILD +gcc-build
-    BUILD +fuzzing-build
-    BUILD +clang-assert-build
-    BUILD +clang-format-check
-
-release-build:
-    FROM +build-with-args --configure="--preset clang16" --build="--target ultra_honk_rounds_bench --target bb"
-
-wasm-build:
-    FROM +build-with-args --configure="--preset wasm-threads" --build="--target ultra_honk_rounds_bench --target bb"
-    RUN ./scripts/strip-wasm.sh
-    SAVE ARTIFACT build
-
-gcc-build:
-    FROM +build-with-args --configure="--preset gcc" --build=""
-
-fuzzing-build:
-    FROM +build-with-args --configure="--preset fuzzing" --build=""
-
-clang-assert-build:
-    FROM +build-with-args --configure="--preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
-
-clang-format-check:
-    COPY .clang-format .
-    COPY format.sh .
-    RUN ./format.sh check
-    SAVE ARTIFACT build/bin
-
-bench-with-args:
+BENCH:
+    FUNCTION
     ARG preset
     ARG target
-    FROM +build-with-args --configure="--preset $preset" --build="--target $target"
-    IMPORT srs_db AS srd_db
+    DO +BUILD --configure="--preset $preset" --build="--target $target"
     COPY srs_db:+download/build srs_db
     RUN cd build && ./bin/$target
 
-wasm-bench-with-args:
+WASM_BENCH:
+    FUNCTION
     ARG target
-    FROM +build-with-args --configure="--preset wasm-threads" --build="--target $target"
+    DO +BUILD --configure="--preset wasm-threads" --build="--target $target"
     COPY srs_db:+download/build srs_db
     RUN cd build && wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target
-
-ci-bench:
-    RUN curl https://wasmtime.dev/install.sh -sSf | bash
-    BUILD +bench-with-args --preset=clang16 --target=ultra_honk_bench
-    BUILD +bench-with-args --preset=clang16 --target=ivc_bench
-    BUILD +bench-with-args --preset=op-count-track --target=ultra_honk_bench
-    BUILD +bench-with-args --preset=op-count-track --target=ivc_bench
-    BUILD +bench-with-args --preset=op-count-time --target=ivc_bench
-    BUILD +wasm-bench-with-args --target=ultra_honk_bench
-    BUILD +wasm-bench-with-args --target=ivc_bench
