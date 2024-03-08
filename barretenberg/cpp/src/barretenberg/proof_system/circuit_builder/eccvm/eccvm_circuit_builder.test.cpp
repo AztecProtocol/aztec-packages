@@ -255,7 +255,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, MSM)
     static constexpr size_t max_num_msms = 9;
     auto generators = G1::derive_generators("test generators", max_num_msms);
 
-    const auto try_msms = [&](const size_t num_msms, auto& op_queue) {
+    const auto compute_msms = [&](const size_t num_msms, auto& op_queue) {
         std::vector<typename G1::element> points;
         std::vector<Fr> scalars;
         typename G1::element expected = G1::point_at_infinity;
@@ -273,7 +273,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, MSM)
         using Flavor = TypeParam;
         std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
-        try_msms(j, op_queue);
+        compute_msms(j, op_queue);
         ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
         bool result = circuit.check_circuit();
         EXPECT_EQ(result, true);
@@ -282,7 +282,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, MSM)
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     for (size_t j = 1; j < 9; ++j) {
-        try_msms(j, op_queue);
+        compute_msms(j, op_queue);
     }
     ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
     bool result = circuit.check_circuit();
