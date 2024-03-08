@@ -28,7 +28,7 @@ std::string getHomeDir()
 {
     char* home = std::getenv("HOME");
     return home != nullptr ? std::string(home) : "./";
-}
+} /**/
 
 std::string CRS_PATH = getHomeDir() + "/.bb-crs";
 bool verbose = false;

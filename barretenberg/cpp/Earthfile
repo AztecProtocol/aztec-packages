@@ -30,6 +30,7 @@ RUN ./scripts/install-wasi-sdk.sh
 # keep timestamps for incremental builds
 COPY --keep-ts src/barretenberg src/barretenberg
 COPY --keep-ts src/CMakeLists.txt src/CMakeLists.txt
+COPY --keep-ts scripts/fixup_incremental_build.sh scripts/fixup_incremental_build.sh
 COPY --keep-ts CMakeLists.txt CMakeLists.txt
 COPY --keep-ts cmake cmake
 COPY --keep-ts CMakePresets.json CMakePresets.json
@@ -80,10 +81,11 @@ BUILD:
     FUNCTION
     ARG configure
     ARG build
-    # Use a mount for incremental builds.
-    RUN --mount type=cache,id="$configure-build",target=/build/build \
+    # Use a mount for incremental builds. Set sharing to private, so if there is parallel builds we don't use the cache.
+    RUN --mount type=cache,id="$configure-build",target=/build/build,sharing=private \
         cmake $configure -Bbuild && \
         cmake --build build $build && \
+        ./scripts/fixup_incremental_build.sh \
         cp -r build/bin .
     # reconstruct build folder, as it was used in cache
     SAVE ARTIFACT build
