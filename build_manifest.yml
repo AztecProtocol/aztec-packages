@@ -208,6 +208,8 @@ boxes:
     - noir-projects
   runDependencies:
     - aztec
+  # Playwright segfaults on arm.
+  multiarch: false
 
 # Builds a runnable container for running end-to-end tests (requires installing chromium etc).
 # We add the runnable dependency 'aztec' to ensure the container is pulled before running the test compose file.
