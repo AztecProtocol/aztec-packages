@@ -58,7 +58,10 @@ for DEP_REPO in $(query_manifest runDependencies $REPOSITORY); do
   # Substitute references to parent repo, with the relevent built image uri.
   DEPLOY_URI=aztecprotocol/$DEP_REPO
   DEP_IMAGE_URI=$ECR_URL/$DEP_REPO:$DEP_IMAGE_TAG
-  sed -i "s|image: ${DEPLOY_URI}$|image: ${DEP_IMAGE_URI}|" $COMPOSE_FILE
+  # sed -i "s|image: ${DEPLOY_URI}|image: ${DEP_IMAGE_URI}|" $COMPOSE_FILE
+  if [ "$(yq .services.$DEP_REPO.image $COMPOSE_FILE)" != "null" ]; then
+    yq -i ".services.$DEP_REPO.image = \"$DEP_IMAGE_URI\"" $COMPOSE_FILE
+  fi
 done
 
 export $@

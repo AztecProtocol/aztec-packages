@@ -12,7 +12,7 @@ services:
     ports:
       - '8545:8545'
 
-  sandbox:
+  aztec:
     image: aztecprotocol/aztec:latest
     environment:
       DEBUG: 'aztec:*'
