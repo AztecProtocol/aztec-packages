@@ -223,15 +223,15 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
     });
 
-    describe('getNewL1ToL2Messages', () => {
+    // TODO(#4492): Drop the "New" bellow once the old inbox is purged
+    describe('New L1 to L2 Messages', () => {
+      const l2BlockNumber = 13n;
       const l1ToL2MessageSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
       const generateBlockMessages = (blockNumber: bigint, numMessages: number) =>
         Array.from({ length: numMessages }, (_, i) => new NewInboxLeaf(blockNumber, BigInt(i), randomBytes(32)));
 
       it('returns messages in correct order', async () => {
-        const l2BlockNumber = 13n;
-
         const msgs = generateBlockMessages(l2BlockNumber, l1ToL2MessageSubtreeSize);
         const shuffledMessages = msgs.slice().sort(() => Math.random() - 0.5);
         await store.addNewL1ToL2Messages(shuffledMessages, 100n);
@@ -242,30 +242,23 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('throws if it is impossible to sequence messages correctly', async () => {
-        const l2BlockNumber = 13n;
-
         const msgs = generateBlockMessages(l2BlockNumber, l1ToL2MessageSubtreeSize - 1);
         // We replace a message with index 4 with a message with index at the end of the tree
         // --> with that there will be a gap and it will be impossible to sequence the messages
         msgs[4] = new NewInboxLeaf(l2BlockNumber, BigInt(l1ToL2MessageSubtreeSize - 1), randomBytes(32));
 
         await store.addNewL1ToL2Messages(msgs, 100n);
-        await expect(store.getNewL1ToL2Messages(l2BlockNumber)).rejects.toThrowError(
-          `Undefined message found in the middle of the messages for block ${l2BlockNumber}`,
-        );
+        await expect(async () => {
+          await store.getNewL1ToL2Messages(l2BlockNumber);
+        }).rejects.toThrow(`L1 to L2 message gap found in block ${l2BlockNumber}`);
       });
 
       it('throws if adding more messages than fits into a block', async () => {
-        const l2BlockNumber = 13n;
-
         const msgs = generateBlockMessages(l2BlockNumber, l1ToL2MessageSubtreeSize + 1);
-        // We replace a message with index 4 with a message with index at the end of the tree
-        // --> with that there will be a gap and it will be impossible to sequence the messages
-        msgs[4] = new NewInboxLeaf(l2BlockNumber, BigInt(l1ToL2MessageSubtreeSize - 1), randomBytes(32));
 
-        await expect(store.addNewL1ToL2Messages(msgs, 100n)).rejects.toThrowError(
-          `Message index ${l1ToL2MessageSubtreeSize} out of subtree range`,
-        );
+        await expect(async () => {
+          await store.addNewL1ToL2Messages(msgs, 100n);
+        }).rejects.toThrow(`Message index ${l1ToL2MessageSubtreeSize} out of subtree range`);
       });
     });
 

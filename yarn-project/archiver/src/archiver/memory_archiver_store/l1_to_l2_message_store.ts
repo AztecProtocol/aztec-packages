@@ -35,7 +35,7 @@ export class NewL1ToL2MessageStore {
       const message = this.store.get(key);
       if (message) {
         if (undefinedMessageFound) {
-          throw new Error(`Undefined message found in the middle of the messages for block ${blockNumber}`);
+          throw new Error(`L1 to L2 message gap found in block ${blockNumber}`);
         }
         messages.push(message);
       } else {
