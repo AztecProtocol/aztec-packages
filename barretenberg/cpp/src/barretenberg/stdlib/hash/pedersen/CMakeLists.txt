@@ -1,1 +1,1 @@
-barretenberg_module(stdlib_pedersen_hash stdlib_recursion crypto_pedersen_commitment)
+barretenberg_module(stdlib_pedersen_hash stdlib_primitives crypto_pedersen_commitment plonk)

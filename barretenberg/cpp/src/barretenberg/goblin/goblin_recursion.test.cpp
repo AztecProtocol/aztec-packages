@@ -50,8 +50,8 @@ TEST_F(GoblinRecursionTests, Vanilla)
 
         // Construct and accumulate a mock function circuit
         GoblinUltraCircuitBuilder function_circuit{ goblin.op_queue };
-        GoblinMockCircuits::construct_arithmetic_circuit(function_circuit, 1 << 8);
-        GoblinMockCircuits::construct_goblin_ecc_op_circuit(function_circuit);
+        MockCircuits::construct_arithmetic_circuit(function_circuit, 1 << 8);
+        MockCircuits::construct_arithmetic_circuit(function_circuit);
         info("function merge");
         goblin.merge(function_circuit);
         auto function_accum = construct_accumulator(function_circuit);

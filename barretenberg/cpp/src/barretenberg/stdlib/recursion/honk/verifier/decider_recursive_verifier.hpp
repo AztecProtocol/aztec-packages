@@ -5,6 +5,7 @@
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+
 namespace bb::stdlib::recursion::honk {
 template <typename Flavor> class DeciderRecursiveVerifier_ {
     using NativeFlavor = typename Flavor::NativeFlavor;

@@ -41,8 +41,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     static void construct_circuit(Builder& builder)
     {
         if constexpr (IsGoblinFlavor<Flavor>) {
-            GoblinMockCircuits::construct_arithmetic_circuit(builder);
-            GoblinMockCircuits::construct_goblin_ecc_op_circuit(builder);
+            MockCircuits::construct_arithmetic_circuit(builder);
+            MockCircuits::construct_arithmetic_circuit(builder);
 
         } else {
             FF a = FF::random_element();
