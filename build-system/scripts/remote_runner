@@ -24,4 +24,4 @@ BASH_ENV=/tmp/bash_env
 echo "Calling setup env..."
 source ./build-system/scripts/setup_env "$COMMIT_HASH" "$COMMIT_TAG" "$JOB_NAME" "$GIT_REPOSITORY_URL" "$BRANCH" "$PULL_REQUEST"
 echo "Calling $@..."
-$@
+bash -c "$1"
