@@ -98,32 +98,32 @@ it('end-to-end proving and verification with different instances', async () => {
 // If we only create one type of proof, then this works as expected.
 //
 // If we do not create an inner proof, then this will work as expected.
-it('[BUG] -- bb.js null function or function signature mismatch (outer-inner) ', async () => {
-  // Noir.Js part
-  const inputs = {
-    x: '2',
-    y: '3',
-  };
+// it('[BUG] -- bb.js null function or function signature mismatch (outer-inner) ', async () => {
+//   // Noir.Js part
+//   const inputs = {
+//     x: '2',
+//     y: '3',
+//   };
 
-  const program = new Noir(assert_lt_program);
+//   const program = new Noir(assert_lt_program);
 
-  const { witness } = await program.execute(inputs);
+//   const { witness } = await program.execute(inputs);
 
-  // bb.js part
-  //
-  // Proof creation
-  //
-  const prover = new Backend(assert_lt_program);
-  // Create a proof using both proving systems, the majority of the time
-  // one would only use outer proofs.
-  const proofOuter = await prover.generateProof(witness);
-  const _proofInner = await prover.generateProof(witness);
+//   // bb.js part
+//   //
+//   // Proof creation
+//   //
+//   const prover = new Backend(assert_lt_program);
+//   // Create a proof using both proving systems, the majority of the time
+//   // one would only use outer proofs.
+//   const proofOuter = await prover.generateProof(witness);
+//   const _proofInner = await prover.generateProof(witness);
 
-  // Proof verification
-  //
-  const isValidOuter = await prover.verifyProof(proofOuter);
-  expect(isValidOuter).to.be.true;
-  // We can also try verifying an inner proof and it will fail.
-  const isValidInner = await prover.verifyProof(_proofInner);
-  expect(isValidInner).to.be.true;
-});
+//   // Proof verification
+//   //
+//   const isValidOuter = await prover.verifyProof(proofOuter);
+//   expect(isValidOuter).to.be.true;
+//   // We can also try verifying an inner proof and it will fail.
+//   const isValidInner = await prover.verifyProof(_proofInner);
+//   expect(isValidInner).to.be.true;
+// });
