@@ -24,6 +24,8 @@ if check_rebuild $SUCCESS_TAG $REPOSITORY; then
   exit 0
 fi
 
+cd $(query_manifest projectDir $REPOSITORY)
+
 # For each dependency and self, pull in the latest image and give it correct tag.
 # for REPO in $(query_manifest runDependencies $REPOSITORY $JOB_NAME); do
 #   echo "Pulling $REPO..."
@@ -58,8 +60,6 @@ for DEP_REPO in $(query_manifest runDependencies $REPOSITORY); do
   DEP_IMAGE_URI=$ECR_URL/$DEP_REPO:$DEP_IMAGE_TAG
   sed -i "s|image: ${DEPLOY_URI}$|image: ${DEP_IMAGE_URI}|" $COMPOSE_FILE
 done
-
-cd $(query_manifest projectDir $REPOSITORY)
 
 export $@
 if docker compose > /dev/null 2>&1; then
