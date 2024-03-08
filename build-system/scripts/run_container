@@ -35,4 +35,4 @@ for job in $(jobs -p); do
   wait $job || exit 1
 done
 
-docker tag $IMAGE_URI $ECR_URL/$REPOSITRY:$SUCCESS_TAG
+docker tag $IMAGE_URI $ECR_URL/$REPOSITORY:$SUCCESS_TAG
