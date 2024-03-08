@@ -298,10 +298,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: |
-            # run on 16-core AWS machine
-            spot_run_script $CIRCLE_JOB $CIRCLE_JOB 16 $(uname -m) \
-              "cd barretenberg/cpp && earthly_local +bench-ci"
+          command: spot_run 16 "cd barretenberg/cpp && earthly_local +bench-ci"
 
   barretenberg-stdlib-tests:
     docker:
