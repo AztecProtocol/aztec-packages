@@ -129,6 +129,11 @@ case "$CMD" in
     fi
     ;;
   multiarch)
-    yq -r ".\"$REPO\".multiarch // true" $MANIFEST
+    R=$(yq -r ".\"$REPO\".multiarch" $MANIFEST)
+    if [ "$R" == "null" ]; then
+      echo "true";
+    else
+      echo $R;
+    fi
     ;;
 esac
