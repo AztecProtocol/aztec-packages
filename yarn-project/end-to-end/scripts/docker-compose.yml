@@ -42,5 +42,5 @@ services:
     volumes:
       - ../log:/usr/src/yarn-project/end-to-end/log:rw
     depends_on:
-      - sandbox
+      - aztec
       - fork
