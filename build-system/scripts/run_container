@@ -5,6 +5,8 @@ set -euo pipefail
 REPOSITORY=$1
 shift
 
+# trap 'echo "Killing jobs..." && kill -SIGINT $(jobs -p)' SIGINT
+
 IMAGE_URI=$(calculate_image_uri $REPOSITORY)
 BASE_TAG=$(calculate_image_tag $REPOSITORY)
 SUCCESS_TAG=$BASE_TAG-$JOB_NAME
@@ -22,17 +24,16 @@ r="\033[0m"   # Reset
 
 function run {
   docker run --rm -t $IMAGE_URI $@
+  docker tag $IMAGE_URI $ECR_URL/$REPOSITORY:$SUCCESS_TAG
 }
 
 MULTIARCH=$(query_manifest multiarch $REPOSITORY)
 
-(run > >(awk -v c="$g" -v r="$r" '$0=c"x86_64: "r $0')) &
+DOCKER_HOST=$DOCKER_HOST_X86 run $@ > >(awk -v c="$g" -v r="$r" '$0=c"x86_64: "r $0') 2>&1
 if [ "$MULTIARCH" == "true" ]; then
-  (DOCKER_HOST=$DOCKER_HOST_ARM run > >(awk -v c="$b" -v r="$r" '$0=c"arm64: "r $0')) &
+  DOCKER_HOST=$DOCKER_HOST_ARM run $@ > >(awk -v c="$b" -v r="$r" '$0=c"arm64: "r $0') 2>&1 &
 fi
 
 for job in $(jobs -p); do
   wait $job || exit 1
 done
-
-docker tag $IMAGE_URI $ECR_URL/$REPOSITORY:$SUCCESS_TAG

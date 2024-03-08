@@ -78,8 +78,9 @@ if [ -z "$BASH_ENV" ]; then
   BASH_ENV=$(mktemp)
 fi
 
-echo 'export DOCKER_HOST=${DOCKER_HOST:-ssh://ubuntu@18.191.162.117}' >> $BASH_ENV
+echo export DOCKER_HOST_X86="ssh://ubuntu@18.191.162.117" >> $BASH_ENV
 echo export DOCKER_HOST_ARM="ssh://ubuntu@3.14.251.242" >> $BASH_ENV
+echo 'export DOCKER_HOST=${DOCKER_HOST:-$DOCKER_HOST_X86}' >> $BASH_ENV
 echo export ROOT_PATH=$ROOT_PATH >> $BASH_ENV
 echo export BUILD_SYSTEM_PATH=$BUILD_SYSTEM_PATH >> $BASH_ENV
 echo export DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} >> $BASH_ENV

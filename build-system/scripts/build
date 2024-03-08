@@ -68,10 +68,7 @@ if [ -d $ROOT_PATH/$PROJECT_DIR/terraform ]; then
 fi
 
 # For each dependency, substitute references to the dependency in dockerfile, with the relevent built image uri.
-# This is necessary vs pulling and retagging the image, as that doesn't work with buildx.
-# We have to perform a bit of probing to determine which actual image we want to use.
-# When we used buildx to create a multiarch image, there will be no images with "-$ARCH" suffixes (normalise this?).
-# Also we sometimes build an arm image from an x86 parent, so there won't always be an arm parent, and we fallback.
+# This is necessary vs retagging the image, as that would cause conflicts between ci runs.
 for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
   # We want the parent image tag without any arch suffix.
   PARENT_IMAGE_TAG=$(calculate_image_tag $PARENT_REPO "")
