@@ -25,8 +25,9 @@ namespace bb {
  *The opening and verification procedures expect that there already exists a commitment to \f$f(x)\f$ which is the
  *scalar product \f$[f(x)]=\langle\vec{f},\vec{G}\rangle\f$, where \f$\vec{f}=(f_0, f_1,..., f_{d-1})\f$​
  *
- * The opening procedure documentation can be found in the description of \link IPA::compute_opening_proof
- compute_opening_proof \endlink. The verification procedure documentation is in \link IPA::verify verify \endlink
+ * The opening procedure documentation can be found in the description of \link IPA::compute_opening_proof_internal
+ compute_opening_proof_internal \endlink. The verification procedure documentation is in \link IPA::verify_internal
+ verify_internal \endlink
  *
  * @tparam Curve
  *
@@ -77,13 +78,13 @@ template <typename Curve> class IPA {
     using Polynomial = bb::Polynomial<Fr>;
 
 #ifdef IPA_TEST
-    friend IPATest;
+    FRIEND_TEST(IPATest, ChallengesAreZero);
 #endif
 
-  public:
     /**
-     * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point
+     * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
      *
+     * @tparam Transcript Transcript type. Useful for testing
      * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
      * @param opening_pair (challenge, evaluation)
      * @param polynomial The witness polynomial whose opening proof needs to be computed
@@ -114,10 +115,11 @@ template <typename Curve> class IPA {
      *
      *7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier
      */
-    static void compute_opening_proof(const std::shared_ptr<CK>& ck,
-                                      const OpeningPair<Curve>& opening_pair,
-                                      const Polynomial& polynomial,
-                                      const std::shared_ptr<NativeTranscript>& transcript)
+    template <typename Transcript>
+    static void compute_opening_proof_internal(const std::shared_ptr<CK>& ck,
+                                               const OpeningPair<Curve>& opening_pair,
+                                               const Polynomial& polynomial,
+                                               const std::shared_ptr<Transcript>& transcript)
     {
         auto poly_length = static_cast<size_t>(polynomial.size());
 
@@ -128,6 +130,10 @@ template <typename Curve> class IPA {
         // Step 2.
         // Receive challenge for the auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+
+        if (generator_challenge.is_zero()) {
+            throw_or_abort("The generator challenge can't be zero");
+        }
 
         // Step 3.
         // Compute auxiliary generator U
@@ -248,7 +254,11 @@ template <typename Curve> class IPA {
 
             // Step 6.d
             // Receive the challenge from the verifier
-            const Fr round_challenge = transcript->get_challenge<Fr>("IPA:round_challenge_" + index);
+            const Fr round_challenge = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+
+            if (round_challenge.is_zero()) {
+                throw_or_abort("IPA round challenge is zero");
+            }
             const Fr round_challenge_inv = round_challenge.invert();
 
             // Step 6.e
@@ -287,6 +297,7 @@ template <typename Curve> class IPA {
     /**
      * @brief Verify the correctness of a Proof
      *
+     * @tparam Transcript Allows to specify a transcript class. Useful for testing
      * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
@@ -309,9 +320,10 @@ template <typename Curve> class IPA {
      *
      *
      */
-    static bool verify(const std::shared_ptr<VK>& vk,
-                       const OpeningClaim<Curve>& opening_claim,
-                       const std::shared_ptr<NativeTranscript>& transcript)
+    template <typename Transcript>
+    static bool verify_internal(const std::shared_ptr<VK>& vk,
+                                const OpeningClaim<Curve>& opening_claim,
+                                const std::shared_ptr<Transcript>& transcript)
     {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
@@ -321,6 +333,10 @@ template <typename Curve> class IPA {
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+
+        if (generator_challenge.is_zero()) {
+            throw_or_abort("The generator challenge can't be zero");
+        }
         auto aux_generator = Commitment::one() * generator_challenge;
 
         auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
@@ -342,6 +358,9 @@ template <typename Curve> class IPA {
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            if (round_challenges[i].is_zero()) {
+                throw_or_abort("Round challenges can't be zero");
+            }
             round_challenges_inv[i] = round_challenges[i].invert();
 
             msm_elements[2 * i] = element_L;
@@ -431,6 +450,45 @@ template <typename Curve> class IPA {
         // Step 11.
         // Check if C_right == C₀
         return (C_zero.normalize() == right_hand_side.normalize());
+    }
+
+  public:
+    /**
+     * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
+     *
+     * @tparam Transcript Transcript type. Useful for testing
+     * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
+     * @param opening_pair (challenge, evaluation)
+     * @param polynomial The witness polynomial whose opening proof needs to be computed
+     * @param transcript Prover transcript
+     *
+     * @remark Detailed documentation can be found in \link IPA::compute_opening_proof_internal
+     * compute_opening_proof_internal \endlink.
+     */
+    static void compute_opening_proof(const std::shared_ptr<CK>& ck,
+                                      const OpeningPair<Curve>& opening_pair,
+                                      const Polynomial& polynomial,
+                                      const std::shared_ptr<NativeTranscript>& transcript)
+    {
+        compute_opening_proof_internal(ck, opening_pair, polynomial, transcript);
+    }
+
+    /**
+     * @brief Verify the correctness of a Proof
+     *
+     * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
+     * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
+     * @param transcript Transcript with elements from the prover and generated challenges
+     *
+     * @return true/false depending on if the proof verifies
+     *
+     *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
+     */
+    static bool verify(const std::shared_ptr<VK>& vk,
+                       const OpeningClaim<Curve>& opening_claim,
+                       const std::shared_ptr<NativeTranscript>& transcript)
+    {
+        return verify_internal(vk, opening_claim, transcript);
     }
 };
 

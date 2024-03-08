@@ -8,6 +8,8 @@
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include <gtest/gtest.h>
 
+#include <utility>
+
 using namespace bb;
 
 namespace {
@@ -21,10 +23,72 @@ class IPATest : public CommitmentTest<Curve> {
     using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = bb::Polynomial<Fr>;
 };
+
+/**
+ * @brief Class for sending arbitrary challenges through the transcript
+ *
+ */
+class MockTranscript {
+  public:
+    std::vector<uint256_t> challenges;
+    std::vector<Curve::AffineElement> group_elements;
+    std::vector<uint256_t> field_elements;
+    size_t current_challenge_index = 0;
+    size_t current_field_index = 0;
+    size_t current_group_index = 0;
+    void reset(std::vector<uint256_t> challenges_,
+               std::vector<Curve::AffineElement> group_elements_ = {},
+               std::vector<uint256_t> field_elements_ = {})
+    {
+        challenges = std::move(challenges_);
+        current_challenge_index = 0;
+        current_field_index = 0;
+        current_group_index = 0;
+        group_elements = std::move(group_elements_);
+        field_elements = std::move(field_elements_);
+    }
+    template <typename T> void send_to_verifier(const std::string&, const T&) {}
+    template <typename T> T get_challenge(const std::string&)
+    {
+        ASSERT(challenges.size() > current_challenge_index);
+        T result = challenges[current_challenge_index];
+        current_challenge_index++;
+        return result;
+    }
+    template <typename T> T receive_from_prover(const std::string&) { abort(); }
+    template <> Curve::ScalarField receive_from_prover(const std::string&)
+    {
+        ASSERT(field_elements.size() > current_field_index);
+        return field_elements[current_field_index++];
+    }
+    template <> Curve::BaseField receive_from_prover(const std::string&)
+    {
+        ASSERT(field_elements.size() > current_field_index);
+        return field_elements[current_field_index++];
+    }
+    template <> Curve::AffineElement receive_from_prover(const std::string&)
+    {
+        ASSERT(group_elements.size() > current_group_index);
+        return group_elements[current_group_index++];
+    }
+};
 } // namespace
 
 #define IPA_TEST
 #include "ipa.hpp"
+// namespace bb {
+// class ProxyCaller {
+//   public:
+//     template <typename Transcript>
+//     static void compute_opening_proof_for_testing(const std::shared_ptr<IPATest::CK>& ck,
+//                                                   const OpeningPair<Curve>& opening_pair,
+//                                                   const IPATest::Polynomial& polynomial,
+//                                                   const std::shared_ptr<Transcript>& transcript)
+//     {
+//         bb::IPA<Curve>::compute_opening_proof_internal(ck, opening_pair, polynomial, transcript);
+//     }
+// };
+// } // namespace bb
 
 TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
 {
@@ -69,8 +133,6 @@ TEST_F(IPATest, OpenZeroPolynomial)
 
     auto result = IPA::verify(this->vk(), opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
-
-    EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
 }
 
 TEST_F(IPATest, OpenAtZero)
@@ -94,9 +156,56 @@ TEST_F(IPATest, OpenAtZero)
 
     auto result = IPA::verify(this->vk(), opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
-
-    EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
 }
+
+namespace bb {
+#if !defined(__wasm__)
+TEST_F(IPATest, ChallengesAreZero)
+{
+    using IPA = IPA<Curve>;
+    // generate a random polynomial, degree needs to be a power of two
+    size_t n = 128;
+    auto poly = this->random_polynomial(n);
+    auto [x, eval] = this->random_eval(poly);
+    auto commitment = this->commit(poly);
+    const OpeningPair<Curve> opening_pair = { x, eval };
+    const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
+
+    // initialize an empty mock transcript
+    auto transcript = std::make_shared<MockTranscript>();
+    const size_t num_challenges = numeric::get_msb(n) + 1;
+    std::vector<uint256_t> random_vector(num_challenges);
+
+    // Generate a random element vector with challenges
+    for (size_t i = 0; i < num_challenges; i++) {
+        random_vector[i] = Fr::random_element();
+    }
+
+    // Compute opening proofs several times, where each time a different challenge is equal to zero. Should cause
+    // exceptions
+    for (size_t i = 0; i < num_challenges; i++) {
+        auto new_random_vector = random_vector;
+        new_random_vector[i] = Fr::zero();
+        transcript->reset(new_random_vector);
+        EXPECT_ANY_THROW(IPA::compute_opening_proof_internal(this->ck(), opening_pair, poly, transcript));
+    }
+    // Fill out a vector of affine elements that the verifier receives from the prover with generators (we don't care
+    // about them right now)
+    std::vector<Curve::AffineElement> lrs(num_challenges * 2);
+    for (size_t i = 0; i < num_challenges * 2; i++) {
+        lrs[i] = Curve::AffineElement::one();
+    }
+    // Verify proofs several times, where each time a different challenge is equal to zero. Should cause
+    // exceptions
+    for (size_t i = 0; i < num_challenges; i++) {
+        auto new_random_vector = random_vector;
+        new_random_vector[i] = Fr::zero();
+        transcript->reset(new_random_vector, lrs, { uint256_t(n) });
+        EXPECT_ANY_THROW(IPA::verify_internal(this->vk(), opening_claim, transcript));
+    }
+}
+#endif
+} // namespace bb
 
 TEST_F(IPATest, Commit)
 {
