@@ -831,14 +831,17 @@ impl<'block> BrilligBlock<'block> {
             _ => unreachable!("ICE: array set on non-array"),
         };
 
-        let one = self.brillig_context.make_usize_constant(1_usize.into());
+        // Here we want to compare the reference count against 1.
+        // I don't think we have the bit_size for the reference count available, so I'm hardcoding it.
+        let bit_size = usize::BITS;
+        let one = self.brillig_context.make_constant(1_usize.into(), bit_size);
         let condition = self.brillig_context.allocate_register();
 
         self.brillig_context.binary_instruction(
             reference_count,
             one,
             condition,
-            BrilligBinaryOp::Field { op: BinaryFieldOp::Equals },
+            BrilligBinaryOp::Integer { op: BinaryIntOp::Equals, bit_size },
         );
 
         self.brillig_context.branch_instruction(condition, |ctx, cond| {
