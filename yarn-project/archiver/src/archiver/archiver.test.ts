@@ -133,7 +133,7 @@ describe('Archiver', () => {
       expect(newL1ToL2Messages.length).toEqual(2);
 
       newL1ToL2Messages = await archiver.getNewL1ToL2Messages(2n);
-      expect(newL1ToL2Messages.length).toEqual(2);
+      expect(newL1ToL2Messages.length).toEqual(3);
 
       // Check that I cannot get messages for block 3 because there is a message gap (message with index 0 was not
       // processed)
