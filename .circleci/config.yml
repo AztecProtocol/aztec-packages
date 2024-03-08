@@ -303,10 +303,10 @@ jobs:
             # TODO introduce a form of caching
             # run on 16-core AWS machine
             spot_run_script $CIRCLE_JOB $CIRCLE_JOB 16 $(uname -m) "
-              set -eux
+              set -eux;
               wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O ./earthly;
               chmod +x ./earthly && ./earthly bootstrap;
-              ./earthly ./barretenberg/cpp+ci-bench
+              ./earthly ./barretenberg/cpp+ci-bench;
             "
 
   barretenberg-stdlib-tests:
