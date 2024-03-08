@@ -1433,7 +1433,6 @@ workflows:
             - barretenberg-tests
             - barretenberg-stdlib-tests
             - barretenberg-stdlib-recursion-ultra-tests
-            - barretenberg-join-split-tests
             - barretenberg-acir-tests-bb
             - barretenberg-acir-tests-bb-sol
             - barretenberg-docs
