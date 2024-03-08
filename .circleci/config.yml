@@ -279,7 +279,6 @@ jobs:
             barretenberg/cpp/scripts/ci/upload_doxygen_to_s3.sh
 
   barretenberg-build:
-    resource_class: small
     machine:
       image: default
     resource_class: small
