@@ -13,7 +13,7 @@ namespace smt_circuit_schema {
 CircuitSchema unpack_from_file(const std::string& filename)
 {
     std::ifstream fin;
-    fin.open(filename, std::ios::in | std::ios::binary);
+    fin.open(filename, std::ios::ate | std::ios::binary);
     if (!fin.is_open()) {
         throw std::invalid_argument("file not found");
     }
@@ -21,7 +21,6 @@ CircuitSchema unpack_from_file(const std::string& filename)
         throw std::invalid_argument("something went wrong");
     }
 
-    fin.seekg(std::ios::end);
     uint64_t fsize = static_cast<uint64_t>(fin.tellg());
     fin.seekg(0, std::ios_base::beg);
 
