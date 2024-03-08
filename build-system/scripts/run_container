@@ -29,7 +29,7 @@ function run {
 
 MULTIARCH=$(query_manifest multiarch $REPOSITORY)
 
-DOCKER_HOST=$DOCKER_HOST_X86 run $@ > >(awk -v c="$g" -v r="$r" '$0=c"x86_64: "r $0') 2>&1
+DOCKER_HOST=$DOCKER_HOST_X86 run $@ > >(awk -v c="$g" -v r="$r" '$0=c"x86_64: "r $0') 2>&1 &
 if [ "$MULTIARCH" == "true" ]; then
   DOCKER_HOST=$DOCKER_HOST_ARM run $@ > >(awk -v c="$b" -v r="$r" '$0=c"arm64: "r $0') 2>&1 &
 fi
