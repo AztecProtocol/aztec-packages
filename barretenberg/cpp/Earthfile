@@ -67,7 +67,6 @@ clang-format-check:
     SAVE ARTIFACT build/bin
 
 ci-bench:
-    RUN curl https://wasmtime.dev/install.sh -sSf | bash
     DO +BENCH --preset=clang16 --target=ultra_honk_bench
     DO +BENCH --preset=clang16 --target=client_ivc_bench
     DO +BENCH --preset=op-count-track --target=ultra_honk_bench
@@ -82,18 +81,19 @@ BUILD:
     ARG configure
     ARG build
     # Use a mount for incremental builds.
-    RUN --mount type=cache,id=$preset-build,target=/build/build \
+    RUN --mount type=cache,id="$configure-build",target=/build/build \
         cmake $configure -Bbuild && \
         cmake --build build $build && \
         cp -r build/bin .
     # reconstruct build folder, as it was used in cache
-    RUN mkdir build && mv bin build
     SAVE ARTIFACT build
+    RUN mkdir build && mv bin build
 
 BENCH:
     FUNCTION
     ARG preset
     ARG target
+    FROM +base
     DO +BUILD --configure="--preset $preset" --build="--target $target"
     COPY srs_db:+download/build srs_db
     RUN cd build && ./bin/$target
@@ -101,6 +101,8 @@ BENCH:
 WASM_BENCH:
     FUNCTION
     ARG target
+    FROM +base
+    RUN curl https://wasmtime.dev/install.sh -sSf | bash
     DO +BUILD --configure="--preset wasm-threads" --build="--target $target"
     COPY srs_db:+download/build srs_db
-    RUN cd build && wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target
+    RUN cd build && ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target
