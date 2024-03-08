@@ -2,27 +2,20 @@
 /// Keep updated with TS and yellow paper!
 #[derive(Copy, Clone)]
 pub enum AvmOpcode {
-    // Compute
-    // Compute - Arithmetic
     ADD,
     SUB,
     MUL,
     DIV,
-    // Compute - Comparators
     EQ,
     LT,
     LTE,
-    // Compute - Bitwise
     AND,
     OR,
     XOR,
     NOT,
     SHL,
     SHR,
-    // Compute - Type Conversions
     CAST,
-
-    // Execution Environment
     ADDRESS,
     STORAGEADDRESS,
     ORIGIN,
@@ -32,7 +25,6 @@ pub enum AvmOpcode {
     FEEPERL2GAS,
     FEEPERDAGAS,
     CONTRACTCALLDEPTH,
-    // Execution Environment - Globals
     CHAINID,
     VERSION,
     BLOCKNUMBER,
@@ -41,25 +33,17 @@ pub enum AvmOpcode {
     BLOCKL1GASLIMIT,
     BLOCKL2GASLIMIT,
     BLOCKDAGASLIMIT,
-    // Execution Environment - Calldata
     CALLDATACOPY,
-
-    // Machine State
-    // Machine State - Gas
     L1GASLEFT,
     L2GASLEFT,
     DAGASLEFT,
-    // Machine State - Internal Control Flow
     JUMP,
     JUMPI,
     INTERNALCALL,
     INTERNALRETURN,
-    // Machine State - Memory
     SET,
     MOV,
     CMOV,
-
-    // World State
     SLOAD,           // Public Storage
     SSTORE,          // Public Storage
     NOTEHASHEXISTS,  // Notes & Nullifiers
@@ -68,19 +52,13 @@ pub enum AvmOpcode {
     EMITNULLIFIER,   // Notes & Nullifiers
     L1TOL2MSGEXISTS, // Messages
     HEADERMEMBER,    // Archive tree & Headers
-
-    // Accrued Substate
     EMITUNENCRYPTEDLOG,
     SENDL2TOL1MSG,
-
-    // Control Flow - Contract Calls
     CALL,
     STATICCALL,
     DELEGATECALL,
     RETURN,
     REVERT,
-
-    // Gadgets
     KECCAK,
     POSEIDON,
     SHA256,
