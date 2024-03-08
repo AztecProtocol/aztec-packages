@@ -1,5 +1,5 @@
-FROM --platform=linux/amd64 aztecprotocol/bb.js as bb.js
-FROM --platform=linux/amd64 aztecprotocol/noir-packages as noir-packages
+FROM aztecprotocol/bb.js as bb.js
+FROM aztecprotocol/noir-packages as noir-packages
 
 FROM node:18.19.0 as builder
 
