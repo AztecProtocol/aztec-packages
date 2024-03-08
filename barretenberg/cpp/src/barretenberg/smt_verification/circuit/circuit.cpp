@@ -78,7 +78,7 @@ template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness_ext(
     const std::vector<std::string>& not_eqaul_at_the_same_time = {});
 
 /**
- * @brief Check your circuit for witness uniqness
+ * @brief Check your circuit for witness uniqueness
  *
  * @details Creates two Circuit objects that represent the same
  * circuit, however you can choose which variables should be equal in both cases,

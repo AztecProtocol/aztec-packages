@@ -6,6 +6,22 @@
 
 namespace smt_circuit_schema {
 
+/**
+ * @brief Serialized state of a circuit
+ *
+ * @details Used to transfer the state of the circuit
+ * to Symbolic Circuit class.
+ * Symbolic circuit is then used to produce SMT statements
+ * that describe needed properties of the circuit.
+ *
+ * @param modulus Modulus of the field we are working with
+ * @param public_inps Public inputs to the current circuit
+ * @param vars_of_interes Map wires indicies to their given names
+ * @param variables List of wires values in the current circuit
+ * @param selectors List of selectors in the current circuit
+ * @param wires List of wires indicies for each selector
+ * @param real_variable_index Encoded copy constraints
+ */
 struct CircuitSchema {
     std::string modulus;
     std::vector<uint32_t> public_inps;

@@ -4,7 +4,7 @@ namespace smt_circuit_schema {
 
 /**
  * @brief Get the CircuitSchema object
- * @details Initialize the CircuitSchmea from the binary file
+ * @details Initialize the CircuitSchema from the binary file
  * that contains an msgpack compatible buffer.
  *
  * @param filename
@@ -21,21 +21,20 @@ CircuitSchema unpack_from_file(const std::string& filename)
         throw std::invalid_argument("something went wrong");
     }
 
-    fin.ignore(std::numeric_limits<std::streamsize>::max());
-    std::streamsize fsize = fin.gcount();
-    fin.clear();
+    fin.seekg(std::ios::end);
+    uint64_t fsize = static_cast<uint64_t>(fin.tellg());
     fin.seekg(0, std::ios_base::beg);
 
     CircuitSchema cir;
-    char* encoded_data = (char*)aligned_alloc(64, static_cast<size_t>(fsize));
-    fin.read(encoded_data, fsize);
-    msgpack::unpack((const char*)encoded_data, static_cast<size_t>(fsize)).get().convert(cir);
+    char* encoded_data = new char[fsize];
+    fin.read(encoded_data, static_cast<std::streamsize>(fsize));
+    msgpack::unpack(encoded_data, fsize).get().convert(cir);
     return cir;
 }
 
 /**
  * @brief Translates the schema to python format
- * @details Returns the conetents of the .py file
+ * @details Returns the contents of the .py file
  * that can be further imported by python script
  *
  * @example output.py
