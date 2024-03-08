@@ -289,9 +289,9 @@ jobs:
           name: "Test"
           command: |
             spot_run_script barretenberg barretenberg 16 $(uname -m) "
-              wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O ./earthly
-              chmod +x ./earthly && ./earthly bootstrap --with-autocomplete
-              cd barretenberg/cpp
+              wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O ./earthly ;
+              chmod +x ./earthly && ./earthly bootstrap ;
+              cd barretenberg/cpp ;
               earthly +release-build
             "
 
