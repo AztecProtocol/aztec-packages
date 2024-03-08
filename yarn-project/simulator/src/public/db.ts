@@ -33,6 +33,12 @@ export interface PublicStateDB {
    */
   commit(): Promise<void>;
 
+  /**
+   * Rollback the pending changes.
+   * @returns Nothing.
+   */
+  rollback(): Promise<void>;
+
   // Proposed interface changes:
   // /**
   //  * Mark the uncommitted changes in this TX as a checkpoint.
