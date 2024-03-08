@@ -85,7 +85,7 @@ BUILD:
     RUN --mount type=cache,id="$configure-build",target=/build/build,sharing=private \
         cmake $configure -Bbuild && \
         cmake --build build $build && \
-        ./scripts/fixup_incremental_build.sh \
+        ./scripts/fixup_incremental_build.sh && \
         cp -r build/bin .
     # reconstruct build folder, as it was used in cache
     SAVE ARTIFACT build
