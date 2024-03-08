@@ -1,15 +1,15 @@
 mod root_rollup_inputs;
-use root_rollup_inputs::RootRollupInputs;
 mod root_rollup_public_inputs;
+
+// Re-exports
+use root_rollup_inputs::RootRollupInputs;
 use root_rollup_public_inputs::RootRollupPublicInputs;
+
+// TODO: Move all the following code to different files
 use dep::types::{
-    abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-    constants::{NUM_FIELDS_PER_SHA256, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT},
-    header::Header, content_commitment::ContentCommitment,
-    merkle_tree::{append_only_tree, calculate_subtree, calculate_empty_tree_root},
-    state_reference::StateReference, utils::uint256::U256
+    constants::{NUM_FIELDS_PER_SHA256, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP},
+    utils::uint256::U256
 };
-use crate::components;
 
 // See `test_message_input_flattened_length` on keeping this in sync,
 // why its here and how this constant was computed.
