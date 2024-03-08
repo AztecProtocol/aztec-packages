@@ -31,7 +31,7 @@ check_env
 
 export BRANCH
 
-echo "External IP: $(curl ifconfig.me)"
+echo "External IP: $(curl -s ifconfig.me)"
 echo
 echo "COMMIT_HASH=$COMMIT_HASH"
 echo "COMMIT_TAG=$COMMIT_TAG"

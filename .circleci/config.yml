@@ -287,7 +287,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: run_container barretenberg-x86_64-linux-clang-assert /scripts/run_tests 1 stdlib-tests
+          command: run_container barretenberg-x86_64-linux-clang-assert ./scripts/run_tests 1 stdlib-tests
           aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-dsl-tests:
@@ -299,7 +299,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: run_container barretenberg-x86_64-linux-clang-assert /scripts/run_tests 1 dsl_tests
+          command: run_container barretenberg-x86_64-linux-clang-assert ./scripts/run_tests 1 dsl_tests
           aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-tests:
@@ -311,7 +311,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: run_container barretenberg-x86_64-linux-clang-assert /scripts/bb-tests.sh
+          command: run_container barretenberg-x86_64-linux-clang-assert ./scripts/bb-tests.sh
           aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-bench:
@@ -341,7 +341,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: run_container barretenberg-x86_64-linux-clang-assert /scripts/run_tests 1 proof_system_tests
+          command: run_container barretenberg-x86_64-linux-clang-assert ./scripts/run_tests 1 proof_system_tests
           aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-stdlib-recursion-ultra-tests:
@@ -353,7 +353,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: run_container barretenberg-x86_64-linux-clang-assert /scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
+          command: run_container barretenberg-x86_64-linux-clang-assert ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
           aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-join-split-tests:
@@ -365,7 +365,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: run_container barretenberg-x86_64-linux-clang-assert /scripts/run_tests 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
+          command: run_container barretenberg-x86_64-linux-clang-assert ./scripts/run_tests 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
           aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-acir-tests-bb:
@@ -401,7 +401,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: run_container bb.js /scripts/run_tests
+          command: run_container bb.js ./scripts/run_tests
           aztec_manifest_key: bb.js
 
   bb-js-acir-tests:

@@ -19,6 +19,8 @@ RUN ./format.sh check && cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
 RUN srs_db/download_grumpkin.sh
 
 FROM alpine:3.17
-RUN apk update && apk add curl libstdc++
+RUN apk update && apk add curl libstdc++ bash
 COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
 COPY --from=builder /usr/src/barretenberg/cpp/build/bin /usr/src/barretenberg/cpp/build/bin
+COPY --from=builder /usr/src/barretenberg/cpp/scripts /usr/src/barretenberg/cpp/scripts
+WORKDIR /usr/src/barretenberg/cpp
