@@ -418,9 +418,9 @@ contract Token {
             amounts[0] + amounts[1]
         );
 
-        assert(storage.partial_notes.at(hash).read(), "Partial notes not authorized");
-        // only completable once
-        context.push_new_nullifier(hash.to_field(), 0);
+        let auth = storage.partial_notes.at(hash);
+        assert(auth.read() == true);
+        auth.write(false);
 
         let mut token_note_0 = TokenNote::new_from_public(U128::from_integer(amounts[0]));
         complete_partial_note_from_public(&mut context, partial_note_hashes[0], &mut token_note_0, true);

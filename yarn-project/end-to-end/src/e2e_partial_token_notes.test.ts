@@ -6,6 +6,7 @@ import {
   Fr,
   Note,
   TxHash,
+  TxStatus,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { BufferReader } from '@aztec/foundation/serialize';
@@ -71,10 +72,43 @@ describe('e2e_partial_token_notes', () => {
 
   it('partial notes are completable only once', async () => {
     const partialNoteHashes = await createPartialNotes(10n);
-    await tokenContract.methods.complete_partial_notes_pair(partialNoteHashes, [5n, 5n]).send().wait();
-    await expect(
-      tokenContract.methods.complete_partial_notes_pair(partialNoteHashes, [5n, 5n]).send().wait(),
-    ).rejects.toThrow(/was dropped/);
+
+    await expect(tokenContract.methods.balance_of_private(ctx.wallets[0].getAddress()).view()).resolves.toEqual(380n);
+    await expect(tokenContract.methods.balance_of_private(ctx.wallets[1].getAddress()).view()).resolves.toEqual(610n);
+
+    const legitimateTx = await tokenContract.methods
+      .complete_partial_notes_pair(partialNoteHashes, [5n, 5n])
+      .send()
+      .wait();
+
+    await completePartialNotes([5, 5], legitimateTx.txHash);
+
+    await expect(tokenContract.methods.balance_of_private(ctx.wallets[0].getAddress()).view()).resolves.toEqual(385n);
+    await expect(tokenContract.methods.balance_of_private(ctx.wallets[1].getAddress()).view()).resolves.toEqual(615n);
+
+    // wallets[0] changed their mind and now wants to complete the notes in their favour
+    const illegitimateTx = await tokenContract.methods
+      .complete_partial_notes_pair(partialNoteHashes, [10n, 0n])
+      .send({ skipPublicSimulation: true })
+      .wait({ debug: true });
+
+    expect(illegitimateTx).toEqual(
+      expect.objectContaining({
+        // currently reverted txs are added on chain but revert reason is not persisted
+        // see https://github.com/AztecProtocol/aztec-packages/issues/4972
+        status: TxStatus.MINED,
+        error: '',
+      }),
+    );
+
+    const logs = await ctx.pxe.getUnencryptedLogs({ txHash: illegitimateTx.txHash });
+    // no amounts were emitted
+    expect(logs.logs).toEqual([]);
+    expect(illegitimateTx.debugInfo!.noteHashes).toEqual([]);
+
+    // balances should remain unchanged
+    await expect(tokenContract.methods.balance_of_private(ctx.wallets[0].getAddress()).view()).resolves.toEqual(385n);
+    await expect(tokenContract.methods.balance_of_private(ctx.wallets[1].getAddress()).view()).resolves.toEqual(615n);
   });
 
   it('partial notes are be constrained to original total amount', async () => {
@@ -82,7 +116,7 @@ describe('e2e_partial_token_notes', () => {
 
     await expect(
       tokenContract.methods.complete_partial_notes_pair(partialNoteHashes, [5n, 6n]).send().wait(),
-    ).rejects.toThrow(/Partial notes not authorized/);
+    ).rejects.toThrow('auth.read() == true');
   });
 
   it('partial notes can only be completed by original creator', async () => {
@@ -94,7 +128,7 @@ describe('e2e_partial_token_notes', () => {
         .methods.complete_partial_notes_pair(partialNoteHashes, [5n, 5n])
         .send()
         .wait(),
-    ).rejects.toThrow(/Partial notes not authorized/);
+    ).rejects.toThrow('auth.read() == true');
   });
 
   const createPartialNotes = async (totalAmount: bigint | number) => {
@@ -112,6 +146,10 @@ describe('e2e_partial_token_notes', () => {
   const completePartialNotes = async (expectedAmounts: number[], completionTxHash: TxHash) => {
     // TODO use a dedicated event selector for these completion events once implemented
     const logs = await ctx.pxe.getUnencryptedLogs({ txHash: completionTxHash });
+
+    expect(logs.logs[0].log.contractAddress).toEqual(tokenContract.address);
+    expect(logs.logs[1].log.contractAddress).toEqual(tokenContract.address);
+
     const completedEvent0 = BufferReader.asReader(logs.logs[0].log.data).readArray(2, Fr);
     const completedEvent1 = BufferReader.asReader(logs.logs[1].log.data).readArray(2, Fr);
 

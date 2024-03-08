@@ -38,7 +38,7 @@ export async function produceNoteDao(
     excludedIndices,
   );
   const index = BigInt(dataStartIndexForTx + commitmentIndex);
-  excludedIndices?.add(commitmentIndex);
+  excludedIndices.add(commitmentIndex);
   return new NoteDao(
     payload.note,
     payload.contractAddress,
@@ -75,63 +75,69 @@ async function findNoteIndexAndNullifier(
   { contractAddress, storageSlot, noteTypeId, note }: L1NotePayload,
   excludedIndices: Set<number>,
 ) {
-  let commitmentIndex = 0;
-  let nonce: Fr | undefined;
-  let nonSiloedNoteHash: Fr | undefined;
-  let siloedNoteHash: Fr | undefined;
-  let uniqueSiloedNoteHash: Fr | undefined;
-  let nonSiloedNullifier: Fr | undefined;
   const firstNullifier = Fr.fromBuffer(txHash.toBuffer());
 
-  for (; commitmentIndex < commitments.length; ++commitmentIndex) {
+  // first go through each commitment and see if this note matches up to any
+  for (const [commitmentIndex, commitment] of commitments.entries()) {
     if (excludedIndices.has(commitmentIndex)) {
       continue;
     }
 
-    const commitment = commitments[commitmentIndex];
     if (commitment.equals(Fr.ZERO)) {
       break;
     }
 
-    const expectedNonce = computeCommitmentNonce(firstNullifier, commitmentIndex);
-    ({ nonSiloedNoteHash, siloedNoteHash, uniqueSiloedNoteHash, nonSiloedNullifier } =
-      await simulator.computeNoteHashAndNullifier(contractAddress, expectedNonce, storageSlot, noteTypeId, note));
-    if (commitment.equals(siloedNoteHash)) {
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-      // Remove this once notes added from public also include nonces.
-      nonce = Fr.ZERO;
-      break;
-    }
-    if (commitment.equals(uniqueSiloedNoteHash)) {
-      nonce = expectedNonce;
-      break;
-    }
-  }
-
-  if (!nonce) {
-    if (siloedNoteHash == undefined) {
-      throw new Error('Cannot find a matching commitment for the note.');
-    } else {
-      throw new ChoppedNoteError(siloedNoteHash);
-    }
-  } else if (nonce.isZero()) {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-    // this note was inserted from public so its nonce is 0
-    // recompute the note hash and nullifier with nonce 0, this is needed because the "nonSiloedNullifier"  is
-    // actually computed from the note's unique hash (ie note content hash + storage slot + contract address + nonce)
-    ({ nonSiloedNoteHash, nonSiloedNullifier } = await simulator.computeNoteHashAndNullifier(
+    const nonce = computeCommitmentNonce(firstNullifier, commitmentIndex);
+    const { nonSiloedNoteHash, uniqueSiloedNoteHash, nonSiloedNullifier } = await simulator.computeNoteHashAndNullifier(
       contractAddress,
-      Fr.ZERO,
+      nonce,
       storageSlot,
       noteTypeId,
       note,
-    ));
+    );
+
+    if (commitment.equals(uniqueSiloedNoteHash)) {
+      return {
+        commitmentIndex,
+        nonce,
+        nonSiloedNoteHash: nonSiloedNoteHash!,
+        siloedNullifier: siloNullifier(contractAddress, nonSiloedNullifier!),
+      };
+    }
   }
 
-  return {
-    commitmentIndex,
-    nonce,
-    nonSiloedNoteHash: nonSiloedNoteHash!,
-    siloedNullifier: siloNullifier(contractAddress, nonSiloedNullifier!),
-  };
+  // we couldn't match this note to any commitment
+  // check if this note was emitted in public (where nonces are zero)
+  // this could happen if we're reprocessing a partial note that was just completed in public
+  // remove this once the following issue is resolved
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+  const { siloedNoteHash, nonSiloedNoteHash, nonSiloedNullifier } = await simulator.computeNoteHashAndNullifier(
+    contractAddress,
+    Fr.ZERO,
+    storageSlot,
+    noteTypeId,
+    note,
+  );
+
+  for (const [commitmentIndex, commitment] of commitments.entries()) {
+    if (excludedIndices.has(commitmentIndex)) {
+      continue;
+    }
+
+    if (commitment.equals(Fr.ZERO)) {
+      break;
+    }
+
+    if (commitment.equals(siloedNoteHash)) {
+      return {
+        commitmentIndex,
+        nonce: Fr.ZERO,
+        nonSiloedNoteHash,
+        siloedNullifier: siloNullifier(contractAddress, nonSiloedNullifier!),
+      };
+    }
+  }
+
+  // couldn't find a commitment for this note
+  throw new ChoppedNoteError(siloedNoteHash);
 }
