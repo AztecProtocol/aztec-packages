@@ -1,15 +1,11 @@
-import {
-  PrivateKernelInitCircuitPrivateInputs,
-  PrivateKernelInnerCircuitPrivateInputs,
-  PrivateKernelTailCircuitPrivateInputs,
-} from '@aztec/circuits.js';
+import { PrivateKernelInnerCircuitPrivateInputs, PrivateKernelTailCircuitPrivateInputs } from '@aztec/circuits.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
-import { executeInit, executeInner, executeTail } from './index.js';
+import { executeInner, executeTail } from './index.js';
 
 describe('Private kernel', () => {
   let logger: DebugLogger;
