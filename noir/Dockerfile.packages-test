@@ -1,4 +1,5 @@
 FROM aztecprotocol/noir AS noir
+FROM --platform=linux/amd64 aztecprotocol/bb.js as bb.js
 
 FROM node:20 AS builder
 COPY --from=noir /usr/src/noir/noir-repo/target/release /usr/src/noir/noir-repo/target/release
@@ -9,6 +10,8 @@ ENV PATH=/root/.cargo/bin:${PATH}
 RUN apt update && apt install -y jq libc++1
 ARG COMMIT_HASH
 ENV COMMIT_HASH=${COMMIT_HASH}
+
+COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
 
 WORKDIR /usr/src/noir
 COPY . .
