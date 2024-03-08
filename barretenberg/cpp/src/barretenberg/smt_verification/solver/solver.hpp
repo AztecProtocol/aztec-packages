@@ -69,7 +69,7 @@ class Solver {
 
         // Can be useful when split-gb is used as ff-solver.
         // Cause bit constraints are part of the split-gb optimization
-        // and without them it will probably perform less efficient 
+        // and without them it will probably perform less efficient
         // TODO(alex): test this `probably` after finishing the pr sequence
         if (config.ff_disjunctive_bit) {
             s.setOption("ff-disjunctive-bit", "true");
@@ -78,7 +78,7 @@ class Solver {
         // It basically SPLITS the polynomials in the system into subsets
         // and computes a Groebner basis for each of them.
         // According to the benchmarks, the new decision process in split-gb
-        // brings a significant boost in solver performance 
+        // brings a significant boost in solver performance
         if (!config.ff_solver.empty()) {
             s.setOption("ff-solver", config.ff_solver);
         }
