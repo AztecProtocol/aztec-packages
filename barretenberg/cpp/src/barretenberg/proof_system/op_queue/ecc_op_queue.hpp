@@ -7,7 +7,7 @@ namespace bb {
 
 enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
 
-struct UltraOpTuple {
+struct UltraOp {
     using Fr = curve::BN254::ScalarField;
     Fr op;
     Fr x_lo;
@@ -284,7 +284,13 @@ class ECCOpQueue {
         });
     }
 
-    void populate_ultra_ops(UltraOpTuple tuple)
+    /**
+     * @brief Populate two rows of the ultra ops,representing a complete ECC operation. Note that this has 7 inputs so
+     * the second row of ultra_ops[0] (storing the opcodes) will be set to 0.
+     *
+     * @param tuple
+     */
+    void populate_ultra_ops(UltraOp tuple)
     {
         ultra_ops[0].emplace_back(tuple.op);
         ultra_ops[1].emplace_back(tuple.x_lo);
