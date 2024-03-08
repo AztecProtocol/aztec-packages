@@ -1,0 +1,38 @@
+VERSION 0.8
+FROM rust:bullseye
+RUN apt update && apt install -y libc++1
+WORKDIR /build
+
+# Selective copy
+COPY --keep-ts --dir \
+  noir/noir-repo/acvm-repo \
+  noir/noir-repo/compiler \
+  noir/noir-repo/aztec_macros \
+  noir/noir-repo/noir_stdlib \
+  noir/noir-repo/tooling/backend_interface \
+  noir/noir-repo/tooling/bb_abstraction_leaks \
+  noir/noir-repo/tooling/debugger \
+  noir/noir-repo/tooling/lsp \
+  noir/noir-repo/tooling/nargo \
+  noir/noir-repo/tooling/nargo_cli \
+  noir/noir-repo/tooling/nargo_toml \
+  noir/noir-repo/tooling/nargo_fmt \
+  noir/noir-repo/tooling/noirc_abi \
+  noir/noir-repo/tooling/acvm_cli \
+  .
+
+build: 
+  ARG EARTHLY_BUILD_SHA
+  ENV COMMIT_HASH=$EARTHLY_BUILD_SHA
+  RUN ./scripts/bootstrap_native.sh
+  SAVE ARTIFACT /build/noir-repo/target/release/nargo nargo
+  SAVE ARTIFACT /build/noir-repo/target/release/acvm acvm
+
+run:
+  # When running the container, mount the users home directory to same location.
+  FROM ubuntu:lunar
+  # Install Tini as nargo doesn't handle signals properly.
+  # Install git as nargo needs it to clone.
+  RUN apt-get update && apt-get install -y git tini && rm -rf /var/lib/apt/lists/* && apt-get clean
+  COPY +build/. /build
+  ENTRYPOINT ["/usr/bin/tini", "--", "/build/nargo"]
