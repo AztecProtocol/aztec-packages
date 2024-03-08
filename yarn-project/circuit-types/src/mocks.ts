@@ -13,7 +13,6 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { Tuple } from '@aztec/foundation/serialize';
 import { ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
-import { ExtendedContractData } from './contract_data.js';
 import { DeployedContract } from './interfaces/index.js';
 import { FunctionL2Logs, Note, TxL2Logs } from './logs/index.js';
 import { makePrivateKernelTailCircuitPublicInputs, makePublicCallRequest } from './mocks_to_purge.js';

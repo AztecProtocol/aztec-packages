@@ -311,13 +311,15 @@ describe('sequencer/solo_block_builder', () => {
       processedTx.data.end.newNullifiers = makeTuple(
         MAX_REVERTIBLE_NULLIFIERS_PER_TX,
         makeNewSideEffectLinkedToNoteHash,
-        seed + 0x200,
+        seed + 0x100000,
       );
+
       processedTx.data.endNonRevertibleData.newNullifiers = makeTuple(
         MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
         makeNewSideEffectLinkedToNoteHash,
-        seed + 0x300,
+        seed + 0x100000 + MAX_REVERTIBLE_NULLIFIERS_PER_TX,
       );
+
       processedTx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = SideEffectLinkedToNoteHash.empty();
 
       processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);

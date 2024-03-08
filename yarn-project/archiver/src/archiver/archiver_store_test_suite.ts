@@ -1,5 +1,4 @@
 import {
-  ExtendedContractData,
   L1ToL2Message,
   L2Block,
   L2BlockContext,

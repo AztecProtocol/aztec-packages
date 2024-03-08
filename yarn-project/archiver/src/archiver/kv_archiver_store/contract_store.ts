@@ -1,4 +1,4 @@
-import { ContractData, ExtendedContractData } from '@aztec/circuit-types';
+import { ExtendedContractData } from '@aztec/circuit-types';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap } from '@aztec/kv-store';

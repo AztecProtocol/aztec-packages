@@ -1,6 +1,5 @@
 import {
   Body,
-  ContractData,
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
   GetUnencryptedLogsResponse,
