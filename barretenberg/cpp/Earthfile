@@ -47,8 +47,8 @@ build-release:
     DO +BUILD --configure="--preset clang16" --build="--target ultra_honk_rounds_bench --target bb"
 
 build-wasm:
-    DO +BUILD --configure="--preset wasm-threads" --build="--target ultra_honk_rounds_bench --target bb"
-    RUN ./scripts/strip-wasm.sh
+    DO +BUILD --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
+    RUN ./src/wasi-sdk-20.0/bin/llvm-strip ./build/bin/barretenberg.wasm
     SAVE ARTIFACT build
 
 build-gcc:
