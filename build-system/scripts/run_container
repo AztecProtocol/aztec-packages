@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+set -euo pipefail
+
+REPOSITORY=$1
+shift
+
+IMAGE_URI=$(calculate_image_uri $REPOSITORY)
+BASE_TAG=$(calculate_image_tag $REPOSITORY)
+SUCCESS_TAG=$BASE_TAG-$JOB_NAME
+
+echo "Success tag: $SUCCESS_TAG"
+
+if check_rebuild $SUCCESS_TAG $REPOSITORY; then
+  echo "No re-run necessary for $IMAGE_URI."
+  exit 0
+fi
+
+g="\033[32m"  # Green
+b="\033[34m"  # Blue
+r="\033[0m"   # Reset
+
+function run {
+  docker run --rm -t $IMAGE_URI $@
+}
+
+MULTIARCH=$(query_manifest multiarch $REPOSITORY)
+
+(run > >(awk -v c="$g" -v r="$r" '$0=c"x86_64: "r $0')) &
+if [ "$MULTIARCH" == "true" ]; then
+  (DOCKER_HOST=$DOCKER_HOST_ARM run > >(awk -v c="$b" -v r="$r" '$0=c"arm64: "r $0')) &
+fi
+
+for job in $(jobs -p); do
+  wait $job || exit 1
+done
+
+docker tag $IMAGE_URI $ECR_URL/$REPOSITRY:$SUCCESS_TAG
