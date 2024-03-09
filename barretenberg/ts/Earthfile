@@ -21,21 +21,27 @@ COPY cpp+build-wasm/build/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/
 
 build-esm:
     RUN yarn build:esm
+    SAVE ARTIFACT /build
 
 build-cjs:
     COPY --keep-ts scripts/cjs_postprocess.sh scripts/
     RUN yarn build:cjs
+    SAVE ARTIFACT /build
 
 build-browser:
     RUN yarn build:browser
+    SAVE ARTIFACT /build
 
 test-prettier-format:
     RUN yarn formatting
 
 build:
-    BUILD +build-esm
-    BUILD +build-cjs
-    BUILD +build-browser
+    COPY +build-esm/build /build
+    COPY +build-cjs/build /build
+    COPY +build-browser/build /build
+    # We want to create a pure package, as would be published to npm, for consuming projects.
+    RUN yarn pack && tar zxf package.tgz && rm package.tgz && mv package ../ts
+    SAVE ARTIFACT /build
 
 test:
     BUILD +test-prettier-format

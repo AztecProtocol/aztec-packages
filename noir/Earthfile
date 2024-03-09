@@ -2,8 +2,8 @@ VERSION 0.8
 
 build-nargo:
     ARG EARTHLY_BUILD_SHA
-    ENV COMMIT_HASH=$EARTHLY_BUILD_SHA
     FROM rust:bullseye
+    ENV COMMIT_HASH=$EARTHLY_BUILD_SHA
     RUN apt update && apt install -y libc++1
     WORKDIR /build
 
@@ -60,7 +60,7 @@ build-packages:
     COPY --keep-ts noir-repo/.github/scripts noir-repo/.github/scripts
     COPY --keep-ts ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
     RUN PATH="/root/.cargo/bin:$PATH" ./scripts/bootstrap_packages.sh
-    SAVE ARTIFACT packages packages
+    SAVE ARTIFACT packages build
 
 run:
     # When running the container, mount the users home directory to same location.
