@@ -277,7 +277,9 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: cd yarn-project && earthly +build
+          command: |
+            git submodule init
+            cd yarn-project && earthly +build
 
   barretenberg-benches:
     docker:
