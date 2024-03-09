@@ -35,7 +35,7 @@ describe('E2E Outbox Tests', () => {
 
   afterAll(() => teardown());
 
-  it('Inserts a new out message, and verifies sibling paths of both the new message, and its zeroed sibling', async () => {
+  it('Inserts a new transaction with two out messages, and verifies sibling paths of both the new messages', async () => {
     const [[recipient1, content1], [recipient2, content2]] = [
       [EthAddress.random(), Fr.random()],
       [EthAddress.random(), Fr.random()],
@@ -47,7 +47,7 @@ describe('E2E Outbox Tests', () => {
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content2, recipient2).request(),
     ]);
 
-    // TODO: When able to guarantee multiple txs in a single block, make this populate a full tree. Right now we are
+    // TODO (#5104): When able to guarantee multiple txs in a single block, make this populate a full tree. Right now we are
     // unable to do this because in CI, for some reason, the tx's are handled in different blocks, so it is impossible
     // to make a full tree of L2 -> L1 messages as we are only able to set one tx's worth of L1 -> L2 messages in a block (2 messages out of 4)
     const txReceipt = await call.send().wait();
