@@ -307,3 +307,4 @@ workflows:
     jobs:
       - barretenberg-build: *defaults
       - barretenberg-benches: *defaults
+      - yarn-project: *defaults

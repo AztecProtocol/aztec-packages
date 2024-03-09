@@ -1,0 +1,45 @@
+VERSION 0.8
+FROM node:18.19.0
+IMPORT ../barretenberg/cpp AS bb
+IMPORT ../barretenberg/ts AS bb-js
+IMPORT ../noir AS noir
+IMPORT ../l1-contracts AS l1-contracts
+IMPORT ../noir-projects AS noir-projects
+RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
+
+# copy bb-js and noir-packages
+COPY bb-js+build/build /build/barretenberg/ts
+COPY noir+build-packages/build /build/noir/packages
+# install acvm binary
+COPY noir+build-nargo/acvm /usr/bin/acvm
+COPY noir-projects+build/build /build/noir-projects
+COPY l1-contracts+build/build /build/l1-contracts/out
+
+WORKDIR /build/yarn-project
+# copy source
+COPY --keep-ts --dir */ *.json .yarn .yarnrc.yml .
+
+# We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
+# walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
+# correctly for portalled packages, is to use --preserve-symlinks when running node.
+# This does kind of work, but jest doesn't honor it correctly, so this seems like a neat workaround.
+# Also, --preserve-symlinks causes duplication of portalled instances such as bb.js, and breaks the singleton logic
+# by initialising the module more than once. So at present I don't see a viable alternative.
+RUN ln -s /build/yarn-project/node_modules /build/node_modules
+
+RUN ./scripts/version_packages.sh
+
+# Target for main build process
+build:
+    # TODO: Replace puppeteer with puppeteer-core to avoid this.
+    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+    RUN ./bootstrap.sh # TODO mount cache
+    RUN yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache clean
+
+run:
+    FROM node:18.19.1-slim
+    ARG COMMIT_TAG=""
+    ENV COMMIT_TAG=$COMMIT_TAG
+    COPY --from=builder /build /build
+    WORKDIR /build/yarn-project
+    ENTRYPOINT ["yarn"]
