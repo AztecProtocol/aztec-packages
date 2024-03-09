@@ -37,6 +37,9 @@ cd $(query_manifest projectDir $REPOSITORY)
 #   docker tag $REPO_IMAGE_URI aztecprotocol/$REPO
 # done
 
+TARGET_COMPOSE_FILE=$(mktemp)
+cp $COMPOSE_FILE $TARGET_COMPOSE_FILE
+
 # For each dependency, substitute references to the dependency in compose file, with the relevent built image uri.
 # This is necessary vs retagging the image, as that would cause conflicts between ci runs.
 for DEP_REPO in $(query_manifest runDependencies $REPOSITORY); do
@@ -58,17 +61,18 @@ for DEP_REPO in $(query_manifest runDependencies $REPOSITORY); do
   #   PLATFORM=''
   # fi
 
-  # Substitute references to parent repo, with the relevent built image uri.
+  # Substitute references to images, with the relevent built image uri.
   DEPLOY_URI=aztecprotocol/$DEP_REPO
   DEP_IMAGE_URI=$ECR_URL/$DEP_REPO:$DEP_IMAGE_TAG
-  # sed -i "s|image: ${DEPLOY_URI}|image: ${DEP_IMAGE_URI}|" $COMPOSE_FILE
-  if [ "$(yq .services.$DEP_REPO.image $COMPOSE_FILE)" != "null" ]; then
-    yq -i ".services.$DEP_REPO.image = \"$DEP_IMAGE_URI\"" $COMPOSE_FILE
+  yq -i 'del(.services[].ports)' $TARGET_COMPOSE_FILE
+  if [ "$(yq .services.$DEP_REPO.image $TARGET_COMPOSE_FILE)" != "null" ]; then
+    yq -i ".services.$DEP_REPO.image = \"$DEP_IMAGE_URI\"" $TARGET_COMPOSE_FILE
   fi
-  yq -i 'del(.services[].ports)' $COMPOSE_FILE
 done
 
-PROJECT=${COMMIT_HASH}-${JOB_NAME}
+cat $TARGET_COMPOSE_FILE
+
+PROJECT=${COMMIT_HASH:-no-commit}-${JOB_NAME}
 
 export $@
 if docker compose > /dev/null 2>&1; then
@@ -77,8 +81,8 @@ else
   CMD="docker-compose"
 fi
 
-trap "$CMD -p $PROJECT down" EXIT
-$CMD -p $PROJECT -f $COMPOSE_FILE up --exit-code-from $REPOSITORY --force-recreate
+trap "$CMD -p $PROJECT down; rm $TARGET_COMPOSE_FILE" EXIT
+$CMD -p $PROJECT -f $TARGET_COMPOSE_FILE up --exit-code-from $REPOSITORY --force-recreate
 
 # upload_logs_to_s3 log
 
