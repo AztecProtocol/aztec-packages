@@ -137,4 +137,4 @@ BENCH_WASM:
     FROM +build-wasm
     DO +BUILD --configure="--preset wasm-threads" --build="--target $target"
     COPY --dir srs_db:+build/. srs_db/
-    RUN cd build && ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=16 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args
+    RUN cd build && ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args

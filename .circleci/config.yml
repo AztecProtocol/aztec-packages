@@ -96,19 +96,19 @@ jobs:
             cd yarn-project && earthly +build
 
   barretenberg-benches:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: default
+    resource_class: xlarge
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
           command: |
-            aws_run 16 "
+            aws_run 8 "
               cd barretenberg/cpp;
               earthly_local +bench-ultra-honk;
-              earthly_local +bench-client-ivc
+              earthly_local +bench-client-ivc;
             "
 
 # Repeatable config for defining the workflow below.
@@ -116,15 +116,6 @@ defaults: &defaults
   filters:
     tags:
       only: /^aztec-packages-v.*/
-    # We would like to ignore release-please branches,
-    # but doing so breaks github status checks:
-    # the PR spins as it waits for the status check to complete,
-    # which never happens because the branch is ignored.
-    # Long term solution would require disabling the status checks on `master`
-    # when the *source branch* on the PR release-please.
-    # branches:
-    #   ignore:
-    #     - /^release-please--.*/
   context:
     - build
     - slack
