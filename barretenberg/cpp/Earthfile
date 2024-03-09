@@ -38,6 +38,7 @@ build-ci:
 
 build-release:
     DO +BUILD --configure="--preset clang16" --build="--target ultra_honk_rounds_bench --target bb"
+    SAVE ARTIFACT build
 
 build-wasm:
     # WASM compiler, only redownload if this script changes
@@ -49,25 +50,36 @@ build-wasm:
 
 build-gcc:
     DO +BUILD --configure="--preset gcc" --build=""
+    SAVE ARTIFACT build
 
 build-fuzzing:
     DO +BUILD --configure="--preset fuzzing" --build=""
+    SAVE ARTIFACT build
 
 build-clang-assert:
     DO +BUILD --configure="--preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
+    SAVE ARTIFACT build
+
+build-op-count:
+    DO +BUILD --configure="--preset op-count -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
+    SAVE ARTIFACT build
+
+build-op-count-time:
+    DO +BUILD --configure="--preset op-count-time -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
+    SAVE ARTIFACT build
 
 test-clang-format:
     COPY .clang-format .
     COPY format.sh .
     RUN ./format.sh check
 
-bench-ci:
-    DO +BENCH --preset=clang16 --target=ultra_honk_bench
-    DO +BENCH --preset=clang16 --target=client_ivc_bench
-    DO +BENCH --preset=op-count-track --target=ultra_honk_bench
-    DO +BENCH --preset=op-count-track --target=client_ivc_bench
-    DO +BENCH --preset=op-count-time --target=client_ivc_bench
-    DO +WASM_BENCH --target=ultra_honk_bench
+bench-ultra-honk:
+    DO +BENCH_RELEASE --target=ultra_honk_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
+    DO +BENCH_WASM --target=ultra_honk_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
+
+bench-client-ivc:
+    DO +BENCH --target=client_ivc_bench
+    DO +BENCH_ --target=client_ivc_bench
     DO +WASM_BENCH --target=client_ivc_bench
 
 # Functions
@@ -90,22 +102,39 @@ BUILD:
         # reconstruct build folder, as it was used in cache
         RUN mkdir build && mv bin build
     END
-    SAVE ARTIFACT build
 
-BENCH:
+BENCH_RELEASE:
     FUNCTION
-    ARG preset
     ARG target
-    FROM +base
-    DO +BUILD --configure="--preset $preset" --build="--target $target"
+    ARG args
+    FROM +build-release
+    DO +BUILD --configure="--preset clang16" --build="--target $target"
     COPY --dir srs_db:+build/. srs_db
-    RUN cd build && ./bin/$target
+    RUN cd build && ./bin/$target $args 
 
-WASM_BENCH:
+BENCH_OP_COUNT_TIME:
     FUNCTION
     ARG target
-    FROM +base
-    RUN curl https://wasmtime.dev/install.sh -sSf | bash
+    ARG args
+    FROM +build-op-count-time
+    DO +BUILD --configure="--preset op-count-time" --build="--target $target"
+    COPY --dir srs_db:+build/. srs_db
+    RUN cd build && ./bin/$target $args
+
+BENCH_OP_COUNT:
+    FUNCTION
+    ARG target
+    ARG args
+    FROM +build-op-count
+    DO +BUILD --configure="--preset op-count" --build="--target $target"
+    COPY --dir srs_db:+build/. srs_db
+    RUN cd build && ./bin/$target $args
+
+BENCH_WASM:
+    FUNCTION
+    ARG target
+    ARG args
+    FROM +build-wasm
     DO +BUILD --configure="--preset wasm-threads" --build="--target $target"
     COPY --dir srs_db:+build/. srs_db/
-    RUN cd build && ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target
+    RUN cd build && ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=16 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args
