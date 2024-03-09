@@ -33,16 +33,25 @@ describe('E2E Outbox Tests', () => {
     ]);
 
     const call1 = new BatchCall(wallets[0], [
-      contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(42069, EthAddress.random()).request(),
-      contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(53170, EthAddress.random()).request(),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(0, EthAddress.random()).request(),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(0, EthAddress.random()).request(),
     ]);
 
     const call2 = new BatchCall(wallets[0], [
-      contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(64281, EthAddress.random()).request(),
-      contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(75392, EthAddress.random()).request(),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(0, EthAddress.random()).request(),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(0, EthAddress.random()).request(),
     ]);
 
-    await call0.send().wait();
+    const {blockNumber: blockNumber0 } = await call0.send().wait();
+
+    console.log(blockNumber0);
+
+    const block0 = await aztecNode.getBlock(blockNumber0!);
+
+    console.log(
+      'block0',
+      block0?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs),
+    );
 
     const [{ blockNumber: blockNumber1 }, { blockNumber: blockNumber2 }] = await Promise.all([
       call1.send().wait(),
@@ -55,8 +64,14 @@ describe('E2E Outbox Tests', () => {
 
     const block2 = await aztecNode.getBlock(blockNumber2!);
 
-    console.log('block1', block1?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs));
-    console.log('block2', block2?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs));
+    console.log(
+      'block1',
+      block1?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs),
+    );
+    console.log(
+      'block2',
+      block2?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs),
+    );
 
     const l2ToL1Messages = block1?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
