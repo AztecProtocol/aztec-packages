@@ -1,6 +1,13 @@
-import { AccountWalletWithPrivateKey, AztecNode, BatchCall, DeployL1Contracts, EthAddress, Fr, SiblingPath,   
+import {
+  AccountWalletWithPrivateKey,
+  AztecNode,
+  BatchCall,
+  DeployL1Contracts,
+  EthAddress,
+  Fr,
+  SiblingPath,
   sha256,
- } from '@aztec/aztec.js';
+} from '@aztec/aztec.js';
 import { SHA256 } from '@aztec/merkle-tree';
 import { TestContract } from '@aztec/noir-contracts.js';
 
@@ -29,37 +36,40 @@ describe('E2E Outbox Tests', () => {
   afterAll(() => teardown());
 
   it('Inserts a new out message, and verifies sibling paths of both the new message, and its zeroed sibling', async () => {
-    const [[recipient1, content1], [recipient2, content2]] = [[EthAddress.random(),  Fr.random()], [EthAddress.random(),  Fr.random()]];
+    const [[recipient1, content1], [recipient2, content2]] = [
+      [EthAddress.random(), Fr.random()],
+      [EthAddress.random(), Fr.random()],
+    ];
 
     // We can't put any more l2 to L1 messages here There are a max of 2 L2 to L1 messages per transaction
     const call = new BatchCall(wallets[0], [
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content1, recipient1).request(),
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content2, recipient2).request(),
     ]);
-    
+
     // TODO: When able to guarantee multiple txs in a single block, make this populate a full tree. Right now we are
     // unable to do this because in CI, for some reason, the tx's are handled in different blocks, so it is impossible
     // to make a full tree of L2 -> L1 messages as we are only able to set one tx's worth of L1 -> L2 messages in a block (2 messages out of 4)
     const txReceipt = await call.send().wait();
 
     const block = await aztecNode.getBlock(txReceipt.blockNumber!);
-    
+
     const l2ToL1Messages = block?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-    expect(l2ToL1Messages?.map(l2ToL1Message => l2ToL1Message.toString()))
-      .toStrictEqual([
-        makeL2ToL1Message(recipient2, content2), 
-        makeL2ToL1Message(recipient1, content1), 
-        Fr.ZERO, 
-        Fr.ZERO]
-          .map(expectedL2ToL1Message => expectedL2ToL1Message.toString())
-      );
+    expect(l2ToL1Messages?.map(l2ToL1Message => l2ToL1Message.toString())).toStrictEqual(
+      [makeL2ToL1Message(recipient2, content2), makeL2ToL1Message(recipient1, content1), Fr.ZERO, Fr.ZERO].map(
+        expectedL2ToL1Message => expectedL2ToL1Message.toString(),
+      ),
+    );
 
     // For each individual message, we are using our node API to grab the index and sibling path. We expect
     // the index to match the order of the block we obtained earlier. We also then use this sibling path to hash up to the root,
     // verifying that the expected root obtained through the message and the sibling path match the actual root
     // that was returned by the circuits in the header as out_hash.
-    const [index, siblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(txReceipt.blockNumber!, l2ToL1Messages![0]);
+    const [index, siblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      txReceipt.blockNumber!,
+      l2ToL1Messages![0],
+    );
     expect(siblingPath.pathSize).toBe(2);
     expect(index).toBe(0);
     const expectedRoot = calculateExpectedRoot(l2ToL1Messages![0], siblingPath as SiblingPath<2>, index);
@@ -73,24 +83,6 @@ describe('E2E Outbox Tests', () => {
     expect(index2).toBe(1);
     const expectedRoot2 = calculateExpectedRoot(l2ToL1Messages![1], siblingPath2 as SiblingPath<2>, index2);
     expect(expectedRoot2.toString('hex')).toEqual(block?.header.contentCommitment.outHash.toString('hex'));
-
-    // const [index3, siblingPath3] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
-    //   blockNumber1!,
-    //   l2ToL1Messages![2],
-    // );
-    // expect(siblingPath3.pathSize).toBe(2);
-    // expect(index3).toBe(2);
-    // const expectedRoot3 = calculateExpectedRoot(l2ToL1Messages![2], siblingPath3 as SiblingPath<2>, index3);
-    // expect(expectedRoot3.toString('hex')).toEqual(block?.header.contentCommitment.outHash.toString('hex'));
-
-    // const [index4, siblingPath4] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
-    //   blockNumber1!,
-    //   l2ToL1Messages![3],
-    // );
-    // expect(siblingPath4.pathSize).toBe(2);
-    // expect(index4).toBe(3);
-    // const expectedRoot4 = calculateExpectedRoot(l2ToL1Messages![3], siblingPath4 as SiblingPath<2>, index4);
-    // expect(expectedRoot4.toString('hex')).toEqual(block?.header.contentCommitment.outHash.toString('hex'));
   }, 360_000);
 
   function calculateExpectedRoot(l2ToL1Message: Fr, siblingPath: SiblingPath<2>, index: number): Buffer {
