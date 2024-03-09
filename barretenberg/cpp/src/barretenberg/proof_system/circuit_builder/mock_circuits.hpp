@@ -15,7 +15,7 @@ class MockCircuits {
      * @param builder
      * @param num_gates
      */
-    static void construct_arithmetic_circuit(GoblinUltraCircuitBuilder& builder, size_t log_num_gates = 0)
+    static void construct_arithmetic_circuit(auto& builder, size_t log_num_gates = 0)
     {
         size_t num_gates = 1 << log_num_gates;
         // For good measure, include a gate with some public inputs

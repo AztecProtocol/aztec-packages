@@ -2,10 +2,10 @@
 #include <benchmark/benchmark.h>
 #include <cstddef>
 
-#include "barretenberg/crypto/merkle_tree/membership.hpp"
-#include "barretenberg/crypto/merkle_tree/memory_store.hpp"
-#include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
-#include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
+// #include "barretenberg/crypto/merkle_tree/membership.hpp"
+// #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
+// #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
+// #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/plonk/composer/standard_composer.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"

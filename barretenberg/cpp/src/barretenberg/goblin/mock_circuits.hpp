@@ -12,10 +12,10 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
-#include "barretenberg/stdlib/recursion/honk/verifier/protogalaxy_recursive_verifier.hpp"
-#include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
 
 namespace bb {
 class GoblinMockCircuits {

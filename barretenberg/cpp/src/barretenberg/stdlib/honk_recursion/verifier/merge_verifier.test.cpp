@@ -1,7 +1,7 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/recursion/honk/verifier/merge_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::goblin {
 
