@@ -16,7 +16,7 @@ COPY --keep-ts --dir \
   noir-repo/Cargo.toml \
   noir-repo
 
-build: 
+build:
     ARG EARTHLY_BUILD_SHA
     ENV COMMIT_HASH=$EARTHLY_BUILD_SHA
     COPY --keep-ts ./scripts/bootstrap_native.sh ./scripts/bootstrap_native.sh
