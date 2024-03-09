@@ -64,25 +64,4 @@ contract NaiveMerkle {
 
     return (path, leafs[_index]);
   }
-
-  function verifyMembership(bytes32[] memory _path, bytes32 _leaf, uint256 _index)
-    public
-    view
-    returns (bool)
-  {
-    bytes32 root;
-    uint256 index = _index;
-
-    for (uint256 i = 0; i < _path.length; i++) {
-      bool isRight = (index & 1) == 1;
-
-      root = isRight
-        ? sha256(bytes.concat(_path[i], i == 0 ? _leaf : root))
-        : sha256(bytes.concat(i == 0 ? _leaf : root, _path[i]));
-
-      index /= 2;
-    }
-
-    return computeRoot() == root;
-  }
 }

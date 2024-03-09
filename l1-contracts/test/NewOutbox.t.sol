@@ -4,6 +4,7 @@ pragma solidity >=0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 import {NewOutbox} from "../src/core/messagebridge/NewOutbox.sol";
+import {INewOutbox} from "../src/core/interfaces/messagebridge/INewOutbox.sol";
 import {Errors} from "../src/core/libraries/Errors.sol";
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
 import {Hash} from "../src/core/libraries/Hash.sol";
@@ -20,11 +21,6 @@ contract NewOutboxTest is Test {
 
   NewOutbox internal outbox;
   NaiveMerkle internal zeroedTree;
-
-  event RootAdded(uint256 indexed l2BlockNumber, bytes32 indexed root, uint256 height);
-  event MessageConsumed(
-    uint256 indexed l2BlockNumber, bytes32 indexed root, bytes32 indexed messageHash
-  );
 
   function setUp() public {
     outbox = new NewOutbox(_STATE_TRANSITIONER);
@@ -57,8 +53,29 @@ contract NewOutboxTest is Test {
     outbox.insert(1, root, _DEFAULT_TREE_HEIGHT);
 
     vm.prank(_STATE_TRANSITIONER);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__RootAlreadySet.selector, 1));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__RootAlreadySetAtBlock.selector, 1));
     outbox.insert(1, root, _DEFAULT_TREE_HEIGHT);
+  }
+
+  function testInsertVariedLeafs(bytes32[] calldata _messageLeafs) public {
+    uint256 bigTreeHeight = calculateTreeHeightFromSize(_messageLeafs.length);
+    NaiveMerkle tree = new NaiveMerkle(bigTreeHeight);
+
+    for (uint256 i = 0; i < _messageLeafs.length; i++) {
+      vm.assume(_messageLeafs[i] != bytes32(0));
+      tree.insertLeaf(_messageLeafs[i]);
+    }
+
+    bytes32 root = tree.computeRoot();
+
+    vm.expectEmit(true, true, true, true, address(outbox));
+    emit INewOutbox.RootAdded(1, root, bigTreeHeight);
+    vm.prank(_STATE_TRANSITIONER);
+    outbox.insert(1, root, bigTreeHeight);
+
+    (bytes32 actualRoot, uint256 actualHeight) = outbox.roots(1);
+    assertEq(root, actualRoot);
+    assertEq(bigTreeHeight, actualHeight);
   }
 
   function testRevertIfConsumingMessageBelongingToOther() public {
@@ -157,48 +174,40 @@ contract NewOutboxTest is Test {
 
     (bytes32[] memory path,) = modifiedTree.computeSiblingPath(0);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__InvalidRoot.selector, root, modifiedRoot));
+    vm.expectRevert(abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, root, modifiedRoot));
     outbox.consume(1, 0, fakeMessage, path);
   }
 
-  function testInsertVariedLeafs(bytes32[] calldata _messageLeafs) public {
-    vm.assume(_messageLeafs.length < 256);
-    vm.assume(_messageLeafs.length > 128);
+  function testValidInsertAndConsume() public {
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
+    bytes32 leaf = fakeMessage.sha256ToField();
 
-    // This correct only when fuzzing using _messageLeafs.length 128 < length < 256
-    NaiveMerkle tree = new NaiveMerkle(8);
-
-    for (uint256 i = 0; i < _messageLeafs.length; i++) {
-      vm.assume(_messageLeafs[i] != bytes32(0));
-      tree.insertLeaf(_messageLeafs[i]);
-    }
-
+    NaiveMerkle tree = new NaiveMerkle(_DEFAULT_TREE_HEIGHT);
+    tree.insertLeaf(leaf);
     bytes32 root = tree.computeRoot();
 
-    vm.expectEmit(true, true, true, true, address(outbox));
-    emit RootAdded(1, root, 8);
     vm.prank(_STATE_TRANSITIONER);
-    outbox.insert(1, root, 8);
+    outbox.insert(1, root, _DEFAULT_TREE_HEIGHT);
+
+    (bytes32[] memory path,) = tree.computeSiblingPath(0);
+
+    vm.expectEmit(true, true, true, true, address(outbox));
+    emit INewOutbox.MessageConsumed(1, root, leaf, 0);
+    outbox.consume(1, 0, fakeMessage, path);
   }
 
-  // This test takes awhile so to keep it somewhat reasonable wev'e set a limit on the amount of fuzz runs
-  /// forge-config: default.fuzz.runs = 16
+  // This test takes awhile so to keep it somewhat reasonable we've set a limit on the amount of fuzz runs
+  /// forge-config: default.fuzz.runs = 32
   function testInsertAndConsumeWithVariedRecipients(
     address[] calldata _recipients,
     uint256 _blockNumber
   ) public {
-    // We most likely will not have > 128 L2 -> L1 Messages in a single block but are testing an upper bound here
-    vm.assume(_recipients.length < 256);
-    vm.assume(_recipients.length > 128);
     DataStructures.L2ToL1Msg[] memory messages = new DataStructures.L2ToL1Msg[](_recipients.length);
 
-    // This correct only when fuzzing using _messageLeafs.length 128 < length < 256 hence the assumption above
-    uint256 bigTreeHeight = 8;
-
+    uint256 bigTreeHeight = calculateTreeHeightFromSize(_recipients.length);
     NaiveMerkle tree = new NaiveMerkle(bigTreeHeight);
 
     for (uint256 i = 0; i < _recipients.length; i++) {
-      vm.assume(_recipients[i] != address(0));
       DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(_recipients[i]);
       messages[i] = fakeMessage;
       bytes32 modifiedLeaf = fakeMessage.sha256ToField();
@@ -209,7 +218,7 @@ contract NewOutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit RootAdded(_blockNumber, root, bigTreeHeight);
+    emit INewOutbox.RootAdded(_blockNumber, root, bigTreeHeight);
     vm.prank(_STATE_TRANSITIONER);
     outbox.insert(_blockNumber, root, bigTreeHeight);
 
@@ -217,9 +226,38 @@ contract NewOutboxTest is Test {
       (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(i);
 
       vm.expectEmit(true, true, true, true, address(outbox));
-      emit MessageConsumed(_blockNumber, root, leaf);
+      emit INewOutbox.MessageConsumed(_blockNumber, root, leaf, i);
       vm.prank(_recipients[i]);
       outbox.consume(_blockNumber, i, messages[i], path);
     }
+  }
+
+  function calculateTreeHeightFromSize(uint256 _number) internal pure returns (uint256) {
+    if (_number == 1) {
+      return 1;
+    }
+
+    uint256 originalNumber = _number;
+
+    uint256 height = 0;
+    while (_number > 1) {
+      _number >>= 1;
+      height++;
+    }
+
+    return 2 ** height != originalNumber ? ++height : height;
+  }
+
+  function testCalculateNextHighestPowerOfTwo() external {
+    assertEq(calculateTreeHeightFromSize(0), 1);
+    assertEq(calculateTreeHeightFromSize(1), 1);
+    assertEq(calculateTreeHeightFromSize(2), 1);
+    assertEq(calculateTreeHeightFromSize(3), 2);
+    assertEq(calculateTreeHeightFromSize(4), 2);
+    assertEq(calculateTreeHeightFromSize(5), 3);
+    assertEq(calculateTreeHeightFromSize(6), 3);
+    assertEq(calculateTreeHeightFromSize(7), 3);
+    assertEq(calculateTreeHeightFromSize(8), 3);
+    assertEq(calculateTreeHeightFromSize(9), 4);
   }
 }
