@@ -27,6 +27,11 @@ describe('E2E Outbox Tests', () => {
 
   it('Inserts a new out message, and verifies sibling paths of both the new message, and its zeroed sibling', async () => {
     // We split two calls up, because BatchCall sends both calls in a single transaction. There are a max of 2 L2 to L1 messages per transaction
+    const call0 = new BatchCall(wallets[0], [
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(0, EthAddress.random()).request(),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(0, EthAddress.random()).request(),
+    ]);
+
     const call1 = new BatchCall(wallets[0], [
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(42069, EthAddress.random()).request(),
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(53170, EthAddress.random()).request(),
@@ -36,6 +41,8 @@ describe('E2E Outbox Tests', () => {
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(64281, EthAddress.random()).request(),
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(75392, EthAddress.random()).request(),
     ]);
+
+    await call0.send().wait();
 
     const [{ blockNumber: blockNumber1 }, { blockNumber: blockNumber2 }] = await Promise.all([
       call1.send().wait(),
