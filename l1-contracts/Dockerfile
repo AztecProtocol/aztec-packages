@@ -14,9 +14,8 @@ RUN foundryup
 
 WORKDIR /usr/src/l1-contracts
 COPY . .
-RUN forge fmt --check && forge build && forge test
-
 RUN git init && git add . && yarn lint && yarn slither && yarn slither-has-diff
+RUN forge clean && forge fmt --check && forge build && forge test
 
 FROM scratch
 COPY --from=0 /usr/src/l1-contracts/out /usr/src/l1-contracts/out
