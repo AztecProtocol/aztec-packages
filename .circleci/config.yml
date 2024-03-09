@@ -278,7 +278,7 @@ jobs:
       - run:
           name: "Build"
           command: |
-            git submodule init --recursive
+            git submodule update --init --recursive
             cd yarn-project && earthly +build
 
   barretenberg-benches:
