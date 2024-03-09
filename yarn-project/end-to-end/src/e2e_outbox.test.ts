@@ -37,12 +37,9 @@ describe('E2E Outbox Tests', () => {
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_public(75392, EthAddress.random()).request(),
     ]);
 
-    const sentMessage1 = call1.send();
-    const sentMessage2 = call2.send();
-
     const [{ blockNumber: blockNumber1 }, { blockNumber: blockNumber2 }] = await Promise.all([
-      sentMessage1.wait(),
-      sentMessage2.wait(),
+      call1.send().wait(),
+      call2.send().wait(),
     ]);
 
     // We verify that both transactions were processed in the same block
@@ -52,7 +49,7 @@ describe('E2E Outbox Tests', () => {
 
     const l2ToL1Messages = block?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-    // We make sure there are no suprise gifts inside the blocks L2 to L1 Messages
+    // We make sure there are no surprise gifts inside the blocks L2 to L1 Messages
     expect(l2ToL1Messages?.length).toStrictEqual(4);
 
     // For each individual message, we are using our node API to grab the index and sibling path. We expect
