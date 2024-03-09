@@ -74,13 +74,15 @@ test-clang-format:
     RUN ./format.sh check
 
 bench-ultra-honk:
-    DO +BENCH_RELEASE --target=ultra_honk_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
-    DO +BENCH_WASM --target=ultra_honk_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
+    DO +BENCH_RELEASE --target=ultra_honk_bench --args=""
+    DO +BENCH_WASM --target=ultra_honk_bench --args=""
+    SAVE IMAGE --push ultra-honk-$EARTHLY_BUILD_SHA
 
 bench-client-ivc:
-    DO +BENCH --target=client_ivc_bench
-    DO +BENCH_ --target=client_ivc_bench
-    DO +WASM_BENCH --target=client_ivc_bench
+    DO +BENCH_RELEASE --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
+    DO +BENCH_RELEASE --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
+    DO +WASM_BENCH --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
+    SAVE IMAGE --push ivc-bench-$EARTHLY_BUILD_SHA
 
 # Functions
 BUILD:

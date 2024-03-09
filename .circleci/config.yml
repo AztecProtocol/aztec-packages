@@ -66,48 +66,46 @@ setup_env: &setup_env
     command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH" "$CIRCLE_PULL_REQUEST"
 
 defaults_e2e_test: &defaults_e2e_test
-    docker:
-      - image: aztecprotocol/alpine-build-image
+    docker: [{image: aztecprotocol/alpine-build-image}]
     resource_class: small
 
 jobs:
   barretenberg-build:
-    machine:
-      image: default
+    machine: {image: default}
     resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Build"
-          command: cd barretenberg/cpp && earthly +build-ci
+          working_directory: barretenberg/cpp
+          command: earthly +build-ci
 
   yarn-project:
-    machine:
-      image: default
+    machine: {image: default}
     resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Build"
+          working_directory: yarn-project
           command: |
             git submodule update --init --recursive
             cd yarn-project && earthly +build
 
   barretenberg-benches:
-    machine:
-      image: default
+    machine: {image: default}
     resource_class: xlarge
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Test"
+          working_directory: barretenberg/cpp
           command: |
-            cd barretenberg/cpp;
-            earthly_local +bench-ultra-honk;
-            earthly_local +bench-client-ivc;
+            earthly_local +bench-ultra-honk
+            earthly_local +bench-client-ivc
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults
