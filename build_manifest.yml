@@ -145,8 +145,6 @@ barretenberg-docs:
 # Compiles all l1 solidity contracts. Output is JSON abis.
 l1-contracts:
   buildDir: l1-contracts
-  # Foundry base image doesn't have arm.
-  multiarch: false
 
 # Runs all yarn-projects checks and tests.
 yarn-project-test:
