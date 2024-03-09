@@ -82,6 +82,7 @@ Recovering if the sync is not happening with basic pull commands:
 
 Earthly is a reproducible build tool that aims to combine the functionality of Docker, Makefiles and BASH.
 All earthly targets should start with 'build', 'test', 'run', or 'bench' as a general rule (but not hard rule).
+If something is a bundle of targets for CI, we can do e.g. build-ci, test-ci etc.
 See barretenberg/cpp/Earthfile for an example of a fairly involved Earthfile that can be used for inspiration.
 Earthly docs https://docs.earthly.dev/ are extensive and show the various build patterns. 
 

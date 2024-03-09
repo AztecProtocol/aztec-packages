@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -eu
+set -eux
 
 ROOT=$(realpath $(dirname "$0")/..)
 cd $ROOT/noir-repo
