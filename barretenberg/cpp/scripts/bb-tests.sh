@@ -18,6 +18,7 @@ TESTS=(
   goblin_tests
   client_ivc_tests
   dsl_tests
+  join_split_example_tests
   crypto_aes128_tests
   crypto_blake2s_tests
   crypto_blake3s_tests
@@ -28,8 +29,6 @@ TESTS=(
   crypto_schnorr_tests
   crypto_sha256_tests
   ecc_tests
-  join_split_example_proofs_inner_proof_data_tests
-  join_split_example_proofs_notes_tests
   numeric_tests
   plonk_tests
   polynomials_tests

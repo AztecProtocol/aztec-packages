@@ -76,7 +76,7 @@ library Constants {
   uint256 internal constant ARGS_HASH_CHUNK_COUNT = 32;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
-  uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 8000;
+  uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 9000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 500;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS = 500;
   uint256 internal constant REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE =
@@ -114,7 +114,7 @@ library Constants {
   uint256 internal constant PARTIAL_STATE_REFERENCE_LENGTH = 8;
   uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 223;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 218;
-  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 195;
+  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 199;
   uint256 internal constant STATE_REFERENCE_LENGTH = 10;
   uint256 internal constant TX_CONTEXT_DATA_LENGTH = 11;
   uint256 internal constant TX_REQUEST_LENGTH = 17;
