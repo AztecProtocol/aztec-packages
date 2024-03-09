@@ -377,7 +377,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: cond_spot_run_build barretenberg-acir-tests-bb-sol 32
+          command: build barretenberg-acir-tests-bb-sol
           aztec_manifest_key: barretenberg-acir-tests-bb-sol
 
   bb-js:
@@ -877,7 +877,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_outbox.test.ts
+          command: run_compose end-to-end ./scripts/docker-compose.yml TEST=e2e_outbox.test.ts
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
@@ -1275,12 +1275,6 @@ workflows:
     jobs:
       # Noir
       - noir: *defaults
-      # - noir-arm64: *defaults
-      # - noir-ecr-manifest:
-      #     requires:
-      #       - noir-x86_64
-      #       - noir-arm64
-      #     <<: *defaults
       - noir-tests: *defaults
       - noir-packages: *defaults
       - noir-packages-tests:
