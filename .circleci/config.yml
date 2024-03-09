@@ -105,11 +105,9 @@ jobs:
       - run:
           name: "Test"
           command: |
-            aws_run 8 "
-              cd barretenberg/cpp;
-              earthly_local +bench-ultra-honk;
-              earthly_local +bench-client-ivc;
-            "
+            cd barretenberg/cpp;
+            earthly_local +bench-ultra-honk;
+            earthly_local +bench-client-ivc;
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults
