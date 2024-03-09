@@ -279,6 +279,17 @@ jobs:
           name: "Build"
           command: cd yarn-project && earthly +build
 
+  barretenberg-benches:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: aws_run 16 "cd barretenberg/cpp && earthly_local +bench-ci"
+
 # Repeatable config for defining the workflow below.
 defaults: &defaults
   filters:
