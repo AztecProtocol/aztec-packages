@@ -106,6 +106,8 @@ bb.js:
   buildDir: barretenberg/ts
   dependencies:
     - barretenberg-wasm-linux-clang
+  # Something (chromium?) randomly segfaults on the arm tests.
+  multiarch: false
 
 # Runs all the compiled acir tests through native bb.
 barretenberg-acir-tests-bb:
