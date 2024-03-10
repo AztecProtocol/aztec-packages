@@ -113,6 +113,6 @@ done
 
 if [ "$ARM" == "false" ]; then
   echo "Arm build disabled. Copying x86 image to arm host for downstream builds..."
-  docker save -o image.tar $IMAGE_COMMIT_URI
+  DOCKER_HOST=$DOCKER_HOST_X86 docker save -o image.tar $IMAGE_COMMIT_URI
   DOCKER_HOST=$DOCKER_HOST_ARM docker load -i image.tar
 fi
