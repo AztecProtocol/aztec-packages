@@ -16,9 +16,7 @@
 
 version: 2.1
 
-setup: true # have a dynamic config step
 orbs:
-  continuation: circleci/continuation@1.0.0
   slack: circleci/slack@4.12.5
 
 parameters:
