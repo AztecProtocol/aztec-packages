@@ -102,6 +102,23 @@ pub fn array_merge<T, N>(array1: [T; N], array2: [T; N]) -> [T; N] where T: Empt
     result
 }
 
+pub fn check_permutation<T, N>(
+    original_array: [T; N],
+    sorted_array: [T; N],
+    indexes: [u64; N],
+    is_equal: fn(T, T) -> bool
+) {
+    let mut seen_value = [false; N];
+    for i in 0..N {
+        let index = indexes[i];
+        let sorted_value = sorted_array[i];
+        let original_value = original_array[index];
+        assert(is_equal(sorted_value, original_value), "Invalid index");
+        assert(!seen_value[index], "Duplicated index");
+        seen_value[index] = true;
+    }
+}
+
 #[test]
 fn smoke_validate_array() {
     let valid_array = [];
@@ -146,4 +163,31 @@ fn test_array_length() {
     assert_eq(array_length([123, 456, 0]), 2);
     assert_eq(array_length([123, 0, 456]), 1);
     assert_eq(array_length([0, 123, 0, 456]), 0);
+}
+
+#[test]
+fn check_permutation_basic_test() {
+    let original_array = [1, 2, 3];
+    let sorted_array = [3, 1, 2];
+    let indexes = [2, 0, 1];
+    let is_equal = |a: Field, b: Field| a == b;
+    check_permutation(original_array, sorted_array, indexes, is_equal);
+}
+
+#[test(should_fail_with = "Duplicated index")]
+fn check_permutation_duplicated_index() {
+    let original_array = [0, 1, 0];
+    let sorted_array = [1, 0, 0];
+    let indexes = [1, 0, 0];
+    let is_equal = |a: Field, b: Field| a == b;
+    check_permutation(original_array, sorted_array, indexes, is_equal);
+}
+
+#[test(should_fail_with = "Invalid index")]
+fn check_permutation_invalid_index() {
+    let original_array = [0, 1, 2];
+    let sorted_array = [1, 0, 0];
+    let indexes = [1, 0, 2];
+    let is_equal = |a: Field, b: Field| a == b;
+    check_permutation(original_array, sorted_array, indexes, is_equal);
 }

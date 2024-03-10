@@ -2,8 +2,9 @@
 use crate::read_request_reset::{PendingReadHint, ReadRequestStatus, ReadValueHint, SettledReadHint};
 use dep::std::unsafe;
 use dep::types::{
-    abis::{membership_witness::MembershipWitness, nullifier_leaf_preimage::NullifierLeafPreimage},
-    constants::{MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT}
+    abis::{nullifier_leaf_preimage::NullifierLeafPreimage},
+    constants::{MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT},
+    merkle_tree::MembershipWitness
 };
 
 struct NullifierSettledReadHint {
@@ -75,10 +76,10 @@ mod tests {
     use dep::types::{
         address::AztecAddress,
         abis::{
-        membership_witness::MembershipWitness, nullifier_leaf_preimage::NullifierLeafPreimage,
-        read_request::ReadRequestContext, side_effect::SideEffect
+        nullifier_leaf_preimage::NullifierLeafPreimage, read_request::ReadRequestContext,
+        side_effect::SideEffect
     },
-        constants::NULLIFIER_TREE_HEIGHT, hash::silo_nullifier,
+        constants::NULLIFIER_TREE_HEIGHT, hash::silo_nullifier, merkle_tree::MembershipWitness,
         tests::merkle_tree_utils::NonEmptyMerkleTree
     };
 

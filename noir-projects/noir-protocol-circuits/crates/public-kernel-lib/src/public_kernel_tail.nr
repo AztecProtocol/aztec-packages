@@ -160,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn one_pending_nullifier_read_request() {
+    fn one_pending_nullifier_read_request() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
 
         builder.append_nullifiers(3);
@@ -169,7 +169,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn two_pending_nullifier_read_requests() {
+    fn two_pending_nullifier_read_requests() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
 
         builder.append_nullifiers(3);
@@ -180,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn one_pending_nullifier_read_request_non_revertible() {
+    fn one_pending_nullifier_read_request_non_revertible() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
 
         builder.append_nullifiers_non_revertible(3);
@@ -189,7 +189,7 @@ mod tests {
     }
 
     #[test(should_fail_with="Hinted value does not match read request")]
-    unconstrained fn pending_nullifier_read_request_wrong_hint_fails() {
+    fn pending_nullifier_read_request_wrong_hint_fails() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
 
         builder.append_nullifiers(3);
@@ -202,7 +202,7 @@ mod tests {
     }
 
     #[test(should_fail_with="Read request counter must be greater than counter of the value being read")]
-    unconstrained fn pending_nullifier_read_request_reads_before_value_fails() {
+    fn pending_nullifier_read_request_reads_before_value_fails() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
 
         builder.append_nullifiers(3);

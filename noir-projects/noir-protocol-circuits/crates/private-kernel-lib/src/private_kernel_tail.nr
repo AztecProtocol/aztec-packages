@@ -6,7 +6,6 @@ use dep::types::{
     call_request::CallRequest, nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     kernel_data::{PrivateKernelInnerData, PrivateKernelTailData},
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputsBuilder, PrivateKernelTailCircuitPublicInputs},
-    membership_witness::{MembershipWitness, NullifierMembershipWitness},
     side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
 },
     constants::{

@@ -9,10 +9,7 @@ use crate::{
 use dep::types::{
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-    membership_witness::{
-    ArchiveRootMembershipWitness, MembershipWitness, NullifierMembershipWitness,
-    PublicDataMembershipWitness
-},
+    membership_witness::{ArchiveRootMembershipWitness, NullifierMembershipWitness, PublicDataMembershipWitness},
     nullifier_leaf_preimage::NullifierLeafPreimage, public_data_update_request::PublicDataUpdateRequest,
     public_data_read::PublicDataRead, kernel_data::RollupKernelData,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}, accumulated_data::CombinedAccumulatedData
@@ -30,8 +27,10 @@ use dep::types::{
     MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, MAX_REVERTIBLE_NULLIFIERS_PER_TX,
     MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX
 },
-    hash::assert_check_membership,
-    merkle_tree::{append_only_tree, calculate_empty_tree_root, calculate_subtree, indexed_tree},
+    merkle_tree::{
+    append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
+    indexed_tree, MembershipWitness
+},
     mocked::{AggregationObject, Proof}, partial_state_reference::PartialStateReference,
     public_data_tree_leaf::PublicDataTreeLeaf,
     public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
@@ -164,7 +163,7 @@ impl BaseRollupInputs {
     // TODO(Kev): This should say calculate_commitments_subtree_root
     // Cpp code says calculate_commitments_subtree, so I'm leaving it as is for now
     fn calculate_commitments_subtree(self) -> Field {
-        calculate_subtree(self.kernel_data.public_inputs.end.new_note_hashes.map(|c: SideEffect| c.value))
+        calculate_subtree_root(self.kernel_data.public_inputs.end.new_note_hashes.map(|c: SideEffect| c.value))
     }
 
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
@@ -215,7 +214,7 @@ impl BaseRollupInputs {
     }
 
     fn create_nullifier_subtree<N>(leaves: [NullifierLeafPreimage; N]) -> Field {
-        calculate_subtree(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
+        calculate_subtree_root(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
     }
 
     fn validate_and_process_public_state(self) -> AppendOnlyTreeSnapshot {
@@ -453,7 +452,6 @@ mod tests {
         NUM_FIELDS_PER_SHA256, MAX_NEW_L2_TO_L1_MSGS_PER_TX
     },
         contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
-        hash::assert_check_membership, merkle_tree::{calculate_empty_tree_root, calculate_subtree},
         public_data_tree_leaf::PublicDataTreeLeaf,
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::{

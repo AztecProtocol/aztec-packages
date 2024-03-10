@@ -3,4 +3,5 @@ use nullifier_read_request_reset::NullifierReadRequestResetHints;
 use nullifier_read_request_reset::NullifierReadRequestResetHintsBuilder;
 
 mod read_request_reset;
+mod non_existent_read_request_reset;
 mod nullifier_read_request_reset;

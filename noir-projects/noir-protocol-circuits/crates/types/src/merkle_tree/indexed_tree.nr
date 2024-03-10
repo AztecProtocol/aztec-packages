@@ -1,52 +1,11 @@
 use crate::{
-    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, membership_witness::MembershipWitness},
-    hash::{assert_check_membership, root_from_sibling_path},
-    merkle_tree::{calculate_subtree, calculate_empty_tree_root}
+    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot},
+    merkle_tree::{
+    membership::{assert_check_membership, MembershipWitness},
+    root::{calculate_subtree_root, calculate_empty_tree_root, root_from_sibling_path}
+},
+    utils::arrays::check_permutation
 };
-
-fn check_permutation<T, N>(
-    original_array: [T; N],
-    sorted_array: [T; N],
-    indexes: [u64; N],
-    is_equal: fn(T, T) -> bool
-) {
-    let mut seen_value = [false; N];
-    for i in 0..N {
-        let index = indexes[i];
-        let sorted_value = sorted_array[i];
-        let original_value = original_array[index];
-        assert(is_equal(sorted_value, original_value), "Invalid index");
-        assert(!seen_value[index], "Duplicated index");
-        seen_value[index] = true;
-    }
-}
-
-#[test]
-fn check_permutation_basic_test() {
-    let original_array = [1, 2, 3];
-    let sorted_array = [3, 1, 2];
-    let indexes = [2, 0, 1];
-    let is_equal = |a: Field, b: Field| a == b;
-    check_permutation(original_array, sorted_array, indexes, is_equal);
-}
-
-#[test(should_fail_with = "Duplicated index")]
-fn check_permutation_duplicated_index() {
-    let original_array = [0, 1, 0];
-    let sorted_array = [1, 0, 0];
-    let indexes = [1, 0, 0];
-    let is_equal = |a: Field, b: Field| a == b;
-    check_permutation(original_array, sorted_array, indexes, is_equal);
-}
-
-#[test(should_fail_with = "Invalid index")]
-fn check_permutation_invalid_index() {
-    let original_array = [0, 1, 2];
-    let sorted_array = [1, 0, 0];
-    let indexes = [1, 0, 2];
-    let is_equal = |a: Field, b: Field| a == b;
-    check_permutation(original_array, sorted_array, indexes, is_equal);
-}
 
 pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight, TreeHeight>(
     start_snapshot: AppendOnlyTreeSnapshot,
@@ -121,7 +80,7 @@ pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight,
     );
 
     // Create new subtree to insert into the whole indexed tree
-    let subtree_root = calculate_subtree(insertion_subtree.map(hash_leaf));
+    let subtree_root = calculate_subtree_root(insertion_subtree.map(hash_leaf));
 
     // Calculate the new root
     // We are inserting a subtree rather than a full tree here
