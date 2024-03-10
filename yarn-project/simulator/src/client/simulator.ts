@@ -108,6 +108,7 @@ export class AcirSimulator {
       this.db,
       curve,
       this.node,
+      request.txContext.isContractDeploymentTx ? 2 : 1,
     );
 
     try {
