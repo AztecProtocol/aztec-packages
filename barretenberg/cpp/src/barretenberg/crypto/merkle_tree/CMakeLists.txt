@@ -4,5 +4,4 @@ barretenberg_module(
     stdlib_blake3s
     stdlib_pedersen_hash
     circuit_checker
-    plonk # WORKTODO
 )
