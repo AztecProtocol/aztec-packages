@@ -80,7 +80,6 @@ fi
 
 echo export DOCKER_HOST_X86="ssh://build-instance-x86" >> $BASH_ENV
 echo export DOCKER_HOST_ARM="ssh://build-instance-arm" >> $BASH_ENV
-echo 'export DOCKER_HOST=${DOCKER_HOST:-$DOCKER_HOST_X86}' >> $BASH_ENV
 echo export ROOT_PATH=$ROOT_PATH >> $BASH_ENV
 echo export BUILD_SYSTEM_PATH=$BUILD_SYSTEM_PATH >> $BASH_ENV
 echo export DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} >> $BASH_ENV
@@ -106,6 +105,12 @@ echo export BRANCH=$BRANCH >> $BASH_ENV
 echo export PULL_REQUEST=$PULL_REQUEST >> $BASH_ENV
 echo export DRY_DEPLOY=${DRY_DEPLOY:-0} >> $BASH_ENV
 echo export DOCKER_CLI_HINTS=false >> $BASH_ENV
+echo 'export GREEN="\033[32m"' >> $BASH_ENV
+echo 'export YELLOW="\033[33m"' >> $BASH_ENV
+echo 'export BLUE="\033[34m"' >> $BASH_ENV
+echo 'export PURPLE="\033[35m"' >> $BASH_ENV
+echo 'export RESET="\033[0m"' >> $BASH_ENV
+echo 'export BOLD="\033[1m"' >> $BASH_ENV
 
 # We want very strict failures on any failing command, undefined variable, or commands that pipe to other commands.
 echo set -euo pipefail >> $BASH_ENV
@@ -131,20 +136,28 @@ if [ -n "$COMMIT_HASH" ]; then
       exit 1
     fi
     chmod +x $BIN_PATH/yq
-  else
-    # Temp hack to add docker to alpine.
-    apk add docker docker-compose
   fi
 
   # Install and ensure correct permissions on build instance key.
   mkdir -p ~/.ssh
   echo ${BUILD_INSTANCE_KEY:-} | base64 -d > ~/.ssh/build_instance_key
   chmod 600 ~/.ssh/build_instance_key
-  cp $BUILD_SYSTEM_PATH/remote/ssh_config ~/.ssh/config
 
   if [[ "$COMMIT_MESSAGE" == *"[ci debug]"* ]]; then
     echo export BUILD_SYSTEM_DEBUG=1 >> $BASH_ENV
   fi
+fi
+
+# Allows us the demo using a new ci pipeline.
+if [[ "$COMMIT_MESSAGE" == *"[ci new-ci]"* ]]; then
+  # TODO: Add to build-image.
+  if [ -f /etc/alpine-release ]; then
+    apk add docker docker-compose
+  fi
+  # Seems docker doesn't honor SSH_CONFIG_PATH, so copy file.
+  cp $BUILD_SYSTEM_PATH/remote/ssh_config ~/.ssh/config
+  # Prioritise new scripts.
+  echo export PATH=\$PATH:$BUILD_SYSTEM_PATH/scripts_new >> $BASH_ENV
 fi
 
 # Print for visibility.

@@ -1,5 +1,6 @@
 IdentityFile ~/.ssh/build_instance_key
 StrictHostKeyChecking no
+User ubuntu
 
 Host build-instance-x86
   HostName 18.191.162.117

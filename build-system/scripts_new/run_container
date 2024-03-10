@@ -18,20 +18,19 @@ if check_rebuild $SUCCESS_TAG $REPOSITORY; then
   exit 0
 fi
 
-g="\033[32m"  # Green
-b="\033[34m"  # Blue
-r="\033[0m"   # Reset
-
 function run {
   docker run --rm -t $IMAGE_URI $@
   docker tag $IMAGE_URI $ECR_URL/$REPOSITORY:$SUCCESS_TAG
 }
 
-MULTIARCH=$(query_manifest multiarch $REPOSITORY)
+X86=$(query_manifest x86 $REPOSITORY)
+ARM=$(query_manifest arm $REPOSITORY)
 
-DOCKER_HOST=$DOCKER_HOST_X86 run $@ > >(awk -v c="$g" -v r="$r" '$0=c"x86_64: "r $0') 2>&1 &
-if [ "$MULTIARCH" == "true" ]; then
-  DOCKER_HOST=$DOCKER_HOST_ARM run $@ > >(awk -v c="$b" -v r="$r" '$0=c"arm64: "r $0') 2>&1 &
+if [ "$X86" == "true" ]; then
+  DOCKER_HOST=$DOCKER_HOST_X86 run $@ > >(awk -v c="$GREEN" -v r="$RESET" '$0=c"x86_64: "r $0') 2>&1 &
+fi
+if [ "$ARM" == "true" ]; then
+  DOCKER_HOST=$DOCKER_HOST_ARM run $@ > >(awk -v c="$BLUE" -v r="$RESET" '$0=c"arm64: "r $0') 2>&1 &
 fi
 
 for job in $(jobs -p); do

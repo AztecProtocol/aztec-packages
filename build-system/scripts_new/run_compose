@@ -45,14 +45,6 @@ for DEP_REPO in $(query_manifest runDependencies $REPOSITORY); do
     exit 1
   fi
 
-  # Need to be specific about platform as sometimes we do arm builds from x86 images.
-  # DEP_MULTIARCH=$(query_manifest multiarch $DEP_REPO)
-  # if [ "$DEP_MULTIARCH" == "false" ]; then
-  #   PLATFORM='--platform=linux/amd64'
-  # else
-  #   PLATFORM=''
-  # fi
-
   # Substitute references to images, with the relevent built image uri.
   DEPLOY_URI=aztecprotocol/$DEP_REPO
   DEP_IMAGE_URI=$ECR_URL/$DEP_REPO:$DEP_IMAGE_TAG
@@ -73,11 +65,12 @@ else
   CMD="docker-compose"
 fi
 
-MULTIARCH=$(query_manifest multiarch $REPOSITORY)
+X86=$(query_manifest x86 $REPOSITORY)
+ARM=$(query_manifest arm $REPOSITORY)
 
 function cleanup {
-  $CMD -p $PROJECT down
-  [ "$MULTIARCH" == "true" ] && DOCKER_HOST=$DOCKER_HOST_ARM $CMD -p $PROJECT down
+  [ "$X86" == "true" ] && DOCKER_HOST=$DOCKER_HOST_X86 $CMD -p $PROJECT down
+  [ "$ARM" == "true" ] && DOCKER_HOST=$DOCKER_HOST_ARM $CMD -p $PROJECT down
   rm $TARGET_COMPOSE_FILE
 }
 trap cleanup EXIT
@@ -87,13 +80,11 @@ function run {
   docker tag $IMAGE_URI $ECR_URL/$REPOSITORY:$SUCCESS_TAG
 }
 
-g="\033[32m"  # Green
-b="\033[34m"  # Blue
-r="\033[0m"   # Reset
-
-(run > >(awk -v c="$g" -v r="$r" '$0=c"x86_64: "r $0')) &
-if [ "$MULTIARCH" == "true" ]; then
-  (DOCKER_HOST=$DOCKER_HOST_ARM run > >(awk -v c="$b" -v r="$r" '$0=c"arm64: "r $0')) &
+if [ "$X86" == "true" ]; then
+  (DOCKER_HOST=$DOCKER_HOST_X86 run > >(awk -v c="$GREEN" -v r="$RESET" '$0=c"x86_64: "r $0')) &
+fi
+if [ "$ARM" == "true" ]; then
+  (DOCKER_HOST=$DOCKER_HOST_ARM run > >(awk -v c="$BLUE" -v r="$RESET" '$0=c"arm64: "r $0')) &
 fi
 
 for job in $(jobs -p); do

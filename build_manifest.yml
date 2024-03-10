@@ -6,12 +6,22 @@
 #                  If any changed file path matches any pattern, the project will be rebuilt.
 # dependencies: An array of other projects that this project depends on.
 # runDependencies: Additional projects that are needed to run a container/compose file. Ensures they're pulled first.
+#
+# CI V1:
+# multiarch: Not defined: no multiarch
+#            host: Whichever host machine arch (determined in config.yml) determines target arch.
+#            buildx: Use dockers buildx emulation to build for both x86_64 and arm.
+#
+# CI V2:
+# x86: Build on x86. Defaults to true.
+# arm: Build on arm. Defaults to true.
 
 # Builds noir for x86_64 and arm64, creating a runnable container just with nargo + acvm.
 noir:
   buildDir: noir
   dockerfile: Dockerfile.native
   rebuildPatterns: .rebuild_patterns_native
+  multiarch: host
 
 # Builds and runs noir native tests.
 noir-tests:
@@ -19,7 +29,7 @@ noir-tests:
   dockerfile: Dockerfile.native-test
   rebuildPatterns: .rebuild_patterns_native
   # TODO: Fails on arm.
-  multiarch: false
+  arm: false
 
 # Builds just the noir js packages needed by aztec.
 noir-packages:
@@ -35,7 +45,7 @@ noir-packages-tests:
   dependencies:
     - noir
   # TODO: Fails on arm.
-  multiarch: false
+  arm: false
 
 # Builds the brillig to avm transpiler.
 avm-transpiler:
@@ -92,14 +102,14 @@ barretenberg-wasm-linux-clang:
   dockerfile: dockerfiles/Dockerfile.wasm-linux-clang
   rebuildPatterns: .rebuild_patterns
   # WASI sdk toolchain not yet for arm.
-  multiarch: false
+  arm: false
 
 barretenberg-x86_64-linux-clang-sol:
   buildDir: barretenberg
   dockerfile: sol/Dockerfile
   rebuildPatterns: sol/.rebuild_patterns
   # Foundry base image doesn't have arm.
-  multiarch: false
+  arm: false
 
 # Builds bb.js. Container is runnable for running the tests independently.
 bb.js:
@@ -162,7 +172,7 @@ yarn-project-test:
     - l1-contracts
     - noir-projects
   # TODO: Silently fails on arm. Figure out why.
-  multiarch: false
+  arm: false
 
 # Builds all of yarn-project, with all developer dependencies.
 # Creates a runnable container used to run tests and formatting checks.
@@ -178,6 +188,7 @@ yarn-project:
     - l1-contracts
     - noir-projects
     - noir
+  multiarch: host
 
 # A runnable container, sets entrypoint to be the aztec infrastructure entrypoint.
 aztec:
@@ -185,6 +196,7 @@ aztec:
   projectDir: yarn-project/aztec
   dependencies:
     - yarn-project
+  multiarch: buildx
 
 # Aztec faucet server. Has these dependencies because it's part of workspace. Consider moving out?
 aztec-faucet:
@@ -211,7 +223,7 @@ boxes:
   runDependencies:
     - aztec
   # Playwright segfaults on arm.
-  multiarch: false
+  arm: false
 
 # Builds a runnable container for running end-to-end tests (requires installing chromium etc).
 # We add the runnable dependency 'aztec' to ensure the container is pulled before running the test compose file.
