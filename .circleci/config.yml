@@ -409,7 +409,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: cond_spot_run_container bb.js 32 ./scripts/run_tests
+          command: cond_spot_run_container bb.js 32
           aztec_manifest_key: bb.js
 
   bb-js-acir-tests:
@@ -1272,14 +1272,14 @@ bb_test: &bb_test
 
 # Workflows.
 workflows:
-  # setup-workflow:
-  #   jobs:
-  #     - generate-config: *defaults
+  setup-workflow:
+    jobs:
+      - generate-config: *defaults
   system:
-    # when:
-    #   # Used to generate a dynamic 'system' workflow
-    #   # This is rewritten to 'system' on the real workflow (otherwise this is ignored by circleci)
-    #   equal: [NEVER, << pipeline.parameters.workflow >>]
+    when:
+      # Used to generate a dynamic 'system' workflow
+      # This is rewritten to 'system' on the real workflow (otherwise this is ignored by circleci)
+      equal: [NEVER, << pipeline.parameters.workflow >>]
     jobs:
       # Noir
       - noir-x86_64: *defaults
