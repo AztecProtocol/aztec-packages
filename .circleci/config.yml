@@ -69,4 +69,4 @@ jobs:
 workflows:
   setup-workflow:
     jobs:
-      - generate-config: *defaults
+      - generate-config
