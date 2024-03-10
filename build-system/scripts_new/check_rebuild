@@ -23,9 +23,14 @@ if [ -n "$COMMIT_TAG" ] && grep -qE "^ARG COMMIT_TAG=" $DOCKERFILE; then
   exit 1
 fi
 
-MULTIARCH=$(query_manifest multiarch $REPOSITORY)
+X86=$(query_manifest x86 $REPOSITORY)
+ARM=$(query_manifest arm $REPOSITORY)
 
 # If the image doesn't exist, we need to rebuild.
-if ! DOCKER_HOST=$DOCKER_HOST_X86 image_exists $REPOSITORY $TAG || [ "$MULTIARCH" == "true" ] && ! DOCKER_HOST=$DOCKER_HOST_ARM image_exists $REPOSITORY $TAG; then
+if [ "$X86" == "true" ] && ! DOCKER_HOST=$DOCKER_HOST_X86 image_exists $REPOSITORY $TAG
+  exit 1
+fi
+
+if [ "$ARM" == "true" ] && ! DOCKER_HOST=$DOCKER_HOST_ARM image_exists $REPOSITORY $TAG
   exit 1
 fi
