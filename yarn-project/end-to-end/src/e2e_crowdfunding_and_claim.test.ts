@@ -236,7 +236,11 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 3) We claim the reward token via the Claim contract
     {
-      await claimContract.withWallet(donorWallets[0]).methods.claim(valueNote).send().wait();
+      await claimContract
+        .withWallet(donorWallets[0])
+        .methods.claim(valueNote, donorWallets[0].getAddress())
+        .send()
+        .wait();
     }
 
     // Since the RWT is minted 1:1 with the DNT, the balance of the reward token should be equal to the donation amount
@@ -261,7 +265,9 @@ describe('e2e_crowdfunding_and_claim', () => {
 
   it('cannot claim twice', async () => {
     // The first claim was executed in the previous test
-    await expect(claimContract.withWallet(donorWallets[0]).methods.claim(valueNote).send().wait()).rejects.toThrow();
+    await expect(
+      claimContract.withWallet(donorWallets[0]).methods.claim(valueNote, donorWallets[0].getAddress()).send().wait(),
+    ).rejects.toThrow();
   });
 
   it('cannot claim with a non-existent note', async () => {
@@ -270,7 +276,11 @@ describe('e2e_crowdfunding_and_claim', () => {
     nonExistentNote.randomness = Fr.random();
 
     await expect(
-      claimContract.withWallet(donorWallets[0]).methods.claim(nonExistentNote).send().wait(),
+      claimContract
+        .withWallet(donorWallets[0])
+        .methods.claim(nonExistentNote, donorWallets[0].getAddress())
+        .send()
+        .wait(),
     ).rejects.toThrow();
   });
 
@@ -293,7 +303,9 @@ describe('e2e_crowdfunding_and_claim', () => {
     await inclusionsProofsContract.methods.test_note_inclusion(owner, false, 0n, true).send().wait();
 
     // 4) Finally, check that the claim process fails
-    await expect(claimContract.withWallet(donorWallets[0]).methods.claim(note).send().wait()).rejects.toThrow();
+    await expect(
+      claimContract.withWallet(donorWallets[0]).methods.claim(note, donorWallets[0].getAddress()).send().wait(),
+    ).rejects.toThrow();
   });
 
   it('cannot donate after a deadline', async () => {
