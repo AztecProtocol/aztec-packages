@@ -31,6 +31,7 @@ build:
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh # TODO mount cache
     RUN yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache clean
+    SAVE ARTIFACT /build
 
 # run:
 #     FROM node:18.19.1-slim

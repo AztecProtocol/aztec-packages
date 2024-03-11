@@ -1,13 +1,10 @@
 VERSION 0.8
-IMPORT ../noir AS noir
-IMPORT ../avm-transpiler AS avm-transpiler
-
 FROM ubuntu:lunar
 
 # Install nargo
-COPY noir+build-nargo/nargo /usr/bin/nargo
+COPY ../noir/+build-nargo/nargo /usr/bin/nargo
 # Install transpiler
-COPY avm-transpiler+build/avm-transpiler /usr/bin/avm-transpiler
+COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
 
 WORKDIR /build
 # Copy source.

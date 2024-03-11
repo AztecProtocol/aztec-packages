@@ -35,6 +35,7 @@ test-prettier-format:
     RUN yarn formatting
 
 build:
+    # collect all our build types
     COPY +build-esm/build /build
     COPY +build-cjs/build /build
     COPY +build-browser/build /build

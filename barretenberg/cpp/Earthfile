@@ -17,9 +17,8 @@ RUN apt-get update && apt-get install -y \
   jq \
   bash \
   libstdc++6 \
+  clang-16 \
   clang-format
-
-RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16
 
 WORKDIR /build
 # cpp source
@@ -40,27 +39,27 @@ build-wasm:
     RUN ./scripts/install-wasi-sdk.sh
     DO +BUILD --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
     RUN ./src/wasi-sdk-20.0/bin/llvm-strip ./build/bin/barretenberg.wasm
-    SAVE ARTIFACT build
+    SAVE ARTIFACT build/bin bin
 
 build-gcc:
     DO +BUILD --configure="--preset gcc" --build=""
-    SAVE ARTIFACT build
+    SAVE ARTIFACT build/bin bin
 
 build-fuzzing:
     DO +BUILD --configure="--preset fuzzing" --build=""
-    SAVE ARTIFACT build
+    SAVE ARTIFACT build/bin bin
 
 build-clang-assert:
     DO +BUILD --configure="--preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
-    SAVE ARTIFACT build
+    SAVE ARTIFACT build/bin bin
 
 build-op-count:
     DO +BUILD --configure="--preset op-count -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
-    SAVE ARTIFACT build
+    SAVE ARTIFACT build/bin bin
 
 build-op-count-time:
     DO +BUILD --configure="--preset op-count-time -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
-    SAVE ARTIFACT build
+    SAVE ARTIFACT build/bin bin
 
 test-clang-format:
     COPY .clang-format .
