@@ -67,7 +67,7 @@ impl PrivateCircuitPublicInputsBuilder {
             function_selector: function_data.selector,
             is_delegate_call: false,
             is_static_call: false,
-            start_side_effect_counter: 0
+            enqueued_side_effect_counter: 0
         };
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
