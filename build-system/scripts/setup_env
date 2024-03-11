@@ -78,42 +78,52 @@ if [ -z "$BASH_ENV" ]; then
   BASH_ENV=$(mktemp)
 fi
 
-echo export DOCKER_HOST_X86="ssh://build-instance-x86" >> $BASH_ENV
-echo export DOCKER_HOST_ARM="ssh://build-instance-arm" >> $BASH_ENV
-echo export ROOT_PATH=$ROOT_PATH >> $BASH_ENV
-echo export BUILD_SYSTEM_PATH=$BUILD_SYSTEM_PATH >> $BASH_ENV
-echo export DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1} >> $BASH_ENV
-echo export BUILDKIT_PROGRESS=plain >> $BASH_ENV
-echo export SSH_CONFIG_PATH=$BUILD_SYSTEM_PATH/remote/ssh_config >> $BASH_ENV
-echo export PATH=\$PATH:$BUILD_SYSTEM_PATH/scripts >> $BASH_ENV
-echo export AWS_DEFAULT_REGION=eu-west-2 >> $BASH_ENV
-echo export ECR_REGION=us-east-2 >> $BASH_ENV
-echo export AWS_ACCOUNT=278380418400 >> $BASH_ENV
-echo export ECR_URL=278380418400.dkr.ecr.us-east-2.amazonaws.com >> $BASH_ENV
-echo export ECR_DEPLOY_REGION=eu-west-2 >> $BASH_ENV
-echo export DOCKERHUB_ACCOUNT=aztecprotocol >> $BASH_ENV
-echo export DOCKERHUB_USERNAME=aztecprotocolci >> $BASH_ENV
-echo export PROJECT=$PROJECT >> $BASH_ENV
-echo export COMMIT_HASH=$COMMIT_HASH >> $BASH_ENV
-echo export COMMIT_TAG=$COMMIT_TAG >> $BASH_ENV
-echo "export COMMIT_MESSAGE='${COMMIT_MESSAGE//\'/\'\\\'\'}'" >> $BASH_ENV
-echo export JOB_NAME=$JOB_NAME >> $BASH_ENV
-echo export GIT_REPOSITORY_URL=$GIT_REPOSITORY_URL >> $BASH_ENV
-echo export DEPLOY_ENV=${DEPLOY_ENV:-} >> $BASH_ENV
-echo export DEPLOY_TAG=${DEPLOY_TAG:-} >> $BASH_ENV
-echo export BRANCH=$BRANCH >> $BASH_ENV
-echo export PULL_REQUEST=$PULL_REQUEST >> $BASH_ENV
-echo export DRY_DEPLOY=${DRY_DEPLOY:-0} >> $BASH_ENV
-echo export DOCKER_CLI_HINTS=false >> $BASH_ENV
-echo 'export GREEN="\033[32m"' >> $BASH_ENV
-echo 'export YELLOW="\033[33m"' >> $BASH_ENV
-echo 'export BLUE="\033[34m"' >> $BASH_ENV
-echo 'export PURPLE="\033[35m"' >> $BASH_ENV
-echo 'export RESET="\033[0m"' >> $BASH_ENV
-echo 'export BOLD="\033[1m"' >> $BASH_ENV
+# Ensure that we only ever set these env vars on the first bash instantiation.
+# Otherwise every new invocation of bash will reset the vars.
+cat >> $BASH_ENV << EOF
+if [ -n "$BUILD_SYSTEM_INITIALIZED" ]; then
+  exit
+fi
+
+export BUILD_SYSTEM_INITIALIZED=1 >> $BASH_ENV
+export DOCKER_HOST_X86="ssh://build-instance-x86"
+export DOCKER_HOST_ARM="ssh://build-instance-arm"
+export ROOT_PATH=$ROOT_PATH
+export BUILD_SYSTEM_PATH=$BUILD_SYSTEM_PATH
+export DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1}
+export BUILDKIT_PROGRESS=plain
+export SSH_CONFIG_PATH=$BUILD_SYSTEM_PATH/remote/ssh_config
+export PATH=\$PATH:$BUILD_SYSTEM_PATH/scripts
+export AWS_DEFAULT_REGION=eu-west-2
+export ECR_REGION=us-east-2
+export AWS_ACCOUNT=278380418400
+export ECR_URL=278380418400.dkr.ecr.us-east-2.amazonaws.com
+export ECR_DEPLOY_REGION=eu-west-2
+export DOCKERHUB_ACCOUNT=aztecprotocol
+export DOCKERHUB_USERNAME=aztecprotocolci
+export PROJECT=$PROJECT
+export COMMIT_HASH=$COMMIT_HASH
+export COMMIT_TAG=$COMMIT_TAG
+export COMMIT_MESSAGE='${COMMIT_MESSAGE//\'/\'\\\'\'}'
+export JOB_NAME=$JOB_NAME
+export GIT_REPOSITORY_URL=$GIT_REPOSITORY_URL
+export DEPLOY_ENV=${DEPLOY_ENV:-}
+export DEPLOY_TAG=${DEPLOY_TAG:-}
+export BRANCH=$BRANCH
+export PULL_REQUEST=$PULL_REQUEST
+export DRY_DEPLOY=${DRY_DEPLOY:-0}
+export DOCKER_CLI_HINTS=false
+export GREEN="\033[32m"
+export YELLOW="\033[33m"
+export BLUE="\033[34m"
+export PURPLE="\033[35m"
+export RESET="\033[0m"
+export BOLD="\033[1m"
+EOF
 
 # We want very strict failures on any failing command, undefined variable, or commands that pipe to other commands.
 echo set -euo pipefail >> $BASH_ENV
+
 # Enable logging if [ci debug] is in commit message.
 if [[ "$COMMIT_MESSAGE" == *"[ci debug]"* ]]; then
   echo export BUILD_SYSTEM_DEBUG=1 >> $BASH_ENV
