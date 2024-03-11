@@ -482,7 +482,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     uint32_t put_constant_variable(const FF& variable);
 
   public:
-    size_t get_num_constant_gates() const override { return 0; }
+    size_t get_num_constant_gates() const override
+    {
+        return 0;
+    }
     /**
      * @brief Get the final number of gates in a circuit, which consists of the sum of:
      * 1) Current number number of actual gates
@@ -792,6 +795,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     void write_RAM_array(const size_t ram_id, const uint32_t index_witness, const uint32_t value_witness);
     void process_RAM_array(const size_t ram_id);
     void process_RAM_arrays();
+
+    uint256_t hash_circuit();
 };
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
 } // namespace bb
