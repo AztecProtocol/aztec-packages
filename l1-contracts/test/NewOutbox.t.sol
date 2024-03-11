@@ -174,7 +174,9 @@ contract NewOutboxTest is Test {
 
     (bytes32[] memory path,) = modifiedTree.computeSiblingPath(0);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, root, modifiedRoot));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, root, modifiedRoot)
+    );
     outbox.consume(1, 0, fakeMessage, path);
   }
 

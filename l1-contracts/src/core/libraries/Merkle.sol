@@ -9,7 +9,7 @@ import {Errors} from "../libraries/Errors.sol";
  * @author Aztec Labs
  * @notice
  */
-library Merkle {  
+library Merkle {
   /*
     * @notice Verifies the membership of a leaf and path against an expected root.
     * @dev In the case of a mismatched root, and subsequent inability to verify membership, this function throws.

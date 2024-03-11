@@ -10,14 +10,14 @@ import {Errors} from "../../src/core/libraries/Errors.sol";
 import {FrontierMerkle} from "./../../src/core/messagebridge/frontier_tree/Frontier.sol";
 
 abstract contract MerkleLibWrapper {
-    function _verifyMembershipWrapper(
-        bytes32[] memory _path,
-        bytes32 _leaf,
-        uint256 _index,
-        bytes32 _expectedRoot
-      ) external pure {
-      Merkle._verifyMembership(_path, _leaf, _index, _expectedRoot);
-    }
+  function _verifyMembershipWrapper(
+    bytes32[] memory _path,
+    bytes32 _leaf,
+    uint256 _index,
+    bytes32 _expectedRoot
+  ) external pure {
+    Merkle._verifyMembership(_path, _leaf, _index, _expectedRoot);
+  }
 }
 
 contract MerkleTest is Test, MerkleLibWrapper {
@@ -97,9 +97,14 @@ contract MerkleTest is Test, MerkleLibWrapper {
     }
 
     bytes32[3] memory expectedPath1 = [
-      bytes32(abi.encode(2)), 
+      bytes32(abi.encode(2)),
       sha256(bytes.concat(bytes32(abi.encode(3)), bytes32(abi.encode(4)))),
-      sha256(bytes.concat(sha256(bytes.concat(bytes32(abi.encode(5)), bytes32(abi.encode(6)))), sha256(bytes.concat(bytes32(abi.encode(7)), bytes32(abi.encode(8))))))
+      sha256(
+        bytes.concat(
+          sha256(bytes.concat(bytes32(abi.encode(5)), bytes32(abi.encode(6)))),
+          sha256(bytes.concat(bytes32(abi.encode(7)), bytes32(abi.encode(8))))
+        )
+      )
     ];
 
     (bytes32[] memory path1, bytes32 leaf1) = manualTree.computeSiblingPath(0);
@@ -109,9 +114,14 @@ contract MerkleTest is Test, MerkleLibWrapper {
     assertEq(path1[2], expectedPath1[2]);
 
     bytes32[3] memory expectedPath2 = [
-      bytes32(abi.encode(7)), 
+      bytes32(abi.encode(7)),
       sha256(bytes.concat(bytes32(abi.encode(5)), bytes32(abi.encode(6)))),
-      sha256(bytes.concat(sha256(bytes.concat(bytes32(abi.encode(1)), bytes32(abi.encode(2)))), sha256(bytes.concat(bytes32(abi.encode(3)), bytes32(abi.encode(4))))))
+      sha256(
+        bytes.concat(
+          sha256(bytes.concat(bytes32(abi.encode(1)), bytes32(abi.encode(2)))),
+          sha256(bytes.concat(bytes32(abi.encode(3)), bytes32(abi.encode(4))))
+        )
+      )
     ];
 
     (bytes32[] memory path2, bytes32 leaf2) = manualTree.computeSiblingPath(7);

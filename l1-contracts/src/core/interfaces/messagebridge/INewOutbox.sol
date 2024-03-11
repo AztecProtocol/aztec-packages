@@ -14,7 +14,10 @@ import {DataStructures} from "../../libraries/DataStructures.sol";
 interface INewOutbox {
   event RootAdded(uint256 indexed l2BlockNumber, bytes32 indexed root, uint256 height);
   event MessageConsumed(
-    uint256 indexed l2BlockNumber, bytes32 indexed root, bytes32 indexed messageHash, uint256 leafIndex
+    uint256 indexed l2BlockNumber,
+    bytes32 indexed root,
+    bytes32 indexed messageHash,
+    uint256 leafIndex
   );
 
   /*
