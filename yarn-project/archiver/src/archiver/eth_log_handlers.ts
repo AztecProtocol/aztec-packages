@@ -1,21 +1,10 @@
-import {
-  Body,
-  L1Actor,
-  L1ToL2Message,
-  L2Actor,
-  NewInboxLeaf,
-} from '@aztec/circuit-types';
+import { Body, L1Actor, L1ToL2Message, L2Actor, NewInboxLeaf } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
-import {
-  AvailabilityOracleAbi,
-  InboxAbi,
-  NewInboxAbi,
-  RollupAbi,
-} from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, InboxAbi, NewInboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
 

@@ -3,12 +3,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
-import {
-  AvailabilityOracleAbi,
-  InboxAbi,
-  NewInboxAbi,
-  RollupAbi,
-} from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, InboxAbi, NewInboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
