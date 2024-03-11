@@ -82,7 +82,7 @@ pub mod macros_api {
             _crate_id: &CrateId,
             _context: &mut HirContext,
             _collected_trait_impls: &[UnresolvedTraitImpl],
-            _collected_functions: &mut Vec<UnresolvedFunctions>,
+            _collected_functions: &mut [UnresolvedFunctions],
         ) -> Result<(), (MacroError, FileId)>;
 
         /// Function to manipulate the AST after type checking has been completed.
