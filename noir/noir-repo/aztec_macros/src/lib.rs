@@ -65,7 +65,6 @@ fn transform(
     context: &HirContext,
 ) -> Result<SortedModule, (MacroError, FileId)> {
     // Usage -> mut ast -> aztec_library::transform(&mut ast)
-
     // Covers all functions in the ast
     for submodule in ast.submodules.iter_mut().filter(|submodule| submodule.is_contract) {
         if transform_module(&mut submodule.contents, crate_id, context)
