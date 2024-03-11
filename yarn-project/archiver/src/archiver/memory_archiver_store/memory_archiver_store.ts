@@ -1,6 +1,5 @@
 import {
   Body,
-  ContractData,
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
   GetUnencryptedLogsResponse,
@@ -11,6 +10,7 @@ import {
   LogFilter,
   LogId,
   LogType,
+  NewInboxLeaf,
   TxEffect,
   TxHash,
   TxReceipt,
@@ -22,7 +22,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { ArchiverDataStore } from '../archiver_store.js';
-import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
+import { L1ToL2MessageStore, NewL1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 /**
  * Simple, in-memory implementation of an archiver data store.
@@ -65,6 +65,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   private extendedContractData: Map<string, ExtendedContractData> = new Map();
 
+  // TODO(#4492): Nuke the other message stores
+  private newL1ToL2Messages = new NewL1ToL2MessageStore();
+
   /**
    * Contains all the confirmed L1 to L2 messages (i.e. messages that were consumed in an L2 block)
    * It is a map of entryKey to the corresponding L1 to L2 message and the number of times it has appeared
@@ -80,6 +83,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
+  private lastL1BlockNewMessages: bigint = 0n;
   private lastL1BlockAddedMessages: bigint = 0n;
   private lastL1BlockCancelledMessages: bigint = 0n;
 
@@ -170,6 +174,24 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       this.unencryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = unencryptedLogs;
     }
 
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Append new L1 to L2 messages to the store.
+   * @param messages - The L1 to L2 messages to be added to the store.
+   * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
+   * @returns True if the operation is successful.
+   */
+  public addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
+    if (lastMessageL1BlockNumber <= this.lastL1BlockNewMessages) {
+      return Promise.resolve(false);
+    }
+
+    this.lastL1BlockNewMessages = lastMessageL1BlockNumber;
+    for (const message of messages) {
+      this.newL1ToL2Messages.addMessage(message);
+    }
     return Promise.resolve(true);
   }
 
@@ -322,6 +344,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
+   * Gets new L1 to L2 message (to be) included in a given block.
+   * @param blockNumber - L2 block number to get messages for.
+   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
+   */
+  getNewL1ToL2Messages(blockNumber: bigint): Promise<Buffer[]> {
+    return Promise.resolve(this.newL1ToL2Messages.getMessages(blockNumber));
+  }
+
+  /**
    * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
    * @param limit - The number of logs to return.
@@ -427,58 +458,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   /**
    * Get the extended contract data for this contract.
+   * TODO(palla/purge-old-contract-deploy): Delete me?
    * @param contractAddress - The contract data address.
    * @returns The extended contract data or undefined if not found.
    */
   getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
     const result = this.extendedContractData.get(contractAddress.toString());
     return Promise.resolve(result);
-  }
-
-  /**
-   * Lookup all contract data in an L2 block.
-   * @param blockNum - The block number to get all contract data from.
-   * @returns All extended contract data in the block (if found).
-   */
-  public getExtendedContractDataInBlock(blockNum: number): Promise<ExtendedContractData[]> {
-    if (blockNum > this.l2BlockContexts.length) {
-      return Promise.resolve([]);
-    }
-    return Promise.resolve(this.extendedContractDataByBlock[blockNum] || []);
-  }
-
-  /**
-   * Get basic info for an L2 contract.
-   * Contains contract address & the ethereum portal address.
-   * @param contractAddress - The contract data address.
-   * @returns ContractData with the portal address (if we didn't throw an error).
-   */
-  public getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    if (contractAddress.isZero()) {
-      return Promise.resolve(undefined);
-    }
-    for (const blockContext of this.l2BlockContexts) {
-      for (const contractData of blockContext.block.body.txEffects.flatMap(txEffect => txEffect.contractData)) {
-        if (contractData.contractAddress.equals(contractAddress)) {
-          return Promise.resolve(contractData);
-        }
-      }
-    }
-    return Promise.resolve(undefined);
-  }
-
-  /**
-   * Get basic info for an all L2 contracts deployed in a block.
-   * Contains contract address & the ethereum portal address.
-   * @param l2BlockNum - Number of the L2 block where contracts were deployed.
-   * @returns ContractData with the portal address (if we didn't throw an error).
-   */
-  public getContractDataInBlock(l2BlockNum: number): Promise<ContractData[] | undefined> {
-    if (l2BlockNum > this.l2BlockContexts.length) {
-      return Promise.resolve([]);
-    }
-    const block: L2Block | undefined = this.l2BlockContexts[l2BlockNum - INITIAL_L2_BLOCK_NUM]?.block;
-    return Promise.resolve(block?.body.txEffects.flatMap(txEffect => txEffect.contractData));
   }
 
   /**
@@ -494,11 +480,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   public getL1BlockNumber() {
     const addedBlock = this.l2BlockContexts[this.l2BlockContexts.length - 1]?.block?.getL1BlockNumber() ?? 0n;
+    const newMessages = this.lastL1BlockNewMessages;
     const addedMessages = this.lastL1BlockAddedMessages;
     const cancelledMessages = this.lastL1BlockCancelledMessages;
 
     return Promise.resolve({
       addedBlock,
+      newMessages,
       addedMessages,
       cancelledMessages,
     });

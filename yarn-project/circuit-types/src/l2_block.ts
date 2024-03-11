@@ -1,9 +1,10 @@
 import { Body, TxEffect, TxHash } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header, STRING_ENCODING } from '@aztec/circuits.js';
-import { makeAppendOnlyTreeSnapshot, makeHeader } from '@aztec/circuits.js/testing';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import { makeAppendOnlyTreeSnapshot, makeHeader } from './l2_block_code_to_purge.js';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
@@ -169,13 +170,11 @@ export class L2Block {
       this.header.globalVariables,
       AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot / commitments,
       AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
-      AppendOnlyTreeSnapshot.zero(), // this.startContractTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startPublicDataTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startL1ToL2MessageTreeSnapshot,
       this.header.lastArchive,
       this.header.state.partial.noteHashTree,
       this.header.state.partial.nullifierTree,
-      this.header.state.partial.contractTree,
       this.header.state.partial.publicDataTree,
       this.header.state.l1ToL2MessageTree,
       this.archive,
@@ -196,7 +195,6 @@ export class L2Block {
       new Fr(Number(this.header.globalVariables.blockNumber.toBigInt()) - 1),
       AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
-      AppendOnlyTreeSnapshot.zero(), // this.startContractTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startPublicDataTreeSnapshot,
       AppendOnlyTreeSnapshot.zero(), // this.startL1ToL2MessageTreeSnapshot,
       this.header.lastArchive,
@@ -214,7 +212,6 @@ export class L2Block {
       this.header.globalVariables.blockNumber,
       this.header.state.partial.noteHashTree,
       this.header.state.partial.nullifierTree,
-      this.header.state.partial.contractTree,
       this.header.state.partial.publicDataTree,
       this.header.state.l1ToL2MessageTree,
       this.archive,
