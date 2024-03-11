@@ -63,7 +63,6 @@ bool ClientIVC::verify(Proof& proof, const std::vector<VerifierAccumulator>& ver
 
     ClientIVC::DeciderVerifier decider_verifier(verifier_accumulator);
     bool decision = decider_verifier.verify_proof(proof.decider_proof);
-    info("goblin verified: ", goblin_verified);
     return goblin_verified && decision;
 }
 
