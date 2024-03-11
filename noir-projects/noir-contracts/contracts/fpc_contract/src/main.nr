@@ -1,31 +1,21 @@
 mod interfaces;
 
 contract FPC {
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
+    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::is_empty};
     use dep::aztec::state_vars::SharedImmutable;
 
     use crate::interfaces::Token;
 
     struct Storage {
         other_asset: SharedImmutable<AztecAddress>,
-        fee_asset: SharedImmutable<AztecAddress>,
-    }
-
-    #[aztec(private)]
-    #[aztec(initializer)]
-    fn constructor(other_asset: AztecAddress, fee_asset: AztecAddress) {
-        let selector = FunctionSelector::from_signature("_initialize((Field),(Field))");
-        context.call_public_function(
-            context.this_address(),
-            selector,
-            [other_asset.to_field(), fee_asset.to_field()]
-        );
+        gas_token_address: SharedImmutable<AztecAddress>,
     }
 
     #[aztec(public)]
-    internal fn _initialize(other_asset: AztecAddress, fee_asset: AztecAddress) {
+    #[aztec(initializer)]
+    fn constructor(other_asset: AztecAddress, gas_token_address: AztecAddress) {
         storage.other_asset.initialize(other_asset);
-        storage.fee_asset.initialize(fee_asset);
+        storage.gas_token_address.initialize(gas_token_address);
     }
 
     #[aztec(private)]
@@ -63,14 +53,16 @@ contract FPC {
     }
 
     #[aztec(public)]
-    internal fn prepare_fee(from: AztecAddress, amount: Field, asset: AztecAddress, nonce: Field) {
+    #[aztec(internal)]
+    fn prepare_fee(from: AztecAddress, amount: Field, asset: AztecAddress, nonce: Field) {
         let _res = Token::at(asset).transfer_public(context, from, context.this_address(), amount, nonce);
     }
 
     #[aztec(public)]
-    internal fn pay_fee(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
+    #[aztec(internal)]
+    fn pay_fee(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
         let refund = context.call_public_function(
-            storage.fee_asset.read_public(),
+            storage.gas_token_address.read_public(),
             FunctionSelector::from_signature("pay_fee(Field)"),
             [amount]
         )[0];

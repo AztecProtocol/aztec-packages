@@ -41,7 +41,7 @@
     "decodedHeader": {
       "contentCommitment": {
         "inHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "outHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "outHash": "0xc78009fdf07fc56a11f122370658a353aaa542ed63e44c4bc15ff4cd105ab33c",
         "txTreeHeight": 2,
         "txsHash": "0x007e09963fae6e2fe463a36d0cf703d0fb1bd38e4e695f9fbcebe1955e018f52"
       },
@@ -63,10 +63,6 @@
           "root": "0x1864fcdaa80ff2719154fa7c8a9050662972707168d69eac9db6fd3110829f80"
         },
         "partialStateReference": {
-          "contractTree": {
-            "nextAvailableLeafIndex": 8,
-            "root": "0x1864fcdaa80ff2719154fa7c8a9050662972707168d69eac9db6fd3110829f80"
-          },
           "noteHashTree": {
             "nextAvailableLeafIndex": 512,
             "root": "0x16642d9ccd8346c403aa4c3fa451178b22534a27035cdaa6ec34ae53b29c50cb"

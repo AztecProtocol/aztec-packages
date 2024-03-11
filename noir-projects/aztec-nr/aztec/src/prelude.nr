@@ -1,3 +1,4 @@
+// docs:start:prelude
 use dep::protocol_types::{address::{AztecAddress, EthAddress}, abis::function_selector::FunctionSelector};
 use crate::{
     state_vars::{
@@ -12,3 +13,4 @@ use crate::{
     utils::compute_note_hash_and_nullifier as utils_compute_note_hash_and_nullifier
 }
 };
+// docs:end:prelude

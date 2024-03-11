@@ -53,21 +53,8 @@ export class BlockStore {
         });
 
         block.getTxs().forEach((tx, i) => {
-          if (tx.txHash.isZero()) {
-            return;
-          }
           void this.#txIndex.set(tx.txHash.toString(), [block.number, i]);
         });
-
-        block.body.txEffects
-          .flatMap(txEffect => txEffect.contractData)
-          .forEach((contractData, i) => {
-            if (contractData.contractAddress.isZero()) {
-              return;
-            }
-
-            void this.#contractIndex.set(contractData.contractAddress.toString(), [block.number, i]);
-          });
       }
 
       return true;
@@ -103,7 +90,7 @@ export class BlockStore {
   private getBlockFromBlockStorage(blockStorage: BlockStorage) {
     const header = Header.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
-    const body = this.#blockBodyStore.getBlockBody(header.contentCommitment.txsHash);
+    const body = this.#blockBodyStore.getBlockBody(header.contentCommitment.txsEffectsHash);
 
     if (body === undefined) {
       throw new Error('Body is not able to be retrieved from BodyStore');

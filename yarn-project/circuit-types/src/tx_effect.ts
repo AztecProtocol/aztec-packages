@@ -1,16 +1,17 @@
-import { ContractData, LogType, PublicDataWrite, TxHash, TxL2Logs } from '@aztec/circuit-types';
+import { LogType, PublicDataWrite, TxHash, TxL2Logs } from '@aztec/circuit-types';
 import {
   Fr,
-  MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/circuits.js';
-import { makeTuple } from '@aztec/foundation/array';
+import { assertRightPadded, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
-import { BufferReader, Tuple, serializeArrayOfBufferableToVector } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, assertLength, serializeArrayOfBufferableToVector } from '@aztec/foundation/serialize';
+
+import { inspect } from 'util';
 
 export class TxEffect {
   constructor(
@@ -31,14 +32,6 @@ export class TxEffect {
      */
     public publicDataWrites: Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     /**
-     * The leaves of the new contract data that will be inserted into the contracts tree.
-     */
-    public contractLeaves: Tuple<Fr, typeof MAX_NEW_CONTRACTS_PER_TX>,
-    /**
-     * The contract data of the new contracts.
-     */
-    public contractData: Tuple<ContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
-    /**
      * The logs of the txEffect
      */
     public encryptedLogs: TxL2Logs,
@@ -50,17 +43,12 @@ export class TxEffect {
     const nonZeroNullifiers = this.nullifiers.filter(h => !h.isZero());
     const nonZeroL2ToL1Msgs = this.l2ToL1Msgs.filter(h => !h.isZero());
     const nonZeroPublicDataWrites = this.publicDataWrites.filter(h => !h.isEmpty());
-    const nonZeroContractLeaves = this.contractLeaves.filter(h => !h.isZero());
-    const nonZeroContractData = this.contractData.filter(h => !h.isEmpty());
 
     return Buffer.concat([
       serializeArrayOfBufferableToVector(nonZeroNoteHashes, 1),
       serializeArrayOfBufferableToVector(nonZeroNullifiers, 1),
       serializeArrayOfBufferableToVector(nonZeroL2ToL1Msgs, 1),
       serializeArrayOfBufferableToVector(nonZeroPublicDataWrites, 1),
-      serializeArrayOfBufferableToVector(nonZeroContractLeaves, 1),
-      // We don't prefix the contract data with the length because we already have that info before contract leaves
-      ...nonZeroContractData.map(x => x.toBuffer()),
       this.encryptedLogs.toBuffer(),
       this.unencryptedLogs.toBuffer(),
     ]);
@@ -79,18 +67,11 @@ export class TxEffect {
     const nonZeroL2ToL1Msgs = reader.readVectorUint8Prefix(Fr);
     const nonZeroPublicDataWrites = reader.readVectorUint8Prefix(PublicDataWrite);
 
-    const nonZeroContractLeaves = reader.readVectorUint8Prefix(Fr);
-
-    const numContracts = nonZeroContractLeaves.length;
-    const nonZeroContractData = reader.readArray(numContracts, ContractData);
-
     return new TxEffect(
       padArrayEnd(nonZeroNoteHashes, Fr.ZERO, MAX_NEW_NOTE_HASHES_PER_TX),
       padArrayEnd(nonZeroNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_TX),
       padArrayEnd(nonZeroL2ToL1Msgs, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_TX),
       padArrayEnd(nonZeroPublicDataWrites, PublicDataWrite.empty(), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
-      padArrayEnd(nonZeroContractLeaves, Fr.ZERO, MAX_NEW_CONTRACTS_PER_TX),
-      padArrayEnd(nonZeroContractData, ContractData.empty(), MAX_NEW_CONTRACTS_PER_TX),
       TxL2Logs.fromBuffer(reader),
       TxL2Logs.fromBuffer(reader),
     );
@@ -99,26 +80,29 @@ export class TxEffect {
   hash() {
     // must correspond with components_compute_kernel_calldata_hash() in nr
     // and TxsDecoder.sol decode()
+    assertLength(this.noteHashes, MAX_NEW_NOTE_HASHES_PER_TX);
+    assertRightPadded(this.noteHashes, Fr.isZero);
     const noteHashesBuffer = Buffer.concat(this.noteHashes.map(x => x.toBuffer()));
+
+    assertLength(this.nullifiers, MAX_NEW_NULLIFIERS_PER_TX);
+    assertRightPadded(this.nullifiers, Fr.isZero);
     const nullifiersBuffer = Buffer.concat(this.nullifiers.map(x => x.toBuffer()));
+
+    assertLength(this.l2ToL1Msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX);
+    assertRightPadded(this.l2ToL1Msgs, Fr.isZero);
     const newL2ToL1MsgsBuffer = Buffer.concat(this.l2ToL1Msgs.map(x => x.toBuffer()));
+
+    assertLength(this.publicDataWrites, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+    assertRightPadded(this.publicDataWrites, PublicDataWrite.isEmpty);
     const publicDataUpdateRequestsBuffer = Buffer.concat(this.publicDataWrites.map(x => x.toBuffer()));
     const encryptedLogsHashKernel0 = Buffer.concat([Buffer.alloc(1), this.encryptedLogs.hash().subarray(0, 31)]);
     const unencryptedLogsHashKernel0 = Buffer.concat([Buffer.alloc(1), this.unencryptedLogs.hash().subarray(0, 31)]);
-
-    if (MAX_NEW_CONTRACTS_PER_TX !== 1) {
-      throw new Error('Only one contract per transaction is supported for now.');
-    }
 
     const inputValue = Buffer.concat([
       noteHashesBuffer,
       nullifiersBuffer,
       newL2ToL1MsgsBuffer,
       publicDataUpdateRequestsBuffer,
-      this.contractLeaves[0].toBuffer(),
-      this.contractData[0].contractAddress.toBuffer(),
-      // TODO(#3938): make portal address 20 bytes here when updating the hashing
-      this.contractData[0].portalContractAddress.toBuffer32(),
       encryptedLogsHashKernel0,
       unencryptedLogsHashKernel0,
     ]);
@@ -137,8 +121,6 @@ export class TxEffect {
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
-      makeTuple(MAX_NEW_CONTRACTS_PER_TX, Fr.random),
-      makeTuple(MAX_NEW_CONTRACTS_PER_TX, ContractData.random),
       TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED),
       TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
     );
@@ -149,6 +131,19 @@ export class TxEffect {
    */
   toString(): string {
     return this.toBuffer().toString('hex');
+  }
+
+  [inspect.custom]() {
+    // print out the non-empty fields
+
+    return `TxEffect { 
+      note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],
+      nullifiers: [${this.nullifiers.map(h => h.toString()).join(', ')}],
+      l2ToL1Msgs: [${this.l2ToL1Msgs.map(h => h.toString()).join(', ')}],
+      publicDataWrites: [${this.publicDataWrites.map(h => h.toString()).join(', ')}],
+      encryptedLogs: ${JSON.stringify(this.encryptedLogs.toJSON())},
+      unencryptedLogs: ${JSON.stringify(this.unencryptedLogs.toJSON())}
+     }`;
   }
 
   /**

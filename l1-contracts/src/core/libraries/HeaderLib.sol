@@ -26,7 +26,7 @@ import {Hash} from "./Hash.sol";
  *  | 0x0020                                                                           | 0x04         |   lastArchive.nextAvailableLeafIndex
  *  |                                                                                  |              |   ContentCommitment {
  *  | 0x0024                                                                           | 0x20         |     txTreeHeight
- *  | 0x0044                                                                           | 0x20         |     txsHash
+ *  | 0x0044                                                                           | 0x20         |     txsEffectsHash
  *  | 0x0064                                                                           | 0x20         |     inHash
  *  | 0x0084                                                                           | 0x20         |     outHash
  *  |                                                                                  |              |   StateReference {
@@ -37,19 +37,17 @@ import {Hash} from "./Hash.sol";
  *  | 0x00e8                                                                           | 0x04         |       noteHashTree.nextAvailableLeafIndex
  *  | 0x00ec                                                                           | 0x20         |       nullifierTree.root
  *  | 0x010c                                                                           | 0x04         |       nullifierTree.nextAvailableLeafIndex
- *  | 0x0110                                                                           | 0x20         |       contractTree.root
- *  | 0x0130                                                                           | 0x04         |       contractTree.nextAvailableLeafIndex
- *  | 0x0134                                                                           | 0x20         |       publicDataTree.root
- *  | 0x0154                                                                           | 0x04         |       publicDataTree.nextAvailableLeafIndex
+ *  | 0x0110                                                                           | 0x20         |       publicDataTree.root
+ *  | 0x0130                                                                           | 0x04         |       publicDataTree.nextAvailableLeafIndex
  *  |                                                                                  |              |     }
  *  |                                                                                  |              |   }
  *  |                                                                                  |              |   GlobalVariables {
- *  | 0x0158                                                                           | 0x20         |     chainId
- *  | 0x0178                                                                           | 0x20         |     version
- *  | 0x0198                                                                           | 0x20         |     blockNumber
- *  | 0x01b8                                                                           | 0x20         |     timestamp
- *  | 0x01d8                                                                           | 0x14         |     coinbase
- *  | 0x01ec                                                                           | 0x20         |     feeRecipient
+ *  | 0x0134                                                                           | 0x20         |     chainId
+ *  | 0x0154                                                                           | 0x20         |     version
+ *  | 0x0174                                                                           | 0x20         |     blockNumber
+ *  | 0x0194                                                                           | 0x20         |     timestamp
+ *  | 0x01b4                                                                           | 0x14         |     coinbase
+ *  | 0x01c8                                                                           | 0x20         |     feeRecipient
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
  *  | ---                                                                              | ---          | ---
@@ -84,7 +82,7 @@ library HeaderLib {
 
   struct ContentCommitment {
     uint256 txTreeHeight;
-    bytes32 txsHash;
+    bytes32 txsEffectsHash;
     bytes32 inHash;
     bytes32 outHash;
   }
@@ -96,7 +94,7 @@ library HeaderLib {
     GlobalVariables globalVariables;
   }
 
-  uint256 private constant HEADER_LENGTH = 0x209; // Header byte length
+  uint256 private constant HEADER_LENGTH = 0x1e5; // Header byte length
 
   /**
    * @notice Validates the header
@@ -156,7 +154,7 @@ library HeaderLib {
 
     // Reading ContentCommitment
     header.contentCommitment.txTreeHeight = uint256(bytes32(_header[0x0024:0x0044]));
-    header.contentCommitment.txsHash = bytes32(bytes.concat(new bytes(1), _header[0x0044:0x0063]));
+    header.contentCommitment.txsEffectsHash = bytes32(bytes.concat(new bytes(1), _header[0x0044:0x0063]));
     header.contentCommitment.inHash = bytes32(bytes.concat(new bytes(1), _header[0x0063:0x0082]));
     header.contentCommitment.outHash = bytes32(bytes.concat(new bytes(1), _header[0x0082:0x00a1]));
 
@@ -170,7 +168,7 @@ library HeaderLib {
     header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(
       bytes32(_header[0x00e9:0x0109]), uint32(bytes4(_header[0x0109:0x010d]))
     );
-    header.stateReference.partialStateReference.contractTree = AppendOnlyTreeSnapshot(
+    header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(
       bytes32(_header[0x010d:0x012d]), uint32(bytes4(_header[0x012d:0x0131]))
     );
     header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(
@@ -178,12 +176,12 @@ library HeaderLib {
     );
 
     // Reading GlobalVariables
-    header.globalVariables.chainId = uint256(bytes32(_header[0x0155:0x0175]));
-    header.globalVariables.version = uint256(bytes32(_header[0x0175:0x0195]));
-    header.globalVariables.blockNumber = uint256(bytes32(_header[0x0195:0x01b5]));
-    header.globalVariables.timestamp = uint256(bytes32(_header[0x01b5:0x01d5]));
-    header.globalVariables.coinbase = address(bytes20(_header[0x01d5:0x01e9]));
-    header.globalVariables.feeRecipient = bytes32(_header[0x01e9:HEADER_LENGTH]);
+    header.globalVariables.chainId = uint256(bytes32(_header[0x0131:0x0151]));
+    header.globalVariables.version = uint256(bytes32(_header[0x0151:0x0171]));
+    header.globalVariables.blockNumber = uint256(bytes32(_header[0x0171:0x0191]));
+    header.globalVariables.timestamp = uint256(bytes32(_header[0x0191:0x01b1]));
+    header.globalVariables.coinbase = address(bytes20(_header[0x01b1:0x01c5]));
+    header.globalVariables.feeRecipient = bytes32(_header[0x01c5:HEADER_LENGTH]);
 
     return header;
   }

@@ -41,8 +41,6 @@ using fq_ct = bn254::BaseField;
 using public_witness_ct = bn254::public_witness_ct;
 using witness_ct = bn254::witness_ct;
 
-SolverConfiguration config = { true, 0 };
-
 msgpack::sbuffer create_circuit(bool pub_ab, bool ab)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
@@ -182,7 +180,7 @@ TEST(bigfield, multiplication_equal)
     auto buf = create_circuit(public_a_b, a_neq_b);
 
     CircuitSchema circuit_info = unpack_from_buffer(buf);
-    Solver s(circuit_info.modulus, config);
+    Solver s(circuit_info.modulus);
     Circuit<FFTerm> circuit(circuit_info, &s);
     std::vector<FFTerm> ev = correct_result(circuit, &s);
 
@@ -207,13 +205,13 @@ TEST(bigfield, unique_square)
 
     CircuitSchema circuit_info = unpack_from_buffer(buf);
 
-    Solver s(circuit_info.modulus, config);
+    Solver s(circuit_info.modulus);
 
     std::pair<Circuit<FFTerm>, Circuit<FFTerm>> cs =
-        unique_witness<FFTerm>(circuit_info,
-                               &s,
-                               { "a_limb_0", "a_limb_1", "a_limb_2", "a_limb_3" },
-                               { "c_limb_0", "c_limb_1", "c_limb_2", "c_limb_3" });
+        unique_witness_ext<FFTerm>(circuit_info,
+                                   &s,
+                                   { "a_limb_0", "a_limb_1", "a_limb_2", "a_limb_3" },
+                                   { "c_limb_0", "c_limb_1", "c_limb_2", "c_limb_3" });
 
     auto start = std::chrono::high_resolution_clock::now();
     bool res = s.check();

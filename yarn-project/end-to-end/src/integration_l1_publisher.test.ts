@@ -22,13 +22,7 @@ import {
   PublicKernelCircuitPublicInputs,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
-import {
-  fr,
-  makeNewContractData,
-  makeNewSideEffect,
-  makeNewSideEffectLinkedToNoteHash,
-  makeProof,
-} from '@aztec/circuits.js/testing';
+import { fr, makeNewSideEffect, makeNewSideEffectLinkedToNoteHash, makeProof } from '@aztec/circuits.js/testing';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -38,6 +32,7 @@ import {
   L1Publisher,
   RealRollupCircuitSimulator,
   SoloBlockBuilder,
+  WASMSimulator,
   getL1Publisher,
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
@@ -102,7 +97,7 @@ describe('L1Publisher integration', () => {
   let feeRecipient: AztecAddress;
 
   // To overwrite the test data, set this to true and run the tests.
-  const OVERWRITE_TEST_DATA = false;
+  const OVERWRITE_TEST_DATA = !!process.env.OVERWRITE_TEST_DATA;
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
@@ -136,7 +131,7 @@ describe('L1Publisher integration', () => {
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     const vks = getVerificationKeys();
-    const simulator = new RealRollupCircuitSimulator();
+    const simulator = new RealRollupCircuitSimulator(new WASMSimulator());
     const prover = new EmptyRollupProver();
     builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
 
@@ -185,7 +180,6 @@ describe('L1Publisher integration', () => {
     processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] =
       SideEffectLinkedToNoteHash.empty();
     processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
-    processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
     processedTx.data.end.encryptedLogsHash = toTruncField(processedTx.encryptedLogs.hash());
     processedTx.data.end.unencryptedLogsHash = toTruncField(processedTx.unencryptedLogs.hash());
 
@@ -266,13 +260,13 @@ describe('L1Publisher integration', () => {
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
         body: `0x${block.body.toBuffer().toString('hex')}`,
-        calldataHash: `0x${block.body.getCalldataHash().toString('hex').padStart(64, '0')}`,
+        txsEffectsHash: `0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
           contentCommitment: {
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
             txTreeHeight: Number(block.header.contentCommitment.txTreeHeight.toBigInt()),
-            txsHash: `0x${block.header.contentCommitment.txsHash.toString('hex').padStart(64, '0')}`,
+            txsEffectsHash: `0x${block.header.contentCommitment.txsEffectsHash.toString('hex').padStart(64, '0')}`,
           },
           globalVariables: {
             blockNumber: block.number,
@@ -292,10 +286,6 @@ describe('L1Publisher integration', () => {
               root: `0x${block.header.state.l1ToL2MessageTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
             },
             partialStateReference: {
-              contractTree: {
-                nextAvailableLeafIndex: block.header.state.partial.contractTree.nextAvailableLeafIndex,
-                root: `0x${block.header.state.partial.contractTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
-              },
               noteHashTree: {
                 nextAvailableLeafIndex: block.header.state.partial.noteHashTree.nextAvailableLeafIndex,
                 root: `0x${block.header.state.partial.noteHashTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
@@ -344,7 +334,7 @@ describe('L1Publisher integration', () => {
     });
     // Sol gives bytes32 txsHash, so we pad the ts bytes31 version
     // We check that the txsHash in the TxsPublished event is as expected
-    expect(topics.args.txsHash).toEqual(`0x${body.getCalldataHash().toString('hex').padStart(64, "0")}`);
+    expect(topics.args.txsEffectsHash).toEqual(`0x${body.getTxsEffectsHash().toString('hex').padStart(64, "0")}`);
   });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {

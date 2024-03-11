@@ -10,7 +10,6 @@ import {
 } from '@aztec/circuit-types';
 import {
   CallContext,
-  ContractDeploymentData,
   FunctionData,
   FunctionSelector,
   Header,
@@ -89,8 +88,6 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @returns The initial witness.
    */
   public getInitialWitness(abi: FunctionAbi) {
-    const contractDeploymentData = this.txContext.contractDeploymentData;
-
     const argumentsSize = countArgumentsSize(abi);
 
     const args = this.packedArgsCache.unpack(this.argsHash);
@@ -102,7 +99,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     const fields = [
       ...this.callContext.toFields(),
       ...this.historicalHeader.toFields(),
-      ...contractDeploymentData.toFields(),
 
       this.txContext.chainId,
       this.txContext.version,
@@ -343,17 +339,12 @@ export class ClientExecutionContext extends ViewDataOracle {
       `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
     );
 
+    isStaticCall = isStaticCall || this.callContext.isStaticCall;
+
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const targetFunctionData = FunctionData.fromAbi(targetArtifact);
 
-    const derivedTxContext = new TxContext(
-      false,
-      false,
-      false,
-      ContractDeploymentData.empty(),
-      this.txContext.chainId,
-      this.txContext.version,
-    );
+    const derivedTxContext = new TxContext(false, false, this.txContext.chainId, this.txContext.version);
 
     const derivedCallContext = await this.deriveCallContext(
       targetContractAddress,
@@ -412,6 +403,8 @@ export class ClientExecutionContext extends ViewDataOracle {
     isStaticCall: boolean,
     isDelegateCall: boolean,
   ): Promise<PublicCallRequest> {
+    isStaticCall = isStaticCall || this.callContext.isStaticCall;
+
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const derivedCallContext = await this.deriveCallContext(
       targetContractAddress,
@@ -434,7 +427,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     // side-effects occurred in the TX. Ultimately the private kernel should
     // just output everything in the proper order without any counters.
     this.log(
-      `Enqueued call to public function (with side-effect counter #${sideEffectCounter}) ${targetContractAddress}:${functionSelector}`,
+      `Enqueued call to public function (with side-effect counter #${sideEffectCounter}) ${targetContractAddress}:${functionSelector}(${targetArtifact.name})`,
     );
 
     this.enqueuedPublicFunctionCalls.push(enqueuedRequest);
@@ -466,7 +459,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
       isDelegateCall,
       isStaticCall,
-      false,
       startSideEffectCounter,
     );
   }

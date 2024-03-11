@@ -1,4 +1,6 @@
 use dep::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH};
+use dep::protocol_types::traits::{Serialize};
+use dep::protocol_types::abis::function_selector::FunctionSelector;
 
 // Getters that will be converted by the transpiler into their
 // own opcodes
@@ -62,15 +64,47 @@ impl AVMContext {
     #[oracle(avmOpcodeEmitNullifier)]
     pub fn emit_nullifier(self, nullifier: Field) {}
 
+    /**
+     * Emit a log with the given event selector and message.
+     *
+     * @param event_selector The event selector for the log.
+     * @param message The message to emit in the log.
+     * Should be automatically convertible to [Field; N]. For example str<N> works with
+     * one char per field. Otherwise you can use CompressedString.
+     */
+    #[oracle(amvOpcodeEmitUnencryptedLog)]
+    pub fn emit_unencrypted_log<T>(self, event_selector: Field, message: T) {}
+
     #[oracle(avmOpcodeL1ToL2MsgExists)]
     pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> u8 {}
 
     #[oracle(avmOpcodeSendL2ToL1Msg)]
     pub fn send_l2_to_l1_msg(self, recipient: EthAddress, content: Field) {}
 
-    ///////////////////////////////////////////////////////////////////////////
-    // The functions below allow interface-equivalence with PrivateContext
-    ///////////////////////////////////////////////////////////////////////////
+    #[oracle(avmOpcodeCall)]
+    pub fn call<ARGS_COUNT, RET_SIZE>(
+        self,
+        gas: [Field; 3], // gas allocation: [l1Gas, l2Gas, daGas]
+        address: AztecAddress,
+        args: [Field; ARGS_COUNT],
+        temporary_function_selector: Field
+    ) -> ([Field; RET_SIZE], u8) {}
+    //    ^ return data      ^ success
+
+    #[oracle(avmOpcodeStaticCall)]
+    pub fn call_static<ARGS_COUNT, RET_SIZE>(
+        self,
+        gas: [Field; 3], // gas allocation: [l1Gas, l2Gas, daGas]
+        address: AztecAddress,
+        args: [Field; ARGS_COUNT],
+        // TODO(5110): consider passing in calldata directly
+        temporary_function_selector: Field
+    ) -> ([Field; RET_SIZE], u8) {}
+    //    ^ return data      ^ success
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // The functions below allow interface-equivalence with current public/private
+    ////////////////////////////////////////////////////////////////////////////////
     pub fn this_address(self) -> AztecAddress {
         self.address()
     }
@@ -94,5 +128,45 @@ impl AVMContext {
     pub fn push_new_nullifier(self: &mut Self, nullifier: Field, _nullified_commitment: Field) {
         // Cannot nullify pending commitments in AVM, so `nullified_commitment` is not used
         self.emit_nullifier(nullifier);
+    }
+
+    pub fn call_public_function<ARGS_COUNT, RET_SIZE>(
+        self: Self,
+        contract_address: AztecAddress,
+        temporary_function_selector: FunctionSelector,
+        args: [Field; ARGS_COUNT]
+    ) -> [Field; RET_SIZE] {
+        let gas = [/*l1Gas*/42, /*l2Gas*/24, /*daGas*/420];
+
+        let results = self.call(
+            gas,
+            contract_address,
+            args,
+            temporary_function_selector.to_field()
+        );
+        let returnData: [Field; RET_SIZE] = results.0;
+        let success: u8 = results.1;
+        assert(success == 1, "Nested call failed!");
+
+        returnData
+    }
+
+    pub fn static_call_public_function<ARGS_COUNT, RET_SIZE>(
+        self: Self,
+        contract_address: AztecAddress,
+        temporary_function_selector: FunctionSelector,
+        args: [Field; ARGS_COUNT]
+    ) -> [Field; RET_SIZE] {
+        let gas = [/*l1Gas*/42, /*l2Gas*/24, /*daGas*/420];
+
+        let (returnData, success): ([Field; RET_SIZE], u8) = self.call_static(
+            gas,
+            contract_address,
+            args,
+            temporary_function_selector.to_field()
+        );
+
+        assert(success == 1, "Nested static call failed!");
+        returnData
     }
 }

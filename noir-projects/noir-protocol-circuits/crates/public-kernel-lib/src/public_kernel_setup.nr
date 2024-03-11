@@ -38,6 +38,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
     fn public_kernel_setup(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        common::initialize_reverted_flag(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
@@ -69,16 +70,14 @@ mod tests {
     use crate::{
         public_kernel_setup::PublicKernelSetupCircuitPrivateInputs,
         utils::{
-        assert_eq_call_requests, assert_eq_new_contracts, assert_eq_public_data_reads,
-        assert_eq_public_data_update_requests, compute_public_data_reads,
-        compute_public_data_update_requests
+        assert_eq_call_requests, assert_eq_public_data_reads, assert_eq_public_data_update_requests,
+        compute_public_data_reads, compute_public_data_update_requests
     }
     };
     use dep::types::{
         abis::{
         call_request::CallRequest, function_selector::FunctionSelector,
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        new_contract_data::NewContractData, public_data_read::PublicDataRead,
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest, public_call_data::PublicCallData
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
@@ -198,22 +197,6 @@ mod tests {
     //     let expected = [public_data_update_requests[0], public_data_update_requests[2]];
     //     assert_eq_public_data_update_requests(public_inputs.end.public_data_update_requests, expected);
     // }
-
-    #[test(should_fail_with="Constructors cannot be public functions")]
-    fn constructor_should_fail() {
-        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-        builder.public_call.function_data.is_constructor = true;
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="Contract deployment cannot be a public function")]
-    fn constructor_should_fail_2() {
-        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-        builder.public_call.public_inputs.call_context.is_contract_deployment = true;
-
-        builder.failed();
-    }
 
     #[test(should_fail_with="Bytecode hash cannot be zero")]
     fn no_bytecode_hash_should_fail() {
@@ -392,14 +375,6 @@ mod tests {
     #[test]
     fn circuit_outputs_should_be_correctly_populated_with_previous_private_kernel() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-        let new_contracts = [
-            NewContractData {
-                contract_address: AztecAddress::from_field(123),
-                portal_contract_address: EthAddress::from_field(456),
-                contract_class_id: ContractClassId::from_field(78)
-            }
-        ];
-        builder.previous_kernel.end.new_contracts.extend_from_array(new_contracts);
 
         builder.public_call.append_public_call_requests_for_regular_calls(2);
         let storage = builder.public_call.public_call_stack.storage;
@@ -412,11 +387,11 @@ mod tests {
 
         builder.public_call.append_update_requests(2);
         let storage = builder.get_current_public_data_update_requests();
-        let update_requests = [storage[0], storage[1]];
+        let _update_requests = [storage[0], storage[1]];
 
         builder.public_call.append_public_data_read_requests(3);
         let storage = builder.get_current_public_data_reads();
-        let read_requests = [storage[0], storage[1], storage[2]];
+        let _read_requests = [storage[0], storage[1], storage[2]];
 
         // Push the public call on top of the teardown call.
         let setup_call = builder.public_call.finish();
@@ -428,7 +403,6 @@ mod tests {
 
         let public_inputs = kernel.public_kernel_setup();
 
-        assert_eq_new_contracts(public_inputs.end.new_contracts, new_contracts);
         assert_eq_call_requests(public_inputs.end.private_call_stack, []);
         assert_eq_call_requests(
             public_inputs.end_non_revertible.public_call_stack,
