@@ -7,6 +7,7 @@ import {NewOutbox} from "../src/core/messagebridge/NewOutbox.sol";
 import {INewOutbox} from "../src/core/interfaces/messagebridge/INewOutbox.sol";
 import {Errors} from "../src/core/libraries/Errors.sol";
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
+import {Merkle} from "../src/core/libraries/Merkle.sol";
 import {Hash} from "../src/core/libraries/Hash.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 
@@ -58,7 +59,7 @@ contract NewOutboxTest is Test {
   }
 
   function testInsertVariedLeafs(bytes32[] calldata _messageLeafs) public {
-    uint256 bigTreeHeight = calculateTreeHeightFromSize(_messageLeafs.length);
+    uint256 bigTreeHeight = Merkle.calculateTreeHeightFromSize(_messageLeafs.length);
     NaiveMerkle tree = new NaiveMerkle(bigTreeHeight);
 
     for (uint256 i = 0; i < _messageLeafs.length; i++) {
@@ -206,7 +207,7 @@ contract NewOutboxTest is Test {
   ) public {
     DataStructures.L2ToL1Msg[] memory messages = new DataStructures.L2ToL1Msg[](_recipients.length);
 
-    uint256 bigTreeHeight = calculateTreeHeightFromSize(_recipients.length);
+    uint256 bigTreeHeight = Merkle.calculateTreeHeightFromSize(_recipients.length);
     NaiveMerkle tree = new NaiveMerkle(bigTreeHeight);
 
     for (uint256 i = 0; i < _recipients.length; i++) {
@@ -234,32 +235,16 @@ contract NewOutboxTest is Test {
     }
   }
 
-  function calculateTreeHeightFromSize(uint256 _number) internal pure returns (uint256) {
-    if (_number == 1) {
-      return 1;
-    }
-
-    uint256 originalNumber = _number;
-
-    uint256 height = 0;
-    while (_number > 1) {
-      _number >>= 1;
-      height++;
-    }
-
-    return 2 ** height != originalNumber ? ++height : height;
-  }
-
   function testCalculateNextHighestPowerOfTwo() external {
-    assertEq(calculateTreeHeightFromSize(0), 1);
-    assertEq(calculateTreeHeightFromSize(1), 1);
-    assertEq(calculateTreeHeightFromSize(2), 1);
-    assertEq(calculateTreeHeightFromSize(3), 2);
-    assertEq(calculateTreeHeightFromSize(4), 2);
-    assertEq(calculateTreeHeightFromSize(5), 3);
-    assertEq(calculateTreeHeightFromSize(6), 3);
-    assertEq(calculateTreeHeightFromSize(7), 3);
-    assertEq(calculateTreeHeightFromSize(8), 3);
-    assertEq(calculateTreeHeightFromSize(9), 4);
+    assertEq(Merkle.calculateTreeHeightFromSize(0), 1);
+    assertEq(Merkle.calculateTreeHeightFromSize(1), 1);
+    assertEq(Merkle.calculateTreeHeightFromSize(2), 1);
+    assertEq(Merkle.calculateTreeHeightFromSize(3), 2);
+    assertEq(Merkle.calculateTreeHeightFromSize(4), 2);
+    assertEq(Merkle.calculateTreeHeightFromSize(5), 3);
+    assertEq(Merkle.calculateTreeHeightFromSize(6), 3);
+    assertEq(Merkle.calculateTreeHeightFromSize(7), 3);
+    assertEq(Merkle.calculateTreeHeightFromSize(8), 3);
+    assertEq(Merkle.calculateTreeHeightFromSize(9), 4);
   }
 }

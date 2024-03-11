@@ -11,22 +11,22 @@ import {Errors} from "../libraries/Errors.sol";
  */
 library Merkle {
   /*
-    * @notice Verifies the membership of a leaf and path against an expected root.
-    * @dev In the case of a mismatched root, and subsequent inability to verify membership, this function throws.
-    * @param _path - The sibling path of the message as a leaf, used to prove message inclusion
-    * @param _leaf - The hash of the message we are trying to prove inclusion for
-    * @param _index - The index of the message inside the L2 to L1 message tree
-    * @param _expectedRoot - The expected root to check the validity of the message and sibling path with.
-    * @remark -
-    * E.g. A sibling path for a leaf at index 3 in a tree of depth 3 (between 5 and 8 leafs) consists of the 3 elements denoted as *'s
-    * d0:                                            [ root ]
-    * d1:                      [ ]                                               [*]
-    * d2:         [*]                      [ ]                       [ ]                     [ ]
-    * d3:   [ ]         [ ]          [*]         [ ]           [ ]         [ ]          [ ]        [ ].
-    * And the elements would be ordered as: [ d3_index_2, d2_index_0, d1_index_1 ].
-    * @remark - We use the indexAtHeight to see whether our child of the next subtree is at the left or the right side, as any odd indexes are right-sided children.
-    * This is important and we have assigned it into its own variable isRight, because this affects the way we concat our two children to then hash and calculate the root.
-    */
+  * @notice Verifies the membership of a leaf and path against an expected root.
+  * @dev In the case of a mismatched root, and subsequent inability to verify membership, this function throws.
+  * @param _path - The sibling path of the message as a leaf, used to prove message inclusion
+  * @param _leaf - The hash of the message we are trying to prove inclusion for
+  * @param _index - The index of the message inside the L2 to L1 message tree
+  * @param _expectedRoot - The expected root to check the validity of the message and sibling path with.
+  * @remark -
+  * E.g. A sibling path for a leaf at index 3 in a tree of depth 3 (between 5 and 8 leafs) consists of the 3 elements denoted as *'s
+  * d0:                                            [ root ]
+  * d1:                      [ ]                                               [*]
+  * d2:         [*]                      [ ]                       [ ]                     [ ]
+  * d3:   [ ]         [ ]          [*]         [ ]           [ ]         [ ]          [ ]        [ ].
+  * And the elements would be ordered as: [ d3_index_2, d2_index_0, d1_index_1 ].
+  * @remark - We use the indexAtHeight to see whether our child of the next subtree is at the left or the right side, as any odd indexes are right-sided children.
+  * This is important and we have assigned it into its own variable isRight, because this affects the way we concat our two children to then hash and calculate the root.
+  */
   function verifyMembership(
     bytes32[] memory _path,
     bytes32 _leaf,
@@ -49,5 +49,25 @@ library Merkle {
     if (subtreeRoot != _expectedRoot) {
       revert Errors.MerkleLib__InvalidRoot(_expectedRoot, subtreeRoot);
     }
+  }
+
+  /*
+  * @notice Calculates a tree height from the amount of elements in the tree, essentially 1 if x = 0 | 1, otherwise Math.ceil(Math.log2(x))
+  * @param _size - The amount of elements in the tree
+  */
+  function calculateTreeHeightFromSize(uint256 _size) internal pure returns (uint256) {
+    if (_size == 1) {
+      return 1;
+    }
+
+    uint256 originalNumber = _size;
+
+    uint256 height = 0;
+    while (_size > 1) {
+      _size >>= 1;
+      height++;
+    }
+
+    return 2 ** height != originalNumber ? ++height : height;
   }
 }
