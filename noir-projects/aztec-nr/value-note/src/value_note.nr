@@ -17,18 +17,6 @@ struct ValueNote {
 // docs:end:value-note-def
 
 impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
-    fn serialize_content(self) -> [Field; VALUE_NOTE_LEN] {
-        [self.value, self.owner.to_field(), self.randomness]
-    }
-
-    fn deserialize_content(serialized_note: [Field; VALUE_NOTE_LEN]) -> Self {
-        ValueNote {
-            value: serialized_note[0],
-            owner: AztecAddress::from_field(serialized_note[1]),
-            randomness: serialized_note[2],
-            header: NoteHeader::empty(),
-        }
-    }
 
     fn compute_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
@@ -61,14 +49,6 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
         ],0)
     }
 
-    fn set_header(&mut self, header: NoteHeader) {
-        self.header = header;
-    }
-
-    fn get_header(self) -> NoteHeader {
-        self.header
-    }
-
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         let encryption_pub_key = get_public_key(self.owner);
@@ -80,12 +60,6 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
             encryption_pub_key,
             self.serialize_content(),
         );
-    }
-
-    fn get_note_type_id() -> Field {
-        // TODO(#4519): autogenerate
-        // python -c "print(int(''.join(str(ord(c)) for c in 'ValueNote')))"
-        869710811710178111116101
     }
 }
 

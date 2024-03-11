@@ -200,7 +200,9 @@ export class ClientExecutionContext extends ViewDataOracle {
   public async getNotes(
     storageSlot: Fr,
     numSelects: number,
-    selectBy: number[],
+    selectByIndex: number[],
+    selectByOffset: number[],
+    selectByLength: number[],
     selectValues: Fr[],
     selectComparators: number[],
     sortBy: number[],
@@ -217,9 +219,11 @@ export class ClientExecutionContext extends ViewDataOracle {
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
-      selects: selectBy
-        .slice(0, numSelects)
-        .map((index, i) => ({ index, value: selectValues[i], comparator: selectComparators[i] })),
+      selects: selectByIndex.slice(0, numSelects).map((index, i) => ({
+        selector: { index, offset: selectByOffset[i], length: selectByLength[i] },
+        value: selectValues[i],
+        comparator: selectComparators[i],
+      })),
       sorts: sortBy.map((index, i) => ({ index, order: sortOrder[i] })),
       limit,
       offset,

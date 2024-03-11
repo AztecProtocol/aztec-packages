@@ -16,19 +16,6 @@ struct SubscriptionNote {
 }
 
 impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
-    fn serialize_content(self) -> [Field; SUBSCRIPTION_NOTE_LEN] {
-        [self.owner.to_field(), self.expiry_block_number, self.remaining_txs]
-    }
-
-    fn deserialize_content(serialized_note: [Field; SUBSCRIPTION_NOTE_LEN]) -> SubscriptionNote {
-        SubscriptionNote {
-            owner: AztecAddress::from_field(serialized_note[0]),
-            expiry_block_number: serialized_note[1],
-            remaining_txs: serialized_note[2],
-            header: NoteHeader::empty()
-        }
-    }
-
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let unique_siloed_note_hash = compute_note_hash_for_consumption(self);
         let secret = context.request_nullifier_secret_key(self.owner);
@@ -56,14 +43,6 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
         pedersen_hash(note.serialize_content(), 0)
     }
 
-    fn set_header(&mut self, header: NoteHeader) {
-        self.header = header;
-    }
-
-    fn get_header(self) -> NoteHeader {
-        self.header
-    }
-
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         let encryption_pub_key = get_public_key(self.owner);
@@ -75,10 +54,6 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
             encryption_pub_key,
             self.serialize_content(),
         );
-    }
-
-    fn get_note_type_id() -> Field {
-        1
     }
 }
 

@@ -1,5 +1,6 @@
-use crate::note::note_getter_options::{Select, Sort, Comparator, NoteStatus};
-use dep::protocol_types::{constants::MAX_NOTES_PER_PAGE};
+use dep::std::option::Option;
+use crate::note::note_getter_options::{FieldSelector, Select, Sort, Comparator, NoteStatus};
+use dep::protocol_types::{constants::MAX_NOTES_PER_PAGE, traits::ToField};
 use crate::note::note_interface::NoteInterface;
 
 // docs:start:NoteViewerOptions
@@ -27,8 +28,21 @@ impl<Note, N> NoteViewerOptions<Note, N> {
     // It takes a field_index indicating which field to select,
     // a value representing the specific value to match in that field, and
     // a comparator (For possible values of comparators, please see the Comparator enum from note_getter_options)
-    pub fn select(&mut self, field_index: u8, value: Field, comparator: Option<u8>) -> Self {
-        self.selects.push(Option::some(Select::new(field_index, value, comparator.unwrap_or(Comparator.EQ))));
+    pub fn select<T>(
+        &mut self,
+        field_selector: FieldSelector,
+        value: T,
+        comparator: Option<u8>
+    ) -> Self where T: ToField {
+        self.selects.push(
+            Option::some(
+                Select::new(
+                    field_selector,
+                    value.to_field(),
+                    comparator.unwrap_or(Comparator.EQ)
+                )
+            )
+        );
         *self
     }
 

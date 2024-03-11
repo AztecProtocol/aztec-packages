@@ -141,7 +141,9 @@ describe('getNotes', () => {
     ];
 
     {
-      const options = { selects: [{ index: 0, value: new Fr(2n), comparator: Comparator.EQ }] };
+      const options = {
+        selects: [{ selector: { index: 0, offset: 0, length: 32 }, value: new Fr(2n), comparator: Comparator.EQ }],
+      };
       const result = pickNotes(notes, options);
       expectNotes(result, [
         [2n, 1n, 3n],
@@ -153,8 +155,8 @@ describe('getNotes', () => {
     {
       const options = {
         selects: [
-          { index: 0, value: new Fr(2n), comparator: Comparator.EQ },
-          { index: 2, value: new Fr(3n), comparator: Comparator.EQ },
+          { selector: { index: 0, offset: 0, length: 32 }, value: new Fr(2n), comparator: Comparator.EQ },
+          { selector: { index: 2, offset: 0, length: 32 }, value: new Fr(3n), comparator: Comparator.EQ },
         ],
       };
       const result = pickNotes(notes, options);
@@ -167,8 +169,8 @@ describe('getNotes', () => {
     {
       const options = {
         selects: [
-          { index: 1, value: new Fr(2n), comparator: Comparator.EQ },
-          { index: 2, value: new Fr(3n), comparator: Comparator.EQ },
+          { selector: { index: 1, offset: 0, length: 32 }, value: new Fr(2n), comparator: Comparator.EQ },
+          { selector: { index: 2, offset: 0, length: 32 }, value: new Fr(3n), comparator: Comparator.EQ },
         ],
       };
       const result = pickNotes(notes, options);
@@ -176,7 +178,9 @@ describe('getNotes', () => {
     }
 
     {
-      const options = { selects: [{ index: 1, value: new Fr(5n), comparator: Comparator.EQ }] };
+      const options = {
+        selects: [{ selector: { index: 1, offset: 0, length: 32 }, value: new Fr(5n), comparator: Comparator.EQ }],
+      };
       const result = pickNotes(notes, options);
       expectNotes(result, []);
     }
@@ -184,8 +188,8 @@ describe('getNotes', () => {
     {
       const options = {
         selects: [
-          { index: 0, value: new Fr(2n), comparator: Comparator.EQ },
-          { index: 1, value: new Fr(5n), comparator: Comparator.EQ },
+          { selector: { index: 0, offset: 0, length: 32 }, value: new Fr(2n), comparator: Comparator.EQ },
+          { selector: { index: 1, offset: 0, length: 32 }, value: new Fr(5n), comparator: Comparator.EQ },
         ],
       };
       const result = pickNotes(notes, options);
@@ -204,7 +208,7 @@ describe('getNotes', () => {
     ];
 
     const options = {
-      selects: [{ index: 2, value: new Fr(8n), comparator: Comparator.EQ }],
+      selects: [{ selector: { index: 2, offset: 0, length: 32 }, value: new Fr(8n), comparator: Comparator.EQ }],
       sorts: [{ index: 1, order: SortOrder.ASC }],
     };
     const result = pickNotes(notes, options);
@@ -229,12 +233,12 @@ describe('getNotes', () => {
     const options = {
       selects: [
         {
-          index: 2,
+          selector: { index: 2, offset: 0, length: 32 },
           value: new Fr(7n),
           comparator: Comparator.GTE,
         },
         {
-          index: 2,
+          selector: { index: 2, offset: 0, length: 32 },
           value: new Fr(8n),
           comparator: Comparator.LTE,
         },
@@ -268,7 +272,7 @@ describe('getNotes', () => {
     const options1 = {
       selects: [
         {
-          index: 2,
+          selector: { index: 2, offset: 0, length: 32 },
           value: new Fr(3n),
           comparator: Comparator.GT,
         },
@@ -292,7 +296,7 @@ describe('getNotes', () => {
     const options2 = {
       selects: [
         {
-          index: 2,
+          selector: { index: 2, offset: 0, length: 32 },
           value: new Fr(4n),
           comparator: Comparator.LT,
         },

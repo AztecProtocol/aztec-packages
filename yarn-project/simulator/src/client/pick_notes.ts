@@ -6,9 +6,13 @@ import { Fr } from '@aztec/foundation/fields';
  */
 export interface Select {
   /**
-   * Index of the field to select and match.
+   * Selector of the field to select and match.
    */
-  index: number;
+  selector: {
+    index: number;
+    offset: number;
+    length: number;
+  };
   /**
    * Required value of the field.
    */
@@ -80,14 +84,17 @@ interface ContainsNote {
 
 const selectNotes = <T extends ContainsNote>(noteDatas: T[], selects: Select[]): T[] =>
   noteDatas.filter(noteData =>
-    selects.every(({ index, value, comparator }) => {
+    selects.every(({ selector, value, comparator }) => {
+      const noteValueBuffer = noteData.note.items[selector.index].toBuffer();
+      const noteValue = noteValueBuffer.subarray(selector.offset, selector.offset + selector.length);
+      const noteValueFr = Fr.fromBuffer(noteValue);
       const comparatorSelector = {
-        [Comparator.EQ]: () => noteData.note.items[index].equals(value),
-        [Comparator.NEQ]: () => !noteData.note.items[index].equals(value),
-        [Comparator.LT]: () => noteData.note.items[index].lt(value),
-        [Comparator.LTE]: () => noteData.note.items[index].lt(value) || noteData.note.items[index].equals(value),
-        [Comparator.GT]: () => !noteData.note.items[index].lt(value) && !noteData.note.items[index].equals(value),
-        [Comparator.GTE]: () => !noteData.note.items[index].lt(value),
+        [Comparator.EQ]: () => noteValueFr.equals(value),
+        [Comparator.NEQ]: () => !noteValueFr.equals(value),
+        [Comparator.LT]: () => noteValueFr.lt(value),
+        [Comparator.LTE]: () => noteValueFr.lt(value) || noteValueFr.equals(value),
+        [Comparator.GT]: () => !noteValueFr.lt(value) && !noteValueFr.equals(value),
+        [Comparator.GTE]: () => !noteValueFr.lt(value),
       };
 
       return comparatorSelector[comparator]();

@@ -92,14 +92,6 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         ],0)
     }
 
-    fn set_header(&mut self, header: NoteHeader) {
-        self.header = header;
-    }
-
-    fn get_header(self) -> NoteHeader {
-        self.header
-    }
-
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         let encryption_pub_key = get_public_key(self.owner);
@@ -111,12 +103,6 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
             encryption_pub_key,
             self.serialize_content(),
         );
-    }
-
-    fn get_note_type_id() -> Field {
-        // TODO(#4519): autogenerate
-        // python -c "print(int(''.join(str(ord(c)) for c in 'EcdsaPublicKeyNote')))"
-        6999100115978011798108105997510112178111116101
     }
 }
 

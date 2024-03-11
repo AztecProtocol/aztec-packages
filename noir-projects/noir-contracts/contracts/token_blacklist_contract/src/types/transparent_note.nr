@@ -1,6 +1,9 @@
 // docs:start:token_types_all
 use dep::aztec::prelude::{NoteHeader, NoteInterface, PrivateContext};
-use dep::aztec::{note::utils::compute_note_hash_for_consumption, hash::{compute_secret_hash, pedersen_hash}};
+use dep::aztec::{
+    note::{note_getter_options::FieldSelector, utils::compute_note_hash_for_consumption},
+    hash::{compute_secret_hash, pedersen_hash}
+};
 
 global TRANSPARENT_NOTE_LEN: Field = 2;
 
@@ -15,7 +18,13 @@ struct TransparentNote {
     header: NoteHeader,
 }
 
+struct TransparentNoteFields {
+    amount: FieldSelector,
+    secret_hash: FieldSelector,
+}
+
 impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
+
     fn serialize_content(self) -> [Field; TRANSPARENT_NOTE_LEN] {
         [self.amount, self.secret_hash]
     }
@@ -28,7 +37,7 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
             header: NoteHeader::empty(),
         }
     }
-
+    
     fn compute_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash(self.serialize_content(), 0)
@@ -44,22 +53,8 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
         pedersen_hash([self.secret, siloed_note_hash],0)
     }
 
-    fn set_header(&mut self, header: NoteHeader) {
-        self.header = header;
-    }
-
-    fn get_header(self) -> NoteHeader {
-        self.header
-    }
-
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         assert(false, "TransparentNote does not support broadcast");
-    }
-
-    fn get_note_type_id() -> Field {
-        // TODO(#4519): autogenerate
-        // python -c "print(int(''.join(str(ord(c)) for c in 'TransparentNote')))"
-        84114971101151129711410111011678111116101
     }
 }
 
@@ -82,6 +77,13 @@ impl TransparentNote {
     pub fn knows_secret(self, secret: Field) {
         let hash = compute_secret_hash(secret);
         assert(self.secret_hash == hash);
+    }
+
+    pub fn fields() -> TransparentNoteFields {
+        TransparentNoteFields {
+            amount: FieldSelector { index: 0, offset: 0, length: 32 },
+            secret_hash: FieldSelector { index: 1, offset: 0, length: 32 }
+        }
     }
 }
 // docs:end:token_types_all

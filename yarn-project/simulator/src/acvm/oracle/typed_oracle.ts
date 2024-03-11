@@ -137,7 +137,9 @@ export abstract class TypedOracle {
   getNotes(
     _storageSlot: Fr,
     _numSelects: number,
-    _selectBy: number[],
+    _selectByIndex: number[],
+    _selectByOffset: number[],
+    _selectByLength: number[],
     _selectValues: Fr[],
     _selectComparators: number[],
     _sortBy: number[],

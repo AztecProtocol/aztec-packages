@@ -161,7 +161,7 @@ contract DocsExample {
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
     unconstrained fn read_note(amount: Field, comparator: u8) -> pub [Option<CardNote>; 10] {
-        let options = NoteViewerOptions::new().select(0, amount, Option::some(comparator));
+        let options = NoteViewerOptions::new().select(CardNote::fields().points, amount, Option::some(comparator));
         let notes = storage.set.view_notes(options);
 
         notes

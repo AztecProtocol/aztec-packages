@@ -14,17 +14,6 @@ struct FieldNote {
 }
 
 impl NoteInterface<FIELD_NOTE_LEN> for FieldNote {
-    fn serialize_content(self) -> [Field; FIELD_NOTE_LEN]{
-        [self.value]
-    }
-
-    fn deserialize_content(serialized_note: [Field; FIELD_NOTE_LEN]) -> Self {
-        FieldNote {
-            value: serialized_note[0],
-            header: NoteHeader::empty(),
-        }
-    }
-
     fn compute_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
         pedersen_hash(self.serialize_content(), 0)
@@ -40,24 +29,10 @@ impl NoteInterface<FIELD_NOTE_LEN> for FieldNote {
         0
     }
 
-    fn set_header(&mut self, header: NoteHeader) {
-        self.header = header;
-    }
-
-    fn get_header(self) -> NoteHeader {
-        self.header
-    }
-
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         assert(
             false, "FieldNote does not support broadcast. Add it to PXE directly using the `.addNote` function."
         );
-    }
-
-    fn get_note_type_id() -> Field {
-        // TODO(#4519): autogenerate
-        // python -c "print(int(''.join(str(ord(c)) for c in 'FieldNote')))"
-        7010510110810078111116101
     }
 }
 

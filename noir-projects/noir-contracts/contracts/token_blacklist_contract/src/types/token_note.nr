@@ -25,19 +25,6 @@ struct TokenNote {
 }
 
 impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
-    fn serialize_content(self) -> [Field; TOKEN_NOTE_LEN] {
-        [self.amount.to_field(), self.owner.to_field(), self.randomness]
-    }
-
-    fn deserialize_content(serialized_note: [Field; TOKEN_NOTE_LEN]) -> Self {
-        Self {
-            // TODO: check this type cast is right
-            amount: U128::from_integer(serialized_note[0]),
-            owner: AztecAddress::from_field(serialized_note[1]),
-            randomness: serialized_note[2],
-            header: NoteHeader::empty(),
-        }
-    }
 
     fn compute_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
@@ -68,14 +55,6 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
         ],0)
     }
 
-    fn set_header(&mut self, header: NoteHeader) {
-        self.header = header;
-    }
-
-    fn get_header(self) -> NoteHeader {
-        self.header
-    }
-
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
       // We only bother inserting the note if non-empty to save funds on gas.
@@ -90,12 +69,6 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
               self.serialize_content(),
           );
       }
-    }
-
-    fn get_note_type_id() -> Field {
-        // TODO(#4519): autogenerate
-        // python -c "print(int(''.join(str(ord(c)) for c in 'TokenNote')))"
-        8411110710111078111116101
     }
 }
 

@@ -1,5 +1,4 @@
-use noirc_frontend::hir::def_collector::dc_crate::UnresolvedFunctions;
-use noirc_frontend::hir::def_collector::dc_crate::UnresolvedTraitImpl;
+use noirc_frontend::hir::def_collector::dc_crate::DefCollector;
 use noirc_frontend::macros_api::parse_program;
 use noirc_frontend::macros_api::HirContext;
 use noirc_frontend::macros_api::SortedModule;
@@ -18,12 +17,11 @@ impl MacroProcessor for AssertMessageMacro {
         transform(ast, crate_id)
     }
 
-    fn process_unresolved_traits_impls(
+    fn process_collected_defs(
         &self,
         _crate_id: &CrateId,
         _context: &mut HirContext,
-        _unresolved_traits_impls: &[UnresolvedTraitImpl],
-        _collected_functions: &mut Vec<UnresolvedFunctions>,
+        _def_collector: &mut DefCollector,
     ) -> Result<(), (MacroError, FileId)> {
         Ok(())
     }
