@@ -70,7 +70,7 @@ pub(crate) fn run(
         // that will be inlined at a later step such as by the ACVM compiler or by the backend.
         // Add appropriate handling here once the compiler enables multiple ACIR functions.
         assert_eq!(program.program.functions.len(), 1);
-        let smart_contract_string = backend.eth_contract(&program.program.functions[0])?;
+        let smart_contract_string = backend.eth_contract(&program.program)?;
 
         let contract_dir = workspace.contracts_directory_path(package);
         create_named_dir(&contract_dir, "contract");
