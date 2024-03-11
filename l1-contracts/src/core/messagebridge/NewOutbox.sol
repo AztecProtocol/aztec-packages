@@ -107,7 +107,7 @@ contract NewOutbox is INewOutbox {
 
     bytes32 messageHash = _message.sha256ToField();
 
-    Merkle._verifyMembership(_path, messageHash, _leafIndex, expectedRoot);
+    Merkle.verifyMembership(_path, messageHash, _leafIndex, expectedRoot);
 
     rootData.nullified[_leafIndex] = true;
 

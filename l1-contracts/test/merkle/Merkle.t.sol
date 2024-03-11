@@ -10,13 +10,13 @@ import {Errors} from "../../src/core/libraries/Errors.sol";
 import {FrontierMerkle} from "./../../src/core/messagebridge/frontier_tree/Frontier.sol";
 
 abstract contract MerkleLibWrapper {
-  function _verifyMembershipWrapper(
+  function verifyMembershipWrapper(
     bytes32[] memory _path,
     bytes32 _leaf,
     uint256 _index,
     bytes32 _expectedRoot
   ) external pure {
-    Merkle._verifyMembership(_path, _leaf, _index, _expectedRoot);
+    Merkle.verifyMembership(_path, _leaf, _index, _expectedRoot);
   }
 }
 
@@ -57,7 +57,7 @@ contract MerkleTest is Test, MerkleLibWrapper {
 
     (bytes32[] memory path, bytes32 leaf) = testNaiveMerkle.computeSiblingPath(leafIndex);
 
-    Merkle._verifyMembership(path, leaf, leafIndex, testNaiveMerkle.computeRoot());
+    Merkle.verifyMembership(path, leaf, leafIndex, testNaiveMerkle.computeRoot());
   }
 
   function testNaiveBadSiblingPathAndMembershipVerification(uint256 _idx) public {
@@ -70,7 +70,7 @@ contract MerkleTest is Test, MerkleLibWrapper {
     path1[0] = path1[path1.length - 1];
     path1[path1.length - 1] = temp1;
     vm.expectRevert();
-    this._verifyMembershipWrapper(path1, leaf, leafIndex, expectedRoot);
+    this.verifyMembershipWrapper(path1, leaf, leafIndex, expectedRoot);
 
     // Tests truncated path
     (bytes32[] memory path2,) = testNaiveMerkle.computeSiblingPath(leafIndex);
@@ -80,12 +80,12 @@ contract MerkleTest is Test, MerkleLibWrapper {
     }
 
     vm.expectRevert();
-    this._verifyMembershipWrapper(truncatedPath, leaf, leafIndex, expectedRoot);
+    this.verifyMembershipWrapper(truncatedPath, leaf, leafIndex, expectedRoot);
 
     // Tests empty path
     bytes32[] memory emptyPath = new bytes32[](0);
     vm.expectRevert();
-    this._verifyMembershipWrapper(emptyPath, leaf, leafIndex, expectedRoot);
+    this.verifyMembershipWrapper(emptyPath, leaf, leafIndex, expectedRoot);
   }
 
   function testComputeSiblingPathManually() public {

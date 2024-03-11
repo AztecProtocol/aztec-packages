@@ -27,7 +27,7 @@ library Merkle {
     * @remark - We use the indexAtHeight to see whether our child of the next subtree is at the left or the right side, as any odd indexes are right-sided children.
     * This is important and we have assigned it into its own variable isRight, because this affects the way we concat our two children to then hash and calculate the root.
     */
-  function _verifyMembership(
+  function verifyMembership(
     bytes32[] memory _path,
     bytes32 _leaf,
     uint256 _index,
