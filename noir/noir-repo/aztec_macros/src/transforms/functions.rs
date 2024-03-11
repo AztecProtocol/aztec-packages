@@ -213,17 +213,20 @@ fn create_internal_check(fname: &str) -> Statement {
 
 /// Creates a call to assert_initialization_args_match_address_preimage to ensure
 /// the initialization arguments used in the init call match the address preimage.
-/// 
+///
 /// ```noir
 /// assert_initialization_args_match_address_preimage(context);
 /// ```
 fn create_assert_init_args() -> Statement {
     make_statement(StatementKind::Expression(call(
-        variable_path(chained_dep!("aztec", "initializer", "assert_initialization_args_match_address_preimage")),
+        variable_path(chained_dep!(
+            "aztec",
+            "initializer",
+            "assert_initialization_args_match_address_preimage"
+        )),
         vec![variable("context")],
     )))
 }
-
 
 /// Creates the private context object to be accessed within the function, the parameters need to be extracted to be
 /// appended into the args hash object.
