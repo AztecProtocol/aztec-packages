@@ -70,7 +70,7 @@ defaults_e2e_test: &defaults_e2e_test
     resource_class: small
 
 jobs:
-  barretenberg-build:
+  build:
     machine: {image: default}
     resource_class: small
     steps:
@@ -78,34 +78,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          working_directory: barretenberg/cpp
           command: earthly +build-ci
-
-  yarn-project:
-    machine: {image: default}
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          working_directory: yarn-project
-          command: |
-            git submodule update --init --recursive
-            cd yarn-project && earthly +build
-
-  barretenberg-benches:
-    machine: {image: default}
-    resource_class: xlarge
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          working_directory: barretenberg/cpp
-          command: |
-            earthly_local +bench-ultra-honk
-            earthly_local +bench-client-ivc
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults
@@ -124,6 +97,4 @@ defaults: &defaults
 workflows:
   system:
     jobs:
-      - barretenberg-build: *defaults
-      - barretenberg-benches: *defaults
-      - yarn-project: *defaults
+      - build: *defaults
