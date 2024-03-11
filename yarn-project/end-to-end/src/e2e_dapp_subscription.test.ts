@@ -95,7 +95,6 @@ describe('e2e_dapp_subscription', () => {
       // anyone can purchase a subscription for 100 test tokens
       bananaCoin.address,
       SUBSCRIPTION_AMOUNT,
-      // I had to pass this in because the address kept changing
       gasTokenContract.address,
     )
       .send()
