@@ -9,6 +9,7 @@ import {
 
 export const AZTEC_PRIVATE_ATTRIBUTE = 'aztec(private)';
 export const AZTEC_PUBLIC_ATTRIBUTE = 'aztec(public)';
+export const AZTEC_PUBLIC_VM_ATTRIBUTE = 'aztec(public-vm)';
 export const AZTEC_INTERNAL_ATTRIBUTE = 'aztec(internal)';
 export const AZTEC_INITIALIZER_ATTRIBUTE = 'aztec(initializer)';
 
