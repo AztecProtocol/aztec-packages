@@ -15,7 +15,7 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const 
     : instance(std::move(inst))
     , transcript(transcript)
     , commitment_key(instance->proving_key->commitment_key)
-    , pre_sumcheck_prover(inst, commitment_key, transcript, "")
+    , oink_prover(inst, commitment_key, transcript, "")
 {}
 
 /**
@@ -30,7 +30,7 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     : instance(std::make_shared<ProverInstance>(circuit))
     , transcript(std::make_shared<Transcript>())
     , commitment_key(instance->proving_key->commitment_key)
-    , pre_sumcheck_prover(instance, commitment_key, transcript, "")
+    , oink_prover(instance, commitment_key, transcript, "")
 {}
 
 /**
@@ -80,19 +80,19 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::export_proof()
 template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript->
-    pre_sumcheck_prover.execute_preamble_round();
+    oink_prover.execute_preamble_round();
 
     // Compute first three wire commitments
-    pre_sumcheck_prover.execute_wire_commitments_round();
+    oink_prover.execute_wire_commitments_round();
 
     // Compute sorted list accumulator and commitment
-    pre_sumcheck_prover.execute_sorted_list_accumulator_round();
+    oink_prover.execute_sorted_list_accumulator_round();
 
     // Fiat-Shamir: beta & gamma
-    pre_sumcheck_prover.execute_log_derivative_inverse_round();
+    oink_prover.execute_log_derivative_inverse_round();
 
     // Compute grand product(s) and commitments.
-    pre_sumcheck_prover.execute_grand_product_computation_round();
+    oink_prover.execute_grand_product_computation_round();
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

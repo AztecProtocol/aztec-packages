@@ -15,7 +15,6 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
     inst->verification_key->pub_inputs_offset =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
-
     inst->verification_key->public_inputs.clear();
     for (size_t i = 0; i < inst->verification_key->num_public_inputs; ++i) {
         auto public_input_i =

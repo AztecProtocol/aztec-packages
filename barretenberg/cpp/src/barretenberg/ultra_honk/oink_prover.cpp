@@ -1,4 +1,4 @@
-#include "barretenberg/ultra_honk/presumcheck_prover.hpp"
+#include "barretenberg/ultra_honk/oink_prover.hpp"
 
 namespace bb {
 
@@ -6,10 +6,10 @@ namespace bb {
  * @brief Add circuit size, public input size, and public inputs to transcript
  *
  */
-template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_preamble_round()
+template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     const auto circuit_size = static_cast<uint32_t>(instance->proving_key->circuit_size);
-    const auto num_public_inputs = static_cast<uint32_t>(instance->proving_key->public_inputs.size());
+    const auto num_public_inputs = static_cast<uint32_t>(instance->proving_key->num_public_inputs);
     transcript->send_to_verifier(domain_separator + "circuit_size", circuit_size);
     transcript->send_to_verifier(domain_separator + "public_input_size", num_public_inputs);
     transcript->send_to_verifier(domain_separator + "pub_inputs_offset",
@@ -28,7 +28,7 @@ template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_preamble
  * only commited to after adding memory records. In the Goblin Flavor, we also commit to the ECC OP wires and the
  * DataBus columns.
  */
-template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_wire_commitments_round()
+template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitments_round()
 {
     auto& witness_commitments = instance->witness_commitments;
 
@@ -39,7 +39,7 @@ template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_wire_com
     witness_commitments.w_o = commitment_key->commit(instance->proving_key->w_o);
 
     auto wire_comms = witness_commitments.get_wires();
-    auto commitment_labels = instance->commitment_labels;
+    auto& commitment_labels = instance->commitment_labels;
     auto wire_labels = commitment_labels.get_wires();
     for (size_t idx = 0; idx < 3; ++idx) {
         transcript->send_to_verifier(domain_separator + wire_labels[idx], wire_comms[idx]);
@@ -52,7 +52,7 @@ template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_wire_com
         witness_commitments.ecc_op_wire_3 = commitment_key->commit(instance->proving_key->ecc_op_wire_3);
         witness_commitments.ecc_op_wire_4 = commitment_key->commit(instance->proving_key->ecc_op_wire_4);
 
-        auto op_wire_comms = instance->witness_commitments.get_ecc_op_wires();
+        auto op_wire_comms = witness_commitments.get_ecc_op_wires();
         auto labels = commitment_labels.get_ecc_op_wires();
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             transcript->send_to_verifier(domain_separator + labels[idx], op_wire_comms[idx]);
@@ -60,10 +60,9 @@ template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_wire_com
         // Commit to DataBus columns
         witness_commitments.calldata = commitment_key->commit(instance->proving_key->calldata);
         witness_commitments.calldata_read_counts = commitment_key->commit(instance->proving_key->calldata_read_counts);
-        transcript->send_to_verifier(domain_separator + commitment_labels.calldata,
-                                     instance->witness_commitments.calldata);
+        transcript->send_to_verifier(domain_separator + commitment_labels.calldata, witness_commitments.calldata);
         transcript->send_to_verifier(domain_separator + commitment_labels.calldata_read_counts,
-                                     instance->witness_commitments.calldata_read_counts);
+                                     witness_commitments.calldata_read_counts);
     }
 }
 
@@ -71,7 +70,7 @@ template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_wire_com
  * @brief Compute sorted witness-table accumulator and commit to the resulting polynomials.
  *
  */
-template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_sorted_list_accumulator_round()
+template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
 {
     auto& witness_commitments = instance->witness_commitments;
     const auto& commitment_labels = instance->commitment_labels;
@@ -92,8 +91,9 @@ template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_sorted_l
  * @brief Compute log derivative inverse polynomial and its commitment, if required
  *
  */
-template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_log_derivative_inverse_round()
+template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_inverse_round()
 {
+    auto& witness_commitments = instance->witness_commitments;
     const auto& commitment_labels = instance->commitment_labels;
 
     auto [beta, gamma] =
@@ -103,10 +103,9 @@ template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_log_deri
     if constexpr (IsGoblinFlavor<Flavor>) {
         // Compute and commit to the logderivative inverse used in DataBus
         instance->compute_logderivative_inverse(beta, gamma);
-        instance->witness_commitments.lookup_inverses =
-            commitment_key->commit(instance->prover_polynomials.lookup_inverses);
+        witness_commitments.lookup_inverses = commitment_key->commit(instance->prover_polynomials.lookup_inverses);
         transcript->send_to_verifier(domain_separator + commitment_labels.lookup_inverses,
-                                     instance->witness_commitments.lookup_inverses);
+                                     witness_commitments.lookup_inverses);
     }
 }
 
@@ -114,7 +113,7 @@ template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_log_deri
  * @brief Compute permutation and lookup grand product polynomials and their commitments
  *
  */
-template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_grand_product_computation_round()
+template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
     auto& witness_commitments = instance->witness_commitments;
     const auto& commitment_labels = instance->commitment_labels;
@@ -125,11 +124,11 @@ template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_grand_pr
     witness_commitments.z_perm = commitment_key->commit(instance->prover_polynomials.z_perm);
     witness_commitments.z_lookup = commitment_key->commit(instance->prover_polynomials.z_lookup);
 
-    transcript->send_to_verifier(domain_separator + commitment_labels.z_perm, instance->witness_commitments.z_perm);
-    transcript->send_to_verifier(domain_separator + commitment_labels.z_lookup, instance->witness_commitments.z_lookup);
+    transcript->send_to_verifier(domain_separator + commitment_labels.z_perm, witness_commitments.z_perm);
+    transcript->send_to_verifier(domain_separator + commitment_labels.z_lookup, witness_commitments.z_lookup);
 }
 
-template class PreSumcheckProver<UltraFlavor>;
-template class PreSumcheckProver<GoblinUltraFlavor>;
+template class OinkProver<UltraFlavor>;
+template class OinkProver<GoblinUltraFlavor>;
 
 } // namespace bb

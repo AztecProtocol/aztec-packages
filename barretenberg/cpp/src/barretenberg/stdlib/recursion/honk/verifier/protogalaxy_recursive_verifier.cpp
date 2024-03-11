@@ -18,7 +18,6 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     inst->verification_key->num_public_inputs = uint32_t(public_input_size.get_value());
     const auto pub_inputs_offset =
         transcript->template receive_from_prover<FF>(domain_separator + "_pub_inputs_offset");
-
     inst->verification_key->pub_inputs_offset = uint32_t(pub_inputs_offset.get_value());
 
     inst->verification_key->public_inputs.clear();

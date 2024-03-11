@@ -7,7 +7,7 @@
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/presumcheck_prover.hpp"
+#include "barretenberg/ultra_honk/oink_prover.hpp"
 
 namespace bb {
 
@@ -55,7 +55,7 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    PreSumcheckProver<Flavor> pre_sumcheck_prover;
+    OinkProver<Flavor> oink_prover;
 
     using ZeroMorph = ZeroMorphProver_<Curve>;
 
