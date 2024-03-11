@@ -91,13 +91,13 @@ it('end-to-end proving and verification with different instances', async () => {
   expect(proof_is_valid).to.be.true;
 });
 
-// This bug occurs when we use the same backend to create an inner proof and then an outer proof
-// and then try to verify either one of them.
-//
-// The panic occurs when we try to verify the outer/inner proof that was created.
-// If we only create one type of proof, then this works as expected.
-//
-// If we do not create an inner proof, then this will work as expected.
+// // This bug occurs when we use the same backend to create an inner proof and then an outer proof
+// // and then try to verify either one of them.
+// //
+// // The panic occurs when we try to verify the outer/inner proof that was created.
+// // If we only create one type of proof, then this works as expected.
+// //
+// // If we do not create an inner proof, then this will work as expected.
 // it('[BUG] -- bb.js null function or function signature mismatch (outer-inner) ', async () => {
 //   // Noir.Js part
 //   const inputs = {
