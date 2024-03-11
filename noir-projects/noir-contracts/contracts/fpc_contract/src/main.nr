@@ -19,7 +19,7 @@ contract FPC {
     }
 
     #[aztec(private)]
-    fn fee_entrypoint_private(amount: Field, asset: AztecAddress, nonce: Field) {
+    fn fee_entrypoint_private(amount: Field, asset: AztecAddress, secret_hash: Field, nonce: Field) {
         assert(asset == storage.other_asset.read_private());
 
         let _res = Token::at(asset).unshield(
@@ -32,8 +32,8 @@ contract FPC {
 
         let _void = context.call_public_function(
             context.this_address(),
-            FunctionSelector::from_signature("pay_fee((Field),Field,(Field))"),
-            [context.msg_sender().to_field(), amount, asset.to_field()]
+            FunctionSelector::from_signature("pay_fee_with_shielded_rebate(Field,(Field),Field)"),
+            [amount, asset.to_field(), secret_hash]
         );
     }
 
@@ -69,5 +69,17 @@ contract FPC {
 
         // Just do public refunds for the present
         Token::at(asset).transfer_public(context, context.this_address(), refund_address, refund, 0)
+    }
+
+    #[aztec(public)]
+    #[aztec(internal)]
+    fn pay_fee_with_shielded_rebate(amount: Field, asset: AztecAddress, secretHash: Field) {
+        let refund = context.call_public_function(
+            storage.gas_token_address.read_public(),
+            FunctionSelector::from_signature("pay_fee(Field)"),
+            [amount]
+        )[0];
+
+        Token::at(asset).shield(context, context.this_address(), refund, secretHash, 0);
     }
 }

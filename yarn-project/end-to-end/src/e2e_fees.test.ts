@@ -221,6 +221,8 @@ describe('e2e_fees', () => {
       [initialAlicePublicBananas, initialFPCPublicBananas, 0n],
     );
 
+    const rebateSecret = Fr.random();
+
     /**
      * PRIVATE SETUP
      * check authwit
@@ -239,17 +241,17 @@ describe('e2e_fees', () => {
      * call gas.pay_fee
      *   decrease FPC AZT by FeeAmount
      *   increase sequencer AZT by FeeAmount
-     * call banana.transfer_public
+     * call banana.shield
      *   decrease FPC BC.public by RefundAmount
-     *   increase alice BC.public by RefundAmount
+     *   create transparent note with RefundAmount
      *
      */
-    await bananaCoin.methods
-      .mint_public(aliceAddress, AppLogicMintedBananasAmount)
+    const tx = await bananaCoin.methods
+      .privately_mint_private_note(AppLogicMintedBananasAmount)
       .send({
         fee: {
           maxFee: MaxFee,
-          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, wallets[0]),
+          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, wallets[0], rebateSecret),
         },
       })
       .wait();
@@ -257,22 +259,24 @@ describe('e2e_fees', () => {
     await expectMapping(
       bananaPrivateBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [initialAlicePrivateBananas + PrivateMintedBananasAmount - MaxFee, initialFPCPrivateBananas, 0n],
+      [
+        initialAlicePrivateBananas + PrivateMintedBananasAmount - MaxFee + AppLogicMintedBananasAmount,
+        initialFPCPrivateBananas,
+        0n,
+      ],
     );
     await expectMapping(
       bananaPublicBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
-      [
-        initialAlicePublicBananas + AppLogicMintedBananasAmount + RefundAmount,
-        initialFPCPublicBananas + MaxFee - RefundAmount,
-        0n,
-      ],
+      [initialAlicePublicBananas, initialFPCPublicBananas + MaxFee - RefundAmount, 0n],
     );
     await expectMapping(
       gasBalances,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAliceGas, initialFPCGas - FeeAmount, initialSequencerGas + FeeAmount],
     );
+
+    await addPendingShieldNoteToPXE(0, RefundAmount, computeMessageSecretHash(rebateSecret), tx.txHash);
   });
 
   function logFunctionSignatures(artifact: ContractArtifact, logger: DebugLogger) {

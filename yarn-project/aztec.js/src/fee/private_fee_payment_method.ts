@@ -1,5 +1,6 @@
 import { FunctionCall } from '@aztec/circuit-types';
 import { FunctionData } from '@aztec/circuits.js';
+import { computeMessageSecretHash } from '@aztec/circuits.js/hash';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -26,6 +27,12 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
      * An auth witness provider to authorize fee payments
      */
     private wallet: AccountWalletWithPrivateKey,
+
+    /**
+     * A secret to shield the rebate amount from the FPC.
+     * Use this to claim the shielded amount to private balance
+     */
+    private rebateSecret = Fr.random(),
   ) {}
 
   /**
@@ -63,16 +70,18 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     });
     await this.wallet.createAuthWitness(messageHash);
 
+    const secretHashForRebate = computeMessageSecretHash(this.rebateSecret);
+
     return [
       {
         to: this.getPaymentContract(),
         functionData: new FunctionData(
-          FunctionSelector.fromSignature('fee_entrypoint_private(Field,(Field),Field)'),
+          FunctionSelector.fromSignature('fee_entrypoint_private(Field,(Field),Field,Field)'),
           false,
           true,
           false,
         ),
-        args: [maxFee, this.asset, nonce],
+        args: [maxFee, this.asset, secretHashForRebate, nonce],
       },
     ];
   }
