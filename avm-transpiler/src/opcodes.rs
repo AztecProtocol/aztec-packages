@@ -2,6 +2,7 @@
 /// Keep updated with TS and yellow paper!
 #[derive(Copy, Clone)]
 pub enum AvmOpcode {
+    // Compute
     ADD,
     SUB,
     MUL,
@@ -16,6 +17,7 @@ pub enum AvmOpcode {
     SHL,
     SHR,
     CAST,
+    // Execution environment
     ADDRESS,
     STORAGEADDRESS,
     ORIGIN,
@@ -34,35 +36,41 @@ pub enum AvmOpcode {
     BLOCKL2GASLIMIT,
     BLOCKDAGASLIMIT,
     CALLDATACOPY,
+    // Gas
     L1GASLEFT,
     L2GASLEFT,
     DAGASLEFT,
+    // Control flow
     JUMP,
     JUMPI,
     INTERNALCALL,
     INTERNALRETURN,
+    // Memory
     SET,
     MOV,
     CMOV,
-    SLOAD,           // Public Storage
-    SSTORE,          // Public Storage
-    NOTEHASHEXISTS,  // Notes & Nullifiers
-    EMITNOTEHASH,    // Notes & Nullifiers
-    NULLIFIEREXISTS, // Notes & Nullifiers
-    EMITNULLIFIER,   // Notes & Nullifiers
-    L1TOL2MSGEXISTS, // Messages
-    HEADERMEMBER,    // Archive tree & Headers
+    // World state
+    SLOAD,
+    SSTORE,
+    NOTEHASHEXISTS,
+    EMITNOTEHASH,
+    NULLIFIEREXISTS,
+    EMITNULLIFIER,
+    L1TOL2MSGEXISTS,
+    HEADERMEMBER,
     EMITUNENCRYPTEDLOG,
     SENDL2TOL1MSG,
+    // External calls
     CALL,
     STATICCALL,
     DELEGATECALL,
     RETURN,
     REVERT,
+    // Gadgets
     KECCAK,
     POSEIDON,
-    SHA256,
-    PEDERSEN,
+    SHA256,   // temp - may be removed, but alot of contracts rely on it
+    PEDERSEN, // temp - may be removed, but alot of contracts rely on it
 }
 
 impl AvmOpcode {
