@@ -80,6 +80,7 @@ template <typename Curve> class IPA {
     using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = bb::Polynomial<Fr>;
 
+// These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
 #ifdef IPA_TEST
     FRIEND_TEST(IPATest, ChallengesAreZero);
 #endif
@@ -465,7 +466,6 @@ template <typename Curve> class IPA {
     /**
      * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
      *
-     * @tparam Transcript Transcript type. Useful for testing
      * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
      * @param opening_pair (challenge, evaluation)
      * @param polynomial The witness polynomial whose opening proof needs to be computed
