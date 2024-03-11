@@ -19,7 +19,7 @@ SUCCESS_TAG=$BASE_TAG-$JOB_NAME
 
 echo "Success tag: $SUCCESS_TAG"
 
-if should_rebuild $REPOSITORY $SUCCESS_TAG; then
+if can_skip $REPOSITORY $SUCCESS_TAG; then
   echo "No re-run necessary for $IMAGE_URI."
   exit 0
 fi

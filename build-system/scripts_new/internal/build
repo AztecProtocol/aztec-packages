@@ -29,7 +29,7 @@ cd $BUILD_DIR
 
 # If we have previously successful commit, we can early out if nothing relevant has changed since.
 IMAGE_COMMIT_TAG=$(calculate_image_tag $REPOSITORY)
-if should_rebuild $REPOSITORY $IMAGE_COMMIT_TAG; then
+if can_skip $REPOSITORY $IMAGE_COMMIT_TAG; then
   echo "No rebuild necessary for $REPOSITORY:$IMAGE_COMMIT_TAG."
   exit 0
 fi
