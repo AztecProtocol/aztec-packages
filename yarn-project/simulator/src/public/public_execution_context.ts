@@ -49,7 +49,13 @@ export class PublicExecutionContext extends TypedOracle {
    */
   public getInitialWitness(witnessStartIndex = 0) {
     const { callContext, args } = this.execution;
-    const fields = [...callContext.toFields(), ...this.header.toFields(), ...this.globalVariables.toFields(), ...args];
+    const fields = [
+      ...callContext.toFields(),
+      ...this.header.toFields(),
+      ...this.globalVariables.toFields(),
+      new Fr(this.sideEffectCounter.current()),
+      ...args,
+    ];
 
     return toACVMWitness(witnessStartIndex, fields);
   }
@@ -188,7 +194,8 @@ export class PublicExecutionContext extends TypedOracle {
       functionSelector,
       isDelegateCall,
       isStaticCall,
-      startSideEffectCounter: 0, // TODO use counters in public execution
+      // TODO (alexg) move this to noir
+      startSideEffectCounter: this.sideEffectCounter.count(),
     });
 
     const nestedExecution: PublicExecution = {

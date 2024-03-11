@@ -161,7 +161,11 @@ export class PublicExecutor {
    * @param globalVariables - The global variables to use.
    * @returns The result of the run plus all nested runs.
    */
-  public async simulate(execution: PublicExecution, globalVariables: GlobalVariables): Promise<PublicExecutionResult> {
+  public async simulate(
+    execution: PublicExecution,
+    globalVariables: GlobalVariables,
+    sideEffectCounter: number = 0,
+  ): Promise<PublicExecutionResult> {
     const selector = execution.functionData.selector;
     const acir = await this.contractsDb.getBytecode(execution.contractAddress, selector);
     if (!acir) {
@@ -172,14 +176,12 @@ export class PublicExecutor {
     // We use this cache to hold the packed arguments.
     const packedArgs = PackedArgsCache.create([]);
 
-    const sideEffectCounter = new SideEffectCounter();
-
     const context = new PublicExecutionContext(
       execution,
       this.header,
       globalVariables,
       packedArgs,
-      sideEffectCounter,
+      new SideEffectCounter(sideEffectCounter),
       this.stateDb,
       this.contractsDb,
       this.commitmentsDb,
@@ -209,6 +211,7 @@ export class PublicExecutor {
   public async simulateAvm(
     execution: PublicExecution,
     globalVariables: GlobalVariables,
+    _sideEffectCounter = 0,
   ): Promise<PublicExecutionResult> {
     // Temporary code to construct the AVM context
     // These data structures will permiate across the simulator when the public executor is phased out
