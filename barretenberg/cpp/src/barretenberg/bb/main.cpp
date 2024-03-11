@@ -144,16 +144,16 @@ bool accumulateAndVerifyGoblin(const std::string& bytecodePath, const std::strin
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
-    // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
-    acir_proofs::GoblinAcirComposer acir_composer;
-    acir_composer.create_circuit(constraint_system, witness);
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
     // to max circuit size present in acir tests suite.
     size_t hardcoded_bn254_dyadic_size_hack = 1 << 19;
     init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
     size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
     init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
+
+    // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
+    acir_proofs::GoblinAcirComposer acir_composer;
+    acir_composer.create_circuit(constraint_system, witness);
 
     // Call accumulate to generate a GoblinUltraHonk proof
     auto proof = acir_composer.accumulate();
@@ -183,16 +183,16 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath, const std::string& wi
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
-    // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
-    acir_proofs::GoblinAcirComposer acir_composer;
-    acir_composer.create_circuit(constraint_system, witness);
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
     // to max circuit size present in acir tests suite.
     size_t hardcoded_bn254_dyadic_size_hack = 1 << 19;
     init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
     size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
     init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
+
+    // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
+    acir_proofs::GoblinAcirComposer acir_composer;
+    acir_composer.create_circuit(constraint_system, witness);
 
     // Generate a GoblinUltraHonk proof and a full Goblin proof
     auto proof = acir_composer.accumulate_and_prove();
@@ -222,9 +222,9 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
     acir_composer.create_circuit(constraint_system, witness);
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof();
+    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
 
     if (outputPath == "-") {
         writeRawBytesToStdout(proof);
