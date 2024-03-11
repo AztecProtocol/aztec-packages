@@ -97,12 +97,14 @@ export class TxEffect {
   }
 
   hash() {
+    // must correspond with components_compute_kernel_calldata_hash() in nr
+    // and TxsDecoder.sol decode()
     const noteHashesBuffer = Buffer.concat(this.noteHashes.map(x => x.toBuffer()));
     const nullifiersBuffer = Buffer.concat(this.nullifiers.map(x => x.toBuffer()));
     const newL2ToL1MsgsBuffer = Buffer.concat(this.l2ToL1Msgs.map(x => x.toBuffer()));
     const publicDataUpdateRequestsBuffer = Buffer.concat(this.publicDataWrites.map(x => x.toBuffer()));
-    const encryptedLogsHashKernel0 = this.encryptedLogs.hash();
-    const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
+    const encryptedLogsHashKernel0 = Buffer.concat([Buffer.alloc(1), this.encryptedLogs.hash().subarray(0, 31)]);
+    const unencryptedLogsHashKernel0 = Buffer.concat([Buffer.alloc(1), this.unencryptedLogs.hash().subarray(0, 31)]);
 
     if (MAX_NEW_CONTRACTS_PER_TX !== 1) {
       throw new Error('Only one contract per transaction is supported for now.');
@@ -121,7 +123,7 @@ export class TxEffect {
       unencryptedLogsHashKernel0,
     ]);
 
-    return sha256(inputValue);
+    return sha256(inputValue).subarray(0, 31);
   }
 
   static random(

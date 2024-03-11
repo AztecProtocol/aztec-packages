@@ -126,12 +126,12 @@ export class TxL2Logs {
    *       for more details.
    */
   public hash(): Buffer {
-    const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
-    let kernelPublicInputsLogsHash = Buffer.alloc(32);
+    const logsHashes: [Buffer, Buffer] = [Buffer.alloc(31), Buffer.alloc(31)];
+    let kernelPublicInputsLogsHash = Buffer.alloc(31);
 
     for (const logsFromSingleFunctionCall of this.functionLogs) {
-      logsHashes[0] = kernelPublicInputsLogsHash;
-      logsHashes[1] = logsFromSingleFunctionCall.hash(); // privateCircuitPublicInputsLogsHash
+      logsHashes[0] = kernelPublicInputsLogsHash.subarray(0, 31);
+      logsHashes[1] = logsFromSingleFunctionCall.hash().subarray(0, 31); // privateCircuitPublicInputsLogsHash
 
       // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
       kernelPublicInputsLogsHash = sha256(Buffer.concat(logsHashes));

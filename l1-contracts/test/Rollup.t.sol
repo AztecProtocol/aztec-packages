@@ -59,7 +59,7 @@ contract RollupTest is DecoderBase {
     bytes memory body = data.body;
 
     assembly {
-      mstore(add(header, add(0x20, 0x0158)), 0x420)
+      mstore(add(header, add(0x20, 0x0155)), 0x420)
     }
 
     availabilityOracle.publish(body);
@@ -75,7 +75,7 @@ contract RollupTest is DecoderBase {
     bytes memory body = data.body;
 
     assembly {
-      mstore(add(header, add(0x20, 0x0178)), 0x420)
+      mstore(add(header, add(0x20, 0x0175)), 0x420)
     }
 
     availabilityOracle.publish(body);
@@ -92,7 +92,7 @@ contract RollupTest is DecoderBase {
 
     uint256 ts = block.timestamp + 1;
     assembly {
-      mstore(add(header, add(0x20, 0x01b8)), ts)
+      mstore(add(header, add(0x20, 0x01b5)), ts)
     }
 
     availabilityOracle.publish(body);

@@ -73,7 +73,7 @@ export class PublicCircuitPublicInputs {
      * Hash of the unencrypted logs emitted in this function call.
      * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
-    public unencryptedLogsHash: [Fr, Fr],
+    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
     /**
      * Length of the unencrypted log preimages emitted in this function call.
      */
@@ -113,7 +113,7 @@ export class PublicCircuitPublicInputs {
       makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
-      makeTuple(2, Fr.zero),
+      makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       Fr.ZERO,
       Header.empty(),
       AztecAddress.ZERO,

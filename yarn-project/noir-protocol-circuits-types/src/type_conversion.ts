@@ -49,6 +49,7 @@ import {
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
+  NUM_BYTES_PER_SHA256,
   NUM_FIELDS_PER_SHA256,
   NewContractData,
   NoteHashReadRequestMembershipWitness,
@@ -99,7 +100,7 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
-import { Tuple, from2Fields, mapTuple, to2Fields } from '@aztec/foundation/serialize';
+import { Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
 
 import {
   CallContext as CallContextNoir,
@@ -192,6 +193,7 @@ import {
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
   StateReference as StateReferenceNoir,
 } from './types/rollup_root_types.js';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 /* eslint-disable camelcase */
 
@@ -838,20 +840,21 @@ export function mapTupleFromNoir<T, N extends number, M>(
 
 /**
  * Maps a SHA256 hash from noir to the parsed type.
- * @param hash - The hash as it is represented in Noir (2 fields).
- * @returns The hash represented as a 32 bytes long buffer.
+ * @param hash - The hash as it is represented in Noir (1 fields).
+ * @returns The hash represented as a 31 bytes long buffer.
  */
-export function mapSha256HashFromNoir(hash: FixedLengthArray<Field, 2>): Buffer {
-  return from2Fields(mapFieldFromNoir(hash[0]), mapFieldFromNoir(hash[1]));
+export function mapSha256HashFromNoir(hash: FixedLengthArray<Field, typeof NUM_FIELDS_PER_SHA256>): Buffer {
+  return Buffer.concat(hash.map(mapFieldFromNoir).map(fr => toBufferBE(fr.toBigInt(), NUM_BYTES_PER_SHA256)));
+  // return from2Fields(mapFieldFromNoir(hash[0]), mapFieldFromNoir(hash[1]));
 }
 
 /**
  * Maps a sha256 to the representation used in noir.
  * @param hash - The hash represented as a 32 bytes long buffer.
- * @returns The hash as it is represented in Noir (2 fields).
+ * @returns The hash as it is represented in Noir (1 field, truncated).
  */
-export function mapSha256HashToNoir(hash: Buffer): FixedLengthArray<Field, 2> {
-  return to2Fields(hash).map(mapFieldToNoir) as FixedLengthArray<Field, 2>;
+export function mapSha256HashToNoir(hash: Buffer): FixedLengthArray<Field, typeof NUM_FIELDS_PER_SHA256> {
+  return toTruncField(hash).map(mapFieldToNoir) as FixedLengthArray<Field, typeof NUM_FIELDS_PER_SHA256>;
 }
 
 /**
@@ -1641,7 +1644,7 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
     mapConstantRollupDataFromNoir(baseOrMergeRollupPublicInputs.constants),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.end),
-    mapTupleFromNoir(baseOrMergeRollupPublicInputs.calldata_hash, 2, mapFieldFromNoir),
+    mapTupleFromNoir(baseOrMergeRollupPublicInputs.calldata_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
   );
 }
 
@@ -1722,7 +1725,7 @@ export function mapRootRollupPublicInputsFromNoir(
     AggregationObject.makeFake(),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.archive),
     mapHeaderFromNoir(rootRollupPublicInputs.header),
-    mapTupleFromNoir(rootRollupPublicInputs.l1_to_l2_messages_hash, 2, mapFieldFromNoir),
+    mapTupleFromNoir(rootRollupPublicInputs.l1_to_l2_messages_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
   );
 }
 

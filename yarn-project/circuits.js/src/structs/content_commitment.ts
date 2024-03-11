@@ -1,9 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, from2Fields, serializeToBuffer, to2Fields } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, from2Fields, serializeToBuffer, to2Fields, toTruncField, fromTruncField } from '@aztec/foundation/serialize';
 
 import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
 
-export const NUM_BYTES_PER_SHA256 = 32;
+export const NUM_BYTES_PER_SHA256 = 31;
 
 export class ContentCommitment {
   constructor(public txTreeHeight: Fr, public txsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
@@ -25,9 +25,9 @@ export class ContentCommitment {
   toFields(): Fr[] {
     const serialized = [
       this.txTreeHeight,
-      ...to2Fields(this.txsHash),
-      ...to2Fields(this.inHash),
-      ...to2Fields(this.outHash),
+      ...toTruncField(this.txsHash),
+      ...toTruncField(this.inHash),
+      ...toTruncField(this.outHash),
     ];
     if (serialized.length !== CONTENT_COMMITMENT_LENGTH) {
       throw new Error(`Expected content commitment to have 4 fields, but it has ${serialized.length} fields`);
@@ -50,9 +50,9 @@ export class ContentCommitment {
     const reader = FieldReader.asReader(fields);
     return new ContentCommitment(
       reader.readField(),
-      from2Fields(reader.readField(), reader.readField()),
-      from2Fields(reader.readField(), reader.readField()),
-      from2Fields(reader.readField(), reader.readField()),
+      fromTruncField(reader.readField()),
+      fromTruncField(reader.readField()),
+      fromTruncField(reader.readField()),
     );
   }
 

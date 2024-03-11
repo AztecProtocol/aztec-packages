@@ -22,18 +22,22 @@ use dep::std::hash::{pedersen_hash_with_separator, sha256};
 pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256(bytes_to_hash);
 
-    // Convert it to a field element
+    // Convert it to a field element by truncating the final byte
     let mut v = 1;
     let mut high = 0 as Field;
     let mut low = 0 as Field;
 
-    for i in 0..16 {
-        high = high + (sha256_hashed[15 - i] as Field) * v;
-        low = low + (sha256_hashed[16 + 15 - i] as Field) * v;
+    for i in 0..15 {
+        // covers bytes 16..30 (31 is truncated and ignored)
+        low = low + (sha256_hashed[15 + 15 - i] as Field) * v;
         v = v * 256;
+        // covers bytes 0..14
+        high = high + (sha256_hashed[14 - i] as Field) * v;
     }
 
-    // Abuse that a % p + b % p = (a + b) % p and that low < p
+    // covers byte 15
+    low = low + (sha256_hashed[15] as Field) * v;
+
     let hash_in_a_field = low + high * v;
 
     hash_in_a_field
@@ -236,7 +240,7 @@ pub fn compute_constructor_hash(
 // Returning a Field would be desirable because then this can be replaced with 
 // poseidon without changing the rest of the code
 //
-pub fn accumulate_sha256(input: [U128; 4]) -> [Field; NUM_FIELDS_PER_SHA256] {
+pub fn accumulate_sha256(input: [Field; NUM_FIELDS_PER_SHA256 * 2]) -> [Field; NUM_FIELDS_PER_SHA256] {
     // This is a note about the cpp code, since it takes an array of Fields
     // instead of a U128.
     // 4 Field elements when converted to bytes will usually 
@@ -247,30 +251,28 @@ pub fn accumulate_sha256(input: [U128; 4]) -> [Field; NUM_FIELDS_PER_SHA256] {
     // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
     //
     // Concatenate 4 u128 bit integers into a byte array.
-    let mut hash_input_flattened = [0; 64];
-    for offset in 0..4 {
-        let input_as_bytes = input[offset].to_be_bytes();
-        for byte_index in 0..16 {
-            hash_input_flattened[offset * 16 + byte_index] = input_as_bytes[byte_index];
+
+    // TODO(Miranda): Document
+    let mut hash_input_flattened = [0; 62];
+    for offset in 0..NUM_FIELDS_PER_SHA256 * 2 {
+        let input_as_bytes = input[offset].to_be_bytes(31);
+        for byte_index in 0..31 {
+            hash_input_flattened[offset * 31 + byte_index] = input_as_bytes[byte_index];
         }
     }
 
-    let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-
-    U256::from_bytes32(sha_digest).to_u128_limbs()
+    [sha256_to_field(hash_input_flattened)]
 }
 
 pub fn compute_logs_hash(
-    previous_log_hash: [Field; 2],
-    current_log_hash: [Field; 2]
+    previous_log_hash: [Field; NUM_FIELDS_PER_SHA256],
+    current_log_hash: [Field; NUM_FIELDS_PER_SHA256]
 ) -> [Field; NUM_FIELDS_PER_SHA256] {
     accumulate_sha256(
         [
-        U128::from_integer(previous_log_hash[0]),
-        U128::from_integer(previous_log_hash[1]),
-        U128::from_integer(current_log_hash[0]),
-        U128::from_integer(current_log_hash[1])
-    ]
+            previous_log_hash[0],
+            current_log_hash[0]
+        ]
     )
 }
 
@@ -329,7 +331,15 @@ fn smoke_sha256_to_field() {
         140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159
     ];
     let result = sha256_to_field(full_buffer);
-    assert(result == 0x142a6d57007171f6eaa33d55976d9dbe739c889c8e920f115f7808dea184c718);
+    
+    assert(result == 0x448ebbc9e1a31220a2f3830c18eef61b9bd070e5084b7fa2a359fe729184c7);
+
+    // to show correctness of the current ver (truncate one byte) vs old ver (mod full bytes):
+    let result_bytes = sha256(full_buffer);
+    let truncated_field = crate::utils::field::field_from_bytes_32_trunc(result_bytes);
+    assert(truncated_field == result);
+    let mod_res = result + (result_bytes[31] as Field);
+    assert(mod_res == 0x448ebbc9e1a31220a2f3830c18eef61b9bd070e5084b7fa2a359fe729184e0);
 }
 
 #[test]
@@ -346,10 +356,15 @@ fn compute_var_args_hash() {
 fn compute_l2_l1_hash() {
     // All zeroes
     let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, 0, L2ToL1Message::empty());
-    assert(hash_result == 0x2266ac2f9f0c19c015239ef5ea85862fc6fac00db73779b220a4d49c4856c2e1);
+    assert(hash_result == 0xb393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2);
+    // original modded result:
+    // assert(hash_result == 0x2266ac2f9f0c19c015239ef5ea85862fc6fac00db73779b220a4d49c4856c2e1);
+
 
     // Non-zero case
     let message = L2ToL1Message { recipient: EthAddress::from_field(3), content: 5 };
     let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(1), 2, 4, message);
-    assert(hash_result == 0x0f24729168d4450a5681beafa5e3a899ac28bd17bf5a4877dab37bcd834e1634);
+    assert(hash_result == 0x3f88c1044a05e5340ed20466276500f6d45ca5603913b9091e957161734e16);
+    // original modded result:
+    // assert(hash_result == 0x0f24729168d4450a5681beafa5e3a899ac28bd17bf5a4877dab37bcd834e1634);
 }

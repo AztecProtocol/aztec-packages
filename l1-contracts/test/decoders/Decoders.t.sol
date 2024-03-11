@@ -206,8 +206,8 @@ contract DecodersTest is DecoderBase {
 
     (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
 
-    bytes32 kernelPublicInputsLogsHash = bytes32(0);
-    bytes32 privateCircuitPublicInputsLogsHash = sha256(new bytes(0));
+    bytes31 kernelPublicInputsLogsHash = bytes31(0);
+    bytes31 privateCircuitPublicInputsLogsHash = bytes31(sha256(new bytes(0)));
 
     bytes32 referenceLogsHash =
       sha256(abi.encodePacked(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
@@ -227,8 +227,8 @@ contract DecodersTest is DecoderBase {
     (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
 
     // Zero because this is the first iteration
-    bytes32 previousKernelPublicInputsLogsHash = bytes32(0);
-    bytes32 privateCircuitPublicInputsLogsHashFirstCall = sha256(firstFunctionCallLogs);
+    bytes31 previousKernelPublicInputsLogsHash = bytes31(0);
+    bytes31 privateCircuitPublicInputsLogsHashFirstCall = bytes31(sha256(firstFunctionCallLogs));
 
     bytes32 referenceLogsHash = sha256(
       abi.encodePacked(
@@ -255,13 +255,13 @@ contract DecodersTest is DecoderBase {
     (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
 
     bytes32 referenceLogsHashFromIteration1 =
-      sha256(abi.encodePacked(bytes32(0), sha256(firstFunctionCallLogs)));
+      sha256(abi.encodePacked(bytes31(0), bytes31(sha256(firstFunctionCallLogs))));
 
     bytes32 privateCircuitPublicInputsLogsHashSecondCall = sha256(secondFunctionCallLogs);
 
     bytes32 referenceLogsHashFromIteration2 = sha256(
       abi.encodePacked(
-        referenceLogsHashFromIteration1, privateCircuitPublicInputsLogsHashSecondCall
+        bytes31(referenceLogsHashFromIteration1), bytes31(privateCircuitPublicInputsLogsHashSecondCall)
       )
     );
 
@@ -292,20 +292,20 @@ contract DecodersTest is DecoderBase {
     (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
 
     bytes32 referenceLogsHashFromIteration1 =
-      sha256(abi.encodePacked(bytes32(0), sha256(firstFunctionCallLogs)));
+      sha256(abi.encodePacked(bytes31(0), bytes31(sha256(firstFunctionCallLogs))));
 
     bytes32 privateCircuitPublicInputsLogsHashSecondCall = sha256(secondFunctionCallLogs);
 
     bytes32 referenceLogsHashFromIteration2 = sha256(
       abi.encodePacked(
-        referenceLogsHashFromIteration1, privateCircuitPublicInputsLogsHashSecondCall
+        bytes31(referenceLogsHashFromIteration1), bytes31(privateCircuitPublicInputsLogsHashSecondCall)
       )
     );
 
     bytes32 privateCircuitPublicInputsLogsHashThirdCall = sha256(thirdFunctionCallLogs);
 
     bytes32 referenceLogsHashFromIteration3 = sha256(
-      abi.encodePacked(referenceLogsHashFromIteration2, privateCircuitPublicInputsLogsHashThirdCall)
+      abi.encodePacked(bytes31(referenceLogsHashFromIteration2), bytes31(privateCircuitPublicInputsLogsHashThirdCall))
     );
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");

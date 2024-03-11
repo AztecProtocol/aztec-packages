@@ -80,7 +80,7 @@ export class RootRollupPublicInputs {
     /** A header of an L2 block. */
     public header: Header,
     /** Hash of the L1 to L2 messages. */
-    public l1ToL2MessagesHash: [Fr, Fr],
+    public l1ToL2MessagesHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
   ) {}
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
@@ -106,7 +106,7 @@ export class RootRollupPublicInputs {
       reader.readObject(AggregationObject),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(Header),
-      reader.readArray(NUM_FIELDS_PER_SHA256, Fr) as [Fr, Fr],
+      reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
     );
   }
 }

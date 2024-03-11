@@ -53,7 +53,7 @@ export class Body {
           const left = layers[activeLayer][i];
           const right = layers[activeLayer][i + 1];
 
-          layer.push(sha256(Buffer.concat([left, right])));
+          layer.push(sha256(Buffer.concat([left, right])).subarray(0, 31));
         }
 
         layers.push(layer);

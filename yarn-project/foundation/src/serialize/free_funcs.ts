@@ -145,3 +145,32 @@ export function from2Fields(field1: Fr, field2: Fr): Buffer {
   // Concatenate the two parts to form the original buffer
   return Buffer.concat([originalPart1, originalPart2]);
 }
+
+/**
+ * Stores 248 bits of information in 1 field.
+ * @param buf - 32 or 31 bytes of data
+ * @returns 1 field element
+ */
+export function toTruncField(buf: Buffer): [Fr] {
+  if (buf.length !== 32 && buf.length !== 31) {
+    throw new Error('Buffer must be 31 or 32 bytes');
+  }
+
+  return [Fr.fromBuffer(buf.subarray(0, 31))];
+}
+
+/**
+ * Reconstructs the original 31 bytes of data from 1 truncated field element.
+ * @param field - field element
+ * @returns 31 bytes of data as a Buffer
+ */
+export function fromTruncField(field: Fr): Buffer {
+  // the below is adapted from toBufferBE - can import here if appropriate
+  const hex = field.toBigInt().toString(16);
+  const buffer = Buffer.from(hex.padStart(62, '0').slice(0, 62), 'hex');
+  if (buffer.length > 31) {
+    throw new Error(`Number ${field} does not fit in 31 byte truncated buffer`);
+  }
+  return buffer;
+}
+

@@ -70,7 +70,7 @@ library TxsDecoder {
 
   // Note: Used in `computeConsumables` to get around stack too deep errors.
   struct ConsumablesVars {
-    bytes32[] baseLeaves;
+    bytes31[] baseLeaves;
     bytes32[] l2ToL1Msgs;
     bytes baseLeaf;
     bytes32 encryptedLogsHash;
@@ -97,7 +97,7 @@ library TxsDecoder {
 
       count = read4(_body, offset); // number of tx effects
       offset += 0x4;
-      vars.baseLeaves = new bytes32[](count);
+      vars.baseLeaves = new bytes31[](count);
     }
 
     // Data starts after header. Look at L2 Block Data specification at the top of this file.
@@ -211,14 +211,14 @@ library TxsDecoder {
             )
           ),
           contractData,
-          bytes.concat(vars.encryptedLogsHash, vars.unencryptedLogsHash)
+          bytes.concat(new bytes(1), bytes31(vars.encryptedLogsHash), new bytes(1), bytes31(vars.unencryptedLogsHash))
         );
 
-        vars.baseLeaves[i] = sha256(vars.baseLeaf);
+        vars.baseLeaves[i] = bytes31(sha256(vars.baseLeaf));
       }
     }
 
-    return computeRoot(vars.baseLeaves);
+    return bytes32(bytes.concat(new bytes(1), computeRoot(vars.baseLeaves)));
   }
 
   /**
@@ -279,7 +279,7 @@ library TxsDecoder {
       remainingLogsLength -= (privateCircuitPublicInputLogsLength + 0x4);
 
       kernelPublicInputsLogsHash =
-        sha256(bytes.concat(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
+        sha256(bytes.concat(bytes31(kernelPublicInputsLogsHash), bytes31(privateCircuitPublicInputsLogsHash)));
     }
 
     return (kernelPublicInputsLogsHash, offset);
@@ -291,7 +291,7 @@ library TxsDecoder {
    * @param _leafs - The 32 bytes leafs to build the tree of.
    * @return The root of the Merkle tree.
    */
-  function computeRoot(bytes32[] memory _leafs) internal pure returns (bytes32) {
+  function computeRoot(bytes31[] memory _leafs) internal pure returns (bytes31) {
     // @todo Must pad the tree
     uint256 treeDepth = 0;
     while (2 ** treeDepth < _leafs.length) {
@@ -304,7 +304,7 @@ library TxsDecoder {
 
     for (uint256 i = 0; i < treeDepth; i++) {
       for (uint256 j = 0; j < treeSize; j += 2) {
-        _leafs[j / 2] = sha256(bytes.concat(_leafs[j], _leafs[j + 1]));
+        _leafs[j / 2] = bytes31(sha256(bytes.concat(bytes31(_leafs[j]), bytes31(_leafs[j + 1]))));
       }
       treeSize /= 2;
     }

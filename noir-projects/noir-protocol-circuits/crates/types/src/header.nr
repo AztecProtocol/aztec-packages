@@ -103,5 +103,5 @@ fn empty_hash_is_zero() {
     let hash = header.hash();
 
     // Value from new_contract_data.test.ts "computes empty hash" test
-    assert_eq(hash, 0x2df930cc7b9fc763e82ade72f7c4618834692b2a3d0936aff8d7bbfb27f59d6e);
+    assert_eq(hash, 0x2b2525fb1ae91c903827b8055b9ffaf8444ddf4c2b4dce4a79a3cba426bfbd73);
 }

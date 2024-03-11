@@ -6,6 +6,7 @@ use crate::{
     base::state_diff_hints::StateDiffHints
 };
 use dep::types::{
+    hash::sha256_to_field,
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     membership_witness::{
@@ -332,8 +333,7 @@ impl BaseRollupInputs {
             }
         }
 
-        let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-        U256::from_bytes32(sha_digest).to_u128_limbs()
+        [sha256_to_field(hash_input_flattened)]
     }
 
     // Check that the block header used by each kernel is a member of the blocks tree --> since the block header
@@ -492,7 +492,7 @@ fn consistent_not_hash_subtree_width() {
     );
 }
 
-global CALLDATA_HASH_INPUT_SIZE = 201;
+global CALLDATA_HASH_INPUT_SIZE = 199;
 
 #[test]
 fn consistent_calldata_hash_input_size() {
@@ -505,18 +505,18 @@ fn consistent_calldata_hash_input_size() {
         + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256;
     assert(CALLDATA_HASH_INPUT_SIZE == expected_size, "calldata hash input size is incorrect");
 }
+// TODO(Miranda): Remove this, as we no longer have any split fields
+global CALL_DATA_HASH_LOG_FIELDS = 0;
 
-global CALL_DATA_HASH_LOG_FIELDS = 4;
+// #[test]
+// fn consistent_call_data_hash_log_fields() {
+//     assert_eq(
+//         CALL_DATA_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256
+//         + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256, "calldata hash log fields is incorrect"
+//     );
+// }
 
-#[test]
-fn consistent_call_data_hash_log_fields() {
-    assert_eq(
-        CALL_DATA_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256
-        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256, "calldata hash log fields is incorrect"
-    );
-}
-
-global CALL_DATA_HASH_FULL_FIELDS = 197;
+global CALL_DATA_HASH_FULL_FIELDS = 199;
 
 #[test]
 fn consistent_call_data_hash_full_fields() {
@@ -581,7 +581,7 @@ mod tests {
         kernel_data_builder::PreviousKernelDataBuilder,
         merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}
     },
-        utils::{field::full_field_less_than, uint256::U256}
+        utils::{field::{full_field_less_than, field_from_bytes_32_trunc, field_from_bytes}, uint256::U256}
     };
 
     struct NullifierInsertion {
@@ -1220,7 +1220,7 @@ mod tests {
 
         let hash_input_flattened = [0; CALL_DATA_HASH_FULL_FIELDS * 32 + CALL_DATA_HASH_LOG_FIELDS * 16];
         let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-        let expected_calldata_hash = U256::from_bytes32(sha_digest).to_u128_limbs();
+        let expected_calldata_hash = [field_from_bytes_32_trunc(sha_digest)];
         for i in 0..NUM_FIELDS_PER_SHA256 {
             assert_eq(outputs.calldata_hash[i], expected_calldata_hash[i]);
         }

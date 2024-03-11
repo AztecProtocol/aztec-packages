@@ -58,7 +58,7 @@ import {
 import { makeTuple, range } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
-import { Tuple, to2Fields } from '@aztec/foundation/serialize';
+import { Tuple, toTruncField } from '@aztec/foundation/serialize';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
@@ -355,8 +355,8 @@ describe('sequencer/solo_block_builder', () => {
 
       processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
       processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
-      processedTx.data.end.encryptedLogsHash = to2Fields(processedTx.encryptedLogs.hash());
-      processedTx.data.end.unencryptedLogsHash = to2Fields(processedTx.unencryptedLogs.hash());
+      processedTx.data.end.encryptedLogsHash = toTruncField(processedTx.encryptedLogs.hash());
+      processedTx.data.end.unencryptedLogsHash = toTruncField(processedTx.unencryptedLogs.hash());
 
       return processedTx;
     };

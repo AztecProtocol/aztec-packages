@@ -3,7 +3,7 @@ import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer, toTruncField } from '@aztec/foundation/serialize';
 
 /**
  * Interface of classes allowing for the retrieval of L1 to L2 messages.
@@ -118,7 +118,8 @@ export class L1ToL2Message {
   }
 
   hash(): Fr {
-    return Fr.fromBufferReduce(sha256(serializeToBuffer(...this.toFields())));
+    const hash = toTruncField(sha256(serializeToBuffer(...this.toFields())))[0];
+    return hash;
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): L1ToL2Message {

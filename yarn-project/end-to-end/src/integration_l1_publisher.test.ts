@@ -7,8 +7,7 @@ import {
   L2Actor,
   L2Block,
   createDebugLogger,
-  mockTx,
-  to2Fields,
+  mockTx,  
 } from '@aztec/aztec.js';
 import {
   EthAddress,
@@ -64,6 +63,7 @@ import {
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { setupL1Contracts } from './fixtures/utils.js';
+import { toTruncField } from '@aztec/foundation/serialize';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -186,8 +186,8 @@ describe('L1Publisher integration', () => {
       SideEffectLinkedToNoteHash.empty();
     processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
     processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
-    processedTx.data.end.encryptedLogsHash = to2Fields(processedTx.encryptedLogs.hash());
-    processedTx.data.end.unencryptedLogsHash = to2Fields(processedTx.unencryptedLogs.hash());
+    processedTx.data.end.encryptedLogsHash = toTruncField(processedTx.encryptedLogs.hash());
+    processedTx.data.end.unencryptedLogsHash = toTruncField(processedTx.unencryptedLogs.hash());
 
     return processedTx;
   };
@@ -342,9 +342,9 @@ describe('L1Publisher integration', () => {
       data: txLog.data,
       topics: txLog.topics,
     });
-
+    // Sol gives bytes32 txsHash, so we pad the ts bytes31 version
     // We check that the txsHash in the TxsPublished event is as expected
-    expect(topics.args.txsHash).toEqual(`0x${body.getCalldataHash().toString('hex')}`);
+    expect(topics.args.txsHash).toEqual(`0x${body.getCalldataHash().toString('hex').padStart(64, "0")}`);
   });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {

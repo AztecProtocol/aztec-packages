@@ -96,7 +96,7 @@ library HeaderLib {
     GlobalVariables globalVariables;
   }
 
-  uint256 private constant HEADER_LENGTH = 0x20c; // Header byte length
+  uint256 private constant HEADER_LENGTH = 0x209; // Header byte length
 
   /**
    * @notice Validates the header
@@ -156,34 +156,34 @@ library HeaderLib {
 
     // Reading ContentCommitment
     header.contentCommitment.txTreeHeight = uint256(bytes32(_header[0x0024:0x0044]));
-    header.contentCommitment.txsHash = bytes32(_header[0x0044:0x0064]);
-    header.contentCommitment.inHash = bytes32(_header[0x0064:0x0084]);
-    header.contentCommitment.outHash = bytes32(_header[0x0084:0x00a4]);
+    header.contentCommitment.txsHash = bytes32(bytes.concat(new bytes(1), _header[0x0044:0x0063]));
+    header.contentCommitment.inHash = bytes32(bytes.concat(new bytes(1), _header[0x0063:0x0082]));
+    header.contentCommitment.outHash = bytes32(bytes.concat(new bytes(1), _header[0x0082:0x00a1]));
 
     // Reading StateReference
     header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x00a4:0x00c4]), uint32(bytes4(_header[0x00c4:0x00c8]))
+      bytes32(_header[0x00a1:0x00c1]), uint32(bytes4(_header[0x00c1:0x00c5]))
     );
     header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x00c8:0x00e8]), uint32(bytes4(_header[0x00e8:0x00ec]))
+      bytes32(_header[0x00c5:0x00e5]), uint32(bytes4(_header[0x00e5:0x00e9]))
     );
     header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x00ec:0x010c]), uint32(bytes4(_header[0x010c:0x0110]))
+      bytes32(_header[0x00e9:0x0109]), uint32(bytes4(_header[0x0109:0x010d]))
     );
     header.stateReference.partialStateReference.contractTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x0110:0x0130]), uint32(bytes4(_header[0x0130:0x0134]))
+      bytes32(_header[0x010d:0x012d]), uint32(bytes4(_header[0x012d:0x0131]))
     );
     header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x0134:0x0154]), uint32(bytes4(_header[0x0154:0x0158]))
+      bytes32(_header[0x0131:0x0151]), uint32(bytes4(_header[0x0151:0x0155]))
     );
 
     // Reading GlobalVariables
-    header.globalVariables.chainId = uint256(bytes32(_header[0x0158:0x0178]));
-    header.globalVariables.version = uint256(bytes32(_header[0x0178:0x0198]));
-    header.globalVariables.blockNumber = uint256(bytes32(_header[0x0198:0x01b8]));
-    header.globalVariables.timestamp = uint256(bytes32(_header[0x01b8:0x01d8]));
-    header.globalVariables.coinbase = address(bytes20(_header[0x01d8:0x01ec]));
-    header.globalVariables.feeRecipient = bytes32(_header[0x01ec:HEADER_LENGTH]);
+    header.globalVariables.chainId = uint256(bytes32(_header[0x0155:0x0175]));
+    header.globalVariables.version = uint256(bytes32(_header[0x0175:0x0195]));
+    header.globalVariables.blockNumber = uint256(bytes32(_header[0x0195:0x01b5]));
+    header.globalVariables.timestamp = uint256(bytes32(_header[0x01b5:0x01d5]));
+    header.globalVariables.coinbase = address(bytes20(_header[0x01d5:0x01e9]));
+    header.globalVariables.feeRecipient = bytes32(_header[0x01e9:HEADER_LENGTH]);
 
     return header;
   }

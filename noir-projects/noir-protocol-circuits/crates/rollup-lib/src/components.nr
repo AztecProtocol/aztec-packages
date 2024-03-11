@@ -82,13 +82,11 @@ pub fn assert_prev_rollups_follow_on_from_each_other(
  * @param previous_rollup_data
  * @return calldata hash stored in 2 fields
  */
-pub fn compute_calldata_hash(previous_rollup_data: [PreviousRollupData; 2]) -> [Field; NUM_FIELDS_PER_SHA256] {
+pub fn compute_calldata_hash(previous_rollup_data: [PreviousRollupData; NUM_FIELDS_PER_SHA256 * 2]) -> [Field; NUM_FIELDS_PER_SHA256] {
     accumulate_sha256(
         [
-        U128::from_integer(previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[0]),
-        U128::from_integer(previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[1]),
-        U128::from_integer(previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[0]),
-        U128::from_integer(previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[1])
-    ]
+        previous_rollup_data[0].base_or_merge_rollup_public_inputs.calldata_hash[0],
+        previous_rollup_data[1].base_or_merge_rollup_public_inputs.calldata_hash[0],
+        ]
     )
 }
