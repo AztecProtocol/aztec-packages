@@ -30,6 +30,7 @@ export * from './kernel/rollup_kernel_data.js';
 export * from './parity/base_parity_inputs.js';
 export * from './parity/parity_public_inputs.js';
 export * from './parity/root_parity_input.js';
+export * from './parity/root_parity_inputs.js';
 export * from './l2_to_l1_message.js';
 export * from './membership_witness.js';
 export * from './nullifier_key_validation_request.js';

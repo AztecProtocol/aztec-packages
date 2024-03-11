@@ -21,7 +21,7 @@ import {
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NUM_MSGS_PER_BASE_PARITY,
+  NUM_BASE_PARITY_PER_ROOT_PARITY,
   NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
@@ -37,6 +37,7 @@ import {
   RollupKernelData,
   RollupTypes,
   RootParityInput,
+  RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
   StateDiffHints,
@@ -169,20 +170,18 @@ export class SoloBlockBuilder implements BlockBuilder {
       throw new Error(`Length of txs for the block should be a power of two and at least two (got ${txs.length})`);
     }
 
-    // Parity circuits
+    // Run the base parity circuits in parallel
+    const baseParityOutputs: Promise<RootParityInput>[] = [];
     {
       const newModelL1ToL2MessagesTuple = padArrayEnd(
         newModelL1ToL2Messages,
         Buffer.alloc(32),
         NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
       );
-      const numBaseParityCircuits = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP / NUM_MSGS_PER_BASE_PARITY;
-      // Run the base parity circuit for the new inbox messages in parallel
-      const baseParityInputs = Array.from({ length: numBaseParityCircuits }, (_, i) =>
+      const baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
         BaseParityInputs.fromSlice(newModelL1ToL2MessagesTuple, i),
       );
 
-      const baseParityOutputs: Promise<ParityPublicInputs>[] = [];
       for (const inputs of baseParityInputs) {
         baseParityOutputs.push(this.simulator.baseParityCircuit(inputs));
       }
@@ -212,6 +211,17 @@ export class SoloBlockBuilder implements BlockBuilder {
     const baseRollupOutputs: Promise<[BaseOrMergeRollupPublicInputs, Proof]>[] = [];
     for (let i = 0; i < txs.length; i++) {
       baseRollupOutputs.push(this.baseRollupCircuit(txs[i], baseRollupInputs[i], treeSnapshots[i]));
+    }
+
+    // Run the root parity circuit
+    let rootParityOutput: Promise<RootParityInput>;
+    {
+      // First we await the base parity outputs
+      const baseParityInputs = await Promise.all(baseParityOutputs);
+      const rootParityInputs = new RootParityInputs(
+        baseParityInputs as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
+      );
+      rootParityOutput = this.simulator.rootParityCircuit(rootParityInputs);
     }
 
     // Run merge rollups in layers until we have only two outputs
@@ -252,7 +262,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Run the root rollup with the last two merge rollups (or base, if no merge layers)
     const [mergeOutputLeft, mergeOutputRight] = mergeRollupInputs;
-    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, newL1ToL2MessagesTuple);
+    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, await rootParityOutput, newL1ToL2MessagesTuple);
   }
 
   protected async baseRollupCircuit(
@@ -295,11 +305,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       default:
         throw new Error(`No verification key available for ${type}`);
     }
-  }
-
-  protected baseParityCircuit(inputs: BaseParityInputs): Promise<ParityPublicInputs> {
-    this.debug(`Running base parity circuit`);
-    return this.simulator.baseParityCircuit(inputs);
   }
 
   protected async rootRollupCircuit(

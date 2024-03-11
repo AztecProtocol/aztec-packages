@@ -3,12 +3,13 @@ import {
   BaseParityInputs,
   BaseRollupInputs,
   MergeRollupInputs,
-  ParityPublicInputs,
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
+  RootParityInput,
+  RootParityInputs,
   RootRollupInputs,
-  RootRollupPublicInputs,
+  RootRollupPublicInputs
 } from '@aztec/circuits.js';
 
 /**
@@ -18,9 +19,15 @@ export interface RollupSimulator {
   /**
    * Simulates the base parity circuit from its inputs.
    * @param inputs - Inputs to the circuit.
-   * @returns The public inputs as outputs of the simulation.
+   * @returns One of the inputs of the root parity circuit.
    */
-  baseParityCircuit(inputs: BaseParityInputs): Promise<ParityPublicInputs>;
+  baseParityCircuit(inputs: BaseParityInputs): Promise<RootParityInput>;
+  /**
+   * Simulates the root parity circuit from its inputs.
+   * @param inputs - Inputs to the circuit.
+   * @returns The public inputs and proof.
+   */
+  rootParityCircuit(inputs: RootParityInputs): Promise<RootParityInput>;
   /**
    * Simulates the base rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
