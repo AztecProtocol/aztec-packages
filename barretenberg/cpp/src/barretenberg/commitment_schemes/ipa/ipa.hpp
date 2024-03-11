@@ -10,6 +10,8 @@
 #include <vector>
 
 namespace bb {
+// clang-format off
+
 /**
  * @brief IPA (inner product argument) commitment scheme class.
  *
@@ -70,6 +72,7 @@ namespace bb {
  documentation </a>
  */
 template <typename Curve> class IPA {
+    // clang-fromat on
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
@@ -80,6 +83,10 @@ template <typename Curve> class IPA {
 #ifdef IPA_TEST
     FRIEND_TEST(IPATest, ChallengesAreZero);
 #endif
+#ifdef IPA_FUZZ_TEST
+    friend class ProxyCaller;
+#endif
+    // clang-format off
 
     /**
      * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
@@ -121,6 +128,7 @@ template <typename Curve> class IPA {
                                                const Polynomial& polynomial,
                                                const std::shared_ptr<Transcript>& transcript)
     {
+        // clang-format on
         auto poly_length = static_cast<size_t>(polynomial.size());
 
         // Step 1.
@@ -328,8 +336,9 @@ template <typename Curve> class IPA {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
         auto poly_length = static_cast<uint32_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
-            "IPA:poly_degree_plus_1")); // note this is base field because this is a uint32_t, which should map to a
-                                        // bb::fr, not a grumpkin::fr, which is a BaseField element for Grumpkin
+            "IPA:poly_degree_plus_1")); // note this is base field because this is a uint32_t, which should map
+                                        // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
+                                        // Grumpkin
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
@@ -390,8 +399,8 @@ template <typename Curve> class IPA {
         // Construct vector s
         std::vector<Fr> s_vec(poly_length);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/857): This code is not efficient as its O(nlogn).
-        // This can be optimized to be linear by computing a tree of products. Its very readable, so we're
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/857): This code is not efficient as its
+        // O(nlogn). This can be optimized to be linear by computing a tree of products. Its very readable, so we're
         // leaving it unoptimized for now.
         run_loop_in_parallel_if_effective(
             poly_length,
