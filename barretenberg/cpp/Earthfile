@@ -69,13 +69,11 @@ test-clang-format:
 bench-ultra-honk:
     DO +BENCH_RELEASE --target=ultra_honk_bench --args=""
     DO +BENCH_WASM --target=ultra_honk_bench --args=""
-    SAVE IMAGE --push ultra-honk-$EARTHLY_BUILD_SHA
 
 bench-client-ivc:
     DO +BENCH_RELEASE --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
     DO +BENCH_RELEASE --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
-    DO +WASM_BENCH --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
-    SAVE IMAGE --push ivc-bench-$EARTHLY_BUILD_SHA
+    DO +BENCH_WASM --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
 
 # Functions
 BUILD:
@@ -84,7 +82,7 @@ BUILD:
     ARG build
     # builtin-arg, detects --ci
     ARG EARTHLY_CI
-    IF [ $EARTHLY_CI ]
+    IF $EARTHLY_CI
         # Don't cache CI builds.
         RUN cmake $configure -Bbuild && \
             cmake --build build $build

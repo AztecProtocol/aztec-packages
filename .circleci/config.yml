@@ -81,6 +81,18 @@ jobs:
           command: |
             git submodule update --init --recursive
             earthly +build-ci
+  barretenberg-benches:
+    machine: {image: default}
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: |
+            git submodule update --init --recursive
+            earthly +build-ci
+            aws_run 16 ""
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults

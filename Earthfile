@@ -1,6 +1,13 @@
 VERSION 0.8
 FROM ubuntu:lunar
 
+run-registry:
+  # Run our own registry to alow for 
+  LOCALLY
+  IF ! docker ps | grep registry
+    RUN docker run -d -p 5000:5000 --restart=always --name registry registry:2.7
+  END
+
 build-ci:
     BUILD ./avm-transpiler/+build
     BUILD ./barretenberg/cpp/+build-release
