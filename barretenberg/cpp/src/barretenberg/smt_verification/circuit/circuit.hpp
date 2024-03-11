@@ -176,8 +176,99 @@ void Circuit<FF>::univariate_handler(bb::fr q_m, bb::fr q_1, bb::fr q_2, bb::fr 
  */
 template <typename FF> size_t Circuit<FF>::prepare_gates(size_t cursor)
 {
-    // TODO(alex): Here'll be the operator relaxation that is coming
-    // in the next pr
+    // TODO(alex): implement bitvector class and compute offsets
+    if (FF::isBitVector()) {
+        for (uint32_t i = 0; i < 256; i++) {
+            CircuitSchema xor_gates = get_standard_logic_circuit(i, true);
+            CircuitSchema and_gates = get_standard_logic_circuit(i, false);
+            ASSERT(xor_gates.selectors.size() == and_gates.selectors.size());
+
+            if (cursor + xor_gates.selectors.size() <= this->selectors.size()) {
+                bool xor_flag = true;
+                bool and_flag = true;
+                for (size_t j = 0; j < xor_gates.selectors.size(); j++) {
+                    // TODO(alex): It is possible for gates to be equal but wires to be not, but I think it's very
+                    // unlikely to happen
+                    xor_flag &= xor_gates.selectors[j] == this->selectors[cursor + j];
+                    and_flag &= and_gates.selectors[j] == this->selectors[cursor + j];
+
+                    if (!xor_flag && !and_flag) {
+                        break;
+                    }
+                }
+                // TODO(alex): There's possible optimization that doesn't repeat the code.
+                if (xor_flag) {
+                    info("Xor constraint optimization: ", std::to_string(i), " bits");
+                    uint32_t xored_var_idx = xor_gates.wires[cursor + 0][0]; // This offset was not computed yet
+                    FF xored_left = this->symbolic_vars[xored_var_idx];
+                    xored_var_idx = xor_gates.wires[cursor + 0][0]; // This offset was not computed yet
+                    FF xored_right = this->symbolic_vars[xored_var_idx];
+                    xored_var_idx = xor_gates.wires[cursor + 0][0]; // This offset was not computed yet
+                    FF xored_out = this->symbolic_vars[xored_var_idx];
+                    (xored_left ^ xored_right) == xored_out;
+                    return cursor + xor_gates.selectors.size();
+                }
+                if (and_flag) {
+                    info("And constraint optimization: ", std::to_string(i), " bits");
+                    uint32_t anded_var_idx = and_gates.wires[cursor + 0][0]; // This offset was not computed yet
+                    FF anded_left = this->symbolic_vars[anded_var_idx];
+                    anded_var_idx = and_gates.wires[cursor + 0][0]; // This offset was not computed yet
+                    FF anded_right = this->symbolic_vars[anded_var_idx];
+                    anded_var_idx = and_gates.wires[cursor + 0][0]; // This offset was not computed yet
+                    FF anded_out = this->symbolic_vars[anded_var_idx];
+                    (anded_left ^ anded_right) == anded_out; // TODO(alex): no & operator yet
+                    return cursor + and_gates.selectors.size();
+                }
+            }
+
+            CircuitSchema range_gates = get_standard_range_constraint_circuit(i);
+
+            if (cursor + range_gates.selectors.size() <= this->selectors.size()) {
+                bool range_flag = true;
+
+                for (size_t j = 0; j < range_gates.selectors.size(); j++) {
+                    range_flag &= range_gates.selectors[j] == this->selectors[cursor + j];
+
+                    if (!range_flag) {
+                        break;
+                    }
+                }
+                if (range_flag) {
+                    info("Range constraint optimization: ", std::to_string(i), " bits");
+                    uint32_t ranged_var_idx =
+                        range_gates.wires[cursor + 21][2]; // This offset was computed manually in subcircuits.test.cpp
+                    FF ranged_var = this->symbolic_vars[ranged_var_idx];
+                    ranged_var <= bb::fr(2).pow(i);
+                    return cursor + range_gates.selectors.size();
+                }
+            }
+        }
+    }
+    if (FF::isInteger()) {
+        for (uint32_t i = 0; i < 256; i++) {
+            CircuitSchema range_gates = get_standard_range_constraint_circuit(i);
+
+            if (cursor + range_gates.selectors.size() <= this->selectors.size()) {
+                bool range_flag = true;
+
+                for (size_t j = 0; j < range_gates.selectors.size(); j++) {
+                    range_flag &= range_gates.selectors[j] == this->selectors[cursor + j];
+
+                    if (!range_flag) {
+                        break;
+                    }
+                }
+                if (range_flag) {
+                    info("Range constraint optimization: ", std::to_string(i), " bits");
+                    uint32_t ranged_var_idx =
+                        range_gates.wires[cursor + 21][2]; // This offset was computed manually in subcircuits.test.cpp
+                    FF ranged_var = this->symbolic_vars[ranged_var_idx];
+                    ranged_var <= bb::fr(2).pow(i);
+                    return cursor + range_gates.selectors.size();
+                }
+            }
+        }
+    }
 
     bb::fr q_m = this->selectors[cursor][0];
     bb::fr q_1 = this->selectors[cursor][1];
