@@ -87,6 +87,7 @@ impl AVMContext {
         gas: [Field; 3], // gas allocation: [l1Gas, l2Gas, daGas]
         address: AztecAddress,
         args: [Field; ARGS_COUNT],
+        // TODO(5110): consider passing in calldata directly
         temporary_function_selector: Field
     ) -> ([Field; RET_SIZE], u8) {}
     //    ^ return data      ^ success
