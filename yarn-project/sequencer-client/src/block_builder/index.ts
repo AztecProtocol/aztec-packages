@@ -20,7 +20,7 @@ export interface BlockBuilder {
   buildL2Block(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    newModelL1ToL2Messages: Buffer[], // TODO(#4492): Rename this when purging the old inbox
+    newModelL1ToL2Messages: Fr[], // TODO(#4492): Rename this when purging the old inbox
     newL1ToL2Messages: Fr[], // TODO(#4492): Nuke this when purging the old inbox
   ): Promise<[L2Block, Proof]>;
 }

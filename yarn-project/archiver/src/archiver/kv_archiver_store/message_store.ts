@@ -19,7 +19,7 @@ type Message = {
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class MessageStore {
-  #newMessages: AztecMap<string, Buffer>;
+  #newMessages: AztecMap<string, Fr>;
   #lastL1BlockNewMessages: AztecSingleton<bigint>;
   // TODO(#4492): Nuke the following when purging the old inbox
   #pendingMessagesByFee: AztecCounter<[number, string]>;
@@ -208,8 +208,8 @@ export class MessageStore {
     return entryKeys;
   }
 
-  getNewL1ToL2Messages(blockNumber: bigint): Buffer[] {
-    const messages: Buffer[] = [];
+  getNewL1ToL2Messages(blockNumber: bigint): Fr[] {
+    const messages: Fr[] = [];
     let undefinedMessageFound = false;
     for (let messageIndex = 0; messageIndex < this.#l1ToL2MessagesSubtreeSize; messageIndex++) {
       // This is inefficient but probably fine for now.

@@ -322,7 +322,7 @@ export class Sequencer {
    */
   protected async buildBlock(
     txs: ProcessedTx[],
-    newModelL1ToL2Messages: Buffer[], // TODO(#4492): Rename this when purging the old inbox
+    newModelL1ToL2Messages: Fr[], // TODO(#4492): Rename this when purging the old inbox
     newL1ToL2Messages: Fr[], // TODO(#4492): Nuke this when purging the old inbox
     emptyTx: ProcessedTx,
     globalVariables: GlobalVariables,

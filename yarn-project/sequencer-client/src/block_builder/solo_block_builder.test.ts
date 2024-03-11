@@ -78,7 +78,7 @@ describe('sequencer/solo_block_builder', () => {
   let baseRollupOutputLeft: BaseOrMergeRollupPublicInputs;
   let baseRollupOutputRight: BaseOrMergeRollupPublicInputs;
   let rootRollupOutput: RootRollupPublicInputs;
-  let newModelMockL1ToL2Messages: Buffer[]; // TODO(#4492): Rename this when purging the old inbox
+  let newModelMockL1ToL2Messages: Fr[]; // TODO(#4492): Rename this when purging the old inbox
   let mockL1ToL2Messages: Fr[]; // TODO(#4492): Nuke this when purging the old inbox
 
   let globalVariables: GlobalVariables;

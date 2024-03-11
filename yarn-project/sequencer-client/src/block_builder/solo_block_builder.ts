@@ -98,7 +98,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   public async buildL2Block(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    newModelL1ToL2Messages: Buffer[], // TODO(#4492): Rename this when purging the old inbox
+    newModelL1ToL2Messages: Fr[], // TODO(#4492): Rename this when purging the old inbox
     newL1ToL2Messages: Fr[],
   ): Promise<[L2Block, Proof]> {
     // Check txs are good for processing by checking if all the tree snapshots in header are non-empty
@@ -161,7 +161,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async runCircuits(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    newModelL1ToL2Messages: Buffer[], // TODO(#4492): Rename this when purging the old inbox
+    newModelL1ToL2Messages: Fr[], // TODO(#4492): Rename this when purging the old inbox
     newL1ToL2Messages: Fr[], // TODO(#4492): Nuke this when purging the old inbox
   ): Promise<[RootRollupPublicInputs, Proof]> {
     // Check that the length of the array of txs is a power of two
@@ -175,7 +175,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     {
       const newModelL1ToL2MessagesTuple = padArrayEnd(
         newModelL1ToL2Messages,
-        Buffer.alloc(32),
+        Fr.ZERO,
         NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
       );
       const baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
