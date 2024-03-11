@@ -6,24 +6,29 @@ use dep::types::{
     constants::{NUM_FIELDS_PER_SHA256, NUM_MSGS_PER_BASE_PARITY},
     merkle_tree::MerkleTree,
     mocked::AggregationObject,
+    utils::uint256::U256,
 };
 
 struct BaseParityInputs {
-    msgs: [[Field; NUM_FIELDS_PER_SHA256]; NUM_MSGS_PER_BASE_PARITY],
+    msgs: [Field; NUM_MSGS_PER_BASE_PARITY],
 }
 
 impl BaseParityInputs {
     pub fn base_parity_circuit(self) -> ParityPublicInputs {
-        let sha_tree = Sha256MerkleTree::new(self.msgs);
-
-        // TODO: nuke this flattening once we truncate sha256 to 1 field
-        let mut flat_msgs = [0; NUM_FIELDS_PER_SHA256 * NUM_MSGS_PER_BASE_PARITY];
+        // TODO: nuke this hack once we truncate the sha256 in the frontier tree
+        let mut converted_msgs = [[0; NUM_FIELDS_PER_SHA256]; NUM_MSGS_PER_BASE_PARITY];
         for i in 0..NUM_MSGS_PER_BASE_PARITY {
-            for j in 0..NUM_FIELDS_PER_SHA256 {
-                flat_msgs[i * NUM_FIELDS_PER_SHA256 + j] = self.msgs[i][j];
+            let bytes = self.msgs[i].to_be_bytes(32);
+            let mut result = [0; 32];
+            for i in 0..32 {
+                result[i] = bytes[i];
             }
+            let msg_as_u256 = U256::from_bytes32(result);
+            converted_msgs[i] = msg_as_u256.to_u128_limbs();
         }
-        let pedersen_tree = MerkleTree::new(flat_msgs);
+
+        let sha_tree = Sha256MerkleTree::new(converted_msgs);
+        let pedersen_tree = MerkleTree::new(self.msgs);
 
         ParityPublicInputs {
             aggregation_object: AggregationObject {},
