@@ -113,37 +113,4 @@ contract NewOutbox is INewOutbox {
 
     emit MessageConsumed(_l2BlockNumber, expectedRoot, messageHash, _leafIndex);
   }
-
-  /*
-   * @notice Verifies the membership of an L2 to L1 message against an expected root.
-   * @dev This function assumes a valid path height, as well as sane inputs.
-   * @dev In the case of a mismatched root, and subsequent inability to verify membership, this function throws.
-   * @param _path - The sibling path of the message as a leaf, used to prove message inclusion
-   * @param _leaf - The hash of the message we are trying to prove inclusion for
-   * @param _index - The index of the message inside the L2 to L1 message tree
-   * @param _expectedRoot - The expected root to check the validity of the message and sibling path with.
-   */
-  function _verifyMembership(
-    bytes32[] memory _path,
-    bytes32 _leaf,
-    uint256 _index,
-    bytes32 _expectedRoot
-  ) internal pure {
-    bytes32 subtreeRoot = _leaf;
-    uint256 indexAtHeight = _index;
-
-    for (uint256 height = 0; height < _path.length; height++) {
-      bool isRight = (indexAtHeight & 1) == 1;
-
-      subtreeRoot = isRight
-        ? sha256(bytes.concat(_path[height], subtreeRoot))
-        : sha256(bytes.concat(subtreeRoot, _path[height]));
-
-      indexAtHeight /= 2;
-    }
-
-    if (subtreeRoot != _expectedRoot) {
-      revert Errors.MerkleLib__InvalidRoot(_expectedRoot, subtreeRoot);
-    }
-  }
 }
