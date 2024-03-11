@@ -58,7 +58,9 @@ TEST_F(GoblinRecursionTests, Vanilla)
 
         // Construct and accumulate the mock kernel circuit (no kernel accum in first round)
         GoblinUltraCircuitBuilder kernel_circuit{ goblin.op_queue };
-        GoblinMockCircuits::construct_mock_kernel_small(kernel_circuit, function_accum, kernel_accum);
+        GoblinMockCircuits::construct_mock_kernel_small(kernel_circuit,
+                                                        { function_accum.proof, function_accum.verification_key },
+                                                        { kernel_accum.proof, kernel_accum.verification_key });
         info("kernel accum");
         goblin.merge(kernel_circuit);
         kernel_accum = construct_accumulator(kernel_circuit);

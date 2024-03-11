@@ -30,12 +30,16 @@ class GoblinMockCircuits {
     using Flavor = bb::GoblinUltraFlavor;
     using RecursiveFlavor = bb::GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
-    using KernelInput = Goblin::AccumulationOutput;
     using VerifierInstance = bb::VerifierInstance_<Flavor>;
     using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveVerifierInstance>;
     using VerificationKey = Flavor::VerificationKey;
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
+
+    struct KernelInput {
+        HonkProof proof;
+        std::shared_ptr<Flavor::VerificationKey> verification_key;
+    };
 
     /**
      * @brief Information required by the verifier to verify a folding round besides the previous accumulator.
