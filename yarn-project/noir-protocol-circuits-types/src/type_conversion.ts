@@ -417,7 +417,7 @@ export function mapCallContextFromNoir(callContext: CallContextNoir): CallContex
     mapFunctionSelectorFromNoir(callContext.function_selector),
     callContext.is_delegate_call,
     callContext.is_static_call,
-    mapNumberFromNoir(callContext.enqueued_side_effect_counter),
+    mapNumberFromNoir(callContext.side_effect_counter),
   );
 }
 
@@ -434,7 +434,7 @@ export function mapCallContextToNoir(callContext: CallContext): CallContextNoir 
     function_selector: mapFunctionSelectorToNoir(callContext.functionSelector),
     is_delegate_call: callContext.isDelegateCall,
     is_static_call: callContext.isStaticCall,
-    enqueued_side_effect_counter: mapNumberToNoir(callContext.enqueuedSideEffectCounter),
+    side_effect_counter: mapNumberToNoir(callContext.sideEffectCounter),
   };
 }
 

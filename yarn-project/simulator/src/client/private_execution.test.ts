@@ -824,7 +824,7 @@ describe('Private Execution test suite', () => {
           functionSelector: childSelector,
           isDelegateCall: false,
           isStaticCall: false,
-          enqueuedSideEffectCounter: 1,
+          sideEffectCounter: 1,
         }),
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
@@ -833,7 +833,7 @@ describe('Private Execution test suite', () => {
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
           isDelegateCall: false,
           isStaticCall: false,
-          enqueuedSideEffectCounter: 1,
+          sideEffectCounter: 1,
         }),
       });
 
