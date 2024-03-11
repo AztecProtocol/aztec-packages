@@ -8,4 +8,4 @@ wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-a
 chmod +x ./earthly && ./earthly bootstrap
 dockerhub_login
 ./earthly config global.cache_size_mb 24000
-./earthly --ci --save-inline-cache --push $@
+./earthly --ci --push $@
