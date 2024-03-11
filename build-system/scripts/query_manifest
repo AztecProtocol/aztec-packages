@@ -140,7 +140,7 @@ case "$CMD" in
     fi
     ;;
   x86)
-    R=$(yq -r ".\"$REPO\".arm" $MANIFEST)
+    R=$(yq -r ".\"$REPO\".x86" $MANIFEST)
     if [ "$R" == "null" ]; then
       echo "true";
     else
