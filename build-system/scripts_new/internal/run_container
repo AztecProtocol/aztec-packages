@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+set -euo pipefail
+
+REPOSITORY=$1
+shift
+
+# trap 'echo "Killing jobs..." && kill -SIGINT $(jobs -p)' SIGINT
+
+IMAGE_URI=$(calculate_image_uri $REPOSITORY)
+BASE_TAG=$(calculate_image_tag $REPOSITORY)
+SUCCESS_TAG=$BASE_TAG-$JOB_NAME
+
+echo "Success tag: $SUCCESS_TAG"
+
+if should_rebuild $REPOSITORY $SUCCESS_TAG; then
+  echo "No re-run necessary for $IMAGE_URI."
+  exit 0
+fi
+
+docker run --rm -t $IMAGE_URI $@
+docker tag $IMAGE_URI $ECR_URL/$REPOSITORY:$SUCCESS_TAG

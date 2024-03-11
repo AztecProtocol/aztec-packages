@@ -1,106 +1,16 @@
 #!/usr/bin/env bash
-#
-# Builds a docker image and pushes it to it's repository. Leverages caches where possible.
-# Cached images include previous successfully built images (including multi-stages) built on this branch.
-# The images output are cache images, meaning they will eventually get purged.
-# The deploy phase will tag the images such that they become permanent.
-#
-# usage: ./build <repository>
-# example: ./build aztec-connect-cpp-x86_64-linux-clang
-# output image:
-#   278380418400.dkr.ecr.us-east-2.amazonaws.com/aztec-connect-cpp-x86_64-linux-clang:cache-deadbeefcafebabe1337c0d3-x86_64
-
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-set -euo pipefail
+set -eu
 
 REPOSITORY=$1
-DOCKERFILE=$(query_manifest dockerfile $REPOSITORY)
-PROJECT_DIR=$(query_manifest projectDir $REPOSITORY)
-BUILD_DIR=$(query_manifest buildDir $REPOSITORY)
-CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 
-echo "Repository: $REPOSITORY"
-echo "Working directory: $PWD"
-echo "Dockerfile: $DOCKERFILE"
-echo "Build directory: $BUILD_DIR"
-echo "Content hash: $CONTENT_HASH"
+# Expose and prioritise internal scripts.
+export PATH=$(dirname $0)/internal:$PATH
 
-cd $BUILD_DIR
+arch_run $REPOSITORY build $@
 
-# If we have previously successful commit, we can early out if nothing relevant has changed since.
-IMAGE_COMMIT_TAG=$(calculate_image_tag $REPOSITORY)
-if check_rebuild $IMAGE_COMMIT_TAG $REPOSITORY; then
-  echo "No rebuild necessary for $REPOSITORY:$IMAGE_COMMIT_TAG."
-  exit 0
-fi
-
-# Login to dockerhub.
-retry dockerhub_login
-
-echo "Initializing submodules..."
-init_submodules $REPOSITORY
-
-# Validate any terraform if it exists.
-if [ -d $ROOT_PATH/$PROJECT_DIR/terraform ]; then
-  echo "Checking terraform..."
-  ensure_terraform
-  export TF_IN_AUTOMATION=1
-  pushd $ROOT_PATH/$PROJECT_DIR/terraform
-  for DIR in . $(find . -maxdepth 1 -type d); do
-    pushd $DIR
-    if [ -f ./main.tf ]; then
-      terraform init -input=false -backend-config="key=dummy"
-      terraform validate
-    fi
-    popd
-  done
-  popd
-fi
-
-# For each dependency, substitute references to the dependency in dockerfile, with the relevent built image uri.
-# This is necessary vs retagging the image, as that would cause conflicts between ci runs.
-for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
-  # We want the parent image tag without any arch suffix.
-  PARENT_IMAGE_TAG=$(calculate_image_tag $PARENT_REPO "")
-
-  # Need to be specific about platform as sometimes we do arm builds from x86 images.
-  PARENT_ARM=$(query_manifest arm $PARENT_REPO)
-  PLATFORM=''
-  if [ "$PARENT_ARM" == "false" ]; then
-    PLATFORM='--platform=linux/amd64'
-  fi
-
-  # Substitute references to parent repo, with the relevent built image uri.
-  DEPLOY_URI=aztecprotocol/$PARENT_REPO
-  PARENT_IMAGE_URI=$ECR_URL/$PARENT_REPO:$PARENT_IMAGE_TAG
-  sed -i "s#^FROM \\(.*\\)${DEPLOY_URI}\\( \|$\\)#FROM $PLATFORM \\1${PARENT_IMAGE_URI}\\2#" $DOCKERFILE
-done
-
-# Build a dockerignore file that only permits git files and untracked files.
-create_dockerignore $REPOSITORY
-
-IMAGE_COMMIT_URI=$(calculate_image_uri $REPOSITORY)
-echo "Building image: $IMAGE_COMMIT_URI"
-
-function build {
-  docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_HASH=$COMMIT_HASH . 2>&1
-}
-
-X86=$(query_manifest x86 $REPOSITORY)
-ARM=$(query_manifest arm $REPOSITORY)
-
-if [ "$X86" == "true" ]; then
-  (DOCKER_HOST=$DOCKER_HOST_X86 build > >(awk -v c="$GREEN" -v r="$RESET" '$0=c"x86_64: "r $0')) &
-fi
-if [ "$ARM" == "true" ]; then
-  (DOCKER_HOST=$DOCKER_HOST_ARM build > >(awk -v c="$BLUE" -v r="$RESET" '$0=c"arm64: "r $0')) &
-fi
-
-for job in $(jobs -p); do
-  wait $job || exit 1
-done
-
-if [ "$ARM" == "false" ]; then
+# If we didn't perform a build on ARM, copy the x86 image to arm host.
+if [ "$(query_manifest arm $REPOSITORY)" == "false" ]; then
   echo "Arm build disabled. Copying x86 image to arm host for downstream builds..."
   DOCKER_HOST=$DOCKER_HOST_X86 docker save -o image.tar $IMAGE_COMMIT_URI
   DOCKER_HOST=$DOCKER_HOST_ARM docker load -i image.tar

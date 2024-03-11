@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Runs a docker-compose file.
+# Pulls the containers in the build manifests <project>.runDependencies property.
+# Uploads any logs to S3.
+# Can be used to test a built container (runDependencies would be self + dependency containers).
+# Can be used to build and test a container (runDependencies would just be dependency containers).
+# The trailing arguments are environment variables in the form KEY=VALUE, made available to docker-compose.
+
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+set -eu
+
+REPOSITORY=$1
+COMPOSE_FILE=$2
+shift 2
+
+IMAGE_URI=$(calculate_image_uri $REPOSITORY)
+BASE_TAG=$(calculate_image_tag $REPOSITORY)
+SUCCESS_TAG=$BASE_TAG-$JOB_NAME
+
+echo "Success tag: $SUCCESS_TAG"
+
+if should_rebuild $REPOSITORY $SUCCESS_TAG; then
+  echo "No re-run necessary for $IMAGE_URI."
+  exit 0
+fi
+
+# Login to dockerhub.
+retry dockerhub_login
+
+cd $(query_manifest projectDir $REPOSITORY)
+
+TARGET_COMPOSE_FILE=$(mktemp)
+cp $COMPOSE_FILE $TARGET_COMPOSE_FILE
+
+# For each dependency, substitute references to the dependency in compose file, with the relevent built image uri.
+# This is necessary vs retagging the image, as that would cause conflicts between ci runs.
+for DEP_REPO in $(query_manifest runDependencies $REPOSITORY); do
+  # We want the parent image tag without any arch suffix.
+  DEP_IMAGE_TAG=$(calculate_image_tag $DEP_REPO "")
+
+  # Substitute references to images, with the relevent built image uri.
+  DEPLOY_URI=aztecprotocol/$DEP_REPO
+  DEP_IMAGE_URI=$ECR_URL/$DEP_REPO:$DEP_IMAGE_TAG
+  yq -i 'del(.services[].ports)' $TARGET_COMPOSE_FILE
+  if [ "$(yq .services.$DEP_REPO.image $TARGET_COMPOSE_FILE)" != "null" ]; then
+    yq -i ".services.$DEP_REPO.image = \"$DEP_IMAGE_URI\"" $TARGET_COMPOSE_FILE
+  fi
+done
+
+cat $TARGET_COMPOSE_FILE
+
+SHORT_COMMIT_HASH=${COMMIT_HASH:0:7}
+PROJECT=${SHORT_COMMIT_HASH:-no-commit}-${JOB_NAME}
+
+export $@
+if docker compose > /dev/null 2>&1; then
+  CMD="docker compose"
+else
+  CMD="docker-compose"
+fi
+
+function cleanup {
+  $CMD -p $PROJECT down
+  rm $TARGET_COMPOSE_FILE
+}
+trap cleanup EXIT
+
+$CMD -p $PROJECT -f $TARGET_COMPOSE_FILE up --exit-code-from $REPOSITORY --force-recreate 2>&1
+docker tag $IMAGE_URI $ECR_URL/$REPOSITORY:$SUCCESS_TAG
+
+# upload_logs_to_s3 log

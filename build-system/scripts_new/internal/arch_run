@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x
+set -euo pipefail
+
+REPOSITORY=$1
+shift
+
+X86=$(query_manifest x86 $REPOSITORY)
+ARM=$(query_manifest arm $REPOSITORY)
+
+if [ "$X86" == "true" ]; then
+  (DOCKER_HOST=$DOCKER_HOST_X86 $@ | add_timestamps > >(awk -v c="$GREEN" -v r="$RESET" '$0=c"x86_64: "r $0')) &
+fi
+if [ "$ARM" == "true" ]; then
+  (DOCKER_HOST=$DOCKER_HOST_ARM $@ | add_timestamps > >(awk -v c="$BLUE" -v r="$RESET" '$0=c"arm64: "r $0')) &
+fi
+
+for job in $(jobs -p); do
+  wait $job || exit 1
+done

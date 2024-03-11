@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# If this script fails (nonzero exit), then the caller should rebuild.
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+set -euo pipefail
+
+REPOSITORY=$1
+TAG=$2
+
+# If given nothing, then exit with failure to rebuild
+[ -n "$TAG" ] || exit 1
+
+# Have we requested a rebuild via [ci rebuild] or [ci rebuild <job>] commit message?
+[[ "$COMMIT_MESSAGE" == *"[ci rebuild $REPOSITORY]"* ]] && exit 1
+[[ "$COMMIT_MESSAGE" == *"[ci rebuild]"* ]] && exit 1
+
+DOCKERFILE=$(query_manifest dockerfile $REPOSITORY)
+
+# If the image doesn't exist, we need to rebuild.
+if image_exists $REPOSITORY $TAG; then
+  exit 1
+fi
