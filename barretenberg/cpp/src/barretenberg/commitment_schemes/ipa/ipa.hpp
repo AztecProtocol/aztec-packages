@@ -83,6 +83,7 @@ template <typename Curve> class IPA {
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
 #ifdef IPA_TEST
     FRIEND_TEST(IPATest, ChallengesAreZero);
+    FRIEND_TEST(IPATest, AIsZeroAfterOneRound);
 #endif
 #ifdef IPA_FUZZ_TEST
     friend class ProxyCaller;
@@ -269,6 +270,11 @@ template <typename Curve> class IPA {
                 throw_or_abort("IPA round challenge is zero");
             }
             const Fr round_challenge_inv = round_challenge.invert();
+            info("Inverse challenge: ", round_challenge_inv, "Modulus: ", Fr::modulus);
+            for (auto& point : std::span{ G_vec_local.begin() + static_cast<long>(round_size),
+                                          G_vec_local.begin() + static_cast<long>(round_size * 2) }) {
+                info(point, " : ", point.is_point_at_infinity());
+            }
 
             // Step 6.e
             // G_vec_new = G_vec_lo + G_vec_hi * round_challenge_inv

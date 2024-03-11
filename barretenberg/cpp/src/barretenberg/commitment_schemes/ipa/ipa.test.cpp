@@ -142,6 +142,42 @@ TEST_F(IPATest, ChallengesAreZero)
         EXPECT_ANY_THROW(IPA::verify_internal(this->vk(), opening_claim, transcript));
     }
 }
+TEST_F(IPATest, AIsZeroAfterOneRound)
+{
+    using IPA = IPA<Curve>;
+    // generate a random polynomial, degree needs to be a power of two
+    size_t n = 4;
+    auto poly = Polynomial(n);
+    for (size_t i = 0; i < n / 2; i++) {
+        poly[i] = Fr::random_element();
+        poly[i + (n / 2)] = poly[i];
+    }
+    auto [x, eval] = this->random_eval(poly);
+    auto commitment = this->commit(poly);
+    const OpeningPair<Curve> opening_pair = { x, eval };
+    const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
+
+    // initialize an empty mock transcript
+    auto transcript = std::make_shared<MockTranscript>();
+    const size_t num_challenges = numeric::get_msb(n) + 1;
+    std::vector<uint256_t> random_vector(num_challenges);
+
+    // Generate a random element vector with challenges
+    for (size_t i = 0; i < num_challenges; i++) {
+        random_vector[i] = Fr::random_element();
+    }
+    // Substitute the first folding challenge with -1
+    random_vector[1] = -Fr::one();
+
+    // Put the challenges in the transcript
+    transcript->reset(random_vector);
+
+    // Compute opening proof
+    IPA::compute_opening_proof_internal(this->ck(), opening_pair, poly, transcript);
+
+    // Verify
+    EXPECT_TRUE(IPA::verify_internal(this->vk(), opening_claim, transcript));
+}
 #endif
 } // namespace bb
 
