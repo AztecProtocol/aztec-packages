@@ -5,7 +5,7 @@ contract StatefulTest {
     use dep::aztec::{
         deploy::{deploy_contract as aztec_deploy_contract}, context::{PublicContext, Context},
         oracle::get_contract_instance::get_contract_instance,
-        initializer::{mark_as_initialized, assert_is_initialized, assert_initialization_args_match_address_preimage}
+        initializer::assert_is_initialized,
     };
 
     struct Storage {
@@ -16,7 +16,6 @@ contract StatefulTest {
     #[aztec(private)]
     #[aztec(initializer)]
     fn constructor(owner: AztecAddress, value: Field) {
-        assert_initialization_args_match_address_preimage(context);
         let selector = FunctionSelector::from_signature("create_note_no_init_check((Field),Field)");
         let _res = context.call_private_function(context.this_address(), selector, [owner.to_field(), value]);
     }
@@ -24,7 +23,6 @@ contract StatefulTest {
     #[aztec(public)]
     #[aztec(initializer)]
     fn public_constructor(owner: AztecAddress, value: Field) {
-        assert_initialization_args_match_address_preimage(context);
         let selector = FunctionSelector::from_signature("increment_public_value_no_init_check((Field),Field)");
         let _res = context.call_public_function(context.this_address(), selector, [owner.to_field(), value]);
     }
