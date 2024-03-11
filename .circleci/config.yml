@@ -87,7 +87,7 @@ defaults: &defaults
       only: /^aztec-packages-v.*/
   context:
     - build
-    - slack
+    - slack 
   post-steps:
     - slack/notify:
         event: fail
