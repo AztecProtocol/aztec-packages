@@ -44,7 +44,7 @@ export interface NoirFunctionEntry {
   name: string;
   /** Whether the function is unconstrained. */
   is_unconstrained: boolean;
-  /** Attributes injected via macros. */
+  /** Custom attributes attached to function */
   custom_attributes: string[];
   /** The ABI of the function. */
   abi: NoirFunctionAbi;
