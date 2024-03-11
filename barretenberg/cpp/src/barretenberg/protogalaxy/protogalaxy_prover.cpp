@@ -7,7 +7,20 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
                                                                      const std::string& domain_separator)
 {
     OinkProver<Flavor> oink_prover(instance, instance->proving_key->commitment_key, transcript, domain_separator + '_');
-    oink_prover.do_everything();
+    // Add circuit size public input size and public inputs to transcript->
+    oink_prover.execute_preamble_round();
+
+    // Compute first three wire commitments
+    oink_prover.execute_wire_commitments_round();
+
+    // Compute sorted list accumulator and commitment
+    oink_prover.execute_sorted_list_accumulator_round();
+
+    // Fiat-Shamir: beta & gamma
+    oink_prover.execute_log_derivative_inverse_round();
+
+    // Compute grand product(s) and commitments.
+    oink_prover.execute_grand_product_computation_round();
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
         instance->alphas[idx] =
             transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));

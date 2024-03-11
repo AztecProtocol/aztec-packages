@@ -34,8 +34,6 @@ template <class Flavor> class ProverInstance_ {
   public:
     std::shared_ptr<ProvingKey> proving_key;
     ProverPolynomials prover_polynomials;
-    WitnessCommitments witness_commitments;
-    CommitmentLabels commitment_labels;
 
     std::array<Polynomial, 4> sorted_polynomials;
 
