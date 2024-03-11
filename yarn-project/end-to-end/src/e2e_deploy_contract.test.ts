@@ -250,6 +250,14 @@ describe('e2e_deploy_contract', () => {
         /nullifier witness not found/i,
       );
     });
+
+    it('refuses to initialize a contract with incorrect args', async () => {
+      const owner = await registerRandomAccount(pxe);
+      const contract = await registerContract(wallet, StatefulTestContract, [owner, 42]);
+      await expect(contract.methods.constructor(owner, 43).simulate()).rejects.toThrow(
+        /Initialization hash does not match/,
+      );
+    });
   });
 
   describe('registering a contract class', () => {
@@ -363,6 +371,14 @@ describe('e2e_deploy_contract', () => {
           expect(receipt.status).toEqual(TxStatus.MINED);
         }, 30_000);
 
+        it('refuses to initialize the instance with wrong args via a public function', async () => {
+          const whom = AztecAddress.random();
+          // TODO(@spalladino): This tx is mined but reverts, we need to check revert flag once it's available
+          // Meanwhile, we check that its side effects did not come through as a means to assert it reverted
+          await contract.methods.public_constructor(whom, 43).send({ skipPublicSimulation: true }).wait();
+          expect(await contract.methods.get_public_value(whom).view()).toEqual(0n);
+        }, 30_000);
+
         it('calls a public function with init check after initialization', async () => {
           await contract.methods
             .constructor(...initArgs)
@@ -452,11 +468,11 @@ describe('e2e_deploy_contract', () => {
     }, 60_000);
 
     it.skip('publicly deploys and calls a public function in the same batched call', async () => {
-      // TODO(@spalladino)
+      // TODO(@spalladino): Requires being able to read a nullifier on the same tx it was emitted.
     });
 
     it.skip('publicly deploys and calls a public function in a tx in the same block', async () => {
-      // TODO(@spalladino)
+      // TODO(@spalladino): Requires being able to read a nullifier on the same block it was emitted.
     });
   });
 });
