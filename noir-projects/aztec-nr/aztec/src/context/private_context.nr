@@ -157,12 +157,6 @@ impl PrivateContext {
             call_context: self.inputs.call_context,
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
-            // TODO(fees): start this from 0 and test the following:
-            // - in the private circuit init that it gets set correctly
-            // - in the private circuit inner that it remains 0
-            // I've had to initialize the counter here so that it would work for contract deployments
-            // the above checks should be doable after we figure out fee payments for contract deployments
-            // TO(fees): there are no more contract deployments at the protocol level
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
@@ -172,6 +166,7 @@ impl PrivateContext {
             private_call_stack_hashes: self.private_call_stack_hashes.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
             encrypted_logs_hash,
             unencrypted_logs_hash,
@@ -334,6 +329,7 @@ impl PrivateContext {
         );
 
         assert_eq(item.public_inputs.call_context.side_effect_counter, self.side_effect_counter);
+        assert_eq(item.public_inputs.start_side_effect_counter, self.side_effect_counter);
         self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;
 
         assert(contract_address.eq(item.contract_address));
@@ -458,6 +454,8 @@ impl PrivateContext {
                 new_note_hashes: [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
                 new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
                 new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+                start_side_effect_counter: 0,
+                end_side_effect_counter: 0,
                 unencrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
                 historical_header: Header::empty(),

@@ -1,5 +1,5 @@
 import { FunctionL2Logs } from '@aztec/circuit-types';
-import { GlobalVariables, Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
+import { Fr, GlobalVariables, Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { spawn } from 'child_process';
@@ -83,6 +83,9 @@ export async function executePublicFunction(
       returnValues: [],
       newNoteHashes: [],
       newL2ToL1Messages: [],
+      // TODO (side effects) get these values in the revert case from the vm
+      startSideEffectCounter: Fr.ZERO,
+      endSideEffectCounter: Fr.ZERO,
       newNullifiers: [],
       nullifierReadRequests: [],
       nullifierNonExistentReadRequests: [],
@@ -107,6 +110,8 @@ export async function executePublicFunction(
     newL2ToL1Msgs,
     newNoteHashes: newNoteHashesPadded,
     newNullifiers: newNullifiersPadded,
+    startSideEffectCounter,
+    endSideEffectCounter,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
 
   const nullifierReadRequests = nullifierReadRequestsPadded.filter(v => !v.isEmpty());
@@ -136,6 +141,8 @@ export async function executePublicFunction(
     newNoteHashes,
     newL2ToL1Messages,
     newNullifiers,
+    startSideEffectCounter,
+    endSideEffectCounter,
     nullifierReadRequests,
     nullifierNonExistentReadRequests,
     contractStorageReads,
@@ -218,7 +225,7 @@ export class PublicExecutor {
     _sideEffectCounter = 0,
   ): Promise<PublicExecutionResult> {
     // Temporary code to construct the AVM context
-    // These data structures will permiate across the simulator when the public executor is phased out
+    // These data structures will permeate across the simulator when the public executor is phased out
     const hostStorage = new HostStorage(this.stateDb, this.contractsDb, this.commitmentsDb);
     const worldStateJournal = new AvmPersistableStateManager(hostStorage);
     const executionEnv = temporaryCreateAvmExecutionEnvironment(execution, globalVariables);
