@@ -68,9 +68,6 @@ fn transform(
 ) -> Result<SortedModule, (MacroError, FileId)> {
     // Usage -> mut ast -> aztec_library::transform(&mut ast)
 
-    generate_note_interface_impl(&mut ast)
-        .map_err(|err| (err.into(), context.crate_graph[crate_id].root_file_id))?;
-
     // Covers all functions in the ast
     for submodule in ast.submodules.iter_mut().filter(|submodule| submodule.is_contract) {
         if transform_module(&mut submodule.contents, crate_id, context)
@@ -79,6 +76,10 @@ fn transform(
             check_for_aztec_dependency(crate_id, context)?;
         }
     }
+
+    generate_note_interface_impl(&mut ast)
+        .map_err(|err| (err.into(), context.crate_graph[crate_id].root_file_id))?;
+
     Ok(ast)
 }
 

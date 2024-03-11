@@ -1,7 +1,7 @@
 use noirc_errors::Span;
 use noirc_frontend::{
-    parse_program, parser::SortedModule, FunctionVisibility, NoirFunction, NoirStruct,
-    TraitImplItem, TypeImpl, UnresolvedTypeData, UnresolvedTypeExpression,
+    macros_api::MacroError, parse_program, parser::SortedModule, FunctionVisibility, NoirFunction,
+    NoirStruct, TraitImplItem, TypeImpl, UnresolvedTypeData, UnresolvedTypeExpression,
 };
 use regex::Regex;
 
@@ -28,7 +28,10 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                     .find(|typ| typ.name.0.contents == struct_path.last_segment().0.contents)
                     .ok_or(AztecMacroError::CouldNotImplementNoteSerialization {
                         span: trait_imp.object_type.span,
-                        typ: trait_imp.object_type.typ.clone(),
+                        secondary_message: Some(format!(
+                            "Cannot find note struct: {}",
+                            struct_path.last_segment().0.contents
+                        )),
                     })?;
 
                 let existing_impl =
@@ -61,7 +64,10 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                     }
                     _ => Err(AztecMacroError::CouldNotImplementNoteSerialization {
                         span: trait_imp.object_type.span,
-                        typ: trait_imp.object_type.typ.clone(),
+                        secondary_message: Some(format!(
+                            "Cannot find note serialization length for: {}",
+                            note_type
+                        )),
                     }),
                 }?;
                 for (field_ident, field_type) in note_struct.fields.iter() {
@@ -78,43 +84,79 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                         .find(|(func, _)| func.def.name.0.contents == "fields")
                         .is_none()
                 {
-                    module.types.push(generate_note_fields_struct(&note_type, &note_fields));
-                    note_impl
-                        .methods
-                        .push((generate_note_fields_fn(&note_type, &note_fields), Span::default()));
-                    trait_imp.items.push(TraitImplItem::Function(generate_note_serialize_content(
+                    let note_fields_struct = generate_note_fields_struct(&note_type, &note_fields)
+                        .map_err(|err| AztecMacroError::CouldNotImplementNoteSerialization {
+                            span: trait_imp.object_type.span,
+                            secondary_message: Some(err.primary_message),
+                        })?;
+                    module.types.push(note_fields_struct);
+                    let note_fields_fn = generate_note_fields_fn(&note_type, &note_fields)
+                        .map_err(|err| AztecMacroError::CouldNotImplementNoteSerialization {
+                            span: trait_imp.object_type.span,
+                            secondary_message: Some(err.primary_message),
+                        })?;
+                    note_impl.methods.push((note_fields_fn, Span::default()));
+                    let note_serialize_content_fn = generate_note_serialize_content(
                         &note_type,
                         &note_fields,
                         &note_serialized_len,
-                    )));
-                    trait_imp.items.push(TraitImplItem::Function(
-                        generate_note_deserialize_content(
-                            &note_type,
-                            &note_fields,
-                            &note_serialized_len,
-                        ),
-                    ));
+                    )
+                    .map_err(|err| {
+                        AztecMacroError::CouldNotImplementNoteSerialization {
+                            span: trait_imp.object_type.span,
+                            secondary_message: Some(err.primary_message),
+                        }
+                    })?;
+                    trait_imp.items.push(TraitImplItem::Function(note_serialize_content_fn));
+                    let note_deserialize_content_fn = generate_note_deserialize_content(
+                        &note_type,
+                        &note_fields,
+                        &note_serialized_len,
+                    )
+                    .map_err(|err| {
+                        AztecMacroError::CouldNotImplementNoteSerialization {
+                            span: trait_imp.object_type.span,
+                            secondary_message: Some(err.primary_message),
+                        }
+                    })?;
+                    trait_imp.items.push(TraitImplItem::Function(note_deserialize_content_fn));
                 }
                 if !check_trait_method_implemented(trait_imp, "get_header") {
-                    trait_imp
-                        .items
-                        .push(TraitImplItem::Function(generate_note_get_header(&note_type)));
+                    let get_header_fn = generate_note_get_header(&note_type).map_err(|err| {
+                        AztecMacroError::CouldNotImplementNoteSerialization {
+                            span: trait_imp.object_type.span,
+                            secondary_message: Some(err.primary_message),
+                        }
+                    })?;
+                    trait_imp.items.push(TraitImplItem::Function(get_header_fn));
                 }
                 if !check_trait_method_implemented(trait_imp, "set_header") {
-                    trait_imp
-                        .items
-                        .push(TraitImplItem::Function(generate_note_set_header(&note_type)));
+                    let set_header_fn = generate_note_set_header(&note_type).map_err(|err| {
+                        AztecMacroError::CouldNotImplementNoteSerialization {
+                            span: trait_imp.object_type.span,
+                            secondary_message: Some(err.primary_message),
+                        }
+                    })?;
+                    trait_imp.items.push(TraitImplItem::Function(set_header_fn));
                 }
                 if !check_trait_method_implemented(trait_imp, "get_note_type_id") {
-                    trait_imp
-                        .items
-                        .push(TraitImplItem::Function(generate_note_get_type_id(&note_type)));
+                    let get_note_type_id_fn =
+                        generate_note_get_type_id(&note_type).map_err(|err| {
+                            AztecMacroError::CouldNotImplementNoteSerialization {
+                                span: trait_imp.object_type.span,
+                                secondary_message: Some(err.primary_message),
+                            }
+                        })?;
+                    trait_imp.items.push(TraitImplItem::Function(get_note_type_id_fn));
                 }
             }
             _ => {
                 return Err(AztecMacroError::CouldNotImplementNoteSerialization {
                     span: trait_imp.object_type.span,
-                    typ: trait_imp.object_type.typ.clone(),
+                    secondary_message: Some(format!(
+                        "Unexpected NoteInterface implementation for type: {:?}",
+                        trait_imp.object_type.typ
+                    )),
                 })
             }
         };
@@ -122,7 +164,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
     Ok(())
 }
 
-fn generate_note_get_header(note_type: &String) -> NoirFunction {
+fn generate_note_get_header(note_type: &String) -> Result<NoirFunction, MacroError> {
     let function_source = format!(
         "
         fn get_header(note: {}) -> dep::aztec::note::note_header::NoteHeader {{
@@ -135,17 +177,20 @@ fn generate_note_get_header(note_type: &String) -> NoirFunction {
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        dbg!(errors.clone());
+        return Err(MacroError {
+            primary_message: "Failed to parse Noir macro code (fn get_header). This is either a bug in the compiler or the Noir macro code".to_string(),
+            secondary_message: None,
+            span: None
+        });
     }
-    assert_eq!(errors.len(), 0, "Failed to parse Noir macro code. This is either a bug in the compiler or the Noir macro code");
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
     noir_fn.def.visibility = FunctionVisibility::Public;
-    noir_fn
+    Ok(noir_fn)
 }
 
-fn generate_note_set_header(note_type: &String) -> NoirFunction {
+fn generate_note_set_header(note_type: &String) -> Result<NoirFunction, MacroError> {
     let function_source = format!(
         "
         fn set_header(self: &mut {}, header: dep::aztec::note::note_header::NoteHeader) {{
@@ -157,17 +202,20 @@ fn generate_note_set_header(note_type: &String) -> NoirFunction {
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        dbg!(errors.clone());
+        return Err(MacroError {
+            primary_message: "Failed to parse Noir macro code (fn set_header). This is either a bug in the compiler or the Noir macro code".to_string(),
+            secondary_message: None,
+            span: None
+        });
     }
-    assert_eq!(errors.len(), 0, "Failed to parse Noir macro code. This is either a bug in the compiler or the Noir macro code");
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
     noir_fn.def.visibility = FunctionVisibility::Public;
-    noir_fn
+    Ok(noir_fn)
 }
 
-fn generate_note_get_type_id(note_type: &String) -> NoirFunction {
+fn generate_note_get_type_id(note_type: &String) -> Result<NoirFunction, MacroError> {
     let note_id =
         note_type.chars().map(|c| (c as u32).to_string()).collect::<Vec<String>>().join("");
     let function_source = format!(
@@ -182,87 +230,101 @@ fn generate_note_get_type_id(note_type: &String) -> NoirFunction {
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        dbg!(errors.clone());
+        return Err(MacroError {
+            primary_message: "Failed to parse Noir macro code (fn get_note_type_id). This is either a bug in the compiler or the Noir macro code".to_string(),
+            secondary_message: None,
+            span: None
+        });
     }
-    assert_eq!(errors.len(), 0, "Failed to parse Noir macro code. This is either a bug in the compiler or the Noir macro code");
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
     noir_fn.def.visibility = FunctionVisibility::Public;
-    noir_fn
+    Ok(noir_fn)
 }
 
 fn generate_note_fields_struct(
     note_type: &String,
     note_fields: &Vec<(String, String)>,
-) -> NoirStruct {
+) -> Result<NoirStruct, MacroError> {
     let struct_source = generate_note_fields_struct_source(note_type, note_fields);
 
     let (struct_ast, errors) = parse_program(&struct_source);
     if !errors.is_empty() {
-        dbg!(errors.clone());
+        return Err(MacroError {
+            primary_message: format!("Failed to parse Noir macro code (struct {}Fields). This is either a bug in the compiler or the Noir macro code", note_type),
+            secondary_message: None,
+            span: None
+        });
     }
-    assert_eq!(errors.len(), 0, "Failed to parse Noir macro code. This is either a bug in the compiler or the Noir macro code");
 
     let mut struct_ast = struct_ast.into_sorted();
-    struct_ast.types.remove(0)
+    Ok(struct_ast.types.remove(0))
 }
 
 fn generate_note_deserialize_content(
     note_type: &String,
     note_fields: &Vec<(String, String)>,
     note_serialize_len: &String,
-) -> NoirFunction {
+) -> Result<NoirFunction, MacroError> {
     let function_source =
         generate_note_deserialize_content_source(note_type, note_fields, note_serialize_len);
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        dbg!(errors.clone());
+        return Err(MacroError {
+            primary_message: "Failed to parse Noir macro code (fn deserialize_content). This is either a bug in the compiler or the Noir macro code".to_string(),
+            secondary_message: None,
+            span: None
+        });
     }
-    assert_eq!(errors.len(), 0, "Failed to parse Noir macro code. This is either a bug in the compiler or the Noir macro code");
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
     noir_fn.def.visibility = FunctionVisibility::Public;
-    noir_fn
+    Ok(noir_fn)
 }
 
 fn generate_note_serialize_content(
     note_type: &String,
     note_fields: &Vec<(String, String)>,
     note_serialize_len: &String,
-) -> NoirFunction {
+) -> Result<NoirFunction, MacroError> {
     let function_source =
         generate_note_serialize_content_source(note_type, note_fields, note_serialize_len);
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        dbg!(errors.clone());
+        return Err(MacroError {
+            primary_message: "Failed to parse Noir macro code (fn seserialize_content). This is either a bug in the compiler or the Noir macro code".to_string(),
+            secondary_message: None,
+            span: None
+        });
     }
-    assert_eq!(errors.len(), 0, "Failed to parse Noir macro code. This is either a bug in the compiler or the Noir macro code");
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
     noir_fn.def.visibility = FunctionVisibility::Public;
-    noir_fn
+    Ok(noir_fn)
 }
 
 fn generate_note_fields_fn(
     note_type: &String,
     note_fields: &Vec<(String, String)>,
-) -> NoirFunction {
+) -> Result<NoirFunction, MacroError> {
     let function_source = generate_note_fields_fn_source(note_type, note_fields);
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        dbg!(errors.clone());
+        return Err(MacroError {
+            primary_message: "Failed to parse Noir macro code (fn fields). This is either a bug in the compiler or the Noir macro code".to_string(),
+            secondary_message: None,
+            span: None
+        });
     }
-    assert_eq!(errors.len(), 0, "Failed to parse Noir macro code. This is either a bug in the compiler or the Noir macro code");
-
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
     noir_fn.def.visibility = FunctionVisibility::Public;
-    noir_fn
+    Ok(noir_fn)
 }
 
 fn generate_note_fields_struct_source(
