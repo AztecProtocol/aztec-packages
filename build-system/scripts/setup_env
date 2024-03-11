@@ -81,7 +81,7 @@ fi
 # Ensure that we only ever set these env vars on the first bash instantiation.
 # Otherwise every new invocation of bash will reset the vars.
 cat >> $BASH_ENV << EOF
-if [ -n "$BUILD_SYSTEM_INITIALIZED" ]; then
+if [ -n "\$BUILD_SYSTEM_INITIALIZED" ]; then
   exit
 fi
 
