@@ -1,6 +1,9 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <vector>
+#pragma GCC diagnostic push
+// GCC bug in template specialization
+#pragma GCC diagnostic ignored "-Wfatal-errors"
 class MockTranscript {
   public:
     std::vector<uint256_t> challenges;
@@ -30,6 +33,7 @@ class MockTranscript {
     {
         field_elements.push_back(static_cast<uint256_t>(field_element));
     }
+
     template <> void send_to_verifier(const std::string&, const bb::curve::Grumpkin::AffineElement& group_element)
     {
         group_elements.push_back(group_element);
@@ -61,3 +65,5 @@ class MockTranscript {
         return group_elements[current_group_index++];
     }
 };
+
+#pragma GCC diagnostic pop
