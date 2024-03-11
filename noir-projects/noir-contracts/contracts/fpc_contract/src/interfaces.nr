@@ -14,7 +14,7 @@ impl Token {
 
     pub fn transfer_public(
         self: Self,
-        context: PublicContext,
+        context: &mut PublicContext,
         from: AztecAddress,
         to: AztecAddress,
         amount: Field,
@@ -29,7 +29,7 @@ impl Token {
 
     pub fn shield(
         self: Self,
-        context: PublicContext,
+        context: &mut PublicContext,
         from: AztecAddress,
         amount: Field,
         secret_hash: Field,

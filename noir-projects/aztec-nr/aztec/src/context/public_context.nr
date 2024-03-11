@@ -209,59 +209,114 @@ impl PublicContext {
     }
 
     pub fn call_public_function<ARGS_COUNT>(
-        _self: Self,
+        self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, false, false)
+        let side_effect_counter = self.side_effect_counter;
+        self.side_effect_counter += 1;
+
+        call_public_function_internal(
+            contract_address,
+            function_selector,
+            args_hash,
+            side_effect_counter,
+            false,
+            false
+        )
     }
 
     pub fn static_call_public_function<ARGS_COUNT>(
-        _self: Self,
+        self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, true, false)
+        let side_effect_counter = self.side_effect_counter;
+        self.side_effect_counter += 1;
+        call_public_function_internal(
+            contract_address,
+            function_selector,
+            args_hash,
+            side_effect_counter,
+            true,
+            false
+        )
     }
 
     pub fn delegate_call_public_function<ARGS_COUNT>(
-        _self: Self,
+        self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, false, true)
+        let side_effect_counter = self.side_effect_counter;
+        self.side_effect_counter += 1;
+        call_public_function_internal(
+            contract_address,
+            function_selector,
+            args_hash,
+            side_effect_counter,
+            false,
+            true
+        )
     }
 
     pub fn call_public_function_no_args(
-        _self: Self,
+        self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, false, false)
+        let side_effect_counter = self.side_effect_counter;
+        self.side_effect_counter += 1;
+        call_public_function_internal(
+            contract_address,
+            function_selector,
+            0,
+            side_effect_counter,
+            false,
+            false
+        )
     }
 
     pub fn static_call_public_function_no_args(
-        _self: Self,
+        self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, true, false)
+        let side_effect_counter = self.side_effect_counter;
+        self.side_effect_counter += 1;
+        call_public_function_internal(
+            contract_address,
+            function_selector,
+            0,
+            side_effect_counter,
+            true,
+            false
+        )
     }
 
     pub fn delegate_call_public_function_no_args(
-        _self: Self,
+        self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, false, true)
+        let side_effect_counter = self.side_effect_counter;
+        self.side_effect_counter += 1;
+        call_public_function_internal(
+            contract_address,
+            function_selector,
+            0,
+            side_effect_counter,
+            false,
+            true
+        )
     }
 }

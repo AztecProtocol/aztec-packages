@@ -166,6 +166,7 @@ export class PublicExecutionContext extends TypedOracle {
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
+    sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
   ) {
@@ -195,7 +196,7 @@ export class PublicExecutionContext extends TypedOracle {
       isDelegateCall,
       isStaticCall,
       // TODO (alexg) move this to noir
-      enqueuedSideEffectCounter: this.sideEffectCounter.count(),
+      enqueuedSideEffectCounter: sideEffectCounter,
     });
 
     const nestedExecution: PublicExecution = {
