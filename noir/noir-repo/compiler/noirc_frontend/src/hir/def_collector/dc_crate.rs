@@ -207,7 +207,7 @@ impl DefCollector {
         context: &mut Context,
         ast: SortedModule,
         root_file_id: FileId,
-        macro_processors: &Vec<&dyn MacroProcessor>,
+        macro_processors: &[&dyn MacroProcessor],
     ) -> Vec<(CompilationError, FileId)> {
         let mut errors: Vec<(CompilationError, FileId)> = vec![];
         let crate_id = def_map.krate;

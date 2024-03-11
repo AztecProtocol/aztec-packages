@@ -42,7 +42,7 @@ pub fn collect_defs(
     module_id: LocalModuleId,
     crate_id: CrateId,
     context: &mut Context,
-    macro_processors: &Vec<&dyn MacroProcessor>,
+    macro_processors: &[&dyn MacroProcessor],
 ) -> Vec<(CompilationError, FileId)> {
     let mut collector = ModCollector { def_collector, file_id, module_id };
     let mut errors: Vec<(CompilationError, FileId)> = vec![];
@@ -507,7 +507,7 @@ impl<'a> ModCollector<'a> {
         crate_id: CrateId,
         submodules: Vec<SortedSubModule>,
         file_id: FileId,
-        macro_processors: &Vec<&dyn MacroProcessor>,
+        macro_processors: &[&dyn MacroProcessor],
     ) -> Vec<(CompilationError, FileId)> {
         let mut errors: Vec<(CompilationError, FileId)> = vec![];
         for submodule in submodules {
@@ -539,7 +539,7 @@ impl<'a> ModCollector<'a> {
         context: &mut Context,
         mod_name: &Ident,
         crate_id: CrateId,
-        macro_processors: &Vec<&dyn MacroProcessor>,
+        macro_processors: &[&dyn MacroProcessor],
     ) -> Vec<(CompilationError, FileId)> {
         let mut errors: Vec<(CompilationError, FileId)> = vec![];
         let child_file_id =

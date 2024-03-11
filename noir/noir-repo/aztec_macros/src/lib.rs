@@ -38,7 +38,7 @@ impl MacroProcessor for AztecMacro {
         crate_id: &CrateId,
         context: &mut HirContext,
         collected_trait_impls: &[UnresolvedTraitImpl],
-        collected_functions: &mut Vec<UnresolvedFunctions>,
+        collected_functions: &mut [UnresolvedFunctions],
     ) -> Result<(), (MacroError, FileId)> {
         transform_collected_defs(crate_id, context, collected_trait_impls, collected_functions)
     }
@@ -200,7 +200,7 @@ fn transform_collected_defs(
     crate_id: &CrateId,
     context: &mut HirContext,
     collected_trait_impls: &[UnresolvedTraitImpl],
-    collected_functions: &mut Vec<UnresolvedFunctions>,
+    collected_functions: &mut [UnresolvedFunctions],
 ) -> Result<(), (MacroError, FileId)> {
     if has_aztec_dependency(crate_id, context) {
         inject_compute_note_hash_and_nullifier(
