@@ -19,7 +19,7 @@ type Message = {
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class MessageStore {
-  #newMessages: AztecMap<string, Fr>;
+  #newMessages: AztecMap<string, Buffer>;
   #lastL1BlockNewMessages: AztecSingleton<bigint>;
   // TODO(#4492): Nuke the following when purging the old inbox
   #pendingMessagesByFee: AztecCounter<[number, string]>;
@@ -73,7 +73,7 @@ export class MessageStore {
           throw new Error(`Message index ${message.index} out of subtree range`);
         }
         const key = `${message.blockNumber}-${message.index}`;
-        void this.#newMessages.setIfNotExists(key, message.leaf);
+        void this.#newMessages.setIfNotExists(key, message.leaf.toBuffer());
       }
 
       return true;
@@ -219,7 +219,7 @@ export class MessageStore {
         if (undefinedMessageFound) {
           throw new Error(`L1 to L2 message gap found in block ${blockNumber}`);
         }
-        messages.push(message);
+        messages.push(Fr.fromBuffer(message));
       } else {
         undefinedMessageFound = true;
         // We continue iterating over messages here to verify that there are no more messages after the undefined one.
