@@ -27,7 +27,6 @@ COPY --keep-ts --dir */ *.json .yarn .yarnrc.yml .
 # by initialising the module more than once. So at present I don't see a viable alternative.
 RUN ln -s /build/yarn-project/node_modules /build/node_modules
 
-
 # Target for main build process
 build:
     ARG EARTHLY_BUILD_SHA
