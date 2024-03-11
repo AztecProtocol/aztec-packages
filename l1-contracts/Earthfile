@@ -11,4 +11,4 @@ build:
     RUN yarn && yarn lint
     RUN git add . && yarn slither && yarn slither-has-diff
     RUN forge build
-    SAVE ARTIFACT out build
+    SAVE ARTIFACT out

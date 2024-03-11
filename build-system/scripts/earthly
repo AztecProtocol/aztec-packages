@@ -13,4 +13,4 @@ ssh -o ExitOnForwardFailure=yes -f -N -L 8372:localhost:8372 ubuntu@18.191.162.1
 ./earthly config global.tls_enabled false
 # Annoying workaround: we have to use a localhost earthly does NOT recognize otherwise it will try to use
 # a locally managed buildkit. $(hostname) didn't work here on CirlceCI, so we pick a common other loopback (ip6-localhost).
-./earthly --buildkit-host=tcp://ip6-localhost:8372 --ci --save-inline-cache --push $@
+./earthly --buildkit-host=tcp://ip6-localhost:8372 --ci --savoe-inline-cache --push $@

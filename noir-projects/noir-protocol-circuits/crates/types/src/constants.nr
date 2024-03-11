@@ -109,7 +109,7 @@ global INITIAL_L2_BLOCK_NUM: Field = 1;
 global BLOB_SIZE_IN_BYTES: Field = 126976;
 
 // CONTRACT CLASS CONSTANTS
-global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u64 = 8000;
+global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u64 = 9000;
 // Bytecode size for private functions is per function, not for the entire contract.
 // Note that private functions bytecode includes a mix of acir and brillig.
 global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u64 = 500;
@@ -168,7 +168,7 @@ global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 223;
 // constant as well PRIVATE_CALL_STACK_ITEM_LENGTH
 global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 218;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 195;
+global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 199;
 global STATE_REFERENCE_LENGTH: u64 = 10; // 2 for snap + 8 for partial
 global TX_CONTEXT_DATA_LENGTH: u64 = 11;
 global TX_REQUEST_LENGTH: u64 = 17;

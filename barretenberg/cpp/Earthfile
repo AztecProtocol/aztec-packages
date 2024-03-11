@@ -29,15 +29,6 @@ COPY --keep-ts --dir cmake CMakeLists.txt CMakePresets.json .
 
 SAVE IMAGE --cache-hint
 
-# Targets
-build-ci:
-    BUILD +build-release
-    BUILD +build-wasm
-    BUILD +build-gcc
-    BUILD +build-fuzzing
-    BUILD +build-clang-assert
-    BUILD +test-clang-format
-
 build-release:
     DO +BUILD --configure="--preset clang16" --build="--target ultra_honk_rounds_bench --target bb"
     SAVE ARTIFACT build
