@@ -1954,7 +1954,7 @@ export function mapStateDiffHintsToNoir(hints: StateDiffHints): StateDiffHintsNo
  */
 export function mapBaseParityInputsToNoir(inputs: BaseParityInputs): BaseParityInputsNoir {
   return {
-    msgs: mapTuple(inputs.msgs, mapSha256HashToNoir),
+    msgs: mapTuple(inputs.msgs, mapFieldToNoir),
   };
 }
 
