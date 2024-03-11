@@ -1,13 +1,15 @@
 mod transforms;
 mod utils;
 
-use transforms::compute_note_hash_and_nullifier::inject_compute_note_hash_and_nullifier;
-use transforms::events::{generate_selector_impl, transform_events};
-use transforms::functions::{transform_function, transform_unconstrained, transform_vm_function};
-use transforms::note_interface::generate_note_interface_impl;
-use transforms::storage::{
-    assign_storage_slots, check_for_storage_definition, check_for_storage_implementation,
-    generate_storage_implementation,
+use transforms::{
+    compute_note_hash_and_nullifier::inject_compute_note_hash_and_nullifier,
+    events::{generate_selector_impl, transform_events},
+    functions::{transform_function, transform_unconstrained, transform_vm_function},
+    note_interface::generate_note_interface_impl,
+    storage::{
+        assign_storage_slots, check_for_storage_definition, check_for_storage_implementation,
+        generate_storage_implementation,
+    },
 };
 
 use noirc_frontend::hir::def_collector::dc_crate::DefCollector;
