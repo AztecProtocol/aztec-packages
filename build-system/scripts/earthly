@@ -5,7 +5,7 @@
 set -eu
 
 wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O ./earthly;
-export DOCKER_HOST=ssh://build-instance-x86
+export DOCKER_HOST=ssh://ubuntu@18.191.162.117
 chmod +x ./earthly && ./earthly bootstrap
 # forward ports to the earthly runner on our docker host (TODO use env var)
 # ssh -o ExitOnForwardFailure=yes -f -N -L 8372:localhost:8372 
