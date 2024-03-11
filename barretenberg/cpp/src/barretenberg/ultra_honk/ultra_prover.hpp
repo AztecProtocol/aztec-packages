@@ -26,6 +26,21 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
     using Instance = ProverInstance;
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
+    using ZeroMorph = ZeroMorphProver_<Curve>;
+
+    std::shared_ptr<Instance> instance;
+
+    std::shared_ptr<Transcript> transcript;
+
+    bb::RelationParameters<FF> relation_parameters;
+
+    Polynomial quotient_W;
+
+    SumcheckOutput<Flavor> sumcheck_output;
+
+    std::shared_ptr<CommitmentKey> commitment_key;
+
+    OinkProver<Flavor> oink_prover;
 
     explicit UltraProver_(const std::shared_ptr<Instance>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
@@ -42,22 +57,6 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
     HonkProof& export_proof();
     HonkProof& construct_proof();
-
-    std::shared_ptr<Instance> instance;
-
-    std::shared_ptr<Transcript> transcript;
-
-    bb::RelationParameters<FF> relation_parameters;
-
-    Polynomial quotient_W;
-
-    SumcheckOutput<Flavor> sumcheck_output;
-
-    std::shared_ptr<CommitmentKey> commitment_key;
-
-    OinkProver<Flavor> oink_prover;
-
-    using ZeroMorph = ZeroMorphProver_<Curve>;
 
   private:
     HonkProof proof;

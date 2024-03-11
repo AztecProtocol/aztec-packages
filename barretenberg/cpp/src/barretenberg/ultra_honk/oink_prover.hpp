@@ -23,6 +23,11 @@ template <IsUltraFlavor Flavor> class OinkProver {
     using FF = typename Flavor::FF;
 
   public:
+    std::shared_ptr<Instance> instance;
+    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<CommitmentKey> commitment_key;
+    std::string domain_separator;
+
     OinkProver(const std::shared_ptr<ProverInstance_<Flavor>>& inst,
                const std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key,
                const std::shared_ptr<typename Flavor::Transcript>& transcript,
@@ -40,10 +45,5 @@ template <IsUltraFlavor Flavor> class OinkProver {
     void execute_sorted_list_accumulator_round();
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
-
-    std::shared_ptr<Instance> instance;
-    std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<CommitmentKey> commitment_key;
-    std::string domain_separator;
 };
 } // namespace bb
