@@ -1,4 +1,4 @@
-#include "barretenberg/protogalaxy/presumcheck_prover.hpp"
+#include "barretenberg/ultra_honk/presumcheck_prover.hpp"
 
 namespace bb {
 
@@ -8,17 +8,17 @@ namespace bb {
  */
 template <IsUltraFlavor Flavor> void PreSumcheckProver<Flavor>::execute_preamble_round()
 {
-    const auto instance_size = static_cast<uint32_t>(instance->instance_size);
-    const auto num_public_inputs = static_cast<uint32_t>(instance->public_inputs.size());
-    transcript->send_to_verifier(domain_separator + "instance_size", instance_size);
+    const auto circuit_size = static_cast<uint32_t>(instance->proving_key->circuit_size);
+    const auto num_public_inputs = static_cast<uint32_t>(instance->proving_key->public_inputs.size());
+    transcript->send_to_verifier(domain_separator + "circuit_size", circuit_size);
     transcript->send_to_verifier(domain_separator + "public_input_size", num_public_inputs);
     transcript->send_to_verifier(domain_separator + "pub_inputs_offset",
-                                 static_cast<uint32_t>(instance->pub_inputs_offset));
+                                 static_cast<uint32_t>(instance->proving_key->pub_inputs_offset));
 
-    ASSERT(instance->proving_key->num_public_inputs == instance->public_inputs.size());
+    ASSERT(instance->proving_key->num_public_inputs == instance->proving_key->public_inputs.size());
 
-    for (size_t i = 0; i < instance->public_inputs.size(); ++i) {
-        auto public_input_i = instance->public_inputs[i];
+    for (size_t i = 0; i < instance->proving_key->num_public_inputs; ++i) {
+        auto public_input_i = instance->proving_key->public_inputs[i];
         transcript->send_to_verifier(domain_separator + "public_input_" + std::to_string(i), public_input_i);
     }
 }
