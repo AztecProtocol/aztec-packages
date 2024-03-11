@@ -1,16 +1,17 @@
-FROM node:18.19.1-slim
-RUN apt update && apt install -y curl jq pip git
+FROM ubuntu:lunar
+RUN apt update && apt install curl git jq bash nodejs npm python3.11-full python3-pip -y
 
-# Install solhint.
-RUN npm install -g solhint
-
-# Install slither.
-RUN pip install --no-cache-dir --break-system-packages slither-analyzer==0.10.0 slitherin==0.5.0
-
-# Install foundry.
+# Use virtualenv, do not try to use pipx, it's not working.
+RUN python3 -m venv /root/.venv
+RUN /root/.venv/bin/pip3 install slither-analyzer==0.10.0 slitherin==0.5.0
 RUN curl -L https://foundry.paradigm.xyz | bash
-ENV PATH=${PATH}:/root/.foundry/bin
+
+# Set env variables for foundry and venv
+ENV PATH="${PATH}:/root/.foundry/bin:/root/.venv/bin"
 RUN foundryup
+
+# Install yarn and solhint.
+RUN npm install -g yarn solhint
 
 WORKDIR /usr/src/l1-contracts
 COPY . .

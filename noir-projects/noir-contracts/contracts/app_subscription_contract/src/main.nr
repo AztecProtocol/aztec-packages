@@ -31,7 +31,6 @@ contract AppSubscription {
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS = 5;
     global SUBSCRIPTION_TXS = 5;
-    global CANONICAL_GAS_TOKEN_ADDRESS = AztecAddress::from_field(0x22a29a9544c0cbdbc35bb21caa78b6f08903be4b390a65319e33afd7443f3499);
 
     #[aztec(private)]
     fn entrypoint(payload: pub DAppPayload, user_address: pub AztecAddress) {
@@ -82,12 +81,7 @@ contract AppSubscription {
         storage.subscription_recipient_address.initialize(subscription_recipient_address);
         storage.subscription_price.initialize(subscription_price);
 
-        let actual_gas_token_address = if is_empty(gas_token_address) {
-            CANONICAL_GAS_TOKEN_ADDRESS
-        } else {
-            gas_token_address
-        };
-        storage.gas_token_address.initialize(actual_gas_token_address);
+        storage.gas_token_address.initialize(gas_token_address);
     }
 
     #[aztec(public)]
