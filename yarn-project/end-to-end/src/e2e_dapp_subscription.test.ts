@@ -142,7 +142,7 @@ describe('e2e_dapp_subscription', () => {
     await expectMapping(
       bananasPublicBalances,
       [aliceAddress, bobAddress, bananaFPC.address],
-      [PUBLICLY_MINTED_BANANAS + REFUND, 0n, FEE_AMOUNT], // alice receives a public refund (for now)
+      [PUBLICLY_MINTED_BANANAS, 0n, FEE_AMOUNT], // alice receives a public refund (for now)
     );
 
     await expectMapping(
@@ -151,6 +151,8 @@ describe('e2e_dapp_subscription', () => {
       [bananaFPC.address, subscriptionContract.address, sequencerAddress],
       [INITIAL_GAS_BALANCE - FEE_AMOUNT, INITIAL_GAS_BALANCE, FEE_AMOUNT],
     );
+
+    // REFUND_AMOUNT is a transparent note note
   });
 
   it('should allow Alice to subscribe by paying with bananas in public', async () => {
