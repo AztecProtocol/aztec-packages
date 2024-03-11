@@ -72,12 +72,12 @@ const init = async ({ debug, github_token, version }) => {
 
   // if the user has set a semver version (matches the regex), fetch that tag (i.e. aztec-packages-v0.23.0)
   // otherwise use the version as the tag
-  global.tag = version.match(/^\d+\.\d+\.\d+$/)
-    ? `aztec-packages-v${version}`
-    : version;
+  global.tag = global.version.match(/^\d+\.\d+\.\d+$/)
+    ? `aztec-packages-v${global.version}`
+    : global.version;
 
-  global.debug(`Version: ${version}`);
-  global.debug(`Tag: ${tag}`);
+  global.debug(`Version: ${global.version}`);
+  global.debug(`Tag: ${global.tag}`);
   global.debug(`LatestStable: ${global.latestStable}`);
 
   global.spinner = ora({ color: "blue" });

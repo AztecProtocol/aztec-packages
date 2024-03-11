@@ -100,29 +100,6 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/contract_box@workspace:contract-only":
-  version: 0.0.0-use.local
-  resolution: "@aztec/contract_box@workspace:contract-only"
-  dependencies:
-    "@aztec/accounts": "npm:latest"
-    "@aztec/aztec.js": "npm:latest"
-    "@playwright/test": "npm:1.42.0"
-    "@types/jest": "npm:^29.5.0"
-    "@types/node": "npm:^20.11.17"
-    copy-webpack-plugin: "npm:^11.0.0"
-    html-webpack-plugin: "npm:^5.6.0"
-    jest: "npm:^29.6.4"
-    stream-browserify: "npm:^3.0.0"
-    ts-loader: "npm:^9.5.1"
-    tty-browserify: "npm:^0.0.1"
-    typescript: "npm:^5.0.4"
-    util: "npm:^0.12.5"
-    webpack: "npm:^5.90.1"
-    webpack-cli: "npm:^5.1.4"
-    webpack-dev-server: "npm:^4.15.1"
-  languageName: unknown
-  linkType: soft
-
 "@aztec/entrypoints@portal:../yarn-project/entrypoints::locator=create-aztec-app%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/entrypoints@portal:../yarn-project/entrypoints::locator=create-aztec-app%40workspace%3A."

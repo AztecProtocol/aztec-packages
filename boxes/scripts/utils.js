@@ -204,9 +204,9 @@ export async function replacePaths({ rootDir, prefix = "" }) {
                   "",
                 );
                 content.dependencies[dep] = {
-                  git: `https://github.com/${AZTEC_REPO}`,
+                  git: `https://github.com/${AZTEC_REPO}/`,
                   tag,
-                  directory: `${prefix}/${directory}`,
+                  directory: `${prefix}${directory}`,
                 };
               });
 

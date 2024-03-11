@@ -62,7 +62,7 @@ async function chooseAndCloneContract() {
     rootDir,
     tag,
     version,
-    prefix: "/noir-projects",
+    prefix: "noir-projects/",
   });
 
   await processProject({
