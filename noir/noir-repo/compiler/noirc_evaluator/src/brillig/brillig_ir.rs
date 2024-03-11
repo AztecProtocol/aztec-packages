@@ -212,16 +212,7 @@ impl BrilligContext {
         self.debug_show.array_get(array_ptr, index, result);
         // Computes array_ptr + index, ie array[index]
         let index_of_element_in_memory = self.allocate_register();
-        self.binary_instruction(
-            array_ptr,
-            index,
-            index_of_element_in_memory,
-            BrilligBinaryOp::Integer {
-                op: BinaryIntOp::Add,
-                bit_size: BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
-            },
-        );
-
+        self.memory_op(array_ptr, index, index_of_element_in_memory, BinaryIntOp::Add);
         self.load_instruction(result, index_of_element_in_memory);
         // Free up temporary register
         self.deallocate_register(index_of_element_in_memory);
@@ -731,6 +722,8 @@ impl BrilligContext {
     /// Instead truncation instructions are emitted as to when a
     /// truncation should be done.
     /// For Brillig, all integer operations will overflow as its cheap.
+    /// We currently use cast to truncate: we cast to the required bit size
+    /// and back to the original bit size.
     pub(crate) fn truncate_instruction(
         &mut self,
         destination_of_truncated_value: SingleAddrVariable,

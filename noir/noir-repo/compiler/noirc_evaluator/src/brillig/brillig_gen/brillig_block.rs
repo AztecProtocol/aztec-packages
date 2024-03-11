@@ -832,18 +832,9 @@ impl<'block> BrilligBlock<'block> {
         };
 
         // Here we want to compare the reference count against 1.
-        // I don't think we have the bit_size for the reference count available, so I'm hardcoding it.
-        let bit_size = usize::BITS;
-        let one = self.brillig_context.make_constant(1_usize.into(), bit_size);
+        let one = self.brillig_context.make_usize_constant(1_usize.into());
         let condition = self.brillig_context.allocate_register();
-
-        self.brillig_context.binary_instruction(
-            reference_count,
-            one,
-            condition,
-            BrilligBinaryOp::Integer { op: BinaryIntOp::Equals, bit_size },
-        );
-
+        self.brillig_context.memory_op(reference_count, one, condition, BinaryIntOp::Equals);
         self.brillig_context.branch_instruction(condition, |ctx, cond| {
             if cond {
                 // Reference count is 1, we can mutate the array directly
