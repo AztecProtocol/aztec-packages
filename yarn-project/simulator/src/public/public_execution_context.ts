@@ -195,7 +195,7 @@ export class PublicExecutionContext extends TypedOracle {
       isDelegateCall,
       isStaticCall,
       // TODO (alexg) move this to noir
-      startSideEffectCounter: this.sideEffectCounter.count(),
+      enqueuedSideEffectCounter: this.sideEffectCounter.count(),
     });
 
     const nestedExecution: PublicExecution = {

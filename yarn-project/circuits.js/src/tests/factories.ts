@@ -518,7 +518,7 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
     functionSelector: makeSelector(seed + 3),
     isStaticCall: false,
     isDelegateCall: false,
-    startSideEffectCounter: 0,
+    enqueuedSideEffectCounter: 0,
   });
   return new PublicCallRequest(
     makeAztecAddress(seed),
