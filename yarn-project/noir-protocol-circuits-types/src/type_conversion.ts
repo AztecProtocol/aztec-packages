@@ -1665,6 +1665,7 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
 export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): RootRollupInputsNoir {
   return {
     previous_rollup_data: mapTuple(rootRollupInputs.previousRollupData, mapPreviousRollupDataToNoir),
+    l1_to_l2_roots: mapRootParityInputToNoir(rootRollupInputs.l1ToL2Roots),
     new_l1_to_l2_messages: mapTuple(rootRollupInputs.newL1ToL2Messages, mapFieldToNoir),
     new_l1_to_l2_message_tree_root_sibling_path: mapTuple(
       rootRollupInputs.newL1ToL2MessageTreeRootSiblingPath,
