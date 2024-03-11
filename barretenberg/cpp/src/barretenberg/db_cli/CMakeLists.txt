@@ -5,3 +5,10 @@ target_link_libraries(
     lmdb
     env
 )
+
+target_link_libraries(
+    db_cli
+    PRIVATE
+    barretenberg
+    env
+)

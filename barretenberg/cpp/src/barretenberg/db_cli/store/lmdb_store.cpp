@@ -1,6 +1,6 @@
 #include "lmdb_store.hpp"
 
-namespace bb::crypto::merkle_tree {
+namespace bb::db_cli {
 
 LMDBEnvironment::LMDBEnvironment(const std::string& directory)
 {
@@ -15,9 +15,20 @@ LMDBEnvironment::LMDBEnvironment(const std::string& directory)
     }
 }
 
-LMDBTransaction::LMDBTransaction(const LMDBEnvironment& env, bool readOnly = true)
+LMDBEnvironment::~LMDBEnvironment()
+{
+    call_lmdb_func(mdb_env_close, _mdbEnv);
+}
+
+MDB_env* LMDBEnvironment::underlying() const
+{
+    return _mdbEnv;
+}
+
+LMDBTransaction::LMDBTransaction(const LMDBEnvironment& env, const LMDBDatabase& database, bool readOnly)
     : _readOnly(readOnly)
     , _committed(false)
+    , _database(database)
 {
     unsigned int flags = _readOnly ? MDB_RDONLY : 0;
     MDB_txn* p = nullptr;
@@ -49,10 +60,34 @@ bool LMDBTransaction::commit()
     return _committed;
 }
 
+void LMDBTransaction::put(size_t level, size_t index, std::vector<uint8_t>& data)
+{
+    put(level, index, data, data.size());
+}
+
+void LMDBTransaction::put(size_t level, size_t start_index, std::vector<uint8_t>& data, size_t element_size)
+{
+    MDB_cursor* cursor;
+    call_lmdb_func(mdb_cursor_open, underlying(), _database, &cursor);
+    size_t key = (1 << level) + start_index - 1;
+    size_t num_elements = data.size() / element_size;
+
+    for (size_t i = 0; i < num_elements; ++i, ++key) {
+        MDB_val dbKey;
+        dbKey.mv_size = sizeof(key);
+        dbKey.mv_data = &key;
+
+        MDB_val dbVal;
+        dbVal.mv_size = element_size;
+        dbVal.mv_data = static_cast<void*>(&data[i * element_size]);
+        call_lmdb_func(mdb_cursor_put, cursor, &dbKey, &dbVal, 0U);
+    }
+}
+
 LMDBDatabase::LMDBDatabase(const LMDBEnvironment& env, const LMDBTransaction& transaction, const std::string& name)
     : _environment(env)
 {
-    unsigned int flags = MDB_CREATE;
+    unsigned int flags = MDB_CREATE | MDB_INTEGERKEY;
     if (!call_lmdb_func(mdb_dbi_open, transaction.underlying(), name.c_str(), flags, &_dbi)) {
         // throw here
     }
@@ -73,29 +108,12 @@ LMDBStore::LMDBStore(LMDBEnvironment& environment, const std::string& name)
     , _name(name)
     , _database(_environment, LMDBTransaction(_environment, false), _name)
 {}
-LMDBSTORE::~LMDBStore() {}
-
-void LMDBStore::put(size_t level, size_t index, std::vector<uint8_t>& data)
-{
-    LMDBTransaction transaction(_environment, false);
-    size_t key = (1 << level) + index - 1;
-    std::cout << "Key " << key << std::endl;
-
-    MDB_val dbKey;
-    dbKey.mv_size = sizeof(key);
-    dbKey.mv_data = &key;
-
-    MDB_val dbVal;
-    dbVal.mv_size = data.size();
-    dbVal.mv_data = static_cast<void*>(&data[0]);
-    call_lmdb_func(mdb_put, transaction.underlying(), _database.underlying(), &dbKey, &dbVal, 0U);
-}
+LMDBStore::~LMDBStore() {}
 
 bool LMDBStore::get(size_t level, size_t index, std::vector<uint8_t>& data) const
 {
-    LMDBTransaction transaction(_environment, false);
+    LMDBTransaction transaction(_environment, true);
     size_t key = (1 << level) + index - 1;
-    std::cout << "Key " << key << std::endl;
 
     MDB_val dbKey;
     dbKey.mv_size = sizeof(key);
@@ -109,4 +127,10 @@ bool LMDBStore::get(size_t level, size_t index, std::vector<uint8_t>& data) cons
     std::memcpy(&data[0], dbVal.mv_data, dbVal.mv_size);
     return true;
 }
-} // namespace bb::crypto::merkle_tree
+
+std::unique_ptr<LMDBTransaction> LMDBStore::createWriteTransaction()
+{
+    return new LMDBTransaction(_environment, false);
+}
+
+} // namespace bb::db_cli

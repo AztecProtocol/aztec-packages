@@ -1,10 +1,13 @@
 #pragma once
 #include <cmath>
 #include <cstring>
+#include <iostream>
 #include <lmdb.h>
+#include <memory>
 #include <sys/stat.h>
+#include <vector>
 
-namespace bb::crypto::merkle_tree {
+namespace bb::db_cli {
 
 template <typename... TArgs> bool call_lmdb_func(int (*f)(TArgs...), TArgs... args)
 {
@@ -34,18 +37,21 @@ class LMDBEnvironment {
 
 class LMDBTransaction {
   public:
-    LMDBTransaction(const LMDBEnvironment& env, bool readOnly = true);
+    LMDBTransaction(const LMDBEnvironment& env, const LMDBDatabase& database, bool readOnly = true);
 
     ~LMDBTransaction();
 
     MDB_txn* underlying() const;
 
+    void put(size_t level, size_t index, std::vector<uint8_t>& data);
+    void put(size_t level, size_t start_index, std::vector<uint8_t>& data, size_t element_size);
     bool commit();
 
   private:
-    MDB_txn* _transaction;
     bool _readOnly;
     bool _committed;
+    const LMDBDatabase& _database;
+    MDB_txn* _transaction;
 };
 
 class LMDBDatabase {
@@ -67,12 +73,14 @@ class LMDBStore {
     LMDBStore(LMDBEnvironment& environment, const std::string& name);
     ~LMDBStore();
 
-    void put(size_t level, size_t index, std::vector<uint8_t>& data);
     bool get(size_t level, size_t index, std::vector<uint8_t>& data) const;
+
+    std::unique_ptr<LMDBTransaction> createWriteTransaction();
 
   private:
     LMDBEnvironment& _environment;
     const std::string _name;
     LMDBDatabase _database;
+    std::unique_ptr<LMDBTransaction> _writeTransaction;
 };
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::db_cli
