@@ -5,7 +5,7 @@ pragma solidity >=0.8.18;
 import {Errors} from "../libraries/Errors.sol";
 
 /**
- * @title
+ * @title Merkle Library
  * @author Aztec Labs
  * @notice
  */
