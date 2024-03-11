@@ -115,15 +115,15 @@ pub struct UnresolvedGlobal {
 
 /// Given a Crate root, collect all definitions in that crate
 pub struct DefCollector {
-    pub(crate) def_map: CrateDefMap,
-    pub(crate) collected_imports: Vec<ImportDirective>,
-    pub(crate) collected_functions: Vec<UnresolvedFunctions>,
-    pub(crate) collected_types: BTreeMap<StructId, UnresolvedStruct>,
-    pub(crate) collected_type_aliases: BTreeMap<TypeAliasId, UnresolvedTypeAlias>,
-    pub(crate) collected_traits: BTreeMap<TraitId, UnresolvedTrait>,
-    pub(crate) collected_globals: Vec<UnresolvedGlobal>,
-    pub(crate) collected_impls: ImplMap,
-    pub(crate) collected_traits_impls: Vec<UnresolvedTraitImpl>,
+    pub def_map: CrateDefMap,
+    pub collected_imports: Vec<ImportDirective>,
+    pub collected_functions: Vec<UnresolvedFunctions>,
+    pub collected_types: BTreeMap<StructId, UnresolvedStruct>,
+    pub collected_type_aliases: BTreeMap<TypeAliasId, UnresolvedTypeAlias>,
+    pub collected_traits: BTreeMap<TraitId, UnresolvedTrait>,
+    pub collected_globals: Vec<UnresolvedGlobal>,
+    pub collected_impls: ImplMap,
+    pub collected_traits_impls: Vec<UnresolvedTraitImpl>,
 }
 
 /// Maps the type and the module id in which the impl is defined to the functions contained in that
@@ -207,7 +207,7 @@ impl DefCollector {
         context: &mut Context,
         ast: SortedModule,
         root_file_id: FileId,
-        macro_processors: Vec<&dyn MacroProcessor>,
+        macro_processors: &Vec<&dyn MacroProcessor>,
     ) -> Vec<(CompilationError, FileId)> {
         let mut errors: Vec<(CompilationError, FileId)> = vec![];
         let crate_id = def_map.krate;
@@ -220,11 +220,7 @@ impl DefCollector {
         let crate_graph = &context.crate_graph[crate_id];
 
         for dep in crate_graph.dependencies.clone() {
-            errors.extend(CrateDefMap::collect_defs(
-                dep.crate_id,
-                context,
-                macro_processors.clone(),
-            ));
+            errors.extend(CrateDefMap::collect_defs(dep.crate_id, context, macro_processors));
 
             let dep_def_root =
                 context.def_map(&dep.crate_id).expect("ice: def map was just created").root;
@@ -250,21 +246,17 @@ impl DefCollector {
             crate_root,
             crate_id,
             context,
+            macro_processors,
         ));
 
         let submodules = vecmap(def_collector.def_map.modules().iter(), |(index, _)| index);
         // Add the current crate to the collection of DefMaps
-        context.def_maps.insert(crate_id, def_collector.def_map);
+        context.def_maps.insert(crate_id, def_collector.def_map.clone());
 
         // TODO(#4653): generalize this function
-        for macro_processor in &macro_processors {
+        for macro_processor in macro_processors {
             macro_processor
-                .process_unresolved_traits_impls(
-                    &crate_id,
-                    context,
-                    &def_collector.collected_traits_impls,
-                    &mut def_collector.collected_functions,
-                )
+                .process_collected_defs(&crate_id, context, &mut def_collector)
                 .unwrap_or_else(|(macro_err, file_id)| {
                     errors.push((macro_err.into(), file_id));
                 });

@@ -45,7 +45,7 @@ pub mod macros_api {
     pub use noirc_errors::Span;
 
     pub use crate::graph::CrateId;
-    use crate::hir::def_collector::dc_crate::{UnresolvedFunctions, UnresolvedTraitImpl};
+    use crate::hir::def_collector::dc_crate::DefCollector;
     pub use crate::hir::def_collector::errors::MacroError;
     pub use crate::hir_def::expr::{HirExpression, HirLiteral};
     pub use crate::hir_def::stmt::HirStatement;
@@ -61,9 +61,9 @@ pub mod macros_api {
         Pattern, Statement, UnresolvedType, UnresolvedTypeData, Visibility,
     };
     pub use crate::{
-        ForLoopStatement, ForRange, FunctionDefinition, FunctionVisibility, ImportStatement,
-        NoirStruct, Param, PrefixExpression, Signedness, StatementKind, StructType, Type, TypeImpl,
-        UnaryOp,
+        ArrayLiteral, ForLoopStatement, ForRange, FunctionDefinition, FunctionVisibility,
+        ImportStatement, NoirStruct, Param, PrefixExpression, Signedness, StatementKind,
+        StructType, Type, TypeImpl, UnaryOp,
     };
 
     /// Methods to process the AST before and after type checking
@@ -77,12 +77,11 @@ pub mod macros_api {
         ) -> Result<SortedModule, (MacroError, FileId)>;
 
         // TODO(#4653): generalize this function
-        fn process_unresolved_traits_impls(
+        fn process_collected_defs(
             &self,
             _crate_id: &CrateId,
             _context: &mut HirContext,
-            _unresolved_traits_impls: &[UnresolvedTraitImpl],
-            _collected_functions: &mut Vec<UnresolvedFunctions>,
+            _def_collector: &mut DefCollector,
         ) -> Result<(), (MacroError, FileId)>;
 
         /// Function to manipulate the AST after type checking has been completed.
