@@ -131,6 +131,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
  */
 export class WorldStatePublicDB implements PublicStateDB {
   private commitedWriteCache: Map<bigint, Fr> = new Map();
+  private checkpointedWriteCache: Map<bigint, Fr> = new Map();
   private uncommitedWriteCache: Map<bigint, Fr> = new Map();
 
   constructor(private db: MerkleTreeOperations) {}
@@ -185,15 +186,23 @@ export class WorldStatePublicDB implements PublicStateDB {
     for (const [k, v] of this.uncommitedWriteCache) {
       this.commitedWriteCache.set(k, v);
     }
-    return this.rollback();
+    return this.rollbackToCommit();
   }
 
   /**
    * Rollback the pending changes.
    * @returns Nothing.
    */
-  rollback(): Promise<void> {
+  rollbackToCommit(): Promise<void> {
     this.uncommitedWriteCache = new Map<bigint, Fr>();
+    return Promise.resolve();
+  }
+
+  checkpoint(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  rollbackToCheckpoint(): Promise<void> {
     return Promise.resolve();
   }
 }

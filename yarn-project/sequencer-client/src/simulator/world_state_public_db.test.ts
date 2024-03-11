@@ -104,14 +104,14 @@ describe('world_state_public_db', () => {
     // commit the data
     await publicStateDb.commit();
 
-    // should read back the commited value
+    // should read back the committed value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
 
     // other slots should be unchanged
     expect(await publicStateDb.storageRead(addresses[1], slots[1])).toEqual(dbValues[1]);
   });
 
-  it('will not rollback a commited value', async function () {
+  it('will not rollback a committed value', async function () {
     const publicStateDb = new WorldStatePublicDB(db);
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(dbValues[0]);
 
@@ -123,12 +123,12 @@ describe('world_state_public_db', () => {
     // commit the data
     await publicStateDb.commit();
 
-    // should read back the commited value
+    // should read back the committed value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
 
-    await publicStateDb.rollback();
+    await publicStateDb.rollbackToCommit();
 
-    // should still read back the commited value
+    // should still read back the committed value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
   });
 
@@ -145,7 +145,7 @@ describe('world_state_public_db', () => {
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
 
     // now rollback
-    await publicStateDb.rollback();
+    await publicStateDb.rollbackToCommit();
 
     // should now read the original value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(dbValues[0]);
@@ -163,7 +163,7 @@ describe('world_state_public_db', () => {
     // commit the data
     await publicStateDb.commit();
 
-    // should read back the commited value
+    // should read back the committed value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
 
     // other slots should be unchanged
@@ -178,7 +178,7 @@ describe('world_state_public_db', () => {
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue2);
   });
 
-  it('rolls back to previously commited value', async function () {
+  it('rolls back to previously committed value', async function () {
     const publicStateDb = new WorldStatePublicDB(db);
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(dbValues[0]);
 
@@ -190,7 +190,7 @@ describe('world_state_public_db', () => {
     // commit the data
     await publicStateDb.commit();
 
-    // should read back the commited value
+    // should read back the committed value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
 
     // other slots should be unchanged
@@ -201,13 +201,13 @@ describe('world_state_public_db', () => {
     // write a new value to our first value
     await publicStateDb.storageWrite(addresses[0], slots[0], newValue2);
 
-    // should read back the uncommited value
+    // should read back the uncommitted value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue2);
 
     // rollback
-    await publicStateDb.rollback();
+    await publicStateDb.rollbackToCommit();
 
-    // should read back the previously commited value
+    // should read back the previously committed value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
   });
 });
