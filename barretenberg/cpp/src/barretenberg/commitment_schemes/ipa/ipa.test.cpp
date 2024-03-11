@@ -1,5 +1,6 @@
 #include "../gemini/gemini.hpp"
 #include "../shplonk/shplonk.hpp"
+#include "./mock_transcript.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
@@ -7,7 +8,6 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include <gtest/gtest.h>
-
 #include <utility>
 
 using namespace bb;
@@ -23,72 +23,10 @@ class IPATest : public CommitmentTest<Curve> {
     using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = bb::Polynomial<Fr>;
 };
-
-/**
- * @brief Class for sending arbitrary challenges through the transcript
- *
- */
-class MockTranscript {
-  public:
-    std::vector<uint256_t> challenges;
-    std::vector<Curve::AffineElement> group_elements;
-    std::vector<uint256_t> field_elements;
-    size_t current_challenge_index = 0;
-    size_t current_field_index = 0;
-    size_t current_group_index = 0;
-    void reset(std::vector<uint256_t> challenges_,
-               std::vector<Curve::AffineElement> group_elements_ = {},
-               std::vector<uint256_t> field_elements_ = {})
-    {
-        challenges = std::move(challenges_);
-        current_challenge_index = 0;
-        current_field_index = 0;
-        current_group_index = 0;
-        group_elements = std::move(group_elements_);
-        field_elements = std::move(field_elements_);
-    }
-    template <typename T> void send_to_verifier(const std::string&, const T&) {}
-    template <typename T> T get_challenge(const std::string&)
-    {
-        ASSERT(challenges.size() > current_challenge_index);
-        T result = challenges[current_challenge_index];
-        current_challenge_index++;
-        return result;
-    }
-    template <typename T> T receive_from_prover(const std::string&) { abort(); }
-    template <> Curve::ScalarField receive_from_prover(const std::string&)
-    {
-        ASSERT(field_elements.size() > current_field_index);
-        return field_elements[current_field_index++];
-    }
-    template <> Curve::BaseField receive_from_prover(const std::string&)
-    {
-        ASSERT(field_elements.size() > current_field_index);
-        return field_elements[current_field_index++];
-    }
-    template <> Curve::AffineElement receive_from_prover(const std::string&)
-    {
-        ASSERT(group_elements.size() > current_group_index);
-        return group_elements[current_group_index++];
-    }
-};
 } // namespace
 
 #define IPA_TEST
 #include "ipa.hpp"
-// namespace bb {
-// class ProxyCaller {
-//   public:
-//     template <typename Transcript>
-//     static void compute_opening_proof_for_testing(const std::shared_ptr<IPATest::CK>& ck,
-//                                                   const OpeningPair<Curve>& opening_pair,
-//                                                   const IPATest::Polynomial& polynomial,
-//                                                   const std::shared_ptr<Transcript>& transcript)
-//     {
-//         bb::IPA<Curve>::compute_opening_proof_internal(ck, opening_pair, polynomial, transcript);
-//     }
-// };
-// } // namespace bb
 
 TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
 {
