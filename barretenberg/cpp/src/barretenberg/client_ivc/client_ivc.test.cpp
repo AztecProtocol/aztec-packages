@@ -115,74 +115,33 @@ TEST_F(ClientIVCTests, Fold1Succeeds)
     // Initialize IVC with function circuit
     Builder circuit = create_mock_circuit(ivc);
     ivc.initialize(circuit);
-
-    // Initialize accumulator
     auto verification_key = std::make_shared<VerificationKey>(ivc.prover_fold_output.accumulator->proving_key);
     auto verifier_accumulator = std::make_shared<VerifierInstance>(verification_key);
 
-    // Fold a circuit
-    circuit = create_mock_circuit(ivc);
-    FoldProof fold_proof = ivc.accumulate(circuit);
+    FoldProof fold_proof;
+    VerifierFoldData fold_data;
+    const auto ivc_step = [&]() {
+        // Fold a circuit
+        circuit = create_mock_circuit(ivc);
+        fold_proof = ivc.accumulate(circuit);
+        fold_data = { fold_proof, verification_key };
+        verification_key = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
+        update_accumulator_and_decide_native(
+            ivc.prover_fold_output.accumulator, fold_proof, verifier_accumulator, verification_key);
 
-    // Recursively verify the folding
-    // // This will have a different verification key because we added the recursive merge verification to the circuit
-    verification_key = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
-    VerifierFoldData fold_data = { fold_proof, verification_key };
-    // // Reset the builder; circuit is not recursive folding verifier
-    circuit = Builder();
-    FoldingRecursiveVerifier folding_verifier{ &circuit, verifier_accumulator, { verification_key } };
-    folding_verifier.verify_folding_proof(fold_data.fold_proof);
-    EXPECT_TRUE(CircuitChecker::check(circuit));
-};
+        // Recursively verify the folding
+        circuit = create_mock_circuit(ivc);
+        FoldingRecursiveVerifier folding_verifier{ &circuit, verifier_accumulator, { verification_key } };
+        auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(fold_data.fold_proof);
+        fold_proof = ivc.accumulate(circuit);
+        verification_key = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
+        verifier_accumulator = std::make_shared<VerifierInstance>(recursive_verifier_accumulator->get_value());
+        EXPECT_TRUE(CircuitChecker::check(circuit));
+    };
 
-/**
- * @brief A full Goblin test using PG that mimicks the basic aztec client architecture
- *
- */
-TEST_F(ClientIVCTests, Fold2Succeeds)
-{
-    using VerificationKey = Flavor::VerificationKey;
+    ivc_step();
 
-    ClientIVC ivc;
-    // Initialize IVC with function circuit
-    Builder circuit = create_mock_circuit(ivc);
-    ivc.initialize(circuit);
-
-    // Initialize accumulator
-    auto verification_key = std::make_shared<VerificationKey>(ivc.prover_fold_output.accumulator->proving_key);
-    auto verifier_accumulator = std::make_shared<VerifierInstance>(verification_key);
-
-    // // // // // // // //
-
-    // Fold a circuit
-    circuit = create_mock_circuit(ivc);
-    FoldProof fold_proof = ivc.accumulate(circuit);
-
-    // Recursively verify the folding
-    // // This will have a different verification key because we added the recursive merge verification to the circuit
-    verification_key = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
-    VerifierFoldData fold_data = { fold_proof, verification_key };
-    // // Reset the builder; circuit is not recursive folding verifier
-    circuit = Builder();
-    FoldingRecursiveVerifier folding_verifier{ &circuit, verifier_accumulator, { verification_key } };
-    verifier_accumulator =
-        std::make_shared<VerifierInstance>(folding_verifier.verify_folding_proof(fold_data.fold_proof)->get_value());
-
-    // // // // // // // //
-
-    // Fold a circuit
-    circuit = create_mock_circuit(ivc);
-    fold_proof = ivc.accumulate(circuit);
-
-    // Recursively verify the folding
-    // // This will have a different verification key because we added the recursive merge verification to the circuit
-    verification_key = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
-    fold_data = { fold_proof, verification_key };
-    // // Reset the builder; circuit is not recursive folding verifier
-    circuit = Builder();
-    folding_verifier = FoldingRecursiveVerifier(&circuit, verifier_accumulator, { verification_key });
-    verifier_accumulator =
-        std::make_shared<VerifierInstance>(folding_verifier.verify_folding_proof(fold_data.fold_proof)->get_value());
-
-    EXPECT_TRUE(CircuitChecker::check(circuit));
+    auto client_proof = ivc.prove();
+    auto final_instance = std::make_shared<VerifierInstance>(verification_key);
+    EXPECT_TRUE(ivc.verify(client_proof, { verifier_accumulator, final_instance }));
 };
