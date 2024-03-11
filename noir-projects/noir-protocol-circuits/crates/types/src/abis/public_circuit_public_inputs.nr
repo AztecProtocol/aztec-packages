@@ -32,6 +32,9 @@ struct PublicCircuitPublicInputs{
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
     new_l2_to_l1_msgs: [L2ToL1Message; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
 
+    start_side_effect_counter: u32,
+    end_side_effect_counter: u32,
+
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
@@ -55,8 +58,8 @@ impl Eq for PublicCircuitPublicInputs {
 
 impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInputs {
     fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(); 
-        fields.extend_from_array(self.call_context.serialize());   
+        let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
+        fields.extend_from_array(self.call_context.serialize());
         fields.push(self.args_hash);
         fields.extend_from_array(self.return_values);
         for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_CALL {
@@ -79,6 +82,10 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
             fields.extend_from_array(self.new_l2_to_l1_msgs[i].serialize());
         }
+
+        fields.push(self.start_side_effect_counter as Field);
+        fields.push(self.end_side_effect_counter as Field);
+
         fields.extend_from_array(self.unencrypted_logs_hash);
         fields.push(self.unencrypted_log_preimages_length);
         fields.extend_from_array(self.historical_header.serialize());
@@ -103,6 +110,8 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             new_note_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL]),
             new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialize, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
             new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
+            start_side_effect_counter: reader.read() as u32,
+            end_side_effect_counter: reader.read() as u32,
             unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
             unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
@@ -134,7 +143,8 @@ fn empty_hash() {
     let inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
     let hash = inputs.hash();
 
-    // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x153eea640dd0a53eaa029301381962507fb89e348d42d6f3335107644c6541b9;
+    dep::std::println(f"{hash}");
+
+    let test_data_empty_hash = 0x0f1eb4e352e8dab6cbab3c63b6d8f3cd2cd90cc7ae5ff142e4dfa2b3e28e01c1;
     assert_eq(hash, test_data_empty_hash);
 }

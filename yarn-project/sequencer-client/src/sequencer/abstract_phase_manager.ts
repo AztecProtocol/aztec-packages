@@ -324,6 +324,8 @@ export abstract class AbstractPhaseManager {
       newNoteHashes: padArrayEnd(result.newNoteHashes, SideEffect.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
       newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
+      startSideEffectCounter: result.startSideEffectCounter,
+      endSideEffectCounter: result.endSideEffectCounter,
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       nullifierReadRequests: padArrayEnd(
         result.nullifierReadRequests,

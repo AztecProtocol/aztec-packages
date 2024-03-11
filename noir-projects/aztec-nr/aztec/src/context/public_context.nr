@@ -150,6 +150,8 @@ impl PublicContext {
             new_nullifiers: self.new_nullifiers.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            start_side_effect_counter: self.inputs.start_side_effect_counter,
+            end_side_effect_counter: self.side_effect_counter,
             unencrypted_logs_hash,
             unencrypted_log_preimages_length,
             historical_header: self.inputs.historical_header,
