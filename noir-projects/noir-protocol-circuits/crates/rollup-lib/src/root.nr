@@ -6,10 +6,7 @@ use root_rollup_inputs::RootRollupInputs;
 use root_rollup_public_inputs::RootRollupPublicInputs;
 
 // TODO: Move all the following code to different files
-use dep::types::{
-    constants::{NUM_FIELDS_PER_SHA256, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP},
-    utils::uint256::U256
-};
+use dep::types::{constants::{NUM_FIELDS_PER_SHA256, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP}, utils::uint256::U256};
 
 // See `test_message_input_flattened_length` on keeping this in sync,
 // why its here and how this constant was computed.
@@ -98,10 +95,6 @@ mod tests {
 
         assert(
             outputs.header.state.partial.nullifier_tree.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end.nullifier_tree)
-        );
-
-        assert(
-            outputs.header.state.partial.contract_tree.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end.contract_tree)
         );
 
         assert(
