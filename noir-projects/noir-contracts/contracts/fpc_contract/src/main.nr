@@ -55,7 +55,7 @@ contract FPC {
     #[aztec(public)]
     #[aztec(internal)]
     fn prepare_fee(from: AztecAddress, amount: Field, asset: AztecAddress, nonce: Field) {
-        let _res = Token::at(asset).transfer_public(context, from, context.this_address(), amount, nonce);
+        let _res = Token::at(asset).transfer_public(&mut context, from, context.this_address(), amount, nonce);
     }
 
     #[aztec(public)]
@@ -68,7 +68,7 @@ contract FPC {
         )[0];
 
         // Just do public refunds for the present
-        Token::at(asset).transfer_public(context, context.this_address(), refund_address, refund, 0)
+        Token::at(asset).transfer_public(&mut context, context.this_address(), refund_address, refund, 0)
     }
 
     #[aztec(public)]
@@ -80,6 +80,6 @@ contract FPC {
             [amount]
         )[0];
 
-        Token::at(asset).shield(context, context.this_address(), refund, secretHash, 0);
+        Token::at(asset).shield(&mut context, context.this_address(), refund, secretHash, 0);
     }
 }
