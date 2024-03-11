@@ -148,14 +148,10 @@ describe('e2e_lending_contract', () => {
     it('Depositing 🥸 : 💰 -> 🏦', async () => {
       const depositAmount = 420n;
       const nonce = Fr.random();
-      const messageHash = computeAuthWitMessageHash(
-        lendingContract.address,
-        collateralAsset.methods
-          .unshield(lendingAccount.address, lendingContract.address, depositAmount, nonce)
-          .request(),
-      );
-
-      await wallet.createAuthWitness(messageHash);
+      await wallet.createAuthWit({
+        caller: lendingContract.address,
+        action: collateralAsset.methods.unshield(lendingAccount.address, lendingContract.address, depositAmount, nonce),
+      });
       await lendingSim.progressTime(TIME_JUMP);
       lendingSim.depositPrivate(lendingAccount.address, lendingAccount.key(), depositAmount);
 
@@ -182,13 +178,10 @@ describe('e2e_lending_contract', () => {
     it('Depositing 🥸 on behalf of recipient: 💰 -> 🏦', async () => {
       const depositAmount = 421n;
       const nonce = Fr.random();
-      const messageHash = computeAuthWitMessageHash(
-        lendingContract.address,
-        collateralAsset.methods
-          .unshield(lendingAccount.address, lendingContract.address, depositAmount, nonce)
-          .request(),
-      );
-      await wallet.createAuthWitness(messageHash);
+      await wallet.createAuthWit({
+        caller: lendingContract.address,
+        action: collateralAsset.methods.unshield(lendingAccount.address, lendingContract.address, depositAmount, nonce),
+      });
 
       await lendingSim.progressTime(TIME_JUMP);
       lendingSim.depositPrivate(lendingAccount.address, lendingAccount.address.toField(), depositAmount);
@@ -216,15 +209,23 @@ describe('e2e_lending_contract', () => {
       const depositAmount = 211n;
 
       const nonce = Fr.random();
-      const messageHash = computeAuthWitMessageHash(
-        lendingContract.address,
-        collateralAsset.methods
-          .transfer_public(lendingAccount.address, lendingContract.address, depositAmount, nonce)
-          .request(),
-      );
 
       // Add it to the wallet as approved
-      await wallet.setPublicAuth(messageHash, true).send().wait();
+      await wallet
+        .setPublicAuthWit(
+          {
+            caller: lendingContract.address,
+            action: collateralAsset.methods.transfer_public(
+              lendingAccount.address,
+              lendingContract.address,
+              depositAmount,
+              nonce,
+            ),
+          },
+          true,
+        )
+        .send()
+        .wait();
 
       await lendingSim.progressTime(TIME_JUMP);
       lendingSim.depositPublic(lendingAccount.address, lendingAccount.address.toField(), depositAmount);
@@ -282,11 +283,10 @@ describe('e2e_lending_contract', () => {
     it('Repay 🥸 : 🍌 -> 🏦', async () => {
       const repayAmount = 20n;
       const nonce = Fr.random();
-      const messageHash = computeAuthWitMessageHash(
-        lendingContract.address,
-        stableCoin.methods.burn(lendingAccount.address, repayAmount, nonce).request(),
-      );
-      await wallet.createAuthWitness(messageHash);
+      await wallet.createAuthWit({
+        caller: lendingContract.address,
+        action: stableCoin.methods.burn(lendingAccount.address, repayAmount, nonce),
+      });
 
       await lendingSim.progressTime(TIME_JUMP);
       lendingSim.repayPrivate(lendingAccount.address, lendingAccount.key(), repayAmount);
@@ -308,11 +308,10 @@ describe('e2e_lending_contract', () => {
     it('Repay 🥸  on behalf of public: 🍌 -> 🏦', async () => {
       const repayAmount = 21n;
       const nonce = Fr.random();
-      const messageHash = computeAuthWitMessageHash(
-        lendingContract.address,
-        stableCoin.methods.burn(lendingAccount.address, repayAmount, nonce).request(),
-      );
-      await wallet.createAuthWitness(messageHash);
+      await wallet.createAuthWit({
+        caller: lendingContract.address,
+        action: stableCoin.methods.burn(lendingAccount.address, repayAmount, nonce),
+      });
 
       await lendingSim.progressTime(TIME_JUMP);
       lendingSim.repayPrivate(lendingAccount.address, lendingAccount.address.toField(), repayAmount);
@@ -341,7 +340,7 @@ describe('e2e_lending_contract', () => {
       );
 
       // Add it to the wallet as approved
-      await wallet.setPublicAuth(messageHash, true).send().wait();
+      await wallet.setPublicAuthWit(messageHash, true).send().wait();
 
       await lendingSim.progressTime(TIME_JUMP);
       lendingSim.repayPublic(lendingAccount.address, lendingAccount.address.toField(), repayAmount);

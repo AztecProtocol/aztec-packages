@@ -2,6 +2,7 @@ import { AuthWitness, CompleteAddress, FunctionCall, TxExecutionRequest } from '
 import { AztecAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
+import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { FeePaymentMethod } from '../fee/fee_payment_method.js';
 
 /**
@@ -18,10 +19,23 @@ export type FeeOptions = {
 /** Creates authorization witnesses. */
 export interface AuthWitnessProvider {
   /**
-   * Create an authorization witness for the given message.
-   * @param message - Message to authorize.
+   * Computes an authentication witness from either a message or a caller and an action.
+   * If a message is provided, it will create a witness for the message directly.
+   * Otherwise, it will compute the message using the caller and the action.
+   * @param messageOrAuthWitInput - The message or the caller and action to approve
+   * @returns The authentication witness
    */
-  createAuthWitness(message: Fr): Promise<AuthWitness>;
+  createAuthWit(
+    messageOrAuthWitInput:
+      | Fr
+      | Buffer
+      | {
+          /** The caller to approve  */
+          caller: AztecAddress;
+          /** The action to approve */
+          action: ContractFunctionInteraction | FunctionCall;
+        },
+  ): Promise<AuthWitness>;
 }
 
 /** Creates transaction execution requests out of a set of function calls. */
