@@ -4,6 +4,9 @@ FROM --platform=linux/amd64 aztecprotocol/bb.js as bb.js
 FROM node:20 AS builder
 COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
 
+WORKDIR /usr/src/barretenberg/ts
+RUN yarn --immutable
+
 COPY --from=noir /usr/src/noir/noir-repo/target/release /usr/src/noir/noir-repo/target/release
 ENV PATH=${PATH}:/usr/src/noir/noir-repo/target/release
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
@@ -15,7 +18,6 @@ ENV COMMIT_HASH=${COMMIT_HASH}
 
 WORKDIR /usr/src/noir
 COPY . .
-RUN ./scripts/bootstrap_packages.sh
 RUN ./scripts/test_js_packages.sh
 
 # Don't waste time pushing a huge container back to ECR as nothing needs the output.
