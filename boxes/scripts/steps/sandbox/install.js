@@ -80,7 +80,7 @@ export async function sandboxInstallOrUpdate() {
   // Checking for docker
   try {
     execSync("docker info >/dev/null 2>&1");
-  } catch (error) {
+  } catch (e) {
     error(
       "Doesn't seem like Docker is installed or running. Please start it or visit https://docs.aztec.network for more information",
     );

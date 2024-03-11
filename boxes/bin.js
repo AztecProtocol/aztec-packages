@@ -23,6 +23,32 @@ const init = async ({ debug, github_token, version }) => {
     headers: github_token ? { Authorization: `token ${github_token}` } : {},
   };
 
+  const prettyOpts = {
+    sync: true,
+    colorize: true,
+    include: debug ? "time" : "",
+    customLevels: "success:80",
+    customColors: "success:bgGreen",
+  };
+
+  const prettyStream = pretty(prettyOpts);
+  const logger = pino(
+    {
+      customLevels: {
+        success: 80,
+      },
+      level: debug ? "debug" : "info",
+    },
+    prettyStream,
+  );
+
+  global.debug = (msg) => logger.debug(msg);
+  global.info = (msg) => logger.info(msg);
+  global.success = (msg) => logger.success(msg);
+
+  global.warn = (msg) => logger.warn(msg);
+  global.error = (msg) => logger.error(msg);
+
   global.github = async ({ path, raw = false }) => {
     try {
       const url = raw
@@ -50,37 +76,11 @@ const init = async ({ debug, github_token, version }) => {
     ? `aztec-packages-v${version}`
     : version;
 
-  global.spinner = ora({ color: "blue" });
-
-  const prettyOpts = {
-    sync: true,
-    colorize: true,
-    include: debug ? "time" : "",
-    customLevels: "success:80",
-    customColors: "success:bgGreen",
-  };
-
-  const prettyStream = pretty(prettyOpts);
-  const logger = pino(
-    {
-      customLevels: {
-        success: 80,
-      },
-      level: debug ? "debug" : "info",
-    },
-    prettyStream,
-  );
-
-  global.debug = (msg) => logger.debug(msg);
-  global.info = (msg) => logger.info(msg);
-  global.success = (msg) => logger.success(msg);
-
-  global.warn = (msg) => logger.warn(msg);
-  global.error = (msg) => logger.error(msg);
-
   global.debug(`Version: ${version}`);
   global.debug(`Tag: ${tag}`);
   global.debug(`LatestStable: ${global.latestStable}`);
+
+  global.spinner = ora({ color: "blue" });
 };
 
 program.option("-d, --debug", "output extra debugging");

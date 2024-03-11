@@ -17,9 +17,12 @@ describe('Account Tests', () => {
     expect(chainId).toBe(31337);
   });
 
-  test('Can create an account contract with a known address', async () => {
+  beforeEach(() => {
     const accountContract = new SingleKeyAccountContract(privateKey);
     account = new AccountManager(pxe, privateKey, accountContract);
+  });
+
+  test('Can create an account contract with a known address', async () => {
     const publicKey = account.getCompleteAddress().publicKey.toString();
     expect(publicKey).toEqual(expectedPublicKey);
   });
