@@ -20,6 +20,7 @@ template <IsUltraFlavor Flavor> class OinkProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using Instance = ProverInstance_<Flavor>;
     using Transcript = typename Flavor::Transcript;
+    using FF = typename Flavor::FF;
 
   public:
     OinkProver(const std::shared_ptr<ProverInstance_<Flavor>>& inst,

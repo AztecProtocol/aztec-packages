@@ -75,7 +75,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     auto& witness_commitments = instance->witness_commitments;
     const auto& commitment_labels = instance->commitment_labels;
 
-    auto eta = transcript->template get_challenge<typename Flavor::FF>(domain_separator + "eta");
+    auto eta = transcript->template get_challenge<FF>(domain_separator + "eta");
     instance->compute_sorted_accumulator_polynomials(eta);
 
     // Commit to the sorted witness-table accumulator and the finalized (i.e. with memory records) fourth wire
@@ -96,8 +96,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     auto& witness_commitments = instance->witness_commitments;
     const auto& commitment_labels = instance->commitment_labels;
 
-    auto [beta, gamma] =
-        transcript->template get_challenges<typename Flavor::FF>(domain_separator + "beta", domain_separator + "gamma");
+    auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
     instance->relation_parameters.beta = beta;
     instance->relation_parameters.gamma = gamma;
     if constexpr (IsGoblinFlavor<Flavor>) {
