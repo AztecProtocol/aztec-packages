@@ -17,15 +17,33 @@ RUN apt-get update && apt-get install -y \
   jq \
   bash \
   libstdc++6 \
-  clang-format
+  clang-format \
+  clang-16
 
 WORKDIR /build
-RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16
+# RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16
 
-# cpp source
-COPY --keep-ts --dir src/barretenberg src/CMakeLists.txt src
-# cmake source
-COPY --keep-ts --dir cmake CMakeLists.txt CMakePresets.json .
+build-wasi-sdk:
+    WORKDIR /
+    RUN git clone --recursive https://github.com/WebAssembly/wasi-sdk.git
+    WORKDIR /wasi-sdk
+    RUN git checkout 9389ea5eeec98afc61039683ae92c6147fee9c54
+    ENV NINJA_FLAGS=-v
+    ENV MAKEFLAGS="-j$(nproc)"
+    RUN make build/llvm.BUILT
+    RUN make build/wasi-libc.BUILT
+    RUN make build/compiler-rt.BUILT
+    RUN make build/libcxx.BUILT
+    RUN make build/config.BUILT
+    SAVE ARTIFACT build/install/opt/wasi-sdk
+
+source:
+    # cpp source
+    COPY --keep-ts --dir src/barretenberg src/CMakeLists.txt src
+    # cmake source
+    COPY --keep-ts --dir cmake CMakeLists.txt CMakePresets.json .
+    # wasi-sdk
+    COPY --dir +build-wasi-sdk/wasi-sdk src/wasi-sdk
 
 # Targets
 build-ci:
@@ -41,11 +59,8 @@ build-release:
     SAVE ARTIFACT build
 
 build-wasm:
-    # WASM compiler, only redownload if this script changes
-    COPY ./scripts/install-wasi-sdk.sh ./scripts/install-wasi-sdk.sh
-    RUN ./scripts/install-wasi-sdk.sh
     DO +BUILD --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
-    RUN ./src/wasi-sdk-20.0/bin/llvm-strip ./build/bin/barretenberg.wasm
+    RUN ./src/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
     SAVE ARTIFACT build
 
 build-gcc:
@@ -89,6 +104,7 @@ BUILD:
     FUNCTION
     ARG configure
     ARG build
+    FROM +source
     # builtin-arg, detects --ci
     ARG EARTHLY_CI
     IF [ $EARTHLY_CI ]
@@ -112,7 +128,7 @@ BENCH_RELEASE:
     FROM +build-release
     DO +BUILD --configure="--preset clang16" --build="--target $target"
     COPY --dir srs_db:+build/. srs_db
-    RUN cd build && ./bin/$target $args 
+    RUN cd build && ./bin/$target $args
 
 BENCH_OP_COUNT_TIME:
     FUNCTION
