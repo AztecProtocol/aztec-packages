@@ -8,7 +8,7 @@ wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-a
 chmod +x ./earthly && ./earthly bootstrap --no-buildkit
 # forward ports to the earthly runner on our docker host (TODO use env var)
 # ssh -o ExitOnForwardFailure=yes -f -N -L 8372:localhost:8372 
-export DOCKER_HOST=ubuntu@18.191.162.117
+export DOCKER_HOST=ssh://build-instance-x86
 # turn off tls as we're already working through SSH
 ./earthly config global.cache_size_mb 24000
 ./earthly config global.tls_enabled false
