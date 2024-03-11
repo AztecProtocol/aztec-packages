@@ -4,6 +4,7 @@ import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
+  BaseParityInputs,
   BaseRollupInputs,
   ConstantRollupData,
   GlobalVariables,
@@ -20,10 +21,12 @@ import {
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NUM_MSGS_PER_BASE_PARITY,
   NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
+  ParityPublicInputs,
   PartialStateReference,
   PreviousRollupData,
   Proof,
@@ -166,7 +169,24 @@ export class SoloBlockBuilder implements BlockBuilder {
       throw new Error(`Length of txs for the block should be a power of two and at least two (got ${txs.length})`);
     }
 
-    // TODO: run the parity circuits here
+    // Parity circuits
+    {
+      const newModelL1ToL2MessagesTuple = padArrayEnd(
+        newModelL1ToL2Messages,
+        Buffer.alloc(32),
+        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+      );
+      const numBaseParityCircuits = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP / NUM_MSGS_PER_BASE_PARITY;
+      // Run the base parity circuit for the new inbox messages in parallel
+      const baseParityInputs = Array.from({ length: numBaseParityCircuits }, (_, i) =>
+        BaseParityInputs.fromSlice(newModelL1ToL2MessagesTuple, i),
+      );
+
+      const baseParityOutputs: Promise<ParityPublicInputs>[] = [];
+      for (const inputs of baseParityInputs) {
+        baseParityOutputs.push(this.simulator.baseParityCircuit(inputs));
+      }
+    }
 
     // padArrayEnd throws if the array is already full. Otherwise it pads till we reach the required size
     const newL1ToL2MessagesTuple = padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
@@ -275,6 +295,11 @@ export class SoloBlockBuilder implements BlockBuilder {
       default:
         throw new Error(`No verification key available for ${type}`);
     }
+  }
+
+  protected baseParityCircuit(inputs: BaseParityInputs): Promise<ParityPublicInputs> {
+    this.debug(`Running base parity circuit`);
+    return this.simulator.baseParityCircuit(inputs);
   }
 
   protected async rootRollupCircuit(

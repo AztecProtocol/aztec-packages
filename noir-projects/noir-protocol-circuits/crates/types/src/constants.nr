@@ -184,6 +184,7 @@ global CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP: Field = 64;
 global CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP_UNPADDED: Field = 52;
 global L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP: Field = 64;
 global LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP: Field = 64;
+global NUM_MSGS_PER_BASE_PARITY: u64 = 4;
 
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.

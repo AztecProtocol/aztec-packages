@@ -1,7 +1,9 @@
 import {
   BaseOrMergeRollupPublicInputs,
+  BaseParityInputs,
   BaseRollupInputs,
   MergeRollupInputs,
+  ParityPublicInputs,
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
@@ -13,6 +15,12 @@ import {
  * Circuit simulator for the rollup circuits.
  */
 export interface RollupSimulator {
+  /**
+   * Simulates the base parity circuit from its inputs.
+   * @param inputs - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  baseParityCircuit(inputs: BaseParityInputs): Promise<ParityPublicInputs>;
   /**
    * Simulates the base rollup circuit from its inputs.
    * @param input - Inputs to the circuit.

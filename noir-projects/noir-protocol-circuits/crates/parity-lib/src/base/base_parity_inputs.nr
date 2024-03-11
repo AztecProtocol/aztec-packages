@@ -3,12 +3,10 @@ use crate::{
     utils::sha256_merkle_tree::Sha256MerkleTree,
 };
 use dep::types::{
-    constants::NUM_FIELDS_PER_SHA256,
+    constants::{NUM_FIELDS_PER_SHA256, NUM_MSGS_PER_BASE_PARITY},
     merkle_tree::MerkleTree,
     mocked::AggregationObject,
 };
-
-global NUM_MSGS_PER_BASE_PARITY: u64 = 4;
 
 struct BaseParityInputs {
     msgs: [[Field; NUM_FIELDS_PER_SHA256]; NUM_MSGS_PER_BASE_PARITY],
