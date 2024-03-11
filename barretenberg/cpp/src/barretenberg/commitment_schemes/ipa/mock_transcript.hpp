@@ -1,9 +1,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <vector>
-#pragma GCC diagnostic push
-// GCC bug in template specialization
-#pragma GCC diagnostic ignored "-Wfatal-errors"
+namespace bb {
 class MockTranscript {
   public:
     std::vector<uint256_t> challenges;
@@ -65,5 +63,4 @@ class MockTranscript {
         return group_elements[current_group_index++];
     }
 };
-
-#pragma GCC diagnostic pop
+} // namespace bb
