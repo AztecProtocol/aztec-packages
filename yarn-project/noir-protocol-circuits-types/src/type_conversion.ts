@@ -57,6 +57,7 @@ import {
   NullifierNonExistentReadRequestHints,
   NullifierReadRequestHints,
   PUBLIC_DATA_TREE_HEIGHT,
+  ParityPublicInputs,
   PartialStateReference,
   PendingReadHint,
   Point,
@@ -90,6 +91,7 @@ import {
   ReadRequestStatus,
   RollupKernelCircuitPublicInputs,
   RollupKernelData,
+  RootParityInput,
   RootRollupInputs,
   RootRollupPublicInputs,
   SettledReadHint,
@@ -189,8 +191,10 @@ import {
   FixedLengthArray,
   GlobalVariables as GlobalVariablesNoir,
   Header as HeaderNoir,
+  ParityPublicInputs as ParityPublicInputsNoir,
   PartialStateReference as PartialStateReferenceNoir,
   PreviousRollupData as PreviousRollupDataNoir,
+  RootParityInput as RootParityInputNoir,
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
   StateReference as StateReferenceNoir,
@@ -1676,6 +1680,21 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
     ),
     start_archive_snapshot: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.startArchiveSnapshot),
     new_archive_sibling_path: mapTuple(rootRollupInputs.newArchiveSiblingPath, mapFieldToNoir),
+  };
+}
+
+export function mapRootParityInputToNoir(rootParityInput: RootParityInput): RootParityInputNoir {
+  return {
+    proof: {},
+    public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
+  };
+}
+
+export function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): ParityPublicInputsNoir {
+  return {
+    aggregation_object: {},
+    sha_root: mapSha256HashToNoir(parityPublicInputs.shaRoot),
+    converted_root: mapFieldToNoir(parityPublicInputs.convertedRoot),
   };
 }
 
