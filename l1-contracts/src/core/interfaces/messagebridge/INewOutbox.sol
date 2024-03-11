@@ -7,7 +7,7 @@ import {DataStructures} from "../../libraries/DataStructures.sol";
 /**
  * @title INewOutbox
  * @author Aztec Labs
- * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the rollup contract
+ * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the state transitioner
  * and will be consumed by the portal contracts.
  */
 // TODO: rename to IOutbox once all the pieces of the new message model are in place.
