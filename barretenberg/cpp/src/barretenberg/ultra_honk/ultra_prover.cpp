@@ -11,13 +11,26 @@ namespace bb {
  * @tparam a type of UltraFlavor
  * */
 template <IsUltraFlavor Flavor>
-UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst,
-                                   const std::shared_ptr<CommitmentKey>& commitment_key,
-                                   const std::shared_ptr<Transcript>& transcript)
+UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const std::shared_ptr<Transcript>& transcript)
     : instance(std::move(inst))
     , transcript(transcript)
+    , commitment_key(instance->proving_key->commitment_key)
     , pre_sumcheck_prover(inst, commitment_key, transcript, "")
-    , commitment_key(commitment_key)
+{}
+
+/**
+ * Create UltraProver_ from a circuit.
+ *
+ * @param instance Circuit with witnesses whose validity we'd like to prove.
+ *
+ * @tparam a type of UltraFlavor
+ * */
+template <IsUltraFlavor Flavor>
+UltraProver_<Flavor>::UltraProver_(Builder& circuit)
+    : instance(std::make_shared<ProverInstance>(circuit))
+    , transcript(std::make_shared<Transcript>())
+    , commitment_key(instance->proving_key->commitment_key)
+    , pre_sumcheck_prover(instance, commitment_key, transcript, "")
 {}
 
 /**

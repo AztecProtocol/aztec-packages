@@ -13,8 +13,8 @@ on:
     branches:
       - master
     paths:
-      - 'noir/**'
-      - '!noir/.gitrepo'
+      - "noir/noir-repo/**"
+      - "!noir/noir-repo/.gitrepo"
 
 jobs:
   mirror_repo:
@@ -35,7 +35,10 @@ jobs:
           # Do we have a PR active?
           PR_URL=$(gh pr list --repo noir-lang/noir --head aztec-packages --json url --jq ".[0].url")
           echo "PR_URL=$PR_URL" >> $GITHUB_ENV
-          
+          # What was our last merge?
+          LAST_PR_MERGE=`gh pr list --repo=noir-lang/noir --state merged --head aztec-packages --json mergeCommit --jq=.[0].mergeCommit.oid`
+          echo "LAST_PR_MERGE=$LAST_PR_MERGE" >> $GITHUB_ENV
+
       - name: Generate PR body
         run: |
           set -xue # print commands
@@ -47,7 +50,7 @@ jobs:
               AZTEC_SYNC_COMMIT="a7889f8d21684099306b72a87e0fb57b3bba0cb4"
             fi
             # Create a filtered git log for release-please changelog / metadata
-            RAW_MESSAGE=$(git log --pretty=format:"%s" $AZTEC_SYNC_COMMIT..HEAD -- noir/  ':!noir/.gitrepo' | grep -v 'git subrepo' || true)
+            RAW_MESSAGE=$(git log --pretty=format:"%s" $AZTEC_SYNC_COMMIT..HEAD -- noir/noir-repo/  ':!noir/noir-repo/.gitrepo' | grep -v 'git subrepo' || true)
             # Fix Aztec PR links and output message
             echo "$RAW_MESSAGE" | sed -E 's/\(#([0-9]+)\)/(https:\/\/github.com\/AztecProtocol\/aztec-packages\/pull\/\1)/g'
           }
@@ -64,7 +67,7 @@ jobs:
       - name: Push to branch
         run: |
           set -xue # print commands
-          SUBREPO_PATH=noir
+          SUBREPO_PATH=noir/noir-repo
           BRANCH=aztec-packages
           if [[ "$PR_URL" == "" ]]; then
             # if no staging branch, we can overwrite
@@ -73,14 +76,17 @@ jobs:
             # otherwise we first reset our staging branch
             STAGING_BRANCH=$BRANCH-staging
           fi
-          BASE_NOIR_COMMIT=`git config --file=noir/.gitrepo subrepo.commit`
-          COMMIT=$(git rev-parse HEAD)
+
+          BASE_NOIR_COMMIT="$LAST_PR_MERGE"
+          COMMIT=$(git rev-parse HEAD)            
           COMMIT_MESSAGE=$(git log -1 --pretty=format:%B)
+          # Fix Aztec PR links and output message
+          COMMIT_MESSAGE=$(echo "$COMMIT_MESSAGE" | sed -E 's/\(#([0-9]+)\)/(https:\/\/github.com\/AztecProtocol\/aztec-packages\/pull\/\1)/g')
 
           # clone noir repo for manipulations, we use aztec bot token for writeability
           git clone https://x-access-token:${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}@github.com/noir-lang/noir.git noir-repo
 
-          # reset_pr: Reset aztec-packages staging. If no PR, this is the PR branch.
+          # reset_noir_staging_branch: Reset aztec-packages staging. If no PR, this is the PR branch.
           function reset_noir_staging_branch() {
             cd noir-repo
             git checkout $STAGING_BRANCH || git checkout -b $STAGING_BRANCH
@@ -91,7 +97,9 @@ jobs:
           }
           # force_sync_staging: Push to our aztec-packages staging branch.
           function force_sync_staging() {
-            echo "$COMMIT" > noir/.aztec-sync-commit && git add noir/.aztec-sync-commit
+            echo "$COMMIT" > $SUBREPO_PATH/.aztec-sync-commit && git add $SUBREPO_PATH/.aztec-sync-commit
+            # force gitrepo to point to the right HEAD (we ignore .gitrepo contents otherwise)
+            git config --file="$SUBREPO_PATH/.gitrepo" subrepo.commit "$BASE_NOIR_COMMIT"
             # make a new commit with our previous message
             git commit -am "$COMMIT_MESSAGE"
             # Now push to it with subrepo with computed commit messages
@@ -122,8 +130,10 @@ jobs:
       - name: Update PR
         run: |
           set -xue # print commands
-          # Formatted for updating the PR, overrides for release-please commit message parsing 
-          PR_BODY="""BEGIN_COMMIT_OVERRIDE
+          # Formatted for updating the PR, overrides for release-please commit message parsing
+          PR_BODY="""
+          Automated pull of Noir development from [aztec-packages](https://github.com/AztecProtocol/aztec-packages).
+          BEGIN_COMMIT_OVERRIDE
           $(cat .PR_BODY_MESSAGE)
           END_COMMIT_OVERRIDE"""
           # for cross-opening PR in noir repo, we use aztecbot's token
@@ -131,5 +141,6 @@ jobs:
           if [[ "$PR_URL" == "" ]]; then
             gh pr create --repo noir-lang/noir --title "feat: Sync from aztec-packages" --body "$PR_BODY" --base master --head aztec-packages
           else
+            echo "Updating existing PR."
             gh pr edit "$PR_URL" --body "$PR_BODY"
           fi

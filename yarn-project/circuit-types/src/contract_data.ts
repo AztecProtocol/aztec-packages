@@ -5,7 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import {
   BufferReader,
   numToInt32BE,
-  serializeBufferArrayToVector,
+  serializeArrayOfBufferableToVector,
   serializeToBuffer,
 } from '@aztec/foundation/serialize';
 import { ContractClass, ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -28,20 +28,6 @@ export interface ContractDataSource {
    * @returns The aztec & ethereum portal address (if found).
    */
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
-
-  /**
-   * Gets extended contract data for all contracts deployed in L2 block.
-   * @param blockNumber - The block number.
-   * @returns Extended contract data of contracts deployed in L2 block.
-   */
-  getExtendedContractDataInBlock(blockNumber: number): Promise<ExtendedContractData[]>;
-
-  /**
-   * Lookup contract data in an L2 block.
-   * @param blockNumber - The block number.
-   * @returns Portal contract address info of contracts deployed in L2 block.
-   */
-  getContractDataInBlock(blockNumber: number): Promise<ContractData[] | undefined>;
 
   /**
    * Returns a contract's encoded public function, given its function selector.
@@ -141,6 +127,7 @@ export class EncodedContractFunction {
 
 /**
  * A contract data blob, containing L1 and L2 addresses, public functions' bytecode, partial address and public key.
+ * TODO(palla/purge-old-contract-deploy): Delete this class?
  */
 export class ExtendedContractData {
   /** The contract's encoded ACIR code. This should become Brillig code once implemented. */
@@ -158,7 +145,7 @@ export class ExtendedContractData {
     /** Public key hash of the contract. */
     public readonly publicKeyHash: Fr,
   ) {
-    this.bytecode = serializeBufferArrayToVector(publicFunctions.map(fn => fn.toBuffer()));
+    this.bytecode = serializeArrayOfBufferableToVector(publicFunctions.map(fn => fn.toBuffer()));
   }
 
   /**
@@ -270,6 +257,7 @@ export class ExtendedContractData {
 
 /**
  * A contract data blob, containing L1 and L2 addresses.
+ * TODO(palla/purge-old-contract-deploy): Delete me
  */
 export class ContractData {
   constructor(

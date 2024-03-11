@@ -48,8 +48,11 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 
     Wires wires; // vectors of indices into a witness variables array
     Selectors selectors;
+    bool has_ram_rom = false; // does the block contain RAM/ROM gates
 
     bool operator==(const ExecutionTraceBlock& other) const = default;
+
+    size_t size() const { return std::get<0>(this->wires).size(); }
 
     void reserve(size_t size_hint)
     {
@@ -82,12 +85,20 @@ template <typename FF_> class StandardArith {
         auto& w_l() { return std::get<0>(this->wires); };
         auto& w_r() { return std::get<1>(this->wires); };
         auto& w_o() { return std::get<2>(this->wires); };
+        const auto& w_l() const { return std::get<0>(this->wires); };
+        const auto& w_r() const { return std::get<1>(this->wires); };
+        const auto& w_o() const { return std::get<2>(this->wires); };
 
         auto& q_m() { return this->selectors[0]; };
         auto& q_1() { return this->selectors[1]; };
         auto& q_2() { return this->selectors[2]; };
         auto& q_3() { return this->selectors[3]; };
         auto& q_c() { return this->selectors[4]; };
+        const auto& q_m() const { return this->selectors[0]; };
+        const auto& q_1() const { return this->selectors[1]; };
+        const auto& q_2() const { return this->selectors[2]; };
+        const auto& q_3() const { return this->selectors[3]; };
+        const auto& q_c() const { return this->selectors[4]; };
     };
 
     struct TraceBlocks {
@@ -139,9 +150,17 @@ template <typename FF_> class UltraArith {
 
     struct TraceBlocks {
         UltraTraceBlock pub_inputs;
+        UltraTraceBlock arithmetic;
+        UltraTraceBlock sort;
+        UltraTraceBlock elliptic;
+        UltraTraceBlock aux;
+        UltraTraceBlock lookup;
         UltraTraceBlock main;
 
-        auto get() { return RefArray{ pub_inputs, main }; }
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): update to aux.has_ram_rom = true
+        TraceBlocks() { main.has_ram_rom = true; }
+
+        auto get() { return RefArray{ pub_inputs, arithmetic, sort, elliptic, aux, lookup, main }; }
 
         bool operator==(const TraceBlocks& other) const = default;
     };
@@ -224,9 +243,23 @@ template <typename FF_> class UltraHonkArith {
     struct TraceBlocks {
         UltraHonkTraceBlock ecc_op;
         UltraHonkTraceBlock pub_inputs;
+        UltraHonkTraceBlock arithmetic;
+        UltraHonkTraceBlock sort;
+        UltraHonkTraceBlock elliptic;
+        UltraHonkTraceBlock aux;
+        UltraHonkTraceBlock lookup;
+        UltraHonkTraceBlock busread;
+        UltraHonkTraceBlock poseidon_external;
+        UltraHonkTraceBlock poseidon_internal;
         UltraHonkTraceBlock main;
 
-        auto get() { return RefArray{ ecc_op, pub_inputs, main }; }
+        TraceBlocks() { main.has_ram_rom = true; }
+
+        auto get()
+        {
+            return RefArray{ ecc_op,  pub_inputs,        arithmetic,        sort, elliptic, aux, lookup,
+                             busread, poseidon_external, poseidon_internal, main };
+        }
 
         bool operator==(const TraceBlocks& other) const = default;
     };

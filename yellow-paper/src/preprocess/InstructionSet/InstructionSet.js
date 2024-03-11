@@ -130,7 +130,7 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Comparators",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "inTag", "description": IN_TAG_DESCRIPTION_NO_FIELD},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
@@ -149,7 +149,7 @@ const INSTRUCTION_SET_RAW = [
         "Category": "Compute - Comparators",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "inTag", "description": IN_TAG_DESCRIPTION_NO_FIELD},
+            {"name": "inTag", "description": IN_TAG_DESCRIPTION},
         ],
         "Args": [
             {"name": "aOffset", "description": "memory offset of the operation's left input"},
@@ -876,7 +876,7 @@ context.worldState.noteHashes.append(
 context.worldStateAccessTrace.newNoteHashes.append(
     TracedNoteHash {
         callPointer: context.environment.callPointer,
-        value: M[noteHashOffset], // unsiloed note hash
+        noteHash: M[noteHashOffset], // unsiloed note hash
         counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )
@@ -937,7 +937,7 @@ context.worldState.nullifiers.append(
 context.worldStateAccessTrace.newNullifiers.append(
     TracedNullifier {
         callPointer: context.environment.callPointer,
-        value: M[nullifierOffset], // unsiloed nullifier
+        nullifier: M[nullifierOffset], // unsiloed nullifier
         counter: ++context.worldStateAccessTrace.accessCounter,
     }
 )
@@ -947,47 +947,38 @@ context.worldStateAccessTrace.newNullifiers.append(
         "Tag updates": "",
     },
     {
-        "id": "readl1tol2msg",
-        "Name": "`READL1TOL2MSG`",
+        "id": "l1tol2msgexists",
+        "Name": "`L1TOL2MSGEXISTS`",
         "Category": "World State - Messaging",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
         "Args": [
-            {"name": "msgKeyOffset", "description": "memory offset of the message's key"},
-            {"name": "msgLeafIndex", "description": "memory offset of the message's leaf index in the L1-to-L2 message tree"},
+            {"name": "msgHashOffset", "description": "memory offset of the message hash"},
+            {"name": "msgLeafIndexOffset", "description": "memory offset of the message's leaf index in the L1-to-L2 message tree"},
             {"name": "existsOffset", "description": "memory offset specifying where to store operation's result (whether the message exists in the L1-to-L2 message tree)"},
-            {"name": "dstOffset", "description": "memory offset to place the 0th word of the message content"},
-            {"name": "msgSize", "description": "number of words in the message", "mode": "immediate", "type": "u32"},
         ],
         "Expression": `
 exists = context.worldState.l1ToL2Messages.has({
-    leafIndex: M[msgLeafIndex], leaf: M[msgKeyOffset]
+    leafIndex: M[msgLeafIndexOffset], leaf: M[msgHashOffset]
 })
 M[existsOffset] = exists
-if exists:
-    M[dstOffset:dstOffset+msgSize] = context.worldState.l1ToL2Messages.get({
-        leafIndex: M[msgLeafIndex], leaf: M[msgKeyOffset]
-    })
 `,
-        "Summary": "Check if a message exists in the L1-to-L2 message tree and reads it if so",
+        "Summary": "Check if a message exists in the L1-to-L2 message tree",
         "World State access tracing": `
-context.worldStateAccessTrace.l1ToL2MessagesReads.append(
-    ReadL1ToL2Message {
+context.worldStateAccessTrace.l1ToL2MessagesChecks.append(
+    L1ToL2Message {
         callPointer: context.environment.callPointer,
-        portal: context.environment.portal,
-        leafIndex: M[msgLeafIndex],
-        msgKey: M[msgKeyOffset],
+        leafIndex: M[msgLeafIndexOffset],
+        msgHash: M[msgHashOffset],
         exists: exists, // defined above
     }
 )
 `,
-        "Additional AVM circuit checks": "`msgKey == sha256_to_field(msg)`",
         "Triggers downstream circuit operations": "L1-to-L2 message tree membership check",
         "Tag checks": "",
         "Tag updates": `
 T[existsOffset] = u8,
-T[dstOffset:dstOffset+msgSize] = field
 `,
     },
     {
@@ -1037,6 +1028,7 @@ T[dstOffset] = field
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
         "Args": [
+            {"name": "eventSelectorOffset", "description": "memory offset of the event selector"},
             {"name": "logOffset", "description": "memory offset of the data to log"},
             {"name": "logSize", "description": "number of words to log", "mode": "immediate", "type": "u32"},
         ],
@@ -1044,6 +1036,7 @@ T[dstOffset] = field
 context.accruedSubstate.unencryptedLogs.append(
     UnencryptedLog {
         address: context.environment.address,
+        eventSelector: M[eventSelectorOffset],
         log: M[logOffset:logOffset+logSize],
     }
 )
@@ -1060,15 +1053,15 @@ context.accruedSubstate.unencryptedLogs.append(
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
         "Args": [
-            {"name": "msgOffset", "description": "memory offset of the message content"},
-            {"name": "msgSize", "description": "number of words in the message", "mode": "immediate", "type": "u32"},
+            {"name": "recipientOffset", "description": "memory offset of the message recipient"},
+            {"name": "contentOffset", "description": "memory offset of the message content"},
         ],
         "Expression": `
 context.accruedSubstate.sentL2ToL1Messages.append(
     SentL2ToL1Message {
         address: context.environment.address,
-        portal: context.environment.portal,
-        message: M[msgOffset:msgOffset+msgSize]
+        recipient: M[recipientOffset],
+        message: M[contentOffset]
     }
 )
 `,

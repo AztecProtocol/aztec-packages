@@ -137,9 +137,6 @@ A successful run should show something like this:
   token     outboxAddress: EthAddress {
   token       buffer: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>
   token     },
-  token     contractDeploymentEmitterAddress: EthAddress {
-  token       buffer: <Buffer 5f c8 d3 26 90 cc 91 d4 c3 9d 9d 3a bc bd 16 98 9f 87 57 07>
-  token     }
   token   }
   token } +0ms
 ```
@@ -182,9 +179,6 @@ Now that we have our accounts loaded, let's move on to deploy our pre-compiled t
   token     outboxAddress: EthAddress {
   token       buffer: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>
   token     },
-  token     contractDeploymentEmitterAddress: EthAddress {
-  token       buffer: <Buffer 5f c8 d3 26 90 cc 91 d4 c3 9d 9d 3a bc bd 16 98 9f 87 57 07>
-  token     }
   token   }
   token } +0ms
   token Loaded alice's account at 0x25048e8c...70d0 +4s
@@ -233,9 +227,6 @@ Running now should yield output:
   token     outboxAddress: EthAddress {
   token       buffer: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>
   token     },
-  token     contractDeploymentEmitterAddress: EthAddress {
-  token       buffer: <Buffer 5f c8 d3 26 90 cc 91 d4 c3 9d 9d 3a bc bd 16 98 9f 87 57 07>
-  token     }
   token   }
   token } +0ms
   token Loaded alice's account at 0x25048e8c...70d0 +4s
@@ -259,7 +250,7 @@ We can see that each account has the expected balance of tokens.
 
 ### Calling an unconstrained (view) function
 
-<img src="/img/sandbox_unconstrained_function.svg" alt="Unconstrained function call" />
+<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png"><img src="/img/sandbox_unconstrained_function.png" alt="Unconstrained function call" /></a>
 
 ## Create and submit a transaction
 
@@ -294,9 +285,6 @@ Our output should now look like this:
   token     outboxAddress: EthAddress {
   token       buffer: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>
   token     },
-  token     contractDeploymentEmitterAddress: EthAddress {
-  token       buffer: <Buffer 5f c8 d3 26 90 cc 91 d4 c3 9d 9d 3a bc bd 16 98 9f 87 57 07>
-  token     }
   token   }
   token } +0ms
   token Loaded alice's account at 0x25048e8c...70d0 +4s
@@ -350,9 +338,6 @@ Our complete output should now be something like:
   token     outboxAddress: EthAddress {
   token       buffer: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>
   token     },
-  token     contractDeploymentEmitterAddress: EthAddress {
-  token       buffer: <Buffer 5f c8 d3 26 90 cc 91 d4 c3 9d 9d 3a bc bd 16 98 9f 87 57 07>
-  token     }
   token   }
   token } +0ms
   token Loaded alice's account at 0x25048e8c...70d0 +4s

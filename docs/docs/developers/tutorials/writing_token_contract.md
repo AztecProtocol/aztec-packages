@@ -206,7 +206,6 @@ Just below the contract definition, add the following imports:
 
 We are importing the Option type, items from the `value_note` library to help manage private value storage, note utilities, context (for managing private and public execution contexts), `state_vars` for helping manage state, `types` for data manipulation and `oracle` for help passing data from the private to public execution context. We also import the `auth` [library](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/auth.nr) to handle token authorizations from [Account Contracts](../../learn/concepts/accounts/main). Check out the Account Contract with AuthWitness [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/schnorr_single_key_account_contract/src/main.nr).
 
-[SafeU120](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/safe-math/src/safe_u120.nr) is a library to do safe math operations on unsigned integers that protects against overflows and underflows.
 
 For more detail on execution contexts, see [Contract Communication](../../learn/concepts/communication/main).
 
@@ -230,12 +229,12 @@ Below the dependencies, paste the following Storage struct:
 
 Reading through the storage variables:
 
-- `admin` a single Field value stored in public state. A `Field` is basically an unsigned integer with a maximum value determined by the underlying cryptographic curve.
-- `minters` is a mapping of Fields in public state. This will store whether an account is an approved minter on the contract.
+- `admin` an Aztec address stored in public state.
+- `minters` is a mapping of Aztec addresses in public state. This will store whether an account is an approved minter on the contract.
 - `balances` is a mapping of private balances. Private balances are stored in a `PrivateSet` of `ValueNote`s. The balance is the sum of all of an account's `ValueNote`s.
-- `total_supply` is a Field value stored in public state and represents the total number of tokens minted.
+- `total_supply` is an unsigned integer (max 128 bit value) stored in public state and represents the total number of tokens minted.
 - `pending_shields` is a `PrivateSet` of `TransparentNote`s stored in private state. What is stored publicly is a set of commitments to `TransparentNote`s.
-- `public_balances` is a mapping field elements in public state and represents the publicly viewable balances of accounts.
+- `public_balances` is a mapping of Aztec addresses in public state and represents the publicly viewable balances of accounts.
 
 You can read more about it [here](../contracts/writing_contracts/storage/main.md).
 
@@ -245,11 +244,9 @@ Copy and paste the body of each function into the appropriate place in your proj
 
 ### Constructor
 
-In the source code, the constructor logic is commented out due to some limitations of the current state of the development.
+This function sets the creator of the contract (passed as `msg_sender` from the constructor) as the admin and makes them a minter, and sets name, symbol, and decimals.
 
 #include_code constructor /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
-
-The constructor is a private function. There isn't any private state to set up in this function, but there is public state to set up. The `context` is a global variable that is available to private and public functions, but the available methods differ based on the context. You can see the implementation details [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/context.nr). The `context.call_public_function` allows a private function to call a public function on any contract. In this case, the constructor is passing the `msg_sender` as the argument to the `_initialize` function, which is also defined in this contract.
 
 ### Public function implementations
 
@@ -277,7 +274,7 @@ This function allows the `admin` to add or a remove a `minter` from the public `
 
 This function allows an account approved in the public `minters` mapping to create new public tokens owned by the provided `to` address.
 
-First, storage is initialized. Then the function checks that the `msg_sender` is approved to mint in the `minters` mapping. If it is, a new `SafeU120` value is created of the `amount` provided. The function reads the recipients public balance and then adds the amount to mint, saving the output as `new_balance`, then reads to total supply and adds the amount to mint, saving the output as `supply`. `new_balance` and `supply` are then written to storage.
+First, storage is initialized. Then the function checks that the `msg_sender` is approved to mint in the `minters` mapping. If it is, a new `U128` value is created of the `amount` provided. The function reads the recipients public balance and then adds the amount to mint, saving the output as `new_balance`, then reads to total supply and adds the amount to mint, saving the output as `supply`. `new_balance` and `supply` are then written to storage.
 
 The function returns 1 to indicate successful execution.
 
@@ -311,7 +308,7 @@ It returns `1` to indicate successful execution.
 
 This public function enables public transfers between Aztec accounts. The sender's public balance will be debited the specified `amount` and the recipient's public balances will be credited with that amount.
 
-After storage is initialized, the [authorization flow specified above](#authorizing-token-spends) is checked. Then the sender and recipient's balances are updated and saved to storage using the `SafeU120` library.
+After storage is initialized, the [authorization flow specified above](#authorizing-token-spends) is checked. Then the sender and recipient's balances are updated and saved to storage.
 
 #include_code transfer_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -319,7 +316,7 @@ After storage is initialized, the [authorization flow specified above](#authoriz
 
 This public function enables public burning (destroying) of tokens from the sender's public balance.
 
-After storage is initialized, the [authorization flow specified above](#authorizing-token-spends) is checked. Then the sender's public balance and the `total_supply` are updated and saved to storage using the `SafeU120` library.
+After storage is initialized, the [authorization flow specified above](#authorizing-token-spends) is checked. Then the sender's public balance and the `total_supply` are updated and saved to storage.
 
 #include_code burn_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -375,14 +372,6 @@ After initializing storage, the function checks that the `msg_sender` is authori
 ### Internal function implementations
 
 Internal functions are functions that can only be called by this contract. The following 3 functions are public functions that are called from the [private execution context](#execution-contexts). Marking these as `internal` ensures that only the desired private functions in this contract are able to call them. Private functions defer execution to public functions because private functions cannot update public state directly.
-
-#### `_initialize`
-
-This function is called via the [constructor](#constructor).
-
-This function sets the creator of the contract (passed as `msg_sender` from the constructor) as the admin and makes them a minter.
-
-#include_code initialize /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #### `_increase_public_balance`
 

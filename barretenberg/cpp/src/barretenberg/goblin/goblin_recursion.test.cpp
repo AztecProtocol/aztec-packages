@@ -2,7 +2,6 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 #include <gtest/gtest.h>
 
@@ -18,16 +17,18 @@ class GoblinRecursionTests : public ::testing::Test {
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
-    using GoblinUltraBuilder = GoblinUltraCircuitBuilder;
     using KernelInput = Goblin::AccumulationOutput;
+    using ProverInstance = ProverInstance_<GoblinUltraFlavor>;
+    using VerifierInstance = VerifierInstance_<GoblinUltraFlavor>;
 
-    static Goblin::AccumulationOutput construct_accumulator(GoblinUltraBuilder& builder)
+    static Goblin::AccumulationOutput construct_accumulator(GoblinUltraCircuitBuilder& builder)
     {
-        GoblinUltraComposer composer;
-        auto instance = composer.create_instance(builder);
-        auto prover = composer.create_prover(instance);
+        auto prover_instance = std::make_shared<ProverInstance>(builder);
+        auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(prover_instance->proving_key);
+        auto verifier_instance = std::make_shared<VerifierInstance>(verification_key);
+        GoblinUltraProver prover(prover_instance);
         auto ultra_proof = prover.construct_proof();
-        return { ultra_proof, instance->verification_key };
+        return { ultra_proof, verifier_instance->verification_key };
     }
 };
 

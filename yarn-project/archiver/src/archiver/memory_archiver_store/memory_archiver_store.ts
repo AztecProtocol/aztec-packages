@@ -1,26 +1,28 @@
 import {
-  ContractData,
+  Body,
   ExtendedContractData,
   ExtendedUnencryptedL2Log,
   GetUnencryptedLogsResponse,
-  INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
   L2Block,
   L2BlockContext,
   L2BlockL2Logs,
-  L2Tx,
   LogFilter,
   LogId,
   LogType,
+  NewInboxLeaf,
+  TxEffect,
   TxHash,
+  TxReceipt,
+  TxStatus,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { Fr, INITIAL_L2_BLOCK_NUM, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { ArchiverDataStore } from '../archiver_store.js';
-import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
+import { L1ToL2MessageStore, NewL1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 /**
  * Simple, in-memory implementation of an archiver data store.
@@ -32,9 +34,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l2BlockContexts: L2BlockContext[] = [];
 
   /**
-   * An array containing all the L2 Txs in the L2 blocks that have been fetched so far.
+   * A mapping of body hash to body
    */
-  private l2Txs: L2Tx[] = [];
+  private l2BlockBodies: Map<string, Body> = new Map();
+
+  /**
+   * An array containing all the the tx effects in the L2 blocks that have been fetched so far.
+   */
+  private txEffects: TxEffect[] = [];
 
   /**
    * An array containing all the encrypted logs that have been fetched so far.
@@ -58,6 +65,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   private extendedContractData: Map<string, ExtendedContractData> = new Map();
 
+  // TODO(#4492): Nuke the other message stores
+  private newL1ToL2Messages = new NewL1ToL2MessageStore();
+
   /**
    * Contains all the confirmed L1 to L2 messages (i.e. messages that were consumed in an L2 block)
    * It is a map of entryKey to the corresponding L1 to L2 message and the number of times it has appeared
@@ -73,6 +83,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
+  private lastL1BlockNewMessages: bigint = 0n;
   private lastL1BlockAddedMessages: bigint = 0n;
   private lastL1BlockCancelledMessages: bigint = 0n;
 
@@ -114,8 +125,37 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   public addBlocks(blocks: L2Block[]): Promise<boolean> {
     this.l2BlockContexts.push(...blocks.map(block => new L2BlockContext(block)));
-    this.l2Txs.push(...blocks.flatMap(b => b.getTxs()));
+    this.txEffects.push(...blocks.flatMap(b => b.getTxs()));
     return Promise.resolve(true);
+  }
+
+  /**
+   * Append new block bodies to the store's list.
+   * @param blockBodies - The L2 block bodies to be added to the store.
+   * @returns True if the operation is successful.
+   */
+  addBlockBodies(blockBodies: Body[]): Promise<boolean> {
+    for (const body of blockBodies) {
+      void this.l2BlockBodies.set(body.getTxsEffectsHash().toString('hex'), body);
+    }
+
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Gets block bodies that have the same txHashes as we supply.
+   *
+   * @param txsEffectsHashes - A list of txsEffectsHashes (body hashes).
+   * @returns The requested L2 block bodies
+   */
+  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<Body[]> {
+    const blockBodies = txsEffectsHashes.map(txsEffectsHash => this.l2BlockBodies.get(txsEffectsHash.toString('hex')));
+
+    if (blockBodies.some(bodyBuffer => bodyBuffer === undefined)) {
+      throw new Error('Block body is undefined');
+    }
+
+    return Promise.resolve(blockBodies as Body[]);
   }
 
   /**
@@ -134,6 +174,24 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       this.unencryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = unencryptedLogs;
     }
 
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Append new L1 to L2 messages to the store.
+   * @param messages - The L1 to L2 messages to be added to the store.
+   * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
+   * @returns True if the operation is successful.
+   */
+  public addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
+    if (lastMessageL1BlockNumber <= this.lastL1BlockNewMessages) {
+      return Promise.resolve(false);
+    }
+
+    this.lastL1BlockNewMessages = lastMessageL1BlockNumber;
+    for (const message of messages) {
+      this.newL1ToL2Messages.addMessage(message);
+    }
     return Promise.resolve(true);
   }
 
@@ -157,11 +215,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   /**
    * Remove pending L1 to L2 messages from the store (if they were cancelled).
-   * @param messages - The message keys to be removed from the store.
+   * @param messages - The entry keys to be removed from the store.
    * @param l1BlockNumber - The L1 block number for which to remove the messages.
    * @returns True if the operation is successful (always in this implementation).
    */
-  public cancelPendingL1ToL2Messages(messages: Fr[], l1BlockNumber: bigint): Promise<boolean> {
+  public cancelPendingL1ToL2EntryKeys(messages: Fr[], l1BlockNumber: bigint): Promise<boolean> {
     if (l1BlockNumber <= this.lastL1BlockCancelledMessages) {
       return Promise.resolve(false);
     }
@@ -176,13 +234,17 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   /**
    * Messages that have been published in an L2 block are confirmed.
    * Add them to the confirmed store, also remove them from the pending store.
-   * @param messageKeys - The message keys to be removed from the store.
+   * @param entryKeys - The entry keys to be removed from the store.
    * @returns True if the operation is successful (always in this implementation).
    */
-  public confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean> {
-    messageKeys.forEach(messageKey => {
-      this.confirmedL1ToL2Messages.addMessage(messageKey, this.pendingL1ToL2Messages.getMessage(messageKey)!);
-      this.pendingL1ToL2Messages.removeMessage(messageKey);
+  public confirmL1ToL2EntryKeys(entryKeys: Fr[]): Promise<boolean> {
+    entryKeys.forEach(entryKey => {
+      if (entryKey.equals(Fr.ZERO)) {
+        return;
+      }
+
+      this.confirmedL1ToL2Messages.addMessage(entryKey, this.pendingL1ToL2Messages.getMessage(entryKey)!);
+      this.pendingL1ToL2Messages.removeMessage(entryKey);
     });
     return Promise.resolve(true);
   }
@@ -232,35 +294,62 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets an l2 tx.
-   * @param txHash - The txHash of the l2 tx.
-   * @returns The requested L2 tx.
+   * Gets a tx effect.
+   * @param txHash - The txHash of the tx effect.
+   * @returns The requested tx effect.
    */
-  public getL2Tx(txHash: TxHash): Promise<L2Tx | undefined> {
-    const l2Tx = this.l2Txs.find(tx => tx.txHash.equals(txHash));
-    return Promise.resolve(l2Tx);
+  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    const txEffect = this.txEffects.find(tx => tx.txHash.equals(txHash));
+    return Promise.resolve(txEffect);
+  }
+
+  /**
+   * Gets a receipt of a settled tx.
+   * @param txHash - The hash of a tx we try to get the receipt for.
+   * @returns The requested tx receipt (or undefined if not found).
+   */
+  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+    for (const blockContext of this.l2BlockContexts) {
+      for (const currentTxHash of blockContext.getTxHashes()) {
+        if (currentTxHash.equals(txHash)) {
+          return Promise.resolve(
+            new TxReceipt(txHash, TxStatus.MINED, '', blockContext.block.hash().toBuffer(), blockContext.block.number),
+          );
+        }
+      }
+    }
+    return Promise.resolve(undefined);
   }
 
   /**
    * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
    * @param limit - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
-   * @returns The requested L1 to L2 message keys.
+   * @returns The requested L1 to L2 entry keys.
    */
-  public getPendingL1ToL2MessageKeys(limit: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP): Promise<Fr[]> {
-    return Promise.resolve(this.pendingL1ToL2Messages.getMessageKeys(limit));
+  public getPendingL1ToL2EntryKeys(limit: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP): Promise<Fr[]> {
+    return Promise.resolve(this.pendingL1ToL2Messages.getEntryKeys(limit));
   }
 
   /**
-   * Gets the confirmed L1 to L2 message corresponding to the given message key.
-   * @param messageKey - The message key to look up.
+   * Gets the confirmed L1 to L2 message corresponding to the given entry key.
+   * @param entryKey - The entry key to look up.
    * @returns The requested L1 to L2 message or throws if not found.
    */
-  public getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
-    const message = this.confirmedL1ToL2Messages.getMessage(messageKey);
+  public getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message> {
+    const message = this.confirmedL1ToL2Messages.getMessage(entryKey);
     if (!message) {
-      throw new Error(`L1 to L2 Message with key ${messageKey.toString()} not found in the confirmed messages store`);
+      throw new Error(`L1 to L2 Message with key ${entryKey.toString()} not found in the confirmed messages store`);
     }
     return Promise.resolve(message);
+  }
+
+  /**
+   * Gets new L1 to L2 message (to be) included in a given block.
+   * @param blockNumber - L2 block number to get messages for.
+   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
+   */
+  getNewL1ToL2Messages(blockNumber: bigint): Promise<Buffer[]> {
+    return Promise.resolve(this.newL1ToL2Messages.getMessages(blockNumber));
   }
 
   /**
@@ -369,58 +458,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   /**
    * Get the extended contract data for this contract.
+   * TODO(palla/purge-old-contract-deploy): Delete me?
    * @param contractAddress - The contract data address.
    * @returns The extended contract data or undefined if not found.
    */
   getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
     const result = this.extendedContractData.get(contractAddress.toString());
     return Promise.resolve(result);
-  }
-
-  /**
-   * Lookup all contract data in an L2 block.
-   * @param blockNum - The block number to get all contract data from.
-   * @returns All extended contract data in the block (if found).
-   */
-  public getExtendedContractDataInBlock(blockNum: number): Promise<ExtendedContractData[]> {
-    if (blockNum > this.l2BlockContexts.length) {
-      return Promise.resolve([]);
-    }
-    return Promise.resolve(this.extendedContractDataByBlock[blockNum] || []);
-  }
-
-  /**
-   * Get basic info for an L2 contract.
-   * Contains contract address & the ethereum portal address.
-   * @param contractAddress - The contract data address.
-   * @returns ContractData with the portal address (if we didn't throw an error).
-   */
-  public getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    if (contractAddress.isZero()) {
-      return Promise.resolve(undefined);
-    }
-    for (const blockContext of this.l2BlockContexts) {
-      for (const contractData of blockContext.block.body.txEffects.flatMap(txEffect => txEffect.contractData)) {
-        if (contractData.contractAddress.equals(contractAddress)) {
-          return Promise.resolve(contractData);
-        }
-      }
-    }
-    return Promise.resolve(undefined);
-  }
-
-  /**
-   * Get basic info for an all L2 contracts deployed in a block.
-   * Contains contract address & the ethereum portal address.
-   * @param l2BlockNum - Number of the L2 block where contracts were deployed.
-   * @returns ContractData with the portal address (if we didn't throw an error).
-   */
-  public getContractDataInBlock(l2BlockNum: number): Promise<ContractData[] | undefined> {
-    if (l2BlockNum > this.l2BlockContexts.length) {
-      return Promise.resolve([]);
-    }
-    const block: L2Block | undefined = this.l2BlockContexts[l2BlockNum - INITIAL_L2_BLOCK_NUM]?.block;
-    return Promise.resolve(block?.body.txEffects.flatMap(txEffect => txEffect.contractData));
   }
 
   /**
@@ -436,11 +480,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   public getL1BlockNumber() {
     const addedBlock = this.l2BlockContexts[this.l2BlockContexts.length - 1]?.block?.getL1BlockNumber() ?? 0n;
+    const newMessages = this.lastL1BlockNewMessages;
     const addedMessages = this.lastL1BlockAddedMessages;
     const cancelledMessages = this.lastL1BlockCancelledMessages;
 
     return Promise.resolve({
       addedBlock,
+      newMessages,
       addedMessages,
       cancelledMessages,
     });

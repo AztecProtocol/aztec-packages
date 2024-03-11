@@ -1,6 +1,6 @@
 #include "protogalaxy_prover.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/protogalaxy/presumcheck_prover.hpp"
+#include "barretenberg/ultra_honk/presumcheck_prover.hpp"
 namespace bb {
 template <class ProverInstances>
 void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
@@ -16,56 +16,6 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
         instance->alphas[idx] =
             transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));
     }
-    auto vk_view = instance->verification_key->get_all();
-    auto labels = instance->commitment_labels.get_precomputed();
-    for (size_t idx = 0; idx < labels.size(); idx++) {
-        transcript->send_to_verifier(domain_separator + "_" + labels[idx], vk_view[idx]);
-    }
-}
-
-template <class ProverInstances>
-void ProtoGalaxyProver_<ProverInstances>::send_accumulator(std::shared_ptr<Instance> instance,
-                                                           const std::string& domain_separator)
-{
-    const auto instance_size = static_cast<uint32_t>(instance->instance_size);
-    const auto num_public_inputs = static_cast<uint32_t>(instance->public_inputs.size());
-    transcript->send_to_verifier(domain_separator + "_instance_size", instance_size);
-    transcript->send_to_verifier(domain_separator + "_public_input_size", num_public_inputs);
-
-    for (size_t i = 0; i < instance->public_inputs.size(); ++i) {
-        auto public_input_i = instance->public_inputs[i];
-        transcript->send_to_verifier(domain_separator + "_public_input_" + std::to_string(i), public_input_i);
-    }
-
-    transcript->send_to_verifier(domain_separator + "_eta", instance->relation_parameters.eta);
-    transcript->send_to_verifier(domain_separator + "_beta", instance->relation_parameters.beta);
-    transcript->send_to_verifier(domain_separator + "_gamma", instance->relation_parameters.gamma);
-    transcript->send_to_verifier(domain_separator + "_public_input_delta",
-                                 instance->relation_parameters.public_input_delta);
-    transcript->send_to_verifier(domain_separator + "_lookup_grand_product_delta",
-                                 instance->relation_parameters.lookup_grand_product_delta);
-
-    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        transcript->send_to_verifier(domain_separator + "_alpha_" + std::to_string(idx), instance->alphas[idx]);
-    }
-
-    transcript->send_to_verifier(domain_separator + "_target_sum", instance->target_sum);
-    for (size_t idx = 0; idx < instance->gate_challenges.size(); idx++) {
-        transcript->send_to_verifier(domain_separator + "_gate_challenge_" + std::to_string(idx),
-                                     instance->gate_challenges[idx]);
-    }
-
-    auto comm_view = instance->witness_commitments.get_all();
-    auto witness_labels = instance->commitment_labels.get_witness();
-    for (size_t idx = 0; idx < witness_labels.size(); idx++) {
-        transcript->send_to_verifier(domain_separator + "_" + witness_labels[idx], comm_view[idx]);
-    }
-
-    auto vk_view = instance->verification_key->get_all();
-    auto vk_labels = instance->commitment_labels.get_precomputed();
-    for (size_t idx = 0; idx < vk_labels.size(); idx++) {
-        transcript->send_to_verifier(domain_separator + "_" + vk_labels[idx], vk_view[idx]);
-    }
 }
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
@@ -73,14 +23,10 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     auto idx = 0;
     auto instance = instances[0];
     auto domain_separator = std::to_string(idx);
-    transcript->send_to_verifier(domain_separator + "is_accumulator", instance->is_accumulator);
-    if (instance->is_accumulator) {
-        send_accumulator(instance, domain_separator);
-    } else {
-        // This is the first round of folding and we need to generate some gate challenges.
+    if (!instance->is_accumulator) {
         finalise_and_send_instance(instance, domain_separator);
         instance->target_sum = 0;
-        instance->gate_challenges = std::vector<FF>(instance->log_instance_size, 0);
+        instance->gate_challenges = std::vector<FF>(instance->proving_key->log_circuit_size, 0);
     }
 
     idx++;
@@ -107,26 +53,22 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     auto vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
     std::vector<FF> lagranges{ FF(1) - challenge, challenge };
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::make_shared<Instance>();
     next_accumulator->is_accumulator = true;
-    next_accumulator->instance_size = instances[0]->instance_size;
-    next_accumulator->log_instance_size = instances[0]->log_instance_size;
+    next_accumulator->proving_key = instances[0]->proving_key;
 
     // Compute the next target sum and send the next folding parameters to the verifier
     FF next_target_sum =
         compressed_perturbator * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 
-    transcript->send_to_verifier("next_target_sum", next_target_sum);
-    for (size_t idx = 0; idx < instances.next_gate_challenges.size(); idx++) {
-        transcript->send_to_verifier("next_gate_challenge_" + std::to_string(idx), instances.next_gate_challenges[idx]);
-    }
     next_accumulator->target_sum = next_target_sum;
     next_accumulator->gate_challenges = instances.next_gate_challenges;
 
     // Initialize prover polynomials
     ProverPolynomials acc_prover_polynomials;
     for (auto& polynomial : acc_prover_polynomials.get_all()) {
-        polynomial = typename Flavor::Polynomial(instances[0]->instance_size);
+        polynomial = typename Flavor::Polynomial(instances[0]->proving_key->circuit_size);
     }
 
     // Fold the prover polynomials
@@ -140,36 +82,21 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     }
     next_accumulator->prover_polynomials = std::move(acc_prover_polynomials);
 
-    // Fold the witness commtiments and send them to the verifier
-    auto witness_labels = next_accumulator->commitment_labels.get_witness();
-    size_t comm_idx = 0;
-    for (auto& acc_comm : next_accumulator->witness_commitments.get_all()) {
-        acc_comm = Commitment::infinity();
-        size_t inst_idx = 0;
-        for (auto& instance : instances) {
-            acc_comm = acc_comm + instance->witness_commitments.get_all()[comm_idx] * lagranges[inst_idx];
-            inst_idx++;
-        }
-        transcript->send_to_verifier("next_" + witness_labels[comm_idx], acc_comm);
-        comm_idx++;
-    }
-
     // Fold public data ϕ from all instances to produce ϕ* and add it to the transcript. As part of the folding
     // verification, the verifier will produce ϕ* as well and check it against what was sent by the prover.
 
     // Fold the public inputs and send to the verifier
-    next_accumulator->public_inputs = std::vector<FF>(instances[0]->public_inputs.size(), 0);
+    next_accumulator->proving_key->public_inputs = std::vector<FF>(instances[0]->proving_key->public_inputs.size(), 0);
     size_t el_idx = 0;
-    for (auto& el : next_accumulator->public_inputs) {
+    for (auto& el : next_accumulator->proving_key->public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/830)
-            if (instance->public_inputs.size() >= next_accumulator->public_inputs.size()) {
-                el += instance->public_inputs[el_idx] * lagranges[inst];
+            if (instance->proving_key->num_public_inputs >= next_accumulator->proving_key->num_public_inputs) {
+                el += instance->proving_key->public_inputs[el_idx] * lagranges[inst];
                 inst++;
             };
         }
-        transcript->send_to_verifier("next_public_input_" + std::to_string(el_idx), el);
         el_idx++;
     }
 
@@ -178,7 +105,6 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     auto& folded_alphas = next_accumulator->alphas;
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
         folded_alphas[idx] = instances.alphas[idx].evaluate(challenge);
-        transcript->send_to_verifier("next_alpha_" + std::to_string(idx), folded_alphas[idx]);
     }
 
     // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters and send to
@@ -191,32 +117,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
         combined_relation_parameters.public_input_delta.evaluate(challenge),
         combined_relation_parameters.lookup_grand_product_delta.evaluate(challenge),
     };
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/805): Add the relation parameters to the transcript
-    // together.
-    transcript->send_to_verifier("next_eta", folded_relation_parameters.eta);
-    transcript->send_to_verifier("next_beta", folded_relation_parameters.beta);
-    transcript->send_to_verifier("next_gamma", folded_relation_parameters.gamma);
-    transcript->send_to_verifier("next_public_input_delta", folded_relation_parameters.public_input_delta);
-    transcript->send_to_verifier("next_lookup_grand_product_delta",
-                                 folded_relation_parameters.lookup_grand_product_delta);
     next_accumulator->relation_parameters = folded_relation_parameters;
-
-    // Fold the verification key and send it to the verifier as this is part of ϕ as well
-    auto acc_vk = std::make_shared<VerificationKey>(instances[0]->prover_polynomials.get_polynomial_size(),
-                                                    instances[0]->public_inputs.size());
-    auto labels = next_accumulator->commitment_labels.get_precomputed();
-    size_t vk_idx = 0;
-    for (auto& vk : acc_vk->get_all()) {
-        size_t inst = 0;
-        vk = Commitment::infinity();
-        for (auto& instance : instances) {
-            vk = vk + (instance->verification_key->get_all()[vk_idx]) * lagranges[inst];
-            inst++;
-        }
-        transcript->send_to_verifier("next_" + labels[vk_idx], vk);
-        vk_idx++;
-    }
-    next_accumulator->verification_key = acc_vk;
     return next_accumulator;
 }
 
@@ -229,12 +130,14 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
 {
     state.accumulator = get_accumulator();
     FF delta = transcript->template get_challenge<FF>("delta");
-    state.deltas = compute_round_challenge_pows(state.accumulator->log_instance_size, delta);
-    state.perturbator = Polynomial<FF>(state.accumulator->log_instance_size + 1); // initialize to all zeros
+    state.deltas = compute_round_challenge_pows(state.accumulator->proving_key->log_circuit_size, delta);
+    state.perturbator = Polynomial<FF>(state.accumulator->proving_key->log_circuit_size + 1); // initialize to all zeros
     // compute perturbator only if this is not the first round and has an accumulator
     if (state.accumulator->is_accumulator) {
         state.perturbator = compute_perturbator(state.accumulator, state.deltas);
-        for (size_t idx = 0; idx <= state.accumulator->log_instance_size; idx++) {
+        // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
+        // the accumulator which the folding verifier has from the previous iteration.
+        for (size_t idx = 1; idx <= state.accumulator->proving_key->log_circuit_size; idx++) {
             transcript->send_to_verifier("perturbator_" + std::to_string(idx), state.perturbator[idx]);
         }
     }

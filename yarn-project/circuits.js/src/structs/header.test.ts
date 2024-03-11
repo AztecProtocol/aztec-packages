@@ -1,3 +1,5 @@
+import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+
 import { HEADER_LENGTH } from '../constants.gen.js';
 import { makeHeader } from '../tests/factories.js';
 import { Header } from './header.js';
@@ -6,6 +8,7 @@ describe('Header', () => {
   let header: Header;
 
   beforeAll(() => {
+    setupCustomSnapshotSerializers(expect);
     const randomInt = Math.floor(Math.random() * 1000);
     header = makeHeader(randomInt, undefined);
   });
@@ -39,7 +42,11 @@ describe('Header', () => {
     const hash = header.hash();
     expect(hash).toMatchSnapshot();
 
-    // Value used in empty_hash test in header.nr
-    // console.log("hash", hash.toString());
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/types/src/header.nr',
+      'test_data_empty_hash',
+      hash.toString(),
+    );
   });
 });
