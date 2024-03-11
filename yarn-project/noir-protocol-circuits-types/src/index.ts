@@ -3,6 +3,7 @@ import {
   BaseParityInputs,
   BaseRollupInputs,
   MergeRollupInputs,
+  ParityPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelInnerCircuitPublicInputs,
@@ -41,6 +42,7 @@ import {
   mapBaseParityInputsToNoir,
   mapBaseRollupInputsToNoir,
   mapMergeRollupInputsToNoir,
+  mapParityPublicInputsFromNoir,
   mapPrivateKernelInitCircuitPrivateInputsToNoir,
   mapPrivateKernelInnerCircuitPrivateInputsToNoir,
   mapPrivateKernelInnerCircuitPublicInputsFromNoir,
@@ -53,6 +55,8 @@ import {
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
 } from './type_conversion.js';
+import { ReturnType as BaseParityReturnType } from './types/parity_base_types.js';
+import { ReturnType as RootParityReturnType } from './types/parity_root_types.js';
 import { InputType as InitInputType, ReturnType as InitReturnType } from './types/private_kernel_init_types.js';
 import { InputType as InnerInputType, ReturnType as InnerReturnType } from './types/private_kernel_inner_types.js';
 import { InputType as TailInputType, ReturnType as TailReturnType } from './types/private_kernel_tail_types.js';
@@ -301,6 +305,36 @@ export function convertRootRollupOutputsFromWitnessMap(outputs: WitnessMap): Roo
   const returnType = decodedInputs.return_value as RootRollupReturnType;
 
   return mapRootRollupPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Converts the outputs to the base parity circuit.
+ * @param outputs - The base parity outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertBaseParityOutputsFromWitnessMap(outputs: WitnessMap): ParityPublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(BaseParityJson.abi as Abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as BaseParityReturnType;
+
+  return mapParityPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Converts the outputs to the root parity circuit.
+ * @param outputs - The root parity outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertRootParityOutputsFromWitnessMap(outputs: WitnessMap): ParityPublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(RootParityJson.abi as Abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as RootParityReturnType;
+
+  return mapParityPublicInputsFromNoir(returnType);
 }
 
 /**

@@ -106,6 +106,8 @@ import {
 } from '@aztec/circuits.js';
 import { Tuple, from2Fields, mapTuple, to2Fields } from '@aztec/foundation/serialize';
 
+import { BaseParityInputs as BaseParityInputsNoir } from './types/parity_base_types.js';
+import { RootParityInputs as RootParityInputsNoir } from './types/parity_root_types.js';
 import {
   CallContext as CallContextNoir,
   CallRequest as CallRequestNoir,
@@ -187,7 +189,6 @@ import { MergeRollupInputs as MergeRollupInputsNoir } from './types/rollup_merge
 import {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
-  BaseParityInputs as BaseParityInputsNoir,
   ConstantRollupData as ConstantRollupDataNoir,
   ContentCommitment as ContentCommitmentNoir,
   Field,
@@ -198,7 +199,6 @@ import {
   PartialStateReference as PartialStateReferenceNoir,
   PreviousRollupData as PreviousRollupDataNoir,
   RootParityInput as RootParityInputNoir,
-  RootParityInputs as RootParityInputsNoir,
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
   StateReference as StateReferenceNoir,
@@ -1715,6 +1715,19 @@ export function mapRootRollupPublicInputsFromNoir(
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.archive),
     mapHeaderFromNoir(rootRollupPublicInputs.header),
     mapTupleFromNoir(rootRollupPublicInputs.l1_to_l2_messages_hash, 2, mapFieldFromNoir),
+  );
+}
+
+/**
+ * Maps a parity public inputs from noir.
+ * @param parityPublicInputs - The noir parity public inputs.
+ * @returns The circuits.js parity public inputs.
+ */
+export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicInputsNoir): ParityPublicInputs {
+  return new ParityPublicInputs(
+    AggregationObject.makeFake(),
+    mapSha256HashFromNoir(parityPublicInputs.sha_root),
+    mapFieldFromNoir(parityPublicInputs.converted_root),
   );
 }
 

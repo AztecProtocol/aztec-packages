@@ -3,10 +3,10 @@ import {
   BaseParityInputs,
   BaseRollupInputs,
   MergeRollupInputs,
+  ParityPublicInputs,
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
-  RootParityInput,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs
@@ -19,15 +19,15 @@ export interface RollupSimulator {
   /**
    * Simulates the base parity circuit from its inputs.
    * @param inputs - Inputs to the circuit.
-   * @returns One of the inputs of the root parity circuit.
+   * @returns The public inputs of the parity circuit.
    */
-  baseParityCircuit(inputs: BaseParityInputs): Promise<RootParityInput>;
+  baseParityCircuit(inputs: BaseParityInputs): Promise<ParityPublicInputs>;
   /**
    * Simulates the root parity circuit from its inputs.
    * @param inputs - Inputs to the circuit.
-   * @returns The public inputs and proof.
+   * @returns The public inputs of the parity circuit.
    */
-  rootParityCircuit(inputs: RootParityInputs): Promise<RootParityInput>;
+  rootParityCircuit(inputs: RootParityInputs): Promise<ParityPublicInputs>;
   /**
    * Simulates the base rollup circuit from its inputs.
    * @param input - Inputs to the circuit.

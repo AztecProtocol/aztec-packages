@@ -4,10 +4,10 @@ import {
   BaseParityInputs,
   BaseRollupInputs,
   MergeRollupInputs,
-  RootParityInput,
+  ParityPublicInputs,
   RootParityInputs,
   RootRollupInputs,
-  RootRollupPublicInputs,
+  RootRollupPublicInputs
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
@@ -17,10 +17,14 @@ import {
   MergeRollupArtifact,
   RootParityArtifact,
   RootRollupArtifact,
+  convertBaseParityInputsToWitnessMap,
+  convertBaseParityOutputsFromWitnessMap,
   convertBaseRollupInputsToWitnessMap,
   convertBaseRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
+  convertRootParityInputsToWitnessMap,
+  convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
@@ -42,9 +46,9 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   /**
    * Simulates the base parity circuit from its inputs.
    * @param inputs - Inputs to the circuit.
-   * @returns One of the inputs of the root parity circuit.
+   * @returns The public inputs of the parity circuit.
    */
-  public async baseParityCircuit(inputs: BaseParityInputs): Promise<RootParityInput> {
+  public async baseParityCircuit(inputs: BaseParityInputs): Promise<ParityPublicInputs> {
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
 
     const witness = await this.simulationProvider.simulateCircuit(witnessMap, BaseParityArtifact);
@@ -57,9 +61,9 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   /**
    * Simulates the root parity circuit from its inputs.
    * @param inputs - Inputs to the circuit.
-   * @returns The public inputs and proof.
+   * @returns The public inputs of the parity circuit.
    */
-  public async rootParityCircuit(inputs: RootParityInputs): Promise<RootParityInput> {
+  public async rootParityCircuit(inputs: RootParityInputs): Promise<ParityPublicInputs> {
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
     const witness = await this.simulationProvider.simulateCircuit(witnessMap, RootParityArtifact);

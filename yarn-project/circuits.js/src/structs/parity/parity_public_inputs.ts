@@ -7,11 +7,11 @@ import { AggregationObject } from '../aggregation_object.js';
 export class ParityPublicInputs {
   constructor(
     /** Aggregated proof of all the parity circuit iterations. */
-    public readonly aggregationObject: AggregationObject,
+    public aggregationObject: AggregationObject,
     /** Root of the SHA256 tree. */
-    public readonly shaRoot: Buffer,
+    public shaRoot: Buffer,
     /** Root of the converted tree. */
-    public readonly convertedRoot: Fr,
+    public convertedRoot: Fr,
   ) {
     if (shaRoot.length !== 32) {
       throw new Error(`shaRoot buffer must be 32 bytes. Got ${shaRoot.length} bytes`);

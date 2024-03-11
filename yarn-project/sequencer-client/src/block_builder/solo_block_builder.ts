@@ -183,7 +183,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       );
 
       for (const inputs of baseParityInputs) {
-        baseParityOutputs.push(this.simulator.baseParityCircuit(inputs));
+        baseParityOutputs.push(this.baseParityCircuit(inputs));
       }
     }
 
@@ -221,7 +221,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       const rootParityInputs = new RootParityInputs(
         baseParityInputs as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
       );
-      rootParityOutput = this.simulator.rootParityCircuit(rootParityInputs);
+      rootParityOutput = this.rootParityCircuit(rootParityInputs);
     }
 
     // Run merge rollups in layers until we have only two outputs
@@ -263,6 +263,20 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Run the root rollup with the last two merge rollups (or base, if no merge layers)
     const [mergeOutputLeft, mergeOutputRight] = mergeRollupInputs;
     return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, await rootParityOutput, newL1ToL2MessagesTuple);
+  }
+
+  protected async baseParityCircuit(inputs: BaseParityInputs): Promise<RootParityInput> {
+    this.debug(`Running base parity circuit`);
+    const parityPublicInputs = await this.simulator.baseParityCircuit(inputs);
+    const proof = await this.prover.getBaseParityProof(inputs, parityPublicInputs);
+    return new RootParityInput(proof, parityPublicInputs);
+  }
+
+  protected async rootParityCircuit(inputs: RootParityInputs): Promise<RootParityInput> {
+    this.debug(`Running root parity circuit`);
+    const parityPublicInputs = await this.simulator.rootParityCircuit(inputs);
+    const proof = await this.prover.getRootParityProof(inputs, parityPublicInputs);
+    return new RootParityInput(proof, parityPublicInputs);
   }
 
   protected async baseRollupCircuit(
