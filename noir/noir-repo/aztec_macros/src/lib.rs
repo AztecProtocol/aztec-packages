@@ -11,9 +11,7 @@ use transforms::{
     },
 };
 
-use noirc_frontend::hir::def_collector::dc_crate::{
-    DefCollector, UnresolvedFunctions, UnresolvedTraitImpl,
-};
+use noirc_frontend::hir::def_collector::dc_crate::{UnresolvedFunctions, UnresolvedTraitImpl};
 
 use noirc_frontend::macros_api::SortedModule;
 use noirc_frontend::macros_api::{CrateId, MacroError};
