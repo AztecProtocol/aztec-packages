@@ -17,8 +17,6 @@ RUN yarn workspaces focus @aztec/aztec-faucet --production && yarn cache clean
 
 # Create minimal image.
 FROM ubuntu:lunar
-ARG COMMIT_TAG=""
-ENV COMMIT_TAG=$COMMIT_TAG
 RUN apt update && apt install -y nodejs && rm -rf /var/lib/apt/lists/* && apt-get clean
 COPY --from=builder /usr/src/yarn-project /usr/src/yarn-project
 ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec-faucet/dest/bin/index.js"]

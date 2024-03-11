@@ -79,14 +79,11 @@ done
 # Build a dockerignore file that only permits git files and untracked files.
 create_dockerignore $REPOSITORY
 
-COMMIT_TAG_VERSION=$(extract_tag_version $REPOSITORY false)
-echo "Commit tag version: $COMMIT_TAG_VERSION"
-
 IMAGE_COMMIT_URI=$(calculate_image_uri $REPOSITORY)
 echo "Building image: $IMAGE_COMMIT_URI"
 
 function build {
-  docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg COMMIT_HASH=$COMMIT_HASH . 2>&1
+  docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_HASH=$COMMIT_HASH . 2>&1
 }
 
 X86=$(query_manifest x86 $REPOSITORY)
