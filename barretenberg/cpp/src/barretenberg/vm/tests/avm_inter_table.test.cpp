@@ -19,7 +19,6 @@ class AvmInterTableTests : public ::testing::Test {
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
 };
-
 class AvmPermMainAluNegativeTests : public AvmInterTableTests {
   protected:
     std::vector<Row> trace;
@@ -77,6 +76,45 @@ class AvmPermMainAluNegativeTests : public AvmInterTableTests {
  * The built trace in each test needs to be as correct as possible except the
  * relation being tested.
  ******************************************************************************/
+
+TEST_F(AvmInterTableTests, tagErrNotCopiedInMain)
+{
+    // Equality operation on U128 and second operand is of type U16.
+    trace_builder.set(32, 18, AvmMemoryTag::U128);
+    trace_builder.set(32, 76, AvmMemoryTag::U16);
+    trace_builder.op_eq(18, 76, 65, AvmMemoryTag::U128);
+    trace_builder.halt();
+    auto trace = trace_builder.finalize();
+
+    // Find the row with equality operation and mutate the error tag.
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_eq == 1; });
+    ASSERT_EQ(row->avm_main_tag_err, FF(1)); // Sanity check that the error tag is set.
+    row->avm_main_tag_err = 0;
+    row->avm_main_alu_sel = 1; // We have to activate ALU trace if no error tag is present.
+    auto const clk = row->avm_main_clk;
+
+    // Create a valid ALU entry for this equality operation.
+    auto& alu_row = trace.at(1);
+    alu_row.avm_alu_alu_clk = clk;
+    alu_row.avm_alu_alu_sel = 1;
+    alu_row.avm_alu_alu_ia = 32;
+    alu_row.avm_alu_alu_ib = 32;
+    alu_row.avm_alu_alu_ic = 1;
+    alu_row.avm_alu_alu_op_eq = 1;
+    alu_row.avm_alu_alu_in_tag = static_cast<uint32_t>(AvmMemoryTag::U128);
+    alu_row.avm_alu_alu_u128_tag = 1;
+
+    // Adjust the output of the computation as it would have been performed without tag check.
+    row->avm_main_ic = 1;
+    // Find the memory row pertaining to write operation from Ic.
+    auto mem_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
+        return r.avm_mem_m_clk == clk && r.avm_mem_m_sub_clk == AvmMemTraceBuilder::SUB_CLK_STORE_C;
+    });
+
+    // Adjust the output in the memory trace.
+    mem_row->avm_mem_m_val = 1;
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "INCL_MAIN_TAG_ERR");
+}
 
 TEST_F(AvmPermMainAluNegativeTests, wrongAluOutputCopyInMain)
 {
