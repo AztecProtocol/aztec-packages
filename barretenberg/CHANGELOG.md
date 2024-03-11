@@ -1,5 +1,76 @@
 # Changelog
 
+## [0.26.6](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.26.5...barretenberg-v0.26.6) (2024-03-08)
+
+
+### Features
+
+* IPA documentation ([#4924](https://github.com/AztecProtocol/aztec-packages/issues/4924)) ([48bd22e](https://github.com/AztecProtocol/aztec-packages/commit/48bd22eaab6d9df38d856db943f35292a42ea928))
+* Updating an SMT solver class ([#4981](https://github.com/AztecProtocol/aztec-packages/issues/4981)) ([4b94d58](https://github.com/AztecProtocol/aztec-packages/commit/4b94d580a7add893a305e453e0f9005694759dc4))
+
+
+### Bug Fixes
+
+* Storage v2 ([#5027](https://github.com/AztecProtocol/aztec-packages/issues/5027)) ([fe3190e](https://github.com/AztecProtocol/aztec-packages/commit/fe3190ee66d5c340b6ef6a6fe53772e8e08c9463))
+* Update protogalaxy cmake dependencies ([#5066](https://github.com/AztecProtocol/aztec-packages/issues/5066)) ([507c374](https://github.com/AztecProtocol/aztec-packages/commit/507c374b65c7947f4562fe736c28dc6500ad95b3))
+
+
+### Miscellaneous
+
+* **ci:** Re-enable certain bb solidity ACIR tests ([#5065](https://github.com/AztecProtocol/aztec-packages/issues/5065)) ([58e1ff4](https://github.com/AztecProtocol/aztec-packages/commit/58e1ff4ecf8dbc5e4504994a9e22b04d09d0535d))
+* Cleanup of prover and verifier instances ([#4959](https://github.com/AztecProtocol/aztec-packages/issues/4959)) ([f2fdefd](https://github.com/AztecProtocol/aztec-packages/commit/f2fdefd1a7b4759abc767f273e5defa5bf7ddcc7))
+* Join-split example Part 1 ([#4965](https://github.com/AztecProtocol/aztec-packages/issues/4965)) ([b9de0f5](https://github.com/AztecProtocol/aztec-packages/commit/b9de0f52e89c05f2260afeae0ccc6c3ff63e69b6))
+* Remove eccvm functionality to update the op queue and ensure ultra ops are populated through function ([#5084](https://github.com/AztecProtocol/aztec-packages/issues/5084)) ([77954ab](https://github.com/AztecProtocol/aztec-packages/commit/77954ab56de67e0e055f222d04dbeb353aa3c04b))
+
+## [0.26.5](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.26.4...barretenberg-v0.26.5) (2024-03-07)
+
+
+### Miscellaneous
+
+* **barretenberg:** Synchronize aztec-packages versions
+
+## [0.26.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.26.3...barretenberg-v0.26.4) (2024-03-06)
+
+
+### Features
+
+* **avm:** ALU &lt;--&gt; MAIN inter table relation on intermediate registers copy ([#4945](https://github.com/AztecProtocol/aztec-packages/issues/4945)) ([8708131](https://github.com/AztecProtocol/aztec-packages/commit/870813173e0fc760338a06485722387fdd1dfcab)), closes [#4613](https://github.com/AztecProtocol/aztec-packages/issues/4613)
+* Circuit checker class ([#4931](https://github.com/AztecProtocol/aztec-packages/issues/4931)) ([4eba266](https://github.com/AztecProtocol/aztec-packages/commit/4eba26675a39cf6c9539da57c7177ec28ee3a8fb))
+
+## [0.26.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.26.2...barretenberg-v0.26.3) (2024-03-06)
+
+
+### Miscellaneous
+
+* **barretenberg:** Synchronize aztec-packages versions
+
+## [0.26.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.26.1...barretenberg-v0.26.2) (2024-03-06)
+
+
+### Miscellaneous
+
+* **barretenberg:** Synchronize aztec-packages versions
+
+## [0.26.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.26.0...barretenberg-v0.26.1) (2024-03-06)
+
+
+### Features
+
+* Adding fr compatibility to smt variables api ([#4884](https://github.com/AztecProtocol/aztec-packages/issues/4884)) ([c085cbb](https://github.com/AztecProtocol/aztec-packages/commit/c085cbb0840b29698db1fec0ed5d6aa19c9c36ea))
+* Indirect mem flag deserialisation ([#4877](https://github.com/AztecProtocol/aztec-packages/issues/4877)) ([4c6820f](https://github.com/AztecProtocol/aztec-packages/commit/4c6820f6359a2db4863502d36b188dd52d2d32b1))
+
+
+### Miscellaneous
+
+* Remove commitment key copy out of instance ([#4893](https://github.com/AztecProtocol/aztec-packages/issues/4893)) ([6eb6778](https://github.com/AztecProtocol/aztec-packages/commit/6eb6778c2f4586e97a659e3368aa25016f97d3b9))
+
+## [0.26.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.25.0...barretenberg-v0.26.0) (2024-03-05)
+
+
+### Miscellaneous
+
+* **barretenberg:** Synchronize aztec-packages versions
+
 ## [0.25.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.24.0...barretenberg-v0.25.0) (2024-03-05)
 
 

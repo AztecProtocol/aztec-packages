@@ -39,10 +39,15 @@ export class BaseOrMergeRollupPublicInputs {
      */
     public end: PartialStateReference,
     /**
-     * SHA256 hashes of calldata. Used to make public inputs constant-sized (to then be unpacked on-chain).
+     * SHA256 hashes of transactions effects. Used to make public inputs constant-sized (to then be unpacked on-chain).
      * Note: Length 2 for high and low.
      */
-    public calldataHash: [Fr, Fr],
+    public txsEffectsHash: [Fr, Fr],
+    /**
+     * SHA256 hashes of outhash. Used to make public inputs constant-sized (to then be unpacked on-chain).
+     * Note: Length 2 for high and low.
+     */
+    public outHash: [Fr, Fr],
   ) {}
 
   /**
@@ -61,6 +66,7 @@ export class BaseOrMergeRollupPublicInputs {
       reader.readObject(PartialStateReference),
       reader.readObject(PartialStateReference),
       reader.readArray(NUM_FIELDS_PER_SHA256, Fr) as [Fr, Fr],
+      reader.readArray(NUM_FIELDS_PER_SHA256, Fr) as [Fr, Fr],
     );
   }
 
@@ -78,7 +84,8 @@ export class BaseOrMergeRollupPublicInputs {
       this.start,
       this.end,
 
-      this.calldataHash,
+      this.txsEffectsHash,
+      this.outHash,
     );
   }
 }

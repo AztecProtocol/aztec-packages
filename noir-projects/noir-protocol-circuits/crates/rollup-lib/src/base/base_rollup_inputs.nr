@@ -3,7 +3,8 @@ use crate::{
     constant_rollup_data::ConstantRollupData,
     base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE}
 },
-    base::state_diff_hints::StateDiffHints
+    base::state_diff_hints::StateDiffHints,
+    components::{compute_tx_effects_hash, compute_kernel_out_hash}
 };
 use dep::types::{
     abis::{
@@ -18,8 +19,7 @@ use dep::types::{
 },
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-    CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT, MAX_NEW_CONTRACTS_PER_TX,
-    NOTE_HASH_SUBTREE_HEIGHT, CONTRACT_SUBTREE_HEIGHT, NUM_FIELDS_PER_SHA256,
+    PUBLIC_DATA_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, NUM_FIELDS_PER_SHA256,
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
     MAX_NEW_NULLIFIERS_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
@@ -72,11 +72,6 @@ impl BaseRollupInputs {
             == self.constants.global_variables.version, "kernel version does not match the rollup version"
         );
 
-        // First we compute the contract tree leaves
-        let contract_leaves = self.calculate_contract_leaves();
-
-        let contracts_tree_subroot = self.calculate_contract_subtree_root(contract_leaves);
-
         let commitments_tree_subroot = self.calculate_commitments_subtree();
 
         let empty_commitments_subtree_root = calculate_empty_tree_root(NOTE_HASH_SUBTREE_HEIGHT);
@@ -89,24 +84,15 @@ impl BaseRollupInputs {
             NOTE_HASH_SUBTREE_HEIGHT as u8
         );
 
-        // Insert contract subtrees:
-        let empty_contracts_subtree_root = calculate_empty_tree_root(CONTRACT_SUBTREE_HEIGHT);
-        let end_contract_tree_snapshot = append_only_tree::insert_subtree_to_snapshot_tree(
-            self.start.contract_tree,
-            self.state_diff_hints.contract_subtree_sibling_path,
-            empty_contracts_subtree_root,
-            contracts_tree_subroot,
-            CONTRACT_SUBTREE_HEIGHT as u8
-        );
-
         // Insert nullifiers:
         let end_nullifier_tree_snapshot = self.check_nullifier_tree_non_membership_and_insert_to_tree();
 
         // Validate public public data reads and public data update requests, and update public data tree
         let end_public_data_tree_snapshot = self.validate_and_process_public_state();
 
-        // Calculate the overall calldata hash
-        let calldata_hash = BaseRollupInputs::components_compute_kernel_calldata_hash(self.kernel_data.public_inputs.end);
+        // Calculate the tx effects hash of the transaction
+        let tx_effects_hash = compute_tx_effects_hash(self.kernel_data.public_inputs.end);
+        let out_hash = compute_kernel_out_hash(self.kernel_data.public_inputs.end);
 
         // Perform membership checks that the notes provided exist within the historical trees data
         self.perform_archive_membership_checks();
@@ -122,38 +108,11 @@ impl BaseRollupInputs {
             end: PartialStateReference {
                 note_hash_tree: end_note_hash_tree_snapshot,
                 nullifier_tree: end_nullifier_tree_snapshot,
-                contract_tree: end_contract_tree_snapshot,
                 public_data_tree: end_public_data_tree_snapshot
             },
-            calldata_hash
+            txs_effects_hash: tx_effects_hash,
+            out_hash
         }
-    }
-
-    fn calculate_contract_leaves(self) -> [Field; MAX_NEW_CONTRACTS_PER_TX] {
-        let mut contract_leaves = [0; MAX_NEW_CONTRACTS_PER_TX];
-        let new_contracts = self.kernel_data.public_inputs.end.new_contracts;
-
-        // loop over the new contracts
-        for i in 0..new_contracts.len() {
-            let leaf_preimage = new_contracts[i];
-            // When there is no contract deployment, we should insert a zero leaf into the tree and ignore the
-            // member-ship check. This is to ensure that we don't hit "already deployed" errors when we are not
-            // deploying contracts. e.g., when we are only calling functions on existing contracts.
-            let to_push = if leaf_preimage.contract_address.to_field() == 0 {
-                0
-            } else {
-                leaf_preimage.hash()
-            };
-            contract_leaves[i] = to_push;
-        }
-
-        contract_leaves
-    }
-
-    // Cpp code says calculate_contract_subtree, so I'm leaving it as is for now
-    fn calculate_contract_subtree_root(self, leaves: [Field; MAX_NEW_CONTRACTS_PER_TX]) -> Field {
-        assert_eq(leaves.len(), 1);
-        leaves[0]
     }
 
     // TODO(Kev): This should say calculate_commitments_subtree_root
@@ -243,96 +202,6 @@ impl BaseRollupInputs {
         );
 
         end_public_data_tree_snapshot
-    }
-
-    // Computes the calldata hash for a base rollup
-    // TODO(Kev): move this into components module
-    // TODO(Alvaro): This is too slow for brillig without the array optimization
-    fn components_compute_kernel_calldata_hash(combined: CombinedAccumulatedData) -> [Field; NUM_FIELDS_PER_SHA256] {
-        // Compute calldata hashes
-        // Consist of
-        // MAX_NEW_NOTE_HASHES_PER_TX fields for note hashes
-        // MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
-        // 2 l2 -> l1 messages -> 2 fields
-        // 32 public data update requests -> 64 fields
-        // 1 contract deployments -> 3 fields
-        // 1 encrypted logs hash --> 1 sha256 hash -> 2 fields --> 64 bytes
-        // 1 unencrypted logs hash --> 1 sha256 hash -> 2 fields --> 64 bytes
-        let mut calldata_hash_inputs = [0; CALLDATA_HASH_INPUT_SIZE];
-
-        let new_note_hashes = combined.new_note_hashes;
-        let new_nullifiers = combined.new_nullifiers;
-        let newL2ToL1msgs = combined.new_l2_to_l1_msgs;
-        let public_data_update_requests = combined.public_data_update_requests;
-        let encryptedLogsHash = combined.encrypted_logs_hash;
-        let unencryptedLogsHash = combined.unencrypted_logs_hash;
-
-        let mut offset = 0;
-
-        for j in 0..MAX_NEW_NOTE_HASHES_PER_TX {
-            calldata_hash_inputs[offset + j] = new_note_hashes[j].value;
-        }
-        offset += MAX_NEW_NOTE_HASHES_PER_TX ;
-
-        for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
-            calldata_hash_inputs[offset + j] = new_nullifiers[j].value;
-        }
-        offset += MAX_NEW_NULLIFIERS_PER_TX ;
-
-        for j in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
-            calldata_hash_inputs[offset + j] = newL2ToL1msgs[j];
-        }
-        offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX;
-
-        for j in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            calldata_hash_inputs[offset + j * 2] =
-                public_data_update_requests[j].leaf_slot;
-            calldata_hash_inputs[offset + j * 2 + 1] =
-                public_data_update_requests[j].new_value;
-        }
-        offset += MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
-
-        let contract_leaf = combined.new_contracts[0];
-        calldata_hash_inputs[offset] = contract_leaf.hash();
-
-        offset += MAX_NEW_CONTRACTS_PER_TX;
-
-        let new_contracts = combined.new_contracts;
-        calldata_hash_inputs[offset] = new_contracts[0].contract_address.to_field();
-        calldata_hash_inputs[offset + 1] = new_contracts[0].portal_contract_address.to_field();
-
-        offset += MAX_NEW_CONTRACTS_PER_TX * 2;
-
-        for j in 0..NUM_FIELDS_PER_SHA256 {
-            calldata_hash_inputs[offset + j] = encryptedLogsHash[j];
-        }
-
-        offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256;
-
-        for j in 0..NUM_FIELDS_PER_SHA256 {
-            calldata_hash_inputs[offset + j] = unencryptedLogsHash[j];
-        }
-
-        offset += NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256;
-        assert_eq(offset, CALLDATA_HASH_INPUT_SIZE); // Sanity check
-
-        let mut hash_input_flattened = [0; CALL_DATA_HASH_FULL_FIELDS * 32 + CALL_DATA_HASH_LOG_FIELDS * 16];
-        for offset in 0..CALL_DATA_HASH_FULL_FIELDS {
-            let input_as_bytes = calldata_hash_inputs[offset].to_be_bytes(32);
-            for byte_index in 0..32 {
-                hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
-            }
-        }
-
-        for log_field_index in 0..CALL_DATA_HASH_LOG_FIELDS {
-            let input_as_bytes = calldata_hash_inputs[CALL_DATA_HASH_FULL_FIELDS + log_field_index].to_be_bytes(16);
-            for byte_index in 0..16 {
-                hash_input_flattened[CALL_DATA_HASH_FULL_FIELDS * 32 + log_field_index * 16 + byte_index] = input_as_bytes[byte_index];
-            }
-        }
-
-        let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-        U256::from_bytes32(sha_digest).to_u128_limbs()
     }
 
     // Check that the block header used by each kernel is a member of the blocks tree --> since the block header
@@ -491,39 +360,6 @@ fn consistent_not_hash_subtree_width() {
     );
 }
 
-global CALLDATA_HASH_INPUT_SIZE = 201;
-
-#[test]
-fn consistent_calldata_hash_input_size() {
-    let expected_size = MAX_NEW_NOTE_HASHES_PER_TX
-        + MAX_NEW_NULLIFIERS_PER_TX
-        + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-        + MAX_NEW_L2_TO_L1_MSGS_PER_TX
-        + MAX_NEW_CONTRACTS_PER_TX * 3
-        + NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256
-        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256;
-    assert(CALLDATA_HASH_INPUT_SIZE == expected_size, "calldata hash input size is incorrect");
-}
-
-global CALL_DATA_HASH_LOG_FIELDS = 4;
-
-#[test]
-fn consistent_call_data_hash_log_fields() {
-    assert_eq(
-        CALL_DATA_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256
-        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256, "calldata hash log fields is incorrect"
-    );
-}
-
-global CALL_DATA_HASH_FULL_FIELDS = 197;
-
-#[test]
-fn consistent_call_data_hash_full_fields() {
-    assert_eq(
-        CALL_DATA_HASH_FULL_FIELDS, CALLDATA_HASH_INPUT_SIZE - CALL_DATA_HASH_LOG_FIELDS, "calldata hash log fields is incorrect"
-    );
-}
-
 #[test]
 fn test_u256_less_than() {
     assert(full_field_less_than(1, 1000));
@@ -548,29 +384,26 @@ mod tests {
         constant_rollup_data::ConstantRollupData,
         base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs
     },
-        base::{
-        state_diff_hints::StateDiffHints,
-        base_rollup_inputs::{CALL_DATA_HASH_FULL_FIELDS, CALL_DATA_HASH_LOG_FIELDS, BaseRollupInputs}
-    }
+        base::{state_diff_hints::StateDiffHints, base_rollup_inputs::BaseRollupInputs},
+        components::{TX_EFFECTS_HASH_FULL_FIELDS, TX_EFFECTS_HASH_LOG_FIELDS, compute_kernel_out_hash}
     };
     use dep::types::{
         abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         membership_witness::{ArchiveRootMembershipWitness, NullifierMembershipWitness, PublicDataMembershipWitness},
-        new_contract_data::NewContractData, nullifier_leaf_preimage::NullifierLeafPreimage,
-        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
+        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_read::PublicDataRead,
+        public_data_update_request::PublicDataUpdateRequest,
         kernel_data::{PublicKernelData, RollupKernelData}, side_effect::SideEffect,
         accumulated_data::CombinedAccumulatedData
     },
         address::{AztecAddress, EthAddress},
         constants::{
-        CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, CONTRACT_TREE_HEIGHT, CONTRACT_SUBTREE_HEIGHT,
         ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_CONTRACTS_PER_TX,
-        NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT,
-        NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT,
-        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-        NUM_FIELDS_PER_SHA256
+        MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
+        NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+        NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
+        PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, NUM_FIELDS_PER_SHA256,
+        MAX_NEW_L2_TO_L1_MSGS_PER_TX
     },
         contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
         hash::assert_check_membership, merkle_tree::{calculate_empty_tree_root, calculate_subtree},
@@ -822,21 +655,6 @@ mod tests {
                 next_available_leaf_index: start_nullifier_tree.get_next_available_index() as u32
             };
 
-            let start_contract_tree = NonEmptyMerkleTree::new(
-                self.pre_existing_contracts,
-                [0; CONTRACT_TREE_HEIGHT],
-                [0; CONTRACT_TREE_HEIGHT - 1],
-                [0; 1]
-            );
-            let start_contract_tree_snapshot = AppendOnlyTreeSnapshot {
-                root: start_contract_tree.get_root(),
-                next_available_leaf_index: start_contract_tree.get_next_available_index() as u32
-            };
-            let contract_subtree_sibling_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(
-                start_contract_tree.get_sibling_path(self.pre_existing_contracts.len()),
-                [0; CONTRACT_SUBTREE_SIBLING_PATH_LENGTH]
-            );
-
             let mut start_public_data_tree = NonEmptyMerkleTree::new(
                 self.pre_existing_public_data.map(|preimage: PublicDataTreeLeafPreimage| preimage.hash()),
                 [0; PUBLIC_DATA_TREE_HEIGHT],
@@ -895,7 +713,6 @@ mod tests {
             let start = PartialStateReference {
                 note_hash_tree: start_note_hash_tree_snapshot,
                 nullifier_tree: start_nullifier_tree_snapshot,
-                contract_tree: start_contract_tree_snapshot,
                 public_data_tree: start_public_data_tree_snapshot
             };
 
@@ -906,7 +723,6 @@ mod tests {
                 sorted_nullifier_indexes,
                 note_hash_subtree_sibling_path,
                 nullifier_subtree_sibling_path,
-                contract_subtree_sibling_path,
                 public_data_sibling_path
             };
 
@@ -936,75 +752,6 @@ mod tests {
         fn fails(self) {
             let _ = self.execute();
         }
-    }
-
-    #[test]
-    unconstrained fn no_new_contract_leaves() {
-        let outputs = BaseRollupInputsBuilder::new().execute();
-        let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: test_compute_empty_root([0; CONTRACT_TREE_HEIGHT]), next_available_leaf_index: 2 };
-        let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: test_compute_empty_root([0; CONTRACT_TREE_HEIGHT]), next_available_leaf_index: 3 };
-        assert(outputs.start.contract_tree.eq(expected_start_contract_tree_snapshot));
-        assert(outputs.end.contract_tree.eq(expected_end_contract_tree_snapshot));
-    }
-
-    #[test]
-    unconstrained fn contract_leaf_inserted() {
-        let new_contract = NewContractData {
-            contract_address: AztecAddress::from_field(1),
-            portal_contract_address: EthAddress::from_field(2),
-            contract_class_id: ContractClassId::from_field(3)
-        };
-
-        let mut builder = BaseRollupInputsBuilder::new();
-        let mut new_contracts = builder.kernel_data.end.new_contracts;
-        new_contracts.push(new_contract);
-        builder.kernel_data.end.new_contracts = new_contracts;
-        let mut expected_contracts_tree = NonEmptyMerkleTree::new(
-            [0; 4],
-            [0; CONTRACT_TREE_HEIGHT],
-            [0; CONTRACT_TREE_HEIGHT - 2],
-            [0; 2]
-        );
-
-        let outputs = builder.execute();
-
-        let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 2 };
-        assert(outputs.start.contract_tree.eq(expected_start_contract_tree_snapshot));
-
-        expected_contracts_tree.update_leaf(2, new_contract.hash());
-        let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 3 };
-        assert(outputs.end.contract_tree.eq(expected_end_contract_tree_snapshot));
-    }
-
-    #[test]
-    unconstrained fn contract_leaf_inserted_in_non_empty_snapshot_tree() {
-        let new_contract = NewContractData {
-            contract_address: AztecAddress::from_field(1),
-            portal_contract_address: EthAddress::from_field(2),
-            contract_class_id: ContractClassId::from_field(3)
-        };
-
-        let mut builder = BaseRollupInputsBuilder::new();
-
-        builder.pre_existing_contracts = [1,2];
-        let mut new_contracts = builder.kernel_data.end.new_contracts;
-        new_contracts.push(new_contract);
-        builder.kernel_data.end.new_contracts = new_contracts;
-        let mut expected_contracts_tree = NonEmptyMerkleTree::new(
-            [1, 2, 0, 0],
-            [0; CONTRACT_TREE_HEIGHT],
-            [0; CONTRACT_TREE_HEIGHT - 2],
-            [0; 2]
-        );
-
-        let outputs = builder.execute();
-
-        let expected_start_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 2 };
-        assert(outputs.start.contract_tree.eq(expected_start_contract_tree_snapshot));
-
-        expected_contracts_tree.update_leaf(2, new_contract.hash());
-        let expected_end_contract_tree_snapshot = AppendOnlyTreeSnapshot { root: expected_contracts_tree.get_root(), next_available_leaf_index: 3 };
-        assert(outputs.end.contract_tree.eq(expected_end_contract_tree_snapshot));
     }
 
     #[test]
@@ -1214,14 +961,43 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn empty_block_calldata_hash() {
+    unconstrained fn empty_tx_effects_hash() {
         let outputs = BaseRollupInputsBuilder::new().execute();
 
-        let hash_input_flattened = [0; CALL_DATA_HASH_FULL_FIELDS * 32 + CALL_DATA_HASH_LOG_FIELDS * 16];
+        let hash_input_flattened = [0; TX_EFFECTS_HASH_FULL_FIELDS * 32 + TX_EFFECTS_HASH_LOG_FIELDS * 16];
         let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-        let expected_calldata_hash = U256::from_bytes32(sha_digest).to_u128_limbs();
+        let expected_tx_effects_hash = U256::from_bytes32(sha_digest).to_u128_limbs();
         for i in 0..NUM_FIELDS_PER_SHA256 {
-            assert_eq(outputs.calldata_hash[i], expected_calldata_hash[i]);
+            assert_eq(outputs.txs_effects_hash[i], expected_tx_effects_hash[i]);
+        }
+    }
+
+    #[test]
+    unconstrained fn empty_block_out_hash() {
+        let outputs = BaseRollupInputsBuilder::new().execute();
+
+        let hash_input_flattened = [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX * 32];
+        let sha_digest = dep::std::hash::sha256(hash_input_flattened);
+        let expected_out_hash = U256::from_bytes32(sha_digest).to_u128_limbs();
+        for i in 0..NUM_FIELDS_PER_SHA256 {
+            assert_eq(outputs.out_hash[i], expected_out_hash[i]);
+        }
+    }
+
+    #[test]
+    unconstrained fn nonempty_block_out_hash() {
+        let mut end: CombinedAccumulatedData = dep::std::unsafe::zeroed();
+        end.new_l2_to_l1_msgs[MAX_NEW_L2_TO_L1_MSGS_PER_TX - 1] = 123;
+
+        let out_hash = compute_kernel_out_hash(end);
+
+        let mut hash_input_flattened = [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX * 32];
+        hash_input_flattened[MAX_NEW_L2_TO_L1_MSGS_PER_TX * 32 - 1] = 123;
+        let sha_digest = dep::std::hash::sha256(hash_input_flattened);
+        let expected_out_hash = U256::from_bytes32(sha_digest).to_u128_limbs();
+
+        for i in 0..NUM_FIELDS_PER_SHA256 {
+            assert_eq(out_hash[i], expected_out_hash[i]);
         }
     }
 

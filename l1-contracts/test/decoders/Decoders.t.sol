@@ -74,7 +74,11 @@ contract DecodersTest is DecoderBase {
           contentCommitment.txTreeHeight,
           "Invalid txTreeSize"
         );
-        assertEq(header.contentCommitment.txsHash, contentCommitment.txsHash, "Invalid txsHash");
+        assertEq(
+          header.contentCommitment.txsEffectsHash,
+          contentCommitment.txsEffectsHash,
+          "Invalid txsEffectsHash"
+        );
         assertEq(header.contentCommitment.inHash, contentCommitment.inHash, "Invalid inHash");
         assertEq(header.contentCommitment.outHash, contentCommitment.outHash, "Invalid outHash");
       }
@@ -122,18 +126,6 @@ contract DecodersTest is DecoderBase {
             header.stateReference.partialStateReference.nullifierTree.root,
             partialStateReference.nullifierTree.root,
             "Invalid nullifierTree.root"
-          );
-
-          // ContractTree
-          assertEq(
-            header.stateReference.partialStateReference.contractTree.nextAvailableLeafIndex,
-            partialStateReference.contractTree.nextAvailableLeafIndex,
-            "Invalid contractTree.nextAvailableLeafIndex"
-          );
-          assertEq(
-            header.stateReference.partialStateReference.contractTree.root,
-            partialStateReference.contractTree.root,
-            "Invalid contractTree.root"
           );
 
           // PublicDataTree
@@ -192,8 +184,13 @@ contract DecodersTest is DecoderBase {
 
     // Txs
     {
-      bytes32 txsHash = txsHelper.decode(data.block.body);
-      assertEq(txsHash, data.block.calldataHash, "Invalid txs hash");
+      bytes32 txsEffectsHash = txsHelper.decode(data.block.body);
+      assertEq(txsEffectsHash, data.block.txsEffectsHash, "Invalid txs effects hash");
+      assertEq(
+        txsEffectsHash,
+        data.block.decodedHeader.contentCommitment.txsEffectsHash,
+        "Invalid txs effects hash"
+      );
     }
 
     // The public inputs are computed based of these values, but not directly part of the decoding per say.
