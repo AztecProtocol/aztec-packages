@@ -23,7 +23,7 @@ import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 function getAvmTestContractBytecode(functionName: string): Buffer {
   const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
   assert(
-    !!artifact.bytecode,
+    !!artifact?.bytecode,
     `No bytecode found for function ${functionName}. Try re-running bootstraph.sh on the repository root.`,
   );
   return Buffer.from(artifact.bytecode, 'base64');
@@ -391,6 +391,38 @@ describe('AVM simulator', () => {
         const trace = context.persistableState.flush();
         expect(trace.l1ToL2MessageChecks.length).toEqual(1);
         expect(trace.l1ToL2MessageChecks[0].exists).toEqual(true);
+      });
+    });
+
+    describe('Test nested external calls from noir contract', () => {
+      it(`Should execute contract function that makes a nested call`, async () => {
+        const calldata: Fr[] = [new Fr(1), new Fr(2)];
+        const callBytecode = getAvmTestContractBytecode('avm_raw_nested_call_to_add');
+        const addBytecode = getAvmTestContractBytecode('avm_addArgsReturn');
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValueOnce(Promise.resolve(addBytecode));
+
+        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([new Fr(3)]);
+      });
+
+      it(`Should execute contract function that makes a nested call through the old interface`, async () => {
+        const calldata: Fr[] = [new Fr(1), new Fr(2)];
+        const callBytecode = getAvmTestContractBytecode('avm_nested_call_to_add');
+        const addBytecode = getAvmTestContractBytecode('avm_addArgsReturn');
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValueOnce(Promise.resolve(addBytecode));
+
+        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([new Fr(3)]);
       });
     });
 
