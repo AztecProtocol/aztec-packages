@@ -117,7 +117,7 @@ bb.js:
   dependencies:
     - barretenberg-wasm-linux-clang
   # Something (chromium?) randomly segfaults on the arm tests.
-  multiarch: false
+  arm: false
 
 # Runs all the compiled acir tests through native bb.
 barretenberg-acir-tests-bb:
@@ -212,6 +212,7 @@ cli:
   projectDir: yarn-project/cli
   dependencies:
     - yarn-project
+  multiarch: buildx
 
 # Builds all the boxes. They are then independently tested in the container.
 boxes:
