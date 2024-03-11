@@ -23,7 +23,7 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
     // Compute grand product(s) and commitments.
     oink_prover.execute_grand_product_computation_round();
 
-    for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; idx++) {
+    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
         instance->alphas[idx] =
             transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));
     }
