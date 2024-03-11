@@ -30,7 +30,7 @@ contract FPC {
     fn fee_entrypoint_private(amount: Field, asset: AztecAddress, nonce: Field) {
         assert(asset == storage.other_asset.read_private());
 
-        let _res = Token::at(asset).unshield(
+        let partial_note_hashes = Token::at(asset).split_into_partial_notes_pair(
             &mut context,
             context.msg_sender(),
             context.this_address(),
@@ -40,9 +40,25 @@ contract FPC {
 
         let _void = context.call_public_function(
             context.this_address(),
-            FunctionSelector::from_signature("pay_fee((Field),Field,(Field))"),
-            [context.msg_sender().to_field(), amount, asset.to_field()]
+            FunctionSelector::from_signature("pay_fee_with_partial_notes(Field,(Field),[Field;2])"),
+            [amount, asset.to_field(), partial_note_hashes[0], partial_note_hashes[1]]
         );
+    }
+
+    #[aztec(public)]
+    #[aztec(internal)]
+    fn pay_fee_with_partial_notes(
+        amount: Field,
+        asset: AztecAddress,
+        partial_note_hashes: [Field; 2]
+    ) {
+        let refund = context.call_public_function(
+            storage.fee_asset.read_public(),
+            FunctionSelector::from_signature("pay_fee(Field)"),
+            [amount]
+        )[0];
+
+        Token::at(asset).complete_partial_notes_pair(&mut context, partial_note_hashes, [refund, amount - refund])
     }
 
     #[aztec(private)]

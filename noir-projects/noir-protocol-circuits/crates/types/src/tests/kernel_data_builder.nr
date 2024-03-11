@@ -199,9 +199,9 @@ impl PreviousKernelDataBuilder {
 
     pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u64) -> u64 {
         let read_request_index = self.end.nullifier_read_requests.len();
-        let unsiloed_nullifier = self.get_mock_nullifier_value(nullifier_index);
+        let non_siloed_nullifier = self.get_mock_nullifier_value(nullifier_index);
         let read_request = ReadRequestContext {
-            value: unsiloed_nullifier,
+            value: non_siloed_nullifier,
             counter: self.next_sideffect_counter(),
             contract_address: self.storage_contract_address
         };

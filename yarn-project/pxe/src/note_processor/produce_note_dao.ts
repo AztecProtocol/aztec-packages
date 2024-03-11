@@ -4,6 +4,7 @@ import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { AcirSimulator } from '@aztec/simulator';
 
 import { NoteDao } from '../database/note_dao.js';
+import { ChoppedNoteError } from './chopped_note_error.js';
 
 /**
  * Decodes a note from a transaction that we know was intended for us.
@@ -29,7 +30,7 @@ export async function produceNoteDao(
   dataStartIndexForTx: number,
   excludedIndices: Set<number>,
 ): Promise<NoteDao> {
-  const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
+  const { commitmentIndex, nonce, nonSiloedNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
     simulator,
     newNoteHashes,
     txHash,
@@ -37,7 +38,7 @@ export async function produceNoteDao(
     excludedIndices,
   );
   const index = BigInt(dataStartIndexForTx + commitmentIndex);
-  excludedIndices?.add(commitmentIndex);
+  excludedIndices.add(commitmentIndex);
   return new NoteDao(
     payload.note,
     payload.contractAddress,
@@ -45,7 +46,7 @@ export async function produceNoteDao(
     payload.noteTypeId,
     txHash,
     nonce,
-    innerNoteHash,
+    nonSiloedNoteHash,
     siloedNullifier,
     index,
     publicKey,
@@ -74,59 +75,69 @@ async function findNoteIndexAndNullifier(
   { contractAddress, storageSlot, noteTypeId, note }: L1NotePayload,
   excludedIndices: Set<number>,
 ) {
-  let commitmentIndex = 0;
-  let nonce: Fr | undefined;
-  let innerNoteHash: Fr | undefined;
-  let siloedNoteHash: Fr | undefined;
-  let uniqueSiloedNoteHash: Fr | undefined;
-  let innerNullifier: Fr | undefined;
   const firstNullifier = Fr.fromBuffer(txHash.toBuffer());
 
-  for (; commitmentIndex < commitments.length; ++commitmentIndex) {
+  // first go through each commitment and see if this note matches up to any
+  for (const [commitmentIndex, commitment] of commitments.entries()) {
     if (excludedIndices.has(commitmentIndex)) {
       continue;
     }
 
-    const commitment = commitments[commitmentIndex];
     if (commitment.equals(Fr.ZERO)) {
       break;
     }
 
-    const expectedNonce = computeCommitmentNonce(firstNullifier, commitmentIndex);
-    ({ innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
-      await simulator.computeNoteHashAndNullifier(contractAddress, expectedNonce, storageSlot, noteTypeId, note));
+    const nonce = computeCommitmentNonce(firstNullifier, commitmentIndex);
+    const { nonSiloedNoteHash, uniqueSiloedNoteHash, nonSiloedNullifier } = await simulator.computeNoteHashAndNullifier(
+      contractAddress,
+      nonce,
+      storageSlot,
+      noteTypeId,
+      note,
+    );
+
     if (commitment.equals(uniqueSiloedNoteHash)) {
-      nonce = expectedNonce;
+      return {
+        commitmentIndex,
+        nonce,
+        nonSiloedNoteHash: nonSiloedNoteHash!,
+        siloedNullifier: siloNullifier(contractAddress, nonSiloedNullifier!),
+      };
+    }
+  }
+
+  // we couldn't match this note to any commitment
+  // check if this note was emitted in public (where nonces are zero)
+  // this could happen if we're reprocessing a partial note that was just completed in public
+  // remove this once the following issue is resolved
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
+  const { siloedNoteHash, nonSiloedNoteHash, nonSiloedNullifier } = await simulator.computeNoteHashAndNullifier(
+    contractAddress,
+    Fr.ZERO,
+    storageSlot,
+    noteTypeId,
+    note,
+  );
+
+  for (const [commitmentIndex, commitment] of commitments.entries()) {
+    if (excludedIndices.has(commitmentIndex)) {
+      continue;
+    }
+
+    if (commitment.equals(Fr.ZERO)) {
       break;
     }
-  }
 
-  if (!nonce) {
-    let errorString;
-    if (siloedNoteHash == undefined) {
-      errorString = 'Cannot find a matching commitment for the note.';
-    } else {
-      errorString = `We decrypted a log, but couldn't find a corresponding note in the tree.
-This might be because the note was nullified in the same tx which created it.
-In that case, everything is fine. To check whether this is the case, look back through
-the logs for a notification
-'important: chopped commitment for siloed inner hash note
-${siloedNoteHash.toString()}'.
-If you can see that notification. Everything's fine.
-If that's not the case, and you can't find such a notification, something has gone wrong.
-There could be a problem with the way you've defined a custom note, or with the way you're
-serializing / deserializing / hashing / encrypting / decrypting that note.
-Please see the following github issue to track an improvement that we're working on:
-https://github.com/AztecProtocol/aztec-packages/issues/1641`;
+    if (commitment.equals(siloedNoteHash)) {
+      return {
+        commitmentIndex,
+        nonce: Fr.ZERO,
+        nonSiloedNoteHash,
+        siloedNullifier: siloNullifier(contractAddress, nonSiloedNullifier!),
+      };
     }
-
-    throw new Error(errorString);
   }
 
-  return {
-    commitmentIndex,
-    nonce,
-    innerNoteHash: innerNoteHash!,
-    siloedNullifier: siloNullifier(contractAddress, innerNullifier!),
-  };
+  // couldn't find a commitment for this note
+  throw new ChoppedNoteError(siloedNoteHash);
 }

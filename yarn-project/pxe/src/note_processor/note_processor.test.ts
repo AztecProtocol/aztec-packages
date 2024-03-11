@@ -35,6 +35,7 @@ describe('Note Processor', () => {
   let database: PxeDatabase;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let addNotesSpy: any;
+  let addPartialNotesSpy: any;
   let noteProcessor: NoteProcessor;
   let owner: KeyPair;
   let keyStore: MockProxy<KeyStore>;
@@ -130,6 +131,7 @@ describe('Note Processor', () => {
   beforeEach(() => {
     database = new KVPxeDatabase(openTmpStore());
     addNotesSpy = jest.spyOn(database, 'addNotes');
+    addPartialNotesSpy = jest.spyOn(database, 'addPartialNotes');
 
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
@@ -146,10 +148,10 @@ describe('Note Processor', () => {
 
     simulator.computeNoteHashAndNullifier.mockImplementation((...args) =>
       Promise.resolve({
-        innerNoteHash: Fr.random(),
+        nonSiloedNoteHash: Fr.random(),
         siloedNoteHash: Fr.random(),
         uniqueSiloedNoteHash: computeMockNoteHash(args[4]), // args[4] is note
-        innerNullifier: Fr.random(),
+        nonSiloedNullifier: Fr.random(),
       }),
     );
   });
@@ -255,5 +257,20 @@ describe('Note Processor', () => {
     );
 
     expect(newNoteProcessor.status).toEqual(noteProcessor.status);
+  });
+
+  it('should track partial notes', async () => {
+    // make a mock note, then remove its commitment from the block
+    const { blockContexts, encryptedLogsArr, ownedL1NotePayloads } = mockData([[1]]);
+    blockContexts[0].block.body.txEffects[0].noteHashes[0] = Fr.ZERO;
+
+    await noteProcessor.process(blockContexts, encryptedLogsArr);
+
+    expect(addNotesSpy).not.toHaveBeenCalled();
+    expect(addPartialNotesSpy).toHaveBeenCalledWith([
+      expect.objectContaining({
+        note: ownedL1NotePayloads[0].note,
+      }),
+    ]);
   });
 });

@@ -130,4 +130,13 @@ export abstract class BaseWallet implements Wallet {
   isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
     return this.pxe.isContractClassPubliclyRegistered(id);
   }
+
+  completePartialNote(
+    contractAddress: AztecAddress,
+    noteTypeId: Fr,
+    patches: [number | Fr, Fr][],
+    txHash: TxHash,
+  ): Promise<void> {
+    return this.pxe.completePartialNote(contractAddress, noteTypeId, patches, txHash);
+  }
 }

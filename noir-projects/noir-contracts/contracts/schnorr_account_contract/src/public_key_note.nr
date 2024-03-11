@@ -51,9 +51,13 @@ impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
         ],0)
     }
 
-    fn compute_note_content_hash(note: PublicKeyNote) -> Field {
+    fn compute_inner_note_content_hash(self) -> Field {
         // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(note.serialize_content(), 0)
+        pedersen_hash(self.serialize_content(), 0)
+    }
+
+    fn compute_outer_note_content_hash(self) -> Field {
+        0
     }
 
     fn set_header(&mut self, header: NoteHeader) {

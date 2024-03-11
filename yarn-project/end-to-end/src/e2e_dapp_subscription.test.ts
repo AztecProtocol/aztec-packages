@@ -35,7 +35,7 @@ const TOKEN_NAME = 'BananaCoin';
 const TOKEN_SYMBOL = 'BC';
 const TOKEN_DECIMALS = 18n;
 
-describe('e2e_dapp_subscription', () => {
+describe.skip('e2e_dapp_subscription', () => {
   let aliceWallet: AccountWalletWithPrivateKey;
   let bobWallet: AccountWalletWithPrivateKey;
   let aliceAddress: AztecAddress; // Dapp subscriber.

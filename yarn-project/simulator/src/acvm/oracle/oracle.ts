@@ -216,24 +216,24 @@ export class Oracle {
     [storageSlot]: ACVMField[],
     [noteTypeId]: ACVMField[],
     note: ACVMField[],
-    [innerNoteHash]: ACVMField[],
+    [nonSiloedNoteHash]: ACVMField[],
   ): ACVMField {
     this.typedOracle.notifyCreatedNote(
       fromACVMField(storageSlot),
       fromACVMField(noteTypeId),
       note.map(fromACVMField),
-      fromACVMField(innerNoteHash),
+      fromACVMField(nonSiloedNoteHash),
     );
     return toACVMField(0);
   }
 
-  async notifyNullifiedNote([innerNullifier]: ACVMField[], [innerNoteHash]: ACVMField[]): Promise<ACVMField> {
-    await this.typedOracle.notifyNullifiedNote(fromACVMField(innerNullifier), fromACVMField(innerNoteHash));
+  async notifyNullifiedNote([nonSiloedNullifier]: ACVMField[], [nonSiloedNoteHash]: ACVMField[]): Promise<ACVMField> {
+    await this.typedOracle.notifyNullifiedNote(fromACVMField(nonSiloedNullifier), fromACVMField(nonSiloedNoteHash));
     return toACVMField(0);
   }
 
-  async checkNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField> {
-    const exists = await this.typedOracle.checkNullifierExists(fromACVMField(innerNullifier));
+  async checkNullifierExists([nonSiloedNullifier]: ACVMField[]): Promise<ACVMField> {
+    const exists = await this.typedOracle.checkNullifierExists(fromACVMField(nonSiloedNullifier));
     return toACVMField(exists);
   }
 

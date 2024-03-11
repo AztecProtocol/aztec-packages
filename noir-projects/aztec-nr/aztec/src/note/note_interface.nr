@@ -1,4 +1,4 @@
-use crate::context::PrivateContext;
+use crate::context::{PrivateContext, PublicContext};
 use crate::note::note_header::NoteHeader;
 
 // docs:start:note_interface
@@ -7,7 +7,9 @@ trait NoteInterface<N> {
 
     fn deserialize_content(fields: [Field; N]) -> Self;
 
-    fn compute_note_content_hash(self) -> Field;
+    fn compute_inner_note_content_hash(self) -> Field;
+
+    fn compute_outer_note_content_hash(self) -> Field;
 
     fn get_header(self) -> NoteHeader;
 
@@ -23,3 +25,7 @@ trait NoteInterface<N> {
 }
 // docs:end:note_interface
 
+trait CompletableNoteInterface {
+    fn broadcast_partial_data(self, context: &mut PrivateContext, slot: Field) -> ();
+    fn broadcast_completion_from_public(self, context: &mut PublicContext) -> ();
+}
