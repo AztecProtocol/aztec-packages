@@ -9,7 +9,7 @@ import {
   PublicKernelCircuitPublicInputs,
   RootParityInputs,
   RootRollupInputs,
-  RootRollupPublicInputs
+  RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 
 /**
@@ -21,14 +21,14 @@ export interface RollupProver {
    * @param input - Input to the circuit.
    * @param publicInputs - Public inputs of the circuit obtained via simulation, modified by this call.
    */
-  getBaseParityProof(inputs: BaseParityInputs,  publicInputs: ParityPublicInputs): Promise<Proof>;
+  getBaseParityProof(inputs: BaseParityInputs, publicInputs: ParityPublicInputs): Promise<Proof>;
 
   /**
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    * @param publicInputs - Public inputs of the circuit obtained via simulation, modified by this call.
    */
-  getRootParityProof(inputs: RootParityInputs,  publicInputs: ParityPublicInputs): Promise<Proof>;
+  getRootParityProof(inputs: RootParityInputs, publicInputs: ParityPublicInputs): Promise<Proof>;
 
   /**
    * Creates a proof for the given input.

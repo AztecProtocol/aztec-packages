@@ -26,7 +26,6 @@ import {
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
-  ParityPublicInputs,
   PartialStateReference,
   PreviousRollupData,
   Proof,

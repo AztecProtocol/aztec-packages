@@ -30,7 +30,7 @@ export class EmptyRollupProver implements RollupProver {
    * @param _inputs - Inputs to the circuit.
    * @param publicInputs - Public inputs of the circuit obtained via simulation, modified by this call.
    */
-  async getBaseParityProof(inputs: BaseParityInputs,  publicInputs: ParityPublicInputs): Promise<Proof> {
+  async getBaseParityProof(inputs: BaseParityInputs, publicInputs: ParityPublicInputs): Promise<Proof> {
     publicInputs.aggregationObject = AggregationObject.makeFake();
     return new Proof(Buffer.alloc(EMPTY_PROOF_SIZE, 0));
   }
@@ -40,7 +40,7 @@ export class EmptyRollupProver implements RollupProver {
    * @param _inputs - Inputs to the circuit.
    * @param publicInputs - Public inputs of the circuit obtained via simulation, modified by this call.
    */
-  async getRootParityProof(inputs: RootParityInputs,  publicInputs: ParityPublicInputs): Promise<Proof> {
+  async getRootParityProof(inputs: RootParityInputs, publicInputs: ParityPublicInputs): Promise<Proof> {
     publicInputs.aggregationObject = AggregationObject.makeFake();
     return new Proof(Buffer.alloc(EMPTY_PROOF_SIZE, 0));
   }

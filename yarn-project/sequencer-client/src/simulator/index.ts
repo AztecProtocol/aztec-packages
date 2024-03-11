@@ -9,7 +9,7 @@ import {
   PublicKernelTailCircuitPrivateInputs,
   RootParityInputs,
   RootRollupInputs,
-  RootRollupPublicInputs
+  RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 
 /**

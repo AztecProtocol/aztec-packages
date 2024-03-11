@@ -7,7 +7,7 @@ import {
   ParityPublicInputs,
   RootParityInputs,
   RootRollupInputs,
-  RootRollupPublicInputs
+  RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
