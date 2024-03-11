@@ -85,7 +85,7 @@ describe('world_state_public_db', () => {
     // write a new value to our first value
     await publicStateDb.storageWrite(addresses[0], slots[0], newValue);
 
-    // should read back the uncommited value
+    // should read back the uncommitted value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
 
     // other slots should be unchanged
@@ -132,7 +132,7 @@ describe('world_state_public_db', () => {
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
   });
 
-  it('reads original value if rolled back uncommited value', async function () {
+  it('reads original value if rolled back uncommitted value', async function () {
     const publicStateDb = new WorldStatePublicDB(db);
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(dbValues[0]);
 
@@ -141,7 +141,7 @@ describe('world_state_public_db', () => {
     // write a new value to our first value
     await publicStateDb.storageWrite(addresses[0], slots[0], newValue);
 
-    // should read back the uncommited value
+    // should read back the uncommitted value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
 
     // now rollback
@@ -174,7 +174,7 @@ describe('world_state_public_db', () => {
     // write a new value to our first value
     await publicStateDb.storageWrite(addresses[0], slots[0], newValue2);
 
-    // should read back the uncommited value
+    // should read back the uncommitted value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue2);
   });
 
