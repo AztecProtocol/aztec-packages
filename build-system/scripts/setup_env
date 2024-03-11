@@ -85,7 +85,7 @@ if [ -n "\${BUILD_SYSTEM_INITIALIZED:-}" ]; then
   exit
 fi
 
-export BUILD_SYSTEM_INITIALIZED=1 >> $BASH_ENV
+export BUILD_SYSTEM_INITIALIZED=1
 export DOCKER_HOST_X86="ssh://build-instance-x86"
 export DOCKER_HOST_ARM="ssh://build-instance-arm"
 export ROOT_PATH=$ROOT_PATH
