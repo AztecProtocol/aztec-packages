@@ -78,7 +78,7 @@ class MockTranscript {
     template <typename T> T get_challenge(const std::string&)
     {
         // No heap overreads, please
-        ASSERT(current_challenge_index >= challenges.size());
+        ASSERT(current_challenge_index < challenges.size());
         T result = static_cast<T>(challenges[current_challenge_index]);
         current_challenge_index++;
         return result;
