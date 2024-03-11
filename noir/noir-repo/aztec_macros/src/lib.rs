@@ -12,7 +12,9 @@ use transforms::{
     },
 };
 
-use noirc_frontend::hir::def_collector::dc_crate::DefCollector;
+use noirc_frontend::hir::def_collector::dc_crate::{
+    DefCollector, UnresolvedFunctions, UnresolvedTraitImpl,
+};
 
 use noirc_frontend::macros_api::SortedModule;
 use noirc_frontend::macros_api::{CrateId, MacroError};
@@ -38,9 +40,10 @@ impl MacroProcessor for AztecMacro {
         &self,
         crate_id: &CrateId,
         context: &mut HirContext,
-        def_collector: &mut DefCollector,
+        collected_trait_impls: &[UnresolvedTraitImpl],
+        collected_functions: &mut Vec<UnresolvedFunctions>,
     ) -> Result<(), (MacroError, FileId)> {
-        transform_collected_defs(crate_id, context, def_collector)
+        transform_collected_defs(crate_id, context, collected_trait_impls, collected_functions)
     }
 
     fn process_typed_ast(
@@ -203,14 +206,15 @@ fn transform_module(
 fn transform_collected_defs(
     crate_id: &CrateId,
     context: &mut HirContext,
-    def_collector: &mut DefCollector,
+    collected_trait_impls: &[UnresolvedTraitImpl],
+    collected_functions: &mut Vec<UnresolvedFunctions>,
 ) -> Result<(), (MacroError, FileId)> {
     if has_aztec_dependency(crate_id, context) {
         inject_compute_note_hash_and_nullifier(
             crate_id,
             context,
-            &def_collector.collected_traits_impls,
-            &mut def_collector.collected_functions,
+            collected_trait_impls,
+            collected_functions,
         )
     } else {
         Ok(())
