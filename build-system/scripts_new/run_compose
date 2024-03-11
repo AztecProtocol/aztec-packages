@@ -37,13 +37,6 @@ cp $COMPOSE_FILE $TARGET_COMPOSE_FILE
 for DEP_REPO in $(query_manifest runDependencies $REPOSITORY); do
   # We want the parent image tag without any arch suffix.
   DEP_IMAGE_TAG=$(calculate_image_tag $DEP_REPO "")
-  echo "Looking for image $DEP_REPO:$DEP_IMAGE_TAG..."
-
-  # Attempt to locate image.
-  if ! image_exists $DEP_REPO $DEP_IMAGE_TAG; then
-    echo "Image not available. Aborting."
-    exit 1
-  fi
 
   # Substitute references to images, with the relevent built image uri.
   DEPLOY_URI=aztecprotocol/$DEP_REPO

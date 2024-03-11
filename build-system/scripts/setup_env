@@ -155,7 +155,7 @@ if [[ "$COMMIT_MESSAGE" == *"[ci new-ci]"* ]]; then
     apk add docker docker-compose
   fi
   # Seems docker doesn't honor SSH_CONFIG_PATH, so copy file.
-  cp $BUILD_SYSTEM_PATH/remote/ssh_config ~/.ssh/config
+  [ ! -f ~/.ssh/config ] && cp $BUILD_SYSTEM_PATH/remote/ssh_config ~/.ssh/config
   # Prioritise new scripts.
   echo export PATH=$BUILD_SYSTEM_PATH/scripts_new:\$PATH >> $BASH_ENV
 fi

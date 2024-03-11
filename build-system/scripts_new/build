@@ -62,20 +62,12 @@ fi
 for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
   # We want the parent image tag without any arch suffix.
   PARENT_IMAGE_TAG=$(calculate_image_tag $PARENT_REPO "")
-  echo "Looking for image $PARENT_REPO:$PARENT_IMAGE_TAG..."
-
-  # Attempt to locate image.
-  if ! image_exists $PARENT_REPO $PARENT_IMAGE_TAG; then
-    echo "Image not available. Aborting."
-    exit 1
-  fi
 
   # Need to be specific about platform as sometimes we do arm builds from x86 images.
-  PARENT_MULTIARCH=$(query_manifest multiarch $PARENT_REPO)
-  if [ "$PARENT_MULTIARCH" == "false" ]; then
+  PARENT_ARM=$(query_manifest arm $PARENT_REPO)
+  PLATFORM=''
+  if [ "$PARENT_ARM" == "false" ]; then
     PLATFORM='--platform=linux/amd64'
-  else
-    PLATFORM=''
   fi
 
   # Substitute references to parent repo, with the relevent built image uri.
