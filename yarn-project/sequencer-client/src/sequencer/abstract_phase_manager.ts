@@ -37,6 +37,7 @@ import {
   ReadRequest,
   SideEffect,
   SideEffectLinkedToNoteHash,
+  SideEffectType,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
@@ -202,11 +203,12 @@ export abstract class AbstractPhaseManager {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
 
+        const sideEffectCounter = nextSideEffectCounter(tx);
         // NOTE: temporary glue to incorporate avm execution calls
         const simulator = (execution: PublicExecution, globalVariables: GlobalVariables) =>
           env.AVM_ENABLED
-            ? this.publicExecutor.simulateAvm(execution, globalVariables)
-            : this.publicExecutor.simulate(execution, globalVariables);
+            ? this.publicExecutor.simulateAvm(execution, globalVariables, sideEffectCounter)
+            : this.publicExecutor.simulate(execution, globalVariables, sideEffectCounter);
 
         const result = isExecutionRequest ? await simulator(current, this.globalVariables) : current;
 
@@ -511,4 +513,25 @@ function patchPublicStorageActionOrdering(
       ? MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
       : MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
+}
+
+function nextSideEffectCounter(tx: Tx) {
+  const sideEffectCounters = [
+    ...tx.data.endNonRevertibleData.newNoteHashes.map(extractCounter),
+    ...tx.data.endNonRevertibleData.newNullifiers.map(extractCounter),
+    ...tx.data.endNonRevertibleData.publicCallStack.map(extractCounter),
+    ...tx.data.end.newNoteHashes.map(extractCounter),
+    ...tx.data.end.newNullifiers.map(extractCounter),
+    ...tx.data.end.publicCallStack.map(extractCounter),
+  ];
+
+  return maxFr(...sideEffectCounters).toNumber() + 1;
+}
+
+function extractCounter(x: SideEffectType | CallRequest): Fr {
+  return 'counter' in x ? x.counter : x.startSideEffectCounter;
+}
+
+function maxFr(...xs: Fr[]): Fr {
+  return xs.reduce((a, b) => (a.lt(b) ? b : a));
 }

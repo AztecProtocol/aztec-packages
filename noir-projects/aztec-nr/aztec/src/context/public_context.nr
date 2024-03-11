@@ -100,7 +100,7 @@ impl PublicContext {
     pub fn new(inputs: PublicContextInputs, args_hash: Field) -> PublicContext {
         PublicContext {
             inputs,
-            side_effect_counter: inputs.call_context.start_side_effect_counter,
+            side_effect_counter: inputs.start_side_effect_counter,
             args_hash,
             return_values: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
