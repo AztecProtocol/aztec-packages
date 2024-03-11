@@ -39,7 +39,6 @@ TEST_F(MockCircuits, PinRecursionKernelSizes)
     const auto run_test = [](bool large) {
         {
             Goblin goblin;
-            GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
             Goblin::AccumulationOutput kernel_accum;
             GoblinUltraCircuitBuilder app_circuit{ goblin.op_queue };
             GoblinMockCircuits::construct_mock_function_circuit(app_circuit, large);

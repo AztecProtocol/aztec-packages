@@ -42,9 +42,6 @@ TEST_F(GoblinRecursionTests, Vanilla)
 
     Goblin::AccumulationOutput kernel_accum;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723):
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
-
     size_t NUM_CIRCUITS = 2;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
 

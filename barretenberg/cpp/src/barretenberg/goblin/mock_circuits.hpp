@@ -7,7 +7,6 @@
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
@@ -167,11 +166,8 @@ class GoblinMockCircuits {
      *
      * @param builder
      */
-    static void construct_simple_initial_circuit(GoblinUltraBuilder& builder)
+    static void construct_simple_circuit(GoblinUltraBuilder& builder)
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/800) Testing cleanup
-        perform_op_queue_interactions_for_mock_first_circuit(builder.op_queue);
-
         // Add some arbitrary ecc op gates
         for (size_t i = 0; i < 3; ++i) {
             auto point = Point::random_element();

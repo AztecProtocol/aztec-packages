@@ -2,6 +2,7 @@
 
 #include "barretenberg/eccvm/eccvm_composer.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
@@ -88,6 +89,7 @@ class Goblin {
     AccumulationOutput accumulator; // Used only for ACIR methods for now
 
   public:
+    Goblin() { GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue); }
     /**
      * @brief Construct a GUH proof and a merge proof for the present circuit.
      * @details If there is a previous merge proof, recursively verify it.

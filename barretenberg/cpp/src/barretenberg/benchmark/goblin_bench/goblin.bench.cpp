@@ -65,10 +65,6 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinFull)(benchmark::State& state)
 {
     Goblin goblin;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723): Simply populate the OpQueue with some data
-    // and corresponding commitments so the merge protocol has "prev" data into which it can accumulate
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
-
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
         // Perform a specified number of iterations of function/kernel accumulation
@@ -87,9 +83,6 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinAccumulate)(benchmark::State& state)
 {
     Goblin goblin;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723)
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
-
     // Perform a specified number of iterations of function/kernel accumulation
     for (auto _ : state) {
         perform_goblin_accumulation_rounds(state, goblin);
@@ -103,9 +96,6 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinAccumulate)(benchmark::State& state)
 BENCHMARK_DEFINE_F(GoblinBench, GoblinECCVMProve)(benchmark::State& state)
 {
     Goblin goblin;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723)
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
 
     // Perform a specified number of iterations of function/kernel accumulation
     perform_goblin_accumulation_rounds(state, goblin);
@@ -123,9 +113,6 @@ BENCHMARK_DEFINE_F(GoblinBench, GoblinECCVMProve)(benchmark::State& state)
 BENCHMARK_DEFINE_F(GoblinBench, GoblinTranslatorProve)(benchmark::State& state)
 {
     Goblin goblin;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723)
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
 
     // Perform a specified number of iterations of function/kernel accumulation
     perform_goblin_accumulation_rounds(state, goblin);
