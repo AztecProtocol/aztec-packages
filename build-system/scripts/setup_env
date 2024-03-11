@@ -81,11 +81,9 @@ fi
 # Ensure that we only ever set these env vars on the first bash instantiation.
 # Otherwise every new invocation of bash will reset the vars.
 cat >> $BASH_ENV << EOF
-if [ -n "\${BUILD_SYSTEM_INITIALIZED:-}" ]; then
-  exit
-fi
+# Ensure we only set these variables in the initial bash invocation.
+unset BASH_ENV
 
-export BUILD_SYSTEM_INITIALIZED=1
 export DOCKER_HOST_X86="ssh://build-instance-x86"
 export DOCKER_HOST_ARM="ssh://build-instance-arm"
 export ROOT_PATH=$ROOT_PATH
