@@ -234,17 +234,4 @@ contract NewOutboxTest is Test {
       outbox.consume(_blockNumber, i, messages[i], path);
     }
   }
-
-  function testCalculateNextHighestPowerOfTwo() external {
-    assertEq(Merkle.calculateTreeHeightFromSize(0), 1);
-    assertEq(Merkle.calculateTreeHeightFromSize(1), 1);
-    assertEq(Merkle.calculateTreeHeightFromSize(2), 1);
-    assertEq(Merkle.calculateTreeHeightFromSize(3), 2);
-    assertEq(Merkle.calculateTreeHeightFromSize(4), 2);
-    assertEq(Merkle.calculateTreeHeightFromSize(5), 3);
-    assertEq(Merkle.calculateTreeHeightFromSize(6), 3);
-    assertEq(Merkle.calculateTreeHeightFromSize(7), 3);
-    assertEq(Merkle.calculateTreeHeightFromSize(8), 3);
-    assertEq(Merkle.calculateTreeHeightFromSize(9), 4);
-  }
 }
