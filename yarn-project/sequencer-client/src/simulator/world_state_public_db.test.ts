@@ -210,4 +210,48 @@ describe('world_state_public_db', () => {
     // should read back the previously committed value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
   });
+
+  it('can use checkpoints', async function () {
+    const publicStateDb = new WorldStatePublicDB(db);
+    const read = () => publicStateDb.storageRead(addresses[0], slots[0]);
+    const write = (value: Fr) => publicStateDb.storageWrite(addresses[0], slots[0], value);
+
+    const newValue = new Fr(dbValues[0].toBigInt() + 1n);
+    const newValue2 = new Fr(dbValues[0].toBigInt() + 2n);
+    const newValue3 = new Fr(dbValues[0].toBigInt() + 3n);
+    const newValue4 = new Fr(dbValues[0].toBigInt() + 4n);
+    const newValue5 = new Fr(dbValues[0].toBigInt() + 5n);
+    const newValue6 = new Fr(dbValues[0].toBigInt() + 6n);
+
+    // basic
+    expect(await read()).toEqual(dbValues[0]);
+    await write(newValue);
+    await publicStateDb.checkpoint();
+    await write(newValue2);
+    await publicStateDb.rollbackToCheckpoint();
+    expect(await read()).toEqual(newValue);
+    await publicStateDb.rollbackToCommit();
+    expect(await read()).toEqual(dbValues[0]);
+
+    // write, checkpoint, commit, rollback to checkpoint, rollback to commit
+    await write(newValue3);
+    await publicStateDb.checkpoint();
+    await publicStateDb.rollbackToCheckpoint();
+    expect(await read()).toEqual(newValue3);
+    await publicStateDb.commit();
+    await publicStateDb.rollbackToCommit();
+    expect(await read()).toEqual(newValue3);
+
+    // writes after checkpoint take precedence
+    await write(newValue4);
+    await publicStateDb.checkpoint();
+    await write(newValue5);
+    await publicStateDb.commit();
+    expect(await read()).toEqual(newValue5);
+
+    // rollback to checkpoint does not cross commit boundaries
+    await write(newValue6);
+    await publicStateDb.rollbackToCheckpoint();
+    expect(await read()).toEqual(newValue5);
+  });
 });
