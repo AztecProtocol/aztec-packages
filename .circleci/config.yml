@@ -78,7 +78,9 @@ jobs:
       - *setup_env
       - run:
           name: "Build"
-          command: earthly +build-ci
+          command: |
+            git submodule update --init --recursive
+            earthly +build-ci
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults
