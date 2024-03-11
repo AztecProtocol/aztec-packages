@@ -33,6 +33,7 @@ import {
   RollupKernelCircuitPublicInputs,
   RollupKernelData,
   RollupTypes,
+  RootParityInput,
   RootRollupInputs,
   RootRollupPublicInputs,
   StateDiffHints,
@@ -85,6 +86,7 @@ export class SoloBlockBuilder implements BlockBuilder {
    * Builds an L2 block with the given number containing the given txs, updating state trees.
    * @param globalVariables - Global variables to be used in the block.
    * @param txs - Processed transactions to include in the block.
+   * @param newModelL1ToL2Messages - L1 to L2 messages emitted by the new inbox.
    * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
    * @param timestamp - Timestamp of the block.
    * @returns The new L2 block and a correctness proof as returned by the root rollup circuit.
@@ -92,13 +94,19 @@ export class SoloBlockBuilder implements BlockBuilder {
   public async buildL2Block(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
+    newModelL1ToL2Messages: Buffer[], // TODO(#4492): Rename this when purging the old inbox
     newL1ToL2Messages: Fr[],
   ): Promise<[L2Block, Proof]> {
     // Check txs are good for processing by checking if all the tree snapshots in header are non-empty
     this.validateTxs(txs);
 
     // We fill the tx batch with empty txs, we process only one tx at a time for now
-    const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
+    const [circuitsOutput, proof] = await this.runCircuits(
+      globalVariables,
+      txs,
+      newModelL1ToL2Messages,
+      newL1ToL2Messages,
+    );
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const txEffects: TxEffect[] = txs.map(tx => toTxEffect(tx));
@@ -149,13 +157,16 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async runCircuits(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    newL1ToL2Messages: Fr[],
+    newModelL1ToL2Messages: Buffer[], // TODO(#4492): Rename this when purging the old inbox
+    newL1ToL2Messages: Fr[], // TODO(#4492): Nuke this when purging the old inbox
   ): Promise<[RootRollupPublicInputs, Proof]> {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
     if (txs.length < 2 || (txs.length & (txs.length - 1)) !== 0) {
       throw new Error(`Length of txs for the block should be a power of two and at least two (got ${txs.length})`);
     }
+
+    // TODO: run the parity circuits here
 
     // padArrayEnd throws if the array is already full. Otherwise it pads till we reach the required size
     const newL1ToL2MessagesTuple = padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
@@ -269,10 +280,11 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async rootRollupCircuit(
     left: [BaseOrMergeRollupPublicInputs, Proof],
     right: [BaseOrMergeRollupPublicInputs, Proof],
+    l1ToL2Roots: RootParityInput,
     newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
   ): Promise<[RootRollupPublicInputs, Proof]> {
     this.debug(`Running root rollup circuit`);
-    const rootInput = await this.getRootRollupInput(...left, ...right, newL1ToL2Messages);
+    const rootInput = await this.getRootRollupInput(...left, ...right, l1ToL2Roots, newL1ToL2Messages);
 
     // Update the local trees to include the new l1 to l2 messages
     await this.db.appendLeaves(
@@ -365,6 +377,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     rollupProofLeft: Proof,
     rollupOutputRight: BaseOrMergeRollupPublicInputs,
     rollupProofRight: Proof,
+    l1ToL2Roots: RootParityInput,
     newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
   ) {
     const vk = this.getVerificationKey(rollupOutputLeft.rollupType);
@@ -406,6 +419,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     return RootRollupInputs.from({
       previousRollupData,
+      l1ToL2Roots,
       newL1ToL2Messages,
       newL1ToL2MessageTreeRootSiblingPath,
       startL1ToL2MessageTreeSnapshot,

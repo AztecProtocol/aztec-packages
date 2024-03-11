@@ -10,6 +10,13 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
  */
 export interface L1ToL2MessageSource {
   /**
+   * Gets new L1 to L2 message (to be) included in a given block.
+   * @param blockNumber - L2 block number to get messages for.
+   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
+   */
+  getNewL1ToL2Messages(blockNumber: bigint): Promise<Buffer[]>;
+
+  /**
    * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
    * @param limit - The maximum number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
    * @returns The requested L1 to L2 messages' keys.
