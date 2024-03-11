@@ -87,17 +87,19 @@ contract NewOutbox is INewOutbox {
       revert Errors.Outbox__InvalidChainId();
     }
 
-    bytes32 expectedRoot = roots[_l2BlockNumber].root;
+    RootData storage rootData = roots[_l2BlockNumber];
+
+    bytes32 expectedRoot = rootData.root;
 
     if (expectedRoot == 0) {
       revert Errors.Outbox__NothingToConsumeAtBlock(_l2BlockNumber);
     }
 
-    if (roots[_l2BlockNumber].nullified[_leafIndex]) {
+    if (rootData.nullified[_leafIndex]) {
       revert Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex);
     }
 
-    uint256 expectedHeight = roots[_l2BlockNumber].height;
+    uint256 expectedHeight = rootData.height;
 
     if (expectedHeight != _path.length) {
       revert Errors.Outbox__InvalidPathLength(expectedHeight, _path.length);
@@ -107,7 +109,7 @@ contract NewOutbox is INewOutbox {
 
     Merkle._verifyMembership(_path, messageHash, _leafIndex, expectedRoot);
 
-    roots[_l2BlockNumber].nullified[_leafIndex] = true;
+    rootData.nullified[_leafIndex] = true;
 
     emit MessageConsumed(_l2BlockNumber, expectedRoot, messageHash, _leafIndex);
   }
