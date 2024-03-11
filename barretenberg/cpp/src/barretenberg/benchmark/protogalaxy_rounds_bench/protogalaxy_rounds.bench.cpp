@@ -22,7 +22,7 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<Prover
 
     const auto construct_instance = [&]() {
         Builder builder;
-        MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates); // WORKTODO
+        MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
         return std::make_shared<ProverInstance>(builder);
     };
 

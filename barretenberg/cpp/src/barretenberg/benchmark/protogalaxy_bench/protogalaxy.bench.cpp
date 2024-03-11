@@ -25,7 +25,7 @@ template <typename Flavor> void fold_one(State& state) noexcept
 
     const auto construct_instance = [&]() {
         Builder builder;
-        MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates); // WORKTODO: check size
+        MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
         return std::make_shared<ProverInstance>(builder);
     };
 

@@ -32,8 +32,7 @@ class DataBusComposerTests : public ::testing::Test {
     void generate_test_circuit(auto& builder)
     {
         // Add some ecc op gates and arithmetic gates
-        MockCircuits::construct_arithmetic_circuit(builder);
-        MockCircuits::construct_arithmetic_circuit(builder);
+        GoblinMockCircuits::construct_simple_initial_circuit(builder);
     }
 };
 
