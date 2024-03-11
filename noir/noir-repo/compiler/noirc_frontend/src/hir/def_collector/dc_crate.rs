@@ -115,15 +115,15 @@ pub struct UnresolvedGlobal {
 
 /// Given a Crate root, collect all definitions in that crate
 pub struct DefCollector {
-    pub def_map: CrateDefMap,
-    pub collected_imports: Vec<ImportDirective>,
-    pub collected_functions: Vec<UnresolvedFunctions>,
-    pub collected_types: BTreeMap<StructId, UnresolvedStruct>,
-    pub collected_type_aliases: BTreeMap<TypeAliasId, UnresolvedTypeAlias>,
-    pub collected_traits: BTreeMap<TraitId, UnresolvedTrait>,
-    pub collected_globals: Vec<UnresolvedGlobal>,
-    pub collected_impls: ImplMap,
-    pub collected_traits_impls: Vec<UnresolvedTraitImpl>,
+    pub(crate) def_map: CrateDefMap,
+    pub(crate) collected_imports: Vec<ImportDirective>,
+    pub(crate) collected_functions: Vec<UnresolvedFunctions>,
+    pub(crate) collected_types: BTreeMap<StructId, UnresolvedStruct>,
+    pub(crate) collected_type_aliases: BTreeMap<TypeAliasId, UnresolvedTypeAlias>,
+    pub(crate) collected_traits: BTreeMap<TraitId, UnresolvedTrait>,
+    pub(crate) collected_globals: Vec<UnresolvedGlobal>,
+    pub(crate) collected_impls: ImplMap,
+    pub(crate) collected_traits_impls: Vec<UnresolvedTraitImpl>,
 }
 
 /// Maps the type and the module id in which the impl is defined to the functions contained in that
@@ -251,12 +251,17 @@ impl DefCollector {
 
         let submodules = vecmap(def_collector.def_map.modules().iter(), |(index, _)| index);
         // Add the current crate to the collection of DefMaps
-        context.def_maps.insert(crate_id, def_collector.def_map.clone());
+        context.def_maps.insert(crate_id, def_collector.def_map);
 
         // TODO(#4653): generalize this function
         for macro_processor in macro_processors {
             macro_processor
-                .process_collected_defs(&crate_id, context, &mut def_collector)
+                .process_collected_defs(
+                    &crate_id,
+                    context,
+                    &def_collector.collected_traits_impls,
+                    &mut def_collector.collected_functions,
+                )
                 .unwrap_or_else(|(macro_err, file_id)| {
                     errors.push((macro_err.into(), file_id));
                 });
