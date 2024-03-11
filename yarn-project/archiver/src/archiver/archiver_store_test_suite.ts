@@ -223,7 +223,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
     });
 
-    // TODO(#4492): Drop the "New" bellow once the old inbox is purged
+    // TODO(#4492): Drop the "New" below once the old inbox is purged
     describe('New L1 to L2 Messages', () => {
       const l2BlockNumber = 13n;
       const l1ToL2MessageSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
