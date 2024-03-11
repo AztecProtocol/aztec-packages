@@ -4,6 +4,7 @@ import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
+  BaseParityInputs,
   BaseRollupInputs,
   CallContext,
   CallRequest,
@@ -92,6 +93,7 @@ import {
   RollupKernelCircuitPublicInputs,
   RollupKernelData,
   RootParityInput,
+  RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
   SettledReadHint,
@@ -185,6 +187,7 @@ import { MergeRollupInputs as MergeRollupInputsNoir } from './types/rollup_merge
 import {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
+  BaseParityInputs as BaseParityInputsNoir,
   ConstantRollupData as ConstantRollupDataNoir,
   ContentCommitment as ContentCommitmentNoir,
   Field,
@@ -195,6 +198,7 @@ import {
   PartialStateReference as PartialStateReferenceNoir,
   PreviousRollupData as PreviousRollupDataNoir,
   RootParityInput as RootParityInputNoir,
+  RootParityInputs as RootParityInputsNoir,
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
   StateReference as StateReferenceNoir,
@@ -1927,6 +1931,28 @@ export function mapStateDiffHintsToNoir(hints: StateDiffHints): StateDiffHintsNo
     note_hash_subtree_sibling_path: mapTuple(hints.noteHashSubtreeSiblingPath, mapFieldToNoir),
     nullifier_subtree_sibling_path: mapTuple(hints.nullifierSubtreeSiblingPath, mapFieldToNoir),
     public_data_sibling_path: mapTuple(hints.publicDataSiblingPath, mapFieldToNoir),
+  };
+}
+
+/**
+ * Maps base parity inputs to noir.
+ * @param inputs - The circuits.js base parity inputs.
+ * @returns The noir base parity inputs.
+ */
+export function mapBaseParityInputsToNoir(inputs: BaseParityInputs): BaseParityInputsNoir {
+  return {
+    msgs: mapTuple(inputs.msgs, mapSha256HashToNoir),
+  };
+}
+
+/**
+ * Maps root parity inputs to noir.
+ * @param inputs - The circuits.js root parity inputs.
+ * @returns The noir root parity inputs.
+ */
+export function mapRootParityInputsToNoir(inputs: RootParityInputs): RootParityInputsNoir {
+  return {
+    children: mapTuple(inputs.children, mapRootParityInputToNoir),
   };
 }
 

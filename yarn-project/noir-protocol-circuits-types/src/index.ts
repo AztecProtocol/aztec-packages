@@ -1,5 +1,6 @@
 import {
   BaseOrMergeRollupPublicInputs,
+  BaseParityInputs,
   BaseRollupInputs,
   MergeRollupInputs,
   PrivateKernelInitCircuitPrivateInputs,
@@ -10,6 +11,7 @@ import {
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
+  RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
 } from '@aztec/circuits.js';
@@ -19,6 +21,8 @@ import { WasmBlackBoxFunctionSolver, createBlackBoxSolver, executeCircuitWithBla
 import { Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 import { WitnessMap } from '@noir-lang/types';
 
+import BaseParityJson from './target/parity_base.json' assert { type: 'json' };
+import RootParityJson from './target/parity_root.json' assert { type: 'json' };
 import PrivateKernelInitJson from './target/private_kernel_init.json' assert { type: 'json' };
 import PrivateKernelInitSimulatedJson from './target/private_kernel_init_simulated.json' assert { type: 'json' };
 import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert { type: 'json' };
@@ -34,6 +38,7 @@ import MergeRollupJson from './target/rollup_merge.json' assert { type: 'json' }
 import RootRollupJson from './target/rollup_root.json' assert { type: 'json' };
 import {
   mapBaseOrMergeRollupPublicInputsFromNoir,
+  mapBaseParityInputsToNoir,
   mapBaseRollupInputsToNoir,
   mapMergeRollupInputsToNoir,
   mapPrivateKernelInitCircuitPrivateInputsToNoir,
@@ -44,6 +49,7 @@ import {
   mapPublicKernelCircuitPrivateInputsToNoir,
   mapPublicKernelCircuitPublicInputsFromNoir,
   mapPublicKernelTailCircuitPrivateInputsToNoir,
+  mapRootParityInputsToNoir,
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
 } from './type_conversion.js';
@@ -84,6 +90,10 @@ export const PublicKernelAppLogicArtifact = PublicKernelAppLogicSimulatedJson as
 export const PublicKernelTeardownArtifact = PublicKernelTeardownSimulatedJson as NoirCompiledCircuit;
 
 export const PublicKernelTailArtifact = PublicKernelTailSimulatedJson as NoirCompiledCircuit;
+
+export const BaseParityArtifact = BaseParityJson as NoirCompiledCircuit;
+
+export const RootParityArtifact = RootParityJson as NoirCompiledCircuit;
 
 export const BaseRollupArtifact = BaseRollupSimulatedJson as NoirCompiledCircuit;
 
@@ -148,6 +158,28 @@ export async function executeTail(
   const returnType = await executePrivateKernelTailWithACVM(params);
 
   return mapPrivateKernelTailCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Converts the inputs to the base parity circuit into a witness map.
+ * @param inputs - The base parity inputs.
+ * @returns The witness map
+ */
+export function convertBaseParityInputsToWitnessMap(inputs: BaseParityInputs): WitnessMap {
+  const mapped = mapBaseParityInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(BaseParityJson.abi as Abi, { inputs: mapped as any });
+  return initialWitnessMap;
+}
+
+/**
+ * Converts the inputs to the root parity circuit into a witness map.
+ * @param inputs - The root parity inputs.
+ * @returns The witness map
+ */
+export function convertRootParityInputsToWitnessMap(inputs: RootParityInputs): WitnessMap {
+  const mapped = mapRootParityInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(RootParityJson.abi as Abi, { inputs: mapped as any });
+  return initialWitnessMap;
 }
 
 /**
