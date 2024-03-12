@@ -131,7 +131,7 @@ contract MerkleTest is Test, MerkleLibWrapper {
     assertEq(path2[2], expectedPath2[2]);
   }
 
-  function testCalculateNextHighestPowerOfTwo() external {
+  function testCalculateTreeHeightFromSize() external {
     assertEq(Merkle.calculateTreeHeightFromSize(0), 1);
     assertEq(Merkle.calculateTreeHeightFromSize(1), 1);
     assertEq(Merkle.calculateTreeHeightFromSize(2), 1);
