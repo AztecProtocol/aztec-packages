@@ -226,42 +226,6 @@ jobs:
           command: cond_spot_run_build avm-transpiler 32
           aztec_manifest_key: avm-transpiler
 
-  barretenberg-acir-tests-bb:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_build barretenberg-acir-tests-bb 32
-          aztec_manifest_key: barretenberg-acir-tests-bb
-
-  barretenberg-acir-tests-bb-sol:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_build barretenberg-acir-tests-bb-sol 32
-          aztec_manifest_key: barretenberg-acir-tests-bb-sol
-
-  bb-js-acir-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_build barretenberg-acir-tests-bb.js 32
-          aztec_manifest_key: barretenberg-acir-tests-bb.js
-
   barretenberg-x86_64-linux-gcc:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -415,6 +379,42 @@ jobs:
           name: "Test"
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
           aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+
+  barretenberg-acir-tests-bb:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: cond_spot_run_build barretenberg-acir-tests-bb 32
+          aztec_manifest_key: barretenberg-acir-tests-bb
+
+  barretenberg-acir-tests-bb-sol:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: cond_spot_run_build barretenberg-acir-tests-bb-sol 32
+          aztec_manifest_key: barretenberg-acir-tests-bb-sol
+
+  bb-js-acir-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: cond_spot_run_build barretenberg-acir-tests-bb.js 32
+          aztec_manifest_key: barretenberg-acir-tests-bb.js
 
   l1-contracts:
     machine:
