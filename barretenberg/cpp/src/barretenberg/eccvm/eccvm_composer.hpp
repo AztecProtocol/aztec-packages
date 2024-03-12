@@ -34,8 +34,7 @@ template <IsECCVMFlavor Flavor> class ECCVMComposer_ {
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bool contains_recursive_proof = false;
     bool computed_witness = false;
-    ECCVMComposer_()
-        requires(std::same_as<Flavor, ECCVMFlavor>)
+    ECCVMComposer_() requires(std::same_as<Flavor, ECCVMFlavor>)
     {
         crs_factory_ = bb::srs::get_grumpkin_crs_factory();
     };
@@ -70,6 +69,7 @@ template <IsECCVMFlavor Flavor> class ECCVMComposer_ {
 
     void compute_commitment_key(size_t circuit_size)
     {
+        BB_OP_COUNT_TIME_NAME("ECCVMComposer::compute_commitment_key");
         commitment_key = std::make_shared<CommitmentKey>(circuit_size);
     };
 };
