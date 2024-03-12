@@ -4,7 +4,6 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use acvm::acir::circuit::Program;
-use noirc_driver::ContractFunctionType;
 
 use crate::transpile::brillig_to_avm;
 use crate::utils::extract_brillig_from_acir;
