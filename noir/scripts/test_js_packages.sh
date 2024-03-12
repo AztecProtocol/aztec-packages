@@ -15,6 +15,6 @@ export PATH="${PATH}:/usr/src/noir/noir-repo/target/release/"
 
 yarn --immutable
 yarn build
-./.github/scripts/playwright-install.sh
+./.github/scriptsss/playwright-install.sh
 
 yarn test
