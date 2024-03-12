@@ -24,6 +24,8 @@ struct PrivateCircuitPublicInputs {
 
     min_revertible_side_effect_counter: u32,
 
+    max_block_number: u32,
+
     note_hash_read_requests: [SideEffect; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     nullifier_read_requests: [ReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
     nullifier_key_validation_requests: [NullifierKeyValidationRequest; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
@@ -60,6 +62,7 @@ impl Eq for PrivateCircuitPublicInputs {
         self.call_context.eq(other.call_context) &
         self.args_hash.eq(other.args_hash) &
         (self.return_values == other.return_values) &
+        (self.max_block_number == other.max_block_number) &
         (self.note_hash_read_requests == other.note_hash_read_requests) &
         (self.nullifier_read_requests == other.nullifier_read_requests) &
         (self.nullifier_key_validation_requests == other.nullifier_key_validation_requests) &
@@ -88,6 +91,8 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         fields.extend_from_array(self.return_values);
 
         fields.push(self.min_revertible_side_effect_counter as Field);
+
+        fields.push(self.max_block_number as Field);
 
         for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL{
             fields.extend_from_array(self.note_hash_read_requests[i].serialize());
@@ -134,6 +139,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             args_hash: reader.read(),
             return_values: reader.read_array([0; RETURN_VALUES_LENGTH]),
             min_revertible_side_effect_counter: reader.read() as u32,
+            max_block_number: reader.read() as u32,
             note_hash_read_requests: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]),
             nullifier_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL]),
             nullifier_key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialize, [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL]),

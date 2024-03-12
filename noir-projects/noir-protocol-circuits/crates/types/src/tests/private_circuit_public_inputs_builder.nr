@@ -26,6 +26,8 @@ struct PrivateCircuitPublicInputsBuilder {
 
     min_revertible_side_effect_counter: u32,
 
+    max_block_number: u32,
+
     note_hash_read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequest, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL>,
@@ -95,6 +97,7 @@ impl PrivateCircuitPublicInputsBuilder {
         };
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
+        public_inputs.max_block_number = 4294967295; // TODO: replace with u32::MAX once it's implemented
         public_inputs.contract_deployment_data = contract_deployment_data;
         public_inputs.historical_header = fixtures::HEADER;
         public_inputs.chain_id = 0;
@@ -109,6 +112,7 @@ impl PrivateCircuitPublicInputsBuilder {
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
+            max_block_number: self.max_block_number,
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
