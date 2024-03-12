@@ -13,7 +13,6 @@ import {
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
-  CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
   CallContext,
   CallRequest,
   CallerContext,
@@ -21,7 +20,6 @@ import {
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
-  ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   FUNCTION_TREE_HEIGHT,
@@ -34,7 +32,6 @@ import {
   GrumpkinScalar,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   L2ToL1Message,
-  MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_CALL,
@@ -50,6 +47,8 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
+  MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
@@ -73,7 +72,6 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_FIELDS_PER_SHA256,
-  NewContractData,
   NoteHashReadRequestMembershipWitness,
   NullifierKeyValidationRequest,
   NullifierKeyValidationRequestContext,
@@ -157,8 +155,7 @@ export function makeNewSideEffectLinkedToNoteHash(seed: number): SideEffectLinke
  */
 export function makeTxContext(seed: number): TxContext {
   // @todo @LHerskind should probably take value for chainId as it will be verified later.
-  // @todo @LHerskind should probably take value for version as it will be verified later.
-  return new TxContext(false, false, true, makeContractDeploymentData(seed), Fr.ZERO, Fr.ZERO);
+  return new TxContext(false, false, new Fr(seed), Fr.ZERO);
 }
 
 /**
@@ -286,7 +283,6 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
-    tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
     tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xd00),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
@@ -317,7 +313,6 @@ export function makeCombinedAccumulatedRevertibleData(seed = 1, full = false): P
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
-    tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
     tupleGenerator(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xd00),
     tupleGenerator(MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
@@ -341,7 +336,6 @@ export function makeFinalAccumulatedData(seed = 1, full = false): PrivateAccumul
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
-    tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
   );
 }
 
@@ -365,21 +359,13 @@ export function makeCombinedAccumulatedNonRevertibleData(seed = 1, full = false)
 
   return new PublicAccumulatedNonRevertibleData(
     tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x91),
+    tupleGenerator(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x95),
     tupleGenerator(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x101),
     tupleGenerator(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x201),
     tupleGenerator(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x501),
     tupleGenerator(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0x601),
     tupleGenerator(MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0x701),
   );
-}
-
-/**
- * Creates arbitrary contract data.
- * @param seed - The seed to use for generating the contract data.
- * @returns A contract data.
- */
-export function makeNewContractData(seed = 1): NewContractData {
-  return new NewContractData(makeAztecAddress(seed), makeEthAddress(seed + 1), fr(seed + 2));
 }
 
 /**
@@ -410,7 +396,6 @@ export function makeCallContext(seed = 0, storageContractAddress = makeAztecAddr
     makeSelector(seed + 3),
     false,
     false,
-    false,
     0,
   );
 }
@@ -433,6 +418,7 @@ export function makePublicCircuitPublicInputs(
     fr(seed + 0x100),
     tupleGenerator(RETURN_VALUES_LENGTH, fr, seed + 0x200),
     tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x400),
+    tupleGenerator(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x420),
     tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, makeContractStorageUpdateRequest, seed + 0x400),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
@@ -532,7 +518,6 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
     functionSelector: makeSelector(seed + 3),
     isStaticCall: false,
     isDelegateCall: false,
-    isContractDeployment: false,
     startSideEffectCounter: 0,
   });
   return new PublicCallRequest(
@@ -866,7 +851,6 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
       makeSelector(seed + 4),
       true,
       true,
-      true,
       0,
     ),
     argsHash: fr(seed + 0x100),
@@ -890,25 +874,9 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     encryptedLogPreimagesLength: fr(seed + 0xb00),
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
-    contractDeploymentData: makeContractDeploymentData(seed + 0xe00),
     chainId: fr(seed + 0x1400),
     version: fr(seed + 0x1500),
   });
-}
-
-/**
- * Makes arbitrary contract deployment data.
- * @param seed - The seed to use for generating the contract deployment data.
- * @returns A contract deployment data.
- */
-export function makeContractDeploymentData(seed = 1) {
-  return new ContractDeploymentData(
-    makePoint(seed),
-    fr(seed + 1),
-    fr(seed + 2),
-    fr(seed + 3),
-    makeEthAddress(seed + 4),
-  );
 }
 
 /**
@@ -1140,7 +1108,6 @@ export function makePartialStateReference(seed = 0): PartialStateReference {
     makeAppendOnlyTreeSnapshot(seed),
     makeAppendOnlyTreeSnapshot(seed + 1),
     makeAppendOnlyTreeSnapshot(seed + 2),
-    makeAppendOnlyTreeSnapshot(seed + 3),
   );
 }
 
@@ -1197,8 +1164,6 @@ export function makeStateDiffHints(seed = 1): StateDiffHints {
 
   const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x6000);
 
-  const contractSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x7000);
-
   const publicDataSiblingPath = makeTuple(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x8000);
 
   return new StateDiffHints(
@@ -1208,7 +1173,6 @@ export function makeStateDiffHints(seed = 1): StateDiffHints {
     sortedNullifierIndexes,
     noteHashSubtreeSiblingPath,
     nullifierSubtreeSiblingPath,
-    contractSubtreeSiblingPath,
     publicDataSiblingPath,
   );
 }

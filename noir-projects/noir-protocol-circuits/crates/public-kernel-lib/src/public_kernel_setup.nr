@@ -70,17 +70,16 @@ mod tests {
     use crate::{
         public_kernel_setup::PublicKernelSetupCircuitPrivateInputs,
         utils::{
-        assert_eq_call_requests, assert_eq_new_contracts, assert_eq_public_data_reads,
-        assert_eq_public_data_update_requests, compute_public_data_reads,
-        compute_public_data_update_requests
+        assert_eq_call_requests, assert_eq_public_data_reads, assert_eq_public_data_update_requests,
+        compute_public_data_reads, compute_public_data_update_requests
     }
     };
     use dep::types::{
         abis::{
         call_request::CallRequest, function_selector::FunctionSelector,
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        new_contract_data::NewContractData, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest, public_call_data::PublicCallData
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
+        public_data_update_request::PublicDataUpdateRequest, public_call_data::PublicCallData,
+        read_request::ReadRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         contrakt::storage_read::StorageRead, hash::compute_logs_hash,
@@ -377,14 +376,6 @@ mod tests {
     #[test]
     fn circuit_outputs_should_be_correctly_populated_with_previous_private_kernel() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-        let new_contracts = [
-            NewContractData {
-                contract_address: AztecAddress::from_field(123),
-                portal_contract_address: EthAddress::from_field(456),
-                contract_class_id: ContractClassId::from_field(78)
-            }
-        ];
-        builder.previous_kernel.end.new_contracts.extend_from_array(new_contracts);
 
         builder.public_call.append_public_call_requests_for_regular_calls(2);
         let storage = builder.public_call.public_call_stack.storage;
@@ -413,7 +404,6 @@ mod tests {
 
         let public_inputs = kernel.public_kernel_setup();
 
-        assert_eq_new_contracts(public_inputs.end.new_contracts, new_contracts);
         assert_eq_call_requests(public_inputs.end.private_call_stack, []);
         assert_eq_call_requests(
             public_inputs.end_non_revertible.public_call_stack,
@@ -506,5 +496,31 @@ mod tests {
 
         let expected_unencrypted_logs_hash = compute_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
         assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+    }
+
+    #[test]
+    fn propagate_nullifier_non_existent_read_requests() {
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+        let storage_contract_address = builder.public_call.public_inputs.call_context.storage_contract_address;
+
+        let request_0 = ReadRequest { value: 123, counter: 4567 };
+        builder.public_call.public_inputs.nullifier_non_existent_read_requests.push(request_0);
+        let request_1 = ReadRequest { value: 777888, counter: 90 };
+        builder.public_call.public_inputs.nullifier_non_existent_read_requests.push(request_1);
+
+        let public_inputs = builder.execute();
+
+        let end_requests = public_inputs.end_non_revertible.nullifier_non_existent_read_requests;
+        assert_eq(array_length(end_requests), 2);
+
+        let request_context = end_requests[0];
+        assert_eq(request_context.value, request_0.value);
+        assert_eq(request_context.counter, request_0.counter);
+        assert_eq(request_context.contract_address, storage_contract_address);
+
+        let request_context = end_requests[1];
+        assert_eq(request_context.value, request_1.value);
+        assert_eq(request_context.counter, request_1.counter);
+        assert_eq(request_context.contract_address, storage_contract_address);
     }
 }
