@@ -1,8 +1,10 @@
 FROM aztecprotocol/noir AS noir
 FROM --platform=linux/amd64 aztecprotocol/bb.js as bb.js
+FROM --platform=linux/amd64 aztecprotocol/noir-packages as noir-packages
 
 FROM node:20 AS builder
 COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
+COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
 
 WORKDIR /usr/src/barretenberg/ts
 RUN yarn --immutable
@@ -18,7 +20,7 @@ ENV COMMIT_HASH=${COMMIT_HASH}
 
 WORKDIR /usr/src/noir
 COPY . .
-RUN ./scripts/bootstrap_packages.sh
+# RUN ./scripts/bootstrap_packages.sh
 RUN ./scripts/test_js_packages.sh
 
 # Don't waste time pushing a huge container back to ECR as nothing needs the output.
