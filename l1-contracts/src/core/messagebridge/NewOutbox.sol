@@ -89,9 +89,9 @@ contract NewOutbox is INewOutbox {
 
     RootData storage rootData = roots[_l2BlockNumber];
 
-    bytes32 outMessageTreeRoot = rootData.root;
+    bytes32 blockRoot = rootData.root;
 
-    if (outMessageTreeRoot == 0) {
+    if (blockRoot == 0) {
       revert Errors.Outbox__NothingToConsumeAtBlock(_l2BlockNumber);
     }
 
@@ -99,19 +99,19 @@ contract NewOutbox is INewOutbox {
       revert Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex);
     }
 
-    uint256 outMessageTreeHeight = rootData.height;
+    uint256 treeHeight = rootData.height;
 
-    if (outMessageTreeHeight != _path.length) {
-      revert Errors.Outbox__InvalidPathLength(outMessageTreeHeight, _path.length);
+    if (treeHeight != _path.length) {
+      revert Errors.Outbox__InvalidPathLength(treeHeight, _path.length);
     }
 
     bytes32 messageHash = _message.sha256ToField();
 
-    Merkle.verifyMembership(_path, messageHash, _leafIndex, outMessageTreeRoot);
+    Merkle.verifyMembership(_path, messageHash, _leafIndex, blockRoot);
 
     rootData.nullified[_leafIndex] = true;
 
-    emit MessageConsumed(_l2BlockNumber, outMessageTreeRoot, messageHash, _leafIndex);
+    emit MessageConsumed(_l2BlockNumber, blockRoot, messageHash, _leafIndex);
   }
 
   /**
