@@ -1055,23 +1055,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     auto& block = blocks.main;
 
     // Add an arithmetic gate to ensure the first input is equal to the start value of the range being checked
-    block.populate_wires(variable_index[0], this->zero_idx, this->zero_idx, this->zero_idx);
-    ++this->num_gates;
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(1);
-    block.q_2().emplace_back(0);
-    block.q_3().emplace_back(0);
-    block.q_c().emplace_back(-start);
-    block.q_arith().emplace_back(1);
-    block.q_4().emplace_back(0);
-    block.q_sort().emplace_back(0);
-    block.q_elliptic().emplace_back(0);
-    block.q_lookup_type().emplace_back(0);
-    block.q_aux().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        block.pad_additional();
-    }
-    check_selector_length_consistency();
+    create_add_gate({ variable_index[0], this->zero_idx, this->zero_idx, 1, 0, 0, -start });
 
     // enforce range check for all but the final row
     for (size_t i = 0; i < variable_index.size() - gate_width; i += gate_width) {
@@ -1124,15 +1108,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing the
     // arithmetic gate to occur out of sequence.
     create_dummy_gate(block, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
-    create_big_add_gate({ variable_index[variable_index.size() - 1],
-                          this->zero_idx,
-                          this->zero_idx,
-                          this->zero_idx,
-                          1,
-                          0,
-                          0,
-                          0,
-                          -end });
+    create_add_gate({ variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, 1, 0, 0, -end });
 }
 
 // range constraint a value by decomposing it into limbs whose size should be the default range constraint size
