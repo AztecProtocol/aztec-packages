@@ -52,7 +52,7 @@ library Merkle {
   }
 
   /*
-  * @notice Calculates a tree height from the amount of elements in the tree, essentially 1 if x = 0 | 1, otherwise Math.ceil(Math.log2(x))
+  * @notice Calculates a tree height from the amount of elements in the tree
   * @param _size - The amount of elements in the tree
   */
   function calculateTreeHeightFromSize(uint256 _size) internal pure returns (uint256) {
@@ -64,8 +64,11 @@ library Merkle {
     /// We need to store the original numer to check at the end if we are a power of two
     uint256 originalNumber = _size;
 
-    /// While size > 1, we divide by two, and count how many times we do this; producing a rudimentary way of calculating Math.Floor(Math.log2(x))
+    /// We need the height of the tree that will contain all of our leaves,
+    /// hence the next highest power of two from the amount of leaves - Math.ceil(Math.log2(x))
     uint256 height = 0;
+
+    /// While size > 1, we divide by two, and count how many times we do this; producing a rudimentary way of calculating Math.Floor(Math.log2(x))
     while (_size > 1) {
       _size >>= 1;
       height++;
