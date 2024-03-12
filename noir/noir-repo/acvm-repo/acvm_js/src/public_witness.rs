@@ -1,5 +1,5 @@
 use acvm::acir::{
-    circuit::Circuit,
+    circuit::Program,
     native_types::{Witness, WitnessMap},
 };
 use js_sys::JsString;
@@ -26,16 +26,21 @@ fn extract_indices(witness_map: &WitnessMap, indices: Vec<Witness>) -> Result<Wi
 /// @returns {WitnessMap} A witness map containing the circuit's return values.
 #[wasm_bindgen(js_name = getReturnWitness)]
 pub fn get_return_witness(
+    // TODO(https://github.com/noir-lang/noir/issues/4428): These need to be updated to match the same interfaces
+    // as the native ACVM executor. Right now native execution still only handles one circuit so I do not feel the need
+    // to break the JS interface just yet.
     circuit: Vec<u8>,
     witness_map: JsWitnessMap,
 ) -> Result<JsWitnessMap, JsString> {
     console_error_panic_hook::set_once();
-    let circuit: Circuit =
-        Circuit::deserialize_circuit(&circuit).expect("Failed to deserialize circuit");
+    let program: Program =
+        Program::deserialize_program(&circuit).expect("Failed to deserialize circuit");
+    let circuit = &program.functions[0];
+
     let witness_map = WitnessMap::from(witness_map);
 
     let return_witness =
-        extract_indices(&witness_map, circuit.return_values.0.into_iter().collect())?;
+        extract_indices(&witness_map, circuit.return_values.0.clone().into_iter().collect())?;
 
     Ok(JsWitnessMap::from(return_witness))
 }
@@ -51,12 +56,14 @@ pub fn get_public_parameters_witness(
     solved_witness: JsWitnessMap,
 ) -> Result<JsWitnessMap, JsString> {
     console_error_panic_hook::set_once();
-    let circuit: Circuit =
-        Circuit::deserialize_circuit(&circuit).expect("Failed to deserialize circuit");
+    let program: Program =
+        Program::deserialize_program(&circuit).expect("Failed to deserialize circuit");
+    let circuit = &program.functions[0];
+
     let witness_map = WitnessMap::from(solved_witness);
 
     let public_params_witness =
-        extract_indices(&witness_map, circuit.public_parameters.0.into_iter().collect())?;
+        extract_indices(&witness_map, circuit.public_parameters.0.clone().into_iter().collect())?;
 
     Ok(JsWitnessMap::from(public_params_witness))
 }
@@ -72,12 +79,14 @@ pub fn get_public_witness(
     solved_witness: JsWitnessMap,
 ) -> Result<JsWitnessMap, JsString> {
     console_error_panic_hook::set_once();
-    let circuit: Circuit =
-        Circuit::deserialize_circuit(&circuit).expect("Failed to deserialize circuit");
+    let program: Program =
+        Program::deserialize_program(&circuit).expect("Failed to deserialize circuit");
+    let circuit = &program.functions[0];
+
     let witness_map = WitnessMap::from(solved_witness);
 
     let public_witness =
-        extract_indices(&witness_map, circuit.public_inputs().0.into_iter().collect())?;
+        extract_indices(&witness_map, circuit.public_inputs().0.clone().into_iter().collect())?;
 
     Ok(JsWitnessMap::from(public_witness))
 }
