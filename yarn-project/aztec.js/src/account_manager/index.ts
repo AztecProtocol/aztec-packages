@@ -1,5 +1,5 @@
 import { CompleteAddress, GrumpkinPrivateKey, PXE } from '@aztec/circuit-types';
-import { EthAddress, PublicKey, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import { PublicKey, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 
