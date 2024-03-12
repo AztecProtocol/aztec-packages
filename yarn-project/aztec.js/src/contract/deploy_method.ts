@@ -5,7 +5,7 @@ import {
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { ContractArtifact, FunctionArtifact } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionArtifact, getDefaultInitializer } from '@aztec/foundation/abi';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -48,7 +48,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   private instance?: ContractInstanceWithAddress = undefined;
 
   /** Constructor function to call. */
-  private constructorArtifact: FunctionArtifact;
+  private constructorArtifact: FunctionArtifact | undefined;
 
   private log = createDebugLogger('aztec:js:deploy_method');
 
@@ -58,14 +58,16 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     private artifact: ContractArtifact,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private args: any[] = [],
-    constructorName: string = 'constructor',
+    constructorName?: string,
   ) {
     super(wallet);
-    const constructorArtifact = artifact.functions.find(f => f.name === constructorName);
-    if (!constructorArtifact) {
-      throw new Error('Cannot find constructor in the artifact.');
+    this.constructorArtifact = constructorName
+      ? artifact.functions.find(f => f.name === constructorName)
+      : getDefaultInitializer(artifact);
+
+    if (constructorName && !this.constructorArtifact) {
+      throw new Error(`Constructor method ${constructorName} not found in contract artifact`);
     }
-    this.constructorArtifact = constructorArtifact;
   }
 
   /**
@@ -96,8 +98,17 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public async request(options: DeployOptions = {}): Promise<FunctionCall[]> {
     const { address } = this.getInstance(options);
-    const constructorCall = new ContractFunctionInteraction(this.wallet, address, this.constructorArtifact, this.args);
-    return [...(await this.getDeploymentFunctionCalls(options)), constructorCall.request()];
+    const calls = await this.getDeploymentFunctionCalls(options);
+    if (this.constructorArtifact) {
+      const constructorCall = new ContractFunctionInteraction(
+        this.wallet,
+        address,
+        this.constructorArtifact,
+        this.args,
+      );
+      calls.push(constructorCall.request());
+    }
+    return calls;
   }
 
   /**
@@ -168,7 +179,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
         salt: options.contractAddressSalt,
         portalAddress: options.portalContract,
         publicKey: this.publicKey,
-        constructorName: this.constructorArtifact.name,
+        constructorArtifact: this.constructorArtifact,
       });
     }
     return this.instance;

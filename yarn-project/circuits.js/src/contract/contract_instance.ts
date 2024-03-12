@@ -1,4 +1,4 @@
-import { ContractArtifact } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionArtifact, getDefaultInitializer } from '@aztec/foundation/abi';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { ContractInstance, ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -21,7 +21,7 @@ import {
 export function getContractInstanceFromDeployParams(
   artifact: ContractArtifact,
   opts: {
-    constructorName?: string;
+    constructorArtifact?: FunctionArtifact;
     constructorArgs?: any[];
     salt?: Fr;
     publicKey?: PublicKey;
@@ -32,15 +32,7 @@ export function getContractInstanceFromDeployParams(
   const salt = opts.salt ?? Fr.random();
   const publicKey = opts.publicKey ?? Point.ZERO;
   const portalContractAddress = opts.portalAddress ?? EthAddress.ZERO;
-  const constructorName = opts.constructorName ?? 'constructor';
-
-  const constructorArtifact = artifact.functions.find(fn => fn.name === constructorName);
-  if (!constructorArtifact) {
-    throw new Error(`Cannot find constructor with name ${constructorName} in the artifact.`);
-  }
-  if (!constructorArtifact.verificationKey) {
-    throw new Error('Missing verification key for the constructor.');
-  }
+  const constructorArtifact = opts.constructorArtifact ?? getDefaultInitializer(artifact);
 
   const contractClass = getContractClassFromArtifact(artifact);
   const contractClassId = computeContractClassId(contractClass);

@@ -33,10 +33,9 @@ contract SlowTree {
     }
     // docs:end:constants_and_storage
 
-    #[aztec(private)]
-    fn constructor() {}
     // docs:start:initialize
     #[aztec(public)]
+    #[aztec(initializer)]
     fn initialize() {
         storage.trees.at(context.msg_sender().to_field()).initialize(EMPTY_ROOT);
     }
