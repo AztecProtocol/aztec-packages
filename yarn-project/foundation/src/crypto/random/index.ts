@@ -1,5 +1,6 @@
 import nodeCrypto from 'crypto';
 import isNode from 'detect-node';
+import { RandomnessSingleton } from './randomness_singleton.js';
 
 // limit of Crypto.getRandomValues()
 // https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues
@@ -16,6 +17,12 @@ const getWebCrypto = () => {
 };
 
 export const randomBytes = (len: number) => {
+  const singleton = RandomnessSingleton.getInstance();
+
+  if (singleton.isDeterministic()) {
+    return singleton.getBytes(len);
+  }
+
   if (isNode) {
     return nodeCrypto.randomBytes(len) as Buffer;
   }
