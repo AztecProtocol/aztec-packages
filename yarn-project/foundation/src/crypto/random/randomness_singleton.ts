@@ -18,10 +18,10 @@ export class RandomnessSingleton {
     private readonly log = createDebugLogger('aztec:randomness_singleton'),
   ) {
     if (seed !== undefined) {
-      this.log(`Using deterministic randomness with seed: ${seed}`);
+      this.log(`Using pseudo-randomness with seed: ${seed}`);
       this.counter = seed;
     } else {
-      this.log('Using non-deterministic randomness');
+      this.log('Using true randomness');
     }
   }
 
