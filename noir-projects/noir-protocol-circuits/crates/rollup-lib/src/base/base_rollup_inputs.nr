@@ -386,7 +386,7 @@ mod tests {
         base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs
     },
         base::{state_diff_hints::StateDiffHints, base_rollup_inputs::BaseRollupInputs},
-        components::{TX_EFFECTS_HASH_FULL_FIELDS, TX_EFFECTS_HASH_LOG_FIELDS, compute_kernel_out_hash}
+        components::{TX_EFFECTS_HASH_INPUT_FIELDS, compute_kernel_out_hash}
     };
     use dep::types::{
         abis::{
@@ -965,7 +965,7 @@ mod tests {
     unconstrained fn empty_tx_effects_hash() {
         let outputs = BaseRollupInputsBuilder::new().execute();
 
-        let hash_input_flattened = [0; TX_EFFECTS_HASH_FULL_FIELDS * 32 + TX_EFFECTS_HASH_LOG_FIELDS * 16];
+        let hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
         let sha_digest = dep::std::hash::sha256(hash_input_flattened);
         let expected_tx_effects_hash = [field_from_bytes_32_trunc(sha_digest)];
         for i in 0..NUM_FIELDS_PER_SHA256 {
