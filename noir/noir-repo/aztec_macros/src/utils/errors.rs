@@ -50,7 +50,7 @@ impl From<AztecMacroError> for MacroError {
                 span: None,
             },
             AztecMacroError::CouldNotImplementNoteSerialization { span, secondary_message } => MacroError {
-                primary_message: format!("Could not implement serialization methods for note, please provide a complete implementation of the NoteInterfaceTrait"),
+                primary_message: format!("Could not implement automatic methods for note, please provide an implementation of the NoteInterface trait"),
                 secondary_message,
                 span,
             },
@@ -59,7 +59,7 @@ impl From<AztecMacroError> for MacroError {
                 secondary_message: None,
                 span: Some(span),
             },
-AztecMacroError::UnsupportedAttributes { span, secondary_message } => MacroError {
+            AztecMacroError::UnsupportedAttributes { span, secondary_message } => MacroError {
                 primary_message: "Unsupported attributes in contract function".to_string(),
                 secondary_message,
                 span: Some(span),

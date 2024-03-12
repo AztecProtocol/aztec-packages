@@ -10,6 +10,7 @@ use dep::aztec::{
 global CARD_NOTE_LEN: Field = 3;
 
 // docs:start:state_vars-CardNote
+#[aztec(note)]
 struct CardNote {
     points: u8,
     randomness: Field,

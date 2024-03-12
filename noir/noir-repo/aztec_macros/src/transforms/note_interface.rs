@@ -5,132 +5,117 @@ use noirc_frontend::{
 };
 use regex::Regex;
 
-use crate::utils::{ast_utils::check_trait_method_implemented, errors::AztecMacroError};
+use crate::utils::{
+    ast_utils::{check_trait_method_implemented, is_custom_attribute},
+    errors::AztecMacroError,
+};
 
 pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), AztecMacroError> {
-    let mut note_interface_trait_impls = vec![];
+    let module_types = module.types.clone();
+    let annotated_note_structs = module_types
+        .iter()
+        .filter(|typ| typ.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(note)")));
 
-    module.trait_impls.iter_mut().for_each(|trait_imp| {
-        let trait_name = trait_imp.trait_name.segments.last();
-        if trait_name.is_some() {
-            if trait_name.unwrap().0.contents == "NoteInterface" {
-                note_interface_trait_impls.push(trait_imp)
-            }
-        }
-    });
-
-    for trait_imp in note_interface_trait_impls {
-        match &trait_imp.object_type.typ {
-            UnresolvedTypeData::Named(struct_path, _, _) => {
-                let note_struct = module
-                    .types
-                    .iter()
-                    .find(|typ| typ.name.0.contents == struct_path.last_segment().0.contents)
-                    .ok_or(AztecMacroError::CouldNotImplementNoteSerialization {
-                        span: trait_imp.object_type.span,
-                        secondary_message: Some(format!(
-                            "Cannot find note struct: {}",
-                            struct_path.last_segment().0.contents
-                        )),
-                    })?;
-
-                let existing_impl =
-                    module.impls.iter_mut().find(|r#impl| match &r#impl.object_type.typ {
-                        UnresolvedTypeData::Named(path, _, _) => {
-                            path.last_segment().eq(&struct_path.last_segment())
-                        }
-                        _ => false,
-                    });
-                let note_impl = if existing_impl.is_none() {
-                    let default_impl = TypeImpl {
-                        object_type: trait_imp.object_type.clone(),
-                        type_span: Span::default(),
-                        generics: vec![],
-                        methods: vec![],
-                    };
-                    module.impls.push(default_impl.clone());
-                    module.impls.last_mut().unwrap()
+    for note_struct in annotated_note_structs {
+        let trait_impl = module
+            .trait_impls
+            .iter_mut()
+            .find(|trait_impl| {
+                if let UnresolvedTypeData::Named(struct_path, _, _) = &trait_impl.object_type.typ {
+                    struct_path.last_segment() == note_struct.name
                 } else {
-                    existing_impl.unwrap()
-                };
-                let note_type = note_struct.name.0.contents.to_string();
-                let mut note_fields = vec![];
-                let note_serialized_len = match &trait_imp.trait_generics[0].typ {
-                    UnresolvedTypeData::Named(path, _, _) => {
-                        Ok(path.last_segment().0.contents.to_string())
-                    }
-                    UnresolvedTypeData::Expression(UnresolvedTypeExpression::Constant(val, _)) => {
-                        Ok(val.to_string())
-                    }
-                    _ => Err(AztecMacroError::CouldNotImplementNoteSerialization {
-                        span: trait_imp.object_type.span,
-                        secondary_message: Some(format!(
-                            "Cannot find note serialization length for: {}",
-                            note_type
-                        )),
-                    }),
-                }?;
-                for (field_ident, field_type) in note_struct.fields.iter() {
-                    note_fields.push((
-                        field_ident.0.contents.to_string(),
-                        field_type.typ.to_string().replace("plain::", ""),
-                    ));
+                    false
                 }
-                let note_impl_span = trait_imp.object_type.span;
-                if !check_trait_method_implemented(trait_imp, "serialize_content")
-                    && !check_trait_method_implemented(trait_imp, "deserialize_content")
-                    && note_impl
-                        .methods
-                        .iter()
-                        .find(|(func, _)| func.def.name.0.contents == "fields")
-                        .is_none()
-                {
-                    let note_fields_struct =
-                        generate_note_fields_struct(&note_type, &note_fields, note_impl_span)?;
-                    module.types.push(note_fields_struct);
-                    let note_fields_fn =
-                        generate_note_fields_fn(&note_type, &note_fields, note_impl_span)?;
-                    note_impl.methods.push((note_fields_fn, Span::default()));
-                    let note_serialize_content_fn = generate_note_serialize_content(
-                        &note_type,
-                        &note_fields,
-                        &note_serialized_len,
-                        note_impl_span,
-                    )?;
-                    trait_imp.items.push(TraitImplItem::Function(note_serialize_content_fn));
-                    let note_deserialize_content_fn = generate_note_deserialize_content(
-                        &note_type,
-                        &note_fields,
-                        &note_serialized_len,
-                        note_impl_span,
-                    )?;
-                    trait_imp.items.push(TraitImplItem::Function(note_deserialize_content_fn));
-                }
-                if !check_trait_method_implemented(trait_imp, "get_header") {
-                    let get_header_fn = generate_note_get_header(&note_type, note_impl_span)?;
-                    trait_imp.items.push(TraitImplItem::Function(get_header_fn));
-                }
-                if !check_trait_method_implemented(trait_imp, "set_header") {
-                    let set_header_fn = generate_note_set_header(&note_type, note_impl_span)?;
-                    trait_imp.items.push(TraitImplItem::Function(set_header_fn));
-                }
-                if !check_trait_method_implemented(trait_imp, "get_note_type_id") {
-                    let get_note_type_id_fn =
-                        generate_note_get_type_id(&note_type, note_impl_span)?;
-                    trait_imp.items.push(TraitImplItem::Function(get_note_type_id_fn));
-                }
-            }
-            _ => {
-                return Err(AztecMacroError::CouldNotImplementNoteSerialization {
-                    span: trait_imp.object_type.span,
-                    secondary_message: Some(format!(
-                        "Unexpected NoteInterface implementation for type: {:?}",
-                        trait_imp.object_type.typ
-                    )),
-                })
-            }
+            })
+            .ok_or(AztecMacroError::CouldNotImplementNoteSerialization {
+                span: Some(note_struct.name.span()),
+                secondary_message: Some(format!(
+                    "Could not find NoteInterface trait implementation for note: {}",
+                    note_struct.name.0.contents
+                )),
+            })?;
+        let existing_impl = module.impls.iter_mut().find(|r#impl| match &r#impl.object_type.typ {
+            UnresolvedTypeData::Named(path, _, _) => path.last_segment().eq(&note_struct.name),
+            _ => false,
+        });
+        let note_impl = if existing_impl.is_none() {
+            let default_impl = TypeImpl {
+                object_type: trait_impl.object_type.clone(),
+                type_span: note_struct.name.span(),
+                generics: vec![],
+                methods: vec![],
+            };
+            module.impls.push(default_impl.clone());
+            module.impls.last_mut().unwrap()
+        } else {
+            existing_impl.unwrap()
         };
+        let note_type = note_struct.name.0.contents.to_string();
+        let mut note_fields = vec![];
+        let note_serialized_len = match &trait_impl.trait_generics[0].typ {
+            UnresolvedTypeData::Named(path, _, _) => Ok(path.last_segment().0.contents.to_string()),
+            UnresolvedTypeData::Expression(UnresolvedTypeExpression::Constant(val, _)) => {
+                Ok(val.to_string())
+            }
+            _ => Err(AztecMacroError::CouldNotImplementNoteSerialization {
+                span: trait_impl.object_type.span,
+                secondary_message: Some(format!(
+                    "Cannot find note serialization length for: {}",
+                    note_type
+                )),
+            }),
+        }?;
+        for (field_ident, field_type) in note_struct.fields.iter() {
+            note_fields.push((
+                field_ident.0.contents.to_string(),
+                field_type.typ.to_string().replace("plain::", ""),
+            ));
+        }
+        let note_interface_impl_span = trait_impl.object_type.span;
+        if !check_trait_method_implemented(trait_impl, "serialize_content")
+            && !check_trait_method_implemented(trait_impl, "deserialize_content")
+            && note_impl
+                .methods
+                .iter()
+                .find(|(func, _)| func.def.name.0.contents == "fields")
+                .is_none()
+        {
+            let note_fields_struct =
+                generate_note_fields_struct(&note_type, &note_fields, note_interface_impl_span)?;
+            module.types.push(note_fields_struct);
+            let note_fields_fn =
+                generate_note_fields_fn(&note_type, &note_fields, note_interface_impl_span)?;
+            note_impl.methods.push((note_fields_fn, note_impl.type_span));
+            let note_serialize_content_fn = generate_note_serialize_content(
+                &note_type,
+                &note_fields,
+                &note_serialized_len,
+                note_interface_impl_span,
+            )?;
+            trait_impl.items.push(TraitImplItem::Function(note_serialize_content_fn));
+            let note_deserialize_content_fn = generate_note_deserialize_content(
+                &note_type,
+                &note_fields,
+                &note_serialized_len,
+                note_interface_impl_span,
+            )?;
+            trait_impl.items.push(TraitImplItem::Function(note_deserialize_content_fn));
+        }
+        if !check_trait_method_implemented(trait_impl, "get_header") {
+            let get_header_fn = generate_note_get_header(&note_type, note_interface_impl_span)?;
+            trait_impl.items.push(TraitImplItem::Function(get_header_fn));
+        }
+        if !check_trait_method_implemented(trait_impl, "set_header") {
+            let set_header_fn = generate_note_set_header(&note_type, note_interface_impl_span)?;
+            trait_impl.items.push(TraitImplItem::Function(set_header_fn));
+        }
+        if !check_trait_method_implemented(trait_impl, "get_note_type_id") {
+            let get_note_type_id_fn =
+                generate_note_get_type_id(&note_type, note_interface_impl_span)?;
+            trait_impl.items.push(TraitImplItem::Function(get_note_type_id_fn));
+        }
     }
+
     Ok(())
 }
 

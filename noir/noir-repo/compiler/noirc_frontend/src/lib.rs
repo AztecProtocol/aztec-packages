@@ -73,6 +73,7 @@ pub mod macros_api {
             &self,
             ast: SortedModule,
             crate_id: &CrateId,
+            file_id: FileId,
             context: &HirContext,
         ) -> Result<SortedModule, (MacroError, FileId)>;
 

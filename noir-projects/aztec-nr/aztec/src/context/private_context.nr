@@ -94,7 +94,7 @@ impl ContextInterface for PrivateContext {
 
     // Returns the header of a block whose state is used during private execution (not the block the transaction is
     // included in).
-    pub fn get_header(self) -> Header {
+    fn get_header(self) -> Header {
         self.historical_header
     }
 

@@ -1,10 +1,9 @@
-use noirc_frontend::hir::def_collector::dc_crate::UnresolvedFunctions;
-use noirc_frontend::hir::def_collector::dc_crate::UnresolvedTraitImpl;
-use noirc_frontend::macros_api::parse_program;
-use noirc_frontend::macros_api::HirContext;
-use noirc_frontend::macros_api::SortedModule;
-use noirc_frontend::macros_api::{CrateId, FileId};
-use noirc_frontend::macros_api::{MacroError, MacroProcessor};
+use noirc_frontend::{
+    hir::def_collector::dc_crate::{UnresolvedFunctions, UnresolvedTraitImpl},
+    macros_api::{
+        parse_program, CrateId, FileId, HirContext, MacroError, MacroProcessor, SortedModule,
+    },
+};
 
 pub struct AssertMessageMacro;
 
@@ -13,6 +12,7 @@ impl MacroProcessor for AssertMessageMacro {
         &self,
         ast: SortedModule,
         crate_id: &CrateId,
+        _file_id: FileId,
         _context: &HirContext,
     ) -> Result<SortedModule, (MacroError, FileId)> {
         transform(ast, crate_id)
