@@ -14,14 +14,16 @@ use transforms::{
 
 use noirc_frontend::hir::def_collector::dc_crate::{UnresolvedFunctions, UnresolvedTraitImpl};
 
-use noirc_frontend::macros_api::SortedModule;
-use noirc_frontend::macros_api::{CrateId, MacroError};
-use noirc_frontend::macros_api::{FileId, MacroProcessor};
-use noirc_frontend::macros_api::{HirContext, SecondaryAttribute, Span};
+use noirc_frontend::macros_api::{
+    CrateId, FileId, HirContext, MacroError, MacroProcessor, SecondaryAttribute, SortedModule, Span,
+};
 
-use utils::ast_utils::is_custom_attribute;
-use utils::checks::{check_for_aztec_dependency, has_aztec_dependency};
-use utils::{constants::MAX_CONTRACT_PRIVATE_FUNCTIONS, errors::AztecMacroError};
+use utils::{
+    ast_utils::is_custom_attribute,
+    checks::{check_for_aztec_dependency, has_aztec_dependency},
+    constants::MAX_CONTRACT_PRIVATE_FUNCTIONS,
+    errors::AztecMacroError,
+};
 pub struct AztecMacro;
 
 impl MacroProcessor for AztecMacro {
