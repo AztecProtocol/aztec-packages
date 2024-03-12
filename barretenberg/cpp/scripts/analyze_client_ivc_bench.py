@@ -7,8 +7,7 @@ BENCHMARK = "ClientIVCBench/Full/6"
 
 # Single out an independent set of functions accounting for most of BENCHMARK's real_time
 to_keep = [
-    "construct_mock_function_circuit(t)",
-    "construct_mock_folding_kernel(t)",
+    "construct_circuits(t)",
     "ProverInstance(Circuit&)(t)",
     "ProtogalaxyProver::fold_instances(t)",
     "Decider::construct_proof(t)",
