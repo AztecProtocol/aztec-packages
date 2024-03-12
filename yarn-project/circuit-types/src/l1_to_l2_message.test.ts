@@ -1,4 +1,5 @@
 import { randomInt } from '@aztec/foundation/crypto';
+
 import { L1ToL2Message, L1ToL2MessageAndIndex } from './l1_to_l2_message.js';
 
 describe('L1 to L2 message', () => {

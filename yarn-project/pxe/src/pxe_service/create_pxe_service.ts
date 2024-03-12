@@ -1,5 +1,6 @@
 import { AztecNode } from '@aztec/circuit-types';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { initStoreForRollup } from '@aztec/kv-store/utils';
@@ -7,7 +8,6 @@ import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-reg
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 
-import { randomBytes } from 'crypto';
 import { join } from 'path';
 
 import { PXEServiceConfig } from '../config/index.js';

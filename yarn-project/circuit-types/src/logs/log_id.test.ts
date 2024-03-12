@@ -1,4 +1,5 @@
 import { randomInt } from '@aztec/foundation/crypto';
+
 import { LogId } from './log_id.js';
 
 describe('LogId', () => {

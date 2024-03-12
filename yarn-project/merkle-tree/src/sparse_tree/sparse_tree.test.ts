@@ -1,11 +1,9 @@
 import { SiblingPath } from '@aztec/circuit-types';
-import { randomBigInt } from '@aztec/foundation/crypto';
+import { randomBigInt, randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { Hasher } from '@aztec/types/interfaces';
-
-import { randomBytes } from 'crypto';
 
 import { INITIAL_LEAF, newTree } from '../index.js';
 import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
