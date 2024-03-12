@@ -41,7 +41,7 @@ import {
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { Tuple, to2Fields } from '@aztec/foundation/serialize';
+import { to2Fields } from '@aztec/foundation/serialize';
 import {
   PublicExecution,
   PublicExecutionResult,
@@ -241,9 +241,6 @@ export abstract class AbstractPhaseManager {
       patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!, this.phase);
     }
 
-    // TODO(#3675): This should be done in a public kernel circuit
-    removeRedundantPublicDataWrites(kernelOutput);
-
     return [kernelOutput, kernelProof, newUnencryptedFunctionLogs, undefined];
   }
 
@@ -397,29 +394,6 @@ export abstract class AbstractPhaseManager {
     const proof = await this.publicProver.getPublicCircuitProof(callStackItem.publicInputs);
     return new PublicCallData(callStackItem, publicCallStack, proof, portalContractAddress, bytecodeHash);
   }
-}
-
-function removeRedundantPublicDataWrites(publicInputs: PublicKernelCircuitPublicInputs) {
-  const patch = <N extends number>(requests: Tuple<PublicDataUpdateRequest, N>) => {
-    const lastWritesMap = new Map<string, PublicDataUpdateRequest>();
-    for (const write of requests) {
-      const key = write.leafSlot.toString();
-      lastWritesMap.set(key, write);
-    }
-    return requests.filter(write => lastWritesMap.get(write.leafSlot.toString())?.equals(write));
-  };
-
-  publicInputs.end.publicDataUpdateRequests = padArrayEnd(
-    patch(publicInputs.end.publicDataUpdateRequests),
-    PublicDataUpdateRequest.empty(),
-    MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  );
-
-  publicInputs.endNonRevertibleData.publicDataUpdateRequests = padArrayEnd(
-    patch(publicInputs.endNonRevertibleData.publicDataUpdateRequests),
-    PublicDataUpdateRequest.empty(),
-    MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  );
 }
 
 // HACK(#1622): this is a hack to fix ordering of public state in the call stack. Since the private kernel
