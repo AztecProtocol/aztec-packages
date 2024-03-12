@@ -27,7 +27,6 @@ build:
     ARG EARTHLY_CI
     # TODO: Replace puppeteer with puppeteer-core to avoid this.
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-    RUN ./bootstrap.sh # TODO mount cache
     IF $EARTHLY_CI # Don't cache CI builds.
         RUN ./bootstrap.sh
         RUN yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache clean

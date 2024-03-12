@@ -12,7 +12,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # Specifying `-Wno-${ERROR_NAME}` will silence the error completely.
 # To preserve the warning, but prevent them from causing the build to fail,
 # use the flag `-Wno-error=${ERROR_NAME}`
-add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion -Wfatal-errors -Wno-vla-cxx-extension)
+add_compile_options(-Werror -Wall -Wextra -Wconversion -Wsign-conversion -Wfatal-errors)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics -fconstexpr-steps=100000000)
@@ -34,6 +34,8 @@ if(WASM)
     set(CMAKE_C_FLAGS_DEBUG "-O1 -g")
     set(CMAKE_CXX_FLAGS_RELEASE "-Oz -DNDEBUG")
     set(CMAKE_C_FLAGS_RELEASE "-Oz -DNDEBUG")
+    # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
+    add_compile_options(-Wno-vla-cxx-extension)
     add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
 endif()
 

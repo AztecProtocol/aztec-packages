@@ -99,6 +99,9 @@ bench-client-ivc:
     DO +BENCH_RELEASE --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
     DO +BENCH_WASM --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
 
+build:
+    BUILD +build-release
+
 # Functions
 RUN_CMAKE:
     # Runs cmake build and leaves binary artifacts at 'bin'

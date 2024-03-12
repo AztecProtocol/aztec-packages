@@ -1,6 +1,7 @@
 dest
 node_modules
 .cache
+.earthly
 .pnp.cjs
 .pnp.loader.mjs
 build/
