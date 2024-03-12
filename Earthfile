@@ -23,11 +23,14 @@ build-ci:
     BUILD ./noir/+build-nargo
     BUILD ./noir-projects/+build
     BUILD ./yarn-project/+build
-    BUILD ./yarn-project/+e2e-sandbox-example
+    BUILD +test-end-to-end
 
 build:
     # yarn-project has the entry point to Aztec
     BUILD ./yarn-project/+build
+
+test-end-to-end:
+    BUILD ./yarn-project/end-to-end/+build-ci
 
 bench:
   RUN echo hi
