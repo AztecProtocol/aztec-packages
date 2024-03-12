@@ -251,10 +251,10 @@ src/core/messagebridge/Inbox.sol#L21-L231
 
 
  - [ ] ID-26
-The following public functions could be turned into external in [NewOutbox](src/core/messagebridge/NewOutbox.sol#L18-L116) contract:
+The following public functions could be turned into external in [NewOutbox](src/core/messagebridge/NewOutbox.sol#L18-L131) contract:
 	[NewOutbox.constructor(address)](src/core/messagebridge/NewOutbox.sol#L30-L32)
 
-src/core/messagebridge/NewOutbox.sol#L18-L116
+src/core/messagebridge/NewOutbox.sol#L18-L131
 
 
  - [ ] ID-27
@@ -310,9 +310,9 @@ src/core/messagebridge/Inbox.sol#L197-L199
 
 
  - [ ] ID-34
-[Merkle.calculateTreeHeightFromSize(uint256)](src/core/libraries/Merkle.sol#L58-L72) is never used and should be removed
+[Merkle.calculateTreeHeightFromSize(uint256)](src/core/libraries/Merkle.sol#L58-L81) is never used and should be removed
 
-src/core/libraries/Merkle.sol#L58-L72
+src/core/libraries/Merkle.sol#L58-L81
 
 
  - [ ] ID-35
