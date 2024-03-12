@@ -34,6 +34,8 @@ use crate::traits::is_empty;
 use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
 struct CombinedAccumulatedDataBuilder {
+    max_block_number: u32,
+
     note_hash_read_requests: BoundedVec<SideEffect,MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
@@ -101,6 +103,7 @@ impl CombinedAccumulatedDataBuilder {
 
     pub fn finish(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
+            max_block_number: self.max_block_number,
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
@@ -160,6 +163,9 @@ impl CombinedAccumulatedDataBuilder {
     ) -> (PrivateAccumulatedNonRevertibleData, PrivateAccumulatedRevertibleData) {
         let mut non_revertible_builder: AccumulatedNonRevertibleDataBuilder = unsafe::zeroed();
         let mut revertible_builder: AccumulatedRevertibleDataBuilder = unsafe::zeroed();
+
+        // The max block number is always non-revertible
+        non_revertible_builder.max_block_number = self.max_block_number;
 
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             let commitment = self.new_note_hashes.storage[i];

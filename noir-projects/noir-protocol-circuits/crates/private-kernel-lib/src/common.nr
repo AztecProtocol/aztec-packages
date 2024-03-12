@@ -92,6 +92,8 @@ pub fn initialize_end_values(
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
 
+    public_inputs.end.max_block_number = start.max_block_number;
+
     public_inputs.end.note_hash_read_requests = array_to_bounded_vec(start.note_hash_read_requests);
     public_inputs.end.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
     public_inputs.end.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
@@ -177,6 +179,9 @@ pub fn update_end_values(
     let private_call_public_inputs = private_call.call_stack_item.public_inputs;
 
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
+
+    // Update the max block number if the private call requested a lower one.
+    public_inputs.end.max_block_number = min(public_inputs.end.max_block_number, private_call_public_inputs.max_block_number);
 
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
@@ -456,4 +461,8 @@ pub fn compute_siloed_nullifier_secret_key(secret_key: GrumpkinPrivateKey, contr
         0
     );
     field_to_grumpkin_private_key(hash)
+}
+
+fn min<T>(lhs: T, rhs: T) -> T where T: Ord {
+    if lhs < rhs { lhs } else { rhs }
 }
