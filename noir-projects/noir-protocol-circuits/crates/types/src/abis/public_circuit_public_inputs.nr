@@ -140,5 +140,5 @@ fn empty_hash() {
     let hash = inputs.hash();
 
     // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test
-    assert_eq(hash, 0x01fcd6e2480909d55f03f4ee87924cbabb0b4706cb742c70422e423b2db5f4eb);
+    assert_eq(hash, 0x024806d66ec202800e2b60ad6a44745463be130766a8d1308e48f28f0f71a9b5);
 }
