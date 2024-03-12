@@ -503,13 +503,13 @@ describe('e2e_deploy_contract', () => {
       logger.debug(`Call a public function to check that it was publicly deployed`);
       const receipt = await contract.methods.emit_unencrypted(42).send().wait();
       const logs = await pxe.getUnencryptedLogs({ txHash: receipt.txHash });
-      expect(logs.logs[0].log.data.toString('hex')).toEqual('2a');
+      expect(logs.logs[0].log.data.toString('hex').replace(/^0+/, '')).toEqual('2a');
     });
 
-    it('deploys a contract with no constructor and no public deployment as a noop', async () => {
+    it('refuses to deploy a contract with no constructor and no public deployment', async () => {
       logger.debug(`Deploying contract with no constructor and skipping public deploy`);
       const opts = { skipPublicDeployment: true, skipClassRegistration: true };
-      await TestContract.deploy(wallet).send(opts).deployed();
+      await expect(TestContract.deploy(wallet).simulate(opts)).rejects.toThrow(/no function calls needed/i);
     });
 
     it.skip('publicly deploys and calls a public function in the same batched call', async () => {

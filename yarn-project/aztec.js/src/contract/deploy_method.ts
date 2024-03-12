@@ -81,6 +81,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public async create(options: DeployOptions = {}): Promise<TxExecutionRequest> {
     if (!this.txRequest) {
+      const calls = await this.request(options);
+      if (calls.length === 0) {
+        throw new Error(`No function calls needed to deploy contract ${this.artifact.name}`);
+      }
       this.txRequest = await this.wallet.createTxExecutionRequest(await this.request(options));
       // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
       await this.pxe.addContracts([{ artifact: this.artifact, instance: this.instance! }]);
