@@ -466,3 +466,10 @@ pub fn compute_siloed_nullifier_secret_key(secret_key: GrumpkinPrivateKey, contr
 fn min<T>(lhs: T, rhs: T) -> T where T: Ord {
     if lhs < rhs { lhs } else { rhs }
 }
+
+#[test]
+fn test_min() {
+    assert(min(3, 5) == 3);
+    assert(min(5, 3) == 3);
+    assert(min(3, 3) == 3);
+}

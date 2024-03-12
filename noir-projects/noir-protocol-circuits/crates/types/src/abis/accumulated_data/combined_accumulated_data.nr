@@ -68,6 +68,7 @@ impl CombinedAccumulatedData {
         revertible: PublicAccumulatedRevertibleData
     ) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
+            max_block_number: non_revertible.max_block_number,
             note_hash_read_requests: revertible.note_hash_read_requests,
             nullifier_read_requests: revertible.nullifier_read_requests,
             nullifier_key_validation_requests: revertible.nullifier_key_validation_requests,

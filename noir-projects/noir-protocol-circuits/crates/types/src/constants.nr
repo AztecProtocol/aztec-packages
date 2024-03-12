@@ -162,11 +162,11 @@ global NEW_CONTRACT_DATA_LENGTH: u64 = 3;
 global NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 4;
 global NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 5;
 global PARTIAL_STATE_REFERENCE_LENGTH: u64 = 8;
-global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 223;
+global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 224;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we should change this
 // constant as well PRIVATE_CALL_STACK_ITEM_LENGTH
-global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 218;
+global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 219;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
 global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 194;
 global STATE_REFERENCE_LENGTH: u64 = 10; // 2 for snap + 8 for partial

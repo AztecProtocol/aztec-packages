@@ -67,6 +67,9 @@ pub fn initialize_end_values(
     circuit_outputs.end.new_contracts = array_to_bounded_vec(previous_kernel.public_inputs.end.new_contracts);
 
     let start_non_revertible = previous_kernel.public_inputs.end_non_revertible;
+
+    circuit_outputs.end_non_revertible.max_block_number = start_non_revertible.max_block_number;
+
     circuit_outputs.end_non_revertible.new_note_hashes = array_to_bounded_vec(start_non_revertible.new_note_hashes);
     circuit_outputs.end_non_revertible.new_nullifiers = array_to_bounded_vec(start_non_revertible.new_nullifiers);
     circuit_outputs.end_non_revertible.public_call_stack = array_to_bounded_vec(start_non_revertible.public_call_stack);
@@ -143,6 +146,8 @@ pub fn update_public_end_non_revertible_values(
     let hashes = public_call.call_stack_item.public_inputs.public_call_stack_hashes;
     validate_call_requests(public_call_requests, hashes, public_call);
     circuit_outputs.end_non_revertible.public_call_stack.extend_from_bounded_vec(public_call_requests);
+
+    // Note that public calls cannot modify the max block number value
 
     propagate_new_nullifiers_non_revertible(public_call, circuit_outputs);
     propagate_new_note_hashes_non_revertible(public_call, circuit_outputs);

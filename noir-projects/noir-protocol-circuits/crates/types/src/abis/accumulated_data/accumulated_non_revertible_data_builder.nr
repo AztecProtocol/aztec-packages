@@ -35,6 +35,7 @@ impl AccumulatedNonRevertibleDataBuilder {
     }
     pub fn to_public(self) -> PublicAccumulatedNonRevertibleData {
         PublicAccumulatedNonRevertibleData {
+            max_block_number: self.max_block_number,
             new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
             public_call_stack: self.public_call_stack.storage,

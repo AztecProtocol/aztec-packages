@@ -68,6 +68,7 @@ impl CombinedAccumulatedDataBuilder {
         revertible: PublicAccumulatedRevertibleData
     ) -> CombinedAccumulatedDataBuilder {
         CombinedAccumulatedDataBuilder {
+            max_block_number: non_revertible.max_block_number,
             note_hash_read_requests: array_to_bounded_vec(revertible.note_hash_read_requests),
             nullifier_read_requests: array_to_bounded_vec(revertible.nullifier_read_requests),
             nullifier_key_validation_requests: array_to_bounded_vec(revertible.nullifier_key_validation_requests),
