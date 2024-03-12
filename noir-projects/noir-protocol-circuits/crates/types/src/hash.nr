@@ -208,16 +208,17 @@ pub fn compute_constructor_hash(
     )
 }
 
-// Computes sha256 hash of 2 input hashes stored in 4 fields.
+// Computes sha256 hash of 2 input hashes.
 // 
 // This method is bn254 specific. Two fields is needed in order to 
 // encode the sha256 output. It can be abstracted away with any 4-2 hash function.
 //
+// NB: This method now takes in two 31 byte fields - it assumes that any input
+// is the result of a sha_to_field hash and => is truncated
+//
 // TODO(Jan and David): This is used for the encrypted_log hashes.
 // Can we check to see if we can just use hash_to_field or pedersen_compress here?
 //
-// Returning a Field would be desirable because then this can be replaced with 
-// poseidon without changing the rest of the code
 //
 pub fn accumulate_sha256(input: [Field; NUM_FIELDS_PER_SHA256 * 2]) -> [Field; NUM_FIELDS_PER_SHA256] {
     // This is a note about the cpp code, since it takes an array of Fields
@@ -228,10 +229,9 @@ pub fn accumulate_sha256(input: [Field; NUM_FIELDS_PER_SHA256 * 2]) -> [Field; N
     // only occupies 128 bits.
     //
     // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
-    //
-    // Concatenate 4 u128 bit integers into a byte array.
 
-    // TODO(Miranda): Document
+    // Concatentate two fields into 31x2 = 62 bytes
+    // accumulate_sha256 assumes that the inputs are pre-truncated 31 byte numbers
     let mut hash_input_flattened = [0; 62];
     for offset in 0..NUM_FIELDS_PER_SHA256 * 2 {
         let input_as_bytes = input[offset].to_be_bytes(31);
@@ -336,14 +336,10 @@ fn compute_l2_l1_hash() {
     // All zeroes
     let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, 0, L2ToL1Message::empty());
     assert(hash_result == 0xb393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2);
-    // original modded result:
-    // assert(hash_result == 0x2266ac2f9f0c19c015239ef5ea85862fc6fac00db73779b220a4d49c4856c2e1);
 
 
     // Non-zero case
     let message = L2ToL1Message { recipient: EthAddress::from_field(3), content: 5 };
     let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(1), 2, 4, message);
     assert(hash_result == 0x3f88c1044a05e5340ed20466276500f6d45ca5603913b9091e957161734e16);
-    // original modded result:
-    // assert(hash_result == 0x0f24729168d4450a5681beafa5e3a899ac28bd17bf5a4877dab37bcd834e1634);
 }

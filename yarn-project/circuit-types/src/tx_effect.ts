@@ -78,7 +78,7 @@ export class TxEffect {
   }
 
   hash() {
-    // must correspond with components_compute_kernel_calldata_hash() in nr
+    // must correspond with compute_tx_effects_hash() in nr
     // and TxsDecoder.sol decode()
     assertLength(this.noteHashes, MAX_NEW_NOTE_HASHES_PER_TX);
     assertRightPadded(this.noteHashes, Fr.isZero);

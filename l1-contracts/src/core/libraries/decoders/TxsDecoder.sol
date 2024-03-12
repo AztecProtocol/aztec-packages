@@ -173,7 +173,12 @@ library TxsDecoder {
               Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP
             )
           ),
-          bytes.concat(new bytes(1), bytes31(vars.encryptedLogsHash), new bytes(1), bytes31(vars.unencryptedLogsHash))
+          bytes.concat(
+            new bytes(1),
+            bytes31(vars.encryptedLogsHash),
+            new bytes(1),
+            bytes31(vars.unencryptedLogsHash)
+          )
         );
 
         vars.baseLeaves[i] = bytes31(sha256(vars.baseLeaf));
@@ -240,8 +245,11 @@ library TxsDecoder {
       // Decrease remaining logs length by this privateCircuitPublicInputsLogs's length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
       remainingLogsLength -= (privateCircuitPublicInputLogsLength + 0x4);
 
-      kernelPublicInputsLogsHash =
-        sha256(bytes.concat(bytes31(kernelPublicInputsLogsHash), bytes31(privateCircuitPublicInputsLogsHash)));
+      kernelPublicInputsLogsHash = sha256(
+        bytes.concat(
+          bytes31(kernelPublicInputsLogsHash), bytes31(privateCircuitPublicInputsLogsHash)
+        )
+      );
     }
 
     return (kernelPublicInputsLogsHash, offset);

@@ -258,7 +258,8 @@ contract DecodersTest is DecoderBase {
 
     bytes32 referenceLogsHashFromIteration2 = sha256(
       abi.encodePacked(
-        bytes31(referenceLogsHashFromIteration1), bytes31(privateCircuitPublicInputsLogsHashSecondCall)
+        bytes31(referenceLogsHashFromIteration1),
+        bytes31(privateCircuitPublicInputsLogsHashSecondCall)
       )
     );
 
@@ -295,14 +296,18 @@ contract DecodersTest is DecoderBase {
 
     bytes32 referenceLogsHashFromIteration2 = sha256(
       abi.encodePacked(
-        bytes31(referenceLogsHashFromIteration1), bytes31(privateCircuitPublicInputsLogsHashSecondCall)
+        bytes31(referenceLogsHashFromIteration1),
+        bytes31(privateCircuitPublicInputsLogsHashSecondCall)
       )
     );
 
     bytes32 privateCircuitPublicInputsLogsHashThirdCall = sha256(thirdFunctionCallLogs);
 
     bytes32 referenceLogsHashFromIteration3 = sha256(
-      abi.encodePacked(bytes31(referenceLogsHashFromIteration2), bytes31(privateCircuitPublicInputsLogsHashThirdCall))
+      abi.encodePacked(
+        bytes31(referenceLogsHashFromIteration2),
+        bytes31(privateCircuitPublicInputsLogsHashThirdCall)
+      )
     );
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");

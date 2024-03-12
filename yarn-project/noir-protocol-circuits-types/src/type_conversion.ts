@@ -794,7 +794,6 @@ export function mapTupleFromNoir<T, N extends number, M>(
  */
 export function mapSha256HashFromNoir(hash: FixedLengthArray<Field, typeof NUM_FIELDS_PER_SHA256>): Buffer {
   return Buffer.concat(hash.map(mapFieldFromNoir).map(fr => toBufferBE(fr.toBigInt(), NUM_BYTES_PER_SHA256)));
-  // return from2Fields(mapFieldFromNoir(hash[0]), mapFieldFromNoir(hash[1]));
 }
 
 /**

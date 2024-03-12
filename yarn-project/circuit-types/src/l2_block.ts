@@ -225,7 +225,6 @@ export class L2Block {
    * @returns The hash of all of the l1 to l2 messages.
    */
   getL1ToL2MessagesHash(): Buffer {
-    // TODO(Miranda): Investigate whether this needs to be truncated here
     // Create a long buffer of all of the l1 to l2 messages
     const l1ToL2Messages = Buffer.concat(this.body.l1ToL2Messages.map(message => message.toBuffer()));
     return sha256(l1ToL2Messages);

@@ -154,7 +154,10 @@ library HeaderLib {
 
     // Reading ContentCommitment
     header.contentCommitment.txTreeHeight = uint256(bytes32(_header[0x0024:0x0044]));
-    header.contentCommitment.txsEffectsHash = bytes32(bytes.concat(new bytes(1), _header[0x0044:0x0063]));
+    // All SHA hashes claculated in the circuit are truncated to 31 bytes
+    // Prepend a byte here to bring back to 32 bytes
+    header.contentCommitment.txsEffectsHash =
+      bytes32(bytes.concat(new bytes(1), _header[0x0044:0x0063]));
     header.contentCommitment.inHash = bytes32(bytes.concat(new bytes(1), _header[0x0063:0x0082]));
     header.contentCommitment.outHash = bytes32(bytes.concat(new bytes(1), _header[0x0082:0x00a1]));
 
