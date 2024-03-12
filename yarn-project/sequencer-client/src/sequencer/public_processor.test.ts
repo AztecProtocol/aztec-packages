@@ -104,7 +104,7 @@ describe('public_processor', () => {
       const includeLogs = false;
       const tx = mockTx(seed, includeLogs);
       tx.data.end.publicCallStack = makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
-      tx.data.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      tx.data.end.unencryptedLogsHash = [Fr.ZERO];
       tx.data.endNonRevertibleData.publicCallStack = makeTuple(
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
@@ -209,7 +209,7 @@ describe('public_processor', () => {
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO];
 
       const tx = new Tx(kernelOutput, proof, TxL2Logs.empty(), TxL2Logs.empty(), publicCallRequests);
 
@@ -252,7 +252,7 @@ describe('public_processor', () => {
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO];
 
       kernelOutput.needsSetup = false;
       kernelOutput.needsTeardown = false;
@@ -294,7 +294,7 @@ describe('public_processor', () => {
       callRequests[2].callContext.startSideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO];
 
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
@@ -409,7 +409,7 @@ describe('public_processor', () => {
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
 
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO];
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
         appLogicCalls: [callRequests[2]],

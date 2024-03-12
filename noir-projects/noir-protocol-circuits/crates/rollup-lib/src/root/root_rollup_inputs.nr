@@ -61,7 +61,7 @@ impl RootRollupInputs {
         let content_commitment = ContentCommitment {
             tx_tree_height: right.height_in_block_tree + 1,
             txs_effects_hash: components::compute_txs_effects_hash(self.previous_rollup_data),
-            in_hash: [0, 0],
+            in_hash: [0],
             out_hash: components::compute_out_hash(self.previous_rollup_data)
         };
 

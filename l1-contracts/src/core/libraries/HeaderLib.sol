@@ -171,9 +171,6 @@ library HeaderLib {
     header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(
       bytes32(_header[0x010d:0x012d]), uint32(bytes4(_header[0x012d:0x0131]))
     );
-    header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(
-      bytes32(_header[0x0131:0x0151]), uint32(bytes4(_header[0x0151:0x0155]))
-    );
 
     // Reading GlobalVariables
     header.globalVariables.chainId = uint256(bytes32(_header[0x0131:0x0151]));

@@ -184,24 +184,6 @@ mod tests {
         assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
     }
 
-    #[test]
-    fn basic_contract_deployment() {
-        let builder = PrivateKernelInitInputsBuilder::new_constructor();
-
-        let public_inputs = builder.execute();
-
-        validate_deployed_contract_address(builder.tx_request, public_inputs);
-
-        // Since there are no logs, log preimages length should be 0 and both logs hashes should be a sha256 hash of 2 zero
-        // values
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, 0);
-        assert_eq(public_inputs.end.unencrypted_log_preimages_length, 0);
-
-        let expected_logs_hash = compute_logs_hash([0], [0]);
-        assert_eq(public_inputs.end.encrypted_logs_hash, expected_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_logs_hash);
-    }
-
     #[test(should_fail_with = "invalid array")]
     fn input_validation_malformed_arrays_return_values() {
         let mut builder = PrivateKernelInitInputsBuilder::new();

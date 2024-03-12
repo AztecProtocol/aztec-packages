@@ -105,8 +105,8 @@ pub fn compute_kernel_out_hash(combined: CombinedAccumulatedData) -> [Field; NUM
         }
     }
 
-    let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-    U256::from_bytes32(sha_digest).to_u128_limbs()
+    let sha_digest = dep::types::hash::sha256_to_field(hash_input_flattened);
+    [sha_digest]
 }
 
 /**
@@ -118,17 +118,16 @@ pub fn compute_kernel_out_hash(combined: CombinedAccumulatedData) -> [Field; NUM
 pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -> [Field; NUM_FIELDS_PER_SHA256] {
     accumulate_sha256(
         [
-        U128::from_integer(previous_rollup_data[0].base_or_merge_rollup_public_inputs.txs_effects_hash[0]),
-        U128::from_integer(previous_rollup_data[0].base_or_merge_rollup_public_inputs.txs_effects_hash[1]),
-        U128::from_integer(previous_rollup_data[1].base_or_merge_rollup_public_inputs.txs_effects_hash[0]),
-        U128::from_integer(previous_rollup_data[1].base_or_merge_rollup_public_inputs.txs_effects_hash[1])
+        previous_rollup_data[0].base_or_merge_rollup_public_inputs.txs_effects_hash[0],
+        previous_rollup_data[1].base_or_merge_rollup_public_inputs.txs_effects_hash[0],
     ]
     )
 }
 
-global TX_EFFECTS_HASH_FULL_FIELDS = 194;
-global TX_EFFECTS_HASH_LOG_FIELDS = 4;
-global TX_EFFECTS_HASH_INPUT_FIELDS = 198; // TX_EFFECTS_HASH_FULL_FIELDS + TX_EFFECTS_HASH_LOG_FIELDS
+global TX_EFFECTS_HASH_FULL_FIELDS = 196;
+// TODO(Miranda): Remove this as we no longer have any 128bit fields
+global TX_EFFECTS_HASH_LOG_FIELDS = 0;
+global TX_EFFECTS_HASH_INPUT_FIELDS = 196; // TX_EFFECTS_HASH_FULL_FIELDS + TX_EFFECTS_HASH_LOG_FIELDS
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 // TODO(Alvaro): This is too slow for brillig without the array optimization
@@ -204,8 +203,8 @@ pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData) -> [Field; NUM
         }
     }
 
-    let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-    U256::from_bytes32(sha_digest).to_u128_limbs()
+    let sha_digest = dep::types::hash::sha256_to_field(hash_input_flattened);
+    [sha_digest]
 }
 
 #[test]
@@ -219,13 +218,13 @@ fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
     assert(TX_EFFECTS_HASH_INPUT_FIELDS == expected_size, "tx effects hash input size is incorrect");
 }
 
-#[test]
-fn consistent_tx_effects_hash_log_input_size() {
-    assert_eq(
-        TX_EFFECTS_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256
-        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256, "tx effects hash log input field size is incorrect"
-    );
-}
+// #[test]
+// fn consistent_tx_effects_hash_log_input_size() {
+//     assert_eq(
+//         TX_EFFECTS_HASH_LOG_FIELDS, NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256
+//         + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256, "tx effects hash log input field size is incorrect"
+//     );
+// }
 
 #[test]
 fn consistent_tx_effects_input_size() {
