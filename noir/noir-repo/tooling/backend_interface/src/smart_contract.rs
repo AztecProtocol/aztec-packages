@@ -3,7 +3,7 @@ use crate::{
     cli::{ContractCommand, WriteVkCommand},
     Backend, BackendError,
 };
-use acvm::acir::circuit::{Circuit, Program};
+use acvm::acir::circuit::Program;
 use tempfile::tempdir;
 
 impl Backend {
