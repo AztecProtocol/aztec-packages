@@ -175,6 +175,9 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
     // Compute opening proof
     IPA::compute_opening_proof_internal(this->ck(), opening_pair, poly, transcript);
 
+    // Reset indices
+    transcript->reset_for_verifier();
+
     // Verify
     EXPECT_TRUE(IPA::verify_internal(this->vk(), opening_claim, transcript));
 }
