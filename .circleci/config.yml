@@ -105,160 +105,6 @@ jobs:
           command: cond_spot_run_build barretenberg-wasm-linux-clang 128
           aztec_manifest_key: barretenberg-wasm-linux-clang
 
-  barretenberg-x86_64-linux-gcc:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 128
-          aztec_manifest_key: barretenberg-x86_64-linux-gcc
-
-  barretenberg-x86_64-linux-clang:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang 128
-          aztec_manifest_key: barretenberg-x86_64-linux-clang
-
-  barretenberg-x86_64-linux-clang-fuzzing:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 128
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-fuzzing
-
-  barretenberg-x86_64-linux-clang-assert:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 128
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
-
-  barretenberg-x86_64-linux-clang-sol:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build barretenberg-x86_64-linux-clang-sol 32
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-sol
-
-  barretenberg-docs:
-    machine:
-      image: default
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build barretenberg docs"
-          command: build barretenberg-docs
-          aztec_manifest_key: barretenberg-docs
-      - run:
-          name: "Deploy barretenberg docs"
-          command: |
-            barretenberg/cpp/scripts/ci/upload_doxygen_to_s3.sh
-
-  barretenberg-stdlib-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib-tests
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
-
-  barretenberg-dsl-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 dsl_tests
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
-
-  barretenberg-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/bb-tests.sh
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
-
-  barretenberg-bench:
-    machine:
-      # NOTE: we usually use alpine build image when making spot images, but
-      # we are not able to upload to S3 with it
-      image: default
-    resource_class: medium
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Benchmark"
-          command: cond_spot_run_build barretenberg-bench 32
-          aztec_manifest_key: barretenberg-bench
-      - run:
-          name: "Upload"
-          command: |
-            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh
-
-  barretenberg-proof-system-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 proof_system_tests
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
-
-  barretenberg-stdlib-recursion-ultra-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
-          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
-
   bb-js:
     machine:
       image: default
@@ -415,6 +261,160 @@ jobs:
           name: "Build and test"
           command: cond_spot_run_build barretenberg-acir-tests-bb.js 32
           aztec_manifest_key: barretenberg-acir-tests-bb.js
+
+  barretenberg-x86_64-linux-gcc:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-x86_64-linux-gcc 128
+          aztec_manifest_key: barretenberg-x86_64-linux-gcc
+
+  barretenberg-x86_64-linux-clang:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang 128
+          aztec_manifest_key: barretenberg-x86_64-linux-clang
+
+  barretenberg-x86_64-linux-clang-fuzzing:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 128
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-fuzzing
+
+  barretenberg-x86_64-linux-clang-assert:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 128
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+
+  barretenberg-x86_64-linux-clang-sol:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-sol 32
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-sol
+
+  barretenberg-docs:
+    machine:
+      image: default
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build barretenberg docs"
+          command: build barretenberg-docs
+          aztec_manifest_key: barretenberg-docs
+      - run:
+          name: "Deploy barretenberg docs"
+          command: |
+            barretenberg/cpp/scripts/ci/upload_doxygen_to_s3.sh
+
+  barretenberg-stdlib-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib-tests
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+
+  barretenberg-dsl-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 dsl_tests
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+
+  barretenberg-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/bb-tests.sh
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+
+  barretenberg-bench:
+    machine:
+      # NOTE: we usually use alpine build image when making spot images, but
+      # we are not able to upload to S3 with it
+      image: default
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_spot_run_build barretenberg-bench 32
+          aztec_manifest_key: barretenberg-bench
+      - run:
+          name: "Upload"
+          command: |
+            barretenberg/cpp/scripts/ci/upload_benchmarks_to_s3.sh
+
+  barretenberg-proof-system-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 proof_system_tests
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+
+  barretenberg-stdlib-recursion-ultra-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 stdlib_recursion_tests --gtest_filter=-*turbo*
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   l1-contracts:
     machine:
