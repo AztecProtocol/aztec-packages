@@ -61,7 +61,7 @@ export interface ExecutionResult {
  */
 export function collectEncryptedLogs(execResult: ExecutionResult): FunctionL2Logs[] {
   // without the .reverse(), the logs will be in a queue like fashion which is wrong as the kernel processes it like a stack.
-  return [execResult.encryptedLogs, ...[...execResult.nestedExecutions].reverse().flatMap(collectEncryptedLogs)];
+  return [execResult.encryptedLogs, ...[...execResult.nestedExecutions].flatMap(collectEncryptedLogs)];
 }
 
 /**
@@ -71,7 +71,7 @@ export function collectEncryptedLogs(execResult: ExecutionResult): FunctionL2Log
  */
 export function collectUnencryptedLogs(execResult: ExecutionResult): FunctionL2Logs[] {
   // without the .reverse(), the logs will be in a queue like fashion which is wrong as the kernel processes it like a stack.
-  return [execResult.unencryptedLogs, ...[...execResult.nestedExecutions].reverse().flatMap(collectUnencryptedLogs)];
+  return [execResult.unencryptedLogs, ...[...execResult.nestedExecutions].flatMap(collectUnencryptedLogs)];
 }
 
 /**
