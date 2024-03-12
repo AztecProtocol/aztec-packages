@@ -60,6 +60,7 @@ import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { HintsBuilder } from './hints_builder.js';
 import { FailedTx } from './processed_tx.js';
+import { lastSideEffectCounter } from './utils.js';
 
 export enum PublicKernelPhase {
   SETUP = 'setup',
@@ -514,32 +515,4 @@ function patchPublicStorageActionOrdering(
       ? MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
       : MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
-}
-
-/**
- * Looks at the side effects of a transaction and returns the highest counter
- * @param tx - A transaction
- * @returns The highest side effect counter in the transaction so far
- */
-function lastSideEffectCounter(tx: Tx): number {
-  const sideEffectCounters = [
-    ...tx.data.endNonRevertibleData.newNoteHashes,
-    ...tx.data.endNonRevertibleData.newNullifiers,
-    ...tx.data.endNonRevertibleData.publicCallStack,
-    ...tx.data.end.newNoteHashes,
-    ...tx.data.end.newNullifiers,
-    ...tx.data.end.publicCallStack,
-  ];
-
-  let max = 0;
-  for (const sideEffect of sideEffectCounters) {
-    if (sideEffect instanceof CallRequest) {
-      // look at both start and end counters because for enqueued public calls start > 0 while end === 0
-      max = Math.max(max, sideEffect.startSideEffectCounter.toNumber(), sideEffect.endSideEffectCounter.toNumber());
-    } else {
-      max = Math.max(max, sideEffect.counter.toNumber());
-    }
-  }
-
-  return max;
 }
