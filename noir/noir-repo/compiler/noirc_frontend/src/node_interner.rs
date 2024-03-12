@@ -28,8 +28,8 @@ use crate::hir_def::{
 };
 use crate::token::{Attributes, SecondaryAttribute};
 use crate::{
-    BinaryOpKind, ContractFunctionType, FunctionDefinition, Generics, ItemVisibility, Shared,
-    TypeAlias, TypeBindings, TypeVariable, TypeVariableId, TypeVariableKind,
+    BinaryOpKind, FunctionDefinition, Generics, ItemVisibility, Shared, TypeAlias, TypeBindings,
+    TypeVariable, TypeVariableId, TypeVariableKind,
 };
 
 /// An arbitrary number to limit the recursion depth when searching for trait impls.

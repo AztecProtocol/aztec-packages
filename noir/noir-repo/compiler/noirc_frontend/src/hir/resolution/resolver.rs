@@ -37,11 +37,11 @@ use crate::{
     StatementKind,
 };
 use crate::{
-    ArrayLiteral, ContractFunctionType, Distinctness, ForRange, FunctionDefinition,
-    FunctionReturnType, Generics, ItemVisibility, LValue, NoirStruct, NoirTypeAlias, Param, Path,
-    PathKind, Pattern, Shared, StructType, Type, TypeAlias, TypeVariable, TypeVariableKind,
-    UnaryOp, UnresolvedGenerics, UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData,
-    UnresolvedTypeExpression, Visibility, ERROR_IDENT,
+    ArrayLiteral, Distinctness, ForRange, FunctionDefinition, FunctionReturnType, Generics,
+    ItemVisibility, LValue, NoirStruct, NoirTypeAlias, Param, Path, PathKind, Pattern, Shared,
+    StructType, Type, TypeAlias, TypeVariable, TypeVariableKind, UnaryOp, UnresolvedGenerics,
+    UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData, UnresolvedTypeExpression,
+    Visibility, ERROR_IDENT,
 };
 use fm::FileId;
 use iter_extended::vecmap;
@@ -970,12 +970,6 @@ impl<'a> Resolver<'a> {
         }
 
         self.interner.push_definition_type(name_ident.id, typ.clone());
-
-        let direct_generics = func.def.generics.iter();
-        let direct_generics = direct_generics
-            .filter_map(|generic| self.find_generic(&generic.0.contents))
-            .map(|(name, typevar, _span)| (name.clone(), typevar.clone()))
-            .collect();
 
         let direct_generics = func.def.generics.iter();
         let direct_generics = direct_generics
