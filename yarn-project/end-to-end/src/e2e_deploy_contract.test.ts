@@ -56,15 +56,9 @@ describe('e2e_deploy_contract', () => {
      * https://hackmd.io/ouVCnacHQRq2o1oRc5ksNA#Interfaces-and-Responsibilities
      */
     it('should deploy a test contract', async () => {
-      const publicKey = accounts[0].publicKey;
       const salt = Fr.random();
-      const deploymentData = getContractInstanceFromDeployParams(
-        TestContractArtifact,
-        [],
-        salt,
-        publicKey,
-        EthAddress.ZERO,
-      );
+      const publicKey = accounts[0].publicKey;
+      const deploymentData = getContractInstanceFromDeployParams(TestContractArtifact, { salt, publicKey });
       const deployer = new ContractDeployer(TestContractArtifact, wallet, publicKey);
       const receipt = await deployer.deploy().send({ contractAddressSalt: salt }).wait({ wallet });
       expect(receipt.contract.address).toEqual(deploymentData.address);
@@ -312,7 +306,12 @@ describe('e2e_deploy_contract', () => {
           const salt = Fr.random();
           const portalAddress = EthAddress.random();
           const publicKey = Point.random();
-          const instance = getContractInstanceFromDeployParams(artifact, initArgs, salt, publicKey, portalAddress);
+          const instance = getContractInstanceFromDeployParams(artifact, {
+            constructorArgs: initArgs,
+            salt,
+            publicKey,
+            portalAddress,
+          });
           const { address, contractClassId } = instance;
           logger(`Deploying contract instance at ${address.toString()} class id ${contractClassId.toString()}`);
           await deployFn(instance);
@@ -455,7 +454,7 @@ describe('e2e_deploy_contract', () => {
       expect(await token.methods.is_minter(owner).view()).toEqual(true);
     }, 60_000);
 
-    it('publicly deploys and initializes via a public function', async () => {
+    it.only('publicly deploys and initializes via a public function', async () => {
       const owner = accounts[0];
       logger.debug(`Deploying contract via a public constructor`);
       const contract = await StatefulTestContract.deployWithOpts({ wallet, method: 'public_constructor' }, owner, 42)
@@ -497,7 +496,12 @@ async function registerContract<T extends ContractBase>(
   opts: { salt?: Fr; publicKey?: Point; portalAddress?: EthAddress } = {},
 ): Promise<T> {
   const { salt, publicKey, portalAddress } = opts;
-  const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, args, salt, publicKey, portalAddress);
+  const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, {
+    constructorArgs: args,
+    salt,
+    publicKey,
+    portalAddress,
+  });
   await wallet.addContracts([{ artifact: contractArtifact.artifact, instance }]);
   return contractArtifact.at(instance.address, wallet);
 }

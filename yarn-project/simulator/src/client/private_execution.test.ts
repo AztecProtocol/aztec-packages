@@ -293,10 +293,11 @@ describe('Private Execution test suite', () => {
     });
 
     it('should have a constructor with arguments that inserts notes', async () => {
-      const instance = getContractInstanceFromDeployParams(StatefulTestContractArtifact, [owner, 140]);
+      const initArgs = [owner, 140];
+      const instance = getContractInstanceFromDeployParams(StatefulTestContractArtifact, { constructorArgs: initArgs });
       oracle.getContractInstance.mockResolvedValue(instance);
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'constructor');
-      const topLevelResult = await runSimulator({ args: [owner, 140], artifact, contractAddress: instance.address });
+      const topLevelResult = await runSimulator({ args: initArgs, artifact, contractAddress: instance.address });
       const result = topLevelResult.nestedExecutions[0];
 
       expect(result.newNotes).toHaveLength(1);

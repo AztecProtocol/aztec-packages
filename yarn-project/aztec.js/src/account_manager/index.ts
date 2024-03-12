@@ -77,14 +77,11 @@ export class AccountManager {
   public getInstance(): ContractInstanceWithAddress {
     if (!this.instance) {
       const encryptionPublicKey = generatePublicKey(this.encryptionPrivateKey);
-      const portalAddress = EthAddress.ZERO;
-      this.instance = getContractInstanceFromDeployParams(
-        this.accountContract.getContractArtifact(),
-        this.accountContract.getDeploymentArgs(),
-        this.salt,
-        encryptionPublicKey,
-        portalAddress,
-      );
+      this.instance = getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
+        constructorArgs: this.accountContract.getDeploymentArgs(),
+        salt: this.salt,
+        publicKey: encryptionPublicKey,
+      });
     }
     return this.instance;
   }
