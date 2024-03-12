@@ -1,48 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`PublicCallStackItem Computes a callstack item hash 1`] = `"0x21a57c25d064f611e94bcbd6729cdf7d4194c98e8c58ad4703c6315dfbd7e1d9"`;
+exports[`PublicCallStackItem Computes a callstack item hash 1`] = `"0x086b4890110c751f01df5eb163b250f10c90a4f38e73e07e3b5a58685456eaa9"`;
 
-exports[`PublicCallStackItem Computes a callstack item request hash 1`] = `"0x2f3c7c0a0a0611feaba860e7c1022b18b6a9da1db41e3b4a65e535553e371765"`;
+exports[`PublicCallStackItem Computes a callstack item request hash 1`] = `"0x09cb16dc10b48bb544bd5f4293cfd2dee539bd281aa468c0c69a9352df17a307"`;
 
-exports[`PublicCallStackItem computes hash 1`] = `
-Fr {
-  "asBigInt": 10303122325746643826583747593622617947092841409264941610766787655996494469123n,
-  "asBuffer": {
-    "data": [
-      22,
-      199,
-      92,
-      79,
-      4,
-      250,
-      62,
-      84,
-      206,
-      222,
-      239,
-      25,
-      153,
-      82,
-      66,
-      3,
-      105,
-      117,
-      249,
-      128,
-      101,
-      228,
-      187,
-      37,
-      196,
-      173,
-      44,
-      162,
-      71,
-      186,
-      88,
-      3,
-    ],
-    "type": "Buffer",
-  },
-}
-`;
+exports[`PublicCallStackItem computes hash 1`] = `Fr<0x198bebc3ae39ac7041b6f6cf91cf2055e577494f8f2145d81601b192f71e762a>`;

@@ -9,9 +9,9 @@ export GIT_DIRTY=false
 export GIT_COMMIT=${COMMIT_HASH:-$(git rev-parse --verify HEAD)}
 
 cargo fmt --all --check
-cargo clippy --workspace --locked --release
+RUSTFLAGS=-Dwarnings cargo clippy --workspace --locked --release
 
 ./.github/scripts/cargo-binstall-install.sh
 cargo-binstall cargo-nextest --version 0.9.67 -y --secure
 
-cargo nextest run --locked --release -E '!test(hello_world_example) & !test(simple_verifier_codegen)'
+cargo nextest run --locked --release -E '!test(hello_world_example)'

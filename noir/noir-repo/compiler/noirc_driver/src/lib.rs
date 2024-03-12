@@ -3,7 +3,7 @@
 #![warn(unreachable_pub)]
 #![warn(clippy::semicolon_if_nothing_returned)]
 
-use acvm::acir::circuit::{ExpressionWidth, Program};
+use acvm::acir::circuit::ExpressionWidth;
 use clap::Args;
 use fm::{FileId, FileManager};
 use iter_extended::vecmap;
@@ -18,6 +18,7 @@ use noirc_frontend::hir::Context;
 use noirc_frontend::macros_api::MacroProcessor;
 use noirc_frontend::monomorphization::{monomorphize, monomorphize_debug, MonomorphizationError};
 use noirc_frontend::node_interner::FuncId;
+use noirc_frontend::token::SecondaryAttribute;
 use std::path::Path;
 use thiserror::Error;
 use tracing::info;
@@ -30,7 +31,7 @@ mod stdlib;
 
 use debug::filter_relevant_files;
 
-pub use contract::{CompiledContract, ContractFunction, ContractFunctionType};
+pub use contract::{CompiledContract, ContractFunction};
 pub use debug::DebugFile;
 pub use program::CompiledProgram;
 
@@ -247,7 +248,7 @@ pub fn check_crate(
     };
 
     let mut errors = vec![];
-    let diagnostics = CrateDefMap::collect_defs(crate_id, context, macros);
+    let diagnostics = CrateDefMap::collect_defs(crate_id, context, &macros);
     errors.extend(diagnostics.into_iter().map(|(error, file_id)| {
         let diagnostic: CustomDiagnostic = error.into();
         diagnostic.in_file(file_id)
@@ -303,7 +304,7 @@ pub fn compile_main(
 
     if options.print_acir {
         println!("Compiled ACIR for main (unoptimized):");
-        println!("{}", compiled_program.program);
+        println!("{}", compiled_program.circuit);
     }
 
     Ok((compiled_program, warnings))
@@ -404,19 +405,24 @@ fn compile_contract_inner(
         };
         warnings.extend(function.warnings);
         let modifiers = context.def_interner.function_modifiers(&function_id);
-        let func_type = modifiers
-            .contract_function_type
-            .expect("Expected contract function to have a contract visibility");
 
-        let function_type = ContractFunctionType::new(func_type, modifiers.is_unconstrained);
+        let custom_attributes = modifiers
+            .attributes
+            .secondary
+            .iter()
+            .filter_map(
+                |attr| if let SecondaryAttribute::Custom(tag) = attr { Some(tag) } else { None },
+            )
+            .cloned()
+            .collect();
 
         functions.push(ContractFunction {
             name,
-            function_type,
-            is_internal: modifiers.is_internal.unwrap_or(false),
+            custom_attributes,
             abi: function.abi,
-            bytecode: function.program,
+            bytecode: function.circuit,
             debug: function.debug,
+            is_unconstrained: modifiers.is_unconstrained,
         });
     }
 
@@ -487,8 +493,7 @@ pub fn compile_no_check(
 
     Ok(CompiledProgram {
         hash,
-        // TODO(https://github.com/noir-lang/noir/issues/4428)
-        program: Program { functions: vec![circuit] },
+        circuit,
         debug,
         abi,
         file_map,

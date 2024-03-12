@@ -1,4 +1,4 @@
-use acvm::acir::native_types::{WitnessMap, WitnessStack};
+use acvm::acir::native_types::WitnessMap;
 use js_sys::JsString;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -13,11 +13,10 @@ pub fn compress_witness(witness_map: JsWitnessMap) -> Result<Vec<u8>, JsString> 
     console_error_panic_hook::set_once();
 
     let witness_map = WitnessMap::from(witness_map);
-    let witness_stack: WitnessStack = witness_map.into();
-    let compressed_witness_stack: Vec<u8> =
-        Vec::<u8>::try_from(witness_stack).map_err(|err| err.to_string())?;
+    let compressed_witness_map: Vec<u8> =
+        Vec::<u8>::try_from(witness_map).map_err(|err| err.to_string())?;
 
-    Ok(compressed_witness_stack)
+    Ok(compressed_witness_map)
 }
 
 /// Decompresses a compressed witness as outputted by Nargo into a `WitnessMap`.
@@ -28,8 +27,8 @@ pub fn compress_witness(witness_map: JsWitnessMap) -> Result<Vec<u8>, JsString> 
 pub fn decompress_witness(compressed_witness: Vec<u8>) -> Result<JsWitnessMap, JsString> {
     console_error_panic_hook::set_once();
 
-    let witness_stack =
-        WitnessStack::try_from(compressed_witness.as_slice()).map_err(|err| err.to_string())?;
+    let witness_map =
+        WitnessMap::try_from(compressed_witness.as_slice()).map_err(|err| err.to_string())?;
 
-    Ok(witness_stack.stack[0].witness.clone().into())
+    Ok(witness_map.into())
 }
