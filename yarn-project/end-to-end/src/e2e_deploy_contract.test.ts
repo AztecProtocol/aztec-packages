@@ -454,7 +454,7 @@ describe('e2e_deploy_contract', () => {
       expect(await token.methods.is_minter(owner).view()).toEqual(true);
     }, 60_000);
 
-    it.only('publicly deploys and initializes via a public function', async () => {
+    it('publicly deploys and initializes via a public function', async () => {
       const owner = accounts[0];
       logger.debug(`Deploying contract via a public constructor`);
       const contract = await StatefulTestContract.deployWithOpts({ wallet, method: 'public_constructor' }, owner, 42)
