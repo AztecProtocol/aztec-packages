@@ -30,8 +30,6 @@ import { deployInstance, registerContractClass } from '@aztec/aztec.js/deploymen
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
-  ContractDeploymentEmitterAbi,
-  ContractDeploymentEmitterBytecode,
   InboxAbi,
   InboxBytecode,
   OutboxAbi,
@@ -41,6 +39,7 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
+import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { PXEService, PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { SequencerClient } from '@aztec/sequencer-client';
 
@@ -99,10 +98,6 @@ export const setupL1Contracts = async (
   logger: DebugLogger,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
-    contractDeploymentEmitter: {
-      contractAbi: ContractDeploymentEmitterAbi,
-      contractBytecode: ContractDeploymentEmitterBytecode,
-    },
     registry: {
       contractAbi: RegistryAbi,
       contractBytecode: RegistryBytecode,
@@ -188,6 +183,7 @@ async function setupWithRemoteEnvironment(
   config: AztecNodeConfig,
   logger: DebugLogger,
   numberOfAccounts: number,
+  deployProtocolContracts = false,
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
   const aztecNodeUrl = getAztecUrl();
@@ -225,6 +221,10 @@ async function setupWithRemoteEnvironment(
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
+  if (deployProtocolContracts) {
+    await deployPublicProtocolContracts(wallets[0]);
+  }
+
   return {
     aztecNode,
     sequencer: undefined,
@@ -246,6 +246,9 @@ type SetupOptions = {
   stateLoad?: string;
   /** Previously deployed contracts on L1 */
   deployL1ContractsValues?: DeployL1Contracts;
+
+  /** Deploy protocol contracts */
+  deployProtocolContracts?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -305,7 +308,7 @@ export async function setup(
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts);
+    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts, opts.deployProtocolContracts);
   }
 
   const deployL1ContractsValues =
@@ -326,6 +329,12 @@ export async function setup(
   const sequencer = aztecNode.getSequencer();
 
   const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
+
+  if (opts.deployProtocolContracts) {
+    // this should be a neutral wallet, but the SignerlessWallet only accepts a single function call
+    // and this needs two: one to register the class and another to deploy the instance
+    await deployPublicProtocolContracts(wallets[0]);
+  }
 
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
 
@@ -489,4 +498,26 @@ export async function expectMapping<K, V>(
   const outputs = await fn(...inputs);
 
   expect(outputs).toEqual(expectedOutputs);
+}
+
+/**
+ * Deploy the protocol contracts to a running instance.
+ */
+export async function deployPublicProtocolContracts(deployer: Wallet) {
+  // "deploy" the Gas token as it contains public functions
+  const canonicalGasToken = getCanonicalGasToken();
+
+  if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
+    return;
+  }
+
+  await new BatchCall(deployer, [
+    (await registerContractClass(deployer, canonicalGasToken.artifact)).request(),
+    deployInstance(deployer, canonicalGasToken.instance, { universalDeploy: true }).request(),
+  ])
+    .send()
+    .wait();
+
+  await expect(deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)).resolves.toBe(true);
+  await expect(deployer.getContractInstance(canonicalGasToken.instance.address)).resolves.toBeDefined();
 }

@@ -7,7 +7,7 @@ use dep::protocol_types::{
     global_variables::GlobalVariables, function_selector::FunctionSelector,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem,
-    public_circuit_public_inputs::PublicCircuitPublicInputs,
+    public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, EthAddress},
@@ -15,6 +15,7 @@ use dep::protocol_types::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
     NUM_FIELDS_PER_SHA256, RETURN_VALUES_LENGTH
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
@@ -28,6 +29,8 @@ struct PublicContext {
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
+    nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    nullifier_non_existent_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL>,
     contract_storage_update_requests: BoundedVec<StorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
     contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
@@ -95,13 +98,13 @@ impl ContextInterface for PublicContext {
 
 impl PublicContext {
     pub fn new(inputs: PublicContextInputs, args_hash: Field) -> PublicContext {
-        let empty_storage_read = StorageRead::empty();
-        let empty_storage_update = StorageUpdateRequest::empty();
         PublicContext {
             inputs,
             side_effect_counter: inputs.call_context.start_side_effect_counter,
             args_hash,
             return_values: BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            nullifier_non_existent_read_requests: BoundedVec::new(),
             contract_storage_update_requests: BoundedVec::new(),
             contract_storage_reads: BoundedVec::new(),
             public_call_stack_hashes: BoundedVec::new(),
@@ -115,11 +118,6 @@ impl PublicContext {
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
         }
-    }
-
-    pub fn is_deployment(self) -> bool {
-        // TODO(#4738): Implement this
-        false
     }
 
     pub fn block_number(self) -> Field {
@@ -147,6 +145,8 @@ impl PublicContext {
         let pub_circuit_pub_inputs = PublicCircuitPublicInputs {
             call_context: self.inputs.call_context, // Done
             args_hash: self.args_hash, // Done
+            nullifier_read_requests: self.nullifier_read_requests.storage,
+            nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests.storage,
             contract_storage_update_requests: self.contract_storage_update_requests.storage,
             contract_storage_reads: self.contract_storage_reads.storage,
             return_values: self.return_values.storage,
@@ -157,9 +157,22 @@ impl PublicContext {
             unencrypted_logs_hash,
             unencrypted_log_preimages_length,
             historical_header: self.inputs.historical_header,
-            prover_address: self.prover_address
+            prover_address: self.prover_address,
+            reverted: false
         };
         pub_circuit_pub_inputs
+    }
+
+    pub fn push_nullifier_read_request(&mut self, nullifier: Field) {
+        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
+        self.nullifier_read_requests.push(request);
+        self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
+    pub fn push_nullifier_non_existent_read_request(&mut self, nullifier: Field) {
+        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
+        self.nullifier_non_existent_read_requests.push(request);
+        self.side_effect_counter = self.side_effect_counter + 1;
     }
 
     pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
