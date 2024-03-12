@@ -9,10 +9,10 @@
 
 namespace bb {
 
-class equiv_inter_reg_alu_permutation_settings {
+class perm_main_mem_b_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 10;
+    constexpr static size_t COLUMNS_PER_SET = 5;
 
     /**
      * @brief If this method returns true on a row of values, then the inverse polynomial at this index. Otherwise the
@@ -23,7 +23,7 @@ class equiv_inter_reg_alu_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.avm_main_alu_sel == 1 || in.avm_alu_alu_sel == 1);
+        return (in.avm_main_mem_op_b == 1 || in.avm_mem_m_op_b == 1);
     }
 
     /**
@@ -46,30 +46,20 @@ class equiv_inter_reg_alu_permutation_settings {
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.equiv_inter_reg_alu,
-                                     in.avm_main_alu_sel,
-                                     in.avm_main_alu_sel,
-                                     in.avm_alu_alu_sel,
+        return std::forward_as_tuple(in.perm_main_mem_b,
+                                     in.avm_main_mem_op_b,
+                                     in.avm_main_mem_op_b,
+                                     in.avm_mem_m_op_b,
                                      in.avm_main_clk,
-                                     in.avm_main_ia,
+                                     in.avm_main_mem_idx_b,
                                      in.avm_main_ib,
-                                     in.avm_main_ic,
-                                     in.avm_main_sel_op_add,
-                                     in.avm_main_sel_op_sub,
-                                     in.avm_main_sel_op_mul,
-                                     in.avm_main_sel_op_eq,
-                                     in.avm_main_sel_op_not,
+                                     in.avm_main_rwb,
                                      in.avm_main_in_tag,
-                                     in.avm_alu_alu_clk,
-                                     in.avm_alu_alu_ia,
-                                     in.avm_alu_alu_ib,
-                                     in.avm_alu_alu_ic,
-                                     in.avm_alu_alu_op_add,
-                                     in.avm_alu_alu_op_sub,
-                                     in.avm_alu_alu_op_mul,
-                                     in.avm_alu_alu_op_eq,
-                                     in.avm_alu_alu_op_not,
-                                     in.avm_alu_alu_in_tag);
+                                     in.avm_mem_m_clk,
+                                     in.avm_mem_m_addr,
+                                     in.avm_mem_m_val,
+                                     in.avm_mem_m_rw,
+                                     in.avm_mem_m_in_tag);
     }
 
     /**
@@ -92,35 +82,25 @@ class equiv_inter_reg_alu_permutation_settings {
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.equiv_inter_reg_alu,
-                                     in.avm_main_alu_sel,
-                                     in.avm_main_alu_sel,
-                                     in.avm_alu_alu_sel,
+        return std::forward_as_tuple(in.perm_main_mem_b,
+                                     in.avm_main_mem_op_b,
+                                     in.avm_main_mem_op_b,
+                                     in.avm_mem_m_op_b,
                                      in.avm_main_clk,
-                                     in.avm_main_ia,
+                                     in.avm_main_mem_idx_b,
                                      in.avm_main_ib,
-                                     in.avm_main_ic,
-                                     in.avm_main_sel_op_add,
-                                     in.avm_main_sel_op_sub,
-                                     in.avm_main_sel_op_mul,
-                                     in.avm_main_sel_op_eq,
-                                     in.avm_main_sel_op_not,
+                                     in.avm_main_rwb,
                                      in.avm_main_in_tag,
-                                     in.avm_alu_alu_clk,
-                                     in.avm_alu_alu_ia,
-                                     in.avm_alu_alu_ib,
-                                     in.avm_alu_alu_ic,
-                                     in.avm_alu_alu_op_add,
-                                     in.avm_alu_alu_op_sub,
-                                     in.avm_alu_alu_op_mul,
-                                     in.avm_alu_alu_op_eq,
-                                     in.avm_alu_alu_op_not,
-                                     in.avm_alu_alu_in_tag);
+                                     in.avm_mem_m_clk,
+                                     in.avm_mem_m_addr,
+                                     in.avm_mem_m_val,
+                                     in.avm_mem_m_rw,
+                                     in.avm_mem_m_in_tag);
     }
 };
 
 template <typename FF_>
-using equiv_inter_reg_alu_relation = GenericPermutationRelation<equiv_inter_reg_alu_permutation_settings, FF_>;
-template <typename FF_> using equiv_inter_reg_alu = GenericPermutation<equiv_inter_reg_alu_permutation_settings, FF_>;
+using perm_main_mem_b_relation = GenericPermutationRelation<perm_main_mem_b_permutation_settings, FF_>;
+template <typename FF_> using perm_main_mem_b = GenericPermutation<perm_main_mem_b_permutation_settings, FF_>;
 
 } // namespace bb
