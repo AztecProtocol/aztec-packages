@@ -605,7 +605,7 @@ class PublicExecutionResultBuilder {
       contractStorageReads: [],
       unencryptedLogs: new FunctionL2Logs([]),
       startSideEffectCounter: Fr.ZERO,
-      endSideEffectCounter: new Fr(Math.max(...this._contractStorageUpdateRequests.map(r => r.sideEffectCounter ?? 0))),
+      endSideEffectCounter: Fr.ZERO,
       reverted: this._reverted,
       revertReason: this._revertReason,
     };
