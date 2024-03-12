@@ -39,7 +39,7 @@ noir-packages-tests:
   dependencies:
     - noir
     - bb.js
-    - noir-packages
+    # - noir-packages
 
 # Builds the brillig to avm transpiler.
 avm-transpiler:
