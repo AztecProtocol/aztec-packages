@@ -41,37 +41,49 @@ source:
     COPY --keep-ts --dir src/barretenberg src/CMakeLists.txt src
     # cmake source
     COPY --keep-ts --dir cmake CMakeLists.txt CMakePresets.json .
-    # wasi-sdk
-    COPY --dir +build-wasi-sdk/wasi-sdk src/wasi-sdk
 
 build-release:
-    DO +BUILD --configure="--preset clang16" --build="--target ultra_honk_rounds_bench --target bb"
-    SAVE ARTIFACT build
+    FROM +source
+    DO +RUN_CMAKE --configure="--preset clang16" --build="--target bb"
+    SAVE ARTIFACT bin
+
+build-debug:
+    FROM +source
+    DO +RUN_CMAKE --configure="--preset clang16-dbg" --build="--target bb"
+    SAVE ARTIFACT bin
 
 build-wasm:
-    DO +BUILD --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
-    RUN ./src/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
-    SAVE ARTIFACT build
+    FROM +source
+    # wasi-sdk
+    COPY --dir +build-wasi-sdk/wasi-sdk src/wasi-sdk
+    DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
+    RUN ./src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
+    SAVE ARTIFACT bin
 
 build-gcc:
-    DO +BUILD --configure="--preset gcc" --build=""
-    SAVE ARTIFACT build/bin bin
+    FROM +source
+    DO +RUN_CMAKE --configure="--preset gcc" --build=""
+    SAVE ARTIFACT bin
 
 build-fuzzing:
-    DO +BUILD --configure="--preset fuzzing" --build=""
-    SAVE ARTIFACT build/bin bin
+    FROM +source
+    DO +RUN_CMAKE --configure="--preset fuzzing" --build=""
+    SAVE ARTIFACT bin
 
 build-clang-assert:
-    DO +BUILD --configure="--preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
-    SAVE ARTIFACT build/bin bin
+    FROM +source
+    DO +RUN_CMAKE --configure="--preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert" --build="--target bb"
+    SAVE ARTIFACT bin
 
 build-op-count:
-    DO +BUILD --configure="--preset op-count -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
-    SAVE ARTIFACT build/bin bin
+    FROM +source
+    DO +RUN_CMAKE --configure="--preset op-count -DCMAKE_BUILD_TYPE=RelWithAssert" --build="--target bb"
+    SAVE ARTIFACT bin
 
 build-op-count-time:
-    DO +BUILD --configure="--preset op-count-time -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
-    SAVE ARTIFACT build/bin bin
+    FROM +source
+    DO +RUN_CMAKE --configure="--preset op-count-time -DCMAKE_BUILD_TYPE=RelWithAssert" --build="--target bb"
+    SAVE ARTIFACT bin
 
 test-clang-format:
     COPY .clang-format .
@@ -79,8 +91,8 @@ test-clang-format:
     RUN ./format.sh check
 
 bench-ultra-honk:
-    DO +BENCH_RELEASE --target=ultra_honk_bench --args=""
-    DO +BENCH_WASM --target=ultra_honk_bench --args=""
+    DO +BENCH_RELEASE --target=ultra_honk_bench --args="--benchmark_filter=construct_proof_ultrahonk_power_of_2/20$"
+    DO +BENCH_WASM --target=ultra_honk_bench --args="--benchmark_filter=construct_proof_ultrahonk_power_of_2/20$"
 
 bench-client-ivc:
     DO +BENCH_RELEASE --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
@@ -88,25 +100,23 @@ bench-client-ivc:
     DO +BENCH_WASM --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
 
 # Functions
-BUILD:
+RUN_CMAKE:
+    # Runs cmake build and leaves binary artifacts at 'bin'
     FUNCTION
-    ARG configure
-    ARG build
-    FROM +source
-    # builtin-arg, detects --ci
+    ARG configure # cmake configure flags
+    ARG build # cmake build flags
     ARG EARTHLY_CI
     IF $EARTHLY_CI
         # Don't cache CI builds.
         RUN cmake $configure -Bbuild && \
             cmake --build build $build
+        RUN cp -r build/bin .
     ELSE
         # Use a mount for incremental builds locally.
         RUN --mount type=cache,id="$configure-build",target=/build/build \
             (cmake $configure -Bbuild || (rm -f build/CMakeCache.txt && cmake $configure -Bbuild)) && \
             cmake --build build $build && \
             cp -r build/bin .
-        # reconstruct build folder, as it was used in cache
-        RUN mkdir build && mv bin build
     END
 
 BENCH_RELEASE:
@@ -123,7 +133,7 @@ BENCH_OP_COUNT_TIME:
     ARG target
     ARG args
     FROM +build-op-count-time
-    DO +BUILD --configure="--preset op-count-time" --build="--target $target"
+    DO +RUN_CMAKE --configure="--preset op-count-time" --build="--target $target"
     COPY --dir srs_db:+build/. srs_db
     RUN cd build && ./bin/$target $args
 
@@ -132,7 +142,7 @@ BENCH_OP_COUNT:
     ARG target
     ARG args
     FROM +build-op-count
-    DO +BUILD --configure="--preset op-count" --build="--target $target"
+    DO +RUN_CMAKE --configure="--preset op-count" --build="--target $target"
     COPY --dir srs_db:+build/. srs_db
     RUN cd build && ./bin/$target $args
 
@@ -141,6 +151,6 @@ BENCH_WASM:
     ARG target
     ARG args
     FROM +build-wasm
-    DO +BUILD --configure="--preset wasm-threads" --build="--target $target"
+    DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target $target"
     COPY --dir srs_db:+build/. srs_db/
     RUN cd build && ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args

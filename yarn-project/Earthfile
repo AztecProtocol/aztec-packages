@@ -4,7 +4,7 @@ RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && 
 
 # copy bb-js and noir-packages
 COPY ../barretenberg/ts/+build/build /build/barretenberg/ts
-COPY ../noir/+build-packages/build /build/noir/packages
+COPY ../noir/+build-packages/packages /build/noir/packages
 # install acvm binary
 COPY ../noir/+build-nargo/acvm /usr/bin/acvm
 COPY --dir ../noir-projects/+build/. /build/noir-projects
@@ -24,14 +24,24 @@ RUN ln -s /build/yarn-project/node_modules /build/node_modules
 
 # Target for main build process
 build:
-    ARG EARTHLY_BUILD_SHA
-    ENV COMMIT_TAG=$EARTHLY_BUILD_SHA
-    RUN ./scripts/version_packages.sh
+    ARG EARTHLY_CI
     # TODO: Replace puppeteer with puppeteer-core to avoid this.
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh # TODO mount cache
-    RUN yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache clean
+    IF $EARTHLY_CI # Don't cache CI builds.
+        RUN ./bootstrap.sh
+        RUN yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache clean
+    ELSE
+        ENV YARN_CACHE_FOLDER /build/yarn-cache
+        # Use a mount for incremental builds locally.
+        RUN --mount type=cache,target=/build/node_modules  --mount type=cache,target=/build/yarn-cache \
+            ./bootstrap.sh && yarn workspaces focus @aztec/cli @aztec/aztec --production
+    END
     SAVE ARTIFACT /build
+
+# TODO versioning flow at end before publish?
+# ENV COMMIT_TAG=$EARTHLY_BUILD_SHA
+# RUN ./scripts/version_packages.sh
 
 # run:
 #     FROM node:18.19.1-slim
@@ -41,11 +51,11 @@ build:
 #     WORKDIR /build/yarn-project
 #     ENTRYPOINT ["yarn"]
 
-run-aztec:
+build-aztec:
     FROM +build
     # ENV vars for using native ACVM simulation
-    ENV ACVM_BINARY_PATH="/usr/src/noir/noir-repo/target/release/acvm" ACVM_WORKING_DIRECTORY="/tmp/acvm"
-    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
+    ENV ACVM_BINARY_PATH="/build/noir/noir-repo/target/release/acvm" ACVM_WORKING_DIRECTORY="/tmp/acvm"
+    ENTRYPOINT ["node", "--no-warnings", "/build/yarn-project/aztec/dest/bin/index.js"]
     EXPOSE 8080
 
     # The version has been updated in yarn-project.

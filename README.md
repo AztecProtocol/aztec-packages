@@ -47,6 +47,7 @@ It is faster to debug CI failures within a persistent ssh session compared to pu
 cd project
 ./build-system/scripts/setup_env "$(git rev-parse HEAD)" "" "" ""
 source /tmp/.bash_env*
+set +euo
 {start testing your CI commands here}
 ```
 

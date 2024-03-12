@@ -7,6 +7,7 @@ run-registry:
   IF ! docker ps | grep registry
     RUN docker run -d -p 5000:5000 --restart=always --name registry registry:2.7
   END
+  SAVE IMAGE hello:latest
 
 build-ci:
     BUILD ./avm-transpiler/+build

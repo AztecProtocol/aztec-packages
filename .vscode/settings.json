@@ -160,5 +160,5 @@
     "noir/noir-repo/Cargo.toml",
     "avm-transpiler/Cargo.toml"
   ],
-  "cmake.sourceDirectory": "/Users/adomurad/sources/aztec-packages/barretenberg/cpp/build/_deps/msgpack-c/src/msgpack-c/test-install"
+  "cmake.sourceDirectory": "/mnt/user-data/adam/aztec-packages/barretenberg/cpp"
 }

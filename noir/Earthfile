@@ -60,7 +60,7 @@ build-packages:
     COPY --keep-ts noir-repo/.github/scripts noir-repo/.github/scripts
     COPY --keep-ts ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
     RUN PATH="/root/.cargo/bin:$PATH" ./scripts/bootstrap_packages.sh
-    SAVE ARTIFACT packages build
+    SAVE ARTIFACT packages
 
 run:
     # When running the container, mount the users home directory to same location.
