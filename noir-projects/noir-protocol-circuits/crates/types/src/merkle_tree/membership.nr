@@ -30,7 +30,7 @@ global NonMembershipCheckErrorCode = NonMembershipCheckErrorCodeEnum {
     NOT_LESS_THAN_NEXT: 4,
 };
 
-fn check_non_membership_inner<TREE_HEIGHT, LEAF_PREIMAGE>(
+fn check_non_membership_internal<TREE_HEIGHT, LEAF_PREIMAGE>(
     key: Field,
     low_leaf_preimage: LEAF_PREIMAGE,
     low_leaf_membership_witness: MembershipWitness<TREE_HEIGHT>,
@@ -68,7 +68,7 @@ pub fn check_non_membership<TREE_HEIGHT, LEAF_PREIMAGE>(
     tree_root: Field
 ) -> bool where 
     LEAF_PREIMAGE: IndexedTreeLeafPreimage {
-    let error = check_non_membership_inner(key, low_leaf_preimage, low_leaf_membership_witness, tree_root);
+    let error = check_non_membership_internal(key, low_leaf_preimage, low_leaf_membership_witness, tree_root);
     error == NonMembershipCheckErrorCode.NADA
 }
 
@@ -79,7 +79,7 @@ pub fn assert_check_non_membership<TREE_HEIGHT, LEAF_PREIMAGE>(
     tree_root: Field
 ) where 
     LEAF_PREIMAGE: IndexedTreeLeafPreimage {
-    let error = check_non_membership_inner(key, low_leaf_preimage, low_leaf_membership_witness, tree_root);
+    let error = check_non_membership_internal(key, low_leaf_preimage, low_leaf_membership_witness, tree_root);
     if error != NonMembershipCheckErrorCode.NADA {
         assert(
             error != NonMembershipCheckErrorCode.IS_EMPTY, "Cannot check non membership against empty leaf"
@@ -91,6 +91,7 @@ pub fn assert_check_non_membership<TREE_HEIGHT, LEAF_PREIMAGE>(
         assert(
             error != NonMembershipCheckErrorCode.NOT_LESS_THAN_NEXT, "Key is not less than the next leaf"
         );
+        assert(false, "Unknown error");
     }
 }
 
