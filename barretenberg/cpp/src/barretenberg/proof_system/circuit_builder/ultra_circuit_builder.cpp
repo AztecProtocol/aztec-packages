@@ -299,7 +299,9 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate_with_bit_extract
  * @param in Structure containing variables and witness selectors
  */
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/873): Some issue arises using this method (via
-// evaluate_polynomial_identity) if these are moved to arithmetic block. E.g. biggroup twin_mul (etc) fails.
+// evaluate_polynomial_identity) if these are moved to arithmetic block. E.g. biggroup twin_mul (etc) fails. Passes
+// through a bunch of methods labeled "unsafe" but there's no obvious docs on what that means. Could be relevant.
+// Possibly something to do with how constants are handled?
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_big_mul_gate(const mul_quad_<FF>& in)
 {
@@ -512,23 +514,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
         check_selector_length_consistency();
         ++this->num_gates;
     }
-    block.populate_wires(in.x2, in.x3, in.y3, in.y2);
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(0);
-    block.q_2().emplace_back(0);
-    block.q_3().emplace_back(0);
-    block.q_c().emplace_back(0);
-    block.q_arith().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.q_sort().emplace_back(0);
-    block.q_lookup_type().emplace_back(0);
-    block.q_elliptic().emplace_back(0);
-    block.q_aux().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        block.pad_additional();
-    }
-    check_selector_length_consistency();
-    ++this->num_gates;
+    create_dummy_gate(block, in.x2, in.x3, in.y3, in.y2);
 }
 
 /**
@@ -583,24 +569,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_dbl_gate(const ecc_dbl_ga
         check_selector_length_consistency();
         ++this->num_gates;
     }
-
-    block.populate_wires(this->zero_idx, in.x3, in.y3, this->zero_idx);
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(0);
-    block.q_2().emplace_back(0);
-    block.q_3().emplace_back(0);
-    block.q_c().emplace_back(0);
-    block.q_arith().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.q_sort().emplace_back(0);
-    block.q_lookup_type().emplace_back(0);
-    block.q_elliptic().emplace_back(0);
-    block.q_aux().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        block.pad_additional();
-    }
-    check_selector_length_consistency();
-    ++this->num_gates;
+    create_dummy_gate(block, this->zero_idx, in.x3, in.y3, this->zero_idx);
 }
 
 /**
