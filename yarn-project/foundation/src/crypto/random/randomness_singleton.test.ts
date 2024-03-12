@@ -1,5 +1,4 @@
-import { RandomnessSingleton } from "./randomness_singleton.js";
-
+import { RandomnessSingleton } from './randomness_singleton.js';
 
 describe('RandomnessSingleton', () => {
   it('isDeterministic() is true when SEED is set', () => {

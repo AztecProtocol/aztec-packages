@@ -7,6 +7,7 @@ import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-reg
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 
+import { randomBytes } from 'crypto';
 import { join } from 'path';
 
 import { PXEServiceConfig } from '../config/index.js';
@@ -29,11 +30,7 @@ export async function createPXEService(
   useLogSuffix: string | boolean | undefined = undefined,
 ) {
   const logSuffix =
-    typeof useLogSuffix === 'boolean'
-      ? useLogSuffix
-        ? Math.random().toString(16).slice(2, 8)
-        : undefined
-      : useLogSuffix;
+    typeof useLogSuffix === 'boolean' ? (useLogSuffix ? randomBytes(3).toString('hex') : undefined) : useLogSuffix;
 
   const pxeDbPath = config.dataDirectory ? join(config.dataDirectory, 'pxe_data') : undefined;
   const keyStorePath = config.dataDirectory ? join(config.dataDirectory, 'pxe_key_store') : undefined;
