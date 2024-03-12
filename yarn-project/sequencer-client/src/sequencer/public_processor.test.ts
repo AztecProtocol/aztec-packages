@@ -427,7 +427,6 @@ describe('public_processor', () => {
         TxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
-        [ExtendedContractData.random()],
       );
 
       const contractSlotA = fr(0x100);
@@ -532,7 +531,6 @@ describe('public_processor', () => {
         TxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
-        [ExtendedContractData.random()],
       );
 
       const contractSlotA = fr(0x100);
