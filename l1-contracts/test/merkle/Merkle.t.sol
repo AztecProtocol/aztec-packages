@@ -104,7 +104,7 @@ contract MerkleTest is Test, MerkleLibWrapper {
     * d2:         [ ]                      [b]                       [ ]                     [ ]
     * d3:   [1]         [a]          [3]         [4]           [5]         [6]          [7]        [8].
     */
-    bytes32[3] memory expectedPath1 = [
+    bytes32[3] memory expectedPath = [
       bytes32(abi.encode(2)),
       sha256(bytes.concat(bytes32(abi.encode(3)), bytes32(abi.encode(4)))),
       sha256(
