@@ -88,14 +88,22 @@ contract MerkleTest is Test, MerkleLibWrapper {
     this.verifyMembershipWrapper(emptyPath, leaf, leafIndex, expectedRoot);
   }
 
-  function testComputeSiblingPathManually() public {
+  function testComputeSiblingPathManuallyLeftChild() public {
+    /// Creates a merkle tree with depth 3 and size 8, with leafs from 1 - 8
     NaiveMerkle manualTree = new NaiveMerkle(3);
-
     for (uint256 i = 1; i <= 8; i++) {
       bytes32 generatedLeaf = bytes32(abi.encode(i));
       manualTree.insertLeaf(generatedLeaf);
     }
 
+    /** We manually make a path; this is the sibling path of the leaf with the value of one.
+    * In this path, from leaf to root, a, b, and c; which correspond to the value of 2, then the hash of 3 and 4,
+    * and finally, the hash of 5 and 6 concatenated with the hash of 7 and 8;
+    * d0:                                            [ root ]
+    * d1:                      [ ]                                               [c]
+    * d2:         [ ]                      [b]                       [ ]                     [ ]
+    * d3:   [1]         [a]          [3]         [4]           [5]         [6]          [7]        [8].
+    */
     bytes32[3] memory expectedPath1 = [
       bytes32(abi.encode(2)),
       sha256(bytes.concat(bytes32(abi.encode(3)), bytes32(abi.encode(4)))),
@@ -107,13 +115,31 @@ contract MerkleTest is Test, MerkleLibWrapper {
       )
     ];
 
-    (bytes32[] memory path1, bytes32 leaf1) = manualTree.computeSiblingPath(0);
-    assertEq(leaf1, bytes32(abi.encode(1)));
-    assertEq(path1[0], expectedPath1[0]);
-    assertEq(path1[1], expectedPath1[1]);
-    assertEq(path1[2], expectedPath1[2]);
+    /// We then compute the sibling path using the tree and expect that our manual calculation should equal the computed one
+    (bytes32[] memory path, bytes32 leaf) = manualTree.computeSiblingPath(0);
+    assertEq(leaf, bytes32(abi.encode(1)));
+    assertEq(path[0], expectedPath[0]);
+    assertEq(path[1], expectedPath[1]);
+    assertEq(path[2], expectedPath[2]);
+  }
 
-    bytes32[3] memory expectedPath2 = [
+  function testComputeSiblingPathManuallyRightChild() public {
+    /// Creates a merkle tree with depth 3 and size 8, with leafs from 1 - 8
+    NaiveMerkle manualTree = new NaiveMerkle(3);
+    for (uint256 i = 1; i <= 8; i++) {
+      bytes32 generatedLeaf = bytes32(abi.encode(i));
+      manualTree.insertLeaf(generatedLeaf);
+    }
+
+    /** We manually make a path; this is the sibling path of the leaf with the value of one.
+    * In this path, from leaf to root, a, b, and c; which correspond to the value of 2, then the hash of 3 and 4,
+    * and finally, the hash of 5 and 6 concatenated with the hash of 7 and 8;
+    * d0:                                            [ root ]
+    * d1:                      [ ]                                               [c]
+    * d2:         [ ]                      [b]                       [ ]                     [ ]
+    * d3:   [1]         [a]          [3]         [4]           [5]         [6]          [7]        [8].
+    */
+    bytes32[3] memory expectedPath = [
       bytes32(abi.encode(7)),
       sha256(bytes.concat(bytes32(abi.encode(5)), bytes32(abi.encode(6)))),
       sha256(
@@ -124,11 +150,12 @@ contract MerkleTest is Test, MerkleLibWrapper {
       )
     ];
 
-    (bytes32[] memory path2, bytes32 leaf2) = manualTree.computeSiblingPath(7);
-    assertEq(leaf2, bytes32(abi.encode(8)));
-    assertEq(path2[0], expectedPath2[0]);
-    assertEq(path2[1], expectedPath2[1]);
-    assertEq(path2[2], expectedPath2[2]);
+    /// We then compute the sibling path using the tree and expect that our manual calculation should equal the computed one
+    (bytes32[] memory path, bytes32 leaf) = manualTree.computeSiblingPath(7);
+    assertEq(leaf, bytes32(abi.encode(8)));
+    assertEq(path[0], expectedPath[0]);
+    assertEq(path[1], expectedPath[1]);
+    assertEq(path[2], expectedPath[2]);
   }
 
   function testCalculateTreeHeightFromSize() external {
