@@ -115,38 +115,25 @@ export class PublicExecutionContext extends TypedOracle {
 
   /**
    * Read the public storage data.
-   * @param startStorageSlot - The starting storage slot.
-   * @param numberOfElements - Number of elements to read from the starting storage slot.
+   * @param storageSlot - The storage slot to read from.
    */
-  public async storageRead(startStorageSlot: Fr, numberOfElements: number) {
-    const values = [];
-    for (let i = 0; i < Number(numberOfElements); i++) {
-      const storageSlot = new Fr(startStorageSlot.value + BigInt(i));
-      const sideEffectCounter = this.sideEffectCounter.count();
-      const value = await this.storageActions.read(storageSlot, sideEffectCounter);
-      this.log(`Oracle storage read: slot=${storageSlot.toString()} value=${value.toString()}`);
-      values.push(value);
-    }
-    return values;
+  public async storageRead(storageSlot: Fr) {
+    const sideEffectCounter = this.sideEffectCounter.count();
+    const value = await this.storageActions.read(storageSlot, sideEffectCounter);
+    this.log(`Oracle storage read: slot=${storageSlot.toString()} value=${value.toString()}`);
+    return value;
   }
 
   /**
-   * Write some values to the public storage.
-   * @param startStorageSlot - The starting storage slot.
-   * @param values - The values to be written.
+   * Write a value to the public storage.
+   * @param storageSlot - The storage slot to write to.
+   * @param newValue - The value to be written.
    */
-  public async storageWrite(startStorageSlot: Fr, values: Fr[]) {
-    const newValues = [];
-    for (let i = 0; i < values.length; i++) {
-      const storageSlot = new Fr(startStorageSlot.toBigInt() + BigInt(i));
-      const newValue = values[i];
-      const sideEffectCounter = this.sideEffectCounter.count();
-      this.storageActions.write(storageSlot, newValue, sideEffectCounter);
-      await this.stateDb.storageWrite(this.execution.callContext.storageContractAddress, storageSlot, newValue);
-      this.log(`Oracle storage write: slot=${storageSlot.toString()} value=${newValue.toString()}`);
-      newValues.push(newValue);
-    }
-    return newValues;
+  public async storageWrite(storageSlot: Fr, newValue: Fr) {
+    const sideEffectCounter = this.sideEffectCounter.count();
+    this.storageActions.write(storageSlot, newValue, sideEffectCounter);
+    await this.stateDb.storageWrite(this.execution.callContext.storageContractAddress, storageSlot, newValue);
+    this.log(`Oracle storage write: slot=${storageSlot.toString()} value=${newValue.toString()}`);
   }
 
   /**

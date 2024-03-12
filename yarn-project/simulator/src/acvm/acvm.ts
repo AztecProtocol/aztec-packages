@@ -19,7 +19,7 @@ import { ORACLE_NAMES } from './oracle/index.js';
  */
 type ACIRCallback = Record<
   ORACLE_NAMES,
-  (...args: ForeignCallInput[]) => ForeignCallOutput | Promise<ForeignCallOutput>
+  (...args: ForeignCallInput[]) => ForeignCallOutput | Promise<ForeignCallOutput> | Promise<void>
 >;
 
 /**
@@ -102,7 +102,8 @@ export async function acvm(
         }
 
         const result = await oracleFunction.call(callback, ...args);
-        return [result];
+        // void functions return undefined, which is mapped to an empty array.
+        return result === undefined ? [] : [result];
       } catch (err) {
         let typedError: Error;
         if (err instanceof Error) {

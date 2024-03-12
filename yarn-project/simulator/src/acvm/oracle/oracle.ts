@@ -248,14 +248,13 @@ export class Oracle {
     return toACVMField(portalContactAddress);
   }
 
-  async storageRead([startStorageSlot]: ACVMField[], [numberOfElements]: ACVMField[]): Promise<ACVMField[]> {
-    const values = await this.typedOracle.storageRead(fromACVMField(startStorageSlot), +numberOfElements);
-    return values.map(toACVMField);
+  async storageRead([storageSlot]: ACVMField[]): Promise<ACVMField> {
+    const value = await this.typedOracle.storageRead(fromACVMField(storageSlot));
+    return toACVMField(value);
   }
 
-  async storageWrite([startStorageSlot]: ACVMField[], values: ACVMField[]): Promise<ACVMField[]> {
-    const newValues = await this.typedOracle.storageWrite(fromACVMField(startStorageSlot), values.map(fromACVMField));
-    return newValues.map(toACVMField);
+  async storageWrite([storageSlot]: ACVMField[], [value]: ACVMField[]): Promise<void> {
+    await this.typedOracle.storageWrite(fromACVMField(storageSlot), fromACVMField(value));
   }
 
   emitEncryptedLog(

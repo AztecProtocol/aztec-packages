@@ -71,7 +71,7 @@ describe('External Calls', () => {
       const successOffset = 7;
       const otherContextInstructionsBytecode = encodeToBytecode([
         new CalldataCopy(/*indirect=*/ 0, /*csOffset=*/ 0, /*copySize=*/ argsSize, /*dstOffset=*/ 0),
-        new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*size=*/ 1, /*slotOffset=*/ 0),
+        new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0),
         new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 2),
       ]);
 
@@ -163,7 +163,7 @@ describe('External Calls', () => {
 
       const otherContextInstructions: Instruction[] = [
         new CalldataCopy(/*indirect=*/ 0, /*csOffset=*/ 0, /*copySize=*/ argsSize, /*dstOffset=*/ 0),
-        new SStore(/*indirect=*/ 0, /*srcOffset=*/ 1, /*size=*/ 1, /*slotOffset=*/ 0),
+        new SStore(/*indirect=*/ 0, /*srcOffset=*/ 1, /*slotOffset=*/ 0),
       ];
 
       const otherContextInstructionsBytecode = encodeToBytecode(otherContextInstructions);
