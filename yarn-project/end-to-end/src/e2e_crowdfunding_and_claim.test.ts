@@ -270,6 +270,48 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).rejects.toThrow();
   });
 
+  it('cannot claim with a different address than the one that donated', async () => {
+    const donationAmount = 1000n;
+    {
+      const action = donationToken
+        .withWallet(donorWallets[1])
+        .methods.transfer(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
+      const messageHash = computeAuthWitMessageHash(crowdfundingContract.address, action.request());
+      const witness = await donorWallets[1].createAuthWitness(messageHash);
+      await donorWallets[1].addAuthWitness(witness);
+    }
+
+    // 2) We donate to the crowdfunding contract
+
+    const donateTxReceipt = await crowdfundingContract
+      .withWallet(donorWallets[1])
+      .methods.donate(donationAmount)
+      .send()
+      .wait({
+        debug: true,
+      });
+
+    // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the value note)
+    const notes = donateTxReceipt.debugInfo?.visibleNotes.filter(x =>
+      x.contractAddress.equals(crowdfundingContract.address),
+    );
+    expect(notes!.length).toEqual(1);
+
+    // Set the value note in a format which can be passed to claim function
+    const anotherDonationNote = await processExtendedNote(notes![0]);
+
+    // 3) We claim the reward token via the Claim contract
+    {
+      await expect(
+        claimContract
+          .withWallet(donorWallets[0])
+          .methods.claim(anotherDonationNote, donorWallets[1].getAddress())
+          .send()
+          .wait(),
+      ).rejects.toThrow('Note does not belong to the sender');
+    }
+  });
+
   it('cannot claim with a non-existent note', async () => {
     // We get a non-existent note by copy the value note and change the randomness to a random value
     const nonExistentNote = { ...valueNote };
