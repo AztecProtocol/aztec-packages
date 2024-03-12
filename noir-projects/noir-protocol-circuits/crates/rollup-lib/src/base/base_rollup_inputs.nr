@@ -182,9 +182,6 @@ impl BaseRollupInputs {
                 }
             }
             ),
-            |a: Field, b: Field| {a == b}, // Nullifier equals
-            |nullifier: Field| {nullifier == 0}, // Nullifier is zero
-            |leaf: NullifierLeafPreimage| {leaf.hash()}, // Hash leaf
             |low_leaf: NullifierLeafPreimage, nullifier: Field| { // Is valid low leaf
                 let is_less_than_nullifier = full_field_less_than(low_leaf.nullifier, nullifier);
                 let is_next_greater_than = full_field_less_than(nullifier, low_leaf.next_nullifier);
@@ -310,9 +307,6 @@ fn insert_public_data_update_requests(
             }
         }
         ),
-        |a: PublicDataTreeLeaf, b: PublicDataTreeLeaf| a.eq(b), // PublicDataTreeLeaf equals
-        |write: PublicDataTreeLeaf| write.is_empty(), // PublicDataTreeLeaf is_empty
-        |preimage: PublicDataTreeLeafPreimage| preimage.hash(), // Hash preimage
         |low_preimage: PublicDataTreeLeafPreimage, write: PublicDataTreeLeaf| { // Is valid low preimage
             let is_update = low_preimage.slot == write.slot;
             let is_low_empty = low_preimage.is_empty();
@@ -456,7 +450,7 @@ mod tests {
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::{
         kernel_data_builder::PreviousKernelDataBuilder,
-        merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}
+        merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}, sort::sort_high_to_low
     },
         utils::{field::full_field_less_than, uint256::U256}
     };
@@ -466,27 +460,9 @@ mod tests {
         value: Field,
     }
 
-    struct SortedTuple<T> {
-        value: T,
-        original_index: u64,
-    }
-
     global MAX_NEW_NULLIFIERS_PER_TEST = 4;
     global MAX_PUBLIC_DATA_WRITES_PER_TEST = 2;
     global MAX_PUBLIC_DATA_READS_PER_TEST = 2;
-
-    fn sort_high_to_low<N, T>(values: [T; N], is_less_than: fn(T, T) -> bool) -> [SortedTuple<T>; N] where T: Eq {
-        let mut sorted_tuples = [SortedTuple { value: values[0], original_index: 0 }; N];
-
-        for i in 0..N {
-            sorted_tuples[i] = SortedTuple {
-                value: values[i],
-                original_index: i,
-            };
-        }
-
-        sorted_tuples.sort_via(|a: SortedTuple<T>, b: SortedTuple<T>| (b.value == a.value) | is_less_than(b.value, a.value))
-    }
 
     fn update_public_data_tree<EXISTING_LEAVES, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>(
         public_data_tree: &mut NonEmptyMerkleTree<EXISTING_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,

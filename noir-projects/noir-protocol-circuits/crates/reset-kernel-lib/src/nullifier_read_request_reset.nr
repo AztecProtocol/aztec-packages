@@ -37,37 +37,10 @@ impl SettledReadHint<NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage> for Nullifier
     }
 }
 
-struct NullifierReadRequestResetHints {
+struct NullifierReadRequestHints {
     read_request_statuses: [ReadRequestStatus; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
     pending_read_hints: [PendingReadHint; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
     settled_read_hints: [NullifierSettledReadHint; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-}
-
-struct NullifierReadRequestResetHintsBuilder {
-    read_request_statuses: [ReadRequestStatus; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-    pending_read_hints: BoundedVec<PendingReadHint, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    settled_read_hints: BoundedVec<NullifierSettledReadHint, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-}
-
-impl NullifierReadRequestResetHintsBuilder {
-    pub fn new(read_request_len: u64) -> Self {
-        NullifierReadRequestResetHintsBuilder {
-            read_request_statuses: [ReadRequestStatus::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-            pending_read_hints: BoundedVec { storage: [PendingReadHint::nada(read_request_len); MAX_NULLIFIER_READ_REQUESTS_PER_TX], len: 0 },
-            settled_read_hints: BoundedVec {
-                storage: [NullifierSettledReadHint::nada(read_request_len); MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-                len: 0
-            }
-        }
-    }
-
-    pub fn to_hints(self) -> NullifierReadRequestResetHints {
-        NullifierReadRequestResetHints {
-            read_request_statuses: self.read_request_statuses,
-            pending_read_hints: self.pending_read_hints.storage,
-            settled_read_hints: self.settled_read_hints.storage
-        }
-    }
 }
 
 mod tests {

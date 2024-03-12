@@ -81,6 +81,7 @@ export async function executePublicFunction(
       newL2ToL1Messages: [],
       newNullifiers: [],
       nullifierReadRequests: [],
+      nullifierNonExistentReadRequests: [],
       contractStorageReads: [],
       contractStorageUpdateRequests: [],
       nestedExecutions: [],
@@ -98,12 +99,14 @@ export async function executePublicFunction(
   const {
     returnValues,
     nullifierReadRequests: nullifierReadRequestsPadded,
+    nullifierNonExistentReadRequests: nullifierNonExistentReadRequestsPadded,
     newL2ToL1Msgs,
     newNoteHashes: newNoteHashesPadded,
     newNullifiers: newNullifiersPadded,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
 
   const nullifierReadRequests = nullifierReadRequestsPadded.filter(v => !v.isEmpty());
+  const nullifierNonExistentReadRequests = nullifierNonExistentReadRequestsPadded.filter(v => !v.isEmpty());
   const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isEmpty());
   const newNoteHashes = newNoteHashesPadded.filter(v => !v.isEmpty());
   const newNullifiers = newNullifiersPadded.filter(v => !v.isEmpty());
@@ -130,6 +133,7 @@ export async function executePublicFunction(
     newL2ToL1Messages,
     newNullifiers,
     nullifierReadRequests,
+    nullifierNonExistentReadRequests,
     contractStorageReads,
     contractStorageUpdateRequests,
     returnValues,

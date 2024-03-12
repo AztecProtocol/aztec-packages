@@ -52,7 +52,7 @@ fn check_is_read_before_pending_value<T, N>(
 // Non existent read requests can only be verified at the end, after all pending values are present.
 // The values in read_requests and in sorted_pending_values should've been siloed before calling this.
 pub fn reset_non_existent_read_requests<T, N, M, NON_MEMBERSHIP_HINT, TREE_HEIGHT, LEAF_PREIMAGE>(
-    read_requests: [ReadRequestContext; N],
+    siloed_read_requests: [ReadRequestContext; N],
     non_membership_hints: [NON_MEMBERSHIP_HINT; N],
     tree_root: Field,
     sorted_pending_values: BoundedVec<T, M>,
@@ -61,8 +61,8 @@ pub fn reset_non_existent_read_requests<T, N, M, NON_MEMBERSHIP_HINT, TREE_HEIGH
     T: OrderedValue<Field>, 
     NON_MEMBERSHIP_HINT: NonMembershipHint<TREE_HEIGHT, LEAF_PREIMAGE>,
     LEAF_PREIMAGE: IndexedTreeLeafPreimage {
-    for i in 0..read_requests.len() {
-        let read_request = read_requests[i];
+    for i in 0..siloed_read_requests.len() {
+        let read_request = siloed_read_requests[i];
         if !is_empty(read_request) {
             // Verify that it's not in the tree.
             let hint = non_membership_hints[i];
