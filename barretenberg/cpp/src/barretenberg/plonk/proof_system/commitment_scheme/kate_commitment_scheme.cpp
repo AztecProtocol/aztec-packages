@@ -357,7 +357,7 @@ void KateCommitmentScheme<settings>::add_opening_evaluations_to_transcript(
     //
     fr zeta = fr::serialize_from_buffer(transcript.get_challenge("z").begin());
     fr shifted_z = zeta * input_key->small_domain.root;
-    size_t n = input_key->small_domain.size;
+    const size_t n = input_key->small_domain.size;
 
     for (size_t i = 0; i < input_key->polynomial_manifest.size(); ++i) {
         const auto& info = input_key->polynomial_manifest[i];
