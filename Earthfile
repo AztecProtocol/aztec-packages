@@ -30,7 +30,7 @@ build:
     BUILD ./yarn-project/+build
 
 test-end-to-end:
-    BUILD ./yarn-project/end-to-end/+build-ci
+    BUILD ./yarn-project/end-to-end/+test-all
 
 bench:
   RUN echo hi
