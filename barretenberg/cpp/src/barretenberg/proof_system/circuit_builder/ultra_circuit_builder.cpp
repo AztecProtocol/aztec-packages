@@ -59,31 +59,84 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_non_zero()
 {
-    // WORKTODO: break into individual gates and place in correct block
-    // First add a gate to simultaneously ensure first entries of all wires is zero and to add a non
-    // zero value to all selectors aside from q_c and q_lookup
-    blocks.main.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
-    blocks.main.q_m().emplace_back(1);
-    blocks.main.q_1().emplace_back(1);
-    blocks.main.q_2().emplace_back(1);
-    blocks.main.q_3().emplace_back(1);
-    blocks.main.q_c().emplace_back(0);
-    blocks.main.q_sort().emplace_back(1);
-
-    blocks.main.q_arith().emplace_back(1);
-    blocks.main.q_4().emplace_back(1);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(1);
-    blocks.main.q_aux().emplace_back(1);
+    // q_m, q_1, q_2, q_3, q_4
+    blocks.arithmetic.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.arithmetic.q_m().emplace_back(1);
+    blocks.arithmetic.q_1().emplace_back(1);
+    blocks.arithmetic.q_2().emplace_back(1);
+    blocks.arithmetic.q_3().emplace_back(1);
+    blocks.arithmetic.q_4().emplace_back(1);
+    blocks.arithmetic.q_c().emplace_back(0);
+    blocks.arithmetic.q_sort().emplace_back(0);
+    blocks.arithmetic.q_arith().emplace_back(0);
+    blocks.arithmetic.q_lookup_type().emplace_back(0);
+    blocks.arithmetic.q_elliptic().emplace_back(0);
+    blocks.arithmetic.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
+        blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
 
-    // Some relations depend on wire shifts so we add another gate with
-    // wires set to 0 to ensure corresponding constraints are satisfied
-    create_dummy_gate(blocks.main, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    // q_sort
+    blocks.sort.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.sort.q_m().emplace_back(0);
+    blocks.sort.q_1().emplace_back(0);
+    blocks.sort.q_2().emplace_back(0);
+    blocks.sort.q_3().emplace_back(0);
+    blocks.sort.q_4().emplace_back(0);
+    blocks.sort.q_c().emplace_back(0);
+    blocks.sort.q_sort().emplace_back(1);
+    blocks.sort.q_arith().emplace_back(0);
+    blocks.sort.q_lookup_type().emplace_back(0);
+    blocks.sort.q_elliptic().emplace_back(0);
+    blocks.sort.q_aux().emplace_back(0);
+    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        blocks.sort.pad_additional();
+    }
+    check_selector_length_consistency();
+    ++this->num_gates;
+    create_dummy_gate(blocks.sort, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+
+    // q_elliptic
+    blocks.elliptic.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.elliptic.q_m().emplace_back(0);
+    blocks.elliptic.q_1().emplace_back(0);
+    blocks.elliptic.q_2().emplace_back(0);
+    blocks.elliptic.q_3().emplace_back(0);
+    blocks.elliptic.q_4().emplace_back(0);
+    blocks.elliptic.q_c().emplace_back(0);
+    blocks.elliptic.q_sort().emplace_back(0);
+    blocks.elliptic.q_arith().emplace_back(0);
+    blocks.elliptic.q_lookup_type().emplace_back(0);
+    blocks.elliptic.q_elliptic().emplace_back(1);
+    blocks.elliptic.q_aux().emplace_back(0);
+    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        blocks.elliptic.pad_additional();
+    }
+    check_selector_length_consistency();
+    ++this->num_gates;
+    create_dummy_gate(blocks.elliptic, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+
+    // q_aux
+    blocks.aux.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.aux.q_m().emplace_back(0);
+    blocks.aux.q_1().emplace_back(0);
+    blocks.aux.q_2().emplace_back(0);
+    blocks.aux.q_3().emplace_back(0);
+    blocks.aux.q_4().emplace_back(0);
+    blocks.aux.q_c().emplace_back(0);
+    blocks.aux.q_sort().emplace_back(0);
+    blocks.aux.q_arith().emplace_back(0);
+    blocks.aux.q_lookup_type().emplace_back(0);
+    blocks.aux.q_elliptic().emplace_back(0);
+    blocks.aux.q_aux().emplace_back(1);
+    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        blocks.aux.pad_additional();
+    }
+    check_selector_length_consistency();
+    ++this->num_gates;
+    create_dummy_gate(blocks.aux, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // Add nonzero values in w_4 and q_c (q_4*w_4 + q_c --> 1*1 - 1 = 0)
     this->one_idx = put_constant_variable(FF::one());
