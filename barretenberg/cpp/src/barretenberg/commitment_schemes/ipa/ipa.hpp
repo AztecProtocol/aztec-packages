@@ -270,11 +270,6 @@ template <typename Curve> class IPA {
                 throw_or_abort("IPA round challenge is zero");
             }
             const Fr round_challenge_inv = round_challenge.invert();
-            info("Inverse challenge: ", round_challenge_inv, "Modulus: ", Fr::modulus);
-            for (auto& point : std::span{ G_vec_local.begin() + static_cast<long>(round_size),
-                                          G_vec_local.begin() + static_cast<long>(round_size * 2) }) {
-                info(point, " : ", point.is_point_at_infinity());
-            }
 
             // Step 6.e
             // G_vec_new = G_vec_lo + G_vec_hi * round_challenge_inv
