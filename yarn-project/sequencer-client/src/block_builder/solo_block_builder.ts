@@ -1,19 +1,14 @@
-import { Body, ContractData, L2Block, MerkleTreeId, PublicDataWrite, TxEffect, TxL2Logs } from '@aztec/circuit-types';
+import { Body, L2Block, MerkleTreeId, TxEffect } from '@aztec/circuit-types';
 import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
-  CONTRACT_SUBTREE_HEIGHT,
-  CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
-  CombinedAccumulatedData,
   ConstantRollupData,
   GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  MAX_NEW_CONTRACTS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -40,8 +35,6 @@ import {
   RollupTypes,
   RootRollupInputs,
   RootRollupPublicInputs,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
   StateDiffHints,
   StateReference,
   VK_TREE_HEIGHT,
@@ -57,10 +50,11 @@ import { elapsed } from '@aztec/foundation/timer';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import chunk from 'lodash.chunk';
+import { inspect } from 'util';
 
 import { VerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
-import { ProcessedTx } from '../sequencer/processed_tx.js';
+import { ProcessedTx, toTxEffect } from '../sequencer/processed_tx.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { BlockBuilder } from './index.js';
 import { TreeNames } from './types.js';
@@ -107,30 +101,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
-    const txEffects: TxEffect[] = txs.map(
-      tx =>
-        new TxEffect(
-          tx.data.combinedData.newNoteHashes.map((c: SideEffect) => c.value) as Tuple<
-            Fr,
-            typeof MAX_NEW_NOTE_HASHES_PER_TX
-          >,
-          tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value) as Tuple<
-            Fr,
-            typeof MAX_NEW_NULLIFIERS_PER_TX
-          >,
-          tx.data.combinedData.newL2ToL1Msgs,
-          tx.data.combinedData.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)) as Tuple<
-            PublicDataWrite,
-            typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-          >,
-          tx.data.combinedData.newContracts.map(cd => cd.hash()) as Tuple<Fr, typeof MAX_NEW_CONTRACTS_PER_TX>,
-          tx.data.combinedData.newContracts.map(
-            cd => new ContractData(cd.contractAddress, cd.portalContractAddress),
-          ) as Tuple<ContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
-          tx.encryptedLogs || new TxL2Logs([]),
-          tx.unencryptedLogs || new TxL2Logs([]),
-        ),
-    );
+    const txEffects: TxEffect[] = txs.map(tx => toTxEffect(tx));
 
     const blockBody = new Body(padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP), txEffects);
 
@@ -140,11 +111,12 @@ export class SoloBlockBuilder implements BlockBuilder {
       body: blockBody,
     });
 
-    if (!l2Block.body.getCalldataHash().equals(circuitsOutput.header.contentCommitment.txsHash)) {
+    if (!l2Block.body.getTxsEffectsHash().equals(circuitsOutput.header.contentCommitment.txsEffectsHash)) {
+      this.debug(inspect(blockBody));
       throw new Error(
-        `Calldata hash mismatch, ${l2Block.body
-          .getCalldataHash()
-          .toString('hex')} == ${circuitsOutput.header.contentCommitment.txsHash.toString('hex')} `,
+        `Txs effects hash mismatch, ${l2Block.body
+          .getTxsEffectsHash()
+          .toString('hex')} == ${circuitsOutput.header.contentCommitment.txsEffectsHash.toString('hex')} `,
       );
     }
 
@@ -162,9 +134,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       }
       if (txHeader.state.partial.nullifierTree.isZero()) {
         throw new Error(`Empty nullifier tree in tx: ${toFriendlyJSON(tx)}`);
-      }
-      if (txHeader.state.partial.contractTree.isZero()) {
-        throw new Error(`Empty contract tree in tx: ${toFriendlyJSON(tx)}`);
       }
       if (txHeader.state.partial.publicDataTree.isZero()) {
         throw new Error(`Empty public data tree in tx: ${toFriendlyJSON(tx)}`);
@@ -197,14 +166,11 @@ export class SoloBlockBuilder implements BlockBuilder {
     for (const tx of txs) {
       const input = await this.buildBaseRollupInput(tx, globalVariables);
       baseRollupInputs.push(input);
-      const promises = [
-        MerkleTreeId.NOTE_HASH_TREE,
-        MerkleTreeId.CONTRACT_TREE,
-        MerkleTreeId.NULLIFIER_TREE,
-        MerkleTreeId.PUBLIC_DATA_TREE,
-      ].map(async (id: MerkleTreeId) => {
-        return { key: id, value: await this.getTreeSnapshot(id) };
-      });
+      const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
+        async (id: MerkleTreeId) => {
+          return { key: id, value: await this.getTreeSnapshot(id) };
+        },
+      );
       const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map(
         (await Promise.all(promises)).map(obj => [obj.key, obj.value]),
       );
@@ -343,11 +309,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       'NullifierTree',
     );
     this.validateSimulatedTree(
-      treeSnapshots.get(MerkleTreeId.CONTRACT_TREE)!,
-      partialState.contractTree,
-      'ContractTree',
-    );
-    this.validateSimulatedTree(
       treeSnapshots.get(MerkleTreeId.PUBLIC_DATA_TREE)!,
       partialState.publicDataTree,
       'PublicDataTree',
@@ -355,14 +316,11 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected async validateState(state: StateReference) {
-    const promises = [
-      MerkleTreeId.NOTE_HASH_TREE,
-      MerkleTreeId.CONTRACT_TREE,
-      MerkleTreeId.NULLIFIER_TREE,
-      MerkleTreeId.PUBLIC_DATA_TREE,
-    ].map(async (id: MerkleTreeId) => {
-      return { key: id, value: await this.getTreeSnapshot(id) };
-    });
+    const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
+      async (id: MerkleTreeId) => {
+        return { key: id, value: await this.getTreeSnapshot(id) };
+      },
+    );
     const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map(
       (await Promise.all(promises)).map(obj => [obj.key, obj.value]),
     );
@@ -479,7 +437,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected getKernelDataFor(tx: ProcessedTx): RollupKernelData {
     const inputs = new RollupKernelCircuitPublicInputs(
       tx.data.aggregationObject,
-      CombinedAccumulatedData.recombine(tx.data.endNonRevertibleData, tx.data.end),
+      tx.data.combinedData,
       tx.data.constants,
     );
     return new RollupKernelData(
@@ -662,7 +620,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     const start = new PartialStateReference(
       await this.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
       await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
-      await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE),
       await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
     );
 
@@ -676,25 +633,9 @@ export class SoloBlockBuilder implements BlockBuilder {
       i < noteHashSubtreeSiblingPathArray.length ? noteHashSubtreeSiblingPathArray[i] : Fr.ZERO,
     );
 
-    const contractSubtreeSiblingPathArray = await this.getSubtreeSiblingPath(
-      MerkleTreeId.CONTRACT_TREE,
-      CONTRACT_SUBTREE_HEIGHT,
-    );
-
-    const contractSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, i =>
-      i < contractSubtreeSiblingPathArray.length ? contractSubtreeSiblingPathArray[i] : Fr.ZERO,
-    );
-
-    // Update the contract and note hash trees with the new items being inserted to get the new roots
+    // Update the note hash trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-    const newContracts = tx.data.combinedData.newContracts.map(cd => cd.hash());
     const newNoteHashes = tx.data.combinedData.newNoteHashes.map(x => x.value.toBuffer());
-
-    await this.db.appendLeaves(
-      MerkleTreeId.CONTRACT_TREE,
-      newContracts.map(x => x.toBuffer()),
-    );
-
     await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, newNoteHashes);
 
     // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
@@ -746,7 +687,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       sortedNullifierIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
       noteHashSubtreeSiblingPath,
       nullifierSubtreeSiblingPath,
-      contractSubtreeSiblingPath,
       publicDataSiblingPath,
     });
 

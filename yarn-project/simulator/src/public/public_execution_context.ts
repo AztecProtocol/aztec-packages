@@ -186,7 +186,6 @@ export class PublicExecutionContext extends TypedOracle {
       storageContractAddress: isDelegateCall ? this.execution.contractAddress : targetContractAddress,
       portalContractAddress: portalAddress,
       functionSelector,
-      isContractDeployment: false,
       isDelegateCall,
       isStaticCall,
       startSideEffectCounter: 0, // TODO use counters in public execution
@@ -211,7 +210,7 @@ export class PublicExecutionContext extends TypedOracle {
       this.log,
     );
 
-    const childExecutionResult = await executePublicFunction(context, acir);
+    const childExecutionResult = await executePublicFunction(context, acir, true /** nested */);
 
     if (isStaticCall) {
       checkValidStaticCall(
