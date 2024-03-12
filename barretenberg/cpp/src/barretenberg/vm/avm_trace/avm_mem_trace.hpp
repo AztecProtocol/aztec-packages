@@ -1,6 +1,7 @@
 #pragma once
 
 #include "avm_common.hpp"
+#include <cstdint>
 
 namespace bb::avm_trace {
 
@@ -29,6 +30,8 @@ class AvmMemTraceBuilder {
         bool m_rw = false;
         bool m_tag_err = false;
         FF m_one_min_inv{};
+        bool m_sel_mov = false;
+        bool m_tag_err_count_relevant = false;
 
         /**
          * @brief A comparator on MemoryTraceEntry to be used by sorting algorithm. We sort first by

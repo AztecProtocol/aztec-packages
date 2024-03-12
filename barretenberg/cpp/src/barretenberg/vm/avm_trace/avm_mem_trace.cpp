@@ -86,7 +86,14 @@ void AvmMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint32_t const m_clk,
 {
     FF one_min_inv = FF(1) - (FF(static_cast<uint32_t>(m_in_tag)) - FF(static_cast<uint32_t>(m_tag))).invert();
 
-    // Lookup counter hint, used for #[equiv_tag_err] lookup (joined on clk)
+    // Relevant for inclusion (lookup) check #[INCL_MEM_TAG_ERR]. We need to
+    // flag the first memory entry per clk key. The number of memory entries
+    // with m_tag_err enabled can be higher than one for a given clk value.
+    // The repetition of the same clk in the lookup table side (right hand
+    // side, here, memory table) should be accounted for ONLY ONCE.
+    bool tag_err_count_relevant = !m_tag_err_lookup_counts.contains(m_clk);
+
+    // Lookup counter hint, used for #[INCL_MAIN_TAG_ERR] lookup (joined on clk)
     m_tag_err_lookup_counts[m_clk]++;
 
     mem_trace.emplace_back(MemoryTraceEntry{ .m_clk = m_clk,
@@ -96,7 +103,8 @@ void AvmMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint32_t const m_clk,
                                              .m_tag = m_tag,
                                              .m_in_tag = m_in_tag,
                                              .m_tag_err = true,
-                                             .m_one_min_inv = one_min_inv });
+                                             .m_one_min_inv = one_min_inv,
+                                             .m_tag_err_count_relevant = tag_err_count_relevant });
 }
 
 /**

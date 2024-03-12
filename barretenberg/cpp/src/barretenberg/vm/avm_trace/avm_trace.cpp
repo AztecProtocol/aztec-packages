@@ -695,9 +695,9 @@ void AvmTraceBuilder::internal_return()
 // counts column here
 //
 // NOTE: its coupled to pil - this is not the final iteration
-void AvmTraceBuilder::finalise_mem_trace_lookup_counts(std::map<uint32_t, uint32_t> const& tag_err_lookup_counts)
+void AvmTraceBuilder::finalise_mem_trace_lookup_counts()
 {
-    for (auto const& [clk, count] : tag_err_lookup_counts) {
+    for (auto const& [clk, count] : mem_trace_builder.m_tag_err_lookup_counts) {
         main_trace.at(clk).incl_main_tag_err_counts = count;
     }
 }
@@ -719,7 +719,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
     size_t alu_trace_size = alu_trace.size();
 
     // Get tag_err counts from the mem_trace_builder
-    this->finalise_mem_trace_lookup_counts(mem_trace_builder.m_tag_err_lookup_counts);
+    finalise_mem_trace_lookup_counts();
 
     // TODO: We will have to handle this through error handling and not an assertion
     // Smaller than N because we have to add an extra initial row to support shifted
@@ -750,6 +750,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_mem_m_tag = FF(static_cast<uint32_t>(src.m_tag));
         dest.avm_mem_m_tag_err = FF(static_cast<uint32_t>(src.m_tag_err));
         dest.avm_mem_m_one_min_inv = src.m_one_min_inv;
+
+        dest.incl_mem_tag_err_counts = FF(static_cast<uint32_t>(src.m_tag_err_count_relevant));
 
         if (src.m_sub_clk == AvmMemTraceBuilder::SUB_CLK_LOAD_A ||
             src.m_sub_clk == AvmMemTraceBuilder::SUB_CLK_STORE_A) {
