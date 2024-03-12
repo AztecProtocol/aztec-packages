@@ -458,8 +458,11 @@ template <class Params_> struct alignas(32) field {
         return os;
     }
 
-    BB_INLINE static void __copy(const field& a, field& r) noexcept { r = a; } // NOLINT
-    BB_INLINE static void __swap(field& src, field& dest) noexcept             // NOLINT
+    BB_INLINE static void __copy(const field& a, field& r) noexcept
+    {
+        r = a;
+    }                                                              // NOLINT
+    BB_INLINE static void __swap(field& src, field& dest) noexcept // NOLINT
     {
         field T = dest;
         dest = src;
@@ -473,7 +476,10 @@ template <class Params_> struct alignas(32) field {
     // For serialization
     void msgpack_pack(auto& packer) const;
     void msgpack_unpack(auto o);
-    void msgpack_schema(auto& packer) const { packer.pack_alias(Params::schema_name, "bin32"); }
+    void msgpack_schema(auto& packer) const
+    {
+        packer.pack_alias(Params::schema_name, "bin32");
+    }
 
     static constexpr uint256_t twice_modulus = modulus + modulus;
     static constexpr uint256_t not_modulus = -modulus;

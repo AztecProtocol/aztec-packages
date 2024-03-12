@@ -40,8 +40,7 @@ template <class Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circ
  * @param circuit
  */
 template <class Flavor>
-void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
-    requires IsGoblinFlavor<Flavor>
+void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit) requires IsGoblinFlavor<Flavor>
 {
     Polynomial public_calldata{ dyadic_circuit_size };
     Polynomial calldata_read_counts{ dyadic_circuit_size };
@@ -178,8 +177,7 @@ template <class Flavor> void ProverInstance_<Flavor>::add_plookup_memory_records
  * @param gamma
  */
 template <class Flavor>
-void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
-    requires IsGoblinFlavor<Flavor>
+void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma) requires IsGoblinFlavor<Flavor>
 {
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;

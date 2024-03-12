@@ -162,9 +162,8 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
  * output accumulator = x3_prev (output x coordinate), x1_prev, y1_prev (p1), lambda_prev (y2 - y1) / (x2 - x1)
  **/
 template <typename C, class Fq, class Fr, class G>
-typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::chain_add_start(const element& p1,
-                                                                                             const element& p2)
-    requires(IsNotGoblinInefficiencyTrap<C, G>)
+typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::chain_add_start(
+    const element& p1, const element& p2) requires(IsNotGoblinInefficiencyTrap<C, G>)
 {
     chain_add_accumulator output;
     output.x1_prev = p1.x;
@@ -180,9 +179,8 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
 }
 
 template <typename C, class Fq, class Fr, class G>
-typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::chain_add(const element& p1,
-                                                                                       const chain_add_accumulator& acc)
-    requires(IsNotGoblinInefficiencyTrap<C, G>)
+typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::chain_add(
+    const element& p1, const chain_add_accumulator& acc) requires(IsNotGoblinInefficiencyTrap<C, G>)
 {
     // use `chain_add_start` to start an addition chain (i.e. if acc has a y-coordinate)
     if (acc.is_element) {
@@ -225,8 +223,8 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
  * End an addition chain. Produces a full output group element with a y-coordinate
  **/
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accumulator& acc)
-    requires(IsNotGoblinInefficiencyTrap<C, G>)
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accumulator& acc) requires(
+    IsNotGoblinInefficiencyTrap<C, G>)
 {
     if (acc.is_element) {
         return element(acc.x3_prev, acc.y3_prev);
@@ -316,8 +314,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const element& ot
  *
  **/
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const chain_add_accumulator& to_add)
-    requires(IsNotGoblinInefficiencyTrap<C, G>)
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const chain_add_accumulator& to_add) requires(
+    IsNotGoblinInefficiencyTrap<C, G>)
 {
     if (to_add.is_element) {
         throw_or_abort("An accumulator expected");
@@ -456,8 +454,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector
  */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
-    const std::vector<chain_add_accumulator>& add) const
-    requires(IsNotGoblinInefficiencyTrap<C, G>)
+    const std::vector<chain_add_accumulator>& add) const requires(IsNotGoblinInefficiencyTrap<C, G>)
 {
     struct composite_y {
         std::vector<Fq> mul_left;

@@ -19,10 +19,8 @@ namespace bb::stdlib {
  * `generator_scalar` : a 254-bit scalar multiplier over the bn254 generator point
  *
  **/
-template <class C, class Fq, class Fr, class G>
-template <typename, typename>
-    requires(IsNotGoblinBuilder<C>)
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator(
+template <class C, class Fq, class Fr, class G> template <typename, typename>
+requires(IsNotGoblinBuilder<C>) element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator(
     const std::vector<element>& big_points,
     const std::vector<Fr>& big_scalars,
     const std::vector<element>& small_points,
@@ -214,14 +212,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
  * (we will be splitting `big_scalars` into two 128-bit scalars, we assume all scalars after this transformation are 128
  *bits)
  **/
-template <typename C, class Fq, class Fr, class G>
-template <typename, typename>
-    requires(IsNotGoblinBuilder<C>)
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vector<element>& big_points,
-                                                                  const std::vector<Fr>& big_scalars,
-                                                                  const std::vector<element>& small_points,
-                                                                  const std::vector<Fr>& small_scalars,
-                                                                  const size_t max_num_small_bits)
+template <typename C, class Fq, class Fr, class G> template <typename, typename>
+requires(IsNotGoblinBuilder<C>) element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(
+    const std::vector<element>& big_points,
+    const std::vector<Fr>& big_scalars,
+    const std::vector<element>& small_points,
+    const std::vector<Fr>& small_scalars,
+    const size_t max_num_small_bits)
 {
     ASSERT(max_num_small_bits >= 128);
     const size_t num_big_points = big_points.size();

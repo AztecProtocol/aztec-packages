@@ -96,22 +96,37 @@ template <typename T, std::size_t N> class RefArray {
         std::size_t pos;
     };
 
-    constexpr std::size_t size() const { return N; }
+    constexpr std::size_t size() const
+    {
+        return N;
+    }
     /**
      * @brief Returns an iterator to the beginning of the RefArray.
      *
      * @return An iterator to the first element.
      */
-    iterator begin() const { return iterator(this, 0); }
+    iterator begin() const
+    {
+        return iterator(this, 0);
+    }
     /**
      * @brief Returns an iterator to the end of the RefArray.
      *
      * @return An iterator to the element following the last element.
      */
-    iterator end() const { return iterator(this, N); }
+    iterator end() const
+    {
+        return iterator(this, N);
+    }
 
-    T** get_storage() { return storage; }
-    T* const* get_storage() const { return storage; }
+    T** get_storage()
+    {
+        return storage;
+    }
+    T* const* get_storage() const
+    {
+        return storage;
+    }
 
   private:
     // We are making a high-level array, for simplicity having a C array as backing makes sense.

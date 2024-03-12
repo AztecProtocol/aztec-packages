@@ -95,11 +95,9 @@ template <class Flavor> class ProverInstance_ {
 
     void compute_sorted_list_accumulator(FF);
 
-    void compute_logderivative_inverse(FF, FF)
-        requires IsGoblinFlavor<Flavor>;
+    void compute_logderivative_inverse(FF, FF) requires IsGoblinFlavor<Flavor>;
 
-    void compute_databus_id()
-        requires IsGoblinFlavor<Flavor>;
+    void compute_databus_id() requires IsGoblinFlavor<Flavor>;
 
     void compute_grand_product_polynomials(FF, FF);
 
@@ -110,8 +108,7 @@ template <class Flavor> class ProverInstance_ {
 
     size_t compute_dyadic_size(Circuit&);
 
-    void construct_databus_polynomials(Circuit&)
-        requires IsGoblinFlavor<Flavor>;
+    void construct_databus_polynomials(Circuit&) requires IsGoblinFlavor<Flavor>;
 
     void construct_table_polynomials(Circuit&, size_t);
 

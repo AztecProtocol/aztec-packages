@@ -22,14 +22,18 @@ template <typename Params, typename View>
 using GetParameterView = std::conditional_t<IsField<typename Params::DataType>, typename Params::DataType, View>;
 
 template <typename T, size_t subrelation_idx>
-concept HasSubrelationLinearlyIndependentMember = requires(T) {
-                                                      {
-                                                          std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
-                                                          } -> std::convertible_to<bool>;
-                                                  };
+concept HasSubrelationLinearlyIndependentMember = requires(T)
+{
+    {
+        std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
+        } -> std::convertible_to<bool>;
+};
 
 template <typename T>
-concept HasParameterLengthAdjustmentsMember = requires { T::TOTAL_LENGTH_ADJUSTMENTS; };
+concept HasParameterLengthAdjustmentsMember = requires
+{
+    T::TOTAL_LENGTH_ADJUSTMENTS;
+};
 
 /**
  * @brief Check whether a given subrelation is linearly independent from the other subrelations.

@@ -157,17 +157,16 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
      * We can chain repeated point additions together, where we only require 2 non-native field multiplications per
      * point addition, instead of 3
      **/
-    static chain_add_accumulator chain_add_start(const element& p1, const element& p2)
-        requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
-    static chain_add_accumulator chain_add(const element& p1, const chain_add_accumulator& accumulator)
-        requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
-    static element chain_add_end(const chain_add_accumulator& accumulator)
-        requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
+    static chain_add_accumulator chain_add_start(const element& p1, const element& p2) requires(
+        IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
+    static chain_add_accumulator chain_add(const element& p1, const chain_add_accumulator& accumulator) requires(
+        IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
+    static element chain_add_end(const chain_add_accumulator& accumulator) requires(
+        IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
 
-    element montgomery_ladder(const element& other) const
-        requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
-    element montgomery_ladder(const chain_add_accumulator& accumulator)
-        requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
+    element montgomery_ladder(const element& other) const requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
+    element montgomery_ladder(const chain_add_accumulator& accumulator) requires(
+        IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
     element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const
         requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
 
@@ -210,21 +209,21 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     // i.e. for the bn254 curve, the template param is `typename = void`
     // for any other curve, there is no template param
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
-        requires(IsNotGoblinBuilder<Builder>) // TODO(https://github.com/AztecProtocol/barretenberg/issues/707)
-    static element bn254_endo_batch_mul(const std::vector<element>& big_points,
-                                        const std::vector<Fr>& big_scalars,
-                                        const std::vector<element>& small_points,
-                                        const std::vector<Fr>& small_scalars,
-                                        const size_t max_num_small_bits);
+    requires(IsNotGoblinBuilder<Builder>) // TODO(https://github.com/AztecProtocol/barretenberg/issues/707)
+        static element bn254_endo_batch_mul(const std::vector<element>& big_points,
+                                            const std::vector<Fr>& big_scalars,
+                                            const std::vector<element>& small_points,
+                                            const std::vector<Fr>& small_scalars,
+                                            const size_t max_num_small_bits);
 
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
-        requires(IsNotGoblinBuilder<Builder>) // TODO(https://github.com/AztecProtocol/barretenberg/issues/707)
-    static element bn254_endo_batch_mul_with_generator(const std::vector<element>& big_points,
-                                                       const std::vector<Fr>& big_scalars,
-                                                       const std::vector<element>& small_points,
-                                                       const std::vector<Fr>& small_scalars,
-                                                       const Fr& generator_scalar,
-                                                       const size_t max_num_small_bits);
+    requires(IsNotGoblinBuilder<Builder>) // TODO(https://github.com/AztecProtocol/barretenberg/issues/707)
+        static element bn254_endo_batch_mul_with_generator(const std::vector<element>& big_points,
+                                                           const std::vector<Fr>& big_scalars,
+                                                           const std::vector<element>& small_points,
+                                                           const std::vector<Fr>& small_scalars,
+                                                           const Fr& generator_scalar,
+                                                           const size_t max_num_small_bits);
 
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);

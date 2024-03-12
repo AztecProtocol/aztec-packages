@@ -221,9 +221,8 @@ constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::de
  * @return constexpr affine_element<Fq, Fr, T>
  */
 template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed,
-                                                                             uint8_t attempt_count) noexcept
-    requires SupportsHashToCurve<T>
+constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(
+    const std::vector<uint8_t>& seed, uint8_t attempt_count) noexcept requires SupportsHashToCurve<T>
 
 {
     std::vector<uint8_t> target_seed(seed);

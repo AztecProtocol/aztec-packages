@@ -148,17 +148,23 @@ void run_loop_in_parallel(size_t num_points,
  * @param sequential_copy_ops_per_iteration Field element (16 byte) sequential copy number
  */
 template <typename FunctionType>
-    requires(std::is_same_v<FunctionType, std::function<void(size_t, size_t)>> ||
-             std::is_same_v<FunctionType, std::function<void(size_t, size_t, size_t)>>)
-void run_loop_in_parallel_if_effective_internal(size_t num_points,
-                                                const FunctionType& func,
-                                                size_t finite_field_additions_per_iteration,
-                                                size_t finite_field_multiplications_per_iteration,
-                                                size_t finite_field_inversions_per_iteration,
-                                                size_t group_element_additions_per_iteration,
-                                                size_t group_element_doublings_per_iteration,
-                                                size_t scalar_multiplications_per_iteration,
-                                                size_t sequential_copy_ops_per_iteration)
+requires(
+    std::is_same_v<FunctionType, std::function<void(size_t, size_t)>> ||
+    std::is_same_v<
+        FunctionType,
+        std::function<void(
+            size_t,
+            size_t,
+            size_t)>>) void run_loop_in_parallel_if_effective_internal(size_t num_points,
+                                                                       const FunctionType& func,
+                                                                       size_t finite_field_additions_per_iteration,
+                                                                       size_t
+                                                                           finite_field_multiplications_per_iteration,
+                                                                       size_t finite_field_inversions_per_iteration,
+                                                                       size_t group_element_additions_per_iteration,
+                                                                       size_t group_element_doublings_per_iteration,
+                                                                       size_t scalar_multiplications_per_iteration,
+                                                                       size_t sequential_copy_ops_per_iteration)
 {
     // Rough cost of operations (the operation costs are derives in basics_bench and the units are nanoseconds):
     constexpr size_t FF_ADDITION_COST = 4;

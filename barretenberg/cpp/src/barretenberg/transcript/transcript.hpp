@@ -381,9 +381,15 @@ template <typename TranscriptParams> class BaseTranscript {
         return result;
     }
 
-    [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
+    [[nodiscard]] TranscriptManifest get_manifest() const
+    {
+        return manifest;
+    };
 
-    void print() { manifest.print(); }
+    void print()
+    {
+        manifest.print();
+    }
 };
 
 template <typename Builder>
