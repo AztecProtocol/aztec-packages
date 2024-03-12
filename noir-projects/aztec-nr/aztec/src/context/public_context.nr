@@ -208,17 +208,7 @@ impl PublicContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        let side_effect_counter = self.side_effect_counter;
-        self.side_effect_counter += 1;
-
-        call_public_function_internal(
-            contract_address,
-            function_selector,
-            args_hash,
-            side_effect_counter,
-            false,
-            false
-        )
+        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
     pub fn static_call_public_function<ARGS_COUNT>(
@@ -229,16 +219,7 @@ impl PublicContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        let side_effect_counter = self.side_effect_counter;
-        self.side_effect_counter += 1;
-        call_public_function_internal(
-            contract_address,
-            function_selector,
-            args_hash,
-            side_effect_counter,
-            true,
-            false
-        )
+        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
     pub fn delegate_call_public_function<ARGS_COUNT>(
@@ -249,16 +230,7 @@ impl PublicContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        let side_effect_counter = self.side_effect_counter;
-        self.side_effect_counter += 1;
-        call_public_function_internal(
-            contract_address,
-            function_selector,
-            args_hash,
-            side_effect_counter,
-            false,
-            true
-        )
+        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
     pub fn call_public_function_no_args(
@@ -266,16 +238,7 @@ impl PublicContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let side_effect_counter = self.side_effect_counter;
-        self.side_effect_counter += 1;
-        call_public_function_internal(
-            contract_address,
-            function_selector,
-            0,
-            side_effect_counter,
-            false,
-            false
-        )
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, false)
     }
 
     pub fn static_call_public_function_no_args(
@@ -283,16 +246,7 @@ impl PublicContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let side_effect_counter = self.side_effect_counter;
-        self.side_effect_counter += 1;
-        call_public_function_internal(
-            contract_address,
-            function_selector,
-            0,
-            side_effect_counter,
-            true,
-            false
-        )
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0, true, false)
     }
 
     pub fn delegate_call_public_function_no_args(
@@ -300,15 +254,28 @@ impl PublicContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, true)
+    }
+
+    pub fn call_public_function_with_packed_args(
+        self: &mut Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args_hash: Field,
+        is_static_call: bool,
+        is_delegate_call: bool
+    ) -> [Field; RETURN_VALUES_LENGTH] {
         let side_effect_counter = self.side_effect_counter;
+        // TODO get next value from output of `call_public_function_internal`
         self.side_effect_counter += 1;
+
         call_public_function_internal(
             contract_address,
             function_selector,
-            0,
+            args_hash,
             side_effect_counter,
-            false,
-            true
+            is_static_call,
+            is_delegate_call
         )
     }
 }
