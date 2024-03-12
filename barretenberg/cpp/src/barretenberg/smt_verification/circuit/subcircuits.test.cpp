@@ -4,8 +4,7 @@
 #include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
-#include "barretenberg/smt_verification/circuit/circuit.hpp"
-#include "barretenberg/smt_verification/util/smt_util.hpp"
+#include "barretenberg/smt_verification/circuit/subcircuits.hpp"
 
 #include <gtest/gtest.h>
 
@@ -15,26 +14,41 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-// These tests are aimed to find the index of the result value
-// wires indices selectors
-TEST(Subcircuits, range_circuit)
+TEST(subcircuits, range_circuit)
 {
-    for (size_t i = 0; i < 256; i++) {
-        smt_schema::CircuitSchema range_circuit = smt_subcircuits::get_standard_range_constraint_circuit(i);
-        info(i, " bits. ", range_circuit.selectors.size(), " gates.");
-        for (size_t j = 0; j < range_circuit.selectors.size(); j++) {
-            uint32_t wl = range_circuit.wires[j][0];
-            uint32_t wr = range_circuit.wires[j][1];
-            uint32_t wo = range_circuit.wires[j][2];
+    for (size_t i = 1; i < 256; i++) {
+        smt_subcircuits::CircuitProps range_props = smt_subcircuits::get_standard_range_constraint_circuit(i);
+        smt_circuit_schema::CircuitSchema circuit = range_props.circuit;
 
-            if (range_circuit.vars_of_interest[wl] == "a") {
-                info("Gate #", j, " Wire: ", 0);
-            } else if (range_circuit.vars_of_interest[wr] == "a") {
-                info("Gate #", j, " Wire: ", 1);
-            } else if (range_circuit.vars_of_interest[wo] == "a") {
-                info("Gate #", j, " Wire: ", 2);
-            }
-        }
-        info();
+        size_t a_gate = range_props.gate_idxs[0];
+        uint32_t a_gate_idx = range_props.idxs[0];
+        size_t start_gate = range_props.start_gate;
+
+        ASSERT_EQ(
+            "a", circuit.vars_of_interest[circuit.real_variable_index[circuit.wires[start_gate + a_gate][a_gate_idx]]]);
+    }
+}
+
+TEST(subcircuits, logic_circuit)
+{
+    for (size_t i = 2; i < 256; i += 2) {
+        smt_subcircuits::CircuitProps logic_props = smt_subcircuits::get_standard_logic_circuit(i, true);
+        smt_circuit_schema::CircuitSchema circuit = logic_props.circuit;
+
+        size_t a_gate = logic_props.gate_idxs[0];
+        uint32_t a_gate_idx = logic_props.idxs[0];
+        size_t start_gate = logic_props.start_gate;
+        ASSERT_EQ(
+            "a", circuit.vars_of_interest[circuit.real_variable_index[circuit.wires[start_gate + a_gate][a_gate_idx]]]);
+
+        size_t b_gate = logic_props.gate_idxs[1];
+        uint32_t b_gate_idx = logic_props.idxs[1];
+        ASSERT_EQ(
+            "b", circuit.vars_of_interest[circuit.real_variable_index[circuit.wires[start_gate + b_gate][b_gate_idx]]]);
+
+        size_t c_gate = logic_props.gate_idxs[2];
+        uint32_t c_gate_idx = logic_props.idxs[2];
+        ASSERT_EQ(
+            "c", circuit.vars_of_interest[circuit.real_variable_index[circuit.wires[start_gate + c_gate][c_gate_idx]]]);
     }
 }
