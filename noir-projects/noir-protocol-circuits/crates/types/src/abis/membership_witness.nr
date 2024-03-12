@@ -1,6 +1,6 @@
 use crate::constants::{
-    CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT, NULLIFIER_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT,
-    ROLLUP_VK_TREE_HEIGHT, ARCHIVE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT
+    FUNCTION_TREE_HEIGHT, NULLIFIER_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT, ROLLUP_VK_TREE_HEIGHT,
+    ARCHIVE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT
 };
 
 // TODO(Kev): Instead of doing `MembershipWitness<FUNCTION_TREE_HEIGHT>` we are forced 
@@ -10,11 +10,6 @@ use crate::constants::{
 struct FunctionLeafMembershipWitness{
     leaf_index: Field,
     sibling_path: [Field; FUNCTION_TREE_HEIGHT]
-}
-
-struct ContractLeafMembershipWitness{
-    leaf_index: Field,
-    sibling_path: [Field; CONTRACT_TREE_HEIGHT]
 }
 
 struct VKMembershipWitness{
