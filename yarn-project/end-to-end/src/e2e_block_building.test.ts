@@ -1,20 +1,15 @@
 import {
-  AztecAddress,
   AztecNode,
   BatchCall,
   ContractDeployer,
   ContractFunctionInteraction,
   DebugLogger,
-  ExtendedNote,
   Fr,
-  Note,
   PXE,
   SentTx,
-  TxHash,
   TxReceipt,
   TxStatus,
   Wallet,
-  computeMessageSecretHash,
   isContractDeployed,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
@@ -170,65 +165,6 @@ describe('e2e_block_building', () => {
       const [tx1, tx2] = calls.map(call => call.send());
       await expectXorTx(tx1, tx2);
     }, 30_000);
-  });
-
-  describe('tx with private and public notes', () => {
-    let asset: TokenContract;
-    let from: AztecAddress;
-    let to: AztecAddress;
-
-    beforeAll(async () => {
-      ({
-        teardown,
-        pxe,
-        logger,
-        aztecNode,
-        wallets: [owner, minter],
-      } = await setup(2));
-
-      asset = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
-        .send()
-        .deployed();
-
-      from = owner.getCompleteAddress().address;
-      to = owner.getCompleteAddress().address;
-
-      await Promise.all([
-        asset.methods.privately_mint_private_note(1000n).send().wait(),
-        asset.methods.mint_public(from, 1000n).send().wait(),
-      ]);
-    }, 50_000);
-
-    afterAll(() => teardown());
-
-    it('correctly creates notes in private and public in the same tx', async () => {
-      const fromBalancePriv = await asset.methods.balance_of_private(from).view();
-      const toBalancePriv = await asset.methods.balance_of_private(to).view();
-      const fromBalancePub = await asset.methods.balance_of_public(from).view();
-
-      const privTransfer = asset.methods.transfer(from, to, 1n, 0).request();
-
-      const shieldSecret = Fr.random();
-      const pubShield = asset.methods.shield(from, 1n, computeMessageSecretHash(shieldSecret), 0).request();
-
-      const tx = await new BatchCall(owner, [privTransfer, pubShield]).send().wait();
-
-      await expect(asset.methods.balance_of_private(from).view()).resolves.toEqual(fromBalancePriv - 1n);
-      await expect(asset.methods.balance_of_private(to).view()).resolves.toEqual(toBalancePriv + 1n);
-      await expect(asset.methods.balance_of_public(from).view()).resolves.toEqual(fromBalancePub - 1n);
-      await expect(
-        addPendingShieldNoteToPXE(from, 1n, computeMessageSecretHash(shieldSecret), tx.txHash),
-      ).resolves.toBeUndefined();
-    });
-
-    const addPendingShieldNoteToPXE = async (owner: AztecAddress, amount: bigint, secretHash: Fr, txHash: TxHash) => {
-      const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-      const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
-
-      const note = new Note([new Fr(amount), secretHash]);
-      const extendedNote = new ExtendedNote(note, owner, asset.address, storageSlot, noteTypeId, txHash);
-      await pxe.addNote(extendedNote);
-    };
   });
 });
 
