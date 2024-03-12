@@ -1491,6 +1491,9 @@ void UltraCircuitBuilder_<Arithmetization>::range_constrain_two_limbs(const uint
     const std::array<uint32_t, 5> lo_sublimbs = get_sublimbs(lo_idx, lo_masks);
     const std::array<uint32_t, 5> hi_sublimbs = get_sublimbs(hi_idx, hi_masks);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate necessary for the big add gate
+    // constructed immediately prior to calling range_constrain_two_limbs from evaluate_non_native_field_multiplication.
+    create_dummy_gate(blocks.arithmetic, lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
     blocks.main.populate_wires(lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
     blocks.main.populate_wires(lo_sublimbs[3], lo_sublimbs[4], hi_sublimbs[0], hi_sublimbs[1]);
     blocks.main.populate_wires(hi_sublimbs[2], hi_sublimbs[3], hi_sublimbs[4], hi_idx);
@@ -1654,6 +1657,10 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
                           -LIMB_SHIFT.sqr(),
                           0 },
                         true);
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate necessary for preceeding big add gate
+    // that reaches into next row.
+    create_dummy_gate(blocks.arithmetic, input.a[1], input.b[1], input.r[0], lo_0_idx);
 
     blocks.main.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
