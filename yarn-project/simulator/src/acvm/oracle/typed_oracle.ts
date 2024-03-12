@@ -169,11 +169,11 @@ export abstract class TypedOracle {
     throw new Error('Not available.');
   }
 
-  storageRead(_startStorageSlot: Fr, _numberOfElements: number): Promise<Fr[]> {
+  storageRead(_storageSlot: Fr): Promise<Fr> {
     throw new Error('Not available.');
   }
 
-  storageWrite(_startStorageSlot: Fr, _values: Fr[]): Promise<Fr[]> {
+  storageWrite(_storageSlot: Fr, _value: Fr): Promise<void> {
     throw new Error('Not available.');
   }
 

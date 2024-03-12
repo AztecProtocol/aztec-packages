@@ -890,37 +890,34 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
         ),
     }
 }
+
 /// Emit a storage write opcode
-/// The current implementation writes an array of values into storage ( contiguous slots in memory )
 fn handle_storage_write(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
     assert!(inputs.len() == 2);
-    assert!(destinations.len() == 1);
+    assert!(destinations.is_empty());
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
         ValueOrArray::MemoryAddress(slot_offset) => slot_offset.0,
-        _ => panic!("ForeignCall address destination should be a single value"),
+        _ => panic!("Storage write address destination should be a single value"),
     };
 
     let src_offset_maybe = inputs[1];
-    let (src_offset, src_size) = match src_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
-        _ => panic!("Storage write address inputs should be an array of values"),
+    let src_offset = match src_offset_maybe {
+        ValueOrArray::MemoryAddress(offset) => offset.0,
+        _ => panic!("Storage write address inputs should be a single value"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SSTORE,
-        indirect: Some(ZEROTH_OPERAND_INDIRECT),
+        indirect: Some(ALL_DIRECT),
         operands: vec![
             AvmOperand::U32 {
                 value: src_offset as u32,
-            },
-            AvmOperand::U32 {
-                value: src_size as u32,
             },
             AvmOperand::U32 {
                 value: slot_offset as u32,
@@ -937,31 +934,27 @@ fn handle_storage_read(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
-    // For the foreign calls we want to handle, we do not want inputs, as they are getters
-    assert!(inputs.len() == 2); // output, len - but we dont use this len - its for the oracle
+    assert!(inputs.len() == 1);
     assert!(destinations.len() == 1);
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
         ValueOrArray::MemoryAddress(slot_offset) => slot_offset.0,
-        _ => panic!("ForeignCall address destination should be a single value"),
+        _ => panic!("Storage read address destination should be a single value"),
     };
 
     let dest_offset_maybe = destinations[0];
-    let (dest_offset, src_size) = match dest_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
-        _ => panic!("Storage write address inputs should be an array of values"),
+    let dest_offset = match dest_offset_maybe {
+        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.0,
+        _ => panic!("Storage read address inputs should be a single value"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SLOAD,
-        indirect: Some(SECOND_OPERAND_INDIRECT),
+        indirect: Some(ALL_DIRECT),
         operands: vec![
             AvmOperand::U32 {
                 value: slot_offset as u32,
-            },
-            AvmOperand::U32 {
-                value: src_size as u32,
             },
             AvmOperand::U32 {
                 value: dest_offset as u32,
