@@ -1,5 +1,4 @@
 import {
-  ExtendedContractData,
   FunctionCall,
   FunctionL2Logs,
   PublicDataWrite,
@@ -135,7 +134,6 @@ describe('public_processor', () => {
         proof: tx.proof,
         encryptedLogs: tx.encryptedLogs,
         unencryptedLogs: tx.unencryptedLogs,
-        newContracts: tx.newContracts,
         isEmpty: false,
         revertReason: undefined,
       };
@@ -213,9 +211,7 @@ describe('public_processor', () => {
       );
       kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
 
-      const tx = new Tx(kernelOutput, proof, TxL2Logs.empty(), TxL2Logs.empty(), publicCallRequests, [
-        ExtendedContractData.random(),
-      ]);
+      const tx = new Tx(kernelOutput, proof, TxL2Logs.empty(), TxL2Logs.empty(), publicCallRequests);
 
       tx.data.needsSetup = false;
       tx.data.needsTeardown = false;
@@ -237,7 +233,7 @@ describe('public_processor', () => {
       expect(processed).toEqual([expectedTxByHash(tx)]);
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(2);
       expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(0);
     });
 
@@ -261,14 +257,7 @@ describe('public_processor', () => {
       kernelOutput.needsSetup = false;
       kernelOutput.needsTeardown = false;
 
-      const tx = new Tx(
-        kernelOutput,
-        proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
-        [callRequest],
-        [ExtendedContractData.random()],
-      );
+      const tx = new Tx(kernelOutput, proof, TxL2Logs.empty(), TxL2Logs.empty(), [callRequest]);
 
       const publicExecutionResult = PublicExecutionResultBuilder.fromPublicCallRequest({
         request: callRequest,
@@ -288,7 +277,7 @@ describe('public_processor', () => {
       expect(processed).toEqual([expectedTxByHash(tx)]);
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(2);
       expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(0);
     });
 
@@ -320,7 +309,6 @@ describe('public_processor', () => {
         TxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
-        [ExtendedContractData.random()],
       );
 
       const contractSlotA = fr(0x100);
@@ -390,7 +378,7 @@ describe('public_processor', () => {
       expect(appLogicSpy).toHaveBeenCalledTimes(2);
       expect(teardownSpy).toHaveBeenCalledTimes(2);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(2);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(3);
       expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(1);
 
       expect(arrayNonEmptyLength(processed[0].data.combinedData.publicCallStack, i => i.isEmpty())).toEqual(0);
@@ -403,8 +391,6 @@ describe('public_processor', () => {
       expect(txEffect.publicDataWrites[1]).toEqual(
         new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotC), fr(0x201)),
       );
-      expect(txEffect.contractData[0].isEmpty()).toBe(true);
-      expect(txEffect.contractLeaves[0].isZero()).toBe(true);
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(0);
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);
     });
@@ -437,7 +423,6 @@ describe('public_processor', () => {
         TxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
-        [ExtendedContractData.random()],
       );
 
       // const baseContractAddress = makeAztecAddress(30);
@@ -502,7 +487,7 @@ describe('public_processor', () => {
       expect(appLogicSpy).toHaveBeenCalledTimes(1);
       expect(teardownSpy).toHaveBeenCalledTimes(3);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(3);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(4);
       expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(0);
 
       const txEffect = toTxEffect(processed[0]);
@@ -570,7 +555,7 @@ class PublicExecutionResultBuilder {
     revertReason?: SimulationError;
   }) {
     const builder = new PublicExecutionResultBuilder({
-      callContext: new CallContext(from, tx.to, EthAddress.ZERO, tx.functionData.selector, false, false, false, 0),
+      callContext: new CallContext(from, tx.to, EthAddress.ZERO, tx.functionData.selector, false, false, 0),
       contractAddress: tx.to,
       functionData: tx.functionData,
       args: tx.args,
@@ -611,6 +596,7 @@ class PublicExecutionResultBuilder {
     return {
       execution: this._execution,
       nestedExecutions: this._nestedExecutions,
+      nullifierReadRequests: [],
       contractStorageUpdateRequests: this._contractStorageUpdateRequests,
       returnValues: this._returnValues,
       newNoteHashes: [],
