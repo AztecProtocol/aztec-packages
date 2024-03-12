@@ -57,18 +57,15 @@ class MockTranscript {
      * @brief Send something that can be converted to uint256_t to the verifier (used for field elements)
      *
      */
-    template <typename T> void send_to_verifier(const std::string&, const T& field_element)
+    template <typename T> void send_to_verifier(const std::string&, const T& element)
     {
-        field_elements.push_back(static_cast<uint256_t>(field_element));
-    }
+        // GCC breaks explicit specialization, so I have to do this
+        if constexpr (std::is_same_v<bb::curve::Grumpkin::AffineElement, T>) {
 
-    /**
-     * @brief Send a group element to the verifier
-     *
-     */
-    template <> void send_to_verifier(const std::string&, const bb::curve::Grumpkin::AffineElement& group_element)
-    {
-        group_elements.push_back(group_element);
+            group_elements.push_back(element);
+        } else {
+            field_elements.push_back(static_cast<uint256_t>(element));
+        }
     }
 
     /**
@@ -84,35 +81,20 @@ class MockTranscript {
         return result;
     }
     /**
-     * @brief Receive something unknown from prover (fails)
+     * @brief Receive elements from the prover
      *
      */
-    template <typename T> T receive_from_prover(const std::string&) { abort(); }
-
-    /**
-     * @brief Receive a field element from prover
-     */
-    template <> bb::curve::Grumpkin::ScalarField receive_from_prover(const std::string&)
+    template <typename T> T receive_from_prover(const std::string&)
     {
-        ASSERT(field_elements.size() > current_field_index);
-        return field_elements[current_field_index++];
-    }
-    /**
-     * @brief Receive a field element from prover
-     */
-    template <> bb::curve::Grumpkin::BaseField receive_from_prover(const std::string&)
-    {
-        ASSERT(field_elements.size() > current_field_index);
-        return field_elements[current_field_index++];
-    }
-    /**
-     * @brief Receive an affine group element from prover
-     *
-     */
-    template <> bb::curve::Grumpkin::AffineElement receive_from_prover(const std::string&)
-    {
-        ASSERT(group_elements.size() > current_group_index);
-        return group_elements[current_group_index++];
+        if constexpr (std::is_same_v<bb::curve::Grumpkin::ScalarField, T> ||
+                      std::is_same_v<bb::curve::Grumpkin::BaseField, T>) {
+            ASSERT(field_elements.size() > current_field_index);
+            return field_elements[current_field_index++];
+        }
+        if constexpr (std::is_same_v<bb::curve::Grumpkin::AffineElement, T>) {
+            ASSERT(group_elements.size() > current_group_index);
+            return group_elements[current_group_index++];
+        }
     }
 };
 } // namespace bb
