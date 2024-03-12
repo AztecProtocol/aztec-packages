@@ -49,6 +49,9 @@ class AvmTraceBuilder {
     // Set a constant from bytecode with direct memory access.
     void set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
 
+    // Move (copy) the value and tag of a memory cell to another one.
+    void op_mov(uint32_t src_offset, uint32_t dst_offset);
+
     // Jump to a given program counter.
     void jump(uint32_t jmp_dest);
 

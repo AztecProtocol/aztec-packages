@@ -362,6 +362,39 @@ void AvmTraceBuilder::set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_ta
 }
 
 /**
+ * @brief Copy value and tag from a memory cell at position src_offset to the
+ *        memory cell at position dst_offset
+ *
+ * @param src_offset Offset of source memory cell
+ * @param dst_offset Offset of destination memory cell
+ */
+void AvmTraceBuilder::op_mov(uint32_t const src_offset, uint32_t const dst_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+
+    // Reading from memory and loading into ia without tag check.
+    auto const [val, tag] = mem_trace_builder.read_and_load_mov_opcode(clk, src_offset);
+
+    // Write into memory value c from intermediate register ic.
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, val, tag);
+
+    main_trace.push_back(Row{
+        .avm_main_clk = clk,
+        .avm_main_pc = FF(pc++),
+        .avm_main_internal_return_ptr = FF(internal_return_ptr),
+        .avm_main_sel_mov = FF(1),
+        .avm_main_in_tag = FF(static_cast<uint32_t>(tag)),
+        .avm_main_ia = val,
+        .avm_main_ic = val,
+        .avm_main_mem_op_a = FF(1),
+        .avm_main_mem_op_c = FF(1),
+        .avm_main_rwc = FF(1),
+        .avm_main_mem_idx_a = FF(src_offset),
+        .avm_main_mem_idx_c = FF(dst_offset),
+    });
+}
+
+/**
  * @brief CALLDATACOPY opcode with direct memory access, i.e.,
  *        M[dst_offset:dst_offset+copy_size] = calldata[cd_offset:cd_offset+copy_size]
  *        Simplified version with exclusively memory store operations and
@@ -750,6 +783,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_mem_m_tag = FF(static_cast<uint32_t>(src.m_tag));
         dest.avm_mem_m_tag_err = FF(static_cast<uint32_t>(src.m_tag_err));
         dest.avm_mem_m_one_min_inv = src.m_one_min_inv;
+        dest.avm_mem_m_sel_mov = FF(static_cast<uint32_t>(src.m_sel_mov));
 
         dest.incl_mem_tag_err_counts = FF(static_cast<uint32_t>(src.m_tag_err_count_relevant));
 
