@@ -77,6 +77,9 @@ HonkProof ClientIVC::decider_prove() const
  * recursive merge verifier), initial kernel verification key (with recursive merge verifier appended, no previous
  * kernel to fold), "full" kernel verification key( two recursive folding verifiers and merge verifier).
  *
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/904): This function should ultimately be moved outside of
+ * this class since it's used only for testing and benchmarking purposes and it requires us to clear state afterwards.
+ * (e.g. in the Goblin object)
  */
 void ClientIVC::precompute_folding_verification_keys()
 {

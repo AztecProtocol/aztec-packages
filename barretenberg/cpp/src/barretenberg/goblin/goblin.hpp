@@ -89,7 +89,12 @@ class Goblin {
     AccumulationOutput accumulator; // Used only for ACIR methods for now
 
   public:
-    Goblin() { GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue); }
+    Goblin()
+    { // Mocks the interaction of a first circuit with the op queue due to the inability to currently handle zero
+      // commitments (https://github.com/AztecProtocol/barretenberg/issues/871) which would otherwise appear in the
+      // first round of the merge protocol. To be removed once the issue has been resolved.
+        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
+    }
     /**
      * @brief Construct a GUH proof and a merge proof for the present circuit.
      * @details If there is a previous merge proof, recursively verify it.
