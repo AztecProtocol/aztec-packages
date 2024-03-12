@@ -214,3 +214,17 @@ TEST(AffineElement, InfinityBatchMulByScalarIsInfinity)
 
     EXPECT_THAT(result, Each(Property(&grumpkin::g1::affine_element::is_point_at_infinity, Eq(true))));
 }
+
+// A regression test to make sure the -1 case is covered
+TEST(AffineElement, BatchByMinusOne)
+{
+    constexpr size_t num_points = 2;
+    std::vector<grumpkin::g1::affine_element> affine_points(num_points, grumpkin::g1::affine_element::one());
+
+    std::vector<grumpkin::g1::affine_element> result =
+        grumpkin::g1::element::batch_mul_with_endomorphism(affine_points, -grumpkin::fr::one());
+
+    for (size_t i = 0; i < num_points; i++) {
+        EXPECT_EQ(affine_points[i], -result[i]);
+    }
+}

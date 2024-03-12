@@ -901,6 +901,28 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             /*finite_field_additions_per_iteration=*/7,
             /*finite_field_multiplications_per_iteration=*/6);
     };
+
+    // Since the core algorithm has no edgecase detection, it can't handle -1. (Because constructing -1 is r + -1 as
+    // skew and r⋅P = Point at infinity, which we can't handle in batch affine add). So we have to handle it separately
+    if (scalar == -Fr::one()) {
+
+        std::vector<affine_element> results(num_points);
+        run_loop_in_parallel_if_effective(
+            num_points,
+            [&results, &points](size_t start, size_t end) {
+                for (size_t i = start; i < end; ++i) {
+                    results[i] = -points[i];
+                }
+            },
+            /*finite_field_additions_per_iteration=*/0,
+            /*finite_field_multiplications_per_iteration=*/0,
+            /*finite_field_inversions_per_iteration=*/0,
+            /*group_element_additions_per_iteration=*/0,
+            /*group_element_doublings_per_iteration=*/0,
+            /*scalar_multiplications_per_iteration=*/0,
+            /*sequential_copy_ops_per_iteration=*/1);
+        return results;
+    }
     // Compute wnaf for scalar
     const Fr converted_scalar = scalar.from_montgomery_form();
 
