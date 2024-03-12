@@ -44,6 +44,10 @@ export class RandomnessSingleton {
 
   public getBytes(length: number): Buffer {
     if (this.seed === undefined) {
+      // Note: It would be more natural to just have the contents of randomBytes(...) function from
+      // yarn-project/foundation/src/crypto/random/index.ts here but that would result in a larger
+      // refactor so I think prohibiting use of this func when the seed is undefined is and handling
+      // the singleton within randomBytes func is fine.
       throw new Error('RandomnessSingleton is not implemented for non-deterministic mode');
     }
     const result = Buffer.alloc(length);
