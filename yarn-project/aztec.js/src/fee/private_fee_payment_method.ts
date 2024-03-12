@@ -5,8 +5,8 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
+import { Wallet } from '../account/wallet.js';
 import { computeAuthWitMessageHash } from '../utils/authwit.js';
-import { AccountWalletWithPrivateKey } from '../wallet/account_wallet_with_private_key.js';
 import { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
@@ -26,7 +26,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     /**
      * An auth witness provider to authorize fee payments
      */
-    private wallet: AccountWalletWithPrivateKey,
+    private wallet: Wallet,
 
     /**
      * A secret to shield the rebate amount from the FPC.
@@ -59,7 +59,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
   async getFunctionCalls(maxFee: Fr): Promise<FunctionCall[]> {
     const nonce = Fr.random();
     const messageHash = computeAuthWitMessageHash(this.paymentContract, {
-      args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
+      args: [this.wallet.getCompleteAddress().address, this.paymentContract, maxFee, nonce],
       functionData: new FunctionData(
         FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)'),
         false,
