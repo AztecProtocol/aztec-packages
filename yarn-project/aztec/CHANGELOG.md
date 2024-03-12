@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.27.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.26.6...aztec-package-v0.27.0) (2024-03-12)
+
+
+### Features
+
+* Add api for inclusion proof of outgoing message in block [#4562](https://github.com/AztecProtocol/aztec-packages/issues/4562) ([#4899](https://github.com/AztecProtocol/aztec-packages/issues/4899)) ([26d2643](https://github.com/AztecProtocol/aztec-packages/commit/26d26437022567e2d54052f21b1c937259f26c94))
+
+
+### Miscellaneous
+
+* Pin foundry ([#5151](https://github.com/AztecProtocol/aztec-packages/issues/5151)) ([69bd7dd](https://github.com/AztecProtocol/aztec-packages/commit/69bd7dd45af6b197b23c25dc883a1a5485955203))
+* Remove old contract deployment flow ([#4970](https://github.com/AztecProtocol/aztec-packages/issues/4970)) ([6d15947](https://github.com/AztecProtocol/aztec-packages/commit/6d1594736e96cd744ea691a239fcd3a46bdade60))
+
+## [0.26.6](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.26.5...aztec-package-v0.26.6) (2024-03-08)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.26.5](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.26.4...aztec-package-v0.26.5) (2024-03-07)
+
+
+### Features
+
+* Integrated native ACVM ([#4903](https://github.com/AztecProtocol/aztec-packages/issues/4903)) ([3fd7025](https://github.com/AztecProtocol/aztec-packages/commit/3fd7025ab43e705cab4aa67ca057e54316a1715b))
+
+## [0.26.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.26.3...aztec-package-v0.26.4) (2024-03-06)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
 ## [0.26.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.26.2...aztec-package-v0.26.3) (2024-03-06)
 
 

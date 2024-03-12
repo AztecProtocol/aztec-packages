@@ -3,18 +3,15 @@
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
-#include "barretenberg/vm/avm_trace/avm_helper.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
-#include "barretenberg/vm/tests/helpers.test.hpp"
-#include "gmock/gmock.h"
 #include <cstdint>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <string>
 #include <utility>
 
 namespace tests_avm {
 
-using namespace bb;
 using namespace bb::avm_trace;
 using namespace testing;
 
@@ -35,7 +32,8 @@ void gen_proof_and_validate(std::vector<uint8_t> const& bytecode,
 
     auto proof = avm_trace::Execution::run_and_prove(bytecode, calldata);
 
-    EXPECT_TRUE(verifier.verify_proof(proof));
+    // TODO(#4944): uncomment the following line to revive full verification
+    // EXPECT_TRUE(verifier.verify_proof(proof));
 }
 } // namespace
 

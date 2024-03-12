@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.27.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.26.6...aztec-cli-v0.27.0) (2024-03-12)
+
+
+### Miscellaneous
+
+* Remove old contract deployment flow ([#4970](https://github.com/AztecProtocol/aztec-packages/issues/4970)) ([6d15947](https://github.com/AztecProtocol/aztec-packages/commit/6d1594736e96cd744ea691a239fcd3a46bdade60))
+
+## [0.26.6](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.26.5...aztec-cli-v0.26.6) (2024-03-08)
+
+
+### Features
+
+* Show bytecode size per function in CLI inspect-contract ([#5059](https://github.com/AztecProtocol/aztec-packages/issues/5059)) ([cb9fdc6](https://github.com/AztecProtocol/aztec-packages/commit/cb9fdc6b5069ee2ab8fb1f68f369e360039fa18b))
+
+## [0.26.5](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.26.4...aztec-cli-v0.26.5) (2024-03-07)
+
+
+### Miscellaneous
+
+* **aztec-cli:** Synchronize aztec-packages versions
+
+## [0.26.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.26.3...aztec-cli-v0.26.4) (2024-03-06)
+
+
+### Miscellaneous
+
+* **aztec-cli:** Synchronize aztec-packages versions
+
 ## [0.26.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.26.2...aztec-cli-v0.26.3) (2024-03-06)
 
 

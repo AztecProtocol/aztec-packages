@@ -12,7 +12,6 @@ import {
   CombinedConstantData,
   ConstantRollupData,
   ContentCommitment,
-  ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   EthAddress,
@@ -25,7 +24,6 @@ import {
   GrumpkinScalar,
   Header,
   L2ToL1Message,
-  MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -50,7 +48,6 @@ import {
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
   NUM_FIELDS_PER_SHA256,
-  NewContractData,
   NoteHashReadRequestMembershipWitness,
   NullifierKeyValidationRequest,
   NullifierKeyValidationRequestContext,
@@ -84,6 +81,7 @@ import {
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
+  PublicKernelTailCircuitPrivateInputs,
   ReadRequest,
   ReadRequestContext,
   ReadRequestStatus,
@@ -107,15 +105,12 @@ import {
   CallerContext as CallerContextNoir,
   CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
-  ContractDeploymentData as ContractDeploymentDataNoir,
   FunctionData as FunctionDataNoir,
   FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
   FunctionSelector as FunctionSelectorNoir,
   GrumpkinPrivateKey as GrumpkinPrivateKeyNoir,
   L2ToL1Message as L2ToL1MessageNoir,
-  NewContractData as NewContractDataNoir,
   AztecAddress as NoirAztecAddress,
-  ContractClassId as NoirContractClassId,
   EthAddress as NoirEthAddress,
   Field as NoirField,
   GrumpkinPoint as NoirPoint,
@@ -164,6 +159,7 @@ import {
   StorageRead as StorageReadNoir,
   StorageUpdateRequest as StorageUpdateRequestNoir,
 } from './types/public_kernel_setup_types.js';
+import { PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir } from './types/public_kernel_tail_types.js';
 import {
   ArchiveRootMembershipWitness as ArchiveRootMembershipWitnessNoir,
   BaseRollupInputs as BaseRollupInputsNoir,
@@ -318,46 +314,6 @@ export function mapEthAddressFromNoir(address: NoirEthAddress): EthAddress {
   return EthAddress.fromField(mapFieldFromNoir(address.inner));
 }
 
-/** Maps a field to a contract class id in Noir. */
-export function mapContractClassIdToNoir(contractClassId: Fr): NoirContractClassId {
-  return { inner: mapFieldToNoir(contractClassId) };
-}
-
-/** Maps a noir contract class id to typescript. */
-export function mapContractClassIdFromNoir(contractClassId: NoirContractClassId): Fr {
-  return mapFieldFromNoir(contractClassId.inner);
-}
-
-/**
- * Maps a contract deployment data to a noir contract deployment data.
- * @param data - The data.
- * @returns The noir contract deployment data.
- */
-export function mapContractDeploymentDataToNoir(data: ContractDeploymentData): ContractDeploymentDataNoir {
-  return {
-    public_key: mapPointToNoir(data.publicKey),
-    initialization_hash: mapFieldToNoir(data.initializationHash),
-    contract_class_id: mapContractClassIdToNoir(data.contractClassId),
-    contract_address_salt: mapFieldToNoir(data.contractAddressSalt),
-    portal_contract_address: mapEthAddressToNoir(data.portalContractAddress),
-  };
-}
-
-/**
- * Maps a noir contract deployment data to a contract deployment data.
- * @param data - The noir data.
- * @returns The contract deployment data.
- */
-export function mapContractDeploymentDataFromNoir(data: ContractDeploymentDataNoir): ContractDeploymentData {
-  return new ContractDeploymentData(
-    mapPointFromNoir(data.public_key),
-    mapFieldFromNoir(data.initialization_hash),
-    mapContractClassIdFromNoir(data.contract_class_id),
-    mapFieldFromNoir(data.contract_address_salt),
-    mapEthAddressFromNoir(data.portal_contract_address),
-  );
-}
-
 /**
  * Maps a tx context to a noir tx context.
  * @param txContext - The tx context.
@@ -367,8 +323,6 @@ export function mapTxContextToNoir(txContext: TxContext): TxContextNoir {
   return {
     is_fee_payment_tx: txContext.isFeePaymentTx,
     is_rebate_payment_tx: txContext.isRebatePaymentTx,
-    is_contract_deployment_tx: txContext.isContractDeploymentTx,
-    contract_deployment_data: mapContractDeploymentDataToNoir(txContext.contractDeploymentData),
     chain_id: mapFieldToNoir(txContext.chainId),
     version: mapFieldToNoir(txContext.version),
   };
@@ -383,8 +337,6 @@ export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
   return new TxContext(
     txContext.is_fee_payment_tx,
     txContext.is_rebate_payment_tx,
-    txContext.is_contract_deployment_tx,
-    mapContractDeploymentDataFromNoir(txContext.contract_deployment_data),
     mapFieldFromNoir(txContext.chain_id),
     mapFieldFromNoir(txContext.version),
   );
@@ -465,7 +417,6 @@ export function mapCallContextFromNoir(callContext: CallContextNoir): CallContex
     mapFunctionSelectorFromNoir(callContext.function_selector),
     callContext.is_delegate_call,
     callContext.is_static_call,
-    callContext.is_contract_deployment,
     mapNumberFromNoir(callContext.start_side_effect_counter),
   );
 }
@@ -483,7 +434,6 @@ export function mapCallContextToNoir(callContext: CallContext): CallContextNoir 
     function_selector: mapFunctionSelectorToNoir(callContext.functionSelector),
     is_delegate_call: callContext.isDelegateCall,
     is_static_call: callContext.isStaticCall,
-    is_contract_deployment: callContext.isContractDeployment,
     start_side_effect_counter: mapNumberToNoir(callContext.startSideEffectCounter),
   };
 }
@@ -723,7 +673,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
     return_values: mapTuple(privateCircuitPublicInputs.returnValues, mapFieldToNoir),
     note_hash_read_requests: mapTuple(privateCircuitPublicInputs.noteHashReadRequests, mapSideEffectToNoir),
-    nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapSideEffectToNoir),
+    nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapReadRequestToNoir),
     nullifier_key_validation_requests: mapTuple(
       privateCircuitPublicInputs.nullifierKeyValidationRequests,
       mapNullifierKeyValidationRequestToNoir,
@@ -739,7 +689,6 @@ export function mapPrivateCircuitPublicInputsToNoir(
     encrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.unencryptedLogPreimagesLength),
     historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
-    contract_deployment_data: mapContractDeploymentDataToNoir(privateCircuitPublicInputs.contractDeploymentData),
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
@@ -852,32 +801,6 @@ export function mapSha256HashFromNoir(hash: FixedLengthArray<Field, 2>): Buffer 
  */
 export function mapSha256HashToNoir(hash: Buffer): FixedLengthArray<Field, 2> {
   return to2Fields(hash).map(mapFieldToNoir) as FixedLengthArray<Field, 2>;
-}
-
-/**
- * Maps new contract data from noir to the parsed type.
- * @param newContractData - The noir new contract data.
- * @returns The parsed new contract data.
- */
-export function mapNewContractDataFromNoir(newContractData: NewContractDataNoir): NewContractData {
-  return new NewContractData(
-    mapAztecAddressFromNoir(newContractData.contract_address),
-    mapEthAddressFromNoir(newContractData.portal_contract_address),
-    mapContractClassIdFromNoir(newContractData.contract_class_id),
-  );
-}
-
-/**
- * Maps new contract data to noir new contract data.
- * @param newContractData - The new contract data.
- * @returns The noir new contract data.
- */
-export function mapNewContractDataToNoir(newContractData: NewContractData): NewContractDataNoir {
-  return {
-    contract_address: mapAztecAddressToNoir(newContractData.contractAddress),
-    portal_contract_address: mapEthAddressToNoir(newContractData.portalContractAddress),
-    contract_class_id: mapContractClassIdToNoir(newContractData.contractClassId),
-  };
 }
 
 /**
@@ -1004,7 +927,6 @@ export function mapCombinedAccumulatedDataFromNoir(
     mapTupleFromNoir(combinedAccumulatedData.unencrypted_logs_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
     mapFieldFromNoir(combinedAccumulatedData.encrypted_log_preimages_length),
     mapFieldFromNoir(combinedAccumulatedData.unencrypted_log_preimages_length),
-    mapTupleFromNoir(combinedAccumulatedData.new_contracts, MAX_NEW_CONTRACTS_PER_TX, mapNewContractDataFromNoir),
     mapTupleFromNoir(
       combinedAccumulatedData.public_data_update_requests,
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -1048,7 +970,6 @@ export function mapFinalAccumulatedDataFromNoir(
     mapTupleFromNoir(finalAccumulatedData.unencrypted_logs_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
     mapFieldFromNoir(finalAccumulatedData.encrypted_log_preimages_length),
     mapFieldFromNoir(finalAccumulatedData.unencrypted_log_preimages_length),
-    mapTupleFromNoir(finalAccumulatedData.new_contracts, MAX_NEW_CONTRACTS_PER_TX, mapNewContractDataFromNoir),
   );
 }
 
@@ -1103,7 +1024,6 @@ export function mapPrivateAccumulatedRevertibleDataToNoir(
     unencrypted_logs_hash: mapTuple(data.unencryptedLogsHash, mapFieldToNoir),
     encrypted_log_preimages_length: mapFieldToNoir(data.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(data.unencryptedLogPreimagesLength),
-    new_contracts: mapTuple(data.newContracts, mapNewContractDataToNoir),
   };
 }
 
@@ -1131,7 +1051,6 @@ export function mapCombinedAccumulatedDataToNoir(
     unencrypted_logs_hash: mapTuple(combinedAccumulatedData.unencryptedLogsHash, mapFieldToNoir),
     encrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.unencryptedLogPreimagesLength),
-    new_contracts: mapTuple(combinedAccumulatedData.newContracts, mapNewContractDataToNoir),
     public_data_update_requests: mapTuple(
       combinedAccumulatedData.publicDataUpdateRequests,
       mapPublicDataUpdateRequestToNoir,
@@ -1189,6 +1108,7 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
     needs_setup: inputs.needsSetup,
     needs_app_logic: inputs.needsAppLogic,
     needs_teardown: inputs.needsTeardown,
+    reverted: inputs.reverted,
   };
 }
 
@@ -1221,7 +1141,6 @@ export function mapPublicAccumulatedRevertibleDataToNoir(
     unencrypted_logs_hash: mapTuple(data.unencryptedLogsHash, mapFieldToNoir),
     encrypted_log_preimages_length: mapFieldToNoir(data.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(data.unencryptedLogPreimagesLength),
-    new_contracts: mapTuple(data.newContracts, mapNewContractDataToNoir),
     public_data_update_requests: mapTuple(data.publicDataUpdateRequests, mapPublicDataUpdateRequestToNoir),
     public_data_reads: mapTuple(data.publicDataReads, mapPublicDataReadToNoir),
   };
@@ -1231,6 +1150,7 @@ export function mapPublicAccumulatedNonRevertibleDataToNoir(
   data: PublicAccumulatedNonRevertibleData,
 ): PublicAccumulatedNonRevertibleDataNoir {
   return {
+    nullifier_read_requests: mapTuple(data.nullifierReadRequests, mapReadRequestContextToNoir),
     new_note_hashes: mapTuple(data.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(data.newNullifiers, mapSideEffectLinkedToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
@@ -1323,7 +1243,6 @@ export function mapFinalAccumulatedDataToNoir(
     unencrypted_logs_hash: mapTuple(finalAccumulatedData.unencryptedLogsHash, mapFieldToNoir),
     encrypted_log_preimages_length: mapFieldToNoir(finalAccumulatedData.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(finalAccumulatedData.unencryptedLogPreimagesLength),
-    new_contracts: mapTuple(finalAccumulatedData.newContracts, mapNewContractDataToNoir),
   };
 }
 
@@ -1399,6 +1318,15 @@ export function mapPublicKernelCircuitPrivateInputsToNoir(
   };
 }
 
+export function mapPublicKernelTailCircuitPrivateInputsToNoir(
+  inputs: PublicKernelTailCircuitPrivateInputs,
+): PublicKernelTailCircuitPrivateInputsNoir {
+  return {
+    previous_kernel: mapPublicKernelDataToNoir(inputs.previousKernel),
+    nullifier_read_request_reset_hints: mapNullifierReadRequestResetHintsToNoir(inputs.nullifierReadRequestResetHints),
+  };
+}
+
 export function mapPublicKernelCircuitPublicInputsFromNoir(
   inputs: PublicKernelCircuitPublicInputsNoir,
 ): PublicKernelCircuitPublicInputs {
@@ -1410,6 +1338,7 @@ export function mapPublicKernelCircuitPublicInputsFromNoir(
     inputs.needs_setup,
     inputs.needs_app_logic,
     inputs.needs_teardown,
+    inputs.reverted,
   );
 }
 
@@ -1417,6 +1346,7 @@ export function mapPublicAccumulatedNonRevertibleDataFromNoir(
   data: PublicAccumulatedNonRevertibleDataNoir,
 ): PublicAccumulatedNonRevertibleData {
   return new PublicAccumulatedNonRevertibleData(
+    mapTupleFromNoir(data.nullifier_read_requests, MAX_NULLIFIER_READ_REQUESTS_PER_TX, mapReadRequestContextFromNoir),
     mapTupleFromNoir(data.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(data.new_nullifiers, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -1453,7 +1383,6 @@ export function mapPublicAccumulatedRevertibleDataFromNoir(
     mapTupleFromNoir(data.unencrypted_logs_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
     mapFieldFromNoir(data.encrypted_log_preimages_length),
     mapFieldFromNoir(data.unencrypted_log_preimages_length),
-    mapTupleFromNoir(data.new_contracts, MAX_NEW_CONTRACTS_PER_TX, mapNewContractDataFromNoir),
     mapTupleFromNoir(
       data.public_data_update_requests,
       MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -1547,6 +1476,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     call_context: mapCallContextToNoir(publicInputs.callContext),
     args_hash: mapFieldToNoir(publicInputs.argsHash),
     return_values: mapTuple(publicInputs.returnValues, mapFieldToNoir),
+    nullifier_read_requests: mapTuple(publicInputs.nullifierReadRequests, mapReadRequestToNoir),
     contract_storage_update_requests: mapTuple(
       publicInputs.contractStorageUpdateRequests,
       mapStorageUpdateRequestToNoir,
@@ -1561,6 +1491,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     historical_header: mapHeaderToNoir(publicInputs.historicalHeader),
 
     prover_address: mapAztecAddressToNoir(publicInputs.proverAddress),
+    reverted: publicInputs.reverted,
   };
 }
 /**
@@ -1594,7 +1525,7 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
     constants: mapConstantRollupDataToNoir(baseOrMergeRollupPublicInputs.constants),
     start: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.start),
     end: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.end),
-    calldata_hash: mapTuple(baseOrMergeRollupPublicInputs.calldataHash, mapFieldToNoir),
+    txs_effects_hash: mapTuple(baseOrMergeRollupPublicInputs.txsEffectsHash, mapFieldToNoir),
     out_hash: mapTuple(baseOrMergeRollupPublicInputs.outHash, mapFieldToNoir),
   };
 }
@@ -1642,7 +1573,7 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
     mapConstantRollupDataFromNoir(baseOrMergeRollupPublicInputs.constants),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.end),
-    mapTupleFromNoir(baseOrMergeRollupPublicInputs.calldata_hash, 2, mapFieldFromNoir),
+    mapTupleFromNoir(baseOrMergeRollupPublicInputs.txs_effects_hash, 2, mapFieldFromNoir),
     mapTupleFromNoir(baseOrMergeRollupPublicInputs.out_hash, 2, mapFieldFromNoir),
   );
 }
@@ -1763,7 +1694,7 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
 export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
   return {
     tx_tree_height: mapFieldToNoir(contentCommitment.txTreeHeight),
-    txs_hash: mapSha256HashToNoir(contentCommitment.txsHash),
+    txs_effects_hash: mapSha256HashToNoir(contentCommitment.txsEffectsHash),
     in_hash: mapSha256HashToNoir(contentCommitment.inHash),
     out_hash: mapSha256HashToNoir(contentCommitment.outHash),
   };
@@ -1776,7 +1707,7 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
 export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
   return new ContentCommitment(
     mapFieldFromNoir(contentCommitment.tx_tree_height),
-    mapSha256HashFromNoir(contentCommitment.txs_hash),
+    mapSha256HashFromNoir(contentCommitment.txs_effects_hash),
     mapSha256HashFromNoir(contentCommitment.in_hash),
     mapSha256HashFromNoir(contentCommitment.out_hash),
   );
@@ -1817,7 +1748,6 @@ export function mapPartialStateReferenceFromNoir(
   return new PartialStateReference(
     mapAppendOnlyTreeSnapshotFromNoir(partialStateReference.note_hash_tree),
     mapAppendOnlyTreeSnapshotFromNoir(partialStateReference.nullifier_tree),
-    mapAppendOnlyTreeSnapshotFromNoir(partialStateReference.contract_tree),
     mapAppendOnlyTreeSnapshotFromNoir(partialStateReference.public_data_tree),
   );
 }
@@ -1921,7 +1851,6 @@ export function mapPartialStateReferenceToNoir(
   return {
     note_hash_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.noteHashTree),
     nullifier_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.nullifierTree),
-    contract_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.contractTree),
     public_data_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.publicDataTree),
   };
 }
@@ -1942,7 +1871,6 @@ export function mapStateDiffHintsToNoir(hints: StateDiffHints): StateDiffHintsNo
     sorted_nullifier_indexes: mapTuple(hints.sortedNullifierIndexes, (index: number) => mapNumberToNoir(index)),
     note_hash_subtree_sibling_path: mapTuple(hints.noteHashSubtreeSiblingPath, mapFieldToNoir),
     nullifier_subtree_sibling_path: mapTuple(hints.nullifierSubtreeSiblingPath, mapFieldToNoir),
-    contract_subtree_sibling_path: mapTuple(hints.contractSubtreeSiblingPath, mapFieldToNoir),
     public_data_sibling_path: mapTuple(hints.publicDataSiblingPath, mapFieldToNoir),
   };
 }

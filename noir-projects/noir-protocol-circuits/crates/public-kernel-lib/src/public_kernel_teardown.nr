@@ -26,6 +26,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        common::initialize_reverted_flag(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
@@ -42,12 +43,14 @@ impl PublicKernelTeardownCircuitPrivateInputs {
 
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
 
-        common::accumulate_unencrypted_logs(
-            self.public_call,
-            self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
-            self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
-            &mut public_inputs
-        );
+        if public_inputs.reverted == false {
+            common::accumulate_unencrypted_logs(
+                self.public_call,
+                self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
+                self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
+                &mut public_inputs
+            );
+        }
 
         let mut output = public_inputs.to_inner();
 
@@ -63,16 +66,14 @@ mod tests {
     use crate::{
         public_kernel_teardown::PublicKernelTeardownCircuitPrivateInputs,
         utils::{
-        assert_eq_call_requests, assert_eq_new_contracts, assert_eq_public_data_reads,
-        assert_eq_public_data_update_requests, compute_public_data_reads,
-        compute_public_data_update_requests
+        assert_eq_call_requests, assert_eq_public_data_reads, assert_eq_public_data_update_requests,
+        compute_public_data_reads, compute_public_data_update_requests
     }
     };
     use dep::types::{
         abis::{
         call_request::CallRequest, function_selector::FunctionSelector,
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        new_contract_data::NewContractData, public_data_read::PublicDataRead,
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
