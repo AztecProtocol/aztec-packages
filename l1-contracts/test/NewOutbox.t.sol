@@ -208,15 +208,17 @@ contract NewOutboxTest is Test {
   // This test takes awhile so to keep it somewhat reasonable we've set a limit on the amount of fuzz runs
   /// forge-config: default.fuzz.runs = 64
   function testInsertAndConsumeWithVariedRecipients(
-    address[] calldata _recipients,
-    uint256 _blockNumber
+    address[256] calldata _recipients,
+    uint256 _blockNumber,
+    uint8 _size
   ) public {
-    DataStructures.L2ToL1Msg[] memory messages = new DataStructures.L2ToL1Msg[](_recipients.length);
+    uint256 numberOfMessages = bound(_size, 1, _recipients.length);
+    DataStructures.L2ToL1Msg[] memory messages = new DataStructures.L2ToL1Msg[](numberOfMessages);
 
-    uint256 bigTreeHeight = Merkle.calculateTreeHeightFromSize(_recipients.length);
+    uint256 bigTreeHeight = Merkle.calculateTreeHeightFromSize(numberOfMessages);
     NaiveMerkle tree = new NaiveMerkle(bigTreeHeight);
 
-    for (uint256 i = 0; i < _recipients.length; i++) {
+    for (uint256 i = 0; i < numberOfMessages; i++) {
       DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(_recipients[i]);
       messages[i] = fakeMessage;
       bytes32 modifiedLeaf = fakeMessage.sha256ToField();
@@ -231,7 +233,7 @@ contract NewOutboxTest is Test {
     vm.prank(_STATE_TRANSITIONER);
     outbox.insert(_blockNumber, root, bigTreeHeight);
 
-    for (uint256 i = 0; i < _recipients.length; i++) {
+    for (uint256 i = 0; i < numberOfMessages; i++) {
       (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(i);
 
       vm.expectEmit(true, true, true, true, address(outbox));
