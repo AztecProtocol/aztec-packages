@@ -114,7 +114,8 @@
         "CC": "gcc-13",
         "CXX": "g++-13"
       }
-    },    {
+    },
+    {
       "name": "bench",
       "displayName": "Build benchmarks",
       "description": "Build default preset but with a special benchmark directory",
@@ -246,7 +247,7 @@
       "generator": "Ninja",
       "toolchainFile": "cmake/toolchains/wasm32-wasi.cmake",
       "environment": {
-        "WASI_SDK_PREFIX": "${sourceDir}/src/wasi-sdk-20.0",
+        "WASI_SDK_PREFIX": "${sourceDir}/src/wasi-sdk",
         "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
         "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
         "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
@@ -279,7 +280,6 @@
       "inherits": "wasm",
       "binaryDir": "build-wasm-threads",
       "environment": {
-        "WASI_SDK_PREFIX": "${sourceDir}/src/wasi-sdk-20.0+threads",
         "CMAKE_BUILD_TYPE": "Release"
       },
       "cacheVariables": {
@@ -389,7 +389,7 @@
       "inherits": "clang16",
       "configurePreset": "fuzzing"
     },
-{
+    {
       "name": "fuzzing-asan",
       "inherits": "clang16-dbg",
       "configurePreset": "fuzzing-asan"
@@ -518,7 +518,7 @@
       "inherits": "default",
       "configurePreset": "fuzzing"
     },
-{
+    {
       "name": "fuzzing-asan",
       "inherits": "clang16-dbg",
       "configurePreset": "fuzzing-asan"
