@@ -45,6 +45,7 @@ export class BarretenbergBackend implements Backend {
       }
       const { Barretenberg, RawBuffer, Crs } = await import('@aztec/bb.js');
       const api = await Barretenberg.new(this.options);
+
       const [_exact, _total, subgroupSize] = await api.acirGetCircuitSizes(this.acirUncompressedBytecode);
       const crs = await Crs.new(subgroupSize + 1);
       await api.commonInitSlabAllocator(subgroupSize);

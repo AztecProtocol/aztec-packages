@@ -28,8 +28,6 @@ noir-packages:
   buildDir: noir
   dockerfile: Dockerfile.packages
   rebuildPatterns: .rebuild_patterns_packages
-  dependencies:
-    - bb.js
 
 # Builds and runs *all* noir package tests.
 noir-packages-tests:
@@ -38,7 +36,6 @@ noir-packages-tests:
   rebuildPatterns: .rebuild_patterns_packages
   dependencies:
     - noir
-    - bb.js
 
 # Builds the brillig to avm transpiler.
 avm-transpiler:

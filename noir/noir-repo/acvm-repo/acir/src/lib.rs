@@ -42,9 +42,9 @@ mod reflection {
             brillig::{BrilligInputs, BrilligOutputs},
             directives::Directive,
             opcodes::BlackBoxFuncCall,
-            Circuit, ExpressionWidth, Opcode, OpcodeLocation, Program,
+            Circuit, ExpressionWidth, Opcode, OpcodeLocation,
         },
-        native_types::{Witness, WitnessMap, WitnessStack},
+        native_types::{Witness, WitnessMap},
     };
 
     #[test]
@@ -59,7 +59,6 @@ mod reflection {
         };
 
         let mut tracer = Tracer::new(TracerConfig::default());
-        tracer.trace_simple_type::<Program>().unwrap();
         tracer.trace_simple_type::<Circuit>().unwrap();
         tracer.trace_simple_type::<ExpressionWidth>().unwrap();
         tracer.trace_simple_type::<Opcode>().unwrap();
@@ -79,7 +78,7 @@ mod reflection {
 
         // Create C++ class definitions.
         let mut source = Vec::new();
-        let config = serde_generate::CodeGeneratorConfig::new("Program".to_string())
+        let config = serde_generate::CodeGeneratorConfig::new("Circuit".to_string())
             .with_encodings(vec![serde_generate::Encoding::Bincode]);
         let generator = serde_generate::cpp::CodeGenerator::new(&config);
         generator.output(&mut source, &registry).unwrap();
@@ -107,13 +106,12 @@ mod reflection {
         let mut tracer = Tracer::new(TracerConfig::default());
         tracer.trace_simple_type::<Witness>().unwrap();
         tracer.trace_simple_type::<WitnessMap>().unwrap();
-        tracer.trace_simple_type::<WitnessStack>().unwrap();
 
         let registry = tracer.registry().unwrap();
 
         // Create C++ class definitions.
         let mut source = Vec::new();
-        let config = serde_generate::CodeGeneratorConfig::new("WitnessStack".to_string())
+        let config = serde_generate::CodeGeneratorConfig::new("WitnessMap".to_string())
             .with_encodings(vec![serde_generate::Encoding::Bincode]);
         let generator = serde_generate::cpp::CodeGenerator::new(&config);
         generator.output(&mut source, &registry).unwrap();

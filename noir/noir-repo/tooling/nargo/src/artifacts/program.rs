@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use acvm::acir::circuit::Program;
+use acvm::acir::circuit::Circuit;
 use fm::FileId;
 use noirc_abi::Abi;
 use noirc_driver::CompiledProgram;
@@ -21,10 +21,10 @@ pub struct ProgramArtifact {
     pub abi: Abi,
 
     #[serde(
-        serialize_with = "Program::serialize_program_base64",
-        deserialize_with = "Program::deserialize_program_base64"
+        serialize_with = "Circuit::serialize_circuit_base64",
+        deserialize_with = "Circuit::deserialize_circuit_base64"
     )]
-    pub bytecode: Program,
+    pub bytecode: Circuit,
 
     #[serde(
         serialize_with = "DebugInfo::serialize_compressed_base64_json",
@@ -37,14 +37,14 @@ pub struct ProgramArtifact {
 }
 
 impl From<CompiledProgram> for ProgramArtifact {
-    fn from(compiled_program: CompiledProgram) -> Self {
+    fn from(program: CompiledProgram) -> Self {
         ProgramArtifact {
-            hash: compiled_program.hash,
-            abi: compiled_program.abi,
-            noir_version: compiled_program.noir_version,
-            bytecode: compiled_program.program,
-            debug_symbols: compiled_program.debug,
-            file_map: compiled_program.file_map,
+            hash: program.hash,
+            abi: program.abi,
+            noir_version: program.noir_version,
+            bytecode: program.circuit,
+            debug_symbols: program.debug,
+            file_map: program.file_map,
         }
     }
 }
@@ -55,7 +55,7 @@ impl From<ProgramArtifact> for CompiledProgram {
             hash: program.hash,
             abi: program.abi,
             noir_version: program.noir_version,
-            program: program.bytecode,
+            circuit: program.bytecode,
             debug: program.debug_symbols,
             file_map: program.file_map,
             warnings: vec![],
