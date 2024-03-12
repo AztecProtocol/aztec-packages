@@ -19,4 +19,4 @@ chmod +x $BIN_PATH
 export PATH=$FOUNDRY_BIN_DIR:$PATH
 
 # Use version.
-foundryup
+foundryup --version $FOUNDRY_VERSION
