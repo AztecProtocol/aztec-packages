@@ -18,6 +18,7 @@ ENV COMMIT_HASH=${COMMIT_HASH}
 
 WORKDIR /usr/src/noir
 COPY . .
+RUN ./scripts/bootstrap_packages.sh
 RUN ./scripts/test_js_packages.sh
 
 # Don't waste time pushing a huge container back to ECR as nothing needs the output.
