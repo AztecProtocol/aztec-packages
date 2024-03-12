@@ -4,6 +4,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { ContractInstance } from '@aztec/types/contracts';
 
 import { TypedOracle, toACVMWitness } from '../acvm/index.js';
 import { PackedArgsCache, SideEffectCounter } from '../common/index.js';
@@ -236,5 +237,13 @@ export class PublicExecutionContext extends TypedOracle {
       throw new Error(`Public execution oracle can only access nullifier membership witnesses for the current block`);
     }
     return await this.commitmentsDb.getNullifierMembershipWitnessAtLatestBlock(nullifier);
+  }
+
+  public async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+    const instance = await this.contractsDb.getContractInstance(address);
+    if (!instance) {
+      throw new Error(`Contract instance at ${address} not found`);
+    }
+    return instance;
   }
 }
