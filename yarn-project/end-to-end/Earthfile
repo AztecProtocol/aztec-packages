@@ -28,8 +28,9 @@ E2E_TEST:
     # FROM earthly/dind:alpine-3.19-docker-25.0.2-r0 (TODO use docker-in-docker in prod?)
     LOCALLY
     ENV TEST=$test
+    ENV AVM_ENABLED=1 
     WITH DOCKER --load aztecprotocol/aztec:latest=../+build-aztec --load aztecprotocol/end-to-end:latest=../+build
-      RUN docker-compose -e AVM_ENABLED=1 -f $compose_file up  --exit-code-from=sandbox --force-recreate
+      RUN docker-compose -f $compose_file up  --exit-code-from=sandbox --force-recreate
     END
 
 e2e-block-building:
