@@ -33,7 +33,7 @@ contract MerkleTest is Test, MerkleLibWrapper {
     frontier = new FrontierMerkle(DEPTH);
     merkle = new NaiveMerkle(DEPTH);
 
-    // Set up testNative
+    // Set up testNaive
     testNaiveMerkle = new NaiveMerkle(DEPTH);
     uint256 treeSize = testNaiveMerkle.SIZE();
     for (uint256 i = 0; i < treeSize; i++) {
