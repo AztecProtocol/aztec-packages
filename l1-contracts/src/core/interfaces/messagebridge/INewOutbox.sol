@@ -20,7 +20,7 @@ interface INewOutbox {
     uint256 leafIndex
   );
 
-  /*
+  /**
    * @notice Inserts the root of a merkle tree containing all of the L2 to L1 messages in
    * a block specified by _l2BlockNumber.
    * @dev Only callable by the state transitioner (rollup contract)
@@ -31,7 +31,7 @@ interface INewOutbox {
    */
   function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _height) external;
 
-  /*
+  /**
    * @notice Consumes an entry from the Outbox
    * @dev Only useable by portals / recipients of messages
    * @dev Emits `MessageConsumed` when consuming messages
@@ -48,4 +48,15 @@ interface INewOutbox {
     DataStructures.L2ToL1Msg memory _message,
     bytes32[] memory _path
   ) external;
+
+  /**
+   * @notice Checks to see if an index of the L2 to L1 message tree for a specific block has been consumed
+   * @dev - This message does not throw, and out-of-bounds access is considered valid, but will always return false
+   * @param _l2BlockNumber - The block number specifying the block that contains the index of the message we want to check
+   * @param _leafIndex - The index inside the merkle tree where the message is located
+   */
+  function hasMessageBeenConsumedAtBlockAndIndex(uint256 _l2BlockNumber, uint256 _leafIndex)
+    external
+    view
+    returns (bool);
 }

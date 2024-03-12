@@ -31,7 +31,7 @@ contract NewOutbox is INewOutbox {
     STATE_TRANSITIONER = _stateTransitioner;
   }
 
-  /*
+  /**
    * @notice Inserts the root of a merkle tree containing all of the L2 to L1 messages in
    * a block specified by _l2BlockNumber.
    * @dev Only callable by the state transitioner (rollup contract)
@@ -62,7 +62,7 @@ contract NewOutbox is INewOutbox {
     emit RootAdded(_l2BlockNumber, _root, _height);
   }
 
-  /*
+  /**
    * @notice Consumes an entry from the Outbox
    * @dev Only useable by portals / recipients of messages
    * @dev Emits `MessageConsumed` when consuming messages
@@ -112,5 +112,20 @@ contract NewOutbox is INewOutbox {
     rootData.nullified[_leafIndex] = true;
 
     emit MessageConsumed(_l2BlockNumber, outMessageTreeRoot, messageHash, _leafIndex);
+  }
+
+  /**
+   * @notice Checks to see if an index of the L2 to L1 message tree for a specific block has been consumed
+   * @dev - This message does not throw, and out-of-bounds access is considered valid, but will always return false
+   * @param _l2BlockNumber - The block number specifying the block that contains the index of the message we want to check
+   * @param _leafIndex - The index inside the merkle tree where the message is located
+   */
+  function hasMessageBeenConsumedAtBlockAndIndex(uint256 _l2BlockNumber, uint256 _leafIndex)
+    external
+    view
+    override(INewOutbox)
+    returns (bool)
+  {
+    return roots[_l2BlockNumber].nullified[_leafIndex];
   }
 }

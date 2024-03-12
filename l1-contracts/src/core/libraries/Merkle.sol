@@ -11,20 +11,20 @@ import {Errors} from "../libraries/Errors.sol";
  */
 library Merkle {
   /**
-  * @notice Verifies the membership of a leaf and path against an expected root.
-  * @dev In the case of a mismatched root, and subsequent inability to verify membership, this function throws.
-  * @param _path - The sibling path of the message as a leaf, used to prove message inclusion
-  * @param _leaf - The hash of the message we are trying to prove inclusion for
-  * @param _index - The index of the message inside the L2 to L1 message tree
-  * @param _expectedRoot - The expected root to check the validity of the message and sibling path with.
-  * @notice -
-  * E.g. A sibling path for a leaf at index 3 in a tree of depth 3 (between 5 and 8 leafs) consists of the 3 elements denoted as *'s
-  * d0:                                            [ root ]
-  * d1:                      [ ]                                               [*]
-  * d2:         [*]                      [ ]                       [ ]                     [ ]
-  * d3:   [ ]         [ ]          [*]         [ ]           [ ]         [ ]          [ ]        [ ].
-  * And the elements would be ordered as: [ d3_index_2, d2_index_0, d1_index_1 ].
-  */
+   * @notice Verifies the membership of a leaf and path against an expected root.
+   * @dev In the case of a mismatched root, and subsequent inability to verify membership, this function throws.
+   * @param _path - The sibling path of the message as a leaf, used to prove message inclusion
+   * @param _leaf - The hash of the message we are trying to prove inclusion for
+   * @param _index - The index of the message inside the L2 to L1 message tree
+   * @param _expectedRoot - The expected root to check the validity of the message and sibling path with.
+   * @notice -
+   * E.g. A sibling path for a leaf at index 3 in a tree of depth 3 (between 5 and 8 leafs) consists of the 3 elements denoted as *'s
+   * d0:                                            [ root ]
+   * d1:                      [ ]                                               [*]
+   * d2:         [*]                      [ ]                       [ ]                     [ ]
+   * d3:   [ ]         [ ]          [*]         [ ]           [ ]         [ ]          [ ]        [ ].
+   * And the elements would be ordered as: [ d3_index_2, d2_index_0, d1_index_1 ].
+   */
   function verifyMembership(
     bytes32[] memory _path,
     bytes32 _leaf,
@@ -74,7 +74,7 @@ library Merkle {
       height++;
     }
 
-    /// @notice - We check if 2 ** height does not euqal our original number. If so, this means that our size is not a power of two, 
+    /// @notice - We check if 2 ** height does not euqal our original number. If so, this means that our size is not a power of two,
     /// and hence we've rounded down (Math.floor) and have obtained the next lowest power of two instead of rounding up (Math.ceil) to obtain the next highest power of two and therefore we need to increment height before returning it.
     /// If 2 ** height equals our original number, it means that we have a perfect power of two and Math.floor(Math.log2(x)) = Math.ceil(Math.log2(x)) and we can return height as-is
     return (2 ** height) != originalNumber ? ++height : height;

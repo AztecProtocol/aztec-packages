@@ -96,14 +96,15 @@ contract MerkleTest is Test, MerkleLibWrapper {
       manualTree.insertLeaf(generatedLeaf);
     }
 
-    /** We manually make a path; this is the sibling path of the leaf with the value of 1.
-    * This path, from leaf to root, consists a, b, and c; which correspond to the value of 2, then the hash of 3 and 4,
-    * and finally, the hash of 5 and 6 concatenated with the hash of 7 and 8;
-    * d0:                                            [ root ]
-    * d1:                      [ ]                                               [c]
-    * d2:         [ ]                      [b]                       [ ]                     [ ]
-    * d3:   [1]         [a]          [3]         [4]           [5]         [6]          [7]        [8].
-    */
+    /**
+     * We manually make a path; this is the sibling path of the leaf with the value of 1.
+     * This path, from leaf to root, consists a, b, and c; which correspond to the value of 2, then the hash of 3 and 4,
+     * and finally, the hash of 5 and 6 concatenated with the hash of 7 and 8;
+     * d0:                                            [ root ]
+     * d1:                      [ ]                                               [c]
+     * d2:         [ ]                      [b]                       [ ]                     [ ]
+     * d3:   [1]         [a]          [3]         [4]           [5]         [6]          [7]        [8].
+     */
     bytes32[3] memory expectedPath = [
       bytes32(abi.encode(2)),
       sha256(bytes.concat(bytes32(abi.encode(3)), bytes32(abi.encode(4)))),
@@ -131,14 +132,15 @@ contract MerkleTest is Test, MerkleLibWrapper {
       manualTree.insertLeaf(generatedLeaf);
     }
 
-   /** We manually make a path; this is the sibling path of the leaf with the value of 8.
-    * This path, from leaf to root, consists of c a, b, and c; which correspond to the value of 7, then the hash of 5 and 6,
-    * and finally, the hash of 1 and 2 concatenated with the hash of 3 and 4;
-    * d0:                                            [ root ]
-    * d1:                      [c]                                               [ ]
-    * d2:         [ ]                      [b]                       [b]                     [ ]
-    * d3:   [1]         [2]          [3]         [4]           [5]         [6]          [a]        [8].
-    */
+    /**
+     * We manually make a path; this is the sibling path of the leaf with the value of 8.
+     * This path, from leaf to root, consists of c a, b, and c; which correspond to the value of 7, then the hash of 5 and 6,
+     * and finally, the hash of 1 and 2 concatenated with the hash of 3 and 4;
+     * d0:                                            [ root ]
+     * d1:                      [c]                                               [ ]
+     * d2:         [ ]                      [b]                       [b]                     [ ]
+     * d3:   [1]         [2]          [3]         [4]           [5]         [6]          [a]        [8].
+     */
     bytes32[3] memory expectedPath = [
       bytes32(abi.encode(7)),
       sha256(bytes.concat(bytes32(abi.encode(5)), bytes32(abi.encode(6)))),

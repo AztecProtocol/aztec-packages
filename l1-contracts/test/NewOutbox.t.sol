@@ -194,9 +194,15 @@ contract NewOutboxTest is Test {
 
     (bytes32[] memory path,) = tree.computeSiblingPath(0);
 
+    bool statusBeforeConsumption = outbox.hasMessageBeenConsumedAtBlockAndIndex(1, 0);
+    assertEq(abi.encode(0), abi.encode(statusBeforeConsumption));
+
     vm.expectEmit(true, true, true, true, address(outbox));
     emit INewOutbox.MessageConsumed(1, root, leaf, 0);
     outbox.consume(1, 0, fakeMessage, path);
+
+    bool statusAfterConsumption = outbox.hasMessageBeenConsumedAtBlockAndIndex(1, 0);
+    assertEq(abi.encode(1), abi.encode(statusAfterConsumption));
   }
 
   // This test takes awhile so to keep it somewhat reasonable we've set a limit on the amount of fuzz runs
@@ -233,5 +239,10 @@ contract NewOutboxTest is Test {
       vm.prank(_recipients[i]);
       outbox.consume(_blockNumber, i, messages[i], path);
     }
+  }
+
+  function testCheckOutOfBoundsStatus(uint256 _blockNumber, uint256 _leafIndex) external {
+    bool outOfBounds = outbox.hasMessageBeenConsumedAtBlockAndIndex(_blockNumber, _leafIndex);
+    assertEq(abi.encode(0), abi.encode(outOfBounds));
   }
 }
