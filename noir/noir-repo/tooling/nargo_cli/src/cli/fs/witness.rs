@@ -13,7 +13,7 @@ pub(crate) fn save_witness_to_dir<P: AsRef<Path>>(
 ) -> Result<PathBuf, FilesystemError> {
     create_named_dir(witness_dir.as_ref(), "witness");
     let witness_path = witness_dir.as_ref().join(witness_name).with_extension(WITNESS_EXT);
-    dbg!(witnesses.clone());
+
     // TODO(https://github.com/noir-lang/noir/issues/4428)
     let witness_stack: WitnessStack = witnesses.into();
     let buf: Vec<u8> = witness_stack.try_into()?;
