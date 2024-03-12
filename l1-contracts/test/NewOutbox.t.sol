@@ -200,7 +200,7 @@ contract NewOutboxTest is Test {
   }
 
   // This test takes awhile so to keep it somewhat reasonable we've set a limit on the amount of fuzz runs
-  /// forge-config: default.fuzz.runs = 32
+  /// forge-config: default.fuzz.runs = 64
   function testInsertAndConsumeWithVariedRecipients(
     address[] calldata _recipients,
     uint256 _blockNumber
