@@ -194,8 +194,7 @@ function validateProcessedTxLogs(tx: ProcessedTx): void {
   const referenceHash = toTruncField(unencryptedLogs.hash())[0];
   if (!referenceHash.equals(kernelUnencryptedLogsHash)) {
     throw new Error(
-      `Unencrypted logs hash mismatch. Expected ${referenceHash
-        .toString()}, got ${kernelUnencryptedLogsHash.toString()}.
+      `Unencrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelUnencryptedLogsHash.toString()}.
              Processed: ${JSON.stringify(unencryptedLogs.toJSON())}
              Kernel Length: ${tx.data.combinedData.unencryptedLogPreimagesLength}`,
     );

@@ -101,6 +101,7 @@ import {
   TxContext,
   TxRequest,
 } from '@aztec/circuits.js';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
 
 import {
@@ -196,7 +197,6 @@ import {
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
   StateReference as StateReferenceNoir,
 } from './types/rollup_root_types.js';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 /* eslint-disable camelcase */
 

@@ -1,5 +1,11 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, from2Fields, serializeToBuffer, to2Fields, toTruncField, fromTruncField } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  FieldReader,
+  fromTruncField,
+  serializeToBuffer,
+  toTruncField,
+} from '@aztec/foundation/serialize';
 
 import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
 

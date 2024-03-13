@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer, Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { NUM_FIELDS_PER_SHA256 } from '../../constants.gen.js';
 import { AggregationObject } from '../aggregation_object.js';
