@@ -346,6 +346,7 @@ export function makeAccumulatedNonRevertibleData(seed = 1, full = false): Privat
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new PrivateAccumulatedNonRevertibleData(
+    new Fr(seed + 0x31415), // max block number
     tupleGenerator(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x101),
     tupleGenerator(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x201),
     tupleGenerator(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x501),
@@ -847,6 +848,7 @@ export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
  */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
+    maxBlockNumber: new Fr(seed + 0x31415),
     callContext: new CallContext(
       makeAztecAddress(seed + 1),
       makeAztecAddress(seed + 2),

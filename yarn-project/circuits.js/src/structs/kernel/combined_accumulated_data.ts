@@ -710,7 +710,7 @@ export class PrivateAccumulatedNonRevertibleData {
 
   static empty() {
     return new PrivateAccumulatedNonRevertibleData(
-      new Fr(2n << (32n - 1n)), // an 'empty' max block number is one with no constraints, i.e. the largest possible one
+      new Fr(0),
       makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
       makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),

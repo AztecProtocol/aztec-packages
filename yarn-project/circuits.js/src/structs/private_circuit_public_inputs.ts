@@ -34,6 +34,10 @@ import { ReadRequest } from './read_request.js';
 export class PrivateCircuitPublicInputs {
   constructor(
     /**
+     * The maximum block number in which this transaction can be included and be valid.
+     */
+    public maxBlockNumber: Fr,
+    /**
      * Context of the call corresponding to this private circuit execution.
      */
     public callContext: CallContext,
@@ -147,6 +151,7 @@ export class PrivateCircuitPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): PrivateCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateCircuitPublicInputs(
+      reader.readObject(Fr),
       reader.readObject(CallContext),
       reader.readObject(Fr),
       reader.readArray(RETURN_VALUES_LENGTH, Fr),
@@ -174,6 +179,7 @@ export class PrivateCircuitPublicInputs {
   static fromFields(fields: Fr[] | FieldReader): PrivateCircuitPublicInputs {
     const reader = FieldReader.asReader(fields);
     return new PrivateCircuitPublicInputs(
+      reader.readField(),
       reader.readObject(CallContext),
       reader.readField(),
       reader.readFieldArray(RETURN_VALUES_LENGTH),
@@ -204,6 +210,7 @@ export class PrivateCircuitPublicInputs {
    */
   public static empty(): PrivateCircuitPublicInputs {
     return new PrivateCircuitPublicInputs(
+      new Fr(0),
       CallContext.empty(),
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
@@ -234,26 +241,27 @@ export class PrivateCircuitPublicInputs {
     // eslint-disable-next-line jsdoc/require-jsdoc
     const isZeroArray = (arr: { isZero: (...args: any[]) => boolean }[]) => isArrayEmpty(arr, item => item.isZero());
     return (
+      this.maxBlockNumber == new Fr(2n << (32n - 1n)),
       this.callContext.isEmpty() &&
-      this.argsHash.isZero() &&
-      isZeroArray(this.returnValues) &&
-      this.minRevertibleSideEffectCounter.isZero() &&
-      isEmptyArray(this.noteHashReadRequests) &&
-      isEmptyArray(this.nullifierReadRequests) &&
-      isEmptyArray(this.nullifierKeyValidationRequests) &&
-      isEmptyArray(this.newNoteHashes) &&
-      isEmptyArray(this.newNullifiers) &&
-      isZeroArray(this.privateCallStackHashes) &&
-      isZeroArray(this.publicCallStackHashes) &&
-      isEmptyArray(this.newL2ToL1Msgs) &&
-      isZeroArray(this.encryptedLogsHash) &&
-      isZeroArray(this.unencryptedLogsHash) &&
-      this.encryptedLogPreimagesLength.isZero() &&
-      this.unencryptedLogPreimagesLength.isZero() &&
-      this.historicalHeader.isEmpty() &&
-      this.contractDeploymentData.isEmpty() &&
-      this.chainId.isZero() &&
-      this.version.isZero()
+        this.argsHash.isZero() &&
+        isZeroArray(this.returnValues) &&
+        this.minRevertibleSideEffectCounter.isZero() &&
+        isEmptyArray(this.noteHashReadRequests) &&
+        isEmptyArray(this.nullifierReadRequests) &&
+        isEmptyArray(this.nullifierKeyValidationRequests) &&
+        isEmptyArray(this.newNoteHashes) &&
+        isEmptyArray(this.newNullifiers) &&
+        isZeroArray(this.privateCallStackHashes) &&
+        isZeroArray(this.publicCallStackHashes) &&
+        isEmptyArray(this.newL2ToL1Msgs) &&
+        isZeroArray(this.encryptedLogsHash) &&
+        isZeroArray(this.unencryptedLogsHash) &&
+        this.encryptedLogPreimagesLength.isZero() &&
+        this.unencryptedLogPreimagesLength.isZero() &&
+        this.historicalHeader.isEmpty() &&
+        this.contractDeploymentData.isEmpty() &&
+        this.chainId.isZero() &&
+        this.version.isZero()
     );
   }
 
@@ -264,6 +272,7 @@ export class PrivateCircuitPublicInputs {
    */
   static getFields(fields: FieldsOf<PrivateCircuitPublicInputs>) {
     return [
+      fields.maxBlockNumber,
       fields.callContext,
       fields.argsHash,
       fields.returnValues,
