@@ -10,7 +10,7 @@
 # To run a target in the Earthfile, use 'az +<target-name>'.
 # Spports all commands 'earthly' can take.
 
-set -eu
+set -euo pipefail
 
 mkdir -p $(dirname $0)/.earthly
 
@@ -55,15 +55,15 @@ report_time() {
 trap report_time EXIT
 start_time=$(date +%s)
 
-interactive_flag=false
+INTERACTIVE=${INTERACTIVE:-false}
 for arg in "$@"; do
     if [ "$arg" = "-i" ] || [ "$arg" = "--interactive" ]; then
-        interactive_flag=true
+        INTERACTIVE=true
         break
     fi
 done
 EARTHLY_FLAGS="--config $EARTHLY_CONFIG -P --disable-remote-registry-proxy --use-inline-cache --save-inline-cache"
-if [ $interactive_flag = true ] ; then
+if [ $INTERACTIVE = true ] ; then
   "$EARTHLY" $EARTHLY_FLAGS $@
 elif [ $# -eq 0 ]; then
   # By default, try for a +build target
