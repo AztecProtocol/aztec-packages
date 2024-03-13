@@ -14,8 +14,8 @@ import {MerkleLibTest} from "./merkle/MerkleLib.t.sol";
 contract NewOutboxTest is Test {
   using Hash for DataStructures.L2ToL1Msg;
 
-  address internal constant STATE_TRANSITIONER = address(0x42069123);
-  address internal constant NOT_STATE_TRANSITIONER = address(0x69);
+  address internal constant ROLLUP_CONTRACT = address(0x42069123);
+  address internal constant NOT_ROLLUP_CONTRACT = address(0x69);
   address internal constant NOT_RECIPIENT = address(0x420);
   uint256 internal constant DEFAULT_TREE_HEIGHT = 2;
   uint256 internal constant AZTEC_VERSION = 0;
@@ -25,7 +25,7 @@ contract NewOutboxTest is Test {
   MerkleLibTest internal merkleLibTest;
 
   function setUp() public {
-    outbox = new NewOutbox(STATE_TRANSITIONER);
+    outbox = new NewOutbox(ROLLUP_CONTRACT);
     zeroedTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
     merkleLibTest = new MerkleLibTest();
   }
@@ -44,7 +44,7 @@ contract NewOutboxTest is Test {
   function testRevertIfInsertingFromNonRollup() public {
     bytes32 root = zeroedTree.computeRoot();
 
-    vm.prank(NOT_STATE_TRANSITIONER);
+    vm.prank(NOT_ROLLUP_CONTRACT);
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__Unauthorized.selector));
     outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
   }
@@ -52,10 +52,10 @@ contract NewOutboxTest is Test {
   function testRevertIfInsertingDuplicate() public {
     bytes32 root = zeroedTree.computeRoot();
 
-    vm.prank(STATE_TRANSITIONER);
+    vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
 
-    vm.prank(STATE_TRANSITIONER);
+    vm.prank(ROLLUP_CONTRACT);
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__RootAlreadySetAtBlock.selector, 1));
     outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
   }
@@ -77,7 +77,7 @@ contract NewOutboxTest is Test {
 
     vm.expectEmit(true, true, true, true, address(outbox));
     emit INewOutbox.RootAdded(1, root, bigTreeHeight);
-    vm.prank(STATE_TRANSITIONER);
+    vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root, bigTreeHeight);
 
     (bytes32 actualRoot, uint256 actualHeight) = outbox.roots(1);
@@ -128,7 +128,7 @@ contract NewOutboxTest is Test {
     tree.insertLeaf(leaf);
     bytes32 root = tree.computeRoot();
 
-    vm.prank(STATE_TRANSITIONER);
+    vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
 
     (bytes32[] memory path,) = tree.computeSiblingPath(0);
@@ -145,7 +145,7 @@ contract NewOutboxTest is Test {
     tree.insertLeaf(leaf);
     bytes32 root = tree.computeRoot();
 
-    vm.prank(STATE_TRANSITIONER);
+    vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
 
     NaiveMerkle biggerTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT + 1);
@@ -174,7 +174,7 @@ contract NewOutboxTest is Test {
     modifiedTree.insertLeaf(modifiedLeaf);
     bytes32 modifiedRoot = modifiedTree.computeRoot();
 
-    vm.prank(STATE_TRANSITIONER);
+    vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
 
     (bytes32[] memory path,) = modifiedTree.computeSiblingPath(0);
@@ -193,7 +193,7 @@ contract NewOutboxTest is Test {
     tree.insertLeaf(leaf);
     bytes32 root = tree.computeRoot();
 
-    vm.prank(STATE_TRANSITIONER);
+    vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
 
     (bytes32[] memory path,) = tree.computeSiblingPath(0);
@@ -234,7 +234,7 @@ contract NewOutboxTest is Test {
 
     vm.expectEmit(true, true, true, true, address(outbox));
     emit INewOutbox.RootAdded(_blockNumber, root, bigTreeHeight);
-    vm.prank(STATE_TRANSITIONER);
+    vm.prank(ROLLUP_CONTRACT);
     outbox.insert(_blockNumber, root, bigTreeHeight);
 
     for (uint256 i = 0; i < numberOfMessages; i++) {

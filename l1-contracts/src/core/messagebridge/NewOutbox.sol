@@ -24,11 +24,11 @@ contract NewOutbox is INewOutbox {
     mapping(uint256 => bool) nullified;
   }
 
-  address public immutable STATE_TRANSITIONER;
+  address public immutable ROLLUP_CONTRACT;
   mapping(uint256 l2BlockNumber => RootData) public roots;
 
   constructor(address _stateTransitioner) {
-    STATE_TRANSITIONER = _stateTransitioner;
+    ROLLUP_CONTRACT = _stateTransitioner;
   }
 
   /**
@@ -44,7 +44,7 @@ contract NewOutbox is INewOutbox {
     external
     override(INewOutbox)
   {
-    if (msg.sender != STATE_TRANSITIONER) {
+    if (msg.sender != ROLLUP_CONTRACT) {
       revert Errors.Outbox__Unauthorized();
     }
 
