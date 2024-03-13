@@ -7,7 +7,7 @@ import {DataStructures} from "../../libraries/DataStructures.sol";
 /**
  * @title INewOutbox
  * @author Aztec Labs
- * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the state transitioner
+ * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the Rollup
  * and will be consumed by the portal contracts.
  */
 // TODO: rename to IOutbox once all the pieces of the new message model are in place.
@@ -23,7 +23,7 @@ interface INewOutbox {
   /**
    * @notice Inserts the root of a merkle tree containing all of the L2 to L1 messages in
    * a block specified by _l2BlockNumber.
-   * @dev Only callable by the state transitioner (rollup contract)
+   * @dev Only callable by the rollup contract
    * @dev Emits `RootAdded` upon inserting the root successfully
    * @param _l2BlockNumber - The L2 Block Number in which the L2 to L1 messages reside
    * @param _root - The merkle root of the tree where all the L2 to L1 messages are leaves
