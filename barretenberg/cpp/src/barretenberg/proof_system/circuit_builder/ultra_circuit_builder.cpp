@@ -477,7 +477,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
     this->assert_valid_variables({ in.x1, in.x2, in.x3, in.y1, in.y2, in.y3 });
 
     // WORKTODO: elliptic
-    auto& block = blocks.main;
+    auto& block = blocks.elliptic;
 
     bool previous_elliptic_gate_exists = block.size() > 0;
     bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
