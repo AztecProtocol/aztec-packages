@@ -1,6 +1,6 @@
 #include "protogalaxy_verifier.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
-#include "barretenberg/protogalaxy/presumcheck_verifier.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 namespace bb {
 
 template <class VerifierInstances>
@@ -8,9 +8,8 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
                                                                             const std::string& domain_separator)
 {
     auto& key = inst->verification_key;
-    PreSumcheckVerifier<Flavor> presumcheck_verifier{ key, transcript, domain_separator + '_' };
-    auto [relation_parameters, witness_commitments, presumcheck_verified] =
-        presumcheck_verifier.execute_presumcheck_round();
+    OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
+    auto [relation_parameters, witness_commitments, presumcheck_verified] = oink_verifier.execute_presumcheck_round();
     inst->relation_parameters = relation_parameters;
     inst->witness_commitments = witness_commitments;
 

@@ -1,8 +1,8 @@
 #include "./ultra_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/protogalaxy/presumcheck_verifier.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 
 namespace bb {
 template <typename Flavor>
@@ -48,9 +48,8 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 
     transcript = std::make_shared<Transcript>(proof);
     VerifierCommitments commitments{ key };
-    PreSumcheckVerifier<Flavor> presumcheck_verifier{ key, transcript };
-    auto [relation_parameters, witness_commitments, presumcheck_verified] =
-        presumcheck_verifier.execute_presumcheck_round();
+    OinkVerifier<Flavor> oink_verifier{ key, transcript };
+    auto [relation_parameters, witness_commitments, presumcheck_verified] = oink_verifier.execute_presumcheck_round();
     if (!presumcheck_verified) {
         return false;
     }

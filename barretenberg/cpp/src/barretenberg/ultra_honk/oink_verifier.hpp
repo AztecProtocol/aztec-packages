@@ -23,7 +23,7 @@ template <IsUltraFlavor Flavor> struct PreSumcheckOutput {
  *
  * @tparam Flavor
  */
-template <IsUltraFlavor Flavor> class PreSumcheckVerifier {
+template <IsUltraFlavor Flavor> class OinkVerifier {
     using VerificationKey = typename Flavor::VerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Transcript = typename Flavor::Transcript;
@@ -35,9 +35,9 @@ template <IsUltraFlavor Flavor> class PreSumcheckVerifier {
     std::string domain_separator;
     typename Flavor::CommitmentLabels commitment_labels;
 
-    PreSumcheckVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
-                        const std::shared_ptr<Transcript>& transcript,
-                        std::string domain_separator = "")
+    OinkVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
+                 const std::shared_ptr<Transcript>& transcript,
+                 std::string domain_separator = "")
         : transcript(transcript)
         , key(verifier_key)
         , domain_separator(std::move(domain_separator))
