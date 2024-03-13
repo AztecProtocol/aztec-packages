@@ -56,12 +56,12 @@ void GoblinTranslatorProver::execute_preamble_round()
 {
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
     const auto SHIFT = uint256_t(1) << Flavor::NUM_LIMB_BITS;
-    const auto SHIFTTx2 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 2);
-    const auto SHIFTTx3 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 3);
+    const auto SHIFTx2 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 2);
+    const auto SHIFTx3 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 3);
     const auto accumulated_result =
         BF(uint256_t(key->accumulators_binary_limbs_0[1]) + uint256_t(key->accumulators_binary_limbs_1[1]) * SHIFT +
-           uint256_t(key->accumulators_binary_limbs_2[1]) * SHIFTTx2 +
-           uint256_t(key->accumulators_binary_limbs_3[1]) * SHIFTTx3);
+           uint256_t(key->accumulators_binary_limbs_2[1]) * SHIFTx2 +
+           uint256_t(key->accumulators_binary_limbs_3[1]) * SHIFTx3);
     transcript->send_to_verifier("circuit_size", circuit_size);
     transcript->send_to_verifier("evaluation_input_x", key->evaluation_input_x);
     transcript->send_to_verifier("accumulated_result", accumulated_result);
