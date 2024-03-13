@@ -92,7 +92,6 @@ TEST(circuit, range_relaxation)
         CircuitSchema circuit_info = unpack_from_buffer(buf);
         Solver s(circuit_info.modulus);
         Circuit<FFITerm> circuit(circuit_info, &s);
-        info();
     }
 }
 
