@@ -1052,7 +1052,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     ASSERT(variable_index.size() % gate_width == 0 && variable_index.size() > gate_width);
     this->assert_valid_variables(variable_index);
 
-    auto& block = blocks.main;
+    auto& block = blocks.sort;
 
     // Add an arithmetic gate to ensure the first input is equal to the start value of the range being checked
     create_add_gate({ variable_index[0], this->zero_idx, this->zero_idx, 1, 0, 0, -start });

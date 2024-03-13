@@ -48,6 +48,10 @@ template <typename Builder> bool CircuitChecker::check(const Builder& builder_in
 
     // Tag check is only expected to pass after entire execution trace (all blocks) have been processed
     result = result && check_tag_data(tag_data);
+    if (result == false) {
+        info("Failed tag check.");
+        return false;
+    }
 
     return result;
 };
@@ -71,10 +75,30 @@ bool CircuitChecker::check_block(Builder& builder,
         populate_values(builder, block, values, tag_data, memory_data, idx);
 
         result = result && check_relation<Arithmetic>(values, params);
+        if (result == false) {
+            info("Failed Arithmetic relation at row idx = ", idx);
+            return false;
+        }
         result = result && check_relation<Elliptic>(values, params);
+        if (result == false) {
+            info("Failed Elliptic relation at row idx = ", idx);
+            return false;
+        }
         result = result && check_relation<Auxiliary>(values, params);
+        if (result == false) {
+            info("Failed Auxiliary relation at row idx = ", idx);
+            return false;
+        }
         result = result && check_relation<GenPermSort>(values, params);
+        if (result == false) {
+            info("Failed GenPermSort relation at row idx = ", idx);
+            return false;
+        }
         result = result && check_lookup(values, lookup_hash_table);
+        if (result == false) {
+            info("Failed Lookup check relation at row idx = ", idx);
+            return false;
+        }
         if constexpr (IsGoblinBuilder<Builder>) {
             result = result && check_relation<PoseidonInternal>(values, params);
             result = result && check_relation<PoseidonExternal>(values, params);
@@ -155,27 +179,34 @@ void CircuitChecker::populate_values(
     values.w_l = builder.get_variable(block.w_l()[idx]);
     values.w_r = builder.get_variable(block.w_r()[idx]);
     values.w_o = builder.get_variable(block.w_o()[idx]);
-    if (memory_data.read_record_gates.contains(idx)) {
+    if (memory_data.read_record_gates.contains(idx) && block.has_ram_rom) {
         values.w_4 = compute_memory_record_term(values.w_l, values.w_r, values.w_o, memory_data.eta);
-    } else if (memory_data.write_record_gates.contains(idx)) {
+    } else if (memory_data.write_record_gates.contains(idx) && block.has_ram_rom) {
         values.w_4 = compute_memory_record_term(values.w_l, values.w_r, values.w_o, memory_data.eta) + FF::one();
     } else {
         values.w_4 = builder.get_variable(block.w_4()[idx]);
     }
 
     // Set shifted wire values. Again, wire 4 is treated specially. On final row, set shift values to zero
-    values.w_l_shift = idx < block.size() - 1 ? builder.get_variable(block.w_l()[idx + 1]) : 0;
-    values.w_r_shift = idx < block.size() - 1 ? builder.get_variable(block.w_r()[idx + 1]) : 0;
-    values.w_o_shift = idx < block.size() - 1 ? builder.get_variable(block.w_o()[idx + 1]) : 0;
-    if (memory_data.read_record_gates.contains(idx + 1)) {
-        values.w_4_shift =
-            compute_memory_record_term(values.w_l_shift, values.w_r_shift, values.w_o_shift, memory_data.eta);
-    } else if (memory_data.write_record_gates.contains(idx + 1)) {
-        values.w_4_shift =
-            compute_memory_record_term(values.w_l_shift, values.w_r_shift, values.w_o_shift, memory_data.eta) +
-            FF::one();
+    if (idx < block.size() - 1) {
+        values.w_l_shift = builder.get_variable(block.w_l()[idx + 1]);
+        values.w_r_shift = builder.get_variable(block.w_r()[idx + 1]);
+        values.w_o_shift = builder.get_variable(block.w_o()[idx + 1]);
+        if (memory_data.read_record_gates.contains(idx + 1) && block.has_ram_rom) {
+            values.w_4_shift =
+                compute_memory_record_term(values.w_l_shift, values.w_r_shift, values.w_o_shift, memory_data.eta);
+        } else if (memory_data.write_record_gates.contains(idx + 1) && block.has_ram_rom) {
+            values.w_4_shift =
+                compute_memory_record_term(values.w_l_shift, values.w_r_shift, values.w_o_shift, memory_data.eta) +
+                FF::one();
+        } else {
+            values.w_4_shift = builder.get_variable(block.w_4()[idx + 1]);
+        }
     } else {
-        values.w_4_shift = idx < block.size() - 1 ? builder.get_variable(block.w_4()[idx + 1]) : 0;
+        values.w_l_shift = 0;
+        values.w_r_shift = 0;
+        values.w_o_shift = 0;
+        values.w_4_shift = 0;
     }
 
     // Update tag check data
