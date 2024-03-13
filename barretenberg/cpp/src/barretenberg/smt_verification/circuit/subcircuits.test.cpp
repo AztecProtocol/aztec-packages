@@ -14,6 +14,8 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
+// Check that all the relative offsets are calculated correctly.
+// I.e. I can find an operand at the index, given by get_standard_range_constraint_circuit
 TEST(subcircuits, range_circuit)
 {
     for (size_t i = 1; i < 256; i++) {
@@ -28,7 +30,8 @@ TEST(subcircuits, range_circuit)
             "a", circuit.vars_of_interest[circuit.real_variable_index[circuit.wires[start_gate + a_gate][a_gate_idx]]]);
     }
 }
-
+// Check that all the relative offsets are calculated correctly.
+// I.e. I can find all three operands at the indices, given by get_standard_logic_circuit
 TEST(subcircuits, logic_circuit)
 {
     for (size_t i = 2; i < 256; i += 2) {
