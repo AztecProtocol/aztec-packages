@@ -1,5 +1,6 @@
 **/node_modules
 **/Earthfile
 **/*.md
+**/artifacts
 **/dest
 **/.tsbuildinfo
