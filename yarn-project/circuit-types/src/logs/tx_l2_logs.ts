@@ -136,7 +136,7 @@ export class TxL2Logs {
       // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
       kernelPublicInputsLogsHash = sha256(Buffer.concat(logsHashes));
     }
-
+    // TODO(Miranda): truncate here and return only 31 bytes
     return kernelPublicInputsLogsHash;
   }
 
