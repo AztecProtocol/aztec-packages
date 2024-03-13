@@ -26,7 +26,7 @@ export class RootRollupInputs {
      */
     public previousRollupData: [PreviousRollupData, PreviousRollupData],
     /**
-     * The original and converted roots of the L1 to L2 messages.
+     * The original and converted roots of the L1 to L2 messages subtrees.
      */
     public l1ToL2Roots: RootParityInput,
     /**
