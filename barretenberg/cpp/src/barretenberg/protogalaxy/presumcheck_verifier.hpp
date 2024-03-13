@@ -10,8 +10,7 @@ namespace bb {
 
 template <IsUltraFlavor Flavor> struct PreSumcheckOutput {
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
-    typename Flavor::VerifierCommitments commitments;
-    uint32_t circuit_size;
+    typename Flavor::WitnessCommitments commitments;
     bool verified;
 };
 
@@ -26,12 +25,16 @@ template <IsUltraFlavor Flavor> struct PreSumcheckOutput {
  */
 template <IsUltraFlavor Flavor> class PreSumcheckVerifier {
     using VerificationKey = typename Flavor::VerificationKey;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
+    using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
 
   public:
+    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<VerificationKey> key;
+    std::string domain_separator;
+    typename Flavor::CommitmentLabels commitment_labels;
+
     PreSumcheckVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
                         const std::shared_ptr<Transcript>& transcript,
                         std::string domain_separator = "")
@@ -53,16 +56,16 @@ template <IsUltraFlavor Flavor> class PreSumcheckVerifier {
     PreSumcheckOutput<Flavor> execute_presumcheck_round()
     {
         using Commitment = typename Flavor::Commitment;
-        using CommitmentLabels = typename Flavor::CommitmentLabels;
 
         bb::RelationParameters<FF> relation_parameters;
-        VerifierCommitments commitments{ key };
-        CommitmentLabels commitment_labels;
+        WitnessCommitments witness_commitments;
 
         // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
-        const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-        const auto public_input_size = transcript->template receive_from_prover<uint32_t>("public_input_size");
-        const auto pub_inputs_offset = transcript->template receive_from_prover<uint32_t>("pub_inputs_offset");
+        const auto circuit_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "circuit_size");
+        const auto public_input_size =
+            transcript->template receive_from_prover<uint32_t>(domain_separator + "public_input_size");
+        const auto pub_inputs_offset =
+            transcript->template receive_from_prover<uint32_t>(domain_separator + "pub_inputs_offset");
 
         ASSERT(circuit_size == key->circuit_size);
         ASSERT(public_input_size == key->num_public_inputs);
@@ -70,28 +73,33 @@ template <IsUltraFlavor Flavor> class PreSumcheckVerifier {
 
         std::vector<FF> public_inputs;
         for (size_t i = 0; i < public_input_size; ++i) {
-            auto public_input_i = transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i));
+            auto public_input_i =
+                transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
             public_inputs.emplace_back(public_input_i);
         }
 
         // Get commitments to first three wire polynomials
-        commitments.w_l = transcript->template receive_from_prover<Commitment>(commitment_labels.w_l);
-        commitments.w_r = transcript->template receive_from_prover<Commitment>(commitment_labels.w_r);
-        commitments.w_o = transcript->template receive_from_prover<Commitment>(commitment_labels.w_o);
+        witness_commitments.w_l =
+            transcript->template receive_from_prover<Commitment>(domain_separator + commitment_labels.w_l);
+        witness_commitments.w_r =
+            transcript->template receive_from_prover<Commitment>(domain_separator + commitment_labels.w_r);
+        witness_commitments.w_o =
+            transcript->template receive_from_prover<Commitment>(domain_separator + commitment_labels.w_o);
 
         // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
         if constexpr (IsGoblinFlavor<Flavor>) {
-            commitments.ecc_op_wire_1 =
-                transcript->template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_1);
-            commitments.ecc_op_wire_2 =
-                transcript->template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_2);
-            commitments.ecc_op_wire_3 =
-                transcript->template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_3);
-            commitments.ecc_op_wire_4 =
-                transcript->template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_4);
-            commitments.calldata = transcript->template receive_from_prover<Commitment>(commitment_labels.calldata);
-            commitments.calldata_read_counts =
-                transcript->template receive_from_prover<Commitment>(commitment_labels.calldata_read_counts);
+            witness_commitments.ecc_op_wire_1 = transcript->template receive_from_prover<Commitment>(
+                domain_separator + commitment_labels.ecc_op_wire_1);
+            witness_commitments.ecc_op_wire_2 = transcript->template receive_from_prover<Commitment>(
+                domain_separator + commitment_labels.ecc_op_wire_2);
+            witness_commitments.ecc_op_wire_3 = transcript->template receive_from_prover<Commitment>(
+                domain_separator + commitment_labels.ecc_op_wire_3);
+            witness_commitments.ecc_op_wire_4 = transcript->template receive_from_prover<Commitment>(
+                domain_separator + commitment_labels.ecc_op_wire_4);
+            witness_commitments.calldata =
+                transcript->template receive_from_prover<Commitment>(domain_separator + commitment_labels.calldata);
+            witness_commitments.calldata_read_counts = transcript->template receive_from_prover<Commitment>(
+                domain_separator + commitment_labels.calldata_read_counts);
         }
 
         // Get challenge for sorted list batching and wire four memory records
@@ -99,16 +107,18 @@ template <IsUltraFlavor Flavor> class PreSumcheckVerifier {
         relation_parameters.eta = eta;
 
         // Get commitments to sorted list accumulator and fourth wire
-        commitments.sorted_accum = transcript->template receive_from_prover<Commitment>(commitment_labels.sorted_accum);
-        commitments.w_4 = transcript->template receive_from_prover<Commitment>(commitment_labels.w_4);
+        witness_commitments.sorted_accum =
+            transcript->template receive_from_prover<Commitment>(domain_separator + commitment_labels.sorted_accum);
+        witness_commitments.w_4 =
+            transcript->template receive_from_prover<Commitment>(domain_separator + commitment_labels.w_4);
 
         // Get permutation challenges
         auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
 
         // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
         if constexpr (IsGoblinFlavor<Flavor>) {
-            commitments.lookup_inverses =
-                transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
+            witness_commitments.lookup_inverses = transcript->template receive_from_prover<Commitment>(
+                domain_separator + commitment_labels.lookup_inverses);
         }
 
         const FF public_input_delta =
@@ -121,19 +131,16 @@ template <IsUltraFlavor Flavor> class PreSumcheckVerifier {
         relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
         // Get commitment to permutation and lookup grand products
-        commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
-        commitments.z_lookup = transcript->template receive_from_prover<Commitment>(commitment_labels.z_lookup);
+        witness_commitments.z_perm =
+            transcript->template receive_from_prover<Commitment>(domain_separator + commitment_labels.z_perm);
+        witness_commitments.z_lookup =
+            transcript->template receive_from_prover<Commitment>(domain_separator + commitment_labels.z_lookup);
 
         return PreSumcheckOutput<Flavor>{
             .relation_parameters = relation_parameters,
-            .commitments = commitments,
-            .circuit_size = circuit_size,
+            .commitments = witness_commitments,
             .verified = true,
         };
     }
-
-    std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<VerificationKey> key;
-    std::string domain_separator;
 };
 } // namespace bb

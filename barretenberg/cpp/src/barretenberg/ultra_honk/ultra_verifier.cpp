@@ -44,17 +44,23 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     using FF = typename Flavor::FF;
     using Curve = typename Flavor::Curve;
     using ZeroMorph = ZeroMorphVerifier_<Curve>;
+    using VerifierCommitments = typename Flavor::VerifierCommitments;
 
     transcript = std::make_shared<Transcript>(proof);
+    VerifierCommitments commitments{ key };
     PreSumcheckVerifier<Flavor> presumcheck_verifier{ key, transcript };
-    auto [relation_parameters, commitments, circuit_size, presumcheck_verified] =
+    auto [relation_parameters, witness_commitments, presumcheck_verified] =
         presumcheck_verifier.execute_presumcheck_round();
     if (!presumcheck_verified) {
         return false;
     }
+    // Copy the witness_commitments over to the VerifierCommitments
+    for (auto [wit_comm_1, wit_comm_2] : zip_view(commitments.get_witness(), witness_commitments.get_all())) {
+        wit_comm_1 = wit_comm_2;
+    }
 
     // Execute Sumcheck Verifier
-    const size_t log_circuit_size = numeric::get_msb(circuit_size);
+    const size_t log_circuit_size = numeric::get_msb(key->circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
     RelationSeparator alphas;
     for (size_t idx = 0; idx < alphas.size(); idx++) {
