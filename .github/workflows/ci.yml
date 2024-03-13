@@ -6,16 +6,50 @@ on:
       - master
   pull_request:
 jobs:
-  ci:
+  ci-x86:
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-x86
       cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          submodules: 'recursive'
+          submodules: recursive
           fetch-depth: 0
+      - name: setup
+        run: |
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 -d > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+          cat > ~/.ssh/config <<EOF
+          IdentityFile ~/.ssh/build_instance_key
+          StrictHostKeyChecking no
+          User ubuntu
+          EOF
       - name: ci
-        run: scripts/earthly
+        run: DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com scripts/earthly
+
+  ci-arm:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-arm
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: setup
+        run: |
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 -d > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+          cat > ~/.ssh/config <<EOF
+          IdentityFile ~/.ssh/build_instance_key
+          StrictHostKeyChecking no
+          User ubuntu
+          EOF
+      - name: ci
+        run: DOCKER_HOST=ssh://build-instance-arm.aztecprotocol.com scripts/earthly
