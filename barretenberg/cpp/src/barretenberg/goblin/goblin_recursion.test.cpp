@@ -40,22 +40,31 @@ TEST_F(GoblinRecursionTests, Vanilla)
 {
     Goblin goblin;
 
-    Goblin::AccumulationOutput accumulator;
+    Goblin::AccumulationOutput kernel_accum;
 
     size_t NUM_CIRCUITS = 2;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
 
         // Construct and accumulate a mock function circuit
-        GoblinUltraCircuitBuilder circuit{ goblin.op_queue };
-        GoblinMockCircuits::construct_mock_function_circuit(circuit);
-        goblin.merge(circuit);
-        accumulator = construct_accumulator(circuit);
+        GoblinUltraCircuitBuilder function_circuit{ goblin.op_queue };
+        MockCircuits::construct_arithmetic_circuit(function_circuit, /*target_log2_dyadic_size=*/8);
+        MockCircuits::construct_goblin_ecc_op_circuit(function_circuit);
+        goblin.merge(function_circuit);
+        auto function_accum = construct_accumulator(function_circuit);
+
+        // Construct and accumulate the mock kernel circuit (no kernel accum in first round)
+        GoblinUltraCircuitBuilder kernel_circuit{ goblin.op_queue };
+        GoblinMockCircuits::construct_mock_kernel_small(kernel_circuit,
+                                                        { function_accum.proof, function_accum.verification_key },
+                                                        { kernel_accum.proof, kernel_accum.verification_key });
+        goblin.merge(kernel_circuit);
+        kernel_accum = construct_accumulator(kernel_circuit);
     }
 
     Goblin::Proof proof = goblin.prove();
     // Verify the final ultra proof
-    GoblinUltraVerifier ultra_verifier{ accumulator.verification_key };
-    bool ultra_verified = ultra_verifier.verify_proof(accumulator.proof);
+    GoblinUltraVerifier ultra_verifier{ kernel_accum.verification_key };
+    bool ultra_verified = ultra_verifier.verify_proof(kernel_accum.proof);
     // Verify the goblin proof (eccvm, translator, merge)
     bool verified = goblin.verify(proof);
     EXPECT_TRUE(ultra_verified && verified);
