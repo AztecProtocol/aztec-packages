@@ -3,7 +3,7 @@ use std::io::Write;
 use std::path::Path;
 
 use acvm::acir::{
-    circuit::{Circuit, ExpressionWidth, Program},
+    circuit::{ExpressionWidth, Program},
     native_types::WitnessMap,
 };
 use acvm::FieldElement;
