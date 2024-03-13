@@ -6,8 +6,6 @@ FROM node:20 AS builder
 COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
 COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
 
-ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/ts/bb.js-dev
-
 WORKDIR /usr/src/barretenberg/ts
 RUN yarn --immutable
 
@@ -19,6 +17,8 @@ ENV PATH=/root/.cargo/bin:${PATH}
 RUN apt update && apt install -y jq libc++1
 ARG COMMIT_HASH
 ENV COMMIT_HASH=${COMMIT_HASH}
+
+ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/ts/bb.js-dev
 
 WORKDIR /usr/src/noir
 COPY . .

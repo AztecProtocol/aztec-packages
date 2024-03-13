@@ -2,6 +2,8 @@
 
 self_path=$(dirname "$(readlink -f "$0")")
 
+echo $NARGO_BACKEND_PATH
+
 repo_root=$self_path/../../..
 
 # Run codegen-verifier for 1_mul
