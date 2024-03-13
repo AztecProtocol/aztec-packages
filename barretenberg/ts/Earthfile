@@ -15,8 +15,8 @@ COPY --keep-ts --dir src *.json *.js *.cjs .
 COPY ../cpp/+build-wasm/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm
 # TODO for now there is no real single-threaded WASM. See if anyone hits problems.
 COPY ../cpp/+build-wasm/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg.wasm
-COPY ../cpp/+build-wasm/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
-COPY ../cpp/+build-wasm/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
+# COPY ../cpp/+build-wasm/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
+# COPY ../cpp/+build-wasm/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
 
 build-esm:
     RUN yarn build:esm
@@ -41,6 +41,7 @@ build:
     COPY +build-browser/build /build
     # We want to create a pure package, as would be published to npm, for consuming projects.
     RUN yarn pack && tar zxf package.tgz && rm package.tgz && mv package ../ts
+    RUN false
     SAVE ARTIFACT /build
 
 test:

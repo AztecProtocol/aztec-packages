@@ -36,6 +36,19 @@ build-wasi-sdk:
     RUN make build/config.BUILT
     SAVE ARTIFACT build/install/opt/wasi-sdk
 
+get-wasi-sdk:
+    ARG REBUILD_WASI_SDK=""
+    IF [ "$REBUILD_WASI_SDK" = "1" ]
+        FROM scratch
+        WORKDIR /build
+        COPY +build-wasi-sdk/wasi-sdk wasi-sdk
+        SAVE IMAGE --push aztecprotocol/wasi-sdk:v21.0-threads
+    ELSE
+        FROM aztecprotocol/wasi-sdk:v21.0-threads
+        COPY +build-wasi-sdk/wasi-sdk wasi-sdk
+    END
+    SAVE ARTIFACT wasi-sdk
+
 source:
     # cpp source
     COPY --keep-ts --dir src/barretenberg src/CMakeLists.txt src
@@ -55,7 +68,7 @@ build-debug:
 build-wasm:
     FROM +source
     # wasi-sdk
-    COPY --dir +build-wasi-sdk/wasi-sdk src/wasi-sdk
+    COPY --dir +get-wasi-sdk/wasi-sdk src/wasi-sdk
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
     RUN ./src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
     SAVE ARTIFACT bin

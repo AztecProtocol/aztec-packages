@@ -1,0 +1,73 @@
+
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+
+# Aztec build/test/bench tool
+# Thin wrapper for earthly that helps with building targets
+# Usage:
+# Go to folder, e.g. docs, use az to build
+# To run a target in the Earthfile, use 'az +<target-name>'.
+# Spports all commands 'earthly' can take.
+
+set -eu
+
+mkdir -p $(dirname $0)/.earthly
+
+EARTHLY=$(dirname $0)/.earthly/earthly
+EARTHLY_CONFIG=$(dirname $0)/earthly-config.yml
+
+if ! [ -f "$EARTHLY" ] ; then
+  wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O "$EARTHLY";
+  chmod +x "$EARTHLY" && "$EARTHLY" bootstrap
+  "$EARTHLY" config global.cache_size_mb 24000
+  "$EARTHLY" config global.container_frontend docker-shell
+  "$EARTHLY" config global.container_frontend docker-shell
+fi
+
+EARTHLY_FLAGS="--config $EARTHLY_CONFIG -P --disable-remote-registry-proxy"
+
+add_timestamps() {
+  gray=$(tput setaf 8)
+  normal=$(tput sgr0)
+  grep -v 'loading config values from' | while IFS= read -r line; do printf "${gray}%(%H:%M:%S)T${normal} " ; echo "$line" ; done
+} 
+
+export FORCE_COLOR=1
+report_time() {
+  end_time=$(date +%s)
+  duration=$((end_time - start_time))
+  gray=$(tput setaf 8)
+  normal=$(tput sgr0)
+  local hours=$((duration / 3600))
+  local minutes=$(( (duration % 3600) / 60 ))
+  local seconds=$((duration % 60))
+
+  printf "${gray}"
+  if (( hours > 0 )); then
+      printf "%d hours, %d minutes, and %d seconds" $hours $minutes $seconds
+  elif (( minutes > 0 )); then
+      printf "%d minutes and %d seconds" $minutes $seconds
+  else
+      printf "%d seconds" $seconds
+  fi
+  printf "${normal}\n"
+}
+# on finish
+trap report_time EXIT
+start_time=$(date +%s)
+
+interactive_flag=false
+for arg in "$@"; do
+    if [ "$arg" = "-i" ] || [ "$arg" = "--interactive" ]; then
+        interactive_flag=true
+        break
+    fi
+done
+if [ $interactive_flag = true ] ; then
+  "$EARTHLY" $EARTHLY_FLAGS $@
+elif [ $# -eq 0 ]; then
+  # By default, try for a +build target
+  "$EARTHLY" $EARTHLY_FLAGS +build 2>&1 | add_timestamps >&2
+else
+  "$EARTHLY" $EARTHLY_FLAGS $@ 2>&1 | add_timestamps >&2
+fi

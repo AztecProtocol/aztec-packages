@@ -36,6 +36,7 @@ build:
         RUN --mount type=cache,target=/build/node_modules  --mount type=cache,target=/build/yarn-cache \
             ./bootstrap.sh && yarn workspaces focus @aztec/cli @aztec/aztec --production
     END
+    RUN false
     SAVE ARTIFACT /build
 
 # TODO versioning flow at end before publish?

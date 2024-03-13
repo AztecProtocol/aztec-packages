@@ -33,6 +33,8 @@ E2E_TEST:
       RUN docker-compose -f $compose_file up  --exit-code-from=sandbox --force-recreate
     END
 
+# we could use a parameterized target, but these just print cleaner in earthly log
+
 e2e-block-building:
   DO +E2E_TEST --test=e2e_block_building.test.ts
 
