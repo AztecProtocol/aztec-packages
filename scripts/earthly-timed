@@ -44,10 +44,7 @@ for arg in "$@"; do
     fi
 done
 if [ $INTERACTIVE = true ] ; then
-  $(dirname $0)/grun-earthly $@
-elif [ $# -eq 0 ]; then
-  # By default, try for a +build target
-  $(dirname $0)/run-earthly +build 2>&1 | add_timestamps >&2
+  $(dirname $0)/earthly $@
 else
-  $(dirname $0)/run-earthly $@ 2>&1 | add_timestamps >&2
+  $(dirname $0)/earthly $@ 2>&1 | add_timestamps >&2
 fi
