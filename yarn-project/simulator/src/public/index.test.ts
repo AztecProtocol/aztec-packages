@@ -15,7 +15,7 @@ import { siloNullifier } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { pedersenHash, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -50,8 +50,7 @@ describe('ACIR public execution simulator', () => {
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    const randomInt = Math.floor(Math.random() * 1000000);
-    header = makeHeader(randomInt);
+    header = makeHeader(randomInt(1000000));
 
     executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
   }, 10000);
@@ -110,7 +109,7 @@ describe('ACIR public execution simulator', () => {
           functionSelector: FunctionSelector.empty(),
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: 0,
+          sideEffectCounter: 0,
         });
 
         publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintArtifact.bytecode, 'base64'));
@@ -183,7 +182,7 @@ describe('ACIR public execution simulator', () => {
           functionSelector: FunctionSelector.empty(),
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: 0,
+          sideEffectCounter: 0,
         });
 
         recipientStorageSlot = computeSlotForMapping(new Fr(6n), recipient);
@@ -272,7 +271,7 @@ describe('ACIR public execution simulator', () => {
           functionSelector: FunctionSelector.empty(),
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: 0,
+          sideEffectCounter: 0,
         });
 
         // eslint-disable-next-line require-await
@@ -351,7 +350,7 @@ describe('ACIR public execution simulator', () => {
         functionSelector: FunctionSelector.empty(),
         isDelegateCall: false,
         isStaticCall: false,
-        startSideEffectCounter: 0,
+        sideEffectCounter: 0,
       });
 
       publicContracts.getBytecode.mockResolvedValue(Buffer.from(shieldArtifact.bytecode, 'base64'));
@@ -385,7 +384,7 @@ describe('ACIR public execution simulator', () => {
         functionSelector: FunctionSelector.empty(),
         isDelegateCall: false,
         isStaticCall: false,
-        startSideEffectCounter: 0,
+        sideEffectCounter: 0,
       });
 
       publicContracts.getBytecode.mockResolvedValue(Buffer.from(createL2ToL1MessagePublicArtifact.bytecode, 'base64'));
@@ -415,7 +414,7 @@ describe('ACIR public execution simulator', () => {
         functionSelector: FunctionSelector.empty(),
         isDelegateCall: false,
         isStaticCall: false,
-        startSideEffectCounter: 0,
+        sideEffectCounter: 0,
       });
 
       publicContracts.getBytecode.mockResolvedValue(Buffer.from(createNullifierPublicArtifact.bytecode, 'base64'));
@@ -473,7 +472,7 @@ describe('ACIR public execution simulator', () => {
           functionSelector: FunctionSelector.empty(),
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: 0,
+          sideEffectCounter: 0,
         });
 
       const computeGlobalVariables = () =>
@@ -672,7 +671,7 @@ describe('ACIR public execution simulator', () => {
         functionSelector: FunctionSelector.empty(),
         isDelegateCall: false,
         isStaticCall: false,
-        startSideEffectCounter: 0,
+        sideEffectCounter: 0,
       });
       assertGlobalVarsArtifact = TestContractArtifact.functions.find(f => f.name === 'assert_public_global_vars')!;
       functionData = FunctionData.fromAbi(assertGlobalVarsArtifact);
@@ -755,7 +754,7 @@ describe('ACIR public execution simulator', () => {
         functionSelector: FunctionSelector.empty(),
         isDelegateCall: false,
         isStaticCall: false,
-        startSideEffectCounter: 0,
+        sideEffectCounter: 0,
       });
       assertHeaderPublicArtifact = TestContractArtifact.functions.find(f => f.name === 'assert_header_public')!;
       functionData = FunctionData.fromAbi(assertHeaderPublicArtifact);

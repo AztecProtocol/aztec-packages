@@ -1,5 +1,5 @@
 import { FunctionL2Logs } from '@aztec/circuit-types';
-import { GlobalVariables, Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
+import { Fr, GlobalVariables, Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { spawn } from 'child_process';
@@ -83,8 +83,12 @@ export async function executePublicFunction(
       returnValues: [],
       newNoteHashes: [],
       newL2ToL1Messages: [],
+      // TODO (side effects) get these values in the revert case from the vm
+      startSideEffectCounter: Fr.ZERO,
+      endSideEffectCounter: Fr.ZERO,
       newNullifiers: [],
       nullifierReadRequests: [],
+      nullifierNonExistentReadRequests: [],
       contractStorageReads: [],
       contractStorageUpdateRequests: [],
       nestedExecutions: [],
@@ -102,12 +106,16 @@ export async function executePublicFunction(
   const {
     returnValues,
     nullifierReadRequests: nullifierReadRequestsPadded,
+    nullifierNonExistentReadRequests: nullifierNonExistentReadRequestsPadded,
     newL2ToL1Msgs,
     newNoteHashes: newNoteHashesPadded,
     newNullifiers: newNullifiersPadded,
+    startSideEffectCounter,
+    endSideEffectCounter,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
 
   const nullifierReadRequests = nullifierReadRequestsPadded.filter(v => !v.isEmpty());
+  const nullifierNonExistentReadRequests = nullifierNonExistentReadRequestsPadded.filter(v => !v.isEmpty());
   const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isEmpty());
   const newNoteHashes = newNoteHashesPadded.filter(v => !v.isEmpty());
   const newNullifiers = newNullifiersPadded.filter(v => !v.isEmpty());
@@ -133,7 +141,10 @@ export async function executePublicFunction(
     newNoteHashes,
     newL2ToL1Messages,
     newNullifiers,
+    startSideEffectCounter,
+    endSideEffectCounter,
     nullifierReadRequests,
+    nullifierNonExistentReadRequests,
     contractStorageReads,
     contractStorageUpdateRequests,
     returnValues,
@@ -161,7 +172,11 @@ export class PublicExecutor {
    * @param globalVariables - The global variables to use.
    * @returns The result of the run plus all nested runs.
    */
-  public async simulate(execution: PublicExecution, globalVariables: GlobalVariables): Promise<PublicExecutionResult> {
+  public async simulate(
+    execution: PublicExecution,
+    globalVariables: GlobalVariables,
+    sideEffectCounter: number = 0,
+  ): Promise<PublicExecutionResult> {
     const selector = execution.functionData.selector;
     const acir = await this.contractsDb.getBytecode(execution.contractAddress, selector);
     if (!acir) {
@@ -172,14 +187,12 @@ export class PublicExecutor {
     // We use this cache to hold the packed arguments.
     const packedArgs = PackedArgsCache.create([]);
 
-    const sideEffectCounter = new SideEffectCounter();
-
     const context = new PublicExecutionContext(
       execution,
       this.header,
       globalVariables,
       packedArgs,
-      sideEffectCounter,
+      new SideEffectCounter(sideEffectCounter),
       this.stateDb,
       this.contractsDb,
       this.commitmentsDb,
@@ -209,9 +222,10 @@ export class PublicExecutor {
   public async simulateAvm(
     execution: PublicExecution,
     globalVariables: GlobalVariables,
+    _sideEffectCounter = 0,
   ): Promise<PublicExecutionResult> {
     // Temporary code to construct the AVM context
-    // These data structures will permiate across the simulator when the public executor is phased out
+    // These data structures will permeate across the simulator when the public executor is phased out
     const hostStorage = new HostStorage(this.stateDb, this.contractsDb, this.commitmentsDb);
     const worldStateJournal = new AvmPersistableStateManager(hostStorage);
     const executionEnv = temporaryCreateAvmExecutionEnvironment(execution, globalVariables);
@@ -240,8 +254,6 @@ export class PublicExecutor {
    */
   public async getAvmProof(avmExecution: PublicExecution): Promise<Buffer[]> {
     // The paths for the barretenberg binary and the write path are hardcoded for now.
-    // We additionally need the path to a valid crs for proof generation.
-    // const bbPath = '../../barretenberg/cpp';
     const bbPath = path.resolve('../../barretenberg/cpp');
     const artifactsPath = path.resolve('target');
 
@@ -269,8 +281,6 @@ export class PublicExecutor {
       bytecodePath,
       '-d',
       calldataPath,
-      '-c',
-      path.join(bbPath, 'srs_db', 'ignition'),
       '-o',
       proofPath,
     ]);
