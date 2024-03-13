@@ -52,6 +52,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   /** Constructor function to call. */
   private constructorArtifact: FunctionArtifact | undefined;
 
+  /** Cached call to request() */
+  private functionCalls: FunctionCall[] | undefined;
+
   private log = createDebugLogger('aztec:js:deploy_method');
 
   constructor(
@@ -103,18 +106,21 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * it returns a promise for an array instead of a function call directly.
    */
   public async request(options: DeployOptions = {}): Promise<FunctionCall[]> {
-    const { address } = this.getInstance(options);
-    const calls = await this.getDeploymentFunctionCalls(options);
-    if (this.constructorArtifact && !options.skipInitialization) {
-      const constructorCall = new ContractFunctionInteraction(
-        this.wallet,
-        address,
-        this.constructorArtifact,
-        this.args,
-      );
-      calls.push(constructorCall.request());
+    if (!this.functionCalls) {
+      const { address } = this.getInstance(options);
+      const calls = await this.getDeploymentFunctionCalls(options);
+      if (this.constructorArtifact && !options.skipInitialization) {
+        const constructorCall = new ContractFunctionInteraction(
+          this.wallet,
+          address,
+          this.constructorArtifact,
+          this.args,
+        );
+        calls.push(constructorCall.request());
+      }
+      this.functionCalls = calls;
     }
-    return calls;
+    return this.functionCalls;
   }
 
   /**
