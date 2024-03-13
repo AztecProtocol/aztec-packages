@@ -12,13 +12,8 @@ build-package:
 build:
     BUILD ../+aztec
     FROM node:18.19.1-slim
-    RUN apt-get update && apt-get install jq gnupg wget -y && \
-        wget --quiet --output-document=- https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /etc/apt/trusted.gpg.d/google-archive.gpg && \
-        sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' && \
-        apt-get update && \
-        apt-get install google-chrome-stable -y --no-install-recommends && \
-        rm -rf /var/lib/apt/lists/*
-    ENV CHROME_BIN="/usr/bin/google-chrome-stable"
+    RUN apt-get update && apt-get install jq chromium -y
+    ENV CHROME_BIN="/usr/bin/chromium"
     COPY +build-package/build /build
     WORKDIR /build/yarn-project/end-to-end
     SAVE IMAGE aztecprotocol/cache:end-to-end
@@ -43,6 +38,9 @@ get-end-to-end:
       FROM +build
     END
 
+get-foundry:
+    BUILD ../../foundry/+build
+
 E2E_TEST:
     FUNCTION
     ARG test
@@ -50,8 +48,8 @@ E2E_TEST:
     # FROM earthly/dind:alpine-3.19-docker-25.0.2-r0 (TODO use docker-in-docker in prod?)
     LOCALLY
     ENV TEST=$test
-    ENV AVM_ENABLED=1 
-    WITH DOCKER --load aztecprotocol/aztec:latest=+get-aztec --load aztecprotocol/end-to-end:latest=+get-end-to-end
+    ENV AVM_ENABLED=1
+    WITH DOCKER --load aztecprotocol/aztec:latest=+get-aztec --load aztecprotocol/end-to-end:latest=+get-end-to-end --load aztecprotocol/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916=+get-foundry
       RUN docker-compose -f $compose_file up  --exit-code-from=sandbox --force-recreate
     END
 

@@ -17,6 +17,9 @@ build-ci:
     BUILD ./yarn-project/+build
     BUILD +test-end-to-end
 
+build-ci-small:
+    BUILD ./yarn-project/end-to-end/+e2e-escrow-contract
+
 build:
     # yarn-project has the entry point to Aztec
     BUILD ./yarn-project/+build
