@@ -29,7 +29,7 @@ contract MerkleTest is Test {
   }
 
   function testRootMatchesBaseParity() public {
-    uint256[4] memory msgs = [
+    uint256[4] memory baseRoots = [
       0x151de48ca3efbae39f180fe00b8f472ec9f25be10b4f283a87c6d78393537039,
       0x14c2ea9dedf77698d4afe23bc663263eed0bf9aa3a8b17d9b74812f185610f9e,
       0x1570cc6641699e3ae87fa258d80a6d853f7b8ccb211dc244d017e2ca6530f8a1,
@@ -39,9 +39,9 @@ contract MerkleTest is Test {
     // We can't use Constants.NUM_MSGS_PER_BASE_PARITY directly when defining the array so we do the check here to
     // ensure it does not get outdated.
     assertEq(
-      msgs.length,
+      baseRoots.length,
       Constants.NUM_MSGS_PER_BASE_PARITY,
-      "NUM_MSGS_PER_BASE_PARITY changed, update msgs."
+      "NUM_MSGS_PER_BASE_PARITY changed, update baseRoots."
     );
 
     uint256 treeHeight = 2; // log_2(NUM_MSGS_PER_BASE_PARITY)
@@ -55,11 +55,47 @@ contract MerkleTest is Test {
 
     FrontierMerkle frontier = new FrontierMerkle(treeHeight);
 
-    for (uint256 i = 0; i < msgs.length; i++) {
-      frontier.insertLeaf(bytes32(msgs[i]));
+    for (uint256 i = 0; i < baseRoots.length; i++) {
+      frontier.insertLeaf(bytes32(baseRoots[i]));
     }
 
     bytes32 expectedRoot = 0xb3a3fc1968999f2c2d798b900bdf0de41311be2a4d20496a7e792a521fc8abac;
-    assertEq(frontier.root(), expectedRoot, "Root does not match Noir's root");
+    assertEq(frontier.root(), expectedRoot, "Root does not match base parity circuit root");
+  }
+
+  function testRootMatchesRootParity() public {
+    // sha256 roots coming out of base parity circuits
+    uint256[4] memory baseRoots = [
+      0xb3a3fc1968999f2c2d798b900bdf0de41311be2a4d20496a7e792a521fc8abac,
+      0x43f78e0ebc9633ce336a8c086064d898c32fb5d7d6011f5427459c0b8d14e91f,
+      0x024259b6404280addcc9319bc5a32c9a5d56af5c93b2f941fa326064fbe9636c,
+      0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904ae7
+    ];
+
+    // We can't use Constants.NUM_BASE_PARITY_PER_ROOT_PARITY directly when defining the array so we do the check here
+    // to ensure it does not get outdated.
+    assertEq(
+      baseRoots.length,
+      Constants.NUM_BASE_PARITY_PER_ROOT_PARITY,
+      "NUM_BASE_PARITY_PER_ROOT_PARITY changed, update baseRoots."
+    );
+
+    uint256 treeHeight = 2; // log_2(NUM_BASE_PARITY_PER_ROOT_PARITY)
+    // We don't have log_2 directly accessible in solidity so I just do the following check here to ensure
+    // the hardcoded value is not outdated.
+    assertEq(
+      2 ** treeHeight,
+      Constants.NUM_BASE_PARITY_PER_ROOT_PARITY,
+      "Root parity circuit subtree height changed, update treeHeight."
+    );
+
+    FrontierMerkle frontier = new FrontierMerkle(treeHeight);
+
+    for (uint256 i = 0; i < baseRoots.length; i++) {
+      frontier.insertLeaf(bytes32(baseRoots[i]));
+    }
+
+    bytes32 expectedRoot = 0x8e7d8bf0ef7ebd1607cc7ff9f2fbacf4574ee5b692a5a5ac1e7b1594067b9049;
+    assertEq(frontier.root(), expectedRoot, "Root does not match root parity circuit root");
   }
 }
