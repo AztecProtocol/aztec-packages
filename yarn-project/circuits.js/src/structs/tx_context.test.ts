@@ -1,4 +1,5 @@
-import { updateInlineTestData } from '@aztec/foundation/testing';
+import { randomInt } from '@aztec/foundation/crypto';
+import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
 
 import { TX_CONTEXT_DATA_LENGTH } from '../constants.gen.js';
 import { makeTxContext } from '../tests/factories.js';
@@ -8,8 +9,8 @@ describe('TxContext', () => {
   let context: TxContext;
 
   beforeAll(() => {
-    const randomInt = Math.floor(Math.random() * 1000);
-    context = makeTxContext(randomInt);
+    setupCustomSnapshotSerializers(expect);
+    context = makeTxContext(randomInt(1000));
   });
 
   it(`serializes to buffer and deserializes it back`, () => {
