@@ -719,6 +719,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
   privateCircuitPublicInputs: PrivateCircuitPublicInputs,
 ): PrivateCircuitPublicInputsNoir {
   return {
+    max_block_number: mapFieldToNoir(privateCircuitPublicInputs.maxBlockNumber),
     call_context: mapCallContextToNoir(privateCircuitPublicInputs.callContext),
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
     return_values: mapTuple(privateCircuitPublicInputs.returnValues, mapFieldToNoir),
@@ -972,6 +973,7 @@ export function mapCombinedAccumulatedDataFromNoir(
   combinedAccumulatedData: CombinedAccumulatedDataNoir,
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
+    mapFieldFromNoir(combinedAccumulatedData.max_block_number),
     mapTupleFromNoir(
       combinedAccumulatedData.note_hash_read_requests,
       MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -1061,6 +1063,7 @@ export function mapAccumulatedNonRevertibleDataFromNoir(
   accumulatedMetaData: PrivateAccumulatedNonRevertibleDataNoir,
 ): PrivateAccumulatedNonRevertibleData {
   return new PrivateAccumulatedNonRevertibleData(
+    mapFieldFromNoir(accumulatedMetaData.max_block_number),
     mapTupleFromNoir(accumulatedMetaData.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(
       accumulatedMetaData.new_nullifiers,
@@ -1084,6 +1087,7 @@ export function mapAccumulatedNonRevertibleDataToNoir(
   accumulatedMetaData: PrivateAccumulatedNonRevertibleData,
 ): PrivateAccumulatedNonRevertibleDataNoir {
   return {
+    max_block_number: mapFieldToNoir(accumulatedMetaData.maxBlockNumber),
     new_note_hashes: mapTuple(accumulatedMetaData.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(accumulatedMetaData.newNullifiers, mapSideEffectLinkedToNoir),
     public_call_stack: mapTuple(accumulatedMetaData.publicCallStack, mapCallRequestToNoir),
@@ -1116,6 +1120,7 @@ export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
+    max_block_number: mapFieldToNoir(combinedAccumulatedData.maxBlockNumber),
     note_hash_read_requests: mapTuple(combinedAccumulatedData.noteHashReadRequests, mapSideEffectToNoir),
     nullifier_read_requests: mapTuple(combinedAccumulatedData.nullifierReadRequests, mapReadRequestContextToNoir),
     nullifier_key_validation_requests: mapTuple(
@@ -1231,6 +1236,7 @@ export function mapPublicAccumulatedNonRevertibleDataToNoir(
   data: PublicAccumulatedNonRevertibleData,
 ): PublicAccumulatedNonRevertibleDataNoir {
   return {
+    max_block_number: mapFieldToNoir(data.maxBlockNumber),
     new_note_hashes: mapTuple(data.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(data.newNullifiers, mapSideEffectLinkedToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
@@ -1417,6 +1423,7 @@ export function mapPublicAccumulatedNonRevertibleDataFromNoir(
   data: PublicAccumulatedNonRevertibleDataNoir,
 ): PublicAccumulatedNonRevertibleData {
   return new PublicAccumulatedNonRevertibleData(
+    mapFieldFromNoir(data.max_block_number),
     mapTupleFromNoir(data.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(data.new_nullifiers, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(

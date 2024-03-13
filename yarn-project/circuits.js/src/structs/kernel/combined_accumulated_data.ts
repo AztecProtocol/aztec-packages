@@ -160,6 +160,10 @@ export class PublicDataUpdateRequest {
 export class CombinedAccumulatedData {
   constructor(
     /**
+     * The maximum block number in which this transaction can be included and be valid.
+     */
+    public maxBlockNumber: Fr,
+    /**
      * All the read requests made in this transaction.
      */
     public noteHashReadRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
@@ -228,6 +232,7 @@ export class CombinedAccumulatedData {
 
   toBuffer() {
     return serializeToBuffer(
+      this.maxBlockNumber,
       this.noteHashReadRequests,
       this.nullifierReadRequests,
       this.nullifierKeyValidationRequests,
@@ -258,6 +263,7 @@ export class CombinedAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
+      Fr.fromBuffer(reader),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext),
@@ -287,6 +293,7 @@ export class CombinedAccumulatedData {
 
   static empty() {
     return new CombinedAccumulatedData(
+      Fr.zero(),
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
       makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
@@ -360,6 +367,7 @@ export class CombinedAccumulatedData {
     );
 
     return new CombinedAccumulatedData(
+      nonRevertible.maxBlockNumber,
       revertible.noteHashReadRequests,
       revertible.nullifierReadRequests,
       revertible.nullifierKeyValidationRequests,
@@ -710,7 +718,7 @@ export class PrivateAccumulatedNonRevertibleData {
 
   static empty() {
     return new PrivateAccumulatedNonRevertibleData(
-      new Fr(0),
+      Fr.ZERO,
       makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
       makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
@@ -720,6 +728,10 @@ export class PrivateAccumulatedNonRevertibleData {
 
 export class PublicAccumulatedNonRevertibleData {
   constructor(
+    /**
+     * The maximum block number in which this transaction can be included and be valid.
+     */
+    public maxBlockNumber: Fr,
     /**
      * The new non-revertible commitments made in this transaction.
      */
@@ -752,6 +764,7 @@ export class PublicAccumulatedNonRevertibleData {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(
+      Fr.fromBuffer(reader),
       reader.readArray(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect),
       reader.readArray(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
@@ -770,6 +783,7 @@ export class PublicAccumulatedNonRevertibleData {
 
   static empty() {
     return new this(
+      Fr.ZERO,
       makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
       makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
@@ -780,6 +794,7 @@ export class PublicAccumulatedNonRevertibleData {
 
   static fromPrivateAccumulatedNonRevertibleData(data: PrivateAccumulatedNonRevertibleData) {
     return new this(
+      data.maxBlockNumber,
       data.newNoteHashes,
       data.newNullifiers,
       data.publicCallStack,

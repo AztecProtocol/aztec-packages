@@ -210,7 +210,7 @@ export class PrivateCircuitPublicInputs {
    */
   public static empty(): PrivateCircuitPublicInputs {
     return new PrivateCircuitPublicInputs(
-      new Fr(0),
+      Fr.ZERO,
       CallContext.empty(),
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
