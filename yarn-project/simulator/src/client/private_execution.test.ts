@@ -210,15 +210,7 @@ describe('Private Execution test suite', () => {
     acirSimulator = new AcirSimulator(oracle, node);
   });
 
-  describe('empty constructor', () => {
-    it('should run the empty constructor', async () => {
-      const artifact = getFunctionArtifact(TestContractArtifact, 'constructor');
-      const result = await runSimulator({ artifact });
-
-      const emptyCommitments = new Array(MAX_NEW_NOTE_HASHES_PER_CALL).fill(Fr.ZERO);
-      expect(sideEffectArrayToValueArray(result.callStackItem.publicInputs.newNoteHashes)).toEqual(emptyCommitments);
-    });
-
+  describe('no constructor', () => {
     it('emits a field as an unencrypted log', async () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'emit_msg_sender');
       const result = await runSimulator({ artifact, msgSender: owner });
