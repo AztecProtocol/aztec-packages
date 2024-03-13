@@ -1,4 +1,5 @@
 # Must include the .gitignore for all child projects as this is used by Earthly
+# Note due to how we use Eartlhy each .gitignore MUST accompany any earthfile that might actually copy these artifacts
 **/dest
 **/node_modules
 **/.cache
