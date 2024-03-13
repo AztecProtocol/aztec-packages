@@ -66,6 +66,7 @@ template <IsUltraFlavor Flavor> class PreSumcheckVerifier {
 
         ASSERT(circuit_size == key->circuit_size);
         ASSERT(public_input_size == key->num_public_inputs);
+        ASSERT(pub_inputs_offset == key->pub_inputs_offset);
 
         std::vector<FF> public_inputs;
         for (size_t i = 0; i < public_input_size; ++i) {

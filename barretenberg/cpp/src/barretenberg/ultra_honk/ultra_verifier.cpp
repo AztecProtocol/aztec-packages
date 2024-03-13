@@ -32,7 +32,6 @@ UltraVerifier_<Flavor>::UltraVerifier_(UltraVerifier_&& other)
 template <typename Flavor> UltraVerifier_<Flavor>& UltraVerifier_<Flavor>::operator=(UltraVerifier_&& other)
 {
     key = other.key;
-    commitments.clear();
     return *this;
 }
 
