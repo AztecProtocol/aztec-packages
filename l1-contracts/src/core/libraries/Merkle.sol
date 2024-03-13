@@ -74,7 +74,7 @@ library Merkle {
       height++;
     }
 
-    /// @notice - We check if 2 ** height does not euqal our original number. If so, this means that our size is not a power of two,
+    /// @notice - We check if 2 ** height does not equal our original number. If so, this means that our size is not a power of two,
     /// and hence we've rounded down (Math.floor) and have obtained the next lowest power of two instead of rounding up (Math.ceil) to obtain the next highest power of two and therefore we need to increment height before returning it.
     /// If 2 ** height equals our original number, it means that we have a perfect power of two and Math.floor(Math.log2(x)) = Math.ceil(Math.log2(x)) and we can return height as-is
     return (2 ** height) != originalNumber ? ++height : height;
