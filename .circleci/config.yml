@@ -105,7 +105,7 @@ jobs:
           command: cond_spot_run_build barretenberg-wasm-linux-clang 128
           aztec_manifest_key: barretenberg-wasm-linux-clang
 
-    barretenberg-x86_64-linux-gcc:
+  barretenberg-x86_64-linux-gcc:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
