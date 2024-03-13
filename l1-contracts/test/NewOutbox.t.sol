@@ -9,7 +9,7 @@ import {Errors} from "../src/core/libraries/Errors.sol";
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
 import {Hash} from "../src/core/libraries/Hash.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
-import {MerkleTest} from "./merkle/Merkle.t.sol";
+import {MerkleLibTest} from "./merkle/MerkleLib.t.sol";
 
 contract NewOutboxTest is Test {
   using Hash for DataStructures.L2ToL1Msg;
@@ -22,12 +22,12 @@ contract NewOutboxTest is Test {
 
   NewOutbox internal outbox;
   NaiveMerkle internal zeroedTree;
-  MerkleTest internal merkleTest;
+  MerkleLibTest internal merkleLibTest;
 
   function setUp() public {
     outbox = new NewOutbox(STATE_TRANSITIONER);
     zeroedTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
-    merkleTest = new MerkleTest();
+    merkleLibTest = new MerkleLibTest();
   }
 
   function _fakeMessage(address _recipient) internal view returns (DataStructures.L2ToL1Msg memory) {
@@ -60,8 +60,12 @@ contract NewOutboxTest is Test {
     outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
   }
 
+  // This function tests the insertion of random arrays of L2 to L1 messages
+  // We make a naive tree with a computed height, insert the leafs into it, and compute a root. We then add the root as the root of the
+  // L2 to L1 message tree, expect for the correct event to be emitted, and then query for the root in the contract—making sure the roots, as well as the 
+  // the tree height (which is also the length of the sibling path) match
   function testInsertVariedLeafs(bytes32[] calldata _messageLeafs) public {
-    uint256 bigTreeHeight = merkleTest.calculateTreeHeightFromSize(_messageLeafs.length);
+    uint256 bigTreeHeight = merkleLibTest.calculateTreeHeightFromSize(_messageLeafs.length);
     NaiveMerkle tree = new NaiveMerkle(bigTreeHeight);
 
     for (uint256 i = 0; i < _messageLeafs.length; i++) {
@@ -217,7 +221,7 @@ contract NewOutboxTest is Test {
     uint256 numberOfMessages = bound(_size, 1, _recipients.length);
     DataStructures.L2ToL1Msg[] memory messages = new DataStructures.L2ToL1Msg[](numberOfMessages);
 
-    uint256 bigTreeHeight = merkleTest.calculateTreeHeightFromSize(numberOfMessages);
+    uint256 bigTreeHeight = merkleLibTest.calculateTreeHeightFromSize(numberOfMessages);
     NaiveMerkle tree = new NaiveMerkle(bigTreeHeight);
 
     for (uint256 i = 0; i < numberOfMessages; i++) {

@@ -7,7 +7,7 @@ import {MerkleLib} from "../../../src/core/libraries/MerkleLib.sol";
 // A wrapper used to be able to "call" library functions, instead of "jumping" to them, allowing forge to catch the reverts
 contract MerkleLibHelper {
   function verifyMembership(
-    bytes32[] memory _path,
+    bytes32[] calldata _path,
     bytes32 _leaf,
     uint256 _index,
     bytes32 _expectedRoot

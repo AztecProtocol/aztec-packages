@@ -26,7 +26,7 @@ library MerkleLib {
    * And the elements would be ordered as: [ d3_index_2, d2_index_0, d1_index_1 ].
    */
   function verifyMembership(
-    bytes32[] memory _path,
+    bytes32[] calldata _path,
     bytes32 _leaf,
     uint256 _index,
     bytes32 _expectedRoot
