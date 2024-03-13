@@ -6,15 +6,15 @@ import {Test} from "forge-std/Test.sol";
 
 import {NaiveMerkle} from "./Naive.sol";
 
-contract MerkleTest is Test {
+contract NaiveTest is Test {
   function setUp() public {}
 
   function testComputeSiblingPathManuallyLeftChild() public {
     /// Creates a merkle tree with depth 3 and size 8, with leafs from 1 - 8
-    NaiveMerkle manualTree = new NaiveMerkle(3);
+    NaiveMerkle tree = new NaiveMerkle(3);
     for (uint256 i = 1; i <= 8; i++) {
       bytes32 generatedLeaf = bytes32(abi.encode(i));
-      manualTree.insertLeaf(generatedLeaf);
+      tree.insertLeaf(generatedLeaf);
     }
 
     /**
@@ -38,7 +38,7 @@ contract MerkleTest is Test {
     ];
 
     /// We then compute the sibling path using the tree and expect that our manual calculation should equal the computed one
-    (bytes32[] memory path, bytes32 leaf) = manualTree.computeSiblingPath(0);
+    (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(0);
     assertEq(leaf, bytes32(abi.encode(1)));
     assertEq(path[0], expectedPath[0]);
     assertEq(path[1], expectedPath[1]);
@@ -47,10 +47,10 @@ contract MerkleTest is Test {
 
   function testComputeSiblingPathManuallyRightChild() public {
     /// Creates a merkle tree with depth 3 and size 8, with leafs from 1 - 8
-    NaiveMerkle manualTree = new NaiveMerkle(3);
+    NaiveMerkle tree = new NaiveMerkle(3);
     for (uint256 i = 1; i <= 8; i++) {
       bytes32 generatedLeaf = bytes32(abi.encode(i));
-      manualTree.insertLeaf(generatedLeaf);
+      tree.insertLeaf(generatedLeaf);
     }
 
     /**
@@ -74,7 +74,7 @@ contract MerkleTest is Test {
     ];
 
     /// We then compute the sibling path using the tree and expect that our manual calculation should equal the computed one
-    (bytes32[] memory path, bytes32 leaf) = manualTree.computeSiblingPath(7);
+    (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(7);
     assertEq(leaf, bytes32(abi.encode(8)));
     assertEq(path[0], expectedPath[0]);
     assertEq(path[1], expectedPath[1]);
