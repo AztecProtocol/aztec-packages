@@ -12,8 +12,8 @@ using namespace smt_circuit_schema;
  * @param circuit Schema of the whole subcircuit
  * @param start_gate Start of the needed subcircuit
  * @param num_gates The number of gates in the needed subcircuit
- * @param idxs Indicies of the needed variables to calculate offset
- * @param gate_idxs Indicies of the gates that use needed variables
+ * @param idxs Indices of the needed variables to calculate offset
+ * @param gate_idxs Indices of the gates that use needed variables
  */
 struct CircuitProps {
     CircuitSchema circuit;
