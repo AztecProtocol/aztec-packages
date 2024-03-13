@@ -6,7 +6,7 @@ FROM node:20 AS builder
 COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
 COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
 
-ENV NARGO_BACKEND_PATH=bb.js
+ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/ts/bb.js-dev
 
 WORKDIR /usr/src/barretenberg/ts
 RUN yarn --immutable
