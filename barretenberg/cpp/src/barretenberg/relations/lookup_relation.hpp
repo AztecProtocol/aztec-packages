@@ -13,7 +13,7 @@ namespace bb {
  *
  * The method `compute_numerator_term` computes polynomials f, t and incorporate them into terms that are ultimately
  * needed to construct the grand product polynomial Z_lookup(X): Note 1: In the above, 't' is associated with table
- * values (and is not to be confused with the quotient polynomial, also refered to as 't' elsewhere). Polynomial 's' is
+ * values (and is not to be confused with the quotient polynomial, also referred to as 't' elsewhere). Polynomial 's' is
  * the sorted  concatenation of the witnesses and the table values.
  *
  * @tparam FF parametrises the prime field class being used

@@ -135,7 +135,7 @@ template <typename OuterFlavor> class GoblinRecursiveVerifierTest : public testi
 
     /**
      * @brief Instantiate a recursive verification key from the native verification key produced by the inner cicuit
-     * builder. Check consistency beteen the native and stdlib types.
+     * builder. Check consistency between the native and stdlib types.
      *
      */
     static void test_recursive_verification_key_creation()

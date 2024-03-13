@@ -116,7 +116,7 @@ void parallel_for_queued(size_t num_iterations, const std::function<void(size_t)
     // info("wait for pool enter");
     pool.wait();
     for (size_t i = 0; i < num_iterations; ++i) {
-        // info("enqueing iteration ", i);
+        // info("enqueuing iteration ", i);
         pool.enqueue([=]() { func(i); });
     }
     // info("wait for pool exit");

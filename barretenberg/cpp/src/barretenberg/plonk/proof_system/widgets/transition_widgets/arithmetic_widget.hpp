@@ -8,7 +8,7 @@ namespace widget {
 /**
  * @brief Core class implementing the arithmetic gate in Standard plonk
  *
- * @details ArithmethicKernel provides the logic that implements the standard arithmetic transition
+ * @details ArithmeticKernel provides the logic that implements the standard arithmetic transition
  * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_c=0
  *
  * Uses only the alpha challenge
@@ -88,7 +88,7 @@ template <class Field, class Getters, typename PolyContainer> class ArithmeticKe
 /**
  * @brief Standard plonk arithmetic widget for the prover. Provides standard plonk gate transition
  *
- * @details ArithmethicKernel provides the logic that implements the standard arithmetic transition
+ * @details ArithmeticKernel provides the logic that implements the standard arithmetic transition
  * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_c=0
  * @tparam Settings
  */
@@ -98,7 +98,7 @@ using ProverArithmeticWidget = widget::TransitionWidget<bb::fr, Settings, widget
 /**
  * @brief Standard plonk arithmetic widget for the verifier. Provides standard plonk gate transition
  *
- * @details ArithmethicKernel provides the logic that implements the standard arithmetic transition
+ * @details ArithmeticKernel provides the logic that implements the standard arithmetic transition
  * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_c=0
  * @tparam Settings
  */

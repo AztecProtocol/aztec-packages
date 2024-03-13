@@ -117,7 +117,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
             return to_add;
         };
 
-        // Perform multiple rounds of the montgomery ladder algoritm per "iteration" of our main loop.
+        // Perform multiple rounds of the montgomery ladder algorithm per "iteration" of our main loop.
         // This is in order to reduce the number of field reductions required when calling `multiple_montgomery_ladder`
         constexpr size_t num_rounds_per_iteration = 4;
 

@@ -20,7 +20,7 @@ An **Aztec smart contract** is a smart contract with **private** state variables
 
 **Aztec.nr** is a framework for writing Aztec smart contracts, written in Noir.
 
-Futher Nomenclature can be found [here](https://github.com/AztecProtocol/dev-rel/blob/main/NOMENCLATURE.md).
+Further Nomenclature can be found [here](https://github.com/AztecProtocol/dev-rel/blob/main/NOMENCLATURE.md).
 
 # Getting started
 

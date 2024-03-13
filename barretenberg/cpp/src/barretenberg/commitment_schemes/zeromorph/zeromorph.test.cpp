@@ -15,7 +15,7 @@ template <class Curve> class ZeroMorphTest : public CommitmentTest<Curve> {
     using ZeroMorphProver = ZeroMorphProver_<Curve>;
     using ZeroMorphVerifier = ZeroMorphVerifier_<Curve>;
 
-    // Evaluate Phi_k(x) = \sum_{i=0}^k x^i using the direct inefficent formula
+    // Evaluate Phi_k(x) = \sum_{i=0}^k x^i using the direct inefficient formula
     Fr Phi(Fr challenge, size_t subscript)
     {
         size_t length = 1 << subscript;
@@ -114,7 +114,7 @@ template <class Curve> class ZeroMorphWithConcatenationTest : public CommitmentT
     using ZeroMorphProver = ZeroMorphProver_<Curve>;
     using ZeroMorphVerifier = ZeroMorphVerifier_<Curve>;
 
-    // Evaluate Phi_k(x) = \sum_{i=0}^k x^i using the direct inefficent formula
+    // Evaluate Phi_k(x) = \sum_{i=0}^k x^i using the direct inefficient formula
     Fr Phi(Fr challenge, size_t subscript)
     {
         size_t length = 1 << subscript;
@@ -387,7 +387,7 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZeta)
 
     auto x_challenge = Fr::random_element();
 
-    // Contruct zeta_x using the prover method
+    // Construct zeta_x using the prover method
     auto zeta_x = ZeroMorphProver::compute_partially_evaluated_degree_check_polynomial(
         batched_quotient, quotients, y_challenge, x_challenge);
 

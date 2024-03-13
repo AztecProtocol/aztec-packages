@@ -22,7 +22,7 @@ In another terminal, run:
 aztec start --pxe nodeUrl=http://aztec-aztec-1:8079
 ```
 
-This command uses the default ports, so they might need to be changed depending on yuor configuration.
+This command uses the default ports, so they might need to be changed depending on your configuration.
 
 You can learn more about custom commands in the [sandbox reference](../references/sandbox-reference.md).
 

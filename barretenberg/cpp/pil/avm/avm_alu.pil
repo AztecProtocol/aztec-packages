@@ -111,8 +111,8 @@ namespace avm_alu(256);
     //       parts of the bit decomposition.
 
     // ============= Helper polynomial terms ============================
-    // These are intermediate polynomial terms which are not commited but
-    // serves to an algebraic expression of commited polynomials in a more concise way.
+    // These are intermediate polynomial terms which are not committed but
+    // serves to an algebraic expression of committed polynomials in a more concise way.
 
     // Bit slices partial sums
     pol SUM_8   = alu_u8_r0;
@@ -128,7 +128,7 @@ namespace avm_alu(256);
     // For the addition we have to replace OP'(a,b) in the above relation by a+b and
     // for subtraction by a-b. Using operation selector values to toggle "+b" vs. "-b"
     // makes the deal with the adaptation that the carry term needs to be subtracted
-    // instead of being added. To sumarize, for the first relation, addition needs to
+    // instead of being added. To summarize, for the first relation, addition needs to
     // satisfy:
     // sum_128 + carry * 2^128 - a - b = 0
     // while the subtraction satisfies:

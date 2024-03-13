@@ -1222,14 +1222,14 @@ TYPED_TEST(PolynomialTests, move_construct_and_assign)
     // construct a new poly from the original via the move constructor
     Polynomial<FF> polynomial_b(std::move(polynomial_a));
 
-    // verifiy that source poly is appropriately destroyed
+    // verify that source poly is appropriately destroyed
     EXPECT_EQ(polynomial_a.begin(), nullptr);
     EXPECT_EQ(polynomial_a.size(), 0);
 
     // construct another poly; this will also use the move constructor!
     auto polynomial_c = std::move(polynomial_b);
 
-    // verifiy that source poly is appropriately destroyed
+    // verify that source poly is appropriately destroyed
     EXPECT_EQ(polynomial_b.begin(), nullptr);
     EXPECT_EQ(polynomial_b.size(), 0);
 
@@ -1242,7 +1242,7 @@ TYPED_TEST(PolynomialTests, move_construct_and_assign)
     // reset its data using move assignment
     polynomial_d = std::move(polynomial_c);
 
-    // verifiy that source poly is appropriately destroyed
+    // verify that source poly is appropriately destroyed
     EXPECT_EQ(polynomial_c.begin(), nullptr);
     EXPECT_EQ(polynomial_c.size(), 0);
 }

@@ -60,7 +60,7 @@ contract AvmTest {
 
     // Field should fit in 128 bits
     // ACIR only supports fields of up to 126 bits!
-    // Same with internal fields for unconstrained functions, apprently.
+    // Same with internal fields for unconstrained functions, apparently.
     #[aztec(public-vm)]
     fn setOpcodeSmallField() -> pub Field {
         200 as Field

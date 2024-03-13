@@ -43,7 +43,7 @@ template <> class VerifierCrs<curve::BN254> {
     virtual bb::pairing::miller_lines const* get_precomputed_g2_lines() const = 0;
     /**
      *  @brief Returns the first G_1 element from the CRS, used by the Shplonk verifier to compute the final
-     * commtiment.
+     * commitments.
      */
     virtual Curve::AffineElement get_first_g1() const = 0;
 };
@@ -60,7 +60,7 @@ template <> class VerifierCrs<curve::Grumpkin> {
     virtual size_t get_monomial_size() const = 0;
     /**
      * @brief Returns the first G_1 element from the CRS, used by the Shplonk verifier to compute the final
-     * commtiment.
+     * commitments.
      */
     virtual Curve::AffineElement get_first_g1() const = 0;
 };

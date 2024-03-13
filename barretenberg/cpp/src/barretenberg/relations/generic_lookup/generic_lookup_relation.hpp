@@ -6,7 +6,7 @@
  *
  * @details Lookup is a mechanism to ensure that a particular value or tuple of values (these can be values of
  * witnesses, selectors or a function of these) is contained within a particular set. It is a relative of set
- * permutation, but has a one-to-many relationship beween elements that are being looked up and the table of values they
+ * permutation, but has a one-to-many relationship between elements that are being looked up and the table of values they
  * are being looked up from. In this relation template we use the following terminology:
  * + READ - the action of looking up the value in the table
  * + WRITE - the action of adding the value to the lookup table

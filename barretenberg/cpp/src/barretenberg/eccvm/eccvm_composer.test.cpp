@@ -87,7 +87,7 @@ TYPED_TEST(ECCVMComposerTests, EqFails)
     using G1 = typename Flavor::CycleGroup;
     using ECCVMOperation = eccvm::VMOperation<G1>;
     auto builder = generate_circuit<Flavor>(&engine);
-    // Tamper with the eq op such that the expected value is incorect
+    // Tamper with the eq op such that the expected value is incorrect
     builder.op_queue->raw_ops.emplace_back(ECCVMOperation{ .add = false,
                                                            .mul = false,
                                                            .eq = true,

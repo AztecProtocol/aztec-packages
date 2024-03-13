@@ -16,7 +16,7 @@ using namespace bb::crypto::merkle_tree;
 using namespace bb::crypto;
 
 /**
- * Check that the input note data, follows the given hash paths, to the publically given merkle root.
+ * Check that the input note data, follows the given hash paths, to the publicly given merkle root.
  * The note does not need to exist in the tree if it's not real, or if it's consumed (i.e. propagated = input).
  * Return the nullifier for the input note. If the input note is consumed, the nullifier becomes 0.
  */

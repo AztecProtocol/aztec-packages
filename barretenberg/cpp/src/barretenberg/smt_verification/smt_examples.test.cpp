@@ -123,7 +123,7 @@ TEST(circuit_verification, multiplication_false)
     info("c_res = ", vals["cr"]);
 }
 
-TEST(circuit_verifiaction, unique_witness)
+TEST(circuit_verification, unique_witness)
 // two roots of a quadratic eq x^2 + a * x + b = s
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();

@@ -14,7 +14,7 @@ You can learn how to create wallets from [this guide](./create_account.md).
 
 You can learn how to deploy a contract [here](./deploy_contract.md).
 
-## Relevent imports
+## Relevant imports
 
 You will need to import this from Aztec.js:
 

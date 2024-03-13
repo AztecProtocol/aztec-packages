@@ -58,10 +58,10 @@ template <typename Flavor> class ECCVMMSMMBuilder {
                                                    const uint32_t total_number_of_muls)
     {
         // N.B. the following comments refer to a "point lookup table" frequently.
-        // To perform a scalar multiplicaiton of a point [P] by a scalar x, we compute multiples of [P] and store in a
+        // To perform a scalar multiplication of a point [P] by a scalar x, we compute multiples of [P] and store in a
         // table: specifically: -15[P], -13[P], ..., -3[P], -[P], [P], 3[P], ..., 15[P] when we define our point lookup
         // table, we have 2 write columns and 4 read columns when we perform a read on a given row, we need to increment
-        // the read count on the respective write column by 1 we can define the following struture: 1st write column =
+        // the read count on the respective write column by 1 we can define the following structure: 1st write column =
         // positive 2nd write column = negative the row number is a function of pc and slice value row = pc_delta *
         // rows_per_point_table + some function of the slice value pc_delta = total_number_of_muls - pc
         // std::vector<std::array<size_t, > point_table_read_counts;
@@ -147,7 +147,7 @@ template <typename Flavor> class ECCVMMSMMBuilder {
                                               : AffineElement{ 0, 0 };
                         // predicate logic:
                         // add_predicate should normally equal add_state.add
-                        // However! if j == 0 AND k == 0 AND m == 0 this implies we are examing the 1st point addition
+                        // However! if j == 0 AND k == 0 AND m == 0 this implies we are examining the 1st point addition
                         // of a new MSM In this case, we do NOT add the 1st point into the accumulator, instead we SET
                         // the accumulator to equal the 1st point. add_predicate is used to determine whether we add the
                         // output of a point addition into the accumulator, therefore if j == 0 AND k == 0 AND m == 0,

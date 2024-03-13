@@ -93,7 +93,7 @@ contract Test {
         let opt_notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = get_notes(&mut context, storage_slot, options);
 
         // We can't get the return value of a private function from the outside world in an end to end test, so we
-        // expose it via an unecrypted log instead.
+        // expose it via an unencrypted log instead.
         let value = opt_notes[0].unwrap().value;
         emit_unencrypted_log_from_private(&mut context, value);
     }
@@ -112,7 +112,7 @@ contract Test {
         let opt_notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = get_notes(&mut context, storage_slot, options);
 
         // We can't get the return value of a private function from the outside world in an end to end test, so we
-        // expose it via an unecrypted log instead.
+        // expose it via an unencrypted log instead.
         emit_unencrypted_log_from_private(&mut context, opt_notes[0].unwrap().value);
         emit_unencrypted_log_from_private(&mut context, opt_notes[1].unwrap().value);
     }

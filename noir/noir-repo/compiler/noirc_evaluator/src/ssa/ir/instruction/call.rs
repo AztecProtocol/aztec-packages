@@ -88,7 +88,7 @@ pub(super) fn simplify_call(
             let slice = dfg.get_array_constant(arguments[1]);
             if let Some((mut slice, element_type)) = slice {
                 // TODO(#2752): We need to handle the element_type size to appropriately handle slices of complex types.
-                // This is reliant on dynamic indices of non-homogenous slices also being implemented.
+                // This is reliant on dynamic indices of non-homogeneous slices also being implemented.
                 if element_type.element_size() != 1 {
                     // Old code before implementing multiple slice mergers
                     for elem in &arguments[2..] {

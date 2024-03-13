@@ -26,7 +26,7 @@ void ensure_non_zero(auto& polynomial)
 }
 
 /**
- * @brief Check that a given relation is satified for a set of polynomials
+ * @brief Check that a given relation is satisfied for a set of polynomials
  *
  * @tparam relation_idx Index into a tuple of provided relations
  * @tparam Flavor

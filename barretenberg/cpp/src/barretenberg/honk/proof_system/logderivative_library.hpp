@@ -63,7 +63,7 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
  * inverse polynomial I, defined via I_i =  1/[(read_term_i) * (write_term_i)], has been computed correctly. The second
  * establishes the correctness of the lookups themselves based on the log-derivative lookup argument. Note that the
  * latter subrelation is "linearly dependent" in the sense that it establishes that a sum across all rows of the
- * exectution trace is zero, rather than that some expression holds independently at each row. Accordingly, this
+ * execution trace is zero, rather than that some expression holds independently at each row. Accordingly, this
  * subrelation is not multiplied by a scaling factor at each accumulation step. The subrelation expressions are
  * respectively:
  *

@@ -42,7 +42,7 @@ As it is currently implemented, each round will iterate over the points to be ad
 
 This makes it difficult to parallelize. It is not possible to simply assign threads a section of points to iterate over, because of race conditions when two threads access the same bucket.
 
-Splitting threads over the number of pippenger rounds is possible, but there is no gaurantee that the number of rounds will nicely divide the number of threads.
+Splitting threads over the number of pippenger rounds is possible, but there is no guarantee that the number of rounds will nicely divide the number of threads.
 
 Our currently implementation will simply split up one multiple-scalar multipliation into smaller multiple-scalar multiplications (one per thread). While this works, it means each thread works over a larger number of rounds (as the run time is O(n / logn) and we've just shrunk n by the number of threads). It is also completely impractical for massively parallelizable architectures like GPUs.
 

@@ -105,8 +105,8 @@ pub(crate) struct AcirDynamicArray {
     /// of every value to be known, thus we store the types as part of the dynamic
     /// array definition.
     ///
-    /// A dynamic non-homogenous array can potentially have values of differing types.
-    /// Thus, we store a vector of types rather than a single type, as a dynamic non-homogenous array
+    /// A dynamic non-homogeneous array can potentially have values of differing types.
+    /// Thus, we store a vector of types rather than a single type, as a dynamic non-homogeneous array
     /// is still represented in ACIR by a single `AcirDynamicArray` structure.
     ///
     /// The length of the value types vector must match the `len` field in this structure.
@@ -398,7 +398,7 @@ impl Context {
     /// used during ACIR generation.
     /// This is useful for referencing information that can
     /// only be computed dynamically, such as the type structure
-    /// of non-homogenous arrays.
+    /// of non-homogeneous arrays.
     fn internal_block_id(&mut self, value: &ValueId) -> BlockId {
         if let Some(block_id) = self.internal_memory_blocks.get(value) {
             return *block_id;

@@ -6,7 +6,7 @@ set -eu
 
 # The terraform project directory.
 PROJECT_DIR=$1
-# Extract project name fromm the directory, e.g. yarn-project/aztec-node -> aztec-node
+# Extract project name from the directory, e.g. yarn-project/aztec-node -> aztec-node
 PROJECT_NAME=$(basename $PROJECT_DIR)
 
 # The repository to check for changes. Defaults to the project name

@@ -324,7 +324,7 @@ uint<Builder, Native> uint<Builder, Native>::ror(const size_t target_rotation) c
          * Illustration in terms of quads:
          *       A  = [a_{w-1}  ... a_{x}  a_{x-1} ... a_{0}]
          *   ~~> A' = [a_{x-1}  ... a_{0}  a_{w-1} ... a_{x}]
-         * We get the higest x quads of A' from the lowest x quads of 4**{w-x} A, and use an appropriate
+         * We get the highest x quads of A' from the lowest x quads of 4**{w-x} A, and use an appropriate
          * accumulator to add in the lowest w-x quads to A' and to remove the highest w-x quads from
          * 4**{w-x} A. Since the accumulator A_i encodes the highest i+1 bits of A, we arrive at the formula
          *   A' = 4**{w-x} A + (1 - 4**w) A_{w-x}

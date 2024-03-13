@@ -92,7 +92,7 @@ template <typename Flavor> class ECCVMTranscriptBuilder {
             bool last_row = i == (vm_operations.size() - 1);
             // msm transition = current row is doing a lookup to validate output = msm output
             // i.e. next row is not part of MSM and current row is part of MSM
-            //   or next row is irrelevent and current row is a straight MUL
+            //   or next row is irrelevant and current row is a straight MUL
             bool next_not_msm = last_row ? true : !vm_operations[i + 1].mul;
 
             bool msm_transition = entry.mul && next_not_msm;

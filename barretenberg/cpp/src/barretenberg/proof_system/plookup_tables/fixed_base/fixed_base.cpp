@@ -71,7 +71,7 @@ template <size_t num_bits> table::fixed_base_scalar_mul_tables table::generate_t
 
 /**
  * @brief For a fixed-base lookup of size `num_table_bits` and an input base point `input`,
- *        return the total contrbution in the scalar multiplication output from the offset generators in the lookup
+ *        return the total contribution in the scalar multiplication output from the offset generators in the lookup
  * tables.
  *
  * @note We need the base point as an input parameter because we derive the offset generator using our hash-to-curve

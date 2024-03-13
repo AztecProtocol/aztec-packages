@@ -96,7 +96,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
             ASSERT_EQ(prover_output.opening_pairs[i], verifier_claim[i].opening_pair);
         }
 
-        // Explicitly verify the claims computed by the verfier
+        // Explicitly verify the claims computed by the verifier
         this->verify_batch_opening_claim(verifier_claim, prover_output.witnesses);
     }
 };

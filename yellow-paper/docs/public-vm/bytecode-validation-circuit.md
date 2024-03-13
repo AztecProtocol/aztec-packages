@@ -18,7 +18,7 @@ In the AVM circuit architecture, multiple columns are used to define a VM operat
 2. three parameter columns that define either literal values or memory indexes
 3. three "flag" columns that define metadata associated with each parameter (e.g. whether the parameter a should be interpreted as a literal value or a memory index, or an indirect memory index)
 
-To both minimize the amount of information used to _define_ a given AVM program, the AVM posesses an additional column that describes the _packed_ opcode. i.e. the integer concatenation of all 6 of the above column values. We define this column via the vector of field elements $\mathbf{op} \in \mathbb{F}^n$ (where $n$ is the number of opcodes in the program). $\mathbf{op}$ is defined as the _column representation_ of an AVM program.
+To both minimize the amount of information used to _define_ a given AVM program, the AVM possesses an additional column that describes the _packed_ opcode. i.e. the integer concatenation of all 6 of the above column values. We define this column via the vector of field elements $\mathbf{op} \in \mathbb{F}^n$ (where $n$ is the number of opcodes in the program). $\mathbf{op}$ is defined as the _column representation_ of an AVM program.
 
 ## Packed bytecode representation
 

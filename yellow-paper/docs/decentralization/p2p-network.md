@@ -91,7 +91,7 @@ Topics are part of the DiscV5 specification, though the spec is as yet unfinishe
 ##### DiscV5 on Aztec
 
 :::danger
-The intention here is to use Ethereum's DiscV5 discovery network. This has not bees prototyped and is as yet untested. The alternative would be for Aztec nodes to form their own DiscV5 network, which would still work but wouldn't inherit the security proprties of Ethereum's. We need to more work to understand this.
+The intention here is to use Ethereum's DiscV5 discovery network. This has not bees prototyped and is as yet untested. The alternative would be for Aztec nodes to form their own DiscV5 network, which would still work but wouldn't inherit the security properties of Ethereum's. We need to more work to understand this.
 :::
 
 Using Ethereum's DiscV5 network will have significant benefits for Aztec. Network security and resistance to censorship, sybil and eclipse attacks grows as the network gets larger. In the early days of the network, node discovery may be slow as the number of Aztec nodes will be small as a proportion of the network. This can be better understood with the deployment of testnets. Over time, as the network grows and we hopefully see the introduction of topics this node discovery process will improve.
@@ -120,7 +120,7 @@ LibP2P clients specify 1 or more types of transport for communicating with other
 
 Clients must accept connections on either IPV4, IPV6 or both. They must be able to dial both IPv4 and IPV6 addresses.
 
-Clients behind a NAT must be publically dialable and they must provide their publically dialable endpoint in their ENR. They must have their infrastructure configured to route traffic received at the dialable endpoint to the local listener.
+Clients behind a NAT must be publicly dialable and they must provide their publicly dialable endpoint in their ENR. They must have their infrastructure configured to route traffic received at the dialable endpoint to the local listener.
 
 #### Multiplexing
 
@@ -193,7 +193,7 @@ Messages may then be compressed using [Snappy](https://github.com/google/snappy)
 
 #### Synchronising With The Transaction Pool
 
-GossipSub does not include a mechanism for synchronising the global set of messages at a given time. It is designed as a system to gossip transient data and messages are removed from caches after only a few seconds. We won't provide an additonal protocol to perform an immediate synchronisation of the transaction pool via the P2P network. Whilst this might be desirable, we have the following rationale for not facilitating this.
+GossipSub does not include a mechanism for synchronising the global set of messages at a given time. It is designed as a system to gossip transient data and messages are removed from caches after only a few seconds. We won't provide an additional protocol to perform an immediate synchronisation of the transaction pool via the P2P network. Whilst this might be desirable, we have the following rationale for not facilitating this.
 
 1. Aztec transactions are large, approximately 40Kb. Downloading the entire pool would require transferring in the order of 100s of MB of data. At best this is undesirable and at worst it represents a DoS vector.
 

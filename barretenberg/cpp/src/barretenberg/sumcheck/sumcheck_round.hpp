@@ -135,7 +135,7 @@ template <typename Flavor> class SumcheckProverRound {
         std::vector<ExtendedEdges> extended_edges;
         extended_edges.resize(num_threads);
 
-        // Accumulate the contribution from each sub-relation accross each edge of the hyper-cube
+        // Accumulate the contribution from each sub-relation across each edge of the hyper-cube
         parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;

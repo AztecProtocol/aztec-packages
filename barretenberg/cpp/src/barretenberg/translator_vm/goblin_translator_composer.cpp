@@ -1,6 +1,6 @@
 /**
  * @file goblin_translator_composer.cpp
- * @brief Contains the logic for transfroming a Goblin Translator Circuit Builder object into a witness and methods to
+ * @brief Contains the logic for transforming a Goblin Translator Circuit Builder object into a witness and methods to
  * create prover and verifier objects
  * @date 2023-10-05
  */
@@ -40,7 +40,7 @@ void GoblinTranslatorComposer::compute_circuit_size_parameters(CircuitBuilder& c
  * @brief Construct the witness polynomials from the witness vectors in the circuit constructor.
  *
  * @details In goblin translator wires come as is, since they have to reflect the structure of polynomials in the first
- * 4 wires, which we've commited to
+ * 4 wires, which we've committed to
  *
  * @tparam Flavor provides the circuit constructor type and the number of wires.
  * @param circuit_builder
@@ -168,10 +168,10 @@ void GoblinTranslatorComposer::compute_witness(CircuitBuilder& circuit_builder)
     proving_key->relation_wide_limbs_range_constraint_3 = wire_polynomials[80];
 
     // We construct concatenated versions of range constraint polynomials, where several polynomials are concatenated
-    // into one. These polynomials are not commited to.
+    // into one. These polynomials are not committed to.
     bb::compute_concatenated_polynomials<Flavor>(proving_key.get());
 
-    // We also contruct ordered polynomials, which have the same values as concatenated ones + enough values to bridge
+    // We also construct ordered polynomials, which have the same values as concatenated ones + enough values to bridge
     // the range from 0 to maximum range defined by the range constraint.
     bb::compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(proving_key.get(),
                                                                                mini_circuit_dyadic_size);

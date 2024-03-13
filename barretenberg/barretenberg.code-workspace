@@ -53,7 +53,7 @@
             "ms-vscode.cpptools-extension-pack",
             // Used to enable GDB debugging
             // Most features are disabled in `settings.json`
-            // which confict with `clangd`
+            // which conflict with `clangd`
             // Since we ignore GDB, we no longer need this extension
             "ms-vscode.cpptools"
         ]

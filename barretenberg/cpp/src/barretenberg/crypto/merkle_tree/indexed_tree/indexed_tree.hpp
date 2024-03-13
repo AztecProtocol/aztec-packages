@@ -192,7 +192,7 @@ template <typename Store, typename LeavesStore, typename HashingPolicy>
 std::vector<fr_hash_path> IndexedTree<Store, LeavesStore, HashingPolicy>::add_or_update_values(
     const std::vector<fr>& values, bool no_multithreading)
 {
-    // The first thing we do is sort the values into descending order but maintain knowledge of their orignal order
+    // The first thing we do is sort the values into descending order but maintain knowledge of their original order
     struct {
         bool operator()(const std::pair<fr, size_t>& a, const std::pair<fr, size_t>& b) const
         {

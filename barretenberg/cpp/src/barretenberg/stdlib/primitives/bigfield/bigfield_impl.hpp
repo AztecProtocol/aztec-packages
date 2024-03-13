@@ -91,7 +91,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     // false)
     uint64_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
 
-    // if maximum_bitlength is set, this supercedes can_overflow
+    // if maximum_bitlength is set, this supersedes can_overflow
     if (maximum_bitlength > 0) {
         ASSERT(maximum_bitlength > 3 * NUM_LIMB_BITS);
         num_last_limb_bits = maximum_bitlength - (3 * NUM_LIMB_BITS);
@@ -214,7 +214,7 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
         result.binary_basis_limbs[3] =
             Limb(limb_3, can_overflow ? DEFAULT_MAXIMUM_LIMB : DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB);
 
-        // if maximum_bitlength is set, this supercedes can_overflow
+        // if maximum_bitlength is set, this supersedes can_overflow
         if (maximum_bitlength > 0) {
             ASSERT(maximum_bitlength > 3 * NUM_LIMB_BITS);
             num_last_limb_bits = maximum_bitlength - (3 * NUM_LIMB_BITS);
@@ -961,7 +961,7 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
  * @param to_mul Bigfield element to multiply by
  * @param to_add Vector of elements to add
  *
- * @return New bigfield elment c
+ * @return New bigfield element c
  **/
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::madd(const bigfield& to_mul, const std::vector<bigfield>& to_add) const
@@ -1357,7 +1357,7 @@ bigfield<Builder, T> bigfield<Builder, T>::dual_madd(const bigfield& left_a,
  * i.e. we evaluate:
  * result * divisor + (\sum{mul_left[i] * mul_right[i]) + ...to_add) = 0
  *
- * It is critical that ALL the terms on the LHS are positive to eliminate the possiblity of underflows
+ * It is critical that ALL the terms on the LHS are positive to eliminate the possibility of underflows
  * when calling `evaluate_multiple_multiply_add`
  *
  * only requires one quotient and remainder + overflow limbs
@@ -2098,7 +2098,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
 
         // We wish to show that left*right - quotient*remainder = 0 mod 2^t, we do this by collecting the limb products
         // into two separate variables - carry_lo and carry_hi, which are still small enough not to wrap mod r
-        // Their first t/2 bits will equal, respectively, the first and second t/2 bits of the expresssion
+        // Their first t/2 bits will equal, respectively, the first and second t/2 bits of the expression
         // Thus it will suffice to check that each of them begins with t/2 zeroes. We do this by in fact assigning
         // to these variables those expressions divided by 2^{t/2}. Since we have bounds on their ranage that are
         // smaller than r, We can range check the divisions by the original range bounds divided by 2^{t/2}
@@ -2304,7 +2304,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     uint64_t max_lo_bits = (max_lo.get_msb() + 1);
     uint64_t max_hi_bits = max_hi.get_msb() + 1;
     // TurboPlonk range checks only work for even bit ranges, so make sure these values are even
-    // TODO: This neccessary anymore? TurboPlonk range checks now work with odd bit ranges...
+    // TODO: This necessary anymore? TurboPlonk range checks now work with odd bit ranges...
     if ((max_lo_bits & 1ULL) == 1ULL) {
         ++max_lo_bits;
     }
@@ -2564,7 +2564,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         // Add remaining products into the limb accumulators.
         // We negate the product values because the accumulator values itself will be negated
         // TODO: why do we do this double negation exactly? seems a bit pointless. I think it stems from the fact
-        // that the accumulators originaly tracked the remainder term (which is negated)
+        // that the accumulators originally tracked the remainder term (which is negated)
 
         for (size_t i = 1; i < num_multiplications; ++i) {
             field_t lo_2 = left[i].binary_basis_limbs[0].element * right[i].binary_basis_limbs[0].element;
@@ -2585,7 +2585,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         // add cached products into the limb accumulators.
         // We negate the cache values because the accumulator values itself will be negated
         // TODO: why do we do this double negation exactly? seems a bit pointless. I think it stems from the fact
-        // that the accumulators originaly tracked the remainder term (which is negated)
+        // that the accumulators originally tracked the remainder term (which is negated)
 
         // Update the accumulators with the remainder terms. First check we actually have remainder terms!
         //(not present when we're checking a product is 0 mod p). See `assert_is_in_field`
@@ -2641,7 +2641,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
 
         // We wish to show that left*right - quotient*remainder = 0 mod 2^t, we do this by collecting the limb
         // products into two separate variables - carry_lo and carry_hi, which are still small enough not to wrap
-        // mod r Their first t/2 bits will equal, respectively, the first and second t/2 bits of the expresssion
+        // mod r Their first t/2 bits will equal, respectively, the first and second t/2 bits of the expression
         // Thus it will suffice to check that each of them begins with t/2 zeroes. We do this by in fact assigning
         // to these variables those expressions divided by 2^{t/2}. Since we have bounds on their ranage that are
         // smaller than r, We can range check the divisions by the original range bounds divided by 2^{t/2}

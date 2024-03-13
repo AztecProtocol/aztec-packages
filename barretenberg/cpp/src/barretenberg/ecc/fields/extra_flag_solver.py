@@ -570,7 +570,7 @@ def solve_for_given_flags(given_flags, trim_first=0):
             result = machine_state.solver.check()
             # Print result (sat, unsat, unknown)
             print(f"{i+1}/{len(temp_unsolved)}", flag, result)
-            # If not unknown, remeber the result
+            # If not unknown, remember the result
             if result != z3.unknown:
                 temp_solved.append(flag)
                 solution_results[flag] = result
@@ -616,7 +616,7 @@ def solve_for_single_flag(flag_num):
     ].as_long()
 
 def prohibit_value(name, width, value):
-    """Prohibit a particular variable from becoming a particualr value"""
+    """Prohibit a particular variable from becoming a particular value"""
     machine_state.instructions.append(z3.BitVec(name, width) != value)
 
 

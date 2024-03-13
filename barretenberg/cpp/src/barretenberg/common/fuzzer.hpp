@@ -38,7 +38,7 @@ struct HavocSettings {
     size_t ST_MUT_MAXIMUM_DELETION_LOG;         // The logarithm of the maximum of deletions
     size_t ST_MUT_MAXIMUM_DUPLICATION_LOG;      // The logarithm of the maximum of duplication
     size_t ST_MUT_SWAP_PROBABILITY;             // The probability of a SWAP mutation
-    size_t VAL_MUT_LLVM_MUTATE_PROBABILITY;     // The probablity of using the LLVM mutator on field element value
+    size_t VAL_MUT_LLVM_MUTATE_PROBABILITY;     // The probability of using the LLVM mutator on field element value
     size_t VAL_MUT_MONTGOMERY_PROBABILITY;     // The probability of converting to montgomery form before applying value
                                                // mutations
     size_t VAL_MUT_NON_MONTGOMERY_PROBABILITY; // The probability of not converting to montgomery form before applying

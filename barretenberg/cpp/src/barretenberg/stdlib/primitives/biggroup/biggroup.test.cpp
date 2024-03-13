@@ -16,7 +16,7 @@ auto& engine = numeric::get_debug_randomness();
 
 using namespace bb;
 
-// One can only define a TYPED_TEST with a single template paramter.
+// One can only define a TYPED_TEST with a single template parameter.
 // Our workaround is to pass parameters of the following type.
 template <typename _Curve, bool _use_bigfield = false> struct TestType {
   public:

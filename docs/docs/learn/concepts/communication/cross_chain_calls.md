@@ -10,7 +10,7 @@ import Disclaimer from "../../../misc/common/\_disclaimer.mdx";
 
 In Aztec, what we call _portals_ are the key element in facilitating communication between L1 and L2. While typical L2 solutions rely on synchronous communication with L1, Aztec's privacy-first nature means this is not possible. You can learn more about why in the previous section.
 
-Traditional L1 <-> L2 communication might involve direct calls between L2 nd L1 contracts. However, in Aztec, due to the privacy components and the way transactions are processed (kernel proofs built on historical data), direct calls between L1 and L2 would not be possible if we want to maintain privacy.
+Traditional L1 <-> L2 communication might involve direct calls between L2 and L1 contracts. However, in Aztec, due to the privacy components and the way transactions are processed (kernel proofs built on historical data), direct calls between L1 and L2 would not be possible if we want to maintain privacy.
 
 Portals are the solution to this problem, acting as bridges for communication between the two layers. These portals can transmit messages from public functions in L1 to private functions in L2 and vice versa, thus enabling messaging while maintaining privacy.
 
@@ -177,7 +177,7 @@ To enforce the restriction, the circuit must ensure that neither of the contract
 
 From the L2 contract receiving messages, this model is very similar to the 1:1, only one L1 contract could be the sender of messages so no extra work needed there. On the L1 side of things, as many L2 could be sending messages to the L1 contract, we need to be able to verify that the message is coming from the correct L2 contract. However, this can be done using easy access control in the form of storage variables on the L1 contract, moving the design-space back to something that closely resembles multi-contract systems on L1.
 
-When the L1 contract can itself handle where messages are coming from (it could before as well but useless as only 1 address could send), we don't need to worry about it being in only a single pair. The circuits can therefore simply insert the contract leafs without requiring it to ensure that neither have been used before.
+When the L1 contract can itself handle where messages are coming from (it could before as well but useless as only 1 address could send), we don't need to worry about it being in only a single pair. The circuits can therefore simply insert the contract leaves without requiring it to ensure that neither have been used before.
 
 With many L2's reading from the same L1, we can also more easily setup generic bridges (with many assets) living in a single L1 contract but minting multiple L2 assets, as the L1 contract can handle the access control and the L2's simply point to it as the portal. This reduces the complexity of the L2 contracts as all access control is handled by the L1 contract.
 

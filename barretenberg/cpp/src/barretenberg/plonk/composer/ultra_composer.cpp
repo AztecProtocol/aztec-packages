@@ -211,7 +211,7 @@ std::shared_ptr<plonk::verification_key> UltraComposer::compute_verification_key
 
     circuit_verification_key->circuit_type = CircuitType::ULTRA;
 
-    // See `add_recusrive_proof()` for how this recursive data is assigned.
+    // See `add_recursive_proof()` for how this recursive data is assigned.
     circuit_verification_key->recursive_proof_public_input_indices =
         std::vector<uint32_t>(circuit_constructor.recursive_proof_public_input_indices.begin(),
                               circuit_constructor.recursive_proof_public_input_indices.end());

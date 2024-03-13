@@ -220,7 +220,7 @@ class GoblinUltraFlavor {
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
-     * polynomials; the univariates consturcted during during sumcheck; the evaluations produced by sumcheck.
+     * polynomials; the univariates constructed during during sumcheck; the evaluations produced by sumcheck.
      *
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
      * implemented as such, but we have this now.

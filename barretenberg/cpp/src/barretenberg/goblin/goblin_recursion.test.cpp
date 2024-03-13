@@ -33,7 +33,7 @@ class GoblinRecursionTests : public ::testing::Test {
 };
 
 /**
- * @brief A full Goblin test that mimicks the basic aztec client architecture
+ * @brief A full Goblin test that mimics the basic aztec client architecture
  * @details
  */
 TEST_F(GoblinRecursionTests, Vanilla)

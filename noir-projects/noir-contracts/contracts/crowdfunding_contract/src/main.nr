@@ -27,7 +27,7 @@ contract Crowdfunding {
         // Crowdfunding campaign operator
         operator: SharedImmutable<AztecAddress>,
         // End of the crowdfunding campaign after which no more donations are accepted
-        // TODO(#4990): Make deadline a u64 once the neccessary traits are implemented
+        // TODO(#4990): Make deadline a u64 once the necessary traits are implemented
         deadline: PublicImmutable<Field>,
         // Notes emitted to donors when they donate (later on used to claim rewards in the Claim contract)
         claim_notes: PrivateSet<ValueNote>,
@@ -46,7 +46,7 @@ contract Crowdfunding {
     #[aztec(public)]
     #[aztec(internal)]
     #[aztec(noinitcheck)]
-    // TODO(#4990): Make deadline a u64 once the neccessary traits are implemented
+    // TODO(#4990): Make deadline a u64 once the necessary traits are implemented
     fn _initialize(donation_token: AztecAddress, operator: AztecAddress, deadline: Field) {
         storage.donation_token.initialize(donation_token);
         storage.operator.initialize(operator);

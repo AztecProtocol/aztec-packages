@@ -1,18 +1,18 @@
 fn ret_normal_lambda1() -> fn() -> Field {
     || 10
 }
-// return lamda that captures a thing
+// return lambda that captures a thing
 fn ret_closure1() -> fn[(Field,)]() -> Field {
     let x = 20;
     || x + 10
 }
-// return lamda that captures two things
+// return lambda that captures two things
 fn ret_closure2() -> fn[(Field, Field)]() -> Field {
     let x = 20;
     let y = 10;
     || x + y + 10
 }
-// return lamda that captures two things with different types
+// return lambda that captures two things with different types
 fn ret_closure3() -> fn[(u32, u64)]() -> u64 {
     let x: u32 = 20;
     let y: u64 = 10;

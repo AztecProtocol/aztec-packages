@@ -241,7 +241,7 @@ template <typename Fr> void factor_roots(std::span<Fr> polynomial, const Fr& roo
         Fr root_inverse = (-root).invert();
         // set b₋₁ = 0
         Fr temp = 0;
-        // We start multiplying lower coefficient by the inverse and subtracting those from highter coefficients
+        // We start multiplying lower coefficient by the inverse and subtracting those from higher coefficients
         // Since (x - r) should divide the polynomial cleanly, we can guide division with lower coefficients
         for (size_t i = 0; i < size - 1; ++i) {
             // at the start of the loop, temp = bᵢ₋₁

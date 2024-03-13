@@ -193,7 +193,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const boo
         result.witness_index = context->add_variable(value);
         // result = A + B - AB, where A,B are the "real" values of the variables. But according to whether
         // witness_inverted flag is true, we need to invert the input. Hence, we look at four cases, and compute the
-        // relevent coefficients of the selector q_1,q_2,q_m,q_c in each case
+        // relevant coefficients of the selector q_1,q_2,q_m,q_c in each case
         bb::fr multiplicative_coefficient;
         bb::fr left_coefficient;
         bb::fr right_coefficient;

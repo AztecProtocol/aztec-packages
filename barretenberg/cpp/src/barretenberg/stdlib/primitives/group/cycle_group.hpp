@@ -19,7 +19,7 @@ concept IsNotUltraArithmetic = (Composer::CIRCUIT_TYPE != CircuitType::ULTRA);
  * @brief cycle_group represents a group Element of the proving system's embedded curve
  *        i.e. a curve with a cofactor 1 defined over a field equal to the circuit's native field Composer::FF
  *
- *        (todo @zac-williamson) once the pedersen refactor project is finished, this class will supercede
+ *        (todo @zac-williamson) once the pedersen refactor project is finished, this class will supersede
  * `stdlib::group`
  *
  * @tparam Composer
@@ -137,7 +137,7 @@ template <typename Composer> class cycle_group {
      *
      * @note For the case of fixed-base scalar multipliation, all input points are defined at circuit compile.
      * We can ensure that all Provers cannot create point collisions between the base points and offset generators.
-     * For this restricted case we can skip the x-coordiante collision checks when performing group operations.
+     * For this restricted case we can skip the x-coordinate collision checks when performing group operations.
      *
      * @note straus_lookup_table uses UltraPlonk ROM tables if available. If not, we use simple conditional assignment
      * constraints and restrict the table size to be 1 bit.

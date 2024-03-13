@@ -75,7 +75,7 @@ void fft_inner_serial(std::vector<Fr*> coeffs, const size_t domain_size, const s
 
     for (size_t i = 0; i <= domain_size; ++i) {
         uint32_t swap_index = (uint32_t)reverse_bits((uint32_t)i, (uint32_t)log2_size);
-        // TODO: should probably use CMOV here insead of an if statement
+        // TODO: should probably use CMOV here instead of an if statement
         if (i < swap_index) {
             size_t even_poly_idx = i >> log2_poly_size;
             size_t even_elem_idx = i % poly_domain_size;
@@ -239,13 +239,13 @@ void fft_inner_parallel(std::vector<Fr*> coeffs,
             // i.e. each successive FFT round will double the set of roots that we need to index.
             // We have already laid out the `root_table` container so that each FFT round's roots are linearly
             // ordered in memory. For all FFT rounds, the number of elements we're iterating over is greater than
-            // the size of our lookup table. We need to access this table in a cyclical fasion - i.e. for a subgroup
+            // the size of our lookup table. We need to access this table in a cyclical fashion - i.e. for a subgroup
             // of size x, the first x iterations will index the subgroup elements in order, then for the next x
             // iterations, we loop back to the start.
 
             // We could implement the algorithm by having 2 nested loops (where the inner loop iterates over the
             // root table), but we want to flatten this out - as for the first few rounds, the inner loop will be
-            // tiny and we'll have quite a bit of unneccesary branch checks For each iteration of our flattened
+            // tiny and we'll have quite a bit of unnecessary branch checks For each iteration of our flattened
             // loop, indexed by `i`, the element of the root table we need to access will be `i % (current round
             // subgroup size)` Given that each round subgroup size is `m`, which is a power of 2, we can index the
             // root table with a very cheap `i & (m - 1)` Which is why we have this odd `block_mask` variable
@@ -350,13 +350,13 @@ void fft_inner_parallel(
             // i.e. each successive FFT round will double the set of roots that we need to index.
             // We have already laid out the `root_table` container so that each FFT round's roots are linearly
             // ordered in memory. For all FFT rounds, the number of elements we're iterating over is greater than
-            // the size of our lookup table. We need to access this table in a cyclical fasion - i.e. for a subgroup
+            // the size of our lookup table. We need to access this table in a cyclical fashion - i.e. for a subgroup
             // of size x, the first x iterations will index the subgroup elements in order, then for the next x
             // iterations, we loop back to the start.
 
             // We could implement the algorithm by having 2 nested loops (where the inner loop iterates over the
             // root table), but we want to flatten this out - as for the first few rounds, the inner loop will be
-            // tiny and we'll have quite a bit of unneccesary branch checks For each iteration of our flattened
+            // tiny and we'll have quite a bit of unnecessary branch checks For each iteration of our flattened
             // loop, indexed by `i`, the element of the root table we need to access will be `i % (current round
             // subgroup size)` Given that each round subgroup size is `m`, which is a power of 2, we can index the
             // root table with a very cheap `i & (m - 1)` Which is why we have this odd `block_mask` variable
@@ -399,7 +399,7 @@ void partial_fft_serial_inner(Fr* coeffs,
                               const std::vector<Fr*>& root_table)
 {
     // We wish to compute a partial modified FFT of 2 rounds from given coefficients.
-    // We need a 2-round modified FFT for commiting to the 4n-sized quotient polynomial for
+    // We need a 2-round modified FFT for committing to the 4n-sized quotient polynomial for
     // the PLONK prover.
     //
     // We assume that the number of coefficients is a multiplicand of 4, since the domain size
@@ -436,11 +436,11 @@ void partial_fft_serial_inner(Fr* coeffs,
 
 template <typename Fr>
     requires SupportsFFT<Fr>
-void partial_fft_parellel_inner(
+void partial_fft_parallel_inner(
     Fr* coeffs, const EvaluationDomain<Fr>& domain, const std::vector<Fr*>& root_table, Fr constant, bool is_coset)
 {
     // We wish to compute a partial modified FFT of 2 rounds from given coefficients.
-    // We need a 2-round modified FFT for commiting to the 4n-sized quotient polynomial for
+    // We need a 2-round modified FFT for committing to the 4n-sized quotient polynomial for
     // the PLONK prover.
     //
     // We assume that the number of coefficients is a multiplicand of 4, since the domain size
@@ -517,7 +517,7 @@ template <typename Fr>
     requires SupportsFFT<Fr>
 void partial_fft(Fr* coeffs, const EvaluationDomain<Fr>& domain, Fr constant, bool is_coset)
 {
-    partial_fft_parellel_inner(coeffs, domain, domain.get_round_roots(), constant, is_coset);
+    partial_fft_parallel_inner(coeffs, domain, domain.get_round_roots(), constant, is_coset);
 }
 
 template <typename Fr>
@@ -921,7 +921,7 @@ void divide_by_pseudo_vanishing_polynomial(std::vector<Fr*> coeffs,
     // some roots is described here: https://hackmd.io/@zacwilliamson/r1dm8Rj7D#The-problem-with-this-approach.
     // Briefly, the reason we need to cut roots is because on adding randomness to permutation polynomial z(X),
     // its degree becomes (n + 2), so for fft evaluation, we will need an evaluation domain of size >= 4(n + 2) = 8n
-    // since size of evalutation domain needs to be a power of two. To avoid this, we need to bring down the degree
+    // since size of evaluation domain needs to be a power of two. To avoid this, we need to bring down the degree
     // of the permutation polynomial (after adding randomness) to <= n.
     //
     //
@@ -936,7 +936,7 @@ void divide_by_pseudo_vanishing_polynomial(std::vector<Fr*> coeffs,
     const size_t poly_mask = poly_size - 1;
     const size_t log2_poly_size = (size_t)numeric::get_msb(poly_size);
 
-    // `fft_point_evaluations` should be in point-evaluation form, evaluated at the 4n'th roots of unity mulitplied by
+    // `fft_point_evaluations` should be in point-evaluation form, evaluated at the 4n'th roots of unity multiplied by
     // `target_domain`'s coset generator P(X) = X^n - 1 will form a subgroup of order 4 when evaluated at these points
     // If X = w^i, P(X) = 1
     // If X = w^{i + j/4}, P(X) = w^{n/4} = w^{n/2}^{n/2} = sqrt(-1)

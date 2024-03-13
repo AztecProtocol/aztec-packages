@@ -85,7 +85,7 @@ describe('world_state_public_db', () => {
     // write a new value to our first value
     await publicStateDb.storageWrite(addresses[0], slots[0], newValue);
 
-    // should read back the uncommited value
+    // should read back the uncommitted value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
 
     // other slots should be unchanged
@@ -141,7 +141,7 @@ describe('world_state_public_db', () => {
     // write a new value to our first value
     await publicStateDb.storageWrite(addresses[0], slots[0], newValue);
 
-    // should read back the uncommited value
+    // should read back the uncommitted value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
 
     // now rollback
@@ -163,7 +163,7 @@ describe('world_state_public_db', () => {
     // commit the data
     await publicStateDb.commit();
 
-    // should read back the commited value
+    // should read back the committed value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
 
     // other slots should be unchanged
@@ -190,7 +190,7 @@ describe('world_state_public_db', () => {
     // commit the data
     await publicStateDb.commit();
 
-    // should read back the commited value
+    // should read back the committed value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
 
     // other slots should be unchanged
@@ -201,13 +201,13 @@ describe('world_state_public_db', () => {
     // write a new value to our first value
     await publicStateDb.storageWrite(addresses[0], slots[0], newValue2);
 
-    // should read back the uncommited value
+    // should read back the uncommitted value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue2);
 
     // rollback
     await publicStateDb.rollback();
 
-    // should read back the previously commited value
+    // should read back the previously committed value
     expect(await publicStateDb.storageRead(addresses[0], slots[0])).toEqual(newValue);
   });
 });

@@ -30,7 +30,7 @@ class ToyComposer {
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
     std::shared_ptr<bb::srs::factories::CrsFactory<Flavor::Curve>> crs_factory_;
 
-    // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
+    // The commitment key is passed to the prover but also used herein to compute the verification key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
 
     std::vector<uint32_t> recursive_proof_public_input_indices;

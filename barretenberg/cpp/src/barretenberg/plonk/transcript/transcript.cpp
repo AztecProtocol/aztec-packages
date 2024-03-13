@@ -239,7 +239,7 @@ void Transcript::apply_fiat_shamir(const std::string& challenge_name /*, const b
                       challenge.begin() +
                           (PRNG_OUTPUT_SIZE -
                            num_challenge_bytes)); // Left-pad the challenge with zeros, and then copy the next
-                                                  // num_challange_bytes slice of the hash to the rhs of the challenge.
+                                                  // num_challenge_bytes slice of the hash to the rhs of the challenge.
             round_challenges.push_back({ challenge });
         }
     }

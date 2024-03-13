@@ -8,7 +8,7 @@ namespace widget {
 /**
  * @brief Core class implementing the arithmetic gate in Ultra plonk
  *
- * @details ArithmethicKernel provides the logic that can implement one of several transitions. The whole formula
+ * @details ArithmeticKernel provides the logic that can implement one of several transitions. The whole formula
  * without alpha scaling is:
  *
  * q_arith * ( ( (-1/2) * (q_arith - 3) * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c ) +

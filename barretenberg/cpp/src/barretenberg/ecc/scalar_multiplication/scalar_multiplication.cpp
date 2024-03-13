@@ -127,8 +127,8 @@ void generate_pippenger_point_table(typename Curve::AffineElement* points,
  *points we're multiplying. Once we have the number of rounds, `m`, we need to split our scalar into `m` bit-slices.
  *Each pippenger round will work on one bit-slice.
  *
- * Pippenger's algorithm works by, for each round, iterating over the points we're multplying. For each point, we
- *examing the point's scalar multiplier and extract the bit-slice associated with the current pippenger round (we start
+ * Pippenger's algorithm works by, for each round, iterating over the points we're multiplying. For each point, we
+ *examining the point's scalar multiplier and extract the bit-slice associated with the current pippenger round (we start
  *with the most significant slice). We then use the bit-slice to index a 'bucket', which we add the point into. For
  *example, if the bit slice is 01101, we add the corresponding point into bucket[13].
  *
@@ -156,7 +156,7 @@ void generate_pippenger_point_table(typename Curve::AffineElement* points,
  * For a concrete example, with 2^20 points, the sweet spot is 2^15 buckets - with 2^15 buckets we can evaluate our 127
  *bit scalar multipliers in 8 rounds (we can represent b-bit windows with 2^{b-1} buckets, more on that below).
  *
- * This means that, for each round, we add 2^21 points into buckets (we've split our scalar multpliers into two
+ * This means that, for each round, we add 2^21 points into buckets (we've split our scalar multipliers into two
  *half-width multipliers, so each round has twice the number of points. This is the reason why the endormorphism is
  *useful here; without the endomorphism, we would need twice the number of buckets for each round).
  *
@@ -881,8 +881,8 @@ typename Curve::Element pippenger(typename Curve::ScalarField* scalars,
     using Group = typename Curve::Group;
     using Element = typename Curve::Element;
 
-    // our windowed non-adjacent form algorthm requires that each thread can work on at least 8 points.
-    // If we fall below this theshold, fall back to the traditional scalar multiplication algorithm.
+    // our windowed non-adjacent form algorithm requires that each thread can work on at least 8 points.
+    // If we fall below this threshold, fall back to the traditional scalar multiplication algorithm.
     // For 8 threads, this neatly coincides with the threshold where Strauss scalar multiplication outperforms
     // Pippenger
     const size_t threshold = get_num_cpus_pow2() * 8;
@@ -932,7 +932,7 @@ typename Curve::Element pippenger(typename Curve::ScalarField* scalars,
  * We don't bother to check for this to avoid conditional branches in a critical section of our code.
  * This is fine for situations where your bases are linearly independent (i.e. KZG10 polynomial commitments where
  * there should be no equal points in the SRS), because triggering the incomplete addition exceptions is about as hard
- *as solving the disrete log problem. This is ok for the prover, but GIANT RED CLAXON WARNINGS FOR THE VERIFIER Don't
+ *as solving the discrete log problem. This is ok for the prover, but GIANT RED CLAXON WARNINGS FOR THE VERIFIER Don't
  *use this in a verification algorithm! That would be a really bad idea. Unless you're a malicious adversary, then it
  *would be a great idea!
  *

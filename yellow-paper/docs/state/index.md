@@ -71,7 +71,7 @@ The verification keys of the core protocol circuits are technically (constant) s
 Is there any other state on L1 that we're forgetting about? The vk of the squisher circuit? The state hash? Message data?
 -->
 
-Below is a short description of the state catagories (trees) and why they have the type they have.
+Below is a short description of the state categories (trees) and why they have the type they have.
 
 - [**Note Hashes**](./note-hash-tree.md): A set of hashes (commitments) of the individual blobs of contract data (we call these blobs of data notes). New notes can be created and their hashes inserted through contract execution. We need to support efficient membership proofs as any read will require one to prove validity. The set is represented as an [Append-only Merkle tree](./tree-implementations.md#append-only-merkle-trees), storing the note hashes as leaves.
 - [**Nullifiers**](./nullifier-tree.md): A set of nullifiers for notes that have been spent. We need to support efficient non-membership proofs since we need to check that a note has not been spent before it can be used. The set is represented as an [Indexed Merkle tree](./tree-implementations.md#indexed-merkle-trees).

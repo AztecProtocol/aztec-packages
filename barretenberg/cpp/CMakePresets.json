@@ -145,7 +145,7 @@
     },
     {
       "name": "smt-verification",
-      "displayName": "Build with smt verificaiton",
+      "displayName": "Build with smt verification",
       "description": "Build default preset but with smt library included",
       "inherits": "clang16",
       "binaryDir": "build-smt",

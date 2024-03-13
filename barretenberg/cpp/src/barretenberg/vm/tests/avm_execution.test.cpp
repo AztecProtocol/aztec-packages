@@ -472,7 +472,7 @@ TEST_F(AvmExecutionTests, invalidOpcode)
     EXPECT_THROW_WITH_MESSAGE(Deserialization::parse(bytecode), "Invalid opcode");
 }
 
-// Negative test detecting an invalid memmory instruction tag.
+// Negative test detecting an invalid memory instruction tag.
 TEST_F(AvmExecutionTests, invalidInstructionTag)
 {
     std::string bytecode_hex = to_hex(OpCode::ADD) +      // opcode ADD

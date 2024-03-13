@@ -436,5 +436,5 @@ void pow_bench(State& state) noexcept
 }
 BENCHMARK(pow_bench);
 
-// NOLINTNEXTLINE macro invokation triggers style guideline errors from googletest code
+// NOLINTNEXTLINE macro invocation triggers style guideline errors from googletest code
 BENCHMARK_MAIN();

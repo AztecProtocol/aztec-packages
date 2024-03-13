@@ -673,7 +673,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
     /**
      * @brief If uint_native_width == 32, test part of SHA256. Otherwise, do something similar.
      *
-     * @details Notes that the static casts have to be there becuase of -Wc++11-narrowing flag.
+     * @details Notes that the static casts have to be there because of -Wc++11-narrowing flag.
      *
      * StandardPLONK: 210363 gates
      */
@@ -1098,7 +1098,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
     }
 
     /**
-     * @brief Make sure we prevent proving v / v = 0 by setting the divison remainder to be v.
+     * @brief Make sure we prevent proving v / v = 0 by setting the division remainder to be v.
      * TODO: This is lifted from the implementation. Should rewrite this test after introducing framework that separates
      * circuit construction from witness generation.
 
@@ -1123,7 +1123,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         const uint32_t quotient_idx = builder.add_variable(q);
         const uint32_t remainder_idx = builder.add_variable(r);
 
-        // In this example there are no additive constaints, so we just replace them by zero below.
+        // In this example there are no additive constraints, so we just replace them by zero below.
 
         // constraint: qb + const_b q + 0 b - a + r - const_a == 0
         // i.e., a + const_a = q(b + const_b) + r

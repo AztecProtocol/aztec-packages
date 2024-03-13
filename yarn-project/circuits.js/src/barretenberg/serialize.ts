@@ -5,7 +5,7 @@ import { Buffer } from 'buffer';
 /**
  * For serializing an array of fixed length buffers.
  * TODO move to foundation pkg.
- * @param arr - Array of bufffers.
+ * @param arr - Array of buffers.
  * @returns The serialized buffers.
  */
 export function serializeBufferArrayToVector(arr: Buffer[]) {

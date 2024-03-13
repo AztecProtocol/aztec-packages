@@ -2,7 +2,7 @@
 # This script:
 # 1. Logs into ECR and ensures we have the given repository
 # 2. Computes the image uri of the cached images for the given repository given the list of architectures
-# 3. Creates a manifest list using a platform agnositc image uri, adds each image to it
+# 3. Creates a manifest list using a platform agnostic image uri, adds each image to it
 # 4. Pushes the manifest list
 
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace

@@ -212,7 +212,7 @@ constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::de
  *                   we need to a way to canonically distinguish between these 2 values and select a "preferred" one
  *              11e. return (x, y)
  *
- * @note This algorihm is constexpr: we can hash-to-curve (and derive generators) at compile-time!
+ * @note This algorithm is constexpr: we can hash-to-curve (and derive generators) at compile-time!
  * @tparam Fq
  * @tparam Fr
  * @tparam T

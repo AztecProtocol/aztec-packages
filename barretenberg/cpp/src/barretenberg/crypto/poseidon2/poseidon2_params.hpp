@@ -1,4 +1,4 @@
-// poseidon2 paramters generated via sage script
+// poseidon2 parameters generated via sage script
 // original author: Markus Schofnegger from Horizen Labs
 // original source: https://github.com/HorizenLabs/poseidon2/blob/main/poseidon2_rust_params.sage
 #pragma once

@@ -71,7 +71,7 @@ export class MerkleTrees implements MerkleTreeDb {
 
   /**
    * Method to asynchronously create and initialize a MerkleTrees instance.
-   * @param store - The db instance to use for data persistance.
+   * @param store - The db instance to use for data persistence.
    * @returns - A fully initialized MerkleTrees instance.
    */
   public static async new(store: AztecKVStore, log = createDebugLogger('aztec:merkle_trees')) {

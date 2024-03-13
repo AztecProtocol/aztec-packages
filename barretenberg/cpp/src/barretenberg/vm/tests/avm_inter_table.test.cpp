@@ -185,7 +185,7 @@ class AvmPermMainMemNegativeTests : public AvmInterTableTests {
     size_t alu_idx;
 
     // Helper function to generate a trace with a subtraction
-    // for c = a - b at arbitray chosen addresses 52 (a), 11 (b), 55 (c).
+    // for c = a - b at arbitrary chosen addresses 52 (a), 11 (b), 55 (c).
     void executeSub(uint128_t const a, uint128_t const b)
     {
         trace_builder.set(a, 52, AvmMemoryTag::U8);

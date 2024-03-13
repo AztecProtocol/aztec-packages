@@ -576,7 +576,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
  * y   =  L (x  - x ) - y
  *  3         1    3     1
  *
- * These formuale do not work for the edge case where x2 == x1
+ * These formulae do not work for the edge case where x2 == x1
  *
  * Instead of handling the edge case (which is expensive!) we instead FORBID it from happening by
  * requiring x2 != x1 (other.x.assert_is_not_equal(x) will be present in all group operation methods)

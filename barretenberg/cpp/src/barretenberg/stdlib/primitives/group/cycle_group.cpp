@@ -685,7 +685,7 @@ typename cycle_group<Composer>::ScalarField cycle_group<Composer>::cycle_scalar:
 /**
  * @brief Construct a new cycle group<Composer>::straus scalar slice::straus scalar slice object
  *
- * @details As part of slicing algoirthm, we also perform a primality test on the inut scalar.
+ * @details As part of slicing algorithm, we also perform a primality test on the input scalar.
  *
  * TODO(@zac-williamson) make the primality test configurable.
  * We may want to validate the input < BN254::Fr OR input < Grumpkin::Fr depending on context!
@@ -885,7 +885,7 @@ cycle_group<Composer> cycle_group<Composer>::straus_lookup_table::read(const fie
  *          collide with the offset generators.
  *
  * @note ULTRA Composer will call `_variable_base_batch_mul_internal` to evaluate fixed-base MSMs over points that do
- *       not exist in our precomputed plookup tables. This is a comprimise between maximising circuit efficiency and
+ *       not exist in our precomputed plookup tables. This is a compromise between maximising circuit efficiency and
  *       minimizing the blowup size of our precomputed table polynomials. variable-base mul uses small ROM lookup tables
  *       which are witness-defined and not part of the plookup protocol.
  * @tparam Composer
@@ -936,7 +936,7 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
     cycle_group accumulator = offset_generators[0];
 
     // populate the set of points we are going to add into our accumulator, *before* we do any ECC operations
-    // this way we are able to fuse mutliple ecc add / ecc double operations and reduce total gate count.
+    // this way we are able to fuse multiple ecc add / ecc double operations and reduce total gate count.
     // (ecc add/ecc double gates normally cost 2 UltraPlonk gates. However if we chain add->add, add->double,
     // double->add, double->double, they only cost one)
     std::vector<cycle_group> points_to_add;
@@ -1158,7 +1158,7 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
  *          2. point is constant, scalar multiplier is a witness
  *          3. point is a witness, scalar multiplier can be witness or constant
  *
- * For Category 1, the scalar mul can be precomuted without constraints
+ * For Category 1, the scalar mul can be precomputed without constraints
  * For Category 2, we use a fixed-base variant of Straus (with plookup tables if available).
  * For Category 3, we use standard Straus.
  * The results from all 3 categories are combined and returned as an output point.
@@ -1171,7 +1171,7 @@ typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>:
  *       5. input vectors are empty
  *
  * @note offset_generator_data is a pointer to precomputed offset generator list.
- *       There is a default parameter point that poitns to a list with DEFAULT_NUM_GENERATORS generator points (32)
+ *       There is a default parameter point that points to a list with DEFAULT_NUM_GENERATORS generator points (32)
  *       If more offset generators are required, they will be derived in-place which can be expensive.
  *       (num required offset generators is either num input points + 1 or num input points + 2,
  *        depends on if one or both of _fixed_base_batch_mul_internal, _variable_base_batch_mul_internal are called)

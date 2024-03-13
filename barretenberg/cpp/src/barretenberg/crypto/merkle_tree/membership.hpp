@@ -186,7 +186,7 @@ void update_membership(field_t<Builder> const& new_root,
  * @param new_values: The new values that are inserted in the existing leaves,
  * @param old_values: The values of the existing leaves that were updated,
  * @param old_paths: The hash path from the given index right before a given existing leaf is updated,
- * @param old_indicies: Indices of the existing leaves that need to be updated,
+ * @param old_indices: Indices of the existing leaves that need to be updated,
  * @tparam Builder: type of builder.
  */
 template <typename Builder>
@@ -195,11 +195,11 @@ field_t<Builder> update_memberships(field_t<Builder> old_root,
                                     std::vector<field_t<Builder>> const& new_values,
                                     std::vector<field_t<Builder>> const& old_values,
                                     std::vector<hash_path<Builder>> const& old_paths,
-                                    std::vector<bit_vector<Builder>> const& old_indicies)
+                                    std::vector<bit_vector<Builder>> const& old_indices)
 {
-    for (size_t i = 0; i < old_indicies.size(); i++) {
+    for (size_t i = 0; i < old_indices.size(); i++) {
         update_membership(
-            new_roots[i], new_values[i], old_root, old_paths[i], old_values[i], old_indicies[i], "update_memberships");
+            new_roots[i], new_values[i], old_root, old_paths[i], old_values[i], old_indices[i], "update_memberships");
 
         old_root = new_roots[i];
     }

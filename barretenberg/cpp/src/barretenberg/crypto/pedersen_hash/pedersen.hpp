@@ -16,7 +16,7 @@ namespace bb::crypto {
  * The addition of `n.[h]` into the hash is to prevent length-extension attacks.
  * It also ensures that the hash output is never the point at infinity.
  *
- * It is neccessary that all generator points are linearly independent of one another,
+ * It is necessary that all generator points are linearly independent of one another,
  * so that finding collisions is equivalent to solving the discrete logarithm problem.
  * This is ensured via the generator derivation algorithm in `generator_data`
  */

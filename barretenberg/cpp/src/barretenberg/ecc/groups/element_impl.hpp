@@ -535,7 +535,7 @@ template <class Fq, class Fr, class T> constexpr bool element<Fq, Fr, T>::on_cur
     if (is_point_at_infinity()) {
         return true;
     }
-    // We specify the point at inifinity not by (0 \lambda 0), so z should not be 0
+    // We specify the point at infinity not by (0 \lambda 0), so z should not be 0
     if (z.is_zero()) {
         return false;
     }

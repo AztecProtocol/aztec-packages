@@ -35,7 +35,7 @@ template <typename FunctionType>
 void run_loop_in_parallel_if_effective_internal(
     size_t, const FunctionType&, size_t, size_t, size_t, size_t, size_t, size_t, size_t);
 /**
- * @brief Runs loop in parallel if parallelization if useful (costs less than the algorith)
+ * @brief Runs loop in parallel if parallelization if useful (costs less than the algorithm)
  *
  * @details Please see run_loop_in_parallel_if_effective_internal for detailed description
  *
@@ -64,7 +64,7 @@ inline void run_loop_in_parallel_if_effective(size_t num_points,
 }
 
 /**
- * @brief Runs loop in parallel if parallelization if useful (costs less than the algorith). The loop function is given
+ * @brief Runs loop in parallel if parallelization if useful (costs less than the algorithm). The loop function is given
  * the index of the workload.
  *
  * @details Please see run_loop_in_parallel_if_effective_internal for detailed description

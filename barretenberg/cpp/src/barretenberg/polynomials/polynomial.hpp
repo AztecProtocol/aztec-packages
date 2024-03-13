@@ -134,7 +134,7 @@ template <typename Fr> class Polynomial {
      * @details Set the size of self to match the input then set coefficients equal to right shift of input. Note: The
      * shifted result is constructed with its first shift-many coefficients equal to zero, so we assert that the last
      * shift-size many input coefficients are equal to zero to ensure that the relationship f(X) = f_{shift}(X)/X^m
-     * holds. This is analagous to asserting the first coefficient is 0 in our left-shift-by-one method.
+     * holds. This is analogous to asserting the first coefficient is 0 in our left-shift-by-one method.
      *
      * @param coeffs_in
      * @param shift_size
@@ -191,9 +191,9 @@ template <typename Fr> class Polynomial {
      *
      * @note Intuitively, partially evaluating in one variable collapses the hypercube in one dimension, halving the
      * number of coefficients needed to represent the result. To partially evaluate starting with the first variable (as
-     * is done in evaluate_mle), the vector of coefficents is halved by combining adjacent rows in a pairwise
+     * is done in evaluate_mle), the vector of coefficients is halved by combining adjacent rows in a pairwise
      * fashion (similar to what is done in Sumcheck via "edges"). To evaluate starting from the last variable, we
-     * instead bisect the whole vector and combine the two halves. I.e. rather than coefficents being combined with
+     * instead bisect the whole vector and combine the two halves. I.e. rather than coefficients being combined with
      * their immediate neighbor, they are combined with the coefficient that lives n/2 indices away.
      *
      * @param evaluation_points an MLE partial evaluation point u = (u_0,…,u_{m-1})

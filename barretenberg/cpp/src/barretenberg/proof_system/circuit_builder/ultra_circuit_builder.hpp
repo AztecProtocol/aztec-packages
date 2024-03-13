@@ -45,7 +45,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     static constexpr size_t UINT_LOG2_BASE = 6; // DOCTODO: explain what this is, or rename.
     // The plookup range proof requires work linear in range size, thus cannot be used directly for
     // large ranges such as 2^64. For such ranges the element will be decomposed into smaller
-    // chuncks according to the parameter below
+    // chunks according to the parameter below
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 14;
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_STEP_SIZE = 3;
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_SIZE = (1 << DEFAULT_PLOOKUP_RANGE_BITNUM) - 1;
@@ -326,7 +326,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * @param varnum number of known witness
      *
      * @note The size of witness_values may be less than varnum. The former is the set of actual witness values known at
-     * the time of acir generation. The former may be larger and essentially acounts for placeholders for witnesses that
+     * the time of acir generation. The former may be larger and essentially accounts for placeholders for witnesses that
      * we know will exist but whose values are not known during acir generation. Both are in general less than the total
      * number of variables/witnesses that might be present for a circuit generated from acir, since many gates will
      * depend on the details of the bberg implementation (or more generally on the backend used to process acir).
@@ -492,7 +492,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * 5) Number of non-native field multiplication gates.
      *
      *
-     * @param count return arument, number of existing gates
+     * @param count return argument, number of existing gates
      * @param rangecount return argument, extra gates due to range checks
      * @param romcount return argument, extra gates due to rom reads
      * @param ramcount return argument, extra gates due to ram read/writes
@@ -510,7 +510,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                 }
             }
             romcount += (rom_arrays[i].records.size());
-            romcount += 1; // we add an addition gate after procesing a rom array
+            romcount += 1; // we add an addition gate after processing a rom array
         }
 
         // each RAM gate adds +2 extra gates due to the ram reads being copied to a sorted list set,
@@ -525,7 +525,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                 }
             }
             ramcount += (ram_arrays[i].records.size() * NUMBER_OF_GATES_PER_RAM_ACCESS);
-            ramcount += NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY; // we add an addition gate after procesing a ram array
+            ramcount += NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY; // we add an addition gate after processing a ram array
 
             // there will be 'max_timestamp' number of range checks, need to calculate.
             const auto max_timestamp = ram_arrays[i].access_count - 1;

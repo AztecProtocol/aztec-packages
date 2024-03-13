@@ -84,7 +84,7 @@ template <typename program_settings> bool VerifierBase<program_settings>::verify
     // Compute the evaluations of the lagrange polynomials L_1(X) and L_{n - k}(X) at X = ʓ.
     // Also computes the evaluation of the vanishing polynomial Z_H*(X) at X = ʓ.
     // Here k = num_roots_cut_out_of_the_vanishing_polynomial and n is the size of the evaluation domain.
-    /// TODO: can we add these lagrange evaluations to the transcript? They get recalcualted after this multiple times,
+    /// TODO: can we add these lagrange evaluations to the transcript? They get recalculated after this multiple times,
     // by each widget.
     const auto lagrange_evals = bb::polynomial_arithmetic::get_lagrange_evaluations(zeta, key->domain);
 

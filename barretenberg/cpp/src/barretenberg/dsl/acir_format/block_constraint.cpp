@@ -45,7 +45,7 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
             // For a ROM table, constant read should be optimized out:
             // The rom_table won't work with a constant read because the table may not be initialized
             ASSERT(op.index.q_l != 0);
-            // We create a new witness w to avoid issues with non-valid witness assignements:
+            // We create a new witness w to avoid issues with non-valid witness assignments:
             // if witness are not assigned, then w will be zero and table[w] will work
             fr w_value = 0;
             if (has_valid_witness_assignments) {
@@ -63,7 +63,7 @@ void create_block_constraints(Builder& builder, const BlockConstraint constraint
             field_ct value = poly_to_field_ct(op.value, builder);
             field_ct index = poly_to_field_ct(op.index, builder);
 
-            // We create a new witness w to avoid issues with non-valid witness assignements.
+            // We create a new witness w to avoid issues with non-valid witness assignments.
             // If witness are not assigned, then index will be zero and table[index] won't hit bounds check.
             fr index_value = has_valid_witness_assignments ? index.get_value() : 0;
             // Create new witness and ensure equal to index.

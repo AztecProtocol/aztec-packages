@@ -115,7 +115,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_sor
  *                                   ∏(s_k + βs_{k+1} + γ(1 + β))
  *
  * where ∏ := ∏_{k<j}. This polynomial is constructed in evaluation form over the course
- * of three steps (descibed in more detail below). Blinding is added by setting the last 3
+ * of three steps (described in more detail below). Blinding is added by setting the last 3
  * elements in the lagrange representation to random values. Finally, the monomial
  * coefficient form of Z_lookup is computed via an iFFT.
  */
@@ -180,7 +180,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_gra
     // Step 1: Compute polynomials f, t and s and incorporate them into terms that are ultimately needed
     // to construct the grand product polynomial Z_lookup(X):
     // Note 1: In what follows, 't' is associated with table values (and is not to be confused with the
-    // quotient polynomial, also refered to as 't' elsewhere). Polynomial 's' is the sorted  concatenation
+    // quotient polynomial, also referred to as 't' elsewhere). Polynomial 's' is the sorted  concatenation
     // of the witnesses and the table values.
     // Note 2: Evaluation at Xω is indicated explicitly, e.g. 'p(Xω)'; evaluation at X is simply omitted, e.g. 'p'
     //
@@ -276,7 +276,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_gra
     //                                      ∏ (s_k + βs_{k+1} + γ(1 + β))
     //
     // Note: Montgomery batch inversion is used to efficiently compute the coefficients of Z_lookup
-    // rather than peforming n individual inversions. I.e. we first compute the double product P_n:
+    // rather than performing n individual inversions. I.e. we first compute the double product P_n:
     //
     // P_n := ∏_{j<n} ∏_{k<j} S_k, where S_k = (s_k + βs_{k+1} + γ(1 + β))
     //
@@ -395,7 +395,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_rou
 }
 
 /**
- * @brief Add contibution of z_lookup grand product terms to the quotient polynomial
+ * @brief Add contribution of z_lookup grand product terms to the quotient polynomial
  *
  * @tparam num_roots_cut_out_of_vanishing_polynomial
  * @param alpha_base

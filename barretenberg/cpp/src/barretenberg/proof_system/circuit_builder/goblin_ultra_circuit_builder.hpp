@@ -65,7 +65,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
      * @param varnum number of known witness
      *
      * @note The size of witness_values may be less than varnum. The former is the set of actual witness values known at
-     * the time of acir generation. The former may be larger and essentially acounts for placeholders for witnesses that
+     * the time of acir generation. The former may be larger and essentially accounts for placeholders for witnesses that
      * we know will exist but whose values are not known during acir generation. Both are in general less than the total
      * number of variables/witnesses that might be present for a circuit generated from acir, since many gates will
      * depend on the details of the bberg implementation (or more generally on the backend used to process acir).
@@ -131,7 +131,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     {
         const uint32_t index = this->add_variable(in);
         public_calldata.emplace_back(index);
-        // Note: this is a bit inefficent to do every time but for safety these need to be coupled
+        // Note: this is a bit inefficient to do every time but for safety these need to be coupled
         calldata_read_counts.resize(public_calldata.size());
         return index;
     }

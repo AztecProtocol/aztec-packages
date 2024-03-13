@@ -372,7 +372,7 @@ pub fn validate_call_against_request(private_call: PrivateCallData, request: Cal
             call_context.storage_contract_address.eq(caller_context.storage_contract_address), "call stack storage address does not match expected contract address for delegate calls"
         );
         assert(
-            !call_stack_item.contract_address.eq(call_context.storage_contract_address), "curent contract address must not match storage contract address for delegate calls"
+            !call_stack_item.contract_address.eq(call_context.storage_contract_address), "current contract address must not match storage contract address for delegate calls"
         );
     } else {
         let caller_contract_address = request.caller_contract_address;

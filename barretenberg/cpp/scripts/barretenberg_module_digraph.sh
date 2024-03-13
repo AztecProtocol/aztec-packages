@@ -16,7 +16,7 @@ for file in $(find ./src/barretenberg/ -iname CMakeLists.txt); do
 done
 echo } >> $TMP
 
-# apply transitive reduction to remove dependcies that are implied by other dependencies
+# apply transitive reduction to remove dependencies that are implied by other dependencies
 cat $TMP | tred > $RESULT_DOT
 rm $TMP
 

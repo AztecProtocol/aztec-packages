@@ -231,7 +231,7 @@ impl<'a> ValueMerger<'a> {
     /// Construct a dummy value to be attached to the smaller of two slices being merged.
     /// We need to make sure we follow the internal element type structure of the slice type
     /// even for dummy data to ensure that we do not have errors later in the compiler,
-    /// such as with dynamic indexing of non-homogenous slices.
+    /// such as with dynamic indexing of non-homogeneous slices.
     fn make_slice_dummy_data(&mut self, typ: &Type) -> ValueId {
         match typ {
             Type::Numeric(_) => {

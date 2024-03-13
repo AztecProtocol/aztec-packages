@@ -1470,7 +1470,7 @@ update-gitrepo-file() {
 }
 
 #------------------------------------------------------------------------------
-# Enviroment checks:
+# Environment checks:
 #------------------------------------------------------------------------------
 
 # Check that system is ok for this command:

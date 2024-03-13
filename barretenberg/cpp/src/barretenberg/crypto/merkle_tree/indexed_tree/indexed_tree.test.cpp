@@ -159,7 +159,7 @@ TEST(stdlib_indexed_tree, test_indexed_memory)
         IndexedTree<ArrayStore, LeavesCache, HashPolicy>(store, depth, 1);
 
     /**
-     * Intial state:
+     * Initial state:
      *
      *  index     0       1       2       3        4       5       6       7
      *  ---------------------------------------------------------------------

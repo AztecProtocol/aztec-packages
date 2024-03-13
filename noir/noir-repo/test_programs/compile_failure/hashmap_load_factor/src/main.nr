@@ -19,7 +19,7 @@ fn main(input: [Entry; HASHMAP_LEN]) {
 }
 
 // In this test we exceed load factor:
-// α_max = 0.75, thus for capacity of 8 and lenght of 6
+// α_max = 0.75, thus for capacity of 8 and length of 6
 // insertion of new unique key (7-th) should throw assertion error.
 fn test_load_factor(input: [Entry; HASHMAP_LEN]) {
     let mut hashmap = allocate_hashmap();
