@@ -3,14 +3,14 @@ StrictHostKeyChecking no
 User ubuntu
 
 Host build-instance-x86
-  HostName 18.191.162.117
+  HostName build-instance-x86.aztecprotocol.com
   User ubuntu
   ControlMaster auto
   ControlPath ~/.ssh/%r@%h-%p
   ControlPersist 600
 
 Host build-instance-arm
-  HostName 3.14.251.242
+  HostName build-instance-arm.aztecprotocol.com
   User ubuntu
   ControlMaster auto
   ControlPath ~/.ssh/%r@%h-%p
