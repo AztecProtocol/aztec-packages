@@ -312,7 +312,7 @@ describe('e2e_deploy_contract', () => {
             salt,
             publicKey,
             portalAddress,
-            constructorName: opts.constructorName,
+            constructorArtifact: opts.constructorName,
           });
           const { address, contractClassId } = instance;
           logger(`Deploying contract instance at ${address.toString()} class id ${contractClassId.toString()}`);
@@ -543,7 +543,7 @@ async function registerContract<T extends ContractBase>(
   const { salt, publicKey, portalAddress, initArgs, constructorName } = opts;
   const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, {
     constructorArgs: initArgs ?? [],
-    constructorName,
+    constructorArtifact: constructorName,
     salt,
     publicKey,
     portalAddress,

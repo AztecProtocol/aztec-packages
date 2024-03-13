@@ -21,7 +21,7 @@ import {
 export function getContractInstanceFromDeployParams(
   artifact: ContractArtifact,
   opts: {
-    constructorArtifact?: FunctionArtifact;
+    constructorArtifact?: FunctionArtifact | string;
     constructorArgs?: any[];
     salt?: Fr;
     publicKey?: PublicKey;
@@ -32,7 +32,7 @@ export function getContractInstanceFromDeployParams(
   const salt = opts.salt ?? Fr.random();
   const publicKey = opts.publicKey ?? Point.ZERO;
   const portalContractAddress = opts.portalAddress ?? EthAddress.ZERO;
-  const constructorArtifact = opts.constructorArtifact ?? getDefaultInitializer(artifact);
+  const constructorArtifact = getConstructorArtifact(artifact, opts.constructorArtifact);
 
   const contractClass = getContractClassFromArtifact(artifact);
   const contractClassId = computeContractClassId(contractClass);
@@ -49,4 +49,18 @@ export function getContractInstanceFromDeployParams(
   };
 
   return { ...instance, address: computeContractAddressFromInstance(instance) };
+}
+
+function getConstructorArtifact(
+  artifact: ContractArtifact,
+  requestedConstructorArtifact: FunctionArtifact | string | undefined,
+): FunctionArtifact | undefined {
+  if (typeof requestedConstructorArtifact === 'string') {
+    const found = artifact.functions.find(fn => fn.name === requestedConstructorArtifact);
+    if (!found) {
+      throw new Error(`No constructor found with name ${requestedConstructorArtifact}`);
+    }
+    return found;
+  }
+  return requestedConstructorArtifact ?? getDefaultInitializer(artifact);
 }
