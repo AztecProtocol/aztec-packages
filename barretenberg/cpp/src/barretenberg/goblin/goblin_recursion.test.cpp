@@ -42,24 +42,21 @@ TEST_F(GoblinRecursionTests, Vanilla)
 
     Goblin::AccumulationOutput kernel_accum;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/723):
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(goblin.op_queue);
-
     size_t NUM_CIRCUITS = 2;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
 
         // Construct and accumulate a mock function circuit
         GoblinUltraCircuitBuilder function_circuit{ goblin.op_queue };
-        GoblinMockCircuits::construct_arithmetic_circuit(function_circuit, 1 << 8);
-        GoblinMockCircuits::construct_goblin_ecc_op_circuit(function_circuit);
-        info("function merge");
+        MockCircuits::construct_arithmetic_circuit(function_circuit, /*target_log2_dyadic_size=*/8);
+        MockCircuits::construct_goblin_ecc_op_circuit(function_circuit);
         goblin.merge(function_circuit);
         auto function_accum = construct_accumulator(function_circuit);
 
         // Construct and accumulate the mock kernel circuit (no kernel accum in first round)
         GoblinUltraCircuitBuilder kernel_circuit{ goblin.op_queue };
-        GoblinMockCircuits::construct_mock_kernel_small(kernel_circuit, function_accum, kernel_accum);
-        info("kernel accum");
+        GoblinMockCircuits::construct_mock_kernel_small(kernel_circuit,
+                                                        { function_accum.proof, function_accum.verification_key },
+                                                        { kernel_accum.proof, kernel_accum.verification_key });
         goblin.merge(kernel_circuit);
         kernel_accum = construct_accumulator(kernel_circuit);
     }

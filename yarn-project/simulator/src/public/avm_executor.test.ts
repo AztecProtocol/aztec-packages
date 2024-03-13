@@ -1,5 +1,6 @@
 import { AztecAddress, CallContext, EthAddress, FunctionData, FunctionSelector, Header } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 
@@ -22,7 +23,7 @@ describe('AVM WitGen and Proof Generation', () => {
     functionSelector: FunctionSelector.empty(),
     isDelegateCall: false,
     isStaticCall: false,
-    startSideEffectCounter: 0,
+    sideEffectCounter: 0,
   });
   const contractAddress = AztecAddress.random();
 
@@ -31,8 +32,7 @@ describe('AVM WitGen and Proof Generation', () => {
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    const randomInt = Math.floor(Math.random() * 1000000);
-    header = makeHeader(randomInt);
+    header = makeHeader(randomInt(1000000));
   }, 10000);
 
   it('Should prove valid execution of bytecode that performs addition', async () => {
@@ -43,7 +43,7 @@ describe('AVM WitGen and Proof Generation', () => {
     //    new Add(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
     //    new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySize=*/ 1),
     // ]);
-    const bytecode: Buffer = Buffer.from('HwAAAAAAAAAAAgAAAAAAAAYAAAAAAAAAAQAAAAI3AAAAAAIAAAAB', 'base64');
+    const bytecode: Buffer = Buffer.from('IAAAAAAAAAAAAgAAAAAAAAYAAAAAAAAAAQAAAAI4AAAAAAIAAAAB', 'base64');
     publicContracts.getBytecode.mockResolvedValue(bytecode);
     const executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
     const functionData = FunctionData.empty();
