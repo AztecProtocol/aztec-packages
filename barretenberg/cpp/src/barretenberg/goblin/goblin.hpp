@@ -174,7 +174,7 @@ class Goblin {
         translator_builder = std::make_unique<TranslatorBuilder>(
             eccvm_prover->translation_batching_challenge_v, eccvm_prover->evaluation_challenge_x, op_queue);
         translator_composer = std::make_unique<TranslatorComposer>();
-        auto translator_prover = translator_composer->create_prover(*translator_builder, eccvm_prover->transcript);
+        GoblinTranslatorProver translator_prover(*translator_builder, eccvm_prover->transcript);
         goblin_proof.translator_proof = translator_prover.construct_proof();
     };
 

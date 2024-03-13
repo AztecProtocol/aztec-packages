@@ -34,11 +34,6 @@ class GoblinTranslatorComposer {
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    bool computed_witness = false;
-    size_t total_num_gates = 0;          // num_gates (already include zero row offset) (used to compute dyadic size)
-    size_t dyadic_circuit_size = 0;      // final power-of-2 circuit size
-    size_t mini_circuit_dyadic_size = 0; // The size of the small circuit that contains non-range constraint relations
-
     // We only need the standard crs factory. GoblinTranslatorFlavor is not supposed to be used with Grumpkin
     GoblinTranslatorComposer() { crs_factory_ = bb::srs::get_bn254_crs_factory(); }
 
@@ -47,28 +42,10 @@ class GoblinTranslatorComposer {
         , verification_key(std::move(v_key))
     {}
 
-    std::shared_ptr<ProvingKey> compute_proving_key(const CircuitBuilder& circuit_builder);
     std::shared_ptr<VerificationKey> compute_verification_key(const CircuitBuilder& circuit_builder);
 
-    void compute_circuit_size_parameters(CircuitBuilder& circuit_builder);
-
-    void compute_witness(CircuitBuilder& circuit_builder);
-
-    GoblinTranslatorProver create_prover(
-        CircuitBuilder& circuit_builder,
-        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     GoblinTranslatorVerifier create_verifier(
         const CircuitBuilder& circuit_builder,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-
-    std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
-    {
-        if (commitment_key) {
-            return commitment_key;
-        }
-
-        commitment_key = std::make_shared<CommitmentKey>(circuit_size);
-        return commitment_key;
-    };
 };
 } // namespace bb
