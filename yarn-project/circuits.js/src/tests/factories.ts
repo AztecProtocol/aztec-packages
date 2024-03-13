@@ -12,6 +12,7 @@ import {
   AggregationObject,
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
+  BaseParityInputs,
   BaseRollupInputs,
   CallContext,
   CallRequest,
@@ -71,7 +72,9 @@ import {
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NUM_BASE_PARITY_PER_ROOT_PARITY,
   NUM_FIELDS_PER_SHA256,
+  NUM_MSGS_PER_BASE_PARITY,
   NoteHashReadRequestMembershipWitness,
   NullifierKeyValidationRequest,
   NullifierKeyValidationRequestContext,
@@ -110,6 +113,7 @@ import {
   ReadRequestContext,
   RollupTypes,
   RootParityInput,
+  RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
   SideEffect,
@@ -1044,6 +1048,14 @@ export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
     toBufferBE(BigInt(seed + 0x200), 32),
     new Fr(BigInt(seed + 0x300)),
   );
+}
+
+export function makeBaseParityInputs(seed = 0): BaseParityInputs {
+  return new BaseParityInputs(makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000));
+}
+
+export function makeRootParityInputs(seed = 0): RootParityInputs {
+  return new RootParityInputs(makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, makeRootParityInput, seed + 0x4000));
 }
 
 /**

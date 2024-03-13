@@ -1,4 +1,4 @@
-import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 import { Proof } from '../proof.js';
@@ -22,5 +22,10 @@ export class RootParityInput {
 
   static getFields(fields: FieldsOf<RootParityInput>) {
     return [fields.proof, fields.publicInputs] as const;
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new RootParityInput(reader.readObject(Proof), reader.readObject(ParityPublicInputs));
   }
 }

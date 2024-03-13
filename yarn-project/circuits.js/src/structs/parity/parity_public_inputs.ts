@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 import { AggregationObject } from '../aggregation_object.js';
@@ -28,5 +28,10 @@ export class ParityPublicInputs {
 
   static getFields(fields: FieldsOf<ParityPublicInputs>) {
     return [fields.aggregationObject, fields.shaRoot, fields.convertedRoot] as const;
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new ParityPublicInputs(reader.readObject(AggregationObject), reader.readBytes(32), reader.readObject(Fr));
   }
 }
