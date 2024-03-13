@@ -25,7 +25,7 @@ jobs:
           User ubuntu
           EOF
       - name: ci
-        run: DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com TERM=xterm scripts/earthly
+        run: DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com scripts/earthly
 
   ci-arm:
     runs-on: ubuntu-latest
@@ -46,4 +46,4 @@ jobs:
           User ubuntu
           EOF
       - name: ci
-        run: DOCKER_HOST=ssh://build-instance-arm.aztecprotocol.com TERM=xterm scripts/earthly
+        run: DOCKER_HOST=ssh://build-instance-arm.aztecprotocol.com scripts/earthly

@@ -1,7 +1,6 @@
 VERSION 0.8
 
 FROM ubuntu:lunar
-IMPORT ./srs_db AS srs_db
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
@@ -39,16 +38,18 @@ build-wasi-sdk-image:
     SAVE ARTIFACT build/install/opt/wasi-sdk
 
 build-wasi-sdk:
+    ARG TARGETARCH
     # Wrapper just exists share files.
     FROM scratch
     WORKDIR /build
     COPY +build-wasi-sdk-image/wasi-sdk wasi-sdk
     SAVE ARTIFACT wasi-sdk
-    SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-threads-v21.0
+    SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
 
 get-wasi-sdk:
+    ARG TARGETARCH
     # If this is failing, we need to run earthly --push +build-wasi-sdk
-    FROM aztecprotocol/cache:wasi-sdk-threads-v21.0
+    FROM aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
     SAVE ARTIFACT wasi-sdk
 
 source:
@@ -144,7 +145,7 @@ BENCH_RELEASE:
     ARG args
     FROM +preset-release
     DO +BUILD --configure="--preset clang16" --build="--target $target"
-    COPY --dir srs_db:+build/. srs_db
+    COPY --dir ./srs_db/+build/. srs_db
     RUN cd build && ./bin/$target $args
 
 BENCH_OP_COUNT_TIME:
@@ -153,7 +154,7 @@ BENCH_OP_COUNT_TIME:
     ARG args
     FROM +preset-op-count-time
     DO +RUN_CMAKE --configure="--preset op-count-time" --build="--target $target"
-    COPY --dir srs_db:+build/. srs_db
+    COPY --dir ./srs_db:+build/. srs_db
     RUN cd build && ./bin/$target $args
 
 BENCH_OP_COUNT:
@@ -162,7 +163,7 @@ BENCH_OP_COUNT:
     ARG args
     FROM +preset-op-count
     DO +RUN_CMAKE --configure="--preset op-count" --build="--target $target"
-    COPY --dir srs_db:+build/. srs_db
+    COPY --dir ./srs_db/+build/. srs_db
     RUN cd build && ./bin/$target $args
 
 BENCH_WASM:
@@ -171,5 +172,5 @@ BENCH_WASM:
     ARG args
     FROM +preset-wasm
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target $target"
-    COPY --dir srs_db:+build/. srs_db/
+    COPY --dir ./srs_db/+build/. srs_db
     RUN cd build && ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args

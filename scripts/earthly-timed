@@ -13,6 +13,11 @@
 set -euo pipefail
 
 export FORCE_COLOR=1
+add_timestamps() {
+  gray=$(tput setaf 8)
+  normal=$(tput sgr0)
+  while IFS= read -r line; do printf "${gray}%(%H:%M:%S)T${normal} " ; echo "$line" ; done
+} 
 report_time() {
   end_time=$(date +%s)
   duration=$((end_time - start_time))
