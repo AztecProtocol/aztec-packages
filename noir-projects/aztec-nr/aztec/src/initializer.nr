@@ -39,6 +39,6 @@ pub fn assert_initialization_args_match_address_preimage<TContext>(context: TCon
     assert(instance.initialization_hash == expected_init, "Initialization hash does not match");
 }
 
-pub fn compute_initialization_hash(init_selector: FunctionSelector, init_args: Field) -> Field {
-    pedersen_hash([init_selector.to_field(), init_args], GENERATOR_INDEX__CONSTRUCTOR)
+pub fn compute_initialization_hash(init_selector: FunctionSelector, init_args_hash: Field) -> Field {
+    pedersen_hash([init_selector.to_field(), init_args_hash], GENERATOR_INDEX__CONSTRUCTOR)
 }
