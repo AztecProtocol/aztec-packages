@@ -1,7 +1,7 @@
 
 VERSION 0.8
 
-build-artifacts:
+build-package:
     FROM ../+base
     RUN ./bootstrap.sh # TODO mount cache
     # Build web bundle for browser tests
@@ -10,6 +10,7 @@ build-artifacts:
     SAVE ARTIFACT /build
 
 build:
+    BUILD ../+aztec
     FROM node:18.19.1-slim
     RUN apt-get update && apt-get install jq gnupg wget -y && \
         wget --quiet --output-document=- https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /etc/apt/trusted.gpg.d/google-archive.gpg && \
@@ -18,28 +19,29 @@ build:
         apt-get install google-chrome-stable -y --no-install-recommends && \
         rm -rf /var/lib/apt/lists/*
     ENV CHROME_BIN="/usr/bin/google-chrome-stable"
-    COPY +build-artifacts/build /build
+    COPY +build-package/build /build
     WORKDIR /build/yarn-project/end-to-end
+    SAVE IMAGE aztecprotocol/cache:end-to-end
 
-# get-aztec:
-#   FROM
+get-aztec:
+    FROM ubuntu:lunar
+    # for quick to work, need to run earthly +build first
+    ARG quick=false
+    IF [ "$quick" != false ]
+      FROM aztecprotocol/cache:aztec
+    ELSE
+      FROM ../+aztec
+    END
 
 get-end-to-end:
-    FROM node:18.19.1-slim
-    DO ../../build-system/+BUILD
-    # # Caching strategy: manually pass --REBUILD_END_TO_END=0 to get from image, otherwise rebuild
-    # ARG END_TO_END="default"
-    # IF [ "$REBUILD_END_TO_END" = "default" ]
-    #     # just build, no saving
-    #     FROM +build
-    # ELSE IF [ "$REBUILD_END_TO_END" = "1" ]
-    #     # save to local image (race condition if pushed to registry)
-    #     SAVE IMAGE aztecprotocol/end-to-end:latest
-    # ELSE
-    #     FROM aztecprotocol/end-to-end:latest
-    # END
-    # SAVE ARTIFACT wasi-sdk
-
+    FROM ubuntu:lunar
+  # for quick to work, need to run earthly +build first
+    ARG quick=false
+    IF [ $quick != false ]
+      FROM aztecprotocol/cache:end-to-end
+    ELSE
+      FROM +build
+    END
 
 E2E_TEST:
     FUNCTION
@@ -49,7 +51,7 @@ E2E_TEST:
     LOCALLY
     ENV TEST=$test
     ENV AVM_ENABLED=1 
-    WITH DOCKER --load aztecprotocol/aztec:latest=../+build-aztec --load aztecprotocol/end-to-end:latest=+get-end-to-end
+    WITH DOCKER --load aztecprotocol/aztec:latest=+get-aztec --load aztecprotocol/end-to-end:latest=+get-end-to-end
       RUN docker-compose -f $compose_file up  --exit-code-from=sandbox --force-recreate
     END
 

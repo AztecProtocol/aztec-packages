@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /build
 
-SAVE IMAGE --push aztecprotocol/cache:ubuntu-lunar
+SAVE IMAGE --push aztecprotocol/cache:bb-ubuntu-lunar
 
 build-wasi-sdk-image:
     WORKDIR /
@@ -46,52 +46,57 @@ build-wasi-sdk:
     SAVE ARTIFACT wasi-sdk
     SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-threads-v21.0
 
+get-wasi-sdk:
+    # If this is failing, we need to run earthly --push +build-wasi-sdk
+    FROM aztecprotocol/cache:wasi-sdk-threads-v21.0
+    SAVE ARTIFACT wasi-sdk
+
 source:
     # cpp source
     COPY --keep-ts --dir src/barretenberg src/CMakeLists.txt src
     # cmake source
     COPY --keep-ts --dir cmake CMakeLists.txt CMakePresets.json .
 
-build-release:
+preset-release:
     FROM +source
     DO +RUN_CMAKE --configure="--preset clang16" --build="--target bb"
     SAVE ARTIFACT bin
 
-build-debug:
+preset-debug:
     FROM +source
     DO +RUN_CMAKE --configure="--preset clang16-dbg" --build="--target bb"
     SAVE ARTIFACT bin
 
-build-wasm:
+preset-wasm:
     ARG BB_WASI_SDK=""
     FROM +source
     # wasi-sdk
-    COPY +build-wasi-sdk/wasi-sdk src/wasi-sdk
+    COPY +get-wasi-sdk/wasi-sdk src/wasi-sdk
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
     RUN ./src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
     SAVE ARTIFACT bin
 
-build-gcc:
+preset-gcc:
     FROM +source
     DO +RUN_CMAKE --configure="--preset gcc" --build=""
     SAVE ARTIFACT bin
 
-build-fuzzing:
+preset-fuzzing:
     FROM +source
     DO +RUN_CMAKE --configure="--preset fuzzing" --build=""
     SAVE ARTIFACT bin
 
-build-clang-assert:
+preset-clang-assert:
     FROM +source
     DO +RUN_CMAKE --configure="--preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert" --build="--target bb"
     SAVE ARTIFACT bin
 
-build-op-count:
+preset-op-count:
     FROM +source
     DO +RUN_CMAKE --configure="--preset op-count -DCMAKE_BUILD_TYPE=RelWithAssert" --build="--target bb"
     SAVE ARTIFACT bin
 
-build-op-count-time:
+preset-op-count-time:
     FROM +source
     DO +RUN_CMAKE --configure="--preset op-count-time -DCMAKE_BUILD_TYPE=RelWithAssert" --build="--target bb"
     SAVE ARTIFACT bin
@@ -110,8 +115,8 @@ bench-client-ivc:
     DO +BENCH_RELEASE --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
     DO +BENCH_WASM --target=client_ivc_bench --args="--benchmark_filter=ClientIVCBench/Full/6$"
 
-build:
-    BUILD +build-release
+build: # default target
+    BUILD +preset-release
 
 # Functions
 RUN_CMAKE:
@@ -137,7 +142,7 @@ BENCH_RELEASE:
     FUNCTION
     ARG target
     ARG args
-    FROM +build-release
+    FROM +preset-release
     DO +BUILD --configure="--preset clang16" --build="--target $target"
     COPY --dir srs_db:+build/. srs_db
     RUN cd build && ./bin/$target $args
@@ -146,7 +151,7 @@ BENCH_OP_COUNT_TIME:
     FUNCTION
     ARG target
     ARG args
-    FROM +build-op-count-time
+    FROM +preset-op-count-time
     DO +RUN_CMAKE --configure="--preset op-count-time" --build="--target $target"
     COPY --dir srs_db:+build/. srs_db
     RUN cd build && ./bin/$target $args
@@ -155,7 +160,7 @@ BENCH_OP_COUNT:
     FUNCTION
     ARG target
     ARG args
-    FROM +build-op-count
+    FROM +preset-op-count
     DO +RUN_CMAKE --configure="--preset op-count" --build="--target $target"
     COPY --dir srs_db:+build/. srs_db
     RUN cd build && ./bin/$target $args
@@ -164,7 +169,7 @@ BENCH_WASM:
     FUNCTION
     ARG target
     ARG args
-    FROM +build-wasm
+    FROM +preset-wasm
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target $target"
     COPY --dir srs_db:+build/. srs_db/
     RUN cd build && ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args

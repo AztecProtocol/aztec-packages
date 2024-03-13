@@ -1,7 +1,7 @@
 VERSION 0.8
 IMPORT ../noir AS noir
 # we rely on noir source, which this image has
-FROM noir+build-nargo
+FROM noir+nargo
 
 # move noir contents to /build/noir
 RUN mv /build /noir && mkdir /build && mv /noir /build

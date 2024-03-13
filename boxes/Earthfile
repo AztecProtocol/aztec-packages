@@ -6,7 +6,7 @@ build:
     FROM node:18.19.0
     RUN apt update && apt install netcat-openbsd
     COPY ../yarn-project+build/build /build
-    COPY ../noir/+build-nargo/nargo /build/noir/noir-repo/target/release/nargo
+    COPY ../noir/+nargo/nargo /build/noir/noir-repo/target/release/nargo
     COPY ../noir-projects/+build/aztec-nr /build/noir-projects/aztec-nr
     COPY ../noir-projects/+build/noir-protocol-circuits/crates/types /build/noir-projects/noir-protocol-circuits/crates/types
     WORKDIR /build/boxes

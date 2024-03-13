@@ -2,7 +2,7 @@ VERSION 0.8
 FROM ubuntu:lunar
 
 # Install nargo
-COPY ../noir/+build-nargo/nargo /usr/bin/nargo
+COPY ../noir/+nargo/nargo /usr/bin/nargo
 # Install transpiler
 COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
 

@@ -4,9 +4,9 @@ RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && 
 
 # copy bb-js and noir-packages
 COPY ../barretenberg/ts/+build/build /build/barretenberg/ts
-COPY ../noir/+build-packages/packages /build/noir/packages
+COPY ../noir/+packages/packages /build/noir/packages
 # install acvm binary
-COPY ../noir/+build-nargo/acvm /usr/bin/acvm
+COPY ../noir/+nargo/acvm /usr/bin/acvm
 COPY --dir ../noir-projects/+build/. /build/noir-projects
 COPY ../l1-contracts/+build/out /build/l1-contracts/out
 
@@ -36,7 +36,6 @@ build:
         RUN --mount type=cache,target=/build/node_modules  --mount type=cache,target=/build/yarn-cache \
             ./bootstrap.sh && yarn workspaces focus @aztec/cli @aztec/aztec --production
     END
-    RUN false
     SAVE ARTIFACT /build
 
 # TODO versioning flow at end before publish?
@@ -51,7 +50,7 @@ build:
 #     WORKDIR /build/yarn-project
 #     ENTRYPOINT ["yarn"]
 
-build-aztec:
+aztec:
     FROM +build
     # ENV vars for using native ACVM simulation
     ENV ACVM_BINARY_PATH="/build/noir/noir-repo/target/release/acvm" ACVM_WORKING_DIRECTORY="/tmp/acvm"
@@ -61,3 +60,4 @@ build-aztec:
     # The version has been updated in yarn-project.
     # Adding COMMIT_TAG here to rebuild versioned image.
     ARG COMMIT_TAG=""
+

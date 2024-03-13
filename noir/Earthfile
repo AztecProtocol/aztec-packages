@@ -1,6 +1,6 @@
 VERSION 0.8
 
-build-nargo:
+nargo:
     ARG EARTHLY_BUILD_SHA
     FROM rust:bullseye
     ENV COMMIT_HASH=$EARTHLY_BUILD_SHA
@@ -24,7 +24,7 @@ build-nargo:
     SAVE ARTIFACT /build/noir-repo/target/release/nargo nargo
     SAVE ARTIFACT /build/noir-repo/target/release/acvm acvm
 
-build-packages:
+packages:
     ARG EARTHLY_BUILD_SHA
     FROM node:20
     ENV COMMIT_HASH=$EARTHLY_BUILD_SHA
