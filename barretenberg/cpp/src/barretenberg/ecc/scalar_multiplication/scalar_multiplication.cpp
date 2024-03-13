@@ -128,9 +128,9 @@ void generate_pippenger_point_table(typename Curve::AffineElement* points,
  *Each pippenger round will work on one bit-slice.
  *
  * Pippenger's algorithm works by, for each round, iterating over the points we're multiplying. For each point, we
- *examining the point's scalar multiplier and extract the bit-slice associated with the current pippenger round (we start
- *with the most significant slice). We then use the bit-slice to index a 'bucket', which we add the point into. For
- *example, if the bit slice is 01101, we add the corresponding point into bucket[13].
+ *examining the point's scalar multiplier and extract the bit-slice associated with the current pippenger round (we
+ *start with the most significant slice). We then use the bit-slice to index a 'bucket', which we add the point into.
+ *For example, if the bit slice is 01101, we add the corresponding point into bucket[13].
  *
  * At the end of each pippenger round we concatenate the buckets together. E.g. if we have 8 buckets, we compute:
  * sum = bucket[0] + 2 * bucket[1] + 3 * bucket[2] + 4 * bucket[3] + 5 * bucket[4] + 6 * bucket[5] + 7 * bucket[6] + 8 *
