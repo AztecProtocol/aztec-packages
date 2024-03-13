@@ -41,7 +41,7 @@ import {
 import { makeTuple, range } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
-import { Tuple, toTruncField } from '@aztec/foundation/serialize';
+import { toTruncField } from '@aztec/foundation/serialize';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
