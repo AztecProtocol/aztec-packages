@@ -15,9 +15,9 @@
 namespace bb {
 template <class ProverInstances_> struct ProtogalaxyProofConstructionState {
     using FF = typename ProverInstances_::FF;
-    using Instance = typename ProverInstances_::Instance;
+    using ProverInstance = typename ProverInstances_::Instance;
 
-    std::shared_ptr<Instance> accumulator;
+    std::shared_ptr<ProverInstance> accumulator;
     Polynomial<FF> perturbator;
     std::vector<FF> deltas;
     Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH, ProverInstances_::NUM> combiner_quotient;
@@ -67,10 +67,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     ProtogalaxyProofConstructionState<ProverInstances> state;
 
     ProtoGalaxyProver_() = default;
-    ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts,
-                       const std::shared_ptr<CommitmentKey>& commitment_key)
+    ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
         : instances(ProverInstances(insts))
-        , commitment_key(std::move(commitment_key)){};
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
+        , commitment_key(instances[1]->proving_key->commitment_key){};
     ~ProtoGalaxyProver_() = default;
 
     /**
@@ -306,7 +306,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances, PowPolynomial<FF>& pow_betas)
     {
         BB_OP_COUNT_TIME();
-        size_t common_instance_size = instances[0]->instance_size;
+        size_t common_instance_size = instances[0]->proving_key->circuit_size;
         pow_betas.compute_values();
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based

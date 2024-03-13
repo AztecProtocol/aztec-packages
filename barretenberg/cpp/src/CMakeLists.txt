@@ -49,6 +49,7 @@ else()
 endif()
 
 add_subdirectory(barretenberg/bb)
+add_subdirectory(barretenberg/circuit_checker)
 add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/common)
@@ -62,7 +63,6 @@ add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/honk)
-add_subdirectory(barretenberg/join_split_example)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/plonk)
 add_subdirectory(barretenberg/polynomials)
@@ -82,7 +82,6 @@ add_subdirectory(barretenberg/wasi)
 
 
 if(SMT)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR} $ENV{HOME}/cvc5/tmp-lib/include)
     add_subdirectory(barretenberg/smt_verification)
 endif()
 
@@ -112,7 +111,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
     $<TARGET_OBJECTS:eccvm_objects>
-    $<TARGET_OBJECTS:examples_objects>
+    $<TARGET_OBJECTS:simple_example_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
     $<TARGET_OBJECTS:honk_objects>

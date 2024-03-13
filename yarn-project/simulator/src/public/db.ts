@@ -1,6 +1,8 @@
+import { NullifierMembershipWitness } from '@aztec/circuit-types';
 import { EthAddress, FunctionSelector, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { MessageLoadOracleInputs } from '../acvm/index.js';
 
@@ -64,17 +66,24 @@ export interface PublicContractsDB {
    * @returns The portal contract address or undefined if not found.
    */
   getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined>;
+
+  /**
+   * Returns a publicly deployed contract instance.
+   * @param address - Address of the contract.
+   * @returns The contract instance or undefined if not found.
+   */
+  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
 }
 
-/** Database interface for providing access to commitment tree and l1 to l2 message tree (append only data trees). */
+/** Database interface for providing access to commitment tree, l1 to l2 message tree, and nullifier tree. */
 export interface CommitmentsDB {
   /**
-   * Gets a confirmed L1 to L2 message for the given message key.
+   * Gets a confirmed L1 to L2 message for the given entry key.
    * TODO(Maddiaa): Can be combined with aztec-node method that does the same thing.
-   * @param msgKey - The message Key.
+   * @param entryKey - The entry key.
    * @returns - The l1 to l2 message object
    */
-  getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
+  getL1ToL2MembershipWitness(entryKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
    * Gets the index of a commitment in the note hash tree.
@@ -82,4 +91,18 @@ export interface CommitmentsDB {
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   getCommitmentIndex(commitment: Fr): Promise<bigint | undefined>;
+
+  /**
+   * Gets the index of a nullifier in the nullifier tree.
+   * @param nullifier - The nullifier.
+   * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
+   */
+  getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
+
+  /**
+   * Returns a nullifier membership witness for the given nullifier or undefined if not found.
+   * REFACTOR: Same as getL1ToL2MembershipWitness, can be combined with aztec-node method that does almost the same thing.
+   * @param nullifier - Nullifier we're looking for.
+   */
+  getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
 }

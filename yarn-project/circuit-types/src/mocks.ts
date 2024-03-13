@@ -2,12 +2,10 @@ import {
   AztecAddress,
   CallRequest,
   Fr,
-  MAX_NEW_CONTRACTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   Proof,
 } from '@aztec/circuits.js';
-import { makePrivateKernelTailCircuitPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/factories';
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
@@ -15,9 +13,9 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { Tuple } from '@aztec/foundation/serialize';
 import { ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
-import { ExtendedContractData } from './contract_data.js';
 import { DeployedContract } from './interfaces/index.js';
 import { FunctionL2Logs, Note, TxL2Logs } from './logs/index.js';
+import { makePrivateKernelTailCircuitPublicInputs, makePublicCallRequest } from './mocks_to_purge.js';
 import { ExtendedNote } from './notes/index.js';
 import { Tx, TxHash } from './tx/index.js';
 
@@ -31,17 +29,13 @@ export function makeEmptyLogs(): TxL2Logs {
 
 export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
 
-export const mockTx = (seed = 1) => {
+export const mockTx = (seed = 1, logs = true) => {
   const tx = new Tx(
     makePrivateKernelTailCircuitPublicInputs(seed),
     new Proof(Buffer.alloc(0)),
-    TxL2Logs.random(8, 3), // 8 priv function invocations creating 3 encrypted logs each
-    TxL2Logs.random(11, 2), // 8 priv + 3 pub function invocations creating 2 unencrypted logs each
+    logs ? TxL2Logs.random(8, 3) : TxL2Logs.empty(), // 8 priv function invocations creating 3 encrypted logs each
+    logs ? TxL2Logs.random(11, 2) : TxL2Logs.empty(), // 8 priv + 3 pub function invocations creating 2 unencrypted logs each
     times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
-    times(MAX_NEW_CONTRACTS_PER_TX, () => ExtendedContractData.random()) as Tuple<
-      ExtendedContractData,
-      typeof MAX_NEW_CONTRACTS_PER_TX
-    >,
   );
 
   tx.data.endNonRevertibleData.publicCallStack = [

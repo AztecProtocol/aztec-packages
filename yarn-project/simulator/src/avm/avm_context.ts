@@ -1,9 +1,9 @@
-import { AztecAddress } from '@aztec/circuits.js';
+import { AztecAddress, FunctionSelector } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmMachineState } from './avm_machine_state.js';
-import { AvmWorldStateJournal } from './journal/journal.js';
+import { AvmPersistableStateManager } from './journal/journal.js';
 
 /**
  * An execution context includes the information necessary to initiate AVM
@@ -12,13 +12,13 @@ import { AvmWorldStateJournal } from './journal/journal.js';
 export class AvmContext {
   /**
    * Create a new AVM context
-   * @param worldState - Manages mutable state during execution - (caching, fetching)
+   * @param persistableState - Manages world state and accrued substate during execution - (caching, fetching, tracing)
    * @param environment - Contains constant variables provided by the kernel
    * @param machineState - VM state that is modified on an instruction-by-instruction basis
    * @returns new AvmContext instance
    */
   constructor(
-    public worldState: AvmWorldStateJournal,
+    public persistableState: AvmPersistableStateManager,
     public environment: AvmExecutionEnvironment,
     public machineState: AvmMachineState,
   ) {}
@@ -35,9 +35,17 @@ export class AvmContext {
    * @param calldata - Data/arguments for nested call
    * @returns new AvmContext instance
    */
-  public createNestedContractCallContext(address: AztecAddress, calldata: Fr[]): AvmContext {
-    const newExecutionEnvironment = this.environment.deriveEnvironmentForNestedCall(address, calldata);
-    const forkedWorldState = this.worldState.fork();
+  public createNestedContractCallContext(
+    address: AztecAddress,
+    calldata: Fr[],
+    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+  ): AvmContext {
+    const newExecutionEnvironment = this.environment.deriveEnvironmentForNestedCall(
+      address,
+      calldata,
+      temporaryFunctionSelector,
+    );
+    const forkedWorldState = this.persistableState.fork();
     const machineState = AvmMachineState.fromState(this.machineState);
     return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);
   }
@@ -54,9 +62,17 @@ export class AvmContext {
    * @param calldata - Data/arguments for nested call
    * @returns new AvmContext instance
    */
-  public createNestedContractStaticCallContext(address: AztecAddress, calldata: Fr[]): AvmContext {
-    const newExecutionEnvironment = this.environment.deriveEnvironmentForNestedStaticCall(address, calldata);
-    const forkedWorldState = this.worldState.fork();
+  public createNestedContractStaticCallContext(
+    address: AztecAddress,
+    calldata: Fr[],
+    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+  ): AvmContext {
+    const newExecutionEnvironment = this.environment.deriveEnvironmentForNestedStaticCall(
+      address,
+      calldata,
+      temporaryFunctionSelector,
+    );
+    const forkedWorldState = this.persistableState.fork();
     const machineState = AvmMachineState.fromState(this.machineState);
     return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);
   }

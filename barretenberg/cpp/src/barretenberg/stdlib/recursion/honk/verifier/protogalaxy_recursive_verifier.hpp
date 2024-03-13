@@ -36,8 +36,8 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     VerifierInstances instances;
 
     ProtoGalaxyRecursiveVerifier_(Builder* builder,
-                                  std::shared_ptr<NativeInstance> accumulator,
-                                  const std::vector<std::shared_ptr<NativeVerificationKey>> native_inst_vks)
+                                  std::shared_ptr<NativeInstance>& accumulator,
+                                  const std::vector<std::shared_ptr<NativeVerificationKey>>& native_inst_vks)
         : builder(builder)
         , instances(VerifierInstances(builder, accumulator, native_inst_vks)){};
 

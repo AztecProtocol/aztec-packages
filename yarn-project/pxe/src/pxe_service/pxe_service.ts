@@ -10,19 +10,17 @@ import {
   GetUnencryptedLogsResponse,
   KeyStore,
   L2Block,
-  L2Tx,
   LogFilter,
   MerkleTreeId,
   NoteFilter,
   PXE,
   SimulationError,
   Tx,
+  TxEffect,
   TxExecutionRequest,
   TxHash,
   TxL2Logs,
   TxReceipt,
-  TxStatus,
-  getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
@@ -39,7 +37,6 @@ import {
   PublicCallRequest,
   computeArtifactHash,
   computeContractClassId,
-  computeSaltedInitializationHash,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
@@ -57,7 +54,7 @@ import {
   collectUnencryptedLogs,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
-import { ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
@@ -161,6 +158,11 @@ export class PXEService implements PXE {
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.db.getContractInstance(address);
+  }
+
+  public async getContractClass(id: Fr): Promise<ContractClassWithId | undefined> {
+    const artifact = await this.db.getContractArtifact(id);
+    return artifact && getContractClassFromArtifact(artifact);
   }
 
   public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
@@ -329,16 +331,17 @@ export class PXEService implements PXE {
    * @param note - The note to find the nonces for.
    * @returns The nonces of the note.
    * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
+   * TODO(#4956): Un-expose this
    */
-  private async getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
-    const tx = await this.node.getTx(note.txHash);
+  public async getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
+    const tx = await this.node.getTxEffect(note.txHash);
     if (!tx) {
       throw new Error(`Unknown tx: ${note.txHash}`);
     }
 
     const nonces: Fr[] = [];
-    const firstNullifier = tx.newNullifiers[0];
-    const hashes = tx.newNoteHashes;
+    const firstNullifier = tx.nullifiers[0];
+    const hashes = tx.noteHashes;
     for (let i = 0; i < hashes.length; ++i) {
       const hash = hashes[i];
       if (hash.equals(Fr.ZERO)) {
@@ -385,13 +388,8 @@ export class PXEService implements PXE {
 
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
-      // We get the contract address from origin, since contract deployments are signalled as origin from their own address
-      // TODO: Is this ok? Should it be changed to be from ZERO?
-      const deployedContractAddress = txRequest.txContext.isContractDeploymentTx ? txRequest.origin : undefined;
-      const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
-
       const timer = new Timer();
-      const tx = await this.#simulateAndProve(txRequest, newContract);
+      const tx = await this.#simulateAndProve(txRequest);
       this.log(`Processed private part of ${tx.getTxHash()}`, {
         eventName: 'tx-pxe-processing',
         duration: timer.ms(),
@@ -408,7 +406,7 @@ export class PXEService implements PXE {
 
   public async sendTx(tx: Tx): Promise<TxHash> {
     const txHash = tx.getTxHash();
-    if (await this.node.getTx(txHash)) {
+    if (await this.node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
     this.log.info(`Sending transaction ${txHash}`);
@@ -433,38 +431,12 @@ export class PXEService implements PXE {
     });
   }
 
-  public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    let txReceipt = new TxReceipt(txHash, TxStatus.DROPPED, 'Tx dropped by P2P node.');
-
-    // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
-    // for mined and then for pending there could be a race condition where the tx is mined between the two checks
-    // and we would incorrectly return a TxReceipt with status DROPPED
-    const pendingTx = await this.node.getPendingTxByHash(txHash);
-    if (pendingTx) {
-      txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
-    }
-
-    const settledTx = await this.node.getTx(txHash);
-    if (settledTx) {
-      const deployedContractAddress = settledTx.newContractData.find(
-        c => !c.contractAddress.equals(AztecAddress.ZERO),
-      )?.contractAddress;
-
-      txReceipt = new TxReceipt(
-        txHash,
-        TxStatus.MINED,
-        '',
-        settledTx.blockHash.toBuffer(),
-        settledTx.blockNumber,
-        deployedContractAddress,
-      );
-    }
-
-    return txReceipt;
+  public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+    return this.node.getTxReceipt(txHash);
   }
 
-  public async getTx(txHash: TxHash): Promise<L2Tx | undefined> {
-    return await this.node.getTx(txHash);
+  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return this.node.getTxEffect(txHash);
   }
 
   async getBlockNumber(): Promise<number> {
@@ -635,10 +607,9 @@ export class PXEService implements PXE {
    *
    * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param signature - The ECDSA signature for the transaction request.
-   * @param newContract - Optional. The address of a new contract to be included in the transaction object.
    * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
    */
-  async #simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
+  async #simulateAndProve(txExecutionRequest: TxExecutionRequest) {
     // TODO - Pause syncing while simulating.
 
     // Get values that allow us to reconstruct the block hash
@@ -656,21 +627,11 @@ export class PXEService implements PXE {
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
 
-    const extendedContractData = newContract
-      ? new ExtendedContractData(
-          new ContractData(newContract.instance.address, newContract.instance.portalContractAddress),
-          getNewContractPublicFunctions(newContract),
-          getContractClassFromArtifact(newContract).id,
-          computeSaltedInitializationHash(newContract.instance),
-          newContract.instance.publicKeysHash,
-        )
-      : ExtendedContractData.empty();
-
     // HACK(#1639): Manually patches the ordering of the public call stack
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
-    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions, [extendedContractData]);
+    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
   }
 
   /**
@@ -783,5 +744,9 @@ export class PXEService implements PXE {
 
   public getKeyStore() {
     return this.keyStore;
+  }
+
+  public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
+    return !!(await this.node.getContractClass(id));
   }
 }

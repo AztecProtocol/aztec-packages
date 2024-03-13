@@ -1,4 +1,5 @@
 #include "decider_prover.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -13,11 +14,10 @@ namespace bb {
  * */
 template <IsUltraFlavor Flavor>
 DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Instance>& inst,
-                                       const std::shared_ptr<CommitmentKey>& commitment_key,
                                        const std::shared_ptr<Transcript>& transcript)
     : accumulator(std::move(inst))
     , transcript(transcript)
-    , commitment_key(commitment_key)
+    , commitment_key(inst->proving_key->commitment_key)
 {}
 
 /**
@@ -28,7 +28,7 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Instance>& inst,
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor>;
-    auto instance_size = accumulator->instance_size;
+    auto instance_size = accumulator->proving_key->circuit_size;
     auto sumcheck = Sumcheck(instance_size, transcript);
     sumcheck_output = sumcheck.prove(accumulator);
 }
@@ -57,6 +57,8 @@ template <IsUltraFlavor Flavor> HonkProof& DeciderProver_<Flavor>::export_proof(
 
 template <IsUltraFlavor Flavor> HonkProof& DeciderProver_<Flavor>::construct_proof()
 {
+    BB_OP_COUNT_TIME_NAME("Decider::construct_proof");
+
     // Run sumcheck subprotocol.
     execute_relation_check_rounds();
 

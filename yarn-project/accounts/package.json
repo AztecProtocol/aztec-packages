@@ -23,8 +23,8 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn build:copy-contracts && tsc -b",
-    "build:copy-contracts": "./scripts/copy-contracts.sh",
+    "build": "yarn clean && yarn generate && tsc -b",
+    "generate": "./scripts/copy-contracts.sh",
     "build:dev": "tsc -b --watch",
     "build:ts": "tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/artifacts",
@@ -48,6 +48,7 @@
     "@aztec/aztec.js": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/entrypoints": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/types": "workspace:^",

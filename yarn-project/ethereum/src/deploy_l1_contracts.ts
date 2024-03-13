@@ -57,10 +57,6 @@ export interface ContractArtifacts {
  */
 export interface L1ContractArtifactsForDeployment {
   /**
-   * Contract deployment emitter artifacts
-   */
-  contractDeploymentEmitter: ContractArtifacts;
-  /**
    * Inbox contract artifacts
    */
   inbox: ContractArtifacts;
@@ -157,21 +153,12 @@ export const deployL1Contracts = async (
   const registryContract = getContract({
     address: getAddress(registryAddress.toString()),
     abi: contractsToDeploy.registry.contractAbi,
-    publicClient,
-    walletClient,
+    client: walletClient,
   });
   await registryContract.write.upgrade(
     [getAddress(rollupAddress.toString()), getAddress(inboxAddress.toString()), getAddress(outboxAddress.toString())],
     { account },
   );
-
-  const contractDeploymentEmitterAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.contractDeploymentEmitter.contractAbi,
-    contractsToDeploy.contractDeploymentEmitter.contractBytecode,
-  );
-  logger(`Deployed contract deployment emitter at ${contractDeploymentEmitterAddress}`);
 
   const l1Contracts: L1ContractAddresses = {
     availabilityOracleAddress,
@@ -179,7 +166,6 @@ export const deployL1Contracts = async (
     registryAddress,
     inboxAddress,
     outboxAddress,
-    contractDeploymentEmitterAddress,
   };
 
   return {

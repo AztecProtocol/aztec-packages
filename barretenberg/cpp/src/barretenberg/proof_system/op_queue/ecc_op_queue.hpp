@@ -7,6 +7,17 @@ namespace bb {
 
 enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
 
+struct UltraOp {
+    using Fr = curve::BN254::ScalarField;
+    Fr op;
+    Fr x_lo;
+    Fr x_hi;
+    Fr y_lo;
+    Fr y_hi;
+    Fr z_1;
+    Fr z_2;
+};
+
 /**
  * @brief Used to construct execution trace representations of elliptic curve operations.
  *
@@ -34,9 +45,91 @@ class ECCOpQueue {
     size_t previous_ultra_ops_size = 0; // M_{i-1}
 
     std::array<Point, 4> ultra_ops_commitments;
-    std::array<Point, 4> previous_ultra_ops_commitments;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): Can remove this with better handling of scalar
+    // mul against 0
+    void append_nonzero_ops()
+    {
+        // Add an element and scalar the accumulation of which leaves no Point-at-Infinity commitments
+        const auto x = uint256_t(0xd3c208c16d87cfd3, 0xd97816a916871ca8, 0x9b85045b68181585, 0x30644e72e131a02);
+        const auto y = uint256_t(0x3ce1cc9c7e645a83, 0x2edac647851e3ac5, 0xd0cbe61fced2bc53, 0x1a76dae6d3272396);
+        auto padding_element = Point(x, y);
+        auto padding_scalar = -Fr::one();
+        mul_accumulate(padding_element, padding_scalar);
+        eq();
+    }
 
     Point get_accumulator() { return accumulator; }
+
+    /**
+     * @brief Prepend the information from the previous queue (used before accumulation/merge proof to be able to run
+     * circuit construction separately)
+     *
+     * @param previous
+     */
+    void prepend_previous_queue(const ECCOpQueue& previous)
+    {
+        // Allocate enough space
+        std::vector<ECCVMOperation> raw_ops_updated(raw_ops.size() + previous.raw_ops.size());
+        // Copy the previous raw ops to the beginning of the new vector
+        std::copy(previous.raw_ops.begin(), previous.raw_ops.end(), raw_ops_updated.begin());
+        // Copy the raw ops from current queue after the ones from the previous queue (concatenate them)
+        std::copy(raw_ops.begin(),
+                  raw_ops.end(),
+                  std::next(raw_ops_updated.begin(), static_cast<long>(previous.raw_ops.size())));
+
+        // Swap raw_ops underlying storage
+        raw_ops.swap(raw_ops_updated);
+        // Do the same 3 operations for ultra_ops
+        for (size_t i = 0; i < 4; i++) {
+            // Allocate new vector
+            std::vector<Fr> current_ultra_op(ultra_ops[i].size() + previous.ultra_ops[i].size());
+            // Copy the previous ultra ops to the beginning of the new vector
+            std::copy(previous.ultra_ops[i].begin(), previous.ultra_ops[i].end(), current_ultra_op.begin());
+            // Copy the ultra ops from current queue after the ones from the previous queue (concatenate them)
+            std::copy(ultra_ops[i].begin(),
+                      ultra_ops[i].end(),
+                      std::next(current_ultra_op.begin(), static_cast<long>(previous.ultra_ops[i].size())));
+            // Swap storage
+            ultra_ops[i].swap(current_ultra_op);
+        }
+        // Update sizes
+        current_ultra_ops_size += previous.ultra_ops[0].size();
+        previous_ultra_ops_size += previous.ultra_ops[0].size();
+        // Update commitments
+        ultra_ops_commitments = previous.ultra_ops_commitments;
+    }
+    /**
+     * @brief Prepend the information from the previous queue (used before accumulation/merge proof to be able to run
+     * circuit construction separately)
+     *
+     * @param previous_ptr
+     */
+    void prepend_previous_queue(const ECCOpQueue* previous_ptr) { prepend_previous_queue(*previous_ptr); }
+
+    /**
+     * @brief Enable using std::swap on queues
+     *
+     */
+    friend void swap(ECCOpQueue& lhs, ECCOpQueue& rhs)
+    {
+        // Swap vectors
+        lhs.raw_ops.swap(rhs.raw_ops);
+        for (size_t i = 0; i < 4; i++) {
+            lhs.ultra_ops[i].swap(rhs.ultra_ops[i]);
+        }
+        // Swap sizes
+        size_t temp = lhs.current_ultra_ops_size;
+        lhs.current_ultra_ops_size = rhs.current_ultra_ops_size;
+        rhs.current_ultra_ops_size = temp;
+        temp = lhs.previous_ultra_ops_size;
+        lhs.previous_ultra_ops_size = rhs.previous_ultra_ops_size;
+        rhs.previous_ultra_ops_size = temp;
+        // Swap commitments
+        auto commit_temp = lhs.ultra_ops_commitments;
+        lhs.ultra_ops_commitments = rhs.ultra_ops_commitments;
+        rhs.ultra_ops_commitments = commit_temp;
+    }
 
     /**
      * @brief Set the current and previous size of the ultra_ops transcript
@@ -53,11 +146,7 @@ class ECCOpQueue {
     [[nodiscard]] size_t get_previous_size() const { return previous_ultra_ops_size; }
     [[nodiscard]] size_t get_current_size() const { return current_ultra_ops_size; }
 
-    void set_commitment_data(std::array<Point, 4>& commitments)
-    {
-        previous_ultra_ops_commitments = ultra_ops_commitments;
-        ultra_ops_commitments = commitments;
-    }
+    void set_commitment_data(std::array<Point, 4>& commitments) { ultra_ops_commitments = commitments; }
 
     /**
      * @brief Get a 'view' of the current ultra ops object
@@ -88,30 +177,6 @@ class ECCOpQueue {
             result.emplace_back(entry.begin(), previous_ultra_ops_size);
         }
         return result;
-    }
-
-    /**
-     * @brief TESTING PURPOSES ONLY: Populate ECC op queue with mock data as stand in for "previous circuit" in tests
-     * @details TODO(#723): We currently cannot support Goblin proofs (specifically, transcript aggregation) if there
-     * is not existing data in the ECC op queue (since this leads to zero-commitment issues). This method populates the
-     * op queue with mock data so that the prover of an arbitrary 'first' circuit can behave as if it were not the
-     * prover over the first circuit in the stack. This method should be removed entirely once this is resolved.
-     *
-     * @param op_queue
-     */
-    void populate_with_mock_initital_data()
-    {
-        // Add a single row of data to the op queue and commit to each column as [1] * FF(data)
-        std::array<Point, 4> mock_op_queue_commitments;
-        for (size_t idx = 0; idx < 4; idx++) {
-            auto mock_data = Fr::random_element();
-            this->ultra_ops[idx].emplace_back(mock_data);
-            mock_op_queue_commitments[idx] = Point::one() * mock_data;
-        }
-        // Set some internal data based on the size of the op queue data
-        this->set_size_data();
-        // Add the commitments to the op queue data for use by the next circuit
-        this->set_commitment_data(mock_op_queue_commitments);
     }
 
     /**
@@ -206,6 +271,25 @@ class ECCOpQueue {
             .z2 = 0,
             .mul_scalar_full = 0,
         });
+    }
+
+    /**
+     * @brief Populate two rows of the ultra ops,representing a complete ECC operation. Note that this has 7 inputs so
+     * the second row of ultra_ops[0] (storing the opcodes) will be set to 0.
+     *
+     * @param tuple
+     */
+    void populate_ultra_ops(UltraOp tuple)
+    {
+        ultra_ops[0].emplace_back(tuple.op);
+        ultra_ops[1].emplace_back(tuple.x_lo);
+        ultra_ops[2].emplace_back(tuple.x_hi);
+        ultra_ops[3].emplace_back(tuple.y_lo);
+
+        ultra_ops[0].emplace_back(0);
+        ultra_ops[1].emplace_back(tuple.y_hi);
+        ultra_ops[2].emplace_back(tuple.z_1);
+        ultra_ops[3].emplace_back(tuple.z_2);
     }
 };
 

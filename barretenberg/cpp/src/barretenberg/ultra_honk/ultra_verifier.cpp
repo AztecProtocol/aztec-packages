@@ -20,20 +20,17 @@ UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<Transcript>& transc
 template <typename Flavor>
 UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<VerificationKey>& verifier_key)
     : key(verifier_key)
-    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, bb::srs::get_crs_factory()))
     , transcript(std::make_shared<Transcript>())
 {}
 
 template <typename Flavor>
 UltraVerifier_<Flavor>::UltraVerifier_(UltraVerifier_&& other)
     : key(std::move(other.key))
-    , pcs_verification_key(std::move(other.pcs_verification_key))
 {}
 
 template <typename Flavor> UltraVerifier_<Flavor>& UltraVerifier_<Flavor>::operator=(UltraVerifier_&& other)
 {
     key = other.key;
-    pcs_verification_key = (std::move(other.pcs_verification_key));
     commitments.clear();
     return *this;
 }
@@ -67,6 +64,9 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         return false;
     }
     if (public_input_size != key->num_public_inputs) {
+        return false;
+    }
+    if (pub_inputs_offset != key->pub_inputs_offset) {
         return false;
     }
 
@@ -155,7 +155,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
                                             multivariate_challenge,
                                             transcript);
 
-    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
     return sumcheck_verified.value() && verified;
 }

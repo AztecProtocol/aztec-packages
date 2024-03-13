@@ -1,3 +1,4 @@
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
 #include <fstream>
 #include <gtest/gtest.h>
@@ -29,12 +30,12 @@ TEST(circuit_verification, multiplication_true)
     builder.set_variable_name(a.witness_index, "a");
     builder.set_variable_name(b.witness_index, "b");
     builder.set_variable_name(c.witness_index, "c");
-    ASSERT_TRUE(builder.check_circuit());
+    ASSERT_TRUE(CircuitChecker::check(builder));
 
     auto buf = builder.export_circuit();
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
-    smt_solver::Solver s(circuit_info.modulus, { true, 0 });
+    smt_solver::Solver s(circuit_info.modulus);
     smt_circuit::Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
     smt_terms::FFTerm a1 = circuit["a"];
     smt_terms::FFTerm b1 = circuit["b"];
@@ -60,12 +61,12 @@ TEST(circuit_verification, multiplication_true_kind)
     builder.set_variable_name(a.witness_index, "a");
     builder.set_variable_name(b.witness_index, "b");
     builder.set_variable_name(c.witness_index, "c");
-    ASSERT_TRUE(builder.check_circuit());
+    ASSERT_TRUE(CircuitChecker::check(builder));
 
     auto buf = builder.export_circuit();
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
-    smt_solver::Solver s(circuit_info.modulus, { true, 0 });
+    smt_solver::Solver s(circuit_info.modulus);
     smt_circuit::Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
     smt_terms::FFTerm a1 = circuit["a"];
     smt_terms::FFTerm b1 = circuit["b"];
@@ -91,12 +92,12 @@ TEST(circuit_verification, multiplication_false)
     builder.set_variable_name(a.witness_index, "a");
     builder.set_variable_name(b.witness_index, "b");
     builder.set_variable_name(c.witness_index, "c");
-    ASSERT_TRUE(builder.check_circuit());
+    ASSERT_TRUE(CircuitChecker::check(builder));
 
     auto buf = builder.export_circuit();
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
-    smt_solver::Solver s(circuit_info.modulus, { true, 0 });
+    smt_solver::Solver s(circuit_info.modulus);
     smt_circuit::Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
 
     smt_terms::FFTerm a1 = circuit["a"];
@@ -139,10 +140,10 @@ TEST(circuit_verifiaction, unique_witness)
     auto buf = builder.export_circuit();
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
-    smt_solver::Solver s(circuit_info.modulus, { true, 0 });
+    smt_solver::Solver s(circuit_info.modulus);
 
     std::pair<smt_circuit::Circuit<smt_terms::FFTerm>, smt_circuit::Circuit<smt_terms::FFTerm>> cirs =
-        smt_circuit::unique_witness<smt_terms::FFTerm>(circuit_info, &s, { "ev" }, { "z" });
+        smt_circuit::unique_witness_ext<smt_terms::FFTerm>(circuit_info, &s, { "ev" }, { "z" });
 
     bool res = s.check();
     ASSERT_TRUE(res);
@@ -156,7 +157,7 @@ using namespace smt_terms;
 
 TEST(solver_use_case, solver)
 {
-    Solver s("11", { true, 0 }, 10);
+    Solver s("11", default_solver_config, 10);
     FFTerm x = FFTerm::Var("x", &s);
     FFTerm y = FFTerm::Var("y", &s);
 

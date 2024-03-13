@@ -1,4 +1,6 @@
 #include "barretenberg/flavor/goblin_translator.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
@@ -9,7 +11,8 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
+#include "barretenberg/sumcheck/instance/prover_instance.hpp"
+
 #include <gtest/gtest.h>
 using namespace bb;
 
@@ -30,15 +33,7 @@ void ensure_non_zero(auto& polynomial)
  */
 template <typename Flavor, typename Relation> void check_relation(auto circuit_size, auto& polynomials, auto params)
 {
-    using AllValues = typename Flavor::AllValues;
     for (size_t i = 0; i < circuit_size; i++) {
-
-        // Extract an array containing all the polynomial evaluations at a given row i
-        AllValues evaluations_at_index_i;
-        for (auto [eval, poly] : zip_view(evaluations_at_index_i.get_all(), polynomials.get_all())) {
-            eval = poly[i];
-        }
-
         // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
         SumcheckArrayOfValuesOverSubrelations result;
@@ -47,7 +42,7 @@ template <typename Flavor, typename Relation> void check_relation(auto circuit_s
         }
 
         // Evaluate each constraint in the relation and check that each is satisfied
-        Relation::accumulate(result, evaluations_at_index_i, params, 1);
+        Relation::accumulate(result, polynomials.get_row(i), params, 1);
         for (auto& element : result) {
             ASSERT_EQ(element, 0);
         }
@@ -267,8 +262,7 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     create_some_RAM_gates<Flavor>(builder);
 
     // Create a prover (it will compute proving key and witness)
-    auto composer = UltraComposer();
-    auto instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
     auto proving_key = instance->proving_key;
     auto circuit_size = proving_key->circuit_size;
 
@@ -320,8 +314,7 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     create_some_ecc_op_queue_gates<Flavor>(builder); // Goblin!
 
     // Create a prover (it will compute proving key and witness)
-    auto composer = GoblinUltraComposer();
-    auto instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
     auto proving_key = instance->proving_key;
     auto circuit_size = proving_key->circuit_size;
 

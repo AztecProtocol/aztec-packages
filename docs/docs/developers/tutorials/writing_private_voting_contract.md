@@ -73,7 +73,7 @@ We are using various utils within the Aztec library:
 - `context` - exposes things such as the contract address, msg_sender, etc
 - `context.request_nullifier_secret_key` - get your secret key to help us create a randomized nullifier
 - `FunctionSelector::from_signature` - compute a function selector from signature so we can call functions from other functions
-- `state_vars::{ map::Map, public_state::PublicState, }` - we will use a Map to store the votes (key = voteId, value = number of votes), and PublicState to hold our public values that we mentioned earlier
+- `state_vars::{Map, PublicMutable}` - we will use a Map to store the votes (key = voteId, value = number of votes), and PublicMutable to hold our public values that we mentioned earlier
 - `types::type_serialization::{..}` - various serialization methods for defining how to use these types
 - `types::address::{AztecAddress},` - our admin will be held as an address
 - `constants::EMPTY_NULLIFIED_COMMITMENT,` - this will come in useful when creating our nullifier
@@ -95,25 +95,9 @@ In this contract, we will store three vars:
 
 The next step is to initialize the contract with a constructor. The constructor will take an address as a parameter and set the admin.
 
-All constructors must be private, and because the admin is in public storage, we cannot directly update it from the constructor. You can find more information about this [here](../../learn/concepts/communication/public_private_calls/main.md).
-
-Therefore our constructor must call a public function by using `context.call_public_function()`. Paste this under the `impl` storage block:
-
 #include_code constructor noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
 
-`context.call_public_function()` takes three arguments:
-
-1. The contract address whose method we want to call
-2. The selector of the function to call (we can use `FunctionSelector::from_signature(...)` for this)
-3. The arguments of the function (we pass the `admin`)
-
-We now need to write the `_initialize()` function:
-
-#include_code initialize noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
-
 This function takes the admin argument and writes it to the storage. We are also using this function to set the `voteEnded` boolean as false in the same way.
-
-This function is set as `internal` so that it can only be called from within the contract. This stops anyone from setting a new admin.
 
 ## Casting a vote privately
 

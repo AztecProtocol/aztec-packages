@@ -1,6 +1,6 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/barretenberg-wasm-linux-clang
+FROM aztecprotocol/barretenberg-wasm-linux-clang
 
-FROM node:18.19.0-alpine
+FROM node:18.19.0
 COPY --from=0 /usr/src/barretenberg /usr/src/barretenberg
 
 # Create a standalone container that can run bb.js (and tests).

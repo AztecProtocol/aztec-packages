@@ -1,29 +1,25 @@
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
-    use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress},
-        grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId
+    use dep::aztec::prelude::{
+        AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map,
+        PrivateSet, PublicMutable
     };
-    use dep::aztec::{
-        state_vars::{map::Map, set::Set, public_state::PublicState}, context::Context,
-        note::{
-        note_getter_options::NoteGetterOptions, note_getter_options::NoteStatus,
-        note_header::NoteHeader, utils as note_utils
-    }
-    };
+
+    use dep::aztec::protocol_types::{grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId};
+    use dep::aztec::{context::Context, note::note_getter_options::NoteStatus};
     // docs:start:imports
     use dep::aztec::history::{
-        contract_inclusion::{prove_contract_inclusion, prove_contract_inclusion_at},
+        contract_inclusion::{
+        prove_contract_deployment_at, prove_contract_non_deployment_at,
+        prove_contract_initialization_at, prove_contract_non_initialization_at
+    },
         note_inclusion::{prove_note_inclusion, prove_note_inclusion_at},
         note_validity::{prove_note_validity, prove_note_validity_at},
         nullifier_inclusion::{
         prove_nullifier_inclusion, prove_nullifier_inclusion_at, prove_note_is_nullified,
         prove_note_is_nullified_at
     },
-        nullifier_non_inclusion::{
-        prove_nullifier_not_included, prove_nullifier_not_included_at, prove_note_not_nullified,
-        prove_note_not_nullified_at
-    },
+        nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
         public_value_inclusion::{prove_public_value_inclusion, prove_public_value_inclusion_at}
     };
     // docs:end:imports
@@ -31,20 +27,15 @@ contract InclusionProofs {
     use dep::value_note::value_note::ValueNote;
     // docs:end:value_note_imports
     struct Storage {
-        private_values: Map<AztecAddress, Set<ValueNote>>,
-        public_value: PublicState<Field>,
-        public_unused_value: PublicState<Field>,
-    }
-
-    #[aztec(private)]
-    fn constructor(public_value: Field) {
-        let selector = FunctionSelector::from_signature("_initialize(Field)");
-        context.call_public_function(context.this_address(), selector, [public_value]);
+        private_values: Map<AztecAddress, PrivateSet<ValueNote>>,
+        public_value: PublicMutable<Field>,
+        public_unused_value: PublicMutable<Field>,
     }
 
     #[aztec(public)]
-    internal fn _initialize(value: Field) {
-        storage.public_value.write(value);
+    #[aztec(initializer)]
+    fn constructor(public_value: Field) {
+        storage.public_value.write(public_value);
     }
 
     // docs:start:create_note
@@ -175,7 +166,7 @@ contract InclusionProofs {
     fn test_nullifier_inclusion(
         nullifier: Field,
         use_block_number: bool,
-        block_number: u32 // The block at which we'll prove that the nullifier not exists in the tree
+        block_number: u32 // The block at which we'll prove that the nullifier exists in the nullifier tree
     ) {
         if (use_block_number) {
             // docs:start:prove_nullifier_inclusion
@@ -184,6 +175,12 @@ contract InclusionProofs {
         } else {
             prove_nullifier_inclusion(nullifier, context);
         }
+    }
+
+    // Proves nullifier existed at latest block
+    #[aztec(public)]
+    fn test_nullifier_inclusion_from_public(nullifier: Field) {
+        prove_nullifier_inclusion(nullifier, context);
     }
 
     #[aztec(private)]
@@ -222,32 +219,35 @@ contract InclusionProofs {
         }
     }
 
-    // Proves that a contract exists at block `block_number`.
-    // Note: This can be used to approximate a factory pattern --> a factory contract could perform this proof and that
-    //       way verify that a contract at a given address is what it expects. Then it could store it in an internal
-    //       map of contracts (like what Uniswap Factory does with pool contracts - it stores them in a mapping).
-    //       By passing in the construct hash the factory can also verify that the contract was constructed with the
-    //       correct constructor arguments. Typically the factory would store the expected construct hash and assert
-    //       that it is what it expects. The constructor param check is the reason of why we pass in the preimage of
-    //       contract's aztec address instead of just the address.
+    // Proves that a contract was publicly deployed and/or initialized at block `block_number`.
     #[aztec(private)]
     fn test_contract_inclusion(
-        public_key: GrumpkinPoint,
-        contract_address_salt: Field,
-        contract_class_id: ContractClassId,
-        initialization_hash: Field,
-        portal_contract_address: EthAddress,
-        block_number: u32 // The block at which we'll prove that the public value exists
+        contract_address: AztecAddress,
+        block_number: u32,
+        test_deployment: bool,
+        test_initialization: bool
     ) {
-        let proven_contract_address = prove_contract_inclusion_at(
-            public_key,
-            contract_address_salt,
-            contract_class_id,
-            initialization_hash,
-            portal_contract_address,
-            block_number,
-            context
-        );
-        // Here typically the factory would add the contract address to its internal map of deployed contracts.
+        if test_deployment {
+            prove_contract_deployment_at(contract_address, block_number, context);
+        }
+        if test_initialization {
+            prove_contract_initialization_at(contract_address, block_number, context);
+        }
+    }
+
+    // Proves that a contract was NOT publicly deployed and/or initialized at block `block_number`.
+    #[aztec(private)]
+    fn test_contract_non_inclusion(
+        contract_address: AztecAddress,
+        block_number: u32,
+        test_deployment: bool,
+        test_initialization: bool
+    ) {
+        if test_deployment {
+            prove_contract_non_deployment_at(contract_address, block_number, context);
+        }
+        if test_initialization {
+            prove_contract_non_initialization_at(contract_address, block_number, context);
+        }
     }
 }

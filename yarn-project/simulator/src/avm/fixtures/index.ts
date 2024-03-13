@@ -1,4 +1,5 @@
-import { GlobalVariables } from '@aztec/circuits.js';
+import { SiblingPath } from '@aztec/circuit-types';
+import { GlobalVariables, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -7,32 +8,44 @@ import { Fr } from '@aztec/foundation/fields';
 import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../../index.js';
+import { CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicStateDB } from '../../index.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { HostStorage } from '../journal/host_storage.js';
-import { AvmWorldStateJournal } from '../journal/journal.js';
+import { AvmPersistableStateManager } from '../journal/journal.js';
 
 /**
  * Create a new AVM context with default values.
  */
 export function initContext(overrides?: {
-  worldState?: AvmWorldStateJournal;
+  persistableState?: AvmPersistableStateManager;
   env?: AvmExecutionEnvironment;
   machineState?: AvmMachineState;
 }): AvmContext {
   return new AvmContext(
-    overrides?.worldState || initMockWorldStateJournal(),
+    overrides?.persistableState || initMockPersistableStateManager(),
     overrides?.env || initExecutionEnvironment(),
     overrides?.machineState || initMachineState(),
   );
 }
 
-/** Creates an empty world state with mocked storage. */
-export function initMockWorldStateJournal(): AvmWorldStateJournal {
-  const hostStorage = new HostStorage(mock<PublicStateDB>(), mock<PublicContractsDB>(), mock<CommitmentsDB>());
-  return new AvmWorldStateJournal(hostStorage);
+/** Creates an empty host storage with mocked dbs. */
+export function initHostStorage(overrides?: {
+  publicDb?: PublicStateDB;
+  contractsDb?: PublicContractsDB;
+  commitmentsDb?: CommitmentsDB;
+}): HostStorage {
+  return new HostStorage(
+    overrides?.publicDb || mock<PublicStateDB>(),
+    overrides?.contractsDb || mock<PublicContractsDB>(),
+    overrides?.commitmentsDb || mock<CommitmentsDB>(),
+  );
+}
+
+/** Creates an empty state manager with mocked storage. */
+export function initMockPersistableStateManager(): AvmPersistableStateManager {
+  return new AvmPersistableStateManager(initHostStorage());
 }
 
 /**
@@ -87,4 +100,16 @@ export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachi
  */
 export function allSameExcept(original: any, overrides: any): any {
   return merge({}, original, overrides);
+}
+
+/**
+ * Create an empty L1ToL2Message oracle input
+ */
+export function initL1ToL2MessageOracleInput(
+  leafIndex?: bigint,
+): MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT> {
+  return new MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
+    leafIndex ?? 0n,
+    new SiblingPath(L1_TO_L2_MSG_TREE_HEIGHT, Array(L1_TO_L2_MSG_TREE_HEIGHT)),
+  );
 }

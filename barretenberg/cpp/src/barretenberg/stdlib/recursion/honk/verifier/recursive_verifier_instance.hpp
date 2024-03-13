@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/instance/verifier_instance.hpp"
@@ -25,11 +26,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     Builder* builder;
 
     std::shared_ptr<VerificationKey> verification_key;
-    std::vector<FF> public_inputs;
-    size_t pub_inputs_offset = 0;
-    size_t public_input_size;
-    size_t instance_size;
-    size_t log_instance_size;
     RelationParameters<FF> relation_parameters;
     RelationSeparator alphas;
     bool is_accumulator = false;
@@ -49,20 +45,19 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     {}
 
     RecursiveVerifierInstance_(Builder* builder, const std::shared_ptr<VerifierInstance>& instance)
-        : pub_inputs_offset((instance->pub_inputs_offset))
-        , public_input_size((instance->public_input_size))
-        , instance_size((instance->instance_size))
-        , log_instance_size((instance->log_instance_size))
+        : verification_key(std::make_shared<VerificationKey>(instance->verification_key->circuit_size,
+                                                             instance->verification_key->num_public_inputs))
         , is_accumulator(bool(instance->is_accumulator))
     {
 
-        size_t public_input_idx = 0;
-        public_inputs = std::vector<FF>(public_input_size);
-        for (auto public_input : instance->public_inputs) {
-            public_inputs[public_input_idx] = FF::from_witness(builder, public_input);
-            public_input_idx++;
+        verification_key->pub_inputs_offset = instance->verification_key->pub_inputs_offset;
+        verification_key->pcs_verification_key = instance->verification_key->pcs_verification_key;
+        verification_key->public_inputs = std::vector<FF>(instance->verification_key->num_public_inputs);
+        for (auto [public_input, native_public_input] :
+             zip_view(verification_key->public_inputs, instance->verification_key->public_inputs)) {
+            public_input = FF::from_witness(builder, native_public_input);
         }
-        verification_key = std::make_shared<VerificationKey>(instance_size, public_input_size);
+
         auto other_vks = instance->verification_key->get_all();
         size_t vk_idx = 0;
         for (auto& vk : verification_key->get_all()) {
@@ -105,42 +100,36 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
      */
     VerifierInstance get_value()
     {
-        VerifierInstance inst;
-        inst.pub_inputs_offset = pub_inputs_offset;
-        inst.public_input_size = public_input_size;
-        inst.log_instance_size = log_instance_size;
-        inst.instance_size = instance_size;
+        auto inst_verification_key = std::make_shared<NativeVerificationKey>(verification_key->circuit_size,
+                                                                             verification_key->num_public_inputs);
+        inst_verification_key->pcs_verification_key = verification_key->pcs_verification_key;
+        for (auto [vk, inst_vk] : zip_view(verification_key->get_all(), inst_verification_key->get_all())) {
+            inst_vk = vk.get_value();
+        }
+
+        VerifierInstance inst(inst_verification_key);
         inst.is_accumulator = is_accumulator;
 
-        size_t public_input_idx = 0;
-        inst.public_inputs = std::vector<NativeFF>(public_input_size);
-        for (auto public_input : public_inputs) {
-            inst.public_inputs[public_input_idx] = public_input.get_value();
-            public_input_idx++;
-        }
-        inst.verification_key = std::make_shared<NativeVerificationKey>(instance_size, public_input_size);
-        size_t vk_idx = 0;
-        for (auto& vk : verification_key->get_all()) {
-            inst.verification_key->get_all()[vk_idx] = vk.get_value();
-            vk_idx++;
-        }
-        for (size_t alpha_idx = 0; alpha_idx < alphas.size(); alpha_idx++) {
-            inst.alphas[alpha_idx] = alphas[alpha_idx].get_value();
+        inst.verification_key->public_inputs = std::vector<NativeFF>(verification_key->num_public_inputs);
+        for (auto [public_input, inst_public_input] :
+             zip_view(verification_key->public_inputs, inst.verification_key->public_inputs)) {
+            inst_public_input = public_input.get_value();
         }
 
-        size_t comm_idx = 0;
-        for (auto& comm : witness_commitments.get_all()) {
-            inst.witness_commitments.get_all()[comm_idx] = comm.get_value();
-            comm_idx++;
+        for (auto [alpha, inst_alpha] : zip_view(alphas, inst.alphas)) {
+            inst_alpha = alpha.get_value();
+        }
+
+        for (auto [comm, inst_comm] : zip_view(witness_commitments.get_all(), inst.witness_commitments.get_all())) {
+            inst_comm = comm.get_value();
         }
         inst.target_sum = target_sum.get_value();
 
-        size_t challenge_idx = 0;
         inst.gate_challenges = std::vector<NativeFF>(gate_challenges.size());
-        for (auto& challenge : inst.gate_challenges) {
-            challenge = gate_challenges[challenge_idx].get_value();
-            challenge_idx++;
+        for (auto [challenge, inst_challenge] : zip_view(gate_challenges, inst.gate_challenges)) {
+            inst_challenge = challenge.get_value();
         }
+
         inst.relation_parameters.eta = relation_parameters.eta.get_value();
         inst.relation_parameters.beta = relation_parameters.beta.get_value();
         inst.relation_parameters.gamma = relation_parameters.gamma.get_value();

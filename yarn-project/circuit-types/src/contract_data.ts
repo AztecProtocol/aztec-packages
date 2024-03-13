@@ -1,14 +1,14 @@
-import { FUNCTION_SELECTOR_NUM_BYTES, Fr, FunctionSelector } from '@aztec/circuits.js';
+import { FUNCTION_SELECTOR_NUM_BYTES, Fr, FunctionSelector, computeSaltedInitializationHash } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import {
   BufferReader,
   numToInt32BE,
-  serializeBufferArrayToVector,
+  serializeArrayOfBufferableToVector,
   serializeToBuffer,
 } from '@aztec/foundation/serialize';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractClass, ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 /**
  * Used for retrieval of contract data (A3 address, portal contract address, bytecode).
@@ -28,20 +28,6 @@ export interface ContractDataSource {
    * @returns The aztec & ethereum portal address (if found).
    */
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
-
-  /**
-   * Gets extended contract data for all contracts deployed in L2 block.
-   * @param blockNumber - The block number.
-   * @returns Extended contract data of contracts deployed in L2 block.
-   */
-  getExtendedContractDataInBlock(blockNumber: number): Promise<ExtendedContractData[]>;
-
-  /**
-   * Lookup contract data in an L2 block.
-   * @param blockNumber - The block number.
-   * @returns Portal contract address info of contracts deployed in L2 block.
-   */
-  getContractDataInBlock(blockNumber: number): Promise<ContractData[] | undefined>;
 
   /**
    * Returns a contract's encoded public function, given its function selector.
@@ -68,6 +54,9 @@ export interface ContractDataSource {
    * @param address - Address of the deployed contract.
    */
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+
+  /** Returns the list of all class ids known. */
+  getContractClassIds(): Promise<Fr[]>;
 }
 
 /**
@@ -138,6 +127,7 @@ export class EncodedContractFunction {
 
 /**
  * A contract data blob, containing L1 and L2 addresses, public functions' bytecode, partial address and public key.
+ * TODO(palla/purge-old-contract-deploy): Delete this class?
  */
 export class ExtendedContractData {
   /** The contract's encoded ACIR code. This should become Brillig code once implemented. */
@@ -155,7 +145,7 @@ export class ExtendedContractData {
     /** Public key hash of the contract. */
     public readonly publicKeyHash: Fr,
   ) {
-    this.bytecode = serializeBufferArrayToVector(publicFunctions.map(fn => fn.toBuffer()));
+    this.bytecode = serializeArrayOfBufferableToVector(publicFunctions.map(fn => fn.toBuffer()));
   }
 
   /**
@@ -249,10 +239,25 @@ export class ExtendedContractData {
   static empty(): ExtendedContractData {
     return new ExtendedContractData(ContractData.empty(), [], Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
+
+  /** Temporary method for creating extended contract data out of classes and instances */
+  static fromClassAndInstance(
+    contractClass: Pick<ContractClass, 'publicFunctions'>,
+    instance: ContractInstanceWithAddress,
+  ) {
+    return new ExtendedContractData(
+      new ContractData(instance.address, instance.portalContractAddress),
+      contractClass.publicFunctions.map(f => new EncodedContractFunction(f.selector, f.isInternal, f.bytecode)),
+      instance.contractClassId,
+      computeSaltedInitializationHash(instance),
+      instance.publicKeysHash,
+    );
+  }
 }
 
 /**
  * A contract data blob, containing L1 and L2 addresses.
+ * TODO(palla/purge-old-contract-deploy): Delete me
  */
 export class ContractData {
   constructor(

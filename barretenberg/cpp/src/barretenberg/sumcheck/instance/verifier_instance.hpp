@@ -10,20 +10,16 @@ namespace bb {
  *
  * @details This is ϕ in the paper.
  */
-template <class Flavor> class VerifierInstance_ {
+template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
   public:
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;
+    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     std::shared_ptr<VerificationKey> verification_key;
-    std::vector<FF> public_inputs;
-    size_t pub_inputs_offset = 0;
-    size_t public_input_size;
-    size_t instance_size;
-    size_t log_instance_size;
     RelationParameters<FF> relation_parameters;
     RelationSeparator alphas;
     bool is_accumulator = false;
@@ -34,5 +30,8 @@ template <class Flavor> class VerifierInstance_ {
 
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
+    VerifierInstance_(std::shared_ptr<VerificationKey> vk)
+        : verification_key(std::move(vk))
+    {}
 };
 } // namespace bb
