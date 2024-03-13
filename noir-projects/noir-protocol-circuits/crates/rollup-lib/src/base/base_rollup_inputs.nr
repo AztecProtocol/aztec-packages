@@ -1325,6 +1325,14 @@ mod tests {
     }
 
     #[test]
+    unconstrained fn constants_satisfy_larger_max_block_number() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.constants.global_variables.block_number = 42;
+        builder.kernel_data.set_max_block_number(4294967295);
+        builder.succeeds();
+    }
+
+    #[test]
     unconstrained fn subtree_height_is_0() {
         let outputs = BaseRollupInputsBuilder::new().execute();
 
