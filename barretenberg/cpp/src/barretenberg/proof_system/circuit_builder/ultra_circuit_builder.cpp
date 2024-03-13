@@ -209,20 +209,20 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate(const add_quad_<
 {
     // WORKTODO: arithmetic
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
-    blocks.main.populate_wires(in.a, in.b, in.c, in.d);
-    blocks.main.q_m().emplace_back(0);
-    blocks.main.q_1().emplace_back(in.a_scaling);
-    blocks.main.q_2().emplace_back(in.b_scaling);
-    blocks.main.q_3().emplace_back(in.c_scaling);
-    blocks.main.q_c().emplace_back(in.const_scaling);
-    blocks.main.q_arith().emplace_back(include_next_gate_w_4 ? 2 : 1);
-    blocks.main.q_4().emplace_back(in.d_scaling);
-    blocks.main.q_sort().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
-    blocks.main.q_aux().emplace_back(0);
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
+    blocks.arithmetic.q_m().emplace_back(0);
+    blocks.arithmetic.q_1().emplace_back(in.a_scaling);
+    blocks.arithmetic.q_2().emplace_back(in.b_scaling);
+    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
+    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
+    blocks.arithmetic.q_arith().emplace_back(include_next_gate_w_4 ? 2 : 1);
+    blocks.arithmetic.q_4().emplace_back(in.d_scaling);
+    blocks.arithmetic.q_sort().emplace_back(0);
+    blocks.arithmetic.q_lookup_type().emplace_back(0);
+    blocks.arithmetic.q_elliptic().emplace_back(0);
+    blocks.arithmetic.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.main.pad_additional();
+        blocks.arithmetic.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
@@ -1470,7 +1470,7 @@ void UltraCircuitBuilder_<Arithmetization>::range_constrain_two_limbs(const uint
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate necessary for the big add gate
     // constructed immediately prior to calling range_constrain_two_limbs from evaluate_non_native_field_multiplication.
     // However, if this is turned on, acir double verify proof doubles in size.
-    // create_dummy_gate(blocks.arithmetic, lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
+    create_dummy_gate(blocks.arithmetic, lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
     blocks.main.populate_wires(lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
     blocks.main.populate_wires(lo_sublimbs[3], lo_sublimbs[4], hi_sublimbs[0], hi_sublimbs[1]);
     blocks.main.populate_wires(hi_sublimbs[2], hi_sublimbs[3], hi_sublimbs[4], hi_idx);
@@ -1637,7 +1637,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate necessary for preceeding big add gate
     // that reaches into next row. If this is turned on, acir double verify proof doubles in size.
-    // create_dummy_gate(blocks.arithmetic, input.a[1], input.b[1], input.r[0], lo_0_idx);
+    create_dummy_gate(blocks.arithmetic, input.a[1], input.b[1], input.r[0], lo_0_idx);
 
     blocks.main.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
