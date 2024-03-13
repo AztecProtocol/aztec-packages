@@ -25,49 +25,10 @@ if ! [ -f "$EARTHLY" ] ; then
   "$EARTHLY" config global.container_frontend docker-shell
 fi
 
-add_timestamps() {
-  gray=$(tput setaf 8)
-  normal=$(tput sgr0)
-  while IFS= read -r line; do printf "${gray}%(%H:%M:%S)T${normal} " ; echo "$line" ; done
-} 
-
-export FORCE_COLOR=1
-report_time() {
-  end_time=$(date +%s)
-  duration=$((end_time - start_time))
-  gray=$(tput setaf 8)
-  normal=$(tput sgr0)
-  local hours=$((duration / 3600))
-  local minutes=$(( (duration % 3600) / 60 ))
-  local seconds=$((duration % 60))
-
-  printf "${gray}"
-  if (( hours > 0 )); then
-      printf "%d hours, %d minutes, and %d seconds" $hours $minutes $seconds
-  elif (( minutes > 0 )); then
-      printf "%d minutes and %d seconds" $minutes $seconds
-  else
-      printf "%d seconds" $seconds
-  fi
-  printf "${normal}\n"
-}
-# on finish
-trap report_time EXIT
-start_time=$(date +%s)
-
-INTERACTIVE=${INTERACTIVE:-false}
-for arg in "$@"; do
-    if [ "$arg" = "-i" ] || [ "$arg" = "--interactive" ]; then
-        INTERACTIVE=true
-        break
-    fi
-done
 EARTHLY_FLAGS="--config $EARTHLY_CONFIG -P --disable-remote-registry-proxy --use-inline-cache --save-inline-cache"
-if [ $INTERACTIVE = true ] ; then
-  "$EARTHLY" $EARTHLY_FLAGS $@
 elif [ $# -eq 0 ]; then
   # By default, try for a +build target
-  "$EARTHLY" $EARTHLY_FLAGS +build 2>&1 | add_timestamps >&2
+  "$EARTHLY" $EARTHLY_FLAGS +build
 else
-  "$EARTHLY" $EARTHLY_FLAGS $@ 2>&1 | add_timestamps >&2
+  "$EARTHLY" $EARTHLY_FLAGS $@
 fi
