@@ -360,6 +360,8 @@ describe('L1Publisher integration', () => {
       '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
     );
 
+    let newModelL1ToL2Messages: Fr[] = [];
+
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
       const l1ToL2Content = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 128 * i + 1 + 0x400).map(fr);
       const l1ToL2Messages: Fr[] = [];
@@ -407,7 +409,7 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages, l1ToL2Messages);
+      const [block] = await builder.buildL2Block(globalVariables, txs, newModelL1ToL2Messages, l1ToL2Messages);
       prevHeader = block.header;
 
       // check that values are in the inbox
@@ -468,6 +470,9 @@ describe('L1Publisher integration', () => {
       for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
         expect(await outbox.read.contains([newL2ToL1MsgsArray[j].toString()])).toBeTruthy();
       }
+
+      // There is a 1 block lag in the new model
+      newModelL1ToL2Messages = l1ToL2Messages;
     }
   }, 360_000);
 
