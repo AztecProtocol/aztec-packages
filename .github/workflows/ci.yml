@@ -9,7 +9,7 @@ jobs:
   ci-x86:
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-x86
       cancel-in-progress: true
     steps:
       - name: Checkout
@@ -33,7 +33,7 @@ jobs:
   ci-arm:
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-arm
       cancel-in-progress: true
     steps:
       - name: Checkout
