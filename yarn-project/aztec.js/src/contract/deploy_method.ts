@@ -33,8 +33,10 @@ export type DeployOptions = {
   universalDeploy?: boolean;
   /** Skip contract class registration. */
   skipClassRegistration?: boolean;
-  /** Skip public deployment and only initialize the contract. */
+  /** Skip public deployment, instead just privately initialize the contract. */
   skipPublicDeployment?: boolean;
+  /** Skip contract initialization. */
+  skipInitialization?: boolean;
 } & SendMethodOptions;
 
 // TODO(@spalladino): Add unit tests for this class!
@@ -103,7 +105,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   public async request(options: DeployOptions = {}): Promise<FunctionCall[]> {
     const { address } = this.getInstance(options);
     const calls = await this.getDeploymentFunctionCalls(options);
-    if (this.constructorArtifact) {
+    if (this.constructorArtifact && !options.skipInitialization) {
       const constructorCall = new ContractFunctionInteraction(
         this.wallet,
         address,
