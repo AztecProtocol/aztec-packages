@@ -2,6 +2,7 @@
 
 self_path=$(dirname "$(readlink -f "$0")")
 
+echo $PATH
 echo $NARGO_BACKEND_PATH
 
 repo_root=$self_path/../../..
