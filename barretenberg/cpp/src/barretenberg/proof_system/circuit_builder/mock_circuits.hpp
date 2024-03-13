@@ -39,7 +39,7 @@ class MockCircuits {
         // A proper treatment of this would dynamically calculate how many gates to add given static information about
         // Builder, but a major overhaul of the execution trace is underway, so we just elect to use a hack. Namely, for
         // all of builders for which we instantiate this template and for all circuit sizes we care about, to achieve a
-        // desired dyadic circuit size after boilerplate gates, it is sufficient to full up to OFFSET_HACK-many gates
+        // desired dyadic circuit size after boilerplate gates, it is sufficient to fill up to OFFSET_HACK-many gates
         // short of the desired dyadic circuit size.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/902)
         static constexpr size_t OFFSET_HACK = 10;
