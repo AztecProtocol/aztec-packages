@@ -2,7 +2,7 @@ Summary
  - [pess-unprotected-setter](#pess-unprotected-setter) (1 results) (High)
  - [uninitialized-local](#uninitialized-local) (2 results) (Medium)
  - [unused-return](#unused-return) (2 results) (Medium)
- - [pess-dubious-typecast](#pess-dubious-typecast) (8 results) (Medium)
+ - [pess-dubious-typecast](#pess-dubious-typecast) (12 results) (Medium)
  - [missing-zero-check](#missing-zero-check) (1 results) (Low)
  - [reentrancy-events](#reentrancy-events) (2 results) (Low)
  - [timestamp](#timestamp) (4 results) (Low)
@@ -57,10 +57,10 @@ src/core/Rollup.sol#L58-L103
 Impact: Medium
 Confidence: High
  - [ ] ID-5
-Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L314-L316):
-	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L315)
+Dubious typecast in [TxsDecoder.computeRoot(bytes31[])](src/core/libraries/decoders/TxsDecoder.sol#L264-L283):
+	bytes32 => bytes31 casting occurs in [_leafs[j / 2] = bytes31(sha256(bytes)(bytes.concat(bytes31(_leafs[j]),bytes31(_leafs[j + 1]))))](src/core/libraries/decoders/TxsDecoder.sol#L277)
 
-src/core/libraries/decoders/TxsDecoder.sol#L314-L316
+src/core/libraries/decoders/TxsDecoder.sol#L264-L283
 
 
  - [ ] ID-6
@@ -79,63 +79,96 @@ src/core/messagebridge/Inbox.sol#L45-L91
 
 
  - [ ] ID-8
-Dubious typecast in [TxsDecoder.read4(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L324-L326):
-	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(slice(_data,_offset,4))))](src/core/libraries/decoders/TxsDecoder.sol#L325)
-
-src/core/libraries/decoders/TxsDecoder.sol#L324-L326
-
-
- - [ ] ID-9
 Dubious typecast in [MessagesDecoder.read4(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L160-L162):
 	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L161)
 
 src/core/libraries/decoders/MessagesDecoder.sol#L160-L162
 
 
+ - [ ] ID-9
+Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L143-L187):
+	bytes => bytes32 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L151-L153)
+	bytes => bytes4 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L151-L153)
+	bytes => bytes32 casting occurs in [header.contentCommitment.txTreeHeight = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L156)
+	bytes => bytes32 casting occurs in [header.contentCommitment.txsEffectsHash = bytes32(bytes.concat(new bytes(1),_header))](src/core/libraries/HeaderLib.sol#L159-L160)
+	bytes => bytes32 casting occurs in [header.contentCommitment.inHash = bytes32(bytes.concat(new bytes(1),_header))](src/core/libraries/HeaderLib.sol#L161)
+	bytes => bytes32 casting occurs in [header.contentCommitment.outHash = bytes32(bytes.concat(new bytes(1),_header))](src/core/libraries/HeaderLib.sol#L162)
+	bytes => bytes32 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L165-L167)
+	bytes => bytes4 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L165-L167)
+	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L168-L170)
+	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L168-L170)
+	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L171-L173)
+	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L171-L173)
+	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L174-L176)
+	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L174-L176)
+	bytes => bytes32 casting occurs in [header.globalVariables.chainId = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L179)
+	bytes => bytes32 casting occurs in [header.globalVariables.version = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L180)
+	bytes => bytes32 casting occurs in [header.globalVariables.blockNumber = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L181)
+	bytes => bytes32 casting occurs in [header.globalVariables.timestamp = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L182)
+	bytes => bytes20 casting occurs in [header.globalVariables.coinbase = address(bytes20(_header))](src/core/libraries/HeaderLib.sol#L183)
+	bytes => bytes32 casting occurs in [header.globalVariables.feeRecipient = bytes32(_header)](src/core/libraries/HeaderLib.sol#L184)
+
+src/core/libraries/HeaderLib.sol#L143-L187
+
+
  - [ ] ID-10
+Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L322-L324):
+	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L323)
+
+src/core/libraries/decoders/TxsDecoder.sol#L322-L324
+
+
+ - [ ] ID-11
+Dubious typecast in [TxsDecoder.read4(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L332-L334):
+	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(slice(_data,_offset,4))))](src/core/libraries/decoders/TxsDecoder.sol#L333)
+
+src/core/libraries/decoders/TxsDecoder.sol#L332-L334
+
+
+ - [ ] ID-12
+Dubious typecast in [Hash.sha256ToField(bytes)](src/core/libraries/Hash.sol#L49-L51):
+	bytes32 => bytes31 casting occurs in [bytes32(bytes.concat(new bytes(1),bytes31(sha256(bytes)(_data))))](src/core/libraries/Hash.sol#L50)
+	bytes => bytes32 casting occurs in [bytes32(bytes.concat(new bytes(1),bytes31(sha256(bytes)(_data))))](src/core/libraries/Hash.sol#L50)
+
+src/core/libraries/Hash.sol#L49-L51
+
+
+ - [ ] ID-13
 Dubious typecast in [Inbox.batchConsume(bytes32[],address)](src/core/messagebridge/Inbox.sol#L122-L143):
 	uint256 => uint32 casting occurs in [expectedVersion = uint32(REGISTRY.getVersionFor(msg.sender))](src/core/messagebridge/Inbox.sol#L128)
 
 src/core/messagebridge/Inbox.sol#L122-L143
 
 
- - [ ] ID-11
-Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L143-L184):
-	bytes => bytes32 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L151-L153)
-	bytes => bytes4 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L151-L153)
-	bytes => bytes32 casting occurs in [header.contentCommitment.txTreeHeight = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L156)
-	bytes => bytes32 casting occurs in [header.contentCommitment.txsEffectsHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L157)
-	bytes => bytes32 casting occurs in [header.contentCommitment.inHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L158)
-	bytes => bytes32 casting occurs in [header.contentCommitment.outHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L159)
-	bytes => bytes32 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L162-L164)
-	bytes => bytes4 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L162-L164)
-	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L165-L167)
-	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L165-L167)
-	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L168-L170)
-	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L168-L170)
-	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L171-L173)
-	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L171-L173)
-	bytes => bytes32 casting occurs in [header.globalVariables.chainId = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L176)
-	bytes => bytes32 casting occurs in [header.globalVariables.version = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L177)
-	bytes => bytes32 casting occurs in [header.globalVariables.blockNumber = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L178)
-	bytes => bytes32 casting occurs in [header.globalVariables.timestamp = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L179)
-	bytes => bytes20 casting occurs in [header.globalVariables.coinbase = address(bytes20(_header))](src/core/libraries/HeaderLib.sol#L180)
-	bytes => bytes32 casting occurs in [header.globalVariables.feeRecipient = bytes32(_header)](src/core/libraries/HeaderLib.sol#L181)
-
-src/core/libraries/HeaderLib.sol#L143-L184
-
-
- - [ ] ID-12
+ - [ ] ID-14
 Dubious typecast in [MessagesDecoder.read1(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L150-L152):
 	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L151)
 
 src/core/libraries/decoders/MessagesDecoder.sol#L150-L152
 
 
+ - [ ] ID-15
+Dubious typecast in [TxsDecoder.computeKernelLogsHash(uint256,bytes)](src/core/libraries/decoders/TxsDecoder.sol#L223-L256):
+	bytes32 => bytes31 casting occurs in [kernelPublicInputsLogsHash = sha256(bytes)(bytes.concat(bytes31(kernelPublicInputsLogsHash),bytes31(privateCircuitPublicInputsLogsHash)))](src/core/libraries/decoders/TxsDecoder.sol#L248-L252)
+	bytes32 => bytes31 casting occurs in [kernelPublicInputsLogsHash = sha256(bytes)(bytes.concat(bytes31(kernelPublicInputsLogsHash),bytes31(privateCircuitPublicInputsLogsHash)))](src/core/libraries/decoders/TxsDecoder.sol#L248-L252)
+
+src/core/libraries/decoders/TxsDecoder.sol#L223-L256
+
+
+ - [ ] ID-16
+Dubious typecast in [TxsDecoder.decode(bytes)](src/core/libraries/decoders/TxsDecoder.sol#L76-L189):
+	bytes32 => bytes31 casting occurs in [vars.baseLeaf = bytes.concat(bytes.concat(sliceAndPad(_body,offsets.noteHash,counts.noteHash * 0x20,Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP),sliceAndPad(_body,offsets.nullifier,counts.nullifier * 0x20,Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP),sliceAndPad(_body,offsets.l2ToL1Msgs,counts.l2ToL1Msgs * 0x20,Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP),sliceAndPad(_body,offsets.publicData,counts.publicData * 0x40,Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP)),bytes.concat(new bytes(1),bytes31(vars.encryptedLogsHash),new bytes(1),bytes31(vars.unencryptedLogsHash)))](src/core/libraries/decoders/TxsDecoder.sol#L149-L182)
+	bytes32 => bytes31 casting occurs in [vars.baseLeaf = bytes.concat(bytes.concat(sliceAndPad(_body,offsets.noteHash,counts.noteHash * 0x20,Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP),sliceAndPad(_body,offsets.nullifier,counts.nullifier * 0x20,Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP),sliceAndPad(_body,offsets.l2ToL1Msgs,counts.l2ToL1Msgs * 0x20,Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP),sliceAndPad(_body,offsets.publicData,counts.publicData * 0x40,Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP)),bytes.concat(new bytes(1),bytes31(vars.encryptedLogsHash),new bytes(1),bytes31(vars.unencryptedLogsHash)))](src/core/libraries/decoders/TxsDecoder.sol#L149-L182)
+	bytes32 => bytes31 casting occurs in [vars.baseLeaves[i] = bytes31(sha256(bytes)(vars.baseLeaf))](src/core/libraries/decoders/TxsDecoder.sol#L184)
+	bytes => bytes32 casting occurs in [bytes32(bytes.concat(new bytes(1),computeRoot(vars.baseLeaves)))](src/core/libraries/decoders/TxsDecoder.sol#L188)
+
+src/core/libraries/decoders/TxsDecoder.sol#L76-L189
+
+
 ## missing-zero-check
 Impact: Low
 Confidence: Medium
- - [ ] ID-13
+ - [ ] ID-17
 [NewInbox.constructor(address,uint256)._rollup](src/core/messagebridge/NewInbox.sol#L41) lacks a zero-check on :
 		- [ROLLUP = _rollup](src/core/messagebridge/NewInbox.sol#L42)
 
@@ -145,7 +178,7 @@ src/core/messagebridge/NewInbox.sol#L41
 ## reentrancy-events
 Impact: Low
 Confidence: Medium
- - [ ] ID-14
+ - [ ] ID-18
 Reentrancy in [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L62-L99):
 	External calls:
 	- [index = currentTree.insertLeaf(leaf)](src/core/messagebridge/NewInbox.sol#L95)
@@ -155,7 +188,7 @@ Reentrancy in [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](s
 src/core/messagebridge/NewInbox.sol#L62-L99
 
 
- - [ ] ID-15
+ - [ ] ID-19
 Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L103):
 	External calls:
 	- [inbox.batchConsume(l1ToL2Msgs,msg.sender)](src/core/Rollup.sol#L90)
@@ -170,7 +203,7 @@ src/core/Rollup.sol#L58-L103
 ## timestamp
 Impact: Low
 Confidence: Medium
- - [ ] ID-16
+ - [ ] ID-20
 [Inbox.batchConsume(bytes32[],address)](src/core/messagebridge/Inbox.sol#L122-L143) uses timestamp for comparisons
 	Dangerous comparisons:
 	- [block.timestamp > entry.deadline](src/core/messagebridge/Inbox.sol#L136)
@@ -178,7 +211,7 @@ Confidence: Medium
 src/core/messagebridge/Inbox.sol#L122-L143
 
 
- - [ ] ID-17
+ - [ ] ID-21
 [HeaderLib.validate(HeaderLib.Header,uint256,uint256,bytes32)](src/core/libraries/HeaderLib.sol#L106-L136) uses timestamp for comparisons
 	Dangerous comparisons:
 	- [_header.globalVariables.timestamp > block.timestamp](src/core/libraries/HeaderLib.sol#L120)
@@ -186,7 +219,7 @@ src/core/messagebridge/Inbox.sol#L122-L143
 src/core/libraries/HeaderLib.sol#L106-L136
 
 
- - [ ] ID-18
+ - [ ] ID-22
 [Inbox.sendL2Message(DataStructures.L2Actor,uint32,bytes32,bytes32)](src/core/messagebridge/Inbox.sol#L45-L91) uses timestamp for comparisons
 	Dangerous comparisons:
 	- [_deadline <= block.timestamp](src/core/messagebridge/Inbox.sol#L54)
@@ -194,7 +227,7 @@ src/core/libraries/HeaderLib.sol#L106-L136
 src/core/messagebridge/Inbox.sol#L45-L91
 
 
- - [ ] ID-19
+ - [ ] ID-23
 [Inbox.cancelL2Message(DataStructures.L1ToL2Msg,address)](src/core/messagebridge/Inbox.sol#L102-L113) uses timestamp for comparisons
 	Dangerous comparisons:
 	- [block.timestamp <= _message.deadline](src/core/messagebridge/Inbox.sol#L108)
@@ -205,28 +238,28 @@ src/core/messagebridge/Inbox.sol#L102-L113
 ## pess-public-vs-external
 Impact: Low
 Confidence: Medium
- - [ ] ID-20
+ - [ ] ID-24
 The following public functions could be turned into external in [FrontierMerkle](src/core/messagebridge/frontier_tree/Frontier.sol#L7-L93) contract:
 	[FrontierMerkle.constructor(uint256)](src/core/messagebridge/frontier_tree/Frontier.sol#L19-L27)
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L7-L93
 
 
- - [ ] ID-21
+ - [ ] ID-25
 The following public functions could be turned into external in [Registry](src/core/messagebridge/Registry.sol#L22-L129) contract:
 	[Registry.constructor()](src/core/messagebridge/Registry.sol#L29-L33)
 
 src/core/messagebridge/Registry.sol#L22-L129
 
 
- - [ ] ID-22
+ - [ ] ID-26
 The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L30-L112) contract:
 	[Rollup.constructor(IRegistry,IAvailabilityOracle)](src/core/Rollup.sol#L43-L49)
 
 src/core/Rollup.sol#L30-L112
 
 
- - [ ] ID-23
+ - [ ] ID-27
 The following public functions could be turned into external in [Outbox](src/core/messagebridge/Outbox.sol#L21-L148) contract:
 	[Outbox.constructor(address)](src/core/messagebridge/Outbox.sol#L29-L31)
 	[Outbox.get(bytes32)](src/core/messagebridge/Outbox.sol#L77-L84)
@@ -235,7 +268,7 @@ The following public functions could be turned into external in [Outbox](src/cor
 src/core/messagebridge/Outbox.sol#L21-L148
 
 
- - [ ] ID-24
+ - [ ] ID-28
 The following public functions could be turned into external in [Inbox](src/core/messagebridge/Inbox.sol#L21-L231) contract:
 	[Inbox.constructor(address)](src/core/messagebridge/Inbox.sol#L30-L32)
 	[Inbox.contains(bytes32)](src/core/messagebridge/Inbox.sol#L174-L176)
@@ -243,7 +276,7 @@ The following public functions could be turned into external in [Inbox](src/core
 src/core/messagebridge/Inbox.sol#L21-L231
 
 
- - [ ] ID-25
+ - [ ] ID-29
 The following public functions could be turned into external in [NewInbox](src/core/messagebridge/NewInbox.sol#L25-L128) contract:
 	[NewInbox.constructor(address,uint256)](src/core/messagebridge/NewInbox.sol#L41-L52)
 
@@ -253,7 +286,14 @@ src/core/messagebridge/NewInbox.sol#L25-L128
 ## assembly
 Impact: Informational
 Confidence: High
- - [ ] ID-26
+ - [ ] ID-30
+[TxsDecoder.computeRoot(bytes31[])](src/core/libraries/decoders/TxsDecoder.sol#L264-L283) uses assembly
+	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L271-L273)
+
+src/core/libraries/decoders/TxsDecoder.sol#L264-L283
+
+
+ - [ ] ID-31
 [MessagesDecoder.decode(bytes)](src/core/libraries/decoders/MessagesDecoder.sol#L60-L142) uses assembly
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L79-L81)
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L112-L118)
@@ -261,41 +301,34 @@ Confidence: High
 src/core/libraries/decoders/MessagesDecoder.sol#L60-L142
 
 
- - [ ] ID-27
-[TxsDecoder.computeRoot(bytes32[])](src/core/libraries/decoders/TxsDecoder.sol#L256-L275) uses assembly
-	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L263-L265)
-
-src/core/libraries/decoders/TxsDecoder.sol#L256-L275
-
-
 ## dead-code
 Impact: Informational
 Confidence: Medium
- - [ ] ID-28
+ - [ ] ID-32
 [Inbox._errIncompatibleEntryArguments(bytes32,uint64,uint64,uint32,uint32,uint32,uint32)](src/core/messagebridge/Inbox.sol#L212-L230) is never used and should be removed
 
 src/core/messagebridge/Inbox.sol#L212-L230
 
 
- - [ ] ID-29
+ - [ ] ID-33
 [Outbox._errNothingToConsume(bytes32)](src/core/messagebridge/Outbox.sol#L114-L116) is never used and should be removed
 
 src/core/messagebridge/Outbox.sol#L114-L116
 
 
- - [ ] ID-30
+ - [ ] ID-34
 [Hash.sha256ToField(bytes32)](src/core/libraries/Hash.sol#L59-L61) is never used and should be removed
 
 src/core/libraries/Hash.sol#L59-L61
 
 
- - [ ] ID-31
+ - [ ] ID-35
 [Inbox._errNothingToConsume(bytes32)](src/core/messagebridge/Inbox.sol#L197-L199) is never used and should be removed
 
 src/core/messagebridge/Inbox.sol#L197-L199
 
 
- - [ ] ID-32
+ - [ ] ID-36
 [Outbox._errIncompatibleEntryArguments(bytes32,uint64,uint64,uint32,uint32,uint32,uint32)](src/core/messagebridge/Outbox.sol#L129-L147) is never used and should be removed
 
 src/core/messagebridge/Outbox.sol#L129-L147
@@ -304,13 +337,13 @@ src/core/messagebridge/Outbox.sol#L129-L147
 ## solc-version
 Impact: Informational
 Confidence: High
- - [ ] ID-33
+ - [ ] ID-37
 solc-0.8.21 is not recommended for deployment
 
 ## low-level-calls
 Impact: Informational
 Confidence: High
- - [ ] ID-34
+ - [ ] ID-38
 Low level call in [Inbox.withdrawFees()](src/core/messagebridge/Inbox.sol#L148-L153):
 	- [(success) = msg.sender.call{value: balance}()](src/core/messagebridge/Inbox.sol#L151)
 
@@ -320,19 +353,19 @@ src/core/messagebridge/Inbox.sol#L148-L153
 ## similar-names
 Impact: Informational
 Confidence: Medium
- - [ ] ID-35
+ - [ ] ID-39
 Variable [Constants.LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L132) is too similar to [Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L125)
 
 src/core/libraries/ConstantsGen.sol#L132
 
 
- - [ ] ID-36
+ - [ ] ID-40
 Variable [Constants.L1_TO_L2_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L112) is too similar to [Constants.L2_TO_L1_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L113)
 
 src/core/libraries/ConstantsGen.sol#L112
 
 
- - [ ] ID-37
+ - [ ] ID-41
 Variable [Rollup.AVAILABILITY_ORACLE](src/core/Rollup.sol#L33) is too similar to [Rollup.constructor(IRegistry,IAvailabilityOracle)._availabilityOracle](src/core/Rollup.sol#L43)
 
 src/core/Rollup.sol#L33
@@ -341,7 +374,7 @@ src/core/Rollup.sol#L33
 ## constable-states
 Impact: Optimization
 Confidence: High
- - [ ] ID-38
+ - [ ] ID-42
 [Rollup.lastWarpedBlockTs](src/core/Rollup.sol#L41) should be constant 
 
 src/core/Rollup.sol#L41
@@ -350,31 +383,31 @@ src/core/Rollup.sol#L41
 ## pess-multiple-storage-read
 Impact: Optimization
 Confidence: High
- - [ ] ID-39
+ - [ ] ID-43
 In a function [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L62-L99) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L37) is read multiple times
 
 src/core/messagebridge/NewInbox.sol#L62-L99
 
 
- - [ ] ID-40
+ - [ ] ID-44
 In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76) variable [FrontierMerkle.HEIGHT](src/core/messagebridge/frontier_tree/Frontier.sol#L8) is read multiple times
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76
 
 
- - [ ] ID-41
+ - [ ] ID-45
 In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L108-L127) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L37) is read multiple times
 
 src/core/messagebridge/NewInbox.sol#L108-L127
 
 
- - [ ] ID-42
+ - [ ] ID-46
 In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L108-L127) variable [NewInbox.toConsume](src/core/messagebridge/NewInbox.sol#L35) is read multiple times
 
 src/core/messagebridge/NewInbox.sol#L108-L127
 
 
- - [ ] ID-43
+ - [ ] ID-47
 In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76
