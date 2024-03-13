@@ -231,9 +231,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     this.debug(`Running base rollup for ${tx.hash}`);
     const rollupOutput = await this.simulator.baseRollupCircuit(inputs);
-    this.debug(`Validating partial state`);
     this.validatePartialState(rollupOutput.end, treeSnapshots);
-    this.debug(`Getting base rollup proof`);
     const proof = await this.prover.getBaseRollupProof(inputs, rollupOutput);
     return [rollupOutput, proof];
   }
