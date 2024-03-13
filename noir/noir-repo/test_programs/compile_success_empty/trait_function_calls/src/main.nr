@@ -163,7 +163,7 @@ trait Trait2a {
 }
 struct Struct2a { vl: Field }
 impl Trait2a for Struct2a { }
-// 2b) trait default method -> trait overriden function
+// 2b) trait default method -> trait overridden function
 trait Trait2b {
     fn trait_method1(self) -> Field {
         Self::trait_function2() * 6583 - self.vl
@@ -178,7 +178,7 @@ impl Trait2b for Struct2b {
         8477
     }
 }
-// 2c) trait default method -> trait overriden (no default) function
+// 2c) trait default method -> trait overridden (no default) function
 trait Trait2c {
     fn trait_method1(self) -> Field {
         Self::trait_function2() * 2831 - self.vl
@@ -191,7 +191,7 @@ impl Trait2c for Struct2c {
         8342
     }
 }
-// 2d) trait overriden method -> trait default function
+// 2d) trait overridden method -> trait default function
 trait Trait2d {
     fn trait_method1(self) -> Field {
         Self::trait_function2() * 924 - self.vl
@@ -206,7 +206,7 @@ impl Trait2d for Struct2d {
         Self::trait_function2() * 3984 - self.vl
     }
 }
-// 2e) trait overriden method -> trait overriden function
+// 2e) trait overridden method -> trait overridden function
 trait Trait2e {
     fn trait_method1(self) -> Field {
         Self::trait_function2() * 3642 - self.vl
@@ -224,7 +224,7 @@ impl Trait2e for Struct2e {
         39400
     }
 }
-// 2f) trait overriden method -> trait overriden (no default) function
+// 2f) trait overridden method -> trait overridden (no default) function
 trait Trait2f {
     fn trait_method1(self) -> Field {
         Self::trait_function2() * 2783 - self.vl
@@ -240,7 +240,7 @@ impl Trait2f for Struct2f {
         72311
     }
 }
-// 2g) trait overriden (no default) method -> trait default function
+// 2g) trait overridden (no default) method -> trait default function
 trait Trait2g {
     fn trait_method1(self) -> Field;
     fn trait_function2() -> Field {
@@ -253,7 +253,7 @@ impl Trait2g for Struct2g {
         Self::trait_function2() * 9123 - self.vl
     }
 }
-// 2h) trait overriden (no default) method -> trait overriden function
+// 2h) trait overridden (no default) method -> trait overridden function
 trait Trait2h {
     fn trait_method1(self) -> Field;
     fn trait_function2() -> Field {
@@ -269,7 +269,7 @@ impl Trait2h for Struct2h {
         5335
     }
 }
-// 2i) trait overriden (no default) method -> trait overriden (no default) function
+// 2i) trait overridden (no default) method -> trait overridden (no default) function
 trait Trait2i {
     fn trait_method1(self) -> Field;
     fn trait_function2() -> Field;
@@ -295,7 +295,7 @@ trait Trait3a {
 }
 struct Struct3a { vl: Field }
 impl Trait3a for Struct3a { }
-// 3b) trait default function -> trait overriden method
+// 3b) trait default function -> trait overridden method
 trait Trait3b {
     fn trait_function1(a: Field, b: Self) -> Field {
         b.trait_method2() * 9233 - b.vl + a
@@ -310,7 +310,7 @@ impl Trait3b for Struct3b {
         2392
     }
 }
-// 3c) trait default function -> trait overriden (no default) method
+// 3c) trait default function -> trait overridden (no default) method
 trait Trait3c {
     fn trait_function1(a: Field, b: Self) -> Field {
         b.trait_method2() * 2822 - b.vl + a
@@ -323,7 +323,7 @@ impl Trait3c for Struct3c {
         7743
     }
 }
-// 3d) trait overriden function -> trait default method
+// 3d) trait overridden function -> trait default method
 trait Trait3d {
     fn trait_function1(a: Field, b: Self) -> Field {
         b.trait_method2() * 291 - b.vl + a
@@ -338,7 +338,7 @@ impl Trait3d for Struct3d {
         b.trait_method2() * 4933 - b.vl + a
     }
 }
-// 3e) trait overriden function -> trait overriden method
+// 3e) trait overridden function -> trait overridden method
 trait Trait3e {
     fn trait_function1(a: Field, b: Self) -> Field {
         b.trait_method2() * 71231 - b.vl + a
@@ -356,7 +356,7 @@ impl Trait3e for Struct3e {
         80002
     }
 }
-// 3f) trait overriden function -> trait overriden (no default) method
+// 3f) trait overridden function -> trait overridden (no default) method
 trait Trait3f {
     fn trait_function1(a: Field, b: Self) -> Field {
         b.trait_method2() * 28223 - b.vl + a
@@ -372,7 +372,7 @@ impl Trait3f for Struct3f {
         63532
     }
 }
-// 3g) trait overriden (no default) function -> trait default method
+// 3g) trait overridden (no default) function -> trait default method
 trait Trait3g {
     fn trait_function1(a: Field, b: Self) -> Field;
     fn trait_method2(self) -> Field {
@@ -385,7 +385,7 @@ impl Trait3g for Struct3g {
         b.trait_method2() * 31337 - b.vl + a
     }
 }
-// 3h) trait overriden (no default) function -> trait overriden method
+// 3h) trait overridden (no default) function -> trait overridden method
 trait Trait3h {
     fn trait_function1(a: Field, b: Self) -> Field;
     fn trait_method2(self) -> Field {
@@ -401,7 +401,7 @@ impl Trait3h for Struct3h {
         6283
     }
 }
-// 3i) trait overriden (no default) function -> trait overriden (no default) method
+// 3i) trait overridden (no default) function -> trait overridden (no default) method
 trait Trait3i {
     fn trait_function1(a: Field, b: Self) -> Field;
     fn trait_method2(self) -> Field;
@@ -427,7 +427,7 @@ trait Trait4a {
 }
 struct Struct4a { vl: Field }
 impl Trait4a for Struct4a { }
-// 4b) trait default function -> trait overriden function
+// 4b) trait default function -> trait overridden function
 trait Trait4b {
     fn trait_function1() -> Field {
         Self::trait_function2() * 3842
@@ -442,7 +442,7 @@ impl Trait4b for Struct4b {
         9353
     }
 }
-// 4c) trait default function -> trait overriden (no default) function
+// 4c) trait default function -> trait overridden (no default) function
 trait Trait4c {
     fn trait_function1() -> Field {
         Self::trait_function2() * 7832
@@ -455,7 +455,7 @@ impl Trait4c for Struct4c {
         2928
     }
 }
-// 4d) trait overriden function -> trait default function
+// 4d) trait overridden function -> trait default function
 trait Trait4d {
     fn trait_function1() -> Field {
         Self::trait_function2() * 2283
@@ -470,7 +470,7 @@ impl Trait4d for Struct4d {
         Self::trait_function2() * 8374
     }
 }
-// 4e) trait overriden function -> trait overriden function
+// 4e) trait overridden function -> trait overridden function
 trait Trait4e {
     fn trait_function1() -> Field {
         Self::trait_function2() * 94329
@@ -488,7 +488,7 @@ impl Trait4e for Struct4e {
         38434
     }
 }
-// 4f) trait overriden function -> trait overriden (no default) function
+// 4f) trait overridden function -> trait overridden (no default) function
 trait Trait4f {
     fn trait_function1() -> Field {
         Self::trait_function2() * 23723
@@ -504,7 +504,7 @@ impl Trait4f for Struct4f {
         4394
     }
 }
-// 4g) trait overriden (no default) function -> trait default function
+// 4g) trait overridden (no default) function -> trait default function
 trait Trait4g {
     fn trait_function1() -> Field;
     fn trait_function2() -> Field {
@@ -517,7 +517,7 @@ impl Trait4g for Struct4g {
         Self::trait_function2() * 3345
     }
 }
-// 4h) trait overriden (no default) function -> trait overriden function
+// 4h) trait overridden (no default) function -> trait overridden function
 trait Trait4h {
     fn trait_function1() -> Field;
     fn trait_function2() -> Field {
@@ -533,7 +533,7 @@ impl Trait4h for Struct4h {
         5435
     }
 }
-// 4i) trait overriden (no default) function -> trait overriden (no default) function
+// 4i) trait overridden (no default) function -> trait overridden (no default) function
 trait Trait4i {
     fn trait_function1() -> Field;
     fn trait_function2() -> Field;

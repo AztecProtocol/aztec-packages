@@ -101,7 +101,7 @@ template <typename Builder> class StdlibTypesUtility {
     /**
      * @brief Utility for mapping template parameter for recursive honk transcript deserialization to the
      * corresponding template parameter for native honk transcipt deserialization.
-     * @details Data is extracted from a honk verfier transcript via a function of the form
+     * @details Data is extracted from a honk verifier transcript via a function of the form
      * receive_from_prover<T>(label). For the recursive transcript, T is generally a stdlib type or a container of
      * stdlib types (e.g. Univariate<field_t>). This struct and its specializations define the map T -> T_native, where
      * T_native is the type extracted from the native transcript internal to the recursive transcipt.

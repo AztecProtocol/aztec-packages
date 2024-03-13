@@ -60,7 +60,7 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
 
     /**
-     * @brief Instatiate the instances and the transcript.
+     * @brief Instantiate the instances and the transcript.
      *
      * @param fold_data The data transmitted via the transcript by the prover.
      */

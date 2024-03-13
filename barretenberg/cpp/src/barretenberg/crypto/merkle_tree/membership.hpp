@@ -186,7 +186,7 @@ void update_membership(field_t<Builder> const& new_root,
  * @param new_values: The new values that are inserted in the existing leaves,
  * @param old_values: The values of the existing leaves that were updated,
  * @param old_paths: The hash path from the given index right before a given existing leaf is updated,
- * @param old_indicies: Indices of the existing leaves that need to be updated,
+ * @param old_indices: Indices of the existing leaves that need to be updated,
  * @tparam Builder: type of builder.
  */
 template <typename Builder>

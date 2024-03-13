@@ -13,7 +13,7 @@
  * - tested by test_zip_iterator.cpp
  * - not thread safe
  * - view !
- * - extends lifetime of rvalue inputs untill the end of the for loop
+ * - extends lifetime of rvalue inputs until the end of the for loop
  *
  * \todo
  * - add algorithm tests, probably does not work at all...
@@ -39,8 +39,8 @@
  *
  * does not copy the containers
  * returns tuple of references to the containers content
- * iterates untill the first iterator hits end.
- * extends ownership to the end of the for loop, or untill zip goes out of scope.
+ * iterates until the first iterator hits end.
+ * extends ownership to the end of the for loop, or until zip goes out of scope.
  *
  * possibly risky behavior on clang, gcc for fun(const zip& z) when called as fun(zip(a,b))
  *

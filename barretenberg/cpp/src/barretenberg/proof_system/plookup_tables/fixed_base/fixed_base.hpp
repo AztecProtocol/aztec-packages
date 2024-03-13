@@ -33,7 +33,7 @@ class table : public FixedBaseParams {
     template <size_t num_table_bits> static affine_element generate_generator_offset(const affine_element& input);
 
     static constexpr uint256_t MAX_LO_SCALAR = uint256_t(1) << BITS_PER_LO_SCALAR;
-    // We split each scalar mulitplier into BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR chunks and perform 2 scalar muls of
+    // We split each scalar multiplier into BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR chunks and perform 2 scalar muls of
     // size BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR (see fixed_base_params.hpp for more details)
     // i.e. we treat 1 scalar mul as two independent scalar muls over (roughly) half-width input scalars.
     // The base_point members describe the fixed-base points that correspond to the two independent scalar muls,

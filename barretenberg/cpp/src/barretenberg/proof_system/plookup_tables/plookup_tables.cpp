@@ -179,7 +179,7 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
      * | 1 | a1                                | b1                               | s1                                |
      * +---+-----------------------------------+----------------------------------+-----------------------------------+
      *
-     * Note that we compute the accumulating sums of the slices so as to avoid using additonal gates for the purpose of
+     * Note that we compute the accumulating sums of the slices so as to avoid using additional gates for the purpose of
      * reconstructing inputs/outputs. Here, (p, q, r) are referred to as column coefficients/step sizes.
      * In the next few lines, we compute these accumulating sums from raw column values (a1, ..., a6), (b1, ..., b6),
      * (s1, ..., s6) and column coefficients (p, q, r).

@@ -16,7 +16,7 @@
  * f₀, …, fₖ₋₁ = multilinear polynomials,
  * g₀, …, gₕ₋₁ = shifted multilinear polynomial,
  *  Each gⱼ is the left-shift of some f↺ᵢ, and gⱼ points to the same memory location as fᵢ.
- * v₀, …, vₖ₋₁, v↺₀, …, v↺ₕ₋₁ = multilinear evalutions s.t. fⱼ(u) = vⱼ, and gⱼ(u) = f↺ⱼ(u) = v↺ⱼ
+ * v₀, …, vₖ₋₁, v↺₀, …, v↺ₕ₋₁ = multilinear evaluations s.t. fⱼ(u) = vⱼ, and gⱼ(u) = f↺ⱼ(u) = v↺ⱼ
  *
  * We use a challenge ρ to create a random linear combination of all fⱼ,
  * and actually define A₀ = F + G↺, where
@@ -45,7 +45,7 @@
 namespace bb {
 
 /**
- * @brief Prover output (evalutation pair, witness) that can be passed on to Shplonk batch opening.
+ * @brief Prover output (evaluation pair, witness) that can be passed on to Shplonk batch opening.
  * @details Evaluation pairs {r, A₀₊(r)}, {-r, A₀₋(-r)}, {-r^{2^j}, Aⱼ(-r^{2^j)}, j = [1, ..., m-1]
  * and witness (Fold) polynomials
  * [

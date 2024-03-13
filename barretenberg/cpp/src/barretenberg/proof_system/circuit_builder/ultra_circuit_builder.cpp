@@ -49,7 +49,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
 }
 
 /**
- * @brief Ensure all polynomials have at least one non-zero coefficient to avoid commiting to the zero-polynomial
+ * @brief Ensure all polynomials have at least one non-zero coefficient to avoid committing to the zero-polynomial
  *
  * @param in Structure containing variables and witness selectors
  */
@@ -113,7 +113,7 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
  * @brief Create an addition gate, where in.a * in.a_scaling + in.b * in.b_scaling + in.c * in.c_scaling +
  * in.const_scaling = 0
  *
- * @details Arithmetic selector is set to 1, all other gate selectors are 0. Mutliplication selector is set to 0
+ * @details Arithmetic selector is set to 1, all other gate selectors are 0. Multiplication selector is set to 0
  *
  * @param in A structure with variable indexes and selector values for the gate.
  */
@@ -700,7 +700,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<Arithmetization>::decompose_into_defa
      * This is not strictly required iff num_bits <= target_range_bitnum.
      * However, this produces an edge-case where a variable is range-constrained but NOT present in an arithmetic gate.
      * This in turn produces an unsatisfiable circuit (see `create_new_range_constraint`). We would need to check for
-     * and accommodate/reject this edge case to support not adding addition gates here if not reqiured
+     * and accommodate/reject this edge case to support not adding addition gates here if not required
      * if (num_bits <= target_range_bitnum) {
      *     const uint64_t expected_range = (1ULL << num_bits) - 1ULL;
      *     create_new_range_constraint(variable_index, expected_range);
@@ -877,7 +877,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
 #else
     std::sort(std::execution::par_unseq, sorted_list.begin(), sorted_list.end());
 #endif
-    // list must be padded to a multipe of 4 and larger than 4 (gate_width)
+    // list must be padded to a multiple of 4 and larger than 4 (gate_width)
     constexpr size_t gate_width = NUM_WIRES;
     size_t padding = (gate_width - (list.variable_indices.size() % gate_width)) % gate_width;
 
@@ -1165,7 +1165,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<Arithmetization>::decompose_into_defa
 }
 
 /**
- * @brief Enable the auxilary gate of particular type
+ * @brief Enable the auxiliary gate of particular type
  *
  * @details If we have several operations being performed do not require parametrization
  * (if we put each of them into a separate widget they would not require any selectors other than the ones enabling the
@@ -2271,7 +2271,7 @@ void UltraCircuitBuilder_<Arithmetization>::write_RAM_array(const size_t ram_id,
 /**
  * Initialize a ROM cell to equal `value_witness`
  * `index_value` is a RAW VALUE that describes the cell index. It is NOT a witness
- * When intializing ROM arrays, it is important that the index of the cell is known when compiling the circuit.
+ * When initializing ROM arrays, it is important that the index of the cell is known when compiling the circuit.
  * This ensures that, for a given circuit, we know with 100% certainty that EVERY rom cell is initialized
  **/
 

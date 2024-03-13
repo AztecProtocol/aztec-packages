@@ -40,7 +40,7 @@ contract EcdsaUltraTest is TestBaseUltra {
         inputs[4] = uint256(0x69);
         inputs[5] = uint256(0x6e);
 
-        // Construct Ecdsa siganture
+        // Construct Ecdsa signature
         bytes memory proofData = fuzzer.with_inputs(inputs).generate_proof();
         (bytes32[] memory publicInputs, bytes memory proof) = splitProof(proofData, PUBLIC_INPUT_COUNT);
 

@@ -141,7 +141,7 @@ TEST(ToyAVMCircuitBuilder, MultiLookup)
     Row& row_1 = rows[0];
     row_1.toy_q_err = FF(1);
     row_1.toy_clk = FF(1);
-    // Below we lookup two occurances, so our counts is 2
+    // Below we lookup two occurrences, so our counts is 2
     row_1.lookup_err_counts = FF(2);
 
     // Set the mem read on two different rows, we will then lookup into the clk

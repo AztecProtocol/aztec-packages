@@ -120,7 +120,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EqFails)
     Fr x = Fr::random_element(&engine);
 
     op_queue->mul_accumulate(a, x);
-    // Tamper with the eq op such that the expected value is incorect
+    // Tamper with the eq op such that the expected value is incorrect
     op_queue->raw_ops.emplace_back(ECCVMOperation{ .add = false,
                                                    .mul = false,
                                                    .eq = true,

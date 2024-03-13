@@ -16,7 +16,7 @@
  * f₀, …, fₖ₋₁ = multilinear polynomials,
  * g₀, …, gₕ₋₁ = shifted multilinear polynomial,
  *  Each gⱼ is the left-shift of some f↺ᵢ, and gⱼ points to the same memory location as fᵢ.
- * v₀, …, vₖ₋₁, v↺₀, …, v↺ₕ₋₁ = multilinear evalutions s.t. fⱼ(u) = vⱼ, and gⱼ(u) = f↺ⱼ(u) = v↺ⱼ
+ * v₀, …, vₖ₋₁, v↺₀, …, v↺ₕ₋₁ = multilinear evaluations s.t. fⱼ(u) = vⱼ, and gⱼ(u) = f↺ⱼ(u) = v↺ⱼ
  *
  * We use a challenge ρ to create a random linear combination of all fⱼ,
  * and actually define A₀ = F + G↺, where
@@ -102,7 +102,7 @@ std::vector<typename bb::Polynomial<typename Curve::ScalarField>> GeminiProver_<
         size_t chunk_size = n_l / num_used_threads;
         size_t last_chunk_size = (n_l % chunk_size) ? (n_l % num_used_threads) : chunk_size;
 
-        // Openning point is the same for all
+        // Opening point is the same for all
         const Fr u_l = mle_opening_point[l];
 
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)

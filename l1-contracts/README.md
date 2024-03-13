@@ -10,7 +10,7 @@ Alternatively you can use docker instead, it will handle installations and run t
 
 ## Structure
 
-The `src` folder contain contracts that is to be used by the local developer testnet. It is grouped into 3 catagories:
+The `src` folder contain contracts that is to be used by the local developer testnet. It is grouped into 3 categories:
 
 - `core` contains the required contracts, the bare minimum
 - `mock` contains stubs, for now an always true verifier.

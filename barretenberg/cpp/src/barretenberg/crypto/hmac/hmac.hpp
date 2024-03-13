@@ -81,7 +81,7 @@ std::array<uint8_t, Hash::OUTPUT_SIZE> hmac(const MessageContainer& message, con
  *
  * @details We assume HASH_OUTPUT = 32. Reducing HMAC(key, message) modulo r would result in an unacceptable bias.
  * We hash input with `0` and `1` to produce 64 bytes of input data. This is then converted into a uin512_t,
- * which is taken modulo Fr::modulus to produce our field element, where the statistical bias is negligble in
+ * which is taken modulo Fr::modulus to produce our field element, where the statistical bias is negligible in
  * the security parameter.
  *
  * @tparam Hash the hash function we're using

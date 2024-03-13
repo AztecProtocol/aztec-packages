@@ -245,7 +245,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     std::get<33>(accumulator) += validate_on_curve * on_curve_check * scaling_factor;
 
     /**
-     * @brief If performing an add, validate x-coordintes of inputs do not collide.
+     * @brief If performing an add, validate x-coordinates of inputs do not collide.
      * If adding msm output into accumulator, validate x-coordinates of inputs do not collide
      */
     auto x_coordinate_collision_check =

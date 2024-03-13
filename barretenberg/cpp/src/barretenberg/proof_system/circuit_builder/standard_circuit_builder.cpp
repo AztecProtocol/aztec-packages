@@ -168,7 +168,7 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_big_mul_gate(con
 /**
  * Create a multiplication gate.
  *
- * @param in A mul_tripple containing the indexes of variables to be placed into the
+ * @param in A mul_triple containing the indexes of variables to be placed into the
  * wires w_l, w_r, w_o and scaling coefficients to be placed into q_m, q_3, blocks.arithmetic.q_c().
  */
 template <typename FF> void StandardCircuitBuilder_<FF>::create_mul_gate(const mul_triple_<FF>& in)
@@ -333,7 +333,7 @@ accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(con
         bool right_hi_val = right_witness_value.get_bit((i));
         bool right_lo_val = right_witness_value.get_bit(i - 1);
 
-        // Convert to wintesses
+        // Convert to witnesses
         uint32_t left_hi_idx = this->add_variable(left_hi_val ? FF::one() : FF::zero());
         uint32_t left_lo_idx = this->add_variable(left_lo_val ? FF::one() : FF::zero());
         uint32_t right_hi_idx = this->add_variable(right_hi_val ? FF::one() : FF::zero());

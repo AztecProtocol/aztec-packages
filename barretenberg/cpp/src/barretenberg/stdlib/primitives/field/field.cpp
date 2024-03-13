@@ -184,7 +184,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         result.multiplicative_constant = other.multiplicative_constant * additive_constant;
         result.witness_index = other.witness_index;
     } else {
-        // Both inputs map to circuit varaibles: create a `*` constraint.
+        // Both inputs map to circuit variables: create a `*` constraint.
 
         /**
          * Value of this   = a.v * a.mul + a.add;

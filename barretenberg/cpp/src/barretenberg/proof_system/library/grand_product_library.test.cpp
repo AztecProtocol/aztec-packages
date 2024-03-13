@@ -51,7 +51,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         static const size_t num_gates = 8;
         static const size_t num_public_inputs = 0;
 
-        // Instatiate a proving_key and make a pointer to it. This will be used to instantiate a Prover.
+        // Instantiate a proving_key and make a pointer to it. This will be used to instantiate a Prover.
         auto proving_key = std::make_shared<typename Flavor::ProvingKey>(num_gates, num_public_inputs);
 
         // static const size_t program_width = StandardProver::settings_::program_width;
@@ -182,7 +182,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         static const size_t circuit_size = 8;
         static const size_t num_public_inputs = 0;
 
-        // Instatiate a proving_key and make a pointer to it. This will be used to instantiate a Prover.
+        // Instantiate a proving_key and make a pointer to it. This will be used to instantiate a Prover.
         using Flavor = UltraFlavor;
         auto proving_key = std::make_shared<typename Flavor::ProvingKey>(circuit_size, num_public_inputs);
 

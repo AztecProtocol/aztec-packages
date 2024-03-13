@@ -129,7 +129,7 @@ class GoblinMockCircuits {
     }
 
     /**
-     * @brief Mock the interactions of a simple curcuit with the op_queue
+     * @brief Mock the interactions of a simple circuit with the op_queue
      * @todo The transcript aggregation protocol in the Goblin proof system can not yet support an empty "previous
      * transcript" (see issue #723) because the corresponding commitments are zero / the point at infinity. This
      * function mocks the interactions with the op queue of a fictional "first" circuit. This way, when we go to

@@ -42,7 +42,7 @@ TEST(crypto_nullifier_tree, test_nullifier_memory)
     NullifierMemoryTree<HashPolicy> tree(depth);
 
     /**
-     * Intial state:
+     * Initial state:
      *
      *  index     0       1       2       3        4       5       6       7
      *  ---------------------------------------------------------------------
@@ -171,7 +171,7 @@ TEST(crypto_nullifier_tree, test_nullifier_memory_appending_zero)
     NullifierMemoryTree<HashPolicy> tree(depth);
 
     /**
-     * Intial state:
+     * Initial state:
      *
      *  index     0       1       2       3        4       5       6       7
      *  ---------------------------------------------------------------------

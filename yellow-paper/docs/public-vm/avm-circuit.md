@@ -120,7 +120,7 @@ The main property enforcement of this table concerns read/write consistency of e
 
 In addition, this table ensures that the instruction tag corresponding to a memory operation is the same as the memory cell tag. The instruction tag is passed to the memory controller and added to the pertaining row(s) of this table. Note that this is common for an instruction to generate several memory operations and thus several rows in this table.
 
-The user memory table essentially consists of the following colums:
+The user memory table essentially consists of the following columns:
 
 - `CALL_PTR`: call pointer uniquely identifying the contract call
 - `CLK`: clock value of the memory operation

@@ -63,7 +63,7 @@ class GoblinTranslatorFlavor {
     static constexpr auto NEGATIVE_MODULUS_LIMBS = CircuitBuilder::NEGATIVE_MODULUS_LIMBS;
 
     // Number of bits in a binary limb
-    // This is not a configurable value. Relations are sepcifically designed for it to be 68
+    // This is not a configurable value. Relations are specifically designed for it to be 68
     static constexpr size_t NUM_LIMB_BITS = CircuitBuilder::NUM_LIMB_BITS;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
@@ -550,7 +550,7 @@ class GoblinTranslatorFlavor {
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
-     * polynomials; the univariates consturcted during during sumcheck; the evaluations produced by sumcheck.
+     * polynomials; the univariates constructed during during sumcheck; the evaluations produced by sumcheck.
      *
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + ShiftedEntities.
      */

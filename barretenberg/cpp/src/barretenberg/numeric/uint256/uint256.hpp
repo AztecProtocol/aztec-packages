@@ -39,7 +39,7 @@ class alignas(32) uint256_t {
 
     explicit constexpr uint256_t(std::string input) noexcept
     {
-        /* Quick and dirty conversion from a single character to its hex equivelent */
+        /* Quick and dirty conversion from a single character to its hex equivalent */
         constexpr auto HexCharToInt = [](uint8_t Input) {
             bool valid =
                 (Input >= 'a' && Input <= 'f') || (Input >= 'A' && Input <= 'F') || (Input >= '0' && Input <= '9');

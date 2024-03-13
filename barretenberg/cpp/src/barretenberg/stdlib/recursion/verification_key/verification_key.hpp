@@ -54,7 +54,7 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
         // The current algorithm is splits the buffer into a running hash of size-2 hashes.
         // We do this because, for UltraPlonk, size-2 Pedersehashes are more efficient than larger hashes as this small
         // hash can utilize plookup tables.
-        // Once we implement an efficient Poseidon hash: we should change this to a straighforward hash of a vector of
+        // Once we implement an efficient Poseidon hash: we should change this to a straightforward hash of a vector of
         // field elements. N.B. If we do a plain Pedersen vector-hash instead of this pairwise method, the Noir
         // recursion circuit size goes beyond 2^19 which breaks many tests.
         // Poseidon should not have this issue as ideally it is more efficient!

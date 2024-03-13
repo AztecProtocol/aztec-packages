@@ -120,7 +120,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_permutation_numerator(const AllEnt
     /**
      * @brief Second term: tuple of (point-counter, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation and
      * ECCVMPointTableRelation. ECCVMWnafRelation validates the sum of the wnaf slices associated with point-counter
-     * equals scalar-multiplier. ECCVMPointTableRelation computes a table of muliples of [P]: { -15[P], -13[P], ...,
+     * equals scalar-multiplier. ECCVMPointTableRelation computes a table of multiples of [P]: { -15[P], -13[P], ...,
      * 15[P] }. We need to validate that scalar-multiplier and [P] = (P.x, P.y) come from MUL opcodes in the transcript
      * columns.
      */

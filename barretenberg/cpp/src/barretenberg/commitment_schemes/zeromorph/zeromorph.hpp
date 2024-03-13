@@ -189,7 +189,7 @@ template <typename Curve> class ZeroMorphProver_ {
      *
      *  Z_x = x * f_batched + g_batched - v * x * \Phi_n(x)
      *           - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * q_k
-     *           + concatentation_term
+     *           + concatenation_term
      *
      * where f_batched = \sum_{i=0}^{m-1}\rho^i*f_i, g_batched = \sum_{i=0}^{l-1}\rho^{m+i}*g_i
      *
@@ -499,7 +499,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
      *
      *  C_{Z_x} = x * \sum_{i=0}^{m-1}\rho^i*[f_i] + \sum_{i=0}^{l-1}\rho^{m+i}*[g_i] - v * x * \Phi_n(x) * [1]_1
      *              - x * \sum_k (x^{2^k}\Phi_{n-k-1}(x^{2^{k-1}}) - u_k\Phi_{n-k}(x^{2^k})) * [q_k]
-     *              + concatentation_term
+     *              + concatenation_term
      * where
      *
      *  concatenation_term = \sum{i=0}^{o-1}\sum_{j=0}^{num_chunks_per_group}(rho^{m+l+i} * x^{j * min_N + 1}

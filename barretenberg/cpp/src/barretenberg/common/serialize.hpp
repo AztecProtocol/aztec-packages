@@ -15,7 +15,7 @@
  *
  * For understanding, given integers do not belong in any namespace, they have been defined inside the serialize
  * namespace. It may sometimes be necessary to specify a `using serialize::read` or `using serialize::write` to
- * find them. This is prefereable to polluting the global namespace which comes with its own issues.
+ * find them. This is preferable to polluting the global namespace which comes with its own issues.
  *
  * Standard library types are defined inside the `std` namespace, so they can be discovered using argument dependent
  * lookup. Placing them inside the serialize namespace was an option, but would mean integers and std types would need

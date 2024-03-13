@@ -74,7 +74,7 @@ plonk::Prover generate_test_data(const size_t n)
 
     // create some constraints that satisfy our arithmetic circuit relation
 
-    // even indices = mul gates, odd incides = add gates
+    // even indices = mul gates, odd indices = add gates
 
     auto crs = std::make_shared<bb::srs::factories::FileProverCrs<curve::BN254>>(n + 1, "../srs_db/ignition");
     std::shared_ptr<proving_key> key = std::make_shared<proving_key>(n, 0, crs, CircuitType::STANDARD);

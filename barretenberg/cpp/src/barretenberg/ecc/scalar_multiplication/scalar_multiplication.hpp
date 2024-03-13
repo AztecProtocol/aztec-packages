@@ -74,7 +74,7 @@ constexpr size_t get_num_buckets(const size_t num_points)
  *occupies a single cache line. Using __builtin_prefetch to recover the point just before it's needed, seems to improve
  *the runtime of pippenger by 10-20%.
  *
- * Finally, `skew_table` tracks whether a scalar multplier is even or odd
+ * Finally, `skew_table` tracks whether a scalar multiplier is even or odd
  * (if it's even, we need to subtract the point from the total result,
  * because our windowed non-adjacent form values can only be odd)
  *

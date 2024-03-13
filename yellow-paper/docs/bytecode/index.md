@@ -16,7 +16,7 @@ title: Bytecode
 
 (Alvaro)
  - Hashing of bytecode => It's done in the deployment section, I have linked to it in the relevant section.
- - Commiting to bytecode => Will follow up on this, I see a KZG commitment in the AVM section but I'm not sure that will be verified in the registrar contract.
+ - Committing to bytecode => Will follow up on this, I see a KZG commitment in the AVM section but I'm not sure that will be verified in the registrar contract.
  - Desired contents of an artifact => I have added a section with the desired contents of an artifact.
  - How is an artifact hashed? => I have added a link to the deployment section that specifies it.
  - For the artifact, for a particular function, what information is included? => I have added a section with the desired contents of an artifact that includes this information.

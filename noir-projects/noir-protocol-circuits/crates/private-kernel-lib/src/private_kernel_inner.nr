@@ -260,7 +260,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="curent contract address must not match storage contract address for delegate calls")]
+    #[test(should_fail_with="current contract address must not match storage contract address for delegate calls")]
     fn incorrect_storage_contract_for_delegate_calls_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
 

@@ -79,7 +79,7 @@ TYPED_TEST(ProofOfPossessionTest, fail_zero_response)
 
     const auto account = this->generate_account();
     auto proof = Proof(account);
-    // Setting the response part of the proof of posession should cause verification to fail.
+    // Setting the response part of the proof of possession should cause verification to fail.
     proof.response = 0;
     EXPECT_FALSE(proof.verify(account.public_key));
 }

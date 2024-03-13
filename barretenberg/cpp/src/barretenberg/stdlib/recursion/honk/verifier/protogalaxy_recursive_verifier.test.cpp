@@ -229,7 +229,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 
     /**
      * @brief Perform two rounds of folding valid circuits and then recursive verify the final decider proof,
-     * make sure the verifer circuits pass check_circuit(). Ensure that the algorithm of the recursive and native
+     * make sure the verifier circuits pass check_circuit(). Ensure that the algorithm of the recursive and native
      * verifiers are identical by checking the manifests
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/844): Fold the recursive folding verifier in tests once

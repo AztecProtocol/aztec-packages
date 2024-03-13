@@ -60,7 +60,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
 
     FF alpha = transcript->template get_challenge<FF>("alpha");
 
-    // Constuct batched commitment and batched evaluation from constituents using batching challenge \alpha
+    // Construct batched commitment and batched evaluation from constituents using batching challenge \alpha
     std::vector<FF> scalars;
     std::vector<Commitment> commitments;
     scalars.emplace_back(FF(builder, 1));

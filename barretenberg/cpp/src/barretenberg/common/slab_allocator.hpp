@@ -23,7 +23,7 @@ namespace bb {
  *
  * TODO: Take a composer type and allocate slabs according to those requirements?
  * TODO: De-globalise. Init the allocator and pass around. Use a PolynomialFactory (PolynomialStore?).
- * TODO: Consider removing, but once due-dilligence has been done that we no longer have memory limitations.
+ * TODO: Consider removing, but once due-diligence has been done that we no longer have memory limitations.
  */
 void init_slab_allocator(size_t circuit_subgroup_size);
 

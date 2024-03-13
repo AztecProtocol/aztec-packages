@@ -41,7 +41,7 @@ template <typename G1, typename HashRegNon, typename HashSig = Blake2sHasher> cl
 
     /**
      * @brief MultiSigPublicKey wraps a signer's public key g1::affine_element
-     * along with a proof of posession: a signature whose message is the public key,
+     * along with a proof of possession: a signature whose message is the public key,
      * signed by the corresponding private key.
      *
      * This is to prevent attacks where an attacker presents a key that they do not know the secret to
@@ -283,13 +283,13 @@ template <typename G1, typename HashRegNon, typename HashSig = Blake2sHasher> cl
                 return std::nullopt;
             }
             if (!proof_of_possession.verify(public_key)) {
-                info("Multisig proof of posession invalid at index ", i);
+                info("Multisig proof of possession invalid at index ", i);
                 return std::nullopt;
             }
             aggregate_pubkey_jac += public_key;
         }
 
-        // This would prevent accidentally creating an aggregate key for the point at inifinity,
+        // This would prevent accidentally creating an aggregate key for the point at infinity,
         // with the trivial secret key.
         // While it shouldn't happen, it is a cheap check.
         affine_element aggregate_pubkey(aggregate_pubkey_jac);

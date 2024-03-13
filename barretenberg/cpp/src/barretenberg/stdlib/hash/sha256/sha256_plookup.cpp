@@ -204,7 +204,7 @@ field_t<Builder> majority(sparse_value<Builder>& a, const sparse_value<Builder>&
     const auto rotation_coefficients = sha256_tables::get_majority_rotation_multipliers();
 
     field_pt rotation_result =
-        lookup[ColumnIdx::C3][0]; // last index of first row gives accumulating sum of "non-trival" wraps
+        lookup[ColumnIdx::C3][0]; // last index of first row gives accumulating sum of "non-trivial" wraps
     a.sparse = lookup[ColumnIdx::C2][0];
     // use these values to compute trivial wraps somehow
     field_pt sparse_accumulator_2 = lookup[ColumnIdx::C2][1];

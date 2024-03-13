@@ -389,7 +389,7 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
                 } else if constexpr (std::is_same_v<T, Circuit::Opcode::MemoryOp>) {
                     auto block = block_id_to_block_constraint.find(arg.block_id.value);
                     if (block == block_id_to_block_constraint.end()) {
-                        throw_or_abort("unitialized MemoryOp");
+                        throw_or_abort("uninitialized MemoryOp");
                     }
                     handle_memory_op(arg, block->second);
                 }

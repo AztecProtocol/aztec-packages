@@ -182,7 +182,7 @@ uint<Builder, Native> uint<Builder, Native>::operator-(const uint& other) const
 }
 
 /**
- * @brief Multiply two uint_ct's, trucating overflowing bits.
+ * @brief Multiply two uint_ct's, truncating overflowing bits.
  */
 
 template <typename Builder, typename Native>

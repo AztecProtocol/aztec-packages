@@ -401,7 +401,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * of combiner.
      * @details For a given relation parameter type, extract that parameter from each instance, place the values in a
      * univariate (i.e., sum them against an appropriate univariate Lagrange basis) and then extended as needed during
-     * the constuction of the combiner.
+     * the construction of the combiner.
      */
     static void combine_relation_parameters(ProverInstances& instances)
     {

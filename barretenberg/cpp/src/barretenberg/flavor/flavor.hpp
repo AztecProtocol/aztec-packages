@@ -12,7 +12,7 @@
  * in the original plonk code. There, we find many similarly-named entities defined in many different places (to name
  * some: selector_properties; FooSelectors; PolynomialIndex; the labels given to the polynomial store; the commitment
  * label; inconsistent terminology and notation around these), and it can be difficult to discover or remember the
- * relationships between these. We aim for a more uniform treatment, to enfore identical and informative naming, and to
+ * relationships between these. We aim for a more uniform treatment, to enforce identical and informative naming, and to
  * prevent the developer having to think very much about the ordering of protocol entities in disparate places.
  *
  * Another motivation is iterate on the polynomial manifest of plonk, which is nice in its compactness, but which feels
@@ -48,7 +48,7 @@
  * @note It would be ideal to codify more structure in these base class template and to have it imposed on the actual
  * flavors, but our inheritance model is complicated as it is, and we saw no reasonable way to fix this.
  *
- * @note One asymmetry to note is in the use of the term "key". It is worthwhile to distinguish betwen prover/verifier
+ * @note One asymmetry to note is in the use of the term "key". It is worthwhile to distinguish between prover/verifier
  * circuit data, and "keys" that consist of such data augmented with witness data (whether, raw, blinded, or polynomial
  * commitments). Currently the proving key contains witness data, while the verification key does not.
  * TODO(Cody): It would be nice to resolve this but it's not essential.
@@ -96,7 +96,7 @@ class PrecomputedEntitiesBase {
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with polynomial data type and span handle type.
  * @tparam FF The scalar field on which we will encode our polynomial data. When instantiating, this may be extractable
- * from the other template paramter.
+ * from the other template parameter.
  */
 template <typename PrecomputedPolynomials, typename WitnessPolynomials, typename CommitmentKey_>
 class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
@@ -180,7 +180,7 @@ class VerificationKey_ : public PrecomputedCommitments {
     }
 };
 
-// Because of how Gemini is written, is importat to put the polynomials out in this order.
+// Because of how Gemini is written, is important to put the polynomials out in this order.
 auto get_unshifted_then_shifted(const auto& all_entities)
 {
     return concatenate(all_entities.get_unshifted(), all_entities.get_shifted());

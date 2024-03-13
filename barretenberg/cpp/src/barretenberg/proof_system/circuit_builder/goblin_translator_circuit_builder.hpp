@@ -43,7 +43,7 @@ namespace bb {
  * 3) Show that a⋅b - quotient⋅p - c = 0 mod 2²⁷²
  * 4) Show that a⋅b - quotient⋅p - c = 0 mod r (scalar field modulus)
  * This ensures that the logic is sound modulo 2²⁷²⋅r, which means it's correct in integers, if all the values are
- * sufficiently constrained (there is no way to undeflow or overflow)
+ * sufficiently constrained (there is no way to underflow or overflow)
  *
  * Concretely, Goblin Translator computes one accumulation every two gates:
  * previous_accumulator⋅x + op + P.x⋅v +P.y⋅v² + z1⋅v³ + z2⋅v⁴ = current_accumulator mod p. Because of the nature of
@@ -59,7 +59,7 @@ namespace bb {
  *
  * Ensuring that the relation mod 2²⁷² is correct is done through splitting this check into two checks modulo 2¹³⁶.
  * First, we check that a proper combination of the values in the lower limbs gives the correct result modulo 2¹³⁶ (by
- * dividing the result by 2¹³⁶ and range constraining it). Then we use the overlow and higher limbs to prove the same
+ * dividing the result by 2¹³⁶ and range constraining it). Then we use the overflow and higher limbs to prove the same
  * modulo 2¹³⁶ again and as a result we get correctness modulo 2²⁷².
  *
  * One big issue are range constraints. In Goblin Translator we check ranges by decomposing LIMBS into special other
@@ -270,7 +270,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         -Fr(Fq::modulus)
     };
     /**
-     * @brief The accumulation input structure contains all the necessary values to initalize an accumulation gate as
+     * @brief The accumulation input structure contains all the necessary values to initialize an accumulation gate as
      * well as additional values for checking its correctness
      *
      * @details For example, we don't really nead the prime limbs, but they serve to check the correctness of over
@@ -331,7 +331,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     /**
      * @brief Construct a new Goblin Translator Circuit Builder object
      *
-     * @details Goblin Translator Circuit builder has to be initializaed with evaluation input and batching challenge
+     * @details Goblin Translator Circuit builder has to be initialized with evaluation input and batching challenge
      * (they are used to compute witness and to store the value for the prover)
      *
      * @param batching_challenge_v_
@@ -453,7 +453,7 @@ class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     void feed_ecc_op_queue_into_circuit(std::shared_ptr<ECCOpQueue> ecc_op_queue);
 
     /**
-     * @brief Check the witness satisifies the circuit
+     * @brief Check the witness satisfies the circuit
      *
      * @details Goes through each gate and checks the correctness of accumulation
      *

@@ -182,7 +182,7 @@ contract NewInboxTest is Test {
   function _consume(uint256 _numTreesToConsume) internal checkInvariant {
     uint256 initialNumTrees = inbox.getNumTrees();
     // We use (initialNumTrees * 2) as upper bound here because we want to test the case where we go beyond
-    // the currently initalized number of trees. When consuming the newly initialized trees we should get zero roots.
+    // the currently initialized number of trees. When consuming the newly initialized trees we should get zero roots.
     uint256 numTreesToConsume = bound(_numTreesToConsume, 1, initialNumTrees * 2);
 
     // Now we consume the trees
@@ -195,7 +195,7 @@ contract NewInboxTest is Test {
       // We check whether a new tree is correctly initialized when the one which was in progress was set as to consume
       assertEq(inbox.getNumTrees(), expectedNumTrees, "Unexpected number of trees");
 
-      // If we go beyong the number of trees initialized before consuming we should get empty root
+      // If we go beyond the number of trees initialized before consuming we should get empty root
       if (i > initialNumTrees) {
         assertEq(root, emptyTreeRoot, "Root of a newly initialized tree not empty");
       }

@@ -95,7 +95,7 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     aggregation_state_ct previous_aggregation;
 
     // If we have previously recursively verified proofs, `is_aggregation_object_nonzero = true`
-    // For now this is a complile-time constant i.e. whether this is true/false is fixed for the circuit!
+    // For now this is a compile-time constant i.e. whether this is true/false is fixed for the circuit!
     bool inner_aggregation_indices_all_zero = true;
     for (const auto& idx : aggregation_input) {
         inner_aggregation_indices_all_zero &= (idx == 0);

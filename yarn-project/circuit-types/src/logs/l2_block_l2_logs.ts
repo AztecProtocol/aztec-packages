@@ -57,7 +57,7 @@ export class L2BlockL2Logs {
   }
 
   /**
-   * Seralizes logs into a string.
+   * Serializes logs into a string.
    * @returns A string representation of the serialized logs.
    */
   public toString(): string {

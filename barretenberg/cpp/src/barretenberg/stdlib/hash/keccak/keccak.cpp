@@ -724,7 +724,7 @@ std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct&
 // Returns the keccak f1600 permutation of the input state
 // We first convert the state into 'extended' representation, along with the 'twisted' state
 // and then we call keccakf1600() with this keccak 'internal state'
-// Finally, we convert back the state from the extented representation
+// Finally, we convert back the state from the extended representation
 template <typename Builder>
 std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>::permutation_opcode(
     std::array<field_t<Builder>, NUM_KECCAK_LANES> state, Builder* ctx)

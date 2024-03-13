@@ -10,7 +10,7 @@ namespace bb::plookup::keccak_tables {
  * @brief Generate the plookup tables used for the RHO round of the Keccak hash algorithm
  *
  * Keccak has 25 hash lanes, each represented as 64-bit integers.
- * The RHO round performs a left-rotation on each lane, by a fixed rotation value defined by the ROTATIONS arrray
+ * The RHO round performs a left-rotation on each lane, by a fixed rotation value defined by the ROTATIONS array
  *
  * We evaluate Keccak in-circuit using a base-11 sparse integer representation of each hash lane:
  *

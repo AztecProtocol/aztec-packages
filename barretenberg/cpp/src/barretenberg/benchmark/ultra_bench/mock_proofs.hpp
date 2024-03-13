@@ -69,7 +69,7 @@ Prover get_prover(void (*test_circuit_function)(typename Prover::Flavor::Circuit
 };
 
 /**
- * @brief Performs proof constuction for benchmarks based on a provided circuit function
+ * @brief Performs proof construction for benchmarks based on a provided circuit function
  *
  * @details This function assumes state.range refers to num_iterations which is the number of times to perform a given
  * basic operation in the circuit, e.g. number of hashes

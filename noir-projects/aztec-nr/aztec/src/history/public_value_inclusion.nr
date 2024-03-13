@@ -36,7 +36,7 @@ fn _public_value_inclusion(
     let is_in_range = is_less_than_slot & (is_next_greater_than | is_max);
 
     if is_in_range {
-        assert_eq(value, 0, "Non-existant public data leaf value is non-zero");
+        assert_eq(value, 0, "Non-existent public data leaf value is non-zero");
     } else {
         assert_eq(preimage.slot, public_value_leaf_slot, "Public data slot don't match witness");
         assert_eq(preimage.value, value, "Public value does not match the witness");

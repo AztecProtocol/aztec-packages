@@ -76,7 +76,7 @@ consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> c
  * @tparam NUM_INSTANCES
  * @tparam NUM_SUBRELATIONS
  * @param SUBRELATION_PARTIAL_LENGTHS The array of subrelation lengths supplied by a relation.
- * @return The transformed subrelation lenths
+ * @return The transformed subrelation lengths
  */
 template <size_t NUM_INSTANCES, size_t NUM_SUBRELATIONS>
 consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_partial_lengths(
@@ -139,7 +139,7 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     using SumcheckArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
 
     // These are commonly needed, most importantly, for explicitly instantiating
-    // compute_foo_numerator/denomintor.
+    // compute_foo_numerator/denominator.
     using UnivariateAccumulator0 = std::tuple_element_t<0, SumcheckTupleOfUnivariatesOverSubrelations>;
     using ValueAccumulator0 = std::tuple_element_t<0, SumcheckArrayOfValuesOverSubrelations>;
 };

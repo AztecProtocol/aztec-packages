@@ -179,8 +179,8 @@ class Goblin {
     };
 
     /**
-     * @brief Constuct a full Goblin proof (ECCVM, Translator, merge)
-     * @details The merge proof is assumed to already have been constucted in the last accumulate step. It is simply
+     * @brief Construct a full Goblin proof (ECCVM, Translator, merge)
+     * @details The merge proof is assumed to already have been constructed in the last accumulate step. It is simply
      * moved into the final proof here.
      *
      * @return Proof

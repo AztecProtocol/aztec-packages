@@ -424,7 +424,7 @@ mod tests {
     unconstrained fn native_matching_some_read_requests_to_commitments_works() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.append_transient_commitments(MAX_NEW_NOTE_HASHES_PER_TX);
-        // prepare for the split: first MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX are added to end_non_revertible_accumulted_data
+        // prepare for the split: first MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX are added to end_non_revertible_accumulated_data
         // neeed to take the counter of the side effect at the given index because
         builder.previous_kernel.min_revertible_side_effect_counter = builder.previous_kernel.end.new_note_hashes.get(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX).counter;
         // Read the hash at index 1;

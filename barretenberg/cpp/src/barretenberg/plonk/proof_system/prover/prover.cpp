@@ -287,7 +287,7 @@ template <typename settings> void ProverBase<settings>::execute_second_round()
         widget->compute_round_commitments(transcript, 2, queue);
     }
 
-    // RAM/ROM memory subprotocol requires eta is generated before w_4 is comitted
+    // RAM/ROM memory subprotocol requires eta is generated before w_4 is committed
     if (settings::is_plookup) {
         add_plookup_memory_records_to_w_4();
         std::string wire_tag = "w_4";
@@ -540,7 +540,7 @@ template <typename settings> void ProverBase<settings>::reset()
 
 template <typename settings> void ProverBase<settings>::add_plookup_memory_records_to_w_4()
 {
-    // We can only compute memory record values once W_1, W_2, W_3 have been comitted to,
+    // We can only compute memory record values once W_1, W_2, W_3 have been committed to,
     // due to the dependence on the `eta` challenge.
 
     const fr eta = fr::serialize_from_buffer(transcript.get_challenge("eta").begin());

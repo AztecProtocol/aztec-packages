@@ -53,14 +53,14 @@ template <typename Builder> class safe_uint_t {
         current_max = ((uint256_t)1 << bit_num) - 1;
     }
 
-    // When initialzing a constant, we can set the max value to the constant itself (rather than the usually larger
+    // When initializing a constant, we can set the max value to the constant itself (rather than the usually larger
     // 2^n-1)
     safe_uint_t(const bb::fr& const_value)
         : value(const_value)
         , current_max(const_value)
     {}
 
-    // When initialzing a constant, we can set the max value to the constant itself (rather than the usually larger
+    // When initializing a constant, we can set the max value to the constant itself (rather than the usually larger
     // 2^n-1)
     safe_uint_t(const uint256_t& const_value)
         : value(bb::fr(const_value))

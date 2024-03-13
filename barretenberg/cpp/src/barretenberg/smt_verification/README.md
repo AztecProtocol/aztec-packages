@@ -24,7 +24,7 @@ Now you can import it using <cvc5/cvc5.h>
 
 ### There're five new methods inside (for now standard) circuit_builder
 
-- ```set_variable_name(u32 index, str name)``` - assignes a name to a variable. Specifically, binds a name with the first index of an equivalence class.
+- ```set_variable_name(u32 index, str name)``` - assigns a name to a variable. Specifically, binds a name with the first index of an equivalence class.
 
 - ```update_variable_names(u32 idx)``` - in case you've called ```assert_equal``` and ```update_real_variable_indices``` somewhere and you know that two or more variables from the equivalence class have separate names, call this method. Idx is the index of one of the variables of this class. The name of the first variable in class will remain.
 
@@ -114,7 +114,7 @@ To store it on the disk just do
 	After generating all the constrains you should call `bool res = solver.check()` and depending on your goal it could be `true` or `false`.
 	
 	In case you expected `false` but `true` was returned you can then check what went wrong.
-	You should generate an unordered map with `str->term` values and ask the solver to obtain `unoredered_map<str, str> res = solver.model(unordered_map<str, FFTerm> terms)`. 
+	You should generate an unordered map with `str->term` values and ask the solver to obtain `unordered_map<str, str> res = solver.model(unordered_map<str, FFTerm> terms)`. 
 	Now you have the values of the specified terms, which resulted into `true` result. 
 
 6. Automated verification of a unique witness

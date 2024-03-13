@@ -56,7 +56,7 @@ class ClientIVCTests : public ::testing::Test {
      * function circuit and kernel circuit.
      *
      * @param builder
-     * @param func_accum contains the folding proof for the function circuit and the corresponsing function
+     * @param func_accum contains the folding proof for the function circuit and the corresponding function
      * verifier instance
      * @param kernel_accum contains the folding proof for the kernel circuit and the corresponding kernel verifier
      * instance
@@ -103,7 +103,7 @@ class ClientIVCTests : public ::testing::Test {
 };
 
 /**
- * @brief A full Goblin test using PG that mimicks the basic aztec client architecture
+ * @brief A full Goblin test using PG that mimics the basic aztec client architecture
  *
  */
 TEST_F(ClientIVCTests, Full)
@@ -150,7 +150,7 @@ TEST_F(ClientIVCTests, Full)
         VerifierFoldData kernel_fold_output = { kernel_fold_proof, kernel_vk };
     }
 
-    // Constuct four proofs: merge, eccvm, translator, decider
+    // Construct four proofs: merge, eccvm, translator, decider
     auto proof = ivc.prove();
     auto inst = std::make_shared<VerifierInstance>(kernel_vk);
     // Verify all four proofs

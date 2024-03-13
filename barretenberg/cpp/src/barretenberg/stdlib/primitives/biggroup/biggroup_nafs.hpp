@@ -98,7 +98,7 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
      * The staggered offset describes the number of bits we want to remove from the input scalar before computing our
      * wnaf slices. This is to enable us to make repeated calls to the montgomery ladder algo when computing a
      * multi-scalar multiplication e.g. Consider an example with 2 points (A, B), using a 2-bit WNAF The typical
-     * approach would be to perfomr a double-and-add algorithm, adding points into an accumulator ACC:
+     * approach would be to perform a double-and-add algorithm, adding points into an accumulator ACC:
      *
      * ACC = ACC.dbl()
      * ACC = ACC.dbl()
@@ -161,15 +161,15 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
         /**
          * @brief Compute the stagger-related part of WNAF and the final skew
          *
-         * @param fragment_u64 Stagger-masked lower bits of the skalar
+         * @param fragment_u64 Stagger-masked lower bits of the scalar
          * @param stagger The number of staggering bits
          * @param is_negative If the initial scalar is supposed to be subtracted
-         * @param wnaf_skew The skew of the stagger-right-shifted part of the skalar
+         * @param wnaf_skew The skew of the stagger-right-shifted part of the scalar
          *
          */
         const auto compute_staggered_wnaf_fragment =
             [](const uint64_t fragment_u64, const uint64_t stagger, bool is_negative, bool wnaf_skew) {
-                // If there is not stagger then there is no need to change anyhing
+                // If there is not stagger then there is no need to change anything
                 if (stagger == 0) {
                     return std::make_pair<uint64_t, bool>((uint64_t)0, (bool)wnaf_skew);
                 }
@@ -220,7 +220,7 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
                 bool predicate = bool((wnaf_values[i] >> 31U) & 1U);
                 uint64_t offset_entry;
                 // If the signs of current entry and the whole scalar are the same, then add the lowest bits of current
-                // wnaf value to the windows size to form an entry. Otherwise, subract the lowest bits along with 1
+                // wnaf value to the windows size to form an entry. Otherwise, subtract the lowest bits along with 1
                 if ((!predicate && !is_negative) || (predicate && is_negative)) {
                     // TODO: Why is this mask fixed?
                     offset_entry = wnaf_window_size + (wnaf_values[i] & 0xffffff);
@@ -435,7 +435,7 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         // updates multiplicative constants without computing new witnesses. This ensures the low accumulator will not
         // underflow
         //
-        // Once we hvae reconstructed an Fr element out of our accumulators,
+        // Once we have reconstructed an Fr element out of our accumulators,
         // we ALSO construct an Fr element from the constant offset terms we left out
         // We then subtract off the constant term and call `Fr::assert_is_in_field` to reduce the value modulo
         // Fr::modulus

@@ -150,7 +150,7 @@ An Ethereum block consists of approximately 1,000 transactions, with a block gas
 As a conservative estimate, let us assume that every tx in a block will consume 10,000 AVM steps.
 
 Our AVM model is currently to evaluate a transaction's public function calls within a single AVM circuit.
-This means that a block of `n` transactions will require `n` pulic kernel proofs and `n` AVM proofs to be generated (assuming all txns have a public component).
+This means that a block of `n` transactions will require `n` public kernel proofs and `n` AVM proofs to be generated (assuming all txns have a public component).
 
 If public VM proof construction consumes 20% of block time, we must generate 10 AVM proofs and 10 public kernel proofs in 2 seconds.
 
@@ -172,7 +172,7 @@ For a rollup block containing $2^d$ transactions, we need to compute 2-to-1 roll
 
 Note: this excludes network coordination costs, latency costs, block construction costs, public VM proof construction costs (must be computed before the 2-to-1 rollup proofs), cost to compute the final UltraPlonk proof.
 
-To accomodate the above costs, we assume that we can budget 40% of block production time towards making proofs. Given these constraints, the following table describes maximum allowable proof construction times for a selection of block sizes.
+To accommodate the above costs, we assume that we can budget 40% of block production time towards making proofs. Given these constraints, the following table describes maximum allowable proof construction times for a selection of block sizes.
 
 <!-- prettier-ignore -->
 | block size | number of successive 2-to-1 rollup proofs | number of parallel Prover machines required for base layer proofs | time required to construct a rollup proof |

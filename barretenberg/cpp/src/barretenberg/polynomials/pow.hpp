@@ -107,7 +107,7 @@ template <typename FF> struct PowPolynomial {
     FF univariate_eval(FF challenge) const { return (FF(1) + (challenge * (betas[current_element_idx] - FF(1)))); };
 
     /**
-     * @brief Parially evaluate the pow polynomial in X_l and updating the value c_l -> c_{l+1}.
+     * @brief Partially evaluate the pow polynomial in X_l and updating the value c_l -> c_{l+1}.
      *
      * @param challenge l-th verifier challenge u_l
      */

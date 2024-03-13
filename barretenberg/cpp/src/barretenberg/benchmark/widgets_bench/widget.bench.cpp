@@ -12,7 +12,7 @@
 
 // The widgets are implemented in a non-uniform way where the transition widgets provide a per-row execution function
 // `accumulate_contribution` while the random widgets do not. Defining this preprocessor variable allows to derive a
-// per-row exeuction cost that is suitable for comparing against the cost of executing the Honk relations. For
+// per-row execution cost that is suitable for comparing against the cost of executing the Honk relations. For
 // validation, we also directly benchmark the available `accumulate_contribution` functions.
 //
 // NOTE: this code is to be run singly threaded via taskset, e.g. taskset -c 0

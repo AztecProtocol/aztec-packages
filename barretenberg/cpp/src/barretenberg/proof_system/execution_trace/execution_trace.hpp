@@ -26,7 +26,7 @@ template <class Flavor> class ExecutionTrace_ {
 
         TraceData(size_t dyadic_circuit_size, Builder& builder)
         {
-            // Initializate the wire and selector polynomials
+            // Initialize the wire and selector polynomials
             for (auto& wire : wires) {
                 wire = Polynomial(dyadic_circuit_size);
             }
@@ -93,7 +93,7 @@ template <class Flavor> class ExecutionTrace_ {
     /**
      * @brief Construct and add the goblin ecc op wires to the proving key
      * @details The ecc op wires vanish everywhere except on the ecc op block, where they contain a copy of the ecc op
-     * data assumed already to be present in the corrresponding block of the conventional wires in the proving key.
+     * data assumed already to be present in the corresponding block of the conventional wires in the proving key.
      *
      * @param builder
      * @param proving_key
