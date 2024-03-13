@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Returns success if the given repo:tag exists.
+set -eu
+docker image inspect "$ECR_URL/$1:$2" > /dev/null 2>&1

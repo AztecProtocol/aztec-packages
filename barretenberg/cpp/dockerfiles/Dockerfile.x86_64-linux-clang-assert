@@ -29,3 +29,5 @@ FROM ubuntu:lunar
 RUN apt update && apt install curl libstdc++6 -y
 COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
 COPY --from=builder /usr/src/barretenberg/cpp/build/bin /usr/src/barretenberg/cpp/build/bin
+COPY --from=builder /usr/src/barretenberg/cpp/scripts /usr/src/barretenberg/cpp/scripts
+WORKDIR /usr/src/barretenberg/cpp

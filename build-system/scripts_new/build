@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+set -eu
+
+REPOSITORY=$1
+
+# Expose and prioritise internal scripts.
+export PATH=$(dirname $0)/internal:$PATH
+
+arch_run $REPOSITORY build $@
+
+# If we didn't perform a build on ARM, copy the x86 image to arm host.
+if [ "$(query_manifest arm $REPOSITORY)" == "false" ]; then
+  echo "Arm build disabled. Copying x86 image to arm host for downstream builds..."
+  IMAGE_COMMIT_URI=$(calculate_image_uri $REPOSITORY)
+  DOCKER_HOST=$DOCKER_HOST_X86 docker save -o image.tar $IMAGE_COMMIT_URI
+  DOCKER_HOST=$DOCKER_HOST_ARM docker load -i image.tar
+fi

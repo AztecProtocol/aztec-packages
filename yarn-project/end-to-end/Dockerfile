@@ -1,8 +1,9 @@
-FROM --platform=linux/amd64 aztecprotocol/bb.js as bb.js
-FROM --platform=linux/amd64 aztecprotocol/noir-packages as noir-packages
-FROM --platform=linux/amd64 aztecprotocol/l1-contracts as contracts
-FROM --platform=linux/amd64 aztecprotocol/noir-projects as noir-projects
+FROM aztecprotocol/bb.js as bb.js
+FROM aztecprotocol/noir-packages as noir-packages
+FROM aztecprotocol/l1-contracts as contracts
+FROM aztecprotocol/noir-projects as noir-projects
 FROM aztecprotocol/noir as noir
+FROM aztecprotocol/barretenberg-x86_64-linux-clang as barretenberg
 
 FROM node:18.19.0 as builder
 RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
@@ -14,6 +15,7 @@ COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
 # We want the native ACVM binary
 COPY --from=noir /usr/src/noir/noir-repo/target/release/acvm /usr/src/noir/noir-repo/target/release/acvm
+COPY --from=barretenberg /usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
 
 WORKDIR /usr/src/yarn-project
 COPY . .
@@ -40,13 +42,8 @@ RUN rm -rf /usr/src/noir-projects /usr/src/l1-contracts
 
 # Create minimal image.
 FROM node:18.19.1-slim
-RUN apt-get update && apt-get install jq gnupg wget -y && \
-    wget --quiet --output-document=- https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /etc/apt/trusted.gpg.d/google-archive.gpg && \
-    sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' && \
-    apt-get update && \
-    apt-get install google-chrome-stable -y --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
-ENV CHROME_BIN="/usr/bin/google-chrome-stable"
+RUN apt-get update && apt-get install -y jq chromium
+ENV CHROME_BIN="/usr/bin/chromium"
 COPY --from=builder /usr/src /usr/src
 WORKDIR /usr/src/yarn-project/end-to-end
 ENTRYPOINT ["yarn", "test"]

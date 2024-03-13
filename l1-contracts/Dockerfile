@@ -1,6 +1,4 @@
-# Building requires foundry.
 FROM ubuntu:lunar
-
 RUN apt update && apt install curl git jq bash nodejs npm python3.11-full python3-pip -y
 
 # Use virtualenv, do not try to use pipx, it's not working.
@@ -12,16 +10,13 @@ RUN curl -L https://foundry.paradigm.xyz | bash
 ENV PATH="${PATH}:/root/.foundry/bin:/root/.venv/bin"
 RUN foundryup
 
+# Install yarn and solhint.
+RUN npm install -g yarn solhint
+
 WORKDIR /usr/src/l1-contracts
 COPY . .
-RUN git init
+RUN git init && git add . && yarn lint && yarn slither && yarn slither-has-diff
 RUN forge clean && forge fmt --check && forge build && forge test
-
-RUN npm install --global yarn
-RUN yarn && yarn lint
-
-RUN git add . && yarn slither && yarn slither-has-diff
-RUN forge build
 
 FROM scratch
 COPY --from=0 /usr/src/l1-contracts/out /usr/src/l1-contracts/out

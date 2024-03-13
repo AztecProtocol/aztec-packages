@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+set -eu
+
+REPOSITORY=$1
+
+# Expose and prioritise internal scripts.
+export PATH=$(dirname $0)/internal:$PATH
+
+arch_run $REPOSITORY run_compose $@
