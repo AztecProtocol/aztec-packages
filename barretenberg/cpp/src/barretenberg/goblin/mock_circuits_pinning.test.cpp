@@ -24,6 +24,7 @@ TEST_F(MockCircuits, PinFunctionSizes)
         GoblinUltraCircuitBuilder app_circuit{ goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(app_circuit, large);
         auto instance = std::make_shared<ProverInstance>(app_circuit);
+        // info("app_circuit.num_gates = ", app_circuit.num_gates);
         if (large) {
             EXPECT_EQ(instance->proving_key->log_circuit_size, 19);
         } else {
