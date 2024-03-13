@@ -107,8 +107,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
     /**
      * @brief For a valid circuit, ensures that computing the value of the full UH/UGH relation at each row in its
-     * execution trace (with the contribution of the linearly dependent one added tot he first row, in case of Goblin)
-     * will be 0.
+     * execution trace (with the contribution of the linearly dependent one added tot he first row, in case of
+     * Goblin) will be 0.
      *
      */
     static void test_full_honk_evaluations_valid_circuit()
@@ -141,8 +141,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     }
 
     /**
-     * @brief Check the coefficients of the perturbator computed from dummy \vec{β}, \vec{δ} and f_i(ω) will be the same
-     * as if computed manually.
+     * @brief Check the coefficients of the perturbator computed from dummy \vec{β}, \vec{δ} and f_i(ω) will be the
+     * same as if computed manually.
      *
      */
     static void test_pertubator_coefficients()
@@ -211,8 +211,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     }
 
     /**
-     * @brief Manually compute the expected evaluations of the combiner quotient, given evaluations of the combiner and
-     * check them against the evaluations returned by the function.
+     * @brief Manually compute the expected evaluations of the combiner quotient, given evaluations of the combiner
+     * and check them against the evaluations returned by the function.
      *
      */
     static void test_combiner_quotient()
@@ -244,8 +244,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     }
 
     /**
-     * @brief For two dummy instances with their relation parameter η set, check that combining them in a univariate,
-     * barycentrially extended to the desired number of evaluations, is performed correctly.
+     * @brief For two dummy instances with their relation parameter η set, check that combining them in a
+     * univariate, barycentrially extended to the desired number of evaluations, is performed correctly.
      *
      */
     static void test_combine_relation_parameters()
