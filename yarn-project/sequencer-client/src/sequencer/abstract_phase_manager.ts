@@ -60,6 +60,7 @@ import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { HintsBuilder } from './hints_builder.js';
 import { FailedTx } from './processed_tx.js';
+import { lastSideEffectCounter } from './utils.js';
 
 export enum PublicKernelPhase {
   SETUP = 'setup',
@@ -154,6 +155,14 @@ export abstract class AbstractPhaseManager {
         [PublicKernelPhase.TEARDOWN]: [],
         [PublicKernelPhase.TAIL]: [],
       };
+    } else if (firstRevertibleCallIndex === -1) {
+      // there's no app logic, split the functions between setup (many) and teardown (just one function call)
+      return {
+        [PublicKernelPhase.SETUP]: publicCallsStack.slice(0, -1),
+        [PublicKernelPhase.APP_LOGIC]: [],
+        [PublicKernelPhase.TEARDOWN]: [publicCallsStack[publicCallsStack.length - 1]],
+        [PublicKernelPhase.TAIL]: [],
+      };
     } else {
       return {
         [PublicKernelPhase.SETUP]: publicCallsStack.slice(0, firstRevertibleCallIndex - 1),
@@ -202,11 +211,12 @@ export abstract class AbstractPhaseManager {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
 
+        const sideEffectCounter = lastSideEffectCounter(tx) + 1;
         // NOTE: temporary glue to incorporate avm execution calls
         const simulator = (execution: PublicExecution, globalVariables: GlobalVariables) =>
           env.AVM_ENABLED
-            ? this.publicExecutor.simulateAvm(execution, globalVariables)
-            : this.publicExecutor.simulate(execution, globalVariables);
+            ? this.publicExecutor.simulateAvm(execution, globalVariables, sideEffectCounter)
+            : this.publicExecutor.simulate(execution, globalVariables, sideEffectCounter);
 
         const result = isExecutionRequest ? await simulator(current, this.globalVariables) : current;
 
@@ -333,6 +343,8 @@ export abstract class AbstractPhaseManager {
       newNoteHashes: padArrayEnd(result.newNoteHashes, SideEffect.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
       newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
+      startSideEffectCounter: result.startSideEffectCounter,
+      endSideEffectCounter: result.endSideEffectCounter,
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       nullifierReadRequests: padArrayEnd(
         result.nullifierReadRequests,
