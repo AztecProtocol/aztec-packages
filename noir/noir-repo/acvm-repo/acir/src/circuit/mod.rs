@@ -159,55 +159,6 @@ impl Circuit {
             self.public_parameters.0.union(&self.return_values.0).cloned().collect();
         PublicInputs(public_inputs)
     }
-
-    fn write<W: std::io::Write>(&self, writer: W) -> std::io::Result<()> {
-        let buf = bincode::serialize(self).unwrap();
-        let mut encoder = flate2::write::GzEncoder::new(writer, Compression::default());
-        encoder.write_all(&buf)?;
-        encoder.finish()?;
-        Ok(())
-    }
-
-    fn read<R: std::io::Read>(reader: R) -> std::io::Result<Self> {
-        let mut gz_decoder = flate2::read::GzDecoder::new(reader);
-        let mut buf_d = Vec::new();
-        gz_decoder.read_to_end(&mut buf_d)?;
-        bincode::deserialize(&buf_d)
-            .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))
-    }
-
-    pub fn serialize_circuit(circuit: &Circuit) -> Vec<u8> {
-        let mut circuit_bytes: Vec<u8> = Vec::new();
-        circuit.write(&mut circuit_bytes).expect("expected circuit to be serializable");
-        circuit_bytes
-    }
-
-    pub fn deserialize_circuit(serialized_circuit: &[u8]) -> std::io::Result<Self> {
-        Circuit::read(serialized_circuit)
-    }
-
-    // Serialize and base64 encode circuit
-    pub fn serialize_circuit_base64<S>(circuit: &Circuit, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let circuit_bytes = Circuit::serialize_circuit(circuit);
-        let encoded_b64 = base64::engine::general_purpose::STANDARD.encode(circuit_bytes);
-        s.serialize_str(&encoded_b64)
-    }
-
-    // Deserialize and base64 decode circuit
-    pub fn deserialize_circuit_base64<'de, D>(deserializer: D) -> Result<Circuit, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let bytecode_b64: String = serde::Deserialize::deserialize(deserializer)?;
-        let circuit_bytes = base64::engine::general_purpose::STANDARD
-            .decode(bytecode_b64)
-            .map_err(D::Error::custom)?;
-        let circuit = Self::deserialize_circuit(&circuit_bytes).map_err(D::Error::custom)?;
-        Ok(circuit)
-    }
 }
 
 impl Program {
@@ -336,7 +287,10 @@ mod tests {
         opcodes::{BlackBoxFuncCall, FunctionInput},
         Circuit, Compression, Opcode, PublicInputs,
     };
-    use crate::{circuit::ExpressionWidth, native_types::Witness};
+    use crate::{
+        circuit::{ExpressionWidth, Program},
+        native_types::Witness,
+    };
     use acir_field::FieldElement;
 
     fn and_opcode() -> Opcode {
@@ -422,14 +376,15 @@ mod tests {
             assert_messages: Default::default(),
             recursive: false,
         };
+        let program = Program { functions: vec![circuit] };
 
-        fn read_write(circuit: Circuit) -> (Circuit, Circuit) {
-            let bytes = Circuit::serialize_circuit(&circuit);
-            let got_circuit = Circuit::deserialize_circuit(&bytes).unwrap();
-            (circuit, got_circuit)
+        fn read_write(program: Program) -> (Program, Program) {
+            let bytes = Program::serialize_program(&program);
+            let got_program = Program::deserialize_program(&bytes).unwrap();
+            (program, got_program)
         }
 
-        let (circ, got_circ) = read_write(circuit);
+        let (circ, got_circ) = read_write(program);
         assert_eq!(circ, got_circ);
     }
 
@@ -454,11 +409,12 @@ mod tests {
             assert_messages: Default::default(),
             recursive: false,
         };
+        let program = Program { functions: vec![circuit] };
 
-        let json = serde_json::to_string_pretty(&circuit).unwrap();
+        let json = serde_json::to_string_pretty(&program).unwrap();
 
         let deserialized = serde_json::from_str(&json).unwrap();
-        assert_eq!(circuit, deserialized);
+        assert_eq!(program, deserialized);
     }
 
     #[test]
@@ -474,7 +430,7 @@ mod tests {
         encoder.write_all(bad_circuit).unwrap();
         encoder.finish().unwrap();
 
-        let deserialization_result = Circuit::deserialize_circuit(&zipped_bad_circuit);
+        let deserialization_result = Program::deserialize_program(&zipped_bad_circuit);
         assert!(deserialization_result.is_err());
     }
 }

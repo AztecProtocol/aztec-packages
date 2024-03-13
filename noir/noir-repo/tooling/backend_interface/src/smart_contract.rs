@@ -17,7 +17,6 @@ impl Backend {
         // Create a temporary file for the circuit
         let bytecode_path = temp_directory_path.join("program").with_extension("bytecode");
         let serialized_program = Program::serialize_program(program);
-        // let serialized_program = Circuit::serialize_circuit(&program.functions[0]);
         write_to_file(&serialized_program, &bytecode_path);
 
         // Create the verification key and write it to the specified path

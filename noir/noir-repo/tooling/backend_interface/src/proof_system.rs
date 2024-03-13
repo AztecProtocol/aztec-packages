@@ -129,7 +129,7 @@ impl Backend {
 
     pub fn get_intermediate_proof_artifacts(
         &self,
-        circuit: &Circuit,
+        program: &Program,
         proof: &[u8],
         public_inputs: WitnessMap,
     ) -> Result<(Vec<FieldElement>, FieldElement, Vec<FieldElement>), BackendError> {
@@ -141,9 +141,9 @@ impl Backend {
 
         // Create a temporary file for the circuit
         //
-        let bytecode_path = temp_directory.join("circuit").with_extension("bytecode");
-        let serialized_circuit = Circuit::serialize_circuit(circuit);
-        write_to_file(&serialized_circuit, &bytecode_path);
+        let bytecode_path = temp_directory.join("program").with_extension("bytecode");
+        let serialized_program = Program::serialize_program(program);
+        write_to_file(&serialized_program, &bytecode_path);
 
         // Create the verification key and write it to the specified path
         let vk_path = temp_directory.join("vk");
