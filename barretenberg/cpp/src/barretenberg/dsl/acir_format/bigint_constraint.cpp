@@ -34,8 +34,8 @@ ModulusId modulus_param_to_id(ModulusParam param)
         secp256r1::FrParams::modulus_2 == param.modulus_2 && secp256r1::FrParams::modulus_3 == param.modulus_3) {
         return ModulusId::SECP256R1_FR;
     }
-
-    return ModulusId::UNKNOWN;
+    return ModulusId::U256;
+    //    return ModulusId::UNKNOWN;
 }
 
 template void create_bigint_operations_constraint<UltraCircuitBuilder>(const BigIntOperation& input,
@@ -62,6 +62,16 @@ template void create_bigint_div_constraint<GoblinUltraCircuitBuilder>(
 template <typename Builder>
 void create_bigint_addition_constraint(const BigIntOperation& input, DSLBigInts<Builder>& dsl_bigint)
 {
+    info("before:");
+    info(dsl_bigint.builder->get_num_gates(),
+         ", ",
+         dsl_bigint.builder->blocks.main.size(),
+         ", ",
+         dsl_bigint.builder->blocks.arithmetic.size(),
+         ", ",
+         dsl_bigint.builder->blocks.aux.size(),
+         ", ",
+         dsl_bigint.builder->cached_partial_non_native_field_multiplications.size());
     switch (dsl_bigint.get_modulus_id(input.lhs)) {
     case ModulusId::BN254_FR: {
         auto lhs = dsl_bigint.bn254_fr(input.lhs);
@@ -99,10 +109,32 @@ void create_bigint_addition_constraint(const BigIntOperation& input, DSLBigInts<
         dsl_bigint.set_secp256r1_fr(lhs + rhs, input.result);
         break;
     }
+    case ModulusId::U256: {
+        auto lhs = dsl_bigint.uint256(input.lhs);
+        auto rhs = dsl_bigint.uint256(input.rhs);
+        // uint512_t modulus = uint512_t(1) << 256;
+        bb::stdlib::bigfielddyn<Builder> result = lhs + rhs;
+
+        dsl_bigint.set_big_uint256(result, input.result);
+        info("added");
+        break;
+    }
+
     default: {
         ASSERT(false);
     }
     }
+
+    info("after addtion:");
+    info(dsl_bigint.builder->get_num_gates(),
+         ", ",
+         dsl_bigint.builder->blocks.main.size(),
+         ", ",
+         dsl_bigint.builder->blocks.arithmetic.size(),
+         ", ",
+         dsl_bigint.builder->blocks.aux.size(),
+         ", ",
+         dsl_bigint.builder->cached_partial_non_native_field_multiplications.size());
 }
 
 template <typename Builder>
@@ -280,6 +312,7 @@ void create_bigint_from_le_bytes_constraint(Builder& builder,
     using big_secp256k1_fr = bb::stdlib::bigfield<Builder, secp256k1::FrParams>;
     using big_secp256r1_fq = bb::stdlib::bigfield<Builder, secp256r1::FqParams>;
     using big_secp256r1_fr = bb::stdlib::bigfield<Builder, secp256r1::FrParams>;
+    using big_uint256 = bb::stdlib::bigfielddyn<Builder>;
     using field_ct = bb::stdlib::field_t<Builder>;
     using byte_array_ct = bb::stdlib::byte_array<Builder>;
 
@@ -347,6 +380,12 @@ void create_bigint_from_le_bytes_constraint(Builder& builder,
         dsl_bigints.set_secp256r1_fr(big, input.result);
         break;
     }
+    case U256: {
+        uint512_t modulus = uint512_t(1) << 256;
+        auto big = big_uint256(bytes, modulus);
+        dsl_bigints.set_big_uint256(big, input.result);
+        break;
+    }
     case UNKNOWN:
     default:
         ASSERT(false);
@@ -365,6 +404,7 @@ void create_bigint_to_le_bytes_constraint(Builder& builder,
     using big_secp256k1_fr = bb::stdlib::bigfield<Builder, secp256k1::FrParams>;
     using big_secp256r1_fq = bb::stdlib::bigfield<Builder, secp256r1::FqParams>;
     using big_secp256r1_fr = bb::stdlib::bigfield<Builder, secp256r1::FrParams>;
+    using big_uint256 = bb::stdlib::bigfielddyn<Builder>;
 
     auto modulus_id = dsl_bigints.get_modulus_id(input.input);
     bb::stdlib::byte_array<Builder> byte_array;
@@ -404,6 +444,16 @@ void create_bigint_to_le_bytes_constraint(Builder& builder,
         big_secp256r1_fr big = dsl_bigints.secp256r1_fr(input.input);
         big.self_reduce();
         byte_array = big.to_byte_array();
+        break;
+    }
+    case U256: {
+        info(input.input);
+        big_uint256 big = dsl_bigints.uint256(input.input);
+        info("to-bytes");
+        big.self_reduce();
+
+        byte_array = big.to_byte_array();
+        info("tb done");
         break;
     }
     case UNKNOWN:

@@ -44,21 +44,56 @@ template <typename Builder> bool CircuitChecker::check(const Builder& builder_in
     auto& block = builder.blocks.main;
 
     // Perform checks on each gate defined in the builder
+    info("block size {}", block.size());
+
     bool result = true;
     for (size_t idx = 0; idx < block.size(); ++idx) {
         populate_values(builder, block, values, tag_data, memory_data, idx);
 
         result = result && check_relation<Arithmetic>(values, params);
+        if (result == false) {
+            info("Arithmetic relation failed for gate {}", idx);
+        }
         result = result && check_relation<Elliptic>(values, params);
+        if (result == false) {
+            info("Elliptic relation failed for gate {}", idx);
+        }
         result = result && check_relation<Auxiliary>(values, params);
+        if (result == false) {
+            info("Auxiliary relation failed for gate {}", idx);
+        }
         result = result && check_relation<GenPermSort>(values, params);
         result = result && check_lookup(values, lookup_hash_table);
         if constexpr (IsGoblinBuilder<Builder>) {
             result = result && check_relation<PoseidonInternal>(values, params);
             result = result && check_relation<PoseidonExternal>(values, params);
         }
-    }
 
+        if (result == false) {
+
+            info("q_c:", values.q_c);
+            info("q_l:", values.q_l);
+            info("q_r:", values.q_r);
+            info("q_o:", values.q_o);
+            info("q_4:", values.q_4);
+            info("q_m:", values.q_m);
+            info("q_arith:", values.q_arith);
+            info("q_sort:", values.q_sort);
+            info("q_elliptic:", values.q_elliptic);
+            info("q_aux:", values.q_aux);
+            info("q_lookup:", values.q_lookup);
+            info("w_l:", values.w_l);
+            info("w_r:", values.w_r);
+            info("w_o:", values.w_o);
+            info("w_4:", values.w_4);
+            info("w_l_shift:", values.w_l_shift);
+            info("w_r_shift:", values.w_r_shift);
+            info("w_o_shift:", values.w_o_shift);
+            info("w_4_shift:", values.w_4_shift);
+
+            break;
+        }
+    }
     // Tag check is only expected to pass after all gates have been processed
     result = result && check_tag_data(tag_data);
 

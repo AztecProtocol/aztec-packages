@@ -1,6 +1,8 @@
 #pragma once
 #include "barretenberg/dsl/types.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield_dyn.hpp"
 #include <cstdint>
 #include <vector>
 
@@ -47,6 +49,7 @@ enum ModulusId {
     SECP256K1_FR,
     SECP256R1_FQ,
     SECP256R1_FR,
+    U256,
     UNKNOWN,
 };
 
@@ -68,6 +71,7 @@ template <typename Builder> class DSLBigInts {
     using big_secp256k1_fr = bb::stdlib::bigfield<Builder, bb::secp256k1::FrParams>;
     using big_secp256r1_fq = bb::stdlib::bigfield<Builder, bb::secp256r1::FqParams>;
     using big_secp256r1_fr = bb::stdlib::bigfield<Builder, bb::secp256r1::FrParams>;
+    using big_uint256 = bb::stdlib::bigfielddyn<Builder>;
 
   private:
     std::map<uint32_t, big_bn254_fq> m_bn254_fq;
@@ -76,10 +80,11 @@ template <typename Builder> class DSLBigInts {
     std::map<uint32_t, big_secp256k1_fr> m_secp256k1_fr;
     std::map<uint32_t, big_secp256r1_fq> m_secp256r1_fq;
     std::map<uint32_t, big_secp256r1_fr> m_secp256r1_fr;
+    std::map<uint32_t, big_uint256> m_big_uint256;
 
   public:
     DSLBigInts() = default;
-
+    Builder* builder;
     ModulusId get_modulus_id(uint32_t bigint_id)
     {
         if (this->m_bn254_fq.contains(bigint_id)) {
@@ -100,7 +105,9 @@ template <typename Builder> class DSLBigInts {
         if (this->m_secp256r1_fr.contains(bigint_id)) {
             return ModulusId::SECP256R1_FR;
         }
-
+        if (this->m_big_uint256.contains(bigint_id)) {
+            return ModulusId::U256;
+        }
         return ModulusId::UNKNOWN;
     }
 
@@ -179,6 +186,16 @@ template <typename Builder> class DSLBigInts {
     void set_secp256k1_fr(const big_secp256k1_fr& bigint, uint32_t bigint_id)
     {
         this->m_secp256k1_fr[bigint_id] = bigint;
+    }
+
+    void set_big_uint256(const big_uint256& bigint, uint32_t bigint_id) { this->m_big_uint256[bigint_id] = bigint; }
+
+    big_uint256 uint256(uint32_t bigint_id)
+    {
+        if (this->m_big_uint256.contains(bigint_id)) {
+            return this->m_big_uint256[bigint_id];
+        }
+        return { 0 };
     }
 };
 
