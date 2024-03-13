@@ -59,7 +59,7 @@ TEST(circuit, assert_equal)
     ASSERT_EQ(circuit[i.get_witness_index()].term, circuit[j.get_witness_index()].term);
 }
 
-TEST(circuit, range_relaxation)
+TEST(circuit, range_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     field_t a(witness_t(&builder, fr(120)));
@@ -78,6 +78,22 @@ TEST(circuit, range_relaxation)
     Circuit<FFITerm> circuit(circuit_info, &s);
 
     s.print_assertions();
+}
+
+TEST(circuit, range_relaxation)
+{
+    for (size_t i = 2; i < 256; i++) {
+        info("Bits: ", i);
+        StandardCircuitBuilder builder = StandardCircuitBuilder();
+        field_t a(witness_t(&builder, fr::zero()));
+        a.create_range_constraint(i);
+
+        auto buf = builder.export_circuit();
+        CircuitSchema circuit_info = unpack_from_buffer(buf);
+        Solver s(circuit_info.modulus);
+        Circuit<FFITerm> circuit(circuit_info, &s);
+        info();
+    }
 }
 
 // TODO(alex): check xor relaxations after bivector is here

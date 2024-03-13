@@ -30,6 +30,8 @@ template <typename FF> class Circuit {
 
     size_t prepare_gates(size_t cursor);
     void univariate_handler(bb::fr q_m, bb::fr q_1, bb::fr q_2, bb::fr q_3, bb::fr q_c, uint32_t w);
+    size_t logic_constraint_handler(size_t cursor);
+    size_t range_constraint_handler(size_t cursor);
 
   public:
     std::vector<bb::fr> variables;                                    // circuit witness
@@ -185,6 +187,168 @@ void Circuit<FF>::univariate_handler(bb::fr q_m, bb::fr q_1, bb::fr q_2, bb::fr 
 }
 
 /**
+ * @brief Relaxes univariate logic constraints(AND/XOR).
+ *
+ * @param cursor current position
+ * @return next position
+ */
+template <typename FF> size_t Circuit<FF>::logic_constraint_handler(size_t cursor)
+{
+    size_t beg = 1;
+    size_t end = 127;
+    size_t p = 0;
+    auto res = static_cast<size_t>(-1);
+
+    bool xor_flag = true;
+    bool and_flag = true;
+    bool logic_flag = true;
+    CircuitProps xor_props;
+    CircuitProps and_props;
+
+    bool stop_flag = false;
+
+    while (beg <= end) {
+        p = (end + beg) / 2;
+
+        xor_props = get_standard_logic_circuit(p * 2, true);
+        and_props = get_standard_logic_circuit(p * 2, false);
+        CircuitSchema xor_circuit = xor_props.circuit;
+        CircuitSchema and_circuit = and_props.circuit;
+
+        xor_flag = cursor + xor_props.num_gates <= this->selectors.size();
+        and_flag = cursor + xor_props.num_gates <= this->selectors.size();
+        if (xor_flag || and_flag) {
+            for (size_t j = 0; j < xor_props.num_gates; j++) {
+                // It is possible for gates to be equal but wires to be not, but I think it's very
+                // unlikely to happen
+                xor_flag &= xor_circuit.selectors[j + xor_props.start_gate] == this->selectors[cursor + j];
+                and_flag &= and_circuit.selectors[j + and_props.start_gate] == this->selectors[cursor + j];
+
+                if (!xor_flag && !and_flag) {
+                    if (j == 0) {
+                        stop_flag = true;
+                    }
+                    break;
+                }
+            }
+        }
+        if (stop_flag) {
+            break;
+        }
+
+        if (!xor_flag && !and_flag) {
+            end = p - 1;
+        } else {
+            res = 2 * p;
+            logic_flag = xor_flag;
+
+            beg = p + 1;
+        }
+    }
+    // TODO(alex): Figure out if I need to create range constraint here too or it'll be
+    // created anyway in any circuit
+    if (res != static_cast<size_t>(-1)) {
+        xor_props = get_standard_logic_circuit(res, true);
+        and_props = get_standard_logic_circuit(res, false);
+
+        info("Logic constraint optimization: ", std::to_string(res), " bits. is_xor: ", xor_flag);
+        size_t left_gate = xor_props.gate_idxs[0];
+        uint32_t left_gate_idx = xor_props.idxs[0];
+        size_t right_gate = xor_props.gate_idxs[1];
+        uint32_t right_gate_idx = xor_props.idxs[1];
+        size_t out_gate = xor_props.gate_idxs[2];
+        uint32_t out_gate_idx = xor_props.idxs[2];
+
+        uint32_t left_idx = this->real_variable_index[this->wires_idxs[cursor + left_gate][left_gate_idx]];
+        uint32_t right_idx = this->real_variable_index[this->wires_idxs[cursor + right_gate][right_gate_idx]];
+        uint32_t out_idx = this->real_variable_index[this->wires_idxs[cursor + out_gate][out_gate_idx]];
+
+        FF left = this->symbolic_vars[left_idx];
+        FF right = this->symbolic_vars[right_idx];
+        FF out = this->symbolic_vars[out_idx];
+
+        if (logic_flag) {
+            (left ^ right) == out;
+        } else {
+            (left ^ right) == out; // TODO(alex): implement & method
+        }
+
+        optimized[left_idx] = false;
+        optimized[right_idx] = false;
+        optimized[out_idx] = false;
+        return cursor + xor_props.num_gates;
+    }
+    return res;
+}
+
+template <typename FF> size_t Circuit<FF>::range_constraint_handler(size_t cursor)
+{
+    bool range_flag = true;
+    size_t p = 0;
+    auto res = static_cast<size_t>(-1);
+
+    CircuitProps range_props;
+    for (size_t odd = 0; odd < 2; odd++) {
+        size_t beg = 1;
+        size_t end = 127;
+
+        bool stop_flag = false;
+        while (beg <= end) {
+            p = (end + beg) / 2;
+
+            range_props = get_standard_range_constraint_circuit(2 * p + odd);
+            CircuitSchema range_circuit = range_props.circuit;
+
+            range_flag = cursor + range_props.num_gates <= this->get_num_gates();
+            if (range_flag) {
+                for (size_t j = 0; j < range_props.num_gates; j++) {
+                    // It is possible for gates to be equal but wires to be not, but I think it's very
+                    // unlikely to happen
+                    range_flag &= range_circuit.selectors[j + range_props.start_gate] == this->selectors[cursor + j];
+
+                    if (!range_flag) {
+                        if (j <= 2) {
+                            stop_flag = true;
+                        }
+                        break;
+                    }
+                }
+            }
+            if (stop_flag) {
+                break;
+            }
+
+            if (!range_flag) {
+                end = p - 1;
+            } else {
+                res = 2 * p + odd;
+                beg = p + 1;
+            }
+        }
+
+        if (res != static_cast<size_t>(-1)) {
+            range_flag = true;
+            break;
+        }
+    }
+
+    if (range_flag) {
+        info("Range constraint optimization: ", std::to_string(res), " bits");
+        range_props = get_standard_range_constraint_circuit(res);
+
+        size_t left_gate = range_props.gate_idxs[0];
+        uint32_t left_gate_idx = range_props.idxs[0];
+        uint32_t left_idx = this->real_variable_index[this->wires_idxs[cursor + left_gate][left_gate_idx]];
+
+        FF left = this->symbolic_vars[left_idx];
+        left <= bb::fr(2).pow(res);
+        optimized[left_idx] = false;
+        return cursor + range_props.num_gates;
+    }
+    return res;
+}
+
+/**
  * @brief Adds all the gate constraints to the solver.
  * Relaxes constraint system for non-ff solver engines
  * via removing subcircuits that were already proved being correct.
@@ -194,85 +358,16 @@ template <typename FF> size_t Circuit<FF>::prepare_gates(size_t cursor)
 {
     // TODO(alex): implement bitvector class and compute offsets
     if (FF::isBitVector() && this->optimizations) {
-        for (uint32_t i = 255; i > 1; i -= 2) {
-            CircuitProps xor_props = get_standard_logic_circuit(i, true);
-            CircuitProps and_props = get_standard_logic_circuit(i, false);
-            CircuitSchema xor_circuit = xor_props.circuit;
-            CircuitSchema and_circuit = and_props.circuit;
-
-            if (cursor + xor_props.num_gates <= this->selectors.size()) {
-                bool xor_flag = true;
-                bool and_flag = true;
-                for (size_t j = 0; j < xor_props.num_gates; j++) {
-                    // TODO(alex): It is possible for gates to be equal but wires to be not, but I think it's very
-                    // unlikely to happen
-                    xor_flag &= xor_circuit.selectors[j + xor_props.start_gate] == this->selectors[cursor + j];
-                    and_flag &= and_circuit.selectors[j + and_props.start_gate] == this->selectors[cursor + j];
-
-                    if (!xor_flag && !and_flag) {
-                        break;
-                    }
-                }
-                if (xor_flag || and_flag) {
-                    info("Logic constraint optimization: ", std::to_string(i), " bits. is_xor: ", xor_flag);
-                    size_t left_gate = xor_props.gate_idxs[0];
-                    uint32_t left_gate_idx = xor_props.idxs[0];
-                    size_t right_gate = xor_props.gate_idxs[1];
-                    uint32_t right_gate_idx = xor_props.idxs[1];
-                    size_t out_gate = xor_props.gate_idxs[2];
-                    uint32_t out_gate_idx = xor_props.idxs[2];
-
-                    uint32_t left_idx = this->real_variable_index[this->wires_idxs[cursor + left_gate][left_gate_idx]];
-                    uint32_t right_idx =
-                        this->real_variable_index[this->wires_idxs[cursor + right_gate][right_gate_idx]];
-                    uint32_t out_idx = this->real_variable_index[this->wires_idxs[cursor + out_gate][out_gate_idx]];
-
-                    FF left = this->symbolic_vars[left_idx];
-                    FF right = this->symbolic_vars[right_idx];
-                    FF out = this->symbolic_vars[out_idx];
-
-                    if (xor_flag) {
-                        (left ^ right) == out;
-                    } else {
-                        (left ^ right) == out; // TODO(alex): implement & method
-                    }
-
-                    optimized[left_idx] = false;
-                    optimized[right_idx] = false;
-                    optimized[out_idx] = false;
-                    return cursor + xor_props.num_gates;
-                }
-            }
+        size_t res = logic_constraint_handler(cursor);
+        if (res != static_cast<size_t>(-1)) {
+            return res;
         }
     }
 
     if ((FF::isBitVector() || FF::isInteger()) && this->optimizations) {
-        for (size_t i = 255; i > 1; i--) {
-            CircuitProps range_props = get_standard_range_constraint_circuit(i);
-            CircuitSchema range_circuit = range_props.circuit;
-
-            if (cursor + range_props.num_gates <= this->selectors.size()) {
-                bool range_flag = true;
-
-                for (size_t j = 0; j < range_props.num_gates; j++) {
-                    range_flag &= range_circuit.selectors[range_props.start_gate + j] == this->selectors[cursor + j];
-
-                    if (!range_flag) {
-                        break;
-                    }
-                }
-                if (range_flag) {
-                    info("Range constraint optimization: ", std::to_string(i), " bits");
-                    size_t left_gate = range_props.gate_idxs[0];
-                    uint32_t left_gate_idx = range_props.idxs[0];
-                    uint32_t left_idx = this->real_variable_index[this->wires_idxs[cursor + left_gate][left_gate_idx]];
-
-                    FF left = this->symbolic_vars[left_idx];
-                    left <= bb::fr(2).pow(i);
-                    optimized[left_idx] = false;
-                    return cursor + range_props.num_gates;
-                }
-            }
+        size_t res = range_constraint_handler(cursor);
+        if (res != static_cast<size_t>(-1)) {
+            return res;
         }
     }
 
