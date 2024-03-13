@@ -14,6 +14,7 @@ import {
   deployL1Contract,
   sha256,
 } from '@aztec/aztec.js';
+import { toTruncField } from '@aztec/foundation/serialize';
 import {
   InboxAbi,
   OutboxAbi,
@@ -369,7 +370,7 @@ export class CrossChainTestHarness {
   async checkEntryIsNotInOutbox(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Promise<Fr> {
     this.logger('Ensure that the entry is not in outbox yet');
 
-    const content = Fr.fromBufferReduce(
+    const content = toTruncField(
       sha256(
         Buffer.concat([
           Buffer.from(getFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
@@ -378,8 +379,8 @@ export class CrossChainTestHarness {
           callerOnL1.toBuffer32(),
         ]),
       ),
-    );
-    const entryKey = Fr.fromBufferReduce(
+    )[0];
+    const entryKey = toTruncField(
       sha256(
         Buffer.concat([
           this.l2Bridge.address.toBuffer(),
@@ -389,7 +390,7 @@ export class CrossChainTestHarness {
           content.toBuffer(),
         ]),
       ),
-    );
+    )[0];
     expect(await this.outbox.read.contains([entryKey.toString()])).toBeFalsy();
 
     return entryKey;

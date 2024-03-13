@@ -16,7 +16,7 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 import { keccak, sha256 } from '@aztec/foundation/crypto';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { serializeToBuffer, toTruncField } from '@aztec/foundation/serialize';
 import { InboxAbi, OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-contracts.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -152,14 +152,14 @@ describe('e2e_public_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensPublicOnL2(unrelatedMintAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
 
-    const content = Fr.fromBufferReduce(
+    const content = toTruncField(
       sha256(
         Buffer.concat([
           keccak(Buffer.from('mint_public(bytes32,uint256,address)')).subarray(0, 4),
           serializeToBuffer(...[user2Wallet.getAddress(), new Fr(bridgeAmount), ethAccount.toBuffer32()]),
         ]),
       ),
-    );
+    )[0];
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
@@ -220,14 +220,14 @@ describe('e2e_public_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensPublicOnL2(0n);
 
     // Wrong message hash
-    const content = Fr.fromBufferReduce(
+    const content = toTruncField(
       sha256(
         Buffer.concat([
           keccak(Buffer.from('mint_private(bytes32,uint256,address)')).subarray(0, 4),
           serializeToBuffer(...[secretHash, new Fr(bridgeAmount), ethAccount.toBuffer32()]),
         ]),
       ),
-    );
+    )[0];
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),

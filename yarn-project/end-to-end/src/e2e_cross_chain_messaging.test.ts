@@ -11,7 +11,7 @@ import {
   computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
 import { keccak, sha256 } from '@aztec/foundation/crypto';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { serializeToBuffer, toTruncField } from '@aztec/foundation/serialize';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { delay, setup } from './fixtures/utils.js';
@@ -154,14 +154,14 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
 
     // 3. Consume L1-> L2 message and mint private tokens on L2
-    const content = Fr.fromBufferReduce(
+    const content = toTruncField(
       sha256(
         Buffer.concat([
           keccak(Buffer.from('mint_private(bytes32,uint256,address)')).subarray(0, 4),
           serializeToBuffer(...[secretHashForL2MessageConsumption, new Fr(bridgeAmount), ethAccount.toBuffer32()]),
         ]),
       ),
-    );
+    )[0];
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
@@ -244,14 +244,14 @@ describe('e2e_cross_chain_messaging', () => {
     // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
     await crossChainTestHarness.mintTokensPublicOnL2(0n);
 
-    const content = Fr.fromBufferReduce(
+    const content = toTruncField(
       sha256(
         Buffer.concat([
           keccak(Buffer.from('mint_public(bytes32,uint256,address)')).subarray(0, 4),
           serializeToBuffer(...[ownerAddress, new Fr(bridgeAmount), ethAccount.toBuffer32()]),
         ]),
       ),
-    );
+    )[0];
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
