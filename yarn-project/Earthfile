@@ -33,7 +33,7 @@ build:
     ELSE
         ENV YARN_CACHE_FOLDER /build/yarn-cache
         # Use a mount for incremental builds locally.
-        RUN --mount type=cache,target=/build/node_modules  --mount type=cache,target=/build/yarn-cache \
+        RUN --mount type=cache,target=/build/node_modules --mount type=cache,target=/build/yarn-cache \
             ./bootstrap.sh && yarn workspaces focus @aztec/cli @aztec/aztec --production
     END
     SAVE ARTIFACT /build
