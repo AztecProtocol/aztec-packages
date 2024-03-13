@@ -376,6 +376,9 @@ mod tests {
     #[test]
     fn circuit_outputs_should_be_correctly_populated_with_previous_private_kernel() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+
+        builder.previous_kernel.end_non_revertible.max_block_number = 13;
+
         let new_contracts = [
             NewContractData {
                 contract_address: AztecAddress::from_field(123),
@@ -412,6 +415,7 @@ mod tests {
 
         let public_inputs = kernel.public_kernel_setup();
 
+        assert_eq(public_inputs.end_non_revertible.max_block_number, 13);
         assert_eq_new_contracts(public_inputs.end.new_contracts, new_contracts);
         assert_eq_call_requests(public_inputs.end.private_call_stack, []);
         assert_eq_call_requests(
