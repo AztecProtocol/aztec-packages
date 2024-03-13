@@ -8,8 +8,6 @@ import {NaiveMerkle} from "./Naive.sol";
 import {FrontierMerkle} from "./../../src/core/messagebridge/frontier_tree/Frontier.sol";
 import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
 
-import "forge-std/console.sol";
-
 contract MerkleTest is Test {
   function setUp() public {}
 
@@ -28,6 +26,7 @@ contract MerkleTest is Test {
     }
   }
 
+  // Checks whether sha root matches output of base parity circuit
   function testRootMatchesBaseParity() public {
     uint256[4] memory msgs = [
       0x151de48ca3efbae39f180fe00b8f472ec9f25be10b4f283a87c6d78393537039,
@@ -63,6 +62,7 @@ contract MerkleTest is Test {
     assertEq(frontier.root(), expectedRoot, "Root does not match base parity circuit root");
   }
 
+  // Checks whether sha root matches output of root parity circuit
   function testRootMatchesRootParity() public {
     // sha256 roots coming out of base parity circuits
     uint256[4] memory baseRoots = [
