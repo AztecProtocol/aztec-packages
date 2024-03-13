@@ -9,6 +9,8 @@ COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
 WORKDIR /usr/src/barretenberg/ts
 RUN yarn --immutable
 
+# Set the nargo backend to use the local bb.js of breaking serialization changes
+# We use the backend to write the verification key for smart contract integration tests 
 ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/ts/dest/node/main.js
 
 COPY --from=noir /usr/src/noir/noir-repo/target/release /usr/src/noir/noir-repo/target/release
