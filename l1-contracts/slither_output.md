@@ -11,7 +11,7 @@ Summary
  - [dead-code](#dead-code) (5 results) (Informational)
  - [solc-version](#solc-version) (1 results) (Informational)
  - [low-level-calls](#low-level-calls) (1 results) (Informational)
- - [similar-names](#similar-names) (4 results) (Informational)
+ - [similar-names](#similar-names) (3 results) (Informational)
  - [constable-states](#constable-states) (1 results) (Optimization)
  - [pess-multiple-storage-read](#pess-multiple-storage-read) (6 results) (Optimization)
 ## pess-unprotected-setter
@@ -138,7 +138,7 @@ src/core/messagebridge/NewInbox.sol#L41
 
  - [ ] ID-13
 [NewOutbox.constructor(address)._stateTransitioner](src/core/messagebridge/NewOutbox.sol#L30) lacks a zero-check on :
-		- [STATE_TRANSITIONER = _stateTransitioner](src/core/messagebridge/NewOutbox.sol#L31)
+		- [ROLLUP_CONTRACT = _stateTransitioner](src/core/messagebridge/NewOutbox.sol#L31)
 
 src/core/messagebridge/NewOutbox.sol#L30
 
@@ -341,12 +341,6 @@ src/core/libraries/ConstantsGen.sol#L112
 
 
  - [ ] ID-38
-Variable [NewOutbox.STATE_TRANSITIONER](src/core/messagebridge/NewOutbox.sol#L27) is too similar to [NewOutbox.constructor(address)._stateTransitioner](src/core/messagebridge/NewOutbox.sol#L30)
-
-src/core/messagebridge/NewOutbox.sol#L27
-
-
- - [ ] ID-39
 Variable [Rollup.AVAILABILITY_ORACLE](src/core/Rollup.sol#L33) is too similar to [Rollup.constructor(IRegistry,IAvailabilityOracle)._availabilityOracle](src/core/Rollup.sol#L43)
 
 src/core/Rollup.sol#L33
@@ -355,7 +349,7 @@ src/core/Rollup.sol#L33
 ## constable-states
 Impact: Optimization
 Confidence: High
- - [ ] ID-40
+ - [ ] ID-39
 [Rollup.lastWarpedBlockTs](src/core/Rollup.sol#L41) should be constant 
 
 src/core/Rollup.sol#L41
@@ -364,37 +358,37 @@ src/core/Rollup.sol#L41
 ## pess-multiple-storage-read
 Impact: Optimization
 Confidence: High
- - [ ] ID-41
+ - [ ] ID-40
 In a function [NewOutbox.insert(uint256,bytes32,uint256)](src/core/messagebridge/NewOutbox.sol#L43-L63) variable [NewOutbox.roots](src/core/messagebridge/NewOutbox.sol#L28) is read multiple times
 
 src/core/messagebridge/NewOutbox.sol#L43-L63
 
 
- - [ ] ID-42
+ - [ ] ID-41
 In a function [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L62-L99) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L37) is read multiple times
 
 src/core/messagebridge/NewInbox.sol#L62-L99
 
 
- - [ ] ID-43
+ - [ ] ID-42
 In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76) variable [FrontierMerkle.HEIGHT](src/core/messagebridge/frontier_tree/Frontier.sol#L8) is read multiple times
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76
 
 
- - [ ] ID-44
+ - [ ] ID-43
 In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L108-L127) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L37) is read multiple times
 
 src/core/messagebridge/NewInbox.sol#L108-L127
 
 
- - [ ] ID-45
+ - [ ] ID-44
 In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L108-L127) variable [NewInbox.toConsume](src/core/messagebridge/NewInbox.sol#L35) is read multiple times
 
 src/core/messagebridge/NewInbox.sol#L108-L127
 
 
- - [ ] ID-46
+ - [ ] ID-45
 In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76
