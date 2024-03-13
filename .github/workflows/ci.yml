@@ -23,23 +23,9 @@ jobs:
             IdentityFile ~/.ssh/build_instance_key
             StrictHostKeyChecking no
             User ubuntu
-
-            Host build-instance-x86
-              HostName build-instance-x86.aztecprotocol.com
-              User ubuntu
-              ControlMaster auto
-              ControlPath ~/.ssh/%r@%h-%p
-              ControlPersist 600
-
-            Host build-instance-arm
-              HostName build-instance-arm.aztecprotocol.com
-              User ubuntu
-              ControlMaster auto
-              ControlPath ~/.ssh/%r@%h-%p
-              ControlPersist 600
           EOF
       - name: ci
-        run: DOCKER_HOST=build-instance-x86 INTERACTIVE=true TERM=xterm scripts/earthly
+        run: DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com INTERACTIVE=true TERM=xterm scripts/earthly
 
   ci-arm:
     runs-on: ubuntu-latest
@@ -58,20 +44,6 @@ jobs:
             IdentityFile ~/.ssh/build_instance_key
             StrictHostKeyChecking no
             User ubuntu
-
-            Host build-instance-x86
-              HostName build-instance-x86.aztecprotocol.com
-              User ubuntu
-              ControlMaster auto
-              ControlPath ~/.ssh/%r@%h-%p
-              ControlPersist 600
-
-            Host build-instance-arm
-              HostName build-instance-arm.aztecprotocol.com
-              User ubuntu
-              ControlMaster auto
-              ControlPath ~/.ssh/%r@%h-%p
-              ControlPersist 600
           EOF
       - name: ci
-        run: DOCKER_HOST=build-instance-arm INTERACTIVE=true TERM=xterm scripts/earthly
+        run: DOCKER_HOST=ssh://build-instance-arm.aztecprotocol.com INTERACTIVE=true TERM=xterm scripts/earthly
