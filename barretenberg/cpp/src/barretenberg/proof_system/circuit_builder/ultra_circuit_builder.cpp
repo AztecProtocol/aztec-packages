@@ -1467,10 +1467,6 @@ void UltraCircuitBuilder_<Arithmetization>::range_constrain_two_limbs(const uint
     const std::array<uint32_t, 5> lo_sublimbs = get_sublimbs(lo_idx, lo_masks);
     const std::array<uint32_t, 5> hi_sublimbs = get_sublimbs(hi_idx, hi_masks);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate necessary for the big add gate
-    // constructed immediately prior to calling range_constrain_two_limbs from evaluate_non_native_field_multiplication.
-    // However, if this is turned on, acir double verify proof doubles in size.
-    create_dummy_gate(blocks.arithmetic, lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
     blocks.main.populate_wires(lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
     blocks.main.populate_wires(lo_sublimbs[3], lo_sublimbs[4], hi_sublimbs[0], hi_sublimbs[1]);
     blocks.main.populate_wires(hi_sublimbs[2], hi_sublimbs[3], hi_sublimbs[4], hi_idx);
@@ -1500,7 +1496,6 @@ void UltraCircuitBuilder_<Arithmetization>::range_constrain_two_limbs(const uint
  * @param num_limb_bits The range we want to constrain the original limb to
  * @return std::array<uint32_t, 2> The indices of new limbs.
  */
-
 template <typename Arithmetization>
 std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::decompose_non_native_field_double_width_limb(
     const uint32_t limb_idx, const size_t num_limb_bits)
@@ -1607,6 +1602,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
         //  **/
         create_big_add_gate(
             { input.r[1], input.r[2], input.r[3], input.r[4], LIMB_SHIFT, LIMB_SHIFT_2, LIMB_SHIFT_3, -1, 0 }, true);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add gate
+        create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, input.r[0]);
         range_constrain_two_limbs(input.r[0], input.r[1]);
         range_constrain_two_limbs(input.r[2], input.r[3]);
 
@@ -1618,6 +1615,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
         //  **/
         create_big_add_gate(
             { input.q[1], input.q[2], input.q[3], input.q[4], LIMB_SHIFT, LIMB_SHIFT_2, LIMB_SHIFT_3, -1, 0 }, true);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add gate
+        create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, input.q[0]);
         range_constrain_two_limbs(input.q[0], input.q[1]);
         range_constrain_two_limbs(input.q[2], input.q[3]);
     }
@@ -1634,10 +1633,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
                           -LIMB_SHIFT.sqr(),
                           0 },
                         true);
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy gate necessary for preceeding big add gate
-    // that reaches into next row. If this is turned on, acir double verify proof doubles in size.
-    create_dummy_gate(blocks.arithmetic, input.a[1], input.b[1], input.r[0], lo_0_idx);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add gate
+    create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, lo_0_idx);
 
     blocks.main.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
