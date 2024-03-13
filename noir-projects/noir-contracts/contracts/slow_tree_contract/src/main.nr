@@ -35,7 +35,6 @@ contract SlowTree {
 
     // docs:start:initialize
     #[aztec(public)]
-    #[aztec(initializer)]
     fn initialize() {
         storage.trees.at(context.msg_sender().to_field()).initialize(EMPTY_ROOT);
     }

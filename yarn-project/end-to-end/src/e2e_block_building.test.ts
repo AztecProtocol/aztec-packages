@@ -1,5 +1,4 @@
 import {
-  AztecAddress,
   AztecNode,
   BatchCall,
   ContractDeployer,
@@ -51,7 +50,7 @@ describe('e2e_block_building', () => {
       const TX_COUNT = 8;
       await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
       const deployer = new ContractDeployer(artifact, owner);
-      const methods = times(TX_COUNT, i => deployer.deploy([owner.getCompleteAddress(), i]));
+      const methods = times(TX_COUNT, i => deployer.deploy(owner.getCompleteAddress().address, i));
       for (let i = 0; i < TX_COUNT; i++) {
         await methods[i].create({
           contractAddressSalt: new Fr(BigInt(i + 1)),

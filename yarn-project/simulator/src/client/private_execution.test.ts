@@ -6,7 +6,6 @@ import {
   FunctionData,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_NEW_NOTE_HASHES_PER_CALL,
   NOTE_HASH_TREE_HEIGHT,
   PartialStateReference,
   PublicCallRequest,
