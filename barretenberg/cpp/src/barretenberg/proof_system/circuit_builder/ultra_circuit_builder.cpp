@@ -1853,7 +1853,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
     // | x.3 | y.3 | z.3 | --- | (a.3  + b.3 - c.3 = 0)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/896): descrepency between above comment and the actual
     // implementation below.
-    auto& block = blocks.main;
+    auto& block = blocks.arithmetic;
     block.populate_wires(y_p, x_0, y_0, x_p);
     block.populate_wires(z_p, x_1, y_1, z_0);
     block.populate_wires(x_2, y_2, z_2, z_1);
@@ -1974,7 +1974,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
     // | x.p | x.1 | y.1 | z.0 | (a.1 - b.1 - c.1 = 0)
     // | x.2 | y.2 | z.2 | z.1 | (a.2 - b.2 - c.2 = 0)
     // | x.3 | y.3 | z.3 | --- | (a.3 - b.3 - c.3 = 0)
-    auto& block = blocks.main;
+    auto& block = blocks.arithmetic;
     block.populate_wires(y_p, x_0, y_0, z_p);
     block.populate_wires(x_p, x_1, y_1, z_0);
     block.populate_wires(x_2, y_2, z_2, z_1);
