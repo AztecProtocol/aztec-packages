@@ -338,7 +338,7 @@ export function convertRootParityOutputsFromWitnessMap(outputs: WitnessMap): Par
 }
 
 /**
- * Converts the outputs of the public setup circuit from witness map.
+ * Converts the outputs of the public setup circuit from a witness map.
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */
@@ -368,7 +368,7 @@ export function convertPublicInnerRollupOutputFromWitnessMap(outputs: WitnessMap
 }
 
 /**
- * Converts the outputs of the public tail circuit from witness map.
+ * Converts the outputs of the public tail circuit from a witness map.
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */
@@ -383,7 +383,7 @@ export function convertPublicTeardownRollupOutputFromWitnessMap(outputs: Witness
 }
 
 /**
- * Converts the outputs of the public tail circuit from witness map.
+ * Converts the outputs of the public tail circuit from a witness map.
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */
