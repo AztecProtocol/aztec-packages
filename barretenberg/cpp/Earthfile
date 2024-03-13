@@ -38,16 +38,18 @@ build-wasi-sdk-image:
     SAVE ARTIFACT build/install/opt/wasi-sdk
 
 build-wasi-sdk:
+    ARG TARGETARCH
     # Wrapper just exists share files.
     FROM scratch
     WORKDIR /build
     COPY +build-wasi-sdk-image/wasi-sdk wasi-sdk
     SAVE ARTIFACT wasi-sdk
-    SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-threads-v21.0
+    SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
 
 get-wasi-sdk:
+    ARG TARGETARCH
     # If this is failing, we need to run earthly --push +build-wasi-sdk
-    FROM aztecprotocol/cache:wasi-sdk-threads-v21.0
+    FROM aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
     SAVE ARTIFACT wasi-sdk
 
 source:
