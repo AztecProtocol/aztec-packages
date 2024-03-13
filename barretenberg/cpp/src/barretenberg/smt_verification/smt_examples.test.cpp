@@ -153,8 +153,10 @@ TEST(SMT_Example, unique_witness_ext)
     ASSERT_NE(vals["z_c1"], vals["z_c2"]);
 }
 
+// Make sure that quadratic polynomial evaluation doesn't have unique
+// witness.
+// Finds both roots of a quadratic eq x^2 + a * x + b = s
 TEST(SMT_Example, unique_witness)
-// two roots of a quadratic eq x^2 + a * x + b = s
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
 
@@ -183,8 +185,10 @@ TEST(SMT_Example, unique_witness)
     ASSERT_NE(vals["z_c1"], vals["z_c2"]);
 }
 
+// Make sure that quadratic polynomial evaluation doesn't have unique
+// witness. Also coefficients are private.
+// Finds both roots of a quadratic eq x^2 + a * x + b = s
 TEST(SMT_Example, unique_witness_private_coefficients)
-// two roots of a quadratic eq x^2 + a * x + b = s
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
 
