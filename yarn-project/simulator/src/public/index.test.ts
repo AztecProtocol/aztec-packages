@@ -15,7 +15,7 @@ import { siloNullifier } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { pedersenHash, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -50,8 +50,7 @@ describe('ACIR public execution simulator', () => {
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    const randomInt = Math.floor(Math.random() * 1000000);
-    header = makeHeader(randomInt);
+    header = makeHeader(randomInt(1000000));
 
     executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
   }, 10000);
@@ -108,7 +107,6 @@ describe('ACIR public execution simulator', () => {
           storageContractAddress: contractAddress,
           portalContractAddress: EthAddress.random(),
           functionSelector: FunctionSelector.empty(),
-          isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
           startSideEffectCounter: 0,
@@ -182,7 +180,6 @@ describe('ACIR public execution simulator', () => {
           storageContractAddress: contractAddress,
           portalContractAddress: EthAddress.random(),
           functionSelector: FunctionSelector.empty(),
-          isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
           startSideEffectCounter: 0,
@@ -272,7 +269,6 @@ describe('ACIR public execution simulator', () => {
           storageContractAddress: parentContractAddress,
           portalContractAddress: EthAddress.random(),
           functionSelector: FunctionSelector.empty(),
-          isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
           startSideEffectCounter: 0,
@@ -352,7 +348,6 @@ describe('ACIR public execution simulator', () => {
         storageContractAddress: contractAddress,
         portalContractAddress: EthAddress.random(),
         functionSelector: FunctionSelector.empty(),
-        isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,
         startSideEffectCounter: 0,
@@ -387,7 +382,6 @@ describe('ACIR public execution simulator', () => {
         storageContractAddress: contractAddress,
         portalContractAddress,
         functionSelector: FunctionSelector.empty(),
-        isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,
         startSideEffectCounter: 0,
@@ -418,7 +412,6 @@ describe('ACIR public execution simulator', () => {
         storageContractAddress: contractAddress,
         portalContractAddress: EthAddress.random(),
         functionSelector: FunctionSelector.empty(),
-        isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,
         startSideEffectCounter: 0,
@@ -477,7 +470,6 @@ describe('ACIR public execution simulator', () => {
           storageContractAddress: contractAddress,
           portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
           functionSelector: FunctionSelector.empty(),
-          isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
           startSideEffectCounter: 0,
@@ -677,7 +669,6 @@ describe('ACIR public execution simulator', () => {
         storageContractAddress: AztecAddress.random(),
         portalContractAddress: EthAddress.ZERO,
         functionSelector: FunctionSelector.empty(),
-        isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,
         startSideEffectCounter: 0,
@@ -761,7 +752,6 @@ describe('ACIR public execution simulator', () => {
         storageContractAddress: AztecAddress.random(),
         portalContractAddress: EthAddress.ZERO,
         functionSelector: FunctionSelector.empty(),
-        isContractDeployment: false,
         isDelegateCall: false,
         isStaticCall: false,
         startSideEffectCounter: 0,
