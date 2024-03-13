@@ -1,7 +1,7 @@
 version: '3'
 services:
   fork:
-    image: ghcr.io/foundry-rs/foundry:latest
+    image: ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916
     entrypoint: >
       sh -c '
       if [ -n "$FORK_BLOCK_NUMBER" ] && [ -n "$FORK_URL" ]; then

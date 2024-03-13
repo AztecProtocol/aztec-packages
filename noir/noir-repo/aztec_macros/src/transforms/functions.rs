@@ -40,13 +40,18 @@ pub fn transform_function(
     if is_internal {
         let is_internal_check = create_internal_check(func.name());
         func.def.body.0.insert(0, is_internal_check);
-        func.def.is_internal = true;
     }
 
     // Add initialization check
     if insert_init_check {
         let init_check = create_init_check();
         func.def.body.0.insert(0, init_check);
+    }
+
+    // Add assertion for initialization arguments
+    if is_initializer {
+        let assert_init_args = create_assert_init_args();
+        func.def.body.0.insert(0, assert_init_args);
     }
 
     // Add access to the storage struct
@@ -74,7 +79,7 @@ pub fn transform_function(
 
     // Before returning mark the contract as initialized
     if is_initializer {
-        let mark_initialized = create_mark_as_initialized(ty);
+        let mark_initialized = create_mark_as_initialized();
         func.def.body.0.push(mark_initialized);
     }
 
@@ -87,10 +92,10 @@ pub fn transform_function(
     func.def.return_visibility = Visibility::Public;
 
     // Distinct return types are only required for private functions
-    // Public functions should have open auto-inferred
+    // Public functions should have unconstrained auto-inferred
     match ty {
         "Private" => func.def.return_distinctness = Distinctness::Distinct,
-        "Public" => func.def.is_open = true,
+        "Public" => func.def.is_unconstrained = true,
         _ => (),
     }
 
@@ -113,7 +118,7 @@ pub fn transform_vm_function(
     func.def.body.0.insert(0, create_context);
 
     // We want the function to be seen as a public function
-    func.def.is_open = true;
+    func.def.is_unconstrained = true;
 
     // NOTE: the line below is a temporary hack to trigger external transpilation tools
     // It will be removed once the transpiler is integrated into the Noir compiler
@@ -180,10 +185,9 @@ fn create_init_check() -> Statement {
 /// ```noir
 /// mark_as_initialized(&mut context);
 /// ```
-fn create_mark_as_initialized(ty: &str) -> Statement {
-    let name = if ty == "Public" { "mark_as_initialized_public" } else { "mark_as_initialized" };
+fn create_mark_as_initialized() -> Statement {
     make_statement(StatementKind::Expression(call(
-        variable_path(chained_dep!("aztec", "initializer", name)),
+        variable_path(chained_dep!("aztec", "initializer", "mark_as_initialized")),
         vec![mutable_reference("context")],
     )))
 }
@@ -204,6 +208,23 @@ fn create_internal_check(fname: &str) -> Statement {
             fname
         ))))),
         ConstrainKind::Assert,
+    )))
+}
+
+/// Creates a call to assert_initialization_args_match_address_preimage to ensure
+/// the initialization arguments used in the init call match the address preimage.
+///
+/// ```noir
+/// assert_initialization_args_match_address_preimage(context);
+/// ```
+fn create_assert_init_args() -> Statement {
+    make_statement(StatementKind::Expression(call(
+        variable_path(chained_dep!(
+            "aztec",
+            "initializer",
+            "assert_initialization_args_match_address_preimage"
+        )),
+        vec![variable("context")],
     )))
 }
 
