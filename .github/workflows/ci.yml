@@ -20,9 +20,9 @@ jobs:
           echo ${{ secrets.BUILD_INSTANCE_KEY }} | base64 -d > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
           cat > ~/.ssh/config <<EOF
-            IdentityFile ~/.ssh/build_instance_key
-            StrictHostKeyChecking no
-            User ubuntu
+          IdentityFile ~/.ssh/build_instance_key
+          StrictHostKeyChecking no
+          User ubuntu
           EOF
       - name: ci
         run: cat ~/.ssh/config && DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com INTERACTIVE=true TERM=xterm scripts/earthly
@@ -41,9 +41,9 @@ jobs:
           echo ${{ secrets.BUILD_INSTANCE_KEY }} | base64 -d > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
           cat > ~/.ssh/config <<EOF
-            IdentityFile ~/.ssh/build_instance_key
-            StrictHostKeyChecking no
-            User ubuntu
+          IdentityFile ~/.ssh/build_instance_key
+          StrictHostKeyChecking no
+          User ubuntu
           EOF
       - name: ci
         run: cat ~/.ssh/config && DOCKER_HOST=ssh://build-instance-arm.aztecprotocol.com INTERACTIVE=true TERM=xterm scripts/earthly
