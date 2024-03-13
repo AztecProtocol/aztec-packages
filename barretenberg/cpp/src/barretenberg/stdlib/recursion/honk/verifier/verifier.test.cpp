@@ -1,10 +1,12 @@
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/flavor/ultra_recursive.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
+
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -16,34 +18,28 @@ namespace bb::stdlib::recursion::honk {
  *
  * @tparam Builder
  */
-template <typename BuilderType> class RecursiveVerifierTest : public testing::Test {
+template <typename OuterFlavor> class HonkRecursiveVerifierTest : public testing::Test {
 
     // Define types relevant for testing
-    using UltraComposer = UltraComposer_<UltraFlavor>;
-    using GoblinUltraComposer = UltraComposer_<GoblinUltraFlavor>;
 
     using InnerFlavor = UltraFlavor;
-    using InnerComposer = UltraComposer;
-    using InnerBuilder = typename InnerComposer::CircuitBuilder;
+    using InnerProverInstance = ProverInstance_<InnerFlavor>;
+    using InnerProver = UltraProver;
+    using InnerVerifier = UltraVerifier;
+    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     using InnerCurve = bn254<InnerBuilder>;
     using Commitment = InnerFlavor::Commitment;
     using FF = InnerFlavor::FF;
 
     // Types for recursive verifier circuit
-    using RecursiveFlavor = UltraRecursiveFlavor_<BuilderType>;
+    using OuterBuilder = typename OuterFlavor::CircuitBuilder;
+    using RecursiveFlavor = UltraRecursiveFlavor_<OuterBuilder>;
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
-    using OuterBuilder = BuilderType;
-    using VerificationKey = typename RecursiveVerifier::VerificationKey;
+    using OuterProver = UltraProver_<OuterFlavor>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
-    // Helper for getting composer for prover/verifier of recursive (outer) circuit
-    template <typename BuilderT> static auto get_outer_composer()
-    {
-        if constexpr (IsGoblinBuilder<BuilderT>) {
-            return GoblinUltraComposer();
-        } else {
-            return UltraComposer();
-        }
-    }
+    using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
@@ -113,7 +109,7 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
 
         create_inner_circuit(builder);
 
-        bool result = builder.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -131,21 +127,20 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
         create_inner_circuit(inner_circuit);
 
         // Compute native verification key
-        InnerComposer inner_composer;
-        auto instance = inner_composer.create_instance(inner_circuit);
-        auto prover = inner_composer.create_prover(instance); // A prerequisite for computing VK
-
+        auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        InnerProver prover(instance); // A prerequisite for computing VK
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
         // Instantiate the recursive verifier using the native verification key
-        RecursiveVerifier verifier{ &outer_circuit, instance->verification_key };
+        RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
         // Spot check some values in the recursive VK to ensure it was constructed correctly
-        EXPECT_EQ(verifier.key->circuit_size, instance->verification_key->circuit_size);
-        EXPECT_EQ(verifier.key->log_circuit_size, instance->verification_key->log_circuit_size);
-        EXPECT_EQ(verifier.key->num_public_inputs, instance->verification_key->num_public_inputs);
-        EXPECT_EQ(verifier.key->q_m.get_value(), instance->verification_key->q_m);
-        EXPECT_EQ(verifier.key->q_r.get_value(), instance->verification_key->q_r);
-        EXPECT_EQ(verifier.key->sigma_1.get_value(), instance->verification_key->sigma_1);
-        EXPECT_EQ(verifier.key->id_3.get_value(), instance->verification_key->id_3);
+        EXPECT_EQ(verifier.key->circuit_size, verification_key->circuit_size);
+        EXPECT_EQ(verifier.key->log_circuit_size, verification_key->log_circuit_size);
+        EXPECT_EQ(verifier.key->num_public_inputs, verification_key->num_public_inputs);
+        EXPECT_EQ(verifier.key->q_m.get_value(), verification_key->q_m);
+        EXPECT_EQ(verifier.key->q_r.get_value(), verification_key->q_r);
+        EXPECT_EQ(verifier.key->sigma_1.get_value(), verification_key->sigma_1);
+        EXPECT_EQ(verifier.key->id_3.get_value(), verification_key->id_3);
     }
 
     /**
@@ -159,14 +154,15 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
         create_inner_circuit(inner_circuit);
 
         // Generate a proof over the inner circuit
-        InnerComposer inner_composer;
-        auto instance = inner_composer.create_instance(inner_circuit);
-        auto inner_prover = inner_composer.create_prover(instance);
+        auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        InnerProver inner_prover(instance);
         auto inner_proof = inner_prover.construct_proof();
+
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
 
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, instance->verification_key };
+        RecursiveVerifier verifier{ &outer_circuit, verification_key };
         auto pairing_points = verifier.verify_proof(inner_proof);
         info("Recursive Verifier Ultra: num gates = ", outer_circuit.num_gates);
 
@@ -175,10 +171,10 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
 
         // Check 1: Perform native verification then perform the pairing on the outputs of the recursive
         // verifier and check that the result agrees.
-        auto native_verifier = inner_composer.create_verifier(instance);
+        InnerVerifier native_verifier(verification_key);
         auto native_result = native_verifier.verify_proof(inner_proof);
-        auto recursive_result = native_verifier.pcs_verification_key->pairing_check(pairing_points[0].get_value(),
-                                                                                    pairing_points[1].get_value());
+        auto recursive_result = native_verifier.key->pcs_verification_key->pairing_check(pairing_points[0].get_value(),
+                                                                                         pairing_points[1].get_value());
         EXPECT_EQ(recursive_result, native_result);
 
         // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
@@ -191,10 +187,10 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
 
         // Check 3: Construct and verify a proof of the recursive verifier circuit
         {
-            auto composer = get_outer_composer<OuterBuilder>();
-            auto instance = composer.create_instance(outer_circuit);
-            auto prover = composer.create_prover(instance);
-            auto verifier = composer.create_verifier(instance);
+            auto instance = std::make_shared<OuterProverInstance>(outer_circuit);
+            OuterProver prover(instance);
+            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
+            OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 
@@ -215,9 +211,8 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
         create_inner_circuit(inner_circuit);
 
         // Generate a proof over the inner circuit
-        InnerComposer inner_composer;
-        auto instance = inner_composer.create_instance(inner_circuit);
-        auto inner_prover = inner_composer.create_prover(instance);
+        auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        InnerProver inner_prover(instance);
         auto inner_proof = inner_prover.construct_proof();
 
         // Arbitrarily tamper with the proof to be verified
@@ -226,37 +221,39 @@ template <typename BuilderType> class RecursiveVerifierTest : public testing::Te
         inner_prover.transcript->serialize_full_transcript();
         inner_proof = inner_prover.export_proof();
 
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
+
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, instance->verification_key };
+        RecursiveVerifier verifier{ &outer_circuit, verification_key };
         verifier.verify_proof(inner_proof);
 
         // We expect the circuit check to fail due to the bad proof
-        EXPECT_FALSE(outer_circuit.check_circuit());
+        EXPECT_FALSE(CircuitChecker::check(outer_circuit));
     }
 };
 
 // Run the recursive verifier tests with conventional Ultra builder and Goblin builder
-using BuilderTypes = testing::Types<UltraCircuitBuilder, GoblinUltraCircuitBuilder>;
+using Flavors = testing::Types<UltraFlavor, GoblinUltraFlavor>;
 
-TYPED_TEST_SUITE(RecursiveVerifierTest, BuilderTypes);
+TYPED_TEST_SUITE(HonkRecursiveVerifierTest, Flavors);
 
-HEAVY_TYPED_TEST(RecursiveVerifierTest, InnerCircuit)
+HEAVY_TYPED_TEST(HonkRecursiveVerifierTest, InnerCircuit)
 {
     TestFixture::test_inner_circuit();
 }
 
-HEAVY_TYPED_TEST(RecursiveVerifierTest, RecursiveVerificationKey)
+HEAVY_TYPED_TEST(HonkRecursiveVerifierTest, RecursiveVerificationKey)
 {
     TestFixture::test_recursive_verification_key_creation();
 }
 
-HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerification)
+HEAVY_TYPED_TEST(HonkRecursiveVerifierTest, SingleRecursiveVerification)
 {
     TestFixture::test_recursive_verification();
 };
 
-HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerificationFailure)
+HEAVY_TYPED_TEST(HonkRecursiveVerifierTest, SingleRecursiveVerificationFailure)
 {
     TestFixture::test_recursive_verification_fails();
 };

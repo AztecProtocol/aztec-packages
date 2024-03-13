@@ -1,14 +1,6 @@
-import {
-  AztecNode,
-  INITIAL_L2_BLOCK_NUM,
-  KeyStore,
-  L2BlockContext,
-  L2BlockL2Logs,
-  MerkleTreeId,
-  TxHash,
-} from '@aztec/circuit-types';
+import { AztecNode, KeyStore, L2BlockContext, L2BlockL2Logs, MerkleTreeId, TxHash } from '@aztec/circuit-types';
 import { NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
-import { AztecAddress, Fr, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, PublicKey } from '@aztec/circuits.js';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -139,14 +131,18 @@ export class Synchronizer {
 
     // filter out note processors that are already caught up
     // and sort them by the block number they are lagging behind in ascending order
-    this.noteProcessorsToCatchUp = this.noteProcessorsToCatchUp.filter(noteProcessor => {
+    const noteProcessorsToCatchUp: NoteProcessor[] = [];
+
+    this.noteProcessorsToCatchUp.forEach(noteProcessor => {
       if (noteProcessor.status.syncedToBlock >= toBlockNumber) {
         // Note processor is ahead of main sync, nothing to do
         this.noteProcessors.push(noteProcessor);
-        return false;
+      } else {
+        noteProcessorsToCatchUp.push(noteProcessor);
       }
-      return true;
     });
+
+    this.noteProcessorsToCatchUp = noteProcessorsToCatchUp;
 
     if (!this.noteProcessorsToCatchUp.length) {
       // No note processors to catch up, nothing to do here,

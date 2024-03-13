@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { sha256 } from '@aztec/foundation/crypto';
+import { randomInt, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -10,19 +10,26 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
  */
 export interface L1ToL2MessageSource {
   /**
+   * Gets new L1 to L2 message (to be) included in a given block.
+   * @param blockNumber - L2 block number to get messages for.
+   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
+   */
+  getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
+
+  /**
    * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
    * @param limit - The maximum number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
    * @returns The requested L1 to L2 messages' keys.
    */
-  getPendingL1ToL2Messages(limit?: number): Promise<Fr[]>;
+  getPendingL1ToL2EntryKeys(limit?: number): Promise<Fr[]>;
 
   /**
-   * Gets the confirmed L1 to L2 message with the given message key.
+   * Gets the confirmed L1 to L2 message with the given entry key.
    * i.e. message that has already been consumed by the sequencer and published in an L2 Block
-   * @param messageKey - The message key.
+   * @param entryKey - The entry key.
    * @returns The confirmed L1 to L2 message (throws if not found)
    */
-  getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message>;
+  getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message>;
 
   /**
    * Gets the number of the latest L2 block processed by the implementation.
@@ -31,8 +38,32 @@ export interface L1ToL2MessageSource {
   getBlockNumber(): Promise<number>;
 }
 
+export class NewInboxLeaf {
+  constructor(
+    /** L2 block number in which the message will be included. */
+    public readonly blockNumber: bigint,
+    /** Index of the leaf in L2 block message subtree. */
+    public readonly index: bigint,
+    /** Leaf of the subtree. */
+    public readonly leaf: Fr,
+  ) {}
+
+  toBuffer(): Buffer {
+    return serializeToBuffer([this.blockNumber, this.index, this.leaf]);
+  }
+
+  fromBuffer(buffer: Buffer | BufferReader): NewInboxLeaf {
+    const reader = BufferReader.asReader(buffer);
+    const blockNumber = toBigIntBE(reader.readBytes(32));
+    const index = toBigIntBE(reader.readBytes(32));
+    const leaf = reader.readObject(Fr);
+    return new NewInboxLeaf(blockNumber, index, leaf);
+  }
+}
+
 /**
  * L1AndL2Message and Index (in the merkle tree) as one type
+ * TODO(#4492): Nuke the following when purging the old inbox
  */
 export class L1ToL2MessageAndIndex {
   constructor(
@@ -65,6 +96,7 @@ export class L1ToL2MessageAndIndex {
 
 /**
  * The format of an L1 to L2 Message.
+ * TODO(#4492): Nuke the following when purging the old inbox
  */
 export class L1ToL2Message {
   constructor(
@@ -151,8 +183,8 @@ export class L1ToL2Message {
       L2Actor.random(),
       Fr.random(),
       Fr.random(),
-      Math.floor(Math.random() * 1000),
-      Math.floor(Math.random() * 1000),
+      randomInt(1000),
+      randomInt(1000),
       entryKey,
     );
   }
@@ -160,6 +192,7 @@ export class L1ToL2Message {
 
 /**
  * The sender of an L1 to L2 message.
+ * TODO(#4492): Move to separate file when purging the old inbox
  */
 export class L1Actor {
   constructor(
@@ -193,12 +226,13 @@ export class L1Actor {
   }
 
   static random(): L1Actor {
-    return new L1Actor(EthAddress.random(), Math.floor(Math.random() * 1000));
+    return new L1Actor(EthAddress.random(), randomInt(1000));
   }
 }
 
 /**
  * The recipient of an L2 message.
+ * TODO(#4492): Move to separate file when purging the old inbox
  */
 export class L2Actor {
   constructor(
@@ -232,6 +266,6 @@ export class L2Actor {
   }
 
   static random(): L2Actor {
-    return new L2Actor(AztecAddress.random(), Math.floor(Math.random() * 1000));
+    return new L2Actor(AztecAddress.random(), randomInt(1000));
   }
 }

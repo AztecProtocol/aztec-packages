@@ -6,6 +6,7 @@ pragma solidity >=0.8.18;
 import {IRollup} from "./interfaces/IRollup.sol";
 import {IAvailabilityOracle} from "./interfaces/IAvailabilityOracle.sol";
 import {IInbox} from "./interfaces/messagebridge/IInbox.sol";
+import {INewInbox} from "./interfaces/messagebridge/INewInbox.sol";
 import {IOutbox} from "./interfaces/messagebridge/IOutbox.sol";
 import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
 
@@ -14,9 +15,11 @@ import {HeaderLib} from "./libraries/HeaderLib.sol";
 import {MessagesDecoder} from "./libraries/decoders/MessagesDecoder.sol";
 import {Hash} from "./libraries/Hash.sol";
 import {Errors} from "./libraries/Errors.sol";
+import {Constants} from "./libraries/ConstantsGen.sol";
 
 // Contracts
 import {MockVerifier} from "../mock/MockVerifier.sol";
+import {NewInbox} from "./messagebridge/NewInbox.sol";
 
 /**
  * @title Rollup
@@ -28,6 +31,7 @@ contract Rollup is IRollup {
   MockVerifier public immutable VERIFIER;
   IRegistry public immutable REGISTRY;
   IAvailabilityOracle public immutable AVAILABILITY_ORACLE;
+  INewInbox public immutable NEW_INBOX;
   uint256 public immutable VERSION;
 
   bytes32 public archive; // Root of the archive tree
@@ -40,6 +44,7 @@ contract Rollup is IRollup {
     VERIFIER = new MockVerifier();
     REGISTRY = _registry;
     AVAILABILITY_ORACLE = _availabilityOracle;
+    NEW_INBOX = new NewInbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
     VERSION = 1;
   }
 
@@ -53,7 +58,7 @@ contract Rollup is IRollup {
   function process(
     bytes calldata _header,
     bytes32 _archive,
-    bytes calldata _body, // TODO(#3938) Update this to pass in only th messages and not the whole body.
+    bytes calldata _body, // TODO(#4492) Nuke this when updating to the new message model
     bytes memory _proof
   ) external override(IRollup) {
     // Decode and validate header
@@ -61,8 +66,8 @@ contract Rollup is IRollup {
     HeaderLib.validate(header, VERSION, lastBlockTs, archive);
 
     // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
-    if (!AVAILABILITY_ORACLE.isAvailable(header.contentCommitment.txsHash)) {
-      revert Errors.Rollup__UnavailableTxs(header.contentCommitment.txsHash);
+    if (!AVAILABILITY_ORACLE.isAvailable(header.contentCommitment.txsEffectsHash)) {
+      revert Errors.Rollup__UnavailableTxs(header.contentCommitment.txsEffectsHash);
     }
 
     // Decode the cross-chain messages (Will be removed as part of message model change)
@@ -83,6 +88,11 @@ contract Rollup is IRollup {
     // @todo (issue #605) handle fee collector
     IInbox inbox = REGISTRY.getInbox();
     inbox.batchConsume(l1ToL2Msgs, msg.sender);
+
+    bytes32 inHash = NEW_INBOX.consume();
+    if (header.contentCommitment.inHash != inHash) {
+      revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
+    }
 
     IOutbox outbox = REGISTRY.getOutbox();
     outbox.sendL1Messages(l2ToL1Msgs);

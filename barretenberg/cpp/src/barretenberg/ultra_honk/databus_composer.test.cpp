@@ -7,8 +7,10 @@
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/instance_inspector.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
+
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
+
 using namespace bb;
 
 namespace {
@@ -49,7 +51,7 @@ TEST_F(DataBusComposerTests, CallDataRead)
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
     // Add mock data to op queue to simulate interaction with a previous circuit
-    op_queue->populate_with_mock_initital_data();
+    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
 
     auto builder = GoblinUltraCircuitBuilder{ op_queue };
 
@@ -81,13 +83,12 @@ TEST_F(DataBusComposerTests, CallDataRead)
         builder.calldata_read_counts[read_index]++;
     }
 
-    auto composer = GoblinUltraComposer();
-
     // Construct and verify Honk proof
-    auto instance = composer.create_instance(builder);
+    auto instance = std::make_shared<ProverInstance_<GoblinUltraFlavor>>(builder);
     // For debugging, use "instance_inspector::print_databus_info(instance)"
-    auto prover = composer.create_prover(instance);
-    auto verifier = composer.create_verifier(instance);
+    GoblinUltraProver prover(instance);
+    auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(instance->proving_key);
+    GoblinUltraVerifier verifier(verification_key);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
     EXPECT_TRUE(verified);

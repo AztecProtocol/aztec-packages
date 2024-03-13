@@ -1,18 +1,20 @@
-import { ExtendedContractData, L1ToL2Message, L2Block } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { Body, L1ToL2Message, NewInboxLeaf } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, Fr, Header } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { PublicClient } from 'viem';
 
 import {
-  getContractDeploymentLogs,
   getL1ToL2MessageCancelledLogs,
   getL2BlockProcessedLogs,
+  getLeafInsertedLogs,
   getPendingL1ToL2MessageLogs,
-  processBlockLogs,
+  getTxsPublishedLogs,
   processCancelledL1ToL2MessagesLogs,
-  processContractDeploymentLogs,
+  processL2BlockProcessedLogs,
+  processLeafInsertedLogs,
   processPendingL1ToL2MessageAddedLogs,
+  processTxsPublishedLogs,
 } from './eth_log_handlers.js';
 
 /**
@@ -30,24 +32,24 @@ type DataRetrieval<T> = {
 };
 
 /**
- * Fetches new L2 Blocks.
+ * Fetches new L2 block metadata (header, archive snapshot).
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param rollupAddress - The address of the rollup contract.
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
  * @param expectedNextL2BlockNum - The next L2 block number that we expect to find.
- * @returns An array of L2 Blocks and the next eth block to search from
+ * @returns An array of tuples representing block metadata including the header, archive tree snapshot, and associated l1 block number; as well as the next eth block to search from.
  */
-export async function retrieveBlocks(
+export async function retrieveBlockMetadataFromRollup(
   publicClient: PublicClient,
   rollupAddress: EthAddress,
   blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
   expectedNextL2BlockNum: bigint,
-): Promise<DataRetrieval<L2Block>> {
-  const retrievedBlocks: L2Block[] = [];
+): Promise<DataRetrieval<[Header, AppendOnlyTreeSnapshot, bigint]>> {
+  const retrievedBlockMetadata: [Header, AppendOnlyTreeSnapshot, bigint][] = [];
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
@@ -62,51 +64,55 @@ export async function retrieveBlocks(
       break;
     }
 
-    const newBlocks = await processBlockLogs(publicClient, expectedNextL2BlockNum, l2BlockProcessedLogs);
-    retrievedBlocks.push(...newBlocks);
+    const newBlockMetadata = await processL2BlockProcessedLogs(
+      publicClient,
+      expectedNextL2BlockNum,
+      l2BlockProcessedLogs,
+    );
+    retrievedBlockMetadata.push(...newBlockMetadata);
     searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
-    expectedNextL2BlockNum += BigInt(newBlocks.length);
+    expectedNextL2BlockNum += BigInt(newBlockMetadata.length);
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlocks };
+  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlockMetadata };
 }
 
 /**
- * Fetches new contract data.
+ * Fetches new L2 block bodies and their hashes.
  * @param publicClient - The viem public client to use for transaction retrieval.
- * @param contractDeploymentEmitterAddress - The address of the contract deployment emitter contract.
+ * @param availabilityOracleAddress - The address of the availability oracle contract.
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
- * @param blockNumberToBodyHash - A mapping from block number to relevant body hash.
- * @returns An array of ExtendedContractData and their equivalent L2 Block number along with the next eth block to search from..
+ * @returns A array of tuples of L2 block bodies and their associated hash as well as the next eth block to search from
  */
-export async function retrieveNewContractData(
+export async function retrieveBlockBodiesFromAvailabilityOracle(
   publicClient: PublicClient,
-  contractDeploymentEmitterAddress: EthAddress,
+  availabilityOracleAddress: EthAddress,
   blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
-  blockNumberToBodyHash: { [key: number]: Buffer | undefined },
-): Promise<DataRetrieval<[ExtendedContractData[], number]>> {
-  let retrievedNewContracts: [ExtendedContractData[], number][] = [];
+): Promise<DataRetrieval<[Body, Buffer]>> {
+  const retrievedBlockBodies: [Body, Buffer][] = [];
+
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const contractDataLogs = await getContractDeploymentLogs(
+    const l2TxsPublishedLogs = await getTxsPublishedLogs(
       publicClient,
-      contractDeploymentEmitterAddress,
+      availabilityOracleAddress,
       searchStartBlock,
       searchEndBlock,
     );
-    if (contractDataLogs.length === 0) {
+    if (l2TxsPublishedLogs.length === 0) {
       break;
     }
-    const newContracts = processContractDeploymentLogs(blockNumberToBodyHash, contractDataLogs);
-    retrievedNewContracts = retrievedNewContracts.concat(newContracts);
-    searchStartBlock = (contractDataLogs.findLast(cd => !!cd)?.blockNumber || searchStartBlock) + 1n;
+
+    const newBlockBodies = await processTxsPublishedLogs(publicClient, l2TxsPublishedLogs);
+    retrievedBlockBodies.push(...newBlockBodies);
+    searchStartBlock = l2TxsPublishedLogs[l2TxsPublishedLogs.length - 1].blockNumber! + 1n;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedNewContracts };
+  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlockBodies };
 }
 
 /**
@@ -148,13 +154,47 @@ export async function retrieveNewPendingL1ToL2Messages(
 }
 
 /**
+ * Fetch new L1 to L2 messages.
+ * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param newInboxAddress - The address of the inbox contract to fetch messages from.
+ * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
+ * @param searchStartBlock - The block number to use for starting the search.
+ * @param searchEndBlock - The highest block number that we should search up to.
+ * @returns An array of NewInboxLeaf and next eth block to search from.
+ */
+export async function retrieveNewL1ToL2Messages(
+  publicClient: PublicClient,
+  newInboxAddress: EthAddress,
+  blockUntilSynced: boolean,
+  searchStartBlock: bigint,
+  searchEndBlock: bigint,
+): Promise<DataRetrieval<NewInboxLeaf>> {
+  const retrievedNewL1ToL2Messages: NewInboxLeaf[] = [];
+  do {
+    if (searchStartBlock > searchEndBlock) {
+      break;
+    }
+    const leafInsertedLogs = await getLeafInsertedLogs(publicClient, newInboxAddress, searchStartBlock, searchEndBlock);
+    if (leafInsertedLogs.length === 0) {
+      break;
+    }
+    const newL1ToL2Messages = processLeafInsertedLogs(leafInsertedLogs);
+    retrievedNewL1ToL2Messages.push(...newL1ToL2Messages);
+    // handles the case when there are no new messages:
+    searchStartBlock = (leafInsertedLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock) + 1n;
+  } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
+  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedNewL1ToL2Messages };
+}
+
+/**
  * Fetch newly cancelled L1 to L2 messages.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param inboxAddress - The address of the inbox contract to fetch messages from.
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
- * @returns An array of message keys that were cancelled and next eth block to search from.
+ * @returns An array of entry keys that were cancelled and next eth block to search from.
+ * TODO(#4492): Nuke the following when purging the old inbox
  */
 export async function retrieveNewCancelledL1ToL2Messages(
   publicClient: PublicClient,

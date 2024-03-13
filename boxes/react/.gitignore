@@ -1,8 +1,0 @@
-.yarn/*
-!.yarn/releases
-
-node_modules
-dist
-artifacts
-src/contracts/target
-src/contracts/log

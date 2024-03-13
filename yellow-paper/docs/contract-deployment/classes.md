@@ -26,6 +26,8 @@ The structure of a contract class is defined as:
 | `private_functions` | [`PrivateFunction[]`](#private-function) | List of individual private functions, constructors included. |
 | `packed_public_bytecode` | `Field[]` | [Packed bytecode representation](../public-vm/bytecode-validation-circuit.md#packed-bytecode-representation) of the AVM bytecode for all public functions in this contract. |
 
+The public function are sorted in ascending order by their function selector before being packed. This is to ensure consistent hashing later.
+
 Note that individual public functions are not first-class citizens in the protocol, so the contract entire public function bytecode is stored in the class, unlike private or unconstrained functions which are differentiated individual circuits recognized by the protocol.
 
 As for unconstrained functions, these are not used standalone within the protocol. They are either inlined within private functions, or called from a PXE as _getters_ for a contract. Calling from a private function to an unconstrained one in a different contract is forbidden, since the caller would have no guarantee of the code run by the callee. Considering this, unconstrained functions are not part of a contract class at the protocol level.
@@ -41,7 +43,7 @@ public_bytecode_commitment = calculate_commitment(packed_public_bytecode)
 contract_class_id = pedersen([artifact_hash, private_functions_root, public_bytecode_commitment], GENERATOR__CLASS_IDENTIFIER_V1)
 ```
 
-Private Functions are hashed into Function Leaves before being merkleized into a tree of height [`FUNCTION_TREE_HEIGHT`](../constants.md#tree-constants). Empty leaves have value `0`. A poseidon hash is used. The AVM public bytecode commitment is calculated as [defined in the Public VM section](../public-vm/bytecode-validation-circuit.md#committed-representation).
+Private Functions are sorted in ascending order by their selector and then hashed into Function Leaves before being merkleized into a tree of height [`FUNCTION_TREE_HEIGHT`](../constants.md#tree-constants). Empty leaves have value `0`. A poseidon hash is used. The AVM public bytecode commitment is calculated as [defined in the Public VM section](../public-vm/bytecode-validation-circuit.md#committed-representation).
 
 ### Private Function
 

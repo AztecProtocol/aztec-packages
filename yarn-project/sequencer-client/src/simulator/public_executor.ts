@@ -3,6 +3,7 @@ import {
   ExtendedContractData,
   L1ToL2MessageSource,
   MerkleTreeId,
+  NullifierMembershipWitness,
   Tx,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -14,6 +15,8 @@ import {
   Fr,
   FunctionSelector,
   L1_TO_L2_MSG_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  NullifierLeafPreimage,
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
@@ -42,16 +45,6 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    * @param tx - The transaction to add contracts from.
    */
   public addNewContracts(tx: Tx): Promise<void> {
-    for (const contract of tx.newContracts) {
-      const contractAddress = contract.contractData.contractAddress;
-
-      if (contractAddress.isZero()) {
-        continue;
-      }
-
-      this.cache.set(contractAddress.toString(), contract);
-    }
-
     // Extract contract class and instance data from logs and add to cache for this block
     const logs = tx.unencryptedLogs.unrollLogs().map(UnencryptedL2Log.fromBuffer);
     ContractClassRegisteredEvent.fromLogs(logs, ClassRegistererAddress).forEach(e => {
@@ -73,16 +66,6 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    * @param tx - The tx's contracts to be removed
    */
   public removeNewContracts(tx: Tx): Promise<void> {
-    for (const contract of tx.newContracts) {
-      const contractAddress = contract.contractData.contractAddress;
-
-      if (contractAddress.isZero()) {
-        continue;
-      }
-
-      this.cache.delete(contractAddress.toString());
-    }
-
     // TODO(@spalladino): Can this inadvertently delete a valid contract added by another tx?
     // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
     // wouldn't that accidentally remove the contract added on the first one?
@@ -94,6 +77,10 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
       this.instanceCache.delete(e.address.toString()),
     );
     return Promise.resolve();
+  }
+
+  public async getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return this.instanceCache.get(address.toString()) ?? (await this.db.getContract(address));
   }
 
   async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
@@ -217,16 +204,41 @@ export class WorldStatePublicDB implements PublicStateDB {
 export class WorldStateDB implements CommitmentsDB {
   constructor(private db: MerkleTreeOperations, private l1ToL2MessageSource: L1ToL2MessageSource) {}
 
-  public async getL1ToL2Message(messageKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    // todo: #697 - make this one lookup.
-    const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(messageKey);
-    const index = (await this.db.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messageKey.toBuffer()))!;
+  public async getNullifierMembershipWitnessAtLatestBlock(
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    const index = await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    if (!index) {
+      return undefined;
+    }
+
+    const leafPreimagePromise = this.db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
+    const siblingPathPromise = this.db.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
+      MerkleTreeId.NULLIFIER_TREE,
+      BigInt(index),
+    );
+
+    const [leafPreimage, siblingPath] = await Promise.all([leafPreimagePromise, siblingPathPromise]);
+
+    if (!leafPreimage) {
+      return undefined;
+    }
+
+    return new NullifierMembershipWitness(BigInt(index), leafPreimage as NullifierLeafPreimage, siblingPath);
+  }
+
+  public async getL1ToL2MembershipWitness(
+    entryKey: Fr,
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+    const index = (await this.db.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, entryKey.toBuffer()))!;
+    if (index === undefined) {
+      throw new Error(`Message ${entryKey.toString()} not found`);
+    }
     const siblingPath = await this.db.getSiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
       index,
     );
-
-    return new MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>(message, index, siblingPath);
+    return new MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>(index, siblingPath);
   }
 
   public async getCommitmentIndex(commitment: Fr): Promise<bigint | undefined> {

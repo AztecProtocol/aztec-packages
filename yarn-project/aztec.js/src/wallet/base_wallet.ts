@@ -7,12 +7,12 @@ import {
   FunctionCall,
   GetUnencryptedLogsResponse,
   L2Block,
-  L2Tx,
   LogFilter,
   NoteFilter,
   PXE,
   SyncStatus,
   Tx,
+  TxEffect,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
@@ -75,14 +75,18 @@ export abstract class BaseWallet implements Wallet {
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
   }
-  getTx(txHash: TxHash): Promise<L2Tx | undefined> {
-    return this.pxe.getTx(txHash);
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return this.pxe.getTxEffect(txHash);
   }
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.pxe.getTxReceipt(txHash);
   }
   getNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
     return this.pxe.getNotes(filter);
+  }
+  // TODO(#4956): Un-expose this
+  getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
+    return this.pxe.getNoteNonces(note);
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);

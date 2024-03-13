@@ -1,5 +1,5 @@
 import { FunctionL2Logs, Note } from '@aztec/circuit-types';
-import { PrivateCallStackItem, PublicCallRequest, ReadRequestMembershipWitness } from '@aztec/circuits.js';
+import { NoteHashReadRequestMembershipWitness, PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
 import { DecodedReturn } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -32,7 +32,7 @@ export interface ExecutionResult {
   /** The call stack item. */
   callStackItem: PrivateCallStackItem;
   /** The partially filled-in read request membership witnesses for commitments being read. */
-  readRequestPartialWitnesses: ReadRequestMembershipWitness[];
+  noteHashReadRequestPartialWitnesses: NoteHashReadRequestMembershipWitness[];
   // Needed when we enable chained txs. The new notes can be cached and used in a later transaction.
   /** The notes created in the executed function. */
   newNotes: NoteAndSlot[];
@@ -85,5 +85,5 @@ export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult):
   return [
     ...execResult.enqueuedPublicFunctionCalls,
     ...[...execResult.nestedExecutions].flatMap(collectEnqueuedPublicFunctionCalls),
-  ].sort((a, b) => b.callContext.startSideEffectCounter - a.callContext.startSideEffectCounter);
+  ].sort((a, b) => b.callContext.sideEffectCounter - a.callContext.sideEffectCounter);
 }

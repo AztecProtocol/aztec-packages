@@ -10,14 +10,6 @@ Similarly we have discovered some anti-patterns too (like privacy leakage) that 
 
 ## Common Patterns
 
-### Safe Math and SafeU120
-
-Field operations may overflow/underflow. Hence we have built a SafeMath library that you can use [based on instructions here](../dependencies.md#safe-math)
-
-### SafeU120 for comparison operations on Field elements
-
-Comparison on Field is also not possible today. For such cases, we recommend using u120, which is wrapped under the SafeU120 class found in the SafeMath library.
-
 ### Approving another user/contract to execute an action on your behalf
 
 We call this the "authentication witness" pattern or authwit for short.
@@ -38,7 +30,7 @@ E.g. you don't want a user to subscribe once they have subscribed already. Or yo
 
 Emit a nullifier in your function. By adding this nullifier into the tree, you prevent another nullifier from being added again. This is also why in authwit, we emit a nullifier, to prevent someone from reusing their approval.
 
-#include_code assert_valid_authwit_public /noir-projects/aztec-nr/authwit/src/auth.nr rust
+#include_code spend_private_authwit /noir-projects/aztec-nr/authwit/src/account.nr rust
 
 Note be careful to ensure that the nullifier is not deterministic and that no one could do a preimage analysis attack. More in [the anti pattern section on deterministic nullifiers](#deterministic-nullifiers)
 

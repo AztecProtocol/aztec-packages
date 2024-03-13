@@ -5,11 +5,11 @@ import { NodeInfo } from '@aztec/types/interfaces';
 import { AuthWitness } from '../auth_witness.js';
 import { ContractData, ExtendedContractData } from '../contract_data.js';
 import { L2Block } from '../l2_block.js';
-import { L2Tx } from '../l2_tx.js';
 import { GetUnencryptedLogsResponse, LogFilter } from '../logs/index.js';
 import { ExtendedNote } from '../notes/index.js';
 import { NoteFilter } from '../notes/note_filter.js';
 import { Tx, TxHash, TxReceipt } from '../tx/index.js';
+import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
 import { DeployedContract } from './deployed-contract.js';
 import { SyncStatus } from './sync-status.js';
@@ -124,6 +124,7 @@ export interface PXE {
    * @param simulatePublic - Whether to simulate the public part of the transaction.
    * @returns A transaction ready to be sent to the network for execution.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
+   * Also throws if simulatePublic is true and public simulation reverts.
    */
   simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
 
@@ -145,11 +146,11 @@ export interface PXE {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
-   * Fetches a transaction by its hash.
-   * @param txHash - The transaction hash
-   * @returns A transaction object or undefined if the transaction hasn't been mined yet
+   * Get a tx effect.
+   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
+   * @returns The requested tx effect.
    */
-  getTx(txHash: TxHash): Promise<L2Tx | undefined>;
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -170,6 +171,15 @@ export interface PXE {
    * @returns The requested notes.
    */
   getNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
+
+  /**
+   * Finds the nonce(s) for a given note.
+   * @param note - The note to find the nonces for.
+   * @returns The nonces of the note.
+   * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
+   * TODO(#4956): Un-expose this
+   */
+  getNoteNonces(note: ExtendedNote): Promise<Fr[]>;
 
   /**
    * Adds a note to the database.
