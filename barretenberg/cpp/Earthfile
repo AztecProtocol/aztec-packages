@@ -1,26 +1,32 @@
 VERSION 0.8
-FROM ubuntu:lunar
-IMPORT ./srs_db AS srs_db
 
-RUN apt-get update && apt-get install -y \
-  build-essential \
-  curl \
-  git \
-  cmake \
-  lsb-release \
-  wget \
-  software-properties-common \
-  gnupg \
-  ninja-build \
-  npm \
-  libssl-dev \
-  jq \
-  bash \
-  libstdc++6 \
-  clang-format \
-  clang-16
+base-image:
+    FROM ubuntu:lunar
+    IMPORT ./srs_db AS srs_db
+    RUN apt-get update && apt-get install -y \
+        build-essential \
+        curl \
+        git \
+        cmake \
+        lsb-release \
+        wget \
+        software-properties-common \
+        gnupg \
+        ninja-build \
+        npm \
+        libssl-dev \
+        jq \
+        bash \
+        libstdc++6 \
+        clang-format \
+        clang-16
 
-WORKDIR /build
+    WORKDIR /build
+
+base-image-with-cache:
+    # Caching strategy: pass --BB_BASE_IMAGE=build-push to update registry, or nothing to pull from our tag
+    ARG BB_BASE_IMAGE="from-cache" # default: pull from our tag
+    FROM ../../+with-cache --target=barretenberg/cpp+base-image --mode=$BB_WASI_SDK --tag=bb-ubuntu-lunar
 
 build-wasi-sdk:
     WORKDIR /
@@ -36,20 +42,14 @@ build-wasi-sdk:
     RUN make build/config.BUILT
     SAVE ARTIFACT build/install/opt/wasi-sdk
 
-get-wasi-sdk:
-    ARG REBUILD_WASI_SDK=""
-    IF [ "$REBUILD_WASI_SDK" = "1" ]
-        FROM scratch
-        WORKDIR /build
-        COPY +build-wasi-sdk/wasi-sdk wasi-sdk
-        SAVE IMAGE --push aztecprotocol/wasi-sdk:v21.0-threads
-    ELSE
-        FROM aztecprotocol/wasi-sdk:v21.0-threads
-        COPY +build-wasi-sdk/wasi-sdk wasi-sdk
-    END
+build-wasi-sdk-with-cache:
+    # Caching strategy: pass --BB_WASI_SDK=build-push to update registry, or nothing to pull from our tag
+    ARG BB_WASI_SDK="from-cache" # default: pull from our tag
+    FROM ../../+with-minimal-cache --target=barretenberg/cpp+build-wasi-sdk --mode=$BB_WASI_SDK --tag=wasi-sdk-threads-v21.0
     SAVE ARTIFACT wasi-sdk
 
 source:
+    FROM +base-image-with-cache
     # cpp source
     COPY --keep-ts --dir src/barretenberg src/CMakeLists.txt src
     # cmake source
@@ -66,9 +66,10 @@ build-debug:
     SAVE ARTIFACT bin
 
 build-wasm:
+    ARG BB_WASI_SDK=""
     FROM +source
     # wasi-sdk
-    COPY --dir +get-wasi-sdk/wasi-sdk src/wasi-sdk
+    COPY +build-wasi-sdk-with-cache/wasi-sdk src/wasi-sdk
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
     RUN ./src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
     SAVE ARTIFACT bin
