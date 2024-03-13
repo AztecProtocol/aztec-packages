@@ -147,7 +147,7 @@ pub fn update_public_end_non_revertible_values(
     validate_call_requests(public_call_requests, hashes, public_call);
     circuit_outputs.end_non_revertible.public_call_stack.extend_from_bounded_vec(public_call_requests);
 
-    // Note that public calls cannot modify the max block number value
+    // Note that the public kernel cannot modify the max block number value
 
     propagate_new_nullifiers_non_revertible(public_call, circuit_outputs);
     propagate_new_note_hashes_non_revertible(public_call, circuit_outputs);

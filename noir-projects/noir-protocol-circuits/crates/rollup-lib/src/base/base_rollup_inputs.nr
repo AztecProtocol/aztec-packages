@@ -72,6 +72,13 @@ impl BaseRollupInputs {
             == self.constants.global_variables.version, "kernel version does not match the rollup version"
         );
 
+        // Verify the max block number
+        // TODO: why is block_number a Field and not u32?
+        assert(
+            self.constants.global_variables.block_number as u32
+            <= self.kernel_data.public_inputs.end.max_block_number, "kernel max_block_number is smaller than block number"
+        );
+
         // First we compute the contract tree leaves
         let contract_leaves = self.calculate_contract_leaves();
 
@@ -1299,6 +1306,22 @@ mod tests {
         let mut builder = BaseRollupInputsBuilder::new();
         builder.constants.global_variables.version = 3;
         builder.fails();
+    }
+
+    #[test(should_fail_with = "kernel max_block_number is smaller than block number")]
+    unconstrained fn constants_dont_satisfy_smaller_max_block_number() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.constants.global_variables.block_number = 42;
+        builder.kernel_data.set_max_block_number(5);
+        builder.fails();
+    }
+
+    #[test]
+    unconstrained fn constants_satisfy_equal_max_block_number() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.constants.global_variables.block_number = 42;
+        builder.kernel_data.set_max_block_number(42);
+        builder.succeeds();
     }
 
     #[test]

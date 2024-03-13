@@ -53,6 +53,12 @@ impl PreviousKernelDataBuilder {
             end.new_nullifiers.push(tx_nullifier);
         }
 
+        // TODO: the builder makes a distinction between building a kernel for public and for private, but 
+        // max_block_number lives in end_non_revertible for public, and end for private and rollup. We therefore store
+        // it in both places.
+        end_non_revertible.max_block_number = 4294967295; // TODO: replace with u32::MAX once it's implemented
+        end.max_block_number = 4294967295; // TODO: replace with u32::MAX once it's implemented
+
         let tx_context = build_tx_context(false, 0);
 
         PreviousKernelDataBuilder {
@@ -76,6 +82,14 @@ impl PreviousKernelDataBuilder {
     pub fn is_public(&mut self) -> Self {
         self.is_private = false;
         *self
+    }
+
+    pub fn set_max_block_number(&mut self, max_block_number: u32) {
+        // TODO: the builder makes a distinction between building a kernel for public and for private, but 
+        // max_block_number lives in end_non_revertible for public, and end for private and rollup. We therefore store
+        // it in both places.
+        self.end_non_revertible.max_block_number = max_block_number; // TODO: replace with u32::MAX once it's implemented
+        self.end.max_block_number = max_block_number; // TODO: replace with u32::MAX once it's implemented
     }
 
     pub fn append_public_data_update_requests(&mut self, num_updates: u64) {
