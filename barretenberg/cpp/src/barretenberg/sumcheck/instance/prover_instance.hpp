@@ -25,8 +25,6 @@ template <class Flavor> class ProverInstance_ {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = typename Flavor::Polynomial;
-    using WitnessCommitments = typename Flavor::WitnessCommitments;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     using Trace = ExecutionTrace_<Flavor>;
