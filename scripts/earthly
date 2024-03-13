@@ -20,9 +20,6 @@ EARTHLY_CONFIG=$(dirname $0)/earthly-config.yml
 if ! [ -f "$EARTHLY" ] ; then
   wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O "$EARTHLY";
   chmod +x "$EARTHLY" && "$EARTHLY" bootstrap
-  "$EARTHLY" config global.cache_size_mb 24000
-  "$EARTHLY" config global.container_frontend docker-shell
-  "$EARTHLY" config global.container_frontend docker-shell
 fi
 
 EARTHLY_FLAGS="--config $EARTHLY_CONFIG -P --disable-remote-registry-proxy --use-inline-cache --save-inline-cache"
