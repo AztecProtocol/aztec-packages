@@ -263,7 +263,7 @@ export function convertPublicTailInputsToWitnessMap(inputs: PublicKernelTailCirc
 }
 
 /**
- * Converts the outputs of the base rollup circuit from witness map.
+ * Converts the outputs of the base rollup circuit from a witness map.
  * @param outputs - The base rollup outputs as a witness map.
  * @returns The public inputs.
  */
@@ -278,7 +278,7 @@ export function convertBaseRollupOutputsFromWitnessMap(outputs: WitnessMap): Bas
 }
 
 /**
- * Converts the outputs of the merge rollup circuit from witness map.
+ * Converts the outputs of the merge rollup circuit from a witness map.
  * @param outputs - The merge rollup outputs as a witness map.
  * @returns The public inputs.
  */
@@ -293,7 +293,7 @@ export function convertMergeRollupOutputsFromWitnessMap(outputs: WitnessMap): Ba
 }
 
 /**
- * Converts the outputs of the root rollup circuit from witness map.
+ * Converts the outputs of the root rollup circuit from a witness map.
  * @param outputs - The root rollup outputs as a witness map.
  * @returns The public inputs.
  */
@@ -308,7 +308,7 @@ export function convertRootRollupOutputsFromWitnessMap(outputs: WitnessMap): Roo
 }
 
 /**
- * Converts the outputs of the base parity circuit from witness map.
+ * Converts the outputs of the base parity circuit from a witness map.
  * @param outputs - The base parity outputs as a witness map.
  * @returns The public inputs.
  */
@@ -323,7 +323,7 @@ export function convertBaseParityOutputsFromWitnessMap(outputs: WitnessMap): Par
 }
 
 /**
- * Converts the outputs of the root parity circuit from witness map.
+ * Converts the outputs of the root parity circuit from a witness map.
  * @param outputs - The root parity outputs as a witness map.
  * @returns The public inputs.
  */
@@ -353,7 +353,7 @@ export function convertPublicSetupRollupOutputFromWitnessMap(outputs: WitnessMap
 }
 
 /**
- * Converts the outputs of the public inner circuit from witness map.
+ * Converts the outputs of the public inner circuit from a witness map.
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */

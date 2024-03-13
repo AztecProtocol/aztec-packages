@@ -27,7 +27,7 @@ const EMPTY_PROOF_SIZE = 42;
 export class EmptyRollupProver implements RollupProver {
   /**
    * Creates an empty proof for the given input.
-   * @param _inputs - Inputs to the circuit.
+   * @param inputs - Inputs to the circuit.
    * @param publicInputs - Public inputs of the circuit obtained via simulation, modified by this call.
    */
   async getBaseParityProof(inputs: BaseParityInputs, publicInputs: ParityPublicInputs): Promise<Proof> {
@@ -37,7 +37,7 @@ export class EmptyRollupProver implements RollupProver {
 
   /**
    * Creates an empty proof for the given input.
-   * @param _inputs - Inputs to the circuit.
+   * @param inputs - Inputs to the circuit.
    * @param publicInputs - Public inputs of the circuit obtained via simulation, modified by this call.
    */
   async getRootParityProof(inputs: RootParityInputs, publicInputs: ParityPublicInputs): Promise<Proof> {
