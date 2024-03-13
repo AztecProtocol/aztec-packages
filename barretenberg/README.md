@@ -61,7 +61,7 @@ The default cmake version on 22.04 is 3.22.1, so it must be updated. You can get
 
 #### MacOS
 
-When running MacOS Sonoma 14.2.1 the following steps were necessary:
+When running MacOS Sonoma 14.2.1 the following steps are necessary:
 
 - update bash with `brew install bash`
 - update [cmake](https://cmake.org/download)
