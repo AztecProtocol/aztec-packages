@@ -15,4 +15,4 @@ jobs:
           submodules: 'true'
           fetch-depth: 0
       - name: ci
-        run: scripts/earthly
+        run: TERM=xterm scripts/earthly
