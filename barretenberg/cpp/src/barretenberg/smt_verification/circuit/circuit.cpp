@@ -25,9 +25,9 @@ std::pair<Circuit<FF>, Circuit<FF>> unique_witness_ext(CircuitSchema& circuit_in
                                                        const std::vector<std::string>& equal_at_the_same_time,
                                                        const std::vector<std::string>& not_equal_at_the_same_time)
 {
-    // TODO(alex): set optimizations to be true after they are confirmed
-    Circuit<FF> c1(circuit_info, s, "circuit1");
-    Circuit<FF> c2(circuit_info, s, "circuit2");
+    // TODO(alex): set optimizations to be true once they are confirmed
+    Circuit<FF> c1(circuit_info, s, "circuit1", false);
+    Circuit<FF> c2(circuit_info, s, "circuit2", false);
 
     for (const auto& term : equal) {
         c1[term] == c2[term];
@@ -96,9 +96,9 @@ std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
                                                    Solver* s,
                                                    const std::vector<std::string>& equal)
 {
-    // TODO(alex): set optimizations to be true after they are confirmed
-    Circuit<FF> c1(circuit_info, s, "circuit1");
-    Circuit<FF> c2(circuit_info, s, "circuit2");
+    // TODO(alex): set optimizations to be true once they are confirmed
+    Circuit<FF> c1(circuit_info, s, "circuit1", false);
+    Circuit<FF> c2(circuit_info, s, "circuit2", false);
 
     for (const auto& term : equal) {
         c1[term] == c2[term];
