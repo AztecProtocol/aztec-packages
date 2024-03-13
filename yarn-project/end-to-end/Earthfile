@@ -25,9 +25,9 @@ build:
 
 get-aztec:
     FROM ubuntu:lunar
-    # for quick to work, need to run earthly +build first
-    ARG quick=false
-    IF [ "$quick" != false ]
+    # for use_aztec_image to work, need to run earthly +build first or have image copied
+    ARG use_aztec_image=false
+    IF [ "$use_aztec_image" != false ]
       FROM aztecprotocol/cache:aztec
     ELSE
       FROM ../+aztec
@@ -35,9 +35,9 @@ get-aztec:
 
 get-end-to-end:
     FROM ubuntu:lunar
-  # for quick to work, need to run earthly +build first
-    ARG quick=false
-    IF [ $quick != false ]
+  # for use_end_to_end_image to work, need to run earthly +build first or have image copied
+    ARG use_end_to_end_image=false
+    IF [ $use_end_to_end_image != false ]
       FROM aztecprotocol/cache:end-to-end
     ELSE
       FROM +build
