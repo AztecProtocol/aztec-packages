@@ -59,9 +59,9 @@ jobs:
           command: |
             COMMIT_MESSAGE=$(git log -n 1 --pretty=format:"%s" $CIRCLE_SHA1)
             if [[ "$COMMIT_MESSAGE" == *"[ci new-ci]"* ]]; then
-              cp .circleci/config_new_ci.yml .circleci/generated_config.yml
+              cp .circleci/pipeline_new_test.yml .circleci/generated_config.yml
             else
-              cp .circleci/config_old_ci.yml .circleci/generated_config.yml
+              cp .circleci/pipeline.yml .circleci/generated_config.yml
             fi
       - continuation/continue:
           configuration_path: .circleci/generated_config.yml
