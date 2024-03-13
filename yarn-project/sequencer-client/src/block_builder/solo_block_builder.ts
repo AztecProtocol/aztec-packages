@@ -170,20 +170,23 @@ export class SoloBlockBuilder implements BlockBuilder {
     }
 
     // BASE PARITY CIRCUIT (run in parallel)
-    const baseParityOutputs: Promise<RootParityInput>[] = [];
+    let baseParityInputs: BaseParityInputs[] = [];
+    let elapsedBaseParityOutputsPromise: Promise<[number, RootParityInput[]]>;
     {
       const newModelL1ToL2MessagesTuple = padArrayEnd(
         newModelL1ToL2Messages,
         Fr.ZERO,
         NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
       );
-      const baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
+      baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
         BaseParityInputs.fromSlice(newModelL1ToL2MessagesTuple, i),
       );
 
+      const baseParityOutputs: Promise<RootParityInput>[] = [];
       for (const inputs of baseParityInputs) {
         baseParityOutputs.push(this.baseParityCircuit(inputs));
       }
+      elapsedBaseParityOutputsPromise = elapsed(() => Promise.all(baseParityOutputs));
     }
 
     // padArrayEnd throws if the array is already full. Otherwise it pads till we reach the required size
@@ -219,14 +222,27 @@ export class SoloBlockBuilder implements BlockBuilder {
     }
 
     // ROOT PARITY CIRCUIT
-    let rootParityOutput: Promise<RootParityInput>;
+    let elapsedRootParityOutputPromise: Promise<[number, RootParityInput]>;
+    let rootParityInputs: RootParityInputs;
     {
       // First we await the base parity outputs
-      const baseParityInputs = await Promise.all(baseParityOutputs);
-      const rootParityInputs = new RootParityInputs(
-        baseParityInputs as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
+      const [duration, baseParityOutputs] = await elapsedBaseParityOutputsPromise;
+
+      // We emit stats for base parity circuits
+      for (let i = 0; i < baseParityOutputs.length; i++) {
+        this.debug(`Simulated base parity circuit`, {
+          eventName: 'circuit-simulation',
+          circuitName: 'base-parity',
+          duration: duration / baseParityOutputs.length,
+          inputSize: baseParityInputs[i].toBuffer().length,
+          outputSize: baseParityOutputs[i].toBuffer().length,
+        } satisfies CircuitSimulationStats);
+      }
+
+      rootParityInputs = new RootParityInputs(
+        baseParityOutputs as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
       );
-      rootParityOutput = this.rootParityCircuit(rootParityInputs);
+      elapsedRootParityOutputPromise = elapsed(() => this.rootParityCircuit(rootParityInputs));
     }
 
     // MERGE ROLLUP CIRCUIT (each layer run in parallel)
@@ -235,6 +251,8 @@ export class SoloBlockBuilder implements BlockBuilder {
     {
       // Run merge rollups in layers until we have only two outputs
       const [duration, mergeInputs] = await elapsedBaseRollupOutputsPromise;
+
+      // We emit stats for base rollup circuits
       for (let i = 0; i < mergeInputs.length; i++) {
         this.debug(`Simulated base rollup circuit`, {
           eventName: 'circuit-simulation',
@@ -244,6 +262,7 @@ export class SoloBlockBuilder implements BlockBuilder {
           outputSize: mergeInputs[i][0].toBuffer().length,
         } satisfies CircuitSimulationStats);
       }
+
       let mergeRollupInputs: [BaseOrMergeRollupPublicInputs, Proof][] = mergeInputs;
       while (mergeRollupInputs.length > 2) {
         const mergeInputStructs: MergeRollupInputs[] = [];
@@ -256,6 +275,7 @@ export class SoloBlockBuilder implements BlockBuilder {
           Promise.all(mergeInputStructs.map(async input => await this.mergeRollupCircuit(input))),
         );
 
+        // We emit stats for merge rollup circuits
         for (let i = 0; i < mergeOutputs.length; i++) {
           this.debug(`Simulated merge rollup circuit`, {
             eventName: 'circuit-simulation',
@@ -272,7 +292,17 @@ export class SoloBlockBuilder implements BlockBuilder {
       [mergeOutputLeft, mergeOutputRight] = mergeRollupInputs;
     }
 
-    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, await rootParityOutput, newL1ToL2MessagesTuple);
+    // Finally, we emit stats for root parity circuit
+    const [duration, rootParityOutput] = await elapsedRootParityOutputPromise;
+    this.debug(`Simulated root parity circuit`, {
+      eventName: 'circuit-simulation',
+      circuitName: 'root-parity',
+      duration: duration,
+      inputSize: rootParityInputs.toBuffer().length,
+      outputSize: rootParityOutput.toBuffer().length,
+    } satisfies CircuitSimulationStats);
+
+    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, rootParityOutput, newL1ToL2MessagesTuple);
   }
 
   protected async baseParityCircuit(inputs: BaseParityInputs): Promise<RootParityInput> {

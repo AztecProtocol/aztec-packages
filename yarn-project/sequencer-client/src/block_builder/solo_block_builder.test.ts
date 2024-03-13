@@ -33,6 +33,7 @@ import {
   makeBaseOrMergeRollupPublicInputs,
   makeNewSideEffect,
   makeNewSideEffectLinkedToNoteHash,
+  makeParityPublicInputs,
   makePrivateKernelTailCircuitPublicInputs,
   makeProof,
   makePublicCallRequest,
@@ -112,8 +113,16 @@ describe('sequencer/solo_block_builder', () => {
     rootRollupOutput.header.globalVariables = globalVariables;
 
     // Set up mocks
+    prover.getBaseParityProof.mockResolvedValue(emptyProof);
+    prover.getRootParityProof.mockResolvedValue(emptyProof);
     prover.getBaseRollupProof.mockResolvedValue(emptyProof);
     prover.getRootRollupProof.mockResolvedValue(emptyProof);
+    simulator.baseParityCircuit
+      .mockResolvedValueOnce(makeParityPublicInputs(1))
+      .mockResolvedValue(makeParityPublicInputs(2))
+      .mockResolvedValue(makeParityPublicInputs(3))
+      .mockResolvedValueOnce(makeParityPublicInputs(4));
+    simulator.rootParityCircuit.mockResolvedValueOnce(makeParityPublicInputs(5));
     simulator.baseRollupCircuit
       .mockResolvedValueOnce(baseRollupOutputLeft)
       .mockResolvedValueOnce(baseRollupOutputRight);
