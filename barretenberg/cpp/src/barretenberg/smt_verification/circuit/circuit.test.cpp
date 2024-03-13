@@ -83,7 +83,6 @@ TEST(circuit, range_relaxation_assertions)
 TEST(circuit, range_relaxation)
 {
     for (size_t i = 2; i < 256; i++) {
-        info("Bits: ", i);
         StandardCircuitBuilder builder = StandardCircuitBuilder();
         field_t a(witness_t(&builder, fr::zero()));
         a.create_range_constraint(i);
@@ -93,6 +92,23 @@ TEST(circuit, range_relaxation)
         Solver s(circuit_info.modulus);
         Circuit<FFITerm> circuit(circuit_info, &s);
     }
+}
+
+TEST(circuit, cached_subcircuits)
+{
+    StandardCircuitBuilder builder = StandardCircuitBuilder();
+    field_t a(witness_t(&builder, fr::zero()));
+    builder.set_variable_name(a.get_witness_index(), "a");
+    a.create_range_constraint(5);
+    field_t b(witness_t(&builder, fr::zero()));
+    b.create_range_constraint(5);
+    builder.set_variable_name(b.get_witness_index(), "b");
+
+    auto buf = builder.export_circuit();
+    CircuitSchema circuit_info = unpack_from_buffer(buf);
+    Solver s(circuit_info.modulus);
+    Circuit<FFITerm> circuit(circuit_info, &s);
+    s.print_assertions();
 }
 
 // TODO(alex): check xor relaxations after bivector is here
