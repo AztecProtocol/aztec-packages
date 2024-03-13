@@ -26,7 +26,7 @@ if ! [ -f "$EARTHLY" ] ; then
 fi
 
 EARTHLY_FLAGS="--config $EARTHLY_CONFIG -P --disable-remote-registry-proxy --use-inline-cache --save-inline-cache"
-elif [ $# -eq 0 ]; then
+if [ $# -eq 0 ]; then
   # By default, try for a +build target
   "$EARTHLY" $EARTHLY_FLAGS +build
 else
