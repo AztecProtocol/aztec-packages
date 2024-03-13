@@ -199,7 +199,7 @@ void Circuit<FF>::handle_univariate_constraint(bb::fr q_m, bb::fr q_1, bb::fr q_
  * with pure create_logic_constraint from circuit_builder.
  * It uses binary search to find a bit length of the constraint,
  * since we don't know it in general.
- * After match is found, it updates the cursor to skip all the
+ * After a match is found, it updates the cursor to skip all the
  * redundant constraints and adds a pure a ^ b = c or a & b = c
  * constraint to solver.
  * If there's no match, it will return -1
@@ -232,7 +232,7 @@ template <typename FF> size_t Circuit<FF>::handle_logic_constraint(size_t cursor
 
         // Take a pure logic circuit for the current bit length(2 * mid)
         // and compare it's selectors to selectors of the global circuit
-        // at current positin(cursor).
+        // at current position(cursor).
         // If they are equal, we can apply an optimization
         // However, if we have a match at bit length 2, it is possible
         // to have a match at higher bit lengths. That's why we store
