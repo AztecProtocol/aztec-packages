@@ -110,5 +110,5 @@ defaults: &defaults
 # Workflows.
 workflows:
   system:
-    jobs: []
-      # - build: *defaults
+    jobs:
+      - build: *defaults
