@@ -62,7 +62,7 @@ contract NewOutboxTest is Test {
 
   // This function tests the insertion of random arrays of L2 to L1 messages
   // We make a naive tree with a computed height, insert the leafs into it, and compute a root. We then add the root as the root of the
-  // L2 to L1 message tree, expect for the correct event to be emitted, and then query for the root in the contract—making sure the roots, as well as the 
+  // L2 to L1 message tree, expect for the correct event to be emitted, and then query for the root in the contract—making sure the roots, as well as the
   // the tree height (which is also the length of the sibling path) match
   function testInsertVariedLeafs(bytes32[] calldata _messageLeafs) public {
     uint256 bigTreeHeight = merkleLibTest.calculateTreeHeightFromSize(_messageLeafs.length);
@@ -92,9 +92,7 @@ contract NewOutboxTest is Test {
 
     vm.prank(NOT_RECIPIENT);
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Outbox__InvalidRecipient.selector, address(this), NOT_RECIPIENT
-      )
+      abi.encodeWithSelector(Errors.Outbox__InvalidRecipient.selector, address(this), NOT_RECIPIENT)
     );
     outbox.consume(1, 1, fakeMessage, path);
   }

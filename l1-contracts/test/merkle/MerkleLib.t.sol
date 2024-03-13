@@ -61,7 +61,10 @@ contract MerkleLibTest is Test {
     merkleLibHelper.verifyMembership(emptyPath, leaf, leafIndex, expectedRoot);
   }
 
-  function testVerifyMembershipWithRandomSiblingPaths(uint256 _idx, bytes32[DEPTH] memory _siblingPath) public {
+  function testVerifyMembershipWithRandomSiblingPaths(
+    uint256 _idx,
+    bytes32[DEPTH] memory _siblingPath
+  ) public {
     uint256 leafIndex = _idx % (2 ** DEPTH);
     bytes32 expectedRoot = merkle.computeRoot();
 
