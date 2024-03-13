@@ -1712,11 +1712,7 @@ void UltraCircuitBuilder_<Arithmetization>::process_non_native_field_multiplicat
     // iterate over the cached items and create constraints
     for (const auto& input : cached_partial_non_native_field_multiplications) {
 
-        blocks.main.w_l().emplace_back(input.a[1]);
-        blocks.main.w_r().emplace_back(input.b[1]);
-        blocks.main.w_o().emplace_back(this->zero_idx);
-        blocks.main.w_4().emplace_back(input.lo_0);
-
+        blocks.main.populate_wires(input.a[1], input.b[1], this->zero_idx, static_cast<uint32_t>(input.lo_0));
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
         ++this->num_gates;
 
@@ -1724,18 +1720,11 @@ void UltraCircuitBuilder_<Arithmetization>::process_non_native_field_multiplicat
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_2);
         ++this->num_gates;
 
-        blocks.main.w_l().emplace_back(input.a[2]);
-        blocks.main.w_r().emplace_back(input.b[2]);
-        blocks.main.w_o().emplace_back(this->zero_idx);
-        blocks.main.w_4().emplace_back(input.hi_0);
-
+        blocks.main.populate_wires(input.a[2], input.b[2], this->zero_idx, static_cast<uint32_t>(input.hi_0));
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_3);
         ++this->num_gates;
-        blocks.main.w_l().emplace_back(input.a[1]);
-        blocks.main.w_r().emplace_back(input.b[1]);
-        blocks.main.w_o().emplace_back(this->zero_idx);
-        blocks.main.w_4().emplace_back(input.hi_1);
 
+        blocks.main.populate_wires(input.a[1], input.b[1], this->zero_idx, static_cast<uint32_t>(input.hi_1));
         apply_aux_selectors(AUX_SELECTORS::NONE);
         ++this->num_gates;
     }
