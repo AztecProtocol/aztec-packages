@@ -156,6 +156,10 @@ impl PrivateCallDataBuilder {
         (hashes, call_requests)
     }
 
+    pub fn request_max_block_number(&mut self, max_block_number: u32) {
+        self.public_inputs.max_block_number = max_block_number;
+    }
+
     pub fn append_note_hash_read_requests(&mut self, num_read_requests: u64) {
         let (read_requests, read_request_membership_witnesses) = fixtures::note_hash_read_requests::generate_note_hash_read_requests(num_read_requests);
         self.public_inputs.note_hash_read_requests.extend_from_bounded_vec(read_requests);

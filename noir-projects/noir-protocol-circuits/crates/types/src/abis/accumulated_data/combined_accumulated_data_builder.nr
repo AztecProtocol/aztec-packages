@@ -165,7 +165,7 @@ impl CombinedAccumulatedDataBuilder {
         let mut non_revertible_builder: AccumulatedNonRevertibleDataBuilder = unsafe::zeroed();
         let mut revertible_builder: AccumulatedRevertibleDataBuilder = unsafe::zeroed();
 
-        // The max block number is always non-revertible
+        // The max block number is always non-revertible as it is part of the validity conditions of the transaction.
         non_revertible_builder.max_block_number = self.max_block_number;
 
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {

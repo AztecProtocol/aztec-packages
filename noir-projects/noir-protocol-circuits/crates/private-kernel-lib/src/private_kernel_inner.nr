@@ -605,6 +605,36 @@ mod tests {
     }
 
     #[test]
+    fn propagate_previous_kernel_max_block_number() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+        builder.previous_kernel.end.max_block_number = 13;
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.end.max_block_number, 13);
+    }
+
+    #[test]
+    fn propagate_max_block_number_request() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+        builder.private_call.request_max_block_number(42);
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.end.max_block_number, 42);
+    }
+
+    #[test]
+    fn ignore_larger_max_block_number() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+        builder.previous_kernel.end.max_block_number = 13;
+        // A private call requesting a larger max_block_number should not change the current one as that constraint is
+        // already satisfied.
+        builder.private_call.request_max_block_number(42);
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.end.max_block_number, 13);
+    }
+
+    #[test]
     fn native_no_note_hash_read_requests_works() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 

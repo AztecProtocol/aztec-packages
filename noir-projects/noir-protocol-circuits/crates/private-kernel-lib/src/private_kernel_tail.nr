@@ -460,6 +460,15 @@ mod tests {
     }
 
     #[test]
+    fn propagate_previous_kernel_max_block_number() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        builder.previous_kernel.end.max_block_number = 13;
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.end_non_revertible.max_block_number, 13);
+    }
+
+    #[test]
     unconstrained fn one_pending_nullifier_read_request() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
 
