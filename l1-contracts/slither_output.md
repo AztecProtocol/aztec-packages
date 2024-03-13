@@ -18,9 +18,9 @@ Summary
 Impact: High
 Confidence: Medium
  - [ ] ID-0
-Function [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L103) is a non-protected setter archive is written
+Function [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L101) is a non-protected setter archive is written
 
-src/core/Rollup.sol#L58-L103
+src/core/Rollup.sol#L58-L101
 
 
 ## uninitialized-local
@@ -42,15 +42,9 @@ src/core/libraries/decoders/TxsDecoder.sol#L79
 Impact: Medium
 Confidence: Medium
  - [ ] ID-3
-[Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L103) ignores return value by [NEW_INBOX.consume()](src/core/Rollup.sol#L93)
+[Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L101) ignores return value by [(l1ToL2Msgs,l2ToL1Msgs) = MessagesDecoder.decode(_body)](src/core/Rollup.sol#L74)
 
-src/core/Rollup.sol#L58-L103
-
-
- - [ ] ID-4
-[Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L103) ignores return value by [(l1ToL2Msgs,l2ToL1Msgs) = MessagesDecoder.decode(_body)](src/core/Rollup.sol#L74)
-
-src/core/Rollup.sol#L58-L103
+src/core/Rollup.sol#L58-L101
 
 
 ## pess-dubious-typecast
@@ -63,14 +57,14 @@ Dubious typecast in [TxsDecoder.computeRoot(bytes31[])](src/core/libraries/decod
 src/core/libraries/decoders/TxsDecoder.sol#L264-L283
 
 
- - [ ] ID-6
+ - [ ] ID-5
 Dubious typecast in [Outbox.sendL1Messages(bytes32[])](src/core/messagebridge/Outbox.sol#L38-L46):
 	uint256 => uint32 casting occurs in [version = uint32(REGISTRY.getVersionFor(msg.sender))](src/core/messagebridge/Outbox.sol#L40)
 
 src/core/messagebridge/Outbox.sol#L38-L46
 
 
- - [ ] ID-7
+ - [ ] ID-6
 Dubious typecast in [Inbox.sendL2Message(DataStructures.L2Actor,uint32,bytes32,bytes32)](src/core/messagebridge/Inbox.sol#L45-L91):
 	uint256 => uint64 casting occurs in [fee = uint64(msg.value)](src/core/messagebridge/Inbox.sol#L64)
 	uint256 => uint32 casting occurs in [entries.insert(key,fee,uint32(_recipient.version),_deadline,_errIncompatibleEntryArguments)](src/core/messagebridge/Inbox.sol#L76)
@@ -192,12 +186,12 @@ src/core/messagebridge/NewInbox.sol#L62-L99
 Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L103):
 	External calls:
 	- [inbox.batchConsume(l1ToL2Msgs,msg.sender)](src/core/Rollup.sol#L90)
-	- [NEW_INBOX.consume()](src/core/Rollup.sol#L93)
-	- [outbox.sendL1Messages(l2ToL1Msgs)](src/core/Rollup.sol#L100)
+	- [inHash = NEW_INBOX.consume()](src/core/Rollup.sol#L92)
+	- [outbox.sendL1Messages(l2ToL1Msgs)](src/core/Rollup.sol#L98)
 	Event emitted after the call(s):
-	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L102)
+	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L100)
 
-src/core/Rollup.sol#L58-L103
+src/core/Rollup.sol#L58-L101
 
 
 ## timestamp
@@ -256,7 +250,7 @@ src/core/messagebridge/Registry.sol#L22-L129
 The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L30-L112) contract:
 	[Rollup.constructor(IRegistry,IAvailabilityOracle)](src/core/Rollup.sol#L43-L49)
 
-src/core/Rollup.sol#L30-L112
+src/core/Rollup.sol#L30-L110
 
 
  - [ ] ID-27
