@@ -33,7 +33,7 @@ namespace bb {
  *
  * @remark IPA is not a very intuitive algorithm, so here are a few things that might help internalize it:
  *
- *1. Originally we have two vectors \f$\vec{a}\f$ and \f$\vec{b}\f$, which the product of which we want to prove, but
+ *1. Originally we have two vectors \f$\vec{a}\f$ and \f$\vec{b}\f$, whose product we want to prove, but
  *the prover can't just send vector \f$\vec{a}\f$ to the verifier, it can only provide a commitment
  \f$\langle\vec{a},\vec{G}\rangle\f$
  *2. The verifier computes the \f$C'=C+\langle\vec{a},\vec{b}\rangle\cdot U\f$ to "bind" together the
@@ -48,8 +48,8 @@ namespace bb {
  \alpha^{-1}\langle\vec{a}_{low},\vec{b}_{high}\rangle+\alpha \langle \vec{a}_{high},\vec{b}_{low}\rangle +
  \langle\vec{a}_{high},\vec{b}_{high}\rangle=
  \langle\vec{a},\vec{b}\rangle+\alpha^{-1}\langle\vec{a}_{low},\vec{b}_{high}\rangle+\alpha \langle
- \vec{a}_{high},\vec{b}_{low}\rangle\f$, so if we provide commitments to
- \f$\langle\vec{a}_{low},\vec{b}_{high}\rangle\f$ and \f$\langle \vec{a}_{high},\vec{b}_{low}\rangle\f$  the verifier
+ \vec{a}_{high},\vec{b}_{low}\rangle\f$, so if we provide commitments to the cross-terms
+ \f$\langle\vec{a}_{low},\vec{b}_{high}\rangle\f$ and \f$\langle \vec{a}_{high},\vec{b}_{low}\rangle\f$,  the verifier
  can reduce initial commitment to the result \f$\langle \vec{a},\vec{b}\rangle U\f$ to the new commitment \f$\langle
  \vec{a}_{new},\vec{b}_{new}\rangle U\f$
  *5. Analogously, if \f$\vec{G}_{new}=\vec{G}_{low}+\alpha^{-1}\vec{G}_{high}\f$, then we can reduce the initial
@@ -94,9 +94,9 @@ template <typename Curve> class IPA {
      *1. Send the degree of \f$f(x)\f$ plus one, equal to \f$d\f$ to the verifier
      *2. Receive the generator challenge \f$u\f$ from the verifier
      *3. Compute the auxiliary generator \f$U=u\cdot G\f$, where \f$G\f$ is a generator of \f$E(\mathbb{F}_p)\f$​
-     *4. Set \f$\vec{G}_{k}=\vec{G}\f$, \f$\vec{a}_{k}=\vec{p}\f$
-     *5. Compute the vector \f$\vec{b}_{k}=(1,\beta,\beta^2,...,\beta^{d-1})\f$
-     *6. Perform \f$k\f$ rounds (for \f$i \in \{k,...,1\}\f$) of:
+     *4. Set \f$\vec{G}_{k}=\vec{G}\f$, \f$\vec{a}_{k}=\vec{p}\f$ where \f$vec{p}\f$ represent the polynomial's
+     coefficients *5. Compute the vector \f$\vec{b}_{k}=(1,\beta,\beta^2,...,\beta^{d-1})\f$ where \f$p(\beta)$\f is the
+     evaluation we wish to prove *6. Perform \f$k\f$ rounds (for \f$i \in \{k,...,1\}\f$) of:
      *   1. Compute
      \f$L_{i-1}=\langle\vec{a}_{i\_low},\vec{G}_{i\_high}\rangle+\langle\vec{a}_{i\_low},\vec{b}_{i\_high}\rangle\cdot
      U\f$​

@@ -503,7 +503,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
      *              + concatentation_term
      * where
      *
-     *  concatenation_term = \sum{i=0}^{o-1}\sum_{j=0}^{num_chunks_per_group}(rho^{m+l+i} * x^{j * min_N + 1}
+     *  concatenation_term = \sum{i=0}^{o-1}\sum_{j=0}^{num_chunks_per_group}(rho^{m€+l+i} * x^{j * min_N + 1}
      *                       * concatenation_groups_commitments_{i}_{j})
      *
      * @note The concatenation term arises from an implementation detail in the Goblin Translator and is not part of the
