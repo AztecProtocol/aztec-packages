@@ -34,6 +34,7 @@ import {
   MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
@@ -49,11 +50,13 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NUM_BYTES_PER_SHA256,
   NUM_FIELDS_PER_SHA256,
+  NonMembershipHint,
   NoteHashReadRequestMembershipWitness,
   NullifierKeyValidationRequest,
   NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
-  NullifierReadRequestResetHints,
+  NullifierNonExistentReadRequestHints,
+  NullifierReadRequestHints,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   PendingReadHint,
@@ -137,7 +140,7 @@ import {
   PrivateKernelInnerData as PrivateKernelInnerDataNoir,
 } from './types/private_kernel_inner_types.js';
 import {
-  NullifierReadRequestResetHints as NullifierReadRequestResetHintsNoir,
+  NullifierReadRequestHints as NullifierReadRequestHintsNoir,
   NullifierSettledReadHint as NullifierSettledReadHintNoir,
   PendingReadHint as PendingReadHintNoir,
   PrivateAccumulatedNonRevertibleData as PrivateAccumulatedNonRevertibleDataNoir,
@@ -160,7 +163,11 @@ import {
   StorageRead as StorageReadNoir,
   StorageUpdateRequest as StorageUpdateRequestNoir,
 } from './types/public_kernel_setup_types.js';
-import { PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir } from './types/public_kernel_tail_types.js';
+import {
+  NullifierNonExistentReadRequestHints as NullifierNonExistentReadRequestHintsNoir,
+  NullifierNonMembershipHint as NullifierNonMembershipHintNoir,
+  PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir,
+} from './types/public_kernel_tail_types.js';
 import {
   ArchiveRootMembershipWitness as ArchiveRootMembershipWitnessNoir,
   BaseRollupInputs as BaseRollupInputsNoir,
@@ -878,13 +885,31 @@ function mapNullifierSettledReadHintToNoir(
   };
 }
 
-function mapNullifierReadRequestResetHintsToNoir(
-  hints: NullifierReadRequestResetHints,
-): NullifierReadRequestResetHintsNoir {
+function mapNullifierReadRequestHintsToNoir(hints: NullifierReadRequestHints): NullifierReadRequestHintsNoir {
   return {
     read_request_statuses: mapTuple(hints.readRequestStatuses, mapReadRequestStatusToNoir),
     pending_read_hints: mapTuple(hints.pendingReadHints, mapPendingReadHintToNoir),
     settled_read_hints: mapTuple(hints.settledReadHints, mapNullifierSettledReadHintToNoir),
+  };
+}
+
+function mapNullifierNonMembershipHintToNoir(
+  hint: NonMembershipHint<typeof NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage>,
+): NullifierNonMembershipHintNoir {
+  return {
+    low_leaf_preimage: mapNullifierLeafPreimageToNoir(hint.leafPreimage),
+    membership_witness: mapNullifierMembershipWitnessToNoir(hint.membershipWitness),
+  };
+}
+
+function mapNullifierNonExistentReadRequestHintsToNoir(
+  hints: NullifierNonExistentReadRequestHints,
+): NullifierNonExistentReadRequestHintsNoir {
+  return {
+    non_membership_hints: mapTuple(hints.nonMembershipHints, mapNullifierNonMembershipHintToNoir),
+    sorted_pending_values: mapTuple(hints.sortedPendingValues, mapSideEffectLinkedToNoir),
+    sorted_pending_value_index_hints: mapTuple(hints.sortedPendingValueHints, mapNumberToNoir),
+    next_pending_value_indices: mapTuple(hints.nextPendingValueIndices, mapNumberToNoir),
   };
 }
 
@@ -1153,6 +1178,7 @@ export function mapPublicAccumulatedNonRevertibleDataToNoir(
 ): PublicAccumulatedNonRevertibleDataNoir {
   return {
     nullifier_read_requests: mapTuple(data.nullifierReadRequests, mapReadRequestContextToNoir),
+    nullifier_non_existent_read_requests: mapTuple(data.nullifierNonExistentReadRequests, mapReadRequestContextToNoir),
     new_note_hashes: mapTuple(data.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(data.newNullifiers, mapSideEffectLinkedToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
@@ -1305,7 +1331,7 @@ export function mapPrivateKernelTailCircuitPrivateInputsToNoir(
     read_commitment_hints: mapTuple(inputs.readCommitmentHints, mapFieldToNoir),
     sorted_new_nullifiers: mapTuple(inputs.sortedNewNullifiers, mapSideEffectLinkedToNoir),
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, mapNumberToNoir),
-    nullifier_read_request_reset_hints: mapNullifierReadRequestResetHintsToNoir(inputs.nullifierReadRequestResetHints),
+    nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
     nullifier_commitment_hints: mapTuple(inputs.nullifierCommitmentHints, mapFieldToNoir),
     master_nullifier_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),
   };
@@ -1325,7 +1351,10 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
 ): PublicKernelTailCircuitPrivateInputsNoir {
   return {
     previous_kernel: mapPublicKernelDataToNoir(inputs.previousKernel),
-    nullifier_read_request_reset_hints: mapNullifierReadRequestResetHintsToNoir(inputs.nullifierReadRequestResetHints),
+    nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
+    nullifier_non_existent_read_request_hints: mapNullifierNonExistentReadRequestHintsToNoir(
+      inputs.nullifierNonExistentReadRequestHints,
+    ),
   };
 }
 
@@ -1349,6 +1378,11 @@ export function mapPublicAccumulatedNonRevertibleDataFromNoir(
 ): PublicAccumulatedNonRevertibleData {
   return new PublicAccumulatedNonRevertibleData(
     mapTupleFromNoir(data.nullifier_read_requests, MAX_NULLIFIER_READ_REQUESTS_PER_TX, mapReadRequestContextFromNoir),
+    mapTupleFromNoir(
+      data.nullifier_non_existent_read_requests,
+      MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
+      mapReadRequestContextFromNoir,
+    ),
     mapTupleFromNoir(data.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(data.new_nullifiers, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -1479,6 +1513,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     args_hash: mapFieldToNoir(publicInputs.argsHash),
     return_values: mapTuple(publicInputs.returnValues, mapFieldToNoir),
     nullifier_read_requests: mapTuple(publicInputs.nullifierReadRequests, mapReadRequestToNoir),
+    nullifier_non_existent_read_requests: mapTuple(publicInputs.nullifierNonExistentReadRequests, mapReadRequestToNoir),
     contract_storage_update_requests: mapTuple(
       publicInputs.contractStorageUpdateRequests,
       mapStorageUpdateRequestToNoir,
