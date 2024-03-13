@@ -3,6 +3,7 @@ FROM aztecprotocol/noir-packages as noir-packages
 FROM aztecprotocol/l1-contracts as contracts
 FROM aztecprotocol/noir-projects as noir-projects
 FROM aztecprotocol/noir as noir
+FROM aztecprotocol/barretenberg-x86_64-linux-clang as barretenberg
 
 FROM node:18.19.0 as builder
 RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
@@ -14,6 +15,7 @@ COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
 # We want the native ACVM binary
 COPY --from=noir /usr/src/noir/noir-repo/target/release/acvm /usr/src/noir/noir-repo/target/release/acvm
+COPY --from=barretenberg /usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
 
 WORKDIR /usr/src/yarn-project
 COPY . .
