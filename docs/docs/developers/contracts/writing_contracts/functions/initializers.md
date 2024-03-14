@@ -1,10 +1,10 @@
 ---
-title: How to write a constructor
+title: How to write an initializer function
 ---
 
-This page explains how to write a constructor (or initializer) function.
+This page explains how to write an initializer function.
 
-To learn more about constructors/initializers, read [this](./main.md#initializer-functions).
+To learn more about initializers, read [this](./main.md#initializer-functions).
 
 Initializers are regular functions that set an "initialized" flag (a nullifier) for the contract. A contract can only be initialized once, and contract functions can only be called after the contract has been initialized, much like a constructor. However, if a contract defines no initializers, it can be called at any time. Additionally, you can define as many initializer functions in a contract as you want, both private and public.
 
