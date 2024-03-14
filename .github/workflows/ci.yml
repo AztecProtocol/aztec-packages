@@ -27,9 +27,13 @@ jobs:
           StrictHostKeyChecking no
           User ubuntu
           EOF
-          echo DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com >> $GITHUB_ENV
+          echo DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com >> $GITHUB_EN
+      # - name: ensure-base-images
+      #   run: |
+      #     scripts/earthly --push foundry/+build
+      #      scripts/earthly --push barretenberg/cpp/+build-wasi-sdkV
       - name: ci
-        run: DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com scripts/earthly --ci +build-ci
+        run: scripts/earthly --ci +build-ci-small
 
   ci-arm:
     runs-on: ubuntu-latest
@@ -53,7 +57,9 @@ jobs:
           User ubuntu
           EOF
           echo DOCKER_HOST=ssh://build-instance-arm.aztecprotocol.com >> $GITHUB_ENV
-      - name: ensure-images
-        run: DOCKER_HOST=ssh://build-instance-arm.aztecprotocol.com scripts/earthly --ci +build-ci
+      - name: ensure-base-images
+        run: |
+          scripts/earthly --push foundry/+build
+          # scripts/earthly --push barretenberg/cpp/+build-wasi-sdk
       - name: ci
-        run: DOCKER_HOST=ssh://build-instance-arm.aztecprotocol.com scripts/earthly --ci +build-ci
+        run: scripts/earthly --ci +build-ci-small

@@ -4,8 +4,6 @@ services:
     image: aztecprotocol/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916
     entrypoint: >
       sh -c '
-      set -o pipefail
-      # use grep to remove very noisy logging, distracts from meat of test
       if [ -n "$FORK_BLOCK_NUMBER" ] && [ -n "$FORK_URL" ]; then
         exec anvil -p 8545 --host 0.0.0.0 --chain-id 31337 --fork-url "$FORK_URL" --fork-block-number "$FORK_BLOCK_NUMBER"
       else
