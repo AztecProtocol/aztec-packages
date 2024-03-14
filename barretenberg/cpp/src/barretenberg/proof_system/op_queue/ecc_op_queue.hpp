@@ -46,6 +46,15 @@ class ECCOpQueue {
 
     std::array<Point, 4> ultra_ops_commitments;
 
+    // as we populate the op_queue, we track the number of rows in each circuit section,
+    // as well as the number of multiplications performed.
+    // This is to avoid expensive O(n) logic to compute the number of rows and muls during witness computation
+    uint32_t cached_num_muls = 0;
+    uint32_t cached_active_msm_count = 0;
+    uint32_t num_transcript_rows = 0;
+    uint32_t num_precompute_table_rows = 0;
+    uint32_t num_msm_rows = 0;
+
     Point get_accumulator() { return accumulator; }
 
     /**
@@ -56,6 +65,20 @@ class ECCOpQueue {
      */
     void prepend_previous_queue(const ECCOpQueue& previous)
     {
+        if (!previous.raw_ops.empty() && !raw_ops.empty()) {
+            // Check we are not merging op queue that does not reset accumulator!
+            // Note - eccvm does not directly constrain this to not happen. If we need such checks they need to be
+            // applied when the transcript is being written into
+            ASSERT(previous.raw_ops.back().eq || previous.raw_ops.back().reset);
+        }
+        // We shouldn't be merging if there is a previous active msm!
+        ASSERT(previous.cached_active_msm_count == 0);
+
+        cached_num_muls += previous.cached_num_muls;
+        num_msm_rows += previous.num_msm_rows;
+        num_precompute_table_rows += previous.num_precompute_table_rows;
+        num_transcript_rows += previous.num_transcript_rows;
+
         // Allocate enough space
         std::vector<ECCVMOperation> raw_ops_updated(raw_ops.size() + previous.raw_ops.size());
         // Copy the previous raw ops to the beginning of the new vector
@@ -116,6 +139,12 @@ class ECCOpQueue {
         auto commit_temp = lhs.ultra_ops_commitments;
         lhs.ultra_ops_commitments = rhs.ultra_ops_commitments;
         rhs.ultra_ops_commitments = commit_temp;
+
+        std::swap(lhs.cached_num_muls, rhs.cached_num_muls);
+        std::swap(lhs.cached_active_msm_count, rhs.cached_active_msm_count);
+        std::swap(lhs.num_transcript_rows, rhs.num_transcript_rows);
+        std::swap(lhs.num_precompute_table_rows, rhs.num_precompute_table_rows);
+        std::swap(lhs.num_msm_rows, rhs.num_msm_rows);
     }
 
     /**
@@ -191,6 +220,93 @@ class ECCOpQueue {
     }
 
     /**
+     * @brief Get the number of rows in the 'msm' column section o the ECCVM, associated with a single multiscalar mul
+     *
+     * @param msm_count
+     * @return uint32_t
+     */
+    static uint32_t get_msm_row_count_for_single_msm(const size_t msm_count)
+    {
+        const size_t rows_per_round =
+            (msm_count / eccvm::ADDITIONS_PER_ROW) + (msm_count % eccvm::ADDITIONS_PER_ROW != 0 ? 1 : 0);
+        constexpr size_t num_rounds = eccvm::NUM_SCALAR_BITS / eccvm::WNAF_SLICE_BITS;
+        const size_t num_rows_for_all_rounds = (num_rounds + 1) * rows_per_round; // + 1 round for skew
+        const size_t num_double_rounds = num_rounds - 1;
+        const size_t num_rows_for_msm = num_rows_for_all_rounds + num_double_rounds;
+
+        return static_cast<uint32_t>(num_rows_for_msm);
+    }
+
+    /**
+     * @brief Get the precompute table row count for single msm object
+     *
+     * @param msm_count
+     * @return uint32_t
+     */
+    static uint32_t get_precompute_table_row_count_for_single_msm(const size_t msm_count)
+    {
+        constexpr size_t num_precompute_rows_per_scalar = eccvm::NUM_WNAF_SLICES / eccvm::WNAF_SLICES_PER_ROW;
+        const size_t num_rows_for_precompute_table = msm_count * num_precompute_rows_per_scalar;
+        return static_cast<uint32_t>(num_rows_for_precompute_table);
+    }
+
+    /**
+     * @brief Get the number of rows in the 'msm' column section, for all msms in the circuit
+     *
+     * @return size_t
+     */
+    size_t get_num_msm_rows() const
+    {
+        size_t msm_rows = num_msm_rows + 2;
+        if (cached_active_msm_count > 0) {
+            msm_rows += get_msm_row_count_for_single_msm(cached_active_msm_count);
+        }
+        return msm_rows;
+    }
+
+    /**
+     * @brief Get the number of rows for the current ECCVM circuit
+     *
+     * @return size_t
+     */
+    size_t get_num_rows() const
+    {
+        // add 1 row to start and end of transcript and msm sections
+        const size_t transcript_rows = num_transcript_rows + 2;
+        size_t msm_rows = num_msm_rows + 2;
+        // add 1 row to start of precompute table section
+        size_t precompute_rows = num_precompute_table_rows + 1;
+        if (cached_active_msm_count > 0) {
+            msm_rows += get_msm_row_count_for_single_msm(cached_active_msm_count);
+            precompute_rows += get_precompute_table_row_count_for_single_msm(cached_active_msm_count);
+        }
+
+        return std::max(transcript_rows, std::max(msm_rows, precompute_rows));
+    }
+
+    /**
+     * @brief when inserting operations, update the number of multiplications in the latest scalar mul
+     *
+     * @param op
+     */
+    void update_cached_msms(const ECCVMOperation& op)
+    {
+        if (op.mul) {
+            if (op.z1 != 0) {
+                cached_active_msm_count++;
+            }
+            if (op.z2 != 0) {
+                cached_active_msm_count++;
+            }
+        } else if (cached_active_msm_count != 0) {
+            num_msm_rows += get_msm_row_count_for_single_msm(cached_active_msm_count);
+            num_precompute_table_rows += get_precompute_table_row_count_for_single_msm(cached_active_msm_count);
+            cached_num_muls += cached_active_msm_count;
+            cached_active_msm_count = 0;
+        }
+    }
+
+    /**
      * @brief Write point addition op to queue and natively perform addition
      *
      * @param to_add
@@ -211,6 +327,8 @@ class ECCOpQueue {
             .z2 = 0,
             .mul_scalar_full = 0,
         });
+        num_transcript_rows += 1;
+        update_cached_msms(raw_ops.back());
     }
 
     /**
@@ -240,6 +358,9 @@ class ECCOpQueue {
             .z2 = z2,
             .mul_scalar_full = scalar,
         });
+        num_transcript_rows += 1;
+
+        update_cached_msms(raw_ops.back());
     }
 
     /**
@@ -262,7 +383,9 @@ class ECCOpQueue {
             .z2 = 0,
             .mul_scalar_full = 0,
         });
+        num_transcript_rows += 1;
 
+        update_cached_msms(raw_ops.back());
         return expected;
     }
 
@@ -282,6 +405,9 @@ class ECCOpQueue {
             .z2 = 0,
             .mul_scalar_full = 0,
         });
+        num_transcript_rows += 1;
+
+        update_cached_msms(raw_ops.back());
     }
 
     /**
