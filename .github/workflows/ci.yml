@@ -22,7 +22,7 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 -d > ~/.ssh/build_instance_key
-          echo DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com >> $GITHUB_EN
+          echo DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com >> $GITHUB_ENV
           chmod 600 ~/.ssh/build_instance_key
           cat > ~/.ssh/config <<EOF
           IdentityFile ~/.ssh/build_instance_key
