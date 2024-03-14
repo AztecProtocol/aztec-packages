@@ -1285,12 +1285,12 @@ workflows:
       - noir-tests: *defaults
       - noir-packages:
           requires:
-            - noir-packages
+            - bb-js
           <<: *defaults
       - noir-packages-tests:
           requires:
             - noir-ecr-manifest
-            - bb-js
+            - noir-packages
           <<: *defaults
       - noir-compile-acir-tests:
           requires:
