@@ -33,7 +33,7 @@ E2E_TEST:
       --load aztecprotocol/aztec:latest=+get-aztec \
       --load aztecprotocol/end-to-end:latest=+get-end-to-end \
       --load aztecprotocol/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916=../../foundry/+get
-        RUN /mnt/user-data/adam/aztec-packages/myenv/bin/podman-compose -f $compose_file up  --exit-code-from=sandbox --force-recreate
+        RUN docker-compose -f $compose_file up --exit-code-from=sandbox --force-recreate | grep -v ethLogs
     END
 
 # we could use a parameterized target, but these just print cleaner in earthly log
