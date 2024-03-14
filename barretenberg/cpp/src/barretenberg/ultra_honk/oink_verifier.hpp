@@ -103,7 +103,7 @@ template <IsUltraFlavor Flavor> class OinkVerifier {
         }
 
         // Get challenge for sorted list batching and wire four memory records
-        FF eta = transcript->template get_challenge<FF>("eta");
+        FF eta = transcript->template get_challenge<FF>(domain_separator + "eta");
         relation_parameters.eta = eta;
 
         // Get commitments to sorted list accumulator and fourth wire
@@ -113,7 +113,8 @@ template <IsUltraFlavor Flavor> class OinkVerifier {
             transcript->template receive_from_prover<Commitment>(domain_separator + commitment_labels.w_4);
 
         // Get permutation challenges
-        auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
+        auto [beta, gamma] =
+            transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
 
         // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
         if constexpr (IsGoblinFlavor<Flavor>) {
