@@ -57,7 +57,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
          */
         const auto compute_precomputed_table = [](const AffineElement& base_point) {
             const auto d2 = Element(base_point).dbl();
-            std::array<Element, POINT_TABLE_SIZE> table;
+            std::array<Element, POINT_TABLE_SIZE + 1> table;
+            table[POINT_TABLE_SIZE] = d2; // need this for later
             table[POINT_TABLE_SIZE / 2] = base_point;
             for (size_t i = 1; i < POINT_TABLE_SIZE / 2; ++i) {
                 table[i + POINT_TABLE_SIZE / 2] = Element(table[i + POINT_TABLE_SIZE / 2 - 1]) + d2;
@@ -66,10 +67,10 @@ template <typename Flavor> class ECCVMCircuitBuilder {
                 table[i] = -table[POINT_TABLE_SIZE - 1 - i];
             }
 
-            Element::batch_normalize(&table[0], POINT_TABLE_SIZE);
-            std::array<AffineElement, POINT_TABLE_SIZE> result;
-            for (size_t i = 0; i < POINT_TABLE_SIZE; ++i) {
-                result[i] = AffineElement{ .x = table[i].x, .y = table[i].y };
+            Element::batch_normalize(&table[0], POINT_TABLE_SIZE + 1);
+            std::array<AffineElement, POINT_TABLE_SIZE + 1> result;
+            for (size_t i = 0; i < POINT_TABLE_SIZE + 1; ++i) {
+                result[i] = AffineElement(table[i].x, table[i].y);
             }
             return result;
         };
@@ -111,9 +112,83 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
             return output;
         };
-        std::vector<MSM> msms;
-        std::vector<ScalarMul> active_msm;
 
+        // a vector of MSMs = a vector of a vector of scalar muls
+        // each mul
+        size_t msm_count = 0;
+        size_t active_mul_count = 0;
+        std::vector<size_t> msm_opqueue_index;
+        std::vector<std::pair<size_t, size_t>> msm_mul_index;
+        std::vector<size_t> msm_sizes;
+
+        // std::vector<std::vector<size_t>> msm_indices;
+        // std::vector<size_t> active_msm_indices;
+        for (size_t i = 0; i < op_queue->raw_ops.size(); ++i) {
+            const auto& op = op_queue->raw_ops[i];
+            if (op.mul) {
+                if (op.z1 != 0 || op.z2 != 0) {
+                    msm_opqueue_index.push_back(i);
+                    msm_mul_index.emplace_back(msm_count, active_mul_count);
+                }
+                if (op.z1 != 0) {
+                    active_mul_count++;
+                }
+                if (op.z2 != 0) {
+                    active_mul_count++;
+                }
+            } else if (active_mul_count > 0) {
+                msm_sizes.push_back(active_mul_count);
+                msm_count++;
+                active_mul_count = 0;
+            }
+        }
+        // if last op is a mul we have not correctly computed the total number of msms
+        if (op_queue->raw_ops.back().mul) {
+            msm_sizes.push_back(active_mul_count);
+            msm_count++;
+        }
+        std::vector<MSM> msms_test(msm_count);
+        for (size_t i = 0; i < msm_count; ++i) {
+            auto& msm = msms_test[i];
+            msm.resize(msm_sizes[i]);
+        }
+
+        run_loop_in_parallel(msm_opqueue_index.size(), [&](size_t start, size_t end) {
+            for (size_t i = start; i < end; i++) {
+                //  for (size_t i = 0; i < msm_opqueue_index.size(); ++i) {
+                const size_t opqueue_index = msm_opqueue_index[i];
+                const auto& op = op_queue->raw_ops[opqueue_index];
+                auto [msm_index, mul_index] = msm_mul_index[i];
+                if (op.z1 != 0) {
+                    ASSERT(msms_test.size() > msm_index);
+                    ASSERT(msms_test[msm_index].size() > mul_index);
+                    msms_test[msm_index][mul_index] = (ScalarMul{
+                        .pc = 0,
+                        .scalar = op.z1,
+                        .base_point = op.base_point,
+                        .wnaf_slices = compute_wnaf_slices(op.z1),
+                        .wnaf_skew = (op.z1 & 1) == 0,
+                        .precomputed_table = compute_precomputed_table(op.base_point),
+                    });
+                    mul_index++;
+                }
+                if (op.z2 != 0) {
+                    ASSERT(msms_test.size() > msm_index);
+                    ASSERT(msms_test[msm_index].size() > mul_index);
+                    auto endo_point = AffineElement{ op.base_point.x * FF::cube_root_of_unity(), -op.base_point.y };
+                    msms_test[msm_index][mul_index] = (ScalarMul{
+                        .pc = 0,
+                        .scalar = op.z2,
+                        .base_point = endo_point,
+                        .wnaf_slices = compute_wnaf_slices(op.z2),
+                        .wnaf_skew = (op.z2 & 1) == 0,
+                        .precomputed_table = compute_precomputed_table(endo_point),
+                    });
+                }
+            }
+        });
+
+        // update pc. easier to do this serially but in theory could be optimised out
         // We start pc at `num_muls` and decrement for each mul processed.
         // This gives us two desired properties:
         // 1: the value of pc at the 1st row = number of muls (easy to check)
@@ -122,40 +197,15 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         // sumcheck relations that involve pc (if we did the other way around, starting at 1 and ending at num_muls,
         // we create a discontinuity in pc values between the last transcript row and the following empty row)
         uint32_t pc = num_muls;
-
-        const auto process_mul = [&active_msm, &pc, &compute_wnaf_slices, &compute_precomputed_table](
-                                     const auto& scalar, const auto& base_point) {
-            if (scalar != 0) {
-                active_msm.push_back(ScalarMul{
-                    .pc = pc,
-                    .scalar = scalar,
-                    .base_point = base_point,
-                    .wnaf_slices = compute_wnaf_slices(scalar),
-                    .wnaf_skew = (scalar & 1) == 0,
-                    .precomputed_table = compute_precomputed_table(base_point),
-                });
+        for (auto& msm : msms_test) {
+            for (auto& mul : msm) {
+                mul.pc = pc;
                 pc--;
             }
-        };
-
-        for (auto& op : op_queue->raw_ops) {
-            if (op.mul) {
-                process_mul(op.z1, op.base_point);
-                process_mul(op.z2, AffineElement{ op.base_point.x * FF::cube_root_of_unity(), -op.base_point.y });
-
-            } else {
-                if (!active_msm.empty()) {
-                    msms.push_back(active_msm);
-                    active_msm = {};
-                }
-            }
-        }
-        if (!active_msm.empty()) {
-            msms.push_back(active_msm);
         }
 
         ASSERT(pc == 0);
-        return msms;
+        return msms_test;
     }
 
     static std::vector<ScalarMul> get_flattened_scalar_muls(const std::vector<MSM>& msms)
