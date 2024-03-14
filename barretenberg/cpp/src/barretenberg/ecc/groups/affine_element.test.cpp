@@ -122,6 +122,23 @@ template <typename G1> class TestAffineElement : public testing::Test {
         auto [actual_pif, expected_pif] = msgpack_roundtrip(point_at_infinity);
         EXPECT_EQ(actual_pif, expected_pif);
     }
+
+    /**
+     * @brief A regression test to make sure the -1 case is covered
+     *
+     */
+    static void test_batch_by_minus_one()
+    {
+        constexpr size_t num_points = 2;
+        std::vector<affine_element> affine_points(num_points, affine_element::one());
+
+        std::vector<affine_element> result =
+            element::batch_mul_with_endomorphism(affine_points, -affine_element::Fr::one());
+
+        for (size_t i = 0; i < num_points; i++) {
+            EXPECT_EQ(affine_points[i], -result[i]);
+        }
+    }
 };
 
 using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
@@ -232,16 +249,7 @@ TEST(AffineElement, InfinityBatchMulByScalarIsInfinity)
     EXPECT_THAT(result, Each(Property(&grumpkin::g1::affine_element::is_point_at_infinity, Eq(true))));
 }
 
-// A regression test to make sure the -1 case is covered
-TEST(AffineElement, BatchByMinusOne)
+TYPED_TEST(TestAffineElement, BatchByMinusOne)
 {
-    constexpr size_t num_points = 2;
-    std::vector<grumpkin::g1::affine_element> affine_points(num_points, grumpkin::g1::affine_element::one());
-
-    std::vector<grumpkin::g1::affine_element> result =
-        grumpkin::g1::element::batch_mul_with_endomorphism(affine_points, -grumpkin::fr::one());
-
-    for (size_t i = 0; i < num_points; i++) {
-        EXPECT_EQ(affine_points[i], -result[i]);
-    }
+    TestFixture::test_batch_by_minus_one();
 }
