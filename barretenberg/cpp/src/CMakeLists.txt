@@ -21,6 +21,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         message(STATUS "Compiling with memory checks.")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
     endif()
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
+        # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
+        add_compile_options(-Wno-vla-cxx-extension)
+    endif()
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
@@ -34,8 +38,6 @@ if(WASM)
     set(CMAKE_C_FLAGS_DEBUG "-O1 -g")
     set(CMAKE_CXX_FLAGS_RELEASE "-Oz -DNDEBUG")
     set(CMAKE_C_FLAGS_RELEASE "-Oz -DNDEBUG")
-    # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
-    add_compile_options(-Wno-vla-cxx-extension)
     add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
 endif()
 
