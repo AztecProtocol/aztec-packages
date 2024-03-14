@@ -1,10 +1,10 @@
-#include "barretenberg/translator_vm/goblin_translator_composer.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/translator_vm/goblin_translator_prover.hpp"
+#include "barretenberg/translator_vm/goblin_translator_verifier.hpp"
 
 #include <gtest/gtest.h>
 using namespace bb;
@@ -75,8 +75,7 @@ TEST_F(GoblinTranslatorComposerTests, Basic)
 
     auto verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
     verifier_transcript->template receive_from_prover<Fq>("init");
-    auto composer = GoblinTranslatorComposer();
-    auto verifier = composer.create_verifier(circuit_builder, verifier_transcript);
+    GoblinTranslatorVerifier verifier(circuit_builder, verifier_transcript);
     bool verified = verifier.verify_proof(proof);
     EXPECT_TRUE(verified);
 }

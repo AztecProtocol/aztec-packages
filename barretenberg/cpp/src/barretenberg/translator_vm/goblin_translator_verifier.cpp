@@ -6,11 +6,24 @@
 namespace bb {
 
 GoblinTranslatorVerifier::GoblinTranslatorVerifier(
-    const std::shared_ptr<typename Flavor::VerificationKey>& verifier_key,
+    const std::shared_ptr<GoblinTranslatorVerifier::VerificationKey>& verifier_key,
     const std::shared_ptr<Transcript>& transcript)
     : key(verifier_key)
     , transcript(transcript)
 {}
+
+GoblinTranslatorVerifier::GoblinTranslatorVerifier(const CircuitBuilder& circuit_builder,
+                                                   const std::shared_ptr<Transcript>& transcript)
+    : transcript(transcript)
+{
+    auto verification_key = compute_verification_key(circuit_builder);
+
+    // auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>();
+    // output_state.pcs_verification_key = std::move(pcs_verification_key);
+    // output_state.transcript = transcript;
+
+    GoblinTranslatorVerifier output_state(verification_key);
+}
 
 GoblinTranslatorVerifier::GoblinTranslatorVerifier(GoblinTranslatorVerifier&& other) noexcept
     : key(std::move(other.key))
@@ -306,6 +319,33 @@ bool GoblinTranslatorVerifier::verify_translation(const TranslationEvaluations& 
     bool is_value_reconstructed =
         reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
     return is_value_reconstructed;
+}
+
+/**
+ * Compute verification key consisting of non-changing polynomials' precommitments.
+ *
+ * @return Pointer to created circuit verification key.
+ * */
+std::shared_ptr<GoblinTranslatorVerifier::VerificationKey> GoblinTranslatorVerifier::compute_verification_key(
+    [[maybe_unused]] const CircuitBuilder& circuit_builder)
+{
+
+    // auto verification_key = std::make_shared<VerificationKey>(proving_key->circuit_size,
+    // proving_key->num_public_inputs);
+
+    // verification_key->lagrange_first = commitment_key->commit(proving_key->lagrange_first);
+    // verification_key->lagrange_last = commitment_key->commit(proving_key->lagrange_last);
+    // verification_key->lagrange_odd_in_minicircuit = commitment_key->commit(proving_key->lagrange_odd_in_minicircuit);
+    // verification_key->lagrange_even_in_minicircuit =
+    // commitment_key->commit(proving_key->lagrange_even_in_minicircuit); verification_key->lagrange_second =
+    // commitment_key->commit(proving_key->lagrange_second); verification_key->lagrange_second_to_last_in_minicircuit =
+    //     commitment_key->commit(proving_key->lagrange_second_to_last_in_minicircuit);
+    // verification_key->ordered_extra_range_constraints_numerator =
+    //     commitment_key->commit(proving_key->ordered_extra_range_constraints_numerator);
+
+    // return verification_key;
+
+    return nullptr;
 }
 
 } // namespace bb

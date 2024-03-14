@@ -7,6 +7,7 @@ namespace bb {
 class GoblinTranslatorVerifier {
   public:
     using Flavor = GoblinTranslatorFlavor;
+    using CircuitBuilder = typename Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using Commitment = typename Flavor::Commitment;
@@ -26,11 +27,17 @@ class GoblinTranslatorVerifier {
 
     GoblinTranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key = nullptr,
                              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
+    GoblinTranslatorVerifier(const CircuitBuilder& circuit_builder,
+                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
     GoblinTranslatorVerifier(GoblinTranslatorVerifier&& other) noexcept;
     GoblinTranslatorVerifier(const GoblinTranslatorVerifier& other) = delete;
     GoblinTranslatorVerifier& operator=(const GoblinTranslatorVerifier& other) = delete;
     GoblinTranslatorVerifier& operator=(GoblinTranslatorVerifier&& other) noexcept;
     ~GoblinTranslatorVerifier() = default;
+
+    std::shared_ptr<VerificationKey> compute_verification_key(const CircuitBuilder& circuit_builder);
 
     void put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                      const BF& batching_challenge_v,
