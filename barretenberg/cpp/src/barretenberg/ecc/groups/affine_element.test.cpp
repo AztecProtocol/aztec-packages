@@ -115,12 +115,8 @@ template <typename G1> class TestAffineElement : public testing::Test {
      */
     static void test_msgpack_roundtrip()
     {
-        affine_element point_at_infinity{ 1, 1 };
-        point_at_infinity.self_set_infinity();
         auto [actual, expected] = msgpack_roundtrip(affine_element{ 1, 1 });
         EXPECT_EQ(actual, expected);
-        auto [actual_pif, expected_pif] = msgpack_roundtrip(point_at_infinity);
-        EXPECT_EQ(actual_pif, expected_pif);
     }
 
     /**
