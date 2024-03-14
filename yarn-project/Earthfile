@@ -80,13 +80,17 @@ end-to-end:
             && yarn cache clean
     ELSE
         ENV YARN_CACHE_FOLDER /build/yarn-cache
+        # TODO dedupe
         # Use a mount for incremental builds locally.
-        RUN --mount type=cache,target=/build/node_modules_cache --mount type=cache,target=/build/yarn-cache \
-            mkdir -p node_modules_cache && mv node_modules_cache node_modules && \
+        # We cache NPM installs, typescript metadata and dest folders.
+        # TODO(AD): find saffe way to cache noir contracts
+        RUN --mount type=cache,target=/build/node_cache --mount type=cache,target=/build/yarn-cache \
+            mkdir -p node_cache/node_modules && mv node_cache/node_modules . && cp -r node_cache/* . || true && \
             ./bootstrap.sh && \
             yarn workspace @aztec/end-to-end run build:web && \
             yarn workspaces focus @aztec/end-to-end --production && \
-            cp -r node_modules node_modules_cache
+            cp -r node_modules node_cache/install && \
+            find . -name '*.tsbuildinfo' -exec cp --parents {} node_cache/ts/ \;
     END
     SAVE ARTIFACT /build
 
@@ -101,7 +105,7 @@ end-to-end-minimal:
     FROM node:18.19.1-slim
     RUN apt-get update && apt-get install jq chromium -y
     ENV CHROME_BIN="/usr/bin/chromium"
-    COPY +end-to-end-image/build /build
+    COPY +end-to-end/build /build
     WORKDIR /build/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
     SAVE IMAGE aztecprotocol/cache:end-to-end

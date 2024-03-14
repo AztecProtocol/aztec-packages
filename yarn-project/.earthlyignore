@@ -3,6 +3,7 @@
 **/Earthfile
 **/Readme.md
 **/Dockerfile*
+**/docker-compose*.yml
 
 # .gitignore contents:
 **/dest
