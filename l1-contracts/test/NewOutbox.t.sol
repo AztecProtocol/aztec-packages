@@ -18,7 +18,7 @@ contract NewOutboxTest is Test {
   address internal constant NOT_ROLLUP_CONTRACT = address(0x69);
   address internal constant NOT_RECIPIENT = address(0x420);
   uint256 internal constant DEFAULT_TREE_HEIGHT = 2;
-  uint256 internal constant AZTEC_VERSION = 0;
+  uint256 internal constant AZTEC_VERSION = 1;
 
   NewOutbox internal outbox;
   NaiveMerkle internal zeroedTree;
