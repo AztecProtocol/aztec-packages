@@ -45,7 +45,7 @@ It is faster to debug CI failures within a persistent ssh session compared to pu
 
 ```bash
 cd project
-./build-system/scripts/setup_env "$(git rev-parse HEAD)" "" "" ""
+./build-system/scripts/setup_env "$(git rev-parse HEAD)" "" https://github.com/AztecProtocol/aztec-packages
 source /tmp/.bash_env*
 set +euo
 {start testing your CI commands here}
@@ -82,7 +82,7 @@ Recovering if the sync is not happening with basic pull commands:
 ## Earthly
 
 Earthly is a reproducible build tool that aims to combine the functionality of Docker, Makefiles and BASH.
-All earthly targets should start with 'build', 'test', 'run', or 'bench' as a general rule (but not hard rule).
+Non-build earthly targets should start with 'test', 'run', or 'bench' as a general rule (but not hard rule) while builds can be nouns or start with build-.
 If something is a bundle of targets for CI, we can do e.g. build-ci, test-ci etc.
 See barretenberg/cpp/Earthfile for an example of a fairly involved Earthfile that can be used for inspiration.
 Earthly docs https://docs.earthly.dev/ are extensive and show the various build patterns. 

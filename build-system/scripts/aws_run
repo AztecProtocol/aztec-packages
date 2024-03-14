@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-# Run on a spot instance that we just requisitioned.
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-set -eu
-CORES=$1
-shift
-spot_run_script $CIRCLE_JOB $CIRCLE_JOB $CORES $(uname -m) $@

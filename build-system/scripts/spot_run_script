@@ -38,7 +38,6 @@ function on_exit {
     fi
 }
 trap on_exit EXIT
-trap on_exit SIGINT
 
 # Get spot instance.
 IP=$(retry request_spot $NAME $CPUS $ARCH)

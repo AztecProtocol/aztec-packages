@@ -159,6 +159,5 @@
   "rust-analyzer.linkedProjects": [
     "noir/noir-repo/Cargo.toml",
     "avm-transpiler/Cargo.toml"
-  ],
-  "cmake.sourceDirectory": "/mnt/user-data/adam/aztec-packages/barretenberg/cpp"
+  ]
 }
