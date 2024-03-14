@@ -10,7 +10,6 @@ Initializers are regular functions that set an "initialized" flag (a nullifier) 
 
 ## Annotate with `#[aztec(private)]` and `#[aztec(initializer)]`
 
-Currently, all initializers in Aztec must be private.
 
 Define your initiaizer like so:
 
