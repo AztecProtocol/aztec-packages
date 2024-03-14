@@ -12,20 +12,6 @@ GoblinTranslatorVerifier::GoblinTranslatorVerifier(
     , transcript(transcript)
 {}
 
-GoblinTranslatorVerifier::GoblinTranslatorVerifier(GoblinTranslatorVerifier&& other) noexcept
-    : key(std::move(other.key))
-    , pcs_verification_key(std::move(other.pcs_verification_key))
-{}
-
-GoblinTranslatorVerifier& GoblinTranslatorVerifier::operator=(GoblinTranslatorVerifier&& other) noexcept
-{
-    key = std::move(other.key);
-    pcs_verification_key = (std::move(other.pcs_verification_key));
-    commitments.clear();
-    pcs_fr_elements.clear();
-    return *this;
-}
-
 void GoblinTranslatorVerifier::put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                                            const BF& batching_challenge_v,
                                                                            const uint256_t& accumulated_result)

@@ -18,21 +18,15 @@ class GoblinTranslatorVerifier {
 
     BF evaluation_input_x = 0;
     BF batching_challenge_v = 0;
+
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::map<std::string, FF> pcs_fr_elements;
-    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     std::shared_ptr<Transcript> transcript;
     RelationParameters<FF> relation_parameters;
 
     GoblinTranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key = nullptr,
                              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-
-    GoblinTranslatorVerifier(GoblinTranslatorVerifier&& other) noexcept;
-    GoblinTranslatorVerifier(const GoblinTranslatorVerifier& other) = delete;
-    GoblinTranslatorVerifier& operator=(const GoblinTranslatorVerifier& other) = delete;
-    GoblinTranslatorVerifier& operator=(GoblinTranslatorVerifier&& other) noexcept;
-    ~GoblinTranslatorVerifier() = default;
 
     void put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                      const BF& batching_challenge_v,
