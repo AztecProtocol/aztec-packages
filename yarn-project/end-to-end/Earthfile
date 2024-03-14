@@ -18,9 +18,8 @@ get-end-to-end:
     IF [ $use_end_to_end_image != false ]
       FROM aztecprotocol/cache:end-to-end
     ELSE
-      FROM ../+end-to-end
+      FROM ../+end-to-end-minimal
     END
-    RUN false
 
 E2E_TEST:
     FUNCTION
@@ -28,7 +27,7 @@ E2E_TEST:
     ARG compose_file=./scripts/docker-compose.yml
     # FROM earthly/dind:alpine-3.19-docker-25.0.2-r0 (TODO use docker-in-docker in prod?)
     LOCALLY
-    ENV TEST=src/$test
+    ENV TEST=$test
     ENV AVM_ENABLED=1
     WITH DOCKER \
       --load aztecprotocol/aztec:latest=+get-aztec \

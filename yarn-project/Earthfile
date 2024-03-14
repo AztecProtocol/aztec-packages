@@ -69,7 +69,7 @@ aztec:
     # Adding COMMIT_TAG here to rebuild versioned image.
     ARG COMMIT_TAG=""
 
-end-to-end-image:
+end-to-end:
     # compilation artifacts for end-to-end
     # TODO encapsulate in bash script for cleanliness
     ARG EARTHLY_CI
@@ -95,7 +95,7 @@ end-to-end-image:
     RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
     SAVE ARTIFACT /build
 
-end-to-end:
+end-to-end-minimal: 
     # end to end test runner
     BUILD +aztec
     FROM node:18.19.1-slim
@@ -103,4 +103,5 @@ end-to-end:
     ENV CHROME_BIN="/usr/bin/chromium"
     COPY +end-to-end-image/build /build
     WORKDIR /build/yarn-project/end-to-end
+    ENTRYPOINT ["yarn", "test"]
     SAVE IMAGE aztecprotocol/cache:end-to-end
