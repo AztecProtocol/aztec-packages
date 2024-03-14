@@ -54,7 +54,7 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           # bench runner, TODO hostname
-          echo DOCKER_HOST=ssh://ec2-18-116-100-45.us-east-2.compute.amazonaws.com >> $GITHUB_ENV
+          echo DOCKER_HOST=ssh://ec2-3-149-252-135.us-east-2.compute.amazonaws.com >> $GITHUB_ENV
           echo ${{ secrets.DOCKERHUB_PASSWORD}} | docker login -u aztecprotocolci --password-stdin
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 -d > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
