@@ -59,7 +59,7 @@ pub async fn execute_circuit_with_black_box_solver(
     // TODO(https://github.com/noir-lang/noir/issues/4428): These need to be updated to match the same interfaces
     // as the native ACVM executor. Right now native execution still only handles one circuit so I do not feel the need
     // to break the JS interface just yet.
-    circuit: Vec<u8>,
+    program: Vec<u8>,
     initial_witness: JsWitnessMap,
     foreign_call_handler: ForeignCallHandler,
 ) -> Result<JsWitnessMap, Error> {
