@@ -90,6 +90,20 @@ fn zeroed_is_none() {
     assert(a.is_none());
 }
 
+#[test]
+fn serde_default() {
+    let a = MaxBlockNumber::default();
+    let b = MaxBlockNumber::deserialize(a.serialize());
+    assert(b.is_none());
+}
+
+#[test]
+fn serde_some() {
+    let a = MaxBlockNumber::new(13);
+    let b = MaxBlockNumber::deserialize(a.serialize());
+    assert_eq(b.unwrap(), 13);
+}
+
 #[test(should_fail)]
 fn default_unwrap_panics() {
     let a = MaxBlockNumber::default();

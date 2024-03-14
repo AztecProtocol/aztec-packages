@@ -103,12 +103,13 @@ library Constants {
   uint256 internal constant HEADER_LENGTH = 25;
   uint256 internal constant L1_TO_L2_MESSAGE_LENGTH = 8;
   uint256 internal constant L2_TO_L1_MESSAGE_LENGTH = 2;
+  uint256 internal constant MAX_BLOCK_NUMBER_LENGTH = 2;
   uint256 internal constant NEW_CONTRACT_DATA_LENGTH = 3;
   uint256 internal constant NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 4;
   uint256 internal constant NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 5;
   uint256 internal constant PARTIAL_STATE_REFERENCE_LENGTH = 8;
-  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 224;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 219;
+  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 225;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 220;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 194;
   uint256 internal constant STATE_REFERENCE_LENGTH = 10;
   uint256 internal constant TX_CONTEXT_DATA_LENGTH = 11;

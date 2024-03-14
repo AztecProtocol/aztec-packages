@@ -29,6 +29,7 @@ export * from './kernel/public_kernel_data.js';
 export * from './kernel/rollup_kernel_circuit_public_inputs.js';
 export * from './kernel/rollup_kernel_data.js';
 export * from './l2_to_l1_message.js';
+export * from './max_block_number.js';
 export * from './membership_witness.js';
 export * from './nullifier_key_validation_request.js';
 export * from './partial_state_reference.js';

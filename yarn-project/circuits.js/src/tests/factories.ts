@@ -65,6 +65,7 @@ import {
   MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
   MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MaxBlockNumber,
   MembershipWitness,
   MergeRollupInputs,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
@@ -262,7 +263,7 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new CombinedAccumulatedData(
-    new Fr(seed + 0x31415), // max block number
+    new MaxBlockNumber(true, new Fr(seed + 0x31415)),
     tupleGenerator(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, sideEffectFromNumber, seed + 0x80),
     tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_TX, readRequestContextFromNumber, seed + 0x90),
     tupleGenerator(
@@ -347,7 +348,7 @@ export function makeAccumulatedNonRevertibleData(seed = 1, full = false): Privat
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new PrivateAccumulatedNonRevertibleData(
-    new Fr(seed + 0x31415), // max block number
+    new MaxBlockNumber(true, new Fr(seed + 0x31415)),
     tupleGenerator(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x101),
     tupleGenerator(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x201),
     tupleGenerator(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x501),
@@ -358,7 +359,7 @@ export function makeCombinedAccumulatedNonRevertibleData(seed = 1, full = false)
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new PublicAccumulatedNonRevertibleData(
-    new Fr(seed + 0x31415), // max block number
+    new MaxBlockNumber(true, new Fr(seed + 0x31415)),
     tupleGenerator(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x101),
     tupleGenerator(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x201),
     tupleGenerator(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x501),
@@ -850,7 +851,7 @@ export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
  */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
-    maxBlockNumber: new Fr(seed + 0x31415),
+    maxBlockNumber: new MaxBlockNumber(true, new Fr(seed + 0x31415)),
     callContext: new CallContext(
       makeAztecAddress(seed + 1),
       makeAztecAddress(seed + 2),
