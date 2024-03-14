@@ -20,6 +20,7 @@ impl BrilligContext {
         result: SingleAddrVariable,
         operation: BrilligBinaryOp,
     ) {
+        self.debug_show.binary_instruction(lhs.address, rhs.address, result.address, operation);
         assert!(
             lhs.bit_size == rhs.bit_size,
             "Not equal bit size for lhs and rhs: lhs {}, rhs {}",
@@ -35,7 +36,6 @@ impl BrilligContext {
             result.bit_size,
             operation
         );
-        self.debug_show.binary_instruction(lhs.address, rhs.address, result.address, operation);
         match operation {
             BrilligBinaryOp::Field(op) => {
                 let opcode = BrilligOpcode::BinaryFieldOp {
@@ -62,6 +62,77 @@ impl BrilligContext {
         }
     }
 
+    /// Processes a not instruction.
+    ///
+    /// Not is computed using a subtraction operation as there is no native not instruction
+    /// in Brillig.
+    pub(crate) fn not_instruction(
+        &mut self,
+        input: SingleAddrVariable,
+        result: SingleAddrVariable,
+    ) {
+        self.debug_show.not_instruction(input.address, input.bit_size, result.address);
+        // Compile !x as ((-1) - x)
+        let u_max = FieldElement::from(2_i128).pow(&FieldElement::from(input.bit_size as i128))
+            - FieldElement::one();
+        let max = self.make_constant(Value::from(u_max), input.bit_size);
+
+        self.push_opcode(BrilligOpcode::BinaryIntOp {
+            destination: result.address,
+            op: BinaryIntOp::Sub,
+            bit_size: input.bit_size,
+            lhs: max.address,
+            rhs: input.address,
+        });
+        self.deallocate_single_addr(max);
+    }
+
+    /// Utility method to perform a binary instruction with a constant value in place
+    pub(crate) fn usize_op_in_place_instruction(
+        &mut self,
+        destination: MemoryAddress,
+        op: BinaryIntOp,
+        constant: usize,
+    ) {
+        self.usize_op_instruction(destination, destination, op, constant);
+    }
+
+    /// Utility method to perform a binary instruction with a constant value
+    pub(crate) fn usize_op_instruction(
+        &mut self,
+        operand: MemoryAddress,
+        destination: MemoryAddress,
+        op: BinaryIntOp,
+        constant: usize,
+    ) {
+        let const_register = self.make_usize_constant_instruction(Value::from(constant));
+        self.memory_op_instruction(operand, const_register.address, destination, op);
+        // Mark as no longer used for this purpose, frees for reuse
+        self.deallocate_single_addr(const_register);
+    }
+
+    /// Utility method to perform a binary instruction with a memory address
+    pub(crate) fn memory_op_instruction(
+        &mut self,
+        lhs: MemoryAddress,
+        rhs: MemoryAddress,
+        destination: MemoryAddress,
+        op: BinaryIntOp,
+    ) {
+        self.binary_instruction(
+            SingleAddrVariable::new_usize(lhs),
+            SingleAddrVariable::new_usize(rhs),
+            SingleAddrVariable::new(
+                destination,
+                BrilligContext::binary_result_bit_size(
+                    BrilligBinaryOp::Integer(op),
+                    BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
+                ),
+            ),
+            BrilligBinaryOp::Integer(op),
+        );
+    }
+
     /// Computes left % right by emitting the necessary Brillig opcodes.
     ///
     /// This is done by using the following formula:
@@ -71,7 +142,7 @@ impl BrilligContext {
     /// Brillig does not have an explicit modulo operation,
     /// so we must emit multiple opcodes and process it differently
     /// to other binary instructions.
-    pub(super) fn modulo(
+    fn modulo(
         &mut self,
         result: SingleAddrVariable,
         left: SingleAddrVariable,
@@ -122,31 +193,6 @@ impl BrilligContext {
         self.deallocate_register(scratch_register_j);
     }
 
-    /// Processes a not instruction.
-    ///
-    /// Not is computed using a subtraction operation as there is no native not instruction
-    /// in Brillig.
-    pub(crate) fn not_instruction(
-        &mut self,
-        input: SingleAddrVariable,
-        result: SingleAddrVariable,
-    ) {
-        self.debug_show.not_instruction(input.address, input.bit_size, result.address);
-        // Compile !x as ((-1) - x)
-        let u_max = FieldElement::from(2_i128).pow(&FieldElement::from(input.bit_size as i128))
-            - FieldElement::one();
-        let max = self.make_constant_instruction(Value::from(u_max), input.bit_size);
-
-        self.push_opcode(BrilligOpcode::BinaryIntOp {
-            destination: result.address,
-            op: BinaryIntOp::Sub,
-            bit_size: input.bit_size,
-            lhs: max.address,
-            rhs: input.address,
-        });
-        self.deallocate_single_addr(max);
-    }
-
     fn binary_result_bit_size(operation: BrilligBinaryOp, arguments_bit_size: u32) -> u32 {
         match operation {
             BrilligBinaryOp::Field(BinaryFieldOp::Equals)
@@ -155,51 +201,5 @@ impl BrilligContext {
             | BrilligBinaryOp::Integer(BinaryIntOp::LessThanEquals) => 1,
             _ => arguments_bit_size,
         }
-    }
-
-    /// Utility method to perform a binary instruction with a constant value in place
-    pub(crate) fn usize_op_in_place(
-        &mut self,
-        destination: MemoryAddress,
-        op: BinaryIntOp,
-        constant: usize,
-    ) {
-        self.usize_op(destination, destination, op, constant);
-    }
-
-    /// Utility method to perform a binary instruction with a constant value
-    pub(crate) fn usize_op(
-        &mut self,
-        operand: MemoryAddress,
-        destination: MemoryAddress,
-        op: BinaryIntOp,
-        constant: usize,
-    ) {
-        let const_register = self.make_usize_constant_instruction(Value::from(constant));
-        self.memory_op(operand, const_register.address, destination, op);
-        // Mark as no longer used for this purpose, frees for reuse
-        self.deallocate_single_addr(const_register);
-    }
-
-    /// Utility method to perform a binary instruction with a memory address
-    pub(crate) fn memory_op(
-        &mut self,
-        lhs: MemoryAddress,
-        rhs: MemoryAddress,
-        destination: MemoryAddress,
-        op: BinaryIntOp,
-    ) {
-        self.binary_instruction(
-            SingleAddrVariable::new_usize(lhs),
-            SingleAddrVariable::new_usize(rhs),
-            SingleAddrVariable::new(
-                destination,
-                BrilligContext::binary_result_bit_size(
-                    BrilligBinaryOp::Integer(op),
-                    BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
-                ),
-            ),
-            BrilligBinaryOp::Integer(op),
-        );
     }
 }

@@ -155,7 +155,7 @@ impl<'block> BrilligBlock<'block> {
                         return_variable.extract_registers()
                     })
                     .collect();
-                self.brillig_context.return_instruction(&return_registers);
+                self.brillig_context.codegen_return(&return_registers);
             }
         }
     }
@@ -376,14 +376,14 @@ impl<'block> BrilligBlock<'block> {
                         if let ValueOrArray::HeapVector(HeapVector { size, .. }) = output_register {
                             // Update the stack pointer so that we do not overwrite
                             // dynamic memory returned from other external calls
-                            self.brillig_context.update_stack_pointer(*size);
+                            self.brillig_context.increase_free_memory_pointer_instruction(*size);
 
                             // Update the dynamic slice length maintained in SSA
                             if let ValueOrArray::MemoryAddress(len_index) = output_registers[i - 1]
                             {
                                 let element_size = dfg[result_ids[i]].get_type().element_size();
                                 self.brillig_context.mov_instruction(len_index, *size);
-                                self.brillig_context.usize_op_in_place(
+                                self.brillig_context.usize_op_in_place_instruction(
                                     len_index,
                                     BinaryIntOp::UnsignedDiv,
                                     element_size,
@@ -497,7 +497,7 @@ impl<'block> BrilligBlock<'block> {
                     // Update the user-facing slice length
                     self.brillig_context.mov_instruction(target_len.address, limb_count.address);
 
-                    self.brillig_context.radix_instruction(
+                    self.brillig_context.codegen_to_radix(
                         source,
                         target_vector,
                         radix,
@@ -537,7 +537,7 @@ impl<'block> BrilligBlock<'block> {
                     // Update the user-facing slice length
                     self.brillig_context.mov_instruction(target_len.address, limb_count.address);
 
-                    self.brillig_context.radix_instruction(
+                    self.brillig_context.codegen_to_radix(
                         source,
                         target_vector,
                         radix,
@@ -560,7 +560,7 @@ impl<'block> BrilligBlock<'block> {
                     dfg,
                 );
                 let source_register = self.convert_ssa_single_addr_value(*value, dfg);
-                self.brillig_context.truncate_instruction(
+                self.brillig_context.codegen_truncate(
                     destination_register,
                     source_register,
                     *bit_size,
@@ -663,7 +663,11 @@ impl<'block> BrilligBlock<'block> {
                     | BrilligVariable::BrilligVector(BrilligVector { rc, .. }) => rc,
                     _ => unreachable!("ICE: increment rc on non-array"),
                 };
-                self.brillig_context.usize_op_in_place(rc_register, BinaryIntOp::Add, 1);
+                self.brillig_context.usize_op_in_place_instruction(
+                    rc_register,
+                    BinaryIntOp::Add,
+                    1,
+                );
             }
             _ => todo!("ICE: Instruction not supported {instruction:?}"),
         };
@@ -703,7 +707,7 @@ impl<'block> BrilligBlock<'block> {
 
         let saved_registers = self
             .brillig_context
-            .pre_call_save_registers_prep_args(&argument_registers, &variables_to_save);
+            .codegen_pre_call_save_registers_prep_args(&argument_registers, &variables_to_save);
 
         // We don't save and restore constants, so we dump them before a external call since the callee might use the registers where they are allocated.
         self.variables.dump_constants();
@@ -737,7 +741,7 @@ impl<'block> BrilligBlock<'block> {
 
         // puts the returns into the returned_registers and restores saved_registers
         self.brillig_context
-            .post_call_prep_returns_load_registers(&returned_registers, &saved_registers);
+            .codegen_post_call_prep_returns_load_registers(&returned_registers, &saved_registers);
     }
 
     fn validate_array_index(
@@ -757,7 +761,7 @@ impl<'block> BrilligBlock<'block> {
 
         let condition = SingleAddrVariable::new(self.brillig_context.allocate_register(), 1);
 
-        self.brillig_context.memory_op(
+        self.brillig_context.memory_op_instruction(
             index_register.address,
             size_as_register.address,
             condition.address,
@@ -834,13 +838,13 @@ impl<'block> BrilligBlock<'block> {
         // Here we want to compare the reference count against 1.
         let one = self.brillig_context.make_usize_constant_instruction(1_usize.into());
         let condition = self.brillig_context.allocate_register();
-        self.brillig_context.memory_op(
+        self.brillig_context.memory_op_instruction(
             reference_count,
             one.address,
             condition,
             BinaryIntOp::Equals,
         );
-        self.brillig_context.branch_instruction(condition, |ctx, cond| {
+        self.brillig_context.codegen_branch(condition, |ctx, cond| {
             if cond {
                 // Reference count is 1, we can mutate the array directly
                 ctx.mov_instruction(destination_pointer, source_pointer);
@@ -1087,7 +1091,7 @@ impl<'block> BrilligBlock<'block> {
                 let converted_index =
                     self.brillig_context.make_usize_constant_instruction(element_size.into());
 
-                self.brillig_context.memory_op(
+                self.brillig_context.memory_op_instruction(
                     converted_index.address,
                     user_index.address,
                     converted_index.address,
@@ -1130,7 +1134,7 @@ impl<'block> BrilligBlock<'block> {
 
                 let converted_index =
                     self.brillig_context.make_usize_constant_instruction(element_size.into());
-                self.brillig_context.memory_op(
+                self.brillig_context.memory_op_instruction(
                     converted_index.address,
                     user_index.address,
                     converted_index.address,
@@ -1180,7 +1184,7 @@ impl<'block> BrilligBlock<'block> {
         let source_len_variable = self.convert_ssa_value(source_value, dfg);
         let source_len = source_len_variable.extract_single_addr();
 
-        self.brillig_context.usize_op(source_len.address, target_len, binary_op, 1);
+        self.brillig_context.usize_op_instruction(source_len.address, target_len, binary_op, 1);
     }
 
     /// Converts an SSA cast to a sequence of Brillig opcodes.
@@ -1274,7 +1278,7 @@ impl<'block> BrilligBlock<'block> {
                         is_right_zero,
                         BrilligBinaryOp::Integer(BinaryIntOp::Equals),
                     );
-                    self.brillig_context.if_not_instruction(is_right_zero.address, |ctx| {
+                    self.brillig_context.codegen_if_not(is_right_zero.address, |ctx| {
                         let condition = SingleAddrVariable::new(ctx.allocate_register(), 1);
                         let division = SingleAddrVariable::new(ctx.allocate_register(), bit_size);
                         // Check that result / rhs == lhs
@@ -1372,7 +1376,7 @@ impl<'block> BrilligBlock<'block> {
                         // Store the item in memory
                         self.store_variable_in_array(pointer, iterator_register, element_variable);
                         // Increment the iterator
-                        self.brillig_context.usize_op_in_place(
+                        self.brillig_context.usize_op_in_place_instruction(
                             iterator_register.address,
                             BinaryIntOp::Add,
                             1,
@@ -1453,7 +1457,7 @@ impl<'block> BrilligBlock<'block> {
                 // Set the pointer to the current stack frame
                 // The stack pointer will then be updated by the caller of this method
                 // once the external call is resolved and the array size is known
-                self.brillig_context.set_array_pointer(vector.pointer);
+                self.brillig_context.load_free_memory_pointer_instruction(vector.pointer);
                 self.brillig_context.usize_const_instruction(vector.rc, 1_usize.into());
 
                 variable
@@ -1482,7 +1486,7 @@ impl<'block> BrilligBlock<'block> {
                     .usize_const_instruction(result_register, (size / element_size).into());
             }
             BrilligVariable::BrilligVector(BrilligVector { size, .. }) => {
-                self.brillig_context.usize_op(
+                self.brillig_context.usize_op_instruction(
                     size,
                     result_register,
                     BinaryIntOp::UnsignedDiv,

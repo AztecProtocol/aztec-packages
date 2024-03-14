@@ -14,7 +14,7 @@ impl<'block> BrilligBlock<'block> {
         variables_to_insert: &[BrilligVariable],
     ) {
         // First we need to allocate the target vector incrementing the size by variables_to_insert.len()
-        self.brillig_context.usize_op(
+        self.brillig_context.usize_op_instruction(
             source_vector.size,
             target_vector.size,
             BinaryIntOp::Add,
@@ -33,7 +33,7 @@ impl<'block> BrilligBlock<'block> {
 
         for (index, variable) in variables_to_insert.iter().enumerate() {
             let target_index = self.brillig_context.make_usize_constant_instruction(index.into());
-            self.brillig_context.memory_op(
+            self.brillig_context.memory_op_instruction(
                 target_index.address,
                 source_vector.size,
                 target_index.address,
@@ -51,7 +51,7 @@ impl<'block> BrilligBlock<'block> {
         variables_to_insert: &[BrilligVariable],
     ) {
         // First we need to allocate the target vector incrementing the size by variables_to_insert.len()
-        self.brillig_context.usize_op(
+        self.brillig_context.usize_op_instruction(
             source_vector.size,
             target_vector.size,
             BinaryIntOp::Add,
@@ -63,7 +63,7 @@ impl<'block> BrilligBlock<'block> {
 
         // Now we offset the target pointer by variables_to_insert.len()
         let destination_copy_pointer = self.brillig_context.allocate_register();
-        self.brillig_context.usize_op(
+        self.brillig_context.usize_op_instruction(
             target_vector.pointer,
             destination_copy_pointer,
             BinaryIntOp::Add,
@@ -94,7 +94,7 @@ impl<'block> BrilligBlock<'block> {
         removed_items: &[BrilligVariable],
     ) {
         // First we need to allocate the target vector decrementing the size by removed_items.len()
-        self.brillig_context.usize_op(
+        self.brillig_context.usize_op_instruction(
             source_vector.size,
             target_vector.size,
             BinaryIntOp::Sub,
@@ -106,7 +106,7 @@ impl<'block> BrilligBlock<'block> {
 
         // Now we offset the source pointer by removed_items.len()
         let source_copy_pointer = self.brillig_context.allocate_register();
-        self.brillig_context.usize_op(
+        self.brillig_context.usize_op_instruction(
             source_vector.pointer,
             source_copy_pointer,
             BinaryIntOp::Add,
@@ -136,7 +136,7 @@ impl<'block> BrilligBlock<'block> {
         removed_items: &[BrilligVariable],
     ) {
         // First we need to allocate the target vector decrementing the size by removed_items.len()
-        self.brillig_context.usize_op(
+        self.brillig_context.usize_op_instruction(
             source_vector.size,
             target_vector.size,
             BinaryIntOp::Sub,
@@ -155,7 +155,7 @@ impl<'block> BrilligBlock<'block> {
 
         for (index, variable) in removed_items.iter().enumerate() {
             let target_index = self.brillig_context.make_usize_constant_instruction(index.into());
-            self.brillig_context.memory_op(
+            self.brillig_context.memory_op_instruction(
                 target_index.address,
                 target_vector.size,
                 target_index.address,
@@ -174,7 +174,7 @@ impl<'block> BrilligBlock<'block> {
         items: &[BrilligVariable],
     ) {
         // First we need to allocate the target vector incrementing the size by items.len()
-        self.brillig_context.usize_op(
+        self.brillig_context.usize_op_instruction(
             source_vector.size,
             target_vector.size,
             BinaryIntOp::Add,
@@ -193,7 +193,7 @@ impl<'block> BrilligBlock<'block> {
 
         // Compute the source pointer just at the index
         let source_pointer_at_index = self.brillig_context.allocate_register();
-        self.brillig_context.memory_op(
+        self.brillig_context.memory_op_instruction(
             source_vector.pointer,
             index.address,
             source_pointer_at_index,
@@ -202,13 +202,13 @@ impl<'block> BrilligBlock<'block> {
 
         // Compute the target pointer after the inserted elements
         let target_pointer_after_index = self.brillig_context.allocate_register();
-        self.brillig_context.memory_op(
+        self.brillig_context.memory_op_instruction(
             target_vector.pointer,
             index.address,
             target_pointer_after_index,
             BinaryIntOp::Add,
         );
-        self.brillig_context.usize_op_in_place(
+        self.brillig_context.usize_op_in_place_instruction(
             target_pointer_after_index,
             BinaryIntOp::Add,
             items.len(),
@@ -216,7 +216,7 @@ impl<'block> BrilligBlock<'block> {
 
         // Compute the number of elements to the right of the index
         let item_count = self.brillig_context.allocate_register();
-        self.brillig_context.memory_op(
+        self.brillig_context.memory_op_instruction(
             source_vector.size,
             index.address,
             item_count,
@@ -234,7 +234,7 @@ impl<'block> BrilligBlock<'block> {
         for (subitem_index, variable) in items.iter().enumerate() {
             let target_index =
                 self.brillig_context.make_usize_constant_instruction(subitem_index.into());
-            self.brillig_context.memory_op(
+            self.brillig_context.memory_op_instruction(
                 target_index.address,
                 index.address,
                 target_index.address,
@@ -257,7 +257,7 @@ impl<'block> BrilligBlock<'block> {
         removed_items: &[BrilligVariable],
     ) {
         // First we need to allocate the target vector decrementing the size by removed_items.len()
-        self.brillig_context.usize_op(
+        self.brillig_context.usize_op_instruction(
             source_vector.size,
             target_vector.size,
             BinaryIntOp::Sub,
@@ -276,13 +276,13 @@ impl<'block> BrilligBlock<'block> {
 
         // Compute the source pointer after the removed items
         let source_pointer_after_index = self.brillig_context.allocate_register();
-        self.brillig_context.memory_op(
+        self.brillig_context.memory_op_instruction(
             source_vector.pointer,
             index.address,
             source_pointer_after_index,
             BinaryIntOp::Add,
         );
-        self.brillig_context.usize_op_in_place(
+        self.brillig_context.usize_op_in_place_instruction(
             source_pointer_after_index,
             BinaryIntOp::Add,
             removed_items.len(),
@@ -290,7 +290,7 @@ impl<'block> BrilligBlock<'block> {
 
         // Compute the target pointer at the index
         let target_pointer_at_index = self.brillig_context.allocate_register();
-        self.brillig_context.memory_op(
+        self.brillig_context.memory_op_instruction(
             target_vector.pointer,
             index.address,
             target_pointer_at_index,
@@ -299,13 +299,17 @@ impl<'block> BrilligBlock<'block> {
 
         // Compute the number of elements to the right of the index
         let item_count = self.brillig_context.allocate_register();
-        self.brillig_context.memory_op(
+        self.brillig_context.memory_op_instruction(
             source_vector.size,
             index.address,
             item_count,
             BinaryIntOp::Sub,
         );
-        self.brillig_context.usize_op_in_place(item_count, BinaryIntOp::Sub, removed_items.len());
+        self.brillig_context.usize_op_in_place_instruction(
+            item_count,
+            BinaryIntOp::Sub,
+            removed_items.len(),
+        );
 
         // Copy the elements to the right of the index
         self.brillig_context.copy_array_instruction(
@@ -318,7 +322,7 @@ impl<'block> BrilligBlock<'block> {
         for (subitem_index, variable) in removed_items.iter().enumerate() {
             let target_index =
                 self.brillig_context.make_usize_constant_instruction(subitem_index.into());
-            self.brillig_context.memory_op(
+            self.brillig_context.memory_op_instruction(
                 target_index.address,
                 index.address,
                 target_index.address,
@@ -452,7 +456,7 @@ mod tests {
                 );
             }
 
-            context.return_instruction(&[target_vector.pointer, target_vector.rc]);
+            context.codegen_return(&[target_vector.pointer, target_vector.rc]);
 
             let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
             let (vm, return_data_offset, return_data_size) =
@@ -549,7 +553,7 @@ mod tests {
                 );
             }
 
-            context.return_instruction(&[
+            context.codegen_return(&[
                 target_vector.pointer,
                 target_vector.rc,
                 removed_item.address,
@@ -640,7 +644,7 @@ mod tests {
                 &[BrilligVariable::SingleAddr(item_to_insert)],
             );
 
-            context.return_instruction(&[target_vector.pointer, target_vector.rc]);
+            context.codegen_return(&[target_vector.pointer, target_vector.rc]);
             let calldata = array.into_iter().chain(vec![item]).chain(vec![index]).collect();
 
             let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
@@ -765,7 +769,7 @@ mod tests {
                 &[BrilligVariable::SingleAddr(removed_item)],
             );
 
-            context.return_instruction(&[
+            context.codegen_return(&[
                 target_vector.pointer,
                 target_vector.size,
                 removed_item.address,

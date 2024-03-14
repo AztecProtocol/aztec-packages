@@ -254,9 +254,9 @@ pub(crate) mod tests {
             &[HeapValueType::Vector { value_types: vec![HeapValueType::Simple] }],
         );
         // push stack frame by r_returned_size
-        context.memory_op(r_stack, r_output_size, r_stack, BinaryIntOp::Add);
+        context.memory_op_instruction(r_stack, r_output_size, r_stack, BinaryIntOp::Add);
         // check r_input_size == r_output_size
-        context.memory_op(r_input_size, r_output_size, r_equality, BinaryIntOp::Equals);
+        context.memory_op_instruction(r_input_size, r_output_size, r_equality, BinaryIntOp::Equals);
         // We push a JumpIf and Trap opcode directly as the constrain instruction
         // uses unresolved jumps which requires a block to be constructed in SSA and
         // we don't need this for Brillig IR tests

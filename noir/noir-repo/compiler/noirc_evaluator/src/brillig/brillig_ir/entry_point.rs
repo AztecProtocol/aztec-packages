@@ -218,7 +218,7 @@ impl BrilligContext {
                         ) => {
                             let nested_array_pointer = self.allocate_register();
                             self.mov_instruction(nested_array_pointer, flattened_array_pointer);
-                            self.memory_op(
+                            self.memory_op_instruction(
                                 nested_array_pointer,
                                 source_index.address,
                                 nested_array_pointer,
@@ -415,7 +415,7 @@ impl BrilligContext {
                                 flattened_array_pointer,
                             );
 
-                            self.memory_op(
+                            self.memory_op_instruction(
                                 flattened_nested_array_pointer,
                                 target_index.address,
                                 flattened_nested_array_pointer,
@@ -499,7 +499,7 @@ mod tests {
         context.load_instruction(array_pointer, array_pointer);
         context.load_instruction(array_value, array_pointer);
 
-        context.return_instruction(&[array_value]);
+        context.codegen_return(&[array_value]);
 
         let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
         let (vm, return_data_offset, return_data_size) =
@@ -537,7 +537,7 @@ mod tests {
             rc: context.allocate_register(),
         };
 
-        context.return_instruction(&brillig_array.extract_registers());
+        context.codegen_return(&brillig_array.extract_registers());
 
         let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
         let (vm, return_data_pointer, return_data_size) =

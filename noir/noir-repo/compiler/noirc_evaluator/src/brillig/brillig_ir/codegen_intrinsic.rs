@@ -11,27 +11,19 @@ use super::{
 };
 
 impl BrilligContext {
-    /// Emits a truncate instruction.
-    ///
-    /// Note: Truncation is used as an optimization in the SSA IR
-    /// for the ACIR generation pass; ACIR gen does not overflow
-    /// on every integer operation since it would be in-efficient.
-    /// Instead truncation instructions are emitted as to when a
-    /// truncation should be done.
-    /// For Brillig, all integer operations will overflow as its cheap.
-    /// We currently use cast to truncate: we cast to the required bit size
-    /// and back to the original bit size.
-    pub(crate) fn truncate_instruction(
+    /// Issues a blackbox operation.
+    pub(crate) fn black_box_op_instruction(&mut self, op: BlackBoxOp) {
+        self.debug_show.black_box_op_instruction(&op);
+        self.push_opcode(BrilligOpcode::BlackBox(op));
+    }
+
+    /// Codegens a truncation of a value to the given bit size
+    pub(crate) fn codegen_truncate(
         &mut self,
         destination_of_truncated_value: SingleAddrVariable,
         value_to_truncate: SingleAddrVariable,
         bit_size: u32,
     ) {
-        self.debug_show.truncate_instruction(
-            destination_of_truncated_value.address,
-            value_to_truncate.address,
-            bit_size,
-        );
         assert!(
             bit_size <= value_to_truncate.bit_size,
             "tried to truncate to a bit size {} greater than the variable size {}",
@@ -47,15 +39,9 @@ impl BrilligContext {
         self.deallocate_register(intermediate_register.address);
     }
 
-    /// Issues a blackbox operation.
-    pub(crate) fn black_box_op_instruction(&mut self, op: BlackBoxOp) {
-        self.debug_show.black_box_op_instruction(&op);
-        self.push_opcode(BrilligOpcode::BlackBox(op));
-    }
-
     /// Issues a to_radix instruction. This instruction will write the modulus of the source register
     /// And the radix register limb_count times to the target vector.
-    pub(crate) fn radix_instruction(
+    pub(crate) fn codegen_to_radix(
         &mut self,
         source_field: SingleAddrVariable,
         target_vector: BrilligVector,
@@ -81,9 +67,14 @@ impl BrilligContext {
         let modulus_field =
             SingleAddrVariable::new(self.allocate_register(), FieldElement::max_num_bits());
 
-        self.loop_instruction(target_vector.size, |ctx, iterator_register| {
+        self.codegen_loop(target_vector.size, |ctx, iterator_register| {
             // Compute the modulus
-            ctx.modulo(modulus_field, shifted_field, radix_as_field, false);
+            ctx.binary_instruction(
+                shifted_field,
+                radix_as_field,
+                modulus_field,
+                BrilligBinaryOp::Modulo { is_signed_integer: false },
+            );
             // Write it
             ctx.array_set(target_vector.pointer, iterator_register, modulus_field.address);
             // Integer div the field

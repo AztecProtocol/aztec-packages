@@ -8,6 +8,26 @@ use super::{
 };
 
 impl BrilligContext {
+    pub(crate) fn load_free_memory_pointer_instruction(&mut self, pointer_register: MemoryAddress) {
+        self.debug_show.mov_instruction(pointer_register, ReservedRegisters::stack_pointer());
+        self.push_opcode(BrilligOpcode::Mov {
+            destination: pointer_register,
+            source: ReservedRegisters::stack_pointer(),
+        });
+    }
+
+    pub(crate) fn increase_free_memory_pointer_instruction(
+        &mut self,
+        size_register: MemoryAddress,
+    ) {
+        self.memory_op_instruction(
+            ReservedRegisters::stack_pointer(),
+            size_register,
+            ReservedRegisters::stack_pointer(),
+            BinaryIntOp::Add,
+        );
+    }
+
     /// Allocates an array of size `size` and stores the pointer to the array
     /// in `pointer_register`
     pub(crate) fn allocate_fixed_length_array(
@@ -29,25 +49,8 @@ impl BrilligContext {
         size_register: MemoryAddress,
     ) {
         self.debug_show.allocate_array_instruction(pointer_register, size_register);
-        self.set_array_pointer(pointer_register);
-        self.update_stack_pointer(size_register);
-    }
-
-    pub(crate) fn set_array_pointer(&mut self, pointer_register: MemoryAddress) {
-        self.debug_show.mov_instruction(pointer_register, ReservedRegisters::stack_pointer());
-        self.push_opcode(BrilligOpcode::Mov {
-            destination: pointer_register,
-            source: ReservedRegisters::stack_pointer(),
-        });
-    }
-
-    pub(crate) fn update_stack_pointer(&mut self, size_register: MemoryAddress) {
-        self.memory_op(
-            ReservedRegisters::stack_pointer(),
-            size_register,
-            ReservedRegisters::stack_pointer(),
-            BinaryIntOp::Add,
-        );
+        self.load_free_memory_pointer_instruction(pointer_register);
+        self.increase_free_memory_pointer_instruction(size_register);
     }
 
     /// Allocates a variable in memory and stores the
@@ -64,7 +67,7 @@ impl BrilligContext {
             destination: pointer_register,
             source: ReservedRegisters::stack_pointer(),
         });
-        self.memory_op(
+        self.memory_op_instruction(
             ReservedRegisters::stack_pointer(),
             size_register.address,
             ReservedRegisters::stack_pointer(),
@@ -108,7 +111,12 @@ impl BrilligContext {
         self.debug_show.array_get(array_ptr, index.address, result);
         // Computes array_ptr + index, ie array[index]
         let index_of_element_in_memory = self.allocate_register();
-        self.memory_op(array_ptr, index.address, index_of_element_in_memory, BinaryIntOp::Add);
+        self.memory_op_instruction(
+            array_ptr,
+            index.address,
+            index_of_element_in_memory,
+            BinaryIntOp::Add,
+        );
         self.load_instruction(result, index_of_element_in_memory);
         // Free up temporary register
         self.deallocate_register(index_of_element_in_memory);
@@ -154,7 +162,7 @@ impl BrilligContext {
 
         let value_register = self.allocate_register();
 
-        self.loop_instruction(num_elements_variable.address, |ctx, iterator| {
+        self.codegen_loop(num_elements_variable.address, |ctx, iterator| {
             ctx.array_get(source_pointer, iterator, value_register);
             ctx.array_set(destination_pointer, iterator, value_register);
         });
@@ -177,7 +185,7 @@ impl BrilligContext {
 
                 let rc_pointer = self.allocate_register();
                 self.mov_instruction(rc_pointer, variable_pointer);
-                self.usize_op_in_place(rc_pointer, BinaryIntOp::Add, 1_usize);
+                self.usize_op_in_place_instruction(rc_pointer, BinaryIntOp::Add, 1_usize);
 
                 self.load_instruction(rc, rc_pointer);
                 self.deallocate_register(rc_pointer);
@@ -187,14 +195,14 @@ impl BrilligContext {
 
                 let size_pointer = self.allocate_register();
                 self.mov_instruction(size_pointer, variable_pointer);
-                self.usize_op_in_place(size_pointer, BinaryIntOp::Add, 1_usize);
+                self.usize_op_in_place_instruction(size_pointer, BinaryIntOp::Add, 1_usize);
 
                 self.load_instruction(size, size_pointer);
                 self.deallocate_register(size_pointer);
 
                 let rc_pointer = self.allocate_register();
                 self.mov_instruction(rc_pointer, variable_pointer);
-                self.usize_op_in_place(rc_pointer, BinaryIntOp::Add, 2_usize);
+                self.usize_op_in_place_instruction(rc_pointer, BinaryIntOp::Add, 2_usize);
 
                 self.load_instruction(rc, rc_pointer);
                 self.deallocate_register(rc_pointer);
@@ -227,7 +235,7 @@ impl BrilligContext {
 
                 let rc_pointer: MemoryAddress = self.allocate_register();
                 self.mov_instruction(rc_pointer, variable_pointer);
-                self.usize_op_in_place(rc_pointer, BinaryIntOp::Add, 1_usize);
+                self.usize_op_in_place_instruction(rc_pointer, BinaryIntOp::Add, 1_usize);
                 self.store_instruction(rc_pointer, rc);
                 self.deallocate_register(rc_pointer);
             }
@@ -236,12 +244,12 @@ impl BrilligContext {
 
                 let size_pointer = self.allocate_register();
                 self.mov_instruction(size_pointer, variable_pointer);
-                self.usize_op_in_place(size_pointer, BinaryIntOp::Add, 1_usize);
+                self.usize_op_in_place_instruction(size_pointer, BinaryIntOp::Add, 1_usize);
                 self.store_instruction(size_pointer, size);
 
                 let rc_pointer: MemoryAddress = self.allocate_register();
                 self.mov_instruction(rc_pointer, variable_pointer);
-                self.usize_op_in_place(rc_pointer, BinaryIntOp::Add, 2_usize);
+                self.usize_op_in_place_instruction(rc_pointer, BinaryIntOp::Add, 2_usize);
                 self.store_instruction(rc_pointer, rc);
 
                 self.deallocate_register(size_pointer);
@@ -253,20 +261,20 @@ impl BrilligContext {
     /// This instruction will reverse the order of the elements in a vector.
     pub(crate) fn reverse_vector_in_place_instruction(&mut self, vector: BrilligVector) {
         let iteration_count = self.allocate_register();
-        self.usize_op(vector.size, iteration_count, BinaryIntOp::UnsignedDiv, 2);
+        self.usize_op_instruction(vector.size, iteration_count, BinaryIntOp::UnsignedDiv, 2);
 
         let start_value_register = self.allocate_register();
         let index_at_end_of_array = self.allocate_register();
         let end_value_register = self.allocate_register();
 
-        self.loop_instruction(iteration_count, |ctx, iterator_register| {
+        self.codegen_loop(iteration_count, |ctx, iterator_register| {
             // Load both values
             ctx.array_get(vector.pointer, iterator_register, start_value_register);
 
             // The index at the end of array is size - 1 - iterator
             ctx.mov_instruction(index_at_end_of_array, vector.size);
-            ctx.usize_op_in_place(index_at_end_of_array, BinaryIntOp::Sub, 1);
-            ctx.memory_op(
+            ctx.usize_op_in_place_instruction(index_at_end_of_array, BinaryIntOp::Sub, 1);
+            ctx.memory_op_instruction(
                 index_at_end_of_array,
                 iterator_register.address,
                 index_at_end_of_array,
