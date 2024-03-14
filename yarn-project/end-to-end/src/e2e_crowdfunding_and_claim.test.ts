@@ -105,25 +105,17 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     crowdfundingPrivateKey = GrumpkinScalar.random();
     crowdfundingPublicKey = generatePublicKey(crowdfundingPrivateKey);
-    const salt = Fr.random();
 
-    const args = [donationToken.address, operatorWallet.getAddress(), deadline];
-    const deployInfo = getContractInstanceFromDeployParams(CrowdfundingContractArtifact, {
-      constructorArgs: args,
-      salt,
-      publicKey: crowdfundingPublicKey,
-    });
-    await pxe.registerAccount(crowdfundingPrivateKey, computePartialAddress(deployInfo));
-
-    crowdfundingContract = await CrowdfundingContract.deployWithPublicKey(
+    const crowdfundingDeployment = CrowdfundingContract.deployWithPublicKey(
       crowdfundingPublicKey,
       operatorWallet,
       donationToken.address,
       operatorWallet.getAddress(),
       deadline,
-    )
-      .send({ contractAddressSalt: salt })
-      .deployed();
+    );
+    const crowdfundingInstance = crowdfundingDeployment.getInstance();
+    await pxe.registerAccount(crowdfundingPrivateKey, computePartialAddress(crowdfundingInstance));
+    crowdfundingContract = await crowdfundingDeployment.send().deployed();
     logger(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
 
     claimContract = await ClaimContract.deploy(operatorWallet, crowdfundingContract.address, rewardToken.address)
