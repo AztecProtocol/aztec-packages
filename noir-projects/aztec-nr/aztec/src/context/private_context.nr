@@ -199,7 +199,7 @@ impl PrivateContext {
     }
 
     pub fn request_max_block_number(&mut self, max_block_number: u32) {
-        self.max_block_number = MaxBlockNumber::lower_unwrapped(self.max_block_number, max_block_number);
+        self.max_block_number = MaxBlockNumber::get_lower_with_u32(self.max_block_number, max_block_number);
     }
 
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {

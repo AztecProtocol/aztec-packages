@@ -181,7 +181,7 @@ pub fn update_end_values(
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
 
     // Update the max block number if the private call requested a lower one.
-    public_inputs.end.max_block_number = MaxBlockNumber::lower(public_inputs.end.max_block_number, private_call_public_inputs.max_block_number);
+    public_inputs.end.max_block_number = MaxBlockNumber::get_lower(public_inputs.end.max_block_number, private_call_public_inputs.max_block_number);
 
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)

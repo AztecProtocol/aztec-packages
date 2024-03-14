@@ -13,6 +13,7 @@ impl Default for MaxBlockNumber {
 impl Eq for MaxBlockNumber {
     fn eq(self, other: Self) -> bool {
         // Option does not impl Eq, so we do this manually for now
+        // TODO: replace with self._opt == other._opt once https://github.com/noir-lang/noir/pull/4549 is merged
         if self._opt.is_none() & other._opt.is_none() {
             true
         } else if self._opt.is_some() & other._opt.is_some() {
@@ -61,26 +62,15 @@ impl MaxBlockNumber {
         self._opt.unwrap_unchecked()
     }
 
-    pub fn lower(lhs: MaxBlockNumber, rhs: MaxBlockNumber) -> MaxBlockNumber {
-        if lhs._opt.is_none() {
-            rhs
-        } else if rhs._opt.is_none() {
-            lhs
+    pub fn get_lower(lhs: MaxBlockNumber, rhs: MaxBlockNumber) -> MaxBlockNumber {
+        if rhs.is_none() {
+            lhs // lhs might also be none, but in that case both would be
         } else {
-            let lhs_value = lhs._opt.unwrap_unchecked();
-            let rhs_value = rhs._opt.unwrap_unchecked();
-
-            MaxBlockNumber::new(
-                if lhs_value < rhs_value {
-                lhs_value
-            } else {
-                rhs_value
-            }
-            )
+            MaxBlockNumber::get_lower_with_u32(lhs, rhs.unwrap_unchecked())
         }
     }
 
-    pub fn lower_unwrapped(lhs: MaxBlockNumber, rhs: u32) -> MaxBlockNumber {
+    pub fn get_lower_with_u32(lhs: MaxBlockNumber, rhs: u32) -> MaxBlockNumber {
         if lhs._opt.is_none() {
             MaxBlockNumber::new(rhs)
         } else {
@@ -92,41 +82,95 @@ impl MaxBlockNumber {
 }
 
 #[test]
-fn max_block_number_zeroed_is_none() {
+fn zeroed_is_none() {
+    // Large parts of the kernel rely on zeroed to initialize structs. This conveniently matches what `default` does,
+    // and though we should eventually move everything to use `default`, it's good to check for now that both are
+    // equivalent.
     let a: MaxBlockNumber = dep::std::unsafe::zeroed();
     assert(a.is_none());
 }
 
+#[test(should_fail)]
+fn default_unwrap_panics() {
+    let a = MaxBlockNumber::default();
+    let _ = a.unwrap();
+}
+
 #[test]
-fn max_block_number_eq_none_none() {
+fn get_lower_default_default() {
+    let a = MaxBlockNumber::default();
+    let b = MaxBlockNumber::default();
+
+    assert(MaxBlockNumber::get_lower(a, b).is_none());
+}
+
+#[test]
+fn get_lower_default_some() {
+    let a = MaxBlockNumber::default();
+    let b = MaxBlockNumber::new(13);
+
+    assert_eq(MaxBlockNumber::get_lower(a, b).unwrap(), 13);
+    assert_eq(MaxBlockNumber::get_lower(b, a).unwrap(), 13);
+}
+
+#[test]
+fn get_lower_some_some() {
+    let a = MaxBlockNumber::new(13);
+    let b = MaxBlockNumber::new(42);
+
+    assert_eq(MaxBlockNumber::get_lower(a, b).unwrap(), 13);
+    assert_eq(MaxBlockNumber::get_lower(b, a).unwrap(), 13);
+}
+
+#[test]
+fn get_lower_with_u32_default() {
+    let a = MaxBlockNumber::default();
+    let b = 42;
+
+    assert_eq(MaxBlockNumber::get_lower_with_u32(a, b).unwrap(), 42);
+}
+
+#[test]
+fn get_lower_with_u32_some() {
+    let a = MaxBlockNumber::new(13);
+    let b = 42;
+    let c = 8;
+
+    assert_eq(MaxBlockNumber::get_lower_with_u32(a, b).unwrap(), 13);
+    assert_eq(MaxBlockNumber::get_lower_with_u32(a, c).unwrap(), 8);
+}
+
+// TODO: these are Option.Eq tests, remove once https://github.com/noir-lang/noir/pull/4549 is merged
+#[test]
+fn eq_none_none() {
     let a = MaxBlockNumber::default();
     let b = MaxBlockNumber::default();
     assert(a.eq(b));
 }
 
 #[test]
-fn max_block_number_eq_none_some() {
+fn eq_none_some() {
     let a = MaxBlockNumber::default();
     let b = MaxBlockNumber::new(42);
     assert(!a.eq(b));
 }
 
 #[test]
-fn max_block_number_eq_some_nome() {
+fn eq_some_nome() {
     let a = MaxBlockNumber::new(42);
     let b = MaxBlockNumber::default();
     assert(!a.eq(b));
 }
 
 #[test]
-fn max_block_number_eq_some_some_neq() {
+fn eq_some_some_neq() {
     let a = MaxBlockNumber::new(42);
     let b = MaxBlockNumber::new(13);
     assert(!a.eq(b));
 }
 
 #[test]
-fn max_block_number_eq_some_some_eq() {
+fn eq_some_some_eq() {
     let a = MaxBlockNumber::new(42);
     let b = MaxBlockNumber::new(42);
     assert(a.eq(b));
