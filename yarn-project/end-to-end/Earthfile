@@ -31,7 +31,7 @@ E2E_TEST:
     WITH DOCKER \
       --load aztecprotocol/aztec:latest=+get-aztec \
       --load aztecprotocol/end-to-end:latest=+get-end-to-end \
-      --load aztecprotocol/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916=../../foundry/+get
+      --load ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916=../../foundry/+get
         # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
         RUN docker-compose -f $compose_file up --exit-code-from=sandbox --abort-on-container-exit --force-recreate | grep -v eth_getLogs
     END
