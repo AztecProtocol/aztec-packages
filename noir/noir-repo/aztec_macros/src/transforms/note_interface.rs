@@ -45,7 +45,9 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             UnresolvedTypeData::Named(path, _, _) => path.last_segment().eq(&note_struct.name),
             _ => false,
         });
-        let note_impl = if existing_impl.is_none() {
+        let note_impl = if let Some(note_impl) = existing_impl {
+            note_impl
+        } else {
             let default_impl = TypeImpl {
                 object_type: trait_impl.object_type.clone(),
                 type_span: note_struct.name.span(),
@@ -54,8 +56,6 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             };
             module.impls.push(default_impl.clone());
             module.impls.last_mut().unwrap()
-        } else {
-            existing_impl.unwrap()
         };
         let note_type = note_struct.name.0.contents.to_string();
         let mut note_fields = vec![];
@@ -93,11 +93,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
         let note_interface_impl_span = trait_impl.object_type.span;
         if !check_trait_method_implemented(trait_impl, "serialize_content")
             && !check_trait_method_implemented(trait_impl, "deserialize_content")
-            && note_impl
-                .methods
-                .iter()
-                .find(|(func, _)| func.def.name.0.contents == "fields")
-                .is_none()
+            && note_impl.methods.iter().any(|(func, _)| func.def.name.0.contents == "fields")
         {
             let note_fields_struct =
                 generate_note_fields_struct(&note_type, &note_fields, note_interface_impl_span)?;
@@ -200,7 +196,7 @@ fn generate_note_set_header(
 }
 
 fn generate_note_get_type_id(
-    note_type: &String,
+    note_type: &str,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
     let note_id =
@@ -230,8 +226,8 @@ fn generate_note_get_type_id(
 }
 
 fn generate_note_fields_struct(
-    note_type: &String,
-    note_fields: &Vec<(String, String)>,
+    note_type: &str,
+    note_fields: &[(String, String)],
     impl_span: Option<Span>,
 ) -> Result<NoirStruct, AztecMacroError> {
     let struct_source = generate_note_fields_struct_source(note_type, note_fields);
@@ -249,8 +245,8 @@ fn generate_note_fields_struct(
 }
 
 fn generate_note_deserialize_content(
-    note_type: &String,
-    note_fields: &Vec<(String, String)>,
+    note_type: &str,
+    note_fields: &[(String, String)],
     note_serialize_len: &String,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
@@ -272,8 +268,8 @@ fn generate_note_deserialize_content(
 }
 
 fn generate_note_serialize_content(
-    note_type: &String,
-    note_fields: &Vec<(String, String)>,
+    note_type: &str,
+    note_fields: &[(String, String)],
     note_serialize_len: &String,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
@@ -295,8 +291,8 @@ fn generate_note_serialize_content(
 }
 
 fn generate_note_fields_fn(
-    note_type: &String,
-    note_fields: &Vec<(String, String)>,
+    note_type: &str,
+    note_fields: &[(String, String)],
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
     let function_source = generate_note_fields_fn_source(note_type, note_fields);
@@ -339,10 +335,7 @@ fn generate_compute_note_content_hash(
     Ok(noir_fn)
 }
 
-fn generate_note_fields_struct_source(
-    note_type: &String,
-    note_fields: &Vec<(String, String)>,
-) -> String {
+fn generate_note_fields_struct_source(note_type: &str, note_fields: &[(String, String)]) -> String {
     let note_field_selectors = note_fields
         .iter()
         .filter_map(|(field_name, _)| {
@@ -367,10 +360,7 @@ fn generate_note_fields_struct_source(
     .to_string()
 }
 
-fn generate_note_fields_fn_source(
-    note_type: &String,
-    note_fields: &Vec<(String, String)>,
-) -> String {
+fn generate_note_fields_fn_source(note_type: &str, note_fields: &[(String, String)]) -> String {
     let note_field_selectors = note_fields
         .iter()
         .enumerate()
@@ -400,8 +390,8 @@ fn generate_note_fields_fn_source(
 }
 
 fn generate_note_serialize_content_source(
-    note_type: &String,
-    note_fields: &Vec<(String, String)>,
+    note_type: &str,
+    note_fields: &[(String, String)],
     note_serialize_len: &String,
 ) -> String {
     let note_fields = note_fields
@@ -430,8 +420,8 @@ fn generate_note_serialize_content_source(
 }
 
 fn generate_note_deserialize_content_source(
-    note_type: &String,
-    note_fields: &Vec<(String, String)>,
+    note_type: &str,
+    note_fields: &[(String, String)],
     note_serialize_len: &String,
 ) -> String {
     let note_fields = note_fields
@@ -440,7 +430,7 @@ fn generate_note_deserialize_content_source(
         .map(|(index, (field_name, field_type))| {
             if field_name != "header" {
                 // TODO: Simplify this when https://github.com/noir-lang/noir/issues/4463 is fixed
-                if field_type.eq("Field") || Regex::new(r"u[0-9]+").unwrap().is_match(&field_type) {
+                if field_type.eq("Field") || Regex::new(r"u[0-9]+").unwrap().is_match(field_type) {
                     format!("{}: serialized_note[{}] as {},", field_name, index, field_type)
                 } else {
                     format!(

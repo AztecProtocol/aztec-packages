@@ -50,7 +50,7 @@ impl From<AztecMacroError> for MacroError {
                 span: None,
             },
             AztecMacroError::CouldNotImplementNoteSerialization { span, secondary_message } => MacroError {
-                primary_message: format!("Could not implement automatic methods for note, please provide an implementation of the NoteInterface trait"),
+                primary_message: "Could not implement automatic methods for note, please provide an implementation of the NoteInterface trait".to_string(),
                 secondary_message,
                 span,
             },
