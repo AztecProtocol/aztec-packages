@@ -1,12 +1,13 @@
 /// All AVM opcodes
 /// Keep updated with TS and yellow paper!
-#[derive(Copy, Clone)]
+#[derive(PartialEq, Copy, Clone)]
 pub enum AvmOpcode {
     // Compute
     ADD,
     SUB,
     MUL,
     DIV,
+    FDIV,
     EQ,
     LT,
     LTE,
@@ -82,6 +83,7 @@ impl AvmOpcode {
             AvmOpcode::SUB => "SUB",
             AvmOpcode::MUL => "MUL",
             AvmOpcode::DIV => "DIV",
+            AvmOpcode::FDIV => "FDIV",
             // Compute - Comparators
             AvmOpcode::EQ => "EQ",
             AvmOpcode::LT => "LT",
