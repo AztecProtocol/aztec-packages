@@ -532,7 +532,7 @@ impl<'block> BrilligBlock<'block> {
                         BrilligVariable::SingleAddr(..) => unreachable!("ICE: ToBits on non-array"),
                     };
 
-                    let radix = self.brillig_context.make_constant(2_usize.into(), 32);
+                    let radix = self.brillig_context.make_constant_instruction(2_usize.into(), 32);
 
                     // Update the user-facing slice length
                     self.brillig_context.mov_instruction(target_len.address, limb_count.address);
@@ -635,7 +635,7 @@ impl<'block> BrilligBlock<'block> {
 
                     // Create a field constant with the max
                     let max = BigUint::from(2_u128).pow(*max_bit_size) - BigUint::from(1_u128);
-                    let right = self.brillig_context.make_constant(
+                    let right = self.brillig_context.make_constant_instruction(
                         FieldElement::from_be_bytes_reduce(&max.to_bytes_be()).into(),
                         FieldElement::max_num_bits(),
                     );
@@ -747,7 +747,7 @@ impl<'block> BrilligBlock<'block> {
     ) {
         let (size_as_register, should_deallocate_size) = match array_variable {
             BrilligVariable::BrilligArray(BrilligArray { size, .. }) => {
-                (self.brillig_context.make_usize_constant(size.into()), true)
+                (self.brillig_context.make_usize_constant_instruction(size.into()), true)
             }
             BrilligVariable::BrilligVector(BrilligVector { size, .. }) => {
                 (SingleAddrVariable::new_usize(size), false)
@@ -820,7 +820,7 @@ impl<'block> BrilligBlock<'block> {
         let (source_pointer, source_size_as_register) = match source_variable {
             BrilligVariable::BrilligArray(BrilligArray { size, pointer, rc: _ }) => {
                 let source_size_register = self.brillig_context.allocate_register();
-                self.brillig_context.usize_const(source_size_register, size.into());
+                self.brillig_context.usize_const_instruction(source_size_register, size.into());
                 (pointer, source_size_register)
             }
             BrilligVariable::BrilligVector(BrilligVector { size, pointer, rc: _ }) => {
@@ -832,7 +832,7 @@ impl<'block> BrilligBlock<'block> {
         };
 
         // Here we want to compare the reference count against 1.
-        let one = self.brillig_context.make_usize_constant(1_usize.into());
+        let one = self.brillig_context.make_usize_constant_instruction(1_usize.into());
         let condition = self.brillig_context.allocate_register();
         self.brillig_context.memory_op(
             reference_count,
@@ -861,7 +861,7 @@ impl<'block> BrilligBlock<'block> {
 
         match destination_variable {
             BrilligVariable::BrilligArray(BrilligArray { rc: target_rc, .. }) => {
-                self.brillig_context.usize_const(target_rc, 1_usize.into());
+                self.brillig_context.usize_const_instruction(target_rc, 1_usize.into());
             }
             BrilligVariable::BrilligVector(BrilligVector {
                 size: target_size,
@@ -869,7 +869,7 @@ impl<'block> BrilligBlock<'block> {
                 ..
             }) => {
                 self.brillig_context.mov_instruction(target_size, source_size_as_register);
-                self.brillig_context.usize_const(target_rc, 1_usize.into());
+                self.brillig_context.usize_const_instruction(target_rc, 1_usize.into());
             }
             _ => unreachable!("ICE: array set on non-array"),
         }
@@ -1084,7 +1084,8 @@ impl<'block> BrilligBlock<'block> {
                 // https://github.com/noir-lang/noir/issues/1889#issuecomment-1668048587
                 let user_index = self.convert_ssa_single_addr_value(arguments[2], dfg);
 
-                let converted_index = self.brillig_context.make_usize_constant(element_size.into());
+                let converted_index =
+                    self.brillig_context.make_usize_constant_instruction(element_size.into());
 
                 self.brillig_context.memory_op(
                     converted_index.address,
@@ -1127,7 +1128,8 @@ impl<'block> BrilligBlock<'block> {
                 // https://github.com/noir-lang/noir/issues/1889#issuecomment-1668048587
                 let user_index = self.convert_ssa_single_addr_value(arguments[2], dfg);
 
-                let converted_index = self.brillig_context.make_usize_constant(element_size.into());
+                let converted_index =
+                    self.brillig_context.make_usize_constant_instruction(element_size.into());
                 self.brillig_context.memory_op(
                     converted_index.address,
                     user_index.address,
@@ -1264,7 +1266,8 @@ impl<'block> BrilligBlock<'block> {
                 if bit_size > 1 {
                     let is_right_zero =
                         SingleAddrVariable::new(self.brillig_context.allocate_register(), 1);
-                    let zero = self.brillig_context.make_constant(0_usize.into(), bit_size);
+                    let zero =
+                        self.brillig_context.make_constant_instruction(0_usize.into(), bit_size);
                     self.brillig_context.binary_instruction(
                         zero,
                         right,
@@ -1339,15 +1342,17 @@ impl<'block> BrilligBlock<'block> {
                         BrilligVariable::BrilligArray(brillig_array) => {
                             self.brillig_context
                                 .allocate_fixed_length_array(brillig_array.pointer, array.len());
-                            self.brillig_context.usize_const(brillig_array.rc, 1_usize.into());
+                            self.brillig_context
+                                .usize_const_instruction(brillig_array.rc, 1_usize.into());
 
                             brillig_array.pointer
                         }
                         BrilligVariable::BrilligVector(vector) => {
-                            self.brillig_context.usize_const(vector.size, array.len().into());
+                            self.brillig_context
+                                .usize_const_instruction(vector.size, array.len().into());
                             self.brillig_context
                                 .allocate_array_instruction(vector.pointer, vector.size);
-                            self.brillig_context.usize_const(vector.rc, 1_usize.into());
+                            self.brillig_context.usize_const_instruction(vector.rc, 1_usize.into());
 
                             vector.pointer
                         }
@@ -1360,7 +1365,7 @@ impl<'block> BrilligBlock<'block> {
 
                     // Allocate a register for the iterator
                     let iterator_register =
-                        self.brillig_context.make_usize_constant(0_usize.into());
+                        self.brillig_context.make_usize_constant_instruction(0_usize.into());
 
                     for element_id in array.iter() {
                         let element_variable = self.convert_ssa_value(*element_id, dfg);
@@ -1432,7 +1437,7 @@ impl<'block> BrilligBlock<'block> {
                 );
                 let array = variable.extract_array();
                 self.brillig_context.allocate_fixed_length_array(array.pointer, array.size);
-                self.brillig_context.usize_const(array.rc, 1_usize.into());
+                self.brillig_context.usize_const_instruction(array.rc, 1_usize.into());
 
                 variable
             }
@@ -1449,7 +1454,7 @@ impl<'block> BrilligBlock<'block> {
                 // The stack pointer will then be updated by the caller of this method
                 // once the external call is resolved and the array size is known
                 self.brillig_context.set_array_pointer(vector.pointer);
-                self.brillig_context.usize_const(vector.rc, 1_usize.into());
+                self.brillig_context.usize_const_instruction(vector.rc, 1_usize.into());
 
                 variable
             }
@@ -1473,7 +1478,8 @@ impl<'block> BrilligBlock<'block> {
 
         match array_variable {
             BrilligVariable::BrilligArray(BrilligArray { size, .. }) => {
-                self.brillig_context.usize_const(result_register, (size / element_size).into());
+                self.brillig_context
+                    .usize_const_instruction(result_register, (size / element_size).into());
             }
             BrilligVariable::BrilligVector(BrilligVector { size, .. }) => {
                 self.brillig_context.usize_op(
