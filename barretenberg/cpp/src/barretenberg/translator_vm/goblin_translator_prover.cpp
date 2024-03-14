@@ -68,7 +68,7 @@ GoblinTranslatorProver::GoblinTranslatorProver(CircuitBuilder& circuit_builder,
  * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/783) Optimize memory operations.
  * @return std::vector<Polynomial>
  * */
-std::vector<GoblinTranslatorProver::Polynomial> construct_wire_polynomials_base_goblin_translator(
+std::vector<GoblinTranslatorProver::Polynomial> construct_wire_polynomials(
     const GoblinTranslatorProver::CircuitBuilder& circuit_builder, const size_t dyadic_circuit_size)
 {
     const size_t num_gates = circuit_builder.num_gates;
@@ -101,7 +101,7 @@ void GoblinTranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
     }
 
     // Construct the conventional wire polynomials
-    auto wire_polynomials = construct_wire_polynomials_base_goblin_translator(circuit_builder, dyadic_circuit_size);
+    auto wire_polynomials = construct_wire_polynomials(circuit_builder, dyadic_circuit_size);
 
     // TODO(AD): figure out how to get this in a loop, why does NUM_WIRES=81? @kesha
     key->op = wire_polynomials[0];
