@@ -64,7 +64,7 @@ jobs:
 
       - name: Bench
         run: |
-          set -eux
+          set -euxo pipefail
           scripts/earthly ./barretenberg/cpp/+bench-ultra-honk | tee output.txt
           # Save output in environment for next steps
           echo "benchmark_output<<EOF" >> $GITHUB_ENV
