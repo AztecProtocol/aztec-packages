@@ -9,12 +9,12 @@ class AvmMemTraceBuilder {
 
   public:
     static const size_t MEM_SIZE = 1024;
-    static const uint32_t SUB_CLK_LOAD_A = 0;
-    static const uint32_t SUB_CLK_LOAD_B = 1;
-    static const uint32_t SUB_CLK_LOAD_C = 2;
-    static const uint32_t SUB_CLK_STORE_A = 3;
-    static const uint32_t SUB_CLK_STORE_B = 4;
-    static const uint32_t SUB_CLK_STORE_C = 5;
+    static const uint32_t SUB_CLK_LOAD_A = 3;
+    static const uint32_t SUB_CLK_LOAD_B = 4;
+    static const uint32_t SUB_CLK_LOAD_C = 5;
+    static const uint32_t SUB_CLK_STORE_A = 6;
+    static const uint32_t SUB_CLK_STORE_B = 7;
+    static const uint32_t SUB_CLK_STORE_C = 8;
 
     // Keeps track of the number of times a mem tag err should appear in the trace
     // clk -> count
