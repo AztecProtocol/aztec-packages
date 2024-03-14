@@ -9,7 +9,7 @@ use crate::{
     public_accumulated_revertible_data::PublicAccumulatedRevertibleData,
     public_accumulated_non_revertible_data::PublicAccumulatedNonRevertibleData
 },
-    call_request::CallRequest, new_contract_data::NewContractData,
+    call_request::CallRequest, new_contract_data::NewContractData, max_block_number::MaxBlockNumber,
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
     read_request::ReadRequestContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
@@ -34,7 +34,7 @@ use crate::traits::is_empty;
 use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
 struct CombinedAccumulatedDataBuilder {
-    max_block_number: u32,
+    max_block_number: MaxBlockNumber,
 
     note_hash_read_requests: BoundedVec<SideEffect,MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,

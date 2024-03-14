@@ -19,8 +19,6 @@ struct PrivateKernelInitCircuitPrivateInputs {
 
 impl PrivateKernelInitCircuitPrivateInputs {
     fn initialize_end_values(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
-        public_inputs.end.max_block_number = 4294967295; // TODO: replace with u32::MAX once it's implemented
-
         public_inputs.constants = CombinedConstantData {
             historical_header: self.private_call.call_stack_item.public_inputs.historical_header,
             tx_context: self.tx_request.tx_context,
@@ -509,7 +507,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new_constructor();
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.max_block_number, 4294967295);
+        assert(public_inputs.end.max_block_number.is_none());
     }
 
     #[test]
@@ -518,7 +516,7 @@ mod tests {
         builder.private_call.request_max_block_number(42);
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.max_block_number, 42);
+        assert_eq(public_inputs.end.max_block_number.unwrap(), 42);
     }
 
     #[test]

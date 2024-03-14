@@ -74,10 +74,12 @@ impl BaseRollupInputs {
 
         // Verify the max block number
         // TODO: why is block_number a Field and not u32?
-        assert(
-            self.constants.global_variables.block_number as u32
-            <= self.kernel_data.public_inputs.end.max_block_number, "kernel max_block_number is smaller than block number"
-        );
+        if self.kernel_data.public_inputs.end.max_block_number.is_some() {
+            assert(
+                self.constants.global_variables.block_number as u32
+                <= self.kernel_data.public_inputs.end.max_block_number.unwrap_unchecked(), "kernel max_block_number is smaller than block number"
+            );
+        }
 
         // First we compute the contract tree leaves
         let contract_leaves = self.calculate_contract_leaves();

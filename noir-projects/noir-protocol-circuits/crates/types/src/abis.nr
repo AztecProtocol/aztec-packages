@@ -24,6 +24,8 @@ mod public_data_update_request;
 
 mod accumulated_data;
 
+mod max_block_number;
+
 mod private_kernel;
 mod kernel_circuit_public_inputs;
 mod kernel_data;

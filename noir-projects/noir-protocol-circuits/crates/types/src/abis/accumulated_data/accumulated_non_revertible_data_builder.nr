@@ -4,7 +4,7 @@ use crate::{
     private_accumulated_non_revertible_data::PrivateAccumulatedNonRevertibleData,
     public_accumulated_non_revertible_data::PublicAccumulatedNonRevertibleData
 },
-    call_request::CallRequest, public_data_read::PublicDataRead,
+    call_request::CallRequest, public_data_read::PublicDataRead, max_block_number::MaxBlockNumber,
     public_data_update_request::PublicDataUpdateRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 }
@@ -16,7 +16,7 @@ use crate::constants::{
 };
 
 struct AccumulatedNonRevertibleDataBuilder {
-    max_block_number: u32,
+    max_block_number: MaxBlockNumber,
     new_note_hashes: BoundedVec<SideEffect, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>,

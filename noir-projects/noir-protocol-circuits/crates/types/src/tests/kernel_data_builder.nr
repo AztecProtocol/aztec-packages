@@ -8,8 +8,9 @@ use crate::{
     PublicKernelCircuitPublicInputs, RollupKernelCircuitPublicInputs
 },
     kernel_data::{PrivateKernelInnerData, PrivateKernelTailData, PublicKernelData, RollupKernelData},
-    public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    read_request::ReadRequestContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    max_block_number::MaxBlockNumber, public_data_read::PublicDataRead,
+    public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequestContext,
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, EthAddress}, header::Header, hash::silo_nullifier,
     mocked::{AggregationObject, Proof, VerificationKey},
@@ -53,12 +54,6 @@ impl PreviousKernelDataBuilder {
             end.new_nullifiers.push(tx_nullifier);
         }
 
-        // TODO: the builder makes a distinction between building a kernel for public and for private, but 
-        // max_block_number lives in end_non_revertible for public, and end for private and rollup. We therefore store
-        // it in both places.
-        end_non_revertible.max_block_number = 4294967295; // TODO: replace with u32::MAX once it's implemented
-        end.max_block_number = 4294967295; // TODO: replace with u32::MAX once it's implemented
-
         let tx_context = build_tx_context(false, 0);
 
         PreviousKernelDataBuilder {
@@ -88,8 +83,8 @@ impl PreviousKernelDataBuilder {
         // TODO: the builder makes a distinction between building a kernel for public and for private, but 
         // max_block_number lives in end_non_revertible for public, and end for private and rollup. We therefore store
         // it in both places.
-        self.end_non_revertible.max_block_number = max_block_number; // TODO: replace with u32::MAX once it's implemented
-        self.end.max_block_number = max_block_number; // TODO: replace with u32::MAX once it's implemented
+        self.end_non_revertible.max_block_number = MaxBlockNumber::new(max_block_number);
+        self.end.max_block_number = MaxBlockNumber::new(max_block_number);
     }
 
     pub fn append_public_data_update_requests(&mut self, num_updates: u64) {

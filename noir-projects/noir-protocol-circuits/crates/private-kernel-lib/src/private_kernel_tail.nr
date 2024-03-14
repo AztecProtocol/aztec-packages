@@ -273,7 +273,7 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelTailCircuitPublicInputs,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
+        max_block_number::MaxBlockNumber, side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
     },
         hash::compute_unique_siloed_note_hashes, tests::kernel_data_builder::PreviousKernelDataBuilder,
         utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
@@ -462,10 +462,10 @@ mod tests {
     #[test]
     fn propagate_previous_kernel_max_block_number() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.end.max_block_number = 13;
+        builder.previous_kernel.end.max_block_number = MaxBlockNumber::new(13);
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end_non_revertible.max_block_number, 13);
+        assert_eq(public_inputs.end_non_revertible.max_block_number.unwrap(), 13);
     }
 
     #[test]

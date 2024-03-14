@@ -90,7 +90,7 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+        max_block_number::MaxBlockNumber, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
     },
         address::{AztecAddress, EthAddress}, hash::compute_logs_hash,
         messaging::l2_to_l1_message::L2ToL1Message, utils::{arrays::array_length},
@@ -607,10 +607,10 @@ mod tests {
     #[test]
     fn propagate_previous_kernel_max_block_number() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
-        builder.previous_kernel.end.max_block_number = 13;
+        builder.previous_kernel.end.max_block_number = MaxBlockNumber::new(13);
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.max_block_number, 13);
+        assert_eq(public_inputs.end.max_block_number.unwrap(), 13);
     }
 
     #[test]
@@ -619,19 +619,19 @@ mod tests {
         builder.private_call.request_max_block_number(42);
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.max_block_number, 42);
+        assert_eq(public_inputs.end.max_block_number.unwrap(), 42);
     }
 
     #[test]
     fn ignore_larger_max_block_number() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
-        builder.previous_kernel.end.max_block_number = 13;
+        builder.previous_kernel.end.max_block_number = MaxBlockNumber::new(13);
         // A private call requesting a larger max_block_number should not change the current one as that constraint is
         // already satisfied.
         builder.private_call.request_max_block_number(42);
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.max_block_number, 13);
+        assert_eq(public_inputs.end.max_block_number.unwrap(), 13);
     }
 
     #[test]

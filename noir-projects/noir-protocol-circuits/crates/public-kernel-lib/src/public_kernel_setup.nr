@@ -77,7 +77,7 @@ mod tests {
     use dep::types::{
         abis::{
         call_request::CallRequest, function_selector::FunctionSelector,
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
         new_contract_data::NewContractData, public_data_read::PublicDataRead,
         public_data_update_request::PublicDataUpdateRequest, public_call_data::PublicCallData
     },
@@ -377,7 +377,7 @@ mod tests {
     fn circuit_outputs_should_be_correctly_populated_with_previous_private_kernel() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
 
-        builder.previous_kernel.end_non_revertible.max_block_number = 13;
+        builder.previous_kernel.end_non_revertible.max_block_number = MaxBlockNumber::new(13);
 
         let new_contracts = [
             NewContractData {
@@ -415,7 +415,7 @@ mod tests {
 
         let public_inputs = kernel.public_kernel_setup();
 
-        assert_eq(public_inputs.end_non_revertible.max_block_number, 13);
+        assert_eq(public_inputs.end_non_revertible.max_block_number.unwrap(), 13);
         assert_eq_new_contracts(public_inputs.end.new_contracts, new_contracts);
         assert_eq_call_requests(public_inputs.end.private_call_stack, []);
         assert_eq_call_requests(

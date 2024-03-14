@@ -3,8 +3,8 @@ use dep::types::{
     abis::{
     call_request::CallRequest, accumulated_data::CombinedAccumulatedData, function_data::FunctionData,
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsBuilder,
-    membership_witness::NoteHashReadRequestMembershipWitness, new_contract_data::NewContractData,
-    private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    max_block_number::MaxBlockNumber, membership_witness::NoteHashReadRequestMembershipWitness,
+    new_contract_data::NewContractData, private_circuit_public_inputs::PrivateCircuitPublicInputs,
     private_kernel::private_call_data::PrivateCallData,
     kernel_data::{PrivateKernelInnerData, PrivateKernelTailData},
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
@@ -181,7 +181,7 @@ pub fn update_end_values(
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
 
     // Update the max block number if the private call requested a lower one.
-    public_inputs.end.max_block_number = min(public_inputs.end.max_block_number, private_call_public_inputs.max_block_number);
+    public_inputs.end.max_block_number = MaxBlockNumber::lower(public_inputs.end.max_block_number, private_call_public_inputs.max_block_number);
 
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)

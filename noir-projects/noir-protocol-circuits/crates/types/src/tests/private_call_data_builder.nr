@@ -1,7 +1,7 @@
 use crate::{
     abis::{
     call_request::{CallerContext, CallRequest}, private_call_stack_item::PrivateCallStackItem,
-    function_data::FunctionData,
+    function_data::FunctionData, max_block_number::MaxBlockNumber,
     membership_witness::{ContractLeafMembershipWitness, FunctionLeafMembershipWitness, NoteHashReadRequestMembershipWitness},
     private_circuit_public_inputs::{PrivateCircuitPublicInputs},
     private_kernel::private_call_data::PrivateCallData
@@ -157,7 +157,7 @@ impl PrivateCallDataBuilder {
     }
 
     pub fn request_max_block_number(&mut self, max_block_number: u32) {
-        self.public_inputs.max_block_number = max_block_number;
+        self.public_inputs.max_block_number = MaxBlockNumber::new(max_block_number);
     }
 
     pub fn append_note_hash_read_requests(&mut self, num_read_requests: u64) {
