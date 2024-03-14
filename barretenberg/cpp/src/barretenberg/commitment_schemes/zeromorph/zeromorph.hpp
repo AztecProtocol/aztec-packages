@@ -441,6 +441,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
+    using VerifierAccumulator = PCS::VerifierAccumulator;
 
   public:
     /**
@@ -634,15 +635,14 @@ template <typename PCS> class ZeroMorphVerifier_ {
      * @param transcript
      * @return std::array<Commitment, 2> Inputs to the final pairing check
      */
-    static std::array<GroupElement, 2> verify(
-        RefSpan<Commitment> unshifted_commitments,
-        RefSpan<Commitment> to_be_shifted_commitments,
-        RefSpan<FF> unshifted_evaluations,
-        RefSpan<FF> shifted_evaluations,
-        std::span<FF> multivariate_challenge,
-        auto& transcript,
-        const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
-        RefSpan<FF> concatenated_evaluations = {})
+    static VerifierAccumulator verify(RefSpan<Commitment> unshifted_commitments,
+                                      RefSpan<Commitment> to_be_shifted_commitments,
+                                      RefSpan<FF> unshifted_evaluations,
+                                      RefSpan<FF> shifted_evaluations,
+                                      std::span<FF> multivariate_challenge,
+                                      auto& transcript,
+                                      const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+                                      RefSpan<FF> concatenated_evaluations = {})
     {
         size_t log_N = multivariate_challenge.size();
         FF rho = transcript->template get_challenge<FF>("rho");
@@ -704,7 +704,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
         }
 
-        return PCS::compute_pairing_points(
+        return PCS::reduce_verify(
             { .opening_pair = { .challenge = x_challenge, .evaluation = FF(0) }, .commitment = C_zeta_Z }, transcript);
     }
 };

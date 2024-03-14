@@ -20,6 +20,7 @@ template <typename Curve_> class KZG {
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
     using Polynomial = bb::Polynomial<Fr>;
+    using VerifierAccumulator = std::array<GroupElement, 2>;
 
     /**
      * @brief Computes the KZG commitment to an opening proof polynomial at a single evaluation point
@@ -76,8 +77,7 @@ template <typename Curve_> class KZG {
      *      - P₀ = C − v⋅[1]₁ + r⋅[W(x)]₁
      *      - P₁ = [W(x)]₁
      */
-    static std::array<GroupElement, 2> compute_pairing_points(const OpeningClaim<Curve>& claim,
-                                                              const auto& verifier_transcript)
+    static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& claim, const auto& verifier_transcript)
     {
         auto quotient_commitment = verifier_transcript->template receive_from_prover<Commitment>("KZG:W");
 
