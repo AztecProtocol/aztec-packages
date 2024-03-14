@@ -62,14 +62,18 @@ bigfielddyn<Builder>::bigfielddyn(const field_t<Builder>& low_bits_in,
     field_t<Builder> limb_1(context);
     field_t<Builder> limb_2(context);
     field_t<Builder> limb_3(context);
+    info("c0: ", context->get_num_gates());
     if (low_bits_in.witness_index != IS_CONSTANT) {
         std::vector<uint32_t> low_accumulator;
         if constexpr (HasPlookup<Builder>) {
+            info("c01: ", context->get_num_gates());
             // MERGE NOTE: this was the if constexpr block introduced in ecebe7643
             const auto limb_witnesses =
                 context->decompose_non_native_field_double_width_limb(low_bits_in.normalize().witness_index);
+            info("c02: ", context->get_num_gates());
             limb_0.witness_index = limb_witnesses[0];
             limb_1.witness_index = limb_witnesses[1];
+            info("c03: ", context->get_num_gates());
             field_t<Builder>::evaluate_linear_identity(low_bits_in, -limb_0, -limb_1 * shift_1, field_t<Builder>(0));
 
             // // Enforce that low_bits_in indeed only contains 2*NUM_LIMB_BITS bits
@@ -83,6 +87,7 @@ bigfielddyn<Builder>::bigfielddyn(const field_t<Builder>& low_bits_in,
             // limb_0.witness_index = low_accumulator[mid_index]; // Q:safer to just slice this from low_bits_in?
             // limb_1 = (low_bits_in - limb_0) * shift_right_1;
         } else {
+            info("c1: ", context->get_num_gates());
             size_t mid_index;
             low_accumulator = context->decompose_into_base4_accumulators(low_bits_in.witness_index,
                                                                          static_cast<size_t>(NUM_LIMB_BITS * 2),
@@ -104,7 +109,7 @@ bigfielddyn<Builder>::bigfielddyn(const field_t<Builder>& low_bits_in,
     // addition we apply a more limited range - 2^s for smallest s such that p<2^s (this is the case can_overflow ==
     // false)
     uint64_t num_last_limb_bits_with_overflow = (can_overflow) ? NUM_LIMB_BITS : num_last_limb_bits;
-
+    info("c2: ", context->get_num_gates());
     // if maximum_bitlength is set, this supercedes can_overflow
     if (maximum_bitlength > 0) {
         ASSERT(maximum_bitlength > 3 * NUM_LIMB_BITS);
@@ -135,6 +140,7 @@ bigfielddyn<Builder>::bigfielddyn(const field_t<Builder>& low_bits_in,
         limb_2 = field_t(context, bb::fr(slice_2));
         limb_3 = field_t(context, bb::fr(slice_3));
     }
+    info("c6: ", context->get_num_gates());
     binary_basis_limbs[0] = Limb(limb_0, DEFAULT_MAXIMUM_LIMB);
     binary_basis_limbs[1] = Limb(limb_1, DEFAULT_MAXIMUM_LIMB);
     binary_basis_limbs[2] = Limb(limb_2, DEFAULT_MAXIMUM_LIMB);
@@ -1890,12 +1896,14 @@ template <typename Builder> void bigfielddyn<Builder>::self_reduce() const
     info("reduce 1.0");
     bigfielddyn quotient(context);
     info("reduce1.1");
+    ASSERT(target_basis.modulus == ((uint512_t)1 << 256));
     uint512_t maximum_quotient_size = get_maximum_value() / target_basis.modulus;
     uint64_t maximum_quotient_bits = maximum_quotient_size.get_msb() + 1;
     if ((maximum_quotient_bits & 1ULL) == 1ULL) {
         ++maximum_quotient_bits;
     }
-    info("reduce1.2");
+    info("max-q-bits: ", maximum_quotient_bits);
+    info("main gates:", context->blocks.main.size());
     // TODO: implicit assumption here - NUM_LIMB_BITS large enough for all the quotient
     uint32_t quotient_limb_index = context->add_variable(bb::fr(quotient_value.lo));
     field_t<Builder> quotient_limb = field_t<Builder>::from_witness_index(context, quotient_limb_index);
@@ -1906,7 +1914,8 @@ template <typename Builder> void bigfielddyn<Builder>::self_reduce() const
                                                    static_cast<size_t>(maximum_quotient_bits),
                                                    "bigfielddyn: quotient_limb too large.");
     }
-    info("reduce1");
+    info("main gates:", context->blocks.main.size());
+    info("default_maximum_remainder", default_maximum_remainder);
     ASSERT((uint1024_t(1) << maximum_quotient_bits) * uint1024_t(modulus_u512) + default_maximum_remainder <
            get_maximum_crt_product());
     quotient.binary_basis_limbs[0] = Limb(quotient_limb, uint256_t(1) << maximum_quotient_bits);
@@ -1914,19 +1923,27 @@ template <typename Builder> void bigfielddyn<Builder>::self_reduce() const
     quotient.binary_basis_limbs[2] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx), 0);
     quotient.binary_basis_limbs[3] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx), 0);
     quotient.prime_basis_limb = quotient_limb;
+    info("main gates:", context->blocks.main.size());
+    info(" quotient.binary_basis_limbs[0]: ", quotient.binary_basis_limbs[0].element.get_value());
+    info("quotient_limb: ", quotient_limb.get_value());
     // this constructor with can_overflow=false will enforce remainder of size<2^s
     bigfielddyn remainder = bigfielddyn(
         witness_t(context, fr(remainder_value.slice(0, NUM_LIMB_BITS * 2).lo)),
         witness_t(context, fr(remainder_value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3 + num_last_limb_bits).lo)),
         modulus_u512);
-    info("reduce2");
+    info("NUM_LIMB_BITS * 3 + num_last_limb_bits", NUM_LIMB_BITS * 3 + num_last_limb_bits);
+    info("main gates:", context->blocks.main.size());
     unsafe_evaluate_multiply_add(*this, one(), {}, quotient, { remainder });
+    info("main gates2:", context->blocks.main.size());
     binary_basis_limbs[0] =
         remainder.binary_basis_limbs[0]; // Combination of const method and mutable variables is good practice?
     binary_basis_limbs[1] = remainder.binary_basis_limbs[1];
     binary_basis_limbs[2] = remainder.binary_basis_limbs[2];
     binary_basis_limbs[3] = remainder.binary_basis_limbs[3];
     prime_basis_limb = remainder.prime_basis_limb;
+    info("remainder.binary_basis_limbs[0]", remainder.binary_basis_limbs[0].element.get_value());
+    info("remainder.prime_basis_limb", remainder.prime_basis_limb.get_value());
+    info("main gates3:", context->blocks.main.size());
 } // namespace stdlib
 
 /**
@@ -2001,7 +2018,7 @@ void bigfielddyn<Builder>::unsafe_evaluate_multiply_add(const bigfielddyn& input
     if ((max_hi_bits & 1ULL) == 1ULL) {
         ++max_hi_bits;
     }
-
+    info("main_gates_a:", context->blocks.main.size());
     if constexpr (HasPlookup<Builder>) {
         // The plookup custom bigfielddyn gate requires inputs are witnesses.
         // If we're using constant values, instantiate them as circuit variables
@@ -2070,6 +2087,8 @@ void bigfielddyn<Builder>::unsafe_evaluate_multiply_add(const bigfielddyn& input
                             : remainders[0].binary_basis_limbs[3].element,
         };
         field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
+        info("main_gates_a1:", context->blocks.main.size());
+        uint256_t mood = (uint256_t)(modulus_u512.divmod((uint512_t)bb::fr::modulus).second);
         //   ASSERT(false);
         bb::non_native_field_witnesses<bb::fr> witnesses23{
             {
@@ -2101,12 +2120,15 @@ void bigfielddyn<Builder>::unsafe_evaluate_multiply_add(const bigfielddyn& input
                 remainder_prime_limb.witness_index,
             },
             { neg_modulus_limbs[0], neg_modulus_limbs[1], neg_modulus_limbs[2], neg_modulus_limbs[3] },
-            modulus_u512.lo, // TODO TODO TOD !!! c incorrect, a voir ou on s en sert ???
+            mood, // TODO TODO TOD !!! c incorrect, a voir ou on s en sert ???
         };
+        info("main_gates_a2:", context->blocks.main.size());
+        ASSERT(this->prime_basis_maximum_limb != 0);
         // N.B. this method also evaluates the prime field component of the non-native field mul
         const auto [lo_idx, hi_idx] = ctx->evaluate_non_native_field_multiplication(witnesses23, false);
-
-        bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
+        info("main_gates_a3:", context->blocks.main.size());
+        uint256_t tbbm = (uint256_t)(target_basis.modulus.divmod((uint512_t)bb::fr::modulus).second);
+        bb::fr neg_prime = -bb::fr(tbbm); // TODO verifier que c'est bien ca.
         field_t<Builder>::evaluate_polynomial_identity(left.prime_basis_limb,
                                                        to_mul.prime_basis_limb,
                                                        quotient.prime_basis_limb * neg_prime,
@@ -2187,7 +2209,8 @@ void bigfielddyn<Builder>::unsafe_evaluate_multiply_add(const bigfielddyn& input
             carry_hi = carry_hi.add_two(-remainders[i].binary_basis_limbs[2].element * shift_right_2,
                                         -remainders[i].binary_basis_limbs[3].element * (shift_1 * shift_right_2));
         }
-        bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
+        uint256_t mood = (uint256_t)(modulus_u512.divmod((uint512_t)bb::fr::modulus).second);
+        bb::fr neg_prime = -bb::fr(mood);
 
         field_t<Builder> linear_terms(ctx, bb::fr(0));
         if (to_add.size() >= 2) {
@@ -2409,7 +2432,6 @@ void bigfielddyn<Builder>::unsafe_evaluate_multiple_multiply_add(const std::vect
             if (i > 0 && right[i].is_constant()) {
                 right[i] = convert_constant_to_fixed_witness(right[i]);
             }
-
             if (i > 0) {
                 ASSERT(false);
                 bb::non_native_field_witnesses<bb::fr> mul_witnesses = {
@@ -2507,7 +2529,7 @@ void bigfielddyn<Builder>::unsafe_evaluate_multiple_multiply_add(const std::vect
             remainder3,
         };
         field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
-        ASSERT(false);
+        uint256_t reduced_modulus = (uint256_t)(modulus_u512.divmod((uint512_t)bb::fr::modulus).second);
         bb::non_native_field_witnesses<bb::fr> witnesses{
             {
                 left[0].binary_basis_limbs[0].element.normalize().witness_index,
@@ -2538,12 +2560,12 @@ void bigfielddyn<Builder>::unsafe_evaluate_multiple_multiply_add(const std::vect
                 remainder_prime_limb.normalize().witness_index,
             },
             { neg_modulus_limbs[0], neg_modulus_limbs[1], neg_modulus_limbs[2], neg_modulus_limbs[3] },
-            modulus_u512.lo, // TODO TODO Jamais 2 asn 3
+            reduced_modulus, // TODO TODO Jamais 2 asn 3
         };
 
         const auto [lo_1_idx, hi_1_idx] = ctx->evaluate_non_native_field_multiplication(witnesses, false);
-
-        bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
+        uint256_t mood = (uint256_t)(target_basis.modulus.divmod((uint512_t)bb::fr::modulus).second);
+        bb::fr neg_prime = -bb::fr(mood);
 
         field_t<Builder>::evaluate_polynomial_identity(left[0].prime_basis_limb,
                                                        right[0].prime_basis_limb,
@@ -2713,8 +2735,8 @@ void bigfielddyn<Builder>::unsafe_evaluate_multiple_multiply_add(const std::vect
         field_t carry_hi_1 = r3 * (shift_1 * shift_right_2);
         field_t carry_hi_2 = t1 * shift_right_2;
         field_t carry_hi = carry_hi_0.add_two(carry_hi_1, carry_hi_2);
-
-        bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
+        uint256_t mood = (uint256_t)(target_basis.modulus.divmod((uint512_t)bb::fr::modulus).second);
+        bb::fr neg_prime = -bb::fr(mood);
 
         field_t<Builder> linear_terms(ctx, bb::fr(0));
 
@@ -2871,8 +2893,8 @@ void bigfielddyn<Builder>::unsafe_evaluate_square_add(const bigfielddyn& left,
         carry_hi = carry_hi.add_two(add_element.binary_basis_limbs[2].element * shift_right_2,
                                     add_element.binary_basis_limbs[3].element * (shift_1 * shift_right_2));
     }
-
-    bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
+    uint256_t mood = (uint256_t)(target_basis.modulus.divmod((uint512_t)bb::fr::modulus).second);
+    bb::fr neg_prime = -bb::fr(mood);
     field_t<Builder> linear_terms = -remainder.prime_basis_limb;
     if (to_add.size() >= 2) {
         for (size_t i = 0; i < to_add.size() / 2; i += 1) {

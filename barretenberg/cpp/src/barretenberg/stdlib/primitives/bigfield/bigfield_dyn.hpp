@@ -176,7 +176,7 @@ template <typename Builder> class bigfielddyn {
     bigfielddyn& operator=(bigfielddyn&& other);
     // code assumes modulus is at most 256 bits so good to define it via a uint256_t
     // static constexpr uint256_t modulus = (uint256_t(T::modulus_0, T::modulus_1, T::modulus_2, T::modulus_3));
-    uint512_t modulus_u512 = 13; // TODOuint512_t(modulus);
+    uint512_t modulus_u512;
     static constexpr uint64_t NUM_LIMB_BITS = plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
     uint64_t num_last_limb_bits = modulus_u512.get_msb() + 1 - (NUM_LIMB_BITS * 3); // NUM_LAST_LIMB_BITS
     //   static constexpr uint1024_t DEFAULT_MAXIMUM_REMAINDER =
@@ -199,7 +199,9 @@ template <typename Builder> class bigfielddyn {
     static constexpr bb::fr shift_3 = bb::fr(uint256_t(1) << (NUM_LIMB_BITS * 3));
     static constexpr bb::fr shift_right_1 = bb::fr(1) / shift_1;
     static constexpr bb::fr shift_right_2 = bb::fr(1) / shift_2;
-    bb::fr negative_prime_modulus_mod_binary_basis = -bb::fr(uint256_t(modulus_u512));
+    bb::fr negative_prime_modulus_mod_binary_basis =
+        -bb::fr((uint256_t)(modulus_u512.divmod((uint512_t)bb::fr::modulus).second));
+
     uint512_t negative_prime_modulus = binary_basis.modulus - target_basis.modulus;
     uint256_t neg_modulus_limbs_u256[4]{
         uint256_t(negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo),
@@ -220,7 +222,6 @@ template <typename Builder> class bigfielddyn {
         result.initialize(value, this->modulus_u512);
         return result;
     }
-
     native_big_int get_native_zero() const
     {
         native_big_int result;
