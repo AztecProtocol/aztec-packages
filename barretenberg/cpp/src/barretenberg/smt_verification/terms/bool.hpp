@@ -32,7 +32,7 @@ class Bool {
     explicit Bool(bool t, Solver* slv)
         : solver(slv)
     {
-        term = solver->tm.mkBoolean(t);
+        term = solver->term_manager.mkBoolean(t);
     }
     Bool(const Bool& other) = default;
     Bool(Bool&& other) = default;
@@ -43,7 +43,7 @@ class Bool {
     void assert_term()
     {
         if (!asserted) {
-            solver->s.assertFormula(term);
+            solver->assertFormula(term);
             asserted = true;
         }
     }
@@ -70,7 +70,7 @@ class Bool {
     {
         Solver* s = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
-        cvc5::Term res = s->tm.mkTerm(cvc5::Kind::OR, terms);
+        cvc5::Term res = s->term_manager.mkTerm(cvc5::Kind::OR, terms);
         return { res, s };
     }
 
@@ -78,7 +78,7 @@ class Bool {
     {
         Solver* s = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
-        cvc5::Term res = s->tm.mkTerm(cvc5::Kind::AND, terms);
+        cvc5::Term res = s->term_manager.mkTerm(cvc5::Kind::AND, terms);
         return { res, s };
     }
 
