@@ -206,8 +206,9 @@ contract DecodersTest is DecoderBase {
     bytes31 kernelPublicInputsLogsHash = bytes31(0);
     bytes31 privateCircuitPublicInputsLogsHash = bytes31(sha256(new bytes(0)));
 
-    bytes31 referenceLogsHash =
-      Hash.sha256ToField(abi.encodePacked(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
+    bytes31 referenceLogsHash = Hash.sha256ToField(
+      abi.encodePacked(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash)
+    );
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
     assertEq(logsHash, referenceLogsHash, "Incorrect logs hash");
@@ -254,12 +255,12 @@ contract DecodersTest is DecoderBase {
     bytes31 referenceLogsHashFromIteration1 =
       Hash.sha256ToField(abi.encodePacked(bytes31(0), bytes31(sha256(firstFunctionCallLogs))));
 
-    bytes31 privateCircuitPublicInputsLogsHashSecondCall = Hash.sha256ToField(secondFunctionCallLogs);
+    bytes31 privateCircuitPublicInputsLogsHashSecondCall =
+      Hash.sha256ToField(secondFunctionCallLogs);
 
     bytes31 referenceLogsHashFromIteration2 = Hash.sha256ToField(
       abi.encodePacked(
-        referenceLogsHashFromIteration1,
-        privateCircuitPublicInputsLogsHashSecondCall
+        referenceLogsHashFromIteration1, privateCircuitPublicInputsLogsHashSecondCall
       )
     );
 
@@ -292,7 +293,8 @@ contract DecodersTest is DecoderBase {
     bytes31 referenceLogsHashFromIteration1 =
       Hash.sha256ToField(abi.encodePacked(bytes31(0), bytes31(sha256(firstFunctionCallLogs))));
 
-    bytes31 privateCircuitPublicInputsLogsHashSecondCall = Hash.sha256ToField(secondFunctionCallLogs);
+    bytes31 privateCircuitPublicInputsLogsHashSecondCall =
+      Hash.sha256ToField(secondFunctionCallLogs);
 
     bytes31 referenceLogsHashFromIteration2 = Hash.sha256ToField(
       abi.encodePacked(
@@ -304,10 +306,7 @@ contract DecodersTest is DecoderBase {
     bytes31 privateCircuitPublicInputsLogsHashThirdCall = Hash.sha256ToField(thirdFunctionCallLogs);
 
     bytes31 referenceLogsHashFromIteration3 = Hash.sha256ToField(
-      abi.encodePacked(
-        referenceLogsHashFromIteration2,
-        privateCircuitPublicInputsLogsHashThirdCall
-      )
+      abi.encodePacked(referenceLogsHashFromIteration2, privateCircuitPublicInputsLogsHashThirdCall)
     );
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");

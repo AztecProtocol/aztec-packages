@@ -51,25 +51,25 @@ src/core/Rollup.sol#L58-L101
 Impact: Medium
 Confidence: High
  - [ ] ID-4
+Dubious typecast in [TxsDecoder.read4(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L331-L333):
+	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(slice(_data,_offset,4))))](src/core/libraries/decoders/TxsDecoder.sol#L332)
+
+src/core/libraries/decoders/TxsDecoder.sol#L331-L333
+
+
+ - [ ] ID-5
 Dubious typecast in [Outbox.sendL1Messages(bytes32[])](src/core/messagebridge/Outbox.sol#L38-L46):
 	uint256 => uint32 casting occurs in [version = uint32(REGISTRY.getVersionFor(msg.sender))](src/core/messagebridge/Outbox.sol#L40)
 
 src/core/messagebridge/Outbox.sol#L38-L46
 
 
- - [ ] ID-5
+ - [ ] ID-6
 Dubious typecast in [Inbox.sendL2Message(DataStructures.L2Actor,uint32,bytes32,bytes32)](src/core/messagebridge/Inbox.sol#L45-L91):
 	uint256 => uint64 casting occurs in [fee = uint64(msg.value)](src/core/messagebridge/Inbox.sol#L64)
 	uint256 => uint32 casting occurs in [entries.insert(key,fee,uint32(_recipient.version),_deadline,_errIncompatibleEntryArguments)](src/core/messagebridge/Inbox.sol#L76)
 
 src/core/messagebridge/Inbox.sol#L45-L91
-
-
- - [ ] ID-6
-Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L323-L325):
-	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L324)
-
-src/core/libraries/decoders/TxsDecoder.sol#L323-L325
 
 
  - [ ] ID-7
@@ -81,10 +81,11 @@ src/core/Rollup.sol#L58-L101
 
 
  - [ ] ID-8
-Dubious typecast in [TxsDecoder.read4(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L333-L335):
-	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(slice(_data,_offset,4))))](src/core/libraries/decoders/TxsDecoder.sol#L334)
+Dubious typecast in [Hash.sha256ToField32(bytes)](src/core/libraries/Hash.sol#L75-L77):
+	bytes32 => bytes31 casting occurs in [bytes32(bytes.concat(new bytes(1),bytes31(sha256(bytes)(_data))))](src/core/libraries/Hash.sol#L76)
+	bytes => bytes32 casting occurs in [bytes32(bytes.concat(new bytes(1),bytes31(sha256(bytes)(_data))))](src/core/libraries/Hash.sol#L76)
 
-src/core/libraries/decoders/TxsDecoder.sol#L333-L335
+src/core/libraries/Hash.sol#L75-L77
 
 
  - [ ] ID-9
@@ -121,10 +122,10 @@ src/core/libraries/HeaderLib.sol#L143-L187
 
 
  - [ ] ID-11
-Dubious typecast in [Hash.sha256ToField(bytes)](src/core/libraries/Hash.sol#L77-L79):
-	bytes32 => bytes31 casting occurs in [bytes31(sha256(bytes)(_data))](src/core/libraries/Hash.sol#L78)
+Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L321-L323):
+	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L322)
 
-src/core/libraries/Hash.sol#L77-L79
+src/core/libraries/decoders/TxsDecoder.sol#L321-L323
 
 
  - [ ] ID-12
@@ -151,18 +152,17 @@ src/core/messagebridge/frontier_tree/FrontierField.sol#L35-L47
 
 
  - [ ] ID-15
-Dubious typecast in [Hash.sha256ToField32(bytes)](src/core/libraries/Hash.sol#L67-L69):
-	bytes32 => bytes31 casting occurs in [bytes32(bytes.concat(new bytes(1),bytes31(sha256(bytes)(_data))))](src/core/libraries/Hash.sol#L68)
-	bytes => bytes32 casting occurs in [bytes32(bytes.concat(new bytes(1),bytes31(sha256(bytes)(_data))))](src/core/libraries/Hash.sol#L68)
-
-src/core/libraries/Hash.sol#L67-L69
-
-
- - [ ] ID-16
 Dubious typecast in [MessagesDecoder.read1(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L150-L152):
 	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L151)
 
 src/core/libraries/decoders/MessagesDecoder.sol#L150-L152
+
+
+ - [ ] ID-16
+Dubious typecast in [Hash.sha256ToField(bytes)](src/core/libraries/Hash.sol#L85-L87):
+	bytes32 => bytes31 casting occurs in [bytes31(sha256(bytes)(_data))](src/core/libraries/Hash.sol#L86)
+
+src/core/libraries/Hash.sol#L85-L87
 
 
 ## missing-zero-check
@@ -294,10 +294,10 @@ src/core/messagebridge/NewInbox.sol#L25-L128
 Impact: Informational
 Confidence: High
  - [ ] ID-31
-[TxsDecoder.computeRoot(bytes31[])](src/core/libraries/decoders/TxsDecoder.sol#L265-L284) uses assembly
-	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L272-L274)
+[TxsDecoder.computeRoot(bytes31[])](src/core/libraries/decoders/TxsDecoder.sol#L263-L282) uses assembly
+	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L270-L272)
 
-src/core/libraries/decoders/TxsDecoder.sol#L265-L284
+src/core/libraries/decoders/TxsDecoder.sol#L263-L282
 
 
  - [ ] ID-32
@@ -324,9 +324,9 @@ src/core/messagebridge/Outbox.sol#L114-L116
 
 
  - [ ] ID-35
-[Hash.sha256ToField(bytes32)](src/core/libraries/Hash.sol#L87-L89) is never used and should be removed
+[Hash.sha256ToField(bytes32)](src/core/libraries/Hash.sol#L95-L97) is never used and should be removed
 
-src/core/libraries/Hash.sol#L87-L89
+src/core/libraries/Hash.sol#L95-L97
 
 
  - [ ] ID-36

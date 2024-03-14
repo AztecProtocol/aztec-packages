@@ -58,7 +58,7 @@ contract MerkleTest is Test {
 
     for (uint256 i = 0; i < msgs.length; i++) {
       frontier.insertLeaf(bytes31(msgs[i]));
-    }  
+    }
 
     bytes31 expectedRoot = 0x1fcbc929ace6acd25836c9779b04cd9d0965ac2b90dabffa9aff2b4e9c7a4a;
     assertEq(frontier.root(), bytes32(expectedRoot), "Root does not match base parity circuit root");

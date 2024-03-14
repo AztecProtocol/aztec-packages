@@ -247,9 +247,7 @@ library TxsDecoder {
       remainingLogsLength -= (privateCircuitPublicInputLogsLength + 0x4);
 
       kernelPublicInputsLogsHash = Hash.sha256ToField(
-        bytes.concat(
-          kernelPublicInputsLogsHash, bytes31(privateCircuitPublicInputsLogsHash)
-        )
+        bytes.concat(kernelPublicInputsLogsHash, bytes31(privateCircuitPublicInputsLogsHash))
       );
     }
 
