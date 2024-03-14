@@ -18,11 +18,11 @@ library MerkleLib {
    * @param _index - The index of the message inside the L2 to L1 message tree
    * @param _expectedRoot - The expected root to check the validity of the message and sibling path with.
    * @notice -
-   * E.g. A sibling path for a leaf at index 3 in a tree of depth 3 (between 5 and 8 leafs) consists of the 3 elements denoted as *'s
+   * E.g. A sibling path for a leaf at index 3 (L) in a tree of depth 3 (between 5 and 8 leafs) consists of the 3 elements denoted as *'s
    * d0:                                            [ root ]
    * d1:                      [ ]                                               [*]
    * d2:         [*]                      [ ]                       [ ]                     [ ]
-   * d3:   [ ]         [ ]          [*]         [ ]           [ ]         [ ]          [ ]        [ ].
+   * d3:   [ ]         [ ]          [*]         [L]           [ ]         [ ]          [ ]        [ ].
    * And the elements would be ordered as: [ d3_index_2, d2_index_0, d1_index_1 ].
    */
   function verifyMembership(
