@@ -28,6 +28,7 @@ class GoblinTranslatorVerifier {
     GoblinTranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key = nullptr,
                              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
+    // WORKTODO: unneeded?
     GoblinTranslatorVerifier(const CircuitBuilder& circuit_builder,
                              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 

@@ -50,7 +50,7 @@ GoblinTranslatorProver::GoblinTranslatorProver(CircuitBuilder& circuit_builder,
     compute_witness(circuit_builder);
     compute_commitment_key(key->circuit_size);
 
-    GoblinTranslatorProver(key, commitment_key, transcript);
+    *this = GoblinTranslatorProver(key, commitment_key, transcript);
 }
 
 /**

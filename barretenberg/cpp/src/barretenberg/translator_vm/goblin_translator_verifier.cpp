@@ -22,7 +22,7 @@ GoblinTranslatorVerifier::GoblinTranslatorVerifier(const CircuitBuilder& circuit
     // output_state.pcs_verification_key = std::move(pcs_verification_key);
     // output_state.transcript = transcript;
 
-    GoblinTranslatorVerifier output_state(verification_key);
+    *this = GoblinTranslatorVerifier{ verification_key };
 }
 
 GoblinTranslatorVerifier::GoblinTranslatorVerifier(GoblinTranslatorVerifier&& other) noexcept
@@ -281,7 +281,7 @@ bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
                                                                     commitments.get_concatenation_groups(),
                                                                     claimed_evaluations.get_concatenated_constraints());
 
-    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
     return verified;
 }
