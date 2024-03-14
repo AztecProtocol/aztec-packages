@@ -89,13 +89,14 @@ impl<'a> FunctionContext<'a> {
         parameters: &Parameters,
         runtime: RuntimeType,
         shared_context: &'a SharedContext,
+        should_fold: bool,
     ) -> Self {
         let function_id = shared_context
             .pop_next_function_in_queue()
             .expect("No function in queue for the FunctionContext to compile")
             .1;
 
-        let builder = FunctionBuilder::new(function_name, function_id, runtime);
+        let builder = FunctionBuilder::new(function_name, function_id, runtime, should_fold);
         let mut this = Self { definitions: HashMap::default(), builder, shared_context };
         this.add_parameters_to_scope(parameters);
         this
@@ -111,7 +112,7 @@ impl<'a> FunctionContext<'a> {
         if func.unconstrained {
             self.builder.new_brillig_function(func.name.clone(), id);
         } else {
-            self.builder.new_function(func.name.clone(), id);
+            self.builder.new_function(func.name.clone(), id, func.should_fold);
         }
         self.add_parameters_to_scope(&func.parameters);
     }

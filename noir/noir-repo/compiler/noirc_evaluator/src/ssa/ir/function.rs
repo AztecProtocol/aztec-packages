@@ -17,6 +17,15 @@ pub(crate) enum RuntimeType {
     Brillig,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub(crate) enum InlineType {
+    /// The most basic entry point can expect all its functions to be inlined. 
+    /// All function calls are expected to be inlined into a single ACIR.
+    Inline,
+    /// Functions marked as foldable will not be inlined and compiled separately into ACIR
+    Fold,
+}
+
 /// A function holds a list of instructions.
 /// These instructions are further grouped into Basic blocks
 ///
@@ -35,6 +44,10 @@ pub(crate) struct Function {
 
     runtime: RuntimeType,
 
+    /// Represents how an ACIR function should be inlined.
+    /// This type should only be accessed when operating on a function of RuntimeType::Acir
+    inline_type: InlineType,
+
     /// The DataFlowGraph holds the majority of data pertaining to the function
     /// including its blocks, instructions, and values.
     pub(crate) dfg: DataFlowGraph,
@@ -47,7 +60,7 @@ impl Function {
     pub(crate) fn new(name: String, id: FunctionId) -> Self {
         let mut dfg = DataFlowGraph::default();
         let entry_block = dfg.make_block();
-        Self { name, id, entry_block, dfg, runtime: RuntimeType::Acir }
+        Self { name, id, entry_block, dfg, runtime: RuntimeType::Acir, inline_type: InlineType::Inline }
     }
 
     /// The name of the function.
@@ -69,6 +82,15 @@ impl Function {
     /// Set runtime type of the function.
     pub(crate) fn set_runtime(&mut self, runtime: RuntimeType) {
         self.runtime = runtime;
+    }
+
+    pub(crate) fn inline_type(&self) -> InlineType {
+        assert!(matches!(self.runtime, RuntimeType::Acir), "ICE: We should only check the inline type for ACIR functions. All Brillig functions are expected to not be inlined");
+        self.inline_type
+    }
+
+    pub(crate) fn set_inline_type(&mut self, inline_type: InlineType) {
+        self.inline_type = inline_type
     }
 
     /// Retrieves the entry block of a function.

@@ -503,7 +503,7 @@ mod tests {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir);
+        let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir, false);
 
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();
@@ -605,7 +605,7 @@ mod tests {
         //     return Field 0
         // }
         let main_id = Id::test_new(0);
-        let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir);
+        let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir, false);
 
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();

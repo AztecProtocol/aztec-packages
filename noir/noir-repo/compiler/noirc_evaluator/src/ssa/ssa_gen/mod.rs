@@ -52,7 +52,7 @@ pub(crate) fn generate_ssa(
 
     // Queue the main function for compilation
     context.get_or_queue_function(main_id);
-
+    dbg!(main.should_fold);
     let mut function_context = FunctionContext::new(
         main.name.clone(),
         &main.parameters,
@@ -62,6 +62,7 @@ pub(crate) fn generate_ssa(
             RuntimeType::Acir
         },
         &context,
+        main.should_fold,
     );
 
     // Generate the call_data bus from the relevant parameters. We create it *before* processing the function body

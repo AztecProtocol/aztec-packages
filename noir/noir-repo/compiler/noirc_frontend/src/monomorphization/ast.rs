@@ -208,6 +208,7 @@ pub struct Function {
 
     pub return_type: Type,
     pub unconstrained: bool,
+    pub should_fold: bool,
 }
 
 /// Compared to hir_def::types::Type, this monomorphized Type has:

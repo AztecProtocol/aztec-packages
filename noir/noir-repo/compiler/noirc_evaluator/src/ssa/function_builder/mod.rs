@@ -46,8 +46,9 @@ impl FunctionBuilder {
         function_name: String,
         function_id: FunctionId,
         runtime: RuntimeType,
+        should_fold: bool,
     ) -> Self {
-        let mut new_function = Function::new(function_name, function_id);
+        let mut new_function = Function::new(function_name, function_id, should_fold);
         new_function.set_runtime(runtime);
         let current_block = new_function.entry_block();
 
@@ -69,8 +70,9 @@ impl FunctionBuilder {
         name: String,
         function_id: FunctionId,
         runtime_type: RuntimeType,
+        should_fold: bool,
     ) {
-        let mut new_function = Function::new(name, function_id);
+        let mut new_function = Function::new(name, function_id, should_fold);
         new_function.set_runtime(runtime_type);
         self.current_block = new_function.entry_block();
 
@@ -79,13 +81,13 @@ impl FunctionBuilder {
     }
 
     /// Finish the current function and create a new ACIR function.
-    pub(crate) fn new_function(&mut self, name: String, function_id: FunctionId) {
-        self.new_function_with_type(name, function_id, RuntimeType::Acir);
+    pub(crate) fn new_function(&mut self, name: String, function_id: FunctionId, should_fold: bool,) {
+        self.new_function_with_type(name, function_id, RuntimeType::Acir, should_fold);
     }
 
     /// Finish the current function and create a new unconstrained function.
     pub(crate) fn new_brillig_function(&mut self, name: String, function_id: FunctionId) {
-        self.new_function_with_type(name, function_id, RuntimeType::Brillig);
+        self.new_function_with_type(name, function_id, RuntimeType::Brillig, false);
     }
 
     /// Consume the FunctionBuilder returning all the functions it has generated.
@@ -463,7 +465,7 @@ mod tests {
         // let x = 7;
         // let bits = x.to_le_bits(8);
         let func_id = Id::test_new(0);
-        let mut builder = FunctionBuilder::new("func".into(), func_id, RuntimeType::Acir);
+        let mut builder = FunctionBuilder::new("func".into(), func_id, RuntimeType::Acir, false);
         let one = builder.numeric_constant(FieldElement::one(), Type::bool());
         let zero = builder.numeric_constant(FieldElement::zero(), Type::bool());
 

@@ -314,9 +314,12 @@ impl<'interner> Monomorphizer<'interner> {
         });
         let unconstrained = modifiers.is_unconstrained;
 
+        let should_fold = !meta.should_inline;
+        dbg!(should_fold);
+
         let parameters = self.parameters(&meta.parameters);
         let body = self.expr(body_expr_id)?;
-        let function = ast::Function { id, name, parameters, body, return_type, unconstrained };
+        let function = ast::Function { id, name, parameters, body, return_type, unconstrained, should_fold };
 
         self.push_function(id, function);
         Ok(())
@@ -1336,7 +1339,7 @@ impl<'interner> Monomorphizer<'interner> {
         let name = lambda_name.to_owned();
         let unconstrained = false;
 
-        let function = ast::Function { id, name, parameters, body, return_type, unconstrained };
+        let function = ast::Function { id, name, parameters, body, return_type, unconstrained, should_fold: false };
         self.push_function(id, function);
 
         let typ =
@@ -1450,7 +1453,7 @@ impl<'interner> Monomorphizer<'interner> {
         parameters.append(&mut converted_parameters);
 
         let unconstrained = false;
-        let function = ast::Function { id, name, parameters, body, return_type, unconstrained };
+        let function = ast::Function { id, name, parameters, body, return_type, unconstrained, should_fold: false };
         self.push_function(id, function);
 
         let lambda_value =
@@ -1568,7 +1571,7 @@ impl<'interner> Monomorphizer<'interner> {
         let name = lambda_name.to_owned();
 
         let unconstrained = false;
-        let function = ast::Function { id, name, parameters, body, return_type, unconstrained };
+        let function = ast::Function { id, name, parameters, body, return_type, unconstrained, should_fold: false };
         self.push_function(id, function);
 
         ast::Expression::Ident(ast::Ident {
