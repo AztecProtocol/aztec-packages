@@ -9,7 +9,7 @@ import { COMMENT_TYPES } from '../types.js';
 
 const GITHUB_TOKEN = process.env.AZTEC_BOT_COMMENTER_GITHUB_TOKEN;
 const OWNER = 'AztecProtocol';
-const REPO = 'aztec3-packages';
+const REPO = 'aztec-packages';
 
 const log = createConsoleLogger();
 

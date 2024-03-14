@@ -1,4 +1,3 @@
-# Runs the entire new CI mode.
 name: Run CI with Earthly
 on:
   push:
@@ -6,54 +5,57 @@ on:
       - master
   pull_request: {}
   workflow_dispatch: {}
-jobs:
-  ci-x86:
-    runs-on: ubuntu-latest
-    # TODO enable after stress tests
-    # concurrency:
-    #   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-x86
-    #   cancel-in-progress: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          submodules: recursive
-      - name: setup
-        run: |
-          mkdir -p ~/.ssh
-          echo DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com >> $GITHUB_ENV
-          echo ${{ secrets.DOCKERHUB_PASSWORD}} | docker login -u aztecprotocolci --password-stdin
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 -d > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-          cat > ~/.ssh/config <<EOF
-          IdentityFile ~/.ssh/build_instance_key
-          StrictHostKeyChecking no
-          User ubuntu
-          EOF
-      # - name: ensure-base-images
-      #   run: |
-      #     scripts/earthly --push ./foundry/+build
-      #      scripts/earthly --push ./barretenberg/cpp/+build-wasi-sdkV
-      - name: ci
-        run: scripts/earthly --exec-stats +build-ci-small
 
-  ci-arm:
+jobs:
+  # ci:
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       environment: [x86, arm]
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         submodules: recursive
+
+  #     - name: Setup
+  #       run: |
+  #         mkdir -p ~/.ssh
+  #         echo DOCKER_HOST=ssh://build-instance-${{ matrix.environment }}.aztecprotocol.com >> $GITHUB_ENV
+  #         echo ${{ secrets.DOCKERHUB_PASSWORD}} | docker login -u aztecprotocolci --password-stdin
+  #         echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 -d > ~/.ssh/build_instance_key
+  #         chmod 600 ~/.ssh/build_instance_key
+  #         cat > ~/.ssh/config <<EOF
+  #         IdentityFile ~/.ssh/build_instance_key
+  #         StrictHostKeyChecking no
+  #         User ubuntu
+  #         EOF
+
+  #     # Turn on if updating our custom built WASM-enabled clang (wasi-sdk), foundry or other base images
+  #     #- name: Ensure Base Images
+  #     #  run: |
+  #         # scripts/earthly --push ./foundry/+build
+  #         # Uncomment the following line if needed for the arm environment
+  #         # scripts/earthly --push ./barretenberg/cpp/+build-wasi-sdk
+
+  #     - name: CI
+  #       run: scripts/earthly --exec-stats +build-ci-small
+  bench:
     runs-on: ubuntu-latest
-    # TODO enable after stress tests
-    # concurrency:
-    #   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-arm
-    #   cancel-in-progress: true
+    strategy:
+      matrix:
+        environment: [x86, arm]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           submodules: recursive
-      - name: setup
+
+      - name: Setup
         run: |
           mkdir -p ~/.ssh
-          echo DOCKER_HOST=ssh://build-instance-arm.aztecprotocol.com >> $GITHUB_ENV
           echo ${{ secrets.DOCKERHUB_PASSWORD}} | docker login -u aztecprotocolci --password-stdin
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 -d > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
@@ -62,9 +64,29 @@ jobs:
           StrictHostKeyChecking no
           User ubuntu
           EOF
-      - name: ensure-base-images
+
+      - name: Bench
         run: |
-          scripts/earthly --push ./foundry/+build
-          # scripts/earthly --push ./barretenberg/cpp/+build-wasi-sdk
-      - name: ci
-        run: scripts/earthly --exec-stats +build-ci-small
+          scripts/earthly ./barretenberg/cpp/+bench-ultra-honk | tee output.txt
+          # Save output in environment for next steps
+          echo "benchmark_output<<EOF" >> $GITHUB_ENV
+          cat output.txt >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+ 
+      - name: Find Comment
+        uses: peter-evans/find-comment@v3
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: bench-ultra-honk
+
+      - name: Create or update comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            bench-ultra-honk
+            ${{ env.benchmark_output }}
+          edit-mode: replace
