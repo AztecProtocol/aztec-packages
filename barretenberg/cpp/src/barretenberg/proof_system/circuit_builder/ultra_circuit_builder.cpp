@@ -79,24 +79,24 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
     ++this->num_gates;
 
     // q_sort
-    blocks.sort.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
-    blocks.sort.q_m().emplace_back(0);
-    blocks.sort.q_1().emplace_back(0);
-    blocks.sort.q_2().emplace_back(0);
-    blocks.sort.q_3().emplace_back(0);
-    blocks.sort.q_4().emplace_back(0);
-    blocks.sort.q_c().emplace_back(0);
-    blocks.sort.q_sort().emplace_back(1);
-    blocks.sort.q_arith().emplace_back(0);
-    blocks.sort.q_lookup_type().emplace_back(0);
-    blocks.sort.q_elliptic().emplace_back(0);
-    blocks.sort.q_aux().emplace_back(0);
+    blocks.genperm.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.genperm.q_m().emplace_back(0);
+    blocks.genperm.q_1().emplace_back(0);
+    blocks.genperm.q_2().emplace_back(0);
+    blocks.genperm.q_3().emplace_back(0);
+    blocks.genperm.q_4().emplace_back(0);
+    blocks.genperm.q_c().emplace_back(0);
+    blocks.genperm.q_sort().emplace_back(1);
+    blocks.genperm.q_arith().emplace_back(0);
+    blocks.genperm.q_lookup_type().emplace_back(0);
+    blocks.genperm.q_elliptic().emplace_back(0);
+    blocks.genperm.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.sort.pad_additional();
+        blocks.genperm.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
-    create_dummy_gate(blocks.sort, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    create_dummy_gate(blocks.genperm, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // q_elliptic
     blocks.elliptic.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
@@ -207,7 +207,6 @@ template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate(const add_quad_<FF>& in,
                                                                 const bool include_next_gate_w_4)
 {
-    // WORKTODO: arithmetic
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
     blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
     blocks.arithmetic.q_m().emplace_back(0);
@@ -305,7 +304,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate_with_bit_extract
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_big_mul_gate(const mul_quad_<FF>& in)
 {
-    // WORKTODO: arithmetic
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
 
     blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
@@ -476,7 +474,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
 
     this->assert_valid_variables({ in.x1, in.x2, in.x3, in.y1, in.y2, in.y3 });
 
-    // WORKTODO: elliptic
     auto& block = blocks.elliptic;
 
     bool previous_elliptic_gate_exists = block.size() > 0;
@@ -522,11 +519,9 @@ void UltraCircuitBuilder_<Arithmetization>::create_ecc_add_gate(const ecc_add_ga
  *
  * @param in Elliptic curve point doubling gate parameters
  */
-// WORKTODO: this appears not to be used anywhere aside from test_elliptic_double_gate
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
 {
-    // WORKTODO: keep this?
     auto& block = blocks.elliptic;
 
     /**
@@ -800,8 +795,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<Arithmetization>::decompose_into_defa
         uint256_t new_accumulator = accumulator - (uint256_t(round_sublimbs[0]) << shifts[0]) -
                                     (uint256_t(round_sublimbs[1]) << shifts[1]) -
                                     (uint256_t(round_sublimbs[2]) << shifts[2]);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/873): potential issue here with using next gate,
-        // but maybe fine if they're all arithmetic.
+
         create_big_add_gate(
             {
                 new_limbs[0],
@@ -966,29 +960,29 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
     this->assert_valid_variables(variable_index);
 
     for (size_t i = 0; i < variable_index.size(); i += gate_width) {
-        blocks.sort.populate_wires(
+        blocks.genperm.populate_wires(
             variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
 
         ++this->num_gates;
-        blocks.sort.q_m().emplace_back(0);
-        blocks.sort.q_1().emplace_back(0);
-        blocks.sort.q_2().emplace_back(0);
-        blocks.sort.q_3().emplace_back(0);
-        blocks.sort.q_c().emplace_back(0);
-        blocks.sort.q_arith().emplace_back(0);
-        blocks.sort.q_4().emplace_back(0);
-        blocks.sort.q_sort().emplace_back(1);
-        blocks.sort.q_elliptic().emplace_back(0);
-        blocks.sort.q_lookup_type().emplace_back(0);
-        blocks.sort.q_aux().emplace_back(0);
+        blocks.genperm.q_m().emplace_back(0);
+        blocks.genperm.q_1().emplace_back(0);
+        blocks.genperm.q_2().emplace_back(0);
+        blocks.genperm.q_3().emplace_back(0);
+        blocks.genperm.q_c().emplace_back(0);
+        blocks.genperm.q_arith().emplace_back(0);
+        blocks.genperm.q_4().emplace_back(0);
+        blocks.genperm.q_sort().emplace_back(1);
+        blocks.genperm.q_elliptic().emplace_back(0);
+        blocks.genperm.q_lookup_type().emplace_back(0);
+        blocks.genperm.q_aux().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.sort.pad_additional();
+            blocks.genperm.pad_additional();
         }
         check_selector_length_consistency();
     }
     // dummy gate needed because of sort widget's check of next row
     create_dummy_gate(
-        blocks.sort, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
+        blocks.genperm, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
 }
 
 /**
@@ -1043,7 +1037,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_dummy_constraints(const std::
 }
 
 // Check for a sequence of variables that neighboring differences are at most 3 (used for batched range checks)
-// WORKTODO: changing this to sort block passes for many tests that use it but not for "ram". hmm
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     const std::vector<uint32_t>& variable_index, const FF& start, const FF& end)
@@ -1053,7 +1046,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     ASSERT(variable_index.size() % gate_width == 0 && variable_index.size() > gate_width);
     this->assert_valid_variables(variable_index);
 
-    auto& block = blocks.sort;
+    auto& block = blocks.genperm;
 
     // Add an arithmetic gate to ensure the first input is equal to the start value of the range being checked
     create_add_gate({ variable_index[0], this->zero_idx, this->zero_idx, 1, 0, 0, -start });
@@ -1536,9 +1529,6 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::decompose_non_nat
  *
  * N.B.: This method does NOT evaluate the prime field component of non-native field multiplications.
  **/
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/873): this method interleaves arithmetic gates
-// (big_add_gate) with auxiliary gates. Sorting will cause circuits using this functionality to fail. Issue is that the
-// add gates are set up to use the next row, which is sometimes an aux gate.
 template <typename Arithmetization>
 std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_native_field_multiplication(
     const non_native_field_witnesses<FF>& input, const bool range_constrain_quotient_and_remainder)
@@ -2046,7 +2036,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     blocks.aux.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
+    // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = this->blocks.aux.size() - 1;
     ++this->num_gates;
 }
@@ -2066,7 +2056,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_ROM_gate(RomRecord& re
     blocks.aux.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
+    // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = this->blocks.aux.size() - 1;
     ++this->num_gates;
 }
@@ -2110,7 +2100,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     blocks.aux.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
+    // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = this->blocks.aux.size() - 1;
     ++this->num_gates;
 }
@@ -2131,7 +2121,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_RAM_gate(RamRecord& re
     blocks.aux.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
+    // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = this->blocks.aux.size() - 1;
     ++this->num_gates;
 }
@@ -2146,7 +2136,7 @@ template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_final_sorted_RAM_gate(RamRecord& record, const size_t ram_array_size)
 {
     record.record_witness = this->add_variable(0);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
+    // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = this->blocks.aux.size(); // no -1 since we havent added the gate yet
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This method used to add a single arithmetic gate

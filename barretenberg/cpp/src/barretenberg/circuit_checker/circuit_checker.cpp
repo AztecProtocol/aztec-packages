@@ -187,6 +187,8 @@ void CircuitChecker::populate_values(
     values.w_l = builder.get_variable(block.w_l()[idx]);
     values.w_r = builder.get_variable(block.w_r()[idx]);
     values.w_o = builder.get_variable(block.w_o()[idx]);
+    // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that we
+    // are indexing into the correct block before updating the w_4 value.
     if (memory_data.read_record_gates.contains(idx) && block.has_ram_rom) {
         values.w_4 = compute_memory_record_term(values.w_l, values.w_r, values.w_o, memory_data.eta);
     } else if (memory_data.write_record_gates.contains(idx) && block.has_ram_rom) {

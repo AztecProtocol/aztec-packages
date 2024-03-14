@@ -171,8 +171,7 @@ class CircuitChecker {
         }
     };
 
-    // Define a hash table for efficiently checking if lookups are present in the set of tables used by the circuit
-    // using Key = std::array<FF, 4>; // key value is the four wire inputs for a lookup gates
+    // Hash for lookups hash table for efficiently checking if lookups are present in set of tables used by circuit
     struct HashFunction {
         const FF mult_const = FF(uint256_t(0x1337, 0x1336, 0x1335, 0x1334));
         const FF mc_sqr = mult_const.sqr();
@@ -184,6 +183,5 @@ class CircuitChecker {
             return static_cast<size_t>(result.reduce_once().data[0]);
         }
     };
-    // using LookupHashTable = std::unordered_set<Key, HashFunction>;
 };
 } // namespace bb
