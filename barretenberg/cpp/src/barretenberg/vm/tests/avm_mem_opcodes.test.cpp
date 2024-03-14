@@ -22,7 +22,7 @@ class AvmMemOpcodeTests : public ::testing::Test {
     void buildTrace(uint128_t const val, uint32_t const src_offset, uint32_t const dst_offset, AvmMemoryTag const tag)
     {
         trace_builder.set(val, src_offset, tag);
-        trace_builder.op_mov(src_offset, dst_offset);
+        trace_builder.op_mov(false, src_offset, dst_offset);
         trace_builder.return_op(0, 0);
         trace = trace_builder.finalize();
 
@@ -104,6 +104,17 @@ TEST_F(AvmMemOpcodeTests, sameAddressMov)
     buildTrace(11, 356, 356, AvmMemoryTag::U16);
 
     validate_trace(11, 356, 356, AvmMemoryTag::U16);
+}
+
+TEST_F(AvmMemOpcodeTests, indirectMov)
+{
+    trace_builder.set(2, 0, AvmMemoryTag::U32);
+    trace_builder.set(3, 1, AvmMemoryTag::U32);
+    trace_builder.set(23, 2, AvmMemoryTag::U8);
+    trace_builder.op_mov(true, 0, 1);
+    trace_builder.return_op(0, 0);
+    trace = trace_builder.finalize();
+    validate_trace_proof(std::move(trace));
 }
 
 TEST_F(AvmMemOpcodeNegativeTests, wrongOutputErrorTag)

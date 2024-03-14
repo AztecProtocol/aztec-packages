@@ -179,7 +179,8 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         }
         case OpCode::MOV:
-            trace_builder.op_mov(std::get<uint32_t>(inst.operands.at(1)), std::get<uint32_t>(inst.operands.at(2)));
+            trace_builder.op_mov(
+                false, std::get<uint32_t>(inst.operands.at(1)), std::get<uint32_t>(inst.operands.at(2)));
             break;
             // Control Flow - Contract Calls
         case OpCode::RETURN:
