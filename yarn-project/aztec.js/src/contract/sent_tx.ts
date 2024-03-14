@@ -64,7 +64,9 @@ export class SentTx {
     }
     const receipt = await this.waitForReceipt(opts);
     if (receipt.status !== TxStatus.MINED) {
-      throw new Error(`Transaction ${await this.getTxHash()} was ${receipt.status}`);
+      throw new Error(
+        `Transaction ${await this.getTxHash()} was ${receipt.status}. Reason: ${receipt.error ?? 'unknown'}`,
+      );
     }
     if (opts?.debug) {
       const txHash = await this.getTxHash();
@@ -75,8 +77,6 @@ export class SentTx {
         nullifiers: tx.nullifiers.filter(n => !n.isZero()),
         publicDataWrites: tx.publicDataWrites.filter(p => !p.isEmpty()),
         l2ToL1Msgs: tx.l2ToL1Msgs.filter(l => !l.isZero()),
-        contractsLeaves: tx.contractLeaves.filter(c => !c.isZero()),
-        contractData: tx.contractData.filter(c => !c.isEmpty()),
         visibleNotes,
       };
     }

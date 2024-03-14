@@ -1,11 +1,8 @@
 //! This module contains functions for producing a higher level view disassembler of Brillig.
 
 use super::BrilligBinaryOp;
-use crate::brillig::brillig_ir::{ReservedRegisters, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE};
-use acvm::acir::brillig::{
-    BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, Value,
-    ValueOrArray,
-};
+use crate::brillig::brillig_ir::ReservedRegisters;
+use acvm::acir::brillig::{BlackBoxOp, HeapArray, HeapVector, MemoryAddress, Value, ValueOrArray};
 
 /// Trait for converting values into debug-friendly strings.
 trait DebugToString {
@@ -48,58 +45,26 @@ impl DebugToString for HeapVector {
     }
 }
 
-impl DebugToString for BinaryFieldOp {
-    fn debug_to_string(&self) -> String {
-        match self {
-            BinaryFieldOp::Add => "f+".into(),
-            BinaryFieldOp::Sub => "f-".into(),
-            BinaryFieldOp::Mul => "f*".into(),
-            BinaryFieldOp::Div => "f/".into(),
-            BinaryFieldOp::Equals => "f==".into(),
-        }
-    }
-}
-
-impl DebugToString for BinaryIntOp {
-    fn debug_to_string(&self) -> String {
-        match self {
-            BinaryIntOp::Add => "+".into(),
-            BinaryIntOp::Sub => "-".into(),
-            BinaryIntOp::Mul => "*".into(),
-            BinaryIntOp::Equals => "==".into(),
-            BinaryIntOp::SignedDiv => "/".into(),
-            BinaryIntOp::UnsignedDiv => "//".into(),
-            BinaryIntOp::LessThan => "<".into(),
-            BinaryIntOp::LessThanEquals => "<=".into(),
-            BinaryIntOp::And => "&&".into(),
-            BinaryIntOp::Or => "||".into(),
-            BinaryIntOp::Xor => "^".into(),
-            BinaryIntOp::Shl => "<<".into(),
-            BinaryIntOp::Shr => ">>".into(),
-        }
-    }
-}
-
 impl DebugToString for BrilligBinaryOp {
     fn debug_to_string(&self) -> String {
         match self {
-            BrilligBinaryOp::Field { op } => op.debug_to_string(),
-            BrilligBinaryOp::Integer { op, bit_size } => {
-                // rationale: if there's >= 64 bits, we should not bother with this detail
-                if *bit_size >= BRILLIG_MEMORY_ADDRESSING_BIT_SIZE {
-                    op.debug_to_string()
-                } else {
-                    format!("i{}::{}", bit_size, op.debug_to_string())
-                }
-            }
-            BrilligBinaryOp::Modulo { is_signed_integer, bit_size } => {
+            BrilligBinaryOp::Add => "+".into(),
+            BrilligBinaryOp::Sub => "-".into(),
+            BrilligBinaryOp::Mul => "*".into(),
+            BrilligBinaryOp::Equals => "==".into(),
+            BrilligBinaryOp::FieldDiv => "f/".into(),
+            BrilligBinaryOp::SignedDiv => "/".into(),
+            BrilligBinaryOp::UnsignedDiv => "//".into(),
+            BrilligBinaryOp::LessThan => "<".into(),
+            BrilligBinaryOp::LessThanEquals => "<=".into(),
+            BrilligBinaryOp::And => "&&".into(),
+            BrilligBinaryOp::Or => "||".into(),
+            BrilligBinaryOp::Xor => "^".into(),
+            BrilligBinaryOp::Shl => "<<".into(),
+            BrilligBinaryOp::Shr => ">>".into(),
+            BrilligBinaryOp::Modulo { is_signed_integer } => {
                 let op = if *is_signed_integer { "%" } else { "%%" };
-                // rationale: if there's >= 64 bits, we should not bother with this detail
-                if *bit_size >= BRILLIG_MEMORY_ADDRESSING_BIT_SIZE {
-                    op.into()
-                } else {
-                    format!("{op}:{bit_size}")
-                }
+                op.into()
             }
         }
     }

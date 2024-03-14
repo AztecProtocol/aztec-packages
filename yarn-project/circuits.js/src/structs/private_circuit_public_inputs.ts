@@ -19,7 +19,6 @@ import {
   PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
-import { ContractDeploymentData } from '../structs/contract_deployment_data.js';
 import { Header } from '../structs/header.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../structs/side_effects.js';
 import { CallContext } from './call_context.js';
@@ -85,6 +84,10 @@ export class PrivateCircuitPublicInputs {
      */
     public newL2ToL1Msgs: Tuple<L2ToL1Message, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
+     * The side effect counter at the start of this call.
+     */
+    public startSideEffectCounter: Fr,
+    /**
      * The end side effect counter for this call.
      */
     public endSideEffectCounter: Fr,
@@ -112,10 +115,6 @@ export class PrivateCircuitPublicInputs {
      * Header of a block whose state is used during private execution (not the block the transaction is included in).
      */
     public historicalHeader: Header,
-    /**
-     * Deployment data of contracts being deployed in this kernel iteration.
-     */
-    public contractDeploymentData: ContractDeploymentData,
     /**
      * Chain Id of the instance.
      *
@@ -160,12 +159,12 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
+      reader.readObject(Fr),
       reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
       reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Header),
-      reader.readObject(ContractDeploymentData),
       reader.readObject(Fr),
       reader.readObject(Fr),
     );
@@ -187,12 +186,12 @@ export class PrivateCircuitPublicInputs {
       reader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
+      reader.readField(),
       reader.readFieldArray(NUM_FIELDS_PER_SHA256),
       reader.readFieldArray(NUM_FIELDS_PER_SHA256),
       reader.readField(),
       reader.readField(),
       reader.readObject(Header),
-      reader.readObject(ContractDeploymentData),
       reader.readField(),
       reader.readField(),
     );
@@ -217,12 +216,12 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
+      Fr.ZERO,
       makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       Fr.ZERO,
       Fr.ZERO,
       Header.empty(),
-      ContractDeploymentData.empty(),
       Fr.ZERO,
       Fr.ZERO,
     );
@@ -251,7 +250,6 @@ export class PrivateCircuitPublicInputs {
       this.encryptedLogPreimagesLength.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
       this.historicalHeader.isEmpty() &&
-      this.contractDeploymentData.isEmpty() &&
       this.chainId.isZero() &&
       this.version.isZero()
     );
@@ -276,13 +274,13 @@ export class PrivateCircuitPublicInputs {
       fields.privateCallStackHashes,
       fields.publicCallStackHashes,
       fields.newL2ToL1Msgs,
+      fields.startSideEffectCounter,
       fields.endSideEffectCounter,
       fields.encryptedLogsHash,
       fields.unencryptedLogsHash,
       fields.encryptedLogPreimagesLength,
       fields.unencryptedLogPreimagesLength,
       fields.historicalHeader,
-      fields.contractDeploymentData,
       fields.chainId,
       fields.version,
     ] as const;

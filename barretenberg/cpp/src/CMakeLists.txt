@@ -63,7 +63,6 @@ add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/honk)
-add_subdirectory(barretenberg/join_split_example)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/plonk)
 add_subdirectory(barretenberg/polynomials)
@@ -112,7 +111,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
     $<TARGET_OBJECTS:eccvm_objects>
-    $<TARGET_OBJECTS:examples_objects>
+    $<TARGET_OBJECTS:simple_example_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
     $<TARGET_OBJECTS:honk_objects>
@@ -132,7 +131,8 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
-    $<TARGET_OBJECTS:stdlib_recursion_objects>
+    $<TARGET_OBJECTS:stdlib_honk_recursion_objects>
+    $<TARGET_OBJECTS:stdlib_plonk_recursion_objects>
     $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
     $<TARGET_OBJECTS:sumcheck_objects>

@@ -28,7 +28,6 @@ describe('Contract Class', () => {
     registryAddress: EthAddress.random(),
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
-    contractDeploymentEmitterAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',
@@ -42,6 +41,7 @@ describe('Contract Class', () => {
     functions: [
       {
         name: 'bar',
+        isInitializer: false,
         functionType: FunctionType.SECRET,
         isInternal: false,
         debugSymbols: '',
@@ -66,6 +66,7 @@ describe('Contract Class', () => {
       },
       {
         name: 'baz',
+        isInitializer: false,
         functionType: FunctionType.OPEN,
         isInternal: false,
         parameters: [],
@@ -75,6 +76,7 @@ describe('Contract Class', () => {
       },
       {
         name: 'qux',
+        isInitializer: false,
         functionType: FunctionType.UNCONSTRAINED,
         isInternal: false,
         parameters: [

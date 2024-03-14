@@ -4,6 +4,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { ContractInstance } from '@aztec/types/contracts';
 
 import { TypedOracle, toACVMWitness } from '../acvm/index.js';
 import { PackedArgsCache, SideEffectCounter } from '../common/index.js';
@@ -49,7 +50,13 @@ export class PublicExecutionContext extends TypedOracle {
    */
   public getInitialWitness(witnessStartIndex = 0) {
     const { callContext, args } = this.execution;
-    const fields = [...callContext.toFields(), ...this.header.toFields(), ...this.globalVariables.toFields(), ...args];
+    const fields = [
+      ...callContext.toFields(),
+      ...this.header.toFields(),
+      ...this.globalVariables.toFields(),
+      new Fr(this.sideEffectCounter.current()),
+      ...args,
+    ];
 
     return toACVMWitness(witnessStartIndex, fields);
   }
@@ -136,6 +143,7 @@ export class PublicExecutionContext extends TypedOracle {
    * @param values - The values to be written.
    */
   public async storageWrite(startStorageSlot: Fr, values: Fr[]) {
+    const newValues = [];
     for (let i = 0; i < values.length; i++) {
       const storageSlot = new Fr(startStorageSlot.toBigInt() + BigInt(i));
       const newValue = values[i];
@@ -143,7 +151,9 @@ export class PublicExecutionContext extends TypedOracle {
       this.storageActions.write(storageSlot, newValue, sideEffectCounter);
       await this.stateDb.storageWrite(this.execution.callContext.storageContractAddress, storageSlot, newValue);
       this.log(`Oracle storage write: slot=${storageSlot.toString()} value=${newValue.toString()}`);
+      newValues.push(newValue);
     }
+    return newValues;
   }
 
   /**
@@ -157,6 +167,7 @@ export class PublicExecutionContext extends TypedOracle {
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
+    sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
   ) {
@@ -183,10 +194,9 @@ export class PublicExecutionContext extends TypedOracle {
       storageContractAddress: isDelegateCall ? this.execution.contractAddress : targetContractAddress,
       portalContractAddress: portalAddress,
       functionSelector,
-      isContractDeployment: false,
       isDelegateCall,
       isStaticCall,
-      startSideEffectCounter: 0, // TODO use counters in public execution
+      sideEffectCounter,
     });
 
     const nestedExecution: PublicExecution = {
@@ -208,7 +218,7 @@ export class PublicExecutionContext extends TypedOracle {
       this.log,
     );
 
-    const childExecutionResult = await executePublicFunction(context, acir);
+    const childExecutionResult = await executePublicFunction(context, acir, true /** nested */);
 
     if (isStaticCall) {
       checkValidStaticCall(
@@ -234,5 +244,18 @@ export class PublicExecutionContext extends TypedOracle {
       throw new Error(`Public execution oracle can only access nullifier membership witnesses for the current block`);
     }
     return await this.commitmentsDb.getNullifierMembershipWitnessAtLatestBlock(nullifier);
+  }
+
+  public async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+    // Note to AVM implementor: The wrapper of the oracle call get_contract_instance in aztec-nr
+    // automatically checks that the returned instance is correct, by hashing it together back
+    // into the address. However, in the AVM, we also need to prove the negative, otherwise a malicious
+    // sequencer could just lie about not having the instance available in its local db. We can do this
+    // by using the prove_contract_non_deployment_at method if the contract is not found in the db.
+    const instance = await this.contractsDb.getContractInstance(address);
+    if (!instance) {
+      throw new Error(`Contract instance at ${address} not found`);
+    }
+    return instance;
   }
 }

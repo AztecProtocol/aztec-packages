@@ -1,28 +1,87 @@
+use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
+
+struct Note {
+    a: Field,
+    b: Field,
+}
+
+impl Serialize<2> for Note {
+    fn serialize(self) -> [Field; 2] {
+        [self.a, self.b]
+    }
+}
+
+impl Deserialize<2> for Note {
+    fn deserialize(wire: [Field; 2]) -> Note {
+        Note {a: wire[0], b: wire[1]}
+    }
+}
+
 contract AvmTest {
+    use crate::Note;
+
     // Libs
+    use dep::aztec::prelude::Map;
     use dep::aztec::state_vars::PublicMutable;
     use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH};
+    use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
+    use dep::aztec::protocol_types::{hash::pedersen_hash, traits::{ToField}};
     use dep::compressed_string::CompressedString;
 
     // avm lib
     use dep::aztec::avm::hash::{keccak256, poseidon, sha256};
 
-    #[aztec(private)]
-    fn constructor() {}
-
     struct Storage {
-        owner: PublicMutable<AztecAddress>
+        single: PublicMutable<Field>,
+        list: PublicMutable<Note>,
+        map: Map<AztecAddress, PublicMutable<u32>>,
     }
 
     #[aztec(public-vm)]
-    fn setAdmin() {
-        storage.owner.write(context.sender());
+    fn setStorageSingle(a: Field) {
+        storage.single.write(a);
     }
 
     #[aztec(public-vm)]
-    fn setAndRead() -> pub AztecAddress {
-        storage.owner.write(context.sender());
-        storage.owner.read()
+    fn readStorageSingle() -> pub Field {
+        storage.single.read()
+    }
+
+    #[aztec(public-vm)]
+    fn setReadStorageSingle(a: Field) -> pub Field {
+        storage.single.write(a);
+        storage.single.read()
+    }
+
+    #[aztec(public-vm)]
+    fn setStorageList(a: Field, b: Field) {
+        storage.list.write(Note { a, b });
+    }
+
+    #[aztec(public-vm)]
+    fn readStorageList() -> pub [Field; 2] {
+        let note: Note = storage.list.read();
+        note.serialize()
+    }
+
+    #[aztec(public-vm)]
+    fn setStorageMap(to: AztecAddress, amount: u32) -> pub Field {
+        storage.map.at(to).write(amount);
+        // returns storage slot for key
+        pedersen_hash([storage.map.storage_slot, to.to_field()], 0)
+    }
+
+    #[aztec(public-vm)]
+    fn addStorageMap(to: AztecAddress, amount: u32) -> pub Field {
+        let new_balance = storage.map.at(to).read().add(amount);
+        storage.map.at(to).write(new_balance);
+        // returns storage slot for key
+        pedersen_hash([storage.map.storage_slot, to.to_field()], 0)
+    }
+
+    #[aztec(public-vm)]
+    fn readStorageMap(address: AztecAddress) -> pub u32 {
+        storage.map.at(address).read()
     }
 
     #[aztec(public-vm)]
@@ -63,6 +122,11 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn setOpcodeSmallField() -> pub Field {
         200 as Field
+    }
+
+    #[aztec(public-vm)]
+    fn addU128(a: U128, b: U128) -> pub U128 {
+        a + b
     }
 
     // /************************************************************************
@@ -160,10 +224,8 @@ contract AvmTest {
     fn emit_unencrypted_log() {
         context.emit_unencrypted_log(/*event_selector=*/ 5, /*message=*/ [10, 20, 30]);
         context.emit_unencrypted_log(/*event_selector=*/ 8, /*message=*/ "Hello, world!");
-        // FIXME: Try this once Brillig codegen produces uniform bit sizes for LT
-        // FIXME: TagCheckError: Tag mismatch at offset 22, got UINT64, expected UINT32
-        // let s: CompressedString<1,13> = CompressedString::from_string("Hello, world!");
-        // context.emit_unencrypted_log(/*event_selector=*/ 10, /*message=*/ s);
+        let s: CompressedString<2,44> = CompressedString::from_string("A long time ago, in a galaxy far far away...");
+        context.emit_unencrypted_log(/*event_selector=*/ 10, /*message=*/ s);
     }
 
     #[aztec(public-vm)]
@@ -213,5 +275,78 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
         context.message_portal(recipient, content)
+    }
+
+    // Directly call the external call opcode to initiate a nested call to the add function
+    #[aztec(public-vm)]
+    fn raw_nested_call_to_add(argA: Field, argB: Field) -> pub Field {
+        let selector = FunctionSelector::from_signature("avm_addArgsReturn(Field,Field)").to_field();
+        let gas = [/*l1Gas*/42, /*l2Gas*/24, /*daGas*/420];
+
+        // Nested call
+        let results = context.call(gas, context.address(), [argA, argB], selector);
+        let returnData: [Field; 1] = results.0;
+        // this explicit size   ^ is necessary to ensure that retSize is compile-time
+        // (ensure the returnData is in a HeapArray not a HeapVector)
+        let success: u8 = results.1;
+
+        assert(success == 1, "Call failed");
+
+        let addResult = returnData[0];
+        addResult
+    }
+
+    // Use the `call_public_function` wrapper to initiate a nested call to the add function
+    #[aztec(public-vm)]
+    fn nested_call_to_add(argA: Field, argB: Field) -> pub Field {
+        let selector = FunctionSelector::from_signature("avm_addArgsReturn(Field,Field)");
+
+        // Nested call using standard context interface function
+        let returnData: [Field; 1] = context.call_public_function(context.address(), selector, [argA, argB]);
+        // this explicit size   ^ is necessary to ensure that retSize is compile-time
+        // (ensure the returnData is in a HeapArray not a HeapVector)
+
+        let addResult = returnData[0];
+        addResult
+    }
+
+    // Directly call_static the external call opcode to initiate a nested call to the add function
+    #[aztec(public-vm)]
+    fn raw_nested_static_call_to_add(argA: Field, argB: Field) -> pub (Field, u8) {
+        let selector = FunctionSelector::from_signature("avm_addArgsReturn(Field,Field)").to_field();
+        let gas = [/*l1Gas*/42, /*l2Gas*/24, /*daGas*/420];
+
+        let (resultData, success): ([Field; 1], u8) = context.call_static(gas, context.address(), [argA, argB], selector);
+
+        (resultData[0], success)
+    }
+
+    // Directly call_static setAdmin. Should fail since it's accessing storage.
+    #[aztec(public-vm)]
+    fn raw_nested_static_call_to_set_admin() -> pub u8 {
+        let selector = FunctionSelector::from_signature("avm_setAdmin()").to_field();
+        let gas = [/*l1Gas*/42, /*l2Gas*/24, /*daGas*/420];
+
+        let (_returnData, success): ([Field; 0], u8) = context.call_static(gas, context.address(), [], selector);
+
+        success
+    }
+
+    // Indirectly call_static the external call opcode to initiate a nested call to the add function
+    #[aztec(public-vm)]
+    fn nested_static_call_to_add(argA: Field, argB: Field) -> pub Field {
+        let selector = FunctionSelector::from_signature("avm_addArgsReturn(Field,Field)");
+
+        let resultData: [Field; 1] = context.static_call_public_function(context.address(), selector, [argA, argB]);
+
+        resultData[0]
+    }
+
+    // Indirectly call_static setAdmin. Should revert since it's accessing storage.
+    #[aztec(public-vm)]
+    fn nested_static_call_to_set_admin() {
+        let selector = FunctionSelector::from_signature("avm_setAdmin()");
+
+        let _resultData: [Field; 0] = context.static_call_public_function(context.address(), selector, []);
     }
 }

@@ -2,6 +2,7 @@ use dep::types::abis::public_call_data::PublicCallData;
 use dep::types::abis::kernel_data::{PublicKernelData};
 use dep::types::PublicKernelCircuitPublicInputs;
 use dep::types::abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder;
+use dep::types::utils::arrays::array_to_bounded_vec;
 use crate::common;
 use dep::std::unsafe;
 
@@ -22,6 +23,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        common::initialize_reverted_flag(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
@@ -32,18 +34,31 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
         // validate the inputs unique to having a previous public kernel
         self.validate_inputs();
 
-        // Pops the item from the call stack and validates it against the current execution.
-        let call_request = public_inputs.end.public_call_stack.pop();
-        common::validate_call_against_request(self.public_call, call_request);
-
-        common::update_public_end_values(self.public_call, &mut public_inputs);
-
-        common::accumulate_unencrypted_logs(
-            self.public_call,
-            self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
-            self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
-            &mut public_inputs
-        );
+        if public_inputs.reverted == false {
+            // Pops the item from the call stack and validates it against the current execution.
+            let call_request = public_inputs.end.public_call_stack.pop();
+            common::validate_call_against_request(self.public_call, call_request);
+            common::update_public_end_values(self.public_call, &mut public_inputs);
+            common::accumulate_unencrypted_logs(
+                self.public_call,
+                self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
+                self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
+                &mut public_inputs
+            );
+        } else {
+            let mut remaining_calls = array_to_bounded_vec(self.previous_kernel.public_inputs.end.public_call_stack);
+            let reverted_call_request = remaining_calls.pop();
+            // even though we reverted, we still need to make sure the correct call was made
+            // but don't do the full `validate_call_against_request` because 
+            // that makes a bunch of assertions that we don't want to make
+            // e.g. that msg_sender is self in the case of internal.
+            // We don't want to make those checks because we already know we reverted,
+            // and we aren't updating the public end values, so we want this kernel circuit to solve.
+            // So just check that the call request is the same as the one we expected.
+            assert(
+                reverted_call_request.hash == self.public_call.call_stack_item.hash(), "calculated public_kernel_inputs_hash does not match provided public_kernel_inputs_hash at the top of the call stack"
+            );
+        }
 
         public_inputs.to_inner()
     }
@@ -53,23 +68,21 @@ mod tests {
     use crate::{
         public_kernel_app_logic::PublicKernelAppLogicCircuitPrivateInputs,
         utils::{
-        assert_eq_call_requests, assert_eq_new_contracts, assert_eq_public_data_reads,
-        assert_eq_public_data_update_requests, compute_public_data_reads,
-        compute_public_data_update_requests
+        assert_eq_call_requests, assert_eq_public_data_reads, assert_eq_public_data_update_requests,
+        compute_public_data_reads, compute_public_data_update_requests
     }
     };
     use dep::types::{
         abis::{
-        new_contract_data::NewContractData,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest,
+        public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash}
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         hash::{compute_l2_to_l1_hash, compute_logs_hash, silo_note_hash, silo_nullifier},
         messaging::l2_to_l1_message::L2ToL1Message,
         tests::{kernel_data_builder::PreviousKernelDataBuilder, public_call_data_builder::PublicCallDataBuilder},
-        utils::{arrays::array_eq}
+        utils::arrays::{array_eq, array_length}
     };
     use dep::types::constants::{MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL};
 
@@ -383,14 +396,6 @@ mod tests {
     #[test]
     fn circuit_outputs_should_be_correctly_populated_with_previous_private_kernel() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
-        let new_contracts = [
-            NewContractData {
-                contract_address: AztecAddress::from_field(123),
-                portal_contract_address: EthAddress::from_field(456),
-                contract_class_id: ContractClassId::from_field(78)
-            }
-        ];
-        builder.previous_kernel.end.new_contracts.extend_from_array(new_contracts);
 
         builder.public_call.append_public_call_requests_for_regular_calls(2);
         let storage = builder.public_call.public_call_stack.storage;
@@ -406,7 +411,6 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert_eq_new_contracts(public_inputs.end.new_contracts, new_contracts);
         assert_eq_call_requests(public_inputs.end.private_call_stack, []);
         assert_eq_call_requests(public_inputs.end.public_call_stack, public_call_stack);
         assert_eq_public_data_update_requests(
@@ -414,5 +418,31 @@ mod tests {
             update_requests
         );
         assert_eq_public_data_reads(public_inputs.end.public_data_reads, read_requests);
+    }
+
+    #[test]
+    fn propagate_nullifier_non_existent_read_requests() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+        let storage_contract_address = builder.public_call.public_inputs.call_context.storage_contract_address;
+
+        let request_0 = ReadRequest { value: 123, counter: 4567 };
+        builder.public_call.public_inputs.nullifier_non_existent_read_requests.push(request_0);
+        let request_1 = ReadRequest { value: 777888, counter: 90 };
+        builder.public_call.public_inputs.nullifier_non_existent_read_requests.push(request_1);
+
+        let public_inputs = builder.execute();
+
+        let end_requests = public_inputs.end_non_revertible.nullifier_non_existent_read_requests;
+        assert_eq(array_length(end_requests), 2);
+
+        let request_context = end_requests[0];
+        assert_eq(request_context.value, request_0.value);
+        assert_eq(request_context.counter, request_0.counter);
+        assert_eq(request_context.contract_address, storage_contract_address);
+
+        let request_context = end_requests[1];
+        assert_eq(request_context.value, request_1.value);
+        assert_eq(request_context.counter, request_1.counter);
+        assert_eq(request_context.contract_address, storage_contract_address);
     }
 }

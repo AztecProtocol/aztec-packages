@@ -1,11 +1,14 @@
+import { randomInt } from '@aztec/foundation/crypto';
+import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+
 import { PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '../constants.gen.js';
 import { makePublicCircuitPublicInputs } from '../tests/factories.js';
 import { PublicCircuitPublicInputs } from './public_circuit_public_inputs.js';
 
 describe('PublicCircuitPublicInputs', () => {
+  setupCustomSnapshotSerializers(expect);
   it('serializes to field array and deserializes it back', () => {
-    const randomInt = Math.floor(Math.random() * 1000);
-    const expected = makePublicCircuitPublicInputs(randomInt, undefined);
+    const expected = makePublicCircuitPublicInputs(randomInt(1000), undefined);
 
     const fieldArray = expected.toFields();
     const res = PublicCircuitPublicInputs.fromFields(fieldArray);
@@ -34,7 +37,11 @@ describe('PublicCircuitPublicInputs', () => {
     const hash = item.hash();
     expect(hash).toMatchSnapshot();
 
-    // Value used in empty_hash test in public_circuit_public_inputs.nr
-    // console.log("hash", hash.toString());
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/types/src/abis/public_circuit_public_inputs.nr',
+      'test_data_empty_hash',
+      hash.toString(),
+    );
   });
 });

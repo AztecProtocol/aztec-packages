@@ -1,5 +1,6 @@
 import { ABIParameterVisibility, FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
+import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { EthAddress } from '../index.js';
 import {
@@ -12,6 +13,7 @@ import {
 } from './contract_address.js';
 
 describe('ContractAddress', () => {
+  setupCustomSnapshotSerializers(expect);
   it('computePartialAddress', () => {
     const mockInstance = {
       contractClassId: new Fr(1),
@@ -34,6 +36,7 @@ describe('ContractAddress', () => {
   it('computeInitializationHash', () => {
     const mockInitFn: FunctionAbi = {
       functionType: FunctionType.SECRET,
+      isInitializer: false,
       isInternal: false,
       name: 'fun',
       parameters: [{ name: 'param1', type: { kind: 'boolean' }, visibility: ABIParameterVisibility.SECRET }],
@@ -42,6 +45,11 @@ describe('ContractAddress', () => {
     const mockArgs: any[] = [true];
     const result = computeInitializationHash(mockInitFn, mockArgs);
     expect(result).toMatchSnapshot();
+  });
+
+  it('computeInitializationHash empty', () => {
+    const result = computeInitializationHash(undefined, []);
+    expect(result).toEqual(Fr.ZERO);
   });
 
   it('computeContractAddressFromInstance', () => {

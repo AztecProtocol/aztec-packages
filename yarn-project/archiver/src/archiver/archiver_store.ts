@@ -1,6 +1,5 @@
 import {
   Body,
-  ContractData,
   ExtendedContractData,
   GetUnencryptedLogsResponse,
   L1ToL2Message,
@@ -8,6 +7,7 @@ import {
   L2BlockL2Logs,
   LogFilter,
   LogType,
+  NewInboxLeaf,
   TxEffect,
   TxHash,
   TxReceipt,
@@ -22,6 +22,9 @@ import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/c
 export type ArchiverL1SynchPoint = {
   /** The last L1 block that added a new L2 block.  */
   addedBlock: bigint;
+  /** The last L1 block that added messages from the new inbox. */
+  // TODO(#4492): Clean this up and fix the naming
+  newMessages: bigint;
   /** The last L1 block that added pending messages */
   addedMessages: bigint;
   /** The last L1 block that cancelled messages */
@@ -48,12 +51,12 @@ export interface ArchiverDataStore {
   addBlockBodies(blockBodies: Body[]): Promise<boolean>;
 
   /**
-   * Gets block bodies that have the same txsHashes as we supply.
+   * Gets block bodies that have the same txsEffectsHashes as we supply.
    *
-   * @param txsHashes - A list of txsHashes (body hashes).
+   * @param txsEffectsHashes - A list of txsEffectsHashes.
    * @returns The requested L2 block bodies
    */
-  getBlockBodies(txsHashes: Buffer[]): Promise<Body[]>;
+  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<Body[]>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
@@ -91,10 +94,19 @@ export interface ArchiverDataStore {
   ): Promise<boolean>;
 
   /**
+   * Append new L1 to L2 messages to the store.
+   * @param messages - The L1 to L2 messages to be added to the store.
+   * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
+   * @returns True if the operation is successful.
+   */
+  addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean>;
+
+  /**
    * Append new pending L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
    * @param l1BlockNumber - The block number of the L1 block that added the messages.
    * @returns True if the operation is successful.
+   * TODO(#4492): Nuke the following when purging the old inbox
    */
   addPendingL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean>;
 
@@ -103,6 +115,7 @@ export interface ArchiverDataStore {
    * @param entryKeys - The entry keys to be removed from the store.
    * @param l1BlockNumber - The block number of the L1 block that cancelled the messages.
    * @returns True if the operation is successful.
+   * TODO(#4492): Nuke the following when purging the old inbox
    */
   cancelPendingL1ToL2EntryKeys(entryKeys: Fr[], l1BlockNumber: bigint): Promise<boolean>;
 
@@ -127,6 +140,13 @@ export interface ArchiverDataStore {
    * @returns The requested L1 to L2 message or throws if not found.
    */
   getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message>;
+
+  /**
+   * Gets new L1 to L2 message (to be) included in a given block.
+   * @param blockNumber - L2 block number to get messages for.
+   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
+   */
+  getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
 
   /**
    * Gets up to `limit` amount of logs starting from `from`.
@@ -158,29 +178,6 @@ export interface ArchiverDataStore {
    * @returns The extended contract data or undefined if not found.
    */
   getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined>;
-
-  /**
-   * Lookup all extended contract data in an L2 block.
-   * @param blockNum - The block number to get all contract data from.
-   * @returns All extended contract data in the block (if found).
-   */
-  getExtendedContractDataInBlock(blockNum: number): Promise<ExtendedContractData[]>;
-
-  /**
-   * Get basic info for an L2 contract.
-   * Contains contract address & the ethereum portal address.
-   * @param contractAddress - The contract data address.
-   * @returns ContractData with the portal address (if we didn't throw an error).
-   */
-  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
-
-  /**
-   * Get basic info for an all L2 contracts deployed in a block.
-   * Contains contract address & the ethereum portal address.
-   * @param l2BlockNum - Number of the L2 block where contracts were deployed.
-   * @returns ContractData with the portal address (if we didn't throw an error).
-   */
-  getContractDataInBlock(l2BlockNum: number): Promise<ContractData[] | undefined>;
 
   /**
    * Gets the number of the latest L2 block processed.

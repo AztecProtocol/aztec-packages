@@ -1,6 +1,5 @@
 import {
   Body,
-  ContractData,
   ExtendedContractData,
   GetUnencryptedLogsResponse,
   L1ToL2Message,
@@ -8,6 +7,7 @@ import {
   L2BlockL2Logs,
   LogFilter,
   LogType,
+  NewInboxLeaf,
   TxEffect,
   TxHash,
   TxReceipt,
@@ -83,11 +83,11 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   /**
    * Gets block bodies that have the same txHashes as we supply.
    *
-   * @param txsHashes - A list of txsHashes (body hashes).
+   * @param txsEffectsHashes - A list of txsEffectsHashes (body hashes).
    * @returns The requested L2 block bodies
    */
-  getBlockBodies(txsHashes: Buffer[]): Promise<Body[]> {
-    return this.#blockBodyStore.getBlockBodies(txsHashes);
+  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<Body[]> {
+    return this.#blockBodyStore.getBlockBodies(txsEffectsHashes);
   }
 
   /**
@@ -149,6 +149,16 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
+   * Append new L1 to L2 messages to the store.
+   * @param messages - The L1 to L2 messages to be added to the store.
+   * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
+   * @returns True if the operation is successful.
+   */
+  addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
+    return Promise.resolve(this.#messageStore.addNewL1ToL2Messages(messages, lastMessageL1BlockNumber));
+  }
+
+  /**
    * Append new pending L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
    * @param l1BlockNumber - The L1 block number for which to add the messages.
@@ -202,6 +212,19 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
+   * Gets new L1 to L2 message (to be) included in a given block.
+   * @param blockNumber - L2 block number to get messages for.
+   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
+   */
+  getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+    try {
+      return Promise.resolve(this.#messageStore.getNewL1ToL2Messages(blockNumber));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  /**
    * Gets up to `limit` amount of logs starting from `from`.
    * @param start - Number of the L2 block to which corresponds the first logs to be returned.
    * @param limit - The number of logs to return.
@@ -249,35 +272,6 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Lookup all extended contract data in an L2 block.
-   * @param blockNumber - The block number to get all contract data from.
-   * @returns All extended contract data in the block (if found).
-   */
-  getExtendedContractDataInBlock(blockNumber: number): Promise<ExtendedContractData[]> {
-    return Promise.resolve(Array.from(this.#contractStore.getExtendedContractDataInBlock(blockNumber)));
-  }
-
-  /**
-   * Get basic info for an L2 contract.
-   * Contains contract address & the ethereum portal address.
-   * @param contractAddress - The contract data address.
-   * @returns ContractData with the portal address (if we didn't throw an error).
-   */
-  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return Promise.resolve(this.#contractStore.getContractData(contractAddress));
-  }
-
-  /**
-   * Get basic info for an all L2 contracts deployed in a block.
-   * Contains contract address & the ethereum portal address.
-   * @param blockNumber - Number of the L2 block where contracts were deployed.
-   * @returns ContractData with the portal address (if we didn't throw an error).
-   */
-  getContractDataInBlock(blockNumber: number): Promise<ContractData[]> {
-    return Promise.resolve(Array.from(this.#contractStore.getContractDataInBlock(blockNumber)));
-  }
-
-  /**
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
@@ -290,10 +284,11 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    */
   getL1BlockNumber(): Promise<ArchiverL1SynchPoint> {
     const addedBlock = this.#blockStore.getL1BlockNumber();
-    const { addedMessages, cancelledMessages } = this.#messageStore.getL1BlockNumber();
+    const { addedMessages, cancelledMessages, newMessages } = this.#messageStore.getL1BlockNumber();
     return Promise.resolve({
       addedBlock,
       addedMessages,
+      newMessages,
       cancelledMessages,
     });
   }
