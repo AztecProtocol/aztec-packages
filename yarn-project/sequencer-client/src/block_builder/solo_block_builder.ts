@@ -89,7 +89,6 @@ export class SoloBlockBuilder implements BlockBuilder {
    * Builds an L2 block with the given number containing the given txs, updating state trees.
    * @param globalVariables - Global variables to be used in the block.
    * @param txs - Processed transactions to include in the block.
-   * @param newModelL1ToL2Messages - L1 to L2 messages emitted by the new inbox.
    * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
    * @param timestamp - Timestamp of the block.
    * @returns The new L2 block and a correctness proof as returned by the root rollup circuit.
@@ -97,7 +96,6 @@ export class SoloBlockBuilder implements BlockBuilder {
   public async buildL2Block(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    newModelL1ToL2Messages: Fr[], // TODO(#4492): Rename this when purging the old inbox
     newL1ToL2Messages: Fr[],
   ): Promise<[L2Block, Proof]> {
     // Check txs are good for processing by checking if all the tree snapshots in header are non-empty
@@ -107,7 +105,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     const [circuitsOutput, proof] = await this.runCircuits(
       globalVariables,
       txs,
-      newModelL1ToL2Messages,
       newL1ToL2Messages,
     );
 
@@ -160,8 +157,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async runCircuits(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    newModelL1ToL2Messages: Fr[], // TODO(#4492): Rename this when purging the old inbox
-    newL1ToL2Messages: Fr[], // TODO(#4492): Nuke this when purging the old inbox
+    newL1ToL2Messages: Fr[],
   ): Promise<[RootRollupPublicInputs, Proof]> {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
@@ -169,17 +165,17 @@ export class SoloBlockBuilder implements BlockBuilder {
       throw new Error(`Length of txs for the block should be a power of two and at least two (got ${txs.length})`);
     }
 
+    // We pad the messages as the circuits expect that.
+    // Note: In the future we will want to cache the results of empty base and root parity circuits so that we don't
+    // have to run them. (It will most likely be quite common that some base parity circuits will be "empty")
+    const newL1ToL2MessagesTuple = padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+
     // BASE PARITY CIRCUIT (run in parallel)
     let baseParityInputs: BaseParityInputs[] = [];
     let elapsedBaseParityOutputsPromise: Promise<[number, RootParityInput[]]>;
     {
-      const newModelL1ToL2MessagesTuple = padArrayEnd(
-        newModelL1ToL2Messages,
-        Fr.ZERO,
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      );
       baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
-        BaseParityInputs.fromSlice(newModelL1ToL2MessagesTuple, i),
+        BaseParityInputs.fromSlice(newL1ToL2MessagesTuple, i),
       );
 
       const baseParityOutputs: Promise<RootParityInput>[] = [];
@@ -189,8 +185,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       elapsedBaseParityOutputsPromise = elapsed(() => Promise.all(baseParityOutputs));
     }
 
-    // padArrayEnd throws if the array is already full. Otherwise it pads till we reach the required size
-    const newL1ToL2MessagesTuple = padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
     // BASE ROLLUP CIRCUIT (run in parallel)
     let elapsedBaseRollupOutputsPromise: Promise<[number, [BaseOrMergeRollupPublicInputs, Proof][]]>;

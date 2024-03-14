@@ -5,7 +5,6 @@ import "forge-std/Test.sol";
 // Rollup Processor
 import {Rollup} from "../../src/core/Rollup.sol";
 import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
-import {Inbox} from "../../src/core/messagebridge/Inbox.sol";
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
 import {Outbox} from "../../src/core/messagebridge/Outbox.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
@@ -36,7 +35,7 @@ contract TokenPortalTest is Test {
   event MessageConsumed(bytes32 indexed entryKey, address indexed recipient);
 
   Registry internal registry;
-  Inbox internal inbox;
+  IInbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
   bytes32 internal l2TokenAddress = bytes32(uint256(0x42));
@@ -63,9 +62,9 @@ contract TokenPortalTest is Test {
 
   function setUp() public {
     registry = new Registry();
-    inbox = new Inbox(address(registry));
     outbox = new Outbox(address(registry));
     rollup = new Rollup(registry, new AvailabilityOracle());
+    inbox = rollup.INBOX();
 
     registry.upgrade(address(rollup), address(inbox), address(outbox));
 

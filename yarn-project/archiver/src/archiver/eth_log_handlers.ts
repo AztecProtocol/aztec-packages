@@ -285,21 +285,21 @@ export function getL1ToL2MessageCancelledLogs(
 }
 
 /**
- * Get relevant `LeafInserted` logs emitted by NewInbox on chain.
+ * Get relevant `LeafInserted` logs emitted by Inbox on chain.
  * @param publicClient - The viem public client to use for transaction retrieval.
- * @param newInboxAddress - The address of the new inbox contract.
+ * @param inboxAddress - The address of the inbox contract.
  * @param fromBlock - First block to get logs from (inclusive).
  * @param toBlock - Last block to get logs from (inclusive).
  * @returns An array of `LeafInserted` logs.
  */
 export function getLeafInsertedLogs(
   publicClient: PublicClient,
-  newInboxAddress: EthAddress,
+  inboxAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
 ): Promise<Log<bigint, number, false, undefined, true, typeof NewInboxAbi, 'LeafInserted'>[]> {
   return publicClient.getLogs({
-    address: getAddress(newInboxAddress.toString()),
+    address: getAddress(inboxAddress.toString()),
     event: getAbiItem({
       abi: NewInboxAbi,
       name: 'LeafInserted',

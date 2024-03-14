@@ -29,23 +29,11 @@ async function main() {
 
   const archiverStore = new MemoryArchiverStore(1000);
 
-  // TODO(#4492): Nuke this once the old inbox is purged
-  let newInboxAddress!: EthAddress;
-  {
-    const rollup = getContract({
-      address: getAddress(l1Contracts.rollupAddress.toString()),
-      abi: RollupAbi,
-      client: publicClient,
-    });
-    newInboxAddress = EthAddress.fromString(await rollup.read.NEW_INBOX());
-  }
-
   const archiver = new Archiver(
     publicClient,
     l1Contracts.rollupAddress,
     l1Contracts.availabilityOracleAddress,
     l1Contracts.inboxAddress,
-    newInboxAddress,
     l1Contracts.registryAddress,
     archiverStore,
   );

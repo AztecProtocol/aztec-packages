@@ -80,7 +80,7 @@ describe('L1Publisher integration', () => {
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
   let inbox: GetContractReturnType<typeof InboxAbi, WalletClient<HttpTransport, Chain>>;
-  let newInbox: GetContractReturnType<typeof NewInboxAbi, WalletClient<HttpTransport, Chain>>;
+  let inbox: GetContractReturnType<typeof NewInboxAbi, WalletClient<HttpTransport, Chain>>;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
@@ -124,12 +124,7 @@ describe('L1Publisher integration', () => {
       abi: InboxAbi,
       client: walletClient,
     });
-    const newInboxAddress = await rollup.read.NEW_INBOX();
-    newInbox = getContract({
-      address: newInboxAddress,
-      abi: NewInboxAbi,
-      client: walletClient,
-    });
+
     outbox = getContract({
       address: outboxAddress,
       abi: OutboxAbi,
@@ -196,46 +191,18 @@ describe('L1Publisher integration', () => {
   const sendToL2 = async (content: Fr, recipientAddress: AztecAddress) => {
     // @todo @LHerskind version hardcoded here (update to bigint or field)
     const recipient = new L2Actor(recipientAddress, 1);
-    // Note: using max deadline
-    const deadline = 2 ** 32 - 1;
     // getting the 32 byte hex string representation of the content
     const contentString = content.toString();
     // Using the 0 value for the secretHash.
     const emptySecretHash = Fr.ZERO.toString();
 
-    await newInbox.write.sendL2Message(
+    await inbox.write.sendL2Message(
       [{ actor: recipient.recipient.toString(), version: BigInt(recipient.version) }, contentString, emptySecretHash],
       {} as any,
     );
 
     // TODO(#4492): Nuke this when purging the old inbox
-    await inbox.write.sendL2Message(
-      [
-        { actor: recipient.recipient.toString(), version: BigInt(recipient.version) },
-        deadline,
-        contentString,
-        emptySecretHash,
-      ],
-      {} as any,
-    );
-
-    const entry = await inbox.read.computeEntryKey([
-      {
-        sender: {
-          actor: deployerAccount.address,
-          chainId: BigInt(publicClient.chain.id),
-        },
-        recipient: {
-          actor: recipientAddress.toString(),
-          version: 1n,
-        },
-        content: contentString,
-        secretHash: emptySecretHash,
-        deadline,
-        fee: 0n,
-      },
-    ]);
-    return Fr.fromString(entry);
+    // return Fr.fromString(entry);
   };
 
   /**

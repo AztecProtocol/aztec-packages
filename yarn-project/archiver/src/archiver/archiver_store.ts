@@ -24,10 +24,6 @@ export type ArchiverL1SynchPoint = {
   /** The last L1 block that added messages from the new inbox. */
   // TODO(#4492): Clean this up and fix the naming
   newMessages: bigint;
-  /** The last L1 block that added pending messages */
-  addedMessages: bigint;
-  /** The last L1 block that cancelled messages */
-  cancelledMessages: bigint;
 };
 
 /**
@@ -99,46 +95,6 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean>;
-
-  /**
-   * Append new pending L1 to L2 messages to the store.
-   * @param messages - The L1 to L2 messages to be added to the store.
-   * @param l1BlockNumber - The block number of the L1 block that added the messages.
-   * @returns True if the operation is successful.
-   * TODO(#4492): Nuke the following when purging the old inbox
-   */
-  addPendingL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean>;
-
-  /**
-   * Remove pending L1 to L2 messages from the store (if they were cancelled).
-   * @param entryKeys - The entry keys to be removed from the store.
-   * @param l1BlockNumber - The block number of the L1 block that cancelled the messages.
-   * @returns True if the operation is successful.
-   * TODO(#4492): Nuke the following when purging the old inbox
-   */
-  cancelPendingL1ToL2EntryKeys(entryKeys: Fr[], l1BlockNumber: bigint): Promise<boolean>;
-
-  /**
-   * Messages that have been published in an L2 block are confirmed.
-   * Add them to the confirmed store, also remove them from the pending store.
-   * @param entryKeys - The entry keys to be removed from the store.
-   * @returns True if the operation is successful.
-   */
-  confirmL1ToL2EntryKeys(entryKeys: Fr[]): Promise<boolean>;
-
-  /**
-   * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
-   * @param limit - The number of entries to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
-   * @returns The requested L1 to L2 entry keys.
-   */
-  getPendingL1ToL2EntryKeys(limit: number): Promise<Fr[]>;
-
-  /**
-   * Gets the confirmed L1 to L2 message corresponding to the given entry key.
-   * @param entryKey - The entry key to look up.
-   * @returns The requested L1 to L2 message or throws if not found.
-   */
-  getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message>;
 
   /**
    * Gets new L1 to L2 message (to be) included in a given block.

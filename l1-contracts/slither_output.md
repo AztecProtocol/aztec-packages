@@ -160,7 +160,7 @@ src/core/messagebridge/NewInbox.sol#L62-L99
 Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L101):
 	External calls:
 	- [inbox.batchConsume(l1ToL2Msgs,msg.sender)](src/core/Rollup.sol#L90)
-	- [inHash = NEW_INBOX.consume()](src/core/Rollup.sol#L92)
+	- [inHash = INBOX.consume()](src/core/Rollup.sol#L92)
 	- [outbox.sendL1Messages(l2ToL1Msgs)](src/core/Rollup.sol#L98)
 	Event emitted after the call(s):
 	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L100)

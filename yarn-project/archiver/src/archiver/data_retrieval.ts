@@ -156,7 +156,7 @@ export async function retrieveNewPendingL1ToL2Messages(
 /**
  * Fetch new L1 to L2 messages.
  * @param publicClient - The viem public client to use for transaction retrieval.
- * @param newInboxAddress - The address of the inbox contract to fetch messages from.
+ * @param inboxAddress - The address of the inbox contract to fetch messages from.
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
@@ -164,7 +164,7 @@ export async function retrieveNewPendingL1ToL2Messages(
  */
 export async function retrieveNewL1ToL2Messages(
   publicClient: PublicClient,
-  newInboxAddress: EthAddress,
+  inboxAddress: EthAddress,
   blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
@@ -174,7 +174,7 @@ export async function retrieveNewL1ToL2Messages(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const leafInsertedLogs = await getLeafInsertedLogs(publicClient, newInboxAddress, searchStartBlock, searchEndBlock);
+    const leafInsertedLogs = await getLeafInsertedLogs(publicClient, inboxAddress, searchStartBlock, searchEndBlock);
     if (leafInsertedLogs.length === 0) {
       break;
     }

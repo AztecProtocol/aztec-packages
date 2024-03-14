@@ -222,8 +222,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
     });
 
-    // TODO(#4492): Drop the "New" below once the old inbox is purged
-    describe('New L1 to L2 Messages', () => {
+    describe('L1 to L2 Messages', () => {
       const l2BlockNumber = 13n;
       const l1ToL2MessageSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
@@ -258,125 +257,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await expect(async () => {
           await store.addNewL1ToL2Messages(msgs, 100n);
         }).rejects.toThrow(`Message index ${l1ToL2MessageSubtreeSize} out of subtree range`);
-      });
-    });
-
-    describe('getPendingL1ToL2EntryKeys', () => {
-      it('returns previously stored pending L1 to L2 messages', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message], 1n);
-        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([message.entryKey!]);
-      });
-
-      // TODO(@spalladino): Fix and re-enable
-      it.skip('returns messages ordered by fee', async () => {
-        const messages = Array.from({ length: 3 }, () => L1ToL2Message.random(Fr.random()));
-        // add a duplicate message
-        messages.push(messages[0]);
-
-        await store.addPendingL1ToL2Messages(messages, 1n);
-
-        messages.sort((a, b) => b.fee - a.fee);
-        await expect(store.getPendingL1ToL2EntryKeys(messages.length)).resolves.toEqual(
-          messages.map(message => message.entryKey!),
-        );
-      });
-
-      it('returns an empty array if no messages are found', async () => {
-        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([]);
-      });
-    });
-
-    describe('confirmL1ToL2EntryKeys', () => {
-      it('updates a message from pending to confirmed', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message], 1n);
-        await expect(store.confirmL1ToL2EntryKeys([message.entryKey!])).resolves.toEqual(true);
-      });
-
-      it('once confirmed, a message is no longer pending', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message], 1n);
-        await store.confirmL1ToL2EntryKeys([message.entryKey!]);
-        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([]);
-      });
-
-      it('once confirmed a message can also be pending if added again', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message], 1n);
-        await store.confirmL1ToL2EntryKeys([message.entryKey!]);
-        await store.addPendingL1ToL2Messages([message], 2n);
-        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey!]);
-      });
-
-      it('once confirmed a message can remain pending if more of it were pending', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message, message], 1n);
-        await store.confirmL1ToL2EntryKeys([message.entryKey!]);
-        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([message.entryKey!]);
-      });
-    });
-
-    describe('cancelL1ToL2Messages', () => {
-      it('cancels a pending message', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message], 1n);
-        await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 1n);
-        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([]);
-      });
-
-      it('cancels only one of the pending messages if duplicates exist', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message, message], 1n);
-        await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 1n);
-        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey]);
-      });
-
-      it('once canceled a message can also be pending if added again', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message], 1n);
-
-        await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 1n);
-        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([]);
-
-        await store.addPendingL1ToL2Messages([message], 2n);
-        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([message.entryKey!]);
-      });
-
-      it('allows adding and cancelling in the same block', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message], 1n);
-        await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 1n);
-        await expect(store.getPendingL1ToL2EntryKeys(1)).resolves.toEqual([]);
-      });
-
-      it('allows duplicates cancellations in different positions in the same block', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message, message], 1n);
-
-        await store.cancelPendingL1ToL2EntryKeys([message.entryKey!, message.entryKey!], 1n);
-
-        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([]);
-      });
-
-      it('allows duplicates cancellations in different blocks', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message, message], 1n);
-
-        await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 2n);
-        await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 3n);
-
-        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([]);
-      });
-
-      it('is idempotent', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message, message], 1n);
-
-        await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 2n);
-        await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 2n);
-
-        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey!]);
       });
     });
 

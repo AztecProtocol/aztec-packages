@@ -68,7 +68,6 @@ export class Archiver implements ArchiveSource {
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param rollupAddress - Ethereum address of the rollup contract.
    * @param inboxAddress - Ethereum address of the inbox contract.
-   * @param newInboxAddress - Ethereum address of the new inbox contract.
    * @param registryAddress - Ethereum address of the registry contract.
    * @param pollingIntervalMs - The interval for polling for L1 logs (in milliseconds).
    * @param store - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
@@ -79,7 +78,6 @@ export class Archiver implements ArchiveSource {
     private readonly rollupAddress: EthAddress,
     private readonly availabilityOracleAddress: EthAddress,
     private readonly inboxAddress: EthAddress,
-    private readonly newInboxAddress: EthAddress,
     private readonly registryAddress: EthAddress,
     private readonly store: ArchiverDataStore,
     private readonly pollingIntervalMs = 10_000,
@@ -105,23 +103,11 @@ export class Archiver implements ArchiveSource {
       pollingInterval: config.viemPollingIntervalMS,
     });
 
-    // TODO(#4492): Nuke this once the old inbox is purged
-    let newInboxAddress!: EthAddress;
-    {
-      const rollup = getContract({
-        address: getAddress(config.l1Contracts.rollupAddress.toString()),
-        abi: RollupAbi,
-        client: publicClient,
-      });
-      newInboxAddress = EthAddress.fromString(await rollup.read.NEW_INBOX());
-    }
-
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
       config.l1Contracts.availabilityOracleAddress,
       config.l1Contracts.inboxAddress,
-      newInboxAddress,
       config.l1Contracts.registryAddress,
       archiverStore,
       config.archiverPollingIntervalMS,
@@ -170,9 +156,7 @@ export class Archiver implements ArchiveSource {
 
     if (
       currentL1BlockNumber <= lastL1Blocks.addedBlock &&
-      currentL1BlockNumber <= lastL1Blocks.newMessages &&
-      currentL1BlockNumber <= lastL1Blocks.addedMessages &&
-      currentL1BlockNumber <= lastL1Blocks.cancelledMessages
+      currentL1BlockNumber <= lastL1Blocks.newMessages
     ) {
       // chain hasn't moved forward
       // or it's been rolled back
@@ -200,53 +184,11 @@ export class Archiver implements ArchiveSource {
 
     // ********** Events that are processed per L1 block **********
 
-    // TODO(#4492): Nuke the following when purging the old inbox
-    // Process l1ToL2Messages, these are consumed as time passes, not each block
-    const retrievedPendingL1ToL2Messages = await retrieveNewPendingL1ToL2Messages(
-      this.publicClient,
-      this.inboxAddress,
-      blockUntilSynced,
-      lastL1Blocks.addedMessages + 1n,
-      currentL1BlockNumber,
-    );
-    const retrievedCancelledL1ToL2Messages = await retrieveNewCancelledL1ToL2Messages(
-      this.publicClient,
-      this.inboxAddress,
-      blockUntilSynced,
-      lastL1Blocks.cancelledMessages + 1n,
-      currentL1BlockNumber,
-    );
-
-    // group pending messages and cancelled messages by their L1 block number
-    const messagesByBlock = new Map<bigint, [L1ToL2Message[], Fr[]]>();
-    for (const [message, blockNumber] of retrievedPendingL1ToL2Messages.retrievedData) {
-      const messages = messagesByBlock.get(blockNumber) || [[], []];
-      messages[0].push(message);
-      messagesByBlock.set(blockNumber, messages);
-    }
-
-    for (const [entryKey, blockNumber] of retrievedCancelledL1ToL2Messages.retrievedData) {
-      const messages = messagesByBlock.get(blockNumber) || [[], []];
-      messages[1].push(entryKey);
-      messagesByBlock.set(blockNumber, messages);
-    }
-
-    // process messages from each L1 block in sequence
-    const l1BlocksWithMessages = Array.from(messagesByBlock.keys()).sort((a, b) => (a < b ? -1 : a === b ? 0 : 1));
-    for (const l1Block of l1BlocksWithMessages) {
-      const [newMessages, cancelledMessages] = messagesByBlock.get(l1Block)!;
-      this.log(
-        `Adding ${newMessages.length} new messages and ${cancelledMessages.length} cancelled messages in L1 block ${l1Block}`,
-      );
-      await this.store.addPendingL1ToL2Messages(newMessages, l1Block);
-      await this.store.cancelPendingL1ToL2EntryKeys(cancelledMessages, l1Block);
-    }
-
     // ********** Events that are processed per L2 block **********
 
     const retrievedNewL1ToL2Messages = await retrieveNewL1ToL2Messages(
       this.publicClient,
-      this.newInboxAddress,
+      this.inboxAddress,
       blockUntilSynced,
       lastL1Blocks.newMessages + 1n,
       currentL1BlockNumber,
@@ -337,13 +279,6 @@ export class Archiver implements ArchiveSource {
         await this.storeDeployedContractInstances(blockLogs, block.number);
       }),
     );
-
-    // from retrieved L2Blocks, confirm L1 to L2 messages that have been published
-    // from each l2block fetch all entryKeys in a flattened array:
-    this.log(`Confirming l1 to l2 messages in store`);
-    for (const block of retrievedBlocks.retrievedData) {
-      await this.store.confirmL1ToL2EntryKeys(block.body.l1ToL2Messages);
-    }
 
     await this.store.addBlocks(retrievedBlocks.retrievedData);
   }
@@ -481,24 +416,6 @@ export class Archiver implements ArchiveSource {
 
   public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.store.getContractInstance(address);
-  }
-
-  /**
-   * Gets up to `limit` amount of pending L1 to L2 messages.
-   * @param limit - The number of messages to return.
-   * @returns The requested L1 to L2 messages' keys.
-   */
-  getPendingL1ToL2EntryKeys(limit: number): Promise<Fr[]> {
-    return this.store.getPendingL1ToL2EntryKeys(limit);
-  }
-
-  /**
-   * Gets the confirmed/consumed L1 to L2 message associated with the given entry key
-   * @param entryKey - The entry key.
-   * @returns The L1 to L2 message (throws if not found).
-   */
-  getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message> {
-    return this.store.getConfirmedL1ToL2Message(entryKey);
   }
 
   /**

@@ -82,8 +82,7 @@ describe('sequencer/solo_block_builder', () => {
   let baseRollupOutputLeft: BaseOrMergeRollupPublicInputs;
   let baseRollupOutputRight: BaseOrMergeRollupPublicInputs;
   let rootRollupOutput: RootRollupPublicInputs;
-  let newModelMockL1ToL2Messages: Fr[]; // TODO(#4492): Rename this when purging the old inbox
-  let mockL1ToL2Messages: Fr[]; // TODO(#4492): Nuke this when purging the old inbox
+  let mockL1ToL2Messages: Fr[];
 
   let globalVariables: GlobalVariables;
 
@@ -106,7 +105,6 @@ describe('sequencer/solo_block_builder', () => {
     builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
 
     // Create mock l1 to L2 messages
-    newModelMockL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
     mockL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
 
     // Create mock outputs for simulator
@@ -288,7 +286,6 @@ describe('sequencer/solo_block_builder', () => {
       const [l2Block, proof] = await builder.buildL2Block(
         globalVariables,
         txs,
-        newModelMockL1ToL2Messages,
         mockL1ToL2Messages,
       );
 
@@ -301,7 +298,7 @@ describe('sequencer/solo_block_builder', () => {
       const txs = await buildMockSimulatorInputs();
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
       await expect(
-        builder.buildL2Block(globalVariables, txs, newModelMockL1ToL2Messages, l1ToL2Messages),
+        builder.buildL2Block(globalVariables, txs, l1ToL2Messages),
       ).rejects.toThrow();
     });
   });
@@ -380,7 +377,6 @@ describe('sequencer/solo_block_builder', () => {
         const [l2Block] = await builder.buildL2Block(
           globalVariables,
           txs,
-          newModelMockL1ToL2Messages,
           mockL1ToL2Messages,
         );
         expect(l2Block.number).toEqual(blockNumber);
@@ -464,7 +460,6 @@ describe('sequencer/solo_block_builder', () => {
       const [l2Block] = await builder.buildL2Block(
         globalVariables,
         txs,
-        newModelMockL1ToL2Messages,
         mockL1ToL2Messages,
       );
 
