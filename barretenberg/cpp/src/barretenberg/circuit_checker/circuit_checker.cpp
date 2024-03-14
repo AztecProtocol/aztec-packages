@@ -101,7 +101,15 @@ bool CircuitChecker::check_block(Builder& builder,
         }
         if constexpr (IsGoblinBuilder<Builder>) {
             result = result && check_relation<PoseidonInternal>(values, params);
+            if (result == false) {
+                info("Failed PoseidonInternal relation at row idx = ", idx);
+                return false;
+            }
             result = result && check_relation<PoseidonExternal>(values, params);
+            if (result == false) {
+                info("Failed PoseidonExternal relation at row idx = ", idx);
+                return false;
+            }
         }
         if (result == false) {
             info("Failed at row idx = ", idx);
