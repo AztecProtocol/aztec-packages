@@ -19,7 +19,6 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           submodules: recursive
-          fetch-depth: 1
       - name: setup
         run: |
           mkdir -p ~/.ssh
@@ -51,7 +50,6 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           submodules: recursive
-          fetch-depth: 1
       - name: setup
         run: |
           mkdir -p ~/.ssh
