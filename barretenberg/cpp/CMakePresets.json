@@ -71,7 +71,7 @@
       }
     },
     {
-      "name": "clang16-with-asserts",
+      "name": "clang16-assert",
       "displayName": "Build with Clang-16 using RelWithAssert",
       "description": "Build with globally installed Clang-16 in release with ASSERTs mode",
       "inherits": "default",
@@ -370,9 +370,9 @@
       "configurePreset": "clang16-dbg-fast"
     },
     {
-      "name": "clang16-with-asserts",
+      "name": "clang16-assert",
       "inherits": "default",
-      "configurePreset": "clang16-with-asserts"
+      "configurePreset": "clang16-assert"
     },
     {
       "name": "asan",
