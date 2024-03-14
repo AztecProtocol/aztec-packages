@@ -31,51 +31,51 @@ FFTerm::FFTerm(const std::string& t, Solver* slv, bool isconst, uint32_t base)
     : solver(slv)
 {
     if (!isconst) {
-        this->term = slv->s.mkConst(slv->fp, t);
+        this->term = slv->tm.mkConst(slv->fp, t);
     } else {
-        this->term = slv->s.mkFiniteFieldElem(t, slv->fp, base);
+        this->term = slv->tm.mkFiniteFieldElem(t, slv->fp, base);
     }
 }
 
 FFTerm FFTerm::operator+(const FFTerm& other) const
 {
-    cvc5::Term res = this->solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, { this->term, other.term });
+    cvc5::Term res = this->solver->tm.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, { this->term, other.term });
     return { res, this->solver };
 }
 
 void FFTerm::operator+=(const FFTerm& other)
 {
-    this->term = this->solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, { this->term, other.term });
+    this->term = this->solver->tm.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, { this->term, other.term });
 }
 
 FFTerm FFTerm::operator-(const FFTerm& other) const
 {
-    cvc5::Term res = this->solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_NEG, { other.term });
-    res = solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, { this->term, res });
+    cvc5::Term res = this->solver->tm.mkTerm(cvc5::Kind::FINITE_FIELD_NEG, { other.term });
+    res = solver->tm.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, { this->term, res });
     return { res, this->solver };
 }
 
 FFTerm FFTerm::operator-() const
 {
-    cvc5::Term res = this->solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_NEG, { this->term });
+    cvc5::Term res = this->solver->tm.mkTerm(cvc5::Kind::FINITE_FIELD_NEG, { this->term });
     return { res, this->solver };
 }
 
 void FFTerm::operator-=(const FFTerm& other)
 {
-    cvc5::Term tmp_term = this->solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_NEG, { other.term });
-    this->term = this->solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, { this->term, tmp_term });
+    cvc5::Term tmp_term = this->solver->tm.mkTerm(cvc5::Kind::FINITE_FIELD_NEG, { other.term });
+    this->term = this->solver->tm.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, { this->term, tmp_term });
 }
 
 FFTerm FFTerm::operator*(const FFTerm& other) const
 {
-    cvc5::Term res = solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_MULT, { this->term, other.term });
+    cvc5::Term res = solver->tm.mkTerm(cvc5::Kind::FINITE_FIELD_MULT, { this->term, other.term });
     return { res, this->solver };
 }
 
 void FFTerm::operator*=(const FFTerm& other)
 {
-    this->term = this->solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_MULT, { this->term, other.term });
+    this->term = this->solver->tm.mkTerm(cvc5::Kind::FINITE_FIELD_MULT, { this->term, other.term });
 }
 
 /**
@@ -114,7 +114,7 @@ void FFTerm::operator/=(const FFTerm& other)
  */
 void FFTerm::operator==(const FFTerm& other) const
 {
-    cvc5::Term eq = this->solver->s.mkTerm(cvc5::Kind::EQUAL, { this->term, other.term });
+    cvc5::Term eq = this->solver->tm.mkTerm(cvc5::Kind::EQUAL, { this->term, other.term });
     this->solver->s.assertFormula(eq);
 }
 
@@ -124,8 +124,8 @@ void FFTerm::operator==(const FFTerm& other) const
  */
 void FFTerm::operator!=(const FFTerm& other) const
 {
-    cvc5::Term eq = this->solver->s.mkTerm(cvc5::Kind::EQUAL, { this->term, other.term });
-    eq = this->solver->s.mkTerm(cvc5::Kind::NOT, { eq });
+    cvc5::Term eq = this->solver->tm.mkTerm(cvc5::Kind::EQUAL, { this->term, other.term });
+    eq = this->solver->tm.mkTerm(cvc5::Kind::NOT, { eq });
     this->solver->s.assertFormula(eq);
 }
 

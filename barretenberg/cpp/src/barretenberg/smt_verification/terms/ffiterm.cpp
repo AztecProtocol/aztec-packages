@@ -29,64 +29,64 @@ FFITerm FFITerm::Const(const std::string& val, Solver* slv, uint32_t base)
 
 FFITerm::FFITerm(const std::string& t, Solver* slv, bool isconst, uint32_t base)
     : solver(slv)
-    , modulus(slv->s.mkInteger(slv->modulus))
+    , modulus(slv->tm.mkInteger(slv->modulus))
 {
     if (!isconst) {
-        this->term = slv->s.mkConst(slv->s.getIntegerSort(), t);
-        cvc5::Term ge = slv->s.mkTerm(cvc5::Kind::GEQ, { this->term, slv->s.mkInteger(0) });
-        cvc5::Term lt = slv->s.mkTerm(cvc5::Kind::LT, { this->term, this->modulus });
+        this->term = slv->tm.mkConst(slv->tm.getIntegerSort(), t);
+        cvc5::Term ge = slv->tm.mkTerm(cvc5::Kind::GEQ, { this->term, slv->tm.mkInteger(0) });
+        cvc5::Term lt = slv->tm.mkTerm(cvc5::Kind::LT, { this->term, this->modulus });
         slv->s.assertFormula(ge);
         slv->s.assertFormula(lt);
     } else {
         // TODO(alex): CVC5 doesn't provide integer initialization from hex. Yet.
-        std::string strvalue = slv->s.mkFiniteFieldElem(t, slv->fp, base).getFiniteFieldValue();
-        this->term = slv->s.mkInteger(strvalue);
+        std::string strvalue = slv->tm.mkFiniteFieldElem(t, slv->fp, base).getFiniteFieldValue();
+        this->term = slv->tm.mkInteger(strvalue);
         this->mod();
     }
 }
 
 void FFITerm::mod()
 {
-    this->term = this->solver->s.mkTerm(cvc5::Kind::INTS_MODULUS, { this->term, this->modulus });
+    this->term = this->solver->tm.mkTerm(cvc5::Kind::INTS_MODULUS, { this->term, this->modulus });
 }
 
 FFITerm FFITerm::operator+(const FFITerm& other) const
 {
-    cvc5::Term res = this->solver->s.mkTerm(cvc5::Kind::ADD, { this->term, other.term });
+    cvc5::Term res = this->solver->tm.mkTerm(cvc5::Kind::ADD, { this->term, other.term });
     return { res, this->solver };
 }
 
 void FFITerm::operator+=(const FFITerm& other)
 {
-    this->term = this->solver->s.mkTerm(cvc5::Kind::ADD, { this->term, other.term });
+    this->term = this->solver->tm.mkTerm(cvc5::Kind::ADD, { this->term, other.term });
 }
 
 FFITerm FFITerm::operator-(const FFITerm& other) const
 {
-    cvc5::Term res = this->solver->s.mkTerm(cvc5::Kind::SUB, { this->term, other.term });
+    cvc5::Term res = this->solver->tm.mkTerm(cvc5::Kind::SUB, { this->term, other.term });
     return { res, this->solver };
 }
 
 void FFITerm::operator-=(const FFITerm& other)
 {
-    this->term = this->solver->s.mkTerm(cvc5::Kind::SUB, { this->term, other.term });
+    this->term = this->solver->tm.mkTerm(cvc5::Kind::SUB, { this->term, other.term });
 }
 
 FFITerm FFITerm::operator-() const
 {
-    cvc5::Term res = this->solver->s.mkTerm(cvc5::Kind::NEG, { this->term });
+    cvc5::Term res = this->solver->tm.mkTerm(cvc5::Kind::NEG, { this->term });
     return { res, this->solver };
 }
 
 FFITerm FFITerm::operator*(const FFITerm& other) const
 {
-    cvc5::Term res = solver->s.mkTerm(cvc5::Kind::MULT, { this->term, other.term });
+    cvc5::Term res = solver->tm.mkTerm(cvc5::Kind::MULT, { this->term, other.term });
     return { res, this->solver };
 }
 
 void FFITerm::operator*=(const FFITerm& other)
 {
-    this->term = this->solver->s.mkTerm(cvc5::Kind::MULT, { this->term, other.term });
+    this->term = this->solver->tm.mkTerm(cvc5::Kind::MULT, { this->term, other.term });
 }
 
 /**
@@ -133,7 +133,7 @@ void FFITerm::operator==(const FFITerm& other) const
     if (tmp2.term.getNumChildren() > 1) {
         tmp2.mod();
     }
-    cvc5::Term eq = this->solver->s.mkTerm(cvc5::Kind::EQUAL, { tmp1.term, tmp2.term });
+    cvc5::Term eq = this->solver->tm.mkTerm(cvc5::Kind::EQUAL, { tmp1.term, tmp2.term });
     this->solver->s.assertFormula(eq);
 }
 
@@ -151,8 +151,8 @@ void FFITerm::operator!=(const FFITerm& other) const
     if (tmp2.term.getNumChildren() > 1) {
         tmp2.mod();
     }
-    cvc5::Term eq = this->solver->s.mkTerm(cvc5::Kind::EQUAL, { tmp1.term, tmp2.term });
-    eq = this->solver->s.mkTerm(cvc5::Kind::NOT, { eq });
+    cvc5::Term eq = this->solver->tm.mkTerm(cvc5::Kind::EQUAL, { tmp1.term, tmp2.term });
+    eq = this->solver->tm.mkTerm(cvc5::Kind::NOT, { eq });
     this->solver->s.assertFormula(eq);
 }
 
@@ -193,22 +193,22 @@ void operator!=(const bb::fr& lhs, const FFITerm& rhs)
 
 void FFITerm::operator<(const bb::fr& other) const
 {
-    cvc5::Term lt = this->solver->s.mkTerm(cvc5::Kind::LT, { this->term, FFITerm(other, this->solver) });
+    cvc5::Term lt = this->solver->tm.mkTerm(cvc5::Kind::LT, { this->term, FFITerm(other, this->solver) });
     this->solver->s.assertFormula(lt);
 }
 void FFITerm::operator<=(const bb::fr& other) const
 {
-    cvc5::Term le = this->solver->s.mkTerm(cvc5::Kind::LEQ, { this->term, FFITerm(other, this->solver) });
+    cvc5::Term le = this->solver->tm.mkTerm(cvc5::Kind::LEQ, { this->term, FFITerm(other, this->solver) });
     this->solver->s.assertFormula(le);
 }
 void FFITerm::operator>(const bb::fr& other) const
 {
-    cvc5::Term gt = this->solver->s.mkTerm(cvc5::Kind::GT, { this->term, FFITerm(other, this->solver) });
+    cvc5::Term gt = this->solver->tm.mkTerm(cvc5::Kind::GT, { this->term, FFITerm(other, this->solver) });
     this->solver->s.assertFormula(gt);
 }
 void FFITerm::operator>=(const bb::fr& other) const
 {
-    cvc5::Term ge = this->solver->s.mkTerm(cvc5::Kind::GEQ, { this->term, FFITerm(other, this->solver) });
+    cvc5::Term ge = this->solver->tm.mkTerm(cvc5::Kind::GEQ, { this->term, FFITerm(other, this->solver) });
     this->solver->s.assertFormula(ge);
 }
 

@@ -37,6 +37,7 @@ const SolverConfiguration default_solver_config = { true, 0, 0, false, "" };
  */
 class Solver {
   public:
+    cvc5::TermManager tm;
     cvc5::Solver s;
     cvc5::Sort fp;
     std::string modulus; // modulus in base 10
@@ -46,9 +47,9 @@ class Solver {
 
     explicit Solver(const std::string& modulus,
                     const SolverConfiguration& config = default_solver_config,
-                    uint32_t base = 16)
+                    uint32_t base = 16):s(tm)
     {
-        this->fp = s.mkFiniteFieldSort(modulus, base);
+        this->fp = tm.mkFiniteFieldSort(modulus, base);
         this->modulus = fp.getFiniteFieldSize();
         if (config.produce_models) {
             s.setOption("produce-models", "true");
