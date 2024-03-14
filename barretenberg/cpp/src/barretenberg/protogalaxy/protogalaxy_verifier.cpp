@@ -9,7 +9,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
 {
     auto& key = inst->verification_key;
     OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
-    auto [relation_parameters, witness_commitments, presumcheck_verified] = oink_verifier.execute_presumcheck_round();
+    auto [relation_parameters, witness_commitments] = oink_verifier.verify();
     inst->relation_parameters = relation_parameters;
     inst->witness_commitments = witness_commitments;
 
