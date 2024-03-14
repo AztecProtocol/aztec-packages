@@ -1,4 +1,3 @@
-#include "barretenberg/translator_vm/goblin_translator_composer.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_translator.fuzzer.hpp"
 #include "barretenberg/translator_vm/goblin_translator_prover.hpp"
 extern "C" void LLVMFuzzerInitialize(int*, char***)
