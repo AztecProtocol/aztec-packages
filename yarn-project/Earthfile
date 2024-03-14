@@ -89,8 +89,8 @@ end-to-end:
             ./bootstrap.sh && \
             yarn workspace @aztec/end-to-end run build:web && \
             yarn workspaces focus @aztec/end-to-end --production && \
-            cp -r node_modules node_cache/install && \
-            find . -name '*.tsbuildinfo' -exec cp --parents {} node_cache/ts/ \;
+            cp -r node_modules node_cache/node_modules && \
+            find . -name '*.tsbuildinfo' -exec cp --parents {} node_cache \;
     END
     SAVE ARTIFACT /build
 
