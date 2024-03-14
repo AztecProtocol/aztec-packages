@@ -36,7 +36,7 @@ jobs:
       #     scripts/earthly --push ./foundry/+build
       #      scripts/earthly --push ./barretenberg/cpp/+build-wasi-sdkV
       - name: ci
-        run: scripts/earthly +build-ci-small
+        run: scripts/earthly --exec-stats +build-ci-small
 
   ci-arm:
     runs-on: ubuntu-latest
@@ -67,4 +67,4 @@ jobs:
           scripts/earthly --push ./foundry/+build
           # scripts/earthly --push ./barretenberg/cpp/+build-wasi-sdk
       - name: ci
-        run: scripts/earthly +build-ci-small
+        run: scripts/earthly --exec-stats +build-ci-small
