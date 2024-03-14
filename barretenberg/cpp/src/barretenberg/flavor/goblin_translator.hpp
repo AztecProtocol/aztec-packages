@@ -1004,7 +1004,7 @@ class GoblinTranslatorFlavor {
         {
             // First and last lagrange polynomials (in the full circuit size)
             const auto [lagrange_first, lagrange_last] =
-                compute_first_and_last_lagrange_polynomials_other<FF>(compute_dyadic_circuit_size(builder));
+                compute_first_and_last_lagrange_polynomials<FF>(compute_dyadic_circuit_size(builder));
             this->lagrange_first = lagrange_first;
             this->lagrange_last = lagrange_last;
 
