@@ -132,7 +132,7 @@ class GoblinTranslatorFlavor {
         inline void compute_lagrange_polynomials(const CircuitBuilder& builder)
         {
             const size_t circuit_size = compute_dyadic_circuit_size(builder);
-            const size_t mini_circuit_dyadic_size = builder.get_circuit_subgroup_size(compute_total_num_gates(builder));
+            const size_t mini_circuit_dyadic_size = compute_mini_circuit_dyadic_size(builder);
 
             Polynomial lagrange_polynomial_odd_in_minicircuit(circuit_size);
             Polynomial lagrange_polynomial_even_in_minicircut(circuit_size);
@@ -982,6 +982,11 @@ class GoblinTranslatorFlavor {
         // The actual circuit size is several times bigger than the trace in the builder, because we use
         // concatenation to bring the degree of relations down, while extending the length.
         return mini_circuit_dyadic_size * CONCATENATION_GROUP_SIZE;
+    }
+
+    static inline size_t compute_mini_circuit_dyadic_size(const CircuitBuilder& builder)
+    {
+        return builder.get_circuit_subgroup_size(compute_total_num_gates(builder));
     }
 
     /**

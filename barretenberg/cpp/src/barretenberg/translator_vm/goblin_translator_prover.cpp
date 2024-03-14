@@ -41,10 +41,15 @@ GoblinTranslatorProver::GoblinTranslatorProver(const std::shared_ptr<typename Fl
 
 GoblinTranslatorProver::GoblinTranslatorProver(CircuitBuilder& circuit_builder,
                                                const std::shared_ptr<Transcript>& transcript)
+    : dyadic_circuit_size(Flavor::compute_dyadic_circuit_size(circuit_builder))
+    , mini_circuit_dyadic_size(Flavor::compute_mini_circuit_dyadic_size(circuit_builder))
+
 {
-    BB_OP_COUNT_TIME_NAME("GoblinTranslatorComposer::create_prover");
+    BB_OP_COUNT_TIME();
 
     // Compute total number of gates, dyadic circuit size, etc.
+    key = std::make_shared<ProvingKey>(circuit_builder);
+    dyadic_circuit_size = key->circuit_size;
     compute_witness(circuit_builder);
     compute_commitment_key(key->circuit_size);
 
