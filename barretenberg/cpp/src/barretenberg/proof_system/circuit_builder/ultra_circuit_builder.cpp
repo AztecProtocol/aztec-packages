@@ -1037,7 +1037,8 @@ void UltraCircuitBuilder_<Arithmetization>::create_dummy_constraints(const std::
     this->assert_valid_variables(padded_list);
 
     for (size_t i = 0; i < padded_list.size(); i += gate_width) {
-        create_dummy_gate(blocks.main, padded_list[i], padded_list[i + 1], padded_list[i + 2], padded_list[i + 3]);
+        create_dummy_gate(
+            blocks.arithmetic, padded_list[i], padded_list[i + 1], padded_list[i + 2], padded_list[i + 3]);
     }
 }
 
@@ -1211,77 +1212,78 @@ std::vector<uint32_t> UltraCircuitBuilder_<Arithmetization>::decompose_into_defa
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECTORS type)
 {
-    blocks.main.q_aux().emplace_back(type == AUX_SELECTORS::NONE ? 0 : 1);
-    blocks.main.q_sort().emplace_back(0);
-    blocks.main.q_lookup_type().emplace_back(0);
-    blocks.main.q_elliptic().emplace_back(0);
+    auto& block = blocks.aux;
+    block.q_aux().emplace_back(type == AUX_SELECTORS::NONE ? 0 : 1);
+    block.q_sort().emplace_back(0);
+    block.q_lookup_type().emplace_back(0);
+    block.q_elliptic().emplace_back(0);
     switch (type) {
     case AUX_SELECTORS::LIMB_ACCUMULATE_1: {
-        blocks.main.q_1().emplace_back(0);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_3().emplace_back(1);
-        blocks.main.q_4().emplace_back(1);
-        blocks.main.q_m().emplace_back(0);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(0);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(1);
+        block.q_4().emplace_back(1);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         break;
     }
     case AUX_SELECTORS::LIMB_ACCUMULATE_2: {
-        blocks.main.q_1().emplace_back(0);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_3().emplace_back(1);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_m().emplace_back(1);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(0);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(1);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(1);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         break;
     }
     case AUX_SELECTORS::NON_NATIVE_FIELD_1: {
-        blocks.main.q_1().emplace_back(0);
-        blocks.main.q_2().emplace_back(1);
-        blocks.main.q_3().emplace_back(1);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_m().emplace_back(0);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(0);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(1);
+        block.q_3().emplace_back(1);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         break;
     }
     case AUX_SELECTORS::NON_NATIVE_FIELD_2: {
-        blocks.main.q_1().emplace_back(0);
-        blocks.main.q_2().emplace_back(1);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_4().emplace_back(1);
-        blocks.main.q_m().emplace_back(0);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(0);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(1);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(1);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         break;
     }
     case AUX_SELECTORS::NON_NATIVE_FIELD_3: {
-        blocks.main.q_1().emplace_back(0);
-        blocks.main.q_2().emplace_back(1);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_m().emplace_back(1);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(0);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(1);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(1);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         break;
@@ -1291,15 +1293,15 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         // Apply sorted memory read checks with the following additional check:
         // 1. Assert that if index field across two gates does not change, the value field does not change.
         // Used for ROM reads and RAM reads across write/read boundaries
-        blocks.main.q_1().emplace_back(1);
-        blocks.main.q_2().emplace_back(1);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_m().emplace_back(0);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(0);
+        block.q_1().emplace_back(1);
+        block.q_2().emplace_back(1);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         break;
@@ -1310,15 +1312,15 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         // 2. Validate record computation (r = read_write_flag + index * \eta + \timestamp * \eta^2 + value * \eta^3)
         // 3. If adjacent index values across 2 gates does not change, and the next gate's read_write_flag is set to
         // 'read', validate adjacent values do not change Used for ROM reads and RAM reads across read/write boundaries
-        blocks.main.q_1().emplace_back(0);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_m().emplace_back(0);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(1);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(1);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         break;
@@ -1326,15 +1328,15 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
     case AUX_SELECTORS::RAM_TIMESTAMP_CHECK: {
         // For two adjacent RAM entries that share the same index, validate the timestamp value is monotonically
         // increasing
-        blocks.main.q_1().emplace_back(1);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_4().emplace_back(1);
-        blocks.main.q_m().emplace_back(0);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(0);
+        block.q_1().emplace_back(1);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(1);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         break;
@@ -1343,15 +1345,15 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         // Memory read gate for reading memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
-        blocks.main.q_1().emplace_back(1);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_m().emplace_back(1); // validate record witness is correctly computed
-        blocks.main.q_c().emplace_back(0); // read/write flag stored in q_c
-        blocks.main.q_arith().emplace_back(0);
+        block.q_1().emplace_back(1);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(1); // validate record witness is correctly computed
+        block.q_c().emplace_back(0); // read/write flag stored in q_c
+        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         break;
@@ -1360,15 +1362,15 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         // Memory read gate for reading memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
-        blocks.main.q_1().emplace_back(1);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_m().emplace_back(1); // validate record witness is correctly computed
-        blocks.main.q_c().emplace_back(0); // read/write flag stored in q_c
-        blocks.main.q_arith().emplace_back(0);
+        block.q_1().emplace_back(1);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(1); // validate record witness is correctly computed
+        block.q_c().emplace_back(0); // read/write flag stored in q_c
+        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         break;
@@ -1377,29 +1379,29 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         // Memory read gate for writing memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
-        blocks.main.q_1().emplace_back(1);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_m().emplace_back(1); // validate record witness is correctly computed
-        blocks.main.q_c().emplace_back(1); // read/write flag stored in q_c
-        blocks.main.q_arith().emplace_back(0);
+        block.q_1().emplace_back(1);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(1); // validate record witness is correctly computed
+        block.q_c().emplace_back(1); // read/write flag stored in q_c
+        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         break;
     }
     default: {
-        blocks.main.q_1().emplace_back(0);
-        blocks.main.q_2().emplace_back(0);
-        blocks.main.q_3().emplace_back(0);
-        blocks.main.q_4().emplace_back(0);
-        blocks.main.q_m().emplace_back(0);
-        blocks.main.q_c().emplace_back(0);
-        blocks.main.q_arith().emplace_back(0);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.main.pad_additional();
+            block.pad_additional();
         }
         check_selector_length_consistency();
         break;
@@ -1467,9 +1469,9 @@ void UltraCircuitBuilder_<Arithmetization>::range_constrain_two_limbs(const uint
     const std::array<uint32_t, 5> lo_sublimbs = get_sublimbs(lo_idx, lo_masks);
     const std::array<uint32_t, 5> hi_sublimbs = get_sublimbs(hi_idx, hi_masks);
 
-    blocks.main.populate_wires(lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
-    blocks.main.populate_wires(lo_sublimbs[3], lo_sublimbs[4], hi_sublimbs[0], hi_sublimbs[1]);
-    blocks.main.populate_wires(hi_sublimbs[2], hi_sublimbs[3], hi_sublimbs[4], hi_idx);
+    blocks.aux.populate_wires(lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
+    blocks.aux.populate_wires(lo_sublimbs[3], lo_sublimbs[4], hi_sublimbs[0], hi_sublimbs[1]);
+    blocks.aux.populate_wires(hi_sublimbs[2], hi_sublimbs[3], hi_sublimbs[4], hi_idx);
 
     apply_aux_selectors(AUX_SELECTORS::LIMB_ACCUMULATE_1);
     apply_aux_selectors(AUX_SELECTORS::LIMB_ACCUMULATE_2);
@@ -1636,19 +1638,19 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add gate
     create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, lo_0_idx);
 
-    blocks.main.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
+    blocks.aux.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
     ++this->num_gates;
 
-    blocks.main.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
+    blocks.aux.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_2);
     ++this->num_gates;
 
-    blocks.main.populate_wires(input.a[2], input.b[2], input.r[3], hi_0_idx);
+    blocks.aux.populate_wires(input.a[2], input.b[2], input.r[3], hi_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_3);
     ++this->num_gates;
 
-    blocks.main.populate_wires(input.a[1], input.b[1], input.r[2], hi_1_idx);
+    blocks.aux.populate_wires(input.a[1], input.b[1], input.r[2], hi_1_idx);
     apply_aux_selectors(AUX_SELECTORS::NONE);
     ++this->num_gates;
 
@@ -1712,19 +1714,19 @@ void UltraCircuitBuilder_<Arithmetization>::process_non_native_field_multiplicat
     // iterate over the cached items and create constraints
     for (const auto& input : cached_partial_non_native_field_multiplications) {
 
-        blocks.main.populate_wires(input.a[1], input.b[1], this->zero_idx, static_cast<uint32_t>(input.lo_0));
+        blocks.aux.populate_wires(input.a[1], input.b[1], this->zero_idx, static_cast<uint32_t>(input.lo_0));
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
         ++this->num_gates;
 
-        blocks.main.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
+        blocks.aux.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_2);
         ++this->num_gates;
 
-        blocks.main.populate_wires(input.a[2], input.b[2], this->zero_idx, static_cast<uint32_t>(input.hi_0));
+        blocks.aux.populate_wires(input.a[2], input.b[2], this->zero_idx, static_cast<uint32_t>(input.hi_0));
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_3);
         ++this->num_gates;
 
-        blocks.main.populate_wires(input.a[1], input.b[1], this->zero_idx, static_cast<uint32_t>(input.hi_1));
+        blocks.aux.populate_wires(input.a[1], input.b[1], this->zero_idx, static_cast<uint32_t>(input.hi_1));
         apply_aux_selectors(AUX_SELECTORS::NONE);
         ++this->num_gates;
     }
@@ -2041,11 +2043,11 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     // Record wire value can't yet be computed
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(AUX_SELECTORS::ROM_READ);
-    blocks.main.populate_wires(
+    blocks.aux.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
-    record.gate_index = this->blocks.main.size() - 1;
+    record.gate_index = this->blocks.aux.size() - 1;
     ++this->num_gates;
 }
 
@@ -2061,11 +2063,11 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_ROM_gate(RomRecord& re
 {
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(AUX_SELECTORS::ROM_CONSISTENCY_CHECK);
-    blocks.main.populate_wires(
+    blocks.aux.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
-    record.gate_index = this->blocks.main.size() - 1;
+    record.gate_index = this->blocks.aux.size() - 1;
     ++this->num_gates;
 }
 
@@ -2105,11 +2107,11 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(record.access_type == RamRecord::AccessType::READ ? AUX_SELECTORS::RAM_READ
                                                                           : AUX_SELECTORS::RAM_WRITE);
-    blocks.main.populate_wires(
+    blocks.aux.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
-    record.gate_index = this->blocks.main.size() - 1;
+    record.gate_index = this->blocks.aux.size() - 1;
     ++this->num_gates;
 }
 
@@ -2126,11 +2128,11 @@ void UltraCircuitBuilder_<Arithmetization>::create_sorted_RAM_gate(RamRecord& re
 {
     record.record_witness = this->add_variable(0);
     apply_aux_selectors(AUX_SELECTORS::RAM_CONSISTENCY_CHECK);
-    blocks.main.populate_wires(
+    blocks.aux.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
-    record.gate_index = this->blocks.main.size() - 1;
+    record.gate_index = this->blocks.aux.size() - 1;
     ++this->num_gates;
 }
 
@@ -2145,7 +2147,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_final_sorted_RAM_gate(RamReco
 {
     record.record_witness = this->add_variable(0);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): set gate index based on block containing ram/rom
-    record.gate_index = this->blocks.main.size(); // no -1 since we havent added the gate yet
+    record.gate_index = this->blocks.aux.size(); // no -1 since we havent added the gate yet
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This method used to add a single arithmetic gate
     // with two purposes: (1) to provide wire values to the previous RAM gate via shifts, and (2) to perform a
@@ -2155,7 +2157,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_final_sorted_RAM_gate(RamReco
 
     // Create a final gate with all selectors zero; wire values are accessed by the previous RAM gate via shifted wires
     create_dummy_gate(
-        blocks.main, record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
+        blocks.aux, record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
     // Create an add gate ensuring the final index is consistent with the size of the RAM array
     create_big_add_gate({
@@ -2505,7 +2507,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This was formerly a single arithmetic gate. A
     // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing the
     // arithmetic gate to occur out of sequence.
-    create_dummy_gate(blocks.main, max_index, this->zero_idx, this->zero_idx, this->zero_idx);
+    create_dummy_gate(blocks.aux, max_index, this->zero_idx, this->zero_idx, this->zero_idx);
     create_big_add_gate(
         {
             max_index,
@@ -2637,7 +2639,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         uint32_t timestamp_delta_witness = this->add_variable(timestamp_delta);
 
         apply_aux_selectors(AUX_SELECTORS::RAM_TIMESTAMP_CHECK);
-        blocks.main.populate_wires(
+        blocks.aux.populate_wires(
             current.index_witness, current.timestamp_witness, timestamp_delta_witness, this->zero_idx);
 
         ++this->num_gates;
@@ -2650,7 +2652,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     // add the index/timestamp values of the last sorted record in an empty add gate.
     // (the previous gate will access the wires on this gate and requires them to be those of the last record)
     const auto& last = sorted_ram_records[ram_array.records.size() - 1];
-    create_dummy_gate(blocks.main, last.index_witness, last.timestamp_witness, this->zero_idx, this->zero_idx);
+    create_dummy_gate(blocks.aux, last.index_witness, last.timestamp_witness, this->zero_idx, this->zero_idx);
 
     // Step 3: validate difference in timestamps is monotonically increasing. i.e. is <= maximum timestamp
     const size_t max_timestamp = ram_array.access_count - 1;
