@@ -98,6 +98,30 @@ template <typename G1> class TestAffineElement : public testing::Test {
         affine_element R(0, P.y);
         ASSERT_FALSE(P == R);
     }
+    // Regression test to ensure that the point at infinity is not equal to its coordinate-wise reduction, which may lie
+    // on the curve, depending on the y-coordinate.
+    static void test_infinity_ordering_regression()
+    {
+        affine_element P(0, 1);
+        affine_element Q(0, 1);
+
+        P.self_set_infinity();
+        EXPECT_NE(P < Q, Q < P);
+    }
+
+    /**
+     * @brief Check that msgpack encoding is consistent with decoding
+     *
+     */
+    static void test_msgpack_roundtrip()
+    {
+        affine_element point_at_infinity{ 1, 1 };
+        point_at_infinity.self_set_infinity();
+        auto [actual, expected] = msgpack_roundtrip(affine_element{ 1, 1 });
+        EXPECT_EQ(actual, expected);
+        auto [actual_pif, expected_pif] = msgpack_roundtrip(point_at_infinity);
+        EXPECT_EQ(actual_pif, expected_pif);
+    }
 };
 
 using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
@@ -128,21 +152,14 @@ TYPED_TEST(TestAffineElement, PointCompressionUnsafe)
     }
 }
 
-// Regression test to ensure that the point at infinity is not equal to its coordinate-wise reduction, which may lie
-// on the curve, depending on the y-coordinate.
-TEST(AffineElement, InfinityOrderingRegression)
+TYPED_TEST(TestAffineElement, InfinityOrderingRegression)
 {
-    secp256k1::g1::affine_element P(0, 1);
-    secp256k1::g1::affine_element Q(0, 1);
-
-    P.self_set_infinity();
-    EXPECT_NE(P < Q, Q < P);
+    TestFixture::test_infinity_ordering_regression();
 }
 
-TEST(AffineElement, Msgpack)
+TYPED_TEST(TestAffineElement, Msgpack)
 {
-    auto [actual, expected] = msgpack_roundtrip(secp256k1::g1::affine_element{ 1, 1 });
-    EXPECT_EQ(actual, expected);
+    TestFixture::test_msgpack_roundtrip();
 }
 
 namespace bb::group_elements {
@@ -165,7 +182,7 @@ class TestElementPrivate {
 } // namespace bb::group_elements
 
 // Our endomorphism-specialized multiplication should match our generic multiplication
-TEST(AffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
+TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
 {
     for (int i = 0; i < 100; i++) {
         auto x1 = bb::group_elements::element(grumpkin::g1::affine_element::random_element());

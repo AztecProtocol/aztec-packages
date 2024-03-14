@@ -160,9 +160,158 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
     }
     Fq x;
     Fq y;
-    // for serialization: update with new fields
-    MSGPACK_FIELDS(x, y);
+
+    // This function is used to serialize an affine element. It matches the old serialization format by first
+    // converting the field from Montgomery form, which is a special representation used for efficient
+    // modular arithmetic. Point at infinity is represented by serializing two moduli sequentially
+    void msgpack_pack(auto& packer) const
+    {
+        std::array<uint64_t, 8> bin_data;
+        if (is_point_at_infinity()) {
+            // In case of point at infinity, modulus value is repeated twice
+            bin_data = { htonll(Fq::modulus.data[3]), htonll(Fq::modulus.data[2]), htonll(Fq::modulus.data[1]),
+                         htonll(Fq::modulus.data[0]), htonll(Fq::modulus.data[3]), htonll(Fq::modulus.data[2]),
+                         htonll(Fq::modulus.data[1]), htonll(Fq::modulus.data[0]) };
+        } else {
+            // The fields are first converted from Montgomery form, similar to how the old format did it.
+            auto adjusted_x = x.from_montgomery_form();
+            auto adjusted_y = y.from_montgomery_form();
+
+            // The data is then converted to big endian format using htonll, which stands for "host to network long
+            // long". This is necessary because the data will be written to a raw msgpack buffer, which requires big
+            // endian format.
+            bin_data = { htonll(adjusted_x.data[3]), htonll(adjusted_x.data[2]), htonll(adjusted_x.data[1]),
+                         htonll(adjusted_x.data[0]), htonll(adjusted_y.data[3]), htonll(adjusted_y.data[2]),
+                         htonll(adjusted_y.data[1]), htonll(adjusted_y.data[0]) };
+        }
+
+        // The packer is then used to write the binary data to the buffer, just like in the old format.
+        packer.pack_bin(sizeof(bin_data));
+        packer.pack_bin_body((const char*)bin_data.data(), sizeof(bin_data)); // NOLINT
+    }
+
+    // This function is used to deserialize a field. It also matches the old deserialization format by
+    // reading the binary data as big endian uint64_t's, correcting them to the host endianness, and
+    // then converting the field back to Montgomery form. Point at infinity is encoded by 2 moduli
+    void msgpack_unpack(auto o)
+    {
+        // 2 sequential values of modulus represent the point at inifnity
+        uint64_t point_at_infinity_representation[8] = { htonll(Fq::modulus.data[3]), htonll(Fq::modulus.data[2]),
+                                                         htonll(Fq::modulus.data[1]), htonll(Fq::modulus.data[0]),
+                                                         htonll(Fq::modulus.data[3]), htonll(Fq::modulus.data[2]),
+                                                         htonll(Fq::modulus.data[1]), htonll(Fq::modulus.data[0]) };
+        // The binary data is first extracted from the msgpack object.
+        std::array<uint8_t, sizeof(x) + sizeof(y)> raw_data = o;
+
+        // The binary data is then read as big endian uint64_t's. This is done by casting the raw data to uint64_t*
+        // and then using ntohll ("network to host long long") to correct the endianness to the host's endianness.
+        uint64_t* cast_data = (uint64_t*)&raw_data[0]; // NOLINT
+        if (!memcmp(
+                (char*)point_at_infinity_representation, (char*)cast_data, sizeof(point_at_infinity_representation))) {
+            // Set to point at infinity
+            this->x = Fq(0);
+            this->y = Fq(0);
+            this->self_set_infinity();
+        } else {
+            // Convert binary representation to standard one
+            uint64_t x_data[4] = {
+                ntohll(cast_data[3]), ntohll(cast_data[2]), ntohll(cast_data[1]), ntohll(cast_data[0])
+            };
+
+            uint64_t y_data[4] = {
+                ntohll(cast_data[7]), ntohll(cast_data[6]), ntohll(cast_data[5]), ntohll(cast_data[4])
+            };
+
+            // Copy into members
+            for (size_t i = 0; i < 4; i++) {
+                this->x.data[i] = x_data[i];
+                this->y.data[i] = y_data[i];
+            }
+            // Finally, the field is converted back to Montgomery form, just like in the old format.
+            this->x.self_to_montgomery_form();
+            this->y.self_to_montgomery_form();
+        }
+    }
+
+    void msgpack_schema(auto& packer) const
+    {
+        packer.pack_alias("affine(" + Fq::Params::schema_name + "," + Fr::Params::schema_name + ")", "bin32");
+    }
 };
+
+/**
+ * @brief Deserialize affine element (non-msgpack deserialization)
+ *
+ * @details Parse two uint256_t but in reverse order of 4 limbs, then check if the values is equal to special value for
+ * infinity. If not, copy to fields and reduce to reconstruct the element
+ *
+ * @remark This API expects well-formed data, because we don't reduce the elements enough times to make sure they
+ * actually adhere to internal field class expectations. So should not be used for something that might be controlled by
+ * an attacker
+ *
+ */
+template <typename B, typename Fq_, typename Fr_, typename Params>
+void read(B& it, affine_element<Fq_, Fr_, Params>& value)
+{
+    using serialize::read;
+    uint256_t x{ 0, 0, 0, 0 };
+    uint256_t y{ 0, 0, 0, 0 };
+    read(it, x.data[3]);
+    read(it, x.data[2]);
+    read(it, x.data[1]);
+    read(it, x.data[0]);
+    read(it, y.data[3]);
+    read(it, y.data[2]);
+    read(it, y.data[1]);
+    read(it, y.data[0]);
+    // Check if values are equal to repeated modulus (then we know that the point at inifinity is encoded)
+    if (x == Fq_::modulus && y == Fq_::modulus) {
+        value = { Fq_::zero(), Fq_::zero() };
+        value.self_set_infinity();
+    } else {
+        for (size_t i = 0; i < 4; i++) {
+            value.x.data[i] = x.data[i];
+            value.y.data[i] = y.data[i];
+        }
+        value.x.self_to_montgomery_form();
+        value.y.self_to_montgomery_form();
+    }
+}
+
+/**
+ * @brief Serialize affine element (non-msgpack serialization)
+ *
+ * @details If the point is a point at infinity, put repeated encoding of modulus twice. Otherwise, convert form
+ * montgomery and write the 4 limbs from x (highest to lowest) and 4 limbs from y (highest to lowest).
+ *
+ */
+template <typename B, typename Fq_, typename Fr_, typename Params>
+void write(B& buf, affine_element<Fq_, Fr_, Params> const& value)
+{
+    using serialize::write;
+    if (value.is_point_at_infinity()) {
+        write(buf, Fq_::modulus.data[3]);
+        write(buf, Fq_::modulus.data[2]);
+        write(buf, Fq_::modulus.data[1]);
+        write(buf, Fq_::modulus.data[0]);
+        write(buf, Fq_::modulus.data[3]);
+        write(buf, Fq_::modulus.data[2]);
+        write(buf, Fq_::modulus.data[1]);
+        write(buf, Fq_::modulus.data[0]);
+    } else {
+        const field x = value.x.from_montgomery_form();
+        const field y = value.x.from_montgomery_form();
+
+        write(buf, x.data[3]);
+        write(buf, x.data[2]);
+        write(buf, x.data[1]);
+        write(buf, x.data[0]);
+        write(buf, y.data[3]);
+        write(buf, y.data[2]);
+        write(buf, y.data[1]);
+        write(buf, y.data[0]);
+    }
+}
 } // namespace bb::group_elements
 
 #include "./affine_element_impl.hpp"
