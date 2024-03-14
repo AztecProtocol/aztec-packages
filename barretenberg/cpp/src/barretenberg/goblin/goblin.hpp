@@ -33,6 +33,7 @@ class Goblin {
     using ECCVMComposer = bb::ECCVMComposer;
     using ECCVMProver = bb::ECCVMProver_<ECCVMFlavor>;
     using TranslatorBuilder = bb::GoblinTranslatorCircuitBuilder;
+    using TranslatorProver = bb::GoblinTranslatorProver;
     using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
     using MergeProver = bb::MergeProver_<GoblinUltraFlavor>;
     using MergeVerifier = bb::MergeVerifier_<GoblinUltraFlavor>;
@@ -82,6 +83,7 @@ class Goblin {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
     std::unique_ptr<ECCVMBuilder> eccvm_builder;
     std::unique_ptr<TranslatorBuilder> translator_builder;
+    std::unique_ptr<TranslatorProver> translator_prover;
     std::unique_ptr<ECCVMComposer> eccvm_composer;
     std::unique_ptr<ECCVMProver> eccvm_prover;
 
@@ -172,8 +174,8 @@ class Goblin {
     {
         translator_builder = std::make_unique<TranslatorBuilder>(
             eccvm_prover->translation_batching_challenge_v, eccvm_prover->evaluation_challenge_x, op_queue);
-        GoblinTranslatorProver translator_prover(*translator_builder, eccvm_prover->transcript);
-        goblin_proof.translator_proof = translator_prover.construct_proof();
+        translator_prover = std::make_unique<GoblinTranslatorProver>(*translator_builder, eccvm_prover->transcript);
+        goblin_proof.translator_proof = translator_prover->construct_proof();
     };
 
     /**
@@ -206,7 +208,9 @@ class Goblin {
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
-        GoblinTranslatorVerifier translator_verifier(*translator_builder, eccvm_verifier.transcript);
+        auto verification_key = std::make_shared<GoblinTranslatorFlavor::VerificationKey>(translator_prover->key);
+        GoblinTranslatorVerifier translator_verifier(verification_key, eccvm_verifier.transcript);
+
         bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
         // correctly
@@ -292,7 +296,9 @@ class Goblin {
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
         bool eccvm_verified = eccvm_verifier.verify_proof(goblin_proof.eccvm_proof);
 
-        GoblinTranslatorVerifier translator_verifier(*translator_builder, eccvm_verifier.transcript);
+        auto verification_key = std::make_shared<GoblinTranslatorFlavor::VerificationKey>(translator_prover->key);
+        GoblinTranslatorVerifier translator_verifier(verification_key, eccvm_verifier.transcript);
+
         bool translation_accumulator_construction_verified =
             translator_verifier.verify_proof(goblin_proof.translator_proof);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
