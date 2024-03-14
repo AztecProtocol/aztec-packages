@@ -88,8 +88,8 @@ contract Rollup is IRollup {
     // @todo (issue #605) handle fee collector
     IInbox inbox = REGISTRY.getInbox();
     inbox.batchConsume(l1ToL2Msgs, msg.sender);
-
-    bytes32 inHash = NEW_INBOX.consume();
+    // We prepend a byte rather than cast bytes31(bytes32) to match Noir's to_be_bytes.
+    bytes32 inHash = bytes32(bytes.concat(new bytes(1), bytes31(NEW_INBOX.consume())));
     if (header.contentCommitment.inHash != inHash) {
       revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
     }

@@ -186,7 +186,7 @@ contract Inbox is IInbox {
     override(IInbox)
     returns (bytes32)
   {
-    return _message.sha256ToField();
+    return _message.sha256ToField32();
   }
 
   /**

@@ -173,6 +173,7 @@ library TxsDecoder {
               Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP
             )
           ),
+          // We prepend a byte rather than cast bytes31(bytes32) to match Noir's to_be_bytes.
           bytes.concat(
             new bytes(1),
             bytes31(vars.encryptedLogsHash),
@@ -181,7 +182,7 @@ library TxsDecoder {
           )
         );
 
-        vars.baseLeaves[i] = bytes31(sha256(vars.baseLeaf));
+        vars.baseLeaves[i] = Hash.sha256ToField(vars.baseLeaf);
       }
     }
 
@@ -223,13 +224,13 @@ library TxsDecoder {
   function computeKernelLogsHash(uint256 _offsetInBlock, bytes calldata _body)
     internal
     pure
-    returns (bytes32, uint256)
+    returns (bytes31, uint256)
   {
     uint256 offset = _offsetInBlock;
     uint256 remainingLogsLength = read4(_body, offset);
     offset += 0x4;
 
-    bytes32 kernelPublicInputsLogsHash; // The hash on the output of kernel iteration
+    bytes31 kernelPublicInputsLogsHash; // The hash on the output of kernel iteration
 
     // Iterate until all the logs were processed
     while (remainingLogsLength > 0) {
@@ -238,16 +239,16 @@ library TxsDecoder {
       offset += 0x4;
 
       // Hash the logs of this iteration's function call
-      bytes32 privateCircuitPublicInputsLogsHash =
-        sha256(slice(_body, offset, privateCircuitPublicInputLogsLength));
+      bytes31 privateCircuitPublicInputsLogsHash =
+        Hash.sha256ToField(slice(_body, offset, privateCircuitPublicInputLogsLength));
       offset += privateCircuitPublicInputLogsLength;
 
       // Decrease remaining logs length by this privateCircuitPublicInputsLogs's length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
       remainingLogsLength -= (privateCircuitPublicInputLogsLength + 0x4);
 
-      kernelPublicInputsLogsHash = sha256(
+      kernelPublicInputsLogsHash = Hash.sha256ToField(
         bytes.concat(
-          bytes31(kernelPublicInputsLogsHash), bytes31(privateCircuitPublicInputsLogsHash)
+          kernelPublicInputsLogsHash, bytes31(privateCircuitPublicInputsLogsHash)
         )
       );
     }
@@ -274,7 +275,7 @@ library TxsDecoder {
 
     for (uint256 i = 0; i < treeDepth; i++) {
       for (uint256 j = 0; j < treeSize; j += 2) {
-        _leafs[j / 2] = bytes31(sha256(bytes.concat(bytes31(_leafs[j]), bytes31(_leafs[j + 1]))));
+        _leafs[j / 2] = Hash.sha256ToField(bytes.concat(bytes31(_leafs[j]), bytes31(_leafs[j + 1])));
       }
       treeSize /= 2;
     }

@@ -85,7 +85,7 @@ contract TokenPortalTest is Test {
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
-      content: Hash.sha256ToField(
+      content: Hash.sha256ToField32(
         abi.encodeWithSignature(
           "mint_private(bytes32,uint256,address)",
           secretHashForRedeemingMintedNotes,
@@ -107,7 +107,7 @@ contract TokenPortalTest is Test {
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
-      content: Hash.sha256ToField(
+      content: Hash.sha256ToField32(
         abi.encodeWithSignature("mint_public(bytes32,uint256,address)", to, amount, _canceller)
         ),
       secretHash: secretHashForL2MessageConsumption,
@@ -301,7 +301,7 @@ contract TokenPortalTest is Test {
       DataStructures.L2ToL1Msg({
         sender: DataStructures.L2Actor({actor: l2TokenAddress, version: 1}),
         recipient: DataStructures.L1Actor({actor: address(tokenPortal), chainId: block.chainid}),
-        content: Hash.sha256ToField(
+        content: Hash.sha256ToField32(
           abi.encodeWithSignature(
             "withdraw(address,uint256,address)", recipient, withdrawAmount, _designatedCaller
           )

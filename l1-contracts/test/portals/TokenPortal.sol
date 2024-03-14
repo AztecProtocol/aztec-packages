@@ -48,7 +48,7 @@ contract TokenPortal {
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
-    bytes32 contentHash = Hash.sha256ToField(
+    bytes32 contentHash = Hash.sha256ToField32(
       abi.encodeWithSignature("mint_public(bytes32,uint256,address)", _to, _amount, _canceller)
     );
 
@@ -82,7 +82,7 @@ contract TokenPortal {
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
-    bytes32 contentHash = Hash.sha256ToField(
+    bytes32 contentHash = Hash.sha256ToField32(
       abi.encodeWithSignature(
         "mint_private(bytes32,uint256,address)",
         _secretHashForRedeemingMintedNotes,
@@ -125,7 +125,7 @@ contract TokenPortal {
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: l1Actor,
       recipient: l2Actor,
-      content: Hash.sha256ToField(
+      content: Hash.sha256ToField32(
         abi.encodeWithSignature("mint_public(bytes32,uint256,address)", _to, _amount, msg.sender)
         ),
       secretHash: _secretHash,
@@ -162,7 +162,7 @@ contract TokenPortal {
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: l1Actor,
       recipient: l2Actor,
-      content: Hash.sha256ToField(
+      content: Hash.sha256ToField32(
         abi.encodeWithSignature(
           "mint_private(bytes32,uint256,address)",
           _secretHashForRedeemingMintedNotes,
@@ -200,7 +200,7 @@ contract TokenPortal {
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(l2TokenAddress, 1),
       recipient: DataStructures.L1Actor(address(this), block.chainid),
-      content: Hash.sha256ToField(
+      content: Hash.sha256ToField32(
         abi.encodeWithSignature(
           "withdraw(address,uint256,address)",
           _recipient,

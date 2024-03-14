@@ -1048,7 +1048,7 @@ export function makeRootParityInput(seed = 0): RootParityInput {
 export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
   return new ParityPublicInputs(
     makeAggregationObject(seed),
-    toBufferBE(BigInt(seed + 0x200), 32),
+    toBufferBE(BigInt(seed + 0x200), 31),
     new Fr(BigInt(seed + 0x300)),
   );
 }

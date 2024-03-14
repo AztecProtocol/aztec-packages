@@ -14,7 +14,7 @@ import {Errors} from "../libraries/Errors.sol";
 import {Hash} from "../libraries/Hash.sol";
 
 // Contracts
-import {FrontierMerkle} from "./frontier_tree/Frontier.sol";
+import {FrontierMerkleField} from "./frontier_tree/FrontierField.sol";
 
 /**
  * @title Inbox
@@ -45,7 +45,7 @@ contract NewInbox is INewInbox {
     SIZE = 2 ** _height;
 
     // We deploy the first tree
-    IFrontier firstTree = IFrontier(new FrontierMerkle(_height));
+    IFrontier firstTree = IFrontier(new FrontierMerkleField(_height));
     trees[inProgress] = firstTree;
 
     EMPTY_ROOT = firstTree.root();
@@ -77,7 +77,7 @@ contract NewInbox is INewInbox {
     IFrontier currentTree = trees[inProgress];
     if (currentTree.isFull()) {
       inProgress += 1;
-      currentTree = IFrontier(new FrontierMerkle(HEIGHT));
+      currentTree = IFrontier(new FrontierMerkleField(HEIGHT));
       trees[inProgress] = currentTree;
     }
 
@@ -91,7 +91,7 @@ contract NewInbox is INewInbox {
       fee: 0
     });
 
-    bytes32 leaf = message.sha256ToField();
+    bytes31 leaf = message.sha256ToField();
     uint256 index = currentTree.insertLeaf(leaf);
     emit LeafInserted(inProgress, index, leaf);
 
@@ -118,7 +118,7 @@ contract NewInbox is INewInbox {
     // If we are "catching up" we skip the tree creation as it is already there
     if (toConsume + 1 == inProgress) {
       inProgress += 1;
-      trees[inProgress] = IFrontier(new FrontierMerkle(HEIGHT));
+      trees[inProgress] = IFrontier(new FrontierMerkleField(HEIGHT));
     }
 
     toConsume += 1;
