@@ -34,7 +34,7 @@ pub async fn create_black_box_solver() -> WasmBlackBoxFunctionSolver {
 /// @returns {WitnessMap} The solved witness calculated by executing the circuit on the provided inputs.
 #[wasm_bindgen(js_name = executeCircuit, skip_jsdoc)]
 pub async fn execute_circuit(
-    circuit: Vec<u8>,
+    program: Vec<u8>,
     initial_witness: JsWitnessMap,
     foreign_call_handler: ForeignCallHandler,
 ) -> Result<JsWitnessMap, Error> {
@@ -42,7 +42,7 @@ pub async fn execute_circuit(
 
     let solver = WasmBlackBoxFunctionSolver::initialize().await;
 
-    execute_circuit_with_black_box_solver(&solver, circuit, initial_witness, foreign_call_handler)
+    execute_circuit_with_black_box_solver(&solver, program, initial_witness, foreign_call_handler)
         .await
 }
 
@@ -64,7 +64,7 @@ pub async fn execute_circuit_with_black_box_solver(
     foreign_call_handler: ForeignCallHandler,
 ) -> Result<JsWitnessMap, Error> {
     console_error_panic_hook::set_once();
-    let program: Program = Program::deserialize_program(&circuit)
+    let program: Program = Program::deserialize_program(&program)
         .map_err(|_| JsExecutionError::new("Failed to deserialize circuit. This is likely due to differing serialization formats between ACVM_JS and your compiler".to_string(), None))?;
     let circuit = &program.functions[0];
 
