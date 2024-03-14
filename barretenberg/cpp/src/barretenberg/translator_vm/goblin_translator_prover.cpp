@@ -45,30 +45,10 @@ GoblinTranslatorProver::GoblinTranslatorProver(CircuitBuilder& circuit_builder,
     BB_OP_COUNT_TIME_NAME("GoblinTranslatorComposer::create_prover");
 
     // Compute total number of gates, dyadic circuit size, etc.
-    compute_circuit_size_parameters(circuit_builder);
-    compute_proving_key(circuit_builder);
     compute_witness(circuit_builder);
     compute_commitment_key(key->circuit_size);
 
     *this = GoblinTranslatorProver(key, commitment_key, transcript);
-}
-
-/**
- * @brief Helper method to compute quantities like total number of gates and dyadic circuit size
- *
- * @tparam Flavor
- * @param circuit_builder
- */
-void GoblinTranslatorProver::compute_circuit_size_parameters(CircuitBuilder& circuit_builder)
-{
-    total_num_gates = std::max(circuit_builder.num_gates, MINIMUM_MINI_CIRCUIT_SIZE);
-
-    // Next power of 2
-    mini_circuit_dyadic_size = circuit_builder.get_circuit_subgroup_size(total_num_gates);
-
-    // The actual circuit size is several times bigger than the trace in the builder, because we use concatenation to
-    // bring the degree of relations down, while extending the length.
-    dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE;
 }
 
 /**
@@ -210,43 +190,6 @@ void GoblinTranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
     bb::compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(key.get(), mini_circuit_dyadic_size);
 
     computed_witness = true;
-}
-
-/**
- * @brief Move goblin translator specific inputs from circuit builder and compute all the constant polynomials used by
- * the prover
- *
- * @tparam Flavor
- * @param circuit_builder
- * @return std::shared_ptr<ProvingKey>
- */
-std::shared_ptr<GoblinTranslatorProver::ProvingKey> GoblinTranslatorProver::compute_proving_key(
-    const CircuitBuilder& circuit_builder)
-{
-    if (key) {
-        return key;
-    }
-
-    key = std::make_shared<ProvingKey>(dyadic_circuit_size);
-
-    // The input/challenge that we are evaluating all polynomials at
-    key->evaluation_input_x = circuit_builder.evaluation_input_x;
-
-    // The challenge for batching polynomials
-    key->batching_challenge_v = circuit_builder.batching_challenge_v;
-
-    // First and last lagrange polynomials (in the full circuit size)
-    compute_first_and_last_lagrange_polynomials<Flavor>(key.get());
-
-    // Compute polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange polynomials at
-    // second and second to last indices in the minicircuit
-    bb::compute_lagrange_polynomials_for_goblin_translator<Flavor>(key.get(), mini_circuit_dyadic_size);
-
-    // Compute the numerator for the permutation argument with several repetitions of steps bridging 0 and maximum range
-    // constraint
-    bb::compute_extra_range_constraint_numerator<Flavor>(key.get(), dyadic_circuit_size);
-
-    return key;
 }
 
 std::shared_ptr<GoblinTranslatorProver::CommitmentKey> GoblinTranslatorProver::compute_commitment_key(

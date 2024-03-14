@@ -461,11 +461,12 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_2);
     fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_3);
 
+    // WORKTODO: these are not library fucntions
     // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
     compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(&prover_polynomials, mini_circuit_size);
 
     // Compute the fixed numerator (part of verification key)
-    compute_extra_range_constraint_numerator<Flavor>(&prover_polynomials, full_circuit_size);
+    prover_polynomials.compute_extra_range_constraint_numerator(full_circuit_size);
 
     // Compute concatenated polynomials (4 polynomials produced from other constraint polynomials by concatenation)
     compute_concatenated_polynomials<Flavor>(&prover_polynomials);

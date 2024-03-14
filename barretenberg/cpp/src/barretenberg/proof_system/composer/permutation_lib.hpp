@@ -365,6 +365,24 @@ template <typename Flavor> inline void compute_first_and_last_lagrange_polynomia
 }
 
 /**
+ * @brief Compute Lagrange Polynomials L_0 and L_{n-1} and put them in the polynomial cache
+ *
+ * @param key Proving key where we will save the polynomials
+ * WORKTODO: duplicated now
+ */
+template <typename FF>
+inline std::tuple<Polynomial<FF>, Polynomial<FF>> compute_first_and_last_lagrange_polynomials_other(
+    const size_t circuit_size)
+{
+    Polynomial<FF> lagrange_polynomial_0(circuit_size);
+    Polynomial<FF> lagrange_polynomial_n_min_1(circuit_size);
+    lagrange_polynomial_0[0] = 1;
+
+    lagrange_polynomial_n_min_1[circuit_size - 1] = 1;
+    return std::make_tuple(lagrange_polynomial_0.share(), lagrange_polynomial_n_min_1.share());
+}
+
+/**
  * @brief Compute Plonk or Honk style generalized permutation sigmas and ids and add to proving_key
  *
  * @param circuit

@@ -34,9 +34,7 @@ class GoblinTranslatorProver {
 
     explicit GoblinTranslatorProver(CircuitBuilder& circuit_builder, const std::shared_ptr<Transcript>& transcript);
 
-    void compute_circuit_size_parameters(CircuitBuilder& circuit_builder);
     void compute_witness(CircuitBuilder& circuit_builder);
-    std::shared_ptr<ProvingKey> compute_proving_key(const CircuitBuilder& circuit_builder);
     std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size);
 
     BB_PROFILE void execute_preamble_round();
