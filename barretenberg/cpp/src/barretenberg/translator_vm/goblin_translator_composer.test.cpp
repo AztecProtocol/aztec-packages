@@ -76,7 +76,6 @@ TEST_F(GoblinTranslatorComposerTests, Basic)
 
     auto verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
     verifier_transcript->template receive_from_prover<Fq>("init");
-    // WORKTODO: constructor of verifier from proving key
     GoblinTranslatorVerifier verifier(prover.key, verifier_transcript);
     bool verified = verifier.verify_proof(proof);
     EXPECT_TRUE(verified);
