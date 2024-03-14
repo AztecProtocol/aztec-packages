@@ -1,0 +1,15 @@
+
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+
+# Aztec build/test/bench tool
+# Thin wrapper for earthly that helps with building targets. 
+# Adds autodownloading earthly and timing code.
+# Usage:
+# Go to folder, e.g. docs, use az to build
+# To run a target in the Earthfile, use 'az +<target-name>'.
+# Spports all commands 'earthly' can take.
+
+set -euo pipefail
+
+EARTHLY_CONFIG="$(dirname $0)/earthly-bench-config.yml" $(dirname $0)/earthly

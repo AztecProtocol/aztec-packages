@@ -1,0 +1,6 @@
+# for 8 core 32gb machine that we will hog all of
+global:
+    cache_size_mb: 24000
+    container_frontend: docker-shell
+    disable_analytics: true
+    buildkit_max_parallelism:ec2-18-116-100-45.us-east-2.compute.amazonaws.com 
