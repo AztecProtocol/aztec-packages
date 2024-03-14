@@ -83,6 +83,7 @@ template <typename Curve_> class KZG {
 
         GroupElement P_0;
         if constexpr (Curve::is_stdlib_type) {
+            // Express operation as a batch_mul in order to use Goblinization if available
             auto builder = quotient_commitment.get_context();
             auto one = Fr(builder, 1);
             std::vector<GroupElement> commitments = { claim.commitment,
