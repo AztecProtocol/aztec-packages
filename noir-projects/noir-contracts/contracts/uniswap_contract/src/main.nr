@@ -41,7 +41,6 @@ contract Uniswap {
         // params for the depositing output_asset back to Aztec
         recipient: AztecAddress,
         secret_hash_for_L1_to_l2_message: Field,
-        deadline_for_L1_to_l2_message: Field,
         canceller_for_L1_to_L2_message: EthAddress,
         caller_on_L1: EthAddress,
         // nonce for someone to call swap on sender's behalf
@@ -89,7 +88,6 @@ contract Uniswap {
             minimum_output_amount,
             recipient,
             secret_hash_for_L1_to_l2_message,
-            deadline_for_L1_to_l2_message,
             canceller_for_L1_to_L2_message,
             caller_on_L1
         );
@@ -112,7 +110,6 @@ contract Uniswap {
         // params for the depositing output_asset back to Aztec
         secret_hash_for_redeeming_minted_notes: Field,// secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
         secret_hash_for_L1_to_l2_message: Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
-        deadline_for_L1_to_l2_message: Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
         canceller_for_L1_to_L2_message: EthAddress, // L1 address of who can cancel the message to consume assets on L2.
         caller_on_L1: EthAddress // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) {
@@ -160,7 +157,6 @@ contract Uniswap {
             minimum_output_amount,
             secret_hash_for_redeeming_minted_notes,
             secret_hash_for_L1_to_l2_message,
-            deadline_for_L1_to_l2_message,
             canceller_for_L1_to_L2_message,
             caller_on_L1
         );

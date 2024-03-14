@@ -91,9 +91,7 @@ contract TokenPortal {
     underlying.safeTransferFrom(msg.sender, address(this), _amount);
 
     // Send message to rollup
-    return inbox.sendL2Message(
-      actor, contentHash, _secretHashForL2MessageConsumption
-    );
+    return inbox.sendL2Message(actor, contentHash, _secretHashForL2MessageConsumption);
   }
   // docs:end:deposit_private
 
