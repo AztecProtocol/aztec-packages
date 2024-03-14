@@ -65,8 +65,8 @@ contract NewOutboxTest is Test {
   // L2 to L1 message tree, expect for the correct event to be emitted, and then query for the root in the contract—making sure the roots, as well as the
   // the tree height (which is also the length of the sibling path) match
   function testInsertVariedLeafs(bytes32[] calldata _messageLeafs) public {
-    uint256 bigTreeHeight = merkleLibTest.calculateTreeHeightFromSize(_messageLeafs.length);
-    NaiveMerkle tree = new NaiveMerkle(bigTreeHeight);
+    uint256 treeHeight = merkleLibTest.calculateTreeHeightFromSize(_messageLeafs.length);
+    NaiveMerkle tree = new NaiveMerkle(treeHeight);
 
     for (uint256 i = 0; i < _messageLeafs.length; i++) {
       vm.assume(_messageLeafs[i] != bytes32(0));
@@ -76,13 +76,13 @@ contract NewOutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit INewOutbox.RootAdded(1, root, bigTreeHeight);
+    emit INewOutbox.RootAdded(1, root, treeHeight);
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, bigTreeHeight);
+    outbox.insert(1, root, treeHeight);
 
     (bytes32 actualRoot, uint256 actualHeight) = outbox.roots(1);
     assertEq(root, actualRoot);
-    assertEq(bigTreeHeight, actualHeight);
+    assertEq(treeHeight, actualHeight);
   }
 
   function testRevertIfConsumingMessageBelongingToOther() public {
@@ -219,8 +219,8 @@ contract NewOutboxTest is Test {
     uint256 numberOfMessages = bound(_size, 1, _recipients.length);
     DataStructures.L2ToL1Msg[] memory messages = new DataStructures.L2ToL1Msg[](numberOfMessages);
 
-    uint256 bigTreeHeight = merkleLibTest.calculateTreeHeightFromSize(numberOfMessages);
-    NaiveMerkle tree = new NaiveMerkle(bigTreeHeight);
+    uint256 treeHeight = merkleLibTest.calculateTreeHeightFromSize(numberOfMessages);
+    NaiveMerkle tree = new NaiveMerkle(treeHeight);
 
     for (uint256 i = 0; i < numberOfMessages; i++) {
       DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(_recipients[i]);
@@ -233,9 +233,9 @@ contract NewOutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit INewOutbox.RootAdded(_blockNumber, root, bigTreeHeight);
+    emit INewOutbox.RootAdded(_blockNumber, root, treeHeight);
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(_blockNumber, root, bigTreeHeight);
+    outbox.insert(_blockNumber, root, treeHeight);
 
     for (uint256 i = 0; i < numberOfMessages; i++) {
       (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(i);
