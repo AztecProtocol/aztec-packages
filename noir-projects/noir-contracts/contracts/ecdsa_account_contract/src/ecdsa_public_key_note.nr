@@ -65,11 +65,6 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(serialized_note[4]), header: NoteHeader::empty() }
     }
 
-    fn compute_note_content_hash(note: EcdsaPublicKeyNote) -> Field {
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(note.serialize_content(), 0)
-    }
-
    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let unique_siloed_note_hash = compute_note_hash_for_consumption(self);
         let secret = context.request_nullifier_secret_key(self.owner);

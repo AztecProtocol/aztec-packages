@@ -23,12 +23,6 @@ struct TokenNote {
 }
 
 impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
-
-    fn compute_note_content_hash(self) -> Field {
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(self.serialize_content(), 0)
-    }
-
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);

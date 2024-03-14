@@ -17,11 +17,6 @@ struct TransparentNote {
     secret: Field
 }
 
-struct TransparentNoteFields {
-    amount: FieldSelector,
-    secret_hash: FieldSelector,
-}
-
 impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
 
     fn serialize_content(self) -> [Field; TRANSPARENT_NOTE_LEN] {

@@ -67,22 +67,22 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     }
  }
 
-// impl OwnedNote for TokenNote {
-//     fn new(amount: U128, owner: AztecAddress) -> Self {
-//         Self {
-//             amount,
-//             owner,
-//             randomness: rand(),
-//             header: NoteHeader::empty(),
-//         }
-//     }
+impl OwnedNote for TokenNote {
+    fn new(amount: U128, owner: AztecAddress) -> Self {
+        Self {
+            amount,
+            owner,
+            randomness: rand(),
+            header: NoteHeader::empty(),
+        }
+    }
 
-//     fn get_amount(self) -> U128 {
-//         self.amount
-//     }
+    fn get_amount(self) -> U128 {
+        self.amount
+    }
 
-//     fn get_owner(self) -> AztecAddress {
-//         self.owner
-//     }
+    fn get_owner(self) -> AztecAddress {
+        self.owner
+    }
 
-// }
+}
