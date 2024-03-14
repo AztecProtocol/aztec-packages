@@ -208,8 +208,7 @@ class Goblin {
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
-        auto verification_key = std::make_shared<GoblinTranslatorFlavor::VerificationKey>(translator_prover->key);
-        GoblinTranslatorVerifier translator_verifier(verification_key, eccvm_verifier.transcript);
+        GoblinTranslatorVerifier translator_verifier(translator_prover->key, eccvm_verifier.transcript);
 
         bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
@@ -296,8 +295,7 @@ class Goblin {
         auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
         bool eccvm_verified = eccvm_verifier.verify_proof(goblin_proof.eccvm_proof);
 
-        auto verification_key = std::make_shared<GoblinTranslatorFlavor::VerificationKey>(translator_prover->key);
-        GoblinTranslatorVerifier translator_verifier(verification_key, eccvm_verifier.transcript);
+        GoblinTranslatorVerifier translator_verifier(translator_prover->key, eccvm_verifier.transcript);
 
         bool translation_accumulator_construction_verified =
             translator_verifier.verify_proof(goblin_proof.translator_proof);

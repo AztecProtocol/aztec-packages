@@ -2,6 +2,7 @@
 #include "barretenberg/flavor/goblin_translator.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/translator_vm/goblin_translator_prover.hpp"
 
 namespace bb {
 class GoblinTranslatorVerifier {
@@ -11,6 +12,7 @@ class GoblinTranslatorVerifier {
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using Commitment = typename Flavor::Commitment;
+    using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using TranslationEvaluations = bb::TranslationEvaluations;
@@ -26,6 +28,9 @@ class GoblinTranslatorVerifier {
     RelationParameters<FF> relation_parameters;
 
     GoblinTranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key = nullptr,
+                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
+    GoblinTranslatorVerifier(const std::shared_ptr<ProvingKey>& proving_key,
                              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     void put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,

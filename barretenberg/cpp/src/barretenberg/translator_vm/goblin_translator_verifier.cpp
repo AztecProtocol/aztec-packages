@@ -12,6 +12,11 @@ GoblinTranslatorVerifier::GoblinTranslatorVerifier(
     , transcript(transcript)
 {}
 
+GoblinTranslatorVerifier::GoblinTranslatorVerifier(
+    const std::shared_ptr<GoblinTranslatorVerifier::ProvingKey>& proving_key,
+    const std::shared_ptr<Transcript>& transcript)
+    : GoblinTranslatorVerifier(std::make_shared<GoblinTranslatorFlavor::VerificationKey>(proving_key), transcript){};
+
 void GoblinTranslatorVerifier::put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                                            const BF& batching_challenge_v,
                                                                            const uint256_t& accumulated_result)
