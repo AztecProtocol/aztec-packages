@@ -38,7 +38,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     // Verify proof
     auto verifier_transcript = std::make_shared<bb::GoblinTranslatorFlavor::Transcript>(prover_transcript->proof_data);
     verifier_transcript->template receive_from_prover<Fq>("init");
-    GoblinTranslatorVerifier verifier(circuit_builder, verifier_transcript);
+    GoblinTranslatorVerifier verifier(prover.key, verifier_transcript);
     bool verified = verifier.verify_proof(proof);
     (void)checked;
     (void)verified;
