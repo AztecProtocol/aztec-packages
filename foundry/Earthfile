@@ -38,10 +38,6 @@ build:
     COPY +build-environment/out/chisel /usr/local/bin/chisel
     RUN adduser -Du 1000 foundry
     ENTRYPOINT ["/bin/sh", "-c"]
-
-build:
-    ARG TARGETARCH
-    FROM DOCKERFILE .
     SAVE IMAGE --push aztecprotocol/cache:foundry-nightly-de33b6af53005037b463318d2628b5cfcaf39916-$TARGETARCH
 
 get:

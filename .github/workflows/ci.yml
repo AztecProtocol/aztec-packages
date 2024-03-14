@@ -31,8 +31,8 @@ jobs:
           EOF
       # - name: ensure-base-images
       #   run: |
-      #     scripts/earthly --push foundry/+build
-      #      scripts/earthly --push barretenberg/cpp/+build-wasi-sdkV
+      #     scripts/earthly --push ./foundry/+build
+      #      scripts/earthly --push ./barretenberg/cpp/+build-wasi-sdkV
       - name: ci
         run: scripts/earthly +build-ci-small
 
@@ -60,7 +60,7 @@ jobs:
           EOF
       - name: ensure-base-images
         run: |
-          scripts/earthly --push foundry/+build
-          # scripts/earthly --push barretenberg/cpp/+build-wasi-sdk
+          scripts/earthly --push ./foundry/+build
+          # scripts/earthly --push ./barretenberg/cpp/+build-wasi-sdk
       - name: ci
         run: scripts/earthly +build-ci-small
