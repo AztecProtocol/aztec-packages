@@ -12,9 +12,6 @@ contract Delegator {
     }
 
     #[aztec(private)]
-    fn constructor() {}
-
-    #[aztec(private)]
     fn private_delegate_set_value(
         targetContract: AztecAddress,
         targetSelector: FunctionSelector,

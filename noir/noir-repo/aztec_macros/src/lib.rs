@@ -177,11 +177,6 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
                 span: Span::default(),
             });
         }
-
-        let constructor_defined = module.functions.iter().any(|func| func.name() == "constructor");
-        if !constructor_defined {
-            return Err(AztecMacroError::ContractConstructorMissing { span: Span::default() });
-        }
     }
 
     Ok(has_transformed_module)
