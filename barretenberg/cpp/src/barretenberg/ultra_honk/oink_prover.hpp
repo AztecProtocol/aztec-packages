@@ -1,4 +1,22 @@
 #pragma once
+// clang-format off
+/*                                            )\   /|
+*                                          .-/'-|_/ |
+*                       __            __,-' (   / \/          
+*                   .-'"  "'-..__,-'""          -o.`-._   
+*                  /                                   '/
+*          *--._ ./                                 _.-- 
+*                |                              _.-' 
+*                :                           .-/   
+*                 \                       )_ /
+*                  \                _)   / \(
+*                    `.   /-.___.---'(  /   \\
+*                     (  /   \\       \(     L\
+*                      \(     L\       \\
+*                       \\              \\
+*                        L\              L\
+*/
+// clang-format on
 #include <utility>
 
 #include "barretenberg/flavor/goblin_ultra.hpp"
@@ -27,6 +45,8 @@ template <IsUltraFlavor Flavor> class OinkProver {
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<CommitmentKey> commitment_key;
     std::string domain_separator;
+    typename Flavor::WitnessCommitments witness_commitments;
+    typename Flavor::CommitmentLabels commitment_labels;
 
     OinkProver(const std::shared_ptr<ProverInstance_<Flavor>>& inst,
                const std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key,
