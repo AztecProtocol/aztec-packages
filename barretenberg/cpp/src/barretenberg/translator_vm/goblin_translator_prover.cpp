@@ -103,7 +103,11 @@ void GoblinTranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
     // Construct the conventional wire polynomials
     auto wire_polynomials = construct_wire_polynomials(circuit_builder, dyadic_circuit_size);
 
-    // TODO(AD): figure out how to get this in a loop, why does NUM_WIRES=81? @kesha
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/907)
+    // In order:
+    //   wire_polynomials
+    //    = WireEntities::get_wires - concatenated
+    //    = WireNonShiftedEntities + WireToBeShiftedEntities - concatenated
     key->op = wire_polynomials[0];
     key->x_lo_y_hi = wire_polynomials[1];
     key->x_hi_z_1 = wire_polynomials[2];
