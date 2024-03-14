@@ -1285,7 +1285,7 @@ workflows:
       - noir-tests: *defaults
       - noir-packages:
           requires:
-            - bb-js
+            - noir-packages
           <<: *defaults
       - noir-packages-tests:
           requires:
