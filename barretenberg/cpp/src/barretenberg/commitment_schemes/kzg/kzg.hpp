@@ -11,7 +11,9 @@
 
 namespace bb {
 
-template <typename Curve> class KZG {
+template <typename Curve_> class KZG {
+  public:
+    using Curve = Curve_;
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
     using Fr = typename Curve::ScalarField;
@@ -27,7 +29,6 @@ template <typename Curve> class KZG {
      * @param polynomial The witness whose opening proof needs to be computed
      * @param prover_transcript Prover transcript
      */
-  public:
     static void compute_opening_proof(std::shared_ptr<CK> ck,
                                       const OpeningPair<Curve>& opening_pair,
                                       const Polynomial& polynomial,

@@ -58,7 +58,6 @@ template <typename VK> inline std::shared_ptr<VK> CreateVerifierCommitmentKey()
 template <typename Curve> class CommitmentTest : public ::testing::Test {
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
-
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;

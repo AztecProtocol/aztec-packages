@@ -31,7 +31,8 @@ template <class FF> inline std::vector<FF> powers_of_challenge(const FF challeng
  *
  * @tparam Curve
  */
-template <typename Curve> class ZeroMorphProver_ {
+template <typename PCS> class ZeroMorphProver_ {
+    using Curve = typename PCS::Curve;
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<FF>;
@@ -275,18 +276,18 @@ template <typename Curve> class ZeroMorphProver_ {
      * @param N_max
      * @return Polynomial
      */
-    static Polynomial compute_batched_evaluation_and_degree_check_quotient(Polynomial& zeta_x,
-                                                                           Polynomial& Z_x,
-                                                                           FF x_challenge,
-                                                                           FF z_challenge)
+    static Polynomial compute_batched_evaluation_and_degree_check_polynomial(Polynomial& zeta_x,
+                                                                             Polynomial& Z_x,
+                                                                             [[maybe_unused]] FF x_challenge,
+                                                                             FF z_challenge)
     {
         // We cannot commit to polynomials with size > N_max
         size_t N = zeta_x.size();
         ASSERT(N <= N_max);
 
         // Compute q_{\zeta} and q_Z in place
-        zeta_x.factor_roots(x_challenge);
-        Z_x.factor_roots(x_challenge);
+        // zeta_x.factor_roots(x_challenge);
+        // Z_x.factor_roots(x_challenge);
 
         // Compute batched quotient q_{\zeta} + z*q_Z
         auto batched_quotient = zeta_x;
@@ -425,11 +426,13 @@ template <typename Curve> class ZeroMorphProver_ {
 
         // Compute batched degree-check and ZM-identity quotient polynomial pi
         auto pi_polynomial =
-            compute_batched_evaluation_and_degree_check_quotient(zeta_x, Z_x, x_challenge, z_challenge);
+            compute_batched_evaluation_and_degree_check_polynomial(zeta_x, Z_x, x_challenge, z_challenge);
 
         // Compute and send proof commitment pi
-        auto pi_commitment = commitment_key->commit(pi_polynomial);
-        transcript->send_to_verifier("ZM:PI", pi_commitment);
+        // auto pi_commitment = commitment_key->commit(pi_polynomial);
+        // transcript->send_to_verifier("ZM:PI", pi_commitment);
+        PCS::compute_opening_proof(
+            commitment_key, { .challenge = x_challenge, .evaluation = FF(0) }, pi_polynomial, transcript);
     }
 };
 
@@ -438,9 +441,11 @@ template <typename Curve> class ZeroMorphProver_ {
  *
  * @tparam Curve
  */
-template <typename Curve> class ZeroMorphVerifier_ {
+template <typename PCS> class ZeroMorphVerifier_ {
+    using Curve = typename PCS::Curve;
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
+    using GroupElement = typename Curve::Element;
 
   public:
     /**
@@ -634,7 +639,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
      * @param transcript
      * @return std::array<Commitment, 2> Inputs to the final pairing check
      */
-    static std::array<Commitment, 2> verify(
+    static std::array<GroupElement, 2> verify(
         RefSpan<Commitment> unshifted_commitments,
         RefSpan<Commitment> to_be_shifted_commitments,
         RefSpan<FF> unshifted_evaluations,
@@ -696,7 +701,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         Commitment C_zeta_Z;
         if constexpr (Curve::is_stdlib_type) {
             // Express operation as a batch_mul in order to use Goblinization if available
-            auto builder = rho.get_context();
+            auto builder = z_challenge.get_context();
             std::vector<FF> scalars = { FF(builder, 1), z_challenge };
             std::vector<Commitment> points = { C_zeta_x, C_Z_x };
             C_zeta_Z = Commitment::batch_mul(points, scalars);
@@ -705,27 +710,28 @@ template <typename Curve> class ZeroMorphVerifier_ {
         }
 
         // Receive proof commitment \pi
-        auto C_pi = transcript->template receive_from_prover<Commitment>("ZM:PI");
+        // auto C_pi = transcript->template receive_from_prover<Commitment>("ZM:PI");
 
         // Construct inputs and perform pairing check to verify claimed evaluation
         // Note: The pairing check (without the degree check component X^{N_max-N-1}) can be expressed naturally as
         // e(C_{\zeta,Z}, [1]_2) = e(pi, [X - x]_2). This can be rearranged (e.g. see the plonk paper) as
         // e(C_{\zeta,Z} - x*pi, [1]_2) * e(-pi, [X]_2) = 1, or
         // e(P_0, [1]_2) * e(P_1, [X]_2) = 1
-        Commitment P0;
-        if constexpr (Curve::is_stdlib_type) {
-            // Express operation as a batch_mul in order to use Goblinization if available
-            auto builder = rho.get_context();
-            std::vector<FF> scalars = { FF(builder, 1), x_challenge };
-            std::vector<Commitment> points = { C_zeta_Z, C_pi };
-            P0 = Commitment::batch_mul(points, scalars);
-        } else {
-            P0 = C_zeta_Z + C_pi * x_challenge;
-        }
+        // Commitment P0;
+        // if constexpr (Curve::is_stdlib_type) {
+        //     // Express operation as a batch_mul in order to use Goblinization if available
+        //     auto builder = x_challenge.get_context();
+        //     std::vector<FF> scalars = { FF(builder, 1), x_challenge };
+        //     std::vector<Commitment> points = { C_zeta_Z, C_pi };
+        //     P0 = Commitment::batch_mul(points, scalars);
+        // } else {
+        //     P0 = C_zeta_Z + C_pi * x_challenge;
+        // }
 
-        auto P1 = -C_pi;
+        // auto P1 = -C_pi;
 
-        return { P0, P1 };
+        return PCS::compute_pairing_points(
+            { .opening_pair = { .challenge = x_challenge, .evaluation = FF(0) }, .commitment = C_zeta_Z }, transcript);
     }
 };
 
