@@ -74,6 +74,9 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     for (size_t i = 0; i < public_input_size; ++i) {
         auto public_input_i = transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
+        if (public_input_i != key->public_inputs[i]) {
+            return false;
+        }
     }
 
     // Get commitments to first three wire polynomials

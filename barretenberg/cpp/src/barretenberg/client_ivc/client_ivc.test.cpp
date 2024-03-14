@@ -125,12 +125,13 @@ TEST_F(ClientIVCTests, Full)
     auto intermediary_acc = update_accumulator_and_decide_native(
         ivc.prover_fold_output.accumulator, kernel_fold_proof, foo_verifier_instance, kernel_vk);
 
-    VerifierFoldData kernel_fold_output = { kernel_fold_proof, function_vk_with_merge };
+    VerifierFoldData kernel_fold_output = { kernel_fold_proof, kernel_vk };
     size_t NUM_CIRCUITS = 1;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         // Accumulate function circuit
         Builder function_circuit = create_mock_circuit(ivc);
         FoldProof function_fold_proof = ivc.accumulate(function_circuit);
+        function_vk_with_merge = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
 
         intermediary_acc = update_accumulator_and_decide_native(
             ivc.prover_fold_output.accumulator, function_fold_proof, intermediary_acc, function_vk_with_merge);

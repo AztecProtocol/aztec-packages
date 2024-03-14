@@ -15,11 +15,12 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
     inst->verification_key->pub_inputs_offset =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
-    inst->verification_key->public_inputs.clear();
+    std::vector<FF> public_inputs;
     for (size_t i = 0; i < inst->verification_key->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
-        inst->verification_key->public_inputs.emplace_back(public_input_i);
+        public_inputs.emplace_back(public_input_i);
+        ASSERT(public_input_i == inst->verification_key->public_inputs[i]);
     }
 
     // Get commitments to first three wire polynomials
