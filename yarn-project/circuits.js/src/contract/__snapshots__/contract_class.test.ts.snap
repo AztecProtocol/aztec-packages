@@ -35,17 +35,10 @@ exports[`ContractClass creates a contract class from a contract compilation arti
       },
       "vkHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "isInternal": false
-    },
-    {
-      "selector": {
-        "value": 2432309179
-      },
-      "vkHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "isInternal": false
     }
   ],
-  "id": "0x11d1f67f8edcc08d80a60d45c4312baaffd648daf89fb8a55ddeb63160ed0c65",
-  "privateFunctionsRoot": "0x05fa82a96814b6294d557d507151f7ccc12f70522ec4d9d0395a90e87e8087c6",
+  "id": "0x2e00e9b3e778e864cfc790f18f232211f2bda1ee84aa5c4a05bf1b611d432483",
+  "privateFunctionsRoot": "0x2dc1f38d7be98a8e72227d6f8aec393c60db813a1819c9c86b02a00cc18f6687",
   "publicBytecodeCommitment": "0x008b8f64f2c814426b029f755f9fcf7320a4745cb014fdebcb30bdd6c5e64fb2"
 }"
 `;
