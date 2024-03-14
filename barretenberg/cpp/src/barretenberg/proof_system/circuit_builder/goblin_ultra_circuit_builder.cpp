@@ -224,23 +224,24 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::set_goblin_ecc_op_co
 template <typename FF>
 void GoblinUltraCircuitBuilder_<FF>::create_calldata_lookup_gate(const databus_lookup_gate_<FF>& in)
 {
-    this->blocks.main.populate_wires(in.value, in.index, this->zero_idx, this->zero_idx);
-    this->blocks.main.q_busread().emplace_back(1);
+    auto& block = this->blocks.busread;
+    block.populate_wires(in.value, in.index, this->zero_idx, this->zero_idx);
+    block.q_busread().emplace_back(1);
 
     // populate all other components with zero
-    this->blocks.main.q_m().emplace_back(0);
-    this->blocks.main.q_1().emplace_back(0);
-    this->blocks.main.q_2().emplace_back(0);
-    this->blocks.main.q_3().emplace_back(0);
-    this->blocks.main.q_c().emplace_back(0);
-    this->blocks.main.q_sort().emplace_back(0);
-    this->blocks.main.q_arith().emplace_back(0);
-    this->blocks.main.q_4().emplace_back(0);
-    this->blocks.main.q_lookup_type().emplace_back(0);
-    this->blocks.main.q_elliptic().emplace_back(0);
-    this->blocks.main.q_aux().emplace_back(0);
-    this->blocks.main.q_poseidon2_external().emplace_back(0);
-    this->blocks.main.q_poseidon2_internal().emplace_back(0);
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(0);
+    block.q_2().emplace_back(0);
+    block.q_3().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.q_sort().emplace_back(0);
+    block.q_arith().emplace_back(0);
+    block.q_4().emplace_back(0);
+    block.q_lookup_type().emplace_back(0);
+    block.q_elliptic().emplace_back(0);
+    block.q_aux().emplace_back(0);
+    block.q_poseidon2_external().emplace_back(0);
+    block.q_poseidon2_internal().emplace_back(0);
     this->check_selector_length_consistency();
 
     ++this->num_gates;

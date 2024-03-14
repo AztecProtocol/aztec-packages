@@ -155,12 +155,11 @@ template <typename FF_> class UltraArith {
         UltraTraceBlock elliptic;
         UltraTraceBlock aux;
         UltraTraceBlock lookup;
-        UltraTraceBlock main;
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/867): update to aux.has_ram_rom = true
         TraceBlocks() { aux.has_ram_rom = true; }
 
-        auto get() { return RefArray{ pub_inputs, arithmetic, sort, elliptic, aux, lookup, main }; }
+        auto get() { return RefArray{ pub_inputs, arithmetic, sort, elliptic, aux, lookup }; }
 
         bool operator==(const TraceBlocks& other) const = default;
     };
@@ -251,14 +250,13 @@ template <typename FF_> class UltraHonkArith {
         UltraHonkTraceBlock busread;
         UltraHonkTraceBlock poseidon_external;
         UltraHonkTraceBlock poseidon_internal;
-        UltraHonkTraceBlock main;
 
         TraceBlocks() { aux.has_ram_rom = true; }
 
         auto get()
         {
-            return RefArray{ ecc_op,  pub_inputs,        arithmetic,        sort, elliptic, aux, lookup,
-                             busread, poseidon_external, poseidon_internal, main };
+            return RefArray{ ecc_op,  pub_inputs,        arithmetic,       sort, elliptic, aux, lookup,
+                             busread, poseidon_external, poseidon_internal };
         }
 
         bool operator==(const TraceBlocks& other) const = default;
