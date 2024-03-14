@@ -21,13 +21,13 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 -d > ~/.ssh/build_instance_key
+          echo DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com >> $GITHUB_EN
           chmod 600 ~/.ssh/build_instance_key
           cat > ~/.ssh/config <<EOF
           IdentityFile ~/.ssh/build_instance_key
           StrictHostKeyChecking no
           User ubuntu
           EOF
-          echo DOCKER_HOST=ssh://build-instance-x86.aztecprotocol.com >> $GITHUB_EN
       # - name: ensure-base-images
       #   run: |
       #     scripts/earthly --push foundry/+build
@@ -49,6 +49,7 @@ jobs:
       - name: setup
         run: |
           mkdir -p ~/.ssh
+          echo DOCKER_HOST=ssh://build-instance-arm.aztecprotocol.com >> $GITHUB_ENV
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 -d > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
           cat > ~/.ssh/config <<EOF
@@ -56,7 +57,6 @@ jobs:
           StrictHostKeyChecking no
           User ubuntu
           EOF
-          echo DOCKER_HOST=ssh://build-instance-arm.aztecprotocol.com >> $GITHUB_ENV
       - name: ensure-base-images
         run: |
           scripts/earthly --push foundry/+build
