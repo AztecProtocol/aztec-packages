@@ -1315,8 +1315,8 @@ workflows:
       - barretenberg-acir-tests-bb: *bb_acir_tests
       - barretenberg-acir-tests-bb-sol:
           requires:
-            - barretenberg-acir-tests-bb-sol
-          <<: *defaults
+            - barretenberg-x86_64-linux-clang-sol.
+          <<: *bb_acir_tests
       - barretenberg-docs: *defaults
       - bb-js:
           requires:
