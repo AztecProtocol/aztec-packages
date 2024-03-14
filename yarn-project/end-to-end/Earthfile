@@ -28,7 +28,6 @@ E2E_TEST:
     # FROM earthly/dind:alpine-3.19-docker-25.0.2-r0 (TODO use docker-in-docker in prod?)
     LOCALLY
     ENV TEST=$test
-    ENV AVM_ENABLED=1
     WITH DOCKER \
       --load aztecprotocol/aztec:latest=+get-aztec \
       --load aztecprotocol/end-to-end:latest=+get-end-to-end \
@@ -103,6 +102,7 @@ e2e-card-game:
   DO +E2E_TEST --test=e2e_card_game.test.ts
 
 e2e-avm-simulator:
+  ENV AVM_ENABLED=1
   DO +E2E_TEST --test=e2e_avm_simulator.test.ts
 
 e2e-fees:
@@ -118,6 +118,7 @@ cli-docs-sandbox:
   DO +E2E_TEST --test=cli_docs_sandbox.test.ts
 
 e2e-docs-examples:
+  ENV AVM_ENABLED=1
   DO +E2E_TEST --test=docs_examples_test.ts
 
 test-all:
