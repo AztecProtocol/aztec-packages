@@ -1283,10 +1283,14 @@ workflows:
             - noir-arm64
           <<: *defaults
       - noir-tests: *defaults
-      - noir-packages: *defaults
+      - noir-packages:
+          requires:
+            - bb.js
+          <<: *defaults
       - noir-packages-tests:
           requires:
             - noir-ecr-manifest
+            - bb.js
           <<: *defaults
       - noir-compile-acir-tests:
           requires:
