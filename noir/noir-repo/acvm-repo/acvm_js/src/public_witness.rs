@@ -57,7 +57,7 @@ pub fn get_public_parameters_witness(
 ) -> Result<JsWitnessMap, JsString> {
     console_error_panic_hook::set_once();
     let program: Program =
-        Program::deserialize_program(&circuit).expect("Failed to deserialize circuit");
+        Program::deserialize_program(&program).expect("Failed to deserialize circuit");
     let circuit = &program.functions[0];
 
     let witness_map = WitnessMap::from(solved_witness);
