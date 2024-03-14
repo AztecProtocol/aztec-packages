@@ -41,7 +41,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/821): automate updating of read counts
     calldata_read_counts[raw_read_idx]++;
 
-    // mock gates that use poseidon selectors, with all zeros as input
+    // mock a poseidon external gate, with all zeros as input
     this->blocks.poseidon_external.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
     this->blocks.poseidon_external.q_m().emplace_back(0);
     this->blocks.poseidon_external.q_1().emplace_back(0);
@@ -60,6 +60,11 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     this->check_selector_length_consistency();
     ++this->num_gates;
 
+    // dummy gate to be read into by previous poseidon external gate via shifts
+    this->create_dummy_gate(
+        this->blocks.poseidon_external, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+
+    // mock a poseidon internal gate, with all zeros as input
     this->blocks.poseidon_internal.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
     this->blocks.poseidon_internal.q_m().emplace_back(0);
     this->blocks.poseidon_internal.q_1().emplace_back(0);
