@@ -29,9 +29,6 @@ contract AvmTest {
     // avm lib
     use dep::aztec::avm::hash::{keccak256, poseidon, sha256};
 
-    #[aztec(private)]
-    fn constructor() {}
-
     struct Storage {
         single: PublicMutable<Field>,
         list: PublicMutable<Note>,
@@ -102,6 +99,11 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn setOpcodeSmallField() -> pub Field {
         200 as Field
+    }
+
+    #[aztec(public-vm)]
+    fn addU128(a: U128, b: U128) -> pub U128 {
+        a + b
     }
 
     // /************************************************************************
