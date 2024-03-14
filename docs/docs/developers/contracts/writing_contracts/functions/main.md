@@ -10,7 +10,7 @@ Currently, any function is "mutable" in the sense that it might alter state. How
 
 ## Initializer functions
 
-Smart contracts may have one, or many, private initializer functions which are called when the contract is deployed.
+Smart contracts may have one, or many, initializer functions which are called when the contract is deployed.
 
 Initializers are regular functions that set an "initialized" flag (a nullifier) for the contract. A contract can only be initialized once, and contract functions can only be called after the contract has been initialized, much like a constructor. However, if a contract defines no initializers, it can be called at any time. Additionally, you can define as many initializer functions in a contract as you want, both private and public.
 
