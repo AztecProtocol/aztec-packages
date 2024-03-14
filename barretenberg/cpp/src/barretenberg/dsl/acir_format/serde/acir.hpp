@@ -1465,24 +1465,24 @@ inline BinaryFieldOp::IntegerDiv BinaryFieldOp::IntegerDiv::bincodeDeserialize(s
     return value;
 }
 
-} // end of namespace Circuit
+} // end of namespace Program
 
 template <>
 template <typename Serializer>
-void serde::Serializable<Circuit::BinaryFieldOp::IntegerDiv>::serialize(const Circuit::BinaryFieldOp::IntegerDiv& obj,
+void serde::Serializable<Program::BinaryFieldOp::IntegerDiv>::serialize(const Program::BinaryFieldOp::IntegerDiv& obj,
                                                                         Serializer& serializer)
 {}
 
 template <>
 template <typename Deserializer>
-Circuit::BinaryFieldOp::IntegerDiv serde::Deserializable<Circuit::BinaryFieldOp::IntegerDiv>::deserialize(
+Program::BinaryFieldOp::IntegerDiv serde::Deserializable<Program::BinaryFieldOp::IntegerDiv>::deserialize(
     Deserializer& deserializer)
 {
-    Circuit::BinaryFieldOp::IntegerDiv obj;
+    Program::BinaryFieldOp::IntegerDiv obj;
     return obj;
 }
 
-namespace Circuit {
+namespace Program {
 
 inline bool operator==(const BinaryFieldOp::Equals& lhs, const BinaryFieldOp::Equals& rhs)
 {
@@ -1547,24 +1547,24 @@ inline BinaryFieldOp::LessThan BinaryFieldOp::LessThan::bincodeDeserialize(std::
     return value;
 }
 
-} // end of namespace Circuit
+} // end of namespace Program
 
 template <>
 template <typename Serializer>
-void serde::Serializable<Circuit::BinaryFieldOp::LessThan>::serialize(const Circuit::BinaryFieldOp::LessThan& obj,
+void serde::Serializable<Program::BinaryFieldOp::LessThan>::serialize(const Program::BinaryFieldOp::LessThan& obj,
                                                                       Serializer& serializer)
 {}
 
 template <>
 template <typename Deserializer>
-Circuit::BinaryFieldOp::LessThan serde::Deserializable<Circuit::BinaryFieldOp::LessThan>::deserialize(
+Program::BinaryFieldOp::LessThan serde::Deserializable<Program::BinaryFieldOp::LessThan>::deserialize(
     Deserializer& deserializer)
 {
-    Circuit::BinaryFieldOp::LessThan obj;
+    Program::BinaryFieldOp::LessThan obj;
     return obj;
 }
 
-namespace Circuit {
+namespace Program {
 
 inline bool operator==(const BinaryFieldOp::LessThanEquals& lhs, const BinaryFieldOp::LessThanEquals& rhs)
 {
@@ -1588,24 +1588,24 @@ inline BinaryFieldOp::LessThanEquals BinaryFieldOp::LessThanEquals::bincodeDeser
     return value;
 }
 
-} // end of namespace Circuit
+} // end of namespace Program
 
 template <>
 template <typename Serializer>
-void serde::Serializable<Circuit::BinaryFieldOp::LessThanEquals>::serialize(
-    const Circuit::BinaryFieldOp::LessThanEquals& obj, Serializer& serializer)
+void serde::Serializable<Program::BinaryFieldOp::LessThanEquals>::serialize(
+    const Program::BinaryFieldOp::LessThanEquals& obj, Serializer& serializer)
 {}
 
 template <>
 template <typename Deserializer>
-Circuit::BinaryFieldOp::LessThanEquals serde::Deserializable<Circuit::BinaryFieldOp::LessThanEquals>::deserialize(
+Program::BinaryFieldOp::LessThanEquals serde::Deserializable<Program::BinaryFieldOp::LessThanEquals>::deserialize(
     Deserializer& deserializer)
 {
-    Circuit::BinaryFieldOp::LessThanEquals obj;
+    Program::BinaryFieldOp::LessThanEquals obj;
     return obj;
 }
 
-namespace Circuit {
+namespace Program {
 
 inline bool operator==(const BinaryIntOp& lhs, const BinaryIntOp& rhs)
 {
