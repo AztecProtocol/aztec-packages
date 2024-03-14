@@ -12,18 +12,14 @@ global ADDRESS_NOTE_LEN: Field = 3;
 
 // docs:start:address_note_def
 // Stores an address
+#[aztec(note)]
 struct AddressNote {
     address: AztecAddress,
     owner: AztecAddress,
     randomness: Field,
-    header: NoteHeader,
 }
 
 impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
-    fn compute_note_content_hash(self) -> Field {
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(self.serialize_content(), 0)
-    }
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);

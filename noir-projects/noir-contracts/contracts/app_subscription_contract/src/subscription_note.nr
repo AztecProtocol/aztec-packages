@@ -8,11 +8,11 @@ global SUBSCRIPTION_NOTE_LEN: Field = 3;
 
 // Stores a public key composed of two fields
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
+#[aztec(note)]
 struct SubscriptionNote {
     owner: AztecAddress,
     expiry_block_number: Field,
     remaining_txs: Field,
-    header: NoteHeader,
 }
 
 impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {

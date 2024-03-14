@@ -13,11 +13,11 @@ global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;
 
 // Stores an ECDSA public key composed of two 32-byte elements
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
+#[aztec(note)]
 struct EcdsaPublicKeyNote {
     x: [u8; 32],
     y: [u8; 32],
     owner: AztecAddress, // We store the owner address only to get the secret key to compute the nullifier
-    header: NoteHeader,
 }
 
 impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {

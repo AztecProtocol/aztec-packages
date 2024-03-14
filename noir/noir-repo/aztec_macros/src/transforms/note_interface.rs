@@ -1,20 +1,27 @@
 use noirc_errors::Span;
 use noirc_frontend::{
-    parse_program, parser::SortedModule, FunctionVisibility, NoirFunction, NoirStruct,
+    parse_program, parser::SortedModule, ItemVisibility, NoirFunction, NoirStruct, PathKind,
     TraitImplItem, TypeImpl, UnresolvedTypeData, UnresolvedTypeExpression,
 };
 use regex::Regex;
 
-use crate::utils::{
-    ast_utils::{check_trait_method_implemented, is_custom_attribute},
-    errors::AztecMacroError,
+use crate::{
+    chained_dep,
+    utils::{
+        ast_utils::{
+            check_trait_method_implemented, ident, ident_path, is_custom_attribute, make_type,
+        },
+        errors::AztecMacroError,
+    },
 };
 
 pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), AztecMacroError> {
-    let module_types = module.types.clone();
-    let annotated_note_structs = module_types
-        .iter()
+    let annotated_note_structs = module
+        .types
+        .iter_mut()
         .filter(|typ| typ.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(note)")));
+
+    let mut note_fields_structs = vec![];
 
     for note_struct in annotated_note_structs {
         let trait_impl = module
@@ -65,12 +72,24 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                 )),
             }),
         }?;
+
+        if !note_struct.fields.iter().any(|(field_name, _)| field_name == "header") {
+            note_struct.fields.push((
+                ident("header"),
+                make_type(UnresolvedTypeData::Named(
+                    chained_dep!("aztec", "note", "note_header", "NoteHeader"),
+                    vec![],
+                    false,
+                )),
+            ));
+        }
         for (field_ident, field_type) in note_struct.fields.iter() {
             note_fields.push((
                 field_ident.0.contents.to_string(),
                 field_type.typ.to_string().replace("plain::", ""),
             ));
         }
+
         let note_interface_impl_span = trait_impl.object_type.span;
         if !check_trait_method_implemented(trait_impl, "serialize_content")
             && !check_trait_method_implemented(trait_impl, "deserialize_content")
@@ -82,7 +101,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
         {
             let note_fields_struct =
                 generate_note_fields_struct(&note_type, &note_fields, note_interface_impl_span)?;
-            module.types.push(note_fields_struct);
+            note_fields_structs.push(note_fields_struct);
             let note_fields_fn =
                 generate_note_fields_fn(&note_type, &note_fields, note_interface_impl_span)?;
             note_impl.methods.push((note_fields_fn, note_impl.type_span));
@@ -114,8 +133,14 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                 generate_note_get_type_id(&note_type, note_interface_impl_span)?;
             trait_impl.items.push(TraitImplItem::Function(get_note_type_id_fn));
         }
+        if !check_trait_method_implemented(trait_impl, "compute_note_content_hash") {
+            let get_header_fn =
+                generate_compute_note_content_hash(&note_type, note_interface_impl_span)?;
+            trait_impl.items.push(TraitImplItem::Function(get_header_fn));
+        }
     }
 
+    module.types.extend(note_fields_structs);
     Ok(())
 }
 
@@ -143,7 +168,7 @@ fn generate_note_get_header(
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
-    noir_fn.def.visibility = FunctionVisibility::Public;
+    noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
 
@@ -170,7 +195,7 @@ fn generate_note_set_header(
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
-    noir_fn.def.visibility = FunctionVisibility::Public;
+    noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
 
@@ -200,7 +225,7 @@ fn generate_note_get_type_id(
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
-    noir_fn.def.visibility = FunctionVisibility::Public;
+    noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
 
@@ -242,7 +267,7 @@ fn generate_note_deserialize_content(
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
-    noir_fn.def.visibility = FunctionVisibility::Public;
+    noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
 
@@ -265,7 +290,7 @@ fn generate_note_serialize_content(
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
-    noir_fn.def.visibility = FunctionVisibility::Public;
+    noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
 
@@ -284,7 +309,33 @@ fn generate_note_fields_fn(
     }
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
-    noir_fn.def.visibility = FunctionVisibility::Public;
+    noir_fn.def.visibility = ItemVisibility::Public;
+    Ok(noir_fn)
+}
+
+fn generate_compute_note_content_hash(
+    note_type: &String,
+    impl_span: Option<Span>,
+) -> Result<NoirFunction, AztecMacroError> {
+    let function_source = format!(
+        "
+        fn compute_note_content_hash(self: {}) -> Field {{
+            // TODO(#1205) Should use a non-zero generator index.
+            dep::aztec::hash::pedersen_hash(self.serialize_content(), 0)
+        }}
+        ",
+        note_type
+    );
+    let (function_ast, errors) = parse_program(&function_source);
+    if !errors.is_empty() {
+        return Err(AztecMacroError::CouldNotImplementNoteSerialization {
+            secondary_message: Some("Failed to parse Noir macro code (fn compute_note_content_hash). This is either a bug in the compiler or the Noir macro code".to_string()),
+            span: impl_span
+        });
+    }
+    let mut function_ast = function_ast.into_sorted();
+    let mut noir_fn = function_ast.functions.remove(0);
+    noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
 

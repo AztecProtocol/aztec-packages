@@ -8,11 +8,11 @@ global PUBLIC_KEY_NOTE_LEN: Field = 3;
 
 // Stores a public key composed of two fields
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
+#[aztec(note)]
 struct PublicKeyNote {
     x: Field,
     y: Field,
     owner: AztecAddress, // We store the owner address only to get the secret key to compute the nullifier and to broadcast
-    header: NoteHeader,
 }
 
 impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
@@ -36,11 +36,6 @@ impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
             secret.low,
             secret.high,
         ],0)
-    }
-
-    fn compute_note_content_hash(note: PublicKeyNote) -> Field {
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(note.serialize_content(), 0)
     }
 
     // Broadcasts the note as an encrypted log on L1.

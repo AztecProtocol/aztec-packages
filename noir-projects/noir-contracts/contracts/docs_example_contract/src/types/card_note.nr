@@ -15,7 +15,6 @@ struct CardNote {
     points: u8,
     randomness: Field,
     owner: AztecAddress,
-    header: NoteHeader
 }
 // docs:end:state_vars-CardNote
 
@@ -26,10 +25,6 @@ impl CardNote {
 }
 
 impl NoteInterface<CARD_NOTE_LEN> for CardNote {
-    fn compute_note_content_hash(self) -> Field {
-        pedersen_hash(self.serialize_content(), 0)
-    }
-
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = context.request_nullifier_secret_key(self.owner);

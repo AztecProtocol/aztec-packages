@@ -13,6 +13,7 @@ trait OwnedNote {
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 
+#[aztec(note)]
 struct TokenNote {
     // the amount of tokens in the note
     amount: U128,
@@ -22,17 +23,9 @@ struct TokenNote {
     owner: AztecAddress,
     // randomness of the note to hide contents.
     randomness: Field,
-    // the note header (contract_address, nonce, storage_slot)
-    // included in the note such that it becomes part of encrypted logs for later use.
-    header: NoteHeader,
 }
 
 impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
-    fn compute_note_content_hash(self) -> Field {
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(self.serialize_content(), 0)
-    }
-
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
@@ -72,24 +65,24 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
           );
       }
     }
-}
+ }
 
-impl OwnedNote for TokenNote {
-    fn new(amount: U128, owner: AztecAddress) -> Self {
-        Self {
-            amount,
-            owner,
-            randomness: rand(),
-            header: NoteHeader::empty(),
-        }
-    }
+// impl OwnedNote for TokenNote {
+//     fn new(amount: U128, owner: AztecAddress) -> Self {
+//         Self {
+//             amount,
+//             owner,
+//             randomness: rand(),
+//             header: NoteHeader::empty(),
+//         }
+//     }
 
-    fn get_amount(self) -> U128 {
-        self.amount
-    }
+//     fn get_amount(self) -> U128 {
+//         self.amount
+//     }
 
-    fn get_owner(self) -> AztecAddress {
-        self.owner
-    }
-   
-}
+//     fn get_owner(self) -> AztecAddress {
+//         self.owner
+//     }
+
+// }

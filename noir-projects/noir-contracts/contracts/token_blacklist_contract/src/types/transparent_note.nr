@@ -9,13 +9,12 @@ global TRANSPARENT_NOTE_LEN: Field = 2;
 
 // Transparent note represents a note that is created in the clear (public execution),
 // but can only be spent by those that know the preimage of the "secret_hash"
+#[aztec(note)]
 struct TransparentNote {
     amount: Field,
     secret_hash: Field,
     // the secret is just here for ease of use and won't be (de)serialized
     secret: Field,
-    // header is just here to satisfy the NoteInterface
-    header: NoteHeader,
 }
 
 struct TransparentNoteFields {
@@ -36,11 +35,6 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
             secret: 0,
             header: NoteHeader::empty(),
         }
-    }
-    
-    fn compute_note_content_hash(self) -> Field {
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(self.serialize_content(), 0)
     }
 
     fn compute_nullifier(self, _context: &mut PrivateContext) -> Field {
@@ -77,13 +71,6 @@ impl TransparentNote {
     pub fn knows_secret(self, secret: Field) {
         let hash = compute_secret_hash(secret);
         assert(self.secret_hash == hash);
-    }
-
-    pub fn fields() -> TransparentNoteFields {
-        TransparentNoteFields {
-            amount: FieldSelector { index: 0, offset: 0, length: 32 },
-            secret_hash: FieldSelector { index: 1, offset: 0, length: 32 }
-        }
     }
 }
 // docs:end:token_types_all

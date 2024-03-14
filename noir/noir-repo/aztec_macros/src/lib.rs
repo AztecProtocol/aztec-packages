@@ -12,10 +12,12 @@ use transforms::{
     },
 };
 
-use noirc_frontend::hir::def_collector::dc_crate::{UnresolvedFunctions, UnresolvedTraitImpl};
-
-use noirc_frontend::macros_api::{
-    CrateId, FileId, HirContext, MacroError, MacroProcessor, SecondaryAttribute, SortedModule, Span,
+use noirc_frontend::{
+    hir::def_collector::dc_crate::{UnresolvedFunctions, UnresolvedTraitImpl},
+    macros_api::{
+        CrateId, FileId, HirContext, MacroError, MacroProcessor, SecondaryAttribute, SortedModule,
+        Span,
+    },
 };
 
 use utils::{

@@ -8,21 +8,15 @@ use dep::aztec::{
 global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.
 
 // docs:start:value-note-def
+#[aztec(note)]
 struct ValueNote {
     value: Field,
     owner: AztecAddress,
     randomness: Field,
-    header: NoteHeader,
 }
 // docs:end:value-note-def
 
 impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
-
-    fn compute_note_content_hash(self) -> Field {
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(self.serialize_content(),0)
-    }
-
     // docs:start:nullifier
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {

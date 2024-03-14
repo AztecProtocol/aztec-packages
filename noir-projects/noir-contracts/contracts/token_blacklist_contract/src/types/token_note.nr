@@ -10,6 +10,7 @@ trait OwnedNote {
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 
+#[aztec(note)]
 struct TokenNote {
     // the amount of tokens in the note
     amount: U128,
@@ -19,9 +20,6 @@ struct TokenNote {
     owner: AztecAddress,
     // randomness of the note to hide contents.
     randomness: Field,
-    // the note header (contract_address, nonce, storage_slot)
-    // included in the note such that it becomes part of encrypted logs for later use.
-    header: NoteHeader,
 }
 
 impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
