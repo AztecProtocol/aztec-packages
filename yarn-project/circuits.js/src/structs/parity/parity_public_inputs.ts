@@ -3,7 +3,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 import { AggregationObject } from '../aggregation_object.js';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 export class ParityPublicInputs {
   constructor(

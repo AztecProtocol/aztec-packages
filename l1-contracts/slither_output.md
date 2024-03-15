@@ -6,14 +6,14 @@ Summary
  - [missing-zero-check](#missing-zero-check) (1 results) (Low)
  - [reentrancy-events](#reentrancy-events) (2 results) (Low)
  - [timestamp](#timestamp) (4 results) (Low)
- - [pess-public-vs-external](#pess-public-vs-external) (7 results) (Low)
+ - [pess-public-vs-external](#pess-public-vs-external) (6 results) (Low)
  - [assembly](#assembly) (2 results) (Informational)
  - [dead-code](#dead-code) (5 results) (Informational)
  - [solc-version](#solc-version) (1 results) (Informational)
  - [low-level-calls](#low-level-calls) (1 results) (Informational)
  - [similar-names](#similar-names) (3 results) (Informational)
  - [constable-states](#constable-states) (1 results) (Optimization)
- - [pess-multiple-storage-read](#pess-multiple-storage-read) (7 results) (Optimization)
+ - [pess-multiple-storage-read](#pess-multiple-storage-read) (5 results) (Optimization)
 ## pess-unprotected-setter
 Impact: High
 Confidence: Medium
@@ -51,20 +51,27 @@ src/core/Rollup.sol#L58-L101
 Impact: Medium
 Confidence: High
  - [ ] ID-4
+Dubious typecast in [FrontierMerkle.insertLeaf(bytes32)](src/core/messagebridge/frontier_tree/Frontier.sol#L34-L46):
+	bytes32 => bytes31 casting occurs in [right = bytes31(_leaf)](src/core/messagebridge/frontier_tree/Frontier.sol#L37)
+
+src/core/messagebridge/frontier_tree/Frontier.sol#L34-L46
+
+
+ - [ ] ID-5
 Dubious typecast in [TxsDecoder.read4(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L331-L333):
 	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(slice(_data,_offset,4))))](src/core/libraries/decoders/TxsDecoder.sol#L332)
 
 src/core/libraries/decoders/TxsDecoder.sol#L331-L333
 
 
- - [ ] ID-5
+ - [ ] ID-6
 Dubious typecast in [Outbox.sendL1Messages(bytes32[])](src/core/messagebridge/Outbox.sol#L38-L46):
 	uint256 => uint32 casting occurs in [version = uint32(REGISTRY.getVersionFor(msg.sender))](src/core/messagebridge/Outbox.sol#L40)
 
 src/core/messagebridge/Outbox.sol#L38-L46
 
 
- - [ ] ID-6
+ - [ ] ID-7
 Dubious typecast in [Inbox.sendL2Message(DataStructures.L2Actor,uint32,bytes32,bytes32)](src/core/messagebridge/Inbox.sol#L45-L91):
 	uint256 => uint64 casting occurs in [fee = uint64(msg.value)](src/core/messagebridge/Inbox.sol#L64)
 	uint256 => uint32 casting occurs in [entries.insert(key,fee,uint32(_recipient.version),_deadline,_errIncompatibleEntryArguments)](src/core/messagebridge/Inbox.sol#L76)
@@ -72,7 +79,7 @@ Dubious typecast in [Inbox.sendL2Message(DataStructures.L2Actor,uint32,bytes32,b
 src/core/messagebridge/Inbox.sol#L45-L91
 
 
- - [ ] ID-7
+ - [ ] ID-8
 Dubious typecast in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L101):
 	bytes32 => bytes31 casting occurs in [inHash = bytes32(bytes.concat(new bytes(1),bytes31(NEW_INBOX.consume())))](src/core/Rollup.sol#L92)
 	bytes => bytes32 casting occurs in [inHash = bytes32(bytes.concat(new bytes(1),bytes31(NEW_INBOX.consume())))](src/core/Rollup.sol#L92)
@@ -80,7 +87,7 @@ Dubious typecast in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.
 src/core/Rollup.sol#L58-L101
 
 
- - [ ] ID-8
+ - [ ] ID-9
 Dubious typecast in [Hash.sha256ToField32(bytes)](src/core/libraries/Hash.sol#L75-L77):
 	bytes32 => bytes31 casting occurs in [bytes32(bytes.concat(new bytes(1),bytes31(sha256(bytes)(_data))))](src/core/libraries/Hash.sol#L76)
 	bytes => bytes32 casting occurs in [bytes32(bytes.concat(new bytes(1),bytes31(sha256(bytes)(_data))))](src/core/libraries/Hash.sol#L76)
@@ -88,14 +95,14 @@ Dubious typecast in [Hash.sha256ToField32(bytes)](src/core/libraries/Hash.sol#L7
 src/core/libraries/Hash.sol#L75-L77
 
 
- - [ ] ID-9
+ - [ ] ID-10
 Dubious typecast in [MessagesDecoder.read4(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L160-L162):
 	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L161)
 
 src/core/libraries/decoders/MessagesDecoder.sol#L160-L162
 
 
- - [ ] ID-10
+ - [ ] ID-11
 Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L143-L187):
 	bytes => bytes32 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L151-L153)
 	bytes => bytes4 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L151-L153)
@@ -121,14 +128,14 @@ Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L
 src/core/libraries/HeaderLib.sol#L143-L187
 
 
- - [ ] ID-11
+ - [ ] ID-12
 Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L321-L323):
 	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L322)
 
 src/core/libraries/decoders/TxsDecoder.sol#L321-L323
 
 
- - [ ] ID-12
+ - [ ] ID-13
 Dubious typecast in [TxsDecoder.decode(bytes)](src/core/libraries/decoders/TxsDecoder.sol#L76-L190):
 	bytes32 => bytes31 casting occurs in [vars.baseLeaf = bytes.concat(bytes.concat(sliceAndPad(_body,offsets.noteHash,counts.noteHash * 0x20,Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP),sliceAndPad(_body,offsets.nullifier,counts.nullifier * 0x20,Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP),sliceAndPad(_body,offsets.l2ToL1Msgs,counts.l2ToL1Msgs * 0x20,Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP),sliceAndPad(_body,offsets.publicData,counts.publicData * 0x40,Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP)),bytes.concat(new bytes(1),bytes31(vars.encryptedLogsHash),new bytes(1),bytes31(vars.unencryptedLogsHash)))](src/core/libraries/decoders/TxsDecoder.sol#L149-L183)
 	bytes32 => bytes31 casting occurs in [vars.baseLeaf = bytes.concat(bytes.concat(sliceAndPad(_body,offsets.noteHash,counts.noteHash * 0x20,Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP),sliceAndPad(_body,offsets.nullifier,counts.nullifier * 0x20,Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP),sliceAndPad(_body,offsets.l2ToL1Msgs,counts.l2ToL1Msgs * 0x20,Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP),sliceAndPad(_body,offsets.publicData,counts.publicData * 0x40,Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP)),bytes.concat(new bytes(1),bytes31(vars.encryptedLogsHash),new bytes(1),bytes31(vars.unencryptedLogsHash)))](src/core/libraries/decoders/TxsDecoder.sol#L149-L183)
@@ -137,18 +144,11 @@ Dubious typecast in [TxsDecoder.decode(bytes)](src/core/libraries/decoders/TxsDe
 src/core/libraries/decoders/TxsDecoder.sol#L76-L190
 
 
- - [ ] ID-13
+ - [ ] ID-14
 Dubious typecast in [Inbox.batchConsume(bytes32[],address)](src/core/messagebridge/Inbox.sol#L122-L143):
 	uint256 => uint32 casting occurs in [expectedVersion = uint32(REGISTRY.getVersionFor(msg.sender))](src/core/messagebridge/Inbox.sol#L128)
 
 src/core/messagebridge/Inbox.sol#L122-L143
-
-
- - [ ] ID-14
-Dubious typecast in [FrontierMerkleField.insertLeaf(bytes32)](src/core/messagebridge/frontier_tree/FrontierField.sol#L35-L47):
-	bytes32 => bytes31 casting occurs in [right = bytes31(_leaf)](src/core/messagebridge/frontier_tree/FrontierField.sol#L38)
-
-src/core/messagebridge/frontier_tree/FrontierField.sol#L35-L47
 
 
  - [ ] ID-15
@@ -239,10 +239,10 @@ src/core/messagebridge/Inbox.sol#L102-L113
 Impact: Low
 Confidence: Medium
  - [ ] ID-24
-The following public functions could be turned into external in [FrontierMerkle](src/core/messagebridge/frontier_tree/Frontier.sol#L7-L93) contract:
-	[FrontierMerkle.constructor(uint256)](src/core/messagebridge/frontier_tree/Frontier.sol#L19-L27)
+The following public functions could be turned into external in [FrontierMerkle](src/core/messagebridge/frontier_tree/Frontier.sol#L12-L98) contract:
+	[FrontierMerkle.constructor(uint256)](src/core/messagebridge/frontier_tree/Frontier.sol#L24-L32)
 
-src/core/messagebridge/frontier_tree/Frontier.sol#L7-L93
+src/core/messagebridge/frontier_tree/Frontier.sol#L12-L98
 
 
  - [ ] ID-25
@@ -260,13 +260,6 @@ src/core/Rollup.sol#L30-L110
 
 
  - [ ] ID-27
-The following public functions could be turned into external in [FrontierMerkleField](src/core/messagebridge/frontier_tree/FrontierField.sol#L13-L99) contract:
-	[FrontierMerkleField.constructor(uint256)](src/core/messagebridge/frontier_tree/FrontierField.sol#L25-L33)
-
-src/core/messagebridge/frontier_tree/FrontierField.sol#L13-L99
-
-
- - [ ] ID-28
 The following public functions could be turned into external in [Outbox](src/core/messagebridge/Outbox.sol#L21-L148) contract:
 	[Outbox.constructor(address)](src/core/messagebridge/Outbox.sol#L29-L31)
 	[Outbox.get(bytes32)](src/core/messagebridge/Outbox.sol#L77-L84)
@@ -275,7 +268,7 @@ The following public functions could be turned into external in [Outbox](src/cor
 src/core/messagebridge/Outbox.sol#L21-L148
 
 
- - [ ] ID-29
+ - [ ] ID-28
 The following public functions could be turned into external in [Inbox](src/core/messagebridge/Inbox.sol#L21-L231) contract:
 	[Inbox.constructor(address)](src/core/messagebridge/Inbox.sol#L30-L32)
 	[Inbox.contains(bytes32)](src/core/messagebridge/Inbox.sol#L174-L176)
@@ -283,7 +276,7 @@ The following public functions could be turned into external in [Inbox](src/core
 src/core/messagebridge/Inbox.sol#L21-L231
 
 
- - [ ] ID-30
+ - [ ] ID-29
 The following public functions could be turned into external in [NewInbox](src/core/messagebridge/NewInbox.sol#L25-L128) contract:
 	[NewInbox.constructor(address,uint256)](src/core/messagebridge/NewInbox.sol#L41-L52)
 
@@ -293,14 +286,14 @@ src/core/messagebridge/NewInbox.sol#L25-L128
 ## assembly
 Impact: Informational
 Confidence: High
- - [ ] ID-31
+ - [ ] ID-30
 [TxsDecoder.computeRoot(bytes31[])](src/core/libraries/decoders/TxsDecoder.sol#L263-L282) uses assembly
 	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L270-L272)
 
 src/core/libraries/decoders/TxsDecoder.sol#L263-L282
 
 
- - [ ] ID-32
+ - [ ] ID-31
 [MessagesDecoder.decode(bytes)](src/core/libraries/decoders/MessagesDecoder.sol#L60-L142) uses assembly
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L79-L81)
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L112-L118)
@@ -311,31 +304,31 @@ src/core/libraries/decoders/MessagesDecoder.sol#L60-L142
 ## dead-code
 Impact: Informational
 Confidence: Medium
- - [ ] ID-33
+ - [ ] ID-32
 [Inbox._errIncompatibleEntryArguments(bytes32,uint64,uint64,uint32,uint32,uint32,uint32)](src/core/messagebridge/Inbox.sol#L212-L230) is never used and should be removed
 
 src/core/messagebridge/Inbox.sol#L212-L230
 
 
- - [ ] ID-34
+ - [ ] ID-33
 [Outbox._errNothingToConsume(bytes32)](src/core/messagebridge/Outbox.sol#L114-L116) is never used and should be removed
 
 src/core/messagebridge/Outbox.sol#L114-L116
 
 
- - [ ] ID-35
+ - [ ] ID-34
 [Hash.sha256ToField(bytes32)](src/core/libraries/Hash.sol#L95-L97) is never used and should be removed
 
 src/core/libraries/Hash.sol#L95-L97
 
 
- - [ ] ID-36
+ - [ ] ID-35
 [Inbox._errNothingToConsume(bytes32)](src/core/messagebridge/Inbox.sol#L197-L199) is never used and should be removed
 
 src/core/messagebridge/Inbox.sol#L197-L199
 
 
- - [ ] ID-37
+ - [ ] ID-36
 [Outbox._errIncompatibleEntryArguments(bytes32,uint64,uint64,uint32,uint32,uint32,uint32)](src/core/messagebridge/Outbox.sol#L129-L147) is never used and should be removed
 
 src/core/messagebridge/Outbox.sol#L129-L147
@@ -344,13 +337,13 @@ src/core/messagebridge/Outbox.sol#L129-L147
 ## solc-version
 Impact: Informational
 Confidence: High
- - [ ] ID-38
+ - [ ] ID-37
 solc-0.8.21 is not recommended for deployment
 
 ## low-level-calls
 Impact: Informational
 Confidence: High
- - [ ] ID-39
+ - [ ] ID-38
 Low level call in [Inbox.withdrawFees()](src/core/messagebridge/Inbox.sol#L148-L153):
 	- [(success) = msg.sender.call{value: balance}()](src/core/messagebridge/Inbox.sol#L151)
 
@@ -360,19 +353,19 @@ src/core/messagebridge/Inbox.sol#L148-L153
 ## similar-names
 Impact: Informational
 Confidence: Medium
- - [ ] ID-40
+ - [ ] ID-39
 Variable [Constants.LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L132) is too similar to [Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L125)
 
 src/core/libraries/ConstantsGen.sol#L132
 
 
- - [ ] ID-41
+ - [ ] ID-40
 Variable [Constants.L1_TO_L2_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L112) is too similar to [Constants.L2_TO_L1_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L113)
 
 src/core/libraries/ConstantsGen.sol#L112
 
 
- - [ ] ID-42
+ - [ ] ID-41
 Variable [Rollup.AVAILABILITY_ORACLE](src/core/Rollup.sol#L33) is too similar to [Rollup.constructor(IRegistry,IAvailabilityOracle)._availabilityOracle](src/core/Rollup.sol#L43)
 
 src/core/Rollup.sol#L33
@@ -381,7 +374,7 @@ src/core/Rollup.sol#L33
 ## constable-states
 Impact: Optimization
 Confidence: High
- - [ ] ID-43
+ - [ ] ID-42
 [Rollup.lastWarpedBlockTs](src/core/Rollup.sol#L41) should be constant 
 
 src/core/Rollup.sol#L41
@@ -390,45 +383,33 @@ src/core/Rollup.sol#L41
 ## pess-multiple-storage-read
 Impact: Optimization
 Confidence: High
- - [ ] ID-44
+ - [ ] ID-43
 In a function [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L62-L99) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L37) is read multiple times
 
 src/core/messagebridge/NewInbox.sol#L62-L99
 
 
+ - [ ] ID-44
+In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L48-L81) variable [FrontierMerkle.HEIGHT](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
+
+src/core/messagebridge/frontier_tree/Frontier.sol#L48-L81
+
+
  - [ ] ID-45
-In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76) variable [FrontierMerkle.HEIGHT](src/core/messagebridge/frontier_tree/Frontier.sol#L8) is read multiple times
-
-src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76
-
-
- - [ ] ID-46
 In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L108-L127) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L37) is read multiple times
 
 src/core/messagebridge/NewInbox.sol#L108-L127
 
 
- - [ ] ID-47
+ - [ ] ID-46
 In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L108-L127) variable [NewInbox.toConsume](src/core/messagebridge/NewInbox.sol#L35) is read multiple times
 
 src/core/messagebridge/NewInbox.sol#L108-L127
 
 
- - [ ] ID-48
-In a function [FrontierMerkleField.root()](src/core/messagebridge/frontier_tree/FrontierField.sol#L49-L82) variable [FrontierMerkleField.HEIGHT](src/core/messagebridge/frontier_tree/FrontierField.sol#L14) is read multiple times
+ - [ ] ID-47
+In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L48-L81) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L18) is read multiple times
 
-src/core/messagebridge/frontier_tree/FrontierField.sol#L49-L82
-
-
- - [ ] ID-49
-In a function [FrontierMerkleField.root()](src/core/messagebridge/frontier_tree/FrontierField.sol#L49-L82) variable [FrontierMerkleField.frontier](src/core/messagebridge/frontier_tree/FrontierField.sol#L19) is read multiple times
-
-src/core/messagebridge/frontier_tree/FrontierField.sol#L49-L82
-
-
- - [ ] ID-50
-In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
-
-src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76
+src/core/messagebridge/frontier_tree/Frontier.sol#L48-L81
 
 
