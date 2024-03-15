@@ -84,10 +84,7 @@ contract Inbox is IInbox {
       sender: DataStructures.L1Actor(msg.sender, block.chainid),
       recipient: _recipient,
       content: _content,
-      secretHash: _secretHash,
-      // TODO(#4833): nuke the following 2 values from the struct once the new message model is in place
-      deadline: type(uint32).max,
-      fee: 0
+      secretHash: _secretHash
     });
 
     bytes32 leaf = message.sha256ToField();

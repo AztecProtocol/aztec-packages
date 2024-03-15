@@ -36,9 +36,7 @@ contract InboxTest is Test {
         version: version
       }),
       content: 0x2000000000000000000000000000000000000000000000000000000000000000,
-      secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000,
-      fee: 0,
-      deadline: type(uint32).max
+      secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000
     });
   }
 
@@ -61,10 +59,6 @@ contract InboxTest is Test {
     _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
     // update version
     _message.recipient.version = version;
-
-    // TODO(#4833): nuke the following 2 values from the struct once the new message model is in place
-    _message.deadline = type(uint32).max;
-    _message.fee = 0;
 
     return _message;
   }

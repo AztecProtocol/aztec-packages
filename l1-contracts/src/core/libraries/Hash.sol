@@ -24,9 +24,7 @@ library Hash {
         _message.sender,
         _message.recipient,
         _message.content,
-        _message.secretHash,
-        _message.deadline,
-        _message.fee
+        _message.secretHash
       )
     );
   }

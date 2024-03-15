@@ -48,7 +48,6 @@ contract TokenPortalTest is Test {
   // this hash is just a random 32 byte string
   bytes32 internal secretHashForRedeemingMintedNotes =
     0x157e4fec49805c924e28150fc4b36824679bc17ecb1d7d9f6a9effb7fde6b6a0;
-  uint64 internal bid = 1 ether;
 
   // params for withdraw:
   address internal recipient = address(0xdead);
@@ -86,9 +85,7 @@ contract TokenPortalTest is Test {
           _canceller
         )
         ),
-      secretHash: secretHashForL2MessageConsumption,
-      deadline: deadline,
-      fee: bid
+      secretHash: secretHashForL2MessageConsumption
     });
   }
 
@@ -103,9 +100,7 @@ contract TokenPortalTest is Test {
       content: Hash.sha256ToField(
         abi.encodeWithSignature("mint_public(bytes32,uint256,address)", to, amount, _canceller)
         ),
-      secretHash: secretHashForL2MessageConsumption,
-      deadline: deadline,
-      fee: bid
+      secretHash: secretHashForL2MessageConsumption
     });
   }
 
