@@ -105,7 +105,7 @@ template <typename Curve> class IPA {
      *as follows:
      *
      *1. Send the degree of \f$f(x)\f$ plus one, equal to \f$d\f$ to the verifier
-     *2. Receive the generator challenge \f$u\f$ from the verifier
+     *2. Receive the generator challenge \f$u\f$ from the verifier. If it is zero, abort
      *3. Compute the auxiliary generator \f$U=u\cdot G\f$, where \f$G\f$ is a generator of \f$E(\mathbb{F}_p)\f$​
      *4. Set \f$\vec{G}_{k}=\vec{G}\f$, \f$\vec{a}_{k}=\vec{p}\f$
      *5. Compute the vector \f$\vec{b}_{k}=(1,\beta,\beta^2,...,\beta^{d-1})\f$
@@ -117,7 +117,7 @@ template <typename Curve> class IPA {
      *\f$R_{i-1}=\langle\vec{a}_{i\_high},\vec{G}_{i\_low}\rangle+\langle\vec{a}_{i\_high},\vec{b}_{i\_low}\rangle\cdot
      U\f$
      *   3. Send \f$L_{i-1}\f$ and \f$R_{i-1}\f$ to the verifier
-     *   4. Receive round challenge \f$u_{i-1}\f$ from the verifier​
+     *   4. Receive round challenge \f$u_{i-1}\f$ from the verifier​, if it is zero, abort
      *   5. Compute \f$\vec{G}_{i-1}=\vec{G}_{i\_low}+u_{i-1}^{-1}\cdot \vec{G}_{i\_high}\f$
      *   6. Compute \f$\vec{a}_{i-1}=\vec{a}_{i\_low}+u_{i-1}\cdot \vec{a}_{i\_high}\f$
      *   7. Compute \f$\vec{b}_{i-1}=\vec{b}_{i\_low}+u_{i-1}^{-1}\cdot \vec{b}_{i\_high}\f$​
@@ -317,9 +317,10 @@ template <typename Curve> class IPA {
      * @details The procedure runs as follows:
      *
      *1. Receive \f$d\f$ (polynomial degree plus one) from the prover
-     *2. Receive the generator challenge \f$u\f$ and computes \f$U=u\cdot G\f$
+     *2. Receive the generator challenge \f$u\f$, abort if it's zero, otherwise compute \f$U=u\cdot G\f$
      *3. Compute  \f$C'=C+f(\beta)\cdot U\f$
-     *4. Receive \f$L_j, R_j\f$ and compute challenges \f$u_j\f$ for \f$j \in {k-1,..,0}\f$
+     *4. Receive \f$L_j, R_j\f$ and compute challenges \f$u_j\f$ for \f$j \in {k-1,..,0}\f$, abort immediately on
+     receiving a \f$u_j=0\f$
      *5. Compute \f$C_0 = C' + \sum_{j=0}^{k-1}(u_j^{-1}L_j + u_jR_j)\f$
      *6. Compute \f$b_0=g(\beta)=\prod_{i=0}^{k-1}(1+u_{i}^{-1}x^{2^{i}})\f$
      *7. Compute vector \f$\vec{s}=(1,u_{0}^{-1},u_{1}^{-1},u_{0}^{-1}u_{1}^{-1},...,\prod_{i=0}^{k-1}u_{i}^{-1})\f$
