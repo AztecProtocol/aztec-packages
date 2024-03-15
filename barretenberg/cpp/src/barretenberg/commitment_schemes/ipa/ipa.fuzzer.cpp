@@ -116,7 +116,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     }
 
     // Put challenges into the transcript
-    transcript->reset(challenges);
+    transcript->initialize(challenges);
 
     // Parse polynomial
     std::vector<uint256_t> polynomial_coefficients(polynomial_size);
