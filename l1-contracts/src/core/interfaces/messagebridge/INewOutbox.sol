@@ -45,8 +45,8 @@ interface INewOutbox {
   function consume(
     uint256 _l2BlockNumber,
     uint256 _leafIndex,
-    DataStructures.L2ToL1Msg memory _message,
-    bytes32[] memory _path
+    DataStructures.L2ToL1Msg calldata _message,
+    bytes32[] calldata _path
   ) external;
 
   /**
