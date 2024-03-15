@@ -115,6 +115,7 @@ template <typename G1> class TestAffineElement : public testing::Test {
      */
     static void test_msgpack_roundtrip()
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
         auto [actual, expected] = msgpack_roundtrip(affine_element{ 1, 1 });
         EXPECT_EQ(actual, expected);
     }
@@ -206,6 +207,7 @@ TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
     }
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/909): These tests are not typed for no reason
 // Multiplication of a point at infinity by a scalar should be a point at infinity
 TEST(AffineElement, InfinityMulByScalarIsInfinity)
 {
