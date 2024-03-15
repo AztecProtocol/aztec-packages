@@ -425,7 +425,7 @@ template <typename PCS> class ZeroMorphProver_ {
 
         // Compute batched degree-check and ZM-identity quotient polynomial pi
         auto pi_polynomial = compute_batched_evaluation_and_degree_check_polynomial(zeta_x, Z_x, z_challenge);
-
+        info(pi_polynomial.size());
         // Compute opening proof for x_challenge using the underlying univariate PCS
         PCS::compute_opening_proof(
             commitment_key, { .challenge = x_challenge, .evaluation = FF(0) }, pi_polynomial, transcript);

@@ -84,6 +84,32 @@ TEST_F(IPATest, Open)
     EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
 }
 
+TEST_F(IPATest, OpenAtZero)
+{
+    using IPA = IPA<Curve>;
+    // generate a random polynomial, degree needs to be a power of two
+    size_t n = 2;
+    Polynomial poly(n);
+    poly[0] = Fr(-2);
+    poly[1] = Fr(1);
+    // auto [x, eval] = this->random_eval(poly);
+    auto commitment = this->commit(poly);
+    const OpeningPair<Curve> opening_pair = { Fr(2), Fr(0) };
+    const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
+
+    // initialize empty prover transcript
+    auto prover_transcript = std::make_shared<NativeTranscript>();
+    IPA::compute_opening_proof(this->ck(), opening_pair, poly, prover_transcript);
+
+    // initialize verifier transcript from proof data
+    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+
+    auto result = IPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
+    EXPECT_TRUE(result);
+
+    EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
+}
+
 TEST_F(IPATest, GeminiShplonkIPAWithShift)
 {
     using IPA = IPA<Curve>;
