@@ -14,10 +14,6 @@ struct FieldNote {
 }
 
 impl NoteInterface<FIELD_NOTE_LEN> for FieldNote {
-    fn compute_note_content_hash(self) -> Field {
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(self.serialize_content(), 0)
-    }
 
     fn compute_nullifier(self, _context: &mut PrivateContext) -> Field {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.

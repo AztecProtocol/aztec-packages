@@ -38,11 +38,6 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
         ],0)
     }
 
-    fn compute_note_content_hash(note: SubscriptionNote) -> Field {
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash(note.serialize_content(), 0)
-    }
-
     // Broadcasts the note as an encrypted log on L1.
     fn broadcast(self, context: &mut PrivateContext, slot: Field) {
         let encryption_pub_key = get_public_key(self.owner);
