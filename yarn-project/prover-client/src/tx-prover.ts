@@ -7,7 +7,7 @@ import { SoloBlockBuilder } from "./block_builder/solo_block_builder.js";
 import { getVerificationKeys } from "./mocks/verification_keys.js";
 import { RealRollupCircuitSimulator } from "./simulator/rollup.js";
 import { EmptyRollupProver } from "./prover/empty.js";
-import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from "../../simulator/src/simulator/index.js";
+import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from "@aztec/simulator";
 import * as fs from 'fs/promises';
 import { createDebugLogger } from "@aztec/foundation/log";
 

@@ -52,7 +52,7 @@ import {
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { setupL1Contracts } from './fixtures/utils.js';
-import { WASMSimulator } from '@aztec/circuits.js/simulation';
+import { WASMSimulator } from '@aztec/simulator';
 import { makeProcessedTx, makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots, } from '@aztec/circuit-types';
 import { EmptyRollupProver, RealRollupCircuitSimulator, SoloBlockBuilder, getVerificationKeys } from '@aztec/prover-client';
 

@@ -34,10 +34,10 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
-    "@aztec/world-state": "workspace:^",
     "@aztec/simulator": "workspace:^",
-    "tslib": "^2.4.0",
-    "lodash.chunk": "^4.2.0"
+    "@aztec/world-state": "workspace:^",
+    "lodash.chunk": "^4.2.0",
+    "tslib": "^2.4.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

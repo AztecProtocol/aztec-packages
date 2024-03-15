@@ -387,6 +387,7 @@ __metadata:
     "@aztec/prover-client": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
+    "@aztec/simulator": "workspace:^"
     "@aztec/types": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0

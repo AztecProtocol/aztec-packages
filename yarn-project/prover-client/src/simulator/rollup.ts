@@ -29,7 +29,7 @@ import {
   convertRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 
-import { SimulationProvider, WASMSimulator } from '../../../simulator/src/simulator/index.js';
+import { SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
 /**
  * Circuit simulator for the rollup circuits.
