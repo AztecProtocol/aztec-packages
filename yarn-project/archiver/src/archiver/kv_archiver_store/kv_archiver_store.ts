@@ -144,13 +144,13 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Append new L1 to L2 messages to the store.
+   * Append L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
    * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
    * @returns True if the operation is successful.
    */
-  addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
-    return Promise.resolve(this.#messageStore.addNewL1ToL2Messages(messages, lastMessageL1BlockNumber));
+  addL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
+    return Promise.resolve(this.#messageStore.addL1ToL2Messages(messages, lastMessageL1BlockNumber));
   }
 
   /**
@@ -163,13 +163,13 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets new L1 to L2 message (to be) included in a given block.
+   * Gets L1 to L2 message (to be) included in a given block.
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
     try {
-      return Promise.resolve(this.#messageStore.getNewL1ToL2Messages(blockNumber));
+      return Promise.resolve(this.#messageStore.getL1ToL2Messages(blockNumber));
     } catch (err) {
       return Promise.reject(err);
     }

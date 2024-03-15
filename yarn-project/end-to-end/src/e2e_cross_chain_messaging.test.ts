@@ -167,8 +167,6 @@ describe('e2e_cross_chain_messaging', () => {
       new L2Actor(l2Bridge.address, 1),
       content,
       secretHashForL2MessageConsumption,
-      2 ** 32 - 1,
-      0,
     );
 
     // Sending wrong secret hashes should fail:
@@ -257,8 +255,6 @@ describe('e2e_cross_chain_messaging', () => {
       new L2Actor(l2Bridge.address, 1),
       content,
       secretHashForL2MessageConsumption,
-      2 ** 32 - 1,
-      0,
     );
 
     // 3. Consume L1-> L2 message and try to mint publicly on L2  - should fail

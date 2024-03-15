@@ -2,8 +2,6 @@
 title: Inbox
 ---
 
-TODO(#4492): Update this
-
 The `Inbox` is a contract deployed on L1 that handles message passing from L1 to the rollup (L2)
 
 **Links**: [Interface](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol), [Implementation](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/messagebridge/Inbox.sol).
@@ -28,11 +26,6 @@ Sends a message from L1 to L2.
 - Will revert with `Inbox__ContentTooLarge(bytes32 content)` if the content is larger than the field size (~254 bits).
 - Will revert with `Inbox__SecretHashTooLarge(bytes32 secretHash)` if the secret hash is larger than the field size (~254 bits).
 
-#### Edge cases
-
-- Will revert with `Inbox__Unauthorized()` if `msg.sender != _message.sender.actor`. 
-- Will revert with `Inbox__NotPastDeadline()` if `block.timestamp <= _message.deadline`.
-
 ## `consume()`
 
 Allows the `Rollup` to consume multiple messages in a single transaction.
@@ -45,4 +38,4 @@ Allows the `Rollup` to consume multiple messages in a single transaction.
 
 #### Edge cases
 
-- Will revert with `Registry__RollupNotRegistered(address rollup)` if `msg.sender` is not registered as a rollup on the [`Registry`](./registry.md).
+- Will revert with `Inbox__Unauthorized()` if `msg.sender != ROLLUP` (rollup contract is sometimes referred to as state transitioner in the docs). 

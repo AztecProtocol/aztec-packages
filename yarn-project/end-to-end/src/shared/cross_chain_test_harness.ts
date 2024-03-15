@@ -235,14 +235,10 @@ export class CrossChainTestHarness {
     await this.publicClient.waitForTransactionReceipt({ hash: txHash1 });
 
     // Deposit tokens to the TokenPortal
-    const deadline = 2 ** 32 - 1; // max uint32
-
     this.logger('Sending messages to L1 portal to be consumed publicly');
     const args = [
       this.ownerAddress.toString(),
       bridgeAmount,
-      this.ethAccount.toString(),
-      deadline,
       secretHash.toString(),
     ] as const;
     const { result: entryKeyHex } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
@@ -265,14 +261,10 @@ export class CrossChainTestHarness {
     );
     await this.publicClient.waitForTransactionReceipt({ hash: txHash1 });
     // Deposit tokens to the TokenPortal
-    const deadline = 2 ** 32 - 1; // max uint32
-
     this.logger('Sending messages to L1 portal to be consumed privately');
     const args = [
       secretHashForRedeemingMintedNotes.toString(),
       bridgeAmount,
-      this.ethAccount.toString(),
-      deadline,
       secretHashForL2MessageConsumption.toString(),
     ] as const;
     const { result: entryKeyHex } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {

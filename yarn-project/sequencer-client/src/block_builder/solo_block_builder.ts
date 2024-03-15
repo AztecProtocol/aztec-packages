@@ -156,7 +156,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async runCircuits(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
+    l1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
   ): Promise<[RootRollupPublicInputs, Proof]> {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
@@ -171,7 +171,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     let elapsedBaseParityOutputsPromise: Promise<[number, RootParityInput[]]>;
     {
       baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
-        BaseParityInputs.fromSlice(newL1ToL2Messages, i),
+        BaseParityInputs.fromSlice(l1ToL2Messages, i),
       );
 
       const baseParityOutputs: Promise<RootParityInput>[] = [];
@@ -291,7 +291,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       outputSize: rootParityOutput.toBuffer().length,
     } satisfies CircuitSimulationStats);
 
-    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, rootParityOutput, newL1ToL2Messages);
+    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, rootParityOutput, l1ToL2Messages);
   }
 
   protected async baseParityCircuit(inputs: BaseParityInputs): Promise<RootParityInput> {
@@ -354,15 +354,15 @@ export class SoloBlockBuilder implements BlockBuilder {
     left: [BaseOrMergeRollupPublicInputs, Proof],
     right: [BaseOrMergeRollupPublicInputs, Proof],
     l1ToL2Roots: RootParityInput,
-    newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
+    l1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
   ): Promise<[RootRollupPublicInputs, Proof]> {
     this.debug(`Running root rollup circuit`);
-    const rootInput = await this.getRootRollupInput(...left, ...right, l1ToL2Roots, newL1ToL2Messages);
+    const rootInput = await this.getRootRollupInput(...left, ...right, l1ToL2Roots, l1ToL2Messages);
 
-    // Update the local trees to include the new l1 to l2 messages
+    // Update the local trees to include the l1 to l2 messages
     await this.db.appendLeaves(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      newL1ToL2Messages.map(m => m.toBuffer()),
+      l1ToL2Messages.map(m => m.toBuffer()),
     );
 
     // Simulate and get proof for the root circuit

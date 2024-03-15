@@ -173,7 +173,6 @@ export const uniswapL1L2TestSuite = (
       expect(await wethCrossChainHarness.getL1BalanceOf(wethCrossChainHarness.tokenPortalAddress)).toBe(
         wethAmountToBridge,
       );
-      expect(await wethCrossChainHarness.inbox.read.contains([entryKey.toString()])).toBe(true);
 
       // Wait for the archiver to process the message
       await sleep(5000);
@@ -301,7 +300,7 @@ export const uniswapL1L2TestSuite = (
       // 1. Approve and deposit weth to the portal and move to L2
       const [secretForMintingWeth, secretHashForMintingWeth] = wethCrossChainHarness.generateClaimSecret();
 
-      const entryKey = await wethCrossChainHarness.sendTokensToPortalPublic(
+      await wethCrossChainHarness.sendTokensToPortalPublic(
         wethAmountToBridge,
         secretHashForMintingWeth,
       );
@@ -312,7 +311,6 @@ export const uniswapL1L2TestSuite = (
       expect(await wethCrossChainHarness.getL1BalanceOf(wethCrossChainHarness.tokenPortalAddress)).toBe(
         wethAmountToBridge,
       );
-      expect(await wethCrossChainHarness.inbox.read.contains([entryKey.toString()])).toBe(true);
 
       // Wait for the archiver to process the message
       await sleep(5000);
@@ -652,8 +650,6 @@ export const uniswapL1L2TestSuite = (
         minimumOutputAmount,
         ownerAddress.toString(),
         secretHashForDepositingSwappedDai.toString(),
-        deadlineForDepositingSwappedDai,
-        ownerEthAddress.toString(),
         true,
       ] as const;
       await expect(
@@ -710,8 +706,6 @@ export const uniswapL1L2TestSuite = (
         minimumOutputAmount,
         secretHashForRedeemingDai.toString(),
         secretHashForDepositingSwappedDai.toString(),
-        deadlineForDepositingSwappedDai,
-        ownerEthAddress.toString(),
         true,
       ] as const;
       await expect(

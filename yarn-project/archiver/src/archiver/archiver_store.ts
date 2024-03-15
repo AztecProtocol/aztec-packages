@@ -88,19 +88,19 @@ export interface ArchiverDataStore {
   ): Promise<boolean>;
 
   /**
-   * Append new L1 to L2 messages to the store.
+   * Append L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
    * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
    * @returns True if the operation is successful.
    */
-  addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean>;
+  addL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean>;
 
   /**
-   * Gets new L1 to L2 message (to be) included in a given block.
+   * Gets L1 to L2 message (to be) included in a given block.
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
+  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
 
   /**
    * Gets the L1 to L2 message index in the L1 to L2 message tree.

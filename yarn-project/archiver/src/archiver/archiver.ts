@@ -35,7 +35,7 @@ import { ArchiverConfig } from './config.js';
 import {
   retrieveBlockBodiesFromAvailabilityOracle,
   retrieveBlockMetadataFromRollup,
-  retrieveNewL1ToL2Messages,
+  retrieveL1ToL2Messages,
 } from './data_retrieval.js';
 
 /**
@@ -179,18 +179,18 @@ export class Archiver implements ArchiveSource {
 
     // ********** Events that are processed per L2 block **********
 
-    const retrievedNewL1ToL2Messages = await retrieveNewL1ToL2Messages(
+    const retrievedL1ToL2Messages = await retrieveL1ToL2Messages(
       this.publicClient,
       this.inboxAddress,
       blockUntilSynced,
       lastL1Blocks.newMessages + 1n,
       currentL1BlockNumber,
     );
-    await this.store.addNewL1ToL2Messages(
-      retrievedNewL1ToL2Messages.retrievedData,
+    await this.store.addL1ToL2Messages(
+      retrievedL1ToL2Messages.retrievedData,
       // -1n because the function expects the last block in which the message was emitted and not the one after next
       // TODO(#4492): Check whether this could be cleaned up - `nextEthBlockNumber` value doesn't seem to be used much
-      retrievedNewL1ToL2Messages.nextEthBlockNumber - 1n,
+      retrievedL1ToL2Messages.nextEthBlockNumber - 1n,
     );
 
     // Read all data from chain and then write to our stores at the end
@@ -412,12 +412,12 @@ export class Archiver implements ArchiveSource {
   }
 
   /**
-   * Gets new L1 to L2 message (to be) included in a given block.
+   * Gets L1 to L2 message (to be) included in a given block.
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
-    return this.store.getNewL1ToL2Messages(blockNumber);
+  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+    return this.store.getL1ToL2Messages(blockNumber);
   }
 
   /**

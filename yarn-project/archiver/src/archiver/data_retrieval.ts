@@ -112,7 +112,7 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
 }
 
 /**
- * Fetch new L1 to L2 messages.
+ * Fetch L1 to L2 messages.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param inboxAddress - The address of the inbox contract to fetch messages from.
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
@@ -120,14 +120,14 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
  * @param searchEndBlock - The highest block number that we should search up to.
  * @returns An array of NewInboxLeaf and next eth block to search from.
  */
-export async function retrieveNewL1ToL2Messages(
+export async function retrieveL1ToL2Messages(
   publicClient: PublicClient,
   inboxAddress: EthAddress,
   blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
 ): Promise<DataRetrieval<NewInboxLeaf>> {
-  const retrievedNewL1ToL2Messages: NewInboxLeaf[] = [];
+  const retrievedL1ToL2Messages: NewInboxLeaf[] = [];
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
@@ -136,10 +136,10 @@ export async function retrieveNewL1ToL2Messages(
     if (leafInsertedLogs.length === 0) {
       break;
     }
-    const newL1ToL2Messages = processLeafInsertedLogs(leafInsertedLogs);
-    retrievedNewL1ToL2Messages.push(...newL1ToL2Messages);
+    const l1ToL2Messages = processLeafInsertedLogs(leafInsertedLogs);
+    retrievedL1ToL2Messages.push(...l1ToL2Messages);
     // handles the case when there are no new messages:
     searchStartBlock = (leafInsertedLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock) + 1n;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedNewL1ToL2Messages };
+  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedL1ToL2Messages };
 }

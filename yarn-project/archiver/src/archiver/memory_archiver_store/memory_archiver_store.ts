@@ -20,7 +20,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { ArchiverDataStore } from '../archiver_store.js';
-import { NewL1ToL2MessageStore } from './l1_to_l2_message_store.js';
+import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 /**
  * Simple, in-memory implementation of an archiver data store.
@@ -64,9 +64,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private extendedContractData: Map<string, ExtendedContractData> = new Map();
 
   /**
-   * Contains all pending L1 to L2 messages.
+   * Contains all L1 to L2 messages.
    */
-  private newL1ToL2Messages = new NewL1ToL2MessageStore();
+  private l1ToL2Messages = new L1ToL2MessageStore();
 
   private contractClasses: Map<string, ContractClassPublic> = new Map();
 
@@ -165,19 +165,19 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Append new L1 to L2 messages to the store.
+   * Append L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
    * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
    * @returns True if the operation is successful.
    */
-  public addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
+  public addL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
     if (lastMessageL1BlockNumber <= this.lastL1BlockNewMessages) {
       return Promise.resolve(false);
     }
 
     this.lastL1BlockNewMessages = lastMessageL1BlockNumber;
     for (const message of messages) {
-      this.newL1ToL2Messages.addMessage(message);
+      this.l1ToL2Messages.addMessage(message);
     }
     return Promise.resolve(true);
   }
@@ -188,7 +188,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree.
    */
   public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint> {
-    return Promise.resolve(this.newL1ToL2Messages.getMessageIndex(l1ToL2Message));
+    return Promise.resolve(this.l1ToL2Messages.getMessageIndex(l1ToL2Message));
   }
 
   /**
@@ -242,12 +242,12 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets new L1 to L2 message (to be) included in a given block.
+   * Gets L1 to L2 message (to be) included in a given block.
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
-    return Promise.resolve(this.newL1ToL2Messages.getMessages(blockNumber));
+  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+    return Promise.resolve(this.l1ToL2Messages.getMessages(blockNumber));
   }
 
   /**

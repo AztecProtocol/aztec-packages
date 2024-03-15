@@ -77,19 +77,19 @@ describe('Archiver', () => {
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(3);
 
-    // New L1 to L2 messages
+    // L1 to L2 messages
     {
       // Checks that I get correct amount of sequenced new messages for L2 blocks 1 and 2
-      let newL1ToL2Messages = await archiver.getNewL1ToL2Messages(1n);
-      expect(newL1ToL2Messages.length).toEqual(2);
+      let l1ToL2Messages = await archiver.getL1ToL2Messages(1n);
+      expect(l1ToL2Messages.length).toEqual(2);
 
-      newL1ToL2Messages = await archiver.getNewL1ToL2Messages(2n);
-      expect(newL1ToL2Messages.length).toEqual(3);
+      l1ToL2Messages = await archiver.getL1ToL2Messages(2n);
+      expect(l1ToL2Messages.length).toEqual(3);
 
       // Check that I cannot get messages for block 3 because there is a message gap (message with index 0 was not
       // processed)
       await expect(async () => {
-        await archiver.getNewL1ToL2Messages(3n);
+        await archiver.getL1ToL2Messages(3n);
       }).rejects.toThrow(`L1 to L2 message gap found in block ${3}`);
     }
 

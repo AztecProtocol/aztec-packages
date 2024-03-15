@@ -32,12 +32,12 @@ export class MessageStore {
   }
 
   /**
-   * Append new L1 to L2 messages to the store.
+   * Append L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
    * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
    * @returns True if the operation is successful.
    */
-  addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
+  addL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
     return this.db.transaction(() => {
       const lastL1BlockNumber = this.#lastL1BlockNewMessages.get() ?? 0n;
       if (lastL1BlockNumber >= lastMessageL1BlockNumber) {
@@ -74,7 +74,7 @@ export class MessageStore {
     return Promise.resolve(index);
   }
 
-  getNewL1ToL2Messages(blockNumber: bigint): Fr[] {
+  getL1ToL2Messages(blockNumber: bigint): Fr[] {
     const messages: Fr[] = [];
     let undefinedMessageFound = false;
     for (let messageIndex = 0; messageIndex < this.#l1ToL2MessagesSubtreeSize; messageIndex++) {

@@ -165,8 +165,6 @@ describe('e2e_public_cross_chain_messaging', () => {
       new L2Actor(l2Bridge.address, 1),
       content,
       secretHash,
-      2 ** 32 - 1,
-      0,
     );
 
     // user2 tries to consume this message and minting to itself -> should fail since the message is intended to be consumed only by owner.
@@ -233,8 +231,6 @@ describe('e2e_public_cross_chain_messaging', () => {
       new L2Actor(l2Bridge.address, 1),
       content,
       secretHash,
-      2 ** 32 - 1,
-      0,
     );
 
     await expect(

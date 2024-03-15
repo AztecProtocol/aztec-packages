@@ -14,7 +14,7 @@ export interface L1ToL2MessageSource {
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
+  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
 
   /**
    * Gets the L1 to L2 message index in the L1 to L2 message tree.
@@ -76,14 +76,6 @@ export class L1ToL2Message {
      */
     public readonly secretHash: Fr,
     /**
-     * The deadline for the message.
-     */
-    public readonly deadline: number,
-    /**
-     * The fee for the message.
-     */
-    public readonly fee: number,
-    /**
      * The entry key for the message - optional.
      */
     public readonly entryKey?: Fr,
@@ -94,18 +86,11 @@ export class L1ToL2Message {
    * @returns The message as an array of fields (in order).
    */
   toFields(): Fr[] {
-    return [
-      ...this.sender.toFields(),
-      ...this.recipient.toFields(),
-      this.content,
-      this.secretHash,
-      new Fr(BigInt(this.deadline)),
-      new Fr(BigInt(this.fee)),
-    ];
+    return [...this.sender.toFields(), ...this.recipient.toFields(), this.content, this.secretHash];
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(this.sender, this.recipient, this.content, this.secretHash, this.deadline, this.fee);
+    return serializeToBuffer(this.sender, this.recipient, this.content, this.secretHash);
   }
 
   hash(): Fr {
@@ -118,9 +103,7 @@ export class L1ToL2Message {
     const recipient = reader.readObject(L2Actor);
     const content = Fr.fromBuffer(reader);
     const secretHash = Fr.fromBuffer(reader);
-    const deadline = reader.readNumber();
-    const fee = reader.readNumber();
-    return new L1ToL2Message(sender, recipient, content, secretHash, deadline, fee);
+    return new L1ToL2Message(sender, recipient, content, secretHash);
   }
 
   toString(): string {
@@ -133,19 +116,11 @@ export class L1ToL2Message {
   }
 
   static empty(): L1ToL2Message {
-    return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Fr.ZERO, Fr.ZERO, 0, 0);
+    return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Fr.ZERO, Fr.ZERO);
   }
 
   static random(entryKey?: Fr): L1ToL2Message {
-    return new L1ToL2Message(
-      L1Actor.random(),
-      L2Actor.random(),
-      Fr.random(),
-      Fr.random(),
-      randomInt(1000),
-      randomInt(1000),
-      entryKey,
-    );
+    return new L1ToL2Message(L1Actor.random(), L2Actor.random(), Fr.random(), Fr.random(), entryKey);
   }
 }
 

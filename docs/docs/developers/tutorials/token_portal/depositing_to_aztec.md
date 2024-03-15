@@ -49,8 +49,7 @@ Here is an explanation of what it is doing:
 2. We construct the “content” of the message we need to send to the recipient on Aztec.
    - The content is limited to a single field (~254 bits). So if the content is larger, we have to hash it and the hash can be passed along.
      - We use our utility method that creates a sha256 hash but truncates it to fit into a field
-   - Since we want to mint tokens on Aztec publicly, the content here is the amount to mint and the address on Aztec who will receive the tokens. We also include the L1 address that can cancel the L1->L2 message. Adding this into the content hash makes it so that only the appropriate person can cancel the message and not just any malicious 3rd party.
-     - More on cancellers can be found in [this upcoming section](./cancelling_deposits.md)
+   - Since we want to mint tokens on Aztec publicly, the content here is the amount to mint and the address on Aztec who will receive the tokens.
    - We encode this message as a mint_public function call, to specify the exact intentions and parameters we want to execute on L2.
      - In reality the content can be constructed in any manner as long as the sister contract on L2 can also create it. But for clarity, we are constructing the content like a abi encoded function call.
      - It is good practice to include all parameters used by L2 into this content (like the amount and to) so that a malicious actor can’t change the to to themselves when consuming the message.
