@@ -22,7 +22,7 @@ if ! [ -f "$EARTHLY" ] ; then
   chmod +x "$EARTHLY" && "$EARTHLY" bootstrap
 fi
 
-EARTHLY_FLAGS="--config $EARTHLY_CONFIG -P --disable-remote-registry-proxy --use-inline-cache --save-inline-cache"
+EARTHLY_FLAGS="-P --disable-remote-registry-proxy --use-inline-cache --save-inline-cache"
 if [ $# -eq 0 ]; then
   # By default, try for a +build target
   "$EARTHLY" $EARTHLY_FLAGS +build
