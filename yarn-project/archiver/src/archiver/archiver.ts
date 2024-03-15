@@ -1,6 +1,5 @@
 import {
   GetUnencryptedLogsResponse,
-  L1ToL2Message,
   L1ToL2MessageSource,
   L2Block,
   L2BlockL2Logs,
@@ -21,7 +20,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { RollupAbi } from '@aztec/l1-artifacts';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import {
   ContractClassPublic,
@@ -30,16 +28,14 @@ import {
   PublicFunction,
 } from '@aztec/types/contracts';
 
-import { Chain, HttpTransport, PublicClient, createPublicClient, getAddress, getContract, http } from 'viem';
+import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
 
 import { ArchiverDataStore } from './archiver_store.js';
 import { ArchiverConfig } from './config.js';
 import {
   retrieveBlockBodiesFromAvailabilityOracle,
   retrieveBlockMetadataFromRollup,
-  retrieveNewCancelledL1ToL2Messages,
   retrieveNewL1ToL2Messages,
-  retrieveNewPendingL1ToL2Messages,
 } from './data_retrieval.js';
 
 /**
@@ -154,10 +150,7 @@ export class Archiver implements ArchiveSource {
     const lastL1Blocks = await this.store.getL1BlockNumber();
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
 
-    if (
-      currentL1BlockNumber <= lastL1Blocks.addedBlock &&
-      currentL1BlockNumber <= lastL1Blocks.newMessages
-    ) {
+    if (currentL1BlockNumber <= lastL1Blocks.addedBlock && currentL1BlockNumber <= lastL1Blocks.newMessages) {
       // chain hasn't moved forward
       // or it's been rolled back
       return;
@@ -425,6 +418,15 @@ export class Archiver implements ArchiveSource {
    */
   getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
     return this.store.getNewL1ToL2Messages(blockNumber);
+  }
+
+  /**
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * @param l1ToL2Message - The L1 to L2 message.
+   * @returns The index of the L1 to L2 message in the L1 to L2 message tree.
+   */
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint> {
+    return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
 
   getContractClassIds(): Promise<Fr[]> {

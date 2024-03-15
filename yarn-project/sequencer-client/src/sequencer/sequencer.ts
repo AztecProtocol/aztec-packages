@@ -202,11 +202,9 @@ export class Sequencer {
 
       await assertBlockHeight();
 
-      const newModelL1ToL2Messages = await this.l1ToL2MessageSource.getNewL1ToL2Messages(BigInt(newBlockNumber));
-
       // Get l1 to l2 messages from the contract
       this.log('Requesting L1 to L2 messages from contract');
-      const l1ToL2Messages = await this.getPendingL1ToL2EntryKeys();
+      const l1ToL2Messages = await this.l1ToL2MessageSource.getNewL1ToL2Messages(BigInt(newBlockNumber));
       this.log('Successfully retrieved L1 to L2 messages from contract');
 
       // Build the new block by running the rollup circuits
@@ -216,7 +214,7 @@ export class Sequencer {
 
       const emptyTx = processor.makeEmptyProcessedTx();
       const [rollupCircuitsDuration, block] = await elapsed(() =>
-        this.buildBlock(processedValidTxs, newModelL1ToL2Messages, l1ToL2Messages, emptyTx, newGlobalVariables),
+        this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables),
       );
 
       this.log(`Assembled block ${block.number}`, {
@@ -332,21 +330,8 @@ export class Sequencer {
     const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
     this.log(`Building block ${globalVariables.blockNumber}`);
 
-    const [block] = await this.blockBuilder.buildL2Block(
-      globalVariables,
-      allTxs,
-      newL1ToL2Messages,
-    );
+    const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, newL1ToL2Messages);
     return block;
-  }
-
-  /**
-   * Calls the archiver to pull upto `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` entry keys
-   * (archiver returns the top messages sorted by fees)
-   * @returns An array of L1 to L2 messages' entryKeys
-   */
-  protected async getPendingL1ToL2EntryKeys(): Promise<Fr[]> {
-    return await this.l1ToL2MessageSource.getPendingL1ToL2EntryKeys();
   }
 
   /**

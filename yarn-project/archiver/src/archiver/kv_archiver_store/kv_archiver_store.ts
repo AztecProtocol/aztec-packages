@@ -1,7 +1,6 @@
 import {
   Body,
   GetUnencryptedLogsResponse,
-  L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
   LogFilter,
@@ -9,7 +8,7 @@ import {
   NewInboxLeaf,
   TxEffect,
   TxHash,
-  TxReceipt,
+  TxReceipt
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -155,56 +154,12 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Append new pending L1 to L2 messages to the store.
-   * @param messages - The L1 to L2 messages to be added to the store.
-   * @param l1BlockNumber - The L1 block number for which to add the messages.
-   * @returns True if the operation is successful.
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * @param l1ToL2Message - The L1 to L2 message.
+   * @returns The index of the L1 to L2 message in the L1 to L2 message tree.
    */
-  addPendingL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean> {
-    return Promise.resolve(this.#messageStore.addPendingMessages(messages, l1BlockNumber));
-  }
-
-  /**
-   * Remove pending L1 to L2 messages from the store (if they were cancelled).
-   * @param messages - The entry keys to be removed from the store.
-   * @param l1BlockNumber - The L1 block number for which to remove the messages.
-   * @returns True if the operation is successful.
-   */
-  cancelPendingL1ToL2EntryKeys(messages: Fr[], l1BlockNumber: bigint): Promise<boolean> {
-    return Promise.resolve(this.#messageStore.cancelPendingMessages(messages, l1BlockNumber));
-  }
-
-  /**
-   * Messages that have been published in an L2 block are confirmed.
-   * Add them to the confirmed store, also remove them from the pending store.
-   * @param entryKeys - The entry keys to be removed from the store.
-   * @param blockNumber - The block for which to add the messages.
-   * @returns True if the operation is successful.
-   */
-  confirmL1ToL2EntryKeys(entryKeys: Fr[]): Promise<boolean> {
-    return this.#messageStore.confirmPendingMessages(entryKeys);
-  }
-
-  /**
-   * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
-   * @param limit - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
-   * @returns The requested L1 to L2 entry keys.
-   */
-  getPendingL1ToL2EntryKeys(limit: number): Promise<Fr[]> {
-    return Promise.resolve(this.#messageStore.getPendingEntryKeysByFee(limit));
-  }
-
-  /**
-   * Gets the confirmed L1 to L2 message corresponding to the given entry key.
-   * @param entryKey - The entry key to look up.
-   * @returns The requested L1 to L2 message or throws if not found.
-   */
-  getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message> {
-    try {
-      return Promise.resolve(this.#messageStore.getConfirmedMessage(entryKey));
-    } catch (err) {
-      return Promise.reject(err);
-    }
+  public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint> {
+    return Promise.resolve(this.#messageStore.getL1ToL2MessageIndex(l1ToL2Message));
   }
 
   /**
@@ -261,12 +216,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    */
   getL1BlockNumber(): Promise<ArchiverL1SynchPoint> {
     const addedBlock = this.#blockStore.getL1BlockNumber();
-    const { addedMessages, cancelledMessages, newMessages } = this.#messageStore.getL1BlockNumber();
+    const { newMessages } = this.#messageStore.getL1BlockNumber();
     return Promise.resolve({
       addedBlock,
-      addedMessages,
       newMessages,
-      cancelledMessages,
     });
   }
 }

@@ -104,6 +104,13 @@ export interface ArchiverDataStore {
   getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
 
   /**
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * @param l1ToL2Message - The L1 to L2 message.
+   * @returns The index of the L1 to L2 message in the L1 to L2 message tree.
+   */
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint>;
+
+  /**
    * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
    * @param limit - The number of logs to return.

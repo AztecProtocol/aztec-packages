@@ -1,12 +1,11 @@
 import {
-  L1ToL2Message,
   L2Block,
   L2BlockContext,
   LogId,
   LogType,
   NewInboxLeaf,
   TxHash,
-  UnencryptedL2Log,
+  UnencryptedL2Log
 } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
 import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
@@ -110,15 +109,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         });
       });
 
-      it('returns the L1 block number that most recently added pending messages', async () => {
-        await store.addPendingL1ToL2Messages([L1ToL2Message.random(Fr.random())], 1n);
-        await expect(store.getL1BlockNumber()).resolves.toEqual({
-          addedBlock: 0n,
-          addedMessages: 1n,
-          cancelledMessages: 0n,
-          newMessages: 0n,
-        });
-      });
       it('returns the L1 block number that most recently added messages from new inbox', async () => {
         await store.addNewL1ToL2Messages([new NewInboxLeaf(0n, 0n, Fr.ZERO)], 1n);
         await expect(store.getL1BlockNumber()).resolves.toEqual({
@@ -126,17 +116,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           addedMessages: 0n,
           cancelledMessages: 0n,
           newMessages: 1n,
-        });
-      });
-      it('returns the L1 block number that most recently cancelled pending messages', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await store.addPendingL1ToL2Messages([message], 1n);
-        await store.cancelPendingL1ToL2EntryKeys([message.entryKey!], 2n);
-        await expect(store.getL1BlockNumber()).resolves.toEqual({
-          addedBlock: 0n,
-          addedMessages: 1n,
-          cancelledMessages: 2n,
-          newMessages: 0n,
         });
       });
     });
@@ -191,34 +170,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
       it('returns undefined if tx is not found', async () => {
         await expect(store.getTxEffect(new TxHash(Fr.random().toBuffer()))).resolves.toBeUndefined();
-      });
-    });
-
-    describe('addPendingL1ToL2Messages', () => {
-      it('stores pending L1 to L2 messages', async () => {
-        await expect(store.addPendingL1ToL2Messages([L1ToL2Message.random(Fr.random())], 1n)).resolves.toEqual(true);
-      });
-
-      it('allows duplicate pending messages in different positions in the same block', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await expect(store.addPendingL1ToL2Messages([message, message], 1n)).resolves.toEqual(true);
-
-        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey!, message.entryKey!]);
-      });
-
-      it('allows duplicate pending messages in different blocks', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await expect(store.addPendingL1ToL2Messages([message], 1n)).resolves.toEqual(true);
-        await expect(store.addPendingL1ToL2Messages([message], 2n)).resolves.toEqual(true);
-
-        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey!, message.entryKey!]);
-      });
-
-      it('is idempotent', async () => {
-        const message = L1ToL2Message.random(Fr.random());
-        await expect(store.addPendingL1ToL2Messages([message], 1n)).resolves.toEqual(true);
-        await expect(store.addPendingL1ToL2Messages([message], 1n)).resolves.toEqual(false);
-        await expect(store.getPendingL1ToL2EntryKeys(2)).resolves.toEqual([message.entryKey!]);
       });
     });
 

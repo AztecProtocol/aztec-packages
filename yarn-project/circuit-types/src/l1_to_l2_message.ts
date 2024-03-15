@@ -17,19 +17,11 @@ export interface L1ToL2MessageSource {
   getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
 
   /**
-   * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
-   * @param limit - The maximum number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
-   * @returns The requested L1 to L2 messages' keys.
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * @param l1ToL2Message - The L1 to L2 message.
+   * @returns The index of the L1 to L2 message in the L1 to L2 message tree.
    */
-  getPendingL1ToL2EntryKeys(limit?: number): Promise<Fr[]>;
-
-  /**
-   * Gets the confirmed L1 to L2 message with the given entry key.
-   * i.e. message that has already been consumed by the sequencer and published in an L2 Block
-   * @param entryKey - The entry key.
-   * @returns The confirmed L1 to L2 message (throws if not found)
-   */
-  getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message>;
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint>;
 
   /**
    * Gets the number of the latest L2 block processed by the implementation.

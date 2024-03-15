@@ -1,5 +1,5 @@
 import { L1ToL2Message, NewInboxLeaf } from '@aztec/circuit-types';
-import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
+import { L1_TO_L2_MSG_SUBTREE_HEIGHT, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js/constants';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -45,6 +45,22 @@ export class NewL1ToL2MessageStore {
       }
     }
     return messages;
+  }
+
+  /**
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * @param l1ToL2Message - The L1 to L2 message.
+   * @returns The index of the L1 to L2 message in the L1 to L2 message tree.
+   */
+  getMessageIndex(l1ToL2Message: Fr): Promise<bigint> {
+    for (const [key, message] of this.store.entries()) {
+      if (message.equals(l1ToL2Message)) {
+        const [blockNumber, messageIndex] = key.split('-');
+        const indexInTheWholeTree = BigInt(blockNumber) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) + BigInt(messageIndex);
+        return Promise.resolve(indexInTheWholeTree);
+      }
+    }
+    throw new Error(`L1 to L2 message index not found in the store for message ${l1ToL2Message.toString()}`);
   }
 }
 

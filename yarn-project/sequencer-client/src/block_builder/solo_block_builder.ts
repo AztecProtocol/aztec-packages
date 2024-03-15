@@ -102,11 +102,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     this.validateTxs(txs);
 
     // We fill the tx batch with empty txs, we process only one tx at a time for now
-    const [circuitsOutput, proof] = await this.runCircuits(
-      globalVariables,
-      txs,
-      newL1ToL2Messages,
-    );
+    const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const txEffects: TxEffect[] = txs.map(tx => toTxEffect(tx));
@@ -184,7 +180,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       }
       elapsedBaseParityOutputsPromise = elapsed(() => Promise.all(baseParityOutputs));
     }
-
 
     // BASE ROLLUP CIRCUIT (run in parallel)
     let elapsedBaseRollupOutputsPromise: Promise<[number, [BaseOrMergeRollupPublicInputs, Proof][]]>;
