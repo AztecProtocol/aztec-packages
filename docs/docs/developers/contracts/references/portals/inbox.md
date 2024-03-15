@@ -2,6 +2,8 @@
 title: Inbox
 ---
 
+TODO(#4492): Update this
+
 The `Inbox` is a contract deployed on L1 that handles message passing from L1 to the rollup (L2)
 
 **Links**: [Interface](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol), [Implementation](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/messagebridge/Inbox.sol).

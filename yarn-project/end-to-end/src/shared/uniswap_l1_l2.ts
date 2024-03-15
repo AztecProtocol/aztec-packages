@@ -227,8 +227,6 @@ export const uniswapL1L2TestSuite = (
           minimumOutputAmount,
           secretHashForRedeemingDai,
           secretHashForDepositingSwappedDai,
-          deadlineForDepositingSwappedDai,
-          ownerEthAddress,
           ownerEthAddress,
         )
         .send()
@@ -363,8 +361,6 @@ export const uniswapL1L2TestSuite = (
           minimumOutputAmount,
           ownerAddress,
           secretHashForDepositingSwappedDai,
-          deadlineForDepositingSwappedDai,
-          ownerEthAddress,
           ownerEthAddress,
           nonceForSwap,
         );
@@ -456,8 +452,6 @@ export const uniswapL1L2TestSuite = (
             minimumOutputAmount,
             Fr.random(),
             Fr.random(),
-            deadlineForDepositingSwappedDai,
-            ownerEthAddress,
             ownerEthAddress,
           )
           .simulate(),
@@ -496,8 +490,6 @@ export const uniswapL1L2TestSuite = (
             minimumOutputAmount,
             Fr.random(),
             Fr.random(),
-            deadlineForDepositingSwappedDai,
-            ownerEthAddress,
             ownerEthAddress,
           )
           .simulate(),
@@ -534,8 +526,6 @@ export const uniswapL1L2TestSuite = (
           minimumOutputAmount,
           ownerAddress,
           secretHashForDepositingSwappedDai,
-          deadlineForDepositingSwappedDai,
-          ownerEthAddress,
           ownerEthAddress,
           Fr.ZERO, // nonce for swap -> doesn't matter
         )
@@ -565,8 +555,6 @@ export const uniswapL1L2TestSuite = (
           minimumOutputAmount,
           ownerAddress,
           secretHashForDepositingSwappedDai,
-          deadlineForDepositingSwappedDai,
-          ownerEthAddress,
           ownerEthAddress,
           nonceForSwap,
         );
@@ -603,8 +591,6 @@ export const uniswapL1L2TestSuite = (
             minimumOutputAmount,
             ownerAddress,
             Fr.random(),
-            deadlineForDepositingSwappedDai,
-            ownerEthAddress,
             ownerEthAddress,
             Fr.ZERO,
           )
@@ -648,8 +634,6 @@ export const uniswapL1L2TestSuite = (
           minimumOutputAmount,
           Fr.random(),
           secretHashForDepositingSwappedDai,
-          deadlineForDepositingSwappedDai,
-          ownerEthAddress,
           ownerEthAddress,
         )
         .send()
@@ -706,8 +690,6 @@ export const uniswapL1L2TestSuite = (
           minimumOutputAmount,
           ownerAddress,
           secretHashForDepositingSwappedDai,
-          deadlineForDepositingSwappedDai,
-          ownerEthAddress,
           ownerEthAddress,
           Fr.ZERO,
         )
