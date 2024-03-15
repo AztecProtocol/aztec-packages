@@ -29,6 +29,7 @@ fn main() {
         warn!("Contract already transpiled. Skipping.");
         return;
     }
+
     // Parse json into contract object
     let contract: CompiledAcirContract =
         serde_json::from_str(&contract_json).expect("Unable to parse json");

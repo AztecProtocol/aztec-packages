@@ -15,8 +15,11 @@
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
-#include "barretenberg/relations/generated/avm/equiv_inter_reg_alu.hpp"
-#include "barretenberg/relations/generated/avm/equiv_tag_err.hpp"
+#include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_alu.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_a.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_b.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_c.hpp"
 
 namespace bb {
 
@@ -32,6 +35,9 @@ template <typename FF> struct AvmFullRow {
     FF avm_mem_m_last{};
     FF avm_mem_m_rw{};
     FF avm_mem_m_in_tag{};
+    FF avm_mem_m_op_a{};
+    FF avm_mem_m_op_b{};
+    FF avm_mem_m_op_c{};
     FF avm_mem_m_tag_err{};
     FF avm_mem_m_one_min_inv{};
     FF avm_alu_alu_clk{};
@@ -95,23 +101,26 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_mem_idx_b{};
     FF avm_main_mem_idx_c{};
     FF avm_main_last{};
-    FF equiv_inter_reg_alu{};
-    FF equiv_tag_err{};
-    FF equiv_tag_err_counts{};
-    FF avm_alu_alu_u16_r2_shift{};
-    FF avm_alu_alu_u16_r1_shift{};
-    FF avm_alu_alu_u16_r6_shift{};
-    FF avm_alu_alu_u16_r5_shift{};
-    FF avm_alu_alu_u16_r4_shift{};
-    FF avm_alu_alu_u16_r0_shift{};
-    FF avm_alu_alu_u16_r7_shift{};
-    FF avm_alu_alu_u16_r3_shift{};
-    FF avm_main_pc_shift{};
-    FF avm_main_internal_return_ptr_shift{};
+    FF perm_main_alu{};
+    FF perm_main_mem_a{};
+    FF perm_main_mem_b{};
+    FF perm_main_mem_c{};
+    FF incl_main_tag_err{};
+    FF incl_main_tag_err_counts{};
+    FF avm_mem_m_tag_shift{};
     FF avm_mem_m_val_shift{};
     FF avm_mem_m_rw_shift{};
-    FF avm_mem_m_tag_shift{};
     FF avm_mem_m_addr_shift{};
+    FF avm_alu_alu_u16_r5_shift{};
+    FF avm_alu_alu_u16_r3_shift{};
+    FF avm_alu_alu_u16_r4_shift{};
+    FF avm_alu_alu_u16_r7_shift{};
+    FF avm_alu_alu_u16_r1_shift{};
+    FF avm_alu_alu_u16_r0_shift{};
+    FF avm_alu_alu_u16_r6_shift{};
+    FF avm_alu_alu_u16_r2_shift{};
+    FF avm_main_pc_shift{};
+    FF avm_main_internal_return_ptr_shift{};
 };
 
 class AvmCircuitBuilder {
@@ -124,8 +133,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 91;
-    static constexpr size_t num_polys = 77;
+    static constexpr size_t num_fixed_columns = 97;
+    static constexpr size_t num_polys = 83;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -152,6 +161,9 @@ class AvmCircuitBuilder {
             polys.avm_mem_m_last[i] = rows[i].avm_mem_m_last;
             polys.avm_mem_m_rw[i] = rows[i].avm_mem_m_rw;
             polys.avm_mem_m_in_tag[i] = rows[i].avm_mem_m_in_tag;
+            polys.avm_mem_m_op_a[i] = rows[i].avm_mem_m_op_a;
+            polys.avm_mem_m_op_b[i] = rows[i].avm_mem_m_op_b;
+            polys.avm_mem_m_op_c[i] = rows[i].avm_mem_m_op_c;
             polys.avm_mem_m_tag_err[i] = rows[i].avm_mem_m_tag_err;
             polys.avm_mem_m_one_min_inv[i] = rows[i].avm_mem_m_one_min_inv;
             polys.avm_alu_alu_clk[i] = rows[i].avm_alu_alu_clk;
@@ -215,25 +227,28 @@ class AvmCircuitBuilder {
             polys.avm_main_mem_idx_b[i] = rows[i].avm_main_mem_idx_b;
             polys.avm_main_mem_idx_c[i] = rows[i].avm_main_mem_idx_c;
             polys.avm_main_last[i] = rows[i].avm_main_last;
-            polys.equiv_inter_reg_alu[i] = rows[i].equiv_inter_reg_alu;
-            polys.equiv_tag_err[i] = rows[i].equiv_tag_err;
-            polys.equiv_tag_err_counts[i] = rows[i].equiv_tag_err_counts;
+            polys.perm_main_alu[i] = rows[i].perm_main_alu;
+            polys.perm_main_mem_a[i] = rows[i].perm_main_mem_a;
+            polys.perm_main_mem_b[i] = rows[i].perm_main_mem_b;
+            polys.perm_main_mem_c[i] = rows[i].perm_main_mem_c;
+            polys.incl_main_tag_err[i] = rows[i].incl_main_tag_err;
+            polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;
         }
 
-        polys.avm_alu_alu_u16_r2_shift = Polynomial(polys.avm_alu_alu_u16_r2.shifted());
-        polys.avm_alu_alu_u16_r1_shift = Polynomial(polys.avm_alu_alu_u16_r1.shifted());
-        polys.avm_alu_alu_u16_r6_shift = Polynomial(polys.avm_alu_alu_u16_r6.shifted());
-        polys.avm_alu_alu_u16_r5_shift = Polynomial(polys.avm_alu_alu_u16_r5.shifted());
-        polys.avm_alu_alu_u16_r4_shift = Polynomial(polys.avm_alu_alu_u16_r4.shifted());
-        polys.avm_alu_alu_u16_r0_shift = Polynomial(polys.avm_alu_alu_u16_r0.shifted());
-        polys.avm_alu_alu_u16_r7_shift = Polynomial(polys.avm_alu_alu_u16_r7.shifted());
-        polys.avm_alu_alu_u16_r3_shift = Polynomial(polys.avm_alu_alu_u16_r3.shifted());
-        polys.avm_main_pc_shift = Polynomial(polys.avm_main_pc.shifted());
-        polys.avm_main_internal_return_ptr_shift = Polynomial(polys.avm_main_internal_return_ptr.shifted());
+        polys.avm_mem_m_tag_shift = Polynomial(polys.avm_mem_m_tag.shifted());
         polys.avm_mem_m_val_shift = Polynomial(polys.avm_mem_m_val.shifted());
         polys.avm_mem_m_rw_shift = Polynomial(polys.avm_mem_m_rw.shifted());
-        polys.avm_mem_m_tag_shift = Polynomial(polys.avm_mem_m_tag.shifted());
         polys.avm_mem_m_addr_shift = Polynomial(polys.avm_mem_m_addr.shifted());
+        polys.avm_alu_alu_u16_r5_shift = Polynomial(polys.avm_alu_alu_u16_r5.shifted());
+        polys.avm_alu_alu_u16_r3_shift = Polynomial(polys.avm_alu_alu_u16_r3.shifted());
+        polys.avm_alu_alu_u16_r4_shift = Polynomial(polys.avm_alu_alu_u16_r4.shifted());
+        polys.avm_alu_alu_u16_r7_shift = Polynomial(polys.avm_alu_alu_u16_r7.shifted());
+        polys.avm_alu_alu_u16_r1_shift = Polynomial(polys.avm_alu_alu_u16_r1.shifted());
+        polys.avm_alu_alu_u16_r0_shift = Polynomial(polys.avm_alu_alu_u16_r0.shifted());
+        polys.avm_alu_alu_u16_r6_shift = Polynomial(polys.avm_alu_alu_u16_r6.shifted());
+        polys.avm_alu_alu_u16_r2_shift = Polynomial(polys.avm_alu_alu_u16_r2.shifted());
+        polys.avm_main_pc_shift = Polynomial(polys.avm_main_pc.shifted());
+        polys.avm_main_internal_return_ptr_shift = Polynomial(polys.avm_main_internal_return_ptr.shifted());
 
         return polys;
     }
@@ -298,13 +313,17 @@ class AvmCircuitBuilder {
             }
             for (auto r : lookup_result) {
                 if (r != 0) {
-                    info("Lookup ", lookup_name, " failed.");
+                    throw_or_abort(format("Lookup ", lookup_name, " failed."));
                     return false;
                 }
             }
             return true;
         };
 
+        if (!evaluate_relation.template operator()<Avm_vm::avm_mem<FF>>("avm_mem",
+                                                                        Avm_vm::get_relation_label_avm_mem)) {
+            return false;
+        }
         if (!evaluate_relation.template operator()<Avm_vm::avm_alu<FF>>("avm_alu",
                                                                         Avm_vm::get_relation_label_avm_alu)) {
             return false;
@@ -313,15 +332,20 @@ class AvmCircuitBuilder {
                                                                          Avm_vm::get_relation_label_avm_main)) {
             return false;
         }
-        if (!evaluate_relation.template operator()<Avm_vm::avm_mem<FF>>("avm_mem",
-                                                                        Avm_vm::get_relation_label_avm_mem)) {
-            return false;
-        }
 
-        if (!evaluate_logderivative.template operator()<equiv_inter_reg_alu_relation<FF>>("equiv_inter_reg_alu")) {
+        if (!evaluate_logderivative.template operator()<perm_main_alu_relation<FF>>("PERM_MAIN_ALU")) {
             return false;
         }
-        if (!evaluate_logderivative.template operator()<equiv_tag_err_relation<FF>>("equiv_tag_err")) {
+        if (!evaluate_logderivative.template operator()<perm_main_mem_a_relation<FF>>("PERM_MAIN_MEM_A")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<perm_main_mem_b_relation<FF>>("PERM_MAIN_MEM_B")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<perm_main_mem_c_relation<FF>>("PERM_MAIN_MEM_C")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<incl_main_tag_err_relation<FF>>("INCL_MAIN_TAG_ERR")) {
             return false;
         }
 

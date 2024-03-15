@@ -19,6 +19,7 @@ class FFTerm {
 
     static bool isFiniteField() { return true; };
     static bool isInteger() { return false; };
+    static bool isBitVector() { return false; };
 
     FFTerm()
         : solver(nullptr)
@@ -72,7 +73,7 @@ class FFTerm {
 
     void mod(){};
 
-    operator std::string() const { return term.isFiniteFieldValue() ? term.getFiniteFieldValue() : term.toString(); };
+    operator std::string() const { return smt_solver::stringify_term(term); };
     operator cvc5::Term() const { return term; };
 
     ~FFTerm() = default;

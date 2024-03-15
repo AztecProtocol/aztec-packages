@@ -23,22 +23,17 @@ import {
   PublicKernelCircuitPublicInputs,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
-import {
-  fr,
-  makeNewContractData,
-  makeNewSideEffect,
-  makeNewSideEffectLinkedToNoteHash,
-  makeProof,
-} from '@aztec/circuits.js/testing';
+import { fr, makeNewSideEffect, makeNewSideEffectLinkedToNoteHash, makeProof } from '@aztec/circuits.js/testing';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, InboxAbi, NewInboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
   L1Publisher,
   RealRollupCircuitSimulator,
   SoloBlockBuilder,
+  WASMSimulator,
   getL1Publisher,
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
@@ -85,6 +80,7 @@ describe('L1Publisher integration', () => {
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
   let inbox: GetContractReturnType<typeof InboxAbi, WalletClient<HttpTransport, Chain>>;
+  let newInbox: GetContractReturnType<typeof NewInboxAbi, WalletClient<HttpTransport, Chain>>;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
@@ -102,7 +98,7 @@ describe('L1Publisher integration', () => {
   let feeRecipient: AztecAddress;
 
   // To overwrite the test data, set this to true and run the tests.
-  const OVERWRITE_TEST_DATA = false;
+  const OVERWRITE_TEST_DATA = !!process.env.OVERWRITE_TEST_DATA;
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
@@ -128,6 +124,12 @@ describe('L1Publisher integration', () => {
       abi: InboxAbi,
       client: walletClient,
     });
+    const newInboxAddress = await rollup.read.NEW_INBOX();
+    newInbox = getContract({
+      address: newInboxAddress,
+      abi: NewInboxAbi,
+      client: walletClient,
+    });
     outbox = getContract({
       address: outboxAddress,
       abi: OutboxAbi,
@@ -136,7 +138,7 @@ describe('L1Publisher integration', () => {
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     const vks = getVerificationKeys();
-    const simulator = new RealRollupCircuitSimulator();
+    const simulator = new RealRollupCircuitSimulator(new WASMSimulator());
     const prover = new EmptyRollupProver();
     builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
 
@@ -185,7 +187,6 @@ describe('L1Publisher integration', () => {
     processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] =
       SideEffectLinkedToNoteHash.empty();
     processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
-    processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
     processedTx.data.end.encryptedLogsHash = to2Fields(processedTx.encryptedLogs.hash());
     processedTx.data.end.unencryptedLogsHash = to2Fields(processedTx.unencryptedLogs.hash());
 
@@ -202,6 +203,12 @@ describe('L1Publisher integration', () => {
     // Using the 0 value for the secretHash.
     const emptySecretHash = Fr.ZERO.toString();
 
+    await newInbox.write.sendL2Message(
+      [{ actor: recipient.recipient.toString(), version: BigInt(recipient.version) }, contentString, emptySecretHash],
+      {} as any,
+    );
+
+    // TODO(#4492): Nuke this when purging the old inbox
     await inbox.write.sendL2Message(
       [
         { actor: recipient.recipient.toString(), version: BigInt(recipient.version) },
@@ -266,13 +273,13 @@ describe('L1Publisher integration', () => {
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
         body: `0x${block.body.toBuffer().toString('hex')}`,
-        calldataHash: `0x${block.body.getCalldataHash().toString('hex').padStart(64, '0')}`,
+        txsEffectsHash: `0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
           contentCommitment: {
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
             txTreeHeight: Number(block.header.contentCommitment.txTreeHeight.toBigInt()),
-            txsHash: `0x${block.header.contentCommitment.txsHash.toString('hex').padStart(64, '0')}`,
+            txsEffectsHash: `0x${block.header.contentCommitment.txsEffectsHash.toString('hex').padStart(64, '0')}`,
           },
           globalVariables: {
             blockNumber: block.number,
@@ -292,10 +299,6 @@ describe('L1Publisher integration', () => {
               root: `0x${block.header.state.l1ToL2MessageTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
             },
             partialStateReference: {
-              contractTree: {
-                nextAvailableLeafIndex: block.header.state.partial.contractTree.nextAvailableLeafIndex,
-                root: `0x${block.header.state.partial.contractTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
-              },
               noteHashTree: {
                 nextAvailableLeafIndex: block.header.state.partial.noteHashTree.nextAvailableLeafIndex,
                 root: `0x${block.header.state.partial.noteHashTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
@@ -343,8 +346,8 @@ describe('L1Publisher integration', () => {
       topics: txLog.topics,
     });
 
-    // We check that the txsHash in the TxsPublished event is as expected
-    expect(topics.args.txsHash).toEqual(`0x${body.getCalldataHash().toString('hex')}`);
+    // We check that the txsEffectsHash in the TxsPublished event is as expected
+    expect(topics.args.txsEffectsHash).toEqual(`0x${body.getTxsEffectsHash().toString('hex')}`);
   });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
@@ -356,6 +359,8 @@ describe('L1Publisher integration', () => {
     const recipientAddress = AztecAddress.fromString(
       '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
     );
+
+    let newModelL1ToL2Messages: Fr[] = [];
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
       const l1ToL2Content = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 128 * i + 1 + 0x400).map(fr);
@@ -404,7 +409,7 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
+      const [block] = await builder.buildL2Block(globalVariables, txs, newModelL1ToL2Messages, l1ToL2Messages);
       prevHeader = block.header;
 
       // check that values are in the inbox
@@ -465,6 +470,9 @@ describe('L1Publisher integration', () => {
       for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
         expect(await outbox.read.contains([newL2ToL1MsgsArray[j].toString()])).toBeTruthy();
       }
+
+      // There is a 1 block lag in the new model
+      newModelL1ToL2Messages = l1ToL2Messages;
     }
   }, 360_000);
 
@@ -486,7 +494,7 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
+      const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages, l1ToL2Messages);
       prevHeader = block.header;
 
       writeJson(`empty_block_${i}`, block, l1ToL2Messages, [], AztecAddress.ZERO, deployerAccount.address);

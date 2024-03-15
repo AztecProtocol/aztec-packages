@@ -4,8 +4,7 @@ use crate::{
     public_accumulated_non_revertible_data::PublicAccumulatedNonRevertibleData,
     public_accumulated_revertible_data::PublicAccumulatedRevertibleData
 },
-    call_request::CallRequest, caller_context::CallerContext, new_contract_data::NewContractData,
-    max_block_number::MaxBlockNumber,
+    call_request::CallRequest, caller_context::CallerContext, max_block_number::MaxBlockNumber,
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
     read_request::ReadRequestContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
@@ -15,13 +14,12 @@ use crate::constants::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-    MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_NEW_CONTRACTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    MAX_PUBLIC_DATA_READS_PER_TX, NUM_FIELDS_PER_SHA256, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX,
-    MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-    MAX_REVERTIBLE_NOTE_HASHES_PER_TX, MAX_REVERTIBLE_NULLIFIERS_PER_TX,
-    MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
-    MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
-    MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    MAX_NEW_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
+    NUM_FIELDS_PER_SHA256, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
+    MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
+    MAX_REVERTIBLE_NULLIFIERS_PER_TX, MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 };
 
 use dep::std::unsafe;
@@ -50,8 +48,6 @@ struct CombinedAccumulatedData {
     // variable-length data.
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
-
-    new_contracts: [NewContractData; MAX_NEW_CONTRACTS_PER_TX],
 
     public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 
@@ -85,7 +81,6 @@ impl CombinedAccumulatedData {
             unencrypted_logs_hash: revertible.unencrypted_logs_hash,
             encrypted_log_preimages_length: revertible.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: revertible.unencrypted_log_preimages_length,
-            new_contracts: revertible.new_contracts,
             public_data_update_requests: array_concat(
                 non_revertible.public_data_update_requests,
                 revertible.public_data_update_requests
@@ -101,7 +96,7 @@ impl CombinedAccumulatedData {
 mod tests {
     use crate::abis::{
         accumulated_data::combined_accumulated_data_builder::CombinedAccumulatedDataBuilder,
-        call_request::CallRequest, caller_context::CallerContext, new_contract_data::NewContractData,
+        call_request::CallRequest, caller_context::CallerContext,
         nullifier_key_validation_request::NullifierKeyValidationRequestContext,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash}

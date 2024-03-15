@@ -69,7 +69,8 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item request hash" test
-        assert_eq(call_stack_item.hash(), 0x2812dfeffdb7553fbbdd27c03fbdf61e3aa9bab3209db39f78838508ad892803);
+        let test_data_call_stack_item_request_hash = 0x00edd2f10c0cdf776ee2fff3c799bae6df5771f5013a2d5d7154601dffdcf869;
+        assert_eq(call_stack_item.hash(), test_data_call_stack_item_request_hash);
     }
 
     #[test]
@@ -86,6 +87,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item hash" test
-        assert_eq(call_stack_item.hash(), 0x1f71c0d6bd03e409df694549b6aa83d706cfe55427152e6ec443ec64fa62d3a0);
+        let test_data_call_stack_item_hash = 0x1cec0b51f9394405a626c3b77081c96f1bdcb8bacf96960ae4749068f9b4da0d;
+        assert_eq(call_stack_item.hash(), test_data_call_stack_item_hash);
     }
 }

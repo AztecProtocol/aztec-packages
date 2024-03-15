@@ -3,18 +3,15 @@
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
-#include "barretenberg/vm/avm_trace/avm_helper.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
-#include "barretenberg/vm/tests/helpers.test.hpp"
-#include "gmock/gmock.h"
 #include <cstdint>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <string>
 #include <utility>
 
 namespace tests_avm {
 
-using namespace bb;
 using namespace bb::avm_trace;
 using namespace testing;
 
@@ -252,7 +249,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
                                "03"                             // U32
                                "0D3D2518"                       // val 222111000 = 0xD3D2518
                                "00000004"                       // dst_offset 4
-                               "25"                             // INTERNALCALL 37
+                               + to_hex(OpCode::INTERNALCALL) + // opcode INTERNALCALL
                                "00000004"                       // jmp_dest
                                + to_hex(OpCode::ADD) +          // opcode ADD
                                "00"                             // Indirect flag

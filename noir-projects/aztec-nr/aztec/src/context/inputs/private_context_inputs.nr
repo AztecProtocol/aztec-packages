@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    abis::call_context::CallContext, contrakt::contract_deployment_data::ContractDeploymentData,
+    abis::call_context::CallContext,
     header::Header
 };
 use crate::context::globals::private_global_variables::PrivateGlobalVariables;
@@ -9,7 +9,7 @@ use crate::context::globals::private_global_variables::PrivateGlobalVariables;
 struct PrivateContextInputs {
     call_context : CallContext,
     historical_header: Header,
-    contract_deployment_data: ContractDeploymentData,
     private_global_variables: PrivateGlobalVariables,
+    start_side_effect_counter: u32,
 }
 // docs:end:private-context-inputs

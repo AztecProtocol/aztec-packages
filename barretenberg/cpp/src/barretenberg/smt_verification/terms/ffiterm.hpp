@@ -20,6 +20,7 @@ class FFITerm {
 
     static bool isFiniteField() { return false; };
     static bool isInteger() { return true; };
+    static bool isBitVector() { return false; };
 
     FFITerm()
         : solver(nullptr)
@@ -67,12 +68,16 @@ class FFITerm {
     void operator==(const FFITerm& other) const;
     void operator!=(const FFITerm& other) const;
 
-    FFITerm operator^(const FFITerm& other) const;
-    void operator^=(const FFITerm& other);
+    FFITerm operator^(__attribute__((unused)) const FFITerm& other) const
+    {
+        info("Not compatible with Integers");
+        return {};
+    }
+    void operator^=(__attribute__((unused)) const FFITerm& other) { info("Not compatible with Integers"); };
 
     void mod();
 
-    operator std::string() const { return term.isIntegerValue() ? term.getIntegerValue() : term.toString(); };
+    operator std::string() const { return smt_solver::stringify_term(term); };
     operator cvc5::Term() const { return term; };
 
     ~FFITerm() = default;
@@ -113,8 +118,14 @@ class FFITerm {
 
     void operator==(const bb::fr& other) const { *this == FFITerm(other, this->solver); }
     void operator!=(const bb::fr& other) const { *this != FFITerm(other, this->solver); }
-    FFITerm operator^(const bb::fr& other) const { return *this ^ FFITerm(other, this->solver); }
-    void operator^=(const bb::fr& other) { *this ^= FFITerm(other, this->solver); }
+
+    FFITerm operator^(__attribute__((unused)) const bb::fr& other) const
+    {
+        info("Not compatible with Integers");
+        return {};
+    }
+    void operator^=(__attribute__((unused)) const bb::fr& other) { info("Not compatible with Finite Field"); }
+
     void operator<(const bb::fr& other) const;
     void operator<=(const bb::fr& other) const;
     void operator>(const bb::fr& other) const;

@@ -45,16 +45,6 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    * @param tx - The transaction to add contracts from.
    */
   public addNewContracts(tx: Tx): Promise<void> {
-    for (const contract of tx.newContracts) {
-      const contractAddress = contract.contractData.contractAddress;
-
-      if (contractAddress.isZero()) {
-        continue;
-      }
-
-      this.cache.set(contractAddress.toString(), contract);
-    }
-
     // Extract contract class and instance data from logs and add to cache for this block
     const logs = tx.unencryptedLogs.unrollLogs().map(UnencryptedL2Log.fromBuffer);
     ContractClassRegisteredEvent.fromLogs(logs, ClassRegistererAddress).forEach(e => {
@@ -76,16 +66,6 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    * @param tx - The tx's contracts to be removed
    */
   public removeNewContracts(tx: Tx): Promise<void> {
-    for (const contract of tx.newContracts) {
-      const contractAddress = contract.contractData.contractAddress;
-
-      if (contractAddress.isZero()) {
-        continue;
-      }
-
-      this.cache.delete(contractAddress.toString());
-    }
-
     // TODO(@spalladino): Can this inadvertently delete a valid contract added by another tx?
     // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
     // wouldn't that accidentally remove the contract added on the first one?
@@ -97,6 +77,10 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
       this.instanceCache.delete(e.address.toString()),
     );
     return Promise.resolve();
+  }
+
+  public async getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return this.instanceCache.get(address.toString()) ?? (await this.db.getContract(address));
   }
 
   async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
@@ -146,8 +130,9 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
  * Implements the PublicStateDB using a world-state database.
  */
 export class WorldStatePublicDB implements PublicStateDB {
-  private commitedWriteCache: Map<bigint, Fr> = new Map();
-  private uncommitedWriteCache: Map<bigint, Fr> = new Map();
+  private committedWriteCache: Map<bigint, Fr> = new Map();
+  private checkpointedWriteCache: Map<bigint, Fr> = new Map();
+  private uncommittedWriteCache: Map<bigint, Fr> = new Map();
 
   constructor(private db: MerkleTreeOperations) {}
 
@@ -159,13 +144,17 @@ export class WorldStatePublicDB implements PublicStateDB {
    */
   public async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
     const leafSlot = computePublicDataTreeLeafSlot(contract, slot).value;
-    const uncommited = this.uncommitedWriteCache.get(leafSlot);
-    if (uncommited !== undefined) {
-      return uncommited;
+    const uncommitted = this.uncommittedWriteCache.get(leafSlot);
+    if (uncommitted !== undefined) {
+      return uncommitted;
     }
-    const commited = this.commitedWriteCache.get(leafSlot);
-    if (commited !== undefined) {
-      return commited;
+    const checkpointed = this.checkpointedWriteCache.get(leafSlot);
+    if (checkpointed !== undefined) {
+      return checkpointed;
+    }
+    const committed = this.committedWriteCache.get(leafSlot);
+    if (committed !== undefined) {
+      return committed;
     }
 
     const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
@@ -189,7 +178,7 @@ export class WorldStatePublicDB implements PublicStateDB {
    */
   public storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<void> {
     const index = computePublicDataTreeLeafSlot(contract, slot).value;
-    this.uncommitedWriteCache.set(index, newValue);
+    this.uncommittedWriteCache.set(index, newValue);
     return Promise.resolve();
   }
 
@@ -198,18 +187,36 @@ export class WorldStatePublicDB implements PublicStateDB {
    * @returns Nothing.
    */
   commit(): Promise<void> {
-    for (const [k, v] of this.uncommitedWriteCache) {
-      this.commitedWriteCache.set(k, v);
+    for (const [k, v] of this.checkpointedWriteCache) {
+      this.committedWriteCache.set(k, v);
     }
-    return this.rollback();
+    // uncommitted writes take precedence over checkpointed writes
+    // since they are the most recent
+    for (const [k, v] of this.uncommittedWriteCache) {
+      this.committedWriteCache.set(k, v);
+    }
+    return this.rollbackToCommit();
   }
 
   /**
    * Rollback the pending changes.
    * @returns Nothing.
    */
-  rollback(): Promise<void> {
-    this.uncommitedWriteCache = new Map<bigint, Fr>();
+  async rollbackToCommit(): Promise<void> {
+    await this.rollbackToCheckpoint();
+    this.checkpointedWriteCache = new Map<bigint, Fr>();
+    return Promise.resolve();
+  }
+
+  checkpoint(): Promise<void> {
+    for (const [k, v] of this.uncommittedWriteCache) {
+      this.checkpointedWriteCache.set(k, v);
+    }
+    return this.rollbackToCheckpoint();
+  }
+
+  rollbackToCheckpoint(): Promise<void> {
+    this.uncommittedWriteCache = new Map<bigint, Fr>();
     return Promise.resolve();
   }
 }

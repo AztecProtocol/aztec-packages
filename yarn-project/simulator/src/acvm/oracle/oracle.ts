@@ -253,11 +253,9 @@ export class Oracle {
     return values.map(toACVMField);
   }
 
-  storageWrite([startStorageSlot]: ACVMField[], values: ACVMField[]) {
-    this.typedOracle.storageWrite(fromACVMField(startStorageSlot), values.map(fromACVMField));
-
-    // We return 0 here as we MUST return something, but the value is not used.
-    return '0';
+  async storageWrite([startStorageSlot]: ACVMField[], values: ACVMField[]): Promise<ACVMField[]> {
+    const newValues = await this.typedOracle.storageWrite(fromACVMField(startStorageSlot), values.map(fromACVMField));
+    return newValues.map(toACVMField);
   }
 
   emitEncryptedLog(
@@ -305,7 +303,7 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [functionSelector]: ACVMField[],
     [argsHash]: ACVMField[],
-    [sideffectCounter]: ACVMField[],
+    [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
     [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField[]> {
@@ -313,7 +311,7 @@ export class Oracle {
       AztecAddress.fromField(fromACVMField(contractAddress)),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
-      frToNumber(fromACVMField(sideffectCounter)),
+      frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
@@ -324,6 +322,7 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [functionSelector]: ACVMField[],
     [argsHash]: ACVMField[],
+    [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
     [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField[]> {
@@ -331,6 +330,7 @@ export class Oracle {
       AztecAddress.fromField(fromACVMField(contractAddress)),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
+      frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
@@ -341,7 +341,7 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [functionSelector]: ACVMField[],
     [argsHash]: ACVMField[],
-    [sideffectCounter]: ACVMField[],
+    [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
     [isDelegateCall]: ACVMField[],
   ) {
@@ -349,7 +349,7 @@ export class Oracle {
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
-      frToNumber(fromACVMField(sideffectCounter)),
+      frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );

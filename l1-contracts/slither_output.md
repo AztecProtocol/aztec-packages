@@ -18,60 +18,53 @@ Summary
 Impact: High
 Confidence: Medium
  - [ ] ID-0
-Function [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L53-L91) is a non-protected setter archive is written
+Function [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L101) is a non-protected setter archive is written
 
-src/core/Rollup.sol#L53-L91
+src/core/Rollup.sol#L58-L101
 
 
 ## uninitialized-local
 Impact: Medium
 Confidence: Medium
  - [ ] ID-1
-[HeaderLib.decode(bytes).header](src/core/libraries/HeaderLib.sol#L150) is a local variable never initialized
+[HeaderLib.decode(bytes).header](src/core/libraries/HeaderLib.sol#L148) is a local variable never initialized
 
-src/core/libraries/HeaderLib.sol#L150
+src/core/libraries/HeaderLib.sol#L148
 
 
  - [ ] ID-2
-[TxsDecoder.decode(bytes).vars](src/core/libraries/decoders/TxsDecoder.sol#L86) is a local variable never initialized
+[TxsDecoder.decode(bytes).vars](src/core/libraries/decoders/TxsDecoder.sol#L79) is a local variable never initialized
 
-src/core/libraries/decoders/TxsDecoder.sol#L86
+src/core/libraries/decoders/TxsDecoder.sol#L79
 
 
 ## unused-return
 Impact: Medium
 Confidence: Medium
  - [ ] ID-3
-[Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L53-L91) ignores return value by [(l1ToL2Msgs,l2ToL1Msgs) = MessagesDecoder.decode(_body)](src/core/Rollup.sol#L69)
+[Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L101) ignores return value by [(l1ToL2Msgs,l2ToL1Msgs) = MessagesDecoder.decode(_body)](src/core/Rollup.sol#L74)
 
-src/core/Rollup.sol#L53-L91
+src/core/Rollup.sol#L58-L101
 
 
 ## pess-dubious-typecast
 Impact: Medium
 Confidence: High
  - [ ] ID-4
-Dubious typecast in [TxsDecoder.read4(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L359-L361):
-	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(slice(_data,_offset,4))))](src/core/libraries/decoders/TxsDecoder.sol#L360)
+Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L314-L316):
+	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L315)
 
-src/core/libraries/decoders/TxsDecoder.sol#L359-L361
+src/core/libraries/decoders/TxsDecoder.sol#L314-L316
 
 
  - [ ] ID-5
-Dubious typecast in [MessagesDecoder.read1(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L158-L160):
-	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L159)
-
-src/core/libraries/decoders/MessagesDecoder.sol#L158-L160
-
-
- - [ ] ID-6
 Dubious typecast in [Outbox.sendL1Messages(bytes32[])](src/core/messagebridge/Outbox.sol#L38-L46):
 	uint256 => uint32 casting occurs in [version = uint32(REGISTRY.getVersionFor(msg.sender))](src/core/messagebridge/Outbox.sol#L40)
 
 src/core/messagebridge/Outbox.sol#L38-L46
 
 
- - [ ] ID-7
+ - [ ] ID-6
 Dubious typecast in [Inbox.sendL2Message(DataStructures.L2Actor,uint32,bytes32,bytes32)](src/core/messagebridge/Inbox.sol#L45-L91):
 	uint256 => uint64 casting occurs in [fee = uint64(msg.value)](src/core/messagebridge/Inbox.sol#L64)
 	uint256 => uint32 casting occurs in [entries.insert(key,fee,uint32(_recipient.version),_deadline,_errIncompatibleEntryArguments)](src/core/messagebridge/Inbox.sol#L76)
@@ -79,53 +72,58 @@ Dubious typecast in [Inbox.sendL2Message(DataStructures.L2Actor,uint32,bytes32,b
 src/core/messagebridge/Inbox.sol#L45-L91
 
 
- - [ ] ID-8
-Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L349-L351):
-	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L350)
+ - [ ] ID-7
+Dubious typecast in [TxsDecoder.read4(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L324-L326):
+	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(slice(_data,_offset,4))))](src/core/libraries/decoders/TxsDecoder.sol#L325)
 
-src/core/libraries/decoders/TxsDecoder.sol#L349-L351
+src/core/libraries/decoders/TxsDecoder.sol#L324-L326
+
+
+ - [ ] ID-8
+Dubious typecast in [MessagesDecoder.read4(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L160-L162):
+	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L161)
+
+src/core/libraries/decoders/MessagesDecoder.sol#L160-L162
 
 
  - [ ] ID-9
-Dubious typecast in [MessagesDecoder.read4(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L168-L170):
-	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L169)
-
-src/core/libraries/decoders/MessagesDecoder.sol#L168-L170
-
-
- - [ ] ID-10
-Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L145-L189):
-	bytes => bytes32 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L153-L155)
-	bytes => bytes4 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L153-L155)
-	bytes => bytes32 casting occurs in [header.contentCommitment.txTreeHeight = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L158)
-	bytes => bytes32 casting occurs in [header.contentCommitment.txsHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L159)
-	bytes => bytes32 casting occurs in [header.contentCommitment.inHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L160)
-	bytes => bytes32 casting occurs in [header.contentCommitment.outHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L161)
-	bytes => bytes32 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L164-L166)
-	bytes => bytes4 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L164-L166)
-	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L167-L169)
-	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L167-L169)
-	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L170-L172)
-	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L170-L172)
-	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.contractTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L173-L175)
-	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.contractTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L173-L175)
-	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L176-L178)
-	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L176-L178)
-	bytes => bytes32 casting occurs in [header.globalVariables.chainId = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L181)
-	bytes => bytes32 casting occurs in [header.globalVariables.version = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L182)
-	bytes => bytes32 casting occurs in [header.globalVariables.blockNumber = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L183)
-	bytes => bytes32 casting occurs in [header.globalVariables.timestamp = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L184)
-	bytes => bytes20 casting occurs in [header.globalVariables.coinbase = address(bytes20(_header))](src/core/libraries/HeaderLib.sol#L185)
-	bytes => bytes32 casting occurs in [header.globalVariables.feeRecipient = bytes32(_header)](src/core/libraries/HeaderLib.sol#L186)
-
-src/core/libraries/HeaderLib.sol#L145-L189
-
-
- - [ ] ID-11
 Dubious typecast in [Inbox.batchConsume(bytes32[],address)](src/core/messagebridge/Inbox.sol#L122-L143):
 	uint256 => uint32 casting occurs in [expectedVersion = uint32(REGISTRY.getVersionFor(msg.sender))](src/core/messagebridge/Inbox.sol#L128)
 
 src/core/messagebridge/Inbox.sol#L122-L143
+
+
+ - [ ] ID-10
+Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L143-L184):
+	bytes => bytes32 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L151-L153)
+	bytes => bytes4 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L151-L153)
+	bytes => bytes32 casting occurs in [header.contentCommitment.txTreeHeight = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L156)
+	bytes => bytes32 casting occurs in [header.contentCommitment.txsEffectsHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L157)
+	bytes => bytes32 casting occurs in [header.contentCommitment.inHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L158)
+	bytes => bytes32 casting occurs in [header.contentCommitment.outHash = bytes32(_header)](src/core/libraries/HeaderLib.sol#L159)
+	bytes => bytes32 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L162-L164)
+	bytes => bytes4 casting occurs in [header.stateReference.l1ToL2MessageTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L162-L164)
+	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L165-L167)
+	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.noteHashTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L165-L167)
+	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L168-L170)
+	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.nullifierTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L168-L170)
+	bytes => bytes32 casting occurs in [header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L171-L173)
+	bytes => bytes4 casting occurs in [header.stateReference.partialStateReference.publicDataTree = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L171-L173)
+	bytes => bytes32 casting occurs in [header.globalVariables.chainId = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L176)
+	bytes => bytes32 casting occurs in [header.globalVariables.version = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L177)
+	bytes => bytes32 casting occurs in [header.globalVariables.blockNumber = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L178)
+	bytes => bytes32 casting occurs in [header.globalVariables.timestamp = uint256(bytes32(_header))](src/core/libraries/HeaderLib.sol#L179)
+	bytes => bytes20 casting occurs in [header.globalVariables.coinbase = address(bytes20(_header))](src/core/libraries/HeaderLib.sol#L180)
+	bytes => bytes32 casting occurs in [header.globalVariables.feeRecipient = bytes32(_header)](src/core/libraries/HeaderLib.sol#L181)
+
+src/core/libraries/HeaderLib.sol#L143-L184
+
+
+ - [ ] ID-11
+Dubious typecast in [MessagesDecoder.read1(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L150-L152):
+	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L151)
+
+src/core/libraries/decoders/MessagesDecoder.sol#L150-L152
 
 
 ## missing-zero-check
@@ -142,17 +140,6 @@ src/core/messagebridge/NewInbox.sol#L41
 Impact: Low
 Confidence: Medium
  - [ ] ID-13
-Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L53-L91):
-	External calls:
-	- [inbox.batchConsume(l1ToL2Msgs,msg.sender)](src/core/Rollup.sol#L85)
-	- [outbox.sendL1Messages(l2ToL1Msgs)](src/core/Rollup.sol#L88)
-	Event emitted after the call(s):
-	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L90)
-
-src/core/Rollup.sol#L53-L91
-
-
- - [ ] ID-14
 Reentrancy in [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L62-L99):
 	External calls:
 	- [index = currentTree.insertLeaf(leaf)](src/core/messagebridge/NewInbox.sol#L95)
@@ -160,6 +147,18 @@ Reentrancy in [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](s
 	- [LeafInserted(inProgress,index,leaf)](src/core/messagebridge/NewInbox.sol#L96)
 
 src/core/messagebridge/NewInbox.sol#L62-L99
+
+
+ - [ ] ID-14
+Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L101):
+	External calls:
+	- [inbox.batchConsume(l1ToL2Msgs,msg.sender)](src/core/Rollup.sol#L90)
+	- [inHash = NEW_INBOX.consume()](src/core/Rollup.sol#L92)
+	- [outbox.sendL1Messages(l2ToL1Msgs)](src/core/Rollup.sol#L98)
+	Event emitted after the call(s):
+	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L100)
+
+src/core/Rollup.sol#L58-L101
 
 
 ## timestamp
@@ -174,11 +173,11 @@ src/core/messagebridge/Inbox.sol#L122-L143
 
 
  - [ ] ID-16
-[HeaderLib.validate(HeaderLib.Header,uint256,uint256,bytes32)](src/core/libraries/HeaderLib.sol#L108-L138) uses timestamp for comparisons
+[HeaderLib.validate(HeaderLib.Header,uint256,uint256,bytes32)](src/core/libraries/HeaderLib.sol#L106-L136) uses timestamp for comparisons
 	Dangerous comparisons:
-	- [_header.globalVariables.timestamp > block.timestamp](src/core/libraries/HeaderLib.sol#L122)
+	- [_header.globalVariables.timestamp > block.timestamp](src/core/libraries/HeaderLib.sol#L120)
 
-src/core/libraries/HeaderLib.sol#L108-L138
+src/core/libraries/HeaderLib.sol#L106-L136
 
 
  - [ ] ID-17
@@ -215,10 +214,10 @@ src/core/messagebridge/Registry.sol#L22-L129
 
 
  - [ ] ID-21
-The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L27-L100) contract:
-	[Rollup.constructor(IRegistry,IAvailabilityOracle)](src/core/Rollup.sol#L39-L44)
+The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L30-L110) contract:
+	[Rollup.constructor(IRegistry,IAvailabilityOracle)](src/core/Rollup.sol#L43-L49)
 
-src/core/Rollup.sol#L27-L100
+src/core/Rollup.sol#L30-L110
 
 
  - [ ] ID-22
@@ -249,18 +248,18 @@ src/core/messagebridge/NewInbox.sol#L25-L128
 Impact: Informational
 Confidence: High
  - [ ] ID-25
-[MessagesDecoder.decode(bytes)](src/core/libraries/decoders/MessagesDecoder.sol#L60-L150) uses assembly
+[MessagesDecoder.decode(bytes)](src/core/libraries/decoders/MessagesDecoder.sol#L60-L142) uses assembly
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L79-L81)
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L112-L118)
 
-src/core/libraries/decoders/MessagesDecoder.sol#L60-L150
+src/core/libraries/decoders/MessagesDecoder.sol#L60-L142
 
 
  - [ ] ID-26
-[TxsDecoder.computeRoot(bytes32[])](src/core/libraries/decoders/TxsDecoder.sol#L291-L310) uses assembly
-	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L298-L300)
+[TxsDecoder.computeRoot(bytes32[])](src/core/libraries/decoders/TxsDecoder.sol#L256-L275) uses assembly
+	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L263-L265)
 
-src/core/libraries/decoders/TxsDecoder.sol#L291-L310
+src/core/libraries/decoders/TxsDecoder.sol#L256-L275
 
 
 ## dead-code
@@ -316,30 +315,30 @@ src/core/messagebridge/Inbox.sol#L148-L153
 Impact: Informational
 Confidence: Medium
  - [ ] ID-34
-Variable [Constants.LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L129) is too similar to [Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L122)
+Variable [Constants.LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L132) is too similar to [Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L125)
 
-src/core/libraries/ConstantsGen.sol#L129
+src/core/libraries/ConstantsGen.sol#L132
 
 
  - [ ] ID-35
-Variable [Constants.L1_TO_L2_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L109) is too similar to [Constants.L2_TO_L1_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L110)
+Variable [Constants.L1_TO_L2_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L112) is too similar to [Constants.L2_TO_L1_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L113)
 
-src/core/libraries/ConstantsGen.sol#L109
+src/core/libraries/ConstantsGen.sol#L112
 
 
  - [ ] ID-36
-Variable [Rollup.AVAILABILITY_ORACLE](src/core/Rollup.sol#L30) is too similar to [Rollup.constructor(IRegistry,IAvailabilityOracle)._availabilityOracle](src/core/Rollup.sol#L39)
+Variable [Rollup.AVAILABILITY_ORACLE](src/core/Rollup.sol#L33) is too similar to [Rollup.constructor(IRegistry,IAvailabilityOracle)._availabilityOracle](src/core/Rollup.sol#L43)
 
-src/core/Rollup.sol#L30
+src/core/Rollup.sol#L33
 
 
 ## constable-states
 Impact: Optimization
 Confidence: High
  - [ ] ID-37
-[Rollup.lastWarpedBlockTs](src/core/Rollup.sol#L37) should be constant 
+[Rollup.lastWarpedBlockTs](src/core/Rollup.sol#L41) should be constant 
 
-src/core/Rollup.sol#L37
+src/core/Rollup.sol#L41
 
 
 ## pess-multiple-storage-read

@@ -12,9 +12,8 @@ use crate::{
     RETURN_VALUES_LENGTH, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS
 },
-    contrakt::contract_deployment_data::ContractDeploymentData, header::Header, hash::pedersen_hash,
-    messaging::l2_to_l1_message::L2ToL1Message, traits::{Deserialize, Hash, Serialize},
-    utils::reader::Reader
+    header::Header, hash::pedersen_hash, messaging::l2_to_l1_message::L2ToL1Message,
+    traits::{Deserialize, Hash, Serialize}, utils::reader::Reader
 };
 
 struct PrivateCircuitPublicInputs {
@@ -36,6 +35,8 @@ struct PrivateCircuitPublicInputs {
     private_call_stack_hashes: [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
     public_call_stack_hashes: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     new_l2_to_l1_msgs: [L2ToL1Message; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+
+    start_side_effect_counter : u32,
     end_side_effect_counter : u32,
 
     encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
@@ -48,8 +49,6 @@ struct PrivateCircuitPublicInputs {
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
     historical_header: Header,
-
-    contract_deployment_data: ContractDeploymentData,
 
     // Note: The following 2 values are not redundant to the values in self.historical_header.global_variables because
     // they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
@@ -72,13 +71,13 @@ impl Eq for PrivateCircuitPublicInputs {
         (self.private_call_stack_hashes == other.private_call_stack_hashes) &
         (self.public_call_stack_hashes == other.public_call_stack_hashes) &
         (self.new_l2_to_l1_msgs == other.new_l2_to_l1_msgs) &
+        (self.start_side_effect_counter == other.start_side_effect_counter) &
         (self.end_side_effect_counter == other.end_side_effect_counter) &
         (self.encrypted_logs_hash == other.encrypted_logs_hash) &
         (self.unencrypted_logs_hash == other.unencrypted_logs_hash) &
         (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length) &
         (self.unencrypted_log_preimages_length == other.unencrypted_log_preimages_length) &
         self.historical_header.eq(other.historical_header) &
-        self.contract_deployment_data.eq(other.contract_deployment_data) &
         self.chain_id.eq(other.chain_id) &
         self.version.eq(other.version)
     }
@@ -115,13 +114,13 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
             fields.extend_from_array(self.new_l2_to_l1_msgs[i].serialize());
         }
+        fields.push(self.start_side_effect_counter as Field);
         fields.push(self.end_side_effect_counter as Field);
         fields.extend_from_array(self.encrypted_logs_hash);
         fields.extend_from_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
         fields.extend_from_array(self.historical_header.serialize());
-        fields.extend_from_array(self.contract_deployment_data.serialize());
         fields.push(self.chain_id);
         fields.push(self.version);
 
@@ -149,13 +148,13 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             private_call_stack_hashes: reader.read_array([0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL]),
             public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
             new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
+            start_side_effect_counter: reader.read() as u32,
             end_side_effect_counter: reader.read() as u32,
             encrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
             unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
             encrypted_log_preimages_length: reader.read(),
             unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
-            contract_deployment_data: reader.read_struct(ContractDeploymentData::deserialize),
             chain_id: reader.read(),
             version: reader.read(),
         };
@@ -185,5 +184,6 @@ fn empty_hash() {
     let hash = inputs.hash();
 
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
-    assert_eq(hash, 0x252f337c29ffadba3745c37ae3163c5e2955ae9552d4d637ae77ecb118610d7f);
+    let test_data_empty_hash = 0x23c9b1f89ddf144a2751a74a9179ca41bb8426654fdbb8a69b8f3fad94dbeac6;
+    assert_eq(hash, test_data_empty_hash);
 }

@@ -11,11 +11,6 @@ contract ImportTest {
         ManyNotesADeepStructTestCodeGenStruct
     };
 
-    // TODO(@spalladino): Delete all empty constructors
-    #[aztec(private)]
-    fn constructor(
-    ) {}
-
     // Calls the testCodeGen on the Test contract at the target address
     // Used for testing calling a function with arguments of multiple types
     // See yarn-project/simulator/src/client/private_execution.ts
@@ -71,7 +66,7 @@ contract ImportTest {
     #[aztec(public)]
     fn pubCallOpenFn(target: AztecAddress) -> Field {
         let test_contract_instance = TestPublicContextInterface::at(target);
-        let ret = test_contract_instance.create_nullifier_public(context, 1, 2);
+        let ret = test_contract_instance.create_nullifier_public(&mut context, 1, 2);
 
         ret[0]
     }
