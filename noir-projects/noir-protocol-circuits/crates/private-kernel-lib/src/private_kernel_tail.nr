@@ -1,14 +1,11 @@
-use crate::{
-    common, nullifier_read_request_reset::NullifierReadRequestResetHints,
-    read_request_reset::reset_read_requests
-};
+use crate::common;
 use dep::std::{cmp::Eq, option::Option, unsafe};
+use dep::reset_kernel_lib::{NullifierReadRequestHints, reset_read_requests};
 use dep::types::{
     abis::{
     call_request::CallRequest, nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     kernel_data::{PrivateKernelInnerData, PrivateKernelTailData},
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputsBuilder, PrivateKernelTailCircuitPublicInputs},
-    membership_witness::{MembershipWitness, NullifierMembershipWitness},
     side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
 },
     constants::{
@@ -28,7 +25,7 @@ struct PrivateKernelTailCircuitPrivateInputs {
     read_commitment_hints: [u64; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     sorted_new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_new_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-    nullifier_read_request_reset_hints: NullifierReadRequestResetHints,
+    nullifier_read_request_hints: NullifierReadRequestHints,
     nullifier_commitment_hints: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
 }
@@ -45,7 +42,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
         let pending_nullifiers = self.previous_kernel.public_inputs.end.new_nullifiers;
 
-        let hints = self.nullifier_read_request_reset_hints;
+        let hints = self.nullifier_read_request_hints;
 
         let nullifier_tree_root = public_inputs.constants.historical_header.state.partial.nullifier_tree.root;
 
@@ -109,11 +106,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
         public_inputs.end.note_hash_read_requests = BoundedVec::new();
     }
 
-    fn assert_sorted_counters<T, N>(
-        original: [T; N],
-        sorted: [T; N],
-        indexes: [u64; N]
-    ) where T: Eq + Ordered + Empty {
+    fn assert_sorted_counters<T, N>(original: [T; N], sorted: [T; N], indexes: [u64; N]) where T: Eq + Ordered + Empty {
         let mut prev_was_empty = false;
 
         for i in 0..N {
@@ -260,9 +253,9 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
 mod tests {
     use dep::std::{cmp::Eq, unsafe};
-    use crate::{
-        nullifier_read_request_reset::NullifierReadRequestResetHintsBuilder,
-        private_kernel_tail::PrivateKernelTailCircuitPrivateInputs,
+    use crate::{private_kernel_tail::PrivateKernelTailCircuitPrivateInputs};
+    use dep::reset_kernel_lib::{
+        tests::nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
         read_request_reset::{PendingReadHint, ReadRequestState, ReadRequestStatus}
     };
     use dep::types::constants::{
@@ -283,7 +276,7 @@ mod tests {
         previous_kernel: PreviousKernelDataBuilder,
         read_commitment_hints: [u64; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
         nullifier_commitment_hints: [u64; MAX_NEW_NULLIFIERS_PER_TX],
-        nullifier_read_request_reset_hints_builder: NullifierReadRequestResetHintsBuilder,
+        nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder,
     }
 
     impl PrivateKernelTailInputsBuilder {
@@ -292,7 +285,7 @@ mod tests {
                 previous_kernel: PreviousKernelDataBuilder::new(false),
                 read_commitment_hints: [0; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
                 nullifier_commitment_hints: [0; MAX_NEW_NULLIFIERS_PER_TX],
-                nullifier_read_request_reset_hints_builder: NullifierReadRequestResetHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX)
+                nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX)
             }
         }
 
@@ -332,10 +325,10 @@ mod tests {
         pub fn add_nullifier_pending_read(&mut self, nullifier_index_offset_one: u64) {
             let nullifier_index = nullifier_index_offset_one + 1; // + 1 is for the first nullifier
             let read_request_index = self.previous_kernel.add_read_request_for_pending_nullifier(nullifier_index);
-            let hint_index = self.nullifier_read_request_reset_hints_builder.pending_read_hints.len();
+            let hint_index = self.nullifier_read_request_hints_builder.pending_read_hints.len();
             let hint = PendingReadHint { read_request_index, pending_value_index: nullifier_index };
-            self.nullifier_read_request_reset_hints_builder.pending_read_hints.push(hint);
-            self.nullifier_read_request_reset_hints_builder.read_request_statuses[read_request_index] = ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
+            self.nullifier_read_request_hints_builder.pending_read_hints.push(hint);
+            self.nullifier_read_request_hints_builder.read_request_statuses[read_request_index] = ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
         }
 
         pub fn nullify_transient_commitment(&mut self, nullifier_index: Field, commitment_index: u64) {
@@ -389,7 +382,7 @@ mod tests {
                 read_commitment_hints: sorted_read_commitment_hints,
                 sorted_new_nullifiers,
                 sorted_new_nullifiers_indexes,
-                nullifier_read_request_reset_hints: self.nullifier_read_request_reset_hints_builder.to_hints(),
+                nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 nullifier_commitment_hints: sorted_nullifier_commitment_hints,
                 master_nullifier_secret_keys: unsafe::zeroed()
             };
@@ -486,10 +479,10 @@ mod tests {
 
         builder.append_nullifiers(3);
         builder.add_nullifier_pending_read(1);
-        let mut hint = builder.nullifier_read_request_reset_hints_builder.pending_read_hints.pop();
+        let mut hint = builder.nullifier_read_request_hints_builder.pending_read_hints.pop();
         assert(hint.pending_value_index == 2);
         hint.pending_value_index = 1;
-        builder.nullifier_read_request_reset_hints_builder.pending_read_hints.push(hint);
+        builder.nullifier_read_request_hints_builder.pending_read_hints.push(hint);
 
         builder.failed();
     }

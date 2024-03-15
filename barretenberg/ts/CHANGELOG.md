@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.28.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.28.0...barretenberg.js-v0.28.1) (2024-03-14)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.28.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.27.2...barretenberg.js-v0.28.0) (2024-03-14)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.27.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.27.1...barretenberg.js-v0.27.2) (2024-03-13)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.27.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.27.0...barretenberg.js-v0.27.1) (2024-03-12)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.27.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.26.6...barretenberg.js-v0.27.0) (2024-03-12)
+
+
+### Miscellaneous
+
+* Move alpine containers to ubuntu ([#5026](https://github.com/AztecProtocol/aztec-packages/issues/5026)) ([d483e67](https://github.com/AztecProtocol/aztec-packages/commit/d483e678e4b2558f74c3b79083cf2257d6eafe0c)), closes [#4708](https://github.com/AztecProtocol/aztec-packages/issues/4708)
+
+## [0.26.6](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.26.5...barretenberg.js-v0.26.6) (2024-03-08)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.26.5](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.26.4...barretenberg.js-v0.26.5) (2024-03-07)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
 ## [0.26.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.26.3...barretenberg.js-v0.26.4) (2024-03-06)
 
 

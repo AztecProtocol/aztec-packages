@@ -5,11 +5,13 @@ import {
   ContractStorageUpdateRequest,
   GlobalVariables,
   L2ToL1Message,
+  ReadRequest,
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
+import { createSimulationError } from '../common/errors.js';
 import { PublicExecution, PublicExecutionResult } from '../public/execution.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
@@ -91,19 +93,30 @@ export function temporaryConvertAvmResults(
   // TODO(follow up in pr tree): NOT SUPPORTED YET, make sure hashing and log resolution is done correctly
   // Disabled.
   const nestedExecutions: PublicExecutionResult[] = [];
+  const nullifierReadRequests: ReadRequest[] = [];
+  const nullifierNonExistentReadRequests: ReadRequest[] = [];
   const newNullifiers: SideEffectLinkedToNoteHash[] = [];
   const unencryptedLogs = FunctionL2Logs.empty();
   const newL2ToL1Messages = newWorldState.newL1Messages.map(() => L2ToL1Message.empty());
+  // TODO keep track of side effect counters
+  const startSideEffectCounter = Fr.ZERO;
+  const endSideEffectCounter = Fr.ZERO;
 
   return {
     execution,
+    nullifierReadRequests,
+    nullifierNonExistentReadRequests,
     newNoteHashes,
     newL2ToL1Messages,
+    startSideEffectCounter,
+    endSideEffectCounter,
     newNullifiers,
     contractStorageReads,
     contractStorageUpdateRequests,
     returnValues,
     nestedExecutions,
     unencryptedLogs,
+    reverted: result.reverted,
+    revertReason: result.revertReason ? createSimulationError(result.revertReason) : undefined,
   };
 }

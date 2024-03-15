@@ -27,7 +27,7 @@ import {
 import { ContractClassIdPreimage, Point } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { StatefulTestContract } from '@aztec/noir-contracts.js';
+import { CounterContract, StatefulTestContract } from '@aztec/noir-contracts.js';
 import { TestContract, TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { SequencerClient } from '@aztec/sequencer-client';
@@ -55,15 +55,9 @@ describe('e2e_deploy_contract', () => {
      * https://hackmd.io/ouVCnacHQRq2o1oRc5ksNA#Interfaces-and-Responsibilities
      */
     it('should deploy a test contract', async () => {
-      const publicKey = accounts[0].publicKey;
       const salt = Fr.random();
-      const deploymentData = getContractInstanceFromDeployParams(
-        TestContractArtifact,
-        [],
-        salt,
-        publicKey,
-        EthAddress.ZERO,
-      );
+      const publicKey = accounts[0].publicKey;
+      const deploymentData = getContractInstanceFromDeployParams(TestContractArtifact, { salt, publicKey });
       const deployer = new ContractDeployer(TestContractArtifact, wallet, publicKey);
       const receipt = await deployer.deploy().send({ contractAddressSalt: salt }).wait({ wallet });
       expect(receipt.contract.address).toEqual(deploymentData.address);
@@ -123,45 +117,36 @@ describe('e2e_deploy_contract', () => {
       );
     }, 60_000);
 
-    // TODO(@spalladino): Review this test, it's showing an unexpected 'Bytecode not found' error in logs.
-    // It's possible it is failing for the wrong reason, and the getContractData checks are returning wrong data.
     it('should not deploy a contract which failed the public part of the execution', async () => {
-      sequencer?.updateSequencerConfig({
-        minTxsPerBlock: 2,
-      });
-
+      sequencer?.updateSequencerConfig({ minTxsPerBlock: 2 });
       try {
         // This test requires at least another good transaction to go through in the same block as the bad one.
-        // I deployed the same contract again but it could really be any valid transaction here.
         const artifact = TokenContractArtifact;
         const initArgs = ['TokenName', 'TKN', 18] as const;
-        const goodDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.random(), ...initArgs);
+        const goodDeploy = StatefulTestContract.deploy(wallet, accounts[0], 42);
         const badDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.ZERO, ...initArgs);
 
-        const firstOpts = { skipPublicSimulation: true };
-        const secondOpts = { skipPublicSimulation: true, skipClassRegistration: true };
+        const firstOpts = { skipPublicSimulation: true, skipClassRegistration: true, skipInstanceDeploy: true };
+        const secondOpts = { skipPublicSimulation: true };
 
         await Promise.all([goodDeploy.simulate(firstOpts), badDeploy.simulate(secondOpts)]);
         const [goodTx, badTx] = [goodDeploy.send(firstOpts), badDeploy.send(secondOpts)];
         const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([goodTx.wait(), badTx.wait()]);
 
         expect(goodTxPromiseResult.status).toBe('fulfilled');
-        expect(badTxReceiptResult.status).toBe('rejected');
+        expect(badTxReceiptResult.status).toBe('fulfilled'); // but reverted
 
         const [goodTxReceipt, badTxReceipt] = await Promise.all([goodTx.getReceipt(), badTx.getReceipt()]);
 
         expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
-        expect(badTxReceipt.blockNumber).toBeUndefined();
-
-        await expect(pxe.getContractData(goodDeploy.getInstance().address)).resolves.toBeDefined();
-        await expect(pxe.getExtendedContractData(goodDeploy.getInstance().address)).resolves.toBeDefined();
+        // the bad transaction is included
+        expect(badTxReceipt.blockNumber).toEqual(expect.any(Number));
 
         await expect(pxe.getContractData(badDeploy.getInstance().address)).resolves.toBeUndefined();
+        // but did not deploy
         await expect(pxe.getExtendedContractData(badDeploy.getInstance().address)).resolves.toBeUndefined();
       } finally {
-        sequencer?.updateSequencerConfig({
-          minTxsPerBlock: 1,
-        });
+        sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
       }
     }, 90_000);
   });
@@ -193,7 +178,7 @@ describe('e2e_deploy_contract', () => {
         const testWallet = kind === 'as entrypoint' ? new SignerlessWallet(pxe) : wallet;
         const owner = await registerRandomAccount(pxe);
         const initArgs: StatefulContractCtorArgs = [owner, 42];
-        const contract = await registerContract(testWallet, StatefulTestContract, initArgs);
+        const contract = await registerContract(testWallet, StatefulTestContract, { initArgs });
         logger.info(`Calling the constructor for ${contract.address}`);
         await contract.methods
           .constructor(...initArgs)
@@ -211,9 +196,11 @@ describe('e2e_deploy_contract', () => {
     // Tests privately initializing multiple undeployed contracts on the same tx through an account contract.
     it('initializes multiple undeployed contracts in a single tx', async () => {
       const owner = await registerRandomAccount(pxe);
-      const initArgs: StatefulContractCtorArgs[] = [42, 52].map(value => [owner, value]);
-      const contracts = await Promise.all(initArgs.map(args => registerContract(wallet, StatefulTestContract, args)));
-      const calls = contracts.map((c, i) => c.methods.constructor(...initArgs[i]).request());
+      const initArgss: StatefulContractCtorArgs[] = [42, 52].map(value => [owner, value]);
+      const contracts = await Promise.all(
+        initArgss.map(initArgs => registerContract(wallet, StatefulTestContract, { initArgs })),
+      );
+      const calls = contracts.map((c, i) => c.methods.constructor(...initArgss[i]).request());
       await new BatchCall(wallet, calls).send().wait();
       expect(await contracts[0].methods.summed_values(owner).view()).toEqual(42n);
       expect(await contracts[1].methods.summed_values(owner).view()).toEqual(52n);
@@ -223,7 +210,7 @@ describe('e2e_deploy_contract', () => {
     it.skip('initializes and calls a private function in a single tx', async () => {
       const owner = await registerRandomAccount(pxe);
       const initArgs: StatefulContractCtorArgs = [owner, 42];
-      const contract = await registerContract(wallet, StatefulTestContract, initArgs);
+      const contract = await registerContract(wallet, StatefulTestContract, { initArgs });
       const batch = new BatchCall(wallet, [
         contract.methods.constructor(...initArgs).request(),
         contract.methods.create_note(owner, 10).request(),
@@ -236,7 +223,7 @@ describe('e2e_deploy_contract', () => {
     it('refuses to initialize a contract twice', async () => {
       const owner = await registerRandomAccount(pxe);
       const initArgs: StatefulContractCtorArgs = [owner, 42];
-      const contract = await registerContract(wallet, StatefulTestContract, initArgs);
+      const contract = await registerContract(wallet, StatefulTestContract, { initArgs });
       await contract.methods
         .constructor(...initArgs)
         .send()
@@ -252,10 +239,18 @@ describe('e2e_deploy_contract', () => {
     it('refuses to call a private function that requires initialization', async () => {
       const owner = await registerRandomAccount(pxe);
       const initArgs: StatefulContractCtorArgs = [owner, 42];
-      const contract = await registerContract(wallet, StatefulTestContract, initArgs);
+      const contract = await registerContract(wallet, StatefulTestContract, { initArgs });
       // TODO(@spalladino): It'd be nicer to be able to fail the assert with a more descriptive message.
       await expect(contract.methods.create_note(owner, 10).send().wait()).rejects.toThrow(
         /nullifier witness not found/i,
+      );
+    });
+
+    it('refuses to initialize a contract with incorrect args', async () => {
+      const owner = await registerRandomAccount(pxe);
+      const contract = await registerContract(wallet, StatefulTestContract, { initArgs: [owner, 42] });
+      await expect(contract.methods.constructor(owner, 43).simulate()).rejects.toThrow(
+        /Initialization hash does not match/,
       );
     });
   });
@@ -307,12 +302,18 @@ describe('e2e_deploy_contract', () => {
         let initArgs: StatefulContractCtorArgs;
         let contract: StatefulTestContract;
 
-        const deployInstance = async () => {
+        const deployInstance = async (opts: { constructorName?: string } = {}) => {
           const initArgs = [accounts[0].address, 42] as StatefulContractCtorArgs;
           const salt = Fr.random();
           const portalAddress = EthAddress.random();
           const publicKey = Point.random();
-          const instance = getContractInstanceFromDeployParams(artifact, initArgs, salt, publicKey, portalAddress);
+          const instance = getContractInstanceFromDeployParams(artifact, {
+            constructorArgs: initArgs,
+            salt,
+            publicKey,
+            portalAddress,
+            constructorArtifact: opts.constructorName,
+          });
           const { address, contractClassId } = instance;
           logger(`Deploying contract instance at ${address.toString()} class id ${contractClassId.toString()}`);
           await deployFn(instance);
@@ -326,86 +327,113 @@ describe('e2e_deploy_contract', () => {
           // we are not going to run those - but this may require registering "partial" contracts in the pxe.
           // Anyway, when we implement that, we should be able to replace this `registerContract` with
           // a simpler `Contract.at(instance.address, wallet)`.
-          const registered = await registerContract(wallet, StatefulTestContract, initArgs, {
+          const registered = await registerContract(wallet, StatefulTestContract, {
+            constructorName: opts.constructorName,
             salt: instance.salt,
             portalAddress: instance.portalContractAddress,
             publicKey,
+            initArgs,
           });
           expect(registered.address).toEqual(instance.address);
           const contract = await StatefulTestContract.at(instance.address, wallet);
           return { contract, initArgs, instance, publicKey };
         };
 
-        beforeAll(async () => {
-          ({ instance, initArgs, contract } = await deployInstance());
-        }, 60_000);
+        describe('using a private constructor', () => {
+          beforeAll(async () => {
+            ({ instance, initArgs, contract } = await deployInstance());
+          }, 60_000);
 
-        it('stores contract instance in the aztec node', async () => {
-          const deployed = await aztecNode.getContract(instance.address);
-          expect(deployed).toBeDefined();
-          expect(deployed!.address).toEqual(instance.address);
-          expect(deployed!.contractClassId).toEqual(contractClass.id);
-          expect(deployed!.initializationHash).toEqual(instance.initializationHash);
-          expect(deployed!.portalContractAddress).toEqual(instance.portalContractAddress);
-          expect(deployed!.publicKeysHash).toEqual(instance.publicKeysHash);
-          expect(deployed!.salt).toEqual(instance.salt);
+          it('stores contract instance in the aztec node', async () => {
+            const deployed = await aztecNode.getContract(instance.address);
+            expect(deployed).toBeDefined();
+            expect(deployed!.address).toEqual(instance.address);
+            expect(deployed!.contractClassId).toEqual(contractClass.id);
+            expect(deployed!.initializationHash).toEqual(instance.initializationHash);
+            expect(deployed!.portalContractAddress).toEqual(instance.portalContractAddress);
+            expect(deployed!.publicKeysHash).toEqual(instance.publicKeysHash);
+            expect(deployed!.salt).toEqual(instance.salt);
+          });
+
+          it('calls a public function with no init check on the deployed instance', async () => {
+            const whom = AztecAddress.random();
+            await contract.methods
+              .increment_public_value_no_init_check(whom, 10)
+              .send({ skipPublicSimulation: true })
+              .wait();
+            const stored = await contract.methods.get_public_value(whom).view();
+            expect(stored).toEqual(10n);
+          }, 30_000);
+
+          it('refuses to call a public function with init check if the instance is not initialized', async () => {
+            const whom = AztecAddress.random();
+            await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
+
+            // TODO(#4972) check for reverted flag
+            // Meanwhile we check we didn't increment the value
+            expect(await contract.methods.get_public_value(whom).view()).toEqual(0n);
+          }, 30_000);
+
+          it('refuses to initialize the instance with wrong args via a private function', async () => {
+            await expect(contract.methods.constructor(AztecAddress.random(), 43).simulate()).rejects.toThrow(
+              /initialization hash does not match/i,
+            );
+          }, 30_000);
+
+          it('initializes the contract and calls a public function', async () => {
+            await contract.methods
+              .constructor(...initArgs)
+              .send()
+              .wait();
+            const whom = AztecAddress.random();
+            await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
+            const stored = await contract.methods.get_public_value(whom).view();
+            expect(stored).toEqual(10n);
+          }, 30_000);
+
+          it('refuses to reinitialize the contract', async () => {
+            await expect(
+              contract.methods
+                .constructor(...initArgs)
+                .send({ skipPublicSimulation: true })
+                .wait(),
+            ).rejects.toThrow(/dropped/i);
+          }, 30_000);
         });
 
-        it('calls a public function with no init check on the deployed instance', async () => {
-          const whom = AztecAddress.random();
-          await contract.methods
-            .increment_public_value_no_init_check(whom, 10)
-            .send({ skipPublicSimulation: true })
-            .wait();
-          const stored = await contract.methods.get_public_value(whom).view();
-          expect(stored).toEqual(10n);
-        }, 30_000);
+        describe('using a public constructor', () => {
+          beforeAll(async () => {
+            ({ instance, initArgs, contract } = await deployInstance({ constructorName: 'public_constructor' }));
+          }, 60_000);
 
-        it('refuses to call a public function with init check if the instance is not initialized', async () => {
-          await expect(
-            contract.methods
-              .increment_public_value(AztecAddress.random(), 10)
-              .send({ skipPublicSimulation: true })
-              .wait(),
-          ).rejects.toThrow(/dropped/i);
-        }, 30_000);
+          it('refuses to initialize the instance with wrong args via a public function', async () => {
+            // TODO(@spalladino): This tx is mined but reverts, we need to check revert flag once it's available
+            // Meanwhile, we check that its side effects did not come through as a means to assert it reverted
+            const whom = AztecAddress.random();
+            await contract.methods.public_constructor(whom, 43).send({ skipPublicSimulation: true }).wait();
+            expect(await contract.methods.get_public_value(whom).view()).toEqual(0n);
+          }, 30_000);
 
-        it('calls a public function with init check after initialization', async () => {
-          await contract.methods
-            .constructor(...initArgs)
-            .send()
-            .wait();
-          const whom = AztecAddress.random();
-          await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
-          const stored = await contract.methods.get_public_value(whom).view();
-          expect(stored).toEqual(10n);
-        }, 30_000);
-
-        it('refuses to reinitialize the contract', async () => {
-          await expect(
-            contract.methods
+          it('initializes the contract and calls a public function', async () => {
+            await contract.methods
               .public_constructor(...initArgs)
-              .send({ skipPublicSimulation: true })
-              .wait(),
-          ).rejects.toThrow(/dropped/i);
-        }, 30_000);
+              .send()
+              .wait();
+            const whom = AztecAddress.random();
+            await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
+            const stored = await contract.methods.get_public_value(whom).view();
+            expect(stored).toEqual(10n);
+          }, 30_000);
 
-        it('initializes a new instance of the contract via a public function', async () => {
-          const { contract, initArgs } = await deployInstance();
-          const whom = initArgs[0];
-          logger.info(`Initializing contract at ${contract.address} via a public function`);
-          await contract.methods
-            .public_constructor(...initArgs)
-            .send({ skipPublicSimulation: true })
-            .wait();
-          expect(await contract.methods.get_public_value(whom).view()).toEqual(42n);
-          logger.info(`Calling a public function that requires initialization on ${contract.address}`);
-          await contract.methods.increment_public_value(whom, 10).send().wait();
-          expect(await contract.methods.get_public_value(whom).view()).toEqual(52n);
-          logger.info(`Calling a private function that requires initialization on ${contract.address}`);
-          await contract.methods.create_note(whom, 10).send().wait();
-          expect(await contract.methods.summed_values(whom).view()).toEqual(10n);
-        }, 90_000);
+          it('refuses to reinitialize the contract', async () => {
+            await expect(
+              contract.methods
+                .public_constructor(...initArgs)
+                .send({ skipPublicSimulation: true })
+                .wait(),
+            ).rejects.toThrow(/dropped/i);
+          }, 30_000);
+        });
       });
 
     testDeployingAnInstance('from a wallet', async instance => {
@@ -434,8 +462,10 @@ describe('e2e_deploy_contract', () => {
 
     it('publicly deploys and initializes a contract', async () => {
       const owner = accounts[0];
+      logger.debug(`Deploying stateful test contract`);
       const contract = await StatefulTestContract.deploy(wallet, owner, 42).send().deployed();
       expect(await contract.methods.summed_values(owner).view()).toEqual(42n);
+      logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
       await contract.methods.increment_public_value(owner, 84).send().wait();
       expect(await contract.methods.get_public_value(owner).view()).toEqual(84n);
     }, 60_000);
@@ -458,12 +488,36 @@ describe('e2e_deploy_contract', () => {
       expect(await contract.methods.summed_values(owner).view()).toEqual(30n);
     }, 60_000);
 
+    it('deploys a contract with a default initializer not named constructor', async () => {
+      logger.debug(`Deploying contract with a default initializer named initialize`);
+      const opts = { skipClassRegistration: true, skipPublicDeployment: true };
+      const contract = await CounterContract.deploy(wallet, 10, accounts[0]).send(opts).deployed();
+      logger.debug(`Calling a function to ensure the contract was properly initialized`);
+      await contract.methods.increment(accounts[0]).send().wait();
+      expect(await contract.methods.get_counter(accounts[0]).view()).toEqual(11n);
+    });
+
+    it('publicly deploys a contract with no constructor', async () => {
+      logger.debug(`Deploying contract with no constructor`);
+      const contract = await TestContract.deploy(wallet).send().deployed();
+      logger.debug(`Call a public function to check that it was publicly deployed`);
+      const receipt = await contract.methods.emit_unencrypted(42).send().wait();
+      const logs = await pxe.getUnencryptedLogs({ txHash: receipt.txHash });
+      expect(logs.logs[0].log.data.toString('hex').replace(/^0+/, '')).toEqual('2a');
+    });
+
+    it('refuses to deploy a contract with no constructor and no public deployment', async () => {
+      logger.debug(`Deploying contract with no constructor and skipping public deploy`);
+      const opts = { skipPublicDeployment: true, skipClassRegistration: true };
+      await expect(TestContract.deploy(wallet).simulate(opts)).rejects.toThrow(/no function calls needed/i);
+    });
+
     it.skip('publicly deploys and calls a public function in the same batched call', async () => {
-      // TODO(@spalladino)
+      // TODO(@spalladino): Requires being able to read a nullifier on the same tx it was emitted.
     });
 
     it.skip('publicly deploys and calls a public function in a tx in the same block', async () => {
-      // TODO(@spalladino)
+      // TODO(@spalladino): Requires being able to read a nullifier on the same block it was emitted.
     });
   });
 });
@@ -484,11 +538,16 @@ type ContractArtifactClass<T extends ContractBase> = {
 async function registerContract<T extends ContractBase>(
   wallet: Wallet,
   contractArtifact: ContractArtifactClass<T>,
-  args: any[] = [],
-  opts: { salt?: Fr; publicKey?: Point; portalAddress?: EthAddress } = {},
+  opts: { salt?: Fr; publicKey?: Point; portalAddress?: EthAddress; initArgs?: any[]; constructorName?: string } = {},
 ): Promise<T> {
-  const { salt, publicKey, portalAddress } = opts;
-  const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, args, salt, publicKey, portalAddress);
+  const { salt, publicKey, portalAddress, initArgs, constructorName } = opts;
+  const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, {
+    constructorArgs: initArgs ?? [],
+    constructorArtifact: constructorName,
+    salt,
+    publicKey,
+    portalAddress,
+  });
   await wallet.addContracts([{ artifact: contractArtifact.artifact, instance }]);
   return contractArtifact.at(instance.address, wallet);
 }

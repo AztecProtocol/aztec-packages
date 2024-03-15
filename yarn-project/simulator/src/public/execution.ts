@@ -1,14 +1,14 @@
-import { FunctionL2Logs } from '@aztec/circuit-types';
+import { FunctionL2Logs, SimulationError } from '@aztec/circuit-types';
 import {
   AztecAddress,
-  CallContext,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
-  FunctionData,
   L2ToL1Message,
+  PublicCallRequest,
   PublicDataRead,
   PublicDataUpdateRequest,
+  ReadRequest,
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
@@ -26,8 +26,16 @@ export interface PublicExecutionResult {
   newNoteHashes: SideEffect[];
   /** The new l2 to l1 messages generated in this call. */
   newL2ToL1Messages: L2ToL1Message[];
+  /** The side effect counter at the start of the function call. */
+  startSideEffectCounter: Fr;
+  /** The side effect counter after executing this function call */
+  endSideEffectCounter: Fr;
   /** The new nullifiers to be inserted into the nullifier tree. */
   newNullifiers: SideEffectLinkedToNoteHash[];
+  /** The nullifier read requests emitted in this call. */
+  nullifierReadRequests: ReadRequest[];
+  /** The nullifier non existent read requests emitted in this call. */
+  nullifierNonExistentReadRequests: ReadRequest[];
   /** The contract storage reads performed by the function. */
   contractStorageReads: ContractStorageRead[];
   /** The contract storage update requests performed by the function. */
@@ -39,21 +47,20 @@ export interface PublicExecutionResult {
    * Note: These are preimages to `unencryptedLogsHash`.
    */
   unencryptedLogs: FunctionL2Logs;
+  /**
+   * Whether the execution reverted.
+   */
+  reverted: boolean;
+  /**
+   * The revert reason if the execution reverted.
+   */
+  revertReason: SimulationError | undefined;
 }
 
 /**
  * The execution of a public function.
  */
-export interface PublicExecution {
-  /** Address of the contract being executed. */
-  contractAddress: AztecAddress;
-  /** Function of the contract being called. */
-  functionData: FunctionData;
-  /** Arguments for the call. */
-  args: Fr[];
-  /** Context of the call. */
-  callContext: CallContext;
-}
+export type PublicExecution = Pick<PublicCallRequest, 'contractAddress' | 'functionData' | 'callContext' | 'args'>;
 
 /**
  * Returns if the input is a public execution result and not just a public execution.
@@ -63,7 +70,7 @@ export interface PublicExecution {
 export function isPublicExecutionResult(
   input: PublicExecution | PublicExecutionResult,
 ): input is PublicExecutionResult {
-  return !!(input as PublicExecutionResult).execution;
+  return 'execution' in input && input.execution !== undefined;
 }
 
 /**

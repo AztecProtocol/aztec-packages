@@ -1,6 +1,5 @@
 import {
   ARCHIVE_HEIGHT,
-  CONTRACT_TREE_HEIGHT,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -42,17 +41,6 @@ export interface AztecNode {
   findLeafIndex(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
 
   /**
-   * Returns a sibling path for the given index in the contract tree.
-   * @param blockNumber - The block number at which to get the data.
-   * @param leafIndex - The index of the leaf for which the sibling path is required.
-   * @returns The sibling path for the leaf index.
-   */
-  getContractSiblingPath(
-    blockNumber: BlockNumber,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>>;
-
-  /**
    * Returns a sibling path for the given index in the nullifier tree.
    * @param blockNumber - The block number at which to get the data.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
@@ -92,6 +80,20 @@ export interface AztecNode {
     blockNumber: BlockNumber,
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
+
+  /**
+   * Returns the index of a l2ToL1Message in a ephemeral l2 to l1 data tree as well as its sibling path.
+   * @remarks This tree is considered ephemeral because it is created on-demand by: taking all the l2ToL1 messages
+   * in a single block, and then using them to make a variable depth append-only tree with these messages as leaves.
+   * The tree is discarded immediately after calculating what we need from it.
+   * @param blockNumber - The block number at which to get the data.
+   * @param l2ToL1Message - The l2ToL1Message get the index / sibling path for.
+   * @returns A tuple of the index and the sibling path of the L2ToL1Message.
+   */
+  getL2ToL1MessageIndexAndSiblingPath(
+    blockNumber: number | 'latest',
+    l2ToL1Message: Fr,
+  ): Promise<[number, SiblingPath<number>]>;
 
   /**
    * Returns a sibling path for a leaf in the committed historic blocks tree.

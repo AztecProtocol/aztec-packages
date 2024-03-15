@@ -1,7 +1,7 @@
 use crate::{
     abis::function_selector::FunctionSelector, address::{EthAddress, AztecAddress},
     constants::{CALL_CONTEXT_LENGTH, GENERATOR_INDEX__CALL_CONTEXT}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Serialize}
+    traits::{Deserialize, Hash, Serialize}, abis::side_effect::Ordered
 };
 
 // docs:start:call-context
@@ -14,9 +14,8 @@ struct CallContext {
 
     is_delegate_call : bool,
     is_static_call : bool,
-    is_contract_deployment : bool,
 
-    start_side_effect_counter : u32,
+    side_effect_counter : u32,
 }
 // docs:end:call-context
 
@@ -29,8 +28,7 @@ impl CallContext {
         assert(self.function_selector.to_field() == 0);
         assert(self.is_delegate_call == false);
         assert(self.is_static_call == false);
-        assert(self.is_contract_deployment == false);
-        assert(self.start_side_effect_counter == 0);
+        assert(self.side_effect_counter == 0);
     }
 }
 
@@ -43,8 +41,7 @@ impl Eq for CallContext {
             & call_context.function_selector.eq(self.function_selector)
             & (call_context.is_delegate_call == self.is_delegate_call)
             & (call_context.is_static_call == self.is_static_call)
-            & (call_context.is_contract_deployment == self.is_contract_deployment)
-            & (call_context.start_side_effect_counter == self.start_side_effect_counter)
+            & (call_context.side_effect_counter == self.side_effect_counter)
     }
 }
 
@@ -63,8 +60,7 @@ impl Serialize<CALL_CONTEXT_LENGTH> for CallContext {
             self.function_selector.to_field(),
             self.is_delegate_call as Field,
             self.is_static_call as Field,
-            self.is_contract_deployment as Field,
-            self.start_side_effect_counter as Field,
+            self.side_effect_counter as Field,
         ]
     }
 }
@@ -78,8 +74,7 @@ impl Deserialize<CALL_CONTEXT_LENGTH> for CallContext {
             function_selector: FunctionSelector::from_field(serialized[3]),
             is_delegate_call: serialized[4] as bool,
             is_static_call: serialized[5] as bool,
-            is_contract_deployment: serialized[6] as bool,
-            start_side_effect_counter: serialized[7] as u32,
+            side_effect_counter: serialized[6] as u32,
         }
     }
 }

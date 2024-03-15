@@ -122,6 +122,12 @@ abstract class BaseField {
     return this.toBigInt() < rhs.toBigInt();
   }
 
+  cmp(rhs: BaseField): -1 | 0 | 1 {
+    const lhsBigInt = this.toBigInt();
+    const rhsBigInt = rhs.toBigInt();
+    return lhsBigInt === rhsBigInt ? 0 : lhsBigInt < rhsBigInt ? -1 : 1;
+  }
+
   isZero(): boolean {
     return this.toBuffer().equals(ZERO_BUFFER);
   }
@@ -203,6 +209,10 @@ export class Fr extends BaseField {
     return Fr.ZERO;
   }
 
+  static isZero(value: Fr) {
+    return value.isZero();
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader) {
     return fromBuffer(buffer, Fr);
   }
@@ -237,6 +247,15 @@ export class Fr extends BaseField {
 
     const bInv = modInverse(rhs.toBigInt());
     return this.mul(bInv);
+  }
+
+  // Integer division.
+  ediv(rhs: Fr) {
+    if (rhs.isZero()) {
+      throw new Error('Division by zero');
+    }
+
+    return new Fr(this.toBigInt() / rhs.toBigInt());
   }
 }
 

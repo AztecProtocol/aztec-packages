@@ -23,8 +23,8 @@ import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 function getAvmTestContractBytecode(functionName: string): Buffer {
   const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
   assert(
-    !!artifact.bytecode,
-    `No bytecode found for function ${functionName}. Try re-running bootstraph.sh on the repository root.`,
+    !!artifact?.bytecode,
+    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
   );
   return Buffer.from(artifact.bytecode, 'base64');
 }
@@ -57,6 +57,24 @@ describe('AVM simulator', () => {
 
       expect(results.reverted).toBe(false);
       expect(results.output).toEqual([new Fr(3)]);
+    });
+
+    it('Should execute contract function that performs U128 addition', async () => {
+      const calldata: Fr[] = [
+        // First U128
+        new Fr(1),
+        new Fr(2),
+        // Second U128
+        new Fr(3),
+        new Fr(4),
+      ];
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+      const bytecode = getAvmTestContractBytecode('avm_addU128');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([new Fr(4), new Fr(6)]);
     });
 
     describe.each([
@@ -240,8 +258,9 @@ describe('AVM simulator', () => {
 
         const expectedFields = [new Fr(10), new Fr(20), new Fr(30)];
         const expectedString = 'Hello, world!'.split('').map(c => new Fr(c.charCodeAt(0)));
-        // FIXME: Try this once Brillig codegen produces uniform bit sizes for LT
-        // const expectedCompressedString = Buffer.from('Hello, world!');
+        const expectedCompressedString = Buffer.from(
+          '\0A long time ago, in a galaxy fa' + '\0r far away...\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+        );
         expect(context.persistableState.flush().newLogs).toEqual([
           new UnencryptedL2Log(
             context.environment.address,
@@ -253,11 +272,7 @@ describe('AVM simulator', () => {
             new EventSelector(8),
             Buffer.concat(expectedString.map(f => f.toBuffer())),
           ),
-          // new UnencryptedL2Log(
-          //   context.environment.address,
-          //   new EventSelector(10),
-          //   expectedCompressedString,
-          // ),
+          new UnencryptedL2Log(context.environment.address, new EventSelector(10), expectedCompressedString),
         ]);
       });
 
@@ -391,6 +406,303 @@ describe('AVM simulator', () => {
         const trace = context.persistableState.flush();
         expect(trace.l1ToL2MessageChecks.length).toEqual(1);
         expect(trace.l1ToL2MessageChecks[0].exists).toEqual(true);
+      });
+    });
+
+    describe('Test nested external calls from noir contract', () => {
+      it(`Should execute contract function that makes a nested call`, async () => {
+        const calldata: Fr[] = [new Fr(1), new Fr(2)];
+        const callBytecode = getAvmTestContractBytecode('avm_raw_nested_call_to_add');
+        const addBytecode = getAvmTestContractBytecode('avm_addArgsReturn');
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValueOnce(Promise.resolve(addBytecode));
+
+        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([new Fr(3)]);
+      });
+
+      it(`Should execute contract function that makes a nested call through the old interface`, async () => {
+        const calldata: Fr[] = [new Fr(1), new Fr(2)];
+        const callBytecode = getAvmTestContractBytecode('avm_nested_call_to_add');
+        const addBytecode = getAvmTestContractBytecode('avm_addArgsReturn');
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValueOnce(Promise.resolve(addBytecode));
+
+        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([new Fr(3)]);
+      });
+
+      it(`Should execute contract function that makes a nested static call`, async () => {
+        const calldata: Fr[] = [new Fr(1), new Fr(2)];
+        const callBytecode = getAvmTestContractBytecode('avm_raw_nested_static_call_to_add');
+        const addBytecode = getAvmTestContractBytecode('avm_addArgsReturn');
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValueOnce(Promise.resolve(addBytecode));
+
+        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([/*result=*/ new Fr(3), /*success=*/ new Fr(1)]);
+      });
+
+      it(`Should execute contract function that makes a nested static call which modifies storage`, async () => {
+        const callBytecode = getAvmTestContractBytecode('avm_raw_nested_static_call_to_set_admin');
+        const nestedBytecode = getAvmTestContractBytecode('avm_setStorageSingle');
+        const context = initContext();
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValueOnce(Promise.resolve(nestedBytecode));
+
+        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+        expect(results.reverted).toBe(false); // The outer call should not revert.
+        expect(results.output).toEqual([new Fr(0)]); // The inner call should have reverted.
+      });
+
+      it(`Should execute contract function that makes a nested static call (old interface)`, async () => {
+        const calldata: Fr[] = [new Fr(1), new Fr(2)];
+        const callBytecode = getAvmTestContractBytecode('avm_nested_static_call_to_add');
+        const addBytecode = getAvmTestContractBytecode('avm_addArgsReturn');
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValueOnce(Promise.resolve(addBytecode));
+
+        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([/*result=*/ new Fr(3)]);
+      });
+
+      it(`Should execute contract function that makes a nested static call which modifies storage (old interface)`, async () => {
+        const callBytecode = getAvmTestContractBytecode('avm_nested_static_call_to_set_admin');
+        const nestedBytecode = getAvmTestContractBytecode('avm_setStorageSingle');
+        const context = initContext();
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValueOnce(Promise.resolve(nestedBytecode));
+
+        const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+        expect(results.reverted).toBe(true); // The outer call should revert.
+      });
+    });
+
+    describe('Storage accesses', () => {
+      it('Should set value in storage (single)', async () => {
+        const slot = 1n;
+        const address = AztecAddress.fromField(new Fr(420));
+        const value = new Fr(88);
+        const calldata = [value];
+
+        const context = initContext({
+          env: initExecutionEnvironment({ calldata, address, storageAddress: address }),
+        });
+        const bytecode = getAvmTestContractBytecode('avm_setStorageSingle');
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+        expect(results.reverted).toBe(false);
+
+        // World state
+        const worldState = context.persistableState.flush();
+        const storageSlot = worldState.currentStorageValue.get(address.toBigInt())!;
+        const adminSlotValue = storageSlot.get(slot);
+        expect(adminSlotValue).toEqual(value);
+
+        // Tracing
+        const storageTrace = worldState.storageWrites.get(address.toBigInt())!;
+        const slotTrace = storageTrace.get(slot);
+        expect(slotTrace).toEqual([value]);
+      });
+
+      it('Should read value in storage (single)', async () => {
+        const slot = 1n;
+        const value = new Fr(12345);
+        const address = AztecAddress.fromField(new Fr(420));
+        const storage = new Map([[slot, value]]);
+
+        const context = initContext({
+          env: initExecutionEnvironment({ storageAddress: address }),
+        });
+        jest
+          .spyOn(context.persistableState.hostStorage.publicStateDb, 'storageRead')
+          .mockImplementation((_address, slot) => Promise.resolve(storage.get(slot.toBigInt())!));
+        const bytecode = getAvmTestContractBytecode('avm_readStorageSingle');
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+        // Get contract function artifact
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([value]);
+
+        // Tracing
+        const worldState = context.persistableState.flush();
+        const storageTrace = worldState.storageReads.get(address.toBigInt())!;
+        const slotTrace = storageTrace.get(slot);
+        expect(slotTrace).toEqual([value]);
+      });
+
+      it('Should set and read a value from storage (single)', async () => {
+        const slot = 1n;
+        const value = new Fr(12345);
+        const address = AztecAddress.fromField(new Fr(420));
+        const calldata = [value];
+
+        const context = initContext({
+          env: initExecutionEnvironment({ calldata, address, storageAddress: address }),
+        });
+        const bytecode = getAvmTestContractBytecode('avm_setReadStorageSingle');
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([value]);
+
+        // Test read trace
+        const worldState = context.persistableState.flush();
+        const storageReadTrace = worldState.storageReads.get(address.toBigInt())!;
+        const slotReadTrace = storageReadTrace.get(slot);
+        expect(slotReadTrace).toEqual([value]);
+
+        // Test write trace
+        const storageWriteTrace = worldState.storageWrites.get(address.toBigInt())!;
+        const slotWriteTrace = storageWriteTrace.get(slot);
+        expect(slotWriteTrace).toEqual([value]);
+      });
+
+      it('Should set a value in storage (list)', async () => {
+        const slot = 2n;
+        const sender = AztecAddress.fromField(new Fr(1));
+        const address = AztecAddress.fromField(new Fr(420));
+        const calldata = [new Fr(1), new Fr(2)];
+
+        const context = initContext({
+          env: initExecutionEnvironment({ sender, address, calldata, storageAddress: address }),
+        });
+        const bytecode = getAvmTestContractBytecode('avm_setStorageList');
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+        expect(results.reverted).toBe(false);
+
+        const worldState = context.persistableState.flush();
+        const storageSlot = worldState.currentStorageValue.get(address.toBigInt())!;
+        expect(storageSlot.get(slot)).toEqual(calldata[0]);
+        expect(storageSlot.get(slot + 1n)).toEqual(calldata[1]);
+
+        // Tracing
+        const storageTrace = worldState.storageWrites.get(address.toBigInt())!;
+        expect(storageTrace.get(slot)).toEqual([calldata[0]]);
+        expect(storageTrace.get(slot + 1n)).toEqual([calldata[1]]);
+      });
+
+      it('Should read a value in storage (list)', async () => {
+        const slot = 2n;
+        const address = AztecAddress.fromField(new Fr(420));
+        const values = [new Fr(1), new Fr(2)];
+        const storage = new Map([
+          [slot, values[0]],
+          [slot + 1n, values[1]],
+        ]);
+
+        const context = initContext({
+          env: initExecutionEnvironment({ address, storageAddress: address }),
+        });
+        jest
+          .spyOn(context.persistableState.hostStorage.publicStateDb, 'storageRead')
+          .mockImplementation((_address, slot) => Promise.resolve(storage.get(slot.toBigInt())!));
+        const bytecode = getAvmTestContractBytecode('avm_readStorageList');
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual(values);
+
+        // Tracing
+        const worldState = context.persistableState.flush();
+        const storageTrace = worldState.storageReads.get(address.toBigInt())!;
+        expect(storageTrace.get(slot)).toEqual([values[0]]);
+        expect(storageTrace.get(slot + 1n)).toEqual([values[1]]);
+      });
+
+      it('Should set a value in storage (map)', async () => {
+        const address = AztecAddress.fromField(new Fr(420));
+        const value = new Fr(12345);
+        const calldata = [address.toField(), value];
+
+        const context = initContext({
+          env: initExecutionEnvironment({ address, calldata, storageAddress: address }),
+        });
+        const bytecode = getAvmTestContractBytecode('avm_setStorageMap');
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+        expect(results.reverted).toBe(false);
+        // returns the storage slot for modified key
+        const slotNumber = results.output[0].toBigInt();
+
+        const worldState = context.persistableState.flush();
+        const storageSlot = worldState.currentStorageValue.get(address.toBigInt())!;
+        expect(storageSlot.get(slotNumber)).toEqual(value);
+
+        // Tracing
+        const storageTrace = worldState.storageWrites.get(address.toBigInt())!;
+        expect(storageTrace.get(slotNumber)).toEqual([value]);
+      });
+
+      it('Should read-add-set a value in storage (map)', async () => {
+        const address = AztecAddress.fromField(new Fr(420));
+        const value = new Fr(12345);
+        const calldata = [address.toField(), value];
+
+        const context = initContext({
+          env: initExecutionEnvironment({ address, calldata, storageAddress: address }),
+        });
+        const bytecode = getAvmTestContractBytecode('avm_addStorageMap');
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+        expect(results.reverted).toBe(false);
+        // returns the storage slot for modified key
+        const slotNumber = results.output[0].toBigInt();
+
+        const worldState = context.persistableState.flush();
+        const storageSlot = worldState.currentStorageValue.get(address.toBigInt())!;
+        expect(storageSlot.get(slotNumber)).toEqual(value);
+
+        // Tracing
+        const storageReadTrace = worldState.storageReads.get(address.toBigInt())!;
+        expect(storageReadTrace.get(slotNumber)).toEqual([new Fr(0)]);
+        const storageWriteTrace = worldState.storageWrites.get(address.toBigInt())!;
+        expect(storageWriteTrace.get(slotNumber)).toEqual([value]);
+      });
+
+      it('Should read value in storage (map)', async () => {
+        const value = new Fr(12345);
+        const address = AztecAddress.fromField(new Fr(420));
+        const calldata = [address.toField()];
+
+        const context = initContext({
+          env: initExecutionEnvironment({ calldata, address, storageAddress: address }),
+        });
+        jest
+          .spyOn(context.persistableState.hostStorage.publicStateDb, 'storageRead')
+          .mockReturnValue(Promise.resolve(value));
+        const bytecode = getAvmTestContractBytecode('avm_readStorageMap');
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+        // Get contract function artifact
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([value]);
+
+        // Tracing
+        const worldState = context.persistableState.flush();
+        const storageTrace = worldState.storageReads.get(address.toBigInt())!;
+        expect([...storageTrace.values()]).toEqual([[value]]);
       });
     });
   });

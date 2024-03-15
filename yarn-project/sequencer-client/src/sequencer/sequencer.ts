@@ -180,7 +180,6 @@ export class Sequencer {
       this.log.info(`Building block ${newBlockNumber} with ${validTxs.length} transactions`);
       this.state = SequencerState.CREATING_BLOCK;
 
-      // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       const processor = await this.publicProcessorFactory.create(historicalHeader, newGlobalVariables);
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs));
@@ -203,6 +202,8 @@ export class Sequencer {
 
       await assertBlockHeight();
 
+      const newModelL1ToL2Messages = await this.l1ToL2MessageSource.getNewL1ToL2Messages(BigInt(newBlockNumber));
+
       // Get l1 to l2 messages from the contract
       this.log('Requesting L1 to L2 messages from contract');
       const l1ToL2Messages = await this.getPendingL1ToL2EntryKeys();
@@ -215,7 +216,7 @@ export class Sequencer {
 
       const emptyTx = processor.makeEmptyProcessedTx();
       const [rollupCircuitsDuration, block] = await elapsed(() =>
-        this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables),
+        this.buildBlock(processedValidTxs, newModelL1ToL2Messages, l1ToL2Messages, emptyTx, newGlobalVariables),
       );
 
       this.log(`Assembled block ${block.number}`, {
@@ -228,46 +229,11 @@ export class Sequencer {
 
       await assertBlockHeight();
 
-      await this.publishExtendedContractData(processedValidTxs, block);
-
-      await assertBlockHeight();
-
       await this.publishL2Block(block);
       this.log.info(`Submitted rollup block ${block.number} with ${processedValidTxs.length} transactions`);
     } catch (err) {
       this.log.error(`Rolling back world state DB due to error assembling block`, (err as any).stack);
       await this.worldState.getLatest().rollback();
-    }
-  }
-
-  /**
-   * Gets new extended contract data from the txs and publishes it on chain.
-   * @param validTxs - The set of real transactions being published as part of the block.
-   * @param block - The L2Block to be published.
-   */
-  protected async publishExtendedContractData(validTxs: ProcessedTx[], block: L2Block) {
-    // Publishes contract data for txs to the network and awaits the tx to be mined
-    this.state = SequencerState.PUBLISHING_CONTRACT_DATA;
-    const newContracts = validTxs.flatMap(tx => tx.newContracts).filter(cd => !cd.isEmpty());
-
-    if (newContracts.length === 0) {
-      this.log.debug(`No new contracts to publish in block ${block.number}`);
-      return;
-    }
-
-    const txsEffectsHash = block.body.getTxsEffectsHash();
-    this.log.info(`Publishing ${newContracts.length} contracts in block ${block.number}`);
-
-    const publishedContractData = await this.publisher.processNewContractData(
-      block.number,
-      txsEffectsHash,
-      newContracts,
-    );
-
-    if (publishedContractData) {
-      this.log(`Successfully published new contract data for block ${block.number}`);
-    } else if (!publishedContractData && newContracts.length) {
-      this.log(`Failed to publish new contract data for block ${block.number}`);
     }
   }
 
@@ -348,6 +314,7 @@ export class Sequencer {
   /**
    * Pads the set of txs to a power of two and assembles a block by calling the block builder.
    * @param txs - Processed txs to include in the next block.
+   * @param newModelL1ToL2Messages - L1 to L2 messages emitted by the new inbox.
    * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
    * @param emptyTx - Empty tx to repeat at the end of the block to pad to a power of two.
    * @param globalVariables - Global variables to use in the block.
@@ -355,7 +322,8 @@ export class Sequencer {
    */
   protected async buildBlock(
     txs: ProcessedTx[],
-    newL1ToL2Messages: Fr[],
+    newModelL1ToL2Messages: Fr[], // TODO(#4492): Rename this when purging the old inbox
+    newL1ToL2Messages: Fr[], // TODO(#4492): Nuke this when purging the old inbox
     emptyTx: ProcessedTx,
     globalVariables: GlobalVariables,
   ) {
@@ -366,7 +334,12 @@ export class Sequencer {
     const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
     this.log(`Building block ${globalVariables.blockNumber}`);
 
-    const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, newL1ToL2Messages);
+    const [block] = await this.blockBuilder.buildL2Block(
+      globalVariables,
+      allTxs,
+      newModelL1ToL2Messages,
+      newL1ToL2Messages,
+    );
     return block;
   }
 
