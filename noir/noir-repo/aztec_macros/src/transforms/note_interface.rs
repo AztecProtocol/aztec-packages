@@ -3,7 +3,6 @@ use noirc_frontend::{
     parse_program, parser::SortedModule, ItemVisibility, NoirFunction, NoirStruct, PathKind,
     TraitImplItem, TypeImpl, UnresolvedTypeData, UnresolvedTypeExpression,
 };
-use regex::Regex;
 
 use crate::{
     chained_dep,
@@ -81,7 +80,10 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
         }?;
 
         // Automatically inject the header field if it's not present
-        if !note_struct.fields.iter().any(|(field_name, _)| field_name == "header") {
+        if !note_struct.fields.iter().any(|(_, field_type)| match &field_type.typ {
+            UnresolvedTypeData::Named(path, _, _) => path.last_segment().0.contents == "NoteHeader",
+            _ => false,
+        }) {
             note_struct.fields.push((
                 ident("header"),
                 make_type(UnresolvedTypeData::Named(
