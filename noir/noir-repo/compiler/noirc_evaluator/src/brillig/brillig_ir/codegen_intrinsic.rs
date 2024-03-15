@@ -1,7 +1,4 @@
-use acvm::{
-    acir::brillig::{BlackBoxOp, Opcode as BrilligOpcode},
-    FieldElement,
-};
+use acvm::FieldElement;
 
 use crate::brillig::brillig_ir::BrilligBinaryOp;
 
@@ -11,12 +8,6 @@ use super::{
 };
 
 impl BrilligContext {
-    /// Issues a blackbox operation.
-    pub(crate) fn black_box_op_instruction(&mut self, op: BlackBoxOp) {
-        self.debug_show.black_box_op_instruction(&op);
-        self.push_opcode(BrilligOpcode::BlackBox(op));
-    }
-
     /// Codegens a truncation of a value to the given bit size
     pub(crate) fn codegen_truncate(
         &mut self,

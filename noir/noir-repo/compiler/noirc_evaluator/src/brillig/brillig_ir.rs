@@ -16,8 +16,9 @@ mod codegen_intrinsic;
 mod codegen_memory;
 mod codegen_stack;
 mod entry_point;
+mod instructions;
 
-pub(crate) use codegen_binary::BrilligBinaryOp;
+pub(crate) use instructions::BrilligBinaryOp;
 
 use self::{artifact::BrilligArtifact, registers::BrilligRegistersContext};
 use crate::ssa::ir::dfg::CallStack;
@@ -96,7 +97,7 @@ impl BrilligContext {
     }
 
     /// Adds a brillig instruction to the brillig byte code
-    pub(crate) fn push_opcode(&mut self, opcode: BrilligOpcode) {
+    fn push_opcode(&mut self, opcode: BrilligOpcode) {
         self.obj.push_opcode(opcode);
     }
 

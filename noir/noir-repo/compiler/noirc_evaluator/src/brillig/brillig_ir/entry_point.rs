@@ -3,12 +3,9 @@ use super::{
     brillig_variable::{BrilligArray, BrilligVariable, SingleAddrVariable},
     debug_show::DebugShow,
     registers::BrilligRegistersContext,
-    BrilligBinaryOp, BrilligContext, ReservedRegisters, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
+    BrilligBinaryOp, BrilligContext, ReservedRegisters,
 };
-use acvm::{
-    acir::brillig::{MemoryAddress, Opcode as BrilligOpcode},
-    FieldElement,
-};
+use acvm::{acir::brillig::MemoryAddress, FieldElement};
 
 pub(crate) const MAX_STACK_SIZE: usize = 1024;
 
@@ -28,18 +25,18 @@ impl BrilligContext {
             debug_show: DebugShow::new(false),
         };
 
-        context.entry_point_instruction(&arguments, &return_parameters);
+        context.codegen_entry_point(&arguments, &return_parameters);
 
         context.add_external_call_instruction(target_function);
 
-        context.exit_point_instruction(&arguments, &return_parameters);
+        context.codegen_exit_point(&arguments, &return_parameters);
         context.artifact()
     }
 
     /// Adds the instructions needed to handle entry point parameters
     /// The runtime will leave the parameters in calldata.
     /// Arrays will be passed flattened.
-    fn entry_point_instruction(
+    fn codegen_entry_point(
         &mut self,
         arguments: &[BrilligParameter],
         return_parameters: &[BrilligParameter],
@@ -48,11 +45,10 @@ impl BrilligContext {
         let return_data_size = BrilligContext::flattened_tuple_size(return_parameters);
 
         // Set initial value of stack pointer: MAX_STACK_SIZE + calldata_size + return_data_size
-        self.push_opcode(BrilligOpcode::Const {
-            destination: ReservedRegisters::free_memory_pointer(),
-            value: (MAX_STACK_SIZE + calldata_size + return_data_size).into(),
-            bit_size: BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
-        });
+        self.const_instruction(
+            SingleAddrVariable::new_usize(ReservedRegisters::free_memory_pointer()),
+            (MAX_STACK_SIZE + calldata_size + return_data_size).into(),
+        );
 
         // Copy calldata
         self.copy_and_cast_calldata(arguments);
@@ -111,11 +107,7 @@ impl BrilligContext {
 
     fn copy_and_cast_calldata(&mut self, arguments: &[BrilligParameter]) {
         let calldata_size = BrilligContext::flattened_tuple_size(arguments);
-        self.push_opcode(BrilligOpcode::CalldataCopy {
-            destination_address: MemoryAddress(MAX_STACK_SIZE),
-            size: calldata_size,
-            offset: 0,
-        });
+        self.calldata_copy_instruction(MemoryAddress(MAX_STACK_SIZE), calldata_size, 0);
 
         fn flat_bit_sizes(param: &BrilligParameter) -> Box<dyn Iterator<Item = u32> + '_> {
             match param {
@@ -130,11 +122,10 @@ impl BrilligContext {
         for (i, bit_size) in arguments.iter().flat_map(flat_bit_sizes).enumerate() {
             // Calldatacopy tags everything with field type, so when downcast when necessary
             if bit_size < FieldElement::max_num_bits() {
-                self.push_opcode(BrilligOpcode::Cast {
-                    destination: MemoryAddress(MAX_STACK_SIZE + i),
-                    source: MemoryAddress(MAX_STACK_SIZE + i),
-                    bit_size,
-                });
+                self.cast_instruction(
+                    SingleAddrVariable::new(MemoryAddress(MAX_STACK_SIZE + i), bit_size),
+                    SingleAddrVariable::new_field(MemoryAddress(MAX_STACK_SIZE + i)),
+                );
             }
         }
     }
@@ -278,7 +269,7 @@ impl BrilligContext {
     /// The runtime expects the results in a contiguous memory region.
     /// Arrays are expected to be returned with all the nested arrays flattened.
     /// However, the function called returns variables (that have extra data) and the returned arrays are deflattened.
-    fn exit_point_instruction(
+    fn codegen_exit_point(
         &mut self,
         arguments: &[BrilligParameter],
         return_parameters: &[BrilligParameter],
@@ -343,7 +334,7 @@ impl BrilligContext {
             }
         }
 
-        self.push_opcode(BrilligOpcode::Stop { return_data_offset, return_data_size });
+        self.external_stop_instruction(return_data_offset, return_data_size);
     }
 
     // Flattens an array by recursively copying nested arrays and regular items.

@@ -1,47 +1,10 @@
-use acvm::acir::brillig::{HeapValueType, MemoryAddress, Opcode as BrilligOpcode, ValueOrArray};
+use acvm::acir::brillig::MemoryAddress;
 
 use super::{
     brillig_variable::BrilligVariable, BrilligBinaryOp, BrilligContext, ReservedRegisters,
 };
 
 impl BrilligContext {
-    /// Processes a foreign call instruction.
-    ///
-    /// Note: the function being called is external and will
-    /// not be linked during brillig generation.
-    pub(crate) fn foreign_call_instruction(
-        &mut self,
-        func_name: String,
-        inputs: &[ValueOrArray],
-        input_value_types: &[HeapValueType],
-        outputs: &[ValueOrArray],
-        output_value_types: &[HeapValueType],
-    ) {
-        self.debug_show.foreign_call_instruction(func_name.clone(), inputs, outputs);
-
-        assert!(inputs.len() == input_value_types.len());
-        assert!(outputs.len() == output_value_types.len());
-
-        let opcode = BrilligOpcode::ForeignCall {
-            function: func_name,
-            destinations: outputs.to_vec(),
-            destination_value_types: output_value_types.to_vec(),
-            inputs: inputs.to_vec(),
-            input_value_types: input_value_types.to_vec(),
-        };
-        self.push_opcode(opcode);
-    }
-
-    /// Adds a unresolved external `Call` instruction to the bytecode.
-    /// This calls into another function compiled into this brillig artifact.
-    pub(crate) fn add_external_call_instruction<T: ToString>(&mut self, func_label: T) {
-        self.debug_show.add_external_call_instruction(func_label.to_string());
-        self.obj.add_unresolved_external_call(
-            BrilligOpcode::Call { location: 0 },
-            func_label.to_string(),
-        );
-    }
-
     /// Saves all of the registers that have been used up until this point.
     fn codegen_save_registers_of_vars(&mut self, vars: &[BrilligVariable]) -> Vec<MemoryAddress> {
         // Save all of the used registers at this point in memory

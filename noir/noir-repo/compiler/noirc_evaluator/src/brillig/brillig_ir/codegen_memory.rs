@@ -1,4 +1,4 @@
-use acvm::acir::brillig::{MemoryAddress, Opcode as BrilligOpcode};
+use acvm::acir::brillig::MemoryAddress;
 
 use crate::brillig::brillig_ir::BrilligBinaryOp;
 
@@ -8,26 +8,6 @@ use super::{
 };
 
 impl BrilligContext {
-    pub(crate) fn load_free_memory_pointer_instruction(&mut self, pointer_register: MemoryAddress) {
-        self.debug_show.mov_instruction(pointer_register, ReservedRegisters::free_memory_pointer());
-        self.push_opcode(BrilligOpcode::Mov {
-            destination: pointer_register,
-            source: ReservedRegisters::free_memory_pointer(),
-        });
-    }
-
-    pub(crate) fn increase_free_memory_pointer_instruction(
-        &mut self,
-        size_register: MemoryAddress,
-    ) {
-        self.memory_op_instruction(
-            ReservedRegisters::free_memory_pointer(),
-            size_register,
-            ReservedRegisters::free_memory_pointer(),
-            BrilligBinaryOp::Add,
-        );
-    }
-
     /// Allocates an array of size `size` and stores the pointer to the array
     /// in `pointer_register`
     pub(crate) fn codegen_allocate_fixed_length_array(
@@ -60,10 +40,7 @@ impl BrilligContext {
     ) {
         // A variable can be stored in up to three values, so we reserve three values for that.
         let size_register = self.make_usize_constant_instruction(size.into());
-        self.push_opcode(BrilligOpcode::Mov {
-            destination: pointer_register,
-            source: ReservedRegisters::free_memory_pointer(),
-        });
+        self.mov_instruction(pointer_register, ReservedRegisters::free_memory_pointer());
         self.memory_op_instruction(
             ReservedRegisters::free_memory_pointer(),
             size_register.address,
@@ -194,16 +171,6 @@ impl BrilligContext {
         }
     }
 
-    /// Emits a store instruction
-    pub(crate) fn store_instruction(
-        &mut self,
-        destination_pointer: MemoryAddress,
-        source: MemoryAddress,
-    ) {
-        self.debug_show.store_instruction(destination_pointer, source);
-        self.push_opcode(BrilligOpcode::Store { destination_pointer, source });
-    }
-
     /// Stores a variable by saving its registers to memory
     pub(crate) fn codegen_store_variable(
         &mut self,
@@ -284,21 +251,5 @@ impl BrilligContext {
         self.deallocate_register(start_value_register);
         self.deallocate_register(end_value_register);
         self.deallocate_register(index_at_end_of_array);
-    }
-
-    /// Utility method to transform a HeapArray to a HeapVector by making a runtime constant with the size.
-    pub(crate) fn array_to_vector_instruction(&mut self, array: &BrilligArray) -> BrilligVector {
-        let size_register = self.make_usize_constant_instruction(array.size.into());
-        BrilligVector { size: size_register.address, pointer: array.pointer, rc: array.rc }
-    }
-
-    /// Emits a load instruction
-    pub(crate) fn load_instruction(
-        &mut self,
-        destination: MemoryAddress,
-        source_pointer: MemoryAddress,
-    ) {
-        self.debug_show.load_instruction(destination, source_pointer);
-        self.push_opcode(BrilligOpcode::Load { destination, source_pointer });
     }
 }

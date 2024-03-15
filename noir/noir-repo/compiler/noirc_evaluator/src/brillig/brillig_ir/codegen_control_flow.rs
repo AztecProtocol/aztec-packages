@@ -1,53 +1,10 @@
-use acvm::acir::brillig::{MemoryAddress, Opcode as BrilligOpcode};
+use acvm::acir::brillig::MemoryAddress;
 
 use super::{
-    artifact::UnresolvedJumpLocation, brillig_variable::SingleAddrVariable, BrilligBinaryOp,
-    BrilligContext, ReservedRegisters,
+    brillig_variable::SingleAddrVariable, BrilligBinaryOp, BrilligContext, ReservedRegisters,
 };
 
 impl BrilligContext {
-    /// Adds a unresolved `Jump` instruction to the bytecode.
-    pub(crate) fn jump_instruction<T: ToString>(&mut self, target_label: T) {
-        self.debug_show.jump_instruction(target_label.to_string());
-        self.add_unresolved_jump(BrilligOpcode::Jump { location: 0 }, target_label.to_string());
-    }
-
-    /// Adds a unresolved `JumpIf` instruction to the bytecode.
-    pub(crate) fn jump_if_instruction<T: ToString>(
-        &mut self,
-        condition: MemoryAddress,
-        target_label: T,
-    ) {
-        self.debug_show.jump_if_instruction(condition, target_label.to_string());
-        self.add_unresolved_jump(
-            BrilligOpcode::JumpIf { condition, location: 0 },
-            target_label.to_string(),
-        );
-    }
-
-    /// Emits brillig bytecode to jump to a trap condition if `condition`
-    /// is false.
-    pub(crate) fn constrain_instruction(
-        &mut self,
-        condition: SingleAddrVariable,
-        assert_message: Option<String>,
-    ) {
-        self.debug_show.constrain_instruction(condition.address);
-
-        assert!(condition.bit_size == 1);
-
-        let (next_section, next_label) = self.reserve_next_section_label();
-        self.add_unresolved_jump(
-            BrilligOpcode::JumpIf { condition: condition.address, location: 0 },
-            next_label,
-        );
-        self.push_opcode(BrilligOpcode::Trap);
-        if let Some(assert_message) = assert_message {
-            self.obj.add_assert_message_to_last_opcode(assert_message);
-        }
-        self.enter_section(next_section);
-    }
-
     /// Codegens a return from the current function.
     ///
     /// For Brillig, the return is implicit, since there is no explicit return instruction.
@@ -58,7 +15,6 @@ impl BrilligContext {
     /// method will move all register values to the first `N` values in
     /// the VM.
     pub(crate) fn codegen_return(&mut self, return_registers: &[MemoryAddress]) {
-        self.debug_show.return_instruction(return_registers);
         let mut sources = Vec::with_capacity(return_registers.len());
         let mut destinations = Vec::with_capacity(return_registers.len());
 
@@ -163,56 +119,5 @@ impl BrilligContext {
         f(self);
 
         self.enter_section(end_section);
-    }
-
-    /// Adds a unresolved `Jump` to the bytecode.
-    fn add_unresolved_jump(
-        &mut self,
-        jmp_instruction: BrilligOpcode,
-        destination: UnresolvedJumpLocation,
-    ) {
-        self.obj.add_unresolved_jump(jmp_instruction, destination);
-    }
-
-    /// Adds a label to the next opcode
-    pub(crate) fn enter_context<T: ToString>(&mut self, label: T) {
-        self.debug_show.enter_context(label.to_string());
-        self.context_label = label.to_string();
-        self.section_label = 0;
-        // Add a context label to the next opcode
-        self.obj.add_label_at_position(label.to_string(), self.obj.index_of_next_opcode());
-        // Add a section label to the next opcode
-        self.obj
-            .add_label_at_position(self.current_section_label(), self.obj.index_of_next_opcode());
-    }
-
-    /// Enter the given section
-    fn enter_section(&mut self, section: usize) {
-        self.section_label = section;
-        self.obj
-            .add_label_at_position(self.current_section_label(), self.obj.index_of_next_opcode());
-    }
-
-    /// Create, reserve, and return a new section label.
-    fn reserve_next_section_label(&mut self) -> (usize, String) {
-        let section = self.next_section;
-        self.next_section += 1;
-        (section, self.compute_section_label(section))
-    }
-
-    /// Internal function used to compute the section labels
-    fn compute_section_label(&self, section: usize) -> String {
-        format!("{}-{}", self.context_label, section)
-    }
-
-    /// Returns the current section label
-    fn current_section_label(&self) -> String {
-        self.compute_section_label(self.section_label)
-    }
-
-    /// Emits a stop instruction
-    pub(crate) fn stop_instruction(&mut self) {
-        self.debug_show.stop_instruction();
-        self.push_opcode(BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 });
     }
 }
