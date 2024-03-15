@@ -12,4 +12,4 @@
 
 set -euo pipefail
 
-EARTHLY_CONFIG="$(dirname $0)/earthly-bench-config.yml" $(dirname $0)/earthly
+EARTHLY_CONFIG="$(dirname $0)/earthly-bench-config.yml" $(dirname $0)/earthly $@

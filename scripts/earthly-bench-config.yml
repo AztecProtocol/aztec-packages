@@ -1,4 +1,4 @@
-# for 8 core 32gb machine with 64gb disk that we will hog all of
+# for 16 core 32gb machine with 64gb disk that we will hog all of
 global:
     cache_size_mb: 48000
     container_frontend: docker-shell
