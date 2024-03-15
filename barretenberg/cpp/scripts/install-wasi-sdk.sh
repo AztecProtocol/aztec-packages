@@ -35,5 +35,5 @@ else
   # Can remove once future releases are more stable.
   curl -s -L https://wasi-sdk.s3.eu-west-2.amazonaws.com/yamt-wasi-sysroot-20.0.threads.tgz | tar zxf -
 fi
-# TODO(https://github.com/AztecProtocol/barretenberg/issues/906): in the future this should use eartlhy and a 'SAVE ARTIFACT wasi-sdk AS LOCAL wasi-sdk'
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/906): in the future this should use earthly and a 'SAVE ARTIFACT wasi-sdk AS LOCAL wasi-sdk'
 mv wasi-sdk-20.0+threads wasi-sdk

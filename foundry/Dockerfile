@@ -1,3 +1,4 @@
+# Based on Dockerfile from https://github.com/foundry-rs/foundry.git
 FROM alpine:3.18 as build-environment
 
 ARG TARGETARCH
