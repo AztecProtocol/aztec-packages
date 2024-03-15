@@ -9,7 +9,7 @@ import {Errors} from "../src/core/libraries/Errors.sol";
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
 import {Hash} from "../src/core/libraries/Hash.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
-import {MerkleLibTest} from "./merkle/MerkleLib.t.sol";
+import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 
 contract NewOutboxTest is Test {
   using Hash for DataStructures.L2ToL1Msg;
@@ -22,12 +22,12 @@ contract NewOutboxTest is Test {
 
   NewOutbox internal outbox;
   NaiveMerkle internal zeroedTree;
-  MerkleLibTest internal merkleLibTest;
+  MerkleTestUtil internal merkleTestUtil;
 
   function setUp() public {
     outbox = new NewOutbox(ROLLUP_CONTRACT);
     zeroedTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
-    merkleLibTest = new MerkleLibTest();
+    merkleTestUtil = new MerkleTestUtil();
   }
 
   function _fakeMessage(address _recipient) internal view returns (DataStructures.L2ToL1Msg memory) {
@@ -65,7 +65,7 @@ contract NewOutboxTest is Test {
   // L2 to L1 message tree, expect for the correct event to be emitted, and then query for the root in the contract—making sure the roots, as well as the
   // the tree height (which is also the length of the sibling path) match
   function testInsertVariedLeafs(bytes32[] calldata _messageLeafs) public {
-    uint256 treeHeight = merkleLibTest.calculateTreeHeightFromSize(_messageLeafs.length);
+    uint256 treeHeight = merkleTestUtil.calculateTreeHeightFromSize(_messageLeafs.length);
     NaiveMerkle tree = new NaiveMerkle(treeHeight);
 
     for (uint256 i = 0; i < _messageLeafs.length; i++) {
@@ -219,7 +219,7 @@ contract NewOutboxTest is Test {
     uint256 numberOfMessages = bound(_size, 1, _recipients.length);
     DataStructures.L2ToL1Msg[] memory messages = new DataStructures.L2ToL1Msg[](numberOfMessages);
 
-    uint256 treeHeight = merkleLibTest.calculateTreeHeightFromSize(numberOfMessages);
+    uint256 treeHeight = merkleTestUtil.calculateTreeHeightFromSize(numberOfMessages);
     NaiveMerkle tree = new NaiveMerkle(treeHeight);
 
     for (uint256 i = 0; i < numberOfMessages; i++) {
