@@ -29,12 +29,12 @@ pub fn get_return_witness(
     // TODO(https://github.com/noir-lang/noir/issues/4428): These need to be updated to match the same interfaces
     // as the native ACVM executor. Right now native execution still only handles one circuit so I do not feel the need
     // to break the JS interface just yet.
-    circuit: Vec<u8>,
+    program: Vec<u8>,
     witness_map: JsWitnessMap,
 ) -> Result<JsWitnessMap, JsString> {
     console_error_panic_hook::set_once();
     let program: Program =
-        Program::deserialize_program(&circuit).expect("Failed to deserialize circuit");
+        Program::deserialize_program(&program).expect("Failed to deserialize circuit");
     let circuit = &program.functions[0];
 
     let witness_map = WitnessMap::from(witness_map);
@@ -52,12 +52,12 @@ pub fn get_return_witness(
 /// @returns {WitnessMap} A witness map containing the circuit's public parameters.
 #[wasm_bindgen(js_name = getPublicParametersWitness)]
 pub fn get_public_parameters_witness(
-    circuit: Vec<u8>,
+    program: Vec<u8>,
     solved_witness: JsWitnessMap,
 ) -> Result<JsWitnessMap, JsString> {
     console_error_panic_hook::set_once();
     let program: Program =
-        Program::deserialize_program(&circuit).expect("Failed to deserialize circuit");
+        Program::deserialize_program(&program).expect("Failed to deserialize circuit");
     let circuit = &program.functions[0];
 
     let witness_map = WitnessMap::from(solved_witness);
@@ -75,12 +75,12 @@ pub fn get_public_parameters_witness(
 /// @returns {WitnessMap} A witness map containing the circuit's public inputs.
 #[wasm_bindgen(js_name = getPublicWitness)]
 pub fn get_public_witness(
-    circuit: Vec<u8>,
+    program: Vec<u8>,
     solved_witness: JsWitnessMap,
 ) -> Result<JsWitnessMap, JsString> {
     console_error_panic_hook::set_once();
     let program: Program =
-        Program::deserialize_program(&circuit).expect("Failed to deserialize circuit");
+        Program::deserialize_program(&program).expect("Failed to deserialize circuit");
     let circuit = &program.functions[0];
 
     let witness_map = WitnessMap::from(solved_witness);

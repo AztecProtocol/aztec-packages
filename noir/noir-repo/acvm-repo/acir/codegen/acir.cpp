@@ -31,13 +31,31 @@ namespace Program {
             static Div bincodeDeserialize(std::vector<uint8_t>);
         };
 
+        struct IntegerDiv {
+            friend bool operator==(const IntegerDiv&, const IntegerDiv&);
+            std::vector<uint8_t> bincodeSerialize() const;
+            static IntegerDiv bincodeDeserialize(std::vector<uint8_t>);
+        };
+
         struct Equals {
             friend bool operator==(const Equals&, const Equals&);
             std::vector<uint8_t> bincodeSerialize() const;
             static Equals bincodeDeserialize(std::vector<uint8_t>);
         };
 
-        std::variant<Add, Sub, Mul, Div, Equals> value;
+        struct LessThan {
+            friend bool operator==(const LessThan&, const LessThan&);
+            std::vector<uint8_t> bincodeSerialize() const;
+            static LessThan bincodeDeserialize(std::vector<uint8_t>);
+        };
+
+        struct LessThanEquals {
+            friend bool operator==(const LessThanEquals&, const LessThanEquals&);
+            std::vector<uint8_t> bincodeSerialize() const;
+            static LessThanEquals bincodeDeserialize(std::vector<uint8_t>);
+        };
+
+        std::variant<Add, Sub, Mul, Div, IntegerDiv, Equals, LessThan, LessThanEquals> value;
 
         friend bool operator==(const BinaryFieldOp&, const BinaryFieldOp&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -1337,6 +1355,41 @@ Program::BinaryFieldOp::Div serde::Deserializable<Program::BinaryFieldOp::Div>::
 
 namespace Program {
 
+    inline bool operator==(const BinaryFieldOp::IntegerDiv &lhs, const BinaryFieldOp::IntegerDiv &rhs) {
+        return true;
+    }
+
+    inline std::vector<uint8_t> BinaryFieldOp::IntegerDiv::bincodeSerialize() const {
+        auto serializer = serde::BincodeSerializer();
+        serde::Serializable<BinaryFieldOp::IntegerDiv>::serialize(*this, serializer);
+        return std::move(serializer).bytes();
+    }
+
+    inline BinaryFieldOp::IntegerDiv BinaryFieldOp::IntegerDiv::bincodeDeserialize(std::vector<uint8_t> input) {
+        auto deserializer = serde::BincodeDeserializer(input);
+        auto value = serde::Deserializable<BinaryFieldOp::IntegerDiv>::deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.size()) {
+            throw serde::deserialization_error("Some input bytes were not read");
+        }
+        return value;
+    }
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::BinaryFieldOp::IntegerDiv>::serialize(const Program::BinaryFieldOp::IntegerDiv &obj, Serializer &serializer) {
+}
+
+template <>
+template <typename Deserializer>
+Program::BinaryFieldOp::IntegerDiv serde::Deserializable<Program::BinaryFieldOp::IntegerDiv>::deserialize(Deserializer &deserializer) {
+    Program::BinaryFieldOp::IntegerDiv obj;
+    return obj;
+}
+
+namespace Program {
+
     inline bool operator==(const BinaryFieldOp::Equals &lhs, const BinaryFieldOp::Equals &rhs) {
         return true;
     }
@@ -1367,6 +1420,76 @@ template <>
 template <typename Deserializer>
 Program::BinaryFieldOp::Equals serde::Deserializable<Program::BinaryFieldOp::Equals>::deserialize(Deserializer &deserializer) {
     Program::BinaryFieldOp::Equals obj;
+    return obj;
+}
+
+namespace Program {
+
+    inline bool operator==(const BinaryFieldOp::LessThan &lhs, const BinaryFieldOp::LessThan &rhs) {
+        return true;
+    }
+
+    inline std::vector<uint8_t> BinaryFieldOp::LessThan::bincodeSerialize() const {
+        auto serializer = serde::BincodeSerializer();
+        serde::Serializable<BinaryFieldOp::LessThan>::serialize(*this, serializer);
+        return std::move(serializer).bytes();
+    }
+
+    inline BinaryFieldOp::LessThan BinaryFieldOp::LessThan::bincodeDeserialize(std::vector<uint8_t> input) {
+        auto deserializer = serde::BincodeDeserializer(input);
+        auto value = serde::Deserializable<BinaryFieldOp::LessThan>::deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.size()) {
+            throw serde::deserialization_error("Some input bytes were not read");
+        }
+        return value;
+    }
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::BinaryFieldOp::LessThan>::serialize(const Program::BinaryFieldOp::LessThan &obj, Serializer &serializer) {
+}
+
+template <>
+template <typename Deserializer>
+Program::BinaryFieldOp::LessThan serde::Deserializable<Program::BinaryFieldOp::LessThan>::deserialize(Deserializer &deserializer) {
+    Program::BinaryFieldOp::LessThan obj;
+    return obj;
+}
+
+namespace Program {
+
+    inline bool operator==(const BinaryFieldOp::LessThanEquals &lhs, const BinaryFieldOp::LessThanEquals &rhs) {
+        return true;
+    }
+
+    inline std::vector<uint8_t> BinaryFieldOp::LessThanEquals::bincodeSerialize() const {
+        auto serializer = serde::BincodeSerializer();
+        serde::Serializable<BinaryFieldOp::LessThanEquals>::serialize(*this, serializer);
+        return std::move(serializer).bytes();
+    }
+
+    inline BinaryFieldOp::LessThanEquals BinaryFieldOp::LessThanEquals::bincodeDeserialize(std::vector<uint8_t> input) {
+        auto deserializer = serde::BincodeDeserializer(input);
+        auto value = serde::Deserializable<BinaryFieldOp::LessThanEquals>::deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.size()) {
+            throw serde::deserialization_error("Some input bytes were not read");
+        }
+        return value;
+    }
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::BinaryFieldOp::LessThanEquals>::serialize(const Program::BinaryFieldOp::LessThanEquals &obj, Serializer &serializer) {
+}
+
+template <>
+template <typename Deserializer>
+Program::BinaryFieldOp::LessThanEquals serde::Deserializable<Program::BinaryFieldOp::LessThanEquals>::deserialize(Deserializer &deserializer) {
+    Program::BinaryFieldOp::LessThanEquals obj;
     return obj;
 }
 

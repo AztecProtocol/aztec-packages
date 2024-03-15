@@ -13,7 +13,7 @@ pub fn compress_witness(witness_map: JsWitnessMap) -> Result<Vec<u8>, JsString> 
     console_error_panic_hook::set_once();
 
     let witness_map = WitnessMap::from(witness_map);
-    let witness_stack: WitnessStack = witness_map.into();
+    let witness_stack = WitnessStack::from(witness_map);
     let compressed_witness_stack: Vec<u8> =
         Vec::<u8>::try_from(witness_stack).map_err(|err| err.to_string())?;
 
