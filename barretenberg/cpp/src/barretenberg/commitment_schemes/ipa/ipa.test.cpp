@@ -78,7 +78,7 @@ TEST_F(IPATest, Open)
     // initialize verifier transcript from proof data
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
-    auto result = IPA::verify(this->vk(), opening_claim, verifier_transcript);
+    auto result = IPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
 
     EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
@@ -174,7 +174,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     const auto shplonk_verifier_claim =
         ShplonkVerifier::reduce_verification(this->vk(), gemini_verifier_claim, verifier_transcript);
-    bool verified = IPA::verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
+    bool verified = IPA::reduce_verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
 
     EXPECT_EQ(verified, true);
 }

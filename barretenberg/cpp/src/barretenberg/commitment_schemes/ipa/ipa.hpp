@@ -27,7 +27,7 @@ namespace bb {
  *scalar product \f$[f(x)]=\langle\vec{f},\vec{G}\rangle\f$, where \f$\vec{f}=(f_0, f_1,..., f_{d-1})\f$​
  *
  * The opening procedure documentation can be found in the description of \link IPA::compute_opening_proof
- compute_opening_proof \endlink. The verification procedure documentation is in \link IPA::verify verify \endlink
+ compute_opening_proof \endlink. The verification procedure documentation is in \link IPA::reduce_verify verify \endlink
  *
  * @tparam Curve
  *
