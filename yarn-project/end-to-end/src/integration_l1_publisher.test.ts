@@ -59,6 +59,7 @@ import {
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { setupL1Contracts } from './fixtures/utils.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -238,6 +239,9 @@ describe('L1Publisher integration', () => {
     // Path relative to the package.json in the end-to-end folder
     const path = `../../l1-contracts/test/fixtures/${fileName}.json`;
 
+    // We pad the messages as the solidity tests expect it.
+    const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+
     const jsonObject = {
       populate: {
         l1ToL2Content: l1ToL2Content.map(c => `0x${c.toBuffer().toString('hex').padStart(64, '0')}`),
@@ -245,7 +249,7 @@ describe('L1Publisher integration', () => {
         sender: deployerAddress,
       },
       messages: {
-        l1ToL2Messages: l1ToL2Messages.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
+        l1ToL2Messages: l1ToL2MessagesPadded.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
         l2ToL1Messages: block.body.txEffects
           .flatMap(txEffect => txEffect.l2ToL1Msgs)
           .map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
