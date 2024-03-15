@@ -38,6 +38,7 @@ import {
   SideEffect,
   SideEffectLinkedToNoteHash,
   VK_TREE_HEIGHT,
+  VerificationKey,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
@@ -55,8 +56,6 @@ import { MerkleTreeOperations } from '@aztec/world-state';
 
 import { env } from 'process';
 
-import { getVerificationKeys } from '../mocks/verification_keys.js';
-import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { HintsBuilder } from './hints_builder.js';
 import { lastSideEffectCounter } from './utils.js';
@@ -82,7 +81,6 @@ export abstract class AbstractPhaseManager {
     protected db: MerkleTreeOperations,
     protected publicExecutor: PublicExecutor,
     protected publicKernel: PublicKernelCircuitSimulator,
-    protected publicProver: PublicProver,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
     public phase: PublicKernelPhase,
@@ -279,8 +277,7 @@ export abstract class AbstractPhaseManager {
     callData?: PublicCallData,
   ): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
     const output = await this.getKernelCircuitOutput(previousOutput, previousProof, callData);
-    const proof = await this.publicProver.getPublicKernelCircuitProof(output);
-    return [output, proof];
+    return [output, Proof.fromBuffer(Buffer.alloc(0))];
   }
 
   protected async getKernelCircuitOutput(
@@ -332,7 +329,9 @@ export abstract class AbstractPhaseManager {
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
   ): PublicKernelData {
-    const vk = getVerificationKeys().publicKernelCircuit;
+
+    // TODO(@PhilWindle) Fix once we move this to prover-client
+    const vk = VerificationKey.makeFake();
     const vkIndex = 0;
     const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;
     return new PublicKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
@@ -434,8 +433,7 @@ export abstract class AbstractPhaseManager {
     );
     const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
-    const proof = await this.publicProver.getPublicCircuitProof(callStackItem.publicInputs);
-    return new PublicCallData(callStackItem, publicCallStack, proof, portalContractAddress, bytecodeHash);
+    return new PublicCallData(callStackItem, publicCallStack, Proof.fromBuffer(Buffer.alloc(0)), portalContractAddress, bytecodeHash);
   }
 }
 

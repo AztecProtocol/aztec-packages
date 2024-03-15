@@ -8,6 +8,15 @@
   "references": [
     {
       "path": "../foundation"
+    },
+    {
+      "path": "../world-state"
+    },
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../circuits.js"
     }
   ],
   "include": ["src"]

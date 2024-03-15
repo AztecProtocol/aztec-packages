@@ -150,6 +150,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/p2p": "workspace:^"
+    "@aztec/prover-client": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@aztec/world-state": "workspace:^"
@@ -383,6 +384,7 @@ __metadata:
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/prover-client": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/types": "workspace:^"
@@ -745,11 +747,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/prover-client@workspace:prover-client":
+"@aztec/prover-client@workspace:^, @aztec/prover-client@workspace:prover-client":
   version: 0.0.0-use.local
   resolution: "@aztec/prover-client@workspace:prover-client"
   dependencies:
+    "@aztec/circuit-types": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/noir-protocol-circuits-types": "workspace:^"
+    "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23

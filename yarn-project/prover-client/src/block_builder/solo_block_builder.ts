@@ -1,4 +1,4 @@
-import { Body, L2Block, MerkleTreeId, TxEffect } from '@aztec/circuit-types';
+import { Body, L2Block, MerkleTreeId, ProcessedTx, TxEffect, toTxEffect } from '@aztec/circuit-types';
 import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   ARCHIVE_HEIGHT,
@@ -58,10 +58,9 @@ import { inspect } from 'util';
 
 import { VerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
-import { ProcessedTx, toTxEffect } from '../sequencer/processed_tx.js';
-import { RollupSimulator } from '../simulator/index.js';
 import { BlockBuilder } from './index.js';
 import { TreeNames } from './types.js';
+import { RollupSimulator } from '../simulator/rollup.js';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 
@@ -82,7 +81,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     protected vks: VerificationKeys,
     protected simulator: RollupSimulator,
     protected prover: RollupProver,
-    protected debug = createDebugLogger('aztec:sequencer:solo-block-builder'),
+    protected debug = createDebugLogger('aztec:prover:solo-block-builder'),
   ) {}
 
   /**

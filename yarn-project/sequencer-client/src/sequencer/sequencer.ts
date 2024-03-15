@@ -1,4 +1,4 @@
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, ProcessedTx, Tx } from '@aztec/circuit-types';
 import { L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import { AztecAddress, EthAddress, GlobalVariables } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
@@ -9,13 +9,12 @@ import { Timer, elapsed } from '@aztec/foundation/timer';
 import { P2P } from '@aztec/p2p';
 import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
 
-import { BlockBuilder } from '../block_builder/index.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
 import { ceilPowerOfTwo } from '../utils.js';
 import { SequencerConfig } from './config.js';
-import { ProcessedTx } from './processed_tx.js';
 import { PublicProcessorFactory } from './public_processor.js';
+import { ProverClient } from '@aztec/circuit-types/interfaces';
 
 /**
  * Sequencer client
@@ -42,7 +41,7 @@ export class Sequencer {
     private globalsBuilder: GlobalVariableBuilder,
     private p2pClient: P2P,
     private worldState: WorldStateSynchronizer,
-    private blockBuilder: BlockBuilder,
+    private prover: ProverClient,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private publicProcessorFactory: PublicProcessorFactory,
@@ -334,7 +333,7 @@ export class Sequencer {
     const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
     this.log(`Building block ${globalVariables.blockNumber}`);
 
-    const [block] = await this.blockBuilder.buildL2Block(
+    const [block] = await this.prover.proveBlock(
       globalVariables,
       allTxs,
       newModelL1ToL2Messages,

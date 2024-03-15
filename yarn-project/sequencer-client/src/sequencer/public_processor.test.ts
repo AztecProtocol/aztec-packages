@@ -1,12 +1,14 @@
 import {
   FunctionCall,
   FunctionL2Logs,
+  ProcessedTx,
   PublicDataWrite,
   SiblingPath,
   SimulationError,
   Tx,
   TxL2Logs,
   mockTx,
+  toTxEffect,
 } from '@aztec/circuit-types';
 import {
   ARGS_LENGTH,
@@ -47,18 +49,15 @@ import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { PublicProver } from '../prover/index.js';
-import { WASMSimulator } from '../simulator/acvm_wasm.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
-import { ProcessedTx, toTxEffect } from './processed_tx.js';
 import { PublicProcessor } from './public_processor.js';
+import { WASMSimulator } from '@aztec/circuits.js/simulation';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
-  let publicProver: MockProxy<PublicProver>;
   let publicContractsDB: MockProxy<ContractsDataSourcePublicDB>;
   let publicWorldStateDB: MockProxy<WorldStatePublicDB>;
 
@@ -70,15 +69,12 @@ describe('public_processor', () => {
   beforeEach(() => {
     db = mock<MerkleTreeOperations>();
     publicExecutor = mock<PublicExecutor>();
-    publicProver = mock<PublicProver>();
     publicContractsDB = mock<ContractsDataSourcePublicDB>();
     publicWorldStateDB = mock<WorldStatePublicDB>();
 
     proof = makeEmptyProof();
     root = Buffer.alloc(32, 5);
 
-    publicProver.getPublicCircuitProof.mockResolvedValue(proof);
-    publicProver.getPublicKernelCircuitProof.mockResolvedValue(proof);
     db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
   });
 
@@ -91,7 +87,6 @@ describe('public_processor', () => {
         db,
         publicExecutor,
         publicKernel,
-        publicProver,
         GlobalVariables.empty(),
         Header.empty(),
         publicContractsDB,
@@ -179,7 +174,6 @@ describe('public_processor', () => {
         db,
         publicExecutor,
         publicKernel,
-        publicProver,
         GlobalVariables.empty(),
         Header.empty(),
         publicContractsDB,

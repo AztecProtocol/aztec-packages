@@ -32,6 +32,7 @@
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/prover-client": "workspace:^",
     "@aztec/pxe": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/types": "workspace:^",

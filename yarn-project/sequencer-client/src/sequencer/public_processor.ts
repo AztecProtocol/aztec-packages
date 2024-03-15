@@ -1,27 +1,23 @@
-import { ContractDataSource, L1ToL2MessageSource, SimulationError, Tx } from '@aztec/circuit-types';
-import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
-import { GlobalVariables, Header } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
-import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
-import { MerkleTreeOperations } from '@aztec/world-state';
-
-import { EmptyPublicProver } from '../prover/empty.js';
-import { PublicProver } from '../prover/index.js';
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
-import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
-import { SimulationProvider } from '../simulator/simulation_provider.js';
-import { AbstractPhaseManager } from './abstract_phase_manager.js';
-import { PhaseManagerFactory } from './phase_manager_factory.js';
-import {
+import { ContractDataSource, L1ToL2MessageSource, SimulationError, Tx ,
   FailedTx,
   ProcessedTx,
   getPreviousOutputAndProof,
   makeEmptyProcessedTx,
   makeProcessedTx,
   validateProcessedTx,
-} from './processed_tx.js';
+} from '@aztec/circuit-types';
+import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
+import { GlobalVariables, Header } from '@aztec/circuits.js';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
+import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
+import { MerkleTreeOperations } from '@aztec/world-state';
+import { PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
+import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
+import { AbstractPhaseManager } from './abstract_phase_manager.js';
+import { PhaseManagerFactory } from './phase_manager_factory.js';
+import { SimulationProvider } from '@aztec/circuits.js/simulation';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -55,7 +51,6 @@ export class PublicProcessorFactory {
       this.merkleTree,
       publicExecutor,
       new RealPublicKernelCircuitSimulator(this.simulator),
-      new EmptyPublicProver(),
       globalVariables,
       historicalHeader,
       publicContractsDB,
@@ -73,7 +68,6 @@ export class PublicProcessor {
     protected db: MerkleTreeOperations,
     protected publicExecutor: PublicExecutor,
     protected publicKernel: PublicKernelCircuitSimulator,
-    protected publicProver: PublicProver,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
@@ -99,7 +93,6 @@ export class PublicProcessor {
         this.db,
         this.publicExecutor,
         this.publicKernel,
-        this.publicProver,
         this.globalVariables,
         this.historicalHeader,
         this.publicContractsDB,
@@ -121,7 +114,6 @@ export class PublicProcessor {
             this.db,
             this.publicExecutor,
             this.publicKernel,
-            this.publicProver,
             this.globalVariables,
             this.historicalHeader,
             this.publicContractsDB,

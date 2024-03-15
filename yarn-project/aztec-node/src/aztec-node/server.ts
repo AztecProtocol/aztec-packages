@@ -15,6 +15,7 @@ import {
   LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
+  ProverClient,
   PublicDataWitness,
   SequencerConfig,
   SiblingPath,
@@ -23,6 +24,7 @@ import {
   TxHash,
   TxReceipt,
   TxStatus,
+  partitionReverts,
 } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
@@ -39,6 +41,7 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { WASMSimulator } from '@aztec/circuits.js/simulation';
 import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -47,13 +50,12 @@ import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256, StandardTree } from '@aztec/merkle-tree';
 import { AztecKVTxPool, P2P, createP2PClient } from '@aztec/p2p';
+import { DummyProver, TxProver } from '@aztec/prover-client';
 import {
   GlobalVariableBuilder,
   PublicProcessorFactory,
   SequencerClient,
-  WASMSimulator,
   getGlobalVariableBuilder,
-  partitionReverts,
 } from '@aztec/sequencer-client';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import {
@@ -84,6 +86,7 @@ export class AztecNodeService implements AztecNode {
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
     protected readonly merkleTreesDb: AztecKVStore,
+    private readonly prover: ProverClient,
     private log = createDebugLogger('aztec:node'),
   ) {
     const message =
@@ -142,10 +145,13 @@ export class AztecNodeService implements AztecNode {
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
+    // start the prover if we have been told to
+    const prover = config.disableProver ? await DummyProver.new() : await TxProver.new(config, worldStateSynchronizer);
+
     // now create the sequencer
     const sequencer = config.disableSequencer
       ? undefined
-      : await SequencerClient.new(config, p2pClient, worldStateSynchronizer, archiver, archiver, archiver);
+      : await SequencerClient.new(config, p2pClient, worldStateSynchronizer, archiver, archiver, archiver, prover);
 
     return new AztecNodeService(
       config,
@@ -161,6 +167,7 @@ export class AztecNodeService implements AztecNode {
       config.version,
       getGlobalVariableBuilder(config),
       store,
+      prover,
       log,
     );
   }
@@ -321,6 +328,7 @@ export class AztecNodeService implements AztecNode {
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
+    await this.prover.stop();
     this.log.info(`Stopped`);
   }
 

@@ -29,13 +29,48 @@ import {
   convertRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 
-import { RollupSimulator, WASMSimulator } from './index.js';
-import { SimulationProvider } from './simulation_provider.js';
+import { SimulationProvider, WASMSimulator } from '@aztec/circuits.js/simulation';
+
+/**
+ * Circuit simulator for the rollup circuits.
+ */
+export interface RollupSimulator {
+  /**
+   * Simulates the base parity circuit from its inputs.
+   * @param inputs - Inputs to the circuit.
+   * @returns The public inputs of the parity circuit.
+   */
+  baseParityCircuit(inputs: BaseParityInputs): Promise<ParityPublicInputs>;
+  /**
+   * Simulates the root parity circuit from its inputs.
+   * @param inputs - Inputs to the circuit.
+   * @returns The public inputs of the parity circuit.
+   */
+  rootParityCircuit(inputs: RootParityInputs): Promise<ParityPublicInputs>;
+  /**
+   * Simulates the base rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  baseRollupCircuit(input: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs>;
+  /**
+   * Simulates the merge rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  mergeRollupCircuit(input: MergeRollupInputs): Promise<BaseOrMergeRollupPublicInputs>;
+  /**
+   * Simulates the root rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  rootRollupCircuit(input: RootRollupInputs): Promise<RootRollupPublicInputs>;
+}
 
 /**
  * Implements the rollup circuit simulator.
  */
-export class RealRollupCircuitSimulator implements RollupSimulator {
+export class RealRollupCircuitSimulator implements RollupSimulator  {
   private log = createDebugLogger('aztec:rollup-simulator');
 
   // Some circuits are so small it is faster to use WASM

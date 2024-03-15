@@ -30,7 +30,11 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/circuit-types": "workspace:^",
+    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/world-state": "workspace:^",
     "tslib": "^2.4.0"
   },
   "devDependencies": {

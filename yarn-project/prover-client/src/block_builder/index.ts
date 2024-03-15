@@ -1,8 +1,6 @@
-import { L2Block } from '@aztec/circuit-types';
+import { L2Block, ProcessedTx } from '@aztec/circuit-types';
 import { GlobalVariables, Proof } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
-
-import { ProcessedTx } from '../sequencer/processed_tx.js';
 
 /**
  * Assembles an L2Block from a set of processed transactions.

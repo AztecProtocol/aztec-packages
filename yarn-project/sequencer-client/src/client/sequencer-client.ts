@@ -5,18 +5,13 @@ import { WorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
 
-import { SoloBlockBuilder } from '../block_builder/solo_block_builder.js';
 import { SequencerClientConfig } from '../config.js';
 import { getGlobalVariableBuilder } from '../global_variable_builder/index.js';
-import { getVerificationKeys } from '../mocks/verification_keys.js';
-import { EmptyRollupProver } from '../prover/empty.js';
 import { getL1Publisher } from '../publisher/index.js';
 import { Sequencer, SequencerConfig } from '../sequencer/index.js';
 import { PublicProcessorFactory } from '../sequencer/public_processor.js';
-import { NativeACVMSimulator } from '../simulator/acvm_native.js';
-import { WASMSimulator } from '../simulator/acvm_wasm.js';
-import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
-import { SimulationProvider } from '../simulator/simulation_provider.js';
+import { ProverClient } from '@aztec/circuit-types/interfaces';
+import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from '@aztec/circuits.js/simulation';
 
 const logger = createDebugLogger('aztec:sequencer-client');
 
@@ -54,6 +49,7 @@ export class SequencerClient {
    * @param contractDataSource - Provides access to contract bytecode for public executions.
    * @param l2BlockSource - Provides information about the previously published blocks.
    * @param l1ToL2MessageSource - Provides access to L1 to L2 messages.
+   * @param prover - An instance of a prover client.
    * @returns A new running instance.
    */
   public static async new(
@@ -63,19 +59,13 @@ export class SequencerClient {
     contractDataSource: ContractDataSource,
     l2BlockSource: L2BlockSource,
     l1ToL2MessageSource: L1ToL2MessageSource,
+    prover: ProverClient,
   ) {
     const publisher = getL1Publisher(config);
     const globalsBuilder = getGlobalVariableBuilder(config);
     const merkleTreeDb = worldStateSynchronizer.getLatest();
 
     const simulationProvider = await getSimulationProvider(config);
-
-    const blockBuilder = new SoloBlockBuilder(
-      merkleTreeDb,
-      getVerificationKeys(),
-      new RealRollupCircuitSimulator(simulationProvider),
-      new EmptyRollupProver(),
-    );
 
     const publicProcessorFactory = new PublicProcessorFactory(
       merkleTreeDb,
@@ -89,7 +79,7 @@ export class SequencerClient {
       globalsBuilder,
       p2pClient,
       worldStateSynchronizer,
-      blockBuilder,
+      prover,
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
