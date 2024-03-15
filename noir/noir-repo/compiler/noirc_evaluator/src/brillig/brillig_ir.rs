@@ -5,7 +5,10 @@
 //! ssa types and types in this module.
 //! A similar paradigm can be seen with the `acir_ir` module.
 //!
-//! The brillig ir provides instructions and codegens. The instructions are low
+//! The brillig ir provides instructions and codegens.
+//! The instructions are low level operations that are printed via debug_show.
+//! They should emit few opcodes. Codegens on the other hand orchestrate the
+//! low level instructions to emit the desired high level operation.
 pub(crate) mod artifact;
 pub(crate) mod brillig_variable;
 pub(crate) mod debug_show;
