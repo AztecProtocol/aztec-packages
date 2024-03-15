@@ -3,10 +3,10 @@ Summary
  - [uninitialized-local](#uninitialized-local) (2 results) (Medium)
  - [unused-return](#unused-return) (1 results) (Medium)
  - [pess-dubious-typecast](#pess-dubious-typecast) (6 results) (Medium)
- - [missing-zero-check](#missing-zero-check) (1 results) (Low)
+ - [missing-zero-check](#missing-zero-check) (2 results) (Low)
  - [reentrancy-events](#reentrancy-events) (2 results) (Low)
  - [timestamp](#timestamp) (1 results) (Low)
- - [pess-public-vs-external](#pess-public-vs-external) (5 results) (Low)
+ - [pess-public-vs-external](#pess-public-vs-external) (6 results) (Low)
  - [assembly](#assembly) (2 results) (Informational)
  - [dead-code](#dead-code) (3 results) (Informational)
  - [solc-version](#solc-version) (1 results) (Informational)
@@ -114,23 +114,23 @@ src/core/libraries/decoders/MessagesDecoder.sol#L150-L152
 Impact: Low
 Confidence: Medium
  - [ ] ID-10
+[NewOutbox.constructor(address)._rollup](src/core/messagebridge/NewOutbox.sol#L30) lacks a zero-check on :
+		- [ROLLUP_CONTRACT = _rollup](src/core/messagebridge/NewOutbox.sol#L31)
+
+src/core/messagebridge/NewOutbox.sol#L31
+
+
+ - [ ] ID-11
 [Inbox.constructor(address,uint256)._rollup](src/core/messagebridge/Inbox.sol#L40) lacks a zero-check on :
 		- [ROLLUP = _rollup](src/core/messagebridge/Inbox.sol#L41)
 
 src/core/messagebridge/Inbox.sol#L40
 
 
- - [ ] ID-13
-[NewOutbox.constructor(address)._rollup](src/core/messagebridge/NewOutbox.sol#L31) lacks a zero-check on :
-		- [ROLLUP_CONTRACT = _rollup](src/core/messagebridge/NewOutbox.sol#L32)
-
-src/core/messagebridge/NewOutbox.sol#L31
-
-
 ## reentrancy-events
 Impact: Low
 Confidence: Medium
- - [ ] ID-11
+ - [ ] ID-12
 Reentrancy in [Inbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/Inbox.sol#L61-L95):
 	External calls:
 	- [index = currentTree.insertLeaf(leaf)](src/core/messagebridge/Inbox.sol#L91)
@@ -140,7 +140,7 @@ Reentrancy in [Inbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/
 src/core/messagebridge/Inbox.sol#L61-L95
 
 
- - [ ] ID-12
+ - [ ] ID-13
 Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L57-L96):
 	External calls:
 	- [inHash = INBOX.consume()](src/core/Rollup.sol#L87)
@@ -154,7 +154,7 @@ src/core/Rollup.sol#L57-L96
 ## timestamp
 Impact: Low
 Confidence: Medium
- - [ ] ID-13
+ - [ ] ID-14
 [HeaderLib.validate(HeaderLib.Header,uint256,uint256,bytes32)](src/core/libraries/HeaderLib.sol#L106-L136) uses timestamp for comparisons
 	Dangerous comparisons:
 	- [_header.globalVariables.timestamp > block.timestamp](src/core/libraries/HeaderLib.sol#L120)
@@ -165,35 +165,35 @@ src/core/libraries/HeaderLib.sol#L106-L136
 ## pess-public-vs-external
 Impact: Low
 Confidence: Medium
- - [ ] ID-14
+ - [ ] ID-15
 The following public functions could be turned into external in [FrontierMerkle](src/core/messagebridge/frontier_tree/Frontier.sol#L7-L93) contract:
 	[FrontierMerkle.constructor(uint256)](src/core/messagebridge/frontier_tree/Frontier.sol#L19-L27)
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L7-L93
 
 
- - [ ] ID-15
+ - [ ] ID-16
 The following public functions could be turned into external in [Registry](src/core/messagebridge/Registry.sol#L22-L129) contract:
 	[Registry.constructor()](src/core/messagebridge/Registry.sol#L29-L33)
 
 src/core/messagebridge/Registry.sol#L22-L129
 
 
- - [ ] ID-16
+ - [ ] ID-17
 The following public functions could be turned into external in [Inbox](src/core/messagebridge/Inbox.sol#L24-L124) contract:
 	[Inbox.constructor(address,uint256)](src/core/messagebridge/Inbox.sol#L40-L51)
 
 src/core/messagebridge/Inbox.sol#L24-L124
 
 
- - [ ] ID-17
+ - [ ] ID-18
 The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L29-L105) contract:
 	[Rollup.constructor(IRegistry,IAvailabilityOracle)](src/core/Rollup.sol#L42-L48)
 
 src/core/Rollup.sol#L29-L105
 
 
- - [ ] ID-18
+ - [ ] ID-19
 The following public functions could be turned into external in [Outbox](src/core/messagebridge/Outbox.sol#L21-L148) contract:
 	[Outbox.constructor(address)](src/core/messagebridge/Outbox.sol#L29-L31)
 	[Outbox.get(bytes32)](src/core/messagebridge/Outbox.sol#L77-L84)
@@ -202,10 +202,17 @@ The following public functions could be turned into external in [Outbox](src/cor
 src/core/messagebridge/Outbox.sol#L21-L148
 
 
+ - [ ] ID-20
+The following public functions could be turned into external in [NewOutbox](src/core/messagebridge/NewOutbox.sol#L18-L131) contract:
+	[NewOutbox.constructor(address)](src/core/messagebridge/NewOutbox.sol#L30-L32)
+
+src/core/messagebridge/NewOutbox.sol#L18-L131
+
+
 ## assembly
 Impact: Informational
 Confidence: High
- - [ ] ID-19
+ - [ ] ID-21
 [MessagesDecoder.decode(bytes)](src/core/libraries/decoders/MessagesDecoder.sol#L60-L142) uses assembly
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L79-L81)
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L112-L118)
@@ -213,7 +220,7 @@ Confidence: High
 src/core/libraries/decoders/MessagesDecoder.sol#L60-L142
 
 
- - [ ] ID-20
+ - [ ] ID-22
 [TxsDecoder.computeRoot(bytes32[])](src/core/libraries/decoders/TxsDecoder.sol#L256-L275) uses assembly
 	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L263-L265)
 
@@ -223,19 +230,19 @@ src/core/libraries/decoders/TxsDecoder.sol#L256-L275
 ## dead-code
 Impact: Informational
 Confidence: Medium
- - [ ] ID-21
+ - [ ] ID-23
 [Outbox._errNothingToConsume(bytes32)](src/core/messagebridge/Outbox.sol#L114-L116) is never used and should be removed
 
 src/core/messagebridge/Outbox.sol#L114-L116
 
 
- - [ ] ID-22
+ - [ ] ID-24
 [Hash.sha256ToField(bytes32)](src/core/libraries/Hash.sol#L52-L54) is never used and should be removed
 
 src/core/libraries/Hash.sol#L52-L54
 
 
- - [ ] ID-23
+ - [ ] ID-25
 [Outbox._errIncompatibleEntryArguments(bytes32,uint64,uint64,uint32,uint32,uint32,uint32)](src/core/messagebridge/Outbox.sol#L129-L147) is never used and should be removed
 
 src/core/messagebridge/Outbox.sol#L129-L147
@@ -244,25 +251,25 @@ src/core/messagebridge/Outbox.sol#L129-L147
 ## solc-version
 Impact: Informational
 Confidence: High
- - [ ] ID-24
-solc-0.8.21 is not recommended for deployment
+ - [ ] ID-26
+solc-0.8.23 is not recommended for deployment
 
 ## similar-names
 Impact: Informational
 Confidence: Medium
- - [ ] ID-25
+ - [ ] ID-27
 Variable [Constants.LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L132) is too similar to [Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L125)
 
 src/core/libraries/ConstantsGen.sol#L130
 
 
- - [ ] ID-26
+ - [ ] ID-28
 Variable [Constants.L1_TO_L2_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L112) is too similar to [Constants.L2_TO_L1_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L113)
 
 src/core/libraries/ConstantsGen.sol#L110
 
 
- - [ ] ID-27
+ - [ ] ID-29
 Variable [Rollup.AVAILABILITY_ORACLE](src/core/Rollup.sol#L32) is too similar to [Rollup.constructor(IRegistry,IAvailabilityOracle)._availabilityOracle](src/core/Rollup.sol#L42)
 
 src/core/Rollup.sol#L32
@@ -271,7 +278,7 @@ src/core/Rollup.sol#L32
 ## constable-states
 Impact: Optimization
 Confidence: High
- - [ ] ID-28
+ - [ ] ID-30
 [Rollup.lastWarpedBlockTs](src/core/Rollup.sol#L40) should be constant 
 
 src/core/Rollup.sol#L40
@@ -280,31 +287,37 @@ src/core/Rollup.sol#L40
 ## pess-multiple-storage-read
 Impact: Optimization
 Confidence: High
- - [ ] ID-29
+ - [ ] ID-31
+In a function [NewOutbox.insert(uint256,bytes32,uint256)](src/core/messagebridge/NewOutbox.sol#L43-L63) variable [NewOutbox.roots](src/core/messagebridge/NewOutbox.sol#L28) is read multiple times
+
+src/core/messagebridge/NewOutbox.sol#L43-L63
+
+
+ - [ ] ID-32
 In a function [Inbox.consume()](src/core/messagebridge/Inbox.sol#L104-L123) variable [Inbox.toConsume](src/core/messagebridge/Inbox.sol#L34) is read multiple times
 
 src/core/messagebridge/Inbox.sol#L104-L123
 
 
- - [ ] ID-30
+ - [ ] ID-33
 In a function [Inbox.consume()](src/core/messagebridge/Inbox.sol#L104-L123) variable [Inbox.inProgress](src/core/messagebridge/Inbox.sol#L36) is read multiple times
 
 src/core/messagebridge/Inbox.sol#L104-L123
 
 
- - [ ] ID-31
+ - [ ] ID-34
 In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76) variable [FrontierMerkle.HEIGHT](src/core/messagebridge/frontier_tree/Frontier.sol#L8) is read multiple times
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76
 
 
- - [ ] ID-32
+ - [ ] ID-35
 In a function [Inbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/Inbox.sol#L61-L95) variable [Inbox.inProgress](src/core/messagebridge/Inbox.sol#L36) is read multiple times
 
 src/core/messagebridge/Inbox.sol#L61-L95
 
 
- - [ ] ID-33
+ - [ ] ID-36
 In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76
