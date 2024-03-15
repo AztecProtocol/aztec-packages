@@ -27,7 +27,7 @@ import { fr, makeNewSideEffect, makeNewSideEffectLinkedToNoteHash, makeProof } f
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { AvailabilityOracleAbi, InboxAbi, NewInboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, InboxAbi, NewInboxAbi, NewOutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
   L1Publisher,
@@ -59,6 +59,7 @@ import {
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { setupL1Contracts } from './fixtures/utils.js';
+import { SHA256, StandardTree } from '@aztec/merkle-tree';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -76,12 +77,11 @@ describe('L1Publisher integration', () => {
 
   let rollupAddress: Address;
   let inboxAddress: Address;
-  let outboxAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
   let inbox: GetContractReturnType<typeof InboxAbi, WalletClient<HttpTransport, Chain>>;
   let newInbox: GetContractReturnType<typeof NewInboxAbi, WalletClient<HttpTransport, Chain>>;
-  let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
+  let newOutbox: GetContractReturnType<typeof NewOutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
   let l2Proof: Buffer;
@@ -111,7 +111,6 @@ describe('L1Publisher integration', () => {
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
-    outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
 
     // Set up contract instances
     rollup = getContract({
@@ -130,10 +129,11 @@ describe('L1Publisher integration', () => {
       abi: NewInboxAbi,
       client: walletClient,
     });
-    outbox = getContract({
-      address: outboxAddress,
-      abi: OutboxAbi,
-      client: publicClient,
+    const newOutboxAddress = await rollup.read.NEW_OUTBOX();
+    newOutbox = getContract({
+      address: newOutboxAddress,
+      abi: NewOutboxAbi,
+      client: walletClient,
     });
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
@@ -422,10 +422,9 @@ describe('L1Publisher integration', () => {
 
       const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-      // check that values are not in the outbox
-      for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
-        expect(await outbox.read.contains([newL2ToL1MsgsArray[j].toString()])).toBeFalsy();
-      }
+     const [emptyRoot] = await newOutbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
+
+     expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
       writeJson(`mixed_block_${i}`, block, l1ToL2Messages, l1ToL2Content, recipientAddress, deployerAccount.address);
 
@@ -466,9 +465,24 @@ describe('L1Publisher integration', () => {
         expect(await inbox.read.contains([l1ToL2Messages[j].toString()])).toBeFalsy();
       }
 
+      const treeHeight = Math.ceil(Math.log2(newL2ToL1MsgsArray.length));
+
+      const tree = new StandardTree(openTmpStore(true), new SHA256(), 'temp_outhash_sibling_path', treeHeight);
+      await tree.appendLeaves(newL2ToL1MsgsArray.map(l2ToL1Msg => l2ToL1Msg.toBuffer()));
+
+      const expectedRoot = tree.getRoot(true);
+      const [actualRoot] = await newOutbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
+
+      expect(`0x${expectedRoot.toString('hex')}`).toEqual(actualRoot);
+
       // check that values are inserted into the outbox
       for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
-        expect(await outbox.read.contains([newL2ToL1MsgsArray[j].toString()])).toBeTruthy();
+        expect(
+          await newOutbox.read.hasMessageBeenConsumedAtBlockAndIndex([
+            block.header.globalVariables.blockNumber.toBigInt(),
+            BigInt(j),
+          ]),
+        ).toBe(false);
       }
 
       // There is a 1 block lag in the new model

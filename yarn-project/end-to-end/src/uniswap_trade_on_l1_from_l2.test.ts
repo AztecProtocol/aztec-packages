@@ -12,6 +12,7 @@ let teardown: () => Promise<void>;
 // docs:start:uniswap_setup
 const testSetup = async (): Promise<UniswapSetupContext> => {
   const {
+    aztecNode,
     teardown: teardown_,
     pxe,
     deployL1ContractsValues,
@@ -19,15 +20,12 @@ const testSetup = async (): Promise<UniswapSetupContext> => {
     logger,
   } = await e2eSetup(2, { stateLoad: dumpedState });
 
-  const walletClient = deployL1ContractsValues.walletClient;
-  const publicClient = deployL1ContractsValues.publicClient;
-
   const ownerWallet = wallets[0];
   const sponsorWallet = wallets[1];
 
   teardown = teardown_;
 
-  return { pxe, logger, publicClient, walletClient, ownerWallet, sponsorWallet };
+  return { aztecNode, pxe, logger, ownerWallet, sponsorWallet, deployL1ContractsValues };
 };
 // docs:end:uniswap_setup
 

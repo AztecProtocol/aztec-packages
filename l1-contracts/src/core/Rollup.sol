@@ -7,11 +7,12 @@ import {IRollup} from "./interfaces/IRollup.sol";
 import {IAvailabilityOracle} from "./interfaces/IAvailabilityOracle.sol";
 import {IInbox} from "./interfaces/messagebridge/IInbox.sol";
 import {INewInbox} from "./interfaces/messagebridge/INewInbox.sol";
-import {IOutbox} from "./interfaces/messagebridge/IOutbox.sol";
+import {INewOutbox} from "./interfaces/messagebridge/INewOutbox.sol";
 import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
 
 // Libraries
 import {HeaderLib} from "./libraries/HeaderLib.sol";
+import {MerkleLib} from "./libraries/MerkleLib.sol";
 import {MessagesDecoder} from "./libraries/decoders/MessagesDecoder.sol";
 import {Hash} from "./libraries/Hash.sol";
 import {Errors} from "./libraries/Errors.sol";
@@ -20,6 +21,7 @@ import {Constants} from "./libraries/ConstantsGen.sol";
 // Contracts
 import {MockVerifier} from "../mock/MockVerifier.sol";
 import {NewInbox} from "./messagebridge/NewInbox.sol";
+import {NewOutbox} from "./messagebridge/NewOutbox.sol";
 
 /**
  * @title Rollup
@@ -32,6 +34,7 @@ contract Rollup is IRollup {
   IRegistry public immutable REGISTRY;
   IAvailabilityOracle public immutable AVAILABILITY_ORACLE;
   INewInbox public immutable NEW_INBOX;
+  INewOutbox public immutable NEW_OUTBOX;
   uint256 public immutable VERSION;
 
   bytes32 public archive; // Root of the archive tree
@@ -45,6 +48,7 @@ contract Rollup is IRollup {
     REGISTRY = _registry;
     AVAILABILITY_ORACLE = _availabilityOracle;
     NEW_INBOX = new NewInbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
+    NEW_OUTBOX = new NewOutbox(address(this));
     VERSION = 1;
   }
 
@@ -94,8 +98,16 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
     }
 
-    IOutbox outbox = REGISTRY.getOutbox();
-    outbox.sendL1Messages(l2ToL1Msgs);
+    uint256 l2ToL1TreeHeight = MerkleLib.calculateTreeHeightFromSize(l2ToL1Msgs.length);
+    // NaiveMerkle l2ToL1Tree = new NaiveMerkle(l2ToL1TreeHeight);
+    // for (uint256 i = 0; i < l2ToL1Msgs.length; i++) {
+    //   l2ToL1Tree.insertLeaf(l2ToL1Msgs[i]);
+    // }
+
+    // bytes32 l2ToL1TreeRoot = l2ToL1Tree.computeRoot();
+    NEW_OUTBOX.insert(
+      header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeHeight
+    );
 
     emit L2BlockProcessed(header.globalVariables.blockNumber);
   }

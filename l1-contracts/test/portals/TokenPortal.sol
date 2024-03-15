@@ -6,6 +6,7 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 // Messaging
 import {IRegistry} from "../../src/core/interfaces/messagebridge/IRegistry.sol";
 import {IInbox} from "../../src/core/interfaces/messagebridge/IInbox.sol";
+import {INewOutbox} from "../../src/core/interfaces/messagebridge/INewOutbox.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 // docs:start:content_hash_sol_import
 import {Hash} from "../../src/core/libraries/Hash.sol";
@@ -16,11 +17,18 @@ contract TokenPortal {
   using SafeERC20 for IERC20;
 
   IRegistry public registry;
+  INewOutbox public newOutbox;
   IERC20 public underlying;
   bytes32 public l2TokenAddress;
 
-  function initialize(address _registry, address _underlying, bytes32 _l2TokenAddress) external {
+  function initialize(
+    address _registry,
+    address _newOutbox,
+    address _underlying,
+    bytes32 _l2TokenAddress
+  ) external {
     registry = IRegistry(_registry);
+    newOutbox = INewOutbox(_newOutbox);
     underlying = IERC20(_underlying);
     l2TokenAddress = _l2TokenAddress;
   }
@@ -190,13 +198,19 @@ contract TokenPortal {
    * @param _recipient - The address to send the funds to
    * @param _amount - The amount to withdraw
    * @param _withCaller - Flag to use `msg.sender` as caller, otherwise address(0)
+   * @param _l2BlockNumber - The address to send the funds to
+   * @param _leafIndex - The amount to withdraw
+   * @param _path - Flag to use `msg.sender` as caller, otherwise address(0)
    * Must match the caller of the message (specified from L2) to consume it.
-   * @return The key of the entry in the Outbox
    */
-  function withdraw(address _recipient, uint256 _amount, bool _withCaller)
-    external
-    returns (bytes32)
-  {
+  function withdraw(
+    address _recipient,
+    uint256 _amount,
+    bool _withCaller,
+    uint256 _l2BlockNumber,
+    uint256 _leafIndex,
+    bytes32[] calldata _path
+  ) external {
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(l2TokenAddress, 1),
       recipient: DataStructures.L1Actor(address(this), block.chainid),
@@ -210,11 +224,9 @@ contract TokenPortal {
         )
     });
 
-    bytes32 entryKey = registry.getOutbox().consume(message);
+    newOutbox.consume(_l2BlockNumber, _leafIndex, message, _path);
 
     underlying.transfer(_recipient, _amount);
-
-    return entryKey;
   }
   // docs:end:token_portal_withdraw
 }

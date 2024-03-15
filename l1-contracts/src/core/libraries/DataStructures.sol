@@ -98,4 +98,10 @@ library DataStructures {
     uint256 blockNumber;
   }
   // docs:end:registry_snapshot
+
+  struct OutboxMessageMetadata {
+    uint256 _l2BlockNumber;
+    uint256 _leafIndex;
+    bytes32[] _path;
+  }
 }

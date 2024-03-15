@@ -5,14 +5,17 @@ pragma solidity >=0.8.18;
 import {DecoderBase} from "./decoders/Base.sol";
 
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
+import {MerkleLib} from "../src/core/libraries/MerkleLib.sol";
 
 import {Registry} from "../src/core/messagebridge/Registry.sol";
 import {Inbox} from "../src/core/messagebridge/Inbox.sol";
 import {NewInbox} from "../src/core/messagebridge/NewInbox.sol";
 import {Outbox} from "../src/core/messagebridge/Outbox.sol";
+import {NewOutbox} from "../src/core/messagebridge/NewOutbox.sol";
 import {Errors} from "../src/core/libraries/Errors.sol";
 import {Rollup} from "../src/core/Rollup.sol";
 import {AvailabilityOracle} from "../src/core/availability_oracle/AvailabilityOracle.sol";
+import {NaiveMerkle} from "./merkle/Naive.sol";
 
 /**
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
@@ -23,6 +26,7 @@ contract RollupTest is DecoderBase {
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
+  NewOutbox internal newOutbox;
   NewInbox internal newInbox;
   AvailabilityOracle internal availabilityOracle;
 
@@ -33,6 +37,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle = new AvailabilityOracle();
     rollup = new Rollup(registry, availabilityOracle);
     newInbox = NewInbox(address(rollup.NEW_INBOX()));
+    newOutbox = NewOutbox(address(rollup.NEW_OUTBOX()));
 
     registry.upgrade(address(rollup), address(inbox), address(outbox));
   }
@@ -148,19 +153,23 @@ contract RollupTest is DecoderBase {
     assertEq(newInbox.toConsume(), toConsume + 1, "Message subtree not consumed");
 
     (, bytes32[] memory inboxWrites) = vm.accesses(address(inbox));
-    (, bytes32[] memory outboxWrites) = vm.accesses(address(outbox));
+
+    bytes32 l2ToL1MessageTreeRoot;
 
     {
-      uint256 count = 0;
+      uint256 treeHeight =
+        MerkleLib.calculateTreeHeightFromSize(full.messages.l2ToL1Messages.length);
+      NaiveMerkle tree = new NaiveMerkle(treeHeight);
       for (uint256 i = 0; i < full.messages.l2ToL1Messages.length; i++) {
-        if (full.messages.l2ToL1Messages[i] == bytes32(0)) {
-          continue;
-        }
-        assertTrue(outbox.contains(full.messages.l2ToL1Messages[i]), "msg not in outbox");
-        count++;
+        tree.insertLeaf(full.messages.l2ToL1Messages[i]);
       }
-      assertEq(outboxWrites.length, count, "Invalid outbox writes");
+
+      l2ToL1MessageTreeRoot = tree.computeRoot();
     }
+
+    (bytes32 root,) = newOutbox.roots(full.block.decodedHeader.globalVariables.blockNumber);
+
+    assertEq(l2ToL1MessageTreeRoot, root);
 
     {
       uint256 count = 0;

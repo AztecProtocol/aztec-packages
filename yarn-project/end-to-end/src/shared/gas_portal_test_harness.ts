@@ -10,11 +10,28 @@ import {
   deployL1Contract,
   sleep,
 } from '@aztec/aztec.js';
-import { GasPortalAbi, GasPortalBytecode, OutboxAbi, PortalERC20Abi, PortalERC20Bytecode } from '@aztec/l1-artifacts';
+import {
+  GasPortalAbi,
+  GasPortalBytecode,
+  NewOutboxAbi,
+  OutboxAbi,
+  PortalERC20Abi,
+  PortalERC20Bytecode,
+  RollupAbi,
+} from '@aztec/l1-artifacts';
 import { GasTokenContract } from '@aztec/noir-contracts.js';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 
-import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
+import {
+  Account,
+  Chain,
+  GetContractReturnType,
+  HttpTransport,
+  PublicClient,
+  WalletClient,
+  getAddress,
+  getContract,
+} from 'viem';
 
 export interface IGasBridgingTestHarness {
   bridgeFromL1ToL2(l1TokenBalance: bigint, bridgeAmount: bigint, owner: AztecAddress): Promise<void>;
@@ -117,6 +134,23 @@ export class GasPortalTestingHarnessFactory {
     const owner = wallet.getCompleteAddress();
     const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
 
+    // TODO(#4492): Nuke this once the old inbox is purged
+    let newOutboxAddress!: `0x${string}`;
+    {
+      const rollup = getContract({
+        address: getAddress(l1ContractAddresses.rollupAddress.toString()),
+        abi: RollupAbi,
+        client: publicClient,
+      });
+      newOutboxAddress = await rollup.read.NEW_OUTBOX();
+    }
+
+    const newOutbox = getContract({
+      address: newOutboxAddress,
+      abi: NewOutboxAbi,
+      client: walletClient,
+    });
+
     const outbox = getContract({
       address: l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
@@ -144,6 +178,7 @@ export class GasPortalTestingHarnessFactory {
       gasPortal,
       gasL1,
       outbox,
+      newOutbox,
       publicClient,
       walletClient,
     );
@@ -191,6 +226,7 @@ class GasBridgingTestHarness implements IGasBridgingTestHarness {
     public underlyingERC20: any,
     /** Message Bridge Outbox. */
     public outbox: any,
+    public newOutbox: GetContractReturnType<typeof NewOutboxAbi, PublicClient<HttpTransport, Chain>>,
     /** Viem Public client instance. */
     public publicClient: PublicClient<HttpTransport, Chain>,
     /** Viem Wallet Client instance. */

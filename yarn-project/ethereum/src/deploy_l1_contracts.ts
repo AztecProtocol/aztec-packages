@@ -31,7 +31,6 @@ export type DeployL1Contracts = {
    * Public Client Type.
    */
   publicClient: PublicClient<HttpTransport, Chain>;
-
   /**
    * The currently deployed l1 contract addresses
    */

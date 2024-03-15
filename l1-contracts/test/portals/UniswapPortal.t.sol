@@ -8,12 +8,15 @@ import {AvailabilityOracle} from "../../src/core/availability_oracle/Availabilit
 import {Inbox} from "../../src/core/messagebridge/Inbox.sol";
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
 import {Outbox} from "../../src/core/messagebridge/Outbox.sol";
+import {NewOutbox} from "../../src/core/messagebridge/NewOutbox.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 import {Hash} from "../../src/core/libraries/Hash.sol";
 import {Errors} from "../../src/core/libraries/Errors.sol";
 
 // Interfaces
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {INewOutbox} from "../../src/core/interfaces/messagebridge/INewOutbox.sol";
+import {NaiveMerkle} from "../merkle/Naive.sol";
 
 // Portals
 import {TokenPortal} from "./TokenPortal.sol";
@@ -27,6 +30,7 @@ contract UniswapPortalTest is Test {
 
   Inbox internal inbox;
   Outbox internal outbox;
+  NewOutbox internal newOutbox;
   Rollup internal rollup;
   bytes32 internal l2TokenAddress = bytes32(uint256(0x1));
   bytes32 internal l2UniswapAddress = bytes32(uint256(0x2));
@@ -53,16 +57,19 @@ contract UniswapPortalTest is Test {
     inbox = new Inbox(address(registry));
     outbox = new Outbox(address(registry));
     rollup = new Rollup(registry, new AvailabilityOracle());
+    newOutbox = new NewOutbox(address(rollup));
     registry.upgrade(address(rollup), address(inbox), address(outbox));
 
     daiTokenPortal = new TokenPortal();
-    daiTokenPortal.initialize(address(registry), address(DAI), l2TokenAddress);
+    daiTokenPortal.initialize(address(registry), address(newOutbox), address(DAI), l2TokenAddress);
 
     wethTokenPortal = new TokenPortal();
-    wethTokenPortal.initialize(address(registry), address(WETH9), l2TokenAddress);
+    wethTokenPortal.initialize(
+      address(registry), address(newOutbox), address(WETH9), l2TokenAddress
+    );
 
     uniswapPortal = new UniswapPortal();
-    uniswapPortal.initialize(address(registry), l2UniswapAddress);
+    uniswapPortal.initialize(address(registry), address(newOutbox), l2UniswapAddress);
 
     // have DAI locked in portal that can be moved when funds are withdrawn
     deal(address(DAI), address(daiTokenPortal), amount);
@@ -77,7 +84,7 @@ contract UniswapPortalTest is Test {
   function _createDaiWithdrawMessage(address _recipient, address _caller)
     internal
     view
-    returns (bytes32 entryKey)
+    returns (bytes32 l2ToL1Message)
   {
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(l2TokenAddress, 1),
@@ -86,7 +93,9 @@ contract UniswapPortalTest is Test {
         abi.encodeWithSignature("withdraw(address,uint256,address)", _recipient, amount, _caller)
         )
     });
-    entryKey = outbox.computeEntryKey(message);
+    l2ToL1Message = Hash.sha256ToField(message);
+
+    return l2ToL1Message;
   }
 
   /**
@@ -154,25 +163,64 @@ contract UniswapPortalTest is Test {
     entryKey = outbox.computeEntryKey(message);
   }
 
-  function _addMessagesToOutbox(bytes32 daiWithdrawEntryKey, bytes32 swapEntryKey) internal {
-    bytes32[] memory entryKeys = new bytes32[](2);
-    entryKeys[0] = daiWithdrawEntryKey;
-    entryKeys[1] = swapEntryKey;
-    vm.prank(address(rollup));
+  function _addMessagesToOutbox(
+    bytes32 daiWithdrawEntryKey,
+    bytes32 swapEntryKey,
+    uint256 _l2BlockNumber
+  ) internal returns (bytes32, bytes32[] memory, bytes32[] memory) {
+    uint256 treeHeight = 1;
+    NaiveMerkle tree = new NaiveMerkle(treeHeight);
+    tree.insertLeaf(daiWithdrawEntryKey);
+    tree.insertLeaf(swapEntryKey);
 
-    outbox.sendL1Messages(entryKeys);
+    bytes32 treeRoot = tree.computeRoot();
+    (bytes32[] memory withdrawSiblingPath,) = tree.computeSiblingPath(0);
+    (bytes32[] memory swapSiblingPath,) = tree.computeSiblingPath(1);
+
+    vm.prank(address(rollup));
+    newOutbox.insert(_l2BlockNumber, treeRoot, treeHeight);
+
+    return (treeRoot, withdrawSiblingPath, swapSiblingPath);
   }
 
   // Creates a withdraw transaction without a designated caller.
   // Should fail when uniswap portal tries to consume it since it tries using a designated caller.
   function testRevertIfWithdrawMessageHasNoDesignatedCaller() public {
-    bytes32 entryKey = _createDaiWithdrawMessage(address(uniswapPortal), address(0));
-    _addMessagesToOutbox(entryKey, bytes32(uint256(0x1)));
-    bytes32 entryKeyPortalChecksAgainst =
+    uint256 l2BlockNumber = 69;
+    bytes32 l2ToL1MessageToInsert = _createDaiWithdrawMessage(address(uniswapPortal), address(0));
+    (bytes32 root, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
+      _addMessagesToOutbox(l2ToL1MessageToInsert, bytes32(uint256(0x1)), l2BlockNumber);
+    bytes32 l2ToL1MessageToConsume =
       _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
+
+    uint256 treeHeight = 1;
+    NaiveMerkle tree1 = new NaiveMerkle(treeHeight);
+    tree1.insertLeaf(l2ToL1MessageToInsert);
+    tree1.insertLeaf(bytes32(uint256(0x1)));
+    bytes32 actualRoot = tree1.computeRoot();
+
+    NaiveMerkle tree2 = new NaiveMerkle(treeHeight);
+    tree2.insertLeaf(l2ToL1MessageToConsume);
+    tree2.insertLeaf(bytes32(uint256(0x1)));
+    bytes32 consumedRoot = tree2.computeRoot();
+
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
     );
+
+    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 0,
+        _path: withdrawSiblingPath
+      }),
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 0,
+        _path: withdrawSiblingPath
+      })
+    ];
+
     uniswapPortal.swapPublic(
       address(daiTokenPortal),
       amount,
@@ -183,23 +231,53 @@ contract UniswapPortalTest is Test {
       secretHash,
       deadlineForL1ToL2Message,
       address(this),
-      true
+      true,
+      outboxMessageMetadata
     );
   }
 
   // Inserts a wrong outbox message (where `_recipient` is not the uniswap portal).
   function testRevertIfExpectedOutboxMessageNotFound(address _recipient) public {
     vm.assume(_recipient != address(uniswapPortal));
+
     // malformed withdraw message (wrong recipient)
-    _addMessagesToOutbox(
-      _createDaiWithdrawMessage(_recipient, address(uniswapPortal)), bytes32(uint256(0x1))
+    uint256 l2BlockNumber = 69;
+    bytes32 l2ToL1MessageToInsert = _createDaiWithdrawMessage(_recipient, address(uniswapPortal));
+
+    (bytes32 root, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
+      _addMessagesToOutbox(l2ToL1MessageToInsert, bytes32(uint256(0x1)), l2BlockNumber);
+
+    bytes32 l2ToL1MessageToConsume =
+      _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
+
+    uint256 treeHeight = 1;
+    NaiveMerkle tree1 = new NaiveMerkle(treeHeight);
+    tree1.insertLeaf(l2ToL1MessageToInsert);
+    tree1.insertLeaf(bytes32(uint256(0x1)));
+    bytes32 actualRoot = tree1.computeRoot();
+
+    NaiveMerkle tree2 = new NaiveMerkle(treeHeight);
+    tree2.insertLeaf(l2ToL1MessageToConsume);
+    tree2.insertLeaf(bytes32(uint256(0x1)));
+    bytes32 consumedRoot = tree2.computeRoot();
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
     );
 
-    bytes32 entryKeyPortalChecksAgainst =
-      _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
-    );
+    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 0,
+        _path: withdrawSiblingPath
+      }),
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 0,
+        _path: withdrawSiblingPath
+      })
+    ];
+
     uniswapPortal.swapPublic(
       address(daiTokenPortal),
       amount,
@@ -210,22 +288,57 @@ contract UniswapPortalTest is Test {
       secretHash,
       deadlineForL1ToL2Message,
       address(this),
-      true
+      true,
+      outboxMessageMetadata
     );
   }
 
   function testRevertIfSwapParamsDifferentToOutboxMessage() public {
+    uint256 l2BlockNumber = 69;
+
     bytes32 daiWithdrawEntryKey =
       _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
     bytes32 swapEntryKey = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
-    _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey);
+    (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
+      _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey, l2BlockNumber);
 
     bytes32 newAztecRecipient = bytes32(uint256(0x4));
     bytes32 entryKeyPortalChecksAgainst =
       _createUniswapSwapMessagePublic(newAztecRecipient, address(this));
+
+    bytes32 actualRoot;
+    bytes32 consumedRoot;
+
+    {
+      uint256 treeHeight = 1;
+      NaiveMerkle tree1 = new NaiveMerkle(treeHeight);
+      tree1.insertLeaf(daiWithdrawEntryKey);
+      tree1.insertLeaf(swapEntryKey);
+      actualRoot = tree1.computeRoot();
+
+      NaiveMerkle tree2 = new NaiveMerkle(treeHeight);
+      tree2.insertLeaf(daiWithdrawEntryKey);
+      tree2.insertLeaf(entryKeyPortalChecksAgainst);
+      consumedRoot = tree2.computeRoot();
+    }
+
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
     );
+
+    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 0,
+        _path: withdrawSiblingPath
+      }),
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 1,
+        _path: swapSiblingPath
+      })
+    ];
+
     uniswapPortal.swapPublic(
       address(daiTokenPortal),
       amount,
@@ -236,15 +349,33 @@ contract UniswapPortalTest is Test {
       secretHash,
       deadlineForL1ToL2Message,
       address(this),
-      true
+      true,
+      outboxMessageMetadata
     );
   }
 
   function testSwapWithDesignatedCaller() public {
+    uint256 l2BlockNumber = 69;
+
     bytes32 daiWithdrawEntryKey =
       _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
     bytes32 swapEntryKey = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
-    _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey);
+
+    (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
+      _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey, l2BlockNumber);
+
+    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 0,
+        _path: withdrawSiblingPath
+      }),
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 1,
+        _path: swapSiblingPath
+      })
+    ];
 
     bytes32 l1ToL2EntryKey = uniswapPortal.swapPublic(
       address(daiTokenPortal),
@@ -256,7 +387,8 @@ contract UniswapPortalTest is Test {
       secretHash,
       deadlineForL1ToL2Message,
       address(this),
-      true
+      true,
+      outboxMessageMetadata
     );
 
     // dai should be taken away from dai portal
@@ -265,18 +397,35 @@ contract UniswapPortalTest is Test {
     assertGt(WETH9.balanceOf(address(wethTokenPortal)), 0);
     // there should be a message in the inbox:
     assertEq(inbox.get(l1ToL2EntryKey).count, 1);
-    // there should be no message in the outbox:
-    assertFalse(outbox.contains(daiWithdrawEntryKey));
-    assertFalse(outbox.contains(swapEntryKey));
+    // there the message should be nullified at index 0 and 1
+    assertTrue(newOutbox.hasMessageBeenConsumedAtBlockAndIndex(l2BlockNumber, 0));
+    assertTrue(newOutbox.hasMessageBeenConsumedAtBlockAndIndex(l2BlockNumber, 1));
   }
 
   function testSwapCalledByAnyoneIfDesignatedCallerNotSet(address _caller) public {
     vm.assume(_caller != address(uniswapPortal));
+    uint256 l2BlockNumber = 69;
+
     bytes32 daiWithdrawEntryKey =
       _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
     // don't set caller on swapPublic() -> so anyone can call this method.
     bytes32 swapEntryKey = _createUniswapSwapMessagePublic(aztecRecipient, address(0));
-    _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey);
+
+    (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
+      _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey, l2BlockNumber);
+
+    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 0,
+        _path: withdrawSiblingPath
+      }),
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 1,
+        _path: swapSiblingPath
+      })
+    ];
 
     vm.prank(_caller);
     bytes32 l1ToL2EntryKey = uniswapPortal.swapPublic(
@@ -289,7 +438,8 @@ contract UniswapPortalTest is Test {
       secretHash,
       deadlineForL1ToL2Message,
       address(this),
-      false
+      false,
+      outboxMessageMetadata
     );
     // check that swap happened:
     // dai should be taken away from dai portal
@@ -299,22 +449,57 @@ contract UniswapPortalTest is Test {
     // there should be a message in the inbox:
     assertEq(inbox.get(l1ToL2EntryKey).count, 1);
     // there should be no message in the outbox:
-    assertFalse(outbox.contains(daiWithdrawEntryKey));
-    assertFalse(outbox.contains(swapEntryKey));
+    assertTrue(newOutbox.hasMessageBeenConsumedAtBlockAndIndex(l2BlockNumber, 0));
+    assertTrue(newOutbox.hasMessageBeenConsumedAtBlockAndIndex(l2BlockNumber, 1));
   }
 
   function testRevertIfSwapWithDesignatedCallerCalledByWrongCaller(address _caller) public {
     vm.assume(_caller != address(this));
+    uint256 l2BlockNumber = 69;
+
     bytes32 daiWithdrawEntryKey =
       _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
     bytes32 swapEntryKey = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
-    _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey);
+
+    (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
+      _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey, l2BlockNumber);
+
+    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 0,
+        _path: withdrawSiblingPath
+      }),
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 1,
+        _path: swapSiblingPath
+      })
+    ];
 
     vm.startPrank(_caller);
     bytes32 entryKeyPortalChecksAgainst = _createUniswapSwapMessagePublic(aztecRecipient, _caller);
+
+    bytes32 actualRoot;
+    bytes32 consumedRoot;
+
+    {
+      uint256 treeHeight = 1;
+      NaiveMerkle tree1 = new NaiveMerkle(treeHeight);
+      tree1.insertLeaf(daiWithdrawEntryKey);
+      tree1.insertLeaf(swapEntryKey);
+      actualRoot = tree1.computeRoot();
+
+      NaiveMerkle tree2 = new NaiveMerkle(treeHeight);
+      tree2.insertLeaf(daiWithdrawEntryKey);
+      tree2.insertLeaf(entryKeyPortalChecksAgainst);
+      consumedRoot = tree2.computeRoot();
+    }
+
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
     );
+
     uniswapPortal.swapPublic(
       address(daiTokenPortal),
       amount,
@@ -325,12 +510,26 @@ contract UniswapPortalTest is Test {
       secretHash,
       deadlineForL1ToL2Message,
       address(this),
-      true
+      true,
+      outboxMessageMetadata
     );
 
     entryKeyPortalChecksAgainst = _createUniswapSwapMessagePublic(aztecRecipient, address(0));
+
+    {
+      uint256 treeHeight = 1;
+      NaiveMerkle tree1 = new NaiveMerkle(treeHeight);
+      tree1.insertLeaf(daiWithdrawEntryKey);
+      tree1.insertLeaf(swapEntryKey);
+      actualRoot = tree1.computeRoot();
+
+      NaiveMerkle tree2 = new NaiveMerkle(treeHeight);
+      tree2.insertLeaf(daiWithdrawEntryKey);
+      tree2.insertLeaf(entryKeyPortalChecksAgainst);
+      consumedRoot = tree2.computeRoot();
+    }
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
     );
     uniswapPortal.swapPublic(
       address(daiTokenPortal),
@@ -342,7 +541,8 @@ contract UniswapPortalTest is Test {
       secretHash,
       deadlineForL1ToL2Message,
       address(this),
-      false
+      false,
+      outboxMessageMetadata
     );
     vm.stopPrank();
   }
@@ -352,10 +552,26 @@ contract UniswapPortalTest is Test {
   // if the sequencer doesn't consume the L1->L2 message, then `canceller` can
   // cancel the message and retrieve the funds (instead of them being stuck on the portal)
   function testMessageToInboxIsCancellable() public {
+    uint256 l2BlockNumber = 69;
+
     bytes32 daiWithdrawEntryKey =
       _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
     bytes32 swapEntryKey = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
-    _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey);
+    (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
+      _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey, l2BlockNumber);
+
+    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 0,
+        _path: withdrawSiblingPath
+      }),
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 1,
+        _path: swapSiblingPath
+      })
+    ];
 
     bytes32 l1ToL2EntryKey = uniswapPortal.swapPublic{value: 1 ether}(
       address(daiTokenPortal),
@@ -367,7 +583,8 @@ contract UniswapPortalTest is Test {
       secretHash,
       deadlineForL1ToL2Message,
       address(this), // this address should be able to cancel
-      true
+      true,
+      outboxMessageMetadata
     );
 
     uint256 wethAmountOut = WETH9.balanceOf(address(wethTokenPortal));
@@ -393,17 +610,50 @@ contract UniswapPortalTest is Test {
   }
 
   function testRevertIfSwapMessageWasForDifferentPublicOrPrivateFlow() public {
+    uint256 l2BlockNumber = 69;
+
     bytes32 daiWithdrawEntryKey =
       _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
 
     // Create message for `_isPrivateFlow`:
     bytes32 swapEntryKey = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
-    _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey);
+    (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
+      _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey, l2BlockNumber);
+
+    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 0,
+        _path: withdrawSiblingPath
+      }),
+      DataStructures.OutboxMessageMetadata({
+        _l2BlockNumber: l2BlockNumber,
+        _leafIndex: 1,
+        _path: swapSiblingPath
+      })
+    ];
 
     bytes32 entryKeyPortalChecksAgainst =
       _createUniswapSwapMessagePrivate(secretHashForRedeemingMintedNotes, address(this));
+
+    bytes32 actualRoot;
+    bytes32 consumedRoot;
+
+    {
+      uint256 treeHeight = 1;
+      NaiveMerkle tree1 = new NaiveMerkle(treeHeight);
+      tree1.insertLeaf(daiWithdrawEntryKey);
+      tree1.insertLeaf(swapEntryKey);
+      actualRoot = tree1.computeRoot();
+
+      NaiveMerkle tree2 = new NaiveMerkle(treeHeight);
+      tree2.insertLeaf(daiWithdrawEntryKey);
+      tree2.insertLeaf(entryKeyPortalChecksAgainst);
+      consumedRoot = tree2.computeRoot();
+    }
+
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
     );
 
     uniswapPortal.swapPrivate(
@@ -416,7 +666,8 @@ contract UniswapPortalTest is Test {
       secretHash,
       deadlineForL1ToL2Message,
       address(this),
-      true
+      true,
+      outboxMessageMetadata
     );
   }
   // TODO(#887) - what if uniswap fails?

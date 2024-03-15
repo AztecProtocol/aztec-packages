@@ -11,9 +11,10 @@ import {
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { Chain, HttpTransport, PublicClient } from 'viem';
+import { Chain, HttpTransport, PublicClient, getAddress, getContract } from 'viem';
 
 import { delay, deployAndInitializeTokenAndBridgeContracts, setNextBlockTimestamp, setup } from './fixtures/utils.js';
 
@@ -55,6 +56,17 @@ describe('archiver integration with l1 to l2 messages', () => {
     owner = accounts[0].address;
     receiver = accounts[1].address;
 
+    // TODO(#4492): Nuke this once the old inbox is purged
+    let newOutboxAddress!: `0x${string}`;
+    {
+      const rollup = getContract({
+        address: getAddress(deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString()),
+        abi: RollupAbi,
+        client: publicClient,
+      });
+      newOutboxAddress = await rollup.read.NEW_OUTBOX();
+    }
+
     // Deploy and initialize all required contracts
     logger('Deploying Portal, initializing and deploying l2 contract...');
     const contracts = await deployAndInitializeTokenAndBridgeContracts(
@@ -62,6 +74,7 @@ describe('archiver integration with l1 to l2 messages', () => {
       walletClient,
       publicClient,
       deployL1ContractsValues!.l1ContractAddresses.registryAddress!,
+      newOutboxAddress,
       owner,
     );
     l2Token = contracts.token;
