@@ -122,7 +122,7 @@ contract NewOutboxTest is Test {
 
   function testRevertIfTryingToConsumeSameMessage() public {
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
-    bytes32 leaf = fakeMessage.sha256ToField();
+    bytes32 leaf = fakeMessage.sha256ToField32();
 
     NaiveMerkle tree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
     tree.insertLeaf(leaf);
@@ -139,7 +139,7 @@ contract NewOutboxTest is Test {
 
   function testRevertIfPathHeightMismatch() public {
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
-    bytes32 leaf = fakeMessage.sha256ToField();
+    bytes32 leaf = fakeMessage.sha256ToField32();
 
     NaiveMerkle tree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
     tree.insertLeaf(leaf);
@@ -162,9 +162,9 @@ contract NewOutboxTest is Test {
 
   function testRevertIfTryingToConsumeMessageNotInTree() public {
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
-    bytes32 leaf = fakeMessage.sha256ToField();
+    bytes32 leaf = fakeMessage.sha256ToField32();
     fakeMessage.content = bytes32(uint256(42069));
-    bytes32 modifiedLeaf = fakeMessage.sha256ToField();
+    bytes32 modifiedLeaf = fakeMessage.sha256ToField32();
 
     NaiveMerkle tree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
     tree.insertLeaf(leaf);
@@ -187,7 +187,7 @@ contract NewOutboxTest is Test {
 
   function testValidInsertAndConsume() public {
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
-    bytes32 leaf = fakeMessage.sha256ToField();
+    bytes32 leaf = fakeMessage.sha256ToField32();
 
     NaiveMerkle tree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
     tree.insertLeaf(leaf);
@@ -225,7 +225,7 @@ contract NewOutboxTest is Test {
     for (uint256 i = 0; i < numberOfMessages; i++) {
       DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(_recipients[i]);
       messages[i] = fakeMessage;
-      bytes32 modifiedLeaf = fakeMessage.sha256ToField();
+      bytes32 modifiedLeaf = fakeMessage.sha256ToField32();
 
       tree.insertLeaf(modifiedLeaf);
     }
