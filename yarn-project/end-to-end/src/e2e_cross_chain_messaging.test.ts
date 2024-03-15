@@ -16,6 +16,7 @@ import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { delay, setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
+import { toFunctionSelector } from 'viem/utils';
 
 describe('e2e_cross_chain_messaging', () => {
   let logger: DebugLogger;
@@ -155,7 +156,7 @@ describe('e2e_cross_chain_messaging', () => {
     const content = Fr.fromBufferReduce(
       sha256(
         Buffer.concat([
-          keccak(Buffer.from('mint_private(bytes32,uint256,address)')).subarray(0, 4),
+          Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
           serializeToBuffer(...[secretHashForL2MessageConsumption, new Fr(bridgeAmount), ethAccount.toBuffer32()]),
         ]),
       ),
@@ -242,7 +243,7 @@ describe('e2e_cross_chain_messaging', () => {
     const content = Fr.fromBufferReduce(
       sha256(
         Buffer.concat([
-          keccak(Buffer.from('mint_public(bytes32,uint256,address)')).subarray(0, 4),
+          keccak(Buffer.from('mint_public(bytes32,uint256)')).subarray(0, 4),
           serializeToBuffer(...[ownerAddress, new Fr(bridgeAmount), ethAccount.toBuffer32()]),
         ]),
       ),

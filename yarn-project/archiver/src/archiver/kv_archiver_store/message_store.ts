@@ -55,6 +55,7 @@ export class MessageStore {
 
         const indexInTheWholeTree = message.blockNumber * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) + message.index;
         void this.#l1ToL2MessageIndices.setIfNotExists(message.leaf.toString(), indexInTheWholeTree);
+        console.log("setting message index", message.leaf.toString());
       }
 
       return true;

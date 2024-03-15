@@ -440,7 +440,7 @@ describe('ACIR public execution simulator', () => {
 
       const computePreImage = () =>
         buildL1ToL2Message(
-          toFunctionSelector('mint_public(bytes32,uint256,address)').substring(2),
+          toFunctionSelector('mint_public(bytes32,uint256)').substring(2),
           [tokenRecipient.toField(), new Fr(bridgedAmount), canceller.toField()],
           crossChainMsgRecipient ?? contractAddress,
           secret,

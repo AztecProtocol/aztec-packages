@@ -48,7 +48,7 @@ import {
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
-import { getFunctionSelector } from 'viem';
+import { toFunctionSelector } from 'viem';
 
 import { KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
@@ -548,7 +548,7 @@ describe('Private Execution test suite', () => {
 
       const computePreimage = () =>
         buildL1ToL2Message(
-          getFunctionSelector('mint_private(bytes32,uint256,address)').substring(2),
+          toFunctionSelector('mint_private(bytes32,uint256)').substring(2),
           [secretHashForRedeemingNotes, new Fr(bridgedAmount), canceller.toField()],
           crossChainMsgRecipient ?? contractAddress,
           secretForL1ToL2MessageConsumption,

@@ -23,7 +23,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { Hex } from 'viem';
-import { decodeEventLog } from 'viem/utils';
+import { decodeEventLog, toFunctionSelector } from 'viem/utils';
 
 import { publicDeployAccounts, setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
@@ -155,7 +155,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     const content = Fr.fromBufferReduce(
       sha256(
         Buffer.concat([
-          keccak(Buffer.from('mint_public(bytes32,uint256,address)')).subarray(0, 4),
+          keccak(Buffer.from('mint_public(bytes32,uint256)')).subarray(0, 4),
           serializeToBuffer(...[user2Wallet.getAddress(), new Fr(bridgeAmount), ethAccount.toBuffer32()]),
         ]),
       ),
@@ -221,7 +221,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     const content = Fr.fromBufferReduce(
       sha256(
         Buffer.concat([
-          keccak(Buffer.from('mint_private(bytes32,uint256,address)')).subarray(0, 4),
+          Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
           serializeToBuffer(...[secretHash, new Fr(bridgeAmount), ethAccount.toBuffer32()]),
         ]),
       ),

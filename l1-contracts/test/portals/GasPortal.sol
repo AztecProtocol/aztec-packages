@@ -31,7 +31,6 @@ contract GasPortal {
    * @notice Deposit funds into the portal and adds an L2 message which can only be consumed publicly on Aztec
    * @param _to - The aztec address of the recipient
    * @param _amount - The amount to deposit
-   * @param _canceller - The address that can cancel the L1 to L2 message TODO(#4492) canceller doesn't exist no more
    * @param _secretHash - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a Field element)
    * @return - The key of the entry in the Inbox
    */
@@ -47,7 +46,7 @@ contract GasPortal {
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes32 contentHash = Hash.sha256ToField(
-      abi.encodeWithSignature("mint_public(bytes32,uint256,address)", _to, _amount, _canceller)
+      abi.encodeWithSignature("mint_public(bytes32,uint256)", _to, _amount, _canceller)
     );
 
     // Hold the tokens in the portal

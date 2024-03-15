@@ -25,7 +25,7 @@ import {
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
-import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract, getFunctionSelector } from 'viem';
+import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract, toFunctionSelector } from 'viem';
 
 // docs:start:deployAndInitializeTokenAndBridgeContracts
 /**
@@ -364,7 +364,7 @@ export class CrossChainTestHarness {
     const content = Fr.fromBufferReduce(
       sha256(
         Buffer.concat([
-          Buffer.from(getFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
+          Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
           this.ethAccount.toBuffer32(),
           new Fr(withdrawAmount).toBuffer(),
           callerOnL1.toBuffer32(),
