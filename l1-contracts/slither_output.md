@@ -114,17 +114,17 @@ src/core/libraries/decoders/MessagesDecoder.sol#L150-L152
 Impact: Low
 Confidence: Medium
  - [ ] ID-10
-[NewOutbox.constructor(address)._rollup](src/core/messagebridge/NewOutbox.sol#L30) lacks a zero-check on :
-		- [ROLLUP_CONTRACT = _rollup](src/core/messagebridge/NewOutbox.sol#L31)
-
-src/core/messagebridge/NewOutbox.sol#L31
-
-
- - [ ] ID-11
 [Inbox.constructor(address,uint256)._rollup](src/core/messagebridge/Inbox.sol#L40) lacks a zero-check on :
 		- [ROLLUP = _rollup](src/core/messagebridge/Inbox.sol#L41)
 
 src/core/messagebridge/Inbox.sol#L40
+
+
+ - [ ] ID-11
+[NewOutbox.constructor(address)._rollup](src/core/messagebridge/NewOutbox.sol#L31) lacks a zero-check on :
+		- [ROLLUP_CONTRACT = _rollup](src/core/messagebridge/NewOutbox.sol#L32)
+
+src/core/messagebridge/NewOutbox.sol#L31
 
 
 ## reentrancy-events
@@ -203,10 +203,10 @@ src/core/messagebridge/Outbox.sol#L21-L148
 
 
  - [ ] ID-20
-The following public functions could be turned into external in [NewOutbox](src/core/messagebridge/NewOutbox.sol#L18-L131) contract:
-	[NewOutbox.constructor(address)](src/core/messagebridge/NewOutbox.sol#L30-L32)
+The following public functions could be turned into external in [NewOutbox](src/core/messagebridge/NewOutbox.sol#L18-L132) contract:
+	[NewOutbox.constructor(address)](src/core/messagebridge/NewOutbox.sol#L31-L33)
 
-src/core/messagebridge/NewOutbox.sol#L18-L131
+src/core/messagebridge/NewOutbox.sol#L18-L132
 
 
 ## assembly
@@ -288,9 +288,9 @@ src/core/Rollup.sol#L40
 Impact: Optimization
 Confidence: High
  - [ ] ID-31
-In a function [NewOutbox.insert(uint256,bytes32,uint256)](src/core/messagebridge/NewOutbox.sol#L43-L63) variable [NewOutbox.roots](src/core/messagebridge/NewOutbox.sol#L28) is read multiple times
+In a function [NewOutbox.insert(uint256,bytes32,uint256)](src/core/messagebridge/NewOutbox.sol#L44-L64) variable [NewOutbox.roots](src/core/messagebridge/NewOutbox.sol#L29) is read multiple times
 
-src/core/messagebridge/NewOutbox.sol#L43-L63
+src/core/messagebridge/NewOutbox.sol#L44-L64
 
 
  - [ ] ID-32
