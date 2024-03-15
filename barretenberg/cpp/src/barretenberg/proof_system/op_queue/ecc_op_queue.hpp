@@ -390,6 +390,30 @@ class ECCOpQueue {
     }
 
     /**
+     * @brief Write equality op using internal accumulator point
+     *
+     * @return current internal accumulator point (prior to reset to 0)
+     */
+    void reset()
+    {
+        accumulator.self_set_infinity();
+
+        raw_ops.emplace_back(ECCVMOperation{
+            .add = false,
+            .mul = false,
+            .eq = false,
+            .reset = true,
+            .base_point = { 0, 0 },
+            .z1 = 0,
+            .z2 = 0,
+            .mul_scalar_full = 0,
+        });
+        num_transcript_rows += 1;
+
+        update_cached_msms(raw_ops.back());
+    }
+
+    /**
      * @brief Write empty row to queue
      *
      */
