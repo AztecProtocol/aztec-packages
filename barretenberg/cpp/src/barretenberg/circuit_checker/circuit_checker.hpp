@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/proof_system/circuit_builder/plonk_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"

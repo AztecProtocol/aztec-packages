@@ -5,7 +5,12 @@
 
 namespace bb {
 
-template <> auto CircuitChecker::init_empty_values<UltraCircuitBuilder_<UltraArith<bb::fr>>>()
+template <> auto CircuitChecker::init_empty_values<PlonkUltraCircuitBuilder>()
+{
+    return UltraFlavor::AllValues{};
+}
+
+template <> auto CircuitChecker::init_empty_values<UltraCircuitBuilder>()
 {
     return UltraFlavor::AllValues{};
 }
@@ -180,10 +185,8 @@ void CircuitChecker::populate_values(
 }
 
 // Template method instantiations for each check method
-// template bool CircuitChecker::check<bb::fr>(const StandardCircuitBuilder_<bb::fr>& builder);
-// template bool CircuitChecker::check<bb::fq>(const StandardCircuitBuilder_<bb::fq>& builder);
-template bool CircuitChecker::check<UltraCircuitBuilder_<UltraArith<bb::fr>>>(
-    const UltraCircuitBuilder_<UltraArith<bb::fr>>& builder_in);
+template bool CircuitChecker::check<PlonkUltraCircuitBuilder>(const PlonkUltraCircuitBuilder& builder_in);
+template bool CircuitChecker::check<UltraCircuitBuilder>(const UltraCircuitBuilder& builder_in);
 template bool CircuitChecker::check<GoblinUltraCircuitBuilder_<bb::fr>>(
     const GoblinUltraCircuitBuilder_<bb::fr>& builder_in);
 
