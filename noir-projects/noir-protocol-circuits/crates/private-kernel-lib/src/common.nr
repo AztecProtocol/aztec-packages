@@ -5,8 +5,7 @@ use dep::types::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsBuilder,
     membership_witness::NoteHashReadRequestMembershipWitness,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    private_kernel::private_call_data::PrivateCallData,
-    kernel_data::{PrivateKernelInnerData, PrivateKernelTailData},
+    private_kernel::private_call_data::PrivateCallData, kernel_data::{PrivateKernelInnerData},
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, EthAddress, PartialAddress, compute_initialization_hash},
@@ -18,10 +17,8 @@ use dep::types::{
 },
     grumpkin_private_key::GrumpkinPrivateKey,
     hash::{
-    compute_constructor_hash, compute_l2_to_l1_hash, compute_logs_hash,
-    compute_new_contract_address_hash, function_tree_root_from_siblings, pedersen_hash,
-    private_functions_root_from_siblings, silo_note_hash, silo_nullifier,
-    stdlib_recursion_verification_key_compress_native_vk
+    compute_l2_to_l1_hash, compute_logs_hash, pedersen_hash, private_functions_root_from_siblings,
+    silo_note_hash, silo_nullifier, stdlib_recursion_verification_key_compress_native_vk
 },
     merkle_tree::check_membership,
     utils::{arrays::{array_length, array_to_bounded_vec, validate_array}},
@@ -94,13 +91,14 @@ pub fn initialize_end_values(
     public_inputs.constants = previous_kernel.public_inputs.constants;
     public_inputs.min_revertible_side_effect_counter = previous_kernel.public_inputs.min_revertible_side_effect_counter;
 
+    let start = previous_kernel.public_inputs.validation_requests;
+    public_inputs.validation_requests.note_hash_read_requests = array_to_bounded_vec(start.note_hash_read_requests);
+    public_inputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
+    public_inputs.validation_requests.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
+
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
-
-    public_inputs.end.note_hash_read_requests = array_to_bounded_vec(start.note_hash_read_requests);
-    public_inputs.end.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
-    public_inputs.end.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
 
     public_inputs.end.new_note_hashes = array_to_bounded_vec(start.new_note_hashes);
     public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
@@ -196,14 +194,14 @@ pub fn update_end_values(
             )
         }
     }
-    public_inputs.end.note_hash_read_requests.extend_from_bounded_vec(siloed_read_requests);
+    public_inputs.validation_requests.note_hash_read_requests.extend_from_bounded_vec(siloed_read_requests);
 
     // Nullifier read request.
     let nullifier_read_requests = private_call_public_inputs.nullifier_read_requests;
     for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_CALL {
         let request = nullifier_read_requests[i];
         if !is_empty(request) {
-            public_inputs.end.nullifier_read_requests.push(request.to_context(storage_contract_address));
+            public_inputs.validation_requests.nullifier_read_requests.push(request.to_context(storage_contract_address));
         }
     }
 
@@ -212,7 +210,7 @@ pub fn update_end_values(
     for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL {
         let request = nullifier_key_validation_requests[i];
         if !is_empty(request) {
-            public_inputs.end.nullifier_key_validation_requests.push(request.to_context(storage_contract_address));
+            public_inputs.validation_requests.nullifier_key_validation_requests.push(request.to_context(storage_contract_address));
         }
     }
 
