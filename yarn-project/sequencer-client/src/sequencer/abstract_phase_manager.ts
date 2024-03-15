@@ -38,6 +38,7 @@ import {
   SideEffectLinkedToNoteHash,
   VK_TREE_HEIGHT,
   VerificationKey,
+  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
@@ -276,7 +277,7 @@ export abstract class AbstractPhaseManager {
     callData?: PublicCallData,
   ): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
     const output = await this.getKernelCircuitOutput(previousOutput, previousProof, callData);
-    return [output, Proof.fromBuffer(Buffer.alloc(0))];
+    return [output, makeEmptyProof()];
   }
 
   protected async getKernelCircuitOutput(
@@ -431,7 +432,7 @@ export abstract class AbstractPhaseManager {
     );
     const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
-    return new PublicCallData(callStackItem, publicCallStack, Proof.fromBuffer(Buffer.alloc(0)), portalContractAddress, bytecodeHash);
+    return new PublicCallData(callStackItem, publicCallStack, makeEmptyProof(), portalContractAddress, bytecodeHash);
   }
 }
 

@@ -32,7 +32,6 @@ describe('setup_phase_manager', () => {
   let publicWorldStateDB: MockProxy<WorldStatePublicDB>;
   let publicKernel: MockProxy<PublicKernelCircuitSimulator>;
 
-  let proof: Proof;
   let root: Buffer;
 
   let phaseManager: TestSetupPhaseManager;
@@ -43,7 +42,6 @@ describe('setup_phase_manager', () => {
     publicContractsDB = mock<ContractsDataSourcePublicDB>();
     publicWorldStateDB = mock<WorldStatePublicDB>();
 
-    proof = makeEmptyProof();
     root = Buffer.alloc(32, 5);
     db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
     publicKernel = mock<PublicKernelCircuitSimulator>();

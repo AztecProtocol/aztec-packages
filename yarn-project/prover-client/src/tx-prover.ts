@@ -7,7 +7,7 @@ import { SoloBlockBuilder } from "./block_builder/solo_block_builder.js";
 import { getVerificationKeys } from "./mocks/verification_keys.js";
 import { RealRollupCircuitSimulator } from "./simulator/rollup.js";
 import { EmptyRollupProver } from "./prover/empty.js";
-import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from "@aztec/circuits.js/simulation";
+import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from "../../simulator/src/simulator/index.js";
 import * as fs from 'fs/promises';
 import { createDebugLogger } from "@aztec/foundation/log";
 
@@ -41,16 +41,30 @@ export class TxProver implements ProverClient {
   constructor(private worldStateSynchronizer: WorldStateSynchronizer, private simulationProvider: SimulationProvider) {
   }
 
+  /**
+   * Starts the prover instance
+   */
   public async start() {
-
+    return await Promise.resolve();
   }
 
+  /**
+   * Stops the prover instance
+   */
   public async stop() {
 
   }
 
+  /**
+   * 
+   * @param config - The prover configuration.
+   * @param worldStateSynchronizer - An instance of the world state
+   * @returns An instance of the prover, constructed and started.
+   */
   public static async new(config: ProverConfig, worldStateSynchronizer: WorldStateSynchronizer) {
-    return Promise.resolve(new TxProver(worldStateSynchronizer, await getSimulationProvider(config)));
+    const prover = new TxProver(worldStateSynchronizer, await getSimulationProvider(config));
+    await prover.start();
+    return prover;
   }
 
   public async proveBlock(

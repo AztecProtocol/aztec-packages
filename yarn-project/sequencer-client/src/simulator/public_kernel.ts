@@ -22,7 +22,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 
 import { PublicKernelCircuitSimulator} from './index.js';
-import { SimulationProvider, WASMSimulator } from '@aztec/circuits.js/simulation';
+import { SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
 /**
  * Implements the PublicKernelCircuitSimulator.

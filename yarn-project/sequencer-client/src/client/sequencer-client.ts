@@ -11,7 +11,7 @@ import { getL1Publisher } from '../publisher/index.js';
 import { Sequencer, SequencerConfig } from '../sequencer/index.js';
 import { PublicProcessorFactory } from '../sequencer/public_processor.js';
 import { ProverClient } from '@aztec/circuit-types/interfaces';
-import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from '@aztec/circuits.js/simulation';
+import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
 const logger = createDebugLogger('aztec:sequencer-client');
 

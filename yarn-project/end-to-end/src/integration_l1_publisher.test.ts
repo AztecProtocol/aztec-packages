@@ -32,7 +32,7 @@ import {
   L1Publisher,
   getL1Publisher,
 } from '@aztec/sequencer-client';
-import { MerkleTreeOperations, MerkleTrees, ServerWorldStateSynchronizer, WorldStateSynchronizer } from '@aztec/world-state';
+import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import * as fs from 'fs';
@@ -53,8 +53,8 @@ import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { setupL1Contracts } from './fixtures/utils.js';
 import { WASMSimulator } from '@aztec/circuits.js/simulation';
-import { makeProcessedTx, makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots, ProverClient, } from '@aztec/circuit-types';
-import { DummyProver, EmptyRollupProver, RealRollupCircuitSimulator, SoloBlockBuilder, TxProver, getVerificationKeys } from '@aztec/prover-client';
+import { makeProcessedTx, makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots, } from '@aztec/circuit-types';
+import { EmptyRollupProver, RealRollupCircuitSimulator, SoloBlockBuilder, getVerificationKeys } from '@aztec/prover-client';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';

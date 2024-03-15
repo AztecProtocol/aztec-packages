@@ -63,7 +63,7 @@ import { EmptyRollupProver } from '../prover/empty.js';
 import { RollupProver } from '../prover/index.js';
 import { RealRollupCircuitSimulator, RollupSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
-import { WASMSimulator } from '@aztec/circuits.js/simulation';
+import { WASMSimulator } from '@aztec/simulator';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
