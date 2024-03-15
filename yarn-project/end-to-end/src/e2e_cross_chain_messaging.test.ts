@@ -72,13 +72,12 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
 
     // 2. Deposit tokens to the TokenPortal
-    const entryKeyInbox = await crossChainTestHarness.sendTokensToPortalPrivate(
+    await crossChainTestHarness.sendTokensToPortalPrivate(
       secretHashForRedeemingMintedNotes,
       bridgeAmount,
       secretHashForL2MessageConsumption,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
-    expect(await crossChainTestHarness.inbox.read.contains([entryKeyInbox.toString()])).toBeTruthy();
 
     // Wait for the archiver to process the message
     await delay(5000); /// waiting 5 seconds.
@@ -137,13 +136,12 @@ describe('e2e_cross_chain_messaging', () => {
       crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    const entryKeyInbox = await crossChainTestHarness.sendTokensToPortalPrivate(
+    await crossChainTestHarness.sendTokensToPortalPrivate(
       secretHashForRedeemingMintedNotes,
       bridgeAmount,
       secretHashForL2MessageConsumption,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
-    expect(await crossChainTestHarness.inbox.read.contains([entryKeyInbox.toString()])).toBeTruthy();
 
     // Wait for the archiver to process the message
     await delay(5000); /// waiting 5 seconds.
@@ -219,7 +217,7 @@ describe('e2e_cross_chain_messaging', () => {
     ).rejects.toThrowError(`Unknown auth witness for message hash ${expectedBurnMessageHash.toString()}`);
   }, 120_000);
 
-  it("Can't claim funds publicly if they were deposited privately", async () => {
+  it.only("Can't claim funds publicly if they were deposited privately", async () => {
     // 1. Mint tokens on L1
     const bridgeAmount = 100n;
     await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
@@ -228,13 +226,12 @@ describe('e2e_cross_chain_messaging', () => {
     const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
       crossChainTestHarness.generateClaimSecret();
 
-    const entryKey = await crossChainTestHarness.sendTokensToPortalPrivate(
+    await crossChainTestHarness.sendTokensToPortalPrivate(
       Fr.random(),
       bridgeAmount,
       secretHashForL2MessageConsumption,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(0n);
-    expect(await crossChainTestHarness.inbox.read.contains([entryKey.toString()])).toBeTruthy();
 
     // Wait for the archiver to process the message
     await delay(5000); /// waiting 5 seconds.

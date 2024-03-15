@@ -27,7 +27,7 @@ import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
-import { getFunctionSelector } from 'viem';
+import { toFunctionSelector } from 'viem';
 
 import { MessageLoadOracleInputs } from '../index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
@@ -440,7 +440,7 @@ describe('ACIR public execution simulator', () => {
 
       const computePreImage = () =>
         buildL1ToL2Message(
-          getFunctionSelector('mint_public(bytes32,uint256,address)').substring(2),
+          toFunctionSelector('mint_public(bytes32,uint256,address)').substring(2),
           [tokenRecipient.toField(), new Fr(bridgedAmount), canceller.toField()],
           crossChainMsgRecipient ?? contractAddress,
           secret,
