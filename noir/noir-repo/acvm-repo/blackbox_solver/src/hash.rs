@@ -1,7 +1,6 @@
 use acir::BlackBoxFunc;
 use blake2::digest::generic_array::GenericArray;
 use blake2::{Blake2s256, Digest};
-use sha2::Sha256;
 use sha3::Keccak256;
 
 use crate::BlackBoxResolutionError;
