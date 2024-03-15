@@ -13,7 +13,7 @@ import {
   TxHash,
   TxReceipt,
   TxStatus,
-  UnencryptedL2Log
+  UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';

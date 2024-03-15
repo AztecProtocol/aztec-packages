@@ -1,9 +1,7 @@
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { RollupAbi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, getAddress, getContract, http } from 'viem';
+import { createPublicClient, http } from 'viem';
 import { localhost } from 'viem/chains';
 
 import { Archiver, getConfigEnvVars } from './archiver/index.js';

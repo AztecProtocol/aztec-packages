@@ -379,13 +379,7 @@ describe('L1Publisher integration', () => {
         expect(await outbox.read.contains([newL2ToL1MsgsArray[j].toString()])).toBeFalsy();
       }
 
-      writeJson(
-        `mixed_block_${i}`,
-        block,
-        l1ToL2Content,
-        recipientAddress,
-        deployerAccount.address,
-      );
+      writeJson(`mixed_block_${i}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
       await publisher.processL2Block(block);
 

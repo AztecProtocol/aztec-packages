@@ -1,7 +1,6 @@
 import {
   Body,
   GetUnencryptedLogsResponse,
-  L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
   LogFilter,

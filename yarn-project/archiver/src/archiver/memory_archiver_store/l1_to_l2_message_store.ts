@@ -56,7 +56,8 @@ export class NewL1ToL2MessageStore {
     for (const [key, message] of this.store.entries()) {
       if (message.equals(l1ToL2Message)) {
         const [blockNumber, messageIndex] = key.split('-');
-        const indexInTheWholeTree = BigInt(blockNumber) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) + BigInt(messageIndex);
+        const indexInTheWholeTree =
+          BigInt(blockNumber) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) + BigInt(messageIndex);
         return Promise.resolve(indexInTheWholeTree);
       }
     }

@@ -6,7 +6,6 @@ import {
   ContractDataSource,
   ExtendedContractData,
   GetUnencryptedLogsResponse,
-  L1ToL2MessageAndIndex,
   L1ToL2MessageSource,
   L2Block,
   L2BlockL2Logs,
@@ -379,7 +378,10 @@ export class AztecNodeService implements AztecNode {
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
     const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
     const committedDb = await this.#getWorldState(blockNumber);
-    const siblingPath = await committedDb.getSiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, index);
+    const siblingPath = await committedDb.getSiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
+      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+      index,
+    );
     return [index, siblingPath];
   }
 

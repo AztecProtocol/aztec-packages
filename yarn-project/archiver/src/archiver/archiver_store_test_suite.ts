@@ -1,12 +1,4 @@
-import {
-  L2Block,
-  L2BlockContext,
-  LogId,
-  LogType,
-  NewInboxLeaf,
-  TxHash,
-  UnencryptedL2Log
-} from '@aztec/circuit-types';
+import { L2Block, L2BlockContext, LogId, LogType, NewInboxLeaf, TxHash, UnencryptedL2Log } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
 import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
 import { makeContractClassPublic } from '@aztec/circuits.js/testing';

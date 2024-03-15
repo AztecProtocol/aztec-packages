@@ -1,5 +1,5 @@
 import { Body, NewInboxLeaf } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, Header } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { PublicClient } from 'viem';

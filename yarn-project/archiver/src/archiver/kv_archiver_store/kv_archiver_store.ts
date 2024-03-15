@@ -8,7 +8,7 @@ import {
   NewInboxLeaf,
   TxEffect,
   TxHash,
-  TxReceipt
+  TxReceipt,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';

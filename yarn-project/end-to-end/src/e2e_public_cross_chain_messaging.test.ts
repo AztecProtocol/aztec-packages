@@ -17,7 +17,7 @@ import {
 } from '@aztec/aztec.js';
 import { keccak, sha256 } from '@aztec/foundation/crypto';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
-import { InboxAbi, OutboxAbi } from '@aztec/l1-artifacts';
+import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-contracts.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
@@ -312,13 +312,11 @@ describe('e2e_public_cross_chain_messaging', () => {
       const content = Fr.random();
 
       // We inject the message to Inbox
-      const txHash = await inbox.write.sendL2Message(
-        [
-          { actor: recipient as Hex, version: 1n },
-          content.toString() as Hex,
-          secretHash.toString() as Hex,
-        ] as const
-      );
+      const txHash = await inbox.write.sendL2Message([
+        { actor: recipient as Hex, version: 1n },
+        content.toString() as Hex,
+        secretHash.toString() as Hex,
+      ] as const);
 
       // We check that the message was correctly injected by checking the emitted event
       {
@@ -329,15 +327,15 @@ describe('e2e_public_cross_chain_messaging', () => {
         // Exactly 1 event should be emitted in the transaction
         expect(txReceipt.logs.length).toBe(1);
 
-        // We decode the event log before checking it
-        const txLog = txReceipt.logs[0];
-        const topics = decodeEventLog({
-          abi: InboxAbi,
-          data: txLog.data,
-          topics: txLog.topics,
-        });
+        // TODO(#4492): Check here if leaf was computed as expected
+        // // We decode the event log before checking it
+        // const txLog = txReceipt.logs[0];
+        // const topics = decodeEventLog({
+        //   abi: InboxAbi,
+        //   data: txLog.data,
+        //   topics: txLog.topics,
+        // });
 
-        // TODO(#4492): Re-enable this check
         // We check that LeafInserted event was emitted with the expected recipient
         // Note: For whatever reason, viem types "think" that there is no recipient on topics.args. I hack around this
         // by casting the args to "any"
