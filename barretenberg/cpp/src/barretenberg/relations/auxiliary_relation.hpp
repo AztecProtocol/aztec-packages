@@ -32,21 +32,21 @@ template <typename FF_> class AuxiliaryRelationImpl {
      */
 
     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
-        6, // auxiliary sub-relation;
-        6, // ROM consistency sub-relation 1
-        6, // ROM consistency sub-relation 2
-        6, // RAM consistency sub-relation 1
-        6, // RAM consistency sub-relation 2
-        6  // RAM consistency sub-relation 3
+        7, // auxiliary sub-relation;
+        7, // ROM consistency sub-relation 1
+        7, // ROM consistency sub-relation 2
+        7, // RAM consistency sub-relation 1
+        7, // RAM consistency sub-relation 2
+        7  // RAM consistency sub-relation 3
     };
 
     static constexpr std::array<size_t, 6> TOTAL_LENGTH_ADJUSTMENTS{
-        6, // auxiliary sub-relation
-        6, // ROM consistency sub-relation 1
-        6, // ROM consistency sub-relation 2
-        6, // RAM consistency sub-relation 1
-        6, // RAM consistency sub-relation 2
-        6  // RAM consistency sub-relation 3
+        7, // auxiliary sub-relation
+        7, // ROM consistency sub-relation 1
+        7, // ROM consistency sub-relation 2
+        7, // RAM consistency sub-relation 1
+        7, // RAM consistency sub-relation 2
+        7  // RAM consistency sub-relation 3
     };
 
     /**
@@ -112,7 +112,6 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto q_4 = View(in.q_4);
         auto q_m = View(in.q_m);
         auto q_c = View(in.q_c);
-        auto q_arith = View(in.q_arith);
         auto q_aux = View(in.q_aux);
 
         const FF LIMB_SIZE(uint256_t(1) << 68);
@@ -299,12 +298,13 @@ template <typename FF_> class AuxiliaryRelationImpl {
 
         // Putting it all together...
         std::get<3>(accumulators) +=
-            adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation * (q_arith) *
+            adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation * (q_m * q_4) *
             (q_aux * scaling_factor); // deg 5 or 8
-        std::get<4>(accumulators) += index_is_monotonically_increasing * (q_arith) * (q_aux * scaling_factor); // deg 4
+        std::get<4>(accumulators) +=
+            index_is_monotonically_increasing * (q_m * q_4) * (q_aux * scaling_factor); // deg 4
         std::get<5>(accumulators) +=
-            next_gate_access_type_is_boolean * (q_arith) * (q_aux * scaling_factor); // deg 4 or 6
-        auto RAM_consistency_check_identity = access_check * (q_arith);              // deg 3 or 9
+            next_gate_access_type_is_boolean * (q_m * q_4) * (q_aux * scaling_factor); // deg 4 or 6
+        auto RAM_consistency_check_identity = access_check * (q_m * q_4);              // deg 3 or 9
 
         /**
          * RAM Timestamp Consistency Check

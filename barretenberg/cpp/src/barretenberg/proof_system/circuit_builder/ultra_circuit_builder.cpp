@@ -1308,10 +1308,11 @@ void UltraCircuitBuilder_<Arithmetization>::apply_aux_selectors(const AUX_SELECT
         block.q_1().emplace_back(0);
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_m().emplace_back(0);
+        block.q_4().emplace_back(1);
+        block.q_m().emplace_back(1);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(1);
+        // block.q_arith().emplace_back(1);
+        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
             block.pad_additional();
         }
