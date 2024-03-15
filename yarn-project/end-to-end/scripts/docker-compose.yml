@@ -4,12 +4,13 @@ services:
     image: ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916
     entrypoint: >
       sh -c '
-      set -o pipefail
       if [ -n "$FORK_BLOCK_NUMBER" ] && [ -n "$FORK_URL" ]; then
-        anvil -p 8545 --host 0.0.0.0 --chain-id 31337 --fork-url "$FORK_URL" --fork-block-number "$FORK_BLOCK_NUMBER" | grep -v eth_getLogs
+        { anvil -p 8545 --host 0.0.0.0 --chain-id 31337 --fork-url "$FORK_URL" --fork-block-number "$FORK_BLOCK_NUMBER" ; echo $? > .status } | grep -v eth_getLogs
       else
-        anvil -p 8545 --host 0.0.0.0 --chain-id 31337 | grep -v eth_getLogs
-      fi'
+        { anvil -p 8545 --host 0.0.0.0 --chain-id 31337 ; echo $? > .status } | grep -v eth_getLogs
+      fi
+      # final status
+      grep -q '^0$' .status'
     ports:
       - '8545:8545'
 
