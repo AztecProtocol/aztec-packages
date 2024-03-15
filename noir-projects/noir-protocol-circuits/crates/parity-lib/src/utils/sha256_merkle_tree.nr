@@ -1,5 +1,4 @@
 use dep::types::{
-    constants::NUM_FIELDS_PER_SHA256,
     hash::accumulate_sha256,
 };
 
@@ -43,8 +42,7 @@ impl<N> Sha256MerkleTree<N> {
         Sha256MerkleTree { leaves, nodes }
     }
 
-    fn get_root(self) -> [Field; NUM_FIELDS_PER_SHA256] {
-        // TODO(Miranda): stop using arrays (just as is for ease of use around the nr files using NUM_FIELDS_PER_SHA256)
-        [self.nodes[N - 2]]
+    fn get_root(self) -> Field {
+        self.nodes[N - 2]
     }
 }

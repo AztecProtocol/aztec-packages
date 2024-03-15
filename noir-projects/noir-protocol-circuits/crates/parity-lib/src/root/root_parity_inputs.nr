@@ -1,5 +1,4 @@
 use dep::types::{
-    constants::NUM_FIELDS_PER_SHA256,
     merkle_tree::MerkleTree,
     mocked::AggregationObject,
 };
@@ -22,7 +21,7 @@ impl RootParityInputs {
         let mut sha_roots = [0; NUM_BASE_PARITY_PER_ROOT_PARITY];
         let mut converted_roots = [0; NUM_BASE_PARITY_PER_ROOT_PARITY];
         for i in 0..NUM_BASE_PARITY_PER_ROOT_PARITY {
-            sha_roots[i] = self.children[i].public_inputs.sha_root[0];
+            sha_roots[i] = self.children[i].public_inputs.sha_root;
             converted_roots[i] = self.children[i].public_inputs.converted_root;
         }
 
@@ -51,10 +50,10 @@ mod tests {
     fn test_sha_root_matches_frontier_tree() {
         // 31 byte test SHA roots
         let children_sha_roots = [
-            [0xb3a3fc1968999f2c2d798b900bdf0de41311be2a4d20496a7e792a521fc8ab],
-            [0x43f78e0ebc9633ce336a8c086064d898c32fb5d7d6011f5427459c0b8d14e9],
-            [0x024259b6404280addcc9319bc5a32c9a5d56af5c93b2f941fa326064fbe963],
-            [0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a],
+            0xb3a3fc1968999f2c2d798b900bdf0de41311be2a4d20496a7e792a521fc8ab,
+            0x43f78e0ebc9633ce336a8c086064d898c32fb5d7d6011f5427459c0b8d14e9,
+            0x024259b6404280addcc9319bc5a32c9a5d56af5c93b2f941fa326064fbe963,
+            0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a,
         ];
 
         let children = [
@@ -71,6 +70,6 @@ mod tests {
         // 31 byte truncated root hash
         let expected_sha_root = 0xf07f47041aab56943c2eb010086a5ca3c2c4261b8cafee090a7619b8052680;
 
-        assert(public_inputs.sha_root[0] == expected_sha_root, "sha root does not match");
+        assert(public_inputs.sha_root == expected_sha_root, "sha root does not match");
     }
 }

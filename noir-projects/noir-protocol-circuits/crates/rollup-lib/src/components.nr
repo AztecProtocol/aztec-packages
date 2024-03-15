@@ -79,6 +79,8 @@ pub fn assert_prev_rollups_follow_on_from_each_other(
     );
 }
 
+// TODO(Miranda): Remove arrays entirely as NUM_FIELDS_PER_SHA256 = 1
+
 /**
  * @brief From two previous rollup data, compute a single out hash
  *

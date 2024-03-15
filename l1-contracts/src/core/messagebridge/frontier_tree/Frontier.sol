@@ -2,36 +2,41 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import {Hash} from "../../libraries/Hash.sol";
 import {IFrontier} from "../../interfaces/messagebridge/IFrontier.sol";
 
+// This truncates each hash and hash preimage to 31 bytes to follow Noir.
+// It follows the logic in /noir-protocol-circuits/crates/parity-lib/src/utils/sha256_merkle_tree.nr
+// TODO(Miranda): Possibly nuke this contract, and use a generic version which can either use
+// regular sha256 or sha256ToField when emulating circuits
 contract FrontierMerkle is IFrontier {
   uint256 public immutable HEIGHT;
   uint256 public immutable SIZE;
 
   uint256 internal nextIndex = 0;
 
-  mapping(uint256 level => bytes32 node) public frontier;
+  mapping(uint256 level => bytes31 node) public frontier;
 
   // Below can be pre-computed so it would be possible to have constants
   // for the zeros at each level. This would save gas on computations
-  mapping(uint256 level => bytes32 zero) public zeros;
+  mapping(uint256 level => bytes31 zero) public zeros;
 
   constructor(uint256 _height) {
     HEIGHT = _height;
     SIZE = 2 ** _height;
 
-    zeros[0] = bytes32(0);
+    zeros[0] = bytes31(0);
     for (uint256 i = 1; i <= HEIGHT; i++) {
-      zeros[i] = sha256(bytes.concat(zeros[i - 1], zeros[i - 1]));
+      zeros[i] = Hash.sha256ToField(bytes.concat(zeros[i - 1], zeros[i - 1]));
     }
   }
 
   function insertLeaf(bytes32 _leaf) external override(IFrontier) returns (uint256) {
     uint256 index = nextIndex;
     uint256 level = _computeLevel(index);
-    bytes32 right = _leaf;
+    bytes31 right = bytes31(_leaf);
     for (uint256 i = 0; i < level; i++) {
-      right = sha256(bytes.concat(frontier[i], right));
+      right = Hash.sha256ToField(bytes.concat(frontier[i], bytes31(right)));
     }
     frontier[level] = right;
 
@@ -53,7 +58,7 @@ contract FrontierMerkle is IFrontier {
     uint256 level = _computeLevel(index);
 
     // We should start at the highest frontier level with a left leaf
-    bytes32 temp = frontier[level];
+    bytes31 temp = frontier[level];
 
     uint256 bits = index >> level;
     for (uint256 i = level; i < HEIGHT; i++) {
@@ -65,9 +70,9 @@ contract FrontierMerkle is IFrontier {
           // and in that case we started higher up the tree
           revert("Mistakes were made");
         }
-        temp = sha256(bytes.concat(frontier[i], temp));
+        temp = Hash.sha256ToField(bytes.concat(frontier[i], temp));
       } else {
-        temp = sha256(bytes.concat(temp, zeros[i]));
+        temp = Hash.sha256ToField(bytes.concat(temp, zeros[i]));
       }
       bits >>= 1;
     }

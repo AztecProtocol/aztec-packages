@@ -4,7 +4,7 @@ use crate::{
     global_variables::{GlobalVariables, GLOBAL_VARIABLES_LENGTH}
 },
     constants::{
-    GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, NUM_FIELDS_PER_SHA256, STATE_REFERENCE_LENGTH,
+    GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, STATE_REFERENCE_LENGTH,
     CONTENT_COMMITMENT_LENGTH
 },
     hash::pedersen_hash, state_reference::StateReference, traits::{Deserialize, Empty, Hash, Serialize},

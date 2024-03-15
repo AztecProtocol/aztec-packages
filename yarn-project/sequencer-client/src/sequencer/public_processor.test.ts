@@ -412,7 +412,7 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO];
 
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
@@ -516,7 +516,7 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO];
 
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],

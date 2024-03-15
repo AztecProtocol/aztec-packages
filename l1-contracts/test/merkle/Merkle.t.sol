@@ -6,7 +6,6 @@ import {Test} from "forge-std/Test.sol";
 
 import {NaiveMerkle} from "./Naive.sol";
 import {FrontierMerkle} from "./../../src/core/messagebridge/frontier_tree/Frontier.sol";
-import {FrontierMerkleField} from "./../../src/core/messagebridge/frontier_tree/FrontierField.sol";
 import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
 
 contract MerkleTest is Test {
@@ -54,7 +53,7 @@ contract MerkleTest is Test {
       "Base parity circuit subtree height changed, update treeHeight."
     );
 
-    FrontierMerkleField frontier = new FrontierMerkleField(treeHeight);
+    FrontierMerkle frontier = new FrontierMerkle(treeHeight);
 
     for (uint256 i = 0; i < msgs.length; i++) {
       frontier.insertLeaf(bytes31(msgs[i]));
@@ -92,7 +91,7 @@ contract MerkleTest is Test {
       "Root parity circuit subtree height changed, update treeHeight."
     );
 
-    FrontierMerkleField frontier = new FrontierMerkleField(treeHeight);
+    FrontierMerkle frontier = new FrontierMerkle(treeHeight);
 
     for (uint256 i = 0; i < baseRoots.length; i++) {
       frontier.insertLeaf(bytes31(baseRoots[i]));

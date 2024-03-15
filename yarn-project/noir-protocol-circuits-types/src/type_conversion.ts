@@ -1702,7 +1702,7 @@ export function mapRootParityInputToNoir(rootParityInput: RootParityInput): Root
 export function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): ParityPublicInputsNoir {
   return {
     aggregation_object: {},
-    sha_root: mapSha256HashToNoir(parityPublicInputs.shaRoot),
+    sha_root: mapFieldToNoir(parityPublicInputs.shaRoot),
     converted_root: mapFieldToNoir(parityPublicInputs.convertedRoot),
   };
 }
@@ -1731,7 +1731,7 @@ export function mapRootRollupPublicInputsFromNoir(
 export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicInputsNoir): ParityPublicInputs {
   return new ParityPublicInputs(
     AggregationObject.makeFake(),
-    mapSha256HashFromNoir(parityPublicInputs.sha_root),
+    mapFieldFromNoir(parityPublicInputs.sha_root),
     mapFieldFromNoir(parityPublicInputs.converted_root),
   );
 }

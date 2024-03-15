@@ -187,7 +187,7 @@ pub fn compute_constructor_hash(
 //
 // TODO(Jan and David): This is used for the encrypted_log hashes.
 // Can we check to see if we can just use hash_to_field or pedersen_compress here?
-//
+// TODO(Miranda): Remove arrays entirely as NUM_FIELDS_PER_SHA256 = 1
 //
 pub fn accumulate_sha256(input: [Field; NUM_FIELDS_PER_SHA256 * 2]) -> [Field; NUM_FIELDS_PER_SHA256] {
     // This is a note about the cpp code, since it takes an array of Fields

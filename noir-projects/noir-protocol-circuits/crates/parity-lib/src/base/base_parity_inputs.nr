@@ -3,7 +3,7 @@ use crate::{
     utils::sha256_merkle_tree::Sha256MerkleTree,
 };
 use dep::types::{
-    constants::{NUM_FIELDS_PER_SHA256, NUM_MSGS_PER_BASE_PARITY},
+    constants::NUM_MSGS_PER_BASE_PARITY,
     merkle_tree::MerkleTree,
     mocked::AggregationObject,
     utils::uint256::U256,
@@ -43,5 +43,5 @@ fn test_sha_root_matches_frontier_tree() {
     // 31 byte truncated root hash
     let expected_sha_root = 0x1fcbc929ace6acd25836c9779b04cd9d0965ac2b90dabffa9aff2b4e9c7a4a;
 
-    assert(public_inputs.sha_root[0] == expected_sha_root, "sha root does not match");
+    assert(public_inputs.sha_root == expected_sha_root, "sha root does not match");
 }

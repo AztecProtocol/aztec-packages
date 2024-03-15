@@ -35,7 +35,7 @@ struct PublicCircuitPublicInputs{
 
     start_side_effect_counter: u32,
     end_side_effect_counter: u32,
-
+    // TODO(Miranda): Remove arrays entirely as NUM_FIELDS_PER_SHA256 = 1
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
