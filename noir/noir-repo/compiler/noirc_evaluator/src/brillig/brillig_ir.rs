@@ -4,6 +4,8 @@
 //! `brillig_gen` is therefore the module which combines both
 //! ssa types and types in this module.
 //! A similar paradigm can be seen with the `acir_ir` module.
+//!
+//! The brillig ir provides instructions and codegens. The instructions are low
 pub(crate) mod artifact;
 pub(crate) mod brillig_variable;
 pub(crate) mod debug_show;
