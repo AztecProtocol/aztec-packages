@@ -670,7 +670,11 @@ impl<'block> BrilligBlock<'block> {
                     | BrilligVariable::BrilligVector(BrilligVector { rc, .. }) => rc,
                     other => unreachable!("ICE: decrement rc on non-array: {other:?}"),
                 };
-                self.brillig_context.usize_op_in_place(rc_register, BinaryIntOp::Sub, 1);
+                self.brillig_context.codegen_usize_op_in_place(
+                    rc_register,
+                    BrilligBinaryOp::Sub,
+                    1,
+                );
             }
             Instruction::EnableSideEffects { .. } => {
                 todo!("enable_side_effects not supported by brillig")
