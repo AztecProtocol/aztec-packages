@@ -40,4 +40,4 @@ jobs:
           # scripts/earthly --push ./barretenberg/cpp/+build-wasi-sdk
 
       - name: CI
-        run: scripts/earthly --exec-stats +build-ci-small
+        run: scripts/earthly +build-ci-small
