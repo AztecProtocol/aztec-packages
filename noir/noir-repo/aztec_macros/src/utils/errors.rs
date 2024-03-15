@@ -10,7 +10,7 @@ pub enum AztecMacroError {
     UnsupportedFunctionArgumentType { span: Span, typ: UnresolvedTypeData },
     UnsupportedStorageType { span: Option<Span>, typ: UnresolvedTypeData },
     CouldNotAssignStorageSlots { secondary_message: Option<String> },
-    CouldNotImplementNoteSerialization { span: Option<Span>, secondary_message: Option<String> },
+    CouldNotImplementNoteInterface { span: Option<Span>, secondary_message: Option<String> },
     EventError { span: Span, message: String },
     UnsupportedAttributes { span: Span, secondary_message: Option<String> },
 }
@@ -43,7 +43,7 @@ impl From<AztecMacroError> for MacroError {
                 secondary_message,
                 span: None,
             },
-            AztecMacroError::CouldNotImplementNoteSerialization { span, secondary_message } => MacroError {
+            AztecMacroError::CouldNotImplementNoteInterface { span, secondary_message } => MacroError {
                 primary_message: "Could not implement automatic methods for note, please provide an implementation of the NoteInterface trait".to_string(),
                 secondary_message,
                 span,

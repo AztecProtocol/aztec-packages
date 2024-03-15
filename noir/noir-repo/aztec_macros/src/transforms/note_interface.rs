@@ -34,11 +34,12 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             .find(|trait_impl| {
                 if let UnresolvedTypeData::Named(struct_path, _, _) = &trait_impl.object_type.typ {
                     struct_path.last_segment() == note_struct.name
+                        && trait_impl.trait_name.last_segment().0.contents == "NoteInterface"
                 } else {
                     false
                 }
             })
-            .ok_or(AztecMacroError::CouldNotImplementNoteSerialization {
+            .ok_or(AztecMacroError::CouldNotImplementNoteInterface {
                 span: Some(note_struct.name.span()),
                 secondary_message: Some(format!(
                     "Could not find NoteInterface trait implementation for note: {}",
@@ -70,7 +71,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             UnresolvedTypeData::Expression(UnresolvedTypeExpression::Constant(val, _)) => {
                 Ok(val.to_string())
             }
-            _ => Err(AztecMacroError::CouldNotImplementNoteSerialization {
+            _ => Err(AztecMacroError::CouldNotImplementNoteInterface {
                 span: trait_impl.object_type.span,
                 secondary_message: Some(format!(
                     "Cannot find note serialization length for: {}",
@@ -99,15 +100,17 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
 
         let note_interface_impl_span = trait_impl.object_type.span;
 
-        // Generate the serialize_content method as
-        //
-        // fn serialize_content(self: {}) -> [Field; NOTE_SERIALIZED_LEN] {
-        //   [self.note_field1 as Field, self.note_field2.to_field()...]
-        // }
-        //
-        // It assumes every struct field can be converted either via the to_field() trait (structs) or cast as Field (integers)
-
-        if !check_trait_method_implemented(trait_impl, "serialize_content") {
+        if !check_trait_method_implemented(trait_impl, "serialize_content")
+            && !check_trait_method_implemented(trait_impl, "deserialize_content")
+            && !note_impl.methods.iter().any(|(func, _)| func.def.name.0.contents == "fields")
+        {
+            // Generate the serialize_content method as
+            //
+            // fn serialize_content(self: {}) -> [Field; NOTE_SERIALIZED_LEN] {
+            //   [self.note_field1 as Field, self.note_field2.to_field()...]
+            // }
+            //
+            // It assumes every struct field can be converted either via the to_field() trait (structs) or cast as Field (integers)
             let note_serialize_content_fn = generate_note_serialize_content(
                 &note_type,
                 &note_fields,
@@ -115,20 +118,18 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                 note_interface_impl_span,
             )?;
             trait_impl.items.push(TraitImplItem::Function(note_serialize_content_fn));
-        }
 
-        // Generate the deserialize_content method as
-        //
-        // fn deserialize_content(serialized_note: [Field; NOTE_SERILIZED_LEN]) -> Self {
-        //     NoteType {
-        //        note_field1: serialized_note[0] as Field,
-        //        note_field2: NoteFieldType2::from_field(serialized_note[1])...
-        //     }
-        // }
-        // It assumes every note field is stored in an individual serialized field,
-        // and can be converted to the original type via the from_field() trait (structs) or cast as Field (integers)
+            // Generate the deserialize_content method as
+            //
+            // fn deserialize_content(serialized_note: [Field; NOTE_SERILIZED_LEN]) -> Self {
+            //     NoteType {
+            //        note_field1: serialized_note[0] as Field,
+            //        note_field2: NoteFieldType2::from_field(serialized_note[1])...
+            //     }
+            // }
+            // It assumes every note field is stored in an individual serialized field,
+            // and can be converted to the original type via the from_field() trait (structs) or cast as Field (integers)
 
-        if !check_trait_method_implemented(trait_impl, "deserialize_content") {
             let note_deserialize_content_fn = generate_note_deserialize_content(
                 &note_type,
                 &note_fields,
@@ -136,20 +137,18 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                 note_interface_impl_span,
             )?;
             trait_impl.items.push(TraitImplItem::Function(note_deserialize_content_fn));
-        }
 
-        // Automatically generate a struct that represents the note's serialization metadata, and an auxiliary function to retrieve it
-        // The struct looks like this
-        //
-        // NoteTypeFields {
-        //     field1: FieldSelector { index: 0, offset: 0, length: 32 },
-        //     field2: FieldSelector { index: 1, offset: 0, length: 32 },
-        //     ...
-        // }
-        //
-        // It assumes each field occupies an entire field and its serialized in definition order
+            // Automatically generate a struct that represents the note's serialization metadata, and an auxiliary function to retrieve it
+            // The struct looks like this
+            //
+            // NoteTypeFields {
+            //     field1: FieldSelector { index: 0, offset: 0, length: 32 },
+            //     field2: FieldSelector { index: 1, offset: 0, length: 32 },
+            //     ...
+            // }
+            //
+            // It assumes each field occupies an entire field and its serialized in definition order
 
-        if !note_impl.methods.iter().any(|(func, _)| func.def.name.0.contents == "fields") {
             let note_fields_struct =
                 generate_note_fields_struct(&note_type, &note_fields, note_interface_impl_span)?;
             note_fields_structs.push(note_fields_struct);
@@ -209,7 +208,7 @@ fn generate_note_get_header(
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        return Err(AztecMacroError::CouldNotImplementNoteSerialization {
+        return Err(AztecMacroError::CouldNotImplementNoteInterface {
             secondary_message: Some("Failed to parse Noir macro code (fn get_header). This is either a bug in the compiler or the Noir macro code".to_string()),
             span: impl_span
         });
@@ -236,7 +235,8 @@ fn generate_note_set_header(
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        return Err(AztecMacroError::CouldNotImplementNoteSerialization  {
+        dbg!(errors);
+        return Err(AztecMacroError::CouldNotImplementNoteInterface  {
             secondary_message: Some("Failed to parse Noir macro code (fn set_header). This is either a bug in the compiler or the Noir macro code".to_string()),
             span: impl_span
         });
@@ -252,6 +252,7 @@ fn generate_note_get_type_id(
     note_type: &str,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
+    // TODO(#4519) Improve automatic note id generation and assignment
     let note_id =
         note_type.chars().map(|c| (c as u32).to_string()).collect::<Vec<String>>().join("");
     let function_source = format!(
@@ -266,7 +267,8 @@ fn generate_note_get_type_id(
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        return Err(AztecMacroError::CouldNotImplementNoteSerialization {
+        dbg!(errors);
+        return Err(AztecMacroError::CouldNotImplementNoteInterface {
             secondary_message: Some("Failed to parse Noir macro code (fn get_note_type_id). This is either a bug in the compiler or the Noir macro code".to_string()),
             span: impl_span
         });
@@ -287,7 +289,8 @@ fn generate_note_fields_struct(
 
     let (struct_ast, errors) = parse_program(&struct_source);
     if !errors.is_empty() {
-        return Err(AztecMacroError::CouldNotImplementNoteSerialization {
+        dbg!(errors);
+        return Err(AztecMacroError::CouldNotImplementNoteInterface {
             secondary_message: Some(format!("Failed to parse Noir macro code (struct {}Fields). This is either a bug in the compiler or the Noir macro code", note_type)),
             span: impl_span
         });
@@ -308,7 +311,8 @@ fn generate_note_deserialize_content(
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        return Err(AztecMacroError::CouldNotImplementNoteSerialization {
+        dbg!(errors);
+        return Err(AztecMacroError::CouldNotImplementNoteInterface {
             secondary_message: Some("Failed to parse Noir macro code (fn deserialize_content). This is either a bug in the compiler or the Noir macro code".to_string()),
             span: impl_span
         });
@@ -331,7 +335,8 @@ fn generate_note_serialize_content(
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        return Err(AztecMacroError::CouldNotImplementNoteSerialization {
+        dbg!(errors);
+        return Err(AztecMacroError::CouldNotImplementNoteInterface {
             secondary_message: Some("Failed to parse Noir macro code (fn seserialize_content). This is either a bug in the compiler or the Noir macro code".to_string()),
             span: impl_span
         });
@@ -351,7 +356,8 @@ fn generate_note_fields_fn(
     let function_source = generate_note_fields_fn_source(note_type, note_fields);
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        return Err(AztecMacroError::CouldNotImplementNoteSerialization {
+        dbg!(errors);
+        return Err(AztecMacroError::CouldNotImplementNoteInterface {
             secondary_message: Some("Failed to parse Noir macro code (fn fields). This is either a bug in the compiler or the Noir macro code".to_string()),
             span: impl_span
         });
@@ -377,7 +383,8 @@ fn generate_compute_note_content_hash(
     );
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
-        return Err(AztecMacroError::CouldNotImplementNoteSerialization {
+        dbg!(errors);
+        return Err(AztecMacroError::CouldNotImplementNoteInterface {
             secondary_message: Some("Failed to parse Noir macro code (fn compute_note_content_hash). This is either a bug in the compiler or the Noir macro code".to_string()),
             span: impl_span
         });

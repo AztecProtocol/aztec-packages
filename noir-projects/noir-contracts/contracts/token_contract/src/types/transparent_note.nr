@@ -17,12 +17,19 @@ struct TransparentNote {
     secret: Field
 }
 
+struct TransparentNoteFields {
+    amount: FieldSelector,
+    secret_hash: FieldSelector,
+}
+
 impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
 
+    // Custom serialization to avoid disclosing the secret field
     fn serialize_content(self) -> [Field; TRANSPARENT_NOTE_LEN] {
         [self.amount, self.secret_hash]
     }
 
+    // Custom deserialization since we don't have access to the secret plaintext
     fn deserialize_content(serialized_note: [Field; TRANSPARENT_NOTE_LEN]) -> Self {
         TransparentNote {
             amount: serialized_note[0],
@@ -66,6 +73,13 @@ impl TransparentNote {
     pub fn knows_secret(self, secret: Field) {
         let hash = compute_secret_hash(secret);
         assert(self.secret_hash == hash);
+    }
+
+    pub fn fields() -> TransparentNoteFields {
+        TransparentNoteFields {
+            amount: FieldSelector { index: 0, offset: 0, length: 32 },
+            secret_hash: FieldSelector { index: 1, offset: 0, length: 32 }
+        }
     }
 }
 // docs:end:token_types_all

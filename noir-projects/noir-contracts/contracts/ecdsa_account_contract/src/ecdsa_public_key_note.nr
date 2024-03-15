@@ -21,7 +21,7 @@ struct EcdsaPublicKeyNote {
 }
 
 impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
-    // serialize the note as 5 fields where:
+    // Cannot use the automatic serialization since x and y don't fit. Serialize the note as 5 fields where:
     // [0] = x[0..31] (upper bound excluded)
     // [1] = x[31]
     // [2] = y[0..31]
@@ -46,6 +46,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         [x, last_x, y, last_y, self.owner.to_field()]
     }
 
+    // Cannot use the automatic deserialization for the aforementioned reasons
     fn deserialize_content(serialized_note: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNote {
         let mut x: [u8; 32] = [0; 32];
         let mut y: [u8; 32] = [0; 32];
