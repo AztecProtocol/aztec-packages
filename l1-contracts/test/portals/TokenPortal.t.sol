@@ -79,17 +79,14 @@ contract TokenPortalTest is Test {
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
-          "mint_private(bytes32,uint256,address)",
-          secretHashForRedeemingMintedNotes,
-          amount,
-          _canceller
+          "mint_private(bytes32,uint256)", secretHashForRedeemingMintedNotes, amount
         )
         ),
       secretHash: secretHashForL2MessageConsumption
     });
   }
 
-  function _createExpectedMintPublicL1ToL2Message(address _canceller)
+  function _createExpectedMintPublicL1ToL2Message()
     internal
     view
     returns (DataStructures.L1ToL2Msg memory)
@@ -97,9 +94,7 @@ contract TokenPortalTest is Test {
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
-      content: Hash.sha256ToField(
-        abi.encodeWithSignature("mint_public(bytes32,uint256,address)", to, amount, _canceller)
-        ),
+      content: Hash.sha256ToField(abi.encodeWithSignature("mint_public(bytes32,uint256)", to, amount)),
       secretHash: secretHashForL2MessageConsumption
     });
   }
@@ -123,7 +118,7 @@ contract TokenPortalTest is Test {
 
     // Perform op
     bytes32 leaf = tokenPortal.depositToAztecPrivate(
-      secretHashForRedeemingMintedNotes, amount, address(this), secretHashForL2MessageConsumption
+      secretHashForRedeemingMintedNotes, amount, secretHashForL2MessageConsumption
     );
 
     assertEq(leaf, expectedLeaf, "returned leaf and calculated leaf should match");
@@ -137,8 +132,7 @@ contract TokenPortalTest is Test {
     portalERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
-    DataStructures.L1ToL2Msg memory expectedMessage =
-      _createExpectedMintPublicL1ToL2Message(address(this));
+    DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPublicL1ToL2Message();
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
 
     // Check the event was emitted
@@ -147,8 +141,7 @@ contract TokenPortalTest is Test {
     emit LeafInserted(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
 
     // Perform op
-    bytes32 leaf =
-      tokenPortal.depositToAztecPublic(to, amount, address(this), secretHashForL2MessageConsumption);
+    bytes32 leaf = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);
 
     assertEq(leaf, expectedLeaf, "returned leaf and calculated leaf should match");
 

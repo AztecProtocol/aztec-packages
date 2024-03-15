@@ -12,10 +12,9 @@ pub fn compute_swap_public_content_hash(
     minimum_output_amount: Field,
     aztec_recipient: AztecAddress,
     secret_hash_for_L1_to_l2_message: Field,
-    canceller_for_L1_to_L2_message: EthAddress,
     caller_on_L1: EthAddress
 ) -> Field {
-    let mut hash_bytes = [0; 292]; // 9 fields of 32 bytes each + 4 bytes fn selector
+    let mut hash_bytes = [0; 260]; // 8 fields of 32 bytes each + 4 bytes fn selector
 
     let input_token_portal_bytes = input_asset_bridge_portal_address.to_field().to_be_bytes(32);
     let in_amount_bytes = input_amount.to_be_bytes(32);
@@ -24,7 +23,6 @@ pub fn compute_swap_public_content_hash(
     let amount_out_min_bytes = minimum_output_amount.to_be_bytes(32);
     let aztec_recipient_bytes = aztec_recipient.to_field().to_be_bytes(32);
     let secret_hash_for_L1_to_l2_message_bytes = secret_hash_for_L1_to_l2_message.to_be_bytes(32);
-    let canceller_bytes = canceller_for_L1_to_L2_message.to_field().to_be_bytes(32);
     let caller_on_L1_bytes = caller_on_L1.to_field().to_be_bytes(32);
 
     // function selector: 0xf3068cac keccak256("swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address,address)")
@@ -41,8 +39,7 @@ pub fn compute_swap_public_content_hash(
         hash_bytes[i + 132] = amount_out_min_bytes[i];
         hash_bytes[i + 164] = aztec_recipient_bytes[i];
         hash_bytes[i + 196] = secret_hash_for_L1_to_l2_message_bytes[i];
-        hash_bytes[i + 228] = canceller_bytes[i];
-        hash_bytes[i + 260] = caller_on_L1_bytes[i];
+        hash_bytes[i + 228] = caller_on_L1_bytes[i];
     }
 
     let content_hash = sha256_to_field(hash_bytes);
@@ -61,10 +58,9 @@ pub fn compute_swap_private_content_hash(
     minimum_output_amount: Field,
     secret_hash_for_redeeming_minted_notes: Field,
     secret_hash_for_L1_to_l2_message: Field,
-    canceller_for_L1_to_L2_message: EthAddress,
     caller_on_L1: EthAddress
 ) -> Field {
-    let mut hash_bytes = [0; 292]; // 9 fields of 32 bytes each + 4 bytes fn selector
+    let mut hash_bytes = [0; 260]; // 9 fields of 32 bytes each + 4 bytes fn selector
 
     let input_token_portal_bytes = input_asset_bridge_portal_address.to_field().to_be_bytes(32);
     let in_amount_bytes = input_amount.to_be_bytes(32);
@@ -73,7 +69,6 @@ pub fn compute_swap_private_content_hash(
     let amount_out_min_bytes = minimum_output_amount.to_be_bytes(32);
     let secret_hash_for_redeeming_minted_notes_bytes = secret_hash_for_redeeming_minted_notes.to_be_bytes(32);
     let secret_hash_for_L1_to_l2_message_bytes = secret_hash_for_L1_to_l2_message.to_be_bytes(32);
-    let canceller_bytes = canceller_for_L1_to_L2_message.to_field().to_be_bytes(32);
     let caller_on_L1_bytes = caller_on_L1.to_field().to_be_bytes(32);
 
     // function selector: 0xbd87d14b keccak256("swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address,address)")
@@ -90,8 +85,7 @@ pub fn compute_swap_private_content_hash(
         hash_bytes[i + 132] = amount_out_min_bytes[i];
         hash_bytes[i + 164] = secret_hash_for_redeeming_minted_notes_bytes[i];
         hash_bytes[i + 196] = secret_hash_for_L1_to_l2_message_bytes[i];
-        hash_bytes[i + 228] = canceller_bytes[i];
-        hash_bytes[i + 260] = caller_on_L1_bytes[i];
+        hash_bytes[i + 228] = caller_on_L1_bytes[i];
     }
     let content_hash = sha256_to_field(hash_bytes);
     content_hash

@@ -100,7 +100,7 @@ contract UniswapPortalTest is Test {
       recipient: DataStructures.L1Actor(address(uniswapPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
-          "swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address,address)",
+          "swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)",
           address(daiTokenPortal),
           amount,
           uniswapFeePool,
@@ -108,7 +108,6 @@ contract UniswapPortalTest is Test {
           amountOutMinimum,
           _aztecRecipient,
           secretHash,
-          address(this),
           _caller
         )
         )
@@ -131,7 +130,7 @@ contract UniswapPortalTest is Test {
       recipient: DataStructures.L1Actor(address(uniswapPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
-          "swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address,address)",
+          "swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address)",
           address(daiTokenPortal),
           amount,
           uniswapFeePool,
@@ -139,7 +138,6 @@ contract UniswapPortalTest is Test {
           amountOutMinimum,
           _secretHashForRedeemingMintedNotes,
           secretHash,
-          address(this),
           _caller
         )
         )
@@ -174,7 +172,6 @@ contract UniswapPortalTest is Test {
       amountOutMinimum,
       aztecRecipient,
       secretHash,
-      address(this),
       true
     );
   }
@@ -200,7 +197,6 @@ contract UniswapPortalTest is Test {
       amountOutMinimum,
       aztecRecipient,
       secretHash,
-      address(this),
       true
     );
   }
@@ -225,7 +221,6 @@ contract UniswapPortalTest is Test {
       amountOutMinimum,
       newAztecRecipient, // change recipient of swapped token to some other address
       secretHash,
-      address(this),
       true
     );
   }
@@ -244,7 +239,6 @@ contract UniswapPortalTest is Test {
       amountOutMinimum,
       aztecRecipient,
       secretHash,
-      address(this),
       true
     );
 
@@ -274,7 +268,6 @@ contract UniswapPortalTest is Test {
       amountOutMinimum,
       aztecRecipient,
       secretHash,
-      address(this),
       false
     );
     // check that swap happened:
@@ -307,7 +300,6 @@ contract UniswapPortalTest is Test {
       amountOutMinimum,
       aztecRecipient,
       secretHash,
-      address(this),
       true
     );
 
@@ -323,7 +315,6 @@ contract UniswapPortalTest is Test {
       amountOutMinimum,
       aztecRecipient,
       secretHash,
-      address(this),
       false
     );
     vm.stopPrank();
@@ -351,7 +342,6 @@ contract UniswapPortalTest is Test {
       amountOutMinimum,
       secretHashForRedeemingMintedNotes,
       secretHash,
-      address(this),
       true
     );
   }

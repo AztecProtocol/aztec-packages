@@ -50,7 +50,6 @@ contract UniswapPortal {
    * @param _amountOutMinimum - The minimum amount of output assets to receive from the swap (slippage protection)
    * @param _aztecRecipient - The aztec address to receive the output assets
    * @param _secretHashForL1ToL2Message - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a Field element)
-   * @param _canceller - The ethereum address that can cancel the deposit
    * @param _withCaller - When true, using `msg.sender` as the caller, otherwise address(0)
    * @return The entryKey of the deposit transaction in the Inbox
    */
@@ -62,7 +61,6 @@ contract UniswapPortal {
     uint256 _amountOutMinimum,
     bytes32 _aztecRecipient,
     bytes32 _secretHashForL1ToL2Message,
-    address _canceller, // TODO(#4492) nuke canceller
     bool _withCaller
   ) public returns (bytes32) {
     LocalSwapVars memory vars;
@@ -76,7 +74,7 @@ contract UniswapPortal {
       // prevent stack too deep errors
       vars.contentHash = Hash.sha256ToField(
         abi.encodeWithSignature(
-          "swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address,address)",
+          "swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)",
           _inputTokenPortal,
           _inAmount,
           _uniswapFeeTier,
@@ -84,7 +82,6 @@ contract UniswapPortal {
           _amountOutMinimum,
           _aztecRecipient,
           _secretHashForL1ToL2Message,
-          _canceller,
           _withCaller ? msg.sender : address(0)
         )
       );
@@ -123,7 +120,7 @@ contract UniswapPortal {
 
     // Deposit the output asset to the L2 via its portal
     return TokenPortal(_outputTokenPortal).depositToAztecPublic(
-      _aztecRecipient, amountOut, _canceller, _secretHashForL1ToL2Message
+      _aztecRecipient, amountOut, _secretHashForL1ToL2Message
     );
   }
   // docs:end:solidity_uniswap_swap_public
@@ -141,7 +138,6 @@ contract UniswapPortal {
    * @param _amountOutMinimum - The minimum amount of output assets to receive from the swap (slippage protection)
    * @param _secretHashForRedeemingMintedNotes - The hash of the secret to redeem minted notes privately on Aztec. The hash should be 254 bits (so it can fit in a Field element)
    * @param _secretHashForL1ToL2Message - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a Field element)
-   * @param _canceller - The ethereum address that can cancel the deposit
    * @param _withCaller - When true, using `msg.sender` as the caller, otherwise address(0)
    * @return The entryKey of the deposit transaction in the Inbox
    */
@@ -153,7 +149,6 @@ contract UniswapPortal {
     uint256 _amountOutMinimum,
     bytes32 _secretHashForRedeemingMintedNotes,
     bytes32 _secretHashForL1ToL2Message,
-    address _canceller,
     bool _withCaller
   ) public returns (bytes32) {
     LocalSwapVars memory vars;
@@ -167,7 +162,7 @@ contract UniswapPortal {
       // prevent stack too deep errors
       vars.contentHash = Hash.sha256ToField(
         abi.encodeWithSignature(
-          "swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address,address)",
+          "swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address)",
           _inputTokenPortal,
           _inAmount,
           _uniswapFeeTier,
@@ -175,7 +170,6 @@ contract UniswapPortal {
           _amountOutMinimum,
           _secretHashForRedeemingMintedNotes,
           _secretHashForL1ToL2Message,
-          _canceller,
           _withCaller ? msg.sender : address(0)
         )
       );
@@ -214,7 +208,7 @@ contract UniswapPortal {
 
     // Deposit the output asset to the L2 via its portal
     return TokenPortal(_outputTokenPortal).depositToAztecPrivate(
-      _secretHashForRedeemingMintedNotes, amountOut, _canceller, _secretHashForL1ToL2Message
+      _secretHashForRedeemingMintedNotes, amountOut, _secretHashForL1ToL2Message
     );
   }
 }
