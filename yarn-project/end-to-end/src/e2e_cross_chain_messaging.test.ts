@@ -14,9 +14,10 @@ import { keccak, sha256 } from '@aztec/foundation/crypto';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
 
+import { toFunctionSelector } from 'viem/utils';
+
 import { delay, setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
-import { toFunctionSelector } from 'viem/utils';
 
 describe('e2e_cross_chain_messaging', () => {
   let logger: DebugLogger;
@@ -172,19 +173,14 @@ describe('e2e_cross_chain_messaging', () => {
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
-        .methods.claim_private(
-          secretHashForL2MessageConsumption,
-          bridgeAmount,
-          ethAccount,
-          secretForL2MessageConsumption,
-        )
+        .methods.claim_private(secretHashForL2MessageConsumption, bridgeAmount, secretForL2MessageConsumption)
         .simulate(),
     ).rejects.toThrowError(`Message ${wrongMessage.hash().toString()} not found`);
 
     // send the right one -
     const consumptionTx = l2Bridge
       .withWallet(user2Wallet)
-      .methods.claim_private(secretHashForRedeemingMintedNotes, bridgeAmount, ethAccount, secretForL2MessageConsumption)
+      .methods.claim_private(secretHashForRedeemingMintedNotes, bridgeAmount, secretForL2MessageConsumption)
       .send();
     const consumptionReceipt = await consumptionTx.wait();
     expect(consumptionReceipt.status).toBe(TxStatus.MINED);
@@ -218,7 +214,7 @@ describe('e2e_cross_chain_messaging', () => {
     ).rejects.toThrowError(`Unknown auth witness for message hash ${expectedBurnMessageHash.toString()}`);
   }, 120_000);
 
-  it.only("Can't claim funds publicly if they were deposited privately", async () => {
+  it("Can't claim funds publicly if they were deposited privately", async () => {
     // 1. Mint tokens on L1
     const bridgeAmount = 100n;
     await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
@@ -227,11 +223,7 @@ describe('e2e_cross_chain_messaging', () => {
     const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
       crossChainTestHarness.generateClaimSecret();
 
-    await crossChainTestHarness.sendTokensToPortalPrivate(
-      Fr.random(),
-      bridgeAmount,
-      secretHashForL2MessageConsumption,
-    );
+    await crossChainTestHarness.sendTokensToPortalPrivate(Fr.random(), bridgeAmount, secretHashForL2MessageConsumption);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(0n);
 
     // Wait for the archiver to process the message
@@ -259,7 +251,7 @@ describe('e2e_cross_chain_messaging', () => {
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
-        .methods.claim_public(ownerAddress, bridgeAmount, ethAccount, secretForL2MessageConsumption)
+        .methods.claim_public(ownerAddress, bridgeAmount, secretForL2MessageConsumption)
         .simulate(),
     ).rejects.toThrowError(`Message ${wrongMessage.hash().toString()} not found`);
   }, 120_000);

@@ -154,7 +154,7 @@ export const uniswapL1L2TestSuite = (
       await cleanup();
     });
     // docs:start:uniswap_private
-    it.only('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
+    it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
       const wethL1BeforeBalance = await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress);
 
       // 1. Approve and deposit weth to the portal and move to L2
@@ -300,10 +300,7 @@ export const uniswapL1L2TestSuite = (
       // 1. Approve and deposit weth to the portal and move to L2
       const [secretForMintingWeth, secretHashForMintingWeth] = wethCrossChainHarness.generateClaimSecret();
 
-      await wethCrossChainHarness.sendTokensToPortalPublic(
-        wethAmountToBridge,
-        secretHashForMintingWeth,
-      );
+      await wethCrossChainHarness.sendTokensToPortalPublic(wethAmountToBridge, secretHashForMintingWeth);
       // funds transferred from owner to token portal
       expect(await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress)).toBe(
         wethL1BeforeBalance - wethAmountToBridge,

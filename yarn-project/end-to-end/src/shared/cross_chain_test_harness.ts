@@ -236,11 +236,7 @@ export class CrossChainTestHarness {
 
     // Deposit tokens to the TokenPortal
     this.logger('Sending messages to L1 portal to be consumed publicly');
-    const args = [
-      this.ownerAddress.toString(),
-      bridgeAmount,
-      secretHash.toString(),
-    ] as const;
+    const args = [this.ownerAddress.toString(), bridgeAmount, secretHash.toString()] as const;
     const { result: entryKeyHex } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
       account: this.ethAccount.toString(),
     } as any);
@@ -307,7 +303,7 @@ export class CrossChainTestHarness {
     this.logger('Consuming messages on L2 secretively');
     // Call the mint tokens function on the Aztec.nr contract
     const consumptionTx = this.l2Bridge.methods
-      .claim_private(secretHashForRedeemingMintedNotes, bridgeAmount, this.ethAccount, secretForL2MessageConsumption)
+      .claim_private(secretHashForRedeemingMintedNotes, bridgeAmount, secretForL2MessageConsumption)
       .send();
     const consumptionReceipt = await consumptionTx.wait();
     expect(consumptionReceipt.status).toBe(TxStatus.MINED);
@@ -318,7 +314,7 @@ export class CrossChainTestHarness {
   async consumeMessageOnAztecAndMintPublicly(bridgeAmount: bigint, secret: Fr) {
     this.logger('Consuming messages on L2 Publicly');
     // Call the mint tokens function on the Aztec.nr contract
-    const tx = this.l2Bridge.methods.claim_public(this.ownerAddress, bridgeAmount, this.ethAccount, secret).send();
+    const tx = this.l2Bridge.methods.claim_public(this.ownerAddress, bridgeAmount, secret).send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
   }

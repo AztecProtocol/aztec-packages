@@ -169,18 +169,12 @@ describe('e2e_public_cross_chain_messaging', () => {
 
     // user2 tries to consume this message and minting to itself -> should fail since the message is intended to be consumed only by owner.
     await expect(
-      l2Bridge
-        .withWallet(user2Wallet)
-        .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, ethAccount, secret)
-        .simulate(),
+      l2Bridge.withWallet(user2Wallet).methods.claim_public(user2Wallet.getAddress(), bridgeAmount, secret).simulate(),
     ).rejects.toThrow(`Message ${wrongMessage.hash().toString()} not found`);
 
     // user2 consumes owner's L1-> L2 message on bridge contract and mints public tokens on L2
     logger("user2 consumes owner's message on L2 Publicly");
-    const tx = l2Bridge
-      .withWallet(user2Wallet)
-      .methods.claim_public(ownerAddress, bridgeAmount, ethAccount, secret)
-      .send();
+    const tx = l2Bridge.withWallet(user2Wallet).methods.claim_public(ownerAddress, bridgeAmount, secret).send();
     const receipt = await tx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
     // ensure funds are gone to owner and not user2.
@@ -234,7 +228,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     );
 
     await expect(
-      l2Bridge.withWallet(user2Wallet).methods.claim_private(secretHash, bridgeAmount, ethAccount, secret).simulate(),
+      l2Bridge.withWallet(user2Wallet).methods.claim_private(secretHash, bridgeAmount, secret).simulate(),
     ).rejects.toThrowError(`Message ${wrongMessage.hash().toString()} not found`);
   }, 60_000);
 
