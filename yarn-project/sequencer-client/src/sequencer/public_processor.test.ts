@@ -31,6 +31,7 @@ import {
   PublicAccumulatedRevertibleData,
   PublicCallRequest,
   PublicKernelCircuitPublicInputs,
+  ValidationRequests,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
@@ -118,6 +119,7 @@ describe('public_processor', () => {
         hash,
         data: new PublicKernelCircuitPublicInputs(
           tx.data.aggregationObject,
+          ValidationRequests.empty(),
           PublicAccumulatedNonRevertibleData.fromPrivateAccumulatedNonRevertibleData(tx.data.endNonRevertibleData),
           PublicAccumulatedRevertibleData.fromPrivateAccumulatedRevertibleData(tx.data.end),
           tx.data.constants,
@@ -824,11 +826,7 @@ const makeFunctionCall = (
   to = makeAztecAddress(30),
   selector = makeSelector(5),
   args = new Array(ARGS_LENGTH).fill(Fr.ZERO),
-) => ({
-  to,
-  functionData: new FunctionData(selector, false, false, false),
-  args,
-});
+) => ({ to, functionData: new FunctionData(selector, false), args });
 
 function addKernelPublicCallStack(
   kernelOutput: PrivateKernelTailCircuitPublicInputs,
