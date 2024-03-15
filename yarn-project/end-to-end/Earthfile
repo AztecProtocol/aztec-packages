@@ -25,7 +25,6 @@ E2E_TEST:
     FUNCTION
     ARG test
     ARG compose_file=./scripts/docker-compose.yml
-    # FROM earthly/dind:alpine-3.19-docker-25.0.2-r0 (TODO use docker-in-docker in prod?)
     LOCALLY
     ENV TEST=$test
     WITH DOCKER \
