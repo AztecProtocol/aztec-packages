@@ -19,7 +19,7 @@ EARTHLY_CONFIG=$(dirname $0)/earthly-config.yml
 
 if ! [ -f "$EARTHLY" ] ; then
   wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O "$EARTHLY";
-  chmod +x "$EARTHLY" && "$EARTHLY" bootstrap
+  chmod +x "$EARTHLY"
 fi
 
 EARTHLY_FLAGS="-P --disable-remote-registry-proxy --use-inline-cache --save-inline-cache"
