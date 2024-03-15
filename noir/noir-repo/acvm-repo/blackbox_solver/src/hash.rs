@@ -14,11 +14,6 @@ fn generic_hash_256<D: Digest>(message: &[u8]) -> Result<[u8; 32], String> {
     Ok(output_bytes)
 }
 
-pub fn sha256(inputs: &[u8]) -> Result<[u8; 32], BlackBoxResolutionError> {
-    generic_hash_256::<Sha256>(inputs)
-        .map_err(|err| BlackBoxResolutionError::Failed(BlackBoxFunc::SHA256, err))
-}
-
 pub fn blake2s(inputs: &[u8]) -> Result<[u8; 32], BlackBoxResolutionError> {
     generic_hash_256::<Blake2s256>(inputs)
         .map_err(|err| BlackBoxResolutionError::Failed(BlackBoxFunc::Blake2s, err))
