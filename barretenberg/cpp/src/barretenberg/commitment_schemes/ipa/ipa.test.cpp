@@ -48,6 +48,8 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
     EXPECT_EQ(expected.normalize(), commitment.normalize());
 }
 
+// This test checks that we can correctly open a zero polynomial. Since we often have point at infinity troubles, it
+// detects those.
 TEST_F(IPATest, OpenZeroPolynomial)
 {
     using IPA = IPA<Curve>;
@@ -73,6 +75,8 @@ TEST_F(IPATest, OpenZeroPolynomial)
     EXPECT_TRUE(result);
 }
 
+// This test makes sure that even if the whole vector \vec{b} generated from the x, at which we open the polynomial, is
+// zero, IPA behaves
 TEST_F(IPATest, OpenAtZero)
 {
     using IPA = IPA<Curve>;
@@ -98,6 +102,7 @@ TEST_F(IPATest, OpenAtZero)
 
 namespace bb {
 #if !defined(__wasm__)
+// This test ensures that IPA throws or aborts when a challenge is zero, since it breaks the logic of the argument
 TEST_F(IPATest, ChallengesAreZero)
 {
     using IPA = IPA<Curve>;
@@ -142,6 +147,8 @@ TEST_F(IPATest, ChallengesAreZero)
         EXPECT_ANY_THROW(IPA::verify_internal(this->vk(), opening_claim, transcript));
     }
 }
+
+// This test checks that if the vector \vec{a_new} becomes zero after one round, it doesn't break IPA.
 TEST_F(IPATest, AIsZeroAfterOneRound)
 {
     using IPA = IPA<Curve>;
