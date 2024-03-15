@@ -20,7 +20,7 @@ import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/c
 export type ArchiverL1SynchPoint = {
   /** The last L1 block that added a new L2 block.  */
   addedBlock: bigint;
-  /** The last L1 block that added messages from the new inbox. */
+  /** The last L1 block that added messages from the inbox. */
   // TODO(#4492): Clean this up and fix the naming
   newMessages: bigint;
 };

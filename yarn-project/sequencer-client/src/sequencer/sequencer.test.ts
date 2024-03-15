@@ -111,7 +111,6 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
   });
@@ -149,7 +148,6 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
@@ -182,7 +180,6 @@ describe('sequencer', () => {
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);

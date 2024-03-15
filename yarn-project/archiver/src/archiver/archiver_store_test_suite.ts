@@ -85,8 +85,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       it('returns 0n if no blocks have been added', async () => {
         await expect(store.getL1BlockNumber()).resolves.toEqual({
           addedBlock: 0n,
-          addedMessages: 0n,
-          cancelledMessages: 0n,
           newMessages: 0n,
         });
       });
@@ -95,18 +93,14 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await store.addBlocks(blocks);
         await expect(store.getL1BlockNumber()).resolves.toEqual({
           addedBlock: blocks.at(-1)!.getL1BlockNumber(),
-          addedMessages: 0n,
-          cancelledMessages: 0n,
           newMessages: 0n,
         });
       });
 
-      it('returns the L1 block number that most recently added messages from new inbox', async () => {
+      it('returns the L1 block number that most recently added messages from inbox', async () => {
         await store.addNewL1ToL2Messages([new NewInboxLeaf(0n, 0n, Fr.ZERO)], 1n);
         await expect(store.getL1BlockNumber()).resolves.toEqual({
           addedBlock: 0n,
-          addedMessages: 0n,
-          cancelledMessages: 0n,
           newMessages: 1n,
         });
       });

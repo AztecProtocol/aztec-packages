@@ -73,8 +73,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
   private lastL1BlockNewMessages: bigint = 0n;
-  private lastL1BlockAddedMessages: bigint = 0n;
-  private lastL1BlockCancelledMessages: bigint = 0n;
 
   constructor(
     /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
@@ -370,14 +368,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public getL1BlockNumber() {
     const addedBlock = this.l2BlockContexts[this.l2BlockContexts.length - 1]?.block?.getL1BlockNumber() ?? 0n;
     const newMessages = this.lastL1BlockNewMessages;
-    const addedMessages = this.lastL1BlockAddedMessages;
-    const cancelledMessages = this.lastL1BlockCancelledMessages;
 
     return Promise.resolve({
       addedBlock,
       newMessages,
-      addedMessages,
-      cancelledMessages,
     });
   }
 }

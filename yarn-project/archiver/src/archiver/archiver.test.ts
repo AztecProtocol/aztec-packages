@@ -46,7 +46,6 @@ describe('Archiver', () => {
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n).mockResolvedValueOnce(2600n).mockResolvedValueOnce(2700n);
     // logs should be created in order of how archiver syncs.
     publicClient.getLogs
-      .mockResolvedValueOnce([]) // no messages to cancel
       .mockResolvedValueOnce([makeLeafInsertedEvent(98n, 1n, 0n), makeLeafInsertedEvent(99n, 1n, 1n)])
       .mockResolvedValueOnce([makeTxsPublishedEvent(101n, blocks[0].body.getTxsEffectsHash())])
       .mockResolvedValueOnce([makeL2BlockProcessedEvent(101n, 1n)])
@@ -140,7 +139,6 @@ describe('Archiver', () => {
     publicClient.getBlockNumber.mockResolvedValue(102n);
     // add all of the L1 to L2 messages to the mock
     publicClient.getLogs
-      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([makeLeafInsertedEvent(66n, 1n, 0n), makeLeafInsertedEvent(68n, 1n, 1n)])
       .mockResolvedValueOnce([
         makeTxsPublishedEvent(70n, blocks[0].body.getTxsEffectsHash()),
