@@ -6,14 +6,14 @@ Summary
  - [missing-zero-check](#missing-zero-check) (1 results) (Low)
  - [reentrancy-events](#reentrancy-events) (2 results) (Low)
  - [timestamp](#timestamp) (4 results) (Low)
- - [pess-public-vs-external](#pess-public-vs-external) (6 results) (Low)
+ - [pess-public-vs-external](#pess-public-vs-external) (7 results) (Low)
  - [assembly](#assembly) (2 results) (Informational)
  - [dead-code](#dead-code) (5 results) (Informational)
  - [solc-version](#solc-version) (1 results) (Informational)
  - [low-level-calls](#low-level-calls) (1 results) (Informational)
  - [similar-names](#similar-names) (3 results) (Informational)
  - [constable-states](#constable-states) (1 results) (Optimization)
- - [pess-multiple-storage-read](#pess-multiple-storage-read) (5 results) (Optimization)
+ - [pess-multiple-storage-read](#pess-multiple-storage-read) (6 results) (Optimization)
 ## pess-unprotected-setter
 Impact: High
 Confidence: Medium
@@ -173,6 +173,13 @@ Confidence: Medium
 		- [ROLLUP = _rollup](src/core/messagebridge/NewInbox.sol#L42)
 
 src/core/messagebridge/NewInbox.sol#L41
+
+
+ - [ ] ID-13
+[NewOutbox.constructor(address)._rollup](src/core/messagebridge/NewOutbox.sol#L30) lacks a zero-check on :
+		- [ROLLUP_CONTRACT = _rollup](src/core/messagebridge/NewOutbox.sol#L31)
+
+src/core/messagebridge/NewOutbox.sol#L30
 
 
 ## reentrancy-events
