@@ -406,7 +406,6 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
         const auto& q_4 = input_elements.q_4;
         const auto& q_m = input_elements.q_m;
         const auto& q_c = input_elements.q_c;
-        const auto& q_arith = input_elements.q_arith;
         const auto& q_aux = input_elements.q_aux;
 
         constexpr FF LIMB_SIZE(uint256_t(1) << 68);
@@ -514,10 +513,10 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
 
         // Putting it all together...
         expected_values[3] =
-            adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation * (q_arith);
-        expected_values[4] = index_is_monotonically_increasing * (q_arith);
-        expected_values[5] = next_gate_access_type_is_boolean * (q_arith);
-        auto RAM_consistency_check_identity = access_check * (q_arith);
+            adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation * (q_m * q_4);
+        expected_values[4] = index_is_monotonically_increasing * (q_m * q_4);
+        expected_values[5] = next_gate_access_type_is_boolean * (q_m * q_4);
+        auto RAM_consistency_check_identity = access_check * (q_m * q_4);
 
         /**
          * RAM/ROM access check gate
