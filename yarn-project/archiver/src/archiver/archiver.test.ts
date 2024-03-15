@@ -2,7 +2,7 @@ import { Body, L2Block, L2BlockL2Logs, LogType } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
-import { AvailabilityOracleAbi, NewInboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
@@ -209,7 +209,7 @@ function makeLeafInsertedEvent(l1BlockNum: bigint, l2BlockNumber: bigint, index:
       value: Fr.random().toString(),
     },
     transactionHash: `0x${l1BlockNum}`,
-  } as Log<bigint, number, false, undefined, true, typeof NewInboxAbi, 'LeafInserted'>;
+  } as Log<bigint, number, false, undefined, true, typeof InboxAbi, 'LeafInserted'>;
 }
 
 /**

@@ -1,10 +1,9 @@
-import { Body, L1Actor, L1ToL2Message, L2Actor, NewInboxLeaf } from '@aztec/circuit-types';
+import { Body, NewInboxLeaf } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
-import { AvailabilityOracleAbi, InboxAbi, NewInboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
 
@@ -14,7 +13,7 @@ import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hex
  * @returns Array of all processed LeafInserted logs
  */
 export function processLeafInsertedLogs(
-  logs: Log<bigint, number, false, undefined, true, typeof NewInboxAbi, 'LeafInserted'>[],
+  logs: Log<bigint, number, false, undefined, true, typeof InboxAbi, 'LeafInserted'>[],
 ): NewInboxLeaf[] {
   const leaves: NewInboxLeaf[] = [];
   for (const log of logs) {
@@ -22,49 +21,6 @@ export function processLeafInsertedLogs(
     leaves.push(new NewInboxLeaf(blockNumber, index, Fr.fromString(value)));
   }
   return leaves;
-}
-
-/**
- * Processes newly received MessageAdded (L1 to L2) logs.
- * @param logs - MessageAdded logs.
- * @returns Array of all Pending L1 to L2 messages that were processed
- */
-export function processPendingL1ToL2MessageAddedLogs(
-  logs: Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageAdded'>[],
-): [L1ToL2Message, bigint][] {
-  const l1ToL2Messages: [L1ToL2Message, bigint][] = [];
-  for (const log of logs) {
-    const { sender, senderChainId, recipient, recipientVersion, content, secretHash, deadline, fee, entryKey } =
-      log.args;
-    l1ToL2Messages.push([
-      new L1ToL2Message(
-        new L1Actor(EthAddress.fromString(sender), Number(senderChainId)),
-        new L2Actor(AztecAddress.fromString(recipient), Number(recipientVersion)),
-        Fr.fromString(content),
-        Fr.fromString(secretHash),
-        deadline,
-        Number(fee),
-        Fr.fromString(entryKey),
-      ),
-      log.blockNumber!,
-    ]);
-  }
-  return l1ToL2Messages;
-}
-
-/**
- * Process newly received L1ToL2MessageCancelled logs.
- * @param logs - L1ToL2MessageCancelled logs.
- * @returns Array of entry keys of the L1 to L2 messages that were cancelled
- */
-export function processCancelledL1ToL2MessagesLogs(
-  logs: Log<bigint, number, false, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[],
-): [Fr, bigint][] {
-  const cancelledL1ToL2Messages: [Fr, bigint][] = [];
-  for (const log of logs) {
-    cancelledL1ToL2Messages.push([Fr.fromString(log.args.entryKey), log.blockNumber!]);
-  }
-  return cancelledL1ToL2Messages;
 }
 
 /**
@@ -235,56 +191,6 @@ export function getTxsPublishedLogs(
 }
 
 /**
- * Get relevant `MessageAdded` logs emitted by Inbox on chain.
- * @param publicClient - The viem public client to use for transaction retrieval.
- * @param inboxAddress - The address of the inbox contract.
- * @param fromBlock - First block to get logs from (inclusive).
- * @param toBlock - Last block to get logs from (inclusive).
- * @returns An array of `MessageAdded` logs.
- */
-export function getPendingL1ToL2MessageLogs(
-  publicClient: PublicClient,
-  inboxAddress: EthAddress,
-  fromBlock: bigint,
-  toBlock: bigint,
-): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageAdded'>[]> {
-  return publicClient.getLogs({
-    address: getAddress(inboxAddress.toString()),
-    event: getAbiItem({
-      abi: InboxAbi,
-      name: 'MessageAdded',
-    }),
-    fromBlock,
-    toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
-  });
-}
-
-/**
- * Get relevant `L1ToL2MessageCancelled` logs emitted by Inbox on chain when pending messages are cancelled
- * @param publicClient - The viem public client to use for transaction retrieval.
- * @param inboxAddress - The address of the inbox contract.
- * @param fromBlock - First block to get logs from (inclusive).
- * @param toBlock - Last block to get logs from (inclusive).
- * @returns An array of `L1ToL2MessageCancelled` logs.
- */
-export function getL1ToL2MessageCancelledLogs(
-  publicClient: PublicClient,
-  inboxAddress: EthAddress,
-  fromBlock: bigint,
-  toBlock: bigint,
-): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>[]> {
-  return publicClient.getLogs({
-    address: getAddress(inboxAddress.toString()),
-    event: getAbiItem({
-      abi: InboxAbi,
-      name: 'L1ToL2MessageCancelled',
-    }),
-    fromBlock,
-    toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
-  });
-}
-
-/**
  * Get relevant `LeafInserted` logs emitted by Inbox on chain.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param inboxAddress - The address of the inbox contract.
@@ -297,11 +203,11 @@ export function getLeafInsertedLogs(
   inboxAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-): Promise<Log<bigint, number, false, undefined, true, typeof NewInboxAbi, 'LeafInserted'>[]> {
+): Promise<Log<bigint, number, false, undefined, true, typeof InboxAbi, 'LeafInserted'>[]> {
   return publicClient.getLogs({
     address: getAddress(inboxAddress.toString()),
     event: getAbiItem({
-      abi: NewInboxAbi,
+      abi: InboxAbi,
       name: 'LeafInserted',
     }),
     fromBlock,
