@@ -271,8 +271,7 @@ template <typename PCS> class ZeroMorphProver_ {
      *
      * The proof that pi(x) = 0 for some verifier challenge x will then be computed as part of the univariate PCS
      * opening. If this is instantiated with KZG, the PCS is going to compute the quotient
-     *q_pi = (q_\zeta + z*q_Z)
-     * X^{N_{max}-(N-1)}, with q_\zeta = \zeta_x/(X-x), q_Z = Z_x/(X-x)
+     * q_pi = (q_\zeta + z*q_Z)X^{N_{max}-(N-1)}, with q_\zeta = \zeta_x/(X-x), q_Z = Z_x/(X-x),
      *
      * @param Z_x
      * @param zeta_x
