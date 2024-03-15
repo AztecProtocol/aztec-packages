@@ -28,6 +28,7 @@ interface IInbox {
   ) external returns (bytes32);
   // docs:end:send_l1_to_l2_message
 
+  // docs:start:consume
   /**
    * @notice Consumes the current tree, and starts a new one if needed
    * @dev Only callable by the rollup contract
@@ -36,4 +37,5 @@ interface IInbox {
    * @return The root of the consumed tree
    */
   function consume() external returns (bytes32);
+  // docs:end:consume
 }
