@@ -137,8 +137,8 @@ src/core/messagebridge/NewInbox.sol#L41
 
 
  - [ ] ID-13
-[NewOutbox.constructor(address)._stateTransitioner](src/core/messagebridge/NewOutbox.sol#L30) lacks a zero-check on :
-		- [ROLLUP_CONTRACT = _stateTransitioner](src/core/messagebridge/NewOutbox.sol#L31)
+[NewOutbox.constructor(address)._rollup](src/core/messagebridge/NewOutbox.sol#L30) lacks a zero-check on :
+		- [ROLLUP_CONTRACT = _rollup](src/core/messagebridge/NewOutbox.sol#L31)
 
 src/core/messagebridge/NewOutbox.sol#L30
 
