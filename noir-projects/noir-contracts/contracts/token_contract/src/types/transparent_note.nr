@@ -75,6 +75,7 @@ impl TransparentNote {
         assert(self.secret_hash == hash);
     }
 
+    // Custom serialization forces us to manually create the metadata struct and its getter
     pub fn fields() -> TransparentNoteFields {
         TransparentNoteFields {
             amount: FieldSelector { index: 0, offset: 0, length: 32 },

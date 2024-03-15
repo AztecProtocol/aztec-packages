@@ -487,17 +487,10 @@ fn generate_note_deserialize_content_source(
     let note_fields = note_fields
         .iter()
         .enumerate()
-        .map(|(index, (field_name, field_type))| {
+        .map(|(index, (field_name, _field_type))| {
             if field_name != "header" {
                 // TODO: Simplify this when https://github.com/noir-lang/noir/issues/4463 is fixed
-                if field_type.eq("Field") || Regex::new(r"u[0-9]+").unwrap().is_match(field_type) {
-                    format!("{}: serialized_note[{}] as {},", field_name, index, field_type)
-                } else {
-                    format!(
-                        "{}: {}::from_field(serialized_note[{}]),",
-                        field_name, field_type, index
-                    )
-                }
+                format!("{}: dep::aztec::protocol_types::traits::FromField::from_field(serialized_note[{}]),", field_name, index)
             } else {
                 "header: dep::aztec::note::note_header::NoteHeader::empty()".to_string()
             }
