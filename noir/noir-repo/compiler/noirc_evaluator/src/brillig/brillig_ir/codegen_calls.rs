@@ -1,8 +1,8 @@
-use acvm::acir::brillig::{
-    BinaryIntOp, HeapValueType, MemoryAddress, Opcode as BrilligOpcode, ValueOrArray,
-};
+use acvm::acir::brillig::{HeapValueType, MemoryAddress, Opcode as BrilligOpcode, ValueOrArray};
 
-use super::{brillig_variable::BrilligVariable, BrilligContext, ReservedRegisters};
+use super::{
+    brillig_variable::BrilligVariable, BrilligBinaryOp, BrilligContext, ReservedRegisters,
+};
 
 impl BrilligContext {
     /// Processes a foreign call instruction.
@@ -17,9 +17,11 @@ impl BrilligContext {
         outputs: &[ValueOrArray],
         output_value_types: &[HeapValueType],
     ) {
+        self.debug_show.foreign_call_instruction(func_name.clone(), inputs, outputs);
+
         assert!(inputs.len() == input_value_types.len());
         assert!(outputs.len() == output_value_types.len());
-        self.debug_show.foreign_call_instruction(func_name.clone(), inputs, outputs);
+
         let opcode = BrilligOpcode::ForeignCall {
             function: func_name,
             destinations: outputs.to_vec(),
@@ -53,11 +55,11 @@ impl BrilligContext {
         // Also dump the previous stack pointer
         used_registers.push(ReservedRegisters::previous_stack_pointer());
         for register in used_registers.iter() {
-            self.store_instruction(ReservedRegisters::stack_pointer(), *register);
+            self.store_instruction(ReservedRegisters::free_memory_pointer(), *register);
             // Add one to our stack pointer
-            self.usize_op_in_place_instruction(
-                ReservedRegisters::stack_pointer(),
-                BinaryIntOp::Add,
+            self.codegen_usize_op_in_place(
+                ReservedRegisters::free_memory_pointer(),
+                BrilligBinaryOp::Add,
                 1,
             );
         }
@@ -65,7 +67,7 @@ impl BrilligContext {
         // Store the location of our registers in the previous stack pointer
         self.mov_instruction(
             ReservedRegisters::previous_stack_pointer(),
-            ReservedRegisters::stack_pointer(),
+            ReservedRegisters::free_memory_pointer(),
         );
         used_registers
     }
@@ -80,7 +82,7 @@ impl BrilligContext {
 
         for register in used_registers.iter().rev() {
             // Subtract one from our stack pointer
-            self.usize_op_in_place_instruction(iterator_register, BinaryIntOp::Sub, 1);
+            self.codegen_usize_op_in_place(iterator_register, BrilligBinaryOp::Sub, 1);
             self.load_instruction(*register, iterator_register);
         }
     }
@@ -105,7 +107,7 @@ impl BrilligContext {
         destinations
             .iter()
             .for_each(|destination| self.registers.ensure_register_is_allocated(*destination));
-        self.mov_registers_to_registers_instruction(sources, destinations);
+        self.codegen_mov_registers_to_registers(sources, destinations);
         saved_registers
     }
 
@@ -125,7 +127,7 @@ impl BrilligContext {
             .map(|(i, result_register)| (self.register(i), *result_register))
             .unzip();
         sources.iter().for_each(|source| self.registers.ensure_register_is_allocated(*source));
-        self.mov_registers_to_registers_instruction(sources, destinations);
+        self.codegen_mov_registers_to_registers(sources, destinations);
 
         // Restore all the same registers we have, in exact reverse order.
         // Note that we have allocated some registers above, which we will not be handling here,

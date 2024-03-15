@@ -1,8 +1,8 @@
-use acvm::acir::brillig::{BinaryIntOp, MemoryAddress, Opcode as BrilligOpcode};
+use acvm::acir::brillig::{MemoryAddress, Opcode as BrilligOpcode};
 
 use super::{
-    artifact::UnresolvedJumpLocation, brillig_variable::SingleAddrVariable, BrilligContext,
-    ReservedRegisters,
+    artifact::UnresolvedJumpLocation, brillig_variable::SingleAddrVariable, BrilligBinaryOp,
+    BrilligContext, ReservedRegisters,
 };
 
 impl BrilligContext {
@@ -32,8 +32,10 @@ impl BrilligContext {
         condition: SingleAddrVariable,
         assert_message: Option<String>,
     ) {
-        assert!(condition.bit_size == 1);
         self.debug_show.constrain_instruction(condition.address);
+
+        assert!(condition.bit_size == 1);
+
         let (next_section, next_label) = self.reserve_next_section_label();
         self.add_unresolved_jump(
             BrilligOpcode::JumpIf { condition: condition.address, location: 0 },
@@ -46,7 +48,7 @@ impl BrilligContext {
         self.enter_section(next_section);
     }
 
-    /// Processes a return instruction.
+    /// Codegens a return from the current function.
     ///
     /// For Brillig, the return is implicit, since there is no explicit return instruction.
     /// The caller will take `N` values from the Register starting at register index 0.
@@ -70,7 +72,7 @@ impl BrilligContext {
         destinations
             .iter()
             .for_each(|destination| self.registers.ensure_register_is_allocated(*destination));
-        self.mov_registers_to_registers_instruction(sources, destinations);
+        self.codegen_mov_registers_to_registers(sources, destinations);
         self.stop_instruction();
     }
 
@@ -95,7 +97,7 @@ impl BrilligContext {
             iterator_register.address,
             iteration_count,
             iterator_less_than_iterations.address,
-            BinaryIntOp::LessThan,
+            BrilligBinaryOp::LessThan,
         );
 
         let (exit_loop_section, exit_loop_label) = self.reserve_next_section_label();
@@ -108,7 +110,7 @@ impl BrilligContext {
         on_iteration(self, iterator_register);
 
         // Increment the iterator register
-        self.usize_op_in_place_instruction(iterator_register.address, BinaryIntOp::Add, 1);
+        self.codegen_usize_op_in_place(iterator_register.address, BrilligBinaryOp::Add, 1);
 
         self.jump_instruction(loop_label);
 

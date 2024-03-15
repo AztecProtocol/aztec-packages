@@ -15,13 +15,13 @@ mod codegen_control_flow;
 mod codegen_intrinsic;
 mod codegen_memory;
 mod codegen_stack;
-
 mod entry_point;
 
-use crate::ssa::ir::dfg::CallStack;
+pub(crate) use codegen_binary::BrilligBinaryOp;
 
 use self::{artifact::BrilligArtifact, registers::BrilligRegistersContext};
-use acvm::acir::brillig::{BinaryFieldOp, BinaryIntOp, MemoryAddress, Opcode as BrilligOpcode};
+use crate::ssa::ir::dfg::CallStack;
+use acvm::acir::brillig::{MemoryAddress, Opcode as BrilligOpcode};
 use debug_show::DebugShow;
 
 /// The Brillig VM does not apply a limit to the memory address space,
@@ -31,8 +31,8 @@ pub(crate) const BRILLIG_MEMORY_ADDRESSING_BIT_SIZE: u32 = 64;
 
 // Registers reserved in runtime for special purposes.
 pub(crate) enum ReservedRegisters {
-    /// This register stores the stack pointer. Allocations must be done after this pointer.
-    StackPointer = 0,
+    /// This register stores the free memory pointer. Allocations must be done after this pointer.
+    FreeMemoryPointer = 0,
     /// This register stores the previous stack pointer. The registers of the caller are stored here.
     PreviousStackPointer = 1,
 }
@@ -49,9 +49,9 @@ impl ReservedRegisters {
         Self::NUM_RESERVED_REGISTERS
     }
 
-    /// Returns the stack pointer register. This will get used to allocate memory in runtime.
-    pub(crate) fn stack_pointer() -> MemoryAddress {
-        MemoryAddress::from(ReservedRegisters::StackPointer as usize)
+    /// Returns the free memory pointer register. This will get used to allocate memory in runtime.
+    pub(crate) fn free_memory_pointer() -> MemoryAddress {
+        MemoryAddress::from(ReservedRegisters::FreeMemoryPointer as usize)
     }
 
     /// Returns the previous stack pointer register. This will be used to restore the registers after a fn call.
@@ -111,28 +111,18 @@ impl BrilligContext {
     }
 }
 
-/// Type to encapsulate the binary operation types in Brillig
-#[derive(Clone, Copy, Debug)]
-pub(crate) enum BrilligBinaryOp {
-    Field(BinaryFieldOp),
-    Integer(BinaryIntOp),
-    // Modulo operation requires more than one brillig opcode
-    Modulo { is_signed_integer: bool },
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
     use std::vec;
 
     use acvm::acir::brillig::{
-        BinaryIntOp, ForeignCallParam, ForeignCallResult, HeapVector, MemoryAddress, Value,
-        ValueOrArray,
+        ForeignCallParam, ForeignCallResult, HeapVector, MemoryAddress, Value, ValueOrArray,
     };
     use acvm::brillig_vm::brillig::HeapValueType;
     use acvm::brillig_vm::{VMStatus, VM};
     use acvm::{BlackBoxFunctionSolver, BlackBoxResolutionError, FieldElement};
 
-    use crate::brillig::brillig_ir::BrilligContext;
+    use crate::brillig::brillig_ir::{BrilligBinaryOp, BrilligContext};
 
     use super::artifact::{BrilligParameter, GeneratedBrillig};
     use super::{BrilligOpcode, ReservedRegisters};
@@ -236,7 +226,7 @@ pub(crate) mod tests {
         //   assert(the_sequence.len() == 12);
         // }
         let mut context = BrilligContext::new(true);
-        let r_stack = ReservedRegisters::stack_pointer();
+        let r_stack = ReservedRegisters::free_memory_pointer();
         // Start stack pointer at 0
         context.usize_const_instruction(r_stack, Value::from(ReservedRegisters::len() + 3));
         let r_input_size = MemoryAddress::from(ReservedRegisters::len());
@@ -254,9 +244,14 @@ pub(crate) mod tests {
             &[HeapValueType::Vector { value_types: vec![HeapValueType::Simple] }],
         );
         // push stack frame by r_returned_size
-        context.memory_op_instruction(r_stack, r_output_size, r_stack, BinaryIntOp::Add);
+        context.memory_op_instruction(r_stack, r_output_size, r_stack, BrilligBinaryOp::Add);
         // check r_input_size == r_output_size
-        context.memory_op_instruction(r_input_size, r_output_size, r_equality, BinaryIntOp::Equals);
+        context.memory_op_instruction(
+            r_input_size,
+            r_output_size,
+            r_equality,
+            BrilligBinaryOp::Equals,
+        );
         // We push a JumpIf and Trap opcode directly as the constrain instruction
         // uses unresolved jumps which requires a block to be constructed in SSA and
         // we don't need this for Brillig IR tests

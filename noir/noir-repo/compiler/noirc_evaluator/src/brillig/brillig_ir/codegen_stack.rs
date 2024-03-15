@@ -32,7 +32,7 @@ impl BrilligContext {
 
     /// This function moves values from a set of registers to another set of registers.
     /// It first moves all sources to new allocated registers to avoid overwriting.
-    pub(crate) fn mov_registers_to_registers_instruction(
+    pub(crate) fn codegen_mov_registers_to_registers(
         &mut self,
         sources: Vec<MemoryAddress>,
         destinations: Vec<MemoryAddress>,
@@ -76,10 +76,10 @@ impl BrilligContext {
     /// Stores the value of `constant` in the `result` register
     pub(crate) fn const_instruction(&mut self, result: SingleAddrVariable, constant: Value) {
         self.debug_show.const_instruction(result.address, constant);
-        self.codegen_const(result, constant);
+        self.constant(result, constant);
     }
 
-    pub(super) fn codegen_const(&mut self, result: SingleAddrVariable, constant: Value) {
+    pub(super) fn constant(&mut self, result: SingleAddrVariable, constant: Value) {
         self.push_opcode(BrilligOpcode::Const {
             destination: result.address,
             value: constant,
@@ -92,7 +92,7 @@ impl BrilligContext {
     }
 
     pub(super) fn usize_const(&mut self, result: MemoryAddress, constant: Value) {
-        self.codegen_const(SingleAddrVariable::new_usize(result), constant);
+        self.constant(SingleAddrVariable::new_usize(result), constant);
     }
 
     /// Returns a register which holds the value of a constant
@@ -108,7 +108,7 @@ impl BrilligContext {
 
     pub(super) fn make_constant(&mut self, constant: Value, bit_size: u32) -> SingleAddrVariable {
         let var = SingleAddrVariable::new(self.allocate_register(), bit_size);
-        self.codegen_const(var, constant);
+        self.constant(var, constant);
         var
     }
 

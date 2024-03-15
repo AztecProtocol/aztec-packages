@@ -3,7 +3,7 @@ use super::{
     brillig_variable::{BrilligArray, BrilligVariable, SingleAddrVariable},
     debug_show::DebugShow,
     registers::BrilligRegistersContext,
-    BrilligContext, ReservedRegisters, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
+    BrilligBinaryOp, BrilligContext, ReservedRegisters, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
 };
 use acvm::{
     acir::brillig::{MemoryAddress, Opcode as BrilligOpcode},
@@ -49,7 +49,7 @@ impl BrilligContext {
 
         // Set initial value of stack pointer: MAX_STACK_SIZE + calldata_size + return_data_size
         self.push_opcode(BrilligOpcode::Const {
-            destination: ReservedRegisters::stack_pointer(),
+            destination: ReservedRegisters::free_memory_pointer(),
             value: (MAX_STACK_SIZE + calldata_size + return_data_size).into(),
             bit_size: BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
         });
@@ -178,7 +178,7 @@ impl BrilligContext {
             let target_item_size = item_type.len();
             let source_item_size = BrilligContext::flattened_tuple_size(item_type);
 
-            self.allocate_fixed_length_array(
+            self.codegen_allocate_fixed_length_array(
                 deflattened_array_pointer,
                 item_count * target_item_size,
             );
@@ -200,12 +200,12 @@ impl BrilligContext {
 
                     match subitem {
                         BrilligParameter::SingleAddr(_) => {
-                            self.array_get(
+                            self.codegen_array_get(
                                 flattened_array_pointer,
                                 source_index,
                                 movement_register,
                             );
-                            self.array_set(
+                            self.codegen_array_set(
                                 deflattened_array_pointer,
                                 target_index,
                                 movement_register,
@@ -222,7 +222,7 @@ impl BrilligContext {
                                 nested_array_pointer,
                                 source_index.address,
                                 nested_array_pointer,
-                                acvm::brillig_vm::brillig::BinaryIntOp::Add,
+                                BrilligBinaryOp::Add,
                             );
                             let deflattened_nested_array_pointer = self.deflatten_array(
                                 nested_array_item_type,
@@ -233,15 +233,19 @@ impl BrilligContext {
                             let rc = self.allocate_register();
                             self.usize_const_instruction(rc, 1_usize.into());
 
-                            self.allocate_array_reference_instruction(reference);
+                            self.codegen_allocate_array_reference(reference);
                             let array_variable = BrilligVariable::BrilligArray(BrilligArray {
                                 pointer: deflattened_nested_array_pointer,
                                 size: nested_array_item_type.len() * nested_array_item_count,
                                 rc,
                             });
-                            self.store_variable_instruction(reference, array_variable);
+                            self.codegen_store_variable(reference, array_variable);
 
-                            self.array_set(deflattened_array_pointer, target_index, reference);
+                            self.codegen_array_set(
+                                deflattened_array_pointer,
+                                target_index,
+                                reference,
+                            );
 
                             self.deallocate_register(nested_array_pointer);
                             self.deallocate_register(reference);
@@ -373,12 +377,12 @@ impl BrilligContext {
 
                     match subitem {
                         BrilligParameter::SingleAddr(_) => {
-                            self.array_get(
+                            self.codegen_array_get(
                                 deflattened_array_pointer,
                                 source_index,
                                 movement_register,
                             );
-                            self.array_set(
+                            self.codegen_array_set(
                                 flattened_array_pointer,
                                 target_index,
                                 movement_register,
@@ -390,7 +394,7 @@ impl BrilligContext {
                             nested_array_item_count,
                         ) => {
                             let nested_array_reference = self.allocate_register();
-                            self.array_get(
+                            self.codegen_array_get(
                                 deflattened_array_pointer,
                                 source_index,
                                 nested_array_reference,
@@ -403,7 +407,7 @@ impl BrilligContext {
                                     rc: self.allocate_register(),
                                 });
 
-                            self.load_variable_instruction(
+                            self.codegen_load_variable(
                                 nested_array_variable,
                                 nested_array_reference,
                             );
@@ -419,7 +423,7 @@ impl BrilligContext {
                                 flattened_nested_array_pointer,
                                 target_index.address,
                                 flattened_nested_array_pointer,
-                                acvm::brillig_vm::brillig::BinaryIntOp::Add,
+                                BrilligBinaryOp::Add,
                             );
 
                             self.flatten_array(
@@ -450,11 +454,7 @@ impl BrilligContext {
         } else {
             let item_count =
                 self.make_usize_constant_instruction((item_count * item_type.len()).into());
-            self.copy_array_instruction(
-                deflattened_array_pointer,
-                flattened_array_pointer,
-                item_count,
-            );
+            self.codegen_copy_array(deflattened_array_pointer, flattened_array_pointer, item_count);
             self.deallocate_single_addr(item_count);
         }
     }

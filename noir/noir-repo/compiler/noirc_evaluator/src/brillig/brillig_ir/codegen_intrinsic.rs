@@ -1,5 +1,5 @@
 use acvm::{
-    acir::brillig::{BinaryIntOp, BlackBoxOp, Opcode as BrilligOpcode},
+    acir::brillig::{BlackBoxOp, Opcode as BrilligOpcode},
     FieldElement,
 };
 
@@ -36,7 +36,7 @@ impl BrilligContext {
             SingleAddrVariable { address: self.allocate_register(), bit_size };
         self.cast_instruction(intermediate_register, value_to_truncate);
         self.cast_instruction(destination_of_truncated_value, intermediate_register);
-        self.deallocate_register(intermediate_register.address);
+        self.deallocate_single_addr(intermediate_register);
     }
 
     /// Issues a to_radix instruction. This instruction will write the modulus of the source register
@@ -58,7 +58,7 @@ impl BrilligContext {
 
         self.cast_instruction(SingleAddrVariable::new_usize(target_vector.size), limb_count);
         self.usize_const_instruction(target_vector.rc, 1_usize.into());
-        self.allocate_array_instruction(target_vector.pointer, target_vector.size);
+        self.codegen_allocate_array(target_vector.pointer, target_vector.size);
 
         let shifted_field =
             SingleAddrVariable::new(self.allocate_register(), FieldElement::max_num_bits());
@@ -76,13 +76,13 @@ impl BrilligContext {
                 BrilligBinaryOp::Modulo { is_signed_integer: false },
             );
             // Write it
-            ctx.array_set(target_vector.pointer, iterator_register, modulus_field.address);
+            ctx.codegen_array_set(target_vector.pointer, iterator_register, modulus_field.address);
             // Integer div the field
             ctx.binary_instruction(
                 shifted_field,
                 radix_as_field,
                 shifted_field,
-                BrilligBinaryOp::Integer(BinaryIntOp::UnsignedDiv),
+                BrilligBinaryOp::UnsignedDiv,
             );
         });
 
@@ -92,7 +92,7 @@ impl BrilligContext {
         self.deallocate_single_addr(radix_as_field);
 
         if big_endian {
-            self.reverse_vector_in_place_instruction(target_vector);
+            self.codegen_reverse_vector_in_place(target_vector);
         }
     }
 }
