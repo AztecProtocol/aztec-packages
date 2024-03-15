@@ -1,0 +1,187 @@
+#pragma once
+#include "barretenberg/smt_verification/solver/solver.hpp"
+
+namespace smt_terms {
+using namespace smt_solver;
+
+/**
+ * @brief Allows to define three types of symbolic terms
+ * STerm - Symbolic Variables acting like a Finte Field elements
+ * FFITerm - Symbolic Variables acting like integers modulo prime
+ * BVTerm - Symbolic Variables acting like bitvectors modulo prime
+ * 
+ */
+enum class TermType{
+    FFTerm,
+    FFITerm,
+    BVTerm
+};
+
+std::ostream& operator<<(std::ostream& os, TermType type);
+
+enum class OpType: int32_t{
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    NEG,
+    XOR,
+    AND,
+    OR,
+    GT,
+    GE,
+    LT,
+    LE,   
+    MOD,
+    RSH,
+    LSH,
+    ROTR,
+    ROTL
+};
+
+/**
+ * @brief Symbolic term element class.
+ *
+ * @details Can be a Finite Field/Integer Mod/BitVector symbolic variable or a constant.
+ * Supports basic arithmetic operations: +, -, *, /.
+ *
+ */
+class STerm {
+  private:
+    void mod();
+  public:
+    Solver* solver;
+    cvc5::Term term;
+
+    bool isFiniteField;
+    bool isInteger;
+    bool isBitVector;
+
+    TermType type;
+    std::unordered_map<OpType, cvc5::Kind> operations;
+
+    STerm(cvc5::Term& term, Solver* s, TermType type=TermType::FFTerm)
+        : solver(s)
+        , term(term)
+        , type(type){};
+
+    explicit STerm(const std::string& t, Solver* slv, bool isconst = false, uint32_t base = 16,TermType type=TermType::FFTerm);
+
+    STerm(const STerm& other) = default;
+    STerm(STerm&& other) = default;
+
+    static STerm Var(const std::string& name, Solver* slv, TermType type=TermType::FFTerm);
+    static STerm Const(const std::string& val, Solver* slv, uint32_t base = 16, TermType type=TermType::FFTerm);
+
+    STerm(bb::fr value, Solver* s, TermType type = TermType::FFTerm)
+    {
+        std::stringstream buf; // TODO(#893)
+        buf << value;
+        std::string tmp = buf.str();
+        tmp[1] = '0'; // avoiding `x` in 0x prefix
+
+        *this = Const(tmp, s, 16, type);
+    }
+
+    STerm& operator=(const STerm& right) = default;
+    STerm& operator=(STerm&& right) = default;
+
+    STerm operator+(const STerm& other) const;
+    void operator+=(const STerm& other);
+    STerm operator-(const STerm& other) const;
+    void operator-=(const STerm& other);
+    STerm operator-() const;
+
+    STerm operator*(const STerm& other) const;
+    void operator*=(const STerm& other);
+    STerm operator/(const STerm& other) const;
+    void operator/=(const STerm& other);
+
+    void operator==(const STerm& other) const;
+    void operator!=(const STerm& other) const;
+
+    STerm operator^(const STerm& other) const;
+    void operator^=(const STerm& other);
+    STerm operator&(const STerm& other) const;
+    void operator&=(const STerm& other);
+    STerm operator|(const STerm& other) const;
+    void operator|=(const STerm& other);
+    STerm operator<<(const uint32_t& n) const;
+    void operator<<=(const uint32_t& n);
+    STerm operator>>(const uint32_t& n) const;
+    void operator>>=(const uint32_t& n);
+
+    void rotr(const uint32_t& n);
+    void rotl(const uint32_t& n);
+
+    operator std::string() const { return smt_solver::stringify_term(term); };
+    operator cvc5::Term() const { return term; };
+
+    ~STerm() = default;
+
+    friend std::ostream& operator<<(std::ostream& out, const STerm& term)
+    {
+        return out << static_cast<std::string>(term);
+    };
+
+    friend STerm batch_add(const std::vector<STerm>& children)
+    {
+        Solver* slv = children[0].solver;
+        std::vector<cvc5::Term> terms(children.begin(), children.end());
+        cvc5::Term res = slv->term_manager.mkTerm(children[0].operations.at(OpType::ADD), terms);
+        return { res, slv };
+    }
+
+    friend STerm batch_mul(const std::vector<STerm>& children)
+    {
+        Solver* slv = children[0].solver;
+        std::vector<cvc5::Term> terms(children.begin(), children.end());
+        cvc5::Term res = slv->term_manager.mkTerm(children[0].operations.at(OpType::MUL), terms);
+        return { res, slv };
+    }
+
+    // arithmetic compatibility with Fr
+
+    STerm operator+(const bb::fr& other) const { return *this + STerm(other, this->solver, this->type); }
+    void operator+=(const bb::fr& other) { *this += STerm(other, this->solver, this->type); }
+    STerm operator-(const bb::fr& other) const { return *this - STerm(other, this->solver, this->type); }
+    void operator-=(const bb::fr& other) { *this -= STerm(other, this->solver, this->type); }
+    STerm operator*(const bb::fr& other) const { return *this * STerm(other, this->solver, this->type); }
+    void operator*=(const bb::fr& other) { *this *= STerm(other, this->solver, this->type); }
+    STerm operator/(const bb::fr& other) const { return *this / STerm(other, this->solver, this->type); }
+    void operator/=(const bb::fr& other) { *this /= STerm(other, this->solver, this->type); }
+
+    void operator==(const bb::fr& other) const { *this == STerm(other, this->solver, this->type); }
+    void operator!=(const bb::fr& other) const { *this != STerm(other, this->solver, this->type); }
+
+    STerm operator^(const bb::fr& other) const { return *this ^ STerm(other, this->solver, this->type); };
+    void operator^=(const bb::fr& other){ *this^= STerm(other, this->solver, this->type);};
+    STerm operator&(const bb::fr& other) const { return *this & STerm(other, this->solver, this->type); };
+    void operator&=(const bb::fr& other){ *this&= STerm(other, this->solver, this->type);};
+    STerm operator|(const bb::fr& other) const { return *this | STerm(other, this->solver, this->type); };
+    void operator|=(const bb::fr& other){ *this|= STerm(other, this->solver, this->type);};
+
+    void operator<(const bb::fr& other) const;
+    void operator<=(const bb::fr& other) const;
+    void operator>(const bb::fr& other) const;
+    void operator>=(const bb::fr& other) const;
+};
+
+STerm operator+(const bb::fr& lhs, const STerm& rhs);
+STerm operator-(const bb::fr& lhs, const STerm& rhs);
+STerm operator*(const bb::fr& lhs, const STerm& rhs);
+STerm operator/(const bb::fr& lhs, const STerm& rhs);
+void operator==(const bb::fr& lhs, const STerm& rhs);
+void operator!=(const bb::fr& lhs, const STerm& rhs);
+STerm operator^(const bb::fr& lhs, const STerm& rhs);
+STerm operator&(const bb::fr& lhs, const STerm& rhs);
+STerm operator|(const bb::fr& lhs, const STerm& rhs);
+
+STerm FFVar(const std::string& name, Solver* slv);
+STerm FFConst(const std::string& val, Solver* slv, uint32_t base = 16);
+STerm FFIVar(const std::string& name, Solver* slv);
+STerm FFIConst(const std::string& val, Solver* slv, uint32_t base = 16);
+STerm BVVar(const std::string& name, Solver* slv);
+STerm BVConst(const std::string& val, Solver* slv, uint32_t base = 16);
+
+} // namespace smt_terms
