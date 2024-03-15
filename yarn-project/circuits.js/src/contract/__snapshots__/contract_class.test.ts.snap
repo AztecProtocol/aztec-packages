@@ -35,13 +35,6 @@ exports[`ContractClass creates a contract class from a contract compilation arti
       },
       "vkHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "isInternal": false
-    },
-    {
-      "selector": {
-        "value": 2432309179
-      },
-      "vkHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "isInternal": false
     }
   ],
   "id": "0x2661810f7b3d5033bfb90e7329dcd60bbe066602ce105c4b548f8d3134a705a6",
