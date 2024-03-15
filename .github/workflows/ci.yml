@@ -42,7 +42,7 @@ jobs:
   #     - name: CI
   #       run: scripts/earthly --exec-stats +build-ci-small
   bench:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04-16core
     steps:
       - name: Checkout
         uses: actions/checkout@v4

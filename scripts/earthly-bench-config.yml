@@ -1,6 +1,6 @@
 # for 16 core 32gb machine with 64gb disk that we will hog all of
 global:
-    cache_size_mb: 48000
+    cache_size_mb: 24000
     container_frontend: docker-shell
     disable_analytics: true
     buildkit_max_parallelism: 1
