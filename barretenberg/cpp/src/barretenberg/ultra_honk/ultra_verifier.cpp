@@ -148,7 +148,8 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.
-    auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
+    auto pairing_points = ZeroMorph::verify(key->pcs_verification_key,
+                                            commitments.get_unshifted(),
                                             commitments.get_to_be_shifted(),
                                             claimed_evaluations.get_unshifted(),
                                             claimed_evaluations.get_shifted(),

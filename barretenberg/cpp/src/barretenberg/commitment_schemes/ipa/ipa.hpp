@@ -69,15 +69,17 @@ namespace bb {
  * The old version of documentation is available at <a href="https://hackmd.io/q-A8y6aITWyWJrvsGGMWNA?view">Old IPA
  documentation </a>
  */
-template <typename Curve> class IPA {
+template <typename Curve_> class IPA {
+  public:
+    using Curve = Curve_;
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = bb::Polynomial<Fr>;
+    using VerifierAccumulator = bool;
 
-  public:
     /**
      * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point
      *
@@ -307,9 +309,9 @@ template <typename Curve> class IPA {
      *
      *
      */
-    static bool verify(const std::shared_ptr<VK>& vk,
-                       const OpeningClaim<Curve>& opening_claim,
-                       const std::shared_ptr<NativeTranscript>& transcript)
+    static VerifierAccumulator reduce_verify(const std::shared_ptr<VK>& vk,
+                                             const OpeningClaim<Curve>& opening_claim,
+                                             const std::shared_ptr<NativeTranscript>& transcript)
     {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover

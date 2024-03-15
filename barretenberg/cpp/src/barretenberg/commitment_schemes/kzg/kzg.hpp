@@ -77,7 +77,9 @@ template <typename Curve_> class KZG {
      *      - P₀ = C − v⋅[1]₁ + r⋅[W(x)]₁
      *      - P₁ = [W(x)]₁
      */
-    static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& claim, const auto& verifier_transcript)
+    static VerifierAccumulator reduce_verify([[maybe_unused]] const std::shared_ptr<VK>& vk,
+                                             const OpeningClaim<Curve>& claim,
+                                             const auto& verifier_transcript)
     {
         auto quotient_commitment = verifier_transcript->template receive_from_prover<Commitment>("KZG:W");
 

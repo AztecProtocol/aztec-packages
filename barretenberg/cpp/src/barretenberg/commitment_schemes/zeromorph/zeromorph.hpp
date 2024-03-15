@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
@@ -635,7 +636,8 @@ template <typename PCS> class ZeroMorphVerifier_ {
      * @param transcript
      * @return std::array<Commitment, 2> Inputs to the final pairing check
      */
-    static VerifierAccumulator verify(RefSpan<Commitment> unshifted_commitments,
+    static VerifierAccumulator verify(const std::shared_ptr<VerifierCommitmentKey<Curve>>& vk,
+                                      RefSpan<Commitment> unshifted_commitments,
                                       RefSpan<Commitment> to_be_shifted_commitments,
                                       RefSpan<FF> unshifted_evaluations,
                                       RefSpan<FF> shifted_evaluations,
@@ -705,7 +707,9 @@ template <typename PCS> class ZeroMorphVerifier_ {
         }
 
         return PCS::reduce_verify(
-            { .opening_pair = { .challenge = x_challenge, .evaluation = FF(0) }, .commitment = C_zeta_Z }, transcript);
+            vk,
+            { .opening_pair = { .challenge = x_challenge, .evaluation = FF(0) }, .commitment = C_zeta_Z },
+            transcript);
     }
 };
 

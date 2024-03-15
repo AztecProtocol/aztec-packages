@@ -1,5 +1,6 @@
 #include "zeromorph.hpp"
 #include "../commitment_key.test.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -263,7 +264,7 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
     }
 };
 
-using PCSTypes = ::testing::Types<KZG<curve::BN254>>;
+using PCSTypes = ::testing::Types<KZG<curve::BN254>, IPA<curve::Grumpkin>>;
 TYPED_TEST_SUITE(ZeroMorphTest, PCSTypes);
 TYPED_TEST_SUITE(ZeroMorphWithConcatenationTest, PCSTypes);
 
