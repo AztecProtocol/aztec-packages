@@ -124,7 +124,7 @@ template <typename G1> class TestAffineElement : public testing::Test {
      * @brief A regression test to make sure the -1 case is covered
      *
      */
-    static void test_batch_by_minus_one()
+    static void test_batch_endomorphism_by_minus_one()
     {
         constexpr size_t num_points = 2;
         std::vector<affine_element> affine_points(num_points, affine_element::one());
@@ -247,7 +247,11 @@ TEST(AffineElement, InfinityBatchMulByScalarIsInfinity)
     EXPECT_THAT(result, Each(Property(&grumpkin::g1::affine_element::is_point_at_infinity, Eq(true))));
 }
 
-TYPED_TEST(TestAffineElement, BatchByMinusOne)
+TYPED_TEST(TestAffineElement, BatchEndomoprhismByMinusOne)
 {
-    TestFixture::test_batch_by_minus_one();
+    if constexpr (TypeParam::USE_ENDOMORPHISM) {
+        TestFixture::test_batch_endomorphism_by_minus_one();
+    } else {
+        GTEST_SKIP();
+    }
 }

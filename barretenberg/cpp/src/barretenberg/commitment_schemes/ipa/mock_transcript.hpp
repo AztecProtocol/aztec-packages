@@ -24,15 +24,15 @@ class MockTranscript {
     size_t current_group_index = 0;
 
     /**
-     * @brief Reset the transcript (requires to submit the challenges)
+     * @brief Initialize the transcript (requires to submit the challenges)
      *
      * @param challenges_ Challenges that will be sent to the prover/verifier
      * @param group_elements_ Group elements sent to the verifier
      * @param field_elements_ Field elements sent to the verifier
      */
-    void reset(std::vector<uint256_t> challenges_,
-               std::vector<bb::curve::Grumpkin::AffineElement> group_elements_ = {},
-               std::vector<uint256_t> field_elements_ = {})
+    void initialize(std::vector<uint256_t> challenges_,
+                    std::vector<bb::curve::Grumpkin::AffineElement> group_elements_ = {},
+                    std::vector<uint256_t> field_elements_ = {})
     {
         challenges = std::move(challenges_);
         current_challenge_index = 0;
@@ -47,7 +47,7 @@ class MockTranscript {
      * @details After the transcipt received elements from the prover, this method allows to reset counters so that the
      * verifier can receive those elements
      */
-    void reset_for_verifier()
+    void reset_indices()
     {
         current_challenge_index = 0;
         current_field_index = 0;

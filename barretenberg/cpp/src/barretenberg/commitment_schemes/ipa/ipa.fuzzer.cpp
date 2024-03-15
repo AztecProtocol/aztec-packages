@@ -148,7 +148,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     ProxyCaller::compute_opening_proof_internal(ck, opening_pair, poly, transcript);
 
     // Reset challenge indices
-    transcript->reset_for_verifier();
+    transcript->reset_indices();
 
     // Should verify
     if (!ProxyCaller::verify_internal(vk, opening_claim, transcript)) {

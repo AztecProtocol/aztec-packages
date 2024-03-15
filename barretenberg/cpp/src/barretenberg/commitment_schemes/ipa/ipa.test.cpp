@@ -124,7 +124,7 @@ TEST_F(IPATest, ChallengesAreZero)
     for (size_t i = 0; i < num_challenges; i++) {
         auto new_random_vector = random_vector;
         new_random_vector[i] = Fr::zero();
-        transcript->reset(new_random_vector);
+        transcript->initialize(new_random_vector);
         EXPECT_ANY_THROW(IPA::compute_opening_proof_internal(this->ck(), opening_pair, poly, transcript));
     }
     // Fill out a vector of affine elements that the verifier receives from the prover with generators (we don't care
@@ -138,7 +138,7 @@ TEST_F(IPATest, ChallengesAreZero)
     for (size_t i = 0; i < num_challenges; i++) {
         auto new_random_vector = random_vector;
         new_random_vector[i] = Fr::zero();
-        transcript->reset(new_random_vector, lrs, { uint256_t(n) });
+        transcript->initialize(new_random_vector, lrs, { uint256_t(n) });
         EXPECT_ANY_THROW(IPA::verify_internal(this->vk(), opening_claim, transcript));
     }
 }
@@ -170,13 +170,13 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
     random_vector[1] = -Fr::one();
 
     // Put the challenges in the transcript
-    transcript->reset(random_vector);
+    transcript->initialize(random_vector);
 
     // Compute opening proof
     IPA::compute_opening_proof_internal(this->ck(), opening_pair, poly, transcript);
 
     // Reset indices
-    transcript->reset_for_verifier();
+    transcript->reset_indices();
 
     // Verify
     EXPECT_TRUE(IPA::verify_internal(this->vk(), opening_claim, transcript));
