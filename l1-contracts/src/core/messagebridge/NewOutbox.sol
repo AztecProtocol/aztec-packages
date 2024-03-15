@@ -28,7 +28,7 @@ contract NewOutbox is INewOutbox {
   mapping(uint256 l2BlockNumber => RootData) public roots;
 
   constructor(address _rollup) {
-    ROLLUP_CONTRACT = _stateTransitioner;
+    ROLLUP_CONTRACT = _rollup;
   }
 
   /**
