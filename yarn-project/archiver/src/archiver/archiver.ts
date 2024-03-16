@@ -198,7 +198,7 @@ export class Archiver implements ArchiveSource {
     await this.store.addL1ToL2Messages(
       retrievedL1ToL2Messages.retrievedData,
       // -1n because the function expects the last block in which the message was emitted and not the one after next
-      // TODO(#4492): Check whether this could be cleaned up - `nextEthBlockNumber` value doesn't seem to be used much
+      // TODO(#5264): Check whether this could be cleaned up - `nextEthBlockNumber` value doesn't seem to be used much
       retrievedL1ToL2Messages.nextEthBlockNumber - 1n,
     );
 

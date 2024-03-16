@@ -215,8 +215,6 @@ describe('L1Publisher integration', () => {
       topics: txLog.topics,
     });
 
-    // TODO(#4492): check leaf value here
-
     return Fr.fromString(topics.args.value);
   };
 

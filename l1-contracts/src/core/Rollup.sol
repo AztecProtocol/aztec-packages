@@ -57,7 +57,7 @@ contract Rollup is IRollup {
   function process(
     bytes calldata _header,
     bytes32 _archive,
-    bytes calldata _body, // TODO(#4492) Nuke this when updating to the new message model
+    bytes calldata _body, // TODO(#5073) Nuke this when updating to the new message model
     bytes memory _proof
   ) external override(IRollup) {
     // Decode and validate header

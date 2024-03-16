@@ -1,3 +1,4 @@
+// TODO(#5264) Separate classes here to individual files, rename NewInboxLeaf to something less ugly and check usage of L1ToL2Message.
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { randomInt, sha256 } from '@aztec/foundation/crypto';
@@ -55,7 +56,6 @@ export class NewInboxLeaf {
 
 /**
  * The format of an L1 to L2 Message.
- * TODO(#4492): Nuke the following when purging the old inbox
  */
 export class L1ToL2Message {
   constructor(
@@ -126,7 +126,6 @@ export class L1ToL2Message {
 
 /**
  * The sender of an L1 to L2 message.
- * TODO(#4492): Move to separate file when purging the old inbox
  */
 export class L1Actor {
   constructor(
@@ -166,7 +165,6 @@ export class L1Actor {
 
 /**
  * The recipient of an L2 message.
- * TODO(#4492): Move to separate file when purging the old inbox
  */
 export class L2Actor {
   constructor(
