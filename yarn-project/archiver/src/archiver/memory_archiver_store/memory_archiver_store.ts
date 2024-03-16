@@ -54,16 +54,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private unencryptedLogsPerBlock: L2BlockL2Logs[] = [];
 
   /**
-   * A sparse array containing all the extended contract data that have been fetched so far.
-   */
-  private extendedContractDataByBlock: (ExtendedContractData[] | undefined)[] = [];
-
-  /**
-   * A mapping of contract address to extended contract data.
-   */
-  private extendedContractData: Map<string, ExtendedContractData> = new Map();
-
-  /**
    * Contains all L1 to L2 messages.
    */
   private l1ToL2Messages = new L1ToL2MessageStore();
