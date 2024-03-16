@@ -10,7 +10,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     # run ci for both x86_64 and arm64
-    strategy: {matrix: {environment: [x86, arm]}}
+    strategy: { matrix: { environment: [x86, arm] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
@@ -24,6 +24,7 @@ jobs:
 
       - name: Setup
         run: |
+          echo FORCE_COLOR=1 >> $GITHUB_ENV
           mkdir -p ~/.ssh
           echo DOCKER_HOST=ssh://build-instance-${{ matrix.environment }}.aztecprotocol.com >> $GITHUB_ENV
           echo ${{ secrets.DOCKERHUB_PASSWORD}} | docker login -u aztecprotocolci --password-stdin
@@ -36,11 +37,11 @@ jobs:
           EOF
 
       # Turn on if updating our custom built WASM-enabled clang (wasi-sdk), foundry or other base images
-      #- name: Ensure Base Images
+      # - name: Ensure Base Images
       #  run: |
-          # scripts/earthly --push ./foundry/+build
-          # Uncomment the following line if needed for the arm environment
-          # scripts/earthly --push ./barretenberg/cpp/+build-wasi-sdk
+      #     scripts/earthly --push ./foundry/+build
+      #     # Uncomment the following line if needed for the arm environment
+      #     scripts/earthly --push ./barretenberg/cpp/+build-wasi-sdk
 
       - name: CI
         run: scripts/earthly +build-ci-small
