@@ -1,4 +1,5 @@
-import { updateInlineTestData } from '@aztec/foundation/testing';
+import { randomInt } from '@aztec/foundation/crypto';
+import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
 
 import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '../constants.gen.js';
 import { makePrivateCircuitPublicInputs } from '../tests/factories.js';
@@ -8,8 +9,8 @@ describe('PrivateCircuitPublicInputs', () => {
   let inputs: PrivateCircuitPublicInputs;
 
   beforeAll(() => {
-    const randomInt = Math.floor(Math.random() * 1000);
-    inputs = makePrivateCircuitPublicInputs(randomInt);
+    setupCustomSnapshotSerializers(expect);
+    inputs = makePrivateCircuitPublicInputs(randomInt(1000));
   });
 
   it('serializes to buffer and back', () => {

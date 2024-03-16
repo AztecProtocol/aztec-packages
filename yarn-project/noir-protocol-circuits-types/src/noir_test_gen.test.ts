@@ -1,5 +1,6 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
 import {
+  AztecAddress,
   EthAddress,
   FunctionSelector,
   NOTE_HASH_TREE_HEIGHT,
@@ -12,11 +13,14 @@ import {
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
+import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { Pedersen, StandardTree } from '@aztec/merkle-tree';
 import { ContractClass, ContractInstance } from '@aztec/types/contracts';
 
 describe('Data generation for noir tests', () => {
+  setupCustomSnapshotSerializers(expect);
+
   type FixtureContractData = Omit<ContractClass, 'version' | 'publicFunctions'> &
     Pick<ContractInstance, 'publicKeysHash' | 'portalContractAddress' | 'salt'> &
     Pick<ContractClass, 'privateFunctions'> & { toString: () => string };
@@ -56,7 +60,8 @@ describe('Data generation for noir tests', () => {
     const initializationHash = computeInitializationHashFromEncodedArgs(constructorSelector, []);
     const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } =
       computeContractClassIdPreimage(contractClass);
-    const instance: ContractInstance = { ...contract, version: 1, initializationHash, contractClassId };
+    const deployer = AztecAddress.ZERO;
+    const instance: ContractInstance = { ...contract, version: 1, initializationHash, contractClassId, deployer };
     const address = computeContractAddressFromInstance(instance);
     const saltedInitializationHash = computeSaltedInitializationHash(instance);
     const partialAddress = computePartialAddress(instance);
@@ -74,6 +79,7 @@ describe('Data generation for noir tests', () => {
         contract_class_id: `ContractClassId { inner: ${contractClassId.toString()} }`,
         public_keys_hash: `PublicKeysHash { inner: ${contract.publicKeysHash.toString()} }`,
         salted_initialization_hash: `SaltedInitializationHash { inner: ${saltedInitializationHash.toString()} }`,
+        deployer: `AztecAddress { inner: ${deployer.toString()} }`,
       }),
     ).toMatchSnapshot();
     /* eslint-enable camelcase */

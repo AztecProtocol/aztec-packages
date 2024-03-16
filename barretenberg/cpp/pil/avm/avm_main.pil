@@ -21,6 +21,9 @@ namespace avm_main(256);
     
     // Halt program execution
     pol commit sel_halt;
+
+    //===== MEMORY OPCODES ==========================================================
+    pol commit sel_mov;
     
     //===== TABLE SUBOP-TR ========================================================
     // Boolean selectors for (sub-)operations. Only one operation is activated at
@@ -62,7 +65,7 @@ namespace avm_main(256);
     pol commit mem_op_a;
     pol commit mem_op_b;
     pol commit mem_op_c;
-    
+
     // Read-write flag per intermediate register: Read = 0, Write = 1
     pol commit rwa;
     pol commit rwb;
@@ -94,6 +97,9 @@ namespace avm_main(256);
     sel_jump * (1 - sel_jump) = 0;
     sel_halt * (1 - sel_halt) = 0;
 
+    // Might be removed if derived from opcode based on a lookup of constants
+    sel_mov * ( 1 - sel_mov) = 0;
+
     op_err * (1 - op_err) = 0;
     tag_err * (1 - tag_err) = 0; // Potential optimization (boolean constraint derivation from equivalence check to avm_mem)?
 
@@ -104,7 +110,7 @@ namespace avm_main(256);
     rwa * (1 - rwa) = 0;
     rwb * (1 - rwb) = 0;
     rwc * (1 - rwc) = 0;
-    
+
     // TODO: Constrain rwa, rwb, rwc to u32 type and 0 <= in_tag <= 6
 
     // Relation for division over the finite field
@@ -188,17 +194,23 @@ namespace avm_main(256);
 
     // TODO: we want to set an initial number for the reserved memory of the jump pointer
 
-    // Inter-table Constraints
-    
-    #[equiv_tag_err]
+    //====== MEMORY OPCODES CONSTRAINTS =========================================
+    #[MOV_SAME_VALUE]
+    sel_mov * (ia - ic) = 0; // Ensure that the correct value is moved/copied.
+
+    //====== Inter-table Constraints ============================================
+    #[INCL_MAIN_TAG_ERR]
     avm_mem.m_tag_err {avm_mem.m_clk} in tag_err {clk};
+
+    #[INCL_MEM_TAG_ERR]
+    tag_err {clk} in avm_mem.m_tag_err {avm_mem.m_clk};
 
     // Predicate to activate the copy of intermediate registers to ALU table. If tag_err == 1,
     // the operation is not copied to the ALU table.
     // TODO: when division is moved to the alu, we will need to add the selector in the list below:
     alu_sel = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_not + sel_op_eq) * (1 - tag_err);
 
-    #[equiv_inter_reg_alu]
+    #[PERM_MAIN_ALU]
     alu_sel {clk, ia, ib, ic,
              sel_op_add, sel_op_sub, sel_op_mul, sel_op_eq,
              sel_op_not, in_tag}
@@ -207,5 +219,17 @@ namespace avm_main(256);
                      avm_alu.alu_op_add, avm_alu.alu_op_sub, avm_alu.alu_op_mul, avm_alu.alu_op_eq,
                      avm_alu.alu_op_not, avm_alu.alu_in_tag};
 
-    // TODO: Map memory trace with intermediate register values whenever there is no tag error, sthg like:
-    // mem_op_a * (1 - tag_err) {mem_idx_a, clk, ia, rwa} IS m_sub_clk == 0 && 1 - m_tag_err {m_addr, m_clk, m_val, m_rw}
+    #[PERM_MAIN_MEM_A]
+    mem_op_a {clk, mem_idx_a, ia, rwa, in_tag, sel_mov}
+    is
+    avm_mem.m_op_a {avm_mem.m_clk, avm_mem.m_addr, avm_mem.m_val, avm_mem.m_rw, avm_mem.m_in_tag, avm_mem.m_sel_mov};
+
+    #[PERM_MAIN_MEM_B]
+    mem_op_b {clk, mem_idx_b, ib, rwb, in_tag}
+    is
+    avm_mem.m_op_b {avm_mem.m_clk, avm_mem.m_addr, avm_mem.m_val, avm_mem.m_rw, avm_mem.m_in_tag};
+
+    #[PERM_MAIN_MEM_C]
+    mem_op_c {clk, mem_idx_c, ic, rwc, in_tag}
+    is
+    avm_mem.m_op_c {avm_mem.m_clk, avm_mem.m_addr, avm_mem.m_val, avm_mem.m_rw, avm_mem.m_in_tag};

@@ -29,6 +29,7 @@ import {
   PublicAccumulatedRevertibleData,
   PublicCallRequest,
   PublicKernelCircuitPublicInputs,
+  ValidationRequests,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
@@ -123,6 +124,7 @@ describe('public_processor', () => {
         hash,
         data: new PublicKernelCircuitPublicInputs(
           tx.data.aggregationObject,
+          ValidationRequests.empty(),
           PublicAccumulatedNonRevertibleData.fromPrivateAccumulatedNonRevertibleData(tx.data.endNonRevertibleData),
           PublicAccumulatedRevertibleData.fromPrivateAccumulatedRevertibleData(tx.data.end),
           tx.data.constants,
@@ -164,7 +166,7 @@ describe('public_processor', () => {
       expect(failed[0].tx).toEqual(tx);
       expect(failed[0].error).toEqual(new SimulationError(`Failed`, []));
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(0);
-      expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(0);
+      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -233,8 +235,8 @@ describe('public_processor', () => {
       expect(processed).toEqual([expectedTxByHash(tx)]);
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(2);
-      expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(0);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
     });
 
     it('runs a tx with an enqueued public call with nested execution', async function () {
@@ -277,8 +279,10 @@ describe('public_processor', () => {
       expect(processed).toEqual([expectedTxByHash(tx)]);
       expect(failed).toHaveLength(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(2);
-      expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(0);
+      expect(publicWorldStateDB.checkpoint).toHaveBeenCalledTimes(1);
+      expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
     });
 
     it('rolls back app logic db updates on failed public execution, but persists setup/teardown', async function () {
@@ -289,9 +293,9 @@ describe('public_processor', () => {
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      callRequests[0].callContext.startSideEffectCounter = 2;
-      callRequests[1].callContext.startSideEffectCounter = 3;
-      callRequests[2].callContext.startSideEffectCounter = 4;
+      callRequests[0].callContext.sideEffectCounter = 2;
+      callRequests[1].callContext.sideEffectCounter = 3;
+      callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
@@ -378,8 +382,10 @@ describe('public_processor', () => {
       expect(appLogicSpy).toHaveBeenCalledTimes(2);
       expect(teardownSpy).toHaveBeenCalledTimes(2);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(3);
-      expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(1);
+      expect(publicWorldStateDB.checkpoint).toHaveBeenCalledTimes(2);
+      expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(1);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       expect(arrayNonEmptyLength(processed[0].data.combinedData.publicCallStack, i => i.isEmpty())).toEqual(0);
 
@@ -395,6 +401,213 @@ describe('public_processor', () => {
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);
     });
 
+    it('fails a transaction that reverts in setup', async function () {
+      const baseContractAddressSeed = 0x200;
+      const baseContractAddress = makeAztecAddress(baseContractAddressSeed);
+      const callRequests: PublicCallRequest[] = [
+        baseContractAddressSeed,
+        baseContractAddressSeed,
+        baseContractAddressSeed,
+      ].map(makePublicCallRequest);
+      callRequests[0].callContext.sideEffectCounter = 2;
+      callRequests[1].callContext.sideEffectCounter = 3;
+      callRequests[2].callContext.sideEffectCounter = 4;
+
+      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
+      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+
+      addKernelPublicCallStack(kernelOutput, {
+        setupCalls: [callRequests[0]],
+        appLogicCalls: [callRequests[2]],
+        teardownCall: callRequests[1],
+      });
+
+      const tx = new Tx(
+        kernelOutput,
+        proof,
+        TxL2Logs.empty(),
+        TxL2Logs.empty(),
+        // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
+        callRequests.slice().reverse(),
+      );
+
+      const contractSlotA = fr(0x100);
+      const contractSlotB = fr(0x150);
+      const contractSlotC = fr(0x200);
+
+      let simulatorCallCount = 0;
+      const simulatorResults: PublicExecutionResult[] = [
+        // Setup
+        PublicExecutionResultBuilder.fromPublicCallRequest({
+          request: callRequests[0],
+          contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101))],
+          nestedExecutions: [
+            PublicExecutionResultBuilder.fromFunctionCall({
+              from: callRequests[1].contractAddress,
+              tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
+              contractStorageUpdateRequests: [
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x102)),
+                new ContractStorageUpdateRequest(contractSlotB, fr(0x151)),
+              ],
+            }).build(),
+            PublicExecutionResultBuilder.fromFunctionCall({
+              from: callRequests[1].contractAddress,
+              tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
+              revertReason: new SimulationError('Simulation Failed', []),
+            }).build(),
+          ],
+        }).build(),
+
+        // App Logic
+        PublicExecutionResultBuilder.fromPublicCallRequest({
+          request: callRequests[2],
+        }).build(),
+
+        // Teardown
+        PublicExecutionResultBuilder.fromPublicCallRequest({
+          request: callRequests[1],
+          nestedExecutions: [
+            PublicExecutionResultBuilder.fromFunctionCall({
+              from: callRequests[1].contractAddress,
+              tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
+              contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x201))],
+            }).build(),
+          ],
+        }).build(),
+      ];
+
+      publicExecutor.simulate.mockImplementation(execution => {
+        if (simulatorCallCount < simulatorResults.length) {
+          return Promise.resolve(simulatorResults[simulatorCallCount++]);
+        } else {
+          throw new Error(`Unexpected execution request: ${execution}, call count: ${simulatorCallCount}`);
+        }
+      });
+
+      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
+      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
+      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+
+      const [processed, failed] = await processor.process([tx]);
+
+      expect(processed).toHaveLength(0);
+      expect(failed).toHaveLength(1);
+      expect(failed[0].tx.getTxHash()).toEqual(tx.getTxHash());
+
+      expect(setupSpy).toHaveBeenCalledTimes(1);
+      expect(appLogicSpy).toHaveBeenCalledTimes(0);
+      expect(teardownSpy).toHaveBeenCalledTimes(0);
+      expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
+
+      expect(publicWorldStateDB.checkpoint).toHaveBeenCalledTimes(0);
+      expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(0);
+      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(1);
+    });
+
+    it('fails a transaction that reverts in teardown', async function () {
+      const baseContractAddressSeed = 0x200;
+      const baseContractAddress = makeAztecAddress(baseContractAddressSeed);
+      const callRequests: PublicCallRequest[] = [
+        baseContractAddressSeed,
+        baseContractAddressSeed,
+        baseContractAddressSeed,
+      ].map(makePublicCallRequest);
+      callRequests[0].callContext.sideEffectCounter = 2;
+      callRequests[1].callContext.sideEffectCounter = 3;
+      callRequests[2].callContext.sideEffectCounter = 4;
+
+      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
+      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+
+      addKernelPublicCallStack(kernelOutput, {
+        setupCalls: [callRequests[0]],
+        appLogicCalls: [callRequests[2]],
+        teardownCall: callRequests[1],
+      });
+
+      const tx = new Tx(
+        kernelOutput,
+        proof,
+        TxL2Logs.empty(),
+        TxL2Logs.empty(),
+        // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
+        callRequests.slice().reverse(),
+      );
+
+      const contractSlotA = fr(0x100);
+      const contractSlotB = fr(0x150);
+      const contractSlotC = fr(0x200);
+
+      let simulatorCallCount = 0;
+      const simulatorResults: PublicExecutionResult[] = [
+        // Setup
+        PublicExecutionResultBuilder.fromPublicCallRequest({
+          request: callRequests[0],
+          contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101))],
+          nestedExecutions: [
+            PublicExecutionResultBuilder.fromFunctionCall({
+              from: callRequests[1].contractAddress,
+              tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
+              contractStorageUpdateRequests: [
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x102)),
+                new ContractStorageUpdateRequest(contractSlotB, fr(0x151)),
+              ],
+            }).build(),
+          ],
+        }).build(),
+
+        // App Logic
+        PublicExecutionResultBuilder.fromPublicCallRequest({
+          request: callRequests[2],
+        }).build(),
+
+        // Teardown
+        PublicExecutionResultBuilder.fromPublicCallRequest({
+          request: callRequests[1],
+          nestedExecutions: [
+            PublicExecutionResultBuilder.fromFunctionCall({
+              from: callRequests[1].contractAddress,
+              tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
+              revertReason: new SimulationError('Simulation Failed', []),
+            }).build(),
+            PublicExecutionResultBuilder.fromFunctionCall({
+              from: callRequests[1].contractAddress,
+              tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
+              contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x201))],
+            }).build(),
+          ],
+        }).build(),
+      ];
+
+      publicExecutor.simulate.mockImplementation(execution => {
+        if (simulatorCallCount < simulatorResults.length) {
+          return Promise.resolve(simulatorResults[simulatorCallCount++]);
+        } else {
+          throw new Error(`Unexpected execution request: ${execution}, call count: ${simulatorCallCount}`);
+        }
+      });
+
+      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
+      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
+      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+
+      const [processed, failed] = await processor.process([tx]);
+
+      expect(processed).toHaveLength(0);
+      expect(failed).toHaveLength(1);
+      expect(failed[0].tx.getTxHash()).toEqual(tx.getTxHash());
+
+      expect(setupSpy).toHaveBeenCalledTimes(2);
+      expect(appLogicSpy).toHaveBeenCalledTimes(1);
+      expect(teardownSpy).toHaveBeenCalledTimes(2);
+      expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
+      expect(publicWorldStateDB.checkpoint).toHaveBeenCalledTimes(2);
+      expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(0);
+      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(1);
+    });
+
     it('runs a tx with setup and teardown phases', async function () {
       const baseContractAddressSeed = 0x200;
       const baseContractAddress = makeAztecAddress(baseContractAddressSeed);
@@ -403,9 +616,9 @@ describe('public_processor', () => {
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      callRequests[0].callContext.startSideEffectCounter = 2;
-      callRequests[1].callContext.startSideEffectCounter = 3;
-      callRequests[2].callContext.startSideEffectCounter = 4;
+      callRequests[0].callContext.sideEffectCounter = 2;
+      callRequests[1].callContext.sideEffectCounter = 3;
+      callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
 
@@ -487,8 +700,10 @@ describe('public_processor', () => {
       expect(appLogicSpy).toHaveBeenCalledTimes(1);
       expect(teardownSpy).toHaveBeenCalledTimes(3);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
-      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(4);
-      expect(publicWorldStateDB.rollback).toHaveBeenCalledTimes(0);
+      expect(publicWorldStateDB.checkpoint).toHaveBeenCalledTimes(3);
+      expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       const txEffect = toTxEffect(processed[0]);
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(3);
@@ -597,6 +812,7 @@ class PublicExecutionResultBuilder {
       execution: this._execution,
       nestedExecutions: this._nestedExecutions,
       nullifierReadRequests: [],
+      nullifierNonExistentReadRequests: [],
       contractStorageUpdateRequests: this._contractStorageUpdateRequests,
       returnValues: this._returnValues,
       newNoteHashes: [],
@@ -604,6 +820,8 @@ class PublicExecutionResultBuilder {
       newL2ToL1Messages: [],
       contractStorageReads: [],
       unencryptedLogs: new FunctionL2Logs([]),
+      startSideEffectCounter: Fr.ZERO,
+      endSideEffectCounter: Fr.ZERO,
       reverted: this._reverted,
       revertReason: this._revertReason,
     };
@@ -614,11 +832,7 @@ const makeFunctionCall = (
   to = makeAztecAddress(30),
   selector = makeSelector(5),
   args = new Array(ARGS_LENGTH).fill(Fr.ZERO),
-) => ({
-  to,
-  functionData: new FunctionData(selector, false, false, false),
-  args,
-});
+) => ({ to, functionData: new FunctionData(selector, false), args });
 
 function addKernelPublicCallStack(
   kernelOutput: PrivateKernelTailCircuitPublicInputs,

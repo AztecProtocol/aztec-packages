@@ -1,13 +1,14 @@
-import { updateInlineTestData } from '@aztec/foundation/testing';
+import { randomInt } from '@aztec/foundation/crypto';
+import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
 
 import { makePublicCallStackItem } from '../tests/factories.js';
 import { AztecAddress, Fr, FunctionData, FunctionSelector, SideEffect } from './index.js';
 import { PublicCallStackItem } from './public_call_stack_item.js';
 
 describe('PublicCallStackItem', () => {
+  setupCustomSnapshotSerializers(expect);
   it('serializes to buffer and deserializes it back', () => {
-    const randomInt = Math.floor(Math.random() * 1000);
-    const expected = makePublicCallStackItem(randomInt);
+    const expected = makePublicCallStackItem(randomInt(1000));
     const buffer = expected.toBuffer();
     const res = PublicCallStackItem.fromBuffer(buffer);
     expect(res).toEqual(expected);
@@ -24,7 +25,7 @@ describe('PublicCallStackItem', () => {
     const callStack = PublicCallStackItem.empty();
 
     callStack.contractAddress = AztecAddress.fromField(new Fr(1));
-    callStack.functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    callStack.functionData = new FunctionData(new FunctionSelector(2), false);
     callStack.isExecutionRequest = true;
     callStack.publicInputs.newNoteHashes[0] = new SideEffect(new Fr(1), new Fr(0));
 
@@ -43,7 +44,7 @@ describe('PublicCallStackItem', () => {
     const callStack = PublicCallStackItem.empty();
 
     callStack.contractAddress = AztecAddress.fromField(new Fr(1));
-    callStack.functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    callStack.functionData = new FunctionData(new FunctionSelector(2), false);
     callStack.publicInputs.newNoteHashes[0] = new SideEffect(new Fr(1), new Fr(0));
 
     const hash = callStack.hash();

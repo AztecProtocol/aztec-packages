@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { sha256 } from '@aztec/foundation/crypto';
+import { randomInt, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -9,6 +9,13 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
  * Interface of classes allowing for the retrieval of L1 to L2 messages.
  */
 export interface L1ToL2MessageSource {
+  /**
+   * Gets new L1 to L2 message (to be) included in a given block.
+   * @param blockNumber - L2 block number to get messages for.
+   * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
+   */
+  getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
+
   /**
    * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
    * @param limit - The maximum number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
@@ -38,22 +45,18 @@ export class NewInboxLeaf {
     /** Index of the leaf in L2 block message subtree. */
     public readonly index: bigint,
     /** Leaf of the subtree. */
-    public readonly leaf: Buffer,
-  ) {
-    if (leaf.length !== 32) {
-      throw new Error('Invalid leaf length');
-    }
-  }
+    public readonly leaf: Fr,
+  ) {}
 
   toBuffer(): Buffer {
-    return Buffer.concat([toBufferBE(this.blockNumber, 32), toBufferBE(this.index, 32), this.leaf]);
+    return serializeToBuffer([this.blockNumber, this.index, this.leaf]);
   }
 
   fromBuffer(buffer: Buffer | BufferReader): NewInboxLeaf {
     const reader = BufferReader.asReader(buffer);
     const blockNumber = toBigIntBE(reader.readBytes(32));
     const index = toBigIntBE(reader.readBytes(32));
-    const leaf = reader.readBytes(32);
+    const leaf = reader.readObject(Fr);
     return new NewInboxLeaf(blockNumber, index, leaf);
   }
 }
@@ -180,8 +183,8 @@ export class L1ToL2Message {
       L2Actor.random(),
       Fr.random(),
       Fr.random(),
-      Math.floor(Math.random() * 1000),
-      Math.floor(Math.random() * 1000),
+      randomInt(1000),
+      randomInt(1000),
       entryKey,
     );
   }
@@ -223,7 +226,7 @@ export class L1Actor {
   }
 
   static random(): L1Actor {
-    return new L1Actor(EthAddress.random(), Math.floor(Math.random() * 1000));
+    return new L1Actor(EthAddress.random(), randomInt(1000));
   }
 }
 
@@ -263,6 +266,6 @@ export class L2Actor {
   }
 
   static random(): L2Actor {
-    return new L2Actor(AztecAddress.random(), Math.floor(Math.random() * 1000));
+    return new L2Actor(AztecAddress.random(), randomInt(1000));
   }
 }

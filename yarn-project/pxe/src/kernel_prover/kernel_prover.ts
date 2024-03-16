@@ -185,12 +185,12 @@ export class KernelProver {
     >(output.publicInputs.end.newNullifiers);
 
     const readNoteHashHints = this.hintsBuilder.getNoteHashReadRequestHints(
-      output.publicInputs.end.noteHashReadRequests,
+      output.publicInputs.validationRequests.noteHashReadRequests,
       sortedNoteHashes,
     );
 
-    const nullifierReadRequestResetHints = await this.hintsBuilder.getNullifierReadRequestResetHints(
-      output.publicInputs.end.nullifierReadRequests,
+    const nullifierReadRequestHints = await this.hintsBuilder.getNullifierReadRequestHints(
+      output.publicInputs.validationRequests.nullifierReadRequests,
       output.publicInputs.end.newNullifiers,
     );
 
@@ -200,7 +200,7 @@ export class KernelProver {
     );
 
     const masterNullifierSecretKeys = await this.hintsBuilder.getMasterNullifierSecretKeys(
-      output.publicInputs.end.nullifierKeyValidationRequests,
+      output.publicInputs.validationRequests.nullifierKeyValidationRequests,
     );
 
     this.log.debug(
@@ -214,7 +214,7 @@ export class KernelProver {
       readNoteHashHints,
       sortedNullifiers,
       sortedNullifiersIndexes,
-      nullifierReadRequestResetHints,
+      nullifierReadRequestHints,
       nullifierNoteHashHints,
       masterNullifierSecretKeys,
     );

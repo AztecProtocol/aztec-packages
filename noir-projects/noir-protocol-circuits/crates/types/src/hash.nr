@@ -1,10 +1,8 @@
 use crate::address::{AztecAddress, EthAddress};
 use crate::mocked::VerificationKey;
 use crate::abis::function_selector::FunctionSelector;
-use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
 use crate::abis::contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage;
 use crate::contract_class_id::ContractClassId;
-use crate::abis::function_data::FunctionData;
 use crate::abis::side_effect::{SideEffect};
 use crate::utils::uint256::U256;
 use crate::constants::{
@@ -14,6 +12,7 @@ use crate::constants::{
     GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH, GENERATOR_INDEX__FUNCTION_ARGS
 };
 use crate::messaging::l2_to_l1_message::L2ToL1Message;
+use crate::merkle_tree::root::root_from_sibling_path;
 
 use dep::std::hash::{pedersen_hash_with_separator, sha256};
 
@@ -61,62 +60,6 @@ pub fn hash_args<N>(args: [Field; N]) -> Field {
     }
 }
 
-// Checks that `value` is a member of a merkle tree with root `root` at position `index`
-// The witness being the `sibling_path`
-pub fn assert_check_membership<N>(value: Field, index: Field, sibling_path: [Field; N], root: Field) {
-    let calculated_root = root_from_sibling_path(value, index, sibling_path);
-    assert(calculated_root == root, "membership check failed");
-}
-
-// Calculate the Merkle tree root from the sibling path and leaf.
-//
-// The leaf is hashed with its sibling, and then the result is hashed
-// with the next sibling etc in the path. The last hash is the root.
-//
-// TODO(David/Someone): The cpp code is using a uint256, whereas its
-// TODO a bit simpler in Noir to just have a bit array.
-// TODO: I'd generally like to avoid u256 for algorithms like 
-// this because it means we never even need to consider cases where 
-// the index is greater than p.
-pub fn root_from_sibling_path<N>(leaf: Field, leaf_index: Field, sibling_path: [Field; N]) -> Field {
-    let mut node = leaf;
-    let indices = leaf_index.to_le_bits(N);
-
-    for i in 0..N {
-        let (hash_left, hash_right) = if indices[i] == 1 {
-            (sibling_path[i], node)
-        } else {
-            (node, sibling_path[i])
-        };
-        node = merkle_hash(hash_left, hash_right);
-    }
-    node
-}
-
-// Calculate the function tree root from the sibling path and leaf preimage.
-//
-// TODO: The cpp code passes in components of the FunctionLeafPreimage and then 
-// builds it up. We should build it up and then pass the leaf preimage as a parameter.
-// We can then choose to have a general method that takes in anything hashable
-// and deduplicate the logic in `contract_tree_root_from_siblings`
-pub fn function_tree_root_from_siblings(
-    selector: FunctionSelector,
-    is_internal: bool,
-    is_private: bool,
-    vk_hash: Field,
-    acir_hash: Field,
-    function_leaf_index: Field,
-    function_leaf_sibling_path: [Field; FUNCTION_TREE_HEIGHT]
-) -> Field {
-    let function_leaf_preimage = FunctionLeafPreimage { selector, is_internal, is_private, vk_hash, acir_hash };
-
-    let function_leaf = function_leaf_preimage.hash();
-
-    let function_tree_root = root_from_sibling_path(function_leaf, function_leaf_index, function_leaf_sibling_path);
-
-    function_tree_root
-}
-
 pub fn private_functions_root_from_siblings(
     selector: FunctionSelector,
     vk_hash: Field,
@@ -148,7 +91,7 @@ pub fn silo_nullifier(address: AztecAddress, nullifier: Field) -> Field {
     )
 }
 
-fn merkle_hash(left: Field, right: Field) -> Field {
+pub fn merkle_hash(left: Field, right: Field) -> Field {
     pedersen_hash([left, right], 0)
 }
 
@@ -158,11 +101,6 @@ pub fn stdlib_recursion_verification_key_compress_native_vk(_vk: VerificationKey
     // The above cpp method is only ever called on verification key, so it has been special cased here
     let _hash_index = GENERATOR_INDEX__VK;
     0
-}
-
-// TODO CPP uses blake2s for this
-pub fn compute_new_contract_address_hash(new_contract_address: AztecAddress) -> Field {
-    dep::std::hash::pedersen_hash([new_contract_address.to_field()])
 }
 
 pub fn compute_l2_to_l1_hash(
@@ -185,23 +123,6 @@ pub fn compute_l2_to_l1_hash(
     }
 
     sha256_to_field(bytes.storage)
-}
-
-pub fn compute_constructor_hash(
-    function_data: FunctionData,
-    args_hash: Field,
-    constructor_vk_hash: Field
-) -> Field {
-    let function_data_hash = function_data.hash();
-
-    pedersen_hash(
-        [
-        function_data_hash,
-        args_hash,
-        constructor_vk_hash
-    ],
-        GENERATOR_INDEX__CONSTRUCTOR
-    )
 }
 
 // Computes sha256 hash of 2 input hashes stored in 4 fields.

@@ -25,9 +25,9 @@
 #include <type_traits>
 #include <vector>
 
+#include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 
 namespace bb {
 
@@ -49,6 +49,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
   public:
     using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
     using Curve = stdlib::bn254<CircuitBuilder>;
+    using PCS = KZG<Curve>;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::Element;
     using FF = typename Curve::ScalarField;

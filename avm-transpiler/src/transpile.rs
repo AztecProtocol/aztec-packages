@@ -35,13 +35,20 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                     BinaryFieldOp::Add => AvmOpcode::ADD,
                     BinaryFieldOp::Sub => AvmOpcode::SUB,
                     BinaryFieldOp::Mul => AvmOpcode::MUL,
-                    BinaryFieldOp::Div => AvmOpcode::DIV,
+                    BinaryFieldOp::Div => AvmOpcode::FDIV,
+                    BinaryFieldOp::IntegerDiv => AvmOpcode::DIV,
                     BinaryFieldOp::Equals => AvmOpcode::EQ,
+                    BinaryFieldOp::LessThan => AvmOpcode::LT,
+                    BinaryFieldOp::LessThanEquals => AvmOpcode::LTE,
                 };
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
                     indirect: Some(ALL_DIRECT),
-                    tag: Some(AvmTypeTag::FIELD),
+                    tag: if avm_opcode == AvmOpcode::FDIV {
+                        None
+                    } else {
+                        Some(AvmTypeTag::FIELD)
+                    },
                     operands: vec![
                         AvmOperand::U32 {
                             value: lhs.to_usize() as u32,
@@ -54,6 +61,10 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                         },
                     ],
                 });
+                // Brillig currently expects comparison instructions to return an u1 (for us, an u8).
+                if avm_opcode == AvmOpcode::EQ {
+                    avm_instrs.push(generate_cast_instruction(destination.to_usize() as u32, destination.to_usize() as u32, AvmTypeTag::UINT8));
+                }
             }
             BrilligOpcode::BinaryIntOp {
                 destination,
@@ -62,7 +73,7 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                 lhs,
                 rhs,
             } => {
-                assert!(is_integral_bit_size(*bit_size), "BinaryIntOp::{:?} bit_size must be integral, got {:?}", op, bit_size);
+                assert!(is_integral_bit_size(*bit_size), "BinaryIntOp bit size should be integral: {:?}", brillig_instr);
                 let avm_opcode = match op {
                     BinaryIntOp::Add => AvmOpcode::ADD,
                     BinaryIntOp::Sub => AvmOpcode::SUB,
@@ -77,8 +88,7 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                     BinaryIntOp::Shl => AvmOpcode::SHL,
                     BinaryIntOp::Shr => AvmOpcode::SHR,
                     _ => panic!(
-                        "Transpiler doesn't know how to process BinaryIntOp {:?}",
-                        brillig_instr
+                        "Transpiler doesn't know how to process {:?}", brillig_instr
                     ),
                 };
                 avm_instrs.push(AvmInstruction {
@@ -97,6 +107,10 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                         },
                     ],
                 });
+                // Brillig currently expects comparison instructions to return an u1 (for us, an u8).
+                if avm_opcode == AvmOpcode::EQ || avm_opcode == AvmOpcode::LT || avm_opcode == AvmOpcode::LTE {
+                    avm_instrs.push(generate_cast_instruction(destination.to_usize() as u32, destination.to_usize() as u32, AvmTypeTag::UINT8));
+                }
             }
             BrilligOpcode::CalldataCopy { destination_address, size, offset } => {
                 avm_instrs.push(AvmInstruction {
@@ -783,14 +797,10 @@ fn handle_const(
     if !matches!(tag, AvmTypeTag::FIELD) {
         avm_instrs.push(generate_set_instruction(tag, dest, value.to_u128()));
     } else {
-        // Handling fields is a bit more complex since we cannot fit a field in a single instruction.
-        // We need to split the field into 128-bit chunks and set them individually.
+        // We can't fit a field in an instruction. This should've been handled in Brillig.
         let field = value.to_field();
         if !field.fits_in_u128() {
-            // If the field doesn't fit in 128 bits, we need scratch space. That's not trivial.
-            // Will this ever happen? ACIR supports up to 126 bit fields.
-            // However, it might be needed _inside_ the unconstrained function.
-            panic!("SET: Field value doesn't fit in 128 bits, that's not supported yet!");
+            panic!("SET: Field value doesn't fit in 128 bits, that's not supported!");
         }
         avm_instrs.extend([
             generate_set_instruction(AvmTypeTag::UINT128, dest, field.to_u128()),
@@ -988,6 +998,15 @@ fn map_brillig_pcs_to_avm_pcs(initial_offset: usize, brillig: &Brillig) -> Vec<u
     for i in 0..brillig.bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig.bytecode[i] {
             BrilligOpcode::Const { bit_size: 254, .. } => 2,
+            // Brillig currently expects comparison instructions to return an u1 (for us, an u8).
+            BrilligOpcode::BinaryIntOp {
+                op: BinaryIntOp::Equals | BinaryIntOp::LessThan | BinaryIntOp::LessThanEquals,
+                ..
+            } => 2,
+            BrilligOpcode::BinaryFieldOp {
+                op: BinaryFieldOp::Equals,
+                ..
+            } => 2,
             _ => 1,
         };
         // next Brillig pc will map to an AVM pc offset by the

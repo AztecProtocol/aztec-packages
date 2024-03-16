@@ -1,29 +1,90 @@
+use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
+
+struct Note {
+    a: Field,
+    b: Field,
+}
+
+impl Serialize<2> for Note {
+    fn serialize(self) -> [Field; 2] {
+        [self.a, self.b]
+    }
+}
+
+impl Deserialize<2> for Note {
+    fn deserialize(wire: [Field; 2]) -> Note {
+        Note {a: wire[0], b: wire[1]}
+    }
+}
+
 contract AvmTest {
+    use crate::Note;
+    
+    global big_field_128_bits: Field = 0x001234567890abcdef1234567890abcdef;
+    global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
+
     // Libs
+    use dep::aztec::prelude::Map;
     use dep::aztec::state_vars::PublicMutable;
     use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
+    use dep::aztec::protocol_types::{hash::pedersen_hash, traits::{ToField}};
     use dep::compressed_string::CompressedString;
 
     // avm lib
     use dep::aztec::avm::hash::{keccak256, poseidon, sha256};
 
-    #[aztec(private)]
-    fn constructor() {}
-
     struct Storage {
-        owner: PublicMutable<AztecAddress>
+        single: PublicMutable<Field>,
+        list: PublicMutable<Note>,
+        map: Map<AztecAddress, PublicMutable<u32>>,
     }
 
     #[aztec(public-vm)]
-    fn setAdmin() {
-        storage.owner.write(context.sender());
+    fn setStorageSingle(a: Field) {
+        storage.single.write(a);
     }
 
     #[aztec(public-vm)]
-    fn setAndRead() -> pub AztecAddress {
-        storage.owner.write(context.sender());
-        storage.owner.read()
+    fn readStorageSingle() -> pub Field {
+        storage.single.read()
+    }
+
+    #[aztec(public-vm)]
+    fn setReadStorageSingle(a: Field) -> pub Field {
+        storage.single.write(a);
+        storage.single.read()
+    }
+
+    #[aztec(public-vm)]
+    fn setStorageList(a: Field, b: Field) {
+        storage.list.write(Note { a, b });
+    }
+
+    #[aztec(public-vm)]
+    fn readStorageList() -> pub [Field; 2] {
+        let note: Note = storage.list.read();
+        note.serialize()
+    }
+
+    #[aztec(public-vm)]
+    fn setStorageMap(to: AztecAddress, amount: u32) -> pub Field {
+        storage.map.at(to).write(amount);
+        // returns storage slot for key
+        pedersen_hash([storage.map.storage_slot, to.to_field()], 0)
+    }
+
+    #[aztec(public-vm)]
+    fn addStorageMap(to: AztecAddress, amount: u32) -> pub Field {
+        let new_balance = storage.map.at(to).read().add(amount);
+        storage.map.at(to).write(new_balance);
+        // returns storage slot for key
+        pedersen_hash([storage.map.storage_slot, to.to_field()], 0)
+    }
+
+    #[aztec(public-vm)]
+    fn readStorageMap(address: AztecAddress) -> pub u32 {
+        storage.map.at(address).read()
     }
 
     #[aztec(public-vm)]
@@ -36,12 +97,6 @@ contract AvmTest {
         8 as u8
     }
 
-    // Bit size 16 in Noir is deprecated.
-    // #[aztec(public-vm)]
-    // fn setOpcodeUint16() -> pub u16 {
-    //     60000 as u16
-    // }
-
     #[aztec(public-vm)]
     fn setOpcodeUint32() -> pub u32 {
         1 << 30 as u32
@@ -52,18 +107,19 @@ contract AvmTest {
         1 << 60 as u64
     }
 
-    // Can't return this since it doesn't fit in a Noir field.
-    // #[aztec(public-vm)]
-    // fn setOpcodeUint128() -> pub u128 {
-    //     1 << 120 as u128
-    // }
-
-    // Field should fit in 128 bits
-    // ACIR only supports fields of up to 126 bits!
-    // Same with internal fields for unconstrained functions, apprently.
     #[aztec(public-vm)]
     fn setOpcodeSmallField() -> pub Field {
-        200 as Field
+        big_field_128_bits
+    }
+
+    #[aztec(public-vm)]
+    fn setOpcodeBigField() -> pub Field {
+        big_field_136_bits
+    }
+
+    #[aztec(public-vm)]
+    fn addU128(a: U128, b: U128) -> pub U128 {
+        a + b
     }
 
     // /************************************************************************

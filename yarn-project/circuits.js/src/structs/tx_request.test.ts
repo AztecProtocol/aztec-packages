@@ -1,7 +1,8 @@
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { updateInlineTestData } from '@aztec/foundation/testing';
+import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
 
 import { TX_REQUEST_LENGTH } from '../constants.gen.js';
 import { makeTxRequest } from '../tests/factories.js';
@@ -13,8 +14,8 @@ describe('TxRequest', () => {
   let request: TxRequest;
 
   beforeAll(() => {
-    const randomInt = Math.floor(Math.random() * 1000);
-    request = makeTxRequest(randomInt);
+    setupCustomSnapshotSerializers(expect);
+    request = makeTxRequest(randomInt(1000));
   });
 
   it(`serializes to buffer and deserializes it back`, () => {
@@ -32,7 +33,7 @@ describe('TxRequest', () => {
   it('compute hash', () => {
     const txRequest = TxRequest.from({
       origin: AztecAddress.fromBigInt(1n),
-      functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), false, true, true),
+      functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), true),
       argsHash: new Fr(3),
       txContext: new TxContext(false, false, Fr.ZERO, Fr.ZERO),
     });
