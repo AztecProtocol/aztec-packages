@@ -175,9 +175,7 @@ export const uniswapL1L2TestSuite = (
 
       // Wait for the archiver to process the message
       await sleep(5000);
-
-      // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
-      await wethCrossChainHarness.mintTokensPublicOnL2(0n);
+      await wethCrossChainHarness.advanceBy2Blocks();
 
       // 2. Claim WETH on L2
       logger('Minting weth on L2');
@@ -266,8 +264,7 @@ export const uniswapL1L2TestSuite = (
 
       // Wait for the archiver to process the message
       await sleep(5000);
-      // send a transfer tx to force through rollup with the message included
-      await wethCrossChainHarness.mintTokensPublicOnL2(0n);
+      await wethCrossChainHarness.advanceBy2Blocks();
 
       // 6. claim dai on L2
       logger('Consuming messages to mint dai on L2');
@@ -308,9 +305,7 @@ export const uniswapL1L2TestSuite = (
 
       // Wait for the archiver to process the message
       await sleep(5000);
-
-      // Perform an unrelated transaction on L2 to progress the rollup. Here we transfer 0 tokens
-      await wethCrossChainHarness.mintTokensPublicOnL2(0n);
+      await wethCrossChainHarness.advanceBy2Blocks();
 
       // 2. Claim WETH on L2
       logger('Minting weth on L2');
@@ -397,8 +392,7 @@ export const uniswapL1L2TestSuite = (
 
       // Wait for the archiver to process the message
       await sleep(5000);
-      // send a transfer tx to force through rollup with the message included
-      await wethCrossChainHarness.mintTokensPublicOnL2(0n);
+      await wethCrossChainHarness.advanceBy2Blocks();
 
       // 6. claim dai on L2
       logger('Consuming messages to mint dai on L2');

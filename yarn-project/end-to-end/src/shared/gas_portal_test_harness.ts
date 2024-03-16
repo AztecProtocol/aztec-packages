@@ -292,8 +292,8 @@ class GasBridgingTestHarness implements IGasBridgingTestHarness {
 
     // Wait for the archiver to process the message
     await sleep(2500);
-
-    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
+    // Perform an unrelated transactions on L2 to progress the rollup by 2 blocks.
+    await this.l2Token.methods.check_balance(0).send().wait();
     await this.l2Token.methods.check_balance(0).send().wait();
 
     // 3. Consume L1-> L2 message and mint public tokens on L2
