@@ -1,5 +1,10 @@
 import { NewInboxLeaf } from '@aztec/circuit-types';
-import { Fr, INITIAL_L2_BLOCK_NUM, L1_TO_L2_MSG_SUBTREE_HEIGHT, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import {
+  Fr,
+  INITIAL_L2_BLOCK_NUM,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+} from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap, AztecSingleton } from '@aztec/kv-store';
 
@@ -51,7 +56,9 @@ export class MessageStore {
         const key = `${message.blockNumber}-${message.index}`;
         void this.#l1ToL2Messages.setIfNotExists(key, message.leaf.toBuffer());
 
-        const indexInTheWholeTree = (message.blockNumber - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) + message.index;
+        const indexInTheWholeTree =
+          (message.blockNumber - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) +
+          message.index;
         void this.#l1ToL2MessageIndices.setIfNotExists(message.leaf.toString(), indexInTheWholeTree);
       }
 

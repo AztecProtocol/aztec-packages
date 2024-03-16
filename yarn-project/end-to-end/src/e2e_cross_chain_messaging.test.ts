@@ -84,10 +84,7 @@ describe('e2e_cross_chain_messaging', () => {
     // Wait for the archiver to process the message
     await delay(5000); /// waiting 5 seconds.
 
-    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
-    const unrelatedMintAmount = 99n;
-    await crossChainTestHarness.mintTokensPublicOnL2(unrelatedMintAmount);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
+    await advanceBy2Blocks();
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintSecretly(
@@ -148,10 +145,7 @@ describe('e2e_cross_chain_messaging', () => {
     // Wait for the archiver to process the message
     await delay(5000); /// waiting 5 seconds.
 
-    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
-    const unrelatedMintAmount = 99n;
-    await crossChainTestHarness.mintTokensPublicOnL2(unrelatedMintAmount);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
+    await advanceBy2Blocks();
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
     const content = Fr.fromBufferReduce(
@@ -255,4 +249,15 @@ describe('e2e_cross_chain_messaging', () => {
         .simulate(),
     ).rejects.toThrow(`Message ${wrongMessage.hash().toString()} not found`);
   }, 120_000);
+
+  // We perform 2 unrelated transactions on L2 to progress the rollup.
+  // We need to progress by 2 because there is a 1 block lag between when the message is sent to Inbox and when
+  // it's included in an L2 block.
+  const advanceBy2Blocks = async () => {
+    const unrelatedMintAmount = 99n;
+    await crossChainTestHarness.mintTokensPublicOnL2(unrelatedMintAmount);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
+    await crossChainTestHarness.mintTokensPublicOnL2(unrelatedMintAmount);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount * 2n);
+  };
 });
