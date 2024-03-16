@@ -205,7 +205,7 @@ export class Sequencer {
       // Get l1 to l2 messages from the contract
       this.log('Requesting L1 to L2 messages from contract');
       const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(newBlockNumber));
-      this.log('Successfully retrieved L1 to L2 messages from contract');
+      this.log(`Retrieved ${l1ToL2Messages.length} L1 to L2 messages for block ${newBlockNumber}`);
 
       // Build the new block by running the rollup circuits
       this.log(`Assembling block with txs ${processedValidTxs.map(tx => tx.hash).join(', ')}`);
@@ -328,7 +328,7 @@ export class Sequencer {
     const emptyTxCount = txsTargetSize - txs.length;
 
     const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
-    this.log(`Building block ${globalVariables.blockNumber}`);
+    this.log(`Building block ${globalVariables.blockNumber.toBigInt()}`);
 
     const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, l1ToL2Messages);
     return block;

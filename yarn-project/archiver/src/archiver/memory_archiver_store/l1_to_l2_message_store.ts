@@ -1,5 +1,5 @@
 import { NewInboxLeaf } from '@aztec/circuit-types';
-import { L1_TO_L2_MSG_SUBTREE_HEIGHT, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js/constants';
+import { INITIAL_L2_BLOCK_NUM, L1_TO_L2_MSG_SUBTREE_HEIGHT, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js/constants';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -55,7 +55,7 @@ export class L1ToL2MessageStore {
       if (message.equals(l1ToL2Message)) {
         const [blockNumber, messageIndex] = key.split('-');
         const indexInTheWholeTree =
-          BigInt(blockNumber) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) + BigInt(messageIndex);
+          (BigInt(blockNumber) - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) + BigInt(messageIndex);
         return indexInTheWholeTree;
       }
     }
