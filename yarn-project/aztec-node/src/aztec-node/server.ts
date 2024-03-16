@@ -2,9 +2,7 @@ import { ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } fr
 import {
   AztecNode,
   BlockNumber,
-  ContractData,
   ContractDataSource,
-  ExtendedContractData,
   GetUnencryptedLogsResponse,
   L1ToL2MessageSource,
   L2Block,
@@ -55,7 +53,7 @@ import {
   getGlobalVariableBuilder,
   partitionReverts,
 } from '@aztec/sequencer-client';
-import { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,
