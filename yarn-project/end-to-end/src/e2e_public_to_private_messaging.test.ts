@@ -52,26 +52,22 @@ describe('e2e_public_to_private_messaging', () => {
 
     // Wait for the archiver to process the message
     await sleep(5000); /// waiting 5 seconds.
-
-    // Perform another unrelated transaction on L2 to progress the rollup.
-    const initialBalance = 1n;
-    await crossChainTestHarness.mintTokensPublicOnL2(initialBalance);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, initialBalance);
+    await crossChainTestHarness.advanceBy2Blocks();
 
     await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, secret);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, initialBalance + bridgeAmount);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
 
     // Create the commitment to be spent in the private domain
     await crossChainTestHarness.shieldFundsOnL2(shieldAmount, secretHash);
 
     // Create the transaction spending the commitment
     await crossChainTestHarness.redeemShieldPrivatelyOnL2(shieldAmount, secret);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, initialBalance + bridgeAmount - shieldAmount);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount - shieldAmount);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, shieldAmount);
 
     // Unshield the tokens again, sending them to the same account, however this can be any account.
     await crossChainTestHarness.unshieldTokensOnL2(shieldAmount);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, initialBalance + bridgeAmount);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, 0n);
   }, 200_000);
 });
