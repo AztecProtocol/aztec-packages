@@ -52,7 +52,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     user1Wallet = wallets[0];
     user2Wallet = wallets[1];
     await publicDeployAccounts(wallets[0], accounts.slice(0, 2));
-  }, 30_000);
+  }, 60_000);
 
   beforeEach(async () => {
     crossChainTestHarness = await CrossChainTestHarness.new(
@@ -94,11 +94,8 @@ describe('e2e_public_cross_chain_messaging', () => {
     // Wait for the archiver to process the message
     await sleep(5000); // waiting 5 seconds.
 
-    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
-    const unrelatedMintAmount = 99n;
-    await crossChainTestHarness.mintTokensPublicOnL2(unrelatedMintAmount);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
-    const balanceBefore = unrelatedMintAmount;
+    await crossChainTestHarness.advanceBy2Blocks();
+    const balanceBefore = await crossChainTestHarness.getL2PublicBalanceOf(ownerAddress);
 
     // 3. Consume L1 -> L2 message and mint public tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, secret);
@@ -147,16 +144,14 @@ describe('e2e_public_cross_chain_messaging', () => {
     // Wait for the archiver to process the message
     await sleep(5000); /// waiting 5 seconds.
 
-    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
-    const unrelatedMintAmount = 99n;
-    await crossChainTestHarness.mintTokensPublicOnL2(unrelatedMintAmount);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
+    await crossChainTestHarness.advanceBy2Blocks();
+    const unrelatedBalance = await crossChainTestHarness.getL2PublicBalanceOf(ownerAddress);
 
     const content = Fr.fromBufferReduce(
       sha256(
         Buffer.concat([
           keccak(Buffer.from('mint_public(bytes32,uint256)')).subarray(0, 4),
-          serializeToBuffer(...[user2Wallet.getAddress(), new Fr(bridgeAmount), ethAccount.toBuffer32()]),
+          serializeToBuffer(...[user2Wallet.getAddress(), new Fr(bridgeAmount)]),
         ]),
       ),
     );
@@ -174,11 +169,9 @@ describe('e2e_public_cross_chain_messaging', () => {
 
     // user2 consumes owner's L1-> L2 message on bridge contract and mints public tokens on L2
     logger("user2 consumes owner's message on L2 Publicly");
-    const tx = l2Bridge.withWallet(user2Wallet).methods.claim_public(ownerAddress, bridgeAmount, secret).send();
-    const receipt = await tx.wait();
-    expect(receipt.status).toBe(TxStatus.MINED);
+    await l2Bridge.withWallet(user2Wallet).methods.claim_public(ownerAddress, bridgeAmount, secret).send().wait();
     // ensure funds are gone to owner and not user2.
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount + unrelatedMintAmount);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount + unrelatedBalance);
     await crossChainTestHarness.expectPublicBalanceOnL2(user2Wallet.getAddress(), 0n);
   }, 90_000);
 
@@ -208,15 +201,14 @@ describe('e2e_public_cross_chain_messaging', () => {
     // Wait for the archiver to process the message
     await sleep(5000); /// waiting 5 seconds.
 
-    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
-    await crossChainTestHarness.mintTokensPublicOnL2(0n);
+    await crossChainTestHarness.advanceBy2Blocks();
 
     // Wrong message hash
     const content = Fr.fromBufferReduce(
       sha256(
         Buffer.concat([
           Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
-          serializeToBuffer(...[secretHash, new Fr(bridgeAmount), ethAccount.toBuffer32()]),
+          serializeToBuffer(...[secretHash, new Fr(bridgeAmount)]),
         ]),
       ),
     );

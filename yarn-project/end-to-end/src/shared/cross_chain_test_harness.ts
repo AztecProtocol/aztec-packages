@@ -418,5 +418,16 @@ export class CrossChainTestHarness {
       .unshield(this.ownerAddress, this.ownerAddress, unshieldAmount, nonce)
       .send().wait();
   }
+
+    // We perform 2 unrelated transactions on L2 to progress the rollup.
+  // We need to progress by 2 because there is a 1 block lag between when the message is sent to Inbox and when
+  // it's included in an L2 block.
+  async advanceBy2Blocks() {
+    const unrelatedMintAmount = 99n;
+    await this.mintTokensPublicOnL2(unrelatedMintAmount);
+    await this.expectPublicBalanceOnL2(this.ownerAddress, unrelatedMintAmount);
+    await this.mintTokensPublicOnL2(unrelatedMintAmount);
+    await this.expectPublicBalanceOnL2(this.ownerAddress, unrelatedMintAmount * 2n);
+  };
 }
 // docs:end:cross_chain_test_harness
