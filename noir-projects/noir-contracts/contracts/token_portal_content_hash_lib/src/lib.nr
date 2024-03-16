@@ -42,10 +42,10 @@ pub fn get_mint_private_content_hash(
     }
 
     // Function selector: 0xefa012c1 keccak256('mint_private(bytes32,uint256)')
-    hash_bytes[0] = 0xf5;
-    hash_bytes[1] = 0x12;
-    hash_bytes[2] = 0x26;
-    hash_bytes[3] = 0x2e;
+    hash_bytes[0] = 0xef;
+    hash_bytes[1] = 0xa0;
+    hash_bytes[2] = 0x12;
+    hash_bytes[3] = 0xc1;
 
     let content_hash = sha256_to_field(hash_bytes);
     content_hash

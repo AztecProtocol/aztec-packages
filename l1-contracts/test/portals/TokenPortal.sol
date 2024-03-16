@@ -17,12 +17,12 @@ contract TokenPortal {
 
   IRegistry public registry;
   IERC20 public underlying;
-  bytes32 public l2TokenAddress;
+  bytes32 public l2Bridge;
 
-  function initialize(address _registry, address _underlying, bytes32 _l2TokenAddress) external {
+  function initialize(address _registry, address _underlying, bytes32 _l2Bridge) external {
     registry = IRegistry(_registry);
     underlying = IERC20(_underlying);
-    l2TokenAddress = _l2TokenAddress;
+    l2Bridge = _l2Bridge;
   }
   // docs:end:init
 
@@ -41,7 +41,7 @@ contract TokenPortal {
   {
     // Preamble
     IInbox inbox = registry.getInbox();
-    DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
+    DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes32 contentHash =
@@ -70,7 +70,7 @@ contract TokenPortal {
   ) external payable returns (bytes32) {
     // Preamble
     IInbox inbox = registry.getInbox();
-    DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
+    DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes32 contentHash = Hash.sha256ToField(
@@ -102,7 +102,7 @@ contract TokenPortal {
     returns (bytes32)
   {
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor(l2TokenAddress, 1),
+      sender: DataStructures.L2Actor(l2Bridge, 1),
       recipient: DataStructures.L1Actor(address(this), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(

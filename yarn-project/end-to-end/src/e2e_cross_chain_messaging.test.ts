@@ -153,12 +153,12 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensPublicOnL2(unrelatedMintAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
 
-    // 3. Consume L1-> L2 message and mint private tokens on L2
+    // 3. Consume L1 -> L2 message and mint private tokens on L2
     const content = Fr.fromBufferReduce(
       sha256(
         Buffer.concat([
           Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
-          serializeToBuffer(...[secretHashForL2MessageConsumption, new Fr(bridgeAmount), ethAccount.toBuffer32()]),
+          serializeToBuffer(...[secretHashForL2MessageConsumption, new Fr(bridgeAmount)]),
         ]),
       ),
     );
