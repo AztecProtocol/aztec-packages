@@ -25,11 +25,11 @@ pub fn compute_swap_public_content_hash(
     let secret_hash_for_L1_to_l2_message_bytes = secret_hash_for_L1_to_l2_message.to_be_bytes(32);
     let caller_on_L1_bytes = caller_on_L1.to_field().to_be_bytes(32);
 
-    // function selector: 0xf3068cac keccak256("swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address,address)")
-    hash_bytes[0] = 0xf3;
-    hash_bytes[1] = 0x06;
-    hash_bytes[2] = 0x8c;
-    hash_bytes[3] = 0xac;
+    // function selector: 0xf18186d8 keccak256("swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)")
+    hash_bytes[0] = 0xf1;
+    hash_bytes[1] = 0x81;
+    hash_bytes[2] = 0x86;
+    hash_bytes[3] = 0xd8;
 
     for i in 0..32 {
         hash_bytes[i + 4] = input_token_portal_bytes[i];
@@ -60,7 +60,7 @@ pub fn compute_swap_private_content_hash(
     secret_hash_for_L1_to_l2_message: Field,
     caller_on_L1: EthAddress
 ) -> Field {
-    let mut hash_bytes = [0; 260]; // 9 fields of 32 bytes each + 4 bytes fn selector
+    let mut hash_bytes = [0; 260]; // 8 fields of 32 bytes each + 4 bytes fn selector
 
     let input_token_portal_bytes = input_asset_bridge_portal_address.to_field().to_be_bytes(32);
     let in_amount_bytes = input_amount.to_be_bytes(32);
@@ -71,11 +71,11 @@ pub fn compute_swap_private_content_hash(
     let secret_hash_for_L1_to_l2_message_bytes = secret_hash_for_L1_to_l2_message.to_be_bytes(32);
     let caller_on_L1_bytes = caller_on_L1.to_field().to_be_bytes(32);
 
-    // function selector: 0xbd87d14b keccak256("swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address,address)")
-    hash_bytes[0] = 0xbd;
-    hash_bytes[1] = 0x87;
-    hash_bytes[2] = 0xd1;
-    hash_bytes[3] = 0x4b;
+    // function selector: 0x16f416eb keccak256("swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address)")
+    hash_bytes[0] = 0x16;
+    hash_bytes[1] = 0xf4;
+    hash_bytes[2] = 0x16;
+    hash_bytes[3] = 0xeb;
 
     for i in 0..32 {
         hash_bytes[i + 4] = input_token_portal_bytes[i];

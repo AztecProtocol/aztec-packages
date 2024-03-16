@@ -83,7 +83,6 @@ describe('e2e_cross_chain_messaging', () => {
 
     // Wait for the archiver to process the message
     await delay(5000); /// waiting 5 seconds.
-
     await crossChainTestHarness.advanceBy2Blocks();
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
@@ -144,7 +143,6 @@ describe('e2e_cross_chain_messaging', () => {
 
     // Wait for the archiver to process the message
     await delay(5000); /// waiting 5 seconds.
-
     await crossChainTestHarness.advanceBy2Blocks();
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
@@ -222,9 +220,7 @@ describe('e2e_cross_chain_messaging', () => {
 
     // Wait for the archiver to process the message
     await delay(5000); /// waiting 5 seconds.
-
-    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
-    await crossChainTestHarness.mintTokensPublicOnL2(0n);
+    await crossChainTestHarness.advanceBy2Blocks();
 
     const content = Fr.fromBufferReduce(
       sha256(

@@ -11,7 +11,7 @@ contract GasToken {
     }
 
     #[aztec(public)]
-    fn claim_public(to: AztecAddress, amount: Field, canceller: EthAddress, secret: Field) {
+    fn claim_public(to: AztecAddress, amount: Field, secret: Field) {
         let content_hash = get_bridge_gas_msg_hash(to, amount);
 
         // Consume message and emit nullifier

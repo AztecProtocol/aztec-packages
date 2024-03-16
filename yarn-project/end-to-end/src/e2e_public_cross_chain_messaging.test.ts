@@ -10,7 +10,6 @@ import {
   L1ToL2Message,
   L2Actor,
   PXE,
-  TxStatus,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
   sleep,
@@ -52,7 +51,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     user1Wallet = wallets[0];
     user2Wallet = wallets[1];
     await publicDeployAccounts(wallets[0], accounts.slice(0, 2));
-  }, 60_000);
+  }, 30_000);
 
   beforeEach(async () => {
     crossChainTestHarness = await CrossChainTestHarness.new(
@@ -93,14 +92,12 @@ describe('e2e_public_cross_chain_messaging', () => {
 
     // Wait for the archiver to process the message
     await sleep(5000); // waiting 5 seconds.
-
     await crossChainTestHarness.advanceBy2Blocks();
-    const balanceBefore = await crossChainTestHarness.getL2PublicBalanceOf(ownerAddress);
 
     // 3. Consume L1 -> L2 message and mint public tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, secret);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, balanceBefore + bridgeAmount);
-    const afterBalance = balanceBefore + bridgeAmount;
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
+    const afterBalance = bridgeAmount;
 
     // time to withdraw the funds again!
     logger('Withdrawing funds from L2');
@@ -143,9 +140,7 @@ describe('e2e_public_cross_chain_messaging', () => {
 
     // Wait for the archiver to process the message
     await sleep(5000); /// waiting 5 seconds.
-
     await crossChainTestHarness.advanceBy2Blocks();
-    const unrelatedBalance = await crossChainTestHarness.getL2PublicBalanceOf(ownerAddress);
 
     const content = Fr.fromBufferReduce(
       sha256(
@@ -171,7 +166,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     logger("user2 consumes owner's message on L2 Publicly");
     await l2Bridge.withWallet(user2Wallet).methods.claim_public(ownerAddress, bridgeAmount, secret).send().wait();
     // ensure funds are gone to owner and not user2.
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount + unrelatedBalance);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(user2Wallet.getAddress(), 0n);
   }, 90_000);
 
@@ -200,7 +195,6 @@ describe('e2e_public_cross_chain_messaging', () => {
 
     // Wait for the archiver to process the message
     await sleep(5000); /// waiting 5 seconds.
-
     await crossChainTestHarness.advanceBy2Blocks();
 
     // Wrong message hash

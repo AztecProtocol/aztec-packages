@@ -283,9 +283,7 @@ export class CrossChainTestHarness {
 
   async performL2Transfer(transferAmount: bigint, receiverAddress: AztecAddress) {
     // send a transfer tx to force through rollup with the message included
-    await this.l2Token.methods
-      .transfer_public(this.ownerAddress, receiverAddress, transferAmount, 0)
-      .send().wait();
+    await this.l2Token.methods.transfer_public(this.ownerAddress, receiverAddress, transferAmount, 0).send().wait();
   }
 
   async consumeMessageOnAztecAndMintSecretly(
@@ -297,7 +295,8 @@ export class CrossChainTestHarness {
     // Call the mint tokens function on the Aztec.nr contract
     const consumptionReceipt = await this.l2Bridge.methods
       .claim_private(secretHashForRedeemingMintedNotes, bridgeAmount, secretForL2MessageConsumption)
-      .send().wait();
+      .send()
+      .wait();
 
     await this.addPendingShieldNoteToPXE(bridgeAmount, secretHashForRedeemingMintedNotes, consumptionReceipt.txHash);
   }
@@ -311,13 +310,15 @@ export class CrossChainTestHarness {
   async withdrawPrivateFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO) {
     await this.l2Bridge.methods
       .exit_to_l1_private(this.l2Token.address, this.ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-      .send().wait();
+      .send()
+      .wait();
   }
 
   async withdrawPublicFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO) {
     await this.l2Bridge.methods
       .exit_to_l1_public(this.ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-      .send().wait()
+      .send()
+      .wait();
   }
 
   async getL2PrivateBalanceOf(owner: AztecAddress) {
@@ -386,7 +387,10 @@ export class CrossChainTestHarness {
 
   async shieldFundsOnL2(shieldAmount: bigint, secretHash: Fr) {
     this.logger('Shielding funds on L2');
-    const shieldReceipt = await this.l2Token.methods.shield(this.ownerAddress, shieldAmount, secretHash, 0).send().wait();
+    const shieldReceipt = await this.l2Token.methods
+      .shield(this.ownerAddress, shieldAmount, secretHash, 0)
+      .send()
+      .wait();
 
     await this.addPendingShieldNoteToPXE(shieldAmount, secretHash, shieldReceipt.txHash);
   }
@@ -414,20 +418,15 @@ export class CrossChainTestHarness {
 
   async unshieldTokensOnL2(unshieldAmount: bigint, nonce = Fr.ZERO) {
     this.logger('Unshielding tokens');
-    await this.l2Token.methods
-      .unshield(this.ownerAddress, this.ownerAddress, unshieldAmount, nonce)
-      .send().wait();
+    await this.l2Token.methods.unshield(this.ownerAddress, this.ownerAddress, unshieldAmount, nonce).send().wait();
   }
 
-    // We perform 2 unrelated transactions on L2 to progress the rollup.
+  // We perform 2 unrelated transactions on L2 to progress the rollup.
   // We need to progress by 2 because there is a 1 block lag between when the message is sent to Inbox and when
   // it's included in an L2 block.
   async advanceBy2Blocks() {
-    const unrelatedMintAmount = 99n;
-    await this.mintTokensPublicOnL2(unrelatedMintAmount);
-    await this.expectPublicBalanceOnL2(this.ownerAddress, unrelatedMintAmount);
-    await this.mintTokensPublicOnL2(unrelatedMintAmount);
-    await this.expectPublicBalanceOnL2(this.ownerAddress, unrelatedMintAmount * 2n);
-  };
+    await this.mintTokensPublicOnL2(0n);
+    await this.mintTokensPublicOnL2(0n);
+  }
 }
 // docs:end:cross_chain_test_harness

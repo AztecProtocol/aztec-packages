@@ -37,7 +37,6 @@ contract GasPortal {
   function depositToAztecPublic(
     bytes32 _to,
     uint256 _amount,
-    address _canceller,
     bytes32 _secretHash
   ) external payable returns (bytes32) {
     // Preamble
@@ -46,7 +45,7 @@ contract GasPortal {
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes32 contentHash = Hash.sha256ToField(
-      abi.encodeWithSignature("mint_public(bytes32,uint256)", _to, _amount, _canceller)
+      abi.encodeWithSignature("mint_public(bytes32,uint256)", _to, _amount)
     );
 
     // Hold the tokens in the portal
