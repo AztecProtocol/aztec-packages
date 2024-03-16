@@ -19,7 +19,7 @@ import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-import { ArchiverDataStore } from '../archiver_store.js';
+import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 /**
@@ -348,20 +348,20 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
-  public getBlockNumber(): Promise<number> {
+  public getSynchedL2BlockNumber(): Promise<number> {
     if (this.l2BlockContexts.length === 0) {
       return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
     }
     return Promise.resolve(this.l2BlockContexts[this.l2BlockContexts.length - 1].block.number);
   }
 
-  public getL1BlockNumber() {
-    const addedBlock = this.l2BlockContexts[this.l2BlockContexts.length - 1]?.block?.getL1BlockNumber() ?? 0n;
-    const newMessages = this.lastL1BlockNewMessages;
+  public getSynchedL1BlockNumbers(): Promise<ArchiverL1SynchPoint> {
+    const blocks = this.l2BlockContexts[this.l2BlockContexts.length - 1]?.block?.getL1BlockNumber() ?? 0n;
+    const messages = this.lastL1BlockNewMessages;
 
     return Promise.resolve({
-      addedBlock,
-      newMessages,
+      blocks,
+      messages,
     });
   }
 }

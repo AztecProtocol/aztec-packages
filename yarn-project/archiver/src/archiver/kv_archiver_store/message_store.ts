@@ -9,7 +9,7 @@ import { AztecKVStore, AztecMap, AztecSingleton } from '@aztec/kv-store';
 export class MessageStore {
   #l1ToL2Messages: AztecMap<string, Buffer>;
   #l1ToL2MessageIndices: AztecMap<string, bigint>;
-  #lastL1BlockNewMessages: AztecSingleton<bigint>;
+  #lastL1BlockMessages: AztecSingleton<bigint>;
 
   #log = createDebugLogger('aztec:archiver:message_store');
 
@@ -18,17 +18,15 @@ export class MessageStore {
   constructor(private db: AztecKVStore) {
     this.#l1ToL2Messages = db.openMap('archiver_l1_to_l2_messages');
     this.#l1ToL2MessageIndices = db.openMap('archiver_l1_to_l2_message_indices');
-    this.#lastL1BlockNewMessages = db.openSingleton('archiver_last_l1_block_new_messages');
+    this.#lastL1BlockMessages = db.openSingleton('archiver_last_l1_block_new_messages');
   }
 
   /**
    * Gets the last L1 block number that emitted new messages and the block that cancelled messages.
    * @returns The last L1 block number processed
    */
-  getL1BlockNumber() {
-    return {
-      newMessages: this.#lastL1BlockNewMessages.get() ?? 0n,
-    };
+  getSynchedL1BlockNumber(): bigint {
+    return this.#lastL1BlockMessages.get() ?? 0n;
   }
 
   /**
@@ -39,12 +37,12 @@ export class MessageStore {
    */
   addL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
     return this.db.transaction(() => {
-      const lastL1BlockNumber = this.#lastL1BlockNewMessages.get() ?? 0n;
+      const lastL1BlockNumber = this.#lastL1BlockMessages.get() ?? 0n;
       if (lastL1BlockNumber >= lastMessageL1BlockNumber) {
         return false;
       }
 
-      void this.#lastL1BlockNewMessages.set(lastMessageL1BlockNumber);
+      void this.#lastL1BlockMessages.set(lastMessageL1BlockNumber);
 
       for (const message of messages) {
         if (message.index >= this.#l1ToL2MessagesSubtreeSize) {

@@ -70,20 +70,20 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
     });
 
-    describe('getBlockNumber', () => {
+    describe('getSyncedL2BlockNumber', () => {
       it('returns the block number before INITIAL_L2_BLOCK_NUM if no blocks have been added', async () => {
-        await expect(store.getBlockNumber()).resolves.toEqual(INITIAL_L2_BLOCK_NUM - 1);
+        await expect(store.getSynchedL2BlockNumber()).resolves.toEqual(INITIAL_L2_BLOCK_NUM - 1);
       });
 
       it("returns the most recently added block's number", async () => {
         await store.addBlocks(blocks);
-        await expect(store.getBlockNumber()).resolves.toEqual(blocks.at(-1)!.number);
+        await expect(store.getSynchedL2BlockNumber()).resolves.toEqual(blocks.at(-1)!.number);
       });
     });
 
-    describe('getL1BlockNumber', () => {
+    describe('getSynchedL1BlockNumbers', () => {
       it('returns 0n if no blocks have been added', async () => {
-        await expect(store.getL1BlockNumber()).resolves.toEqual({
+        await expect(store.getSynchedL1BlockNumbers()).resolves.toEqual({
           addedBlock: 0n,
           newMessages: 0n,
         });
@@ -91,7 +91,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
       it('returns the L1 block number in which the most recent L2 block was published', async () => {
         await store.addBlocks(blocks);
-        await expect(store.getL1BlockNumber()).resolves.toEqual({
+        await expect(store.getSynchedL1BlockNumbers()).resolves.toEqual({
           addedBlock: blocks.at(-1)!.getL1BlockNumber(),
           newMessages: 0n,
         });
@@ -99,7 +99,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
       it('returns the L1 block number that most recently added messages from inbox', async () => {
         await store.addL1ToL2Messages([new NewInboxLeaf(0n, 0n, Fr.ZERO)], 1n);
-        await expect(store.getL1BlockNumber()).resolves.toEqual({
+        await expect(store.getSynchedL1BlockNumbers()).resolves.toEqual({
           addedBlock: 0n,
           newMessages: 1n,
         });

@@ -207,19 +207,19 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
-  getBlockNumber(): Promise<number> {
-    return Promise.resolve(this.#blockStore.getBlockNumber());
+  getSynchedL2BlockNumber(): Promise<number> {
+    return Promise.resolve(this.#blockStore.getSynchedL2BlockNumber());
   }
 
   /**
    * Gets the last L1 block number processed by the archiver
    */
-  getL1BlockNumber(): Promise<ArchiverL1SynchPoint> {
-    const addedBlock = this.#blockStore.getL1BlockNumber();
-    const { newMessages } = this.#messageStore.getL1BlockNumber();
+  getSynchedL1BlockNumbers(): Promise<ArchiverL1SynchPoint> {
+    const blocks = this.#blockStore.getSynchedL1BlockNumber();
+    const messages = this.#messageStore.getSynchedL1BlockNumber();
     return Promise.resolve({
-      addedBlock,
-      newMessages,
+      blocks,
+      messages,
     });
   }
 }

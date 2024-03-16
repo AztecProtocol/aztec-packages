@@ -19,10 +19,9 @@ import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/c
  */
 export type ArchiverL1SynchPoint = {
   /** The last L1 block that added a new L2 block.  */
-  addedBlock: bigint;
-  /** The last L1 block that added messages from the inbox. */
-  // TODO(#4492): Clean this up and fix the naming
-  newMessages: bigint;
+  blocks: bigint;
+  /** The last L1 block that added L1 -> L2 messages from the Inbox. */
+  messages: bigint;
 };
 
 /**
@@ -129,12 +128,12 @@ export interface ArchiverDataStore {
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
-  getBlockNumber(): Promise<number>;
+  getSynchedL2BlockNumber(): Promise<number>;
 
   /**
-   * Gets the last L1 block number processed by the archiver
+   * Gets the synch point of the archiver
    */
-  getL1BlockNumber(): Promise<ArchiverL1SynchPoint>;
+  getSynchedL1BlockNumbers(): Promise<ArchiverL1SynchPoint>;
 
   /**
    * Add new contract classes from an L2 block to the store's list.

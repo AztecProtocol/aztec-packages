@@ -147,10 +147,10 @@ export class Archiver implements ArchiveSource {
      *
      * This code does not handle reorgs.
      */
-    const lastL1Blocks = await this.store.getL1BlockNumber();
+    const lastL1Blocks = await this.store.getSynchedL1BlockNumbers();
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
 
-    if (currentL1BlockNumber <= lastL1Blocks.addedBlock && currentL1BlockNumber <= lastL1Blocks.newMessages) {
+    if (currentL1BlockNumber <= lastL1Blocks.blocks && currentL1BlockNumber <= lastL1Blocks.messages) {
       // chain hasn't moved forward
       // or it's been rolled back
       return;
@@ -183,9 +183,18 @@ export class Archiver implements ArchiveSource {
       this.publicClient,
       this.inboxAddress,
       blockUntilSynced,
-      lastL1Blocks.newMessages + 1n,
+      lastL1Blocks.messages + 1n,
       currentL1BlockNumber,
     );
+
+    if (retrievedL1ToL2Messages.retrievedData.length !== 0) {
+      this.log(
+        `Retrieved ${retrievedL1ToL2Messages.retrievedData.length} new L1 -> L2 messages between L1 blocks ${
+          lastL1Blocks.messages + 1n
+        } and ${currentL1BlockNumber}.`,
+      );
+    }
+
     await this.store.addL1ToL2Messages(
       retrievedL1ToL2Messages.retrievedData,
       // -1n because the function expects the last block in which the message was emitted and not the one after next
@@ -194,13 +203,13 @@ export class Archiver implements ArchiveSource {
     );
 
     // Read all data from chain and then write to our stores at the end
-    const nextExpectedL2BlockNum = BigInt((await this.store.getBlockNumber()) + 1);
+    const nextExpectedL2BlockNum = BigInt((await this.store.getSynchedL2BlockNumber()) + 1);
 
     const retrievedBlockBodies = await retrieveBlockBodiesFromAvailabilityOracle(
       this.publicClient,
       this.availabilityOracleAddress,
       blockUntilSynced,
-      lastL1Blocks.addedBlock + 1n,
+      lastL1Blocks.blocks + 1n,
       currentL1BlockNumber,
     );
 
@@ -212,7 +221,7 @@ export class Archiver implements ArchiveSource {
       this.publicClient,
       this.rollupAddress,
       blockUntilSynced,
-      lastL1Blocks.addedBlock + 1n,
+      lastL1Blocks.blocks + 1n,
       currentL1BlockNumber,
       nextExpectedL2BlockNum,
     );
@@ -239,7 +248,7 @@ export class Archiver implements ArchiveSource {
     } else {
       this.log(
         `Retrieved ${retrievedBlocks.retrievedData.length} new L2 blocks between L1 blocks ${
-          lastL1Blocks.addedBlock + 1n
+          lastL1Blocks.blocks + 1n
         } and ${currentL1BlockNumber}.`,
       );
     }
@@ -249,8 +258,6 @@ export class Archiver implements ArchiveSource {
     retrievedBlocks.retrievedData.forEach((block: L2Block) => {
       blockNumberToBodyHash[block.number] = block.header.contentCommitment.txsEffectsHash;
     });
-
-    this.log(`Retrieved ${retrievedBlocks.retrievedData.length} block(s) from chain`);
 
     await Promise.all(
       retrievedBlocks.retrievedData.map(block => {
@@ -340,7 +347,7 @@ export class Archiver implements ArchiveSource {
   public async getBlock(number: number): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
-      number = await this.store.getBlockNumber();
+      number = await this.store.getSynchedL2BlockNumber();
     }
     const blocks = await this.store.getBlocks(number, 1);
     return blocks.length === 0 ? undefined : blocks[0];
@@ -400,7 +407,7 @@ export class Archiver implements ArchiveSource {
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
   public getBlockNumber(): Promise<number> {
-    return this.store.getBlockNumber();
+    return this.store.getSynchedL2BlockNumber();
   }
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
