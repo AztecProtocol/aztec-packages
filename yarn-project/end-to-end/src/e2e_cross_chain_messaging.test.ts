@@ -175,7 +175,7 @@ describe('e2e_cross_chain_messaging', () => {
         .withWallet(user2Wallet)
         .methods.claim_private(secretHashForL2MessageConsumption, bridgeAmount, secretForL2MessageConsumption)
         .simulate(),
-    ).rejects.toThrowError(`Message ${wrongMessage.hash().toString()} not found`);
+    ).rejects.toThrow(`L1 to L2 message index not found in the store for message ${wrongMessage.hash().toString()}`);
 
     // send the right one -
     const consumptionTx = l2Bridge
@@ -211,7 +211,7 @@ describe('e2e_cross_chain_messaging', () => {
         .withWallet(user1Wallet)
         .methods.exit_to_l1_private(l2Token.address, ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
         .simulate(),
-    ).rejects.toThrowError(`Unknown auth witness for message hash ${expectedBurnMessageHash.toString()}`);
+    ).rejects.toThrow(`Unknown auth witness for message hash ${expectedBurnMessageHash.toString()}`);
   }, 120_000);
 
   it("Can't claim funds publicly if they were deposited privately", async () => {
@@ -236,7 +236,7 @@ describe('e2e_cross_chain_messaging', () => {
       sha256(
         Buffer.concat([
           keccak(Buffer.from('mint_public(bytes32,uint256)')).subarray(0, 4),
-          serializeToBuffer(...[ownerAddress, new Fr(bridgeAmount), ethAccount.toBuffer32()]),
+          serializeToBuffer(...[ownerAddress, new Fr(bridgeAmount)]),
         ]),
       ),
     );
@@ -247,12 +247,12 @@ describe('e2e_cross_chain_messaging', () => {
       secretHashForL2MessageConsumption,
     );
 
-    // 3. Consume L1-> L2 message and try to mint publicly on L2  - should fail
+    // 3. Consume L1 -> L2 message and try to mint publicly on L2  - should fail
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_public(ownerAddress, bridgeAmount, secretForL2MessageConsumption)
         .simulate(),
-    ).rejects.toThrowError(`Message ${wrongMessage.hash().toString()} not found`);
+    ).rejects.toThrow(`Message ${wrongMessage.hash().toString()} not found`);
   }, 120_000);
 });
