@@ -89,7 +89,7 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensPublicOnL2(unrelatedMintAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, unrelatedMintAmount);
 
-    // 3. Consume L1-> L2 message and mint private tokens on L2
+    // 3. Consume L1 -> L2 message and mint private tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintSecretly(
       secretHashForRedeemingMintedNotes,
       bridgeAmount,

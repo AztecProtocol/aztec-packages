@@ -49,7 +49,7 @@ contract InboxTest is Test {
     view
     returns (DataStructures.L1ToL2Msg memory)
   {
-    // fix message.sender and deadline to be more than current time:
+    // fix message.sender
     _message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
     // ensure actor fits in a field
     _message.recipient.actor = bytes32(uint256(_message.recipient.actor) % Constants.P);

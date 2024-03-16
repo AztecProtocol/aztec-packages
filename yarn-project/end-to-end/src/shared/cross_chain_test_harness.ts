@@ -300,7 +300,7 @@ export class CrossChainTestHarness {
     bridgeAmount: bigint,
     secretForL2MessageConsumption: Fr,
   ) {
-    this.logger('Consuming messages on L2 secretively');
+    this.logger('Consuming messages on L2 secretly');
     // Call the mint tokens function on the Aztec.nr contract
     const consumptionTx = this.l2Bridge.methods
       .claim_private(secretHashForRedeemingMintedNotes, bridgeAmount, secretForL2MessageConsumption)
