@@ -58,9 +58,9 @@ import { inspect } from 'util';
 
 import { VerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
+import { RollupSimulator } from '../simulator/rollup.js';
 import { BlockBuilder } from './index.js';
 import { TreeNames } from './types.js';
-import { RollupSimulator } from '../simulator/rollup.js';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 

@@ -14,10 +14,7 @@ export interface ProverConfig {
  * @returns The prover configuration.
  */
 export function getConfigEnvVars(): ProverConfig {
-  const {
-    ACVM_WORKING_DIRECTORY,
-    ACVM_BINARY_PATH,
-  } = process.env;
+  const { ACVM_WORKING_DIRECTORY, ACVM_BINARY_PATH } = process.env;
   return {
     acvmWorkingDirectory: ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : undefined,
     acvmBinaryPath: ACVM_BINARY_PATH ? ACVM_BINARY_PATH : undefined,

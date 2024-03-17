@@ -1,7 +1,14 @@
-import { Body, L2Block, MerkleTreeId, Tx, TxEffect, makeEmptyLogs, mockTx ,
+import {
+  Body,
+  L2Block,
+  MerkleTreeId,
   ProcessedTx,
+  Tx,
+  TxEffect,
+  makeEmptyLogs,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
+  mockTx,
   toTxEffect,
 } from '@aztec/circuit-types';
 import {
@@ -52,6 +59,7 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { to2Fields } from '@aztec/foundation/serialize';
 import { openTmpStore } from '@aztec/kv-store/utils';
+import { WASMSimulator } from '@aztec/simulator';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -63,7 +71,6 @@ import { EmptyRollupProver } from '../prover/empty.js';
 import { RollupProver } from '../prover/index.js';
 import { RealRollupCircuitSimulator, RollupSimulator } from '../simulator/rollup.js';
 import { SoloBlockBuilder } from './solo_block_builder.js';
-import { WASMSimulator } from '@aztec/simulator';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 

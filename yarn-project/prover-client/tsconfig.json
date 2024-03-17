@@ -19,10 +19,13 @@
       "path": "../noir-protocol-circuits-types"
     },
     {
+      "path": "../simulator"
+    },
+    {
       "path": "../world-state"
     },
     {
-      "path": "../simulator"
+      "path": "../kv-store"
     }
   ],
   "include": ["src"]

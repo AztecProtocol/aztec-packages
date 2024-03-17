@@ -41,7 +41,6 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { WASMSimulator } from '@aztec/simulator';
 import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -57,6 +56,7 @@ import {
   SequencerClient,
   getGlobalVariableBuilder,
 } from '@aztec/sequencer-client';
+import { WASMSimulator } from '@aztec/simulator';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import {
   MerkleTrees,

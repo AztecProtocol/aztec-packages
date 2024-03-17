@@ -328,7 +328,6 @@ export abstract class AbstractPhaseManager {
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
   ): PublicKernelData {
-
     // TODO(@PhilWindle) Fix once we move this to prover-client
     const vk = VerificationKey.makeFake();
     const vkIndex = 0;

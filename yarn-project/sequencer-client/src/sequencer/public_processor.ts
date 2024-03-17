@@ -1,6 +1,10 @@
-import { ContractDataSource, L1ToL2MessageSource, SimulationError, Tx ,
+import {
+  ContractDataSource,
   FailedTx,
+  L1ToL2MessageSource,
   ProcessedTx,
+  SimulationError,
+  Tx,
   getPreviousOutputAndProof,
   makeEmptyProcessedTx,
   makeProcessedTx,
@@ -12,6 +16,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { PublicExecutor, PublicStateDB, SimulationProvider } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
+
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';

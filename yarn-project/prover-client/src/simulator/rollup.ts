@@ -28,7 +28,6 @@ import {
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
-
 import { SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
 /**
@@ -70,7 +69,7 @@ export interface RollupSimulator {
 /**
  * Implements the rollup circuit simulator.
  */
-export class RealRollupCircuitSimulator implements RollupSimulator  {
+export class RealRollupCircuitSimulator implements RollupSimulator {
   private log = createDebugLogger('aztec:rollup-simulator');
 
   // Some circuits are so small it is faster to use WASM
