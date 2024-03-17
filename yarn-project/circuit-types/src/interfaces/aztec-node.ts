@@ -17,12 +17,10 @@ import { MerkleTreeId } from '../merkle_tree_id.js';
 import { SiblingPath } from '../sibling_path/index.js';
 import { Tx, TxHash, TxReceipt } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
+import { BlockNumber } from './block_number.js';
 import { SequencerConfig } from './configs.js';
 import { NullifierMembershipWitness } from './nullifier_tree.js';
 import { PublicDataWitness } from './public_data_tree.js';
-
-/** Helper type for a specific L2 block number or the latest block number */
-export type BlockNumber = number | 'latest';
 
 /**
  * The aztec node.
