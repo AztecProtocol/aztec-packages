@@ -16,11 +16,11 @@ import {
 /**
  * Data retrieved from logs
  */
-type DataRetrieval<T> = {
+export type DataRetrieval<T> = {
   /**
-   * The next block number.
+   * Blocknumber of the last L1 block from which we obtained data.
    */
-  nextEthBlockNumber: bigint;
+  lastProcessedL1BlockNumber: bigint;
   /**
    * The data returned.
    */
@@ -66,10 +66,10 @@ export async function retrieveBlockMetadataFromRollup(
       l2BlockProcessedLogs,
     );
     retrievedBlockMetadata.push(...newBlockMetadata);
-    searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
+    searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber!;
     expectedNextL2BlockNum += BigInt(newBlockMetadata.length);
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlockMetadata };
+  return { lastProcessedL1BlockNumber: searchStartBlock, retrievedData: retrievedBlockMetadata };
 }
 
 /**
@@ -106,9 +106,9 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
 
     const newBlockBodies = await processTxsPublishedLogs(publicClient, l2TxsPublishedLogs);
     retrievedBlockBodies.push(...newBlockBodies);
-    searchStartBlock = l2TxsPublishedLogs[l2TxsPublishedLogs.length - 1].blockNumber! + 1n;
+    searchStartBlock = l2TxsPublishedLogs[l2TxsPublishedLogs.length - 1].blockNumber!;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlockBodies };
+  return { lastProcessedL1BlockNumber: searchStartBlock, retrievedData: retrievedBlockBodies };
 }
 
 /**
@@ -139,7 +139,7 @@ export async function retrieveL1ToL2Messages(
     const l1ToL2Messages = processLeafInsertedLogs(leafInsertedLogs);
     retrievedL1ToL2Messages.push(...l1ToL2Messages);
     // handles the case when there are no new messages:
-    searchStartBlock = (leafInsertedLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock) + 1n;
+    searchStartBlock = (leafInsertedLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock);
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedL1ToL2Messages };
+  return { lastProcessedL1BlockNumber: searchStartBlock, retrievedData: retrievedL1ToL2Messages };
 }
