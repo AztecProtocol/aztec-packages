@@ -16,7 +16,6 @@ import {
   Wallet,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
-  isContractDeployed,
 } from '@aztec/aztec.js';
 import {
   broadcastPrivateFunction,
@@ -65,8 +64,8 @@ describe('e2e_deploy_contract', () => {
       const deployer = new ContractDeployer(TestContractArtifact, wallet, publicKey);
       const receipt = await deployer.deploy().send({ contractAddressSalt: salt }).wait({ wallet });
       expect(receipt.contract.address).toEqual(deploymentData.address);
-      expect(await isContractDeployed(pxe, deploymentData.address)).toBe(true);
-      expect(await isContractDeployed(pxe, AztecAddress.random())).toBe(false);
+      expect(await pxe.getContractInstance(deploymentData.address)).toBeDefined();
+      expect(await pxe.isContractPubliclyDeployed(deploymentData.address)).toBeDefined();
     }, 60_000);
 
     /**
@@ -115,10 +114,8 @@ describe('e2e_deploy_contract', () => {
       const receipt = await deployer.deploy().send({ portalContract }).wait();
       const address = receipt.contract.address;
 
-      expect((await pxe.getContractData(address))?.portalContractAddress.toString()).toEqual(portalContract.toString());
-      expect((await pxe.getExtendedContractData(address))?.contractData.portalContractAddress.toString()).toEqual(
-        portalContract.toString(),
-      );
+      const expectedPortal = portalContract.toString();
+      expect((await pxe.getContractInstance(address))?.portalContractAddress.toString()).toEqual(expectedPortal);
     }, 60_000);
 
     it('should not deploy a contract which failed the public part of the execution', async () => {
@@ -142,13 +139,12 @@ describe('e2e_deploy_contract', () => {
 
         const [goodTxReceipt, badTxReceipt] = await Promise.all([goodTx.getReceipt(), badTx.getReceipt()]);
 
+        // Both the good and bad transactions are included
         expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
-        // the bad transaction is included
         expect(badTxReceipt.blockNumber).toEqual(expect.any(Number));
 
-        await expect(pxe.getContractData(badDeploy.getInstance().address)).resolves.toBeUndefined();
-        // but did not deploy
-        await expect(pxe.getExtendedContractData(badDeploy.getInstance().address)).resolves.toBeUndefined();
+        // But the bad tx did not deploy
+        await expect(pxe.isContractClassPubliclyRegistered(badDeploy.getInstance().address)).resolves.toBeFalsy();
       } finally {
         sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
       }

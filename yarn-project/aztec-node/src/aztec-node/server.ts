@@ -1,9 +1,6 @@
 import { ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } from '@aztec/archiver';
 import {
   AztecNode,
-  ContractData,
-  ContractDataSource,
-  ExtendedContractData,
   GetUnencryptedLogsResponse,
   L1ToL2MessageAndIndex,
   L1ToL2MessageSource,
@@ -57,7 +54,7 @@ import {
   getGlobalVariableBuilder,
 } from '@aztec/sequencer-client';
 import { WASMSimulator } from '@aztec/simulator';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,
@@ -237,25 +234,6 @@ export class AztecNodeService implements AztecNode {
    */
   public getChainId(): Promise<number> {
     return Promise.resolve(this.chainId);
-  }
-
-  /**
-   * Get the extended contract data for this contract.
-   * @param contractAddress - The contract data address.
-   * @returns The extended contract data or undefined if not found.
-   */
-  async getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return await this.contractDataSource.getExtendedContractData(contractAddress);
-  }
-
-  /**
-   * Lookup the contract data for this contract.
-   * Contains the ethereum portal address .
-   * @param contractAddress - The contract data address.
-   * @returns The contract's address & portal address.
-   */
-  public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return await this.contractDataSource.getContractData(contractAddress);
   }
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {

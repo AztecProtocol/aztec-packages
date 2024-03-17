@@ -1,5 +1,6 @@
+import { ContractDataSource } from '@aztec/types/contracts';
+
 import {
-  ContractDataSource,
   FailedTx,
   L1ToL2MessageSource,
   ProcessedTx,
