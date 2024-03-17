@@ -212,7 +212,9 @@ describe('e2e_public_cross_chain_messaging', () => {
 
     await expect(
       l2Bridge.withWallet(user2Wallet).methods.claim_private(secretHash, bridgeAmount, secret).simulate(),
-    ).rejects.toThrowError(`Message ${wrongMessage.hash().toString()} not found`);
+    ).rejects.toThrowError(
+      `L1 to L2 message index not found in the store for message ${wrongMessage.hash().toString()}`,
+    );
   }, 60_000);
 
   // Note: We register one portal address when deploying contract but that address is no-longer the only address
