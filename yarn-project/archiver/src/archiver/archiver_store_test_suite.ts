@@ -84,24 +84,24 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     describe('getSynchedL1BlockNumbers', () => {
       it('returns 0n if no blocks have been added', async () => {
         await expect(store.getSynchedL1BlockNumbers()).resolves.toEqual({
-          addedBlock: 0n,
-          newMessages: 0n,
+          blocks: 0n,
+          messages: 0n,
         });
       });
 
       it('returns the L1 block number in which the most recent L2 block was published', async () => {
         await store.addBlocks(blocks);
         await expect(store.getSynchedL1BlockNumbers()).resolves.toEqual({
-          addedBlock: blocks.at(-1)!.getL1BlockNumber(),
-          newMessages: 0n,
+          blocks: blocks.at(-1)!.getL1BlockNumber(),
+          messages: 0n,
         });
       });
 
       it('returns the L1 block number that most recently added messages from inbox', async () => {
         await store.addL1ToL2Messages([new NewInboxLeaf(0n, 0n, Fr.ZERO)], 1n);
         await expect(store.getSynchedL1BlockNumbers()).resolves.toEqual({
-          addedBlock: 0n,
-          newMessages: 1n,
+          blocks: 0n,
+          messages: 1n,
         });
       });
     });
