@@ -7,6 +7,7 @@ import {
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap, AztecSingleton } from '@aztec/kv-store';
+
 import { DataRetrieval } from '../data_retrieval.js';
 
 /**

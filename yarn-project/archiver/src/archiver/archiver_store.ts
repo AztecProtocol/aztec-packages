@@ -13,6 +13,7 @@ import {
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+
 import { DataRetrieval } from './data_retrieval.js';
 
 /**

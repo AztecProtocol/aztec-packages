@@ -20,8 +20,8 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
-import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 import { DataRetrieval } from '../data_retrieval.js';
+import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 /**
  * Simple, in-memory implementation of an archiver data store.
