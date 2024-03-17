@@ -6,7 +6,6 @@ import {
   Fr,
   Note,
   PXE,
-  TxStatus,
   computeMessageSecretHash,
   createPXEClient,
   waitForPXE,
@@ -255,8 +254,7 @@ describe('guides/dapp/testing', () => {
       it('asserts a transaction with a failing public call is included (with no state changes)', async () => {
         // docs:start:pub-reverted
         const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
-        const receipt = await call.send({ skipPublicSimulation: true }).wait();
-        expect(receipt.status).toEqual(TxStatus.MINED);
+        await call.send({ skipPublicSimulation: true }).wait();
         const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
         const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
         expect(balance.value).toEqual(100n);

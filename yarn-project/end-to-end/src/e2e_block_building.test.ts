@@ -9,7 +9,6 @@ import {
   PXE,
   SentTx,
   TxReceipt,
-  TxStatus,
   Wallet,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
@@ -69,7 +68,6 @@ describe('e2e_block_building', () => {
 
       // Await txs to be mined and assert they are all mined on the same block
       const receipts = await Promise.all(txs.map(tx => tx.wait()));
-      expect(receipts.map(r => r.status)).toEqual(times(TX_COUNT, () => TxStatus.MINED));
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
       // Assert all contracts got deployed
