@@ -101,16 +101,13 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Check txs are good for processing by checking if all the tree snapshots in header are non-empty
     this.validateTxs(txs);
 
-    // We pad the messages as the circuits expect that.
-    const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-
     // We fill the tx batch with empty txs, we process only one tx at a time for now
-    const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, l1ToL2MessagesPadded);
+    const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, l1ToL2Messages);
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const txEffects: TxEffect[] = txs.map(tx => toTxEffect(tx));
 
-    const blockBody = new Body(l1ToL2MessagesPadded, txEffects);
+    const blockBody = new Body(txEffects);
 
     const l2Block = L2Block.fromFields({
       archive: circuitsOutput.archive,
@@ -156,13 +153,16 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async runCircuits(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    l1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
+    l1ToL2Messages: Fr[],
   ): Promise<[RootRollupPublicInputs, Proof]> {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
     if (txs.length < 2 || (txs.length & (txs.length - 1)) !== 0) {
       throw new Error(`Length of txs for the block should be a power of two and at least two (got ${txs.length})`);
     }
+
+    // We pad the messages as the circuits expect that.
+    const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
     // BASE PARITY CIRCUIT (run in parallel)
     // Note: In the future we will want to cache the results of empty base and root parity circuits so that we don't
@@ -171,7 +171,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     let elapsedBaseParityOutputsPromise: Promise<[number, RootParityInput[]]>;
     {
       baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
-        BaseParityInputs.fromSlice(l1ToL2Messages, i),
+        BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i),
       );
 
       const baseParityOutputs: Promise<RootParityInput>[] = [];
@@ -291,7 +291,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       outputSize: rootParityOutput.toBuffer().length,
     } satisfies CircuitSimulationStats);
 
-    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, rootParityOutput, l1ToL2Messages);
+    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, rootParityOutput, l1ToL2MessagesPadded);
   }
 
   protected async baseParityCircuit(inputs: BaseParityInputs): Promise<RootParityInput> {

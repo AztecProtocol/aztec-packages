@@ -9,12 +9,7 @@ contract MessagesDecoderHelper {
   function decode(bytes calldata _body)
     public
     pure
-    returns (
-      bytes32 l1ToL2MsgsHash,
-      bytes32 l2ToL1MsgsHash,
-      bytes32[] memory l1ToL2Msgs,
-      bytes32[] memory l2ToL1Msgs
-    )
+    returns (bytes32 l2ToL1MsgsHash, bytes32[] memory l2ToL1Msgs)
   {
     return MessagesDecoder.decode(_body);
   }

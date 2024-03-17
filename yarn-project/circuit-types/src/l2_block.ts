@@ -179,7 +179,6 @@ export class L2Block {
       this.header.state.l1ToL2MessageTree,
       this.archive,
       this.body.getTxsEffectsHash(),
-      this.getL1ToL2MessagesHash(),
     );
 
     return Fr.fromBufferReduce(sha256(buf));
@@ -217,17 +216,6 @@ export class L2Block {
       this.archive,
     );
     return sha256(inputValue);
-  }
-
-  /**
-   * Compute the hash of all of this blocks l1 to l2 messages,
-   * The hash is also calculated within the contract when the block is submitted.
-   * @returns The hash of all of the l1 to l2 messages.
-   */
-  getL1ToL2MessagesHash(): Buffer {
-    // Create a long buffer of all of the l1 to l2 messages
-    const l1ToL2Messages = Buffer.concat(this.body.l1ToL2Messages.map(message => message.toBuffer()));
-    return sha256(l1ToL2Messages);
   }
 
   /**
