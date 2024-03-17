@@ -421,9 +421,12 @@ export class CrossChainTestHarness {
     await this.l2Token.methods.unshield(this.ownerAddress, this.ownerAddress, unshieldAmount, nonce).send().wait();
   }
 
-  // We perform 2 unrelated transactions on L2 to progress the rollup.
-  // We need to progress by 2 because there is a 1 block lag between when the message is sent to Inbox and when
-  // it's included in an L2 block.
+  /**
+   * Performs 2 unrelated transactions on L2 to progress the rollup by 2 blocks.
+   * @dev We need to progress by 2 because there is a 1 block lag between when the message is sent to Inbox and when
+   * the subtree containing the message is included in the block and then when it's included it becomes available for
+   * consumption in the next block because the l1 to l2 message tree.
+   */
   async advanceBy2Blocks() {
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);

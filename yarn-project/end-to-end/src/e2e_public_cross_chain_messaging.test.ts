@@ -16,7 +16,7 @@ import {
 } from '@aztec/aztec.js';
 import { keccak, sha256 } from '@aztec/foundation/crypto';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
-import { OutboxAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-contracts.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
@@ -277,21 +277,20 @@ describe('e2e_public_cross_chain_messaging', () => {
     'can send an L1 -> L2 message from a non-registered portal address consumed from private or public',
     async (isPrivate: boolean) => {
       const testContract = await TestContract.deploy(user1Wallet).send().deployed();
-
-      const sender = crossChainTestHarness.ethAccount;
-      const recipient = testContract.address.toString();
-
       const secret = Fr.random();
-      const secretHash = computeMessageSecretHash(secret);
 
-      // The following are arbitrary test values
-      const content = Fr.random();
+      const message = new L1ToL2Message(
+        new L1Actor(crossChainTestHarness.ethAccount, crossChainTestHarness.publicClient.chain.id),
+        new L2Actor(testContract.address, 1),
+        Fr.random(), // content
+        computeMessageSecretHash(secret), // secretHash
+      );
 
       // We inject the message to Inbox
       const txHash = await inbox.write.sendL2Message([
-        { actor: recipient as Hex, version: 1n },
-        content.toString() as Hex,
-        secretHash.toString() as Hex,
+        { actor: message.recipient.recipient.toString() as Hex, version: 1n },
+        message.content.toString() as Hex,
+        message.secretHash.toString() as Hex,
       ] as const);
 
       // We check that the message was correctly injected by checking the emitted event
@@ -303,32 +302,36 @@ describe('e2e_public_cross_chain_messaging', () => {
         // Exactly 1 event should be emitted in the transaction
         expect(txReceipt.logs.length).toBe(1);
 
-        // TODO(#4492): Check here if leaf was computed as expected
-        // // We decode the event log before checking it
-        // const txLog = txReceipt.logs[0];
-        // const topics = decodeEventLog({
-        //   abi: InboxAbi,
-        //   data: txLog.data,
-        //   topics: txLog.topics,
-        // });
+        // We decode the event and get leaf out of it
+        const txLog = txReceipt.logs[0];
+        const topics = decodeEventLog({
+          abi: InboxAbi,
+          data: txLog.data,
+          topics: txLog.topics,
+        });
+        const leaf = topics.args.value;
 
-        // We check that LeafInserted event was emitted with the expected recipient
-        // Note: For whatever reason, viem types "think" that there is no recipient on topics.args. I hack around this
-        // by casting the args to "any"
-        // expect((topics.args as any).recipient).toBe(recipient);
+        // We check that the leaf inserted into the subtree matches the expected message hash
+        expect(leaf).toBe(message.hash().toString());
       }
 
       // We wait for the archiver to process the message and we push a block for the message to be confirmed
       {
         await sleep(5000); // waiting 5 seconds.
-        await testContract.methods.get_this_portal_address().send().wait();
+        await crossChainTestHarness.advanceBy2Blocks();
       }
 
       // Finally, e consume the L1 -> L2 message using the test contract either from private or public
       if (isPrivate) {
-        await testContract.methods.consume_message_from_arbitrary_sender_private(content, secret, sender).send().wait();
+        await testContract.methods
+          .consume_message_from_arbitrary_sender_private(message.content, secret, message.sender.sender)
+          .send()
+          .wait();
       } else {
-        await testContract.methods.consume_message_from_arbitrary_sender_public(content, secret, sender).send().wait();
+        await testContract.methods
+          .consume_message_from_arbitrary_sender_public(message.content, secret, message.sender.sender)
+          .send()
+          .wait();
       }
     },
     60_000,
