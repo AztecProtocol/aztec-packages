@@ -111,7 +111,7 @@ describe('e2e_escrow_contract', () => {
   it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
       escrowContract.withWallet(recipientWallet).methods.withdraw(token.address, 30, recipient).simulate(),
-    ).rejects.toThrowError();
+    ).rejects.toThrow();
   }, 60_000);
 
   it('moves funds using multiple keys on the same tx (#1010)', async () => {

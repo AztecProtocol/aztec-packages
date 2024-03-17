@@ -475,7 +475,7 @@ export const uniswapL1L2TestSuite = (
             ownerEthAddress,
           )
           .simulate(),
-      ).rejects.toThrowError(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
+      ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
     });
 
     it("can't swap if user passes a token different to what the bridge tracks", async () => {
@@ -513,7 +513,7 @@ export const uniswapL1L2TestSuite = (
             ownerEthAddress,
           )
           .simulate(),
-      ).rejects.toThrowError('Assertion failed: input_asset address is not the same as seen in the bridge contract');
+      ).rejects.toThrow('Assertion failed: input_asset address is not the same as seen in the bridge contract');
     });
 
     // edge cases for public flow:
@@ -614,7 +614,7 @@ export const uniswapL1L2TestSuite = (
             Fr.ZERO,
           )
           .simulate(),
-      ).rejects.toThrowError(`Assertion failed: Message not authorized by account 'is_valid == true'`);
+      ).rejects.toThrow(`Assertion failed: Message not authorized by account 'is_valid == true'`);
     });
 
     // tests when trying to mix private and public flows:
@@ -676,7 +676,7 @@ export const uniswapL1L2TestSuite = (
         uniswapPortal.simulate.swapPublic(swapArgs, {
           account: ownerEthAddress.toString(),
         } as any),
-      ).rejects.toThrowError('The contract function "swapPublic" reverted.');
+      ).rejects.toThrow('The contract function "swapPublic" reverted.');
     });
 
     it("can't call swap_private on L1 if called swap_public on L2", async () => {
@@ -731,7 +731,7 @@ export const uniswapL1L2TestSuite = (
         uniswapPortal.simulate.swapPrivate(swapArgs, {
           account: ownerEthAddress.toString(),
         } as any),
-      ).rejects.toThrowError('The contract function "swapPrivate" reverted.');
+      ).rejects.toThrow('The contract function "swapPrivate" reverted.');
     });
   });
 };

@@ -146,7 +146,7 @@ describe('e2e_block_building', () => {
     it('drops tx with two equal nullifiers', async () => {
       const nullifier = Fr.random();
       const calls = times(2, () => contract.methods.emit_nullifier(nullifier).request());
-      await expect(new BatchCall(owner, calls).send().wait()).rejects.toThrowError(/dropped/);
+      await expect(new BatchCall(owner, calls).send().wait()).rejects.toThrow(/dropped/);
     }, 30_000);
 
     it('drops tx with private nullifier already emitted from public on the same block', async () => {
