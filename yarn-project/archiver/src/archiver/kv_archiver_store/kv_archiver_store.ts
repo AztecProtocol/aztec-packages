@@ -23,6 +23,7 @@ import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
+import { DataRetrieval } from '../data_retrieval.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
@@ -145,12 +146,11 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   /**
    * Append L1 to L2 messages to the store.
-   * @param messages - The L1 to L2 messages to be added to the store.
-   * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
+   * @param messages - The L1 to L2 messages to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addL1ToL2Messages(messages: InboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
-    return Promise.resolve(this.#messageStore.addL1ToL2Messages(messages, lastMessageL1BlockNumber));
+  addL1ToL2Messages(messages: DataRetrieval<InboxLeaf>): Promise<boolean> {
+    return Promise.resolve(this.#messageStore.addL1ToL2Messages(messages));
   }
 
   /**
