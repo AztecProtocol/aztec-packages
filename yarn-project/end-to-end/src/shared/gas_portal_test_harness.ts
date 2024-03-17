@@ -8,7 +8,6 @@ import {
   Wallet,
   computeMessageSecretHash,
   deployL1Contract,
-  sleep,
 } from '@aztec/aztec.js';
 import { GasPortalAbi, GasPortalBytecode, OutboxAbi, PortalERC20Abi, PortalERC20Bytecode } from '@aztec/l1-artifacts';
 import { GasTokenContract } from '@aztec/noir-contracts.js';
