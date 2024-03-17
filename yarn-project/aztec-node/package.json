@@ -46,6 +46,7 @@
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/types": "workspace:^",
     "@aztec/world-state": "workspace:^",
+    "@aztec/simulator": "workspace:^",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",
     "tslib": "^2.4.0"
