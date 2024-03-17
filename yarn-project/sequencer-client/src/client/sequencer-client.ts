@@ -1,4 +1,4 @@
-import { ContractDataSource, L1ToL2MessageSource, L2BlockSource } from '@aztec/circuit-types';
+import { L1ToL2MessageSource, L2BlockSource } from '@aztec/circuit-types';
 import { ProverClient } from '@aztec/circuit-types/interfaces';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { P2P } from '@aztec/p2p';
@@ -12,6 +12,7 @@ import { getGlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { getL1Publisher } from '../publisher/index.js';
 import { Sequencer, SequencerConfig } from '../sequencer/index.js';
 import { PublicProcessorFactory } from '../sequencer/public_processor.js';
+import { ContractDataSource } from '@aztec/types/contracts';
 
 const logger = createDebugLogger('aztec:sequencer-client');
 
