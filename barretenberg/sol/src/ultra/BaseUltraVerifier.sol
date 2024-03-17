@@ -2151,6 +2151,7 @@ abstract contract BaseUltraVerifier {
 
             // ACCUMULATE QC
 
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(QC_X_LOC))
             mstore(0x20, mload(QC_Y_LOC))
             mstore(0x40, mload(C_V12_LOC))
@@ -2160,6 +2161,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE QARITH
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(QARITH_X_LOC))
             mstore(0x20, mload(QARITH_Y_LOC))
             mstore(0x40, mload(C_V13_LOC))
@@ -2169,6 +2172,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE QSORT
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(QSORT_X_LOC))
             mstore(0x20, mload(QSORT_Y_LOC))
             mstore(0x40, mload(C_V14_LOC))
@@ -2178,6 +2183,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE QELLIPTIC
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(QELLIPTIC_X_LOC))
             mstore(0x20, mload(QELLIPTIC_Y_LOC))
             mstore(0x40, mload(C_V15_LOC))
@@ -2187,6 +2194,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE QAUX
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(QAUX_X_LOC))
             mstore(0x20, mload(QAUX_Y_LOC))
             mstore(0x40, mload(C_V16_LOC))
@@ -2196,6 +2205,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE SIGMA1
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(SIGMA1_X_LOC))
             mstore(0x20, mload(SIGMA1_Y_LOC))
             mstore(0x40, mload(C_V17_LOC))
@@ -2205,6 +2216,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE SIGMA2
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(SIGMA2_X_LOC))
             mstore(0x20, mload(SIGMA2_Y_LOC))
             mstore(0x40, mload(C_V18_LOC))
@@ -2214,6 +2227,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE SIGMA3
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(SIGMA3_X_LOC))
             mstore(0x20, mload(SIGMA3_Y_LOC))
             mstore(0x40, mload(C_V19_LOC))
@@ -2223,6 +2238,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE SIGMA4
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(SIGMA4_X_LOC))
             mstore(0x20, mload(SIGMA4_Y_LOC))
             mstore(0x40, mload(C_V20_LOC))
@@ -2232,6 +2249,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE TABLE1
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(TABLE1_X_LOC))
             mstore(0x20, mload(TABLE1_Y_LOC))
             mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V21_LOC), p))
@@ -2241,6 +2260,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE TABLE2
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(TABLE2_X_LOC))
             mstore(0x20, mload(TABLE2_Y_LOC))
             mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V22_LOC), p))
@@ -2250,6 +2271,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE TABLE3
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(TABLE3_X_LOC))
             mstore(0x20, mload(TABLE3_Y_LOC))
             mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V23_LOC), p))
@@ -2259,6 +2282,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE TABLE4
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(TABLE4_X_LOC))
             mstore(0x20, mload(TABLE4_Y_LOC))
             mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V24_LOC), p))
@@ -2268,6 +2293,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE TABLE_TYPE
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(TABLE_TYPE_X_LOC))
             mstore(0x20, mload(TABLE_TYPE_Y_LOC))
             mstore(0x40, mload(C_V25_LOC))
@@ -2277,6 +2304,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE ID1
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(ID1_X_LOC))
             mstore(0x20, mload(ID1_Y_LOC))
             mstore(0x40, mload(C_V26_LOC))
@@ -2286,6 +2315,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE ID2
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(ID2_X_LOC))
             mstore(0x20, mload(ID2_Y_LOC))
             mstore(0x40, mload(C_V27_LOC))
@@ -2295,6 +2326,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE ID3
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(ID3_X_LOC))
             mstore(0x20, mload(ID3_Y_LOC))
             mstore(0x40, mload(C_V28_LOC))
@@ -2304,6 +2337,8 @@ abstract contract BaseUltraVerifier {
             success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
 
             // ACCUMULATE ID4
+
+            // Verification key fields verified to be on curve at contract deployment
             mstore(0x00, mload(ID4_X_LOC))
             mstore(0x20, mload(ID4_Y_LOC))
             mstore(0x40, mload(C_V29_LOC))
