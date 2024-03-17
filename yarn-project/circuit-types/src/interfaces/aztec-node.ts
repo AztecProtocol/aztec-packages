@@ -65,7 +65,7 @@ export interface AztecNode {
    * @param blockNumber - The block number at which to get the data.
    * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
    * @throws If the message is not found.
-   * @returns A tuple of the index and the sibling path of the L1ToL2Message.
+   * @returns A tuple of the index and the sibling path of the message.
    */
   getL1ToL2MessageIndexAndSiblingPath(
     blockNumber: BlockNumber,

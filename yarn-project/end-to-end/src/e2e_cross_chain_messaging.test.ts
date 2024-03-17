@@ -85,7 +85,7 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.makeMessageConsumable(msgLeaf);
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
-    await crossChainTestHarness.consumeMessageOnAztecAndMintSecretly(
+    await crossChainTestHarness.consumeMessageOnAztecAndMintPrivately(
       secretHashForRedeemingMintedNotes,
       bridgeAmount,
       secretForL2MessageConsumption,

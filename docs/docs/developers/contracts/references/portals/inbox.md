@@ -32,9 +32,9 @@ Allows the `Rollup` to consume multiple messages in a single transaction.
 
 #include_code consume l1-contracts/src/core/interfaces/messagebridge/IInbox.sol solidity
 
-| Name           | Type        | Description |
-| -------------- | -------     | ----------- |
-| ReturnValue    | `bytes32`     | Root of the consumed tree. | 
+| Name           | Type        | Description                |
+| -------------- | ----------- | -------------------------- |
+| ReturnValue    | `bytes32`   | Root of the consumed tree. | 
 
 #### Edge cases
 

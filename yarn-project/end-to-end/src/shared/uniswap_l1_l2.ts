@@ -185,7 +185,7 @@ export const uniswapL1L2TestSuite = (
 
       // 2. Claim WETH on L2
       logger('Minting weth on L2');
-      await wethCrossChainHarness.consumeMessageOnAztecAndMintSecretly(
+      await wethCrossChainHarness.consumeMessageOnAztecAndMintPrivately(
         secretHashForRedeemingWeth,
         wethAmountToBridge,
         secretForMintingWeth,
@@ -289,7 +289,7 @@ export const uniswapL1L2TestSuite = (
 
       // 6. claim dai on L2
       logger('Consuming messages to mint dai on L2');
-      await daiCrossChainHarness.consumeMessageOnAztecAndMintSecretly(
+      await daiCrossChainHarness.consumeMessageOnAztecAndMintPrivately(
         secretHashForRedeemingDai,
         daiAmountToBridge,
         secretForDepositingSwappedDai,

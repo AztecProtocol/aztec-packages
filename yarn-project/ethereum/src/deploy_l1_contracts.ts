@@ -140,6 +140,7 @@ export const deployL1Contracts = async (
   );
   logger(`Deployed Rollup at ${rollupAddress}`);
 
+  // Inbox is immutable and is deployed from Rollup's constructor so we just fetch it from the contract.
   let inboxAddress!: EthAddress;
   {
     const rollup = getContract({

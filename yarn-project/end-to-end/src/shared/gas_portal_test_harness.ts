@@ -282,8 +282,6 @@ class GasBridgingTestHarness implements IGasBridgingTestHarness {
     await this.sendTokensToPortalPublic(bridgeAmount, owner, secretHash);
     expect(await this.getL1BalanceOf(this.ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    // Wait for the archiver to process the message
-    await sleep(2500);
     // Perform an unrelated transactions on L2 to progress the rollup by 2 blocks.
     await this.l2Token.methods.check_balance(0).send().wait();
     await this.l2Token.methods.check_balance(0).send().wait();

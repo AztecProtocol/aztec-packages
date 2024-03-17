@@ -292,12 +292,12 @@ export class CrossChainTestHarness {
     await this.l2Token.methods.transfer_public(this.ownerAddress, receiverAddress, transferAmount, 0).send().wait();
   }
 
-  async consumeMessageOnAztecAndMintSecretly(
+  async consumeMessageOnAztecAndMintPrivately(
     secretHashForRedeemingMintedNotes: Fr,
     bridgeAmount: bigint,
     secretForL2MessageConsumption: Fr,
   ) {
-    this.logger('Consuming messages on L2 secretly');
+    this.logger('Consuming messages on L2 privately');
     // Call the mint tokens function on the Aztec.nr contract
     const consumptionReceipt = await this.l2Bridge.methods
       .claim_private(secretHashForRedeemingMintedNotes, bridgeAmount, secretForL2MessageConsumption)

@@ -12,7 +12,7 @@ describe('l1_to_l2_message_store', () => {
     store = new L1ToL2MessageStore();
   });
 
-  it('addMessage adds a message and correctly returns it and index', () => {
+  it('adds a message and correctly returns its index', () => {
     const blockNumber = 236n;
     const msgs = Array.from({ length: 10 }, (_, i) => {
       return new InboxLeaf(blockNumber, BigInt(i), Fr.random());
