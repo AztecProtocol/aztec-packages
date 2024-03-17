@@ -1,4 +1,4 @@
-import { AztecAddress, DebugLogger, EthAddress, sleep } from '@aztec/aztec.js';
+import { AztecAddress, DebugLogger, EthAddress } from '@aztec/aztec.js';
 
 import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
@@ -16,8 +16,9 @@ describe('e2e_public_to_private_messaging', () => {
   let crossChainTestHarness: CrossChainTestHarness;
 
   beforeEach(async () => {
-    const { pxe, deployL1ContractsValues, wallet, logger: logger_, teardown: teardown_ } = await setup(2);
+    const { aztecNode, pxe, deployL1ContractsValues, wallet, logger: logger_, teardown: teardown_ } = await setup(2);
     crossChainTestHarness = await CrossChainTestHarness.new(
+      aztecNode,
       pxe,
       deployL1ContractsValues.publicClient,
       deployL1ContractsValues.walletClient,
@@ -47,12 +48,10 @@ describe('e2e_public_to_private_messaging', () => {
     const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(l1TokenBalance - bridgeAmount);
 
-    // Wait for the archiver to process the message
-    await sleep(5000); /// waiting 5 seconds.
-    await crossChainTestHarness.advanceBy2Blocks();
+    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
 
     await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, secret);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);

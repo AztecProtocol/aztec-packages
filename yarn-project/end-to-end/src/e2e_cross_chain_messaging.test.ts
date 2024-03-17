@@ -16,7 +16,7 @@ import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { toFunctionSelector } from 'viem/utils';
 
-import { delay, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 
 describe('e2e_cross_chain_messaging', () => {
@@ -34,9 +34,10 @@ describe('e2e_cross_chain_messaging', () => {
   let outbox: any;
 
   beforeEach(async () => {
-    const { pxe, deployL1ContractsValues, wallets, logger: logger_, teardown: teardown_ } = await setup(2);
+    const { aztecNode, pxe, deployL1ContractsValues, wallets, logger: logger_, teardown: teardown_ } = await setup(2);
 
     crossChainTestHarness = await CrossChainTestHarness.new(
+      aztecNode,
       pxe,
       deployL1ContractsValues.publicClient,
       deployL1ContractsValues.walletClient,
@@ -74,16 +75,14 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
 
     // 2. Deposit tokens to the TokenPortal
-    await crossChainTestHarness.sendTokensToPortalPrivate(
+    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPrivate(
       secretHashForRedeemingMintedNotes,
       bridgeAmount,
       secretHashForL2MessageConsumption,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    // Wait for the archiver to process the message
-    await delay(5000); /// waiting 5 seconds.
-    await crossChainTestHarness.advanceBy2Blocks();
+    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintSecretly(
@@ -134,16 +133,15 @@ describe('e2e_cross_chain_messaging', () => {
       crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    await crossChainTestHarness.sendTokensToPortalPrivate(
+    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPrivate(
       secretHashForRedeemingMintedNotes,
       bridgeAmount,
       secretHashForL2MessageConsumption,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    // Wait for the archiver to process the message
-    await delay(5000); /// waiting 5 seconds.
-    await crossChainTestHarness.advanceBy2Blocks();
+    // Wait for the message to be available for consumption
+    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
     const content = Fr.fromBufferReduce(
@@ -215,12 +213,15 @@ describe('e2e_cross_chain_messaging', () => {
     const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
       crossChainTestHarness.generateClaimSecret();
 
-    await crossChainTestHarness.sendTokensToPortalPrivate(Fr.random(), bridgeAmount, secretHashForL2MessageConsumption);
+    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPrivate(
+      Fr.random(),
+      bridgeAmount,
+      secretHashForL2MessageConsumption,
+    );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(0n);
 
-    // Wait for the archiver to process the message
-    await delay(5000); /// waiting 5 seconds.
-    await crossChainTestHarness.advanceBy2Blocks();
+    // Wait for the message to be available for consumption
+    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
 
     const content = Fr.fromBufferReduce(
       sha256(

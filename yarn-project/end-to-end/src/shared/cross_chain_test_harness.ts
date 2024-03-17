@@ -1,6 +1,7 @@
 // docs:start:cross_chain_test_harness
 import {
   AztecAddress,
+  AztecNode,
   DebugLogger,
   EthAddress,
   ExtendedNote,
@@ -12,6 +13,7 @@ import {
   computeMessageSecretHash,
   deployL1Contract,
   sha256,
+  sleep,
 } from '@aztec/aztec.js';
 import {
   InboxAbi,
@@ -121,6 +123,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
  */
 export class CrossChainTestHarness {
   static async new(
+    aztecNode: AztecNode,
     pxeService: PXE,
     publicClient: PublicClient<HttpTransport, Chain>,
     walletClient: any,
@@ -158,6 +161,7 @@ export class CrossChainTestHarness {
     logger('Deployed and initialized token, portal and its bridge.');
 
     return new CrossChainTestHarness(
+      aztecNode,
       pxeService,
       logger,
       token,
@@ -175,6 +179,8 @@ export class CrossChainTestHarness {
   }
 
   constructor(
+    /** Aztec node instance. */
+    public aztecNode: AztecNode,
     /** Private eXecution Environment (PXE). */
     public pxeService: PXE,
     /** Logger. */
@@ -422,14 +428,32 @@ export class CrossChainTestHarness {
   }
 
   /**
-   * Performs 2 unrelated transactions on L2 to progress the rollup by 2 blocks.
-   * @dev We need to progress by 2 because there is a 1 block lag between when the message is sent to Inbox and when
-   * the subtree containing the message is included in the block and then when it's included it becomes available for
-   * consumption in the next block because the l1 to l2 message tree.
+   * Makes message available for consumption.
+   * @dev Does that by performing 2 unrelated transactions on L2 to progress the rollup by 2 blocks and then waits for
+   * message to be processed by archiver. We need to progress by 2 because there is a 1 block lag between when
+   * the message is sent to Inbox and when the subtree containing the message is included in the block and then when
+   * it's included it becomes available for consumption in the next block because the l1 to l2 message tree.
    */
-  async advanceBy2Blocks() {
+  async makeMessageConsumable(msgLeaf: Fr) {
+    const messageBlock = Number(await this.inbox.read.inProgress());
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);
+
+    // We poll getL1ToL2MessageIndexAndSiblingPath endpoint until the message is available (it's most likely already
+    // available given that we waited for 2 blocks).
+    let i = 0;
+    while (i < 5) {
+      try {
+        // The function throws if message is not found
+        await this.aztecNode.getL1ToL2MessageIndexAndSiblingPath(messageBlock, msgLeaf);
+      } catch (e) {
+        i++;
+        await sleep(1000);
+        continue;
+      }
+      return;
+    }
+    throw new Error('Message not available after 5 seconds');
   }
 }
 // docs:end:cross_chain_test_harness

@@ -1,20 +1,20 @@
 import {
   AccountWallet,
   AztecAddress,
+  AztecNode,
   DebugLogger,
   EthAddress,
   Fr,
   PXE,
   TxStatus,
   computeAuthWitMessageHash,
-  sleep,
 } from '@aztec/aztec.js';
 import { deployL1Contract } from '@aztec/ethereum';
-import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
+import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 
 import { jest } from '@jest/globals';
-import { Chain, HttpTransport, PublicClient, getContract, parseEther } from 'viem';
+import { Chain, HttpTransport, PublicClient, decodeEventLog, getContract, parseEther } from 'viem';
 
 import { publicDeployAccounts } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
@@ -31,6 +31,8 @@ const TIMEOUT = 360_000;
 
 /** Objects to be returned by the uniswap setup function */
 export type UniswapSetupContext = {
+  /** Aztec Node instance */
+  aztecNode: AztecNode;
   /** The Private eXecution Environment (PXE). */
   pxe: PXE;
   /** Logger instance named as the current test. */
@@ -58,6 +60,7 @@ export const uniswapL1L2TestSuite = (
     const WETH9_ADDRESS: EthAddress = EthAddress.fromString('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2');
     const DAI_ADDRESS: EthAddress = EthAddress.fromString('0x6B175474E89094C44Da98b954EedeAC495271d0F');
 
+    let aztecNode: AztecNode;
     let pxe: PXE;
     let logger: DebugLogger;
 
@@ -83,7 +86,7 @@ export const uniswapL1L2TestSuite = (
 
     beforeAll(async () => {
       let publicClient: PublicClient<HttpTransport, Chain>;
-      ({ pxe, logger, publicClient, walletClient, ownerWallet, sponsorWallet } = await setup());
+      ({ aztecNode, pxe, logger, publicClient, walletClient, ownerWallet, sponsorWallet } = await setup());
 
       // walletClient = deployL1ContractsValues.walletClient;
       // const publicClient = deployL1ContractsValues.publicClient;
@@ -100,6 +103,7 @@ export const uniswapL1L2TestSuite = (
 
       logger('Deploying DAI Portal, initializing and deploying l2 contract...');
       daiCrossChainHarness = await CrossChainTestHarness.new(
+        aztecNode,
         pxe,
         publicClient,
         walletClient,
@@ -110,6 +114,7 @@ export const uniswapL1L2TestSuite = (
 
       logger('Deploying WETH Portal, initializing and deploying l2 contract...');
       wethCrossChainHarness = await CrossChainTestHarness.new(
+        aztecNode,
         pxe,
         publicClient,
         walletClient,
@@ -160,7 +165,7 @@ export const uniswapL1L2TestSuite = (
       const [secretForMintingWeth, secretHashForMintingWeth] = wethCrossChainHarness.generateClaimSecret();
       const [secretForRedeemingWeth, secretHashForRedeemingWeth] = wethCrossChainHarness.generateClaimSecret();
 
-      await wethCrossChainHarness.sendTokensToPortalPrivate(
+      const tokenDepositMsgLeaf = await wethCrossChainHarness.sendTokensToPortalPrivate(
         secretHashForRedeemingWeth,
         wethAmountToBridge,
         secretHashForMintingWeth,
@@ -173,9 +178,7 @@ export const uniswapL1L2TestSuite = (
         wethAmountToBridge,
       );
 
-      // Wait for the archiver to process the message
-      await sleep(5000);
-      await wethCrossChainHarness.advanceBy2Blocks();
+      await wethCrossChainHarness.makeMessageConsumable(tokenDepositMsgLeaf);
 
       // 2. Claim WETH on L2
       logger('Minting weth on L2');
@@ -253,7 +256,23 @@ export const uniswapL1L2TestSuite = (
       ] as const;
 
       // this should also insert a message into the inbox.
-      await uniswapPortal.write.swapPrivate(swapArgs, {} as any);
+      const txHash = await uniswapPortal.write.swapPrivate(swapArgs, {} as any);
+
+      // We get the msg leaf from event so that we can later wait for it to be available for consumption
+      let tokenOutMsgLeaf: Fr;
+      {
+        const txReceipt = await daiCrossChainHarness.publicClient.waitForTransactionReceipt({
+          hash: txHash,
+        });
+
+        const txLog = txReceipt.logs[9];
+        const topics = decodeEventLog({
+          abi: InboxAbi,
+          data: txLog.data,
+          topics: txLog.topics,
+        });
+        tokenOutMsgLeaf = Fr.fromString(topics.args.value);
+      }
 
       // weth was swapped to dai and send to portal
       const daiL1BalanceOfPortalAfter = await daiCrossChainHarness.getL1BalanceOf(
@@ -262,9 +281,8 @@ export const uniswapL1L2TestSuite = (
       expect(daiL1BalanceOfPortalAfter).toBeGreaterThan(daiL1BalanceOfPortalBeforeSwap);
       const daiAmountToBridge = BigInt(daiL1BalanceOfPortalAfter - daiL1BalanceOfPortalBeforeSwap);
 
-      // Wait for the archiver to process the message
-      await sleep(5000);
-      await wethCrossChainHarness.advanceBy2Blocks();
+      // Wait for the message to be available for consumption
+      await daiCrossChainHarness.makeMessageConsumable(tokenOutMsgLeaf);
 
       // 6. claim dai on L2
       logger('Consuming messages to mint dai on L2');
@@ -294,7 +312,10 @@ export const uniswapL1L2TestSuite = (
       // 1. Approve and deposit weth to the portal and move to L2
       const [secretForMintingWeth, secretHashForMintingWeth] = wethCrossChainHarness.generateClaimSecret();
 
-      await wethCrossChainHarness.sendTokensToPortalPublic(wethAmountToBridge, secretHashForMintingWeth);
+      const wethDepositMsgLeaf = await wethCrossChainHarness.sendTokensToPortalPublic(
+        wethAmountToBridge,
+        secretHashForMintingWeth,
+      );
       // funds transferred from owner to token portal
       expect(await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress)).toBe(
         wethL1BeforeBalance - wethAmountToBridge,
@@ -303,9 +324,8 @@ export const uniswapL1L2TestSuite = (
         wethAmountToBridge,
       );
 
-      // Wait for the archiver to process the message
-      await sleep(5000);
-      await wethCrossChainHarness.advanceBy2Blocks();
+      // Wait for the message to be available for consumption
+      await wethCrossChainHarness.makeMessageConsumable(wethDepositMsgLeaf);
 
       // 2. Claim WETH on L2
       logger('Minting weth on L2');
@@ -382,7 +402,24 @@ export const uniswapL1L2TestSuite = (
       ] as const;
 
       // this should also insert a message into the inbox.
-      await uniswapPortal.write.swapPublic(swapArgs, {} as any);
+      const txHash = await uniswapPortal.write.swapPublic(swapArgs, {} as any);
+
+      // We get the msg leaf from event so that we can later wait for it to be available for consumption
+      let outTokenDepositMsgLeaf: Fr;
+      {
+        const txReceipt = await daiCrossChainHarness.publicClient.waitForTransactionReceipt({
+          hash: txHash,
+        });
+
+        const txLog = txReceipt.logs[9];
+        const topics = decodeEventLog({
+          abi: InboxAbi,
+          data: txLog.data,
+          topics: txLog.topics,
+        });
+        outTokenDepositMsgLeaf = Fr.fromString(topics.args.value);
+      }
+
       // weth was swapped to dai and send to portal
       const daiL1BalanceOfPortalAfter = await daiCrossChainHarness.getL1BalanceOf(
         daiCrossChainHarness.tokenPortalAddress,
@@ -390,9 +427,8 @@ export const uniswapL1L2TestSuite = (
       expect(daiL1BalanceOfPortalAfter).toBeGreaterThan(daiL1BalanceOfPortalBeforeSwap);
       const daiAmountToBridge = BigInt(daiL1BalanceOfPortalAfter - daiL1BalanceOfPortalBeforeSwap);
 
-      // Wait for the archiver to process the message
-      await sleep(5000);
-      await wethCrossChainHarness.advanceBy2Blocks();
+      // Wait for the message to be available for consumption
+      await daiCrossChainHarness.makeMessageConsumable(outTokenDepositMsgLeaf);
 
       // 6. claim dai on L2
       logger('Consuming messages to mint dai on L2');

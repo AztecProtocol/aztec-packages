@@ -1,6 +1,7 @@
 import {
   AccountWallet,
   AztecAddress,
+  AztecNode,
   CompleteAddress,
   DebugLogger,
   DeployL1Contracts,
@@ -12,7 +13,6 @@ import {
   PXE,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
-  sleep,
 } from '@aztec/aztec.js';
 import { keccak, sha256 } from '@aztec/foundation/crypto';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
@@ -28,6 +28,7 @@ import { publicDeployAccounts, setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 
 describe('e2e_public_cross_chain_messaging', () => {
+  let aztecNode: AztecNode;
   let pxe: PXE;
   let deployL1ContractsValues: DeployL1Contracts;
   let logger: DebugLogger;
@@ -47,7 +48,7 @@ describe('e2e_public_cross_chain_messaging', () => {
   let outbox: any;
 
   beforeAll(async () => {
-    ({ pxe, deployL1ContractsValues, wallets, accounts, logger, teardown } = await setup(2));
+    ({ aztecNode, pxe, deployL1ContractsValues, wallets, accounts, logger, teardown } = await setup(2));
     user1Wallet = wallets[0];
     user2Wallet = wallets[1];
     await publicDeployAccounts(wallets[0], accounts.slice(0, 2));
@@ -55,6 +56,7 @@ describe('e2e_public_cross_chain_messaging', () => {
 
   beforeEach(async () => {
     crossChainTestHarness = await CrossChainTestHarness.new(
+      aztecNode,
       pxe,
       deployL1ContractsValues.publicClient,
       deployL1ContractsValues.walletClient,
@@ -87,12 +89,11 @@ describe('e2e_public_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
 
     // 2. Deposit tokens to the TokenPortal
-    await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    // Wait for the archiver to process the message
-    await sleep(5000); // waiting 5 seconds.
-    await crossChainTestHarness.advanceBy2Blocks();
+    // Wait for the message to be available for consumption
+    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
 
     // 3. Consume L1 -> L2 message and mint public tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, secret);
@@ -135,12 +136,10 @@ describe('e2e_public_cross_chain_messaging', () => {
     const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    // Wait for the archiver to process the message
-    await sleep(5000); /// waiting 5 seconds.
-    await crossChainTestHarness.advanceBy2Blocks();
+    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
 
     const content = Fr.fromBufferReduce(
       sha256(
@@ -190,12 +189,10 @@ describe('e2e_public_cross_chain_messaging', () => {
     const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
-    await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(0n);
 
-    // Wait for the archiver to process the message
-    await sleep(5000); /// waiting 5 seconds.
-    await crossChainTestHarness.advanceBy2Blocks();
+    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
 
     // Wrong message hash
     const content = Fr.fromBufferReduce(
@@ -294,6 +291,7 @@ describe('e2e_public_cross_chain_messaging', () => {
       ] as const);
 
       // We check that the message was correctly injected by checking the emitted event
+      const msgLeaf = message.hash();
       {
         const txReceipt = await crossChainTestHarness.publicClient.waitForTransactionReceipt({
           hash: txHash,
@@ -309,17 +307,13 @@ describe('e2e_public_cross_chain_messaging', () => {
           data: txLog.data,
           topics: txLog.topics,
         });
-        const leaf = topics.args.value;
+        const receivedMsgLeaf = topics.args.value;
 
         // We check that the leaf inserted into the subtree matches the expected message hash
-        expect(leaf).toBe(message.hash().toString());
+        expect(receivedMsgLeaf).toBe(msgLeaf.toString());
       }
 
-      // We wait for the archiver to process the message and we push a block for the message to be confirmed
-      {
-        await sleep(5000); // waiting 5 seconds.
-        await crossChainTestHarness.advanceBy2Blocks();
-      }
+      await crossChainTestHarness.makeMessageConsumable(msgLeaf);
 
       // Finally, e consume the L1 -> L2 message using the test contract either from private or public
       if (isPrivate) {
