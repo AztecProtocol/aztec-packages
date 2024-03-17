@@ -1,6 +1,5 @@
 import {
   ExtendedUnencryptedL2Log,
-  L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
   NullifierMembershipWitness,
