@@ -1,4 +1,4 @@
-import { NewInboxLeaf } from '@aztec/circuit-types';
+import { InboxLeaf } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -15,7 +15,7 @@ describe('l1_to_l2_message_store', () => {
   it('addMessage adds a message and correctly returns it and index', () => {
     const blockNumber = 236n;
     const msgs = Array.from({ length: 10 }, (_, i) => {
-      return new NewInboxLeaf(blockNumber, BigInt(i), Fr.random());
+      return new InboxLeaf(blockNumber, BigInt(i), Fr.random());
     });
     for (const m of msgs) {
       store.addMessage(m);

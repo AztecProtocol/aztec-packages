@@ -1,4 +1,4 @@
-import { L2Block, L2BlockContext, LogId, LogType, NewInboxLeaf, TxHash, UnencryptedL2Log } from '@aztec/circuit-types';
+import { InboxLeaf, L2Block, L2BlockContext, LogId, LogType, TxHash, UnencryptedL2Log } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
 import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
 import { makeContractClassPublic } from '@aztec/circuits.js/testing';
@@ -98,7 +98,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('returns the L1 block number that most recently added messages from inbox', async () => {
-        await store.addL1ToL2Messages([new NewInboxLeaf(0n, 0n, Fr.ZERO)], 1n);
+        await store.addL1ToL2Messages([new InboxLeaf(0n, 0n, Fr.ZERO)], 1n);
         await expect(store.getSynchedL1BlockNumbers()).resolves.toEqual({
           blocks: 0n,
           messages: 1n,
@@ -164,7 +164,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const l1ToL2MessageSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
       const generateBlockMessages = (blockNumber: bigint, numMessages: number) =>
-        Array.from({ length: numMessages }, (_, i) => new NewInboxLeaf(blockNumber, BigInt(i), Fr.random()));
+        Array.from({ length: numMessages }, (_, i) => new InboxLeaf(blockNumber, BigInt(i), Fr.random()));
 
       it('returns messages in correct order', async () => {
         const msgs = generateBlockMessages(l2BlockNumber, l1ToL2MessageSubtreeSize);
@@ -180,7 +180,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const msgs = generateBlockMessages(l2BlockNumber, l1ToL2MessageSubtreeSize - 1);
         // We replace a message with index 4 with a message with index at the end of the tree
         // --> with that there will be a gap and it will be impossible to sequence the messages
-        msgs[4] = new NewInboxLeaf(l2BlockNumber, BigInt(l1ToL2MessageSubtreeSize - 1), Fr.random());
+        msgs[4] = new InboxLeaf(l2BlockNumber, BigInt(l1ToL2MessageSubtreeSize - 1), Fr.random());
 
         await store.addL1ToL2Messages(msgs, 100n);
         await expect(async () => {

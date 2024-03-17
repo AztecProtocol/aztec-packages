@@ -1,4 +1,4 @@
-import { Body, NewInboxLeaf } from '@aztec/circuit-types';
+import { Body, InboxLeaf } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -14,11 +14,11 @@ import { Hex, Log, PublicClient, decodeFunctionData, getAbiItem, getAddress, hex
  */
 export function processLeafInsertedLogs(
   logs: Log<bigint, number, false, undefined, true, typeof InboxAbi, 'LeafInserted'>[],
-): NewInboxLeaf[] {
-  const leaves: NewInboxLeaf[] = [];
+): InboxLeaf[] {
+  const leaves: InboxLeaf[] = [];
   for (const log of logs) {
     const { blockNumber, index, value } = log.args;
-    leaves.push(new NewInboxLeaf(blockNumber, index, Fr.fromString(value)));
+    leaves.push(new InboxLeaf(blockNumber, index, Fr.fromString(value)));
   }
   return leaves;
 }

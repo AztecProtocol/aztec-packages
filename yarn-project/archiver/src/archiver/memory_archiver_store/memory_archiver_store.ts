@@ -2,13 +2,13 @@ import {
   Body,
   ExtendedUnencryptedL2Log,
   GetUnencryptedLogsResponse,
+  InboxLeaf,
   L2Block,
   L2BlockContext,
   L2BlockL2Logs,
   LogFilter,
   LogId,
   LogType,
-  NewInboxLeaf,
   TxEffect,
   TxHash,
   TxReceipt,
@@ -160,7 +160,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
    * @returns True if the operation is successful.
    */
-  public addL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
+  public addL1ToL2Messages(messages: InboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
     if (lastMessageL1BlockNumber <= this.lastL1BlockNewMessages) {
       return Promise.resolve(false);
     }

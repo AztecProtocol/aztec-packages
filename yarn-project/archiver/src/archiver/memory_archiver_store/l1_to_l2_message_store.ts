@@ -1,4 +1,4 @@
-import { NewInboxLeaf } from '@aztec/circuit-types';
+import { InboxLeaf } from '@aztec/circuit-types';
 import {
   INITIAL_L2_BLOCK_NUM,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
@@ -20,7 +20,7 @@ export class L1ToL2MessageStore {
 
   constructor() {}
 
-  addMessage(message: NewInboxLeaf) {
+  addMessage(message: InboxLeaf) {
     if (message.index >= this.#l1ToL2MessagesSubtreeSize) {
       throw new Error(`Message index ${message.index} out of subtree range`);
     }

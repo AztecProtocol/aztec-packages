@@ -1,4 +1,4 @@
-import { NewInboxLeaf } from '@aztec/circuit-types';
+import { InboxLeaf } from '@aztec/circuit-types';
 import {
   Fr,
   INITIAL_L2_BLOCK_NUM,
@@ -40,7 +40,7 @@ export class MessageStore {
    * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
    * @returns True if the operation is successful.
    */
-  addL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
+  addL1ToL2Messages(messages: InboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
     return this.db.transaction(() => {
       const lastL1BlockNumber = this.#lastL1BlockMessages.get() ?? 0n;
       if (lastL1BlockNumber >= lastMessageL1BlockNumber) {

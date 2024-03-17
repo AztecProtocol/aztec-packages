@@ -160,6 +160,9 @@ export const uniswapL1L2TestSuite = (
     // docs:start:uniswap_private
     it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
       const wethL1BeforeBalance = await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress);
+      if (wethL1BeforeBalance < wethAmountToBridge) {
+        throw new Error('Not enough WETH to run this test. Try restarting anvil.');
+      }
 
       // 1. Approve and deposit weth to the portal and move to L2
       const [secretForMintingWeth, secretHashForMintingWeth] = wethCrossChainHarness.generateClaimSecret();

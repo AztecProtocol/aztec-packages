@@ -1,4 +1,4 @@
-// TODO(#5264) Separate classes here to individual files, rename NewInboxLeaf to something less ugly and check usage of L1ToL2Message.
+// TODO(#5264) Separate classes here to individual files, rename InboxLeaf to something less ugly and check usage of L1ToL2Message.
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { randomInt, sha256 } from '@aztec/foundation/crypto';
@@ -31,7 +31,7 @@ export interface L1ToL2MessageSource {
   getBlockNumber(): Promise<number>;
 }
 
-export class NewInboxLeaf {
+export class InboxLeaf {
   constructor(
     /** L2 block number in which the message will be included. */
     public readonly blockNumber: bigint,
@@ -45,12 +45,12 @@ export class NewInboxLeaf {
     return serializeToBuffer([this.blockNumber, this.index, this.leaf]);
   }
 
-  fromBuffer(buffer: Buffer | BufferReader): NewInboxLeaf {
+  fromBuffer(buffer: Buffer | BufferReader): InboxLeaf {
     const reader = BufferReader.asReader(buffer);
     const blockNumber = toBigIntBE(reader.readBytes(32));
     const index = toBigIntBE(reader.readBytes(32));
     const leaf = reader.readObject(Fr);
-    return new NewInboxLeaf(blockNumber, index, leaf);
+    return new InboxLeaf(blockNumber, index, leaf);
   }
 }
 

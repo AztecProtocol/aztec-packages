@@ -1,4 +1,4 @@
-import { Body, NewInboxLeaf } from '@aztec/circuit-types';
+import { Body, InboxLeaf } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
@@ -118,7 +118,7 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
- * @returns An array of NewInboxLeaf and next eth block to search from.
+ * @returns An array of InboxLeaf and next eth block to search from.
  */
 export async function retrieveL1ToL2Messages(
   publicClient: PublicClient,
@@ -126,8 +126,8 @@ export async function retrieveL1ToL2Messages(
   blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
-): Promise<DataRetrieval<NewInboxLeaf>> {
-  const retrievedL1ToL2Messages: NewInboxLeaf[] = [];
+): Promise<DataRetrieval<InboxLeaf>> {
+  const retrievedL1ToL2Messages: InboxLeaf[] = [];
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
