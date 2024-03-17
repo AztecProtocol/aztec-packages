@@ -1,4 +1,5 @@
 export * from './aztec-node.js';
+export * from './block_number.js';
 export * from './pxe.js';
 export * from './deployed-contract.js';
 export * from './sync-status.js';
