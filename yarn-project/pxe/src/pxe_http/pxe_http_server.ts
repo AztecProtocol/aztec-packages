@@ -1,8 +1,6 @@
 import {
   AuthWitness,
   CompleteAddress,
-  ContractData,
-  ExtendedContractData,
   ExtendedNote,
   ExtendedUnencryptedL2Log,
   L2Block,
@@ -36,8 +34,6 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       CompleteAddress,
       AztecAddress,
       TxExecutionRequest,
-      ContractData,
-      ExtendedContractData,
       ExtendedUnencryptedL2Log,
       FunctionSelector,
       TxHash,
