@@ -3,7 +3,7 @@ pragma solidity >=0.8.18;
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 import {IRegistry} from "../../src/core/interfaces/messagebridge/IRegistry.sol";
-import {INewOutbox} from "../../src/core/interfaces/messagebridge/INewOutbox.sol";
+import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 import {Hash} from "../../src/core/libraries/Hash.sol";
 
@@ -23,12 +23,10 @@ contract UniswapPortal {
   ISwapRouter public constant ROUTER = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
 
   IRegistry public registry;
-  INewOutbox public newOutbox;
   bytes32 public l2UniswapAddress;
 
-  function initialize(address _registry, address _newOutbox, bytes32 _l2UniswapAddress) external {
+  function initialize(address _registry, bytes32 _l2UniswapAddress) external {
     registry = IRegistry(_registry);
-    newOutbox = INewOutbox(_newOutbox);
     l2UniswapAddress = _l2UniswapAddress;
   }
 
@@ -104,7 +102,9 @@ contract UniswapPortal {
 
     // Consume the message from the outbox
     {
-      newOutbox.consume(
+      IOutbox outbox = registry.getOutbox();
+
+      outbox.consume(
         _outboxMessageMetadata[1]._l2BlockNumber,
         _outboxMessageMetadata[1]._leafIndex,
         DataStructures.L2ToL1Msg({
@@ -207,7 +207,9 @@ contract UniswapPortal {
 
     // Consume the message from the outbox
     {
-      newOutbox.consume(
+      IOutbox outbox = registry.getOutbox();
+
+      outbox.consume(
         _outboxMessageMetadata[1]._l2BlockNumber,
         _outboxMessageMetadata[1]._leafIndex,
         DataStructures.L2ToL1Msg({
