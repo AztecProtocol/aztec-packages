@@ -37,8 +37,14 @@ exports[`ContractClass creates a contract class from a contract compilation arti
       "isInternal": false
     }
   ],
+<<<<<<< HEAD
   "id": "0x0c47c9d2eef98d3b6d5e33b4205a5612b0f28cb66dd28d10164df60a5bdc03ad",
   "privateFunctionsRoot": "0x2dc1f38d7be98a8e72227d6f8aec393c60db813a1819c9c86b02a00cc18f6687",
   "publicBytecodeCommitment": "0x01965e919095d30da5736af73103e275eac75eb6ddf7bee564d9d85c9c1b8222"
+=======
+  "id": "0x2ac5b620337d4d32f0f31d09de1eb89b05a8ccb2877dc7b44fe59859f434732a",
+  "privateFunctionsRoot": "0x2dc1f38d7be98a8e72227d6f8aec393c60db813a1819c9c86b02a00cc18f6687",
+  "publicBytecodeCommitment": "0x00946ee0c98a22b53261be74dcc14f4253a81ddac129eb2196bf395593e2245f"
+>>>>>>> master
 }"
 `;
