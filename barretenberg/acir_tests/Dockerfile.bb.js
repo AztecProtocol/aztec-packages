@@ -14,8 +14,8 @@ RUN cd headless-test && yarn && npx playwright install && npx playwright install
 COPY . .
 ENV VERBOSE=1
 # WORKTODO
-# # Run double_verify_proof through bb.js on node to check 512k support.
-# RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh double_verify_proof
+# Run double_verify_proof through bb.js on node to check 512k support.
+RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh double_verify_proof
 # Run a single arbitrary test not involving recursion through bb.js for GoblinUltraHonk
 RUN BIN=../ts/dest/node/main.js FLOW=accumulate_and_verify_goblin ./run_acir_tests.sh 6_array
 # Run a single arbitrary test not involving recursion through bb.js for full Goblin
