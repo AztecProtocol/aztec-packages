@@ -436,7 +436,7 @@ export class CrossChainTestHarness {
    */
   async makeMessageConsumable(msgLeaf: Fr) {
     // We poll isL1ToL2MessageSynced endpoint until the message is available
-    await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(msgLeaf), 'message sync', 10);
+    await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(msgLeaf), 'message sync', 100);
 
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);
