@@ -1,5 +1,3 @@
-import { ContractDataSource } from '@aztec/types/contracts';
-
 import {
   FailedTx,
   L1ToL2MessageSource,
@@ -16,6 +14,7 @@ import { GlobalVariables, Header } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { PublicExecutor, PublicStateDB, SimulationProvider } from '@aztec/simulator';
+import { ContractDataSource } from '@aztec/types/contracts';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
