@@ -76,8 +76,8 @@ impl TransparentNote {
     }
 
     // Custom serialization forces us to manually create the metadata struct and its getter
-    pub fn properties() -> TransparentNoteFields {
-        TransparentNoteFields {
+    pub fn properties() -> TransparentNoteProperties {
+        TransparentNoteProperties {
             amount: PropertySelector { index: 0, offset: 0, length: 32 },
             secret_hash: PropertySelector { index: 1, offset: 0, length: 32 }
         }
