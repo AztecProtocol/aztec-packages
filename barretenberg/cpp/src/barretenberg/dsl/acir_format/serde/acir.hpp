@@ -1796,62 +1796,15 @@ inline BinaryIntOp::Div BinaryIntOp::Div::bincodeDeserialize(std::vector<uint8_t
 
 template <>
 template <typename Serializer>
-<<<<<<< HEAD
-void serde::Serializable<Program::BinaryIntOp::SignedDiv>::serialize(const Program::BinaryIntOp::SignedDiv& obj,
-                                                                     Serializer& serializer)
-=======
-void serde::Serializable<Circuit::BinaryIntOp::Div>::serialize(const Circuit::BinaryIntOp::Div& obj,
+void serde::Serializable<Program::BinaryIntOp::Div>::serialize(const Program::BinaryIntOp::Div& obj,
                                                                Serializer& serializer)
->>>>>>> master
 {}
 
 template <>
 template <typename Deserializer>
-Program::BinaryIntOp::SignedDiv serde::Deserializable<Program::BinaryIntOp::SignedDiv>::deserialize(
-    Deserializer& deserializer)
+Program::BinaryIntOp::Div serde::Deserializable<Program::BinaryIntOp::Div>::deserialize(Deserializer& deserializer)
 {
-    Program::BinaryIntOp::SignedDiv obj;
-    return obj;
-}
-
-namespace Program {
-
-inline bool operator==(const BinaryIntOp::UnsignedDiv& lhs, const BinaryIntOp::UnsignedDiv& rhs)
-{
-    return true;
-}
-
-inline std::vector<uint8_t> BinaryIntOp::UnsignedDiv::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<BinaryIntOp::UnsignedDiv>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline BinaryIntOp::UnsignedDiv BinaryIntOp::UnsignedDiv::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<BinaryIntOp::UnsignedDiv>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::BinaryIntOp::UnsignedDiv>::serialize(const Program::BinaryIntOp::UnsignedDiv& obj,
-                                                                       Serializer& serializer)
-{}
-
-template <>
-template <typename Deserializer>
-Program::BinaryIntOp::UnsignedDiv serde::Deserializable<Program::BinaryIntOp::UnsignedDiv>::deserialize(
-    Deserializer& deserializer)
-{
-    Program::BinaryIntOp::UnsignedDiv obj;
+    Program::BinaryIntOp::Div obj;
     return obj;
 }
 
