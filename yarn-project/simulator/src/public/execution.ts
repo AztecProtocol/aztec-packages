@@ -6,6 +6,7 @@ import {
   Fr,
   L2ToL1Message,
   PublicCallRequest,
+  PublicCallStackItem,
   PublicDataRead,
   PublicDataUpdateRequest,
   ReadRequest,
@@ -20,6 +21,8 @@ import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@azte
 export interface PublicExecutionResult {
   /** The execution that triggered this result. */
   execution: PublicExecution;
+  /** The call stack item. */
+  callStackItem: PublicCallStackItem;
   /** The return values of the function. */
   returnValues: Fr[];
   /** The new note hashes to be inserted into the note hashes tree. */

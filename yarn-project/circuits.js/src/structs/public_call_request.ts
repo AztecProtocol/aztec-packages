@@ -37,6 +37,10 @@ export class PublicCallRequest {
      */
     public parentCallContext: CallContext,
     /**
+     * The side effect counter this call was enqueued at.
+     */
+    public counter: number,
+    /**
      * Function arguments.
      */
     public args: Fr[],
@@ -52,6 +56,7 @@ export class PublicCallRequest {
       this.functionData,
       this.callContext,
       this.parentCallContext,
+      this.counter,
       new Vector(this.args),
     );
   }
@@ -68,6 +73,7 @@ export class PublicCallRequest {
       FunctionData.fromBuffer(reader),
       CallContext.fromBuffer(reader),
       CallContext.fromBuffer(reader),
+      reader.readNumber(),
       reader.readVector(Fr),
     );
   }
@@ -92,6 +98,7 @@ export class PublicCallRequest {
       fields.functionData,
       fields.callContext,
       fields.parentCallContext,
+      fields.counter,
       fields.args,
     ] as const;
   }
@@ -120,7 +127,7 @@ export class PublicCallRequest {
       item.hash(),
       this.parentCallContext.storageContractAddress,
       callerContext,
-      new Fr(this.callContext.sideEffectCounter),
+      new Fr(this.counter),
       Fr.ZERO,
     );
   }
@@ -131,5 +138,15 @@ export class PublicCallRequest {
    */
   getArgsHash() {
     return computeVarArgsHash(this.args);
+  }
+
+  static cmpByCounterDesc(a: PublicCallRequest, b: PublicCallRequest): -1 | 0 | 1 {
+    if (a.counter < b.counter) {
+      return 1;
+    } else if (a.counter > b.counter) {
+      return -1;
+    } else {
+      return 0;
+    }
   }
 }

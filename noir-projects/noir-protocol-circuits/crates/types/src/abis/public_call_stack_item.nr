@@ -1,12 +1,13 @@
 use crate::abis::{function_data::FunctionData, public_circuit_public_inputs::PublicCircuitPublicInputs};
 use crate::address::AztecAddress;
-use crate::constants::GENERATOR_INDEX__CALL_STACK_ITEM;
-use crate::traits::Hash;
+use crate::constants::{GENERATOR_INDEX__CALL_STACK_ITEM, PUBLIC_CALL_STACK_ITEM_LENGTH};
+use crate::traits::{Hash, Serialize, Deserialize};
+use crate::utils::reader::Reader;
 
 struct PublicCallStackItem {
     contract_address: AztecAddress,
-    public_inputs: PublicCircuitPublicInputs,
     function_data: FunctionData,
+    public_inputs: PublicCircuitPublicInputs,
     // True if this call stack item represents a request to execute a function rather than a
     // fulfilled execution. Used when enqueuing calls from private to public functions.
     is_execution_request: bool,
@@ -45,6 +46,44 @@ impl PublicCallStackItem {
     }
 }
 
+impl Serialize<PUBLIC_CALL_STACK_ITEM_LENGTH> for PublicCallStackItem {
+    fn serialize(self) -> [Field; PUBLIC_CALL_STACK_ITEM_LENGTH] {
+        let mut fields: BoundedVec<Field, PUBLIC_CALL_STACK_ITEM_LENGTH> = BoundedVec::new();
+
+        fields.push(self.contract_address.to_field());
+        fields.extend_from_array(self.function_data.serialize());
+        fields.extend_from_array(self.public_inputs.serialize());
+        fields.push(self.is_execution_request as Field);
+
+        assert_eq(fields.len(), PUBLIC_CALL_STACK_ITEM_LENGTH);
+
+        fields.storage
+    }
+}
+
+impl Deserialize<PUBLIC_CALL_STACK_ITEM_LENGTH> for PublicCallStackItem {
+    fn deserialize(serialized: [Field; PUBLIC_CALL_STACK_ITEM_LENGTH]) -> Self {
+        let mut reader = Reader::new(serialized);
+        let item = Self {
+            contract_address: reader.read_struct(AztecAddress::deserialize),
+            function_data: reader.read_struct(FunctionData::deserialize),
+            public_inputs: reader.read_struct(PublicCircuitPublicInputs::deserialize),
+            is_execution_request: reader.read() as bool,
+        };
+
+        item
+    }
+}
+
+impl Eq for PublicCallStackItem {
+    fn eq(self, other: Self) -> bool {
+        self.contract_address.eq(other.contract_address) &
+        self.function_data.eq(other.function_data) &
+        self.public_inputs.eq(other.public_inputs) &
+        self.is_execution_request.eq(other.is_execution_request)
+    }
+}
+
 mod tests {
     use crate::{
         abis::{
@@ -54,6 +93,23 @@ mod tests {
     },
         address::AztecAddress, constants::GENERATOR_INDEX__CALL_STACK_ITEM, traits::Hash
     };
+
+    #[test]
+    fn serialize_smoke() {
+        let item: PublicCallStackItem = dep::std::unsafe::zeroed();
+        let serialized = item.serialize();
+        let deserialized = PublicCallStackItem::deserialize(serialized);
+        assert(item.eq(deserialized));
+    }
+
+    #[test]
+    fn serialize_exec_request_smoke() {
+        let mut item: PublicCallStackItem = dep::std::unsafe::zeroed();
+        item.is_execution_request = true;
+        let serialized = item.serialize();
+        let deserialized = PublicCallStackItem::deserialize(serialized);
+        assert(item.eq(deserialized));
+    }
 
     #[test]
     fn compute_call_stack_item_request_hash() {

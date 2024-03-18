@@ -5,6 +5,8 @@ import {
   ContractStorageUpdateRequest,
   GlobalVariables,
   L2ToL1Message,
+  PublicCallStackItem,
+  PublicCircuitPublicInputs,
   ReadRequest,
   SideEffect,
   SideEffectLinkedToNoteHash,
@@ -102,8 +104,17 @@ export function temporaryConvertAvmResults(
   const startSideEffectCounter = Fr.ZERO;
   const endSideEffectCounter = Fr.ZERO;
 
+  // TODO pass publicInputs
+  const callStackItem = new PublicCallStackItem(
+    execution.contractAddress,
+    execution.functionData,
+    PublicCircuitPublicInputs.empty(),
+    false,
+  );
+
   return {
     execution,
+    callStackItem,
     nullifierReadRequests,
     nullifierNonExistentReadRequests,
     newNoteHashes,

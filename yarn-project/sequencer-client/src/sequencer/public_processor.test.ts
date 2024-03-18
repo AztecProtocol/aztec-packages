@@ -28,11 +28,14 @@ import {
   PublicAccumulatedNonRevertibleData,
   PublicAccumulatedRevertibleData,
   PublicCallRequest,
+  PublicCallStackItem,
+  PublicCircuitPublicInputs,
   PublicKernelCircuitPublicInputs,
+  RETURN_VALUES_LENGTH,
   ValidationRequests,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import {
   fr,
   makeAztecAddress,
@@ -293,9 +296,9 @@ describe('public_processor', () => {
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      callRequests[0].callContext.sideEffectCounter = 2;
-      callRequests[1].callContext.sideEffectCounter = 3;
-      callRequests[2].callContext.sideEffectCounter = 4;
+      callRequests[0].counter = 2;
+      callRequests[1].counter = 3;
+      callRequests[2].counter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
@@ -409,9 +412,9 @@ describe('public_processor', () => {
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      callRequests[0].callContext.sideEffectCounter = 2;
-      callRequests[1].callContext.sideEffectCounter = 3;
-      callRequests[2].callContext.sideEffectCounter = 4;
+      callRequests[0].counter = 2;
+      callRequests[1].counter = 3;
+      callRequests[2].counter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
@@ -513,9 +516,9 @@ describe('public_processor', () => {
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      callRequests[0].callContext.sideEffectCounter = 2;
-      callRequests[1].callContext.sideEffectCounter = 3;
-      callRequests[2].callContext.sideEffectCounter = 4;
+      callRequests[0].counter = 2;
+      callRequests[1].counter = 3;
+      callRequests[2].counter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
@@ -616,9 +619,9 @@ describe('public_processor', () => {
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      callRequests[0].callContext.sideEffectCounter = 2;
-      callRequests[1].callContext.sideEffectCounter = 3;
-      callRequests[2].callContext.sideEffectCounter = 4;
+      callRequests[0].counter = 2;
+      callRequests[1].counter = 3;
+      callRequests[2].counter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
 
@@ -770,7 +773,7 @@ class PublicExecutionResultBuilder {
     revertReason?: SimulationError;
   }) {
     const builder = new PublicExecutionResultBuilder({
-      callContext: new CallContext(from, tx.to, EthAddress.ZERO, tx.functionData.selector, false, false, 0),
+      callContext: new CallContext(from, tx.to, EthAddress.ZERO, tx.functionData.selector, false, false),
       contractAddress: tx.to,
       functionData: tx.functionData,
       args: tx.args,
@@ -808,8 +811,21 @@ class PublicExecutionResultBuilder {
   }
 
   build(): PublicExecutionResult {
+    const publicInputs = PublicCircuitPublicInputs.empty();
+    publicInputs.callContext = this._execution.callContext;
+    publicInputs.argsHash = computeVarArgsHash(this._execution.args);
+    publicInputs.returnValues = padArrayEnd(this._returnValues, Fr.ZERO, RETURN_VALUES_LENGTH);
+    publicInputs.reverted = this._reverted;
+
+    const callStackItem = new PublicCallStackItem(
+      this._execution.contractAddress,
+      this._execution.functionData,
+      publicInputs,
+      false,
+    );
     return {
       execution: this._execution,
+      callStackItem,
       nestedExecutions: this._nestedExecutions,
       nullifierReadRequests: [],
       nullifierNonExistentReadRequests: [],

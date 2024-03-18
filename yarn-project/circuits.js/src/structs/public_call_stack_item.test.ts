@@ -14,6 +14,14 @@ describe('PublicCallStackItem', () => {
     expect(res).toEqual(expected);
   });
 
+  it('serializes to fields and deserializes it back', () => {
+    const randomInt = Math.floor(Math.random() * 1000);
+    const expected = makePublicCallStackItem(randomInt);
+    const fields = expected.toFields();
+    const res = PublicCallStackItem.fromFields(fields);
+    expect(res).toEqual(expected);
+  });
+
   it('computes hash', () => {
     const seed = 9870243;
     const item = makePublicCallStackItem(seed);

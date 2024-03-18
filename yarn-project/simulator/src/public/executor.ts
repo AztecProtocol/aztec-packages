@@ -1,5 +1,5 @@
 import { FunctionL2Logs } from '@aztec/circuit-types';
-import { Fr, GlobalVariables, Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
+import { Fr, GlobalVariables, Header, PublicCallStackItem, PublicCircuitPublicInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { spawn } from 'child_process';
@@ -78,8 +78,16 @@ export async function executePublicFunction(
       throw new Error('Reverted but no revert reason');
     }
 
+    const callStackItem = new PublicCallStackItem(
+      contractAddress,
+      functionData,
+      PublicCircuitPublicInputs.empty(),
+      false,
+    );
+
     return {
       execution,
+      callStackItem,
       returnValues: [],
       newNoteHashes: [],
       newL2ToL1Messages: [],
@@ -103,6 +111,7 @@ export async function executePublicFunction(
   }
 
   const returnWitness = extractReturnWitness(acir, partialWitness);
+  const publicInputs = PublicCircuitPublicInputs.fromFields(returnWitness);
   const {
     returnValues,
     nullifierReadRequests: nullifierReadRequestsPadded,
@@ -112,7 +121,7 @@ export async function executePublicFunction(
     newNullifiers: newNullifiersPadded,
     startSideEffectCounter,
     endSideEffectCounter,
-  } = PublicCircuitPublicInputs.fromFields(returnWitness);
+  } = publicInputs;
 
   const nullifierReadRequests = nullifierReadRequestsPadded.filter(v => !v.isEmpty());
   const nullifierNonExistentReadRequests = nullifierNonExistentReadRequestsPadded.filter(v => !v.isEmpty());
@@ -136,8 +145,11 @@ export async function executePublicFunction(
   const nestedExecutions = context.getNestedExecutions();
   const unencryptedLogs = context.getUnencryptedLogs();
 
+  const callStackItem = new PublicCallStackItem(contractAddress, functionData, publicInputs, false);
+
   return {
     execution,
+    callStackItem,
     newNoteHashes,
     newL2ToL1Messages,
     newNullifiers,

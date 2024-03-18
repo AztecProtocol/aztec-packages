@@ -15,6 +15,7 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   PrivateCallStackItem,
   PublicCallRequest,
+  PublicCallStackItem,
 } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -215,7 +216,7 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
-  ): Promise<Fr[]> {
+  ): Promise<PublicCallStackItem> {
     throw new OracleMethodNotAvailableError('callPublicFunction');
   }
 

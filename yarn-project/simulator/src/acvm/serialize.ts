@@ -58,6 +58,7 @@ export function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): ACVM
     ...item.functionData.toFields(),
     ...item.callContext.toFields(),
     item.getArgsHash(),
+    item.counter,
   ];
   if (fields.length !== ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH) {
     throw new Error(
