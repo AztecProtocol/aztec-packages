@@ -87,7 +87,10 @@ describe('Archiver', () => {
       expect(l1ToL2Messages.length).toEqual(3);
 
       // Check that I cannot get messages for block 3 because there is a message gap (message with index 0 was not
-      // processed)
+      // processed) --> since we are fetching events individually for each message there is a message gap check when
+      // fetching the messages for the block in order to ensure that all the messages were really obtained. E.g. if we
+      // receive messages with indices 0, 1, 2, 4, 5, 6 we can be sure there is an issue because we are missing message
+      // with index 3.
       await expect(async () => {
         await archiver.getL1ToL2Messages(3n);
       }).rejects.toThrow(`L1 to L2 message gap found in block ${3}`);
