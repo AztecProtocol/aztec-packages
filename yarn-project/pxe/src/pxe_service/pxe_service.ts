@@ -1,10 +1,7 @@
 import {
   AuthWitness,
   AztecNode,
-  ContractDao,
-  ContractData,
   DeployedContract,
-  ExtendedContractData,
   ExtendedNote,
   FunctionCall,
   GetUnencryptedLogsResponse,
@@ -40,7 +37,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { DecodedReturn, encodeArguments } from '@aztec/foundation/abi';
+import { DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
@@ -219,35 +216,25 @@ export class PXEService implements PXE {
   }
 
   public async addContracts(contracts: DeployedContract[]) {
-    const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.instance));
-    await Promise.all(contractDaos.map(c => this.db.addContract(c)));
-    await this.addArtifactsAndInstancesFromDeployedContracts(contracts);
-    for (const contract of contractDaos) {
-      const instance = contract.instance;
-      const contractAztecAddress = instance.address;
-      const hasPortal = instance.portalContractAddress && !instance.portalContractAddress.isZero();
-      const portalInfo = hasPortal ? ` with portal ${instance.portalContractAddress.toChecksumString()}` : '';
-      this.log.info(`Added contract ${contract.name} at ${contractAztecAddress}${portalInfo}`);
-      await this.synchronizer.reprocessDeferredNotesForContract(contractAztecAddress);
-    }
-  }
-
-  private async addArtifactsAndInstancesFromDeployedContracts(contracts: DeployedContract[]) {
     for (const contract of contracts) {
-      const artifact = contract.artifact;
+      const { instance, artifact } = contract;
       const artifactHash = computeArtifactHash(artifact);
       const contractClassId = computeContractClassId(getContractClassFromArtifact({ ...artifact, artifactHash }));
       await this.db.addContractArtifact(contractClassId, artifact);
-      await this.db.addContractInstance(contract.instance);
+      await this.db.addContractInstance(instance);
+      const hasPortal = instance.portalContractAddress && !instance.portalContractAddress.isZero();
+      const portalInfo = hasPortal ? ` with portal ${instance.portalContractAddress.toChecksumString()}` : '';
+      this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}${portalInfo}`);
+      await this.synchronizer.reprocessDeferredNotesForContract(instance.address);
     }
   }
 
-  public async getContracts(): Promise<AztecAddress[]> {
-    return (await this.db.getContracts()).map(c => c.instance.address);
+  public getContracts(): Promise<AztecAddress[]> {
+    return this.db.getContractsAddresses();
   }
 
   public async getPublicStorageAt(contract: AztecAddress, slot: Fr) {
-    if ((await this.getContractData(contract)) === undefined) {
+    if (!(await this.getContractInstance(contract))) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
     return await this.node.getPublicStorageAt(contract, slot);
@@ -438,14 +425,6 @@ export class PXEService implements PXE {
 
   async getBlockNumber(): Promise<number> {
     return await this.node.getBlockNumber();
-  }
-
-  public async getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return await this.node.getExtendedContractData(contractAddress);
-  }
-
-  public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return await this.node.getContractData(contractAddress);
   }
 
   /**
@@ -654,9 +633,13 @@ export class PXEService implements PXE {
         if (contract) {
           err.enrichWithContractName(parsedContractAddress, contract.name);
           selectors.forEach(selector => {
-            const functionArtifact = contract.functions.find(f => f.selector.toString() === selector);
+            const functionArtifact = contract.functions.find(f => FunctionSelector.fromString(selector).equals(f));
             if (functionArtifact) {
-              err.enrichWithFunctionName(parsedContractAddress, functionArtifact.selector, functionArtifact.name);
+              err.enrichWithFunctionName(
+                parsedContractAddress,
+                FunctionSelector.fromNameAndParameters(functionArtifact),
+                functionArtifact.name,
+              );
             }
           });
         }
@@ -745,5 +728,9 @@ export class PXEService implements PXE {
 
   public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
     return !!(await this.node.getContractClass(id));
+  }
+
+  public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
+    return !!(await this.node.getContract(address));
   }
 }

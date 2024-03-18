@@ -1,7 +1,5 @@
 import {
   AuthWitness,
-  ContractData,
-  ExtendedContractData,
   ExtendedNote,
   ExtendedUnencryptedL2Log,
   L2Block,
@@ -40,10 +38,8 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], false)
       AuthWitness,
       AztecAddress,
       CompleteAddress,
-      ContractData,
       FunctionSelector,
       EthAddress,
-      ExtendedContractData,
       ExtendedNote,
       ExtendedUnencryptedL2Log,
       Fr,
