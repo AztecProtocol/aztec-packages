@@ -43,6 +43,8 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         let call_request = public_inputs.end_non_revertible.public_call_stack.pop();
         common::validate_call_against_request(self.public_call, call_request);
 
+        common::update_validation_requests(self.public_call, &mut public_inputs);
+
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
 
         if public_inputs.reverted == false {
@@ -106,12 +108,6 @@ mod tests {
             *self
         }
 
-        pub fn is_internal_call(&mut self) -> Self {
-            let _ = self.public_call.is_internal_call();
-            self.previous_kernel.contract_address = self.public_call.contract_address;
-            *self
-        }
-
         pub fn get_current_public_data_reads(self) -> [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_CALL] {
             let read_requests = self.public_call.public_inputs.contract_storage_reads.storage;
             compute_public_data_reads(self.public_call.contract_address, read_requests)
@@ -150,24 +146,6 @@ mod tests {
     fn no_bytecode_hash_should_fail() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         builder.public_call.bytecode_hash = 0;
-
-        builder.failed();
-    }
-
-    #[test]
-    fn internal_call_succeeds() {
-        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_internal_call();
-        builder.succeeded();
-    }
-
-    #[test(should_fail_with="msg_sender must be self for internal calls")]
-    fn invalid_is_internal() {
-        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_internal_call();
-
-        // Tweak the (storage) contract_address to be different to msg_sender.
-        let msg_sender = builder.public_call.public_inputs.call_context.msg_sender.to_field();
-        builder.public_call.contract_address = AztecAddress::from_field(msg_sender + 1);
-        builder.public_call.public_inputs.call_context.storage_contract_address = AztecAddress::from_field(msg_sender + 1);
 
         builder.failed();
     }

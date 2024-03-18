@@ -42,8 +42,8 @@ template <typename Flavor> UltraVerifier_<Flavor>& UltraVerifier_<Flavor>::opera
 template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     using FF = typename Flavor::FF;
-    using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphVerifier_<Curve>;
+    using PCS = typename Flavor::PCS;
+    using ZeroMorph = ZeroMorphVerifier_<PCS>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
     transcript = std::make_shared<Transcript>(proof);
