@@ -1,8 +1,4 @@
 VERSION 0.8
-FROM node:18.19.0
-
-# copy bb-js
-COPY ../barretenberg/ts/+build/build /build/barretenberg/ts
 
 nargo:
     FROM rust:bullseye
@@ -29,6 +25,8 @@ nargo:
 
 packages:
     FROM node:20
+    COPY ../barretenberg/ts/+build/build /build/barretenberg/ts
+
     RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
     RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
     RUN apt update && apt install -y jq libc++1
