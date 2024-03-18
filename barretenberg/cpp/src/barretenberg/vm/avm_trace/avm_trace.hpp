@@ -65,16 +65,19 @@ class AvmTraceBuilder {
     // Halt -> stop program execution.
     void halt();
 
-    // CALLDATACOPY opcode with direct memory access, i.e.,
-    // M[dst_offset:dst_offset+copy_size] = calldata[cd_offset:cd_offset+copy_size]
-    void calldata_copy(uint32_t cd_offset,
+    // CALLDATACOPY opcode with direct/indirect memory access, i.e.,
+    // direct: M[dst_offset:dst_offset+copy_size] = calldata[cd_offset:cd_offset+copy_size]
+    // indirect: M[M[dst_offset]:M[dst_offset]+copy_size] = calldata[cd_offset:cd_offset+copy_size]
+    void calldata_copy(bool indirect,
+                       uint32_t cd_offset,
                        uint32_t copy_size,
                        uint32_t dst_offset,
                        std::vector<FF> const& call_data_mem);
 
-    // RETURN opcode with direct memory access, i.e.,
-    // return(M[ret_offset:ret_offset+ret_size])
-    std::vector<FF> return_op(uint32_t ret_offset, uint32_t ret_size);
+    // RETURN opcode with direct and indirect memory access, i.e.,
+    // direct:   return(M[ret_offset:ret_offset+ret_size])
+    // indirect: return(M[M[ret_offset]:M[ret_offset]+ret_size])
+    std::vector<FF> return_op(bool indirect, uint32_t ret_offset, uint32_t ret_size);
 
   private:
     std::vector<Row> main_trace;

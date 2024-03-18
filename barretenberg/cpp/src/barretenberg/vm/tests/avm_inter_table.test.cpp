@@ -92,7 +92,7 @@ class AvmPermMainAluNegativeTests : public AvmInterTableTests {
         trace_builder.op_add(0, 1, 1, AvmMemoryTag::U64); // 19 + 15 = 34
         trace_builder.op_add(0, 1, 1, AvmMemoryTag::U64); // 19 + 34 = 53
         trace_builder.op_mul(0, 1, 2, AvmMemoryTag::U64); // 19 * 53 = 1007
-        trace_builder.return_op(0, 0);
+        trace_builder.return_op(false, 0, 0);
 
         trace = trace_builder.finalize();
 
@@ -191,7 +191,7 @@ class AvmPermMainMemNegativeTests : public AvmInterTableTests {
         trace_builder.set(a, 52, AvmMemoryTag::U8);
         trace_builder.set(b, 11, AvmMemoryTag::U8);
         trace_builder.op_sub(52, 11, 55, AvmMemoryTag::U8);
-        trace_builder.return_op(0, 0);
+        trace_builder.return_op(false, 0, 0);
 
         trace = trace_builder.finalize();
 

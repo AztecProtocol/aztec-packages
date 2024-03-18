@@ -424,28 +424,27 @@ void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst
 
 /**
  * @brief CALLDATACOPY opcode with direct memory access, i.e.,
- *        M[dst_offset:dst_offset+copy_size] = calldata[cd_offset:cd_offset+copy_size]
+ *        direct: M[dst_offset:dst_offset+copy_size] = calldata[cd_offset:cd_offset+copy_size]
+ *        indirect: M[M[dst_offset]:M[dst_offset]+copy_size] = calldata[cd_offset:cd_offset+copy_size]
  *        Simplified version with exclusively memory store operations and
  *        values from M_calldata passed by an array and loaded into
  *        intermediate registers.
  *        Assume that caller passes call_data_mem which is large enough so that
  *        no out-of-bound memory issues occur.
- *        TODO: Implement the indirect memory version (maybe not required)
  *        TODO: taking care of intermediate register values consistency and propagating their
  *        values to the next row when not overwritten.
  *        TODO: error handling if dst_offset + copy_size > 2^32 which would lead to
  *              out-of-bound memory write. Similarly, if cd_offset + copy_size is larger
  *              than call_data_mem.size()
  *
+ * @param indirect Boolean telling if indirect memory access is enabled.
  * @param cd_offset The starting index of the region in calldata to be copied.
  * @param copy_size The number of finite field elements to be copied into memory.
  * @param dst_offset The starting index of memory where calldata will be copied to.
  * @param call_data_mem The vector containing calldata.
  */
-void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
-                                    uint32_t copy_size,
-                                    uint32_t dst_offset,
-                                    std::vector<FF> const& call_data_mem)
+void AvmTraceBuilder::calldata_copy(
+    bool indirect, uint32_t cd_offset, uint32_t copy_size, uint32_t dst_offset, std::vector<FF> const& call_data_mem)
 {
     // We parallelize storing memory operations in chunk of 3, i.e., 1 per intermediate register.
     // The variable pos is an index pointing to the first storing operation (pertaining to intermediate
@@ -455,6 +454,7 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
     // cd_offset + pos + 2:   Ic memory store operation
 
     uint32_t pos = 0;
+    uint32_t direct_dst_offset = dst_offset; // Will be overwritten in indirect mode.
 
     while (pos < copy_size) {
         FF ib(0);
@@ -469,8 +469,20 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
 
         FF ia = call_data_mem.at(cd_offset + pos);
         uint32_t mem_op_a(1);
-        uint32_t mem_idx_a = dst_offset + pos;
         uint32_t rwa = 1;
+
+        bool indirect_flag = false;
+        bool tag_match = true;
+
+        if (pos == 0 && indirect) {
+            indirect_flag = true;
+            auto ind_read =
+                mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_A, dst_offset);
+            direct_dst_offset = uint32_t(ind_read.val);
+            tag_match = ind_read.tag_match;
+        }
+
+        uint32_t mem_idx_a = direct_dst_offset + pos;
 
         // Storing from Ia
         mem_trace_builder.write_into_memory(clk, IntermRegister::IA, mem_idx_a, ia, AvmMemoryTag::FF);
@@ -478,7 +490,7 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
         if (copy_size - pos > 1) {
             ib = call_data_mem.at(cd_offset + pos + 1);
             mem_op_b = 1;
-            mem_idx_b = dst_offset + pos + 1;
+            mem_idx_b = direct_dst_offset + pos + 1;
             rwb = 1;
 
             // Storing from Ib
@@ -488,7 +500,7 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
         if (copy_size - pos > 2) {
             ic = call_data_mem.at(cd_offset + pos + 2);
             mem_op_c = 1;
-            mem_idx_c = dst_offset + pos + 2;
+            mem_idx_c = direct_dst_offset + pos + 2;
             rwc = 1;
 
             // Storing from Ic
@@ -500,6 +512,7 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
             .avm_main_pc = FF(pc++),
             .avm_main_internal_return_ptr = FF(internal_return_ptr),
             .avm_main_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+            .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
             .avm_main_ia = ia,
             .avm_main_ib = ib,
             .avm_main_ic = ic,
@@ -509,6 +522,8 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
             .avm_main_rwa = FF(rwa),
             .avm_main_rwb = FF(rwb),
             .avm_main_rwc = FF(rwc),
+            .avm_main_ind_a = indirect_flag ? FF(dst_offset) : FF(0),
+            .avm_main_ind_op_a = FF(indirect_flag),
             .avm_main_mem_idx_a = FF(mem_idx_a),
             .avm_main_mem_idx_b = FF(mem_idx_b),
             .avm_main_mem_idx_c = FF(mem_idx_c),
@@ -523,20 +538,21 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
 }
 
 /**
- * @brief RETURN opcode with direct memory access, i.e.,
- *        return(M[ret_offset:ret_offset+ret_size])
+ * @brief RETURN opcode with direct and indirect memory access, i.e.,
+ *        direct:   return(M[ret_offset:ret_offset+ret_size])
+ *        indirect: return(M[M[ret_offset]:M[ret_offset]+ret_size])
  *        Simplified version with exclusively memory load operations into
  *        intermediate registers and then values are copied to the returned vector.
- *        TODO: Implement the indirect memory version (maybe not required)
  *        TODO: taking care of flagging this row as the last one? Special STOP flag?
  *        TODO: error handling if ret_offset + ret_size > 2^32 which would lead to
  *              out-of-bound memory read.
  *
+ * @param indirect Boolean telling if indirect memory access is enabled.
  * @param ret_offset The starting index of the memory region to be returned.
  * @param ret_size The number of elements to be returned.
  * @return The returned memory region as a std::vector.
  */
-std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_size)
+std::vector<FF> AvmTraceBuilder::return_op(bool indirect, uint32_t ret_offset, uint32_t ret_size)
 {
     if (ret_size == 0) {
         halt();
@@ -549,9 +565,11 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
     // ret_offset + pos:       Ia memory load operation
     // ret_offset + pos + 1:   Ib memory load operation
     // ret_offset + pos + 2:   Ic memory load operation
+    // In indirect mode, ret_offset is first resolved by the first indirect load.
 
     uint32_t pos = 0;
     std::vector<FF> returnMem;
+    uint32_t direct_ret_offset = ret_offset; // Will be overwritten in indirect mode.
 
     while (pos < ret_size) {
         FF ib(0);
@@ -563,18 +581,29 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
         auto clk = static_cast<uint32_t>(main_trace.size());
 
         uint32_t mem_op_a(1);
-        uint32_t mem_idx_a = ret_offset + pos;
+        bool indirect_flag = false;
+        bool tag_match = true;
+
+        if (pos == 0 && indirect) {
+            indirect_flag = true;
+            auto ind_read =
+                mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_A, ret_offset);
+            direct_ret_offset = uint32_t(ind_read.val);
+            tag_match = ind_read.tag_match;
+        }
+
+        uint32_t mem_idx_a = direct_ret_offset + pos;
 
         // Reading and loading to Ia
         auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, mem_idx_a, AvmMemoryTag::FF);
-        bool tag_match = read_a.tag_match;
+        tag_match = tag_match && read_a.tag_match;
 
         FF ia = read_a.val;
         returnMem.push_back(ia);
 
         if (ret_size - pos > 1) {
             mem_op_b = 1;
-            mem_idx_b = ret_offset + pos + 1;
+            mem_idx_b = direct_ret_offset + pos + 1;
 
             // Reading and loading to Ib
             auto read_b =
@@ -586,7 +615,7 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
 
         if (ret_size - pos > 2) {
             mem_op_c = 1;
-            mem_idx_c = ret_offset + pos + 2;
+            mem_idx_c = direct_ret_offset + pos + 2;
 
             // Reading and loading to Ic
             auto read_c =
@@ -609,6 +638,8 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
             .avm_main_mem_op_a = FF(mem_op_a),
             .avm_main_mem_op_b = FF(mem_op_b),
             .avm_main_mem_op_c = FF(mem_op_c),
+            .avm_main_ind_a = indirect_flag ? FF(ret_offset) : FF(0),
+            .avm_main_ind_op_a = FF(static_cast<uint32_t>(indirect_flag)),
             .avm_main_mem_idx_a = FF(mem_idx_a),
             .avm_main_mem_idx_b = FF(mem_idx_b),
             .avm_main_mem_idx_c = FF(mem_idx_c),

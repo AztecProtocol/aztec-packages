@@ -108,7 +108,7 @@ TEST_F(AvmBitwiseTestsU8, BitwiseNot)
 {
     trace_builder.set(1, 0, AvmMemoryTag::U8);    // Memory Layout: [1,0,0,...]
     trace_builder.op_not(0, 1, AvmMemoryTag::U8); // [1,254,0,0,....]
-    trace_builder.return_op(0, 0);
+    trace_builder.return_op(false, 0, 0);
     auto trace = trace_builder.finalize();
 
     auto alu_row = common_validate_op_not(trace, FF(1), FF(254), FF(0), FF(1), AvmMemoryTag::U8);
@@ -121,7 +121,7 @@ TEST_F(AvmBitwiseTestsU16, BitwiseNot)
 {
     trace_builder.set(512, 0, AvmMemoryTag::U16);  // Memory Layout: [512,0,0,...]
     trace_builder.op_not(0, 1, AvmMemoryTag::U16); // [512,65023,0,0,0,....]
-    trace_builder.return_op(0, 0);
+    trace_builder.return_op(false, 0, 0);
     auto trace = trace_builder.finalize();
 
     auto alu_row = common_validate_op_not(trace, FF(512), FF(65'023), FF(0), FF(1), AvmMemoryTag::U16);
@@ -134,7 +134,7 @@ TEST_F(AvmBitwiseTestsU32, BitwiseNot)
 {
     trace_builder.set(131'072, 0, AvmMemoryTag::U32); // Memory Layout: [131072,0,0,...]
     trace_builder.op_not(0, 1, AvmMemoryTag::U32);    // [131072,4294836223,,0,0,....]
-    trace_builder.return_op(0, 0);
+    trace_builder.return_op(false, 0, 0);
     auto trace = trace_builder.finalize();
 
     auto alu_row = common_validate_op_not(trace, FF(131'072), FF(4'294'836'223LLU), FF(0), FF(1), AvmMemoryTag::U32);
@@ -147,7 +147,7 @@ TEST_F(AvmBitwiseTestsU64, BitwiseNot)
 {
     trace_builder.set(0x100000000LLU, 0, AvmMemoryTag::U64); // Memory Layout: [8589934592,0,0,...]
     trace_builder.op_not(0, 1, AvmMemoryTag::U64);           // [8589934592,18446744069414584319,0,0,....]
-    trace_builder.return_op(0, 0);
+    trace_builder.return_op(false, 0, 0);
     auto trace = trace_builder.finalize();
 
     auto alu_row =
@@ -163,7 +163,7 @@ TEST_F(AvmBitwiseTestsU128, BitwiseNot)
     uint128_t const a = uint128_t{ 0x4000000000000 } << 64;
     trace_builder.set(a, 0, AvmMemoryTag::U128);
     trace_builder.op_not(0, 1, AvmMemoryTag::U128);
-    trace_builder.return_op(0, 0);
+    trace_builder.return_op(false, 0, 0);
     auto trace = trace_builder.finalize();
 
     uint128_t const res = (uint128_t{ 0xfffbffffffffffff } << 64) + uint128_t{ 0xffffffffffffffff };
@@ -195,7 +195,7 @@ TEST_F(AvmBitwiseNegativeTestsFF, UndefinedOverFF)
     trace_builder.op_not(0, 1, AvmMemoryTag::U8);
     // Finally, we will have a write in row 3 of the mem_trace to copy the result
     // from the op_not operation.
-    trace_builder.return_op(0, 0);
+    trace_builder.return_op(false, 0, 0);
     // Manually update the memory tags in the relevant trace;
     auto trace = trace_builder.finalize();
     // TODO(ilyas): When the SET opcodes applies relational constraints, this will fail

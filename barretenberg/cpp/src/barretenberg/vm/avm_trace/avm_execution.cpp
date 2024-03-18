@@ -132,7 +132,8 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
             // Execution Environment - Calldata
         case OpCode::CALLDATACOPY:
-            trace_builder.calldata_copy(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.calldata_copy(std::get<uint8_t>(inst.operands.at(0)) == 1,
+                                        std::get<uint32_t>(inst.operands.at(1)),
                                         std::get<uint32_t>(inst.operands.at(2)),
                                         std::get<uint32_t>(inst.operands.at(3)),
                                         calldata);
@@ -179,14 +180,16 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         }
         case OpCode::MOV:
-            trace_builder.op_mov(std::get<uint8_t>(inst.operands.at(0)),
+            trace_builder.op_mov(std::get<uint8_t>(inst.operands.at(0)) == 1,
                                  std::get<uint32_t>(inst.operands.at(1)),
                                  std::get<uint32_t>(inst.operands.at(2)));
             break;
             // Control Flow - Contract Calls
         case OpCode::RETURN:
             // Skip indirect at index 0
-            trace_builder.return_op(std::get<uint32_t>(inst.operands.at(1)), std::get<uint32_t>(inst.operands.at(2)));
+            trace_builder.return_op(std::get<uint8_t>(inst.operands.at(0)) == 1,
+                                    std::get<uint32_t>(inst.operands.at(1)),
+                                    std::get<uint32_t>(inst.operands.at(2)));
             break;
         default:
             break;
