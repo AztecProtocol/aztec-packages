@@ -1,5 +1,7 @@
 VERSION 0.8
 
+# copy bb-js
+COPY ../barretenberg/ts/+build/build /build/barretenberg/ts
 
 nargo:
     FROM rust:bullseye
