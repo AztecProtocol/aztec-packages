@@ -1615,18 +1615,36 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
 
     // product gate 1
     // (lo_0 + q_0(p_0 + p_1*2^b) + q_1(p_0*2^b) - (r_1)2^b)2^-2b - lo_1 = 0
-    create_big_add_gate({ input.q[0],
-                          input.q[1],
-                          input.r[1],
-                          lo_1_idx,
-                          input.neg_modulus[0] + input.neg_modulus[1] * LIMB_SHIFT,
-                          input.neg_modulus[0] * LIMB_SHIFT,
-                          -LIMB_SHIFT,
-                          -LIMB_SHIFT.sqr(),
-                          0 },
-                        true);
+    // create_big_add_gate({ input.q[0],
+    //                       input.q[1],
+    //                       input.r[1],
+    //                       lo_1_idx,
+    //                       input.neg_modulus[0] + input.neg_modulus[1] * LIMB_SHIFT,
+    //                       input.neg_modulus[0] * LIMB_SHIFT,
+    //                       -LIMB_SHIFT,
+    //                       -LIMB_SHIFT.sqr(),
+    //                       0 },
+    //                     true);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add gate
-    create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, lo_0_idx);
+    // create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, lo_0_idx);
+    this->assert_valid_variables({ input.q[0], input.q[1], input.r[1], lo_1_idx });
+    blocks.aux.populate_wires(input.q[0], input.q[1], input.r[1], lo_1_idx);
+    blocks.aux.q_m().emplace_back(0);
+    blocks.aux.q_1().emplace_back(input.neg_modulus[0] + input.neg_modulus[1] * LIMB_SHIFT);
+    blocks.aux.q_2().emplace_back(input.neg_modulus[0] * LIMB_SHIFT);
+    blocks.aux.q_3().emplace_back(-LIMB_SHIFT);
+    blocks.aux.q_c().emplace_back(0);
+    blocks.aux.q_arith().emplace_back(2);
+    blocks.aux.q_4().emplace_back(-LIMB_SHIFT.sqr());
+    blocks.aux.q_sort().emplace_back(0);
+    blocks.aux.q_lookup_type().emplace_back(0);
+    blocks.aux.q_elliptic().emplace_back(0);
+    blocks.aux.q_aux().emplace_back(0);
+    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        blocks.aux.pad_additional();
+    }
+    check_selector_length_consistency();
+    ++this->num_gates;
 
     blocks.aux.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
