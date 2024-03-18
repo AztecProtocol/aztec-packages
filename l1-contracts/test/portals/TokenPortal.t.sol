@@ -67,9 +67,7 @@ contract TokenPortalTest is Test {
     portalERC20 = new PortalERC20();
     tokenPortal = new TokenPortal();
 
-    tokenPortal.initialize(
-      address(registry), address(portalERC20), l2TokenAddress
-    );
+    tokenPortal.initialize(address(registry), address(portalERC20), l2TokenAddress);
 
     vm.deal(address(this), 100 ether);
   }

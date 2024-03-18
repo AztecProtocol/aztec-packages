@@ -56,9 +56,7 @@ contract UniswapPortalTest is Test {
     daiTokenPortal.initialize(address(registry), address(DAI), l2TokenAddress);
 
     wethTokenPortal = new TokenPortal();
-    wethTokenPortal.initialize(
-      address(registry), address(WETH9), l2TokenAddress
-    );
+    wethTokenPortal.initialize(address(registry), address(WETH9), l2TokenAddress);
 
     uniswapPortal = new UniswapPortal();
     uniswapPortal.initialize(address(registry), l2UniswapAddress);
@@ -85,7 +83,7 @@ contract UniswapPortalTest is Test {
         abi.encodeWithSignature("withdraw(address,uint256,address)", _recipient, amount, _caller)
         )
     });
-    
+
     return message.sha256ToField();
   }
 
