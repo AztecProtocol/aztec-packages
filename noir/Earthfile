@@ -1,4 +1,5 @@
 VERSION 0.8
+FROM node:18.19.0
 
 # copy bb-js
 COPY ../barretenberg/ts/+build/build /build/barretenberg/ts
