@@ -27,7 +27,7 @@ export class MessageStore {
   }
 
   /**
-   * Gets the last L1 block number that emitted new messages and the block that cancelled messages.
+   * Gets the last L1 block number that emitted new messages.
    * @returns The last L1 block number processed
    */
   getSynchedL1BlockNumber(): bigint {
