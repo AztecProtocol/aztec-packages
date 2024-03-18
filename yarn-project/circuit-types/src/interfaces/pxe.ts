@@ -35,6 +35,9 @@ export interface PXE {
    */
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
 
+  // @todo @LHerskind
+  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
+
   /**
    * Adding a capsule to the capsule dispenser.
    * @param capsule - An array of field elements representing the capsule.
