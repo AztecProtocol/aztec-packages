@@ -663,8 +663,6 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       functionData: new FunctionData(
         FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
         false,
-        false,
-        false,
       ),
       to: this.asset,
     });
@@ -672,14 +670,12 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
     const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
 
     return Promise.resolve([
-      this.wallet.setPublicAuth(messageHash, true).request(),
+      this.wallet.setPublicAuthWit(messageHash, true).request(),
       {
         to: this.getPaymentContract(),
         functionData: new FunctionData(
           FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
-          false,
           true,
-          false,
         ),
         args: [tooMuchFee, this.asset, nonce],
       },
@@ -696,15 +692,13 @@ class BuggedTeardownFeePaymentMethod extends PublicFeePaymentMethod {
       functionData: new FunctionData(
         FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
         false,
-        false,
-        false,
       ),
       to: this.asset,
     });
 
     // authorize the FPC to take the maxFee
     // do this first because we only get 2 feepayload calls
-    await this.wallet.setPublicAuth(messageHash1, true).send().wait();
+    await this.wallet.setPublicAuthWit(messageHash1, true).send().wait();
 
     return Promise.resolve([
       // in this, we're actually paying the fee in setup
@@ -712,9 +706,7 @@ class BuggedTeardownFeePaymentMethod extends PublicFeePaymentMethod {
         to: this.getPaymentContract(),
         functionData: new FunctionData(
           FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
-          false,
           true,
-          false,
         ),
         args: [maxFee, this.asset, nonce],
       },
@@ -723,8 +715,6 @@ class BuggedTeardownFeePaymentMethod extends PublicFeePaymentMethod {
         to: this.asset,
         functionData: new FunctionData(
           FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-          false,
-          false,
           false,
         ),
         args: [this.wallet.getAddress(), this.paymentContract, new Fr(1), Fr.random()],
