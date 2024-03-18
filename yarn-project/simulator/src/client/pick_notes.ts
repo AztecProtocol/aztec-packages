@@ -1,6 +1,12 @@
 import { Comparator, Note } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
 
+export interface FieldSelector {
+  index: number;
+  offset: number;
+  length: number;
+}
+
 /**
  * Configuration for selecting values.
  */
@@ -8,11 +14,7 @@ export interface Select {
   /**
    * Selector of the field to select and match.
    */
-  selector: {
-    index: number;
-    offset: number;
-    length: number;
-  };
+  selector: FieldSelector;
   /**
    * Required value of the field.
    */
@@ -37,9 +39,9 @@ export enum SortOrder {
  */
 export interface Sort {
   /**
-   * Index of the field to sort.
+   * Selector of the field to sort.
    */
-  index: number;
+  selector: FieldSelector;
   /**
    * Order to sort the field.
    */
@@ -82,12 +84,16 @@ interface ContainsNote {
   note: Note;
 }
 
+const selectFieldFromNote = (noteData: Fr[], selector: FieldSelector): Fr => {
+  const noteValueBuffer = noteData[selector.index].toBuffer();
+  const noteValue = noteValueBuffer.subarray(selector.offset, selector.offset + selector.length);
+  return Fr.fromBuffer(noteValue);
+};
+
 const selectNotes = <T extends ContainsNote>(noteDatas: T[], selects: Select[]): T[] =>
   noteDatas.filter(noteData =>
     selects.every(({ selector, value, comparator }) => {
-      const noteValueBuffer = noteData.note.items[selector.index].toBuffer();
-      const noteValue = noteValueBuffer.subarray(selector.offset, selector.offset + selector.length);
-      const noteValueFr = Fr.fromBuffer(noteValue);
+      const noteValueFr = selectFieldFromNote(noteData.note.items, selector);
       const comparatorSelector = {
         [Comparator.EQ]: () => noteValueFr.equals(value),
         [Comparator.NEQ]: () => !noteValueFr.equals(value),
@@ -106,15 +112,18 @@ const sortNotes = (a: Fr[], b: Fr[], sorts: Sort[], level = 0): number => {
     return 0;
   }
 
-  const { index, order } = sorts[level];
+  const { selector, order } = sorts[level];
   if (order === 0) {
     return 0;
   }
 
+  const aValue = selectFieldFromNote(a, selector);
+  const bValue = selectFieldFromNote(b, selector);
+
   const dir = order === 1 ? [-1, 1] : [1, -1];
-  return a[index].value === b[index].value
+  return aValue.toBigInt() === bValue.toBigInt()
     ? sortNotes(a, b, sorts, level + 1)
-    : a[index].value > b[index].value
+    : aValue.toBigInt() > bValue.toBigInt()
     ? dir[0]
     : dir[1];
 };

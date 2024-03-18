@@ -36,14 +36,14 @@ describe('getNotes', () => {
 
     // Sort 1st field in ascending order.
     {
-      const options = { sorts: [{ index: 1, order: SortOrder.ASC }] };
+      const options = { sorts: [{ selector: { index: 1, offset: 0, length: 32 }, order: SortOrder.ASC }] };
       const result = pickNotes(notes, options);
       expectNotesFields(result, [1, [0n, 1n, 5n, 5n, 5n, 6n]]);
     }
 
     // Sort 1st field in descending order.
     {
-      const options = { sorts: [{ index: 1, order: SortOrder.DESC }] };
+      const options = { sorts: [{ selector: { index: 1, offset: 0, length: 32 }, order: SortOrder.DESC }] };
       const result = pickNotes(notes, options);
       expectNotesFields(result, [1, [6n, 5n, 5n, 5n, 1n, 0n]], [0, [7n, 4n, 6n, 6n, 2n, 0n]]);
     }
@@ -52,8 +52,8 @@ describe('getNotes', () => {
     {
       const options = {
         sorts: [
-          { index: 1, order: SortOrder.DESC },
-          { index: 0, order: SortOrder.DESC },
+          { selector: { index: 1, offset: 0, length: 32 }, order: SortOrder.DESC },
+          { selector: { index: 0, offset: 0, length: 32 }, order: SortOrder.DESC },
         ],
       };
       const result = pickNotes(notes, options);
@@ -65,8 +65,8 @@ describe('getNotes', () => {
     {
       const options = {
         sorts: [
-          { index: 1, order: SortOrder.DESC },
-          { index: 0, order: SortOrder.ASC },
+          { selector: { index: 1, offset: 0, length: 32 }, order: SortOrder.DESC },
+          { selector: { index: 0, offset: 0, length: 32 }, order: SortOrder.ASC },
         ],
       };
       const result = pickNotes(notes, options);
@@ -84,9 +84,9 @@ describe('getNotes', () => {
     {
       const options = {
         sorts: [
-          { index: 1, order: SortOrder.DESC },
-          { index: 0, order: SortOrder.ASC },
-          { index: 2, order: SortOrder.DESC },
+          { selector: { index: 1, offset: 0, length: 32 }, order: SortOrder.DESC },
+          { selector: { index: 0, offset: 0, length: 32 }, order: SortOrder.ASC },
+          { selector: { index: 2, offset: 0, length: 32 }, order: SortOrder.DESC },
         ],
       };
       const result = pickNotes(notes, options);
@@ -102,7 +102,7 @@ describe('getNotes', () => {
   it('should get sorted notes in a range', () => {
     const notes = [createNote([2n]), createNote([8n]), createNote([6n]), createNote([5n]), createNote([0n])];
 
-    const sorts = [{ index: 0, order: SortOrder.DESC }];
+    const sorts = [{ selector: { index: 0, offset: 0, length: 32 }, order: SortOrder.DESC }];
     // Sorted values: [8n, 6n, 5n, 2n, 0n]
 
     {
@@ -126,7 +126,7 @@ describe('getNotes', () => {
 
   it('should not change order if sortOrder is NADA', () => {
     const notes = [createNote([2n]), createNote([8n]), createNote([6n]), createNote([5n]), createNote([0n])];
-    const options = { sorts: [{ index: 0, order: SortOrder.NADA }] };
+    const options = { sorts: [{ selector: { index: 0, offset: 0, length: 32 }, order: SortOrder.NADA }] };
     const result = pickNotes(notes, options);
     expectNotesFields(result, [0, [2n, 8n, 6n, 5n, 0n]]);
   });
@@ -209,7 +209,7 @@ describe('getNotes', () => {
 
     const options = {
       selects: [{ selector: { index: 2, offset: 0, length: 32 }, value: new Fr(8n), comparator: Comparator.EQ }],
-      sorts: [{ index: 1, order: SortOrder.ASC }],
+      sorts: [{ selector: { index: 1, offset: 0, length: 32 }, order: SortOrder.ASC }],
     };
     const result = pickNotes(notes, options);
     expectNotes(result, [
@@ -245,7 +245,7 @@ describe('getNotes', () => {
       ],
       sorts: [
         {
-          index: 1,
+          selector: { index: 1, offset: 0, length: 32 },
           order: SortOrder.ASC,
         },
       ],
@@ -279,7 +279,7 @@ describe('getNotes', () => {
       ],
       sorts: [
         {
-          index: 1,
+          selector: { index: 1, offset: 0, length: 32 },
           order: SortOrder.ASC,
         },
       ],
@@ -303,7 +303,7 @@ describe('getNotes', () => {
       ],
       sorts: [
         {
-          index: 1,
+          selector: { index: 1, offset: 0, length: 32 },
           order: SortOrder.ASC,
         },
       ],

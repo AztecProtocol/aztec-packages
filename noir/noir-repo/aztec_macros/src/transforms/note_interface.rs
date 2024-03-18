@@ -107,13 +107,6 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             && !check_trait_method_implemented(trait_impl, "deserialize_content")
             && !note_impl.methods.iter().any(|(func, _)| func.def.name.0.contents == "fields")
         {
-            // Generate the serialize_content method as
-            //
-            // fn serialize_content(self: {}) -> [Field; NOTE_SERIALIZED_LEN] {
-            //   [self.note_field1 as Field, self.note_field2.to_field()...]
-            // }
-            //
-            // It assumes every struct field can be converted either via the to_field() trait (structs) or cast as Field (integers)
             let note_serialize_content_fn = generate_note_serialize_content(
                 &note_type,
                 &note_fields,
@@ -121,17 +114,6 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                 note_interface_impl_span,
             )?;
             trait_impl.items.push(TraitImplItem::Function(note_serialize_content_fn));
-
-            // Generate the deserialize_content method as
-            //
-            // fn deserialize_content(serialized_note: [Field; NOTE_SERILIZED_LEN]) -> Self {
-            //     NoteType {
-            //        note_field1: serialized_note[0] as Field,
-            //        note_field2: NoteFieldType2::from_field(serialized_note[1])...
-            //     }
-            // }
-            // It assumes every note field is stored in an individual serialized field,
-            // and can be converted to the original type via the from_field() trait (structs) or cast as Field (integers)
 
             let note_deserialize_content_fn = generate_note_deserialize_content(
                 &note_type,
@@ -141,17 +123,6 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             )?;
             trait_impl.items.push(TraitImplItem::Function(note_deserialize_content_fn));
 
-            // Automatically generate a struct that represents the note's serialization metadata, and an auxiliary function to retrieve it
-            // The struct looks like this
-            //
-            // NoteTypeFields {
-            //     field1: FieldSelector { index: 0, offset: 0, length: 32 },
-            //     field2: FieldSelector { index: 1, offset: 0, length: 32 },
-            //     ...
-            // }
-            //
-            // It assumes each field occupies an entire field and its serialized in definition order
-
             let note_fields_struct =
                 generate_note_fields_struct(&note_type, &note_fields, note_interface_impl_span)?;
             note_fields_structs.push(note_fields_struct);
@@ -160,7 +131,6 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             note_impl.methods.push((note_fields_fn, note_impl.type_span));
         }
 
-        // Automatically generate the header getter and setter methods
         if !check_trait_method_implemented(trait_impl, "get_header") {
             let get_header_fn = generate_note_get_header(&note_type, note_interface_impl_span)?;
             trait_impl.items.push(TraitImplItem::Function(get_header_fn));
@@ -170,20 +140,12 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             trait_impl.items.push(TraitImplItem::Function(set_header_fn));
         }
 
-        // Automatically generate the note type id getter method. The id itself its calculated as the concatenation
-        // of the conversion of the characters in the note's struct name to unsigned integers.
         if !check_trait_method_implemented(trait_impl, "get_note_type_id") {
             let get_note_type_id_fn =
                 generate_note_get_type_id(&note_type, note_interface_impl_span)?;
             trait_impl.items.push(TraitImplItem::Function(get_note_type_id_fn));
         }
 
-        // Automatically generate the method to compute the note's content hash as:
-        // fn compute_note_content_hash(self: NoteType) -> Field {
-        //    // TODO(#1205) Should use a non-zero generator index.
-        //    dep::aztec::hash::pedersen_hash(self.serialize_content(), 0)
-        // }
-        //
         if !check_trait_method_implemented(trait_impl, "compute_note_content_hash") {
             let get_header_fn =
                 generate_compute_note_content_hash(&note_type, note_interface_impl_span)?;
@@ -251,6 +213,8 @@ fn generate_note_set_header(
     Ok(noir_fn)
 }
 
+// Automatically generate the note type id getter method. The id itself its calculated as the concatenation
+// of the conversion of the characters in the note's struct name to unsigned integers.
 fn generate_note_get_type_id(
     note_type: &str,
     impl_span: Option<Span>,
@@ -283,6 +247,15 @@ fn generate_note_get_type_id(
     Ok(noir_fn)
 }
 
+// Automatically generate a struct that represents the note's serialization metadata, as
+//
+// NoteTypeFields {
+//     field1: FieldSelector { index: 0, offset: 0, length: 32 },
+//     field2: FieldSelector { index: 1, offset: 0, length: 32 },
+//     ...
+// }
+//
+// It assumes each field occupies an entire field and its serialized in definition order
 fn generate_note_fields_struct(
     note_type: &str,
     note_fields: &[(String, String)],
@@ -303,6 +276,16 @@ fn generate_note_fields_struct(
     Ok(struct_ast.types.remove(0))
 }
 
+// Generate the deserialize_content method as
+//
+// fn deserialize_content(serialized_note: [Field; NOTE_SERILIZED_LEN]) -> Self {
+//     NoteType {
+//        note_field1: serialized_note[0] as Field,
+//        note_field2: NoteFieldType2::from_field(serialized_note[1])...
+//     }
+// }
+// It assumes every note field is stored in an individual serialized field,
+// and can be converted to the original type via the from_field() trait (structs) or cast as Field (integers)
 fn generate_note_deserialize_content(
     note_type: &str,
     note_fields: &[(String, String)],
@@ -327,6 +310,13 @@ fn generate_note_deserialize_content(
     Ok(noir_fn)
 }
 
+// Generate the serialize_content method as
+//
+// fn serialize_content(self: {}) -> [Field; NOTE_SERIALIZED_LEN] {
+//   [self.note_field1 as Field, self.note_field2.to_field()...]
+// }
+//
+// It assumes every struct field can be converted either via the to_field() trait (structs) or cast as Field (integers)
 fn generate_note_serialize_content(
     note_type: &str,
     note_fields: &[(String, String)],
@@ -351,6 +341,7 @@ fn generate_note_serialize_content(
     Ok(noir_fn)
 }
 
+// Automatically generate a function in the Note's impl that returns the note's fields metadata
 fn generate_note_fields_fn(
     note_type: &str,
     note_fields: &[(String, String)],
@@ -371,6 +362,12 @@ fn generate_note_fields_fn(
     Ok(noir_fn)
 }
 
+// Automatically generate the method to compute the note's content hash as:
+// fn compute_note_content_hash(self: NoteType) -> Field {
+//    // TODO(#1205) Should use a non-zero generator index.
+//    dep::aztec::hash::pedersen_hash(self.serialize_content(), 0)
+// }
+//
 fn generate_compute_note_content_hash(
     note_type: &String,
     impl_span: Option<Span>,
@@ -397,6 +394,8 @@ fn generate_compute_note_content_hash(
     noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
+
+// Source code generator functions. These utility methods produce Noir code as strings, that are then parsed and added to the AST.
 
 fn generate_note_fields_struct_source(note_type: &str, note_fields: &[(String, String)]) -> String {
     let note_field_selectors = note_fields

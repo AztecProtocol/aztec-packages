@@ -49,13 +49,13 @@ global SortOrder = SortOrderEnum {
 };
 
 struct Sort {
-    field_index: u8,
+    field_selector: FieldSelector,
     order: u8,
 }
 
 impl Sort {
-    pub fn new(field_index: u8, order: u8) -> Self {
-        Sort { field_index, order }
+    pub fn new(field_selector: FieldSelector, order: u8) -> Self {
+        Sort { field_selector, order }
     }
 }
 
@@ -148,8 +148,8 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
 
     // This method adds a `Sort` criterion to the options.
     // It takes a field_index indicating which field to sort by and an order (SortOrder) to determine the sorting direction.
-    pub fn sort(&mut self, field_index: u8, order: u8) -> Self {
-        self.sorts.push(Option::some(Sort::new(field_index, order)));
+    pub fn sort(&mut self, field_selector: FieldSelector, order: u8) -> Self {
+        self.sorts.push(Option::some(Sort::new(field_selector, order)));
         *self
     }
 

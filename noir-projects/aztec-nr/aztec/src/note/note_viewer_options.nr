@@ -46,8 +46,8 @@ impl<Note, N> NoteViewerOptions<Note, N> {
         *self
     }
 
-    pub fn sort(&mut self, field_index: u8, order: u8) -> Self {
-        self.sorts.push(Option::some(Sort::new(field_index, order)));
+    pub fn sort(&mut self, field_selector: FieldSelector, order: u8) -> Self {
+        self.sorts.push(Option::some(Sort::new(field_selector, order)));
         *self
     }
 
