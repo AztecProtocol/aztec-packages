@@ -110,6 +110,11 @@ template <typename Builder> class DSLBigInts {
         return ModulusId::UNKNOWN;
     }
 
+    /// Set value of the witnesses representing the bigfield element
+    /// so that the bigfield value is the input value.
+    /// The input value is decomposed into the binary basis for the binary limbs
+    /// The input array must be:
+    /// the 4 witness index of the binary limbs, and the index of the prime limb
     void set_value(uint256_t value, const std::array<uint32_t, 5> limbs_idx)
     {
         uint256_t limb_modulus = uint256_t(1) << big_bn254_fq::NUM_LIMB_BITS;
@@ -121,6 +126,8 @@ template <typename Builder> class DSLBigInts {
         }
     }
 
+    /// Utility function that retrieve the witness indexes of a bigfield element
+    /// for use in set_value()
     void get_witness_idx_of_limbs(uint32_t bigint_id, std::array<uint32_t, 5>& limbs_idx)
     {
         if (m_bn254_fr.contains(bigint_id)) {
