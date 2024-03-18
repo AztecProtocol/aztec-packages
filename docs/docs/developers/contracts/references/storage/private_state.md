@@ -212,16 +212,6 @@ The usage is similar to using the `insert` method with the difference that this 
 
 #include_code insert_from_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-### `remove`
-
-Will remove a note from the `PrivateSet` if it previously has been read from storage, e.g. you have fetched it through a `get_notes` call. This is useful when you want to remove a note that you have previously read from storage and do not have to read it again.
-
-Nullifiers are emitted when reading values to make sure that they are up to date.
-
-An example of how to use this operation is visible in the `easy_private_state`:
-
-#include_code remove /noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr rust
-
 ### `get_notes`
 
 This function returns the notes the account has access to.
@@ -233,6 +223,8 @@ Because of this limit, we should always consider using the second argument `Note
 An example of such options is using the [filter_notes_min_sum](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/filter.nr) to get "enough" notes to cover a given value. Essentially, this function will return just enough notes to cover the amount specified such that we don't need to read all our notes. For users with a lot of notes, this becomes increasingly important.
 
 #include_code get_notes /noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr rust
+
+To ensure that the notes being read are current and have not yet been nullified, `get_notes` automatically emits nullifiers for them. This means that reading notes from a set also destroys said notes! While this might seem strange at first, it is actually consistent with most use cases: for example, token notes are consumed when used in order to perform a transfer.
 
 ### `view_notes`
 

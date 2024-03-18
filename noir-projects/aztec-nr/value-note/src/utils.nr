@@ -45,7 +45,12 @@ pub fn decrement_by_at_most(
     let mut decremented = 0;
     for i in 0..opt_notes.len() {
         if opt_notes[i].is_some() {
-            decremented += destroy_note(balance, owner, opt_notes[i].unwrap_unchecked());
+            let note = opt_notes[i].unwrap_unchecked();
+
+            // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
+            // spending someone else's notes).
+            assert(note.owner.eq(owner));
+            decremented += note.value;
         }
     }
 
@@ -58,16 +63,4 @@ pub fn decrement_by_at_most(
     increment(balance, change_value, owner);
 
     decremented
-}
-
-// Removes the note from the owner's set of notes.
-// Returns the value of the destroyed note.
-pub fn destroy_note(balance: PrivateSet<ValueNote>, owner: AztecAddress, note: ValueNote) -> Field {
-    // Ensure the note is actually owned by the owner (to prevent user from generating a valid proof while
-    // spending someone else's notes).
-    assert(note.owner.eq(owner));
-
-    balance.remove(note);
-
-    note.value
 }
