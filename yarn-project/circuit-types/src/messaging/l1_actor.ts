@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
- * The sender of an L1 to L2 message.
+ * The sender of an L1 to L2 message or recipient of an L2 to L1 message.
  */
 export class L1Actor {
   constructor(
@@ -13,7 +13,7 @@ export class L1Actor {
      */
     public readonly sender: EthAddress,
     /**
-     * The chain id on which the message was sent.
+     * The chain id on which the message was sent (L1 -> L2) or on which the message will be received (L2 -> L1).
      */
     public readonly chainId: number,
   ) {}
