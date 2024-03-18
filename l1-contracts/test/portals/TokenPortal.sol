@@ -36,7 +36,6 @@ contract TokenPortal {
    */
   function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
     external
-    payable
     returns (bytes32)
   {
     // Preamble
@@ -67,7 +66,7 @@ contract TokenPortal {
     bytes32 _secretHashForRedeemingMintedNotes,
     uint256 _amount,
     bytes32 _secretHashForL2MessageConsumption
-  ) external payable returns (bytes32) {
+  ) external returns (bytes32) {
     // Preamble
     IInbox inbox = registry.getInbox();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);

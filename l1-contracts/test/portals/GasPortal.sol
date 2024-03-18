@@ -36,7 +36,6 @@ contract GasPortal {
    */
   function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
     external
-    payable
     returns (bytes32)
   {
     // Preamble
