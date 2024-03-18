@@ -23,7 +23,7 @@ With all that information at hand, we can call the `sendL2Message` function on t
 
 #include_code send_l1_to_l2_message l1-contracts/src/core/interfaces/messagebridge/IInbox.sol solidity
 
-As time passes, a sequencer will consume the message batch you message was included in and include it in a their block.
+As time passes, a sequencer will consume the message batch your message was included in and include it in a their block.
 Upon inclusion, it is made available to be consumed on L2.
 
 To consume the message, we can use the `consume_l1_to_l2_message` function within the `context` struct.

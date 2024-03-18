@@ -14,7 +14,6 @@ An entry for the messageboxes multi-sets.
 
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |
-| `fee`          | `uint64` | The fee provided to the sequencer for including the message in the inbox. 0 if Outbox (as it is not applicable). |
 | `count`        | `uint32` | The occurrence of the entry in the dataset |
 | `version`      | `uint32` | The version of the entry |
 

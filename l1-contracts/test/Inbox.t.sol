@@ -90,7 +90,7 @@ contract InboxTest is Test {
     assertEq(insertedLeaf, leaf);
   }
 
-  function testSendMultipleSameL2Messages() public checkInvariant {
+  function testSendDuplicateL2Messages() public checkInvariant {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     bytes32 leaf1 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);
     bytes32 leaf2 = inbox.sendL2Message(message.recipient, message.content, message.secretHash);

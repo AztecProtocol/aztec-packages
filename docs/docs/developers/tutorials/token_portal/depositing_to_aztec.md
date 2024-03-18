@@ -59,7 +59,6 @@ Here is an explanation of what it is doing:
      - the sister contract address on L2 that can consume the message.
      - The version - akin to THE chainID of Ethereum. By including a version, an ID, we can prevent replay attacks of the message (without this the same message might be replayable on other aztec networks that might exist).
    - A secret hash (fit to a field element). This is mainly used in the private domain and the preimage of the hash doesn’t need to be secret for the public flow. When consuming the message, one must provide the preimage. More on this when we create the private flow for depositing tokens.
-   - We also pass a fee to the sequencer for including the message. It is a uint64.
 5. It returns a `bytes32 key` which is the id for this message in the Inbox.
 
 So in summary, it deposits tokens to the portal, encodes a mint message, hashes it, and sends it to the Aztec rollup via the Inbox. The L2 token contract can then mint the tokens when it processes the message.
