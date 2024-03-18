@@ -130,7 +130,7 @@ test:
     BUILD +test-clang-format
     FROM +preset-release-assert-all
     COPY --dir ./srs_db/+build/. srs_db
-    RUN cd build && GTEST_COLOR=1 ctest -j$(nproc)
+    RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
 
 
 # Functions
