@@ -6,7 +6,7 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 // Messaging
 import {IRegistry} from "../../src/core/interfaces/messagebridge/IRegistry.sol";
 import {IInbox} from "../../src/core/interfaces/messagebridge/IInbox.sol";
-import {INewOutbox} from "../../src/core/interfaces/messagebridge/INewOutbox.sol";
+import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 // docs:start:content_hash_sol_import
 import {Hash} from "../../src/core/libraries/Hash.sol";
@@ -17,15 +17,13 @@ contract TokenPortal {
   using SafeERC20 for IERC20;
 
   IRegistry public registry;
-  INewOutbox public newOutbox;
   IERC20 public underlying;
   bytes32 public l2Bridge;
 
-  function initialize(address _registry, address _newOutbox, address _underlying, bytes32 _l2Bridge)
+  function initialize(address _registry, address _underlying, bytes32 _l2Bridge)
     external
   {
     registry = IRegistry(_registry);
-    newOutbox = INewOutbox(_newOutbox);
     underlying = IERC20(_underlying);
     l2Bridge = _l2Bridge;
   }
@@ -124,7 +122,9 @@ contract TokenPortal {
         )
     });
 
-    newOutbox.consume(_l2BlockNumber, _leafIndex, message, _path);
+    IOutbox outbox = registry.getOutbox();
+
+    outbox.consume(_l2BlockNumber, _leafIndex, message, _path);
 
     underlying.transfer(_recipient, _amount);
   }
