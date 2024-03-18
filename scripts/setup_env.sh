@@ -21,6 +21,6 @@ User ubuntu
 EOF
 
 # Install earthly
-wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O /usr/local/bin/earthly
+wget -q https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O /usr/local/bin/earthly
 chmod +x /usr/local/bin/earthly
-echo EARTHLY_CONFIG=$(dirname $0)/earthly-config.yml >> $GITHUB_ENV
+echo EARTHLY_CONFIG=$(dirname $(realpath $0))/earthly-config.yml >> $GITHUB_ENV
