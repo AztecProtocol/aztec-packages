@@ -82,16 +82,10 @@ struct BinaryIntOp {
         static Mul bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    struct SignedDiv {
-        friend bool operator==(const SignedDiv&, const SignedDiv&);
+    struct Div {
+        friend bool operator==(const Div&, const Div&);
         std::vector<uint8_t> bincodeSerialize() const;
-        static SignedDiv bincodeDeserialize(std::vector<uint8_t>);
-    };
-
-    struct UnsignedDiv {
-        friend bool operator==(const UnsignedDiv&, const UnsignedDiv&);
-        std::vector<uint8_t> bincodeSerialize() const;
-        static UnsignedDiv bincodeDeserialize(std::vector<uint8_t>);
+        static Div bincodeDeserialize(std::vector<uint8_t>);
     };
 
     struct Equals {
@@ -142,7 +136,7 @@ struct BinaryIntOp {
         static Shr bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    std::variant<Add, Sub, Mul, SignedDiv, UnsignedDiv, Equals, LessThan, LessThanEquals, And, Or, Xor, Shl, Shr> value;
+    std::variant<Add, Sub, Mul, Div, Equals, LessThan, LessThanEquals, And, Or, Xor, Shl, Shr> value;
 
     friend bool operator==(const BinaryIntOp&, const BinaryIntOp&);
     std::vector<uint8_t> bincodeSerialize() const;
@@ -1063,18 +1057,7 @@ struct Directive {
         static ToLeRadix bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    struct PermutationSort {
-        std::vector<std::vector<Circuit::Expression>> inputs;
-        uint32_t tuple;
-        std::vector<Circuit::Witness> bits;
-        std::vector<uint32_t> sort_by;
-
-        friend bool operator==(const PermutationSort&, const PermutationSort&);
-        std::vector<uint8_t> bincodeSerialize() const;
-        static PermutationSort bincodeDeserialize(std::vector<uint8_t>);
-    };
-
-    std::variant<ToLeRadix, PermutationSort> value;
+    std::variant<ToLeRadix> value;
 
     friend bool operator==(const Directive&, const Directive&);
     std::vector<uint8_t> bincodeSerialize() const;
@@ -1769,22 +1752,22 @@ Circuit::BinaryIntOp::Mul serde::Deserializable<Circuit::BinaryIntOp::Mul>::dese
 
 namespace Circuit {
 
-inline bool operator==(const BinaryIntOp::SignedDiv& lhs, const BinaryIntOp::SignedDiv& rhs)
+inline bool operator==(const BinaryIntOp::Div& lhs, const BinaryIntOp::Div& rhs)
 {
     return true;
 }
 
-inline std::vector<uint8_t> BinaryIntOp::SignedDiv::bincodeSerialize() const
+inline std::vector<uint8_t> BinaryIntOp::Div::bincodeSerialize() const
 {
     auto serializer = serde::BincodeSerializer();
-    serde::Serializable<BinaryIntOp::SignedDiv>::serialize(*this, serializer);
+    serde::Serializable<BinaryIntOp::Div>::serialize(*this, serializer);
     return std::move(serializer).bytes();
 }
 
-inline BinaryIntOp::SignedDiv BinaryIntOp::SignedDiv::bincodeDeserialize(std::vector<uint8_t> input)
+inline BinaryIntOp::Div BinaryIntOp::Div::bincodeDeserialize(std::vector<uint8_t> input)
 {
     auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<BinaryIntOp::SignedDiv>::deserialize(deserializer);
+    auto value = serde::Deserializable<BinaryIntOp::Div>::deserialize(deserializer);
     if (deserializer.get_buffer_offset() < input.size()) {
         throw_or_abort("Some input bytes were not read");
     }
@@ -1795,57 +1778,15 @@ inline BinaryIntOp::SignedDiv BinaryIntOp::SignedDiv::bincodeDeserialize(std::ve
 
 template <>
 template <typename Serializer>
-void serde::Serializable<Circuit::BinaryIntOp::SignedDiv>::serialize(const Circuit::BinaryIntOp::SignedDiv& obj,
-                                                                     Serializer& serializer)
+void serde::Serializable<Circuit::BinaryIntOp::Div>::serialize(const Circuit::BinaryIntOp::Div& obj,
+                                                               Serializer& serializer)
 {}
 
 template <>
 template <typename Deserializer>
-Circuit::BinaryIntOp::SignedDiv serde::Deserializable<Circuit::BinaryIntOp::SignedDiv>::deserialize(
-    Deserializer& deserializer)
+Circuit::BinaryIntOp::Div serde::Deserializable<Circuit::BinaryIntOp::Div>::deserialize(Deserializer& deserializer)
 {
-    Circuit::BinaryIntOp::SignedDiv obj;
-    return obj;
-}
-
-namespace Circuit {
-
-inline bool operator==(const BinaryIntOp::UnsignedDiv& lhs, const BinaryIntOp::UnsignedDiv& rhs)
-{
-    return true;
-}
-
-inline std::vector<uint8_t> BinaryIntOp::UnsignedDiv::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<BinaryIntOp::UnsignedDiv>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline BinaryIntOp::UnsignedDiv BinaryIntOp::UnsignedDiv::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<BinaryIntOp::UnsignedDiv>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Circuit
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Circuit::BinaryIntOp::UnsignedDiv>::serialize(const Circuit::BinaryIntOp::UnsignedDiv& obj,
-                                                                       Serializer& serializer)
-{}
-
-template <>
-template <typename Deserializer>
-Circuit::BinaryIntOp::UnsignedDiv serde::Deserializable<Circuit::BinaryIntOp::UnsignedDiv>::deserialize(
-    Deserializer& deserializer)
-{
-    Circuit::BinaryIntOp::UnsignedDiv obj;
+    Circuit::BinaryIntOp::Div obj;
     return obj;
 }
 
@@ -6445,68 +6386,6 @@ Circuit::Directive::ToLeRadix serde::Deserializable<Circuit::Directive::ToLeRadi
     obj.a = serde::Deserializable<decltype(obj.a)>::deserialize(deserializer);
     obj.b = serde::Deserializable<decltype(obj.b)>::deserialize(deserializer);
     obj.radix = serde::Deserializable<decltype(obj.radix)>::deserialize(deserializer);
-    return obj;
-}
-
-namespace Circuit {
-
-inline bool operator==(const Directive::PermutationSort& lhs, const Directive::PermutationSort& rhs)
-{
-    if (!(lhs.inputs == rhs.inputs)) {
-        return false;
-    }
-    if (!(lhs.tuple == rhs.tuple)) {
-        return false;
-    }
-    if (!(lhs.bits == rhs.bits)) {
-        return false;
-    }
-    if (!(lhs.sort_by == rhs.sort_by)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> Directive::PermutationSort::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<Directive::PermutationSort>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline Directive::PermutationSort Directive::PermutationSort::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<Directive::PermutationSort>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Circuit
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Circuit::Directive::PermutationSort>::serialize(const Circuit::Directive::PermutationSort& obj,
-                                                                         Serializer& serializer)
-{
-    serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
-    serde::Serializable<decltype(obj.tuple)>::serialize(obj.tuple, serializer);
-    serde::Serializable<decltype(obj.bits)>::serialize(obj.bits, serializer);
-    serde::Serializable<decltype(obj.sort_by)>::serialize(obj.sort_by, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Circuit::Directive::PermutationSort serde::Deserializable<Circuit::Directive::PermutationSort>::deserialize(
-    Deserializer& deserializer)
-{
-    Circuit::Directive::PermutationSort obj;
-    obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
-    obj.tuple = serde::Deserializable<decltype(obj.tuple)>::deserialize(deserializer);
-    obj.bits = serde::Deserializable<decltype(obj.bits)>::deserialize(deserializer);
-    obj.sort_by = serde::Deserializable<decltype(obj.sort_by)>::deserialize(deserializer);
     return obj;
 }
 
