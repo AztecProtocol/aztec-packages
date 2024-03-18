@@ -13,7 +13,6 @@ RUN cd browser-test-app && yarn && yarn build
 RUN cd headless-test && yarn && npx playwright install && npx playwright install-deps
 COPY . .
 ENV VERBOSE=1
-# WORKTODO
 # Run double_verify_proof through bb.js on node to check 512k support.
 RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh double_verify_proof
 # Run a single arbitrary test not involving recursion through bb.js for GoblinUltraHonk
