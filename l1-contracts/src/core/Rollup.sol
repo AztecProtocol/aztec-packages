@@ -6,7 +6,7 @@ pragma solidity >=0.8.18;
 import {IRollup} from "./interfaces/IRollup.sol";
 import {IAvailabilityOracle} from "./interfaces/IAvailabilityOracle.sol";
 import {IInbox} from "./interfaces/messagebridge/IInbox.sol";
-import {INewOutbox} from "./interfaces/messagebridge/INewOutbox.sol";
+import {IOutbox} from "./interfaces/messagebridge/IOutbox.sol";
 import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
 
 // Libraries
@@ -19,8 +19,8 @@ import {Constants} from "./libraries/ConstantsGen.sol";
 
 // Contracts
 import {MockVerifier} from "../mock/MockVerifier.sol";
-import {NewOutbox} from "./messagebridge/NewOutbox.sol";
 import {Inbox} from "./messagebridge/Inbox.sol";
+import {Outbox} from "./messagebridge/Outbox.sol";
 
 /**
  * @title Rollup
@@ -32,8 +32,8 @@ contract Rollup is IRollup {
   MockVerifier public immutable VERIFIER;
   IRegistry public immutable REGISTRY;
   IAvailabilityOracle public immutable AVAILABILITY_ORACLE;
-  INewOutbox public immutable NEW_OUTBOX;
   IInbox public immutable INBOX;
+  IOutbox public immutable OUTBOX;
   uint256 public immutable VERSION;
 
   bytes32 public archive; // Root of the archive tree
@@ -46,8 +46,8 @@ contract Rollup is IRollup {
     VERIFIER = new MockVerifier();
     REGISTRY = _registry;
     AVAILABILITY_ORACLE = _availabilityOracle;
-    NEW_OUTBOX = new NewOutbox(address(this));
     INBOX = new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
+    OUTBOX = new Outbox(address(this));
     VERSION = 1;
   }
 
@@ -94,13 +94,7 @@ contract Rollup is IRollup {
     }
 
     uint256 l2ToL1TreeHeight = MerkleLib.calculateTreeHeightFromSize(l2ToL1Msgs.length);
-    // NaiveMerkle l2ToL1Tree = new NaiveMerkle(l2ToL1TreeHeight);
-    // for (uint256 i = 0; i < l2ToL1Msgs.length; i++) {
-    //   l2ToL1Tree.insertLeaf(l2ToL1Msgs[i]);
-    // }
-
-    // bytes32 l2ToL1TreeRoot = l2ToL1Tree.computeRoot();
-    NEW_OUTBOX.insert(
+    OUTBOX.insert(
       header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeHeight
     );
 
