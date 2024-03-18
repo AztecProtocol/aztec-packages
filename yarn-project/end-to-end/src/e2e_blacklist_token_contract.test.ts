@@ -183,9 +183,6 @@ describe('e2e_blacklist_token_contract', () => {
 
       const time = await cheatCodes.eth.timestamp();
       await cheatCodes.aztec.warp(time + 200);
-
-      /* asset.withWallet(wallets[1]).methods.set_minter(accounts[1].address, true).send().wait();
-      expect(await asset.methods.is_minter(accounts[1].address).view()).toBe(true);*/
     });
 
     it('Make account[1] admin', async () => {
@@ -240,10 +237,6 @@ describe('e2e_blacklist_token_contract', () => {
 
       const time = await cheatCodes.eth.timestamp();
       await cheatCodes.aztec.warp(time + 200);
-
-      /*
-      asset.withWallet(wallets[1]).methods.set_minter(accounts[1].address, false).send().wait();
-      expect(await asset.methods.is_minter(accounts[1].address).view()).toBe(false);*/
     });
 
     it('Add account[3] to blacklist', async () => {
@@ -282,10 +275,6 @@ describe('e2e_blacklist_token_contract', () => {
         await expect(asset.withWallet(wallets[3]).methods.update_roles(account, newRoles).simulate()).rejects.toThrow(
           "Assertion failed: caller is not admin 'caller_roles.is_admin'",
         );
-
-        /*        await expect(asset.methods.set_admin(accounts[0].address).simulate()).rejects.toThrow(
-          'Assertion failed: caller is not admin',
-        );*/
       });
 
       it('Revoke minter not as admin', async () => {
@@ -303,10 +292,6 @@ describe('e2e_blacklist_token_contract', () => {
         await expect(
           asset.withWallet(wallets[3]).methods.update_roles(adminAccount, newRoles).simulate(),
         ).rejects.toThrow("Assertion failed: caller is not admin 'caller_roles.is_admin'");
-
-        /* await expect(asset.methods.set_minter(accounts[0].address, false).simulate()).rejects.toThrow(
-          'Assertion failed: caller is not admin',
-        );*/
       });
     });
   });
