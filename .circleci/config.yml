@@ -71,9 +71,9 @@ setup_env: &setup_env
     command: ./build-system/scripts/setup_env "$CIRCLE_SHA1" "$CIRCLE_TAG" "$CIRCLE_JOB" "$CIRCLE_REPOSITORY_URL" "$CIRCLE_BRANCH" "$CIRCLE_PULL_REQUEST"
 
 defaults_e2e_test: &defaults_e2e_test
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+  docker:
+    - image: aztecprotocol/alpine-build-image
+  resource_class: small
 
 jobs:
   # Dynamically filter our code, quickly figuring out which jobs we can skip.
@@ -344,7 +344,7 @@ jobs:
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 proof_system_tests
           aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
-  barretenberg-stdlib-recursion-ultra-tests:
+  barretenberg-stdlib-plonk-recursion-ultra-tests:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -354,6 +354,18 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 stdlib_plonk_recursion_tests --gtest_filter=-*turbo*
+          aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
+
+  barretenberg-stdlib-honk-recursion-ultra-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 3 stdlib_honk_recursion_tests
           aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-acir-tests-bb:
@@ -868,7 +880,6 @@ jobs:
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
-  
   e2e-outbox:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -1221,7 +1232,7 @@ defaults: &defaults
     - slack/notify:
         event: fail
         branch_pattern: "master"
-      
+
 bb_acir_tests: &bb_acir_tests
   requires:
     - barretenberg-x86_64-linux-clang-assert
