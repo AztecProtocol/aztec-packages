@@ -1308,10 +1308,9 @@ impl<'block> BrilligBlock<'block> {
         );
         self.brillig_context.codegen_branch(result_is_negative.address, |ctx, is_negative| {
             if is_negative {
-                ctx.not_instruction(num, result);
-                let one = ctx.make_constant_instruction(1_usize.into(), num.bit_size);
-                ctx.binary_instruction(one, result, result, BrilligBinaryOp::Add);
-                ctx.deallocate_single_addr(one);
+                let zero = ctx.make_constant_instruction(0_usize.into(), num.bit_size);
+                ctx.binary_instruction(zero, result, result, BrilligBinaryOp::Sub);
+                ctx.deallocate_single_addr(zero);
             } else {
                 ctx.mov_instruction(result.address, num.address);
             }
@@ -1359,10 +1358,9 @@ impl<'block> BrilligBlock<'block> {
 
         // If result has to be negative, perform two's complement
         self.brillig_context.codegen_if(result_is_negative.address, |ctx| {
-            ctx.not_instruction(result, result);
-            let one = ctx.make_constant_instruction(1_usize.into(), result.bit_size);
-            ctx.binary_instruction(one, result, result, BrilligBinaryOp::Add);
-            ctx.deallocate_single_addr(one);
+            let zero = ctx.make_constant_instruction(0_usize.into(), result.bit_size);
+            ctx.binary_instruction(zero, result, result, BrilligBinaryOp::Sub);
+            ctx.deallocate_single_addr(zero);
         });
 
         self.brillig_context.deallocate_single_addr(left_is_negative);
