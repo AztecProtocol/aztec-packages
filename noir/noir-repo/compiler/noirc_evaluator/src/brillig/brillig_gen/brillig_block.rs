@@ -1257,33 +1257,35 @@ impl<'block> BrilligBlock<'block> {
             _ => unreachable!("only numeric types are allowed in binary operations. References are handled separately"),
         };
 
-        let brillig_binary_op = match (binary.operator, is_signed) {
-            (BinaryOp::Div, true) => {
-                self.convert_signed_division(left, right, result_variable);
-                return;
-            }
-            (BinaryOp::Mod, true) => {
-                self.convert_signed_modulo(left, right, result_variable);
-                return;
-            }
-            (BinaryOp::Add, _) => BrilligBinaryOp::Add,
-            (BinaryOp::Sub, _) => BrilligBinaryOp::Sub,
-            (BinaryOp::Mul, _) => BrilligBinaryOp::Mul,
-            (BinaryOp::Div, _) => {
-                if is_field {
+        let brillig_binary_op = match binary.operator {
+            BinaryOp::Div => {
+                if is_signed {
+                    self.convert_signed_division(left, right, result_variable);
+                    return;
+                } else if is_field {
                     BrilligBinaryOp::FieldDiv
                 } else {
                     BrilligBinaryOp::UnsignedDiv
                 }
             }
-            (BinaryOp::Mod, _) => BrilligBinaryOp::Modulo,
-            (BinaryOp::Eq, _) => BrilligBinaryOp::Equals,
-            (BinaryOp::Lt, _) => BrilligBinaryOp::LessThan,
-            (BinaryOp::And, _) => BrilligBinaryOp::And,
-            (BinaryOp::Or, _) => BrilligBinaryOp::Or,
-            (BinaryOp::Xor, _) => BrilligBinaryOp::Xor,
-            (BinaryOp::Shl, _) => BrilligBinaryOp::Shl,
-            (BinaryOp::Shr, _) => BrilligBinaryOp::Shr,
+            BinaryOp::Mod => {
+                if is_signed {
+                    self.convert_signed_modulo(left, right, result_variable);
+                    return;
+                } else {
+                    BrilligBinaryOp::Modulo
+                }
+            }
+            BinaryOp::Add => BrilligBinaryOp::Add,
+            BinaryOp::Sub => BrilligBinaryOp::Sub,
+            BinaryOp::Mul => BrilligBinaryOp::Mul,
+            BinaryOp::Eq => BrilligBinaryOp::Equals,
+            BinaryOp::Lt => BrilligBinaryOp::LessThan,
+            BinaryOp::And => BrilligBinaryOp::And,
+            BinaryOp::Or => BrilligBinaryOp::Or,
+            BinaryOp::Xor => BrilligBinaryOp::Xor,
+            BinaryOp::Shl => BrilligBinaryOp::Shl,
+            BinaryOp::Shr => BrilligBinaryOp::Shr,
         };
 
         self.brillig_context.binary_instruction(left, right, result_variable, brillig_binary_op);
@@ -1291,6 +1293,7 @@ impl<'block> BrilligBlock<'block> {
         self.add_overflow_check(brillig_binary_op, left, right, result_variable, is_signed);
     }
 
+    /// Splits a two's complement signed integer in the sign bit and the absolute value.
     fn absolute_value(
         &mut self,
         num: SingleAddrVariable,
@@ -1300,18 +1303,23 @@ impl<'block> BrilligBlock<'block> {
         let max_positive = self
             .brillig_context
             .make_constant_instruction(((1_u128 << (num.bit_size - 1)) - 1).into(), num.bit_size);
+
+        // Compute if num is negative
         self.brillig_context.binary_instruction(
             max_positive,
             num,
             result_is_negative,
             BrilligBinaryOp::LessThan,
         );
+
         self.brillig_context.codegen_branch(result_is_negative.address, |ctx, is_negative| {
             if is_negative {
+                // Two's complement of num
                 let zero = ctx.make_constant_instruction(0_usize.into(), num.bit_size);
                 ctx.binary_instruction(zero, num, result, BrilligBinaryOp::Sub);
                 ctx.deallocate_single_addr(zero);
             } else {
+                // Simply move the original num
                 ctx.mov_instruction(result.address, num.address);
             }
         });
