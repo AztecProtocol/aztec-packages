@@ -54,13 +54,13 @@ STerm::STerm(const std::string& t, Solver* slv, bool isconst, uint32_t base, Ter
             break;
         case TermType::BVTerm:
             this->term = slv->term_manager.mkConst(slv->bv_sort);
-            ge = slv->term_manager.mkTerm(
-                cvc5::Kind::BITVECTOR_UGE,
-                { this->term, slv->term_manager.mkBitVector(slv->bv_sort.getBitVectorSize(), 0) });
-            modulus = slv->term_manager.mkBitVector(slv->bv_sort.getBitVectorSize(), slv->modulus, 10);
-            lt = slv->term_manager.mkTerm(cvc5::Kind::BITVECTOR_ULT, { this->term, modulus });
-            slv->assertFormula(ge);
-            slv->assertFormula(lt);
+            //  ge = slv->term_manager.mkTerm(
+            //      cvc5::Kind::BITVECTOR_UGE,
+            //      { this->term, slv->term_manager.mkBitVector(slv->bv_sort.getBitVectorSize(), 0) });
+            //  modulus = slv->term_manager.mkBitVector(slv->bv_sort.getBitVectorSize(), slv->modulus, 10);
+            //  lt = slv->term_manager.mkTerm(cvc5::Kind::BITVECTOR_ULT, { this->term, modulus });
+            //  slv->assertFormula(ge);
+            //  slv->assertFormula(lt);
             break;
         }
     } else {
@@ -316,8 +316,9 @@ STerm STerm::operator<<(const uint32_t& n) const
         info("SHIFT LEFT is not compatible with ", this->type);
         return *this;
     }
-    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::LSH),
-                                                 { this->term, this->solver->term_manager.mkInteger(n) });
+    cvc5::Op lsh = solver->term_manager.mkOp(this->operations.at(OpType::LSH), {n});
+    cvc5::Term res = solver->term_manager.mkTerm(lsh,
+                                                 { this->term});
     return { res, this->solver, this->type };
 }
 
@@ -327,8 +328,9 @@ void STerm::operator<<=(const uint32_t& n)
         info("SHIFT LEFT is not compatible with ", this->type);
         return;
     }
-    this->term = solver->term_manager.mkTerm(this->operations.at(OpType::LSH),
-                                             { this->term, this->solver->term_manager.mkInteger(n) });
+    cvc5::Op lsh = solver->term_manager.mkOp(this->operations.at(OpType::LSH), {n});
+    this->term = solver->term_manager.mkTerm(lsh,
+                                             { this->term});
 }
 
 STerm STerm::operator>>(const uint32_t& n) const
@@ -337,8 +339,9 @@ STerm STerm::operator>>(const uint32_t& n) const
         info("RIGHT LEFT is not compatible with ", this->type);
         return *this;
     }
-    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::RSH),
-                                                 { this->term, this->solver->term_manager.mkInteger(n) });
+    cvc5::Op rsh = solver->term_manager.mkOp(this->operations.at(OpType::RSH), {n});
+    cvc5::Term res = solver->term_manager.mkTerm(rsh,
+                                                 { this->term });
     return { res, this->solver, this->type };
 }
 
@@ -348,8 +351,9 @@ void STerm::operator>>=(const uint32_t& n)
         info("RIGHT LEFT is not compatible with ", this->type);
         return;
     }
-    this->term = solver->term_manager.mkTerm(this->operations.at(OpType::RSH),
-                                             { this->term, this->solver->term_manager.mkInteger(n) });
+    cvc5::Op rsh = solver->term_manager.mkOp(this->operations.at(OpType::RSH), {n});
+    this->term = solver->term_manager.mkTerm(rsh,
+                                             { this->term });
 }
 
 STerm STerm::rotr(const uint32_t& n) const
@@ -358,8 +362,9 @@ STerm STerm::rotr(const uint32_t& n) const
         info("ROTR is not compatible with ", this->type);
         return *this;
     }
-    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::ROTR),
-                                                 { this->term, this->solver->term_manager.mkInteger(n) });
+    cvc5::Op rotr = solver->term_manager.mkOp(this->operations.at(OpType::ROTR), {n});
+    cvc5::Term res = solver->term_manager.mkTerm(rotr,
+                                                 { this->term });
     return { res, this->solver, this->type };
 }
 
@@ -369,8 +374,9 @@ STerm STerm::rotl(const uint32_t& n) const
         info("ROTL is not compatible with ", this->type);
         return *this;
     }
-    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::ROTL),
-                                                 { this->term, this->solver->term_manager.mkInteger(n) });
+    cvc5::Op rotl = solver->term_manager.mkOp(this->operations.at(OpType::ROTL), {n});
+    cvc5::Term res = solver->term_manager.mkTerm(rotl,
+                                                 { this->term });
     return { res, this->solver, this->type };
 }
 
