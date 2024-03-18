@@ -1309,7 +1309,7 @@ impl<'block> BrilligBlock<'block> {
         self.brillig_context.codegen_branch(result_is_negative.address, |ctx, is_negative| {
             if is_negative {
                 let zero = ctx.make_constant_instruction(0_usize.into(), num.bit_size);
-                ctx.binary_instruction(zero, result, result, BrilligBinaryOp::Sub);
+                ctx.binary_instruction(zero, num, result, BrilligBinaryOp::Sub);
                 ctx.deallocate_single_addr(zero);
             } else {
                 ctx.mov_instruction(result.address, num.address);
