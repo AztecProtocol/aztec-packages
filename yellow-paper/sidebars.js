@@ -120,7 +120,7 @@ const sidebars = {
     {
       label: "Data availability",
       type: "category",
-      link: { type: "doc", id: "pre-compiled-contracts/index" },
+      link: { type: "doc", id: "data-publication-and-availability/index" },
       items: [
         "data-publication-and-availability/overview",
         "data-publication-and-availability/published-data",
