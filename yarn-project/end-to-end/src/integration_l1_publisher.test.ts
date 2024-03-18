@@ -10,6 +10,11 @@ import {
   mockTx,
   to2Fields,
 } from '@aztec/aztec.js';
+// eslint-disable-next-line no-restricted-imports
+import {
+  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
+  makeProcessedTx,
+} from '@aztec/circuit-types';
 import {
   EthAddress,
   Header,
@@ -29,9 +34,13 @@ import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, NewInboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
-  L1Publisher,
-  getL1Publisher,
-} from '@aztec/sequencer-client';
+  EmptyRollupProver,
+  RealRollupCircuitSimulator,
+  SoloBlockBuilder,
+  getVerificationKeys,
+} from '@aztec/prover-client';
+import { L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
+import { WASMSimulator } from '@aztec/simulator';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
@@ -52,10 +61,6 @@ import {
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { setupL1Contracts } from './fixtures/utils.js';
-import { WASMSimulator } from '@aztec/simulator';
-// eslint-disable-next-line no-restricted-imports
-import { makeProcessedTx, makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots, } from '@aztec/circuit-types';
-import { EmptyRollupProver, RealRollupCircuitSimulator, SoloBlockBuilder, getVerificationKeys } from '@aztec/prover-client';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
