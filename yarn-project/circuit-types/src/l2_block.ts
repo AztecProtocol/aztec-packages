@@ -104,7 +104,6 @@ export class L2Block {
     numPublicCallsPerTx = 3,
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
-    numL1ToL2MessagesPerCall = 2,
   ): L2Block {
     const body = Body.random(
       txsPerBlock,
@@ -112,7 +111,6 @@ export class L2Block {
       numPublicCallsPerTx,
       numEncryptedLogsPerCall,
       numUnencryptedLogsPerCall,
-      numL1ToL2MessagesPerCall,
     );
 
     const txsEffectsHash = body.getTxsEffectsHash();

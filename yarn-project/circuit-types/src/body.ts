@@ -6,9 +6,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { inspect } from 'util';
 
 export class Body {
-  constructor(
-    public txEffects: TxEffect[],
-  ) {}
+  constructor(public txEffects: TxEffect[]) {}
 
   /**
    * Serializes a block body
@@ -25,13 +23,10 @@ export class Body {
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
 
-    return new this(
-      reader.readVector(TxEffect),
-    );
+    return new this(reader.readVector(TxEffect));
   }
 
   [inspect.custom]() {
-    // print non empty l2ToL1Messages and txEffects
     return `Body {
   txEffects: ${inspect(this.txEffects)},
 }`;
@@ -93,7 +88,6 @@ export class Body {
     numPublicCallsPerTx = 3,
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
-    numL1ToL2MessagesPerCall = 2,
   ) {
     const txEffects = [...new Array(txsPerBlock)].map(_ =>
       TxEffect.random(numPrivateCallsPerTx, numPublicCallsPerTx, numEncryptedLogsPerCall, numUnencryptedLogsPerCall),
