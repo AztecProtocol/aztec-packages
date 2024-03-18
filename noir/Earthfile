@@ -26,7 +26,9 @@ nargo:
 packages:
     FROM node:20
 
-    COPY ../barretenberg/ts/+build/build ../barretenberg/ts
+    # `noir-repo` is nested inside of `noir` so we copy `bb.js` as such to account 
+    # for the extra nested folder specified in portalled package paths
+    COPY ../barretenberg/ts/+build/build /build/../barretenberg/ts
 
     RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
     RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
