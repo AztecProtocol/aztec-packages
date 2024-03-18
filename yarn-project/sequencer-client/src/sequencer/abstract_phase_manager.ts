@@ -386,6 +386,7 @@ export abstract class AbstractPhaseManager {
       unencryptedLogsHash,
       unencryptedLogPreimagesLength,
       historicalHeader: this.historicalHeader,
+      // TODO(@just-mitch): need better mapping from simulator to revert code.
       reverted: result.reverted ? RevertCode.REVERTED : RevertCode.OK,
     });
   }

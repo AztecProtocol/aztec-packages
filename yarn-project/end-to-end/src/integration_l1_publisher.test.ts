@@ -184,10 +184,6 @@ describe('L1Publisher integration', () => {
     processedTx.data.end.encryptedLogsHash = to2Fields(processedTx.encryptedLogs.hash());
     processedTx.data.end.unencryptedLogsHash = to2Fields(processedTx.unencryptedLogs.hash());
 
-    // expect(
-    //   arrayNonEmptyLength(processedTx.data.combinedData.newNullifiers, SideEffectLinkedToNoteHash.isEmpty),
-    // ).toEqual(MAX_NEW_NULLIFIERS_PER_TX);
-
     return processedTx;
   };
 
