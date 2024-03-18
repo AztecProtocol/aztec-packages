@@ -1,4 +1,9 @@
 VERSION 0.8
+FROM node:18.19.0
+RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
+
+# copy bb.js
+COPY ../barretenberg/ts/+build/build /build/barretenberg/ts
 
 nargo:
     FROM rust:bullseye
@@ -25,7 +30,7 @@ nargo:
 
 packages:
     FROM node:20
-    COPY ../barretenberg/ts/+build/build /build/barretenberg/ts
+    # COPY ../barretenberg/ts/+build/build /build/barretenberg/ts
 
     RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
     RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
