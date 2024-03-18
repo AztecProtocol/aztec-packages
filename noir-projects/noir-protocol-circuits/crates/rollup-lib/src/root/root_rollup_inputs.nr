@@ -44,7 +44,7 @@ impl RootRollupInputs {
         components::assert_equal_constants(left, right);
         components::assert_prev_rollups_follow_on_from_each_other(left, right);
 
-        // Insert subtree into the l1 to l2 data tree
+        // Insert subtree into the l1 to l2 message tree
         let empty_l1_to_l2_subtree_root = calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
         let new_l1_to_l2_message_tree_snapshot = append_only_tree::insert_subtree_to_snapshot_tree(
             self.start_l1_to_l2_message_tree_snapshot,

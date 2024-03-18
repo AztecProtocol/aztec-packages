@@ -364,7 +364,7 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
+   * Returns the index and a sibling path for a leaf in the committed l1 to l2 message tree.
    * @param blockNumber - The block number at which to get the data.
    * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
    * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
