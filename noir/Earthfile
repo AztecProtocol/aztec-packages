@@ -5,6 +5,14 @@ RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && 
 # copy bb.js
 COPY ../barretenberg/ts/+build/build /build/barretenberg/ts
 
+# We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
+# walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
+# correctly for portalled packages, is to use --preserve-symlinks when running node.
+# This does kind of work, but jest doesn't honor it correctly, so this seems like a neat workaround.
+# Also, --preserve-symlinks causes duplication of portalled instances such as bb.js, and breaks the singleton logic
+# by initialising the module more than once. So at present I don't see a viable alternative.
+RUN ln -s /build/noir-repo/node_modules /build/node_modules
+
 nargo:
     FROM rust:bullseye
     RUN apt update && apt install -y libc++1
@@ -59,14 +67,6 @@ packages:
       noir-repo/.github \
       noir-repo/.envrc \
       noir-repo
-
-    # We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
-    # walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
-    # correctly for portalled packages, is to use --preserve-symlinks when running node.
-    # This does kind of work, but jest doesn't honor it correctly, so this seems like a neat workaround.
-    # Also, --preserve-symlinks causes duplication of portalled instances such as bb.js, and breaks the singleton logic
-    # by initialising the module more than once. So at present I don't see a viable alternative.
-    RUN ln -s /build/noir-repo/node_modules /build/node_modules
 
     COPY --keep-ts noir-repo/.github/scripts noir-repo/.github/scripts
     COPY --keep-ts ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
