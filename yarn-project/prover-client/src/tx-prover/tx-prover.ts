@@ -1,5 +1,5 @@
 import { L2Block, ProcessedTx } from '@aztec/circuit-types';
-import { ProverClient } from '@aztec/circuit-types/interfaces';
+import { ProverClient, ProvingResult } from '@aztec/circuit-types/interfaces';
 import { Fr, GlobalVariables, Proof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from '@aztec/simulator';
@@ -7,13 +7,14 @@ import { WorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
 
-import { SoloBlockBuilder } from './block_builder/solo_block_builder.js';
-import { ProverConfig } from './config.js';
-import { getVerificationKeys } from './mocks/verification_keys.js';
-import { EmptyRollupProver } from './prover/empty.js';
-import { RealRollupCircuitSimulator } from './simulator/rollup.js';
+import { SoloBlockBuilder } from '../block_builder/solo_block_builder.js';
+import { ProverConfig } from '../config.js';
+import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
+import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import { EmptyRollupProver } from '../prover/empty.js';
+import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 
-const logger = createDebugLogger('aztec:prover-client');
+const logger = createDebugLogger('aztec:prover:tx-prover');
 
 /**
  * Factory function to create a simulation provider. Will attempt to use native binary simulation falling back to WASM if unavailable.
@@ -35,11 +36,15 @@ async function getSimulationProvider(config: ProverConfig): Promise<SimulationPr
   return new WASMSimulator();
 }
 
+
 /**
  * A prover accepting individual transaction requests
  */
 export class TxProver implements ProverClient {
-  constructor(private worldStateSynchronizer: WorldStateSynchronizer, private simulationProvider: SimulationProvider) {}
+  private orchestrator: ProvingOrchestrator;
+  constructor(private worldStateSynchronizer: WorldStateSynchronizer, private simulationProvider: SimulationProvider, protected vks: VerificationKeys) {
+    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), simulationProvider, getVerificationKeys());
+  }
 
   /**
    * Starts the prover instance
@@ -60,7 +65,7 @@ export class TxProver implements ProverClient {
    * @returns An instance of the prover, constructed and started.
    */
   public static async new(config: ProverConfig, worldStateSynchronizer: WorldStateSynchronizer) {
-    const prover = new TxProver(worldStateSynchronizer, await getSimulationProvider(config));
+    const prover = new TxProver(worldStateSynchronizer, await getSimulationProvider(config), getVerificationKeys());
     await prover.start();
     return prover;
   }
@@ -79,4 +84,13 @@ export class TxProver implements ProverClient {
     );
     return await blockBuilder.buildL2Block(globalVariables, txs, newModelL1ToL2Messages, newL1ToL2Messages);
   }
+
+  public startNewBlock(numTxs: number, completionCallback: (result: ProvingResult) => void, globalVariables: GlobalVariables): void {
+    this.orchestrator.startNewBlock(numTxs, completionCallback, globalVariables);
+  }
+
+  public addNewTx(tx: ProcessedTx): void {
+    this.orchestrator.addNewTx(tx);
+  }
+
 }
