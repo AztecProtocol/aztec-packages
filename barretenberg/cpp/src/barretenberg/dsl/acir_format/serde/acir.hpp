@@ -82,16 +82,10 @@ struct BinaryIntOp {
         static Mul bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    struct SignedDiv {
-        friend bool operator==(const SignedDiv&, const SignedDiv&);
+    struct Div {
+        friend bool operator==(const Div&, const Div&);
         std::vector<uint8_t> bincodeSerialize() const;
-        static SignedDiv bincodeDeserialize(std::vector<uint8_t>);
-    };
-
-    struct UnsignedDiv {
-        friend bool operator==(const UnsignedDiv&, const UnsignedDiv&);
-        std::vector<uint8_t> bincodeSerialize() const;
-        static UnsignedDiv bincodeDeserialize(std::vector<uint8_t>);
+        static Div bincodeDeserialize(std::vector<uint8_t>);
     };
 
     struct Equals {
@@ -142,7 +136,7 @@ struct BinaryIntOp {
         static Shr bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    std::variant<Add, Sub, Mul, SignedDiv, UnsignedDiv, Equals, LessThan, LessThanEquals, And, Or, Xor, Shl, Shr> value;
+    std::variant<Add, Sub, Mul, Div, Equals, LessThan, LessThanEquals, And, Or, Xor, Shl, Shr> value;
 
     friend bool operator==(const BinaryIntOp&, const BinaryIntOp&);
     std::vector<uint8_t> bincodeSerialize() const;
@@ -1776,22 +1770,22 @@ Program::BinaryIntOp::Mul serde::Deserializable<Program::BinaryIntOp::Mul>::dese
 
 namespace Program {
 
-inline bool operator==(const BinaryIntOp::SignedDiv& lhs, const BinaryIntOp::SignedDiv& rhs)
+inline bool operator==(const BinaryIntOp::Div& lhs, const BinaryIntOp::Div& rhs)
 {
     return true;
 }
 
-inline std::vector<uint8_t> BinaryIntOp::SignedDiv::bincodeSerialize() const
+inline std::vector<uint8_t> BinaryIntOp::Div::bincodeSerialize() const
 {
     auto serializer = serde::BincodeSerializer();
-    serde::Serializable<BinaryIntOp::SignedDiv>::serialize(*this, serializer);
+    serde::Serializable<BinaryIntOp::Div>::serialize(*this, serializer);
     return std::move(serializer).bytes();
 }
 
-inline BinaryIntOp::SignedDiv BinaryIntOp::SignedDiv::bincodeDeserialize(std::vector<uint8_t> input)
+inline BinaryIntOp::Div BinaryIntOp::Div::bincodeDeserialize(std::vector<uint8_t> input)
 {
     auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<BinaryIntOp::SignedDiv>::deserialize(deserializer);
+    auto value = serde::Deserializable<BinaryIntOp::Div>::deserialize(deserializer);
     if (deserializer.get_buffer_offset() < input.size()) {
         throw_or_abort("Some input bytes were not read");
     }
@@ -1802,8 +1796,13 @@ inline BinaryIntOp::SignedDiv BinaryIntOp::SignedDiv::bincodeDeserialize(std::ve
 
 template <>
 template <typename Serializer>
+<<<<<<< HEAD
 void serde::Serializable<Program::BinaryIntOp::SignedDiv>::serialize(const Program::BinaryIntOp::SignedDiv& obj,
                                                                      Serializer& serializer)
+=======
+void serde::Serializable<Circuit::BinaryIntOp::Div>::serialize(const Circuit::BinaryIntOp::Div& obj,
+                                                               Serializer& serializer)
+>>>>>>> master
 {}
 
 template <>
