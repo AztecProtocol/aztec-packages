@@ -21,12 +21,9 @@ contract TokenPortal {
   IERC20 public underlying;
   bytes32 public l2Bridge;
 
-  function initialize(
-    address _registry,
-    address _newOutbox,
-    address _underlying,
-    bytes32 _l2Bridge
-  ) external {
+  function initialize(address _registry, address _newOutbox, address _underlying, bytes32 _l2Bridge)
+    external
+  {
     registry = IRegistry(_registry);
     newOutbox = INewOutbox(_newOutbox);
     underlying = IERC20(_underlying);
