@@ -105,7 +105,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
 
         if !check_trait_method_implemented(trait_impl, "serialize_content")
             && !check_trait_method_implemented(trait_impl, "deserialize_content")
-            && !note_impl.methods.iter().any(|(func, _)| func.def.name.0.contents == "fields")
+            && !note_impl.methods.iter().any(|(func, _)| func.def.name.0.contents == "properties")
         {
             let note_serialize_content_fn = generate_note_serialize_content(
                 &note_type,
@@ -250,8 +250,8 @@ fn generate_note_get_type_id(
 // Automatically generate a struct that represents the note's serialization metadata, as
 //
 // NoteTypeFields {
-//     field1: FieldSelector { index: 0, offset: 0, length: 32 },
-//     field2: FieldSelector { index: 1, offset: 0, length: 32 },
+//     field1: PropertySelector { index: 0, offset: 0, length: 32 },
+//     field2: PropertySelector { index: 1, offset: 0, length: 32 },
 //     ...
 // }
 //
@@ -267,7 +267,7 @@ fn generate_note_fields_struct(
     if !errors.is_empty() {
         dbg!(errors);
         return Err(AztecMacroError::CouldNotImplementNoteInterface {
-            secondary_message: Some(format!("Failed to parse Noir macro code (struct {}Fields). This is either a bug in the compiler or the Noir macro code", note_type)),
+            secondary_message: Some(format!("Failed to parse Noir macro code (struct {}Properties). This is either a bug in the compiler or the Noir macro code", note_type)),
             span: impl_span
         });
     }
@@ -398,12 +398,12 @@ fn generate_compute_note_content_hash(
 // Source code generator functions. These utility methods produce Noir code as strings, that are then parsed and added to the AST.
 
 fn generate_note_fields_struct_source(note_type: &str, note_fields: &[(String, String)]) -> String {
-    let note_field_selectors = note_fields
+    let note_property_selectors = note_fields
         .iter()
         .filter_map(|(field_name, _)| {
             if field_name != "header" {
                 Some(format!(
-                    "{}: dep::aztec::note::note_getter_options::FieldSelector",
+                    "{}: dep::aztec::note::note_getter_options::PropertySelector",
                     field_name
                 ))
             } else {
@@ -414,22 +414,22 @@ fn generate_note_fields_struct_source(note_type: &str, note_fields: &[(String, S
         .join(",\n");
     format!(
         "
-        struct {}Fields {{
+        struct {}Properties {{
             {}
         }}",
-        note_type, note_field_selectors
+        note_type, note_property_selectors
     )
     .to_string()
 }
 
 fn generate_note_fields_fn_source(note_type: &str, note_fields: &[(String, String)]) -> String {
-    let note_field_selectors = note_fields
+    let note_property_selectors = note_fields
         .iter()
         .enumerate()
         .filter_map(|(index, (field_name, _))| {
             if field_name != "header" {
                 Some(format!(
-                    "{}: dep::aztec::note::note_getter_options::FieldSelector {{ index: {}, offset: 0, length: 32 }}",
+                    "{}: dep::aztec::note::note_getter_options::PropertySelector {{ index: {}, offset: 0, length: 32 }}",
                     field_name,
                     index
                 ))
@@ -441,12 +441,12 @@ fn generate_note_fields_fn_source(note_type: &str, note_fields: &[(String, Strin
         .join(", ");
     format!(
         "
-        pub fn fields() -> {}Fields {{
-            {}Fields {{
+        pub fn properties() -> {}Properties {{
+            {}Properties {{
                 {}
             }}
         }}",
-        note_type, note_type, note_field_selectors
+        note_type, note_type, note_property_selectors
     )
     .to_string()
 }

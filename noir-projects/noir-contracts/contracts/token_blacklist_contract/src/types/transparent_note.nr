@@ -1,7 +1,7 @@
 // docs:start:token_types_all
 use dep::aztec::prelude::{NoteHeader, NoteInterface, PrivateContext};
 use dep::aztec::{
-    note::{note_getter_options::FieldSelector, utils::compute_note_hash_for_consumption},
+    note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_consumption},
     hash::{compute_secret_hash, pedersen_hash}
 };
 
@@ -17,9 +17,9 @@ struct TransparentNote {
     secret: Field,
 }
 
-struct TransparentNoteFields {
-    amount: FieldSelector,
-    secret_hash: FieldSelector,
+struct TransparentNoteProperties {
+    amount: PropertySelector,
+    secret_hash: PropertySelector,
 }
 
 impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
@@ -76,10 +76,10 @@ impl TransparentNote {
     }
 
     // Custom serialization forces us to manually create the metadata struct and its getter
-    pub fn fields() -> TransparentNoteFields {
+    pub fn properties() -> TransparentNoteFields {
         TransparentNoteFields {
-            amount: FieldSelector { index: 0, offset: 0, length: 32 },
-            secret_hash: FieldSelector { index: 1, offset: 0, length: 32 }
+            amount: PropertySelector { index: 0, offset: 0, length: 32 },
+            secret_hash: PropertySelector { index: 1, offset: 0, length: 32 }
         }
     }
 }

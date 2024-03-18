@@ -254,11 +254,11 @@ You can view the implementation [here](https://github.com/AztecProtocol/aztec-pa
 
 ### `selects: BoundedVec<Option<Select>, N>`
 
-`selects` is a collection of filtering criteria, specified by `Select { field_selector: FieldSelector, value: Field, comparator: u3 }` structs. It instructs the data oracle to find notes whose serialized field (as specified by the FieldSelector) matches the provided `value`, according to the `comparator`. The FieldSelector is in turn specified as having an `index` (nth position of the selected field in the serialized note), an `offset` (byte offset inside the selected serialized field) and `length` (bytes to read of the field from the offset)
+`selects` is a collection of filtering criteria, specified by `Select { property_selector: PropertySelector, value: Field, comparator: u3 }` structs. It instructs the data oracle to find notes whose serialized field (as specified by the PropertySelector) matches the provided `value`, according to the `comparator`. The PropertySelector is in turn specified as having an `index` (nth position of the selected field in the serialized note), an `offset` (byte offset inside the selected serialized field) and `length` (bytes to read of the field from the offset)
 
 ### `sorts: BoundedVec<Option<Sort>, N>`
 
-`sorts` is a set of sorting instructions defined by `Sort { field_selector: FieldSelector, order: u2 }` structs. This directs the data oracle to sort the matching notes based on the value of the specified FieldSelector and in the indicated order. The value of order is **1** for _DESCENDING_ and **2** for _ASCENDING_.
+`sorts` is a set of sorting instructions defined by `Sort { property_selector: PropertySelector, order: u2 }` structs. This directs the data oracle to sort the matching notes based on the value of the specified PropertySelector and in the indicated order. The value of order is **1** for _DESCENDING_ and **2** for _ASCENDING_.
 
 ### `limit: u32`
 

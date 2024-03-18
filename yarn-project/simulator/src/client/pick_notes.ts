@@ -1,7 +1,7 @@
 import { Comparator, Note } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
 
-export interface FieldSelector {
+export interface PropertySelector {
   index: number;
   offset: number;
   length: number;
@@ -14,7 +14,7 @@ export interface Select {
   /**
    * Selector of the field to select and match.
    */
-  selector: FieldSelector;
+  selector: PropertySelector;
   /**
    * Required value of the field.
    */
@@ -41,7 +41,7 @@ export interface Sort {
   /**
    * Selector of the field to sort.
    */
-  selector: FieldSelector;
+  selector: PropertySelector;
   /**
    * Order to sort the field.
    */
@@ -84,7 +84,7 @@ interface ContainsNote {
   note: Note;
 }
 
-const selectFieldFromNote = (noteData: Fr[], selector: FieldSelector): Fr => {
+const selectPropertyFromSerializedNote = (noteData: Fr[], selector: PropertySelector): Fr => {
   const noteValueBuffer = noteData[selector.index].toBuffer();
   const noteValue = noteValueBuffer.subarray(selector.offset, selector.offset + selector.length);
   return Fr.fromBuffer(noteValue);
@@ -93,7 +93,7 @@ const selectFieldFromNote = (noteData: Fr[], selector: FieldSelector): Fr => {
 const selectNotes = <T extends ContainsNote>(noteDatas: T[], selects: Select[]): T[] =>
   noteDatas.filter(noteData =>
     selects.every(({ selector, value, comparator }) => {
-      const noteValueFr = selectFieldFromNote(noteData.note.items, selector);
+      const noteValueFr = selectPropertyFromSerializedNote(noteData.note.items, selector);
       const comparatorSelector = {
         [Comparator.EQ]: () => noteValueFr.equals(value),
         [Comparator.NEQ]: () => !noteValueFr.equals(value),
@@ -117,8 +117,8 @@ const sortNotes = (a: Fr[], b: Fr[], sorts: Sort[], level = 0): number => {
     return 0;
   }
 
-  const aValue = selectFieldFromNote(a, selector);
-  const bValue = selectFieldFromNote(b, selector);
+  const aValue = selectPropertyFromSerializedNote(a, selector);
+  const bValue = selectPropertyFromSerializedNote(b, selector);
 
   const dir = order === 1 ? [-1, 1] : [1, -1];
   return aValue.toBigInt() === bValue.toBigInt()

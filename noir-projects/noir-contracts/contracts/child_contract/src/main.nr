@@ -56,7 +56,11 @@ contract Child {
 
     #[aztec(private)]
     fn privateGetValue(amount: Field, owner: AztecAddress) -> Field {
-        let options = NoteGetterOptions::new().select(ValueNote::fields().value, amount, Option::none()).select(ValueNote::fields().owner, owner.to_field(), Option::none()).set_limit(1);
+        let options = NoteGetterOptions::new().select(ValueNote::properties().value, amount, Option::none()).select(
+            ValueNote::properties().owner,
+            owner.to_field(),
+            Option::none()
+        ).set_limit(1);
         let notes = storage.a_private_value.get_notes(options);
         notes[0].unwrap_unchecked().value
     }

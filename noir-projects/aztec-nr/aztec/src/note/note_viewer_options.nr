@@ -1,5 +1,5 @@
 use dep::std::option::Option;
-use crate::note::note_getter_options::{FieldSelector, Select, Sort, Comparator, NoteStatus};
+use crate::note::note_getter_options::{PropertySelector, Select, Sort, Comparator, NoteStatus};
 use dep::protocol_types::{constants::MAX_NOTES_PER_PAGE, traits::ToField};
 use crate::note::note_interface::NoteInterface;
 
@@ -30,14 +30,14 @@ impl<Note, N> NoteViewerOptions<Note, N> {
     // a comparator (For possible values of comparators, please see the Comparator enum from note_getter_options)
     pub fn select<T>(
         &mut self,
-        field_selector: FieldSelector,
+        property_selector: PropertySelector,
         value: T,
         comparator: Option<u8>
     ) -> Self where T: ToField {
         self.selects.push(
             Option::some(
                 Select::new(
-                    field_selector,
+                    property_selector,
                     value.to_field(),
                     comparator.unwrap_or(Comparator.EQ)
                 )
@@ -46,8 +46,8 @@ impl<Note, N> NoteViewerOptions<Note, N> {
         *self
     }
 
-    pub fn sort(&mut self, field_selector: FieldSelector, order: u8) -> Self {
-        self.sorts.push(Option::some(Sort::new(field_selector, order)));
+    pub fn sort(&mut self, property_selector: PropertySelector, order: u8) -> Self {
+        self.sorts.push(Option::some(Sort::new(property_selector, order)));
         *self
     }
 

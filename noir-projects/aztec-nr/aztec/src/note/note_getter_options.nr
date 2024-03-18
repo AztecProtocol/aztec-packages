@@ -2,7 +2,7 @@ use dep::std::option::Option;
 use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::ToField};
 use crate::note::note_interface::NoteInterface;
 
-struct FieldSelector {
+struct PropertySelector {
     index: u8,
     offset: u8,
     length: u8,
@@ -27,14 +27,14 @@ global Comparator = ComparatorEnum {
 };
 
 struct Select {
-    field_selector: FieldSelector,
+    property_selector: PropertySelector,
     value: Field,
     comparator: u8,
 }
 
 impl Select {
-    pub fn new(field_selector: FieldSelector, value: Field, comparator: u8) -> Self {
-        Select { field_selector, value, comparator }
+    pub fn new(property_selector: PropertySelector, value: Field, comparator: u8) -> Self {
+        Select { property_selector, value, comparator }
     }
 }
 
@@ -49,13 +49,13 @@ global SortOrder = SortOrderEnum {
 };
 
 struct Sort {
-    field_selector: FieldSelector,
+    property_selector: PropertySelector,
     order: u8,
 }
 
 impl Sort {
-    pub fn new(field_selector: FieldSelector, order: u8) -> Self {
-        Sort { field_selector, order }
+    pub fn new(property_selector: PropertySelector, order: u8) -> Self {
+        Sort { property_selector, order }
     }
 }
 
@@ -125,19 +125,19 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
     }
 
     // This method adds a `Select` criterion to the options.
-    // It takes a field_selector indicating which field to select, 
+    // It takes a property_selector indicating which field to select, 
     // a value representing the specific value to match in that field, and 
     // a comparator (For possible values of comparators, please see the Comparator enum above)
     pub fn select<T>(
         &mut self,
-        field_selector: FieldSelector,
+        property_selector: PropertySelector,
         value: T,
         comparator: Option<u8>
     ) -> Self where T: ToField {
         self.selects.push(
             Option::some(
                 Select::new(
-                    field_selector,
+                    property_selector,
                     value.to_field(),
                     comparator.unwrap_or(Comparator.EQ)
                 )
@@ -148,8 +148,8 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
 
     // This method adds a `Sort` criterion to the options.
     // It takes a field_index indicating which field to sort by and an order (SortOrder) to determine the sorting direction.
-    pub fn sort(&mut self, field_selector: FieldSelector, order: u8) -> Self {
-        self.sorts.push(Option::some(Sort::new(field_selector, order)));
+    pub fn sort(&mut self, property_selector: PropertySelector, order: u8) -> Self {
+        self.sorts.push(Option::some(Sort::new(property_selector, order)));
         *self
     }
 

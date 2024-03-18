@@ -25,7 +25,11 @@ contract DelegatedOn {
     }
 
     unconstrained fn view_private_value(amount: Field, owner: AztecAddress) -> pub Field {
-        let options = NoteViewerOptions::new().select(ValueNote::fields().value, amount, Option::none()).select(ValueNote::fields().owner, owner.to_field(), Option::none()).set_limit(1);
+        let options = NoteViewerOptions::new().select(ValueNote::properties().value, amount, Option::none()).select(
+            ValueNote::properties().owner,
+            owner.to_field(),
+            Option::none()
+        ).set_limit(1);
         let notes = storage.a_private_value.view_notes(options);
         notes[0].unwrap_unchecked().value
     }

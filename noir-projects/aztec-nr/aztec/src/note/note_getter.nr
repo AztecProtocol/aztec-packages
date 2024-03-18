@@ -6,15 +6,15 @@ use dep::protocol_types::{
 };
 use crate::context::PrivateContext;
 use crate::note::{
-    note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, Comparator, NoteStatus, FieldSelector},
+    note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, Comparator, NoteStatus, PropertySelector},
     note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_consumption
 };
 use crate::oracle;
 
-fn extract_field_from_selector<N>(serialized_note: [Field; N], selector: FieldSelector) -> Field {
-    // Selectors use FieldSelectors in order to locate note fields inside the serialized note. 
-    // This allows easier packing and custom (de)serialization schemas. A note field is located
+fn extract_property_value_from_selector<N>(serialized_note: [Field; N], selector: PropertySelector) -> Field {
+    // Selectors use PropertySelectors in order to locate note properties inside the serialized note. 
+    // This allows easier packing and custom (de)serialization schemas. A note property is located
     // inside the serialized note using the index inside the array, a byte offset and a length.
     let value = serialized_note[selector.index].to_be_bytes(32);
     let offset = selector.offset;
@@ -40,7 +40,7 @@ fn check_note_header<Note, N>(context: PrivateContext, storage_slot: Field, note
 fn check_note_fields<N>(serialized_note: [Field; N], selects: BoundedVec<Option<Select>, N>) {
     for i in 0..selects.len {
         let select = selects.get_unchecked(i).unwrap_unchecked();
-        let value_field = extract_field_from_selector(serialized_note, select.field_selector);
+        let value_field = extract_property_value_from_selector(serialized_note, select.property_selector);
 
         // Values are computed ahead of time because circuits evaluate all branches
         let isEqual = value_field == select.value.to_field();
@@ -69,8 +69,8 @@ fn check_notes_order<N>(
 ) {
     for i in 0..sorts.len {
         let sort = sorts.get_unchecked(i).unwrap_unchecked();
-        let field_0 = extract_field_from_selector(fields_0, sort.field_selector);
-        let field_1 = extract_field_from_selector(fields_1, sort.field_selector);
+        let field_0 = extract_property_value_from_selector(fields_0, sort.property_selector);
+        let field_1 = extract_property_value_from_selector(fields_1, sort.property_selector);
         let eq = field_0 == field_1;
         let lt = field_0.lt(field_1);
         if sort.order == SortOrder.ASC {
@@ -230,9 +230,9 @@ unconstrained fn flatten_options<Note, N>(
     for i in 0..selects.len {
         let select = selects.get(i);
         if select.is_some() {
-            select_by_indexes[num_selects] = select.unwrap_unchecked().field_selector.index;
-            select_by_offsets[num_selects] = select.unwrap_unchecked().field_selector.offset;
-            select_by_lengths[num_selects] = select.unwrap_unchecked().field_selector.length;
+            select_by_indexes[num_selects] = select.unwrap_unchecked().property_selector.index;
+            select_by_offsets[num_selects] = select.unwrap_unchecked().property_selector.offset;
+            select_by_lengths[num_selects] = select.unwrap_unchecked().property_selector.length;
             select_values[num_selects] = select.unwrap_unchecked().value;
             select_comparators[num_selects] = select.unwrap_unchecked().comparator;
             num_selects += 1;
@@ -246,9 +246,9 @@ unconstrained fn flatten_options<Note, N>(
     for i in 0..sorts.len {
         let sort = sorts.get(i);
         if sort.is_some() {
-            sort_by_indexes[i] = sort.unwrap_unchecked().field_selector.index;
-            sort_by_offsets[i] = sort.unwrap_unchecked().field_selector.offset;
-            sort_by_lengths[i] = sort.unwrap_unchecked().field_selector.length;
+            sort_by_indexes[i] = sort.unwrap_unchecked().property_selector.index;
+            sort_by_offsets[i] = sort.unwrap_unchecked().property_selector.offset;
+            sort_by_lengths[i] = sort.unwrap_unchecked().property_selector.length;
             sort_order[i] = sort.unwrap_unchecked().order;
         };
     }
