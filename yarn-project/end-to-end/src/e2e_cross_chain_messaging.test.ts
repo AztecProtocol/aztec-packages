@@ -226,7 +226,7 @@ describe('e2e_cross_chain_messaging', () => {
     const content = Fr.fromBufferReduce(
       sha256(
         Buffer.concat([
-          keccak(Buffer.from('mint_public(bytes32,uint256)')).subarray(0, 4),
+          Buffer.from(toFunctionSelector('mint_public(bytes32,uint256)').substring(2), 'hex'),
           serializeToBuffer(...[ownerAddress, new Fr(bridgeAmount)]),
         ]),
       ),
