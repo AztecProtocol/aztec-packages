@@ -27,7 +27,7 @@ jobs:
         run: ./setup_env.sh ${{ matrix.environment }} ${{ secrets.DOCKERHUB_PASSWORD }} ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
 
       - name: Test
-        working_directory: ./yarn-project/end-to-end
+        working-directory: ./yarn-project/end-to-end
         run: earthly +${{ matrix.test }}
 
   bb-native-tests:
