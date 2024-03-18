@@ -1,6 +1,6 @@
 import { AccountInterface, AuthWitnessProvider, EntrypointInterface, FeeOptions } from '@aztec/aztec.js/account';
 import { AuthWitness, FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
-import { CompleteAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, Fr } from '@aztec/circuits.js';
 import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
 import { NodeInfo } from '@aztec/types/interfaces';
 
@@ -28,11 +28,15 @@ export class DefaultAccountInterface implements AccountInterface {
     return this.entrypoint.createTxExecutionRequest(executions, fee);
   }
 
-  createAuthWitness(message: Fr): Promise<AuthWitness> {
-    return this.authWitnessProvider.createAuthWitness(message);
+  createAuthWit(message: Fr): Promise<AuthWitness> {
+    return this.authWitnessProvider.createAuthWit(message);
   }
 
   getCompleteAddress(): CompleteAddress {
     return this.address;
+  }
+
+  getAddress(): AztecAddress {
+    return this.address.address;
   }
 }
