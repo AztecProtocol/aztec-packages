@@ -4,7 +4,7 @@ use crate::abis::function_selector::FunctionSelector;
 use crate::abis::contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage;
 use crate::contract_class_id::ContractClassId;
 use crate::abis::side_effect::{SideEffect};
-use crate::utils::uint256::U256;
+use crate::utils::{uint256::U256, field::field_from_bytes_32_trunc};
 use crate::constants::{
     ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, FUNCTION_TREE_HEIGHT, NUM_FIELDS_PER_SHA256,
     GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__VK,
@@ -18,24 +18,7 @@ use dep::std::hash::{pedersen_hash_with_separator, sha256};
 
 pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256(bytes_to_hash);
-
-    // Convert it to a field element by truncating the final byte
-    let mut v = 1;
-    let mut high = 0 as Field;
-    let mut low = 0 as Field;
-
-    for i in 0..15 {
-        // covers bytes 16..30 (31 is truncated and ignored)
-        low = low + (sha256_hashed[15 + 15 - i] as Field) * v;
-        v = v * 256;
-        // covers bytes 0..14
-        high = high + (sha256_hashed[14 - i] as Field) * v;
-    }
-
-    // covers byte 15
-    low = low + (sha256_hashed[15] as Field) * v;
-
-    let hash_in_a_field = low + high * v;
+    let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
 
     hash_in_a_field
 }
@@ -154,7 +137,7 @@ pub fn accumulate_sha256(input: [Field; NUM_FIELDS_PER_SHA256 * 2]) -> [Field; N
     // Concatentate two fields into 31x2 = 62 bytes
     // accumulate_sha256 assumes that the inputs are pre-truncated 31 byte numbers
     let mut hash_input_flattened = [0; 62];
-    for offset in 0..NUM_FIELDS_PER_SHA256 * 2 {
+    for offset in 0..input.len() {
         let input_as_bytes = input[offset].to_be_bytes(31);
         for byte_index in 0..31 {
             hash_input_flattened[offset * 31 + byte_index] = input_as_bytes[byte_index];
