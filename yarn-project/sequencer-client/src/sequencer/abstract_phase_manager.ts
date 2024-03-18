@@ -11,14 +11,13 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
-  MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
+  MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
   MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   PrivateKernelTailCircuitPublicInputs,
@@ -59,7 +58,6 @@ import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { HintsBuilder } from './hints_builder.js';
-import { FailedTx } from './processed_tx.js';
 import { lastSideEffectCounter } from './utils.js';
 
 export enum PublicKernelPhase {
@@ -115,7 +113,6 @@ export abstract class AbstractPhaseManager {
      */
     revertReason: SimulationError | undefined;
   }>;
-  abstract rollback(tx: Tx, err: unknown): Promise<FailedTx>;
 
   public static extractEnqueuedPublicCallsByPhase(
     publicInputs: PrivateKernelTailCircuitPublicInputs,
@@ -220,8 +217,18 @@ export abstract class AbstractPhaseManager {
 
         const result = isExecutionRequest ? await simulator(current, this.globalVariables) : current;
 
-        newUnencryptedFunctionLogs.push(result.unencryptedLogs);
         const functionSelector = result.execution.functionData.selector.toString();
+        if (result.reverted && !PhaseIsRevertible[this.phase]) {
+          this.log.debug(
+            `Simulation error on ${result.execution.contractAddress.toString()}:${functionSelector} with reason: ${
+              result.revertReason
+            }`,
+          );
+          throw result.revertReason;
+        }
+
+        newUnencryptedFunctionLogs.push(result.unencryptedLogs);
+
         this.log.debug(
           `Running public kernel circuit for ${result.execution.contractAddress.toString()}:${functionSelector}`,
         );
@@ -230,14 +237,23 @@ export abstract class AbstractPhaseManager {
 
         [kernelOutput, kernelProof] = await this.runKernelCircuit(kernelOutput, kernelProof, callData);
 
-        if (kernelOutput.reverted && this.phase === PublicKernelPhase.APP_LOGIC) {
+        // sanity check. Note we can't expect them to just be equal, because e.g.
+        // if the simulator reverts in app logic, it "resets" and result.reverted will be false when we run teardown,
+        // but the kernel carries the reverted flag forward. But if the simulator reverts, so should the kernel.
+        if (result.reverted && !kernelOutput.reverted) {
+          throw new Error(
+            `Public kernel circuit did not revert on ${result.execution.contractAddress.toString()}:${functionSelector}, but simulator did.`,
+          );
+        }
+
+        // We know the phase is revertible due to the above check.
+        // So safely return the revert reason and the kernel output (which has had its revertible side effects dropped)
+        if (result.reverted) {
           this.log.debug(
             `Reverting on ${result.execution.contractAddress.toString()}:${functionSelector} with reason: ${
               result.revertReason
             }`,
           );
-          // halt immediately if the public kernel circuit has reverted.
-          // return no logs, as they should not go on-chain.
           return [kernelOutput, kernelProof, [], result.revertReason];
         }
 
@@ -274,15 +290,14 @@ export abstract class AbstractPhaseManager {
     const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
 
     if (this.phase === PublicKernelPhase.TAIL) {
-      const { endNonRevertibleData, end } = previousOutput;
+      const { validationRequests, endNonRevertibleData, end } = previousOutput;
       const nullifierReadRequestHints = await this.hintsBuilder.getNullifierReadRequestHints(
-        endNonRevertibleData.nullifierReadRequests,
-        end.nullifierReadRequests,
+        validationRequests.nullifierReadRequests,
         endNonRevertibleData.newNullifiers,
         end.newNullifiers,
       );
       const nullifierNonExistentReadRequestHints = await this.hintsBuilder.getNullifierNonExistentReadRequestHints(
-        endNonRevertibleData.nullifierNonExistentReadRequests,
+        validationRequests.nullifierNonExistentReadRequests,
         endNonRevertibleData.newNullifiers,
         end.newNullifiers,
       );
@@ -462,9 +477,8 @@ function patchPublicStorageActionOrdering(
   execResult: PublicExecutionResult,
   phase: PublicKernelPhase,
 ) {
-  const { publicDataReads, publicDataUpdateRequests } = PhaseIsRevertible[phase]
-    ? publicInputs.end
-    : publicInputs.endNonRevertibleData;
+  const { publicDataUpdateRequests } = PhaseIsRevertible[phase] ? publicInputs.end : publicInputs.endNonRevertibleData;
+  const { publicDataReads } = publicInputs.validationRequests;
 
   // Convert ContractStorage* objects to PublicData* objects and sort them in execution order.
   // Note, this only pulls simulated reads/writes from the current phase,
@@ -501,14 +515,14 @@ function patchPublicStorageActionOrdering(
 
   const numReadsInKernel = arrayNonEmptyLength(publicDataReads, f => f.isEmpty());
   const numReadsBeforeThisEnqueuedCall = numReadsInKernel - simPublicDataReads.length;
-  publicInputs[effectSet].publicDataReads = padArrayEnd(
+  publicInputs.validationRequests.publicDataReads = padArrayEnd(
     [
       // do not mess with items from previous top/enqueued calls in kernel output
-      ...publicInputs[effectSet].publicDataReads.slice(0, numReadsBeforeThisEnqueuedCall),
+      ...publicInputs.validationRequests.publicDataReads.slice(0, numReadsBeforeThisEnqueuedCall),
       ...simPublicDataReads,
     ],
     PublicDataRead.empty(),
-    PhaseIsRevertible[phase] ? MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX : MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
+    MAX_PUBLIC_DATA_READS_PER_TX,
   );
 
   const numUpdatesInKernel = arrayNonEmptyLength(publicDataUpdateRequests, f => f.isEmpty());

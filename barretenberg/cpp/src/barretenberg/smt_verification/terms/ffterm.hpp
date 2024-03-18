@@ -19,6 +19,7 @@ class FFTerm {
 
     static bool isFiniteField() { return true; };
     static bool isInteger() { return false; };
+    static bool isBitVector() { return false; };
 
     FFTerm()
         : solver(nullptr)
@@ -86,7 +87,7 @@ class FFTerm {
     {
         Solver* slv = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
-        cvc5::Term res = slv->s.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, terms);
+        cvc5::Term res = slv->term_manager.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, terms);
         return { res, slv };
     }
 
@@ -94,7 +95,7 @@ class FFTerm {
     {
         Solver* slv = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
-        cvc5::Term res = slv->s.mkTerm(cvc5::Kind::FINITE_FIELD_MULT, terms);
+        cvc5::Term res = slv->term_manager.mkTerm(cvc5::Kind::FINITE_FIELD_MULT, terms);
         return { res, slv };
     }
 
