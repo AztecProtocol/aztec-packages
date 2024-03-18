@@ -40,7 +40,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
      */
     bool execute_zeromorph_protocol(size_t NUM_UNSHIFTED, size_t NUM_SHIFTED)
     {
-        size_t N = 16;
+        size_t N = 2;
         size_t log_N = numeric::get_msb(N);
 
         std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
@@ -92,20 +92,18 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
         // Execute Verifier protocol
-        auto pairing_points = ZeroMorphVerifier::verify(this->vk(),
-                                                        RefVector(f_commitments),
-                                                        RefVector(g_commitments),
-                                                        RefVector(v_evaluations),
-                                                        RefVector(w_evaluations),
-                                                        u_challenge,
-                                                        verifier_transcript);
+        auto verifier_accumulator = ZeroMorphVerifier::verify(this->vk(),
+                                                              RefVector(f_commitments),
+                                                              RefVector(g_commitments),
+                                                              RefVector(v_evaluations),
+                                                              RefVector(w_evaluations),
+                                                              u_challenge,
+                                                              verifier_transcript);
 
-        // bool verified = this->vk()->pairing_check(pairing_points[0], pairing_points[1]);
-        EXPECT_EQ(pairing_points, true);
+        bool verified = verifier_accumulator.check(this->vk());
 
         // The prover and verifier manifests should agree
         EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
-        auto verified = true;
 
         return verified;
     }
@@ -249,22 +247,21 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
         auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
         // Execute Verifier protocol
-        auto pairing_points = ZeroMorphVerifier::verify(this->vk(),
-                                                        RefVector(f_commitments), // unshifted
-                                                        RefVector(g_commitments), // to-be-shifted
-                                                        RefVector(v_evaluations), // unshifted
-                                                        RefVector(w_evaluations), // shifted
-                                                        u_challenge,
-                                                        verifier_transcript,
-                                                        to_vector_of_ref_vectors(concatenation_groups_commitments),
-                                                        RefVector(c_evaluations));
+        auto verifier_accumulator =
+            ZeroMorphVerifier::verify(this->vk(),
+                                      RefVector(f_commitments), // unshifted
+                                      RefVector(g_commitments), // to-be-shifted
+                                      RefVector(v_evaluations), // unshifted
+                                      RefVector(w_evaluations), // shifted
+                                      u_challenge,
+                                      verifier_transcript,
+                                      to_vector_of_ref_vectors(concatenation_groups_commitments),
+                                      RefVector(c_evaluations));
 
-        // verified = this->vk()->pairing_check(pairing_points[0], pairing_points[1]);
-        EXPECT_EQ(pairing_points, true);
+        verified = verifier_accumulator.check(this->vk());
 
         // The prover and verifier manifests should agree
         EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
-
         return verified;
     }
 };

@@ -15,7 +15,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  * @return std::array<typename Flavor::GroupElement, 2> Inputs to final pairing
  */
 template <typename CircuitBuilder>
-std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
+VerifierAccumulator<typename bn254<CircuitBuilder>> MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
     const HonkProof& proof)
 {
     // transform it into stdlib proof

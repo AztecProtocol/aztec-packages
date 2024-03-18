@@ -509,6 +509,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
      *
      * @note The concatenation term arises from an implementation detail in the Goblin Translator and is not part of the
      * conventional ZM protocol
+     * @param first_g1 first element in the SRS
      * @param f_commitments Commitments to unshifted polynomials [f_i]
      * @param g_commitments Commitments to to-be-shifted polynomials [g_i]
      * @param C_q_k Commitments to q_k
@@ -519,7 +520,8 @@ template <typename PCS> class ZeroMorphVerifier_ {
      * @param concatenation_groups_commitments
      * @return Commitment
      */
-    static Commitment compute_C_Z_x(RefSpan<Commitment> f_commitments,
+    static Commitment compute_C_Z_x(Commitment first_g1,
+                                    RefSpan<Commitment> f_commitments,
                                     RefSpan<Commitment> g_commitments,
                                     std::span<Commitment> C_q_k,
                                     FF rho,
@@ -542,10 +544,10 @@ template <typename PCS> class ZeroMorphVerifier_ {
         if constexpr (Curve::is_stdlib_type) {
             auto builder = x_challenge.get_context();
             scalars.emplace_back(FF(builder, -1) * batched_evaluation * x_challenge * phi_n_x);
-            commitments.emplace_back(Commitment::one(builder));
+            commitments.emplace_back(Commitment::from_witness(builder, first_g1));
         } else {
             scalars.emplace_back(FF(-1) * batched_evaluation * x_challenge * phi_n_x);
-            commitments.emplace_back(Commitment::one());
+            commitments.emplace_back(first_g1);
         }
 
         // Add contribution: x * \sum_{i=0}^{m-1} \rho^i*[f_i]
@@ -685,7 +687,8 @@ template <typename PCS> class ZeroMorphVerifier_ {
         auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
 
         // Compute commitment C_{Z_x}
-        Commitment C_Z_x = compute_C_Z_x(unshifted_commitments,
+        Commitment C_Z_x = compute_C_Z_x(vk->srs->get_first_g1(),
+                                         unshifted_commitments,
                                          to_be_shifted_commitments,
                                          C_q_k,
                                          rho,

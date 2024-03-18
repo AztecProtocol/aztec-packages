@@ -3,6 +3,7 @@
 #include "../claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/commitment_schemes/verifier_accumulator.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -20,7 +21,7 @@ template <typename Curve_> class KZG {
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
     using Polynomial = bb::Polynomial<Fr>;
-    using VerifierAccumulator = std::array<GroupElement, 2>;
+    using VerifierAccumulator = VerifierAccumulator<Curve>;
 
     /**
      * @brief Computes the KZG commitment to an opening proof polynomial at a single evaluation point
@@ -47,13 +48,16 @@ template <typename Curve_> class KZG {
     };
 
     /**
-     * @brief Computes the KZG verification for an opening claim of a single polynomial commitment
+     * @brief Computes the full KZG verification for an opening claim of a single polynomial commitment
      *
      * @param vk is the verification key which has a pairing check function
      * @param claim OpeningClaim ({r, v}, C)
      * @return  e(P₀,[1]₁)e(P₁,[x]₂)≡ [1]ₜ where
      *      - P₀ = C − v⋅[1]₁ + r⋅[x]₁
      *      - P₁ = [Q(x)]₁
+     *
+     * @details Used for some of the native verifiers as they serve a testing purpose and there is no need to accumulate
+     * pairing points across rounds of verification.
      */
     static bool verify(const std::shared_ptr<VK>& vk,
                        const OpeningClaim<Curve>& claim,
@@ -102,7 +106,7 @@ template <typename Curve_> class KZG {
 
         auto P_1 = -quotient_commitment;
 
-        return { P_0, P_1 };
+        return VerifierAccumulator{ { P_0, P_1 } };
     };
 };
 } // namespace bb

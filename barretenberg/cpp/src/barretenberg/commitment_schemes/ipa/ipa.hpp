@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/commitment_schemes/verifier_accumulator.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -78,7 +79,7 @@ template <typename Curve_> class IPA {
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = bb::Polynomial<Fr>;
-    using VerifierAccumulator = bool;
+    using VerifierAccumulator = VerifierAccumulator<Curve>;
 
     /**
      * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point
@@ -291,7 +292,7 @@ template <typename Curve_> class IPA {
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
      *
-     * @return true/false depending on if the proof verifies
+     * @return true/false depending on if the proof verifies (will return an IPA accumulator)
      *
      * @details The procedure runs as follows:
      *
@@ -306,9 +307,9 @@ template <typename Curve_> class IPA {
      *9. Receive \f$\vec{a}_{0}\f$ of length 1
      *10. Compute \f$C_{right}=a_{0}G_{s}+a_{0}b_{0}U\f$
      *11. Check that \f$C_{right} = C_0\f$. If they match, return true. Otherwise return false.
-     *
-     *
      */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/912): Return the proper VerifierAccumulator once
+    // implemented
     static VerifierAccumulator reduce_verify(const std::shared_ptr<VK>& vk,
                                              const OpeningClaim<Curve>& opening_claim,
                                              const std::shared_ptr<NativeTranscript>& transcript)
@@ -430,7 +431,8 @@ template <typename Curve_> class IPA {
 
         // Step 11.
         // Check if C_right == C₀
-        return (C_zero.normalize() == right_hand_side.normalize());
+        bool verified = (C_zero.normalize() == right_hand_side.normalize());
+        return VerifierAccumulator{ verified };
     }
 };
 
