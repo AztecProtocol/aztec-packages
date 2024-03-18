@@ -24,7 +24,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
         .iter_mut()
         .filter(|typ| typ.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(note)")));
 
-    let mut note_fields_structs = vec![];
+    let mut note_properties_structs = vec![];
 
     for note_struct in annotated_note_structs {
         // Look for the NoteInterface trait implementation for the note
@@ -123,12 +123,15 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             )?;
             trait_impl.items.push(TraitImplItem::Function(note_deserialize_content_fn));
 
-            let note_fields_struct =
-                generate_note_fields_struct(&note_type, &note_fields, note_interface_impl_span)?;
-            note_fields_structs.push(note_fields_struct);
-            let note_fields_fn =
-                generate_note_fields_fn(&note_type, &note_fields, note_interface_impl_span)?;
-            note_impl.methods.push((note_fields_fn, note_impl.type_span));
+            let note_properties_struct = generate_note_properties_struct(
+                &note_type,
+                &note_fields,
+                note_interface_impl_span,
+            )?;
+            note_properties_structs.push(note_properties_struct);
+            let note_properties_fn =
+                generate_note_properties_fn(&note_type, &note_fields, note_interface_impl_span)?;
+            note_impl.methods.push((note_properties_fn, note_impl.type_span));
         }
 
         if !check_trait_method_implemented(trait_impl, "get_header") {
@@ -153,7 +156,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
         }
     }
 
-    module.types.extend(note_fields_structs);
+    module.types.extend(note_properties_structs);
     Ok(())
 }
 
@@ -256,12 +259,12 @@ fn generate_note_get_type_id(
 // }
 //
 // It assumes each field occupies an entire field and its serialized in definition order
-fn generate_note_fields_struct(
+fn generate_note_properties_struct(
     note_type: &str,
     note_fields: &[(String, String)],
     impl_span: Option<Span>,
 ) -> Result<NoirStruct, AztecMacroError> {
-    let struct_source = generate_note_fields_struct_source(note_type, note_fields);
+    let struct_source = generate_note_properties_struct_source(note_type, note_fields);
 
     let (struct_ast, errors) = parse_program(&struct_source);
     if !errors.is_empty() {
@@ -342,17 +345,17 @@ fn generate_note_serialize_content(
 }
 
 // Automatically generate a function in the Note's impl that returns the note's fields metadata
-fn generate_note_fields_fn(
+fn generate_note_properties_fn(
     note_type: &str,
     note_fields: &[(String, String)],
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
-    let function_source = generate_note_fields_fn_source(note_type, note_fields);
+    let function_source = generate_note_properties_fn_source(note_type, note_fields);
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
         dbg!(errors);
         return Err(AztecMacroError::CouldNotImplementNoteInterface {
-            secondary_message: Some("Failed to parse Noir macro code (fn fields). This is either a bug in the compiler or the Noir macro code".to_string()),
+            secondary_message: Some("Failed to parse Noir macro code (fn properties). This is either a bug in the compiler or the Noir macro code".to_string()),
             span: impl_span
         });
     }
@@ -397,7 +400,10 @@ fn generate_compute_note_content_hash(
 
 // Source code generator functions. These utility methods produce Noir code as strings, that are then parsed and added to the AST.
 
-fn generate_note_fields_struct_source(note_type: &str, note_fields: &[(String, String)]) -> String {
+fn generate_note_properties_struct_source(
+    note_type: &str,
+    note_fields: &[(String, String)],
+) -> String {
     let note_property_selectors = note_fields
         .iter()
         .filter_map(|(field_name, _)| {
@@ -422,7 +428,7 @@ fn generate_note_fields_struct_source(note_type: &str, note_fields: &[(String, S
     .to_string()
 }
 
-fn generate_note_fields_fn_source(note_type: &str, note_fields: &[(String, String)]) -> String {
+fn generate_note_properties_fn_source(note_type: &str, note_fields: &[(String, String)]) -> String {
     let note_property_selectors = note_fields
         .iter()
         .enumerate()
