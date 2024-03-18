@@ -1294,10 +1294,11 @@ impl<'block> BrilligBlock<'block> {
     }
 
     /// Splits a two's complement signed integer in the sign bit and the absolute value.
+    /// For example, -6 i8 (11111010) is split to 00000110 (6, absolute value) and 1 (is_negative).
     fn absolute_value(
         &mut self,
         num: SingleAddrVariable,
-        result: SingleAddrVariable,
+        absolute_value: SingleAddrVariable,
         result_is_negative: SingleAddrVariable,
     ) {
         let max_positive = self
@@ -1316,11 +1317,11 @@ impl<'block> BrilligBlock<'block> {
             if is_negative {
                 // Two's complement of num
                 let zero = ctx.make_constant_instruction(0_usize.into(), num.bit_size);
-                ctx.binary_instruction(zero, num, result, BrilligBinaryOp::Sub);
+                ctx.binary_instruction(zero, num, absolute_value, BrilligBinaryOp::Sub);
                 ctx.deallocate_single_addr(zero);
             } else {
                 // Simply move the original num
-                ctx.mov_instruction(result.address, num.address);
+                ctx.mov_instruction(absolute_value.address, num.address);
             }
         });
         self.brillig_context.deallocate_single_addr(max_positive);
