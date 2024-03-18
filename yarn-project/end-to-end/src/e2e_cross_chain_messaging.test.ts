@@ -10,7 +10,7 @@ import {
   TxStatus,
   computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
-import { keccak, sha256 } from '@aztec/foundation/crypto';
+import { sha256 } from '@aztec/foundation/crypto';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
 
