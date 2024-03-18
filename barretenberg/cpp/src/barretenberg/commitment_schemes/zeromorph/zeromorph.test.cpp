@@ -100,7 +100,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
                                                               u_challenge,
                                                               verifier_transcript);
 
-        bool verified = verifier_accumulator.check(this->vk());
+        bool verified = verifier_accumulator.check();
 
         // The prover and verifier manifests should agree
         EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
@@ -258,7 +258,7 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
                                       to_vector_of_ref_vectors(concatenation_groups_commitments),
                                       RefVector(c_evaluations));
 
-        verified = verifier_accumulator.check(this->vk());
+        verified = verifier_accumulator.check();
 
         // The prover and verifier manifests should agree
         EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
@@ -266,7 +266,11 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
     }
 };
 
+<<<<<<< HEAD
 using PCSTypes = ::testing::Types</*KZG<curve::BN254>,*/ IPA<curve::Grumpkin>>;
+=======
+using PCSTypes = ::testing::Types<KZG<curve::BN254>>;
+>>>>>>> origin/master
 TYPED_TEST_SUITE(ZeroMorphTest, PCSTypes);
 TYPED_TEST_SUITE(ZeroMorphWithConcatenationTest, PCSTypes);
 

@@ -271,7 +271,8 @@ template <typename PCS> class ZeroMorphProver_ {
      *  pi = (\zeta_c + z*Z_x) X^{N_{max}-(N-1)}
      *
      * The proof that pi(x) = 0 for some verifier challenge x will then be computed as part of the univariate PCS
-     * opening
+     * opening. If this is instantiated with KZG, the PCS is going to compute the quotient
+     * q_pi = (q_\zeta + z*q_Z)X^{N_{max}-(N-1)}, with q_\zeta = \zeta_x/(X-x), q_Z = Z_x/(X-x),
      *
      * @param Z_x
      * @param zeta_x
@@ -425,7 +426,6 @@ template <typename PCS> class ZeroMorphProver_ {
 
         // Compute batched degree-check and ZM-identity quotient polynomial pi
         auto pi_polynomial = compute_batched_evaluation_and_degree_check_polynomial(zeta_x, Z_x, z_challenge);
-        info(pi_polynomial.size());
         // Compute opening proof for x_challenge using the underlying univariate PCS
         PCS::compute_opening_proof(
             commitment_key, { .challenge = x_challenge, .evaluation = FF(0) }, pi_polynomial, transcript);
@@ -441,7 +441,6 @@ template <typename PCS> class ZeroMorphVerifier_ {
     using Curve = typename PCS::Curve;
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using GroupElement = typename Curve::Element;
     using VerifierAccumulator = PCS::VerifierAccumulator;
 
   public:

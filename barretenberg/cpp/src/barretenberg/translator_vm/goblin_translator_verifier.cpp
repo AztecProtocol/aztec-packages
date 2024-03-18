@@ -253,25 +253,22 @@ bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        info("sumcheck failed");
         return false;
     }
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
     // unrolled protocol.
-    auto pairing_points = ZeroMorphVerifier_<Flavor::PCS>::verify(key->pcs_verification_key,
-                                                                  commitments.get_unshifted(),
-                                                                  commitments.get_to_be_shifted(),
-                                                                  claimed_evaluations.get_unshifted(),
-                                                                  claimed_evaluations.get_shifted(),
-                                                                  multivariate_challenge,
-                                                                  transcript,
-                                                                  commitments.get_concatenation_groups(),
-                                                                  claimed_evaluations.get_concatenated_constraints());
+    auto pcs_verifier_acc = ZeroMorphVerifier_<Flavor::PCS>::verify(key->pcs_verification_key,
+                                                                    commitments.get_unshifted(),
+                                                                    commitments.get_to_be_shifted(),
+                                                                    claimed_evaluations.get_unshifted(),
+                                                                    claimed_evaluations.get_shifted(),
+                                                                    multivariate_challenge,
+                                                                    transcript,
+                                                                    commitments.get_concatenation_groups(),
+                                                                    claimed_evaluations.get_concatenated_constraints());
 
-    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-
-    return verified;
+    return pcs_verifier_acc.check();
 }
 
 bool GoblinTranslatorVerifier::verify_translation(const TranslationEvaluations& translation_evaluations)
