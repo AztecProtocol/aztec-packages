@@ -9,34 +9,53 @@ using namespace smt_solver;
  * STerm - Symbolic Variables acting like a Finte Field elements
  * FFITerm - Symbolic Variables acting like integers modulo prime
  * BVTerm - Symbolic Variables acting like bitvectors modulo prime
- * 
+ *
  */
-enum class TermType{
-    FFTerm,
-    FFITerm,
-    BVTerm
-};
+enum class TermType { FFTerm, FFITerm, BVTerm };
 
 std::ostream& operator<<(std::ostream& os, TermType type);
 
-enum class OpType: int32_t{
-    ADD,
-    SUB,
-    MUL,
-    DIV,
-    NEG,
-    XOR,
-    AND,
-    OR,
-    GT,
-    GE,
-    LT,
-    LE,   
-    MOD,
-    RSH,
-    LSH,
-    ROTR,
-    ROTL
+enum class OpType : int32_t { ADD, SUB, MUL, DIV, NEG, XOR, AND, OR, GT, GE, LT, LE, MOD, RSH, LSH, ROTR, ROTL };
+
+const std::unordered_map<TermType, std::unordered_map<OpType, cvc5::Kind>> typed_operations = {
+    { TermType::FFTerm,
+      { { OpType::ADD, cvc5::Kind::FINITE_FIELD_ADD },
+        { OpType::MUL, cvc5::Kind::FINITE_FIELD_MULT },
+        { OpType::NEG, cvc5::Kind::FINITE_FIELD_NEG },
+        // Just a placeholder that marks it supports division
+        { OpType::DIV, cvc5::Kind::FINITE_FIELD_MULT } } },
+    { TermType::FFITerm,
+      {
+
+          { OpType::ADD, cvc5::Kind::ADD },
+          { OpType::SUB, cvc5::Kind::SUB },
+          { OpType::MUL, cvc5::Kind::MULT },
+          { OpType::NEG, cvc5::Kind::NEG },
+          { OpType::GT, cvc5::Kind::GT },
+          { OpType::GE, cvc5::Kind::GEQ },
+          { OpType::LT, cvc5::Kind::LT },
+          { OpType::LE, cvc5::Kind::LEQ },
+          { OpType::MOD, cvc5::Kind::INTS_MODULUS },
+          // Just a placeholder that marks it supports division
+          { OpType::DIV, cvc5::Kind::MULT } } },
+    { TermType::BVTerm,
+      {
+
+          { OpType::ADD, cvc5::Kind::BITVECTOR_ADD },
+          { OpType::SUB, cvc5::Kind::BITVECTOR_SUB },
+          { OpType::MUL, cvc5::Kind::BITVECTOR_MULT },
+          { OpType::NEG, cvc5::Kind::BITVECTOR_NEG },
+          { OpType::GT, cvc5::Kind::BITVECTOR_UGT },
+          { OpType::GE, cvc5::Kind::BITVECTOR_UGE },
+          { OpType::LT, cvc5::Kind::BITVECTOR_ULT },
+          { OpType::LE, cvc5::Kind::BITVECTOR_ULE },
+          { OpType::XOR, cvc5::Kind::BITVECTOR_XOR },
+          { OpType::AND, cvc5::Kind::BITVECTOR_AND },
+          { OpType::OR, cvc5::Kind::BITVECTOR_OR },
+          { OpType::RSH, cvc5::Kind::BITVECTOR_LSHR },
+          { OpType::LSH, cvc5::Kind::BITVECTOR_SHL },
+          { OpType::ROTL, cvc5::Kind::BITVECTOR_ROTATE_LEFT },
+          { OpType::ROTR, cvc5::Kind::BITVECTOR_ROTATE_RIGHT } } }
 };
 
 /**
@@ -48,7 +67,16 @@ enum class OpType: int32_t{
  */
 class STerm {
   private:
+    STerm(cvc5::Term& term, Solver* s, TermType type = TermType::FFTerm)
+        : solver(s)
+        , term(term)
+        , isFiniteField(type == TermType::FFTerm)
+        , isInteger(type == TermType::FFITerm)
+        , isBitVector(type == TermType::BVTerm)
+        , type(type)
+        , operations(typed_operations.at(type)){};
     void mod();
+
   public:
     Solver* solver;
     cvc5::Term term;
@@ -60,18 +88,14 @@ class STerm {
     TermType type;
     std::unordered_map<OpType, cvc5::Kind> operations;
 
-    STerm(cvc5::Term& term, Solver* s, TermType type=TermType::FFTerm)
-        : solver(s)
-        , term(term)
-        , type(type){};
-
-    explicit STerm(const std::string& t, Solver* slv, bool isconst = false, uint32_t base = 16,TermType type=TermType::FFTerm);
+    explicit STerm(
+        const std::string& t, Solver* slv, bool isconst = false, uint32_t base = 16, TermType type = TermType::FFTerm);
 
     STerm(const STerm& other) = default;
     STerm(STerm&& other) = default;
 
-    static STerm Var(const std::string& name, Solver* slv, TermType type=TermType::FFTerm);
-    static STerm Const(const std::string& val, Solver* slv, uint32_t base = 16, TermType type=TermType::FFTerm);
+    static STerm Var(const std::string& name, Solver* slv, TermType type = TermType::FFTerm);
+    static STerm Const(const std::string& val, Solver* slv, uint32_t base = 16, TermType type = TermType::FFTerm);
 
     STerm(bb::fr value, Solver* s, TermType type = TermType::FFTerm)
     {
@@ -111,8 +135,8 @@ class STerm {
     STerm operator>>(const uint32_t& n) const;
     void operator>>=(const uint32_t& n);
 
-    void rotr(const uint32_t& n);
-    void rotl(const uint32_t& n);
+    STerm rotr(const uint32_t& n) const;
+    STerm rotl(const uint32_t& n) const;
 
     operator std::string() const { return smt_solver::stringify_term(term); };
     operator cvc5::Term() const { return term; };
@@ -155,11 +179,11 @@ class STerm {
     void operator!=(const bb::fr& other) const { *this != STerm(other, this->solver, this->type); }
 
     STerm operator^(const bb::fr& other) const { return *this ^ STerm(other, this->solver, this->type); };
-    void operator^=(const bb::fr& other){ *this^= STerm(other, this->solver, this->type);};
+    void operator^=(const bb::fr& other) { *this ^= STerm(other, this->solver, this->type); };
     STerm operator&(const bb::fr& other) const { return *this & STerm(other, this->solver, this->type); };
-    void operator&=(const bb::fr& other){ *this&= STerm(other, this->solver, this->type);};
+    void operator&=(const bb::fr& other) { *this &= STerm(other, this->solver, this->type); };
     STerm operator|(const bb::fr& other) const { return *this | STerm(other, this->solver, this->type); };
-    void operator|=(const bb::fr& other){ *this|= STerm(other, this->solver, this->type);};
+    void operator|=(const bb::fr& other) { *this |= STerm(other, this->solver, this->type); };
 
     void operator<(const bb::fr& other) const;
     void operator<=(const bb::fr& other) const;

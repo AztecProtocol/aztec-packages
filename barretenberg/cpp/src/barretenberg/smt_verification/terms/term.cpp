@@ -34,117 +34,66 @@ STerm::STerm(const std::string& t, Solver* slv, bool isconst, uint32_t base, Ter
     , isInteger(type == TermType::FFITerm)
     , isBitVector(type == TermType::BVTerm)
     , type(type)
+    , operations(typed_operations.at(type))
 {
     if (!isconst) {
         cvc5::Term ge;
         cvc5::Term lt;
         cvc5::Term modulus;
-        switch (type){
-            case TermType::FFTerm:
-                this->term = slv->term_manager.mkConst(slv->ff_sort, t);
-                break;
-            case TermType::FFITerm:
-                this->term = slv->term_manager.mkConst(slv->term_manager.getIntegerSort(), t);
-                ge = slv->term_manager.mkTerm(cvc5::Kind::GEQ, { this->term, slv->term_manager.mkInteger(0) });
-                modulus = slv->term_manager.mkInteger(slv->modulus);
-                lt = slv->term_manager.mkTerm(cvc5::Kind::LT, { this->term, modulus});
-                slv->assertFormula(ge);
-                slv->assertFormula(lt);
-                break;
-            case TermType::BVTerm:
-                this->term = slv->term_manager.mkConst(slv->bv_sort);
-                ge = slv->term_manager.mkTerm(cvc5::Kind::BITVECTOR_UGE ,{this->term, slv->term_manager.mkBitVector(slv->bv_sort.getBitVectorSize(), 0)});
-                modulus = slv->term_manager.mkBitVector(slv->bv_sort.getBitVectorSize(), slv->modulus, 10);
-                lt = slv->term_manager.mkTerm(cvc5::Kind::BITVECTOR_ULT, { this->term, modulus});
-                slv->assertFormula(ge);
-                slv->assertFormula(lt);
-                break;
+        switch (type) {
+        case TermType::FFTerm:
+            this->term = slv->term_manager.mkConst(slv->ff_sort, t);
+            break;
+        case TermType::FFITerm:
+            this->term = slv->term_manager.mkConst(slv->term_manager.getIntegerSort(), t);
+            ge = slv->term_manager.mkTerm(cvc5::Kind::GEQ, { this->term, slv->term_manager.mkInteger(0) });
+            modulus = slv->term_manager.mkInteger(slv->modulus);
+            lt = slv->term_manager.mkTerm(cvc5::Kind::LT, { this->term, modulus });
+            slv->assertFormula(ge);
+            slv->assertFormula(lt);
+            break;
+        case TermType::BVTerm:
+            this->term = slv->term_manager.mkConst(slv->bv_sort);
+            ge = slv->term_manager.mkTerm(
+                cvc5::Kind::BITVECTOR_UGE,
+                { this->term, slv->term_manager.mkBitVector(slv->bv_sort.getBitVectorSize(), 0) });
+            modulus = slv->term_manager.mkBitVector(slv->bv_sort.getBitVectorSize(), slv->modulus, 10);
+            lt = slv->term_manager.mkTerm(cvc5::Kind::BITVECTOR_ULT, { this->term, modulus });
+            slv->assertFormula(ge);
+            slv->assertFormula(lt);
+            break;
         }
     } else {
         std::string strvalue;
-        switch (type){
-            case TermType::FFTerm:
-                this->term = slv->term_manager.mkFiniteFieldElem(t, slv->ff_sort, base);
-                break;
-            case TermType::FFITerm:
-                // TODO(alex): CVC5 doesn't provide integer initialization from hex. Yet.
-                strvalue = slv->term_manager.mkFiniteFieldElem(t, slv->ff_sort, base).getFiniteFieldValue();
-                this->term = slv->term_manager.mkInteger(strvalue);
-                this->mod();
-                break;
-            case TermType::BVTerm:
-                this->term = slv->term_manager.mkBitVector(slv->bv_sort.getBitVectorSize(), t, 16);
-                break;
-        }
-    }
-
-    this->operations = {
-        {OpType::ADD, cvc5::Kind::NULL_TERM},
-        {OpType::SUB,cvc5::Kind::NULL_TERM},
-        {OpType::MUL,cvc5::Kind::NULL_TERM},
-        {OpType::NEG,cvc5::Kind::NULL_TERM},
-        {OpType::XOR,cvc5::Kind::NULL_TERM},
-        {OpType::AND,cvc5::Kind::NULL_TERM},
-        {OpType::OR,cvc5::Kind::NULL_TERM},
-        {OpType::GT,cvc5::Kind::NULL_TERM},
-        {OpType::GE,cvc5::Kind::NULL_TERM},
-        {OpType::LT,cvc5::Kind::NULL_TERM},
-        {OpType::LE,cvc5::Kind::NULL_TERM},
-        {OpType::MOD,cvc5::Kind::NULL_TERM},
-        {OpType::ROTR,cvc5::Kind::NULL_TERM},
-        {OpType::ROTL,cvc5::Kind::NULL_TERM},
-        {OpType::RSH,cvc5::Kind::NULL_TERM},
-        {OpType::LSH,cvc5::Kind::NULL_TERM},
-    };
-
-    switch(type){
+        switch (type) {
         case TermType::FFTerm:
-            this->operations[OpType::ADD] = cvc5::Kind::FINITE_FIELD_ADD;
-            this->operations[OpType::MUL] = cvc5::Kind::FINITE_FIELD_MULT;
-            this->operations[OpType::NEG] = cvc5::Kind::FINITE_FIELD_NEG;
+            this->term = slv->term_manager.mkFiniteFieldElem(t, slv->ff_sort, base);
             break;
         case TermType::FFITerm:
-            this->operations[OpType::ADD] = cvc5::Kind::ADD;
-            this->operations[OpType::SUB] = cvc5::Kind::SUB;
-            this->operations[OpType::MUL] = cvc5::Kind::MULT;
-            this->operations[OpType::NEG] = cvc5::Kind::NEG;
-            this->operations[OpType::GT] = cvc5::Kind::GT;
-            this->operations[OpType::GE] = cvc5::Kind::GEQ;
-            this->operations[OpType::LT] = cvc5::Kind::LT;
-            this->operations[OpType::LE] = cvc5::Kind::LEQ;
-            this->operations[OpType::MOD] = cvc5::Kind::INTS_MODULUS;
+            // TODO(alex): CVC5 doesn't provide integer initialization from hex. Yet.
+            strvalue = slv->term_manager.mkFiniteFieldElem(t, slv->ff_sort, base).getFiniteFieldValue();
+            this->term = slv->term_manager.mkInteger(strvalue);
+            this->mod();
             break;
         case TermType::BVTerm:
-            this->operations[OpType::ADD] = cvc5::Kind::BITVECTOR_ADD;
-            this->operations[OpType::SUB] = cvc5::Kind::BITVECTOR_SUB;
-            this->operations[OpType::MUL] = cvc5::Kind::BITVECTOR_MULT;
-            this->operations[OpType::NEG] = cvc5::Kind::BITVECTOR_NEG;
-            this->operations[OpType::GT] = cvc5::Kind::BITVECTOR_UGT;
-            this->operations[OpType::GE] = cvc5::Kind::BITVECTOR_UGE;
-            this->operations[OpType::LT] = cvc5::Kind::BITVECTOR_ULT;
-            this->operations[OpType::LE] = cvc5::Kind::BITVECTOR_ULE;
-            this->operations[OpType::XOR] = cvc5::Kind::BITVECTOR_XOR;
-            this->operations[OpType::AND] = cvc5::Kind::BITVECTOR_AND;
-            this->operations[OpType::OR] = cvc5::Kind::BITVECTOR_OR;
-            this->operations[OpType::RSH] = cvc5::Kind::BITVECTOR_LSHR;
-            this->operations[OpType::LSH] = cvc5::Kind::BITVECTOR_SHL;
-            this->operations[OpType::ROTL] = cvc5::Kind::BITVECTOR_ROTATE_LEFT;
-            this->operations[OpType::ROTR] = cvc5::Kind::BITVECTOR_ROTATE_RIGHT;
+            this->term = slv->term_manager.mkBitVector(slv->bv_sort.getBitVectorSize(), t, 16);
             break;
+        }
     }
 }
 
-void STerm::mod(){
-    if(this->type == TermType::FFITerm){
+void STerm::mod()
+{
+    if (this->type == TermType::FFITerm) {
         cvc5::Term modulus = this->solver->term_manager.mkInteger(solver->modulus);
-        this->term = this->solver->term_manager.mkTerm(this->operations.at(OpType::MOD), { this->term, modulus});
+        this->term = this->solver->term_manager.mkTerm(this->operations.at(OpType::MOD), { this->term, modulus });
     }
 }
 
 STerm STerm::operator+(const STerm& other) const
 {
     cvc5::Term res = this->solver->term_manager.mkTerm(this->operations.at(OpType::ADD), { this->term, other.term });
-    return { res, this->solver };
+    return { res, this->solver, this->type };
 }
 
 void STerm::operator+=(const STerm& other)
@@ -156,7 +105,7 @@ STerm STerm::operator-(const STerm& other) const
 {
     cvc5::Term res = this->solver->term_manager.mkTerm(this->operations.at(OpType::NEG), { other.term });
     res = solver->term_manager.mkTerm(this->operations.at(OpType::ADD), { this->term, res });
-    return { res, this->solver };
+    return { res, this->solver, this->type };
 }
 
 void STerm::operator-=(const STerm& other)
@@ -168,13 +117,13 @@ void STerm::operator-=(const STerm& other)
 STerm STerm::operator-() const
 {
     cvc5::Term res = this->solver->term_manager.mkTerm(this->operations.at(OpType::NEG), { this->term });
-    return { res, this->solver };
+    return { res, this->solver, this->type };
 }
 
 STerm STerm::operator*(const STerm& other) const
 {
     cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::MUL), { this->term, other.term });
-    return { res, this->solver };
+    return { res, this->solver, this->type };
 }
 
 void STerm::operator*=(const STerm& other)
@@ -194,28 +143,30 @@ void STerm::operator*=(const STerm& other)
  */
 STerm STerm::operator/(const STerm& other) const
 {
-    if(this->operations.at(OpType::DIV) == cvc5::Kind::NULL_TERM){
+    if (!this->operations.contains(OpType::DIV)) {
         info("Division is not compatible with ", this->type);
         return *this;
     }
     other != bb::fr(0);
     STerm res = Var("df8b586e3fa7a1224ec95a886e17a7da_div_" + static_cast<std::string>(*this) + "_" +
-                         static_cast<std::string>(other),
-                     this->solver);
+                        static_cast<std::string>(other),
+                    this->solver,
+                    this->type);
     res* other == *this;
     return res;
 }
 
 void STerm::operator/=(const STerm& other)
 {
-    if(this->operations.at(OpType::DIV) == cvc5::Kind::NULL_TERM){
+    if (!this->operations.contains(OpType::DIV)) {
         info("Division is not compatible with ", this->type);
         return;
     }
     other != bb::fr(0);
     STerm res = Var("df8b586e3fa7a1224ec95a886e17a7da_div_" + static_cast<std::string>(*this) + "_" +
-                         static_cast<std::string>(other),
-                     this->solver);
+                        static_cast<std::string>(other),
+                    this->solver,
+                    this->type);
     res* other == *this;
     this->term = res.term;
 }
@@ -259,154 +210,168 @@ void STerm::operator!=(const STerm& other) const
 
 void STerm::operator<(const bb::fr& other) const
 {
-    cvc5::Kind op = this->operations.at(OpType::LT);
-    if(op == cvc5::Kind::NULL_TERM){
+    if (!this->operations.contains(OpType::LT)) {
         info("LT is not compatible with ", this->type);
         return;
     }
- 
-    cvc5::Term lt = this->solver->term_manager.mkTerm(op, { this->term, STerm(other, this->solver, this->type) });
+
+    cvc5::Term lt = this->solver->term_manager.mkTerm(this->operations.at(OpType::LT),
+                                                      { this->term, STerm(other, this->solver, this->type) });
     this->solver->assertFormula(lt);
 }
 
 void STerm::operator<=(const bb::fr& other) const
 {
-    cvc5::Kind op = this->operations.at(OpType::LE);
-    if(op == cvc5::Kind::NULL_TERM){
+    if (!this->operations.contains(OpType::LE)) {
         info("LE is not compatible with ", this->type);
         return;
     }
-    cvc5::Term le = this->solver->term_manager.mkTerm(op, { this->term, STerm(other, this->solver, this->type) });
+    cvc5::Term le = this->solver->term_manager.mkTerm(this->operations.at(OpType::LE),
+                                                      { this->term, STerm(other, this->solver, this->type) });
     this->solver->assertFormula(le);
 }
 
 void STerm::operator>(const bb::fr& other) const
 {
-    cvc5::Kind op = this->operations.at(OpType::GT);
-    if(op == cvc5::Kind::NULL_TERM){
+    if (!this->operations.contains(OpType::GT)) {
         info("GT is not compatible with ", this->type);
         return;
     }
-    cvc5::Term gt = this->solver->term_manager.mkTerm(op, { this->term, STerm(other, this->solver, this->type) });
+    cvc5::Term gt = this->solver->term_manager.mkTerm(this->operations.at(OpType::GT),
+                                                      { this->term, STerm(other, this->solver, this->type) });
     this->solver->assertFormula(gt);
 }
 
 void STerm::operator>=(const bb::fr& other) const
 {
-    cvc5::Kind op = this->operations.at(OpType::GE);
-    if(op == cvc5::Kind::NULL_TERM){
+    if (!this->operations.contains(OpType::GE)) {
         info("GE is not compatible with ", this->type);
         return;
     }
-    cvc5::Term ge = this->solver->term_manager.mkTerm(op, { this->term, STerm(other, this->solver, this->type) });
+    cvc5::Term ge = this->solver->term_manager.mkTerm(this->operations.at(OpType::GE),
+                                                      { this->term, STerm(other, this->solver, this->type) });
     this->solver->assertFormula(ge);
 }
 
-STerm STerm::operator^(const STerm& other) const{
-    cvc5::Kind op = this->operations.at(OpType::XOR);
-    if(op == cvc5::Kind::NULL_TERM){
+STerm STerm::operator^(const STerm& other) const
+{
+    if (!this->operations.contains(OpType::XOR)) {
         info("XOR is not compatible with ", this->type);
         return *this;
     }
-    cvc5::Term res = solver->term_manager.mkTerm(op, { this->term, other.term });
-    return { res, this->solver };
+    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::XOR), { this->term, other.term });
+    return { res, this->solver, this->type };
 }
 
-void STerm::operator^=(const STerm& other){
-    cvc5::Kind op = this->operations.at(OpType::XOR);
-    if(op == cvc5::Kind::NULL_TERM){
+void STerm::operator^=(const STerm& other)
+{
+    if (!this->operations.contains(OpType::XOR)) {
         info("XOR is not compatible with ", this->type);
+        return;
     }
-    this->term = solver->term_manager.mkTerm(op, { this->term, other.term });
+    this->term = solver->term_manager.mkTerm(this->operations.at(OpType::XOR), { this->term, other.term });
 }
 
-STerm STerm::operator&(const STerm& other) const{
-    cvc5::Kind op = this->operations.at(OpType::AND);
-    if(op == cvc5::Kind::NULL_TERM){
+STerm STerm::operator&(const STerm& other) const
+{
+    if (!this->operations.contains(OpType::AND)) {
         info("AND is not compatible with ", this->type);
         return *this;
     }
-    cvc5::Term res = solver->term_manager.mkTerm(op, { this->term, other.term });
-    return { res, this->solver };
+    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::AND), { this->term, other.term });
+    return { res, this->solver, this->type };
 }
 
-void STerm::operator&=(const STerm& other){
-    cvc5::Kind op = this->operations.at(OpType::AND);
-    if(op == cvc5::Kind::NULL_TERM){
+void STerm::operator&=(const STerm& other)
+{
+    if (!this->operations.contains(OpType::AND)) {
         info("AND is not compatible with ", this->type);
+        return;
     }
-    this->term = solver->term_manager.mkTerm(op, { this->term, other.term });
+    this->term = solver->term_manager.mkTerm(this->operations.at(OpType::AND), { this->term, other.term });
 }
 
-STerm STerm::operator|(const STerm& other) const{
-    cvc5::Kind op = this->operations.at(OpType::OR);
-    if(op == cvc5::Kind::NULL_TERM){
+STerm STerm::operator|(const STerm& other) const
+{
+    if (!this->operations.contains(OpType::OR)) {
         info("OR is not compatible with ", this->type);
+        return *this;
     }
-    cvc5::Term res = solver->term_manager.mkTerm(op, { this->term, other.term });
-    return { res, this->solver };
+    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::OR), { this->term, other.term });
+    return { res, this->solver, this->type };
 }
 
-void STerm::operator|=(const STerm& other){
-    cvc5::Kind op = this->operations.at(OpType::OR);
-    if(op == cvc5::Kind::NULL_TERM){
+void STerm::operator|=(const STerm& other)
+{
+    if (!this->operations.contains(OpType::OR)) {
         info("OR is not compatible with ", this->type);
+        return;
     }
-    this->term = solver->term_manager.mkTerm(op, { this->term, other.term });
+    this->term = solver->term_manager.mkTerm(this->operations.at(OpType::OR), { this->term, other.term });
 }
 
-STerm STerm::operator<<(const uint32_t& n) const{
-    cvc5::Kind op = this->operations.at(OpType::LSH);
-    if(op == cvc5::Kind::NULL_TERM){
+STerm STerm::operator<<(const uint32_t& n) const
+{
+    if (!this->operations.contains(OpType::LSH)) {
         info("SHIFT LEFT is not compatible with ", this->type);
         return *this;
     }
-    cvc5::Term res = solver->term_manager.mkTerm(op, { this->term, this->solver->term_manager.mkInteger(n) });
-    return { res, this->solver };
+    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::LSH),
+                                                 { this->term, this->solver->term_manager.mkInteger(n) });
+    return { res, this->solver, this->type };
 }
 
-void STerm::operator<<=(const uint32_t& n){
-    cvc5::Kind op = this->operations.at(OpType::LSH);
-    if(op == cvc5::Kind::NULL_TERM){
+void STerm::operator<<=(const uint32_t& n)
+{
+    if (!this->operations.contains(OpType::LSH)) {
         info("SHIFT LEFT is not compatible with ", this->type);
+        return;
     }
-    this->term = solver->term_manager.mkTerm(op, { this->term, this->solver->term_manager.mkInteger(n) });
+    this->term = solver->term_manager.mkTerm(this->operations.at(OpType::LSH),
+                                             { this->term, this->solver->term_manager.mkInteger(n) });
 }
 
-STerm STerm::operator>>(const uint32_t& n) const{
-    cvc5::Kind op = this->operations.at(OpType::RSH);
-    if(op == cvc5::Kind::NULL_TERM){
+STerm STerm::operator>>(const uint32_t& n) const
+{
+    if (!this->operations.contains(OpType::RSH)) {
         info("RIGHT LEFT is not compatible with ", this->type);
         return *this;
     }
-    cvc5::Term res = solver->term_manager.mkTerm(op, { this->term, this->solver->term_manager.mkInteger(n) });
-    return { res, this->solver };
+    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::RSH),
+                                                 { this->term, this->solver->term_manager.mkInteger(n) });
+    return { res, this->solver, this->type };
 }
 
-void STerm::operator>>=(const uint32_t& n){
-    cvc5::Kind op = this->operations.at(OpType::RSH);
-    if(op == cvc5::Kind::NULL_TERM){
+void STerm::operator>>=(const uint32_t& n)
+{
+    if (!this->operations.contains(OpType::RSH)) {
         info("RIGHT LEFT is not compatible with ", this->type);
+        return;
     }
-    this->term = solver->term_manager.mkTerm(op, { this->term, this->solver->term_manager.mkInteger(n) });
+    this->term = solver->term_manager.mkTerm(this->operations.at(OpType::RSH),
+                                             { this->term, this->solver->term_manager.mkInteger(n) });
 }
 
-void STerm::rotr(const uint32_t& n){
-    cvc5::Kind op = this->operations.at(OpType::ROTR);
-    if(op == cvc5::Kind::NULL_TERM){
+STerm STerm::rotr(const uint32_t& n) const
+{
+    if (!this->operations.contains(OpType::ROTR)) {
         info("ROTR is not compatible with ", this->type);
-        return;
+        return *this;
     }
-    this->term = solver->term_manager.mkTerm(op, { this->term, this->solver->term_manager.mkInteger(n) });
+    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::ROTR),
+                                                 { this->term, this->solver->term_manager.mkInteger(n) });
+    return { res, this->solver, this->type };
 }
 
-void STerm::rotl(const uint32_t& n){
-    cvc5::Kind op = this->operations.at(OpType::ROTL);
-    if(op == cvc5::Kind::NULL_TERM){
+STerm STerm::rotl(const uint32_t& n) const
+{
+    if (!this->operations.contains(OpType::ROTL)) {
         info("ROTL is not compatible with ", this->type);
-        return;
+        return *this;
     }
-    this->term = solver->term_manager.mkTerm(op, { this->term, this->solver->term_manager.mkInteger(n) });
+    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::ROTL),
+                                                 { this->term, this->solver->term_manager.mkInteger(n) });
+    return { res, this->solver, this->type };
 }
 
 STerm operator+(const bb::fr& lhs, const STerm& rhs)
@@ -454,43 +419,49 @@ void operator!=(const bb::fr& lhs, const STerm& rhs)
     rhs != lhs;
 }
 
-std::ostream& operator<<(std::ostream& os, const TermType type){
-    switch(type){
-        case TermType::FFTerm:
-            os << "FFTerm";
-            break;
-        case TermType::FFITerm:
-            os << "FFITerm";
-            break;
-        case TermType::BVTerm:
-            os << "BVTerm";
-            break;
+std::ostream& operator<<(std::ostream& os, const TermType type)
+{
+    switch (type) {
+    case TermType::FFTerm:
+        os << "FFTerm";
+        break;
+    case TermType::FFITerm:
+        os << "FFITerm";
+        break;
+    case TermType::BVTerm:
+        os << "BVTerm";
+        break;
     };
     return os;
 }
 
-
-STerm FFVar(const std::string& name, Solver* slv){
+STerm FFVar(const std::string& name, Solver* slv)
+{
     return STerm::Var(name, slv, TermType::FFTerm);
 }
 
-STerm FFConst(const std::string& val, Solver* slv, uint32_t base){
+STerm FFConst(const std::string& val, Solver* slv, uint32_t base)
+{
     return STerm::Const(val, slv, base, TermType::FFTerm);
 }
 
-STerm FFIVar(const std::string& name, Solver* slv){
+STerm FFIVar(const std::string& name, Solver* slv)
+{
     return STerm::Var(name, slv, TermType::FFITerm);
 }
 
-STerm FFIConst(const std::string& val, Solver* slv, uint32_t base){
+STerm FFIConst(const std::string& val, Solver* slv, uint32_t base)
+{
     return STerm::Const(val, slv, base, TermType::FFITerm);
 }
 
-STerm BVVar(const std::string& name, Solver* slv){
+STerm BVVar(const std::string& name, Solver* slv)
+{
     return STerm::Var(name, slv, TermType::BVTerm);
 }
 
-STerm BVConst(const std::string& val, Solver* slv, uint32_t base){
+STerm BVConst(const std::string& val, Solver* slv, uint32_t base)
+{
     return STerm::Const(val, slv, base, TermType::BVTerm);
 }
 
