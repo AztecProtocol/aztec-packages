@@ -297,10 +297,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_big_add_gate_with_bit_extract
  *
  * @param in Structure containing variables and witness selectors
  */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/873): Some issue arises using this method (via
-// evaluate_polynomial_identity) if these are moved to arithmetic block. E.g. biggroup twin_mul (etc) fails. Passes
-// through a bunch of methods labeled "unsafe" but there's no obvious docs on what that means. Could be relevant.
-// Possibly something to do with how constants are handled?
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_big_mul_gate(const mul_quad_<FF>& in)
 {
