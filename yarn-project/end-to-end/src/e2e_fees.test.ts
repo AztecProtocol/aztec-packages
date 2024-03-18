@@ -172,6 +172,7 @@ describe('e2e_fees', () => {
         },
       })
       .wait();
+    // expect(txReceipt.status).toBe(TxStatus.REVERTED);
 
     // and thus we paid the fee
     await expectMapping(
