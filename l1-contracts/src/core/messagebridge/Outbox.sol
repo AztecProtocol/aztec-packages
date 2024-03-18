@@ -7,15 +7,15 @@ import {DataStructures} from "../libraries/DataStructures.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {MerkleLib} from "../libraries/MerkleLib.sol";
 import {Hash} from "../libraries/Hash.sol";
-import {INewOutbox} from "../interfaces/messagebridge/INewOutbox.sol";
+import {IOutbox} from "../interfaces/messagebridge/IOutbox.sol";
 
 /**
- * @title NewOutbox
+ * @title Outbox
  * @author Aztec Labs
  * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the Rollup
  * and will be consumed by the portal contracts.
  */
-contract NewOutbox is INewOutbox {
+contract Outbox is IOutbox {
   using Hash for DataStructures.L2ToL1Msg;
 
   struct RootData {
@@ -43,7 +43,7 @@ contract NewOutbox is INewOutbox {
    */
   function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _height)
     external
-    override(INewOutbox)
+    override(IOutbox)
   {
     if (msg.sender != ROLLUP_CONTRACT) {
       revert Errors.Outbox__Unauthorized();
@@ -79,7 +79,7 @@ contract NewOutbox is INewOutbox {
     uint256 _leafIndex,
     DataStructures.L2ToL1Msg calldata _message,
     bytes32[] calldata _path
-  ) external override(INewOutbox) {
+  ) external override(IOutbox) {
     if (msg.sender != _message.recipient.actor) {
       revert Errors.Outbox__InvalidRecipient(_message.recipient.actor, msg.sender);
     }
@@ -124,7 +124,7 @@ contract NewOutbox is INewOutbox {
   function hasMessageBeenConsumedAtBlockAndIndex(uint256 _l2BlockNumber, uint256 _leafIndex)
     external
     view
-    override(INewOutbox)
+    override(IOutbox)
     returns (bool)
   {
     return roots[_l2BlockNumber].nullified[_leafIndex];

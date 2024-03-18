@@ -5,13 +5,12 @@ pragma solidity >=0.8.18;
 import {DataStructures} from "../../libraries/DataStructures.sol";
 
 /**
- * @title INewOutbox
+ * @title IOutbox
  * @author Aztec Labs
  * @notice Lives on L1 and is used to consume L2 -> L1 messages. Messages are inserted by the Rollup
  * and will be consumed by the portal contracts.
  */
-// TODO: rename to IOutbox once all the pieces of the new message model are in place.
-interface INewOutbox {
+interface IOutbox {
   event RootAdded(uint256 indexed l2BlockNumber, bytes32 indexed root, uint256 height);
   event MessageConsumed(
     uint256 indexed l2BlockNumber,

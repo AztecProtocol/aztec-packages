@@ -3,15 +3,15 @@
 pragma solidity >=0.8.18;
 
 import {Test} from "forge-std/Test.sol";
-import {NewOutbox} from "../src/core/messagebridge/NewOutbox.sol";
-import {INewOutbox} from "../src/core/interfaces/messagebridge/INewOutbox.sol";
+import {Outbox} from "../src/core/messagebridge/Outbox.sol";
+import {IOutbox} from "../src/core/interfaces/messagebridge/IOutbox.sol";
 import {Errors} from "../src/core/libraries/Errors.sol";
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
 import {Hash} from "../src/core/libraries/Hash.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 
-contract NewOutboxTest is Test {
+contract OutboxTest is Test {
   using Hash for DataStructures.L2ToL1Msg;
 
   address internal constant ROLLUP_CONTRACT = address(0x42069123);
@@ -20,12 +20,12 @@ contract NewOutboxTest is Test {
   uint256 internal constant DEFAULT_TREE_HEIGHT = 2;
   uint256 internal constant AZTEC_VERSION = 1;
 
-  NewOutbox internal outbox;
+  Outbox internal outbox;
   NaiveMerkle internal zeroedTree;
   MerkleTestUtil internal merkleTestUtil;
 
   function setUp() public {
-    outbox = new NewOutbox(ROLLUP_CONTRACT);
+    outbox = new Outbox(ROLLUP_CONTRACT);
     zeroedTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
     merkleTestUtil = new MerkleTestUtil();
   }
@@ -76,7 +76,7 @@ contract NewOutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit INewOutbox.RootAdded(1, root, treeHeight);
+    emit IOutbox.RootAdded(1, root, treeHeight);
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(1, root, treeHeight);
 
@@ -202,7 +202,7 @@ contract NewOutboxTest is Test {
     assertEq(abi.encode(0), abi.encode(statusBeforeConsumption));
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit INewOutbox.MessageConsumed(1, root, leaf, 0);
+    emit IOutbox.MessageConsumed(1, root, leaf, 0);
     outbox.consume(1, 0, fakeMessage, path);
 
     bool statusAfterConsumption = outbox.hasMessageBeenConsumedAtBlockAndIndex(1, 0);
@@ -233,7 +233,7 @@ contract NewOutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit INewOutbox.RootAdded(_blockNumber, root, treeHeight);
+    emit IOutbox.RootAdded(_blockNumber, root, treeHeight);
     vm.prank(ROLLUP_CONTRACT);
     outbox.insert(_blockNumber, root, treeHeight);
 
@@ -241,7 +241,7 @@ contract NewOutboxTest is Test {
       (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(i);
 
       vm.expectEmit(true, true, true, true, address(outbox));
-      emit INewOutbox.MessageConsumed(_blockNumber, root, leaf, i);
+      emit IOutbox.MessageConsumed(_blockNumber, root, leaf, i);
       vm.prank(_recipients[i]);
       outbox.consume(_blockNumber, i, messages[i], path);
     }
