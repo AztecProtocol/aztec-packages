@@ -1,11 +1,8 @@
 import { ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } from '@aztec/archiver';
 import {
   AztecNode,
-  ContractData,
-  ContractDataSource,
-  ExtendedContractData,
+  BlockNumber,
   GetUnencryptedLogsResponse,
-  L1ToL2MessageAndIndex,
   L1ToL2MessageSource,
   L2Block,
   L2BlockL2Logs,
@@ -55,7 +52,7 @@ import {
   getGlobalVariableBuilder,
   partitionReverts,
 } from '@aztec/sequencer-client';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,
@@ -232,25 +229,6 @@ export class AztecNodeService implements AztecNode {
     return Promise.resolve(this.chainId);
   }
 
-  /**
-   * Get the extended contract data for this contract.
-   * @param contractAddress - The contract data address.
-   * @returns The extended contract data or undefined if not found.
-   */
-  async getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return await this.contractDataSource.getExtendedContractData(contractAddress);
-  }
-
-  /**
-   * Lookup the contract data for this contract.
-   * Contains the ethereum portal address .
-   * @param contractAddress - The contract data address.
-   * @returns The contract's address & portal address.
-   */
-  public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return await this.contractDataSource.getContractData(contractAddress);
-  }
-
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     return this.contractDataSource.getContractClass(id);
   }
@@ -386,30 +364,23 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Gets a confirmed/consumed L1 to L2 message for the given entry key
-   * and its index in the merkle tree.
-   * @param entryKey - The entry key.
-   * @returns The map containing the message and index.
-   */
-  public async getL1ToL2MessageAndIndex(entryKey: Fr): Promise<L1ToL2MessageAndIndex> {
-    // todo: #697 - make this one lookup.
-    const index = (await this.findLeafIndex('latest', MerkleTreeId.L1_TO_L2_MESSAGE_TREE, entryKey))!;
-    const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(entryKey);
-    return Promise.resolve(new L1ToL2MessageAndIndex(index, message));
-  }
-
-  /**
-   * Returns a sibling path for a leaf in the committed l1 to l2 data tree.
+   * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
    * @param blockNumber - The block number at which to get the data.
-   * @param leafIndex - Index of the leaf in the tree.
-   * @returns The sibling path.
+   * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
+   * @throws If the message is not found.
+   * @returns A tuple of the index and the sibling path of the L1ToL2Message.
    */
-  public async getL1ToL2MessageSiblingPath(
-    blockNumber: number | 'latest',
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+  public async getL1ToL2MessageIndexAndSiblingPath(
+    blockNumber: BlockNumber,
+    l1ToL2Message: Fr,
+  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
+    const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
     const committedDb = await this.#getWorldState(blockNumber);
-    return committedDb.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
+    const siblingPath = await committedDb.getSiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
+      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+      index,
+    );
+    return [index, siblingPath];
   }
 
   /**
