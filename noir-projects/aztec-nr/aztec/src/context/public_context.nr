@@ -279,6 +279,7 @@ impl PublicContext {
         is_static_call: bool,
         is_delegate_call: bool
     ) -> [Field; RETURN_VALUES_LENGTH] {
+        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let fields = call_public_function_internal(
             contract_address,
             function_selector,
