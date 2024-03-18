@@ -6,7 +6,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
-import { toACVMField, toAcvmEnqueuePublicFunctionResult } from '../serialize.js';
+import { toACVMField, toAcvmEnqueuePublicFunctionResult, toAcvmPublicFunctionResult } from '../serialize.js';
 import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
 import { TypedOracle } from './typed_oracle.js';
 
@@ -331,7 +331,7 @@ export class Oracle {
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
-    return callStackItem.toFields().map(toACVMField);
+    return toAcvmPublicFunctionResult(callStackItem);
   }
 
   async enqueuePublicFunctionCall(

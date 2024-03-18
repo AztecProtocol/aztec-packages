@@ -164,7 +164,7 @@ global PARTIAL_STATE_REFERENCE_LENGTH: u64 = 6;
 global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 212;
 global PUBLIC_CALL_STACK_ITEM_LENGTH: u64 = 205;
 // simplified form of a PublicCallStackItem
-global PUBLIC_FUNCTION_CALL_RESULT_LENGTH: u64 = 12;
+global PUBLIC_FUNCTION_CALL_RESULT_LENGTH: u64 = 16;
 
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we should change this

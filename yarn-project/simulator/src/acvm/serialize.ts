@@ -84,6 +84,7 @@ export function toAcvmPublicFunctionResult(item: PublicCallStackItem): ACVMField
     item.publicInputs.argsHash,
     item.publicInputs.startSideEffectCounter,
     item.publicInputs.endSideEffectCounter,
+    ...item.publicInputs.returnValues,
   ];
 
   if (fields.length !== PUBLIC_FUNCTION_CALL_RESULT_LENGTH) {
