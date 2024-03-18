@@ -2,10 +2,10 @@
 
 exports[`GasToken returns canonical protocol contract 1`] = `
 {
-  "address": AztecAddress<0x1c760f541590e9f6c4f0edd3a781d39454e621b1c6974c189b3d110cf8e3d4ee>,
+  "address": AztecAddress<0x0875405e0a4d72524a786d865508de820a7218a83d9c0ba816f077900f325c2b>,
   "instance": {
-    "address": AztecAddress<0x1c760f541590e9f6c4f0edd3a781d39454e621b1c6974c189b3d110cf8e3d4ee>,
-    "contractClassId": Fr<0x0196a607411f2dffe47d5ecec7a26eb561facdf21c2475c1120410ce15a05639>,
+    "address": AztecAddress<0x0875405e0a4d72524a786d865508de820a7218a83d9c0ba816f077900f325c2b>,
+    "contractClassId": Fr<0x19474460cb8c019240d2ac8b388bc840e4cc5d72e97d923dd8a3faa2bd1fece8>,
     "deployer": AztecAddress<0x0000000000000000000000000000000000000000000000000000000000000000>,
     "initializationHash": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
     "portalContractAddress": EthAddress<0x0000000000000000000000000000000000000000>,
@@ -19,10 +19,10 @@ exports[`GasToken returns canonical protocol contract 1`] = `
 exports[`GasToken returns canonical protocol contract 2`] = `
 {
   "artifactHash": Fr<0x18af4bb0ca6fe07d0ae6da493b2c7b1af038ee904721dbba9b6e571e6d495726>,
-  "id": Fr<0x0196a607411f2dffe47d5ecec7a26eb561facdf21c2475c1120410ce15a05639>,
+  "id": Fr<0x19474460cb8c019240d2ac8b388bc840e4cc5d72e97d923dd8a3faa2bd1fece8>,
   "privateFunctions": [],
   "privateFunctionsRoot": Fr<0x15d28cad4c0736decea8997cb324cf0a0e0602f4d74472cd977bce2c8dd9923f>,
-  "publicBytecodeCommitment": Fr<0x12027830b8a69d0c117c8d365d12defe52611214ab68b17c567c20a9a88c440a>,
+  "publicBytecodeCommitment": Fr<0x03af5fc7da2365ddadc4232101d348197cd4c3c0293cdf793b75bac89370994e>,
   "version": 1,
 }
 `;
@@ -35,15 +35,15 @@ exports[`GasToken returns canonical protocol contract 3`] = `
   },
   {
     "isInternal": false,
+    "selector": Selector<0x5b7863df>,
+  },
+  {
+    "isInternal": false,
     "selector": Selector<0x69e04dfd>,
   },
   {
     "isInternal": false,
     "selector": Selector<0x6bfd1d5b>,
-  },
-  {
-    "isInternal": false,
-    "selector": Selector<0xcbfc21a6>,
   },
 ]
 `;
