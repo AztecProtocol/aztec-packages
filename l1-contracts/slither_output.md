@@ -176,8 +176,8 @@ src/core/messagebridge/NewInbox.sol#L41
 
 
  - [ ] ID-18
-[NewOutbox.constructor(address)._rollup](src/core/messagebridge/NewOutbox.sol#L30) lacks a zero-check on :
-		- [ROLLUP_CONTRACT = _rollup](src/core/messagebridge/NewOutbox.sol#L31)
+[NewOutbox.constructor(address)._rollup](src/core/messagebridge/NewOutbox.sol#L31) lacks a zero-check on :
+		- [ROLLUP_CONTRACT = _rollup](src/core/messagebridge/NewOutbox.sol#L32)
 
 src/core/messagebridge/NewOutbox.sol#L31
 
@@ -284,8 +284,8 @@ src/core/messagebridge/Inbox.sol#L21-L231
 
 
  - [ ] ID-30
-The following public functions could be turned into external in [NewOutbox](src/core/messagebridge/NewOutbox.sol#L18-L131) contract:
-	[NewOutbox.constructor(address)](src/core/messagebridge/NewOutbox.sol#L30-L32)
+The following public functions could be turned into external in [NewOutbox](src/core/messagebridge/NewOutbox.sol#L18-L132) contract:
+	[NewOutbox.constructor(address)](src/core/messagebridge/NewOutbox.sol#L31-L33)
 
 src/core/messagebridge/NewOutbox.sol#L18-L132
 
@@ -398,7 +398,7 @@ src/core/Rollup.sol#L41
 Impact: Optimization
 Confidence: High
  - [ ] ID-45
-In a function [NewOutbox.insert(uint256,bytes32,uint256)](src/core/messagebridge/NewOutbox.sol#L43-L63) variable [NewOutbox.roots](src/core/messagebridge/NewOutbox.sol#L28) is read multiple times
+In a function [NewOutbox.insert(uint256,bytes32,uint256)](src/core/messagebridge/NewOutbox.sol#L44-L64) variable [NewOutbox.roots](src/core/messagebridge/NewOutbox.sol#L29) is read multiple times
 
 src/core/messagebridge/NewOutbox.sol#L44-L64
 
