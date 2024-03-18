@@ -10,7 +10,6 @@ import {MerkleLib} from "../src/core/libraries/MerkleLib.sol";
 import {Registry} from "../src/core/messagebridge/Registry.sol";
 import {Inbox} from "../src/core/messagebridge/Inbox.sol";
 import {Outbox} from "../src/core/messagebridge/Outbox.sol";
-import {NewOutbox} from "../src/core/messagebridge/NewOutbox.sol";
 import {Errors} from "../src/core/libraries/Errors.sol";
 import {Rollup} from "../src/core/Rollup.sol";
 import {AvailabilityOracle} from "../src/core/availability_oracle/AvailabilityOracle.sol";
@@ -25,16 +24,15 @@ contract RollupTest is DecoderBase {
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
-  NewOutbox internal newOutbox;
+
   AvailabilityOracle internal availabilityOracle;
 
   function setUp() public virtual {
     registry = new Registry();
-    outbox = new Outbox(address(registry));
     availabilityOracle = new AvailabilityOracle();
     rollup = new Rollup(registry, availabilityOracle);
-    newOutbox = NewOutbox(address(rollup.NEW_OUTBOX()));
     inbox = Inbox(address(rollup.INBOX()));
+    outbox = Outbox(address(rollup.OUTBOX()));
 
     registry.upgrade(address(rollup), address(inbox), address(outbox));
   }
@@ -142,8 +140,6 @@ contract RollupTest is DecoderBase {
 
     assertEq(inbox.toConsume(), toConsume + 1, "Message subtree not consumed");
 
-    (, bytes32[] memory inboxWrites) = vm.accesses(address(inbox));
-
     bytes32 l2ToL1MessageTreeRoot;
 
     {
@@ -157,7 +153,7 @@ contract RollupTest is DecoderBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    (bytes32 root,) = newOutbox.roots(full.block.decodedHeader.globalVariables.blockNumber);
+    (bytes32 root,) = outbox.roots(full.block.decodedHeader.globalVariables.blockNumber);
 
     assertEq(l2ToL1MessageTreeRoot, root);
 
