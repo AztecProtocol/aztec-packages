@@ -1,6 +1,4 @@
 import {
-  ContractDataSource,
-  ExtendedContractData,
   L1ToL2MessageSource,
   MerkleTreeId,
   NullifierMembershipWitness,
@@ -22,9 +20,8 @@ import {
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
-import { InstanceDeployerAddress } from '@aztec/protocol-contracts/instance-deployer';
 import { CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicStateDB } from '@aztec/simulator';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 /**
@@ -32,7 +29,6 @@ import { MerkleTreeOperations } from '@aztec/world-state';
  * Progressively records contracts in transaction as they are processed in a block.
  */
 export class ContractsDataSourcePublicDB implements PublicContractsDB {
-  private cache = new Map<string, ExtendedContractData>();
   private instanceCache = new Map<string, ContractInstanceWithAddress>();
   private classCache = new Map<string, ContractClassPublic>();
 
@@ -51,7 +47,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
       this.log(`Adding class ${e.contractClassId.toString()} to public execution contract cache`);
       this.classCache.set(e.contractClassId.toString(), e.toContractClassPublic());
     });
-    ContractInstanceDeployedEvent.fromLogs(logs, InstanceDeployerAddress).forEach(e => {
+    ContractInstanceDeployedEvent.fromLogs(logs).forEach(e => {
       this.log(
         `Adding instance ${e.address.toString()} with class ${e.contractClassId.toString()} to public execution contract cache`,
       );
@@ -73,9 +69,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     ContractClassRegisteredEvent.fromLogs(logs, ClassRegistererAddress).forEach(e =>
       this.classCache.delete(e.contractClassId.toString()),
     );
-    ContractInstanceDeployedEvent.fromLogs(logs, InstanceDeployerAddress).forEach(e =>
-      this.instanceCache.delete(e.address.toString()),
-    );
+    ContractInstanceDeployedEvent.fromLogs(logs).forEach(e => this.instanceCache.delete(e.address.toString()));
     return Promise.resolve();
   }
 
@@ -83,46 +77,25 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     return this.instanceCache.get(address.toString()) ?? (await this.db.getContract(address));
   }
 
-  async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
-    const contract = await this.#getContract(address);
-    return contract?.getPublicFunction(selector)?.bytecode;
+  public async getContractClass(contractClassId: Fr): Promise<ContractClassPublic | undefined> {
+    return this.classCache.get(contractClassId.toString()) ?? (await this.db.getContractClass(contractClassId));
   }
 
-  async getIsInternal(address: AztecAddress, selector: FunctionSelector): Promise<boolean | undefined> {
-    const contract = await this.#getContract(address);
-    return contract?.getPublicFunction(selector)?.isInternal;
+  async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
+    const instance = await this.getContractInstance(address);
+    if (!instance) {
+      throw new Error(`Contract ${address.toString()} not found`);
+    }
+    const contractClass = await this.getContractClass(instance.contractClassId);
+    if (!contractClass) {
+      throw new Error(`Contract class ${instance.contractClassId.toString()} for ${address.toString()} not found`);
+    }
+    return contractClass.publicFunctions.find(f => f.selector.equals(selector))?.bytecode;
   }
 
   async getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined> {
-    const contract = await this.#getContract(address);
-    return contract?.contractData.portalContractAddress;
-  }
-
-  async #getContract(address: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return (
-      this.cache.get(address.toString()) ??
-      (await this.#makeExtendedContractDataFor(address)) ??
-      (await this.db.getExtendedContractData(address))
-    );
-  }
-
-  async #makeExtendedContractDataFor(address: AztecAddress): Promise<ExtendedContractData | undefined> {
-    const instance = this.instanceCache.get(address.toString());
-    if (!instance) {
-      return undefined;
-    }
-
-    const contractClass =
-      this.classCache.get(instance.contractClassId.toString()) ??
-      (await this.db.getContractClass(instance.contractClassId));
-    if (!contractClass) {
-      this.log.warn(
-        `Contract class ${instance.contractClassId.toString()} for address ${address.toString()} not found`,
-      );
-      return undefined;
-    }
-
-    return ExtendedContractData.fromClassAndInstance(contractClass, instance);
+    const contract = await this.getContractInstance(address);
+    return contract?.portalContractAddress;
   }
 }
 
@@ -130,8 +103,9 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
  * Implements the PublicStateDB using a world-state database.
  */
 export class WorldStatePublicDB implements PublicStateDB {
-  private commitedWriteCache: Map<bigint, Fr> = new Map();
-  private uncommitedWriteCache: Map<bigint, Fr> = new Map();
+  private committedWriteCache: Map<bigint, Fr> = new Map();
+  private checkpointedWriteCache: Map<bigint, Fr> = new Map();
+  private uncommittedWriteCache: Map<bigint, Fr> = new Map();
 
   constructor(private db: MerkleTreeOperations) {}
 
@@ -143,13 +117,17 @@ export class WorldStatePublicDB implements PublicStateDB {
    */
   public async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
     const leafSlot = computePublicDataTreeLeafSlot(contract, slot).value;
-    const uncommited = this.uncommitedWriteCache.get(leafSlot);
-    if (uncommited !== undefined) {
-      return uncommited;
+    const uncommitted = this.uncommittedWriteCache.get(leafSlot);
+    if (uncommitted !== undefined) {
+      return uncommitted;
     }
-    const commited = this.commitedWriteCache.get(leafSlot);
-    if (commited !== undefined) {
-      return commited;
+    const checkpointed = this.checkpointedWriteCache.get(leafSlot);
+    if (checkpointed !== undefined) {
+      return checkpointed;
+    }
+    const committed = this.committedWriteCache.get(leafSlot);
+    if (committed !== undefined) {
+      return committed;
     }
 
     const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
@@ -173,7 +151,7 @@ export class WorldStatePublicDB implements PublicStateDB {
    */
   public storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<void> {
     const index = computePublicDataTreeLeafSlot(contract, slot).value;
-    this.uncommitedWriteCache.set(index, newValue);
+    this.uncommittedWriteCache.set(index, newValue);
     return Promise.resolve();
   }
 
@@ -182,18 +160,36 @@ export class WorldStatePublicDB implements PublicStateDB {
    * @returns Nothing.
    */
   commit(): Promise<void> {
-    for (const [k, v] of this.uncommitedWriteCache) {
-      this.commitedWriteCache.set(k, v);
+    for (const [k, v] of this.checkpointedWriteCache) {
+      this.committedWriteCache.set(k, v);
     }
-    return this.rollback();
+    // uncommitted writes take precedence over checkpointed writes
+    // since they are the most recent
+    for (const [k, v] of this.uncommittedWriteCache) {
+      this.committedWriteCache.set(k, v);
+    }
+    return this.rollbackToCommit();
   }
 
   /**
    * Rollback the pending changes.
    * @returns Nothing.
    */
-  rollback(): Promise<void> {
-    this.uncommitedWriteCache = new Map<bigint, Fr>();
+  async rollbackToCommit(): Promise<void> {
+    await this.rollbackToCheckpoint();
+    this.checkpointedWriteCache = new Map<bigint, Fr>();
+    return Promise.resolve();
+  }
+
+  checkpoint(): Promise<void> {
+    for (const [k, v] of this.uncommittedWriteCache) {
+      this.checkpointedWriteCache.set(k, v);
+    }
+    return this.rollbackToCheckpoint();
+  }
+
+  rollbackToCheckpoint(): Promise<void> {
+    this.uncommittedWriteCache = new Map<bigint, Fr>();
     return Promise.resolve();
   }
 }

@@ -31,13 +31,31 @@ struct BinaryFieldOp {
         static Div bincodeDeserialize(std::vector<uint8_t>);
     };
 
+    struct IntegerDiv {
+        friend bool operator==(const IntegerDiv&, const IntegerDiv&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static IntegerDiv bincodeDeserialize(std::vector<uint8_t>);
+    };
+
     struct Equals {
         friend bool operator==(const Equals&, const Equals&);
         std::vector<uint8_t> bincodeSerialize() const;
         static Equals bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    std::variant<Add, Sub, Mul, Div, Equals> value;
+    struct LessThan {
+        friend bool operator==(const LessThan&, const LessThan&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static LessThan bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    struct LessThanEquals {
+        friend bool operator==(const LessThanEquals&, const LessThanEquals&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static LessThanEquals bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    std::variant<Add, Sub, Mul, Div, IntegerDiv, Equals, LessThan, LessThanEquals> value;
 
     friend bool operator==(const BinaryFieldOp&, const BinaryFieldOp&);
     std::vector<uint8_t> bincodeSerialize() const;
@@ -1045,18 +1063,7 @@ struct Directive {
         static ToLeRadix bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    struct PermutationSort {
-        std::vector<std::vector<Circuit::Expression>> inputs;
-        uint32_t tuple;
-        std::vector<Circuit::Witness> bits;
-        std::vector<uint32_t> sort_by;
-
-        friend bool operator==(const PermutationSort&, const PermutationSort&);
-        std::vector<uint8_t> bincodeSerialize() const;
-        static PermutationSort bincodeDeserialize(std::vector<uint8_t>);
-    };
-
-    std::variant<ToLeRadix, PermutationSort> value;
+    std::variant<ToLeRadix> value;
 
     friend bool operator==(const Directive&, const Directive&);
     std::vector<uint8_t> bincodeSerialize() const;
@@ -1126,7 +1133,17 @@ struct Opcode {
         static MemoryInit bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    std::variant<AssertZero, BlackBoxFuncCall, Directive, Brillig, MemoryOp, MemoryInit> value;
+    struct Call {
+        uint32_t id;
+        std::vector<Circuit::Witness> inputs;
+        std::vector<Circuit::Witness> outputs;
+
+        friend bool operator==(const Call&, const Call&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static Call bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    std::variant<AssertZero, BlackBoxFuncCall, Directive, Brillig, MemoryOp, MemoryInit, Call> value;
 
     friend bool operator==(const Opcode&, const Opcode&);
     std::vector<uint8_t> bincodeSerialize() const;
@@ -1418,6 +1435,47 @@ Circuit::BinaryFieldOp::Div serde::Deserializable<Circuit::BinaryFieldOp::Div>::
 
 namespace Circuit {
 
+inline bool operator==(const BinaryFieldOp::IntegerDiv& lhs, const BinaryFieldOp::IntegerDiv& rhs)
+{
+    return true;
+}
+
+inline std::vector<uint8_t> BinaryFieldOp::IntegerDiv::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<BinaryFieldOp::IntegerDiv>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline BinaryFieldOp::IntegerDiv BinaryFieldOp::IntegerDiv::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<BinaryFieldOp::IntegerDiv>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Circuit
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Circuit::BinaryFieldOp::IntegerDiv>::serialize(const Circuit::BinaryFieldOp::IntegerDiv& obj,
+                                                                        Serializer& serializer)
+{}
+
+template <>
+template <typename Deserializer>
+Circuit::BinaryFieldOp::IntegerDiv serde::Deserializable<Circuit::BinaryFieldOp::IntegerDiv>::deserialize(
+    Deserializer& deserializer)
+{
+    Circuit::BinaryFieldOp::IntegerDiv obj;
+    return obj;
+}
+
+namespace Circuit {
+
 inline bool operator==(const BinaryFieldOp::Equals& lhs, const BinaryFieldOp::Equals& rhs)
 {
     return true;
@@ -1454,6 +1512,88 @@ Circuit::BinaryFieldOp::Equals serde::Deserializable<Circuit::BinaryFieldOp::Equ
     Deserializer& deserializer)
 {
     Circuit::BinaryFieldOp::Equals obj;
+    return obj;
+}
+
+namespace Circuit {
+
+inline bool operator==(const BinaryFieldOp::LessThan& lhs, const BinaryFieldOp::LessThan& rhs)
+{
+    return true;
+}
+
+inline std::vector<uint8_t> BinaryFieldOp::LessThan::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<BinaryFieldOp::LessThan>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline BinaryFieldOp::LessThan BinaryFieldOp::LessThan::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<BinaryFieldOp::LessThan>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Circuit
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Circuit::BinaryFieldOp::LessThan>::serialize(const Circuit::BinaryFieldOp::LessThan& obj,
+                                                                      Serializer& serializer)
+{}
+
+template <>
+template <typename Deserializer>
+Circuit::BinaryFieldOp::LessThan serde::Deserializable<Circuit::BinaryFieldOp::LessThan>::deserialize(
+    Deserializer& deserializer)
+{
+    Circuit::BinaryFieldOp::LessThan obj;
+    return obj;
+}
+
+namespace Circuit {
+
+inline bool operator==(const BinaryFieldOp::LessThanEquals& lhs, const BinaryFieldOp::LessThanEquals& rhs)
+{
+    return true;
+}
+
+inline std::vector<uint8_t> BinaryFieldOp::LessThanEquals::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<BinaryFieldOp::LessThanEquals>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline BinaryFieldOp::LessThanEquals BinaryFieldOp::LessThanEquals::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<BinaryFieldOp::LessThanEquals>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Circuit
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Circuit::BinaryFieldOp::LessThanEquals>::serialize(
+    const Circuit::BinaryFieldOp::LessThanEquals& obj, Serializer& serializer)
+{}
+
+template <>
+template <typename Deserializer>
+Circuit::BinaryFieldOp::LessThanEquals serde::Deserializable<Circuit::BinaryFieldOp::LessThanEquals>::deserialize(
+    Deserializer& deserializer)
+{
+    Circuit::BinaryFieldOp::LessThanEquals obj;
     return obj;
 }
 
@@ -6309,68 +6449,6 @@ Circuit::Directive::ToLeRadix serde::Deserializable<Circuit::Directive::ToLeRadi
 
 namespace Circuit {
 
-inline bool operator==(const Directive::PermutationSort& lhs, const Directive::PermutationSort& rhs)
-{
-    if (!(lhs.inputs == rhs.inputs)) {
-        return false;
-    }
-    if (!(lhs.tuple == rhs.tuple)) {
-        return false;
-    }
-    if (!(lhs.bits == rhs.bits)) {
-        return false;
-    }
-    if (!(lhs.sort_by == rhs.sort_by)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> Directive::PermutationSort::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<Directive::PermutationSort>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline Directive::PermutationSort Directive::PermutationSort::bincodeDeserialize(std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<Directive::PermutationSort>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Circuit
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Circuit::Directive::PermutationSort>::serialize(const Circuit::Directive::PermutationSort& obj,
-                                                                         Serializer& serializer)
-{
-    serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
-    serde::Serializable<decltype(obj.tuple)>::serialize(obj.tuple, serializer);
-    serde::Serializable<decltype(obj.bits)>::serialize(obj.bits, serializer);
-    serde::Serializable<decltype(obj.sort_by)>::serialize(obj.sort_by, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Circuit::Directive::PermutationSort serde::Deserializable<Circuit::Directive::PermutationSort>::deserialize(
-    Deserializer& deserializer)
-{
-    Circuit::Directive::PermutationSort obj;
-    obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
-    obj.tuple = serde::Deserializable<decltype(obj.tuple)>::deserialize(deserializer);
-    obj.bits = serde::Deserializable<decltype(obj.bits)>::deserialize(deserializer);
-    obj.sort_by = serde::Deserializable<decltype(obj.sort_by)>::deserialize(deserializer);
-    return obj;
-}
-
-namespace Circuit {
-
 inline bool operator==(const Expression& lhs, const Expression& rhs)
 {
     if (!(lhs.mul_terms == rhs.mul_terms)) {
@@ -7363,6 +7441,61 @@ Circuit::Opcode::MemoryInit serde::Deserializable<Circuit::Opcode::MemoryInit>::
     Circuit::Opcode::MemoryInit obj;
     obj.block_id = serde::Deserializable<decltype(obj.block_id)>::deserialize(deserializer);
     obj.init = serde::Deserializable<decltype(obj.init)>::deserialize(deserializer);
+    return obj;
+}
+
+namespace Circuit {
+
+inline bool operator==(const Opcode::Call& lhs, const Opcode::Call& rhs)
+{
+    if (!(lhs.id == rhs.id)) {
+        return false;
+    }
+    if (!(lhs.inputs == rhs.inputs)) {
+        return false;
+    }
+    if (!(lhs.outputs == rhs.outputs)) {
+        return false;
+    }
+    return true;
+}
+
+inline std::vector<uint8_t> Opcode::Call::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<Opcode::Call>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline Opcode::Call Opcode::Call::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<Opcode::Call>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Circuit
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Circuit::Opcode::Call>::serialize(const Circuit::Opcode::Call& obj, Serializer& serializer)
+{
+    serde::Serializable<decltype(obj.id)>::serialize(obj.id, serializer);
+    serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
+    serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Circuit::Opcode::Call serde::Deserializable<Circuit::Opcode::Call>::deserialize(Deserializer& deserializer)
+{
+    Circuit::Opcode::Call obj;
+    obj.id = serde::Deserializable<decltype(obj.id)>::deserialize(deserializer);
+    obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
+    obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
     return obj;
 }
 

@@ -410,16 +410,6 @@ export function getLogger() {
   return createDebugLogger('aztec:' + describeBlockName);
 }
 
-// docs:start:delay
-/**
- * Sleep for a given number of milliseconds.
- * @param ms - the number of milliseconds to sleep for
- */
-export function delay(ms: number): Promise<void> {
-  return new Promise<void>(resolve => setTimeout(resolve, ms));
-}
-// docs:end:delay
-
 /**
  * Checks the number of encrypted logs in the last block is as expected.
  * @param aztecNode - The instance of aztec node for retrieving the logs.
@@ -513,7 +503,7 @@ export async function deployPublicProtocolContracts(deployer: Wallet) {
 
   await new BatchCall(deployer, [
     (await registerContractClass(deployer, canonicalGasToken.artifact)).request(),
-    deployInstance(deployer, canonicalGasToken.instance, { universalDeploy: true }).request(),
+    deployInstance(deployer, canonicalGasToken.instance).request(),
   ])
     .send()
     .wait();

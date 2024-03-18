@@ -59,13 +59,30 @@ describe('AVM simulator', () => {
       expect(results.output).toEqual([new Fr(3)]);
     });
 
+    it('Should execute contract function that performs U128 addition', async () => {
+      const calldata: Fr[] = [
+        // First U128
+        new Fr(1),
+        new Fr(2),
+        // Second U128
+        new Fr(3),
+        new Fr(4),
+      ];
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+      const bytecode = getAvmTestContractBytecode('avm_addU128');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([new Fr(4), new Fr(6)]);
+    });
+
     describe.each([
       ['avm_setOpcodeUint8', 8n],
-      // ['avm_setOpcodeUint16', 60000n],
       ['avm_setOpcodeUint32', 1n << 30n],
       ['avm_setOpcodeUint64', 1n << 60n],
-      // ['avm_setOpcodeUint128', 1n << 120n],
-      ['avm_setOpcodeSmallField', 200n],
+      ['avm_setOpcodeSmallField', 0x001234567890abcdef1234567890abcdefn],
+      ['avm_setOpcodeBigField', 0x991234567890abcdef1234567890abcdefn],
     ])('Should execute contract SET functions', (name: string, res: bigint) => {
       it(`Should execute contract function '${name}'`, async () => {
         const context = initContext();
@@ -481,7 +498,7 @@ describe('AVM simulator', () => {
     });
 
     describe('Storage accesses', () => {
-      it('Should set a single value in storage', async () => {
+      it('Should set value in storage (single)', async () => {
         const slot = 1n;
         const address = AztecAddress.fromField(new Fr(420));
         const value = new Fr(88);
@@ -507,7 +524,7 @@ describe('AVM simulator', () => {
         expect(slotTrace).toEqual([value]);
       });
 
-      it('Should read a single value in storage', async () => {
+      it('Should read value in storage (single)', async () => {
         const slot = 1n;
         const value = new Fr(12345);
         const address = AztecAddress.fromField(new Fr(420));
@@ -533,7 +550,7 @@ describe('AVM simulator', () => {
         expect(slotTrace).toEqual([value]);
       });
 
-      it('Should set and read a value from storage', async () => {
+      it('Should set and read a value from storage (single)', async () => {
         const slot = 1n;
         const value = new Fr(12345);
         const address = AztecAddress.fromField(new Fr(420));
@@ -560,7 +577,7 @@ describe('AVM simulator', () => {
         expect(slotWriteTrace).toEqual([value]);
       });
 
-      it('Should set multiple values in storage', async () => {
+      it('Should set a value in storage (list)', async () => {
         const slot = 2n;
         const sender = AztecAddress.fromField(new Fr(1));
         const address = AztecAddress.fromField(new Fr(420));
@@ -585,7 +602,7 @@ describe('AVM simulator', () => {
         expect(storageTrace.get(slot + 1n)).toEqual([calldata[1]]);
       });
 
-      it('Should read multiple values in storage', async () => {
+      it('Should read a value in storage (list)', async () => {
         const slot = 2n;
         const address = AztecAddress.fromField(new Fr(420));
         const values = [new Fr(1), new Fr(2)];
@@ -611,6 +628,80 @@ describe('AVM simulator', () => {
         const storageTrace = worldState.storageReads.get(address.toBigInt())!;
         expect(storageTrace.get(slot)).toEqual([values[0]]);
         expect(storageTrace.get(slot + 1n)).toEqual([values[1]]);
+      });
+
+      it('Should set a value in storage (map)', async () => {
+        const address = AztecAddress.fromField(new Fr(420));
+        const value = new Fr(12345);
+        const calldata = [address.toField(), value];
+
+        const context = initContext({
+          env: initExecutionEnvironment({ address, calldata, storageAddress: address }),
+        });
+        const bytecode = getAvmTestContractBytecode('avm_setStorageMap');
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+        expect(results.reverted).toBe(false);
+        // returns the storage slot for modified key
+        const slotNumber = results.output[0].toBigInt();
+
+        const worldState = context.persistableState.flush();
+        const storageSlot = worldState.currentStorageValue.get(address.toBigInt())!;
+        expect(storageSlot.get(slotNumber)).toEqual(value);
+
+        // Tracing
+        const storageTrace = worldState.storageWrites.get(address.toBigInt())!;
+        expect(storageTrace.get(slotNumber)).toEqual([value]);
+      });
+
+      it('Should read-add-set a value in storage (map)', async () => {
+        const address = AztecAddress.fromField(new Fr(420));
+        const value = new Fr(12345);
+        const calldata = [address.toField(), value];
+
+        const context = initContext({
+          env: initExecutionEnvironment({ address, calldata, storageAddress: address }),
+        });
+        const bytecode = getAvmTestContractBytecode('avm_addStorageMap');
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+        expect(results.reverted).toBe(false);
+        // returns the storage slot for modified key
+        const slotNumber = results.output[0].toBigInt();
+
+        const worldState = context.persistableState.flush();
+        const storageSlot = worldState.currentStorageValue.get(address.toBigInt())!;
+        expect(storageSlot.get(slotNumber)).toEqual(value);
+
+        // Tracing
+        const storageReadTrace = worldState.storageReads.get(address.toBigInt())!;
+        expect(storageReadTrace.get(slotNumber)).toEqual([new Fr(0)]);
+        const storageWriteTrace = worldState.storageWrites.get(address.toBigInt())!;
+        expect(storageWriteTrace.get(slotNumber)).toEqual([value]);
+      });
+
+      it('Should read value in storage (map)', async () => {
+        const value = new Fr(12345);
+        const address = AztecAddress.fromField(new Fr(420));
+        const calldata = [address.toField()];
+
+        const context = initContext({
+          env: initExecutionEnvironment({ calldata, address, storageAddress: address }),
+        });
+        jest
+          .spyOn(context.persistableState.hostStorage.publicStateDb, 'storageRead')
+          .mockReturnValue(Promise.resolve(value));
+        const bytecode = getAvmTestContractBytecode('avm_readStorageMap');
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+        // Get contract function artifact
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([value]);
+
+        // Tracing
+        const worldState = context.persistableState.flush();
+        const storageTrace = worldState.storageReads.get(address.toBigInt())!;
+        expect([...storageTrace.values()]).toEqual([[value]]);
       });
     });
   });
