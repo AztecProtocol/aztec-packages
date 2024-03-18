@@ -76,8 +76,7 @@ To send a message to L1 from your Aztec contract, you must use the `message_port
 
 #include_code context_message_portal /noir-projects/aztec-nr/aztec/src/context/private_context.nr rust
 
-When sending a message from L2 to L1 we don't need to pass recipient nor secret.
-Recipient is populated with the attached portal and the remaining values are not needed as the message is inserted into the outbox at the same time as it was included in a block (for the inbox it could be inserted and then only included in rollup block later).
+When sending a message from L2 to L1 we don't need to pass in a secret.
 
 :::danger
 Access control on the L1 portal contract is essential to prevent consumption of messages sent from the wrong L2 contract.
