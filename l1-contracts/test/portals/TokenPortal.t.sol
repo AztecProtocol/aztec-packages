@@ -7,16 +7,13 @@ import {Rollup} from "../../src/core/Rollup.sol";
 import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
 import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
-import {Outbox} from "../../src/core/messagebridge/Outbox.sol";
-import {NewOutbox} from "../../src/core/messagebridge/NewOutbox.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 import {Hash} from "../../src/core/libraries/Hash.sol";
 import {Errors} from "../../src/core/libraries/Errors.sol";
 
 // Interfaces
-import {IRegistry} from "../../src/core/interfaces/messagebridge/IRegistry.sol";
 import {IInbox} from "../../src/core/interfaces/messagebridge/IInbox.sol";
-import {INewOutbox} from "../../src/core/interfaces/messagebridge/INewOutbox.sol";
+import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
 
 // Portal tokens
 import {TokenPortal} from "./TokenPortal.sol";
@@ -33,9 +30,10 @@ contract TokenPortalTest is Test {
   event MessageConsumed(bytes32 indexed entryKey, address indexed recipient);
 
   Registry internal registry;
+
   IInbox internal inbox;
-  Outbox internal outbox;
-  NewOutbox internal newOutbox;
+  IOutbox internal outbox;
+
   Rollup internal rollup;
   bytes32 internal l2TokenAddress = bytes32(uint256(0x42));
 
@@ -60,10 +58,9 @@ contract TokenPortalTest is Test {
 
   function setUp() public {
     registry = new Registry();
-    outbox = new Outbox(address(registry));
     rollup = new Rollup(registry, new AvailabilityOracle());
-    newOutbox = new NewOutbox(address(rollup));
     inbox = rollup.INBOX();
+    outbox = rollup.OUTBOX();
 
     registry.upgrade(address(rollup), address(inbox), address(outbox));
 
@@ -71,13 +68,13 @@ contract TokenPortalTest is Test {
     tokenPortal = new TokenPortal();
 
     tokenPortal.initialize(
-      address(registry), address(newOutbox), address(portalERC20), l2TokenAddress
+      address(registry), address(portalERC20), l2TokenAddress
     );
 
     vm.deal(address(this), 100 ether);
   }
 
-  function _createExpectedMintPrivateL1ToL2Message(address _canceller)
+  function _createExpectedMintPrivateL1ToL2Message()
     internal
     view
     returns (DataStructures.L1ToL2Msg memory)
@@ -114,7 +111,7 @@ contract TokenPortalTest is Test {
 
     // Check for the expected message
     DataStructures.L1ToL2Msg memory expectedMessage =
-      _createExpectedMintPrivateL1ToL2Message(address(this));
+      _createExpectedMintPrivateL1ToL2Message();
 
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
 
@@ -192,18 +189,14 @@ contract TokenPortalTest is Test {
 
     uint256 treeHeight = 1;
     NaiveMerkle tree = new NaiveMerkle(treeHeight);
-
-    // for (uint256 i = 0; i < _messageLeafs.length; i++) {
-    // vm.assume(_messageLeafs[i] != bytes32(0));
     tree.insertLeaf(l2ToL1Message);
-    // }
 
     (bytes32[] memory siblingPath,) = tree.computeSiblingPath(0);
 
     bytes32 treeRoot = tree.computeRoot();
     // Insert messages into the outbox (impersonating the rollup contract)
     vm.prank(address(rollup));
-    newOutbox.insert(_l2BlockNumber, treeRoot, treeHeight);
+    outbox.insert(_l2BlockNumber, treeRoot, treeHeight);
 
     return (l2ToL1Message, siblingPath, treeRoot);
   }
@@ -219,7 +212,7 @@ contract TokenPortalTest is Test {
 
     vm.startPrank(_caller);
     vm.expectEmit(true, true, true, true);
-    emit INewOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, 0);
+    emit IOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, 0);
     tokenPortal.withdraw(recipient, withdrawAmount, false, l2BlockNumber, 0, siblingPath);
 
     // Should have received 654 RNA tokens
@@ -247,9 +240,9 @@ contract TokenPortalTest is Test {
     );
     tokenPortal.withdraw(recipient, withdrawAmount, true, l2BlockNumber, 0, siblingPath);
 
-    (bytes32 entryKeyPortalChecksAgainst,) = _createWithdrawMessageForOutbox(address(0));
+    (, consumedRoot) = _createWithdrawMessageForOutbox(address(0));
     vm.expectRevert(
-      // abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, treeRoot, consumedRoot)
     );
     tokenPortal.withdraw(recipient, withdrawAmount, false, l2BlockNumber, 0, siblingPath);
     vm.stopPrank();
@@ -262,7 +255,7 @@ contract TokenPortalTest is Test {
       _addWithdrawMessageInOutbox(address(this), l2BlockNumber);
 
     vm.expectEmit(true, true, true, true);
-    emit INewOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, 0);
+    emit IOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, 0);
     tokenPortal.withdraw(recipient, withdrawAmount, true, l2BlockNumber, 0, siblingPath);
 
     // Should have received 654 RNA tokens
