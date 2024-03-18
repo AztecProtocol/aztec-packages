@@ -266,11 +266,7 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
     }
 };
 
-<<<<<<< HEAD
 using PCSTypes = ::testing::Types</*KZG<curve::BN254>,*/ IPA<curve::Grumpkin>>;
-=======
-using PCSTypes = ::testing::Types<KZG<curve::BN254>>;
->>>>>>> origin/master
 TYPED_TEST_SUITE(ZeroMorphTest, PCSTypes);
 TYPED_TEST_SUITE(ZeroMorphWithConcatenationTest, PCSTypes);
 

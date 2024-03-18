@@ -1,3 +1,4 @@
+
 #include "../gemini/gemini.hpp"
 #include "../shplonk/shplonk.hpp"
 #include "./mock_transcript.hpp"
@@ -71,8 +72,8 @@ TEST_F(IPATest, OpenZeroPolynomial)
     // initialize verifier transcript from proof data
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
-    auto result = IPA::verify(this->vk(), opening_claim, verifier_transcript);
-    EXPECT_TRUE(result);
+    auto result = IPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
+    EXPECT_TRUE(result.check());
 }
 
 // This test makes sure that even if the whole vector \vec{b} generated from the x, at which we open the polynomial, is
@@ -96,8 +97,8 @@ TEST_F(IPATest, OpenAtZero)
     // initialize verifier transcript from proof data
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
-    auto result = IPA::verify(this->vk(), opening_claim, verifier_transcript);
-    EXPECT_TRUE(result);
+    auto result = IPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
+    EXPECT_TRUE(result.check());
 }
 
 namespace bb {
@@ -144,7 +145,7 @@ TEST_F(IPATest, ChallengesAreZero)
         auto new_random_vector = random_vector;
         new_random_vector[i] = Fr::zero();
         transcript->initialize(new_random_vector, lrs, { uint256_t(n) });
-        EXPECT_ANY_THROW(IPA::verify_internal(this->vk(), opening_claim, transcript));
+        EXPECT_ANY_THROW(IPA::reduce_verify_internal(this->vk(), opening_claim, transcript));
     }
 }
 
@@ -186,7 +187,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
     transcript->reset_indices();
 
     // Verify
-    EXPECT_TRUE(IPA::verify_internal(this->vk(), opening_claim, transcript));
+    EXPECT_TRUE(IPA::reduce_verify_internal(this->vk(), opening_claim, transcript).check());
 }
 #endif
 } // namespace bb
@@ -216,32 +217,6 @@ TEST_F(IPATest, Open)
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
-    const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
-
-    // initialize empty prover transcript
-    auto prover_transcript = std::make_shared<NativeTranscript>();
-    IPA::compute_opening_proof(this->ck(), opening_pair, poly, prover_transcript);
-
-    // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
-
-    auto result = IPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
-    EXPECT_TRUE(result.check());
-
-    EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
-}
-
-TEST_F(IPATest, OpenAtZero)
-{
-    using IPA = IPA<Curve>;
-    // generate a random polynomial, degree needs to be a power of two
-    size_t n = 2;
-    Polynomial poly(n);
-    poly[0] = Fr(-2);
-    poly[1] = Fr(1);
-    // auto [x, eval] = this->random_eval(poly);
-    auto commitment = this->commit(poly);
-    const OpeningPair<Curve> opening_pair = { Fr(2), Fr(0) };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
     // initialize empty prover transcript
@@ -347,7 +322,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     const auto shplonk_verifier_claim =
         ShplonkVerifier::reduce_verification(this->vk(), gemini_verifier_claim, verifier_transcript);
-    auto verifier_accumulator = IPA::reduce_verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
+    auto accumulator = IPA::reduce_verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
 
-    EXPECT_EQ(verifier_accumulator.check(), true);
+    EXPECT_EQ(accumulator.check(), true);
 }

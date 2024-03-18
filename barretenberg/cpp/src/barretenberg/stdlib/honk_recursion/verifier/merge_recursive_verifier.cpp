@@ -15,7 +15,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  * @return std::array<typename Flavor::GroupElement, 2> Inputs to final pairing
  */
 template <typename CircuitBuilder>
-VerifierAccumulator<typename bn254<CircuitBuilder>> MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
+std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
     const HonkProof& proof)
 {
     // transform it into stdlib proof
@@ -79,7 +79,7 @@ VerifierAccumulator<typename bn254<CircuitBuilder>> MergeRecursiveVerifier_<Circ
 
     OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
 
-    auto pairing_points = KZG::reduce_verify(batched_claim, transcript);
+    auto pairing_points = KZG::reduce_verify(pcs_verification_key, batched_claim, transcript).get_pairing_points();
 
     return pairing_points;
 }

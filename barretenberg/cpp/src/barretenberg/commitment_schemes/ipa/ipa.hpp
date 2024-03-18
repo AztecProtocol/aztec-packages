@@ -463,7 +463,7 @@ template <typename Curve_> class IPA {
         // Step 11.
         // Check if C_right == C₀
         bool verified = (C_zero.normalize() == right_hand_side.normalize());
-        return VerifierAccumulator{ verified };
+        return VerifierAccumulator(verified, vk);
     }
 
   public:
@@ -503,7 +503,7 @@ template <typename Curve_> class IPA {
                                              const OpeningClaim<Curve>& opening_claim,
                                              const std::shared_ptr<NativeTranscript>& transcript)
     {
-        return verify_internal(vk, opening_claim, transcript);
+        return reduce_verify_internal(vk, opening_claim, transcript);
     }
 };
 
