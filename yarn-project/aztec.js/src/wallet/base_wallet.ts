@@ -34,7 +34,7 @@ export abstract class BaseWallet implements Wallet {
   abstract createTxExecutionRequest(execs: FunctionCall[], fee?: FeeOptions): Promise<TxExecutionRequest>;
 
   abstract createAuthWit(
-    messageOrAuthWitInput:
+    messageHashOrIntent:
       | Fr
       | Buffer
       | {

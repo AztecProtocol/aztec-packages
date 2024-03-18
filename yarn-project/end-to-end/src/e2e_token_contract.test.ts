@@ -493,7 +493,7 @@ describe('e2e_token_contract', () => {
 
           await wallets[0].cancelAuthWit({ caller: accounts[1].address, action }).send().wait();
 
-          // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
+          // Check that the authwit is no longer valid. Need to try to send since nullifiers are handled by sequencer.
           const txCancelledAuthwit = asset
             .withWallet(wallets[1])
             .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
@@ -515,7 +515,7 @@ describe('e2e_token_contract', () => {
 
           await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, false).send().wait();
 
-          // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
+          // Check that the authwit is no longer valid. Need to try to send since nullifiers are handled by sequencer.
           const txCancelledAuthwit = asset
             .withWallet(wallets[1])
             .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)

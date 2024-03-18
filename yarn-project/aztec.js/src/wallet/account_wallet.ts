@@ -23,11 +23,11 @@ export class AccountWallet extends BaseWallet {
    * Computes an authentication witness from either a message or a caller and an action.
    * If a message is provided, it will create a witness for the message directly.
    * Otherwise, it will compute the message using the caller and the action.
-   * @param messageOrAuthWitInput - The message or the caller and action to approve
+   * @param messageHashOrIntent - The message or the caller and action to approve
    * @returns The authentication witness
    */
   async createAuthWit(
-    messageOrAuthWitInput:
+    messageHashOrIntent:
       | Fr
       | Buffer
       | {
@@ -37,19 +37,19 @@ export class AccountWallet extends BaseWallet {
           action: ContractFunctionInteraction | FunctionCall;
         },
   ): Promise<AuthWitness> {
-    const message = this.getMessage(messageOrAuthWitInput);
-    const witness = await this.account.createAuthWit(message);
+    const messageHash = this.getMessageHash(messageHashOrIntent);
+    const witness = await this.account.createAuthWit(messageHash);
     await this.pxe.addAuthWitness(witness);
     return witness;
   }
 
   /**
    * Returns the message hash for the given message or authwit input.
-   * @param messageOrAuthWitInput - The message or the caller and action to authorize
-   * @returns Message hash
+   * @param messageHashOrIntent - The message hash or the caller and action to authorize
+   * @returns The message hash
    */
-  private getMessage(
-    messageOrAuthWitInput:
+  private getMessageHash(
+    messageHashOrIntent:
       | Fr
       | Buffer
       | {
@@ -59,25 +59,25 @@ export class AccountWallet extends BaseWallet {
           action: ContractFunctionInteraction | FunctionCall;
         },
   ): Fr {
-    if (Buffer.isBuffer(messageOrAuthWitInput)) {
-      return Fr.fromBuffer(messageOrAuthWitInput);
-    } else if (messageOrAuthWitInput instanceof Fr) {
-      return messageOrAuthWitInput;
-    } else if (messageOrAuthWitInput.action instanceof ContractFunctionInteraction) {
-      return computeAuthWitMessageHash(messageOrAuthWitInput.caller, messageOrAuthWitInput.action.request());
+    if (Buffer.isBuffer(messageHashOrIntent)) {
+      return Fr.fromBuffer(messageHashOrIntent);
+    } else if (messageHashOrIntent instanceof Fr) {
+      return messageHashOrIntent;
+    } else if (messageHashOrIntent.action instanceof ContractFunctionInteraction) {
+      return computeAuthWitMessageHash(messageHashOrIntent.caller, messageHashOrIntent.action.request());
     }
-    return computeAuthWitMessageHash(messageOrAuthWitInput.caller, messageOrAuthWitInput.action);
+    return computeAuthWitMessageHash(messageHashOrIntent.caller, messageHashOrIntent.action);
   }
 
   /**
    * Returns a function interaction to set a message hash as authorized or revoked in this account.
    * Public calls can then consume this authorization.
-   * @param messageOrAuthWitInput - The message or the caller and action to authorize/revoke
+   * @param messageHashOrIntent - The message or the caller and action to authorize/revoke
    * @param authorized - True to authorize, false to revoke authorization.
    * @returns - A function interaction.
    */
   public setPublicAuthWit(
-    messageOrAuthWitInput:
+    messageHashOrIntent:
       | Fr
       | Buffer
       | {
@@ -88,7 +88,7 @@ export class AccountWallet extends BaseWallet {
         },
     authorized: boolean,
   ): ContractFunctionInteraction {
-    const message = this.getMessage(messageOrAuthWitInput);
+    const message = this.getMessageHash(messageHashOrIntent);
     if (authorized) {
       return new ContractFunctionInteraction(this, this.getAddress(), this.getApprovePublicAuthwitAbi(), [message]);
     } else {
@@ -98,11 +98,11 @@ export class AccountWallet extends BaseWallet {
 
   /**
    * Returns a function interaction to cancel a message hash as authorized in this account.
-   * @param messageOrAuthWitInput - The message or the caller and action to authorize/revoke
+   * @param messageHashOrIntent - The message or the caller and action to authorize/revoke
    * @returns - A function interaction.
    */
   public cancelAuthWit(
-    messageOrAuthWitInput:
+    messageHashOrIntent:
       | Fr
       | Buffer
       | {
@@ -112,7 +112,7 @@ export class AccountWallet extends BaseWallet {
           action: ContractFunctionInteraction | FunctionCall;
         },
   ): ContractFunctionInteraction {
-    const message = this.getMessage(messageOrAuthWitInput);
+    const message = this.getMessageHash(messageHashOrIntent);
     const args = [message];
     return new ContractFunctionInteraction(this, this.getAddress(), this.getCancelAuthwitAbi(), args);
   }

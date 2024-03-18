@@ -19,14 +19,14 @@ export type FeeOptions = {
 /** Creates authorization witnesses. */
 export interface AuthWitnessProvider {
   /**
-   * Computes an authentication witness from either a message or a caller and an action.
-   * If a message is provided, it will create a witness for the message directly.
-   * Otherwise, it will compute the message using the caller and the action.
-   * @param messageOrAuthWitInput - The message or the caller and action to approve
+   * Computes an authentication witness from either a message hash or an intent (caller and an action).
+   * If a message hash is provided, it will create a witness for that directly.
+   * Otherwise, it will compute the message hash using the caller and the action of the intent.
+   * @param messageHashOrIntent - The message hash or the intent (caller and action) to approve
    * @returns The authentication witness
    */
   createAuthWit(
-    messageOrAuthWitInput:
+    messageHashOrIntent:
       | Fr
       | Buffer
       | {
