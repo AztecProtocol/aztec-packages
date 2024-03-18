@@ -24,7 +24,7 @@ describe('e2e_authwit_tests', () => {
         const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead')]);
         const outerHash = computeOuterAuthWitHash(wallets[1].getAddress(), innerHash);
 
-        const witness = await wallets[0].createAuthWitness(outerHash);
+        const witness = await wallets[0].createAuthWit(outerHash);
         await wallets[1].addAuthWitness(witness);
 
         const c = await SchnorrAccountContract.at(wallets[0].getAddress(), wallets[0]);
@@ -36,14 +36,14 @@ describe('e2e_authwit_tests', () => {
           const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0xbeef')]);
           const outerHash = computeOuterAuthWitHash(wallets[1].getAddress(), innerHash);
 
-          const witness = await wallets[0].createAuthWitness(outerHash);
+          const witness = await wallets[0].createAuthWit(outerHash);
           await wallets[1].addAuthWitness(witness);
           await wallets[0].cancelAuthWit(outerHash).send().wait();
 
           const c = await SchnorrAccountContract.at(wallets[0].getAddress(), wallets[0]);
           const txCancelledAuthwit = c.withWallet(wallets[1]).methods.spend_private_authwit(innerHash).send();
           // The transaction should be dropped because of a cancelled authwit (duplicate nullifier)
-          await expect(txCancelledAuthwit.wait()).rejects.toThrowError('Transaction ');
+          await expect(txCancelledAuthwit.wait()).rejects.toThrow('Transaction ');
         });
       });
     });
@@ -55,7 +55,7 @@ describe('e2e_authwit_tests', () => {
         const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0x01')]);
         const outerHash = computeOuterAuthWitHash(wallets[1].getAddress(), innerHash);
 
-        await wallets[0].setPublicAuth(outerHash, true).send().wait();
+        await wallets[0].setPublicAuthWit(outerHash, true).send().wait();
 
         const c = await SchnorrAccountContract.at(wallets[0].getAddress(), wallets[0]);
         await c.withWallet(wallets[1]).methods.spend_public_authwit(innerHash).send().wait();
@@ -66,14 +66,14 @@ describe('e2e_authwit_tests', () => {
           const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0x02')]);
           const outerHash = computeOuterAuthWitHash(wallets[1].getAddress(), innerHash);
 
-          await wallets[0].setPublicAuth(outerHash, true).send().wait();
+          await wallets[0].setPublicAuthWit(outerHash, true).send().wait();
 
           await wallets[0].cancelAuthWit(outerHash).send().wait();
 
           const c = await SchnorrAccountContract.at(wallets[0].getAddress(), wallets[0]);
           const txCancelledAuthwit = c.withWallet(wallets[1]).methods.spend_public_authwit(innerHash).send();
           // The transaction should be dropped because of a cancelled authwit (duplicate nullifier)
-          await expect(txCancelledAuthwit.wait()).rejects.toThrowError('Transaction ');
+          await expect(txCancelledAuthwit.wait()).rejects.toThrow('Transaction ');
         });
       });
     });
