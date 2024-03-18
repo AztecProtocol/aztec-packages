@@ -57,7 +57,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
         let function_data = call_stack_item.function_data;
         assert(function_data.is_private, "Private kernel circuit can only execute a private function");
-        assert(function_data.is_internal == false, "Cannot call an internal function directly");
 
         let call_context = call_stack_item.public_inputs.call_context;
         assert(call_context.is_delegate_call == false, "Users cannot make a delegatecall");
@@ -124,7 +123,7 @@ mod tests {
         address::{AztecAddress, EthAddress, compute_initialization_hash},
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, grumpkin_point::GrumpkinPoint,
         grumpkin_private_key::GrumpkinPrivateKey,
-        hash::{compute_constructor_hash, compute_logs_hash, stdlib_recursion_verification_key_compress_native_vk},
+        hash::{compute_logs_hash, stdlib_recursion_verification_key_compress_native_vk},
         messaging::l2_to_l1_message::L2ToL1Message,
         tests::private_call_data_builder::PrivateCallDataBuilder, transaction::tx_request::TxRequest,
         utils::arrays::array_length
@@ -277,15 +276,6 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Cannot call an internal function directly")]
-    fn private_function_is_internal_fails() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-
-        builder.private_call.function_data.is_internal = true;
-
-        builder.failed();
-    }
-
     #[test(should_fail_with="Users cannot make a static call")]
     fn private_function_static_call_fails() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
@@ -405,7 +395,7 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new();
         let public_inputs = builder.execute();
 
-        assert(public_inputs.end.max_block_number.is_none());
+        assert(public_inputs.validation_requests.for_rollup.max_block_number.is_none());
     }
 
     #[test]
@@ -414,7 +404,7 @@ mod tests {
         builder.private_call.request_max_block_number(42);
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.max_block_number.unwrap(), 42);
+        assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 42);
     }
 
     #[test]
@@ -427,7 +417,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 0);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 0);
     }
 
     #[test]
@@ -442,7 +432,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 0);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 0);
     }
 
     #[test]
@@ -457,7 +447,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 0);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 0);
     }
 
     #[test]
@@ -472,7 +462,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 0);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 0);
     }
 
     #[test]
@@ -487,7 +477,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 1);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 1);
     }
 
     #[test]
@@ -503,7 +493,7 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, builder.tx_request.hash());
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 1);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 1);
     }
 
     #[test]
@@ -519,7 +509,7 @@ mod tests {
 
         // non-transient read requests are NOT forwarded
         assert_eq(
-            array_length(public_inputs.end.note_hash_read_requests), MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
+            array_length(public_inputs.validation_requests.note_hash_read_requests), MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
         );
     }
 
@@ -535,7 +525,7 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        let end_nullifier_read_requests = public_inputs.end.nullifier_read_requests;
+        let end_nullifier_read_requests = public_inputs.validation_requests.nullifier_read_requests;
         assert_eq(array_length(end_nullifier_read_requests), 2);
 
         let request_context = end_nullifier_read_requests[0];
@@ -558,9 +548,9 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert_eq(array_length(public_inputs.end.nullifier_key_validation_requests), 1);
+        assert_eq(array_length(public_inputs.validation_requests.nullifier_key_validation_requests), 1);
 
-        let request_context = public_inputs.end.nullifier_key_validation_requests[0];
+        let request_context = public_inputs.validation_requests.nullifier_key_validation_requests[0];
         assert_eq(request_context.public_key, request.public_key);
         assert_eq(request_context.secret_key, request.secret_key);
         assert_eq(

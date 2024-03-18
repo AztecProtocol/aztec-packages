@@ -71,12 +71,14 @@ impl BaseRollupInputs {
             == self.constants.global_variables.version, "kernel version does not match the rollup version"
         );
 
+        let rollup_validation_requests = self.kernel_data.public_inputs.rollup_validation_requests;
+
         // Verify the max block number
         // TODO: why is block_number a Field and not u32?
-        if self.kernel_data.public_inputs.end.max_block_number.is_some() {
+        if rollup_validation_requests.max_block_number.is_some() {
             assert(
                 self.constants.global_variables.block_number as u32
-                <= self.kernel_data.public_inputs.end.max_block_number.unwrap_unchecked(), "kernel max_block_number is smaller than block number"
+                <= rollup_validation_requests.max_block_number.unwrap_unchecked(), "kernel max_block_number is smaller than block number"
             );
         }
 

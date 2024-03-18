@@ -7,10 +7,11 @@ use crate::{
     PrivateKernelInnerCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs,
     PublicKernelCircuitPublicInputs, RollupKernelCircuitPublicInputs
 },
-    kernel_data::{PrivateKernelInnerData, PrivateKernelTailData, PublicKernelData, RollupKernelData},
+    kernel_data::{PrivateKernelInnerData, PublicKernelData, RollupKernelData},
     max_block_number::MaxBlockNumber, public_data_read::PublicDataRead,
     public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequestContext,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash},
+    validation_requests::ValidationRequestsBuilder
 },
     address::{AztecAddress, EthAddress}, header::Header, hash::silo_nullifier,
     mocked::{AggregationObject, Proof, VerificationKey},
@@ -21,11 +22,13 @@ use crate::constants::{
     MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NUM_FIELDS_PER_SHA256,
     VK_TREE_HEIGHT
 };
+use dep::std::unsafe;
 
 struct PreviousKernelDataBuilder {
     contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
     portal_contract_address: EthAddress,
+    validation_requests: ValidationRequestsBuilder,
     end: CombinedAccumulatedDataBuilder,
     end_non_revertible: AccumulatedNonRevertibleDataBuilder,
     historical_header: Header,
@@ -61,6 +64,7 @@ impl PreviousKernelDataBuilder {
             contract_address: fixtures::contracts::parent_contract.address,
             storage_contract_address: fixtures::contracts::parent_contract.address,
             portal_contract_address: fixtures::contracts::parent_contract.portal_contract_address,
+            validation_requests: unsafe::zeroed(),
             end,
             end_non_revertible,
             historical_header: fixtures::HEADER,
@@ -82,11 +86,7 @@ impl PreviousKernelDataBuilder {
     }
 
     pub fn set_max_block_number(&mut self, max_block_number: u32) {
-        // TODO: the builder makes a distinction between building a kernel for public and for private, but 
-        // max_block_number lives in end_non_revertible for public, and end for private and rollup. We therefore store
-        // it in both places.
-        self.end_non_revertible.max_block_number = MaxBlockNumber::new(max_block_number);
-        self.end.max_block_number = MaxBlockNumber::new(max_block_number);
+        self.validation_requests.max_block_number = MaxBlockNumber::new(max_block_number);
     }
 
     pub fn append_public_data_update_requests(&mut self, num_updates: u64) {
@@ -105,7 +105,7 @@ impl PreviousKernelDataBuilder {
     }
 
     pub fn append_public_data_read_requests(&mut self, num_reads: u64) {
-        let value_offset = self.end.public_data_reads.len();
+        let value_offset = self.validation_requests.public_data_reads.len();
         for i in 0..MAX_PUBLIC_DATA_READS_PER_TX {
             if i < num_reads {
                 let read_request = PublicDataRead {
@@ -114,7 +114,7 @@ impl PreviousKernelDataBuilder {
                     // The default value is its index + 5566.
                     value: (value_offset + i + 5566) as Field
                 };
-                self.end.public_data_reads.push(read_request);
+                self.validation_requests.public_data_reads.push(read_request);
             }
         }
     }
@@ -126,10 +126,10 @@ impl PreviousKernelDataBuilder {
     }
 
     pub fn add_read_request_for_transient_commitment(&mut self, commitment_index: u64) -> u64 {
-        let new_read_request_index = self.end.note_hash_read_requests.len();
+        let new_read_request_index = self.validation_requests.note_hash_read_requests.len();
         let commitment = self.end.new_note_hashes.get(commitment_index);
         let read_request = SideEffect { value: commitment.value, counter: self.next_sideffect_counter() };
-        self.end.note_hash_read_requests.push(read_request);
+        self.validation_requests.note_hash_read_requests.push(read_request);
         new_read_request_index
     }
 
@@ -199,26 +199,26 @@ impl PreviousKernelDataBuilder {
     }
 
     pub fn add_read_request_for_pending_nullifier(&mut self, nullifier_index: u64) -> u64 {
-        let read_request_index = self.end.nullifier_read_requests.len();
+        let read_request_index = self.validation_requests.nullifier_read_requests.len();
         let unsiloed_nullifier = self.get_mock_nullifier_value(nullifier_index);
         let read_request = ReadRequestContext {
             value: unsiloed_nullifier,
             counter: self.next_sideffect_counter(),
             contract_address: self.storage_contract_address
         };
-        self.end.nullifier_read_requests.push(read_request);
+        self.validation_requests.nullifier_read_requests.push(read_request);
         read_request_index
     }
 
-    pub fn add_read_request_for_pending_nullifier_non_revertible(&mut self, nullifier_index: u64) -> u64 {
-        let read_request_index = self.end_non_revertible.nullifier_read_requests.len();
+    pub fn add_read_request_for_pending_non_revertible_nullifier(&mut self, nullifier_index: u64) -> u64 {
+        let read_request_index = self.validation_requests.nullifier_read_requests.len();
         let unsiloed_nullifier = self.get_mock_nullifier_value_non_revertible(nullifier_index);
         let read_request = ReadRequestContext {
             value: unsiloed_nullifier,
             counter: self.next_sideffect_counter(),
             contract_address: self.storage_contract_address
         };
-        self.end_non_revertible.nullifier_read_requests.push(read_request);
+        self.validation_requests.nullifier_read_requests.push(read_request);
         read_request_index
     }
 
@@ -228,7 +228,7 @@ impl PreviousKernelDataBuilder {
             counter: self.next_sideffect_counter(),
             contract_address: self.storage_contract_address
         };
-        self.end_non_revertible.nullifier_non_existent_read_requests.push(read_request);
+        self.validation_requests.nullifier_non_existent_read_requests.push(read_request);
     }
 
     // snapshot the side effects
@@ -285,27 +285,11 @@ impl PreviousKernelDataBuilder {
             aggregation_object: AggregationObject {},
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             end: self.end.finish(),
+            validation_requests: self.validation_requests.finish(),
             constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context },
             is_private: self.is_private
         };
         PrivateKernelInnerData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
-    }
-
-    pub fn to_private_kernel_tail_data(self) -> PrivateKernelTailData {
-        let end_non_revertible = self.end_non_revertible.to_private();
-        let end = self.end.to_private_accumulated_revertible_data();
-        let public_inputs = PrivateKernelTailCircuitPublicInputs {
-            aggregation_object: AggregationObject {},
-            end_non_revertible,
-            // side effects are already paritioned by this builder
-            end,
-            constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context },
-            needs_setup: end_non_revertible.needs_setup(),
-            needs_app_logic: end.needs_app_logic(),
-            needs_teardown: end_non_revertible.needs_teardown()
-        };
-
-        PrivateKernelTailData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_public_kernel_data(self) -> PublicKernelData {
@@ -315,6 +299,8 @@ impl PreviousKernelDataBuilder {
             aggregation_object: AggregationObject {},
             end_non_revertible,
             end,
+            validation_requests: self.validation_requests.finish(),
+            rollup_validation_requests: self.validation_requests.to_rollup(),
             constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context },
             needs_setup: end_non_revertible.needs_setup(),
             needs_app_logic: end.needs_app_logic(),
@@ -329,7 +315,8 @@ impl PreviousKernelDataBuilder {
         let public_inputs = RollupKernelCircuitPublicInputs {
             aggregation_object: AggregationObject {},
             end: self.end.finish(),
-            constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context }
+            constants: CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context },
+            rollup_validation_requests: self.validation_requests.to_rollup()
         };
 
         RollupKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }

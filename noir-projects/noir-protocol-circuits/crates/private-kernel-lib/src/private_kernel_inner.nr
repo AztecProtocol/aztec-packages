@@ -101,12 +101,6 @@ mod tests {
             *self
         }
 
-        pub fn is_internal_call(&mut self) -> Self {
-            let _ = self.private_call.is_internal_call();
-            self.previous_kernel.contract_address = self.private_call.contract_address;
-            *self
-        }
-
         pub fn execute(&mut self) -> PrivateKernelInnerCircuitPublicInputs {
             let private_call = self.private_call.finish();
             // Update the previous_kernel's private_call_stack with the current call_stack_item.
@@ -265,24 +259,6 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
 
         builder.private_call.contract_address = builder.private_call.public_inputs.call_context.storage_contract_address;
-
-        builder.failed();
-    }
-
-    #[test]
-    fn internal_call_succeeds() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new().is_internal_call();
-        builder.succeeded();
-    }
-
-    #[test(should_fail_with = "call is internal but msg_sender is not self")]
-    fn private_function_incorrect_is_internal() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new().is_internal_call();
-
-        // Tweak the (storage) contract_address to be different to msg_sender.
-        let msg_sender = builder.private_call.public_inputs.call_context.msg_sender.to_field();
-        builder.private_call.contract_address = AztecAddress::from_field(msg_sender + 1);
-        builder.private_call.public_inputs.call_context.storage_contract_address = AztecAddress::from_field(msg_sender + 1);
 
         builder.failed();
     }
@@ -577,10 +553,10 @@ mod tests {
     #[test]
     fn propagate_previous_kernel_max_block_number() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
-        builder.previous_kernel.end.max_block_number = MaxBlockNumber::new(13);
+        builder.previous_kernel.validation_requests.max_block_number = MaxBlockNumber::new(13);
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.max_block_number.unwrap(), 13);
+        assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 13);
     }
 
     #[test]
@@ -589,19 +565,19 @@ mod tests {
         builder.private_call.request_max_block_number(42);
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.max_block_number.unwrap(), 42);
+        assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 42);
     }
 
     #[test]
     fn ignore_larger_max_block_number() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
-        builder.previous_kernel.end.max_block_number = MaxBlockNumber::new(13);
+        builder.previous_kernel.validation_requests.max_block_number = MaxBlockNumber::new(13);
         // A private call requesting a larger max_block_number should not change the current one as that constraint is
         // already satisfied.
         builder.private_call.request_max_block_number(42);
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.max_block_number.unwrap(), 13);
+        assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 13);
     }
 
     #[test]
@@ -613,7 +589,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 0);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 0);
     }
 
     #[test]
@@ -625,7 +601,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 0);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 0);
     }
 
     #[test]
@@ -637,7 +613,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 0);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 0);
     }
 
     #[test]
@@ -649,7 +625,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 0);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 0);
     }
 
     #[test]
@@ -661,7 +637,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 1);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 1);
     }
 
     #[test]
@@ -675,7 +651,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 1);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 1);
     }
 
     #[test]
@@ -688,7 +664,7 @@ mod tests {
 
         // non-transient read requests are NOT forwarded
         assert_eq(
-            array_length(public_inputs.end.note_hash_read_requests), MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
+            array_length(public_inputs.validation_requests.note_hash_read_requests), MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
         );
     }
 
