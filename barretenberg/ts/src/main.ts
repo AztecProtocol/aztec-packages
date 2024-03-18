@@ -41,9 +41,6 @@ async function computeCircuitSize(bytecodePath: string, api: Barretenberg) {
   debug(`computing circuit size...`);
   const bytecode = getBytecode(bytecodePath);
   const [exact, total, subgroup] = await api.acirGetCircuitSizes(bytecode);
-  debug(`exact: ${exact}`);
-  debug(`total: ${total}`);
-  debug(`subgroup: ${subgroup}`);
   return { exact, total, subgroup };
 }
 
