@@ -4,8 +4,8 @@ use crate::{
 };
 use dep::protocol_types::{
     abis::{
-    global_variables::GlobalVariables, function_selector::FunctionSelector,
-    private_circuit_public_inputs::PrivateCircuitPublicInputs,
+    call_context::CallContext, function_data::FunctionData, global_variables::GlobalVariables,
+    function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem,
     public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
@@ -279,7 +279,7 @@ impl PublicContext {
         is_static_call: bool,
         is_delegate_call: bool
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let item = call_public_function_internal(
+        let fields = call_public_function_internal(
             contract_address,
             function_selector,
             args_hash,
@@ -287,6 +287,36 @@ impl PublicContext {
             is_static_call,
             is_delegate_call
         );
+
+        // TODO send back a fully formed PublicCallStackItem
+        let mut reader = Reader::new(fields);
+        let item = PublicCallStackItem {
+            contract_address: AztecAddress::from_field(reader.read()),
+            function_data: reader.read_struct(FunctionData::deserialize),
+            public_inputs: PublicCircuitPublicInputs {
+                call_context: reader.read_struct(CallContext::deserialize),
+                args_hash: reader.read(),
+                start_side_effect_counter: reader.read() as u32,
+                end_side_effect_counter: reader.read() as u32,
+                return_values: reader.read_array([0; RETURN_VALUES_LENGTH]),
+                // everything below is 0
+                nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
+                nullifier_non_existent_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
+                contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+                contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
+                public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+                new_note_hashes: [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
+                new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
+                new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+                unencrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
+                unencrypted_log_preimages_length: 0,
+                historical_header: Header::empty(),
+                prover_address: AztecAddress::zero(),
+                reverted: false
+            },
+            is_execution_request: false
+        };
+        reader.finish();
 
         assert_eq(item.public_inputs.start_side_effect_counter, self.side_effect_counter);
         self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;
@@ -300,8 +330,7 @@ impl PublicContext {
         assert(item.public_inputs.call_context.is_delegate_call == is_delegate_call);
         assert(item.public_inputs.call_context.is_static_call == is_static_call);
 
-        // this blows up contract deployments
-        // self.public_call_stack_hashes.push(item.hash());
+        // TODO track public call stack item hashes in the context
 
         item.public_inputs.return_values
     }

@@ -1,4 +1,9 @@
-import { ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH, PublicCallRequest } from '@aztec/circuits.js';
+import {
+  ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH,
+  PUBLIC_FUNCTION_CALL_RESULT_LENGTH,
+  PublicCallRequest,
+  PublicCallStackItem,
+} from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -65,6 +70,28 @@ export function toAcvmEnqueuePublicFunctionResult(item: PublicCallRequest): ACVM
       `Invalid length for EnqueuePublicFunctionResult (got ${fields.length} expected ${ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH})`,
     );
   }
+  return fields.map(toACVMField);
+}
+
+/**
+ * Something
+ */
+export function toAcvmPublicFunctionResult(item: PublicCallStackItem): ACVMField[] {
+  const fields = [
+    item.contractAddress.toField(),
+    ...item.functionData.toFields(),
+    ...item.publicInputs.callContext.toFields(),
+    item.publicInputs.argsHash,
+    item.publicInputs.startSideEffectCounter,
+    item.publicInputs.endSideEffectCounter,
+  ];
+
+  if (fields.length !== PUBLIC_FUNCTION_CALL_RESULT_LENGTH) {
+    throw new Error(
+      `Invalid length for PublicFunctionResult (got ${fields.length} expected ${PUBLIC_FUNCTION_CALL_RESULT_LENGTH})`,
+    );
+  }
+
   return fields.map(toACVMField);
 }
 

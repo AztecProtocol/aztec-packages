@@ -258,9 +258,9 @@ solc-0.8.23 is not recommended for deployment
 Impact: Informational
 Confidence: Medium
  - [ ] ID-27
-Variable [Constants.LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L131) is too similar to [Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L124)
+Variable [Constants.LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L132) is too similar to [Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L125)
 
-src/core/libraries/ConstantsGen.sol#L131
+src/core/libraries/ConstantsGen.sol#L132
 
 
  - [ ] ID-28
