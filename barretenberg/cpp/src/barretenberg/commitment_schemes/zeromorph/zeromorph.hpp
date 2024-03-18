@@ -704,7 +704,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
         }
 
-        // Define the evaluation (always zero in this case by constructing) for the PCS opening
+        // Define the evaluation (always zero by construction in this case) for the PCS opening
         FF evaluation{ 0 };
         if constexpr (Curve::is_stdlib_type) { // add builder if in circuit context
             auto builder = z_challenge.get_context();
