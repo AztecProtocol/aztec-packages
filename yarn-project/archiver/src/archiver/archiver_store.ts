@@ -12,7 +12,11 @@ import {
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import {
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+} from '@aztec/types/contracts';
 
 import { DataRetrieval } from './data_retrieval.js';
 
@@ -157,6 +161,14 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
+
+  /**
+   * Adds private functions to a contract class.
+   */
+  addPrivateFunctions(
+    contractClassId: Fr,
+    privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
+  ): Promise<boolean>;
 
   /**
    * Returns a contract instance given its address, or undefined if not exists.
