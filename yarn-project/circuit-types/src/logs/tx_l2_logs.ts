@@ -1,5 +1,5 @@
 import { sha256 } from '@aztec/foundation/crypto';
-import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
+import { BufferReader, prefixBufferWithLength, truncateAndPad } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';
 
@@ -126,17 +126,17 @@ export class TxL2Logs {
    *       for more details.
    */
   public hash(): Buffer {
-    const logsHashes: [Buffer, Buffer] = [Buffer.alloc(31), Buffer.alloc(31)];
-    let kernelPublicInputsLogsHash = Buffer.alloc(31);
+    const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
+    let kernelPublicInputsLogsHash = Buffer.alloc(32);
 
     for (const logsFromSingleFunctionCall of this.functionLogs) {
-      logsHashes[0] = kernelPublicInputsLogsHash.subarray(0, 31);
-      logsHashes[1] = logsFromSingleFunctionCall.hash().subarray(0, 31); // privateCircuitPublicInputsLogsHash
+      logsHashes[0] = kernelPublicInputsLogsHash;
+      logsHashes[1] = truncateAndPad(logsFromSingleFunctionCall.hash()); // privateCircuitPublicInputsLogsHash
 
       // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
-      kernelPublicInputsLogsHash = sha256(Buffer.concat(logsHashes));
+      kernelPublicInputsLogsHash = truncateAndPad(sha256(Buffer.concat(logsHashes)));
     }
-    // TODO(Miranda): truncate here and return only 31 bytes
+
     return kernelPublicInputsLogsHash;
   }
 

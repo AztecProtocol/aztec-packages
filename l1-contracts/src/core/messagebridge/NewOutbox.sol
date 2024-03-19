@@ -106,7 +106,7 @@ contract NewOutbox is INewOutbox {
       revert Errors.Outbox__InvalidPathLength(treeHeight, _path.length);
     }
 
-    bytes32 messageHash = _message.sha256ToField32();
+    bytes32 messageHash = _message.sha256ToField();
 
     MerkleLib.verifyMembership(_path, messageHash, _leafIndex, blockRoot);
 

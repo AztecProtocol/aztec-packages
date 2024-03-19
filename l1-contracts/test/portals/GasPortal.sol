@@ -48,7 +48,7 @@ contract GasPortal {
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
-    bytes32 contentHash = Hash.sha256ToField32(
+    bytes32 contentHash = Hash.sha256ToField(
       abi.encodeWithSignature("mint_public(bytes32,uint256,address)", _to, _amount, _canceller)
     );
 
@@ -82,7 +82,7 @@ contract GasPortal {
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: l1Actor,
       recipient: l2Actor,
-      content: Hash.sha256ToField32(
+      content: Hash.sha256ToField(
         abi.encodeWithSignature("mint_public(bytes32,uint256,address)", _to, _amount, msg.sender)
         ),
       secretHash: _secretHash,

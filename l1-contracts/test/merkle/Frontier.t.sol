@@ -8,7 +8,7 @@ import {Hash} from "../../src/core/libraries/Hash.sol";
 import {FrontierMerkle} from "./../../src/core/messagebridge/frontier_tree/Frontier.sol";
 
 contract FrontierTest is Test {
-  mapping(uint256 index => bytes31 leaf) public leaves;
+  mapping(uint256 index => bytes32 leaf) public leaves;
 
   function setUp() public {}
 
@@ -16,7 +16,7 @@ contract FrontierTest is Test {
   // tree. The below fn replaces Naive.sol while NewOutbox is being worked on.
   function _computeRootTruncated(uint256 _depth) internal view returns (bytes32) {
     uint256 size = 2 ** _depth;
-    bytes31[] memory nodes = new bytes31[](size / 2);
+    bytes32[] memory nodes = new bytes32[](size / 2);
 
     for (uint256 i = 0; i < _depth; i++) {
       for (uint256 j = 0; j < size; j += 2) {
@@ -40,7 +40,7 @@ contract FrontierTest is Test {
     uint256 upper = frontier.SIZE();
     for (uint256 i = 0; i < upper; i++) {
       bytes32 leaf = sha256(abi.encode(i + 1));
-      leaves[i] = bytes31(leaf);
+      leaves[i] = leaf;
       frontier.insertLeaf(leaf);
       assertEq(_computeRootTruncated(depth), frontier.root(), "Frontier Roots should be equal");
     }

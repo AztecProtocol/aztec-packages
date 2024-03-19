@@ -62,7 +62,7 @@ library TxsDecoder {
 
   // Note: Used in `computeConsumables` to get around stack too deep errors.
   struct ConsumablesVars {
-    bytes31[] baseLeaves;
+    bytes32[] baseLeaves;
     bytes baseLeaf;
     bytes32 encryptedLogsHash;
     bytes32 unencryptedLogsHash;
@@ -87,7 +87,7 @@ library TxsDecoder {
 
       count = read4(_body, offset); // number of tx effects
       offset += 0x4;
-      vars.baseLeaves = new bytes31[](count);
+      vars.baseLeaves = new bytes32[](count);
     }
 
     // Data starts after header. Look at L2 Block Data specification at the top of this file.
@@ -173,20 +173,14 @@ library TxsDecoder {
               Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP
             )
           ),
-          // We prepend a byte rather than cast bytes31(bytes32) to match Noir's to_be_bytes.
-          bytes.concat(
-            new bytes(1),
-            bytes31(vars.encryptedLogsHash),
-            new bytes(1),
-            bytes31(vars.unencryptedLogsHash)
-          )
+          bytes.concat(vars.encryptedLogsHash, vars.unencryptedLogsHash)
         );
 
         vars.baseLeaves[i] = Hash.sha256ToField(vars.baseLeaf);
       }
     }
 
-    return bytes32(bytes.concat(new bytes(1), computeRoot(vars.baseLeaves)));
+    return computeRoot(vars.baseLeaves);
   }
 
   /**
@@ -224,13 +218,13 @@ library TxsDecoder {
   function computeKernelLogsHash(uint256 _offsetInBlock, bytes calldata _body)
     internal
     pure
-    returns (bytes31, uint256)
+    returns (bytes32, uint256)
   {
     uint256 offset = _offsetInBlock;
     uint256 remainingLogsLength = read4(_body, offset);
     offset += 0x4;
 
-    bytes31 kernelPublicInputsLogsHash; // The hash on the output of kernel iteration
+    bytes32 kernelPublicInputsLogsHash; // The hash on the output of kernel iteration
 
     // Iterate until all the logs were processed
     while (remainingLogsLength > 0) {
@@ -239,7 +233,7 @@ library TxsDecoder {
       offset += 0x4;
 
       // Hash the logs of this iteration's function call
-      bytes31 privateCircuitPublicInputsLogsHash =
+      bytes32 privateCircuitPublicInputsLogsHash =
         Hash.sha256ToField(slice(_body, offset, privateCircuitPublicInputLogsLength));
       offset += privateCircuitPublicInputLogsLength;
 
@@ -247,7 +241,7 @@ library TxsDecoder {
       remainingLogsLength -= (privateCircuitPublicInputLogsLength + 0x4);
 
       kernelPublicInputsLogsHash = Hash.sha256ToField(
-        bytes.concat(kernelPublicInputsLogsHash, bytes31(privateCircuitPublicInputsLogsHash))
+        bytes.concat(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash)
       );
     }
 
@@ -260,7 +254,7 @@ library TxsDecoder {
    * @param _leafs - The 32 bytes leafs to build the tree of.
    * @return The root of the Merkle tree.
    */
-  function computeRoot(bytes31[] memory _leafs) internal pure returns (bytes31) {
+  function computeRoot(bytes32[] memory _leafs) internal pure returns (bytes32) {
     // @todo Must pad the tree
     uint256 treeDepth = 0;
     while (2 ** treeDepth < _leafs.length) {
@@ -273,7 +267,7 @@ library TxsDecoder {
 
     for (uint256 i = 0; i < treeDepth; i++) {
       for (uint256 j = 0; j < treeSize; j += 2) {
-        _leafs[j / 2] = Hash.sha256ToField(bytes.concat(bytes31(_leafs[j]), bytes31(_leafs[j + 1])));
+        _leafs[j / 2] = Hash.sha256ToField(bytes.concat(_leafs[j], _leafs[j + 1]));
       }
       treeSize /= 2;
     }

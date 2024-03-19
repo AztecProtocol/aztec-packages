@@ -68,7 +68,7 @@ mod tests {
         let public_inputs = root_parity_inputs.root_parity_circuit();
 
         // 31 byte truncated root hash
-        let expected_sha_root = 0xf07f47041aab56943c2eb010086a5ca3c2c4261b8cafee090a7619b8052680;
+        let expected_sha_root = 0xa0c56543aa73140e5ca27231eee3107bd4e11d62164feb411d77c9d9b2da47;
 
         assert(public_inputs.sha_root == expected_sha_root, "sha root does not match");
     }

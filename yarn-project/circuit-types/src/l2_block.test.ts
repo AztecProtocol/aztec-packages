@@ -16,7 +16,7 @@ describe('L2Block', () => {
     // The following 2 values are copied from `testComputeKernelLogsIterationWithoutLogs` in `Decoder.t.sol`
     const encodedLogs = Buffer.from('0000000400000000', 'hex');
     const logs = TxL2Logs.fromBuffer(encodedLogs, true);
-    const referenceLogsHash = Buffer.from('2119b62cf8cfd2cc801d51dcaaf1d41914430d21723d7af8008562061755242e', 'hex');
+    const referenceLogsHash = Buffer.from('006003947a07e21c81ce2062539d6d6864fe999b58b03fc46f6c190d9eac9b39', 'hex');
 
     const logsHash = logs.hash();
     expect(logsHash).toEqual(referenceLogsHash);
@@ -27,7 +27,7 @@ describe('L2Block', () => {
     // The following 2 values are copied from `testComputeKernelLogs1Iteration` in `Decoder.t.sol`
     const encodedLogs = Buffer.from('0000000c000000080000000493e78a70', 'hex');
     const logs = TxL2Logs.fromBuffer(encodedLogs, true);
-    const referenceLogsHash = Buffer.from('b9a962089baf9cec331c264da7d2d3c5654e0f0a4ba2fd89ac7b0ab81f9a2f93', 'hex');
+    const referenceLogsHash = Buffer.from('00f458589e520e9e9bdaf746a7d226c39124e4a438f21fd41e6117a90f25f9a6', 'hex');
 
     const logsHash = logs.hash();
     expect(logsHash).toEqual(referenceLogsHash);
@@ -41,7 +41,7 @@ describe('L2Block', () => {
       'hex',
     );
     const logs = TxL2Logs.fromBuffer(encodedLogs, true);
-    const referenceLogsHash = Buffer.from('4c4537f4c2e0c31baeca1ea7b9c3c4654c82be4f5572476e8ada295bd292b217', 'hex');
+    const referenceLogsHash = Buffer.from('0084c3495a8cc56372f8f1d1efc0512920dae0f134d679cf26a12aff1509de14', 'hex');
 
     const logsHash = logs.hash();
     expect(logsHash).toEqual(referenceLogsHash);
@@ -55,7 +55,7 @@ describe('L2Block', () => {
       'hex',
     );
     const logs = TxL2Logs.fromBuffer(encodedLogs, true);
-    const referenceLogsHash = Buffer.from('cf66b845678a5f53ba10492c81a0c4e3db0ad29e26a6e3963f3bd0f194ffaa13', 'hex');
+    const referenceLogsHash = Buffer.from('00fb7a99b84aad205b5a8368c12a5a6b2dc19e5d623a601717b337cdadb56aa4', 'hex');
 
     const logsHash = logs.hash();
     expect(logsHash).toEqual(referenceLogsHash);

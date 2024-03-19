@@ -41,7 +41,7 @@ fn test_sha_root_matches_frontier_tree() {
     let public_inputs = base_parity_inputs.base_parity_circuit();
 
     // 31 byte truncated root hash
-    let expected_sha_root = 0x1fcbc929ace6acd25836c9779b04cd9d0965ac2b90dabffa9aff2b4e9c7a4a;
+    let expected_sha_root = 0xfc986d54a5e0af4f6e0d49399b9806c2b225e6c652fa5a831ecf6c6c29719d;
 
     assert(public_inputs.sha_root == expected_sha_root, "sha root does not match");
 }

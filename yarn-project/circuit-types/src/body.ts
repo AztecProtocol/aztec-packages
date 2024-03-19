@@ -4,7 +4,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, serializeToBuffer, truncateAndPad } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
@@ -64,7 +64,7 @@ export class Body {
           const left = layers[activeLayer][i];
           const right = layers[activeLayer][i + 1];
 
-          layer.push(sha256(Buffer.concat([left, right])).subarray(0, 31));
+          layer.push(truncateAndPad(sha256(Buffer.concat([left, right]))));
         }
 
         layers.push(layer);

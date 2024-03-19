@@ -91,7 +91,7 @@ contract NewInbox is INewInbox {
       fee: 0
     });
 
-    bytes31 leaf = message.sha256ToField();
+    bytes32 leaf = message.sha256ToField();
     uint256 index = currentTree.insertLeaf(leaf);
     emit LeafInserted(inProgress, index, leaf);
 

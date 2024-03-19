@@ -17,10 +17,10 @@ describe('buffer to fields and back', () => {
   });
 
   it('should correctly serialize and deserialize a buffer to one truncated field', () => {
-    // Generate a random 31-byte buffer
-    const originalBuffer = randomBytes(31);
+    // Generate a random 31-byte buffer padded to 32
+    const originalBuffer = Buffer.concat([Buffer.alloc(1), randomBytes(31)]);
 
-    // Serialize the buffer to one fields
+    // Serialize the buffer to one field
     const field = toTruncField(originalBuffer)[0];
 
     // Deserialize the field back to a buffer

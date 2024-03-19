@@ -103,7 +103,7 @@ contract Outbox is IOutbox {
     override(IOutbox)
     returns (bytes32)
   {
-    return _message.sha256ToField32();
+    return _message.sha256ToField();
   }
 
   /**

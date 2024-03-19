@@ -135,8 +135,8 @@ library MessagesDecoder {
       offset += 0x4 + length;
     }
 
-    inHash = Hash.sha256ToField32(abi.encodePacked(l1ToL2Msgs));
-    outHash = Hash.sha256ToField32(abi.encodePacked(l2ToL1Msgs));
+    inHash = Hash.sha256ToField(abi.encodePacked(l1ToL2Msgs));
+    outHash = Hash.sha256ToField(abi.encodePacked(l2ToL1Msgs));
 
     return (inHash, outHash, l1ToL2Msgs, l2ToL1Msgs);
   }

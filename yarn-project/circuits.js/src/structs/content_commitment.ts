@@ -9,7 +9,7 @@ import {
 
 import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
 
-export const NUM_BYTES_PER_SHA256 = 31;
+export const NUM_BYTES_PER_SHA256 = 32;
 
 export class ContentCommitment {
   constructor(public txTreeHeight: Fr, public txsEffectsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {

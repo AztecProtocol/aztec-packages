@@ -76,7 +76,7 @@ contract UniswapPortal {
     TokenPortal(_inputTokenPortal).withdraw(address(this), _inAmount, true);
     {
       // prevent stack too deep errors
-      vars.contentHash = Hash.sha256ToField32(
+      vars.contentHash = Hash.sha256ToField(
         abi.encodeWithSignature(
           "swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address,address)",
           _inputTokenPortal,
@@ -170,7 +170,7 @@ contract UniswapPortal {
     TokenPortal(_inputTokenPortal).withdraw(address(this), _inAmount, true);
     {
       // prevent stack too deep errors
-      vars.contentHash = Hash.sha256ToField32(
+      vars.contentHash = Hash.sha256ToField(
         abi.encodeWithSignature(
           "swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address,address)",
           _inputTokenPortal,

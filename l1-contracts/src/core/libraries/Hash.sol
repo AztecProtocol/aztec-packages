@@ -18,30 +18,8 @@ library Hash {
    * @param _message - The L1 to L2 message to hash
    * @return The hash of the provided message as a field element
    */
-  function sha256ToField(DataStructures.L1ToL2Msg memory _message) internal pure returns (bytes31) {
+  function sha256ToField(DataStructures.L1ToL2Msg memory _message) internal pure returns (bytes32) {
     return sha256ToField(
-      abi.encode(
-        _message.sender,
-        _message.recipient,
-        _message.content,
-        _message.secretHash,
-        _message.deadline,
-        _message.fee
-      )
-    );
-  }
-
-  /**
-   * @notice Computes the sha256 hash of the L1 to L2 message and converts it to a field element
-   * @param _message - The L1 to L2 message to hash
-   * @return The hash of the provided message as a field element
-   */
-  function sha256ToField32(DataStructures.L1ToL2Msg memory _message)
-    internal
-    pure
-    returns (bytes32)
-  {
-    return sha256ToField32(
       abi.encode(
         _message.sender,
         _message.recipient,
@@ -58,12 +36,8 @@ library Hash {
    * @param _message - The L2 to L1 message to hash
    * @return The hash of the provided message as a field element
    */
-  function sha256ToField32(DataStructures.L2ToL1Msg memory _message)
-    internal
-    pure
-    returns (bytes32)
-  {
-    return sha256ToField32(abi.encode(_message.sender, _message.recipient, _message.content));
+  function sha256ToField(DataStructures.L2ToL1Msg memory _message) internal pure returns (bytes32) {
+    return sha256ToField(abi.encode(_message.sender, _message.recipient, _message.content));
   }
 
   /**
@@ -72,18 +46,8 @@ library Hash {
    * @param _data - The bytes to hash
    * @return The hash of the provided data as a field element
    */
-  function sha256ToField32(bytes memory _data) internal pure returns (bytes32) {
+  function sha256ToField(bytes memory _data) internal pure returns (bytes32) {
     return bytes32(bytes.concat(new bytes(1), bytes31(sha256(_data))));
-  }
-
-  /**
-   * @notice Computes the sha256 hash of the provided data and converts it to a field element
-   * @dev Truncating one byte to convert the hash to a field element.
-   * @param _data - The bytes to hash
-   * @return The hash of the provided data as a field element
-   */
-  function sha256ToField(bytes memory _data) internal pure returns (bytes31) {
-    return bytes31(sha256(_data));
   }
 
   /**

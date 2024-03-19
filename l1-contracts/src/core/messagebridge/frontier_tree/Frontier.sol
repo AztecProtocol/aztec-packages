@@ -15,17 +15,17 @@ contract FrontierMerkle is IFrontier {
 
   uint256 internal nextIndex = 0;
 
-  mapping(uint256 level => bytes31 node) public frontier;
+  mapping(uint256 level => bytes32 node) public frontier;
 
   // Below can be pre-computed so it would be possible to have constants
   // for the zeros at each level. This would save gas on computations
-  mapping(uint256 level => bytes31 zero) public zeros;
+  mapping(uint256 level => bytes32 zero) public zeros;
 
   constructor(uint256 _height) {
     HEIGHT = _height;
     SIZE = 2 ** _height;
 
-    zeros[0] = bytes31(0);
+    zeros[0] = bytes32(0);
     for (uint256 i = 1; i <= HEIGHT; i++) {
       zeros[i] = Hash.sha256ToField(bytes.concat(zeros[i - 1], zeros[i - 1]));
     }
@@ -34,9 +34,9 @@ contract FrontierMerkle is IFrontier {
   function insertLeaf(bytes32 _leaf) external override(IFrontier) returns (uint256) {
     uint256 index = nextIndex;
     uint256 level = _computeLevel(index);
-    bytes31 right = bytes31(_leaf);
+    bytes32 right = _leaf;
     for (uint256 i = 0; i < level; i++) {
-      right = Hash.sha256ToField(bytes.concat(frontier[i], bytes31(right)));
+      right = Hash.sha256ToField(bytes.concat(frontier[i], bytes32(right)));
     }
     frontier[level] = right;
 
@@ -58,7 +58,7 @@ contract FrontierMerkle is IFrontier {
     uint256 level = _computeLevel(index);
 
     // We should start at the highest frontier level with a left leaf
-    bytes31 temp = frontier[level];
+    bytes32 temp = frontier[level];
 
     uint256 bits = index >> level;
     for (uint256 i = level; i < HEIGHT; i++) {

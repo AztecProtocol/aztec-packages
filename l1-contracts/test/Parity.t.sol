@@ -40,11 +40,11 @@ contract ParityTest is Test {
     FrontierMerkle frontier = new FrontierMerkle(treeHeight);
 
     for (uint256 i = 0; i < msgs.length; i++) {
-      frontier.insertLeaf(bytes31(msgs[i]));
+      frontier.insertLeaf(bytes32(bytes.concat(new bytes(1), bytes31(msgs[i]))));
     }
 
-    bytes31 expectedRoot = 0x1fcbc929ace6acd25836c9779b04cd9d0965ac2b90dabffa9aff2b4e9c7a4a;
-    assertEq(frontier.root(), bytes32(expectedRoot), "Root does not match base parity circuit root");
+    bytes32 expectedRoot = 0x00fc986d54a5e0af4f6e0d49399b9806c2b225e6c652fa5a831ecf6c6c29719d;
+    assertEq(frontier.root(), expectedRoot, "Root does not match base parity circuit root");
   }
 
   // Checks whether sha root matches output of root parity circuit
@@ -78,10 +78,10 @@ contract ParityTest is Test {
     FrontierMerkle frontier = new FrontierMerkle(treeHeight);
 
     for (uint256 i = 0; i < baseRoots.length; i++) {
-      frontier.insertLeaf(bytes31(baseRoots[i]));
+      frontier.insertLeaf(bytes32(bytes.concat(new bytes(1), bytes31(baseRoots[i]))));
     }
 
-    bytes31 expectedRoot = 0xf07f47041aab56943c2eb010086a5ca3c2c4261b8cafee090a7619b8052680;
-    assertEq(frontier.root(), bytes31(expectedRoot), "Root does not match root parity circuit root");
+    bytes32 expectedRoot = 0x00a0c56543aa73140e5ca27231eee3107bd4e11d62164feb411d77c9d9b2da47;
+    assertEq(frontier.root(), expectedRoot, "Root does not match root parity circuit root");
   }
 }

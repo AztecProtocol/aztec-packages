@@ -134,13 +134,13 @@ pub fn accumulate_sha256(input: [Field; NUM_FIELDS_PER_SHA256 * 2]) -> [Field; N
     //
     // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
 
-    // Concatentate two fields into 31x2 = 62 bytes
+    // Concatentate two fields into 32x2 = 64 bytes
     // accumulate_sha256 assumes that the inputs are pre-truncated 31 byte numbers
-    let mut hash_input_flattened = [0; 62];
+    let mut hash_input_flattened = [0; 64];
     for offset in 0..input.len() {
-        let input_as_bytes = input[offset].to_be_bytes(31);
-        for byte_index in 0..31 {
-            hash_input_flattened[offset * 31 + byte_index] = input_as_bytes[byte_index];
+        let input_as_bytes = input[offset].to_be_bytes(32);
+        for byte_index in 0..32 {
+            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
     }
 

@@ -9,7 +9,13 @@ import {
 import { assertRightPadded, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
-import { BufferReader, Tuple, assertLength, serializeArrayOfBufferableToVector } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  Tuple,
+  assertLength,
+  serializeArrayOfBufferableToVector,
+  truncateAndPad,
+} from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
@@ -95,8 +101,8 @@ export class TxEffect {
     assertLength(this.publicDataWrites, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
     assertRightPadded(this.publicDataWrites, PublicDataWrite.isEmpty);
     const publicDataUpdateRequestsBuffer = Buffer.concat(this.publicDataWrites.map(x => x.toBuffer()));
-    const encryptedLogsHashKernel0 = Buffer.concat([Buffer.alloc(1), this.encryptedLogs.hash().subarray(0, 31)]);
-    const unencryptedLogsHashKernel0 = Buffer.concat([Buffer.alloc(1), this.unencryptedLogs.hash().subarray(0, 31)]);
+    const encryptedLogsHashKernel0 = this.encryptedLogs.hash();
+    const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
 
     const inputValue = Buffer.concat([
       noteHashesBuffer,
@@ -107,7 +113,7 @@ export class TxEffect {
       unencryptedLogsHashKernel0,
     ]);
 
-    return sha256(inputValue).subarray(0, 31);
+    return truncateAndPad(sha256(inputValue));
   }
 
   static random(
