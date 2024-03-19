@@ -108,8 +108,7 @@ contract TokenPortalTest is Test {
     portalERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
-    DataStructures.L1ToL2Msg memory expectedMessage =
-      _createExpectedMintPrivateL1ToL2Message();
+    DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPrivateL1ToL2Message();
 
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
 
