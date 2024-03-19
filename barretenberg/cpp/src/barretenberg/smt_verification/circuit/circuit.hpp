@@ -23,14 +23,12 @@ enum class SubcircuitType { XOR, AND, RANGE };
  *
  * @details Contains all the information about the circuit: gates, variables,
  * symbolic variables, specified names and global solver.
- *
- * @tparam FF FFTerm or FFITerm
  */
-template <typename FF> class Circuit {
+class Circuit {
   private:
     void init();
-
     size_t prepare_gates(size_t cursor);
+
     void handle_univariate_constraint(bb::fr q_m, bb::fr q_1, bb::fr q_2, bb::fr q_3, bb::fr q_c, uint32_t w);
     size_t handle_logic_constraint(size_t cursor);
     size_t handle_range_constraint(size_t cursor);
@@ -42,7 +40,7 @@ template <typename FF> class Circuit {
     std::unordered_map<std::string, uint32_t> variable_names_inverse; // inverse map of the previous memeber
     std::vector<std::vector<bb::fr>> selectors;                       // selectors from the circuit
     std::vector<std::vector<uint32_t>> wires_idxs;                    // values of the gates' wires
-    std::unordered_map<uint32_t, FF> symbolic_vars;                   // all the symbolic variables from the circuit
+    std::unordered_map<uint32_t, STerm> symbolic_vars;                // all the symbolic variables from the circuit
     std::vector<uint32_t> real_variable_index;                        // indexes for assert_equal'd wires
     std::unordered_map<uint32_t, bool> optimized; // keeps track of the variables that were excluded from symbolic
                                                   // circuit during optimizations
@@ -51,18 +49,21 @@ template <typename FF> class Circuit {
         cached_subcircuits; // caches subcircuits during optimization
                             // No need to recompute them each time
 
-    Solver* solver;  // pointer to the solver
+    Solver* solver; // pointer to the solver
+    TermType type;  // Type of the underlying Symbolic Terms
+
     std::string tag; // tag of the symbolic circuit.
                      // If not empty, will be added to the names
                      // of symbolic variables to prevent collisions.
 
     explicit Circuit(CircuitSchema& circuit_info,
                      Solver* solver,
+                     TermType type,
                      const std::string& tag = "",
                      bool optimizations = true);
 
-    FF operator[](const std::string& name);
-    FF operator[](const uint32_t& idx) { return symbolic_vars[this->real_variable_index[idx]]; };
+    STerm operator[](const std::string& name);
+    STerm operator[](const uint32_t& idx) { return symbolic_vars[this->real_variable_index[idx]]; };
     inline size_t get_num_gates() const { return selectors.size(); };
     inline size_t get_num_real_vars() const { return symbolic_vars.size(); };
     inline size_t get_num_vars() const { return variables.size(); };
@@ -77,8 +78,7 @@ template <typename FF> class Circuit {
  * @param solver pointer to the global solver
  * @param tag tag of the circuit. Empty by default.
  */
-template <typename FF>
-Circuit<FF>::Circuit(CircuitSchema& circuit_info, Solver* solver, const std::string& tag, bool optimizations)
+Circuit::Circuit(CircuitSchema& circuit_info, Solver* solver, TermType type, const std::string& tag, bool optimizations)
     : variables(circuit_info.variables)
     , public_inps(circuit_info.public_inps)
     , variable_names(circuit_info.vars_of_interest)
@@ -87,6 +87,7 @@ Circuit<FF>::Circuit(CircuitSchema& circuit_info, Solver* solver, const std::str
     , real_variable_index(circuit_info.real_variable_index)
     , optimizations(optimizations)
     , solver(solver)
+    , type(type)
     , tag(tag)
 {
     if (!this->tag.empty()) {
@@ -127,12 +128,12 @@ Circuit<FF>::Circuit(CircuitSchema& circuit_info, Solver* solver, const std::str
  * which are used in circuit.
  *
  */
-template <typename FF> void Circuit<FF>::init()
+void Circuit::init()
 {
     size_t num_vars = variables.size();
 
-    symbolic_vars.insert({ 0, FF::Var("zero" + this->tag, this->solver) });
-    symbolic_vars.insert({ 1, FF::Var("one" + this->tag, this->solver) });
+    symbolic_vars.insert({ 0, STerm::Var("zero" + this->tag, this->solver, this->type) });
+    symbolic_vars.insert({ 1, STerm::Var("one" + this->tag, this->solver, this->type) });
 
     for (uint32_t i = 2; i < num_vars; i++) {
         uint32_t real_idx = this->real_variable_index[i];
@@ -140,12 +141,10 @@ template <typename FF> void Circuit<FF>::init()
             continue;
         }
 
-        if (variable_names.contains(real_idx)) {
-            std::string name = variable_names[real_idx];
-            symbolic_vars.insert({ real_idx, FF::Var(name + this->tag, this->solver) });
-        } else {
-            symbolic_vars.insert({ real_idx, FF::Var("var_" + std::to_string(i) + this->tag, this->solver) });
-        }
+        std::string name = variable_names.contains(real_idx) ? variable_names[real_idx] : "var_" + std::to_string(i);
+        name += this->tag;
+        symbolic_vars.insert({ real_idx, STerm::Var(name, this->solver, this->type) });
+
         optimized.insert({ real_idx, true });
     }
 
@@ -165,8 +164,7 @@ template <typename FF> void Circuit<FF>::init()
  * @param q_c constant
  * @param w   witness index
  */
-template <typename FF>
-void Circuit<FF>::handle_univariate_constraint(bb::fr q_m, bb::fr q_1, bb::fr q_2, bb::fr q_3, bb::fr q_c, uint32_t w)
+void Circuit::handle_univariate_constraint(bb::fr q_m, bb::fr q_1, bb::fr q_2, bb::fr q_3, bb::fr q_c, uint32_t w)
 {
     bb::fr b = q_1 + q_2 + q_3;
 
@@ -183,10 +181,10 @@ void Circuit<FF>::handle_univariate_constraint(bb::fr q_m, bb::fr q_1, bb::fr q_
     bb::fr x2 = (-b - d.second) / (bb::fr(2) * q_m);
 
     if (d.second == 0) {
-        symbolic_vars[w] == FF(x1, this->solver);
+        symbolic_vars[w] == STerm(x1, this->solver, type);
     } else {
-        ((Bool(symbolic_vars[w]) == Bool(FF(x1, this->solver))) |
-         (Bool(symbolic_vars[w]) == Bool(FF(x2, this->solver))))
+        ((Bool(symbolic_vars[w]) == Bool(STerm(x1, this->solver, this->type))) |
+         (Bool(symbolic_vars[w]) == Bool(STerm(x2, this->solver, this->type))))
             .assert_term();
     }
 }
@@ -207,7 +205,7 @@ void Circuit<FF>::handle_univariate_constraint(bb::fr q_m, bb::fr q_1, bb::fr q_
  * @param cursor current position
  * @return next position or -1
  */
-template <typename FF> size_t Circuit<FF>::handle_logic_constraint(size_t cursor)
+size_t Circuit::handle_logic_constraint(size_t cursor)
 {
     // Initialize binary search. Logic gate can only accept even bit lengths
     // So we need to find a match among [1, 127] and then multiply the result by 2
@@ -305,14 +303,14 @@ template <typename FF> size_t Circuit<FF>::handle_logic_constraint(size_t cursor
         uint32_t right_idx = this->real_variable_index[this->wires_idxs[cursor + right_gate][right_gate_idx]];
         uint32_t out_idx = this->real_variable_index[this->wires_idxs[cursor + out_gate][out_gate_idx]];
 
-        FF left = this->symbolic_vars[left_idx];
-        FF right = this->symbolic_vars[right_idx];
-        FF out = this->symbolic_vars[out_idx];
+        STerm left = this->symbolic_vars[left_idx];
+        STerm right = this->symbolic_vars[right_idx];
+        STerm out = this->symbolic_vars[out_idx];
 
         if (logic_flag) {
             (left ^ right) == out;
         } else {
-            (left ^ right) == out; // TODO(alex): implement & method
+            (left & right) == out;
         }
 
         // You have to mark these arguments so they won't be optimized out
@@ -340,7 +338,7 @@ template <typename FF> size_t Circuit<FF>::handle_logic_constraint(size_t cursor
  * @param cursor current position
  * @return next position or -1
  */
-template <typename FF> size_t Circuit<FF>::handle_range_constraint(size_t cursor)
+size_t Circuit::handle_range_constraint(size_t cursor)
 {
     // Indicates that current bit length is a match
     bool range_flag = true;
@@ -419,7 +417,7 @@ template <typename FF> size_t Circuit<FF>::handle_range_constraint(size_t cursor
         uint32_t left_gate_idx = range_props.idxs[0];
         uint32_t left_idx = this->real_variable_index[this->wires_idxs[cursor + left_gate][left_gate_idx]];
 
-        FF left = this->symbolic_vars[left_idx];
+        STerm left = this->symbolic_vars[left_idx];
         left < bb::fr(2).pow(res);
 
         // You have to mark these arguments so they won't be optimized out
@@ -435,17 +433,17 @@ template <typename FF> size_t Circuit<FF>::handle_range_constraint(size_t cursor
  * via removing subcircuits that were already proved being correct.
  *
  */
-template <typename FF> size_t Circuit<FF>::prepare_gates(size_t cursor)
+size_t Circuit::prepare_gates(size_t cursor)
 {
     // TODO(alex): implement bitvector class and compute offsets
-    if (FF::isBitVector() && this->optimizations) {
+    if (this->type == TermType::BVTerm && this->optimizations) {
         size_t res = handle_logic_constraint(cursor);
         if (res != static_cast<size_t>(-1)) {
             return res;
         }
     }
 
-    if ((FF::isBitVector() || FF::isInteger()) && this->optimizations) {
+    if ((this->type == TermType::BVTerm || this->type == TermType::FFITerm) && this->optimizations) {
         size_t res = handle_range_constraint(cursor);
         if (res != static_cast<size_t>(-1)) {
             return res;
@@ -487,7 +485,7 @@ template <typename FF> size_t Circuit<FF>::prepare_gates(size_t cursor)
             this->handle_univariate_constraint(q_m, q_1, q_2, q_3, q_c, w_l);
         }
     } else {
-        FF eq = symbolic_vars[0];
+        STerm eq = symbolic_vars[0];
 
         // mul selector
         if (q_m != 0) {
@@ -518,9 +516,9 @@ template <typename FF> size_t Circuit<FF>::prepare_gates(size_t cursor)
  * @brief Returns a previously named symbolic variable.
  *
  * @param name
- * @return FF
+ * @return STerm
  */
-template <typename FF> FF Circuit<FF>::operator[](const std::string& name)
+STerm Circuit::operator[](const std::string& name)
 {
     if (!this->variable_names_inverse.contains(name)) {
         throw std::invalid_argument("No such an item `" + name + "` in vars or it vas not declared as interesting");
@@ -537,7 +535,7 @@ template <typename FF> FF Circuit<FF>::operator[](const std::string& name)
  * @return true
  * @return false
  */
-template <typename FF> bool Circuit<FF>::simulate_circuit_eval(std::vector<bb::fr>& witness) const
+bool Circuit::simulate_circuit_eval(std::vector<bb::fr>& witness) const
 {
     if (witness.size() != this->get_num_vars()) {
         throw std::invalid_argument("Witness size should be " + std::to_string(this->get_num_vars()) + ", not " +
@@ -560,40 +558,17 @@ template <typename FF> bool Circuit<FF>::simulate_circuit_eval(std::vector<bb::f
     return true;
 }
 
-template <typename FF>
-std::pair<Circuit<FF>, Circuit<FF>> unique_witness_ext(CircuitSchema& circuit_info,
-                                                       Solver* s,
-                                                       const std::vector<std::string>& equal = {},
-                                                       const std::vector<std::string>& not_equal = {},
-                                                       const std::vector<std::string>& equal_at_the_same_time = {},
-                                                       const std::vector<std::string>& not_equal_at_the_same_time = {});
+std::pair<Circuit, Circuit> unique_witness_ext(CircuitSchema& circuit_info,
+                                               Solver* s,
+                                               TermType type,
+                                               const std::vector<std::string>& equal = {},
+                                               const std::vector<std::string>& not_equal = {},
+                                               const std::vector<std::string>& equal_at_the_same_time = {},
+                                               const std::vector<std::string>& not_equal_at_the_same_time = {});
 
-extern template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness_ext(
-    CircuitSchema& circuit_info,
-    Solver* s,
-    const std::vector<std::string>& equal = {},
-    const std::vector<std::string>& not_equal = {},
-    const std::vector<std::string>& equal_at_the_same_time = {},
-    const std::vector<std::string>& not_equal_at_the_same_time = {});
-
-extern template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness_ext(
-    CircuitSchema& circuit_info,
-    Solver* s,
-    const std::vector<std::string>& equal = {},
-    const std::vector<std::string>& not_equal = {},
-    const std::vector<std::string>& equal_at_the_same_time = {},
-    const std::vector<std::string>& not_equal_at_the_same_time = {});
-
-template <typename FF>
-std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
-                                                   Solver* s,
-                                                   const std::vector<std::string>& equal = {});
-
-extern template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(CircuitSchema& circuit_info,
-                                                                           Solver* s,
-                                                                           const std::vector<std::string>& equal = {});
-
-extern template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(
-    CircuitSchema& circuit_info, Solver* s, const std::vector<std::string>& equal = {});
+std::pair<Circuit, Circuit> unique_witness(CircuitSchema& circuit_info,
+                                           Solver* s,
+                                           TermType type,
+                                           const std::vector<std::string>& equal = {});
 
 }; // namespace smt_circuit

@@ -17,17 +17,17 @@ namespace smt_circuit {
  * @param not_equal_at_the_same_time The list of variables, where at least one pair has to be distinct
  * @return std::pair<Circuit, Circuit>
  */
-template <typename FF>
-std::pair<Circuit<FF>, Circuit<FF>> unique_witness_ext(CircuitSchema& circuit_info,
-                                                       Solver* s,
-                                                       const std::vector<std::string>& equal,
-                                                       const std::vector<std::string>& not_equal,
-                                                       const std::vector<std::string>& equal_at_the_same_time,
-                                                       const std::vector<std::string>& not_equal_at_the_same_time)
+std::pair<Circuit, Circuit> unique_witness_ext(CircuitSchema& circuit_info,
+                                               Solver* s,
+                                               TermType type,
+                                               const std::vector<std::string>& equal,
+                                               const std::vector<std::string>& not_equal,
+                                               const std::vector<std::string>& equal_at_the_same_time,
+                                               const std::vector<std::string>& not_equal_at_the_same_time)
 {
     // TODO(alex): set optimizations to be true once they are confirmed
-    Circuit<FF> c1(circuit_info, s, "circuit1", false);
-    Circuit<FF> c2(circuit_info, s, "circuit2", false);
+    Circuit c1(circuit_info, s, type, "circuit1", false);
+    Circuit c2(circuit_info, s, type, "circuit2", false);
 
     for (const auto& term : equal) {
         c1[term] == c2[term];
@@ -62,22 +62,6 @@ std::pair<Circuit<FF>, Circuit<FF>> unique_witness_ext(CircuitSchema& circuit_in
     return { c1, c2 };
 }
 
-template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness_ext(
-    CircuitSchema& circuit_info,
-    Solver* s,
-    const std::vector<std::string>& equal = {},
-    const std::vector<std::string>& not_equal = {},
-    const std::vector<std::string>& equal_at_the_same_time = {},
-    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
-
-template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness_ext(
-    CircuitSchema& circuit_info,
-    Solver* s,
-    const std::vector<std::string>& equal = {},
-    const std::vector<std::string>& not_equal = {},
-    const std::vector<std::string>& equal_at_the_same_time = {},
-    const std::vector<std::string>& not_eqaul_at_the_same_time = {});
-
 /**
  * @brief Check your circuit for witness uniqueness
  *
@@ -91,14 +75,14 @@ template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness_ext(
  * @param equal The list of names of variables which should be equal in both circuits(each is equal)
  * @return std::pair<Circuit, Circuit>
  */
-template <typename FF>
-std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
-                                                   Solver* s,
-                                                   const std::vector<std::string>& equal)
+std::pair<Circuit, Circuit> unique_witness(CircuitSchema& circuit_info,
+                                           Solver* s,
+                                           TermType type,
+                                           const std::vector<std::string>& equal)
 {
     // TODO(alex): set optimizations to be true once they are confirmed
-    Circuit<FF> c1(circuit_info, s, "circuit1", false);
-    Circuit<FF> c2(circuit_info, s, "circuit2", false);
+    Circuit c1(circuit_info, s, type, "circuit1", false);
+    Circuit c2(circuit_info, s, type, "circuit2", false);
 
     for (const auto& term : equal) {
         c1[term] == c2[term];
@@ -124,12 +108,4 @@ std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
     }
     return { c1, c2 };
 }
-
-template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(CircuitSchema& circuit_info,
-                                                                    Solver* s,
-                                                                    const std::vector<std::string>& equal = {});
-
-template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(CircuitSchema& circuit_info,
-                                                                      Solver* s,
-                                                                      const std::vector<std::string>& equal = {});
 }; // namespace smt_circuit
