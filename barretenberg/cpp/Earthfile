@@ -118,8 +118,6 @@ bench-client-ivc:
 
 build: # default target
     BUILD +preset-release
-    RUN sleep 10
-    RUN false
 
 # Functions
 RUN_CMAKE:
