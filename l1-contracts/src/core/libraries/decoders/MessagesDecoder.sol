@@ -18,71 +18,44 @@ import {Hash} from "../Hash.sol";
  * -------------------
  * L2 Body Data Specification
  * -------------------
- * -------------------
- * L2 Body Data Specification
- * -------------------
- *  | byte start                                                                                                                | num bytes  | name
- *  | ---                                                                                                                       | ---        | ---
- *  | 0x0                                                                                                                       | 0x4        | len(newL1ToL2Msgs) (denoted a)
- *  | 0x4                                                                                                                       | a * 0x20   | newL1ToL2Msgs
- *  | 0x4 + a * 0x20 = tx0Start                                                                                                 | 0x4        | len(numTxs) (denoted t)
- *  |                                                                                                                           |            | TxEffect 0 {
- *  | tx0Start                                                                                                                  | 0x1        |   revertCode
- *  | tx0Start + 0x1                                                                                                            | 0x1        |   len(newNoteHashes) (denoted b)
- *  | tx0Start + 0x1 + 0x1                                                                                                      | b * 0x20   |   newNoteHashes
- *  | tx0Start + 0x1 + 0x1 + b * 0x20                                                                                           | 0x1        |   len(newNullifiers) (denoted c)
- *  | tx0Start + 0x1 + 0x1 + b * 0x20 + 0x1                                                                                     | c * 0x20   |   newNullifiers
- *  | tx0Start + 0x1 + 0x1 + b * 0x20 + 0x1 + c * 0x20                                                                          | 0x1        |   len(newL2ToL1Msgs) (denoted d)
- *  | tx0Start + 0x1 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1                                                                    | d * 0x20   |   newL2ToL1Msgs
- *  | tx0Start + 0x1 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20                                                         | 0x1        |   len(newPublicDataWrites) (denoted e)
- *  | tx0Start + 0x1 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01                                                  | e * 0x40   |   newPublicDataWrites
- *  | tx0Start + 0x1 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40                                       | 0x04       |   byteLen(newEncryptedLogs) (denoted f)
- *  | tx0Start + 0x1 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4                                 | f          |   newEncryptedLogs
- *  | tx0Start + 0x1 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f                             | 0x04       |   byteLen(newUnencryptedLogs) (denoted g)
- *  | tx0Start + 0x1 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f + 0x4                       | g          |   newUnencryptedLogs
- *  |                                                                                                                           |            | },
- *  |                                                                                                                           |            | TxEffect 1 {
- *  |                                                                                                                           |            |   ...
- *  |                                                                                                                           |            | },
- *  |                                                                                                                           |            | ...
- *  |                                                                                                                           |            | TxEffect (t - 1) {
- *  |                                                                                                                           |            |   ...
- *  |                                                                                                                           |            | },
+ *  | byte start                                                                                | num bytes  | name
+ *  | ---                                                                                       | ---        | ---
+ *  | 0x0                                                                                       | 0x4        | len(numTxs) (denoted t)
+ *  |                                                                                           |            | TxEffect 0 {
+ *  | 0x4                                                                                       | 0x1        |   len(newNoteHashes) (denoted b)
+ *  | 0x4 + 0x1                                                                                 | b * 0x20   |   newNoteHashes
+ *  | 0x4 + 0x1 + b * 0x20                                                                      | 0x1        |   len(newNullifiers) (denoted c)
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1                                                                | c * 0x20   |   newNullifiers
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20                                                     | 0x1        |   len(newL2ToL1Msgs) (denoted d)
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1                                               | d * 0x20   |   newL2ToL1Msgs
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20                                    | 0x1        |   len(newPublicDataWrites) (denoted e)
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01                             | e * 0x40   |   newPublicDataWrites
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40                  | 0x04       |   byteLen(newEncryptedLogs) (denoted f)
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4            | f          |   newEncryptedLogs
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f        | 0x04       |   byteLen(newUnencryptedLogs) (denoted g)
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f + 0x4  | g          |   newUnencryptedLogs
+ *  |                                                                                           |            | },
+ *  |                                                                                           |            | TxEffect 1 {
+ *  |                                                                                           |            |   ...
+ *  |                                                                                           |            | },
+ *  |                                                                                           |            | ...
+ *  |                                                                                           |            | TxEffect (t - 1) {
+ *  |                                                                                           |            |   ...
+ *  |                                                                                           |            | },
  */
 library MessagesDecoder {
   /**
    * @notice Computes consumables for the block
    * @param _body - The L2 block calldata.
-   * @return inHash - The hash of the L1 to L2 messages
    * @return outHash - The hash of the L1 to L2 messages
-   * @return l1ToL2Msgs - The L1 to L2 messages of the block
    * @return l2ToL1Msgs - The L2 to L1 messages of the block
    */
   function decode(bytes calldata _body)
     internal
     pure
-    returns (
-      bytes32 inHash,
-      bytes32 outHash,
-      bytes32[] memory l1ToL2Msgs,
-      bytes32[] memory l2ToL1Msgs
-    )
+    returns (bytes32 outHash, bytes32[] memory l2ToL1Msgs)
   {
-    l1ToL2Msgs = new bytes32[](Constants.NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-
     uint256 offset = 0;
-    // L1 to L2 messages
-    uint256 count = read4(_body, offset);
-    offset += 0x4;
-
-    // `l1ToL2Msgs` is fixed size so if `lengths.l1Tol2MsgsCount` < `Constants.NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` the array
-    // will contain some zero values.
-    assembly {
-      calldatacopy(add(l1ToL2Msgs, 0x20), add(_body.offset, offset), mul(count, 0x20))
-    }
-
-    offset += count * 0x20;
-
     uint256 numTxs = read4(_body, offset);
     offset += 0x4;
 
@@ -94,7 +67,7 @@ library MessagesDecoder {
       offset += 0x1;
 
       // Note hashes
-      count = read1(_body, offset);
+      uint256 count = read1(_body, offset);
       offset += 0x1;
       offset += count * 0x20; // each note hash is 0x20 bytes long
 
@@ -139,10 +112,9 @@ library MessagesDecoder {
       offset += 0x4 + length;
     }
 
-    inHash = sha256(abi.encodePacked(l1ToL2Msgs));
     outHash = sha256(abi.encodePacked(l2ToL1Msgs));
 
-    return (inHash, outHash, l1ToL2Msgs, l2ToL1Msgs);
+    return (outHash, l2ToL1Msgs);
   }
 
   /**

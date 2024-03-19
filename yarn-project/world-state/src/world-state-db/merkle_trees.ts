@@ -501,7 +501,6 @@ export class MerkleTrees implements MerkleTreeDb {
       // Sync the append only trees
       for (const [tree, leaves] of [
         [MerkleTreeId.NOTE_HASH_TREE, l2Block.body.txEffects.flatMap(txEffect => txEffect.noteHashes)],
-        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l2Block.body.l1ToL2Messages],
       ] as const) {
         await this.#appendLeaves(
           tree,
