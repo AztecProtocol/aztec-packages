@@ -44,7 +44,7 @@ describe('e2e_cross_chain_messaging', () => {
     } = await setup(2);
 
     crossChainTestHarness = await CrossChainTestHarness.new(
-      aztecNode,
+      aztecNode_,
       pxe,
       deployL1ContractsValues.publicClient,
       deployL1ContractsValues.walletClient,
