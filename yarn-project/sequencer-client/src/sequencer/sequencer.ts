@@ -276,6 +276,10 @@ export class Sequencer {
         // again if the current block fails to be published for some reason.
         this.log(`Skipping tx with double-spend for this same block ${Tx.getHash(tx)}`);
         continue;
+      } else if (this.isMaxBlockNumberTooLow(tx, globalVariables.blockNumber)) {
+        this.log(`Deleting low max block number tx ${Tx.getHash(tx)}`);
+        txsToDelete.push(tx);
+        continue;
       }
 
       tx.data.end.newNullifiers.forEach(n => thisBlockNullifiers.add(n.value.toBigInt()));
@@ -382,6 +386,11 @@ export class Sequencer {
       }
     }
     return false;
+  }
+
+  protected isMaxBlockNumberTooLow(tx: Tx | ProcessedTx, blockNumber: Fr): boolean {
+    const maxBlockNumber = tx.data.rollupValidationRequests.maxBlockNumber;
+    return maxBlockNumber.isSome && maxBlockNumber.value < blockNumber;
   }
 
   get coinbase(): EthAddress {

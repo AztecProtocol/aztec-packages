@@ -5,9 +5,9 @@ import { setup } from './fixtures/utils.js';
 
 describe('e2e_max_block_number', () => {
   let wallet: Wallet;
+  let pxe: PXE;
   let teardown: () => Promise<void>;
 
-  let pxe: PXE;
   let contract: TestContract;
 
   beforeAll(async () => {
@@ -41,10 +41,7 @@ describe('e2e_max_block_number', () => {
     });
   });
 
-  // These currently cause the sequencer to error out with
-  //   aztec:sequencer ERROR Rolling back world state DB due to error assembling block: Error: Assertion failed: kernel max_block_number is smaller than block number
-  // and it it seemingly retries until the test timeouts.
-  describe.skip('when requesting max block numbers lower than the mined one', () => {
+  describe('when requesting max block numbers lower than the mined one', () => {
     let maxBlockNumber: number;
 
     beforeEach(async () => {
@@ -57,7 +54,7 @@ describe('e2e_max_block_number', () => {
       it('invalidates the transaction', async () => {
         await expect(
           contract.methods.request_max_block_number(maxBlockNumber, enqueuePublicCall).send().wait(),
-        ).rejects.toThrow();
+        ).rejects.toThrow('dropped');
       });
     });
 
@@ -67,7 +64,7 @@ describe('e2e_max_block_number', () => {
       it('invalidates the transaction', async () => {
         await expect(
           contract.methods.request_max_block_number(maxBlockNumber, enqueuePublicCall).send().wait(),
-        ).rejects.toThrow();
+        ).rejects.toThrow('dropped');
       });
     });
   });
