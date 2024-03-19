@@ -69,7 +69,7 @@ pub async fn execute_circuit_with_black_box_solver(
     let circuit = match program.functions.len() {
         0 => return Ok(initial_witness),
         1 => &program.functions[0],
-        _ => return Err(JsExecutionError::new("Program contains multiple circuits however ACVM currently only supports programs containing a single circuit".to_string(), None))
+        _ => return Err(JsExecutionError::new("Program contains multiple circuits however ACVM currently only supports programs containing a single circuit".to_string(), None).into())
     };
 
     let mut acvm = ACVM::new(&solver.0, &circuit.opcodes, initial_witness.into());

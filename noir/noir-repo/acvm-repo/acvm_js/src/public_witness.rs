@@ -36,9 +36,9 @@ pub fn get_return_witness(
     let program: Program =
         Program::deserialize_program(&program).expect("Failed to deserialize circuit");
     let circuit = match program.functions.len() {
-        0 => return Ok(initial_witness),
+        0 => return Ok(JsWitnessMap::from(WitnessMap::new())),
         1 => &program.functions[0],
-        _ => return Err(JsExecutionError::new("Program contains multiple circuits however ACVM currently only supports programs containing a single circuit".to_string(), None))
+        _ => return Err(JsExecutionError::new("Program contains multiple circuits however ACVM currently only supports programs containing a single circuit".to_string(), None).into())
     };
 
     let witness_map = WitnessMap::from(witness_map);
@@ -63,9 +63,9 @@ pub fn get_public_parameters_witness(
     let program: Program =
         Program::deserialize_program(&program).expect("Failed to deserialize circuit");
     let circuit = match program.functions.len() {
-        0 => return Ok(initial_witness),
+        0 => return Ok(JsWitnessMap::from(WitnessMap::new())),
         1 => &program.functions[0],
-        _ => return Err(JsExecutionError::new("Program contains multiple circuits however ACVM currently only supports programs containing a single circuit".to_string(), None))
+        _ => return Err(JsExecutionError::new("Program contains multiple circuits however ACVM currently only supports programs containing a single circuit".to_string(), None).into())
     };
 
     let witness_map = WitnessMap::from(solved_witness);
@@ -90,9 +90,9 @@ pub fn get_public_witness(
     let program: Program =
         Program::deserialize_program(&program).expect("Failed to deserialize circuit");
     let circuit = match program.functions.len() {
-        0 => return Ok(initial_witness),
+        0 => return Ok(JsWitnessMap::from(WitnessMap::new())),
         1 => &program.functions[0],
-        _ => return Err(JsExecutionError::new("Program contains multiple circuits however ACVM currently only supports programs containing a single circuit".to_string(), None))
+        _ => return Err(JsExecutionError::new("Program contains multiple circuits however ACVM currently only supports programs containing a single circuit".to_string(), None).into())
     };
 
     let witness_map = WitnessMap::from(solved_witness);
