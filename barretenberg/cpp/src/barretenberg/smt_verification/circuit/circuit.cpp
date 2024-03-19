@@ -46,12 +46,6 @@ Circuit::Circuit(CircuitSchema& circuit_info, Solver* solver, TermType type, con
     while (i < this->get_num_gates()) {
         i = this->prepare_gates(i);
     }
-
-    for (auto& opt : optimized) {
-        if (opt.second) {
-            this->symbolic_vars[opt.first] == 0;
-        }
-    }
 }
 
 /**
@@ -62,7 +56,6 @@ Circuit::Circuit(CircuitSchema& circuit_info, Solver* solver, TermType type, con
 void Circuit::init()
 {
     size_t num_vars = variables.size();
-
     symbolic_vars.insert({ 0, STerm::Var("zero" + this->tag, this->solver, this->type) });
     symbolic_vars.insert({ 1, STerm::Var("one" + this->tag, this->solver, this->type) });
 
@@ -222,7 +215,7 @@ size_t Circuit::handle_logic_constraint(size_t cursor)
         xor_props = get_standard_logic_circuit(res, true);
         and_props = get_standard_logic_circuit(res, false);
 
-        info("Logic constraint optimization: ", std::to_string(res), " bits. is_xor: ", xor_flag);
+        info("Logic constraint optimization: ", std::to_string(res), " bits. is_xor: ", logic_flag);
         size_t left_gate = xor_props.gate_idxs[0];
         uint32_t left_gate_idx = xor_props.idxs[0];
         size_t right_gate = xor_props.gate_idxs[1];
@@ -349,7 +342,7 @@ size_t Circuit::handle_range_constraint(size_t cursor)
         uint32_t left_idx = this->real_variable_index[this->wires_idxs[cursor + left_gate][left_gate_idx]];
 
         STerm left = this->symbolic_vars[left_idx];
-        left < bb::fr(2).pow(res);
+        left <= (bb::fr(2).pow(res) - 1);
 
         // You have to mark these arguments so they won't be optimized out
         optimized[left_idx] = false;

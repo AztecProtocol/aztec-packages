@@ -62,7 +62,7 @@ class Circuit {
                      bool optimizations = true);
 
     STerm operator[](const std::string& name);
-    STerm operator[](const uint32_t& idx) { return symbolic_vars[this->real_variable_index[idx]]; };
+    STerm operator[](const uint32_t& idx) { return this->symbolic_vars[this->real_variable_index[idx]]; };
     inline size_t get_num_gates() const { return selectors.size(); };
     inline size_t get_num_real_vars() const { return symbolic_vars.size(); };
     inline size_t get_num_vars() const { return variables.size(); };
