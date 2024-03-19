@@ -21,6 +21,7 @@ contract Crowdfunding {
         }
     }
 
+    #[aztec(storage)]
     struct Storage {
         // Token used for donations (e.g. DAI)
         donation_token: SharedImmutable<AztecAddress>,

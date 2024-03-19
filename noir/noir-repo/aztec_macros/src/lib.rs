@@ -89,12 +89,15 @@ fn transform(
 fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> {
     let mut has_transformed_module = false;
 
-    // Check for a user defined storage struct
-    let storage_defined = check_for_storage_definition(module);
-    let storage_implemented = check_for_storage_implementation(module);
+    // Check for a user defined storage stru
 
-    if storage_defined && !storage_implemented {
-        generate_storage_implementation(module)?;
+    let maybe_storage_struct_name = check_for_storage_definition(module)?;
+    let storage_defined = maybe_storage_struct_name.is_some();
+
+    if let Some(storage_struct_name) = maybe_storage_struct_name {
+        if !check_for_storage_implementation(module, &storage_struct_name) {
+            generate_storage_implementation(module, &storage_struct_name)?;
+        }
     }
 
     for structure in module.types.iter() {

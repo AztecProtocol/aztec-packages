@@ -2,10 +2,11 @@ mod lib;
 
 contract GasToken {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
-    use dep::aztec::{hash::{compute_secret_hash}, state_vars::{PublicMutable, Map}};
+    use dep::aztec::{hash::compute_secret_hash, state_vars::{PublicMutable, Map}};
 
     use crate::lib::{calculate_fee, get_bridge_gas_msg_hash};
 
+    #[aztec(storage)]
     struct Storage {
         balances: Map<AztecAddress, PublicMutable<U128>>,
     }

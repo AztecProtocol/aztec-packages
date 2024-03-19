@@ -10,8 +10,9 @@ contract Benchmarking {
     };
     use dep::value_note::{utils::{increment, decrement}, value_note::ValueNote};
 
-    use dep::aztec::{context::{Context}};
+    use dep::aztec::{context::Context};
 
+    #[aztec(storage)]
     struct Storage {
         notes: Map<AztecAddress, PrivateSet<ValueNote>>,
         balances: Map<AztecAddress, PublicMutable<Field>>,
