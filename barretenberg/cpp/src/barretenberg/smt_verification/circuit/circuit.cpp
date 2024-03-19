@@ -46,6 +46,10 @@ Circuit::Circuit(CircuitSchema& circuit_info, Solver* solver, TermType type, con
     while (i < this->get_num_gates()) {
         i = this->prepare_gates(i);
     }
+
+    for (const auto& i : this->public_inps) {
+        this->symbolic_vars[this->real_variable_index[i]] == this->variables[i];
+    }
 }
 
 /**
