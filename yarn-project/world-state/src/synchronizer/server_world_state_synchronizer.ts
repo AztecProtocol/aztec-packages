@@ -167,6 +167,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   private async collectAndProcessBlocks() {
     // This request for blocks will timeout after 1 second if no blocks are received
     const blocks = await this.l2BlockDownloader.getBlocks(1);
+    // TODO(benesjan): here we will need to fetch l1 l2 messages for a given block because they are needed to update the tree.
     await this.handleL2Blocks(blocks);
   }
 

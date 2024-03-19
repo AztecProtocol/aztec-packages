@@ -370,8 +370,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     const rootProof = await this.prover.getRootRollupProof(rootInput, rootOutput);
 
-    // Update the archive with the latest block header
-    this.debug(`Updating and validating root trees`);
+    this.debug(`Updating archive with new header`);
     await this.db.updateArchive(rootOutput.header);
 
     await this.validateRootOutput(rootOutput);
