@@ -13,7 +13,7 @@ import { PublicKey } from '../types/public_key.js';
 /**
  * Returns the deployment address for a given contract instance as defined on the [Yellow Paper](../../../../yellow-paper/docs/addresses-and-keys/specification.md).
  * ```
- * salted_initialization_hash = pedersen([salt, initialization_hash, portal_contract_address as Field], GENERATOR__SALTED_INITIALIZATION_HASH)
+ * salted_initialization_hash = pedersen([salt, initialization_hash, deployer, portal_contract_address as Field], GENERATOR__SALTED_INITIALIZATION_HASH)
  * partial_address = pedersen([contract_class_id, salted_initialization_hash], GENERATOR__CONTRACT_PARTIAL_ADDRESS_V1)
  * address = pedersen([public_keys_hash, partial_address], GENERATOR__CONTRACT_ADDRESS_V1)
  * ```
@@ -35,7 +35,7 @@ export function computeContractAddressFromInstance(
  */
 export function computePartialAddress(
   instance:
-    | Pick<ContractInstance, 'contractClassId' | 'initializationHash' | 'salt' | 'portalContractAddress'>
+    | Pick<ContractInstance, 'contractClassId' | 'initializationHash' | 'salt' | 'portalContractAddress' | 'deployer'>
     | { contractClassId: Fr; saltedInitializationHash: Fr },
 ): Fr {
   const saltedInitializationHash =
@@ -54,10 +54,12 @@ export function computePartialAddress(
  * @param instance - Contract instance for which to compute the salted initialization hash.
  */
 export function computeSaltedInitializationHash(
-  instance: Pick<ContractInstance, 'initializationHash' | 'salt' | 'portalContractAddress'>,
+  instance: Pick<ContractInstance, 'initializationHash' | 'salt' | 'portalContractAddress' | 'deployer'>,
 ): Fr {
   return pedersenHash(
-    [instance.salt, instance.initializationHash, instance.portalContractAddress].map(x => x.toBuffer()),
+    [instance.salt, instance.initializationHash, instance.deployer, instance.portalContractAddress].map(x =>
+      x.toBuffer(),
+    ),
     GeneratorIndex.PARTIAL_ADDRESS,
   );
 }
@@ -92,11 +94,14 @@ export function computePublicKeysHash(publicKey: PublicKey | undefined): Fr {
 
 /**
  * Computes the initialization hash for an instance given its constructor function and arguments.
- * @param initFn - Constructor function.
+ * @param initFn - Constructor function or empty if no initialization is expected.
  * @param args - Unencoded arguments, will be encoded as fields according to the constructor function abi.
- * @returns The hash.
+ * @returns The hash, or zero if no initialization function is provided.
  */
-export function computeInitializationHash(initFn: FunctionAbi, args: any[]): Fr {
+export function computeInitializationHash(initFn: FunctionAbi | undefined, args: any[]): Fr {
+  if (!initFn) {
+    return Fr.ZERO;
+  }
   const selector = FunctionSelector.fromNameAndParameters(initFn.name, initFn.parameters);
   const flatArgs = encodeArguments(initFn, args);
   return computeInitializationHashFromEncodedArgs(selector, flatArgs);

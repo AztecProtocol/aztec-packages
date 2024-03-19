@@ -42,7 +42,7 @@ impl PublicCallDataBuilder {
             function_selector: function_data.selector,
             is_delegate_call: false,
             is_static_call: false,
-            start_side_effect_counter: 0,  // needed?
+            side_effect_counter: 0,  // needed?
         };
 
         PublicCallDataBuilder {
@@ -62,15 +62,6 @@ impl PublicCallDataBuilder {
         self.public_inputs.call_context.storage_contract_address = fixtures::contracts::parent_contract.address;
         self.public_inputs.call_context.portal_contract_address = fixtures::contracts::parent_contract.portal_contract_address;
         self.public_inputs.call_context.msg_sender = fixtures::MSG_SENDER;
-        *self
-    }
-
-    pub fn is_internal_call(&mut self) -> Self {
-        self.function_data.is_internal = true;
-        self.public_inputs.call_context.msg_sender = self.contract_address;
-        let contract_function = fixtures::contract_functions::default_internal_public_function;
-        self.function_data = contract_function.data;
-        self.bytecode_hash = contract_function.acir_hash;
         *self
     }
 

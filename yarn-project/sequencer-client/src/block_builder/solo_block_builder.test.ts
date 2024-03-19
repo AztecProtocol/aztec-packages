@@ -8,6 +8,7 @@ import {
   GlobalVariables,
   Header,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX,
   MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
@@ -25,14 +26,17 @@ import {
   PublicDataUpdateRequest,
   PublicKernelCircuitPublicInputs,
   RootRollupPublicInputs,
+  SideEffect,
   SideEffectLinkedToNoteHash,
   StateReference,
+  sideEffectCmp,
 } from '@aztec/circuits.js';
 import {
   fr,
   makeBaseOrMergeRollupPublicInputs,
   makeNewSideEffect,
   makeNewSideEffectLinkedToNoteHash,
+  makeParityPublicInputs,
   makePrivateKernelTailCircuitPublicInputs,
   makeProof,
   makePublicCallRequest,
@@ -110,8 +114,16 @@ describe('sequencer/solo_block_builder', () => {
     rootRollupOutput.header.globalVariables = globalVariables;
 
     // Set up mocks
+    prover.getBaseParityProof.mockResolvedValue(emptyProof);
+    prover.getRootParityProof.mockResolvedValue(emptyProof);
     prover.getBaseRollupProof.mockResolvedValue(emptyProof);
     prover.getRootRollupProof.mockResolvedValue(emptyProof);
+    simulator.baseParityCircuit
+      .mockResolvedValueOnce(makeParityPublicInputs(1))
+      .mockResolvedValue(makeParityPublicInputs(2))
+      .mockResolvedValue(makeParityPublicInputs(3))
+      .mockResolvedValueOnce(makeParityPublicInputs(4));
+    simulator.rootParityCircuit.mockResolvedValueOnce(makeParityPublicInputs(5));
     simulator.baseRollupCircuit
       .mockResolvedValueOnce(baseRollupOutputLeft)
       .mockResolvedValueOnce(baseRollupOutputRight);
@@ -128,13 +140,25 @@ describe('sequencer/solo_block_builder', () => {
     await expectsDb.appendLeaves(
       MerkleTreeId.NOTE_HASH_TREE,
       txs.flatMap(tx =>
-        [...tx.data.endNonRevertibleData.newNoteHashes, ...tx.data.end.newNoteHashes].map(l => l.value.toBuffer()),
+        padArrayEnd(
+          [...tx.data.endNonRevertibleData.newNoteHashes, ...tx.data.end.newNoteHashes]
+            .filter(x => !x.isEmpty())
+            .sort(sideEffectCmp),
+          SideEffect.empty(),
+          MAX_NEW_NOTE_HASHES_PER_TX,
+        ).map(l => l.value.toBuffer()),
       ),
     );
     await expectsDb.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       txs.flatMap(tx =>
-        [...tx.data.endNonRevertibleData.newNullifiers, ...tx.data.end.newNullifiers].map(x => x.value.toBuffer()),
+        padArrayEnd(
+          [...tx.data.endNonRevertibleData.newNullifiers, ...tx.data.end.newNullifiers]
+            .filter(x => !x.isEmpty())
+            .sort(sideEffectCmp),
+          SideEffectLinkedToNoteHash.empty(),
+          MAX_NEW_NULLIFIERS_PER_TX,
+        ).map(x => x.value.toBuffer()),
       ),
       NULLIFIER_SUBTREE_HEIGHT,
     );

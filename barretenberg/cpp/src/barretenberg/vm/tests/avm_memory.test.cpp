@@ -1,8 +1,6 @@
 #include "avm_common.test.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 
-using namespace bb;
-
 namespace tests_avm {
 using namespace bb::avm_trace;
 
@@ -43,7 +41,6 @@ TEST_F(AvmMemoryTests, mismatchedTagAddOperation)
 
     EXPECT_TRUE(row != trace.end());
 
-    // All intermediate registers should be set to zero.
     EXPECT_EQ(row->avm_main_ia, FF(98));
     EXPECT_EQ(row->avm_main_ib, FF(12));
     EXPECT_EQ(row->avm_main_ic, FF(0));

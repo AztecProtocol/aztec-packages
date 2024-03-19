@@ -23,7 +23,7 @@ use dep::protocol_types::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
+    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256, RETURN_VALUES_LENGTH
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
@@ -92,9 +92,13 @@ impl ContextInterface for PrivateContext {
         self.inputs.call_context.function_selector
     }
 
+    fn get_args_hash(self) -> Field {
+        self.args_hash
+    }
+
     // Returns the header of a block whose state is used during private execution (not the block the transaction is
     // included in).
-    pub fn get_header(self) -> Header {
+    fn get_header(self) -> Header {
         self.historical_header
     }
 
@@ -113,7 +117,7 @@ impl ContextInterface for PrivateContext {
 
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
-        let side_effect_counter = inputs.call_context.start_side_effect_counter;
+        let side_effect_counter = inputs.start_side_effect_counter;
         let mut min_revertible_side_effect_counter = 0;
         if is_empty(inputs.call_context.msg_sender) {
             min_revertible_side_effect_counter = side_effect_counter;
@@ -157,12 +161,6 @@ impl PrivateContext {
             call_context: self.inputs.call_context,
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
-            // TODO(fees): start this from 0 and test the following:
-            // - in the private circuit init that it gets set correctly
-            // - in the private circuit inner that it remains 0
-            // I've had to initialize the counter here so that it would work for contract deployments
-            // the above checks should be doable after we figure out fee payments for contract deployments
-            // TO(fees): there are no more contract deployments at the protocol level
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
@@ -172,6 +170,7 @@ impl PrivateContext {
             private_call_stack_hashes: self.private_call_stack_hashes.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
             encrypted_logs_hash,
             unencrypted_logs_hash,
@@ -333,7 +332,8 @@ impl PrivateContext {
             is_delegate_call
         );
 
-        assert_eq(item.public_inputs.call_context.start_side_effect_counter, self.side_effect_counter);
+        assert_eq(item.public_inputs.call_context.side_effect_counter, self.side_effect_counter);
+        assert_eq(item.public_inputs.start_side_effect_counter, self.side_effect_counter);
         self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;
 
         assert(contract_address.eq(item.contract_address));
@@ -451,12 +451,15 @@ impl PrivateContext {
                 args_hash: reader.read(),
                 return_values: [0; RETURN_VALUES_LENGTH],
                 nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
+                nullifier_non_existent_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
                 contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
                 contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
                 public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
                 new_note_hashes: [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
                 new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
                 new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+                start_side_effect_counter: 0,
+                end_side_effect_counter: 0,
                 unencrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
                 historical_header: Header::empty(),
@@ -470,7 +473,7 @@ impl PrivateContext {
         assert(contract_address.eq(item.contract_address));
         assert(function_selector.eq(item.function_data.selector));
 
-        assert_eq(item.public_inputs.call_context.start_side_effect_counter, self.side_effect_counter);
+        assert_eq(item.public_inputs.call_context.side_effect_counter, self.side_effect_counter);
         // We increment the sideffect counter by one, to account for the call itself being a side effect.
         self.side_effect_counter = self.side_effect_counter + 1;
 

@@ -38,6 +38,8 @@ impl PublicKernelSetupCircuitPrivateInputs {
     fn public_kernel_setup(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        // since this phase is non-revertible, we must assert the public call did not revert
+        common::validate_public_call_non_revert(self.public_call);
         common::initialize_reverted_flag(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
@@ -52,6 +54,8 @@ impl PublicKernelSetupCircuitPrivateInputs {
         // Pops the item from the call stack and validates it against the current execution.
         let call_request = public_inputs.end_non_revertible.public_call_stack.pop();
         common::validate_call_against_request(self.public_call, call_request);
+
+        common::update_validation_requests(self.public_call, &mut public_inputs);
 
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
 
@@ -78,7 +82,8 @@ mod tests {
         abis::{
         call_request::CallRequest, function_selector::FunctionSelector,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest, public_call_data::PublicCallData
+        public_data_update_request::PublicDataUpdateRequest, public_call_data::PublicCallData,
+        read_request::ReadRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         contrakt::storage_read::StorageRead, hash::compute_logs_hash,
@@ -119,12 +124,6 @@ mod tests {
 
         pub fn is_delegate_call(&mut self) -> Self {
             let _ = self.public_call.is_delegate_call();
-            *self
-        }
-
-        pub fn is_internal_call(&mut self) -> Self {
-            let _ = self.public_call.is_internal_call();
-            self.previous_kernel.contract_address = self.public_call.contract_address;
             *self
         }
 
@@ -202,24 +201,6 @@ mod tests {
     fn no_bytecode_hash_should_fail() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
         builder.public_call.bytecode_hash = 0;
-
-        builder.failed();
-    }
-
-    #[test]
-    fn internal_call_succeeds() {
-        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new().is_internal_call();
-        builder.succeeded();
-    }
-
-    #[test(should_fail_with="msg_sender must be self for internal calls")]
-    fn invalid_is_internal() {
-        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new().is_internal_call();
-
-        // Tweak the (storage) contract_address to be different to msg_sender.
-        let msg_sender = builder.public_call.public_inputs.call_context.msg_sender.to_field();
-        builder.public_call.contract_address = AztecAddress::from_field(msg_sender + 1);
-        builder.public_call.public_inputs.call_context.storage_contract_address = AztecAddress::from_field(msg_sender + 1);
 
         builder.failed();
     }
@@ -495,5 +476,39 @@ mod tests {
 
         let expected_unencrypted_logs_hash = compute_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
         assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+    }
+
+    #[test]
+    fn propagate_nullifier_non_existent_read_requests() {
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+        let storage_contract_address = builder.public_call.public_inputs.call_context.storage_contract_address;
+
+        let request_0 = ReadRequest { value: 123, counter: 4567 };
+        builder.public_call.public_inputs.nullifier_non_existent_read_requests.push(request_0);
+        let request_1 = ReadRequest { value: 777888, counter: 90 };
+        builder.public_call.public_inputs.nullifier_non_existent_read_requests.push(request_1);
+
+        let public_inputs = builder.execute();
+
+        let end_requests = public_inputs.validation_requests.nullifier_non_existent_read_requests;
+        assert_eq(array_length(end_requests), 2);
+
+        let request_context = end_requests[0];
+        assert_eq(request_context.value, request_0.value);
+        assert_eq(request_context.counter, request_0.counter);
+        assert_eq(request_context.contract_address, storage_contract_address);
+
+        let request_context = end_requests[1];
+        assert_eq(request_context.value, request_1.value);
+        assert_eq(request_context.counter, request_1.counter);
+        assert_eq(request_context.contract_address, storage_contract_address);
+    }
+
+    #[test(should_fail_with="Public call cannot be reverted")]
+    fn fails_if_public_call_reverted() {
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+        builder.public_call.public_inputs.reverted = true;
+
+        builder.failed();
     }
 }

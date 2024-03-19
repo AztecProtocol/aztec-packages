@@ -1,13 +1,11 @@
 import {
   Body,
-  ExtendedContractData,
   GetUnencryptedLogsResponse,
-  L1ToL2Message,
+  InboxLeaf,
   L2Block,
   L2BlockL2Logs,
   LogFilter,
   LogType,
-  NewInboxLeaf,
   TxEffect,
   TxHash,
   TxReceipt,
@@ -23,7 +21,6 @@ import { BlockBodyStore } from './block_body_store.js';
 import { BlockStore } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
-import { ContractStore } from './contract_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
@@ -34,7 +31,6 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   #blockStore: BlockStore;
   #blockBodyStore: BlockBodyStore;
   #logStore: LogStore;
-  #contractStore: ContractStore;
   #messageStore: MessageStore;
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
@@ -45,7 +41,6 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     this.#blockBodyStore = new BlockBodyStore(db);
     this.#blockStore = new BlockStore(db, this.#blockBodyStore);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
-    this.#contractStore = new ContractStore(db, this.#blockStore);
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
@@ -149,76 +144,32 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Append new L1 to L2 messages to the store.
+   * Append L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store.
    * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
    * @returns True if the operation is successful.
    */
-  addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
-    return Promise.resolve(this.#messageStore.addNewL1ToL2Messages(messages, lastMessageL1BlockNumber));
+  addL1ToL2Messages(messages: InboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean> {
+    return Promise.resolve(this.#messageStore.addL1ToL2Messages(messages, lastMessageL1BlockNumber));
   }
 
   /**
-   * Append new pending L1 to L2 messages to the store.
-   * @param messages - The L1 to L2 messages to be added to the store.
-   * @param l1BlockNumber - The L1 block number for which to add the messages.
-   * @returns True if the operation is successful.
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * @param l1ToL2Message - The L1 to L2 message.
+   * @returns The index of the L1 to L2 message in the L1 to L2 message tree.
    */
-  addPendingL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean> {
-    return Promise.resolve(this.#messageStore.addPendingMessages(messages, l1BlockNumber));
+  public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint> {
+    return Promise.resolve(this.#messageStore.getL1ToL2MessageIndex(l1ToL2Message));
   }
 
   /**
-   * Remove pending L1 to L2 messages from the store (if they were cancelled).
-   * @param messages - The entry keys to be removed from the store.
-   * @param l1BlockNumber - The L1 block number for which to remove the messages.
-   * @returns True if the operation is successful.
-   */
-  cancelPendingL1ToL2EntryKeys(messages: Fr[], l1BlockNumber: bigint): Promise<boolean> {
-    return Promise.resolve(this.#messageStore.cancelPendingMessages(messages, l1BlockNumber));
-  }
-
-  /**
-   * Messages that have been published in an L2 block are confirmed.
-   * Add them to the confirmed store, also remove them from the pending store.
-   * @param entryKeys - The entry keys to be removed from the store.
-   * @param blockNumber - The block for which to add the messages.
-   * @returns True if the operation is successful.
-   */
-  confirmL1ToL2EntryKeys(entryKeys: Fr[]): Promise<boolean> {
-    return this.#messageStore.confirmPendingMessages(entryKeys);
-  }
-
-  /**
-   * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
-   * @param limit - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
-   * @returns The requested L1 to L2 entry keys.
-   */
-  getPendingL1ToL2EntryKeys(limit: number): Promise<Fr[]> {
-    return Promise.resolve(this.#messageStore.getPendingEntryKeysByFee(limit));
-  }
-
-  /**
-   * Gets the confirmed L1 to L2 message corresponding to the given entry key.
-   * @param entryKey - The entry key to look up.
-   * @returns The requested L1 to L2 message or throws if not found.
-   */
-  getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message> {
-    try {
-      return Promise.resolve(this.#messageStore.getConfirmedMessage(entryKey));
-    } catch (err) {
-      return Promise.reject(err);
-    }
-  }
-
-  /**
-   * Gets new L1 to L2 message (to be) included in a given block.
+   * Gets L1 to L2 message (to be) included in a given block.
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getNewL1ToL2Messages(blockNumber: bigint): Promise<Buffer[]> {
+  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
     try {
-      return Promise.resolve(this.#messageStore.getNewL1ToL2Messages(blockNumber));
+      return Promise.resolve(this.#messageStore.getL1ToL2Messages(blockNumber));
     } catch (err) {
       return Promise.reject(err);
     }
@@ -253,43 +204,22 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Add new extended contract data from an L2 block to the store's list.
-   * @param data - List of contracts' data to be added.
-   * @param blockNum - Number of the L2 block the contract data was deployed in.
-   * @returns True if the operation is successful.
-   */
-  addExtendedContractData(data: ExtendedContractData[], blockNum: number): Promise<boolean> {
-    return this.#contractStore.addExtendedContractData(data, blockNum);
-  }
-
-  /**
-   * Get the extended contract data for this contract.
-   * @param contractAddress - The contract data address.
-   * @returns The extended contract data or undefined if not found.
-   */
-  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return Promise.resolve(this.#contractStore.getExtendedContractData(contractAddress));
-  }
-
-  /**
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
-  getBlockNumber(): Promise<number> {
-    return Promise.resolve(this.#blockStore.getBlockNumber());
+  getSynchedL2BlockNumber(): Promise<number> {
+    return Promise.resolve(this.#blockStore.getSynchedL2BlockNumber());
   }
 
   /**
    * Gets the last L1 block number processed by the archiver
    */
-  getL1BlockNumber(): Promise<ArchiverL1SynchPoint> {
-    const addedBlock = this.#blockStore.getL1BlockNumber();
-    const { addedMessages, cancelledMessages, newMessages } = this.#messageStore.getL1BlockNumber();
+  getSynchedL1BlockNumbers(): Promise<ArchiverL1SynchPoint> {
+    const blocks = this.#blockStore.getSynchedL1BlockNumber();
+    const messages = this.#messageStore.getSynchedL1BlockNumber();
     return Promise.resolve({
-      addedBlock,
-      addedMessages,
-      newMessages,
-      cancelledMessages,
+      blocks,
+      messages,
     });
   }
 }

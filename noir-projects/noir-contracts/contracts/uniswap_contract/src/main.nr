@@ -4,7 +4,7 @@ mod util;
 
 // Demonstrates how to use portal contracts to swap on L1 Uniswap with funds on L2
 // Has two separate flows for private and public respectively
-// Uses the token bridge contract, which tells which input token we need to talk to and handles the exit funds to L1 
+// Uses the token bridge contract, which tells which input token we need to talk to and handles the exit funds to L1
 contract Uniswap {
     use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, Map, PublicMutable};
     use dep::aztec::oracle::context::get_portal_address;
@@ -24,9 +24,6 @@ contract Uniswap {
         // gets incremented each time after use to prevent replay attacks
         nonce_for_burn_approval: PublicMutable<Field>,
     }
-
-    #[aztec(private)]
-    fn constructor() {}
     // docs:end:uniswap_setup
 
     // docs:start:swap_public
@@ -44,8 +41,6 @@ contract Uniswap {
         // params for the depositing output_asset back to Aztec
         recipient: AztecAddress,
         secret_hash_for_L1_to_l2_message: Field,
-        deadline_for_L1_to_l2_message: Field,
-        canceller_for_L1_to_L2_message: EthAddress,
         caller_on_L1: EthAddress,
         // nonce for someone to call swap on sender's behalf
         nonce_for_swap_approval: Field
@@ -54,11 +49,11 @@ contract Uniswap {
             assert_current_call_valid_authwit_public(&mut context, sender);
         }
 
-        let input_asset = TokenBridge::at(input_asset_bridge).token(context);
+        let input_asset = TokenBridge::at(input_asset_bridge).token(&mut context);
 
         // Transfer funds to this contract
         Token::at(input_asset).transfer_public(
-            context,
+            &mut context,
             sender,
             context.this_address(),
             input_amount,
@@ -92,8 +87,6 @@ contract Uniswap {
             minimum_output_amount,
             recipient,
             secret_hash_for_L1_to_l2_message,
-            deadline_for_L1_to_l2_message,
-            canceller_for_L1_to_L2_message,
             caller_on_L1
         );
         context.message_portal(context.this_portal_address(), content_hash);
@@ -115,8 +108,6 @@ contract Uniswap {
         // params for the depositing output_asset back to Aztec
         secret_hash_for_redeeming_minted_notes: Field,// secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
         secret_hash_for_L1_to_l2_message: Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
-        deadline_for_L1_to_l2_message: Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
-        canceller_for_L1_to_L2_message: EthAddress, // L1 address of who can cancel the message to consume assets on L2.
         caller_on_L1: EthAddress // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) {
         // Assert that user provided token address is same as expected by token bridge.
@@ -163,8 +154,6 @@ contract Uniswap {
             minimum_output_amount,
             secret_hash_for_redeeming_minted_notes,
             secret_hash_for_L1_to_l2_message,
-            deadline_for_L1_to_l2_message,
-            canceller_for_L1_to_L2_message,
             caller_on_L1
         );
         context.message_portal(context.this_portal_address(), content_hash);
@@ -190,7 +179,7 @@ contract Uniswap {
 
     // docs:start:authwit_uniswap_set
     // This helper method approves the bridge to burn this contract's funds and exits the input asset to L1
-    // Assumes contract already has funds. 
+    // Assumes contract already has funds.
     // Assume `token` relates to `token_bridge` (ie token_bridge.token == token)
     // Note that private can't read public return values so created an internal public that handles everything
     // this method is used for both private and public swaps.
@@ -213,7 +202,7 @@ contract Uniswap {
 
         // Exit to L1 Uniswap Portal !
         TokenBridge::at(token_bridge).exit_to_l1_public(
-            context,
+            &mut context,
             context.this_portal_address(),
             amount,
             context.this_portal_address(),
@@ -227,12 +216,12 @@ contract Uniswap {
     #[aztec(internal)]
     fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
         assert(
-            token.eq(TokenBridge::at(token_bridge).token(context)), "input_asset address is not the same as seen in the bridge contract"
+            token.eq(TokenBridge::at(token_bridge).token(&mut context)), "input_asset address is not the same as seen in the bridge contract"
         );
     }
     // docs:end:assert_token_is_same
 
-    // /// Unconstrained /// 
+    // /// Unconstrained ///
 
     // this method exists solely for e2e tests to test that nonce gets incremented each time.
     unconstrained fn nonce_for_burn_approval() -> pub Field {

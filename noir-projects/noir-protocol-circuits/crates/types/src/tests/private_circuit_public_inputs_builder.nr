@@ -4,8 +4,8 @@ use crate::{
     private_circuit_public_inputs::PrivateCircuitPublicInputs, read_request::ReadRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
-    address::{AztecAddress, compute_initialization_hash}, hash::{compute_constructor_hash, hash_args},
-    header::Header, messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures
+    address::{AztecAddress, compute_initialization_hash}, hash::{hash_args}, header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures
 };
 use crate::constants::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
@@ -67,7 +67,7 @@ impl PrivateCircuitPublicInputsBuilder {
             function_selector: function_data.selector,
             is_delegate_call: false,
             is_static_call: false,
-            start_side_effect_counter: 0
+            side_effect_counter: 0
         };
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
@@ -92,6 +92,7 @@ impl PrivateCircuitPublicInputsBuilder {
             private_call_stack_hashes: self.private_call_stack_hashes.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            start_side_effect_counter: self.call_context.side_effect_counter,
             end_side_effect_counter: 10,
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,

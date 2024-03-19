@@ -34,6 +34,8 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
         // validate the inputs unique to having a previous public kernel
         self.validate_inputs();
 
+        common::update_validation_requests(self.public_call, &mut public_inputs);
+
         if public_inputs.reverted == false {
             // Pops the item from the call stack and validates it against the current execution.
             let call_request = public_inputs.end.public_call_stack.pop();
@@ -75,14 +77,14 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest,
+        public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash}
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         hash::{compute_l2_to_l1_hash, compute_logs_hash, silo_note_hash, silo_nullifier},
         messaging::l2_to_l1_message::L2ToL1Message,
         tests::{kernel_data_builder::PreviousKernelDataBuilder, public_call_data_builder::PublicCallDataBuilder},
-        utils::{arrays::array_eq}
+        utils::arrays::{array_eq, array_length}
     };
     use dep::types::constants::{MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL};
 
@@ -224,7 +226,7 @@ mod tests {
 
         // Setup 2 data reads on the previous kernel.
         builder.previous_kernel.append_public_data_read_requests(2);
-        let previous = builder.previous_kernel.end.public_data_reads.storage;
+        let previous = builder.previous_kernel.validation_requests.public_data_reads.storage;
         // Setup 2 data reads on the current public inputs.
         builder.public_call.append_public_data_read_requests(2);
         let current = builder.get_current_public_data_reads();
@@ -232,7 +234,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert_eq_public_data_reads(
-            public_inputs.end.public_data_reads,
+            public_inputs.validation_requests.public_data_reads,
             public_data_read_requests
         );
     }
@@ -417,6 +419,35 @@ mod tests {
             public_inputs.end.public_data_update_requests,
             update_requests
         );
-        assert_eq_public_data_reads(public_inputs.end.public_data_reads, read_requests);
+        assert_eq_public_data_reads(
+            public_inputs.validation_requests.public_data_reads,
+            read_requests
+        );
+    }
+
+    #[test]
+    fn propagate_nullifier_non_existent_read_requests() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+        let storage_contract_address = builder.public_call.public_inputs.call_context.storage_contract_address;
+
+        let request_0 = ReadRequest { value: 123, counter: 4567 };
+        builder.public_call.public_inputs.nullifier_non_existent_read_requests.push(request_0);
+        let request_1 = ReadRequest { value: 777888, counter: 90 };
+        builder.public_call.public_inputs.nullifier_non_existent_read_requests.push(request_1);
+
+        let public_inputs = builder.execute();
+
+        let end_requests = public_inputs.validation_requests.nullifier_non_existent_read_requests;
+        assert_eq(array_length(end_requests), 2);
+
+        let request_context = end_requests[0];
+        assert_eq(request_context.value, request_0.value);
+        assert_eq(request_context.counter, request_0.counter);
+        assert_eq(request_context.contract_address, storage_contract_address);
+
+        let request_context = end_requests[1];
+        assert_eq(request_context.value, request_1.value);
+        assert_eq(request_context.counter, request_1.counter);
+        assert_eq(request_context.contract_address, storage_contract_address);
     }
 }
