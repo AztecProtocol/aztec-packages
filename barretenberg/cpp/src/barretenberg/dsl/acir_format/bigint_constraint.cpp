@@ -208,6 +208,8 @@ void create_bigint_div_constraint(const BigIntOperation& input,
                                   bool has_valid_witness_assignments)
 {
     if (!has_valid_witness_assignments) {
+        // Asserts catch the case where the divisor is zero, so we need to provide a different value (1) to avoid the
+        // assert
         std::array<uint32_t, 5> limbs_idx;
         dsl_bigint.get_witness_idx_of_limbs(input.rhs, limbs_idx);
         dsl_bigint.set_value(1, limbs_idx);
