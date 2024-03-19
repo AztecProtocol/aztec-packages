@@ -526,6 +526,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       tx.data.aggregationObject,
       tx.data.combinedData,
       tx.data.constants,
+      tx.data.rollupValidationRequests,
     );
     return new RollupKernelData(
       inputs,

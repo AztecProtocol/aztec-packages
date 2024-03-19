@@ -91,6 +91,7 @@ import {
   ReadRequestStatus,
   RollupKernelCircuitPublicInputs,
   RollupKernelData,
+  RollupValidationRequests,
   RootParityInput,
   RootParityInputs,
   RootRollupInputs,
@@ -135,6 +136,7 @@ import {
   PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
   ReadRequestContext as ReadRequestContextNoir,
   ReadRequest as ReadRequestNoir,
+  RollupValidationRequests as RollupValidationRequestsNoir,
   SideEffectLinkedToNoteHash as SideEffectLinkedToNoteHashNoir,
   SideEffect as SideEffectNoir,
   TxContext as TxContextNoir,
@@ -357,29 +359,6 @@ export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
     mapFieldFromNoir(txContext.chain_id),
     mapFieldFromNoir(txContext.version),
   );
-}
-
-/**
- * Maps a max block number to a noir max block number.
- * @param maxBlockNumber - The max block number.
- * @returns The noir max block number.
- */
-export function mapMaxBlockNumberToNoir(maxBlockNumber: MaxBlockNumber): MaxBlockNumberNoir {
-  return {
-    _opt: {
-      _is_some: maxBlockNumber.isSome,
-      _value: mapFieldToNoir(maxBlockNumber.value),
-    },
-  };
-}
-
-/**
- * Maps a noir max block number to a max block number.
- * @param maxBlockNumber - The noir max block number.
- * @returns The max block number.
- */
-export function mapMaxBlockNumberFromNoir(maxBlockNumber: MaxBlockNumberNoir): MaxBlockNumber {
-  return new MaxBlockNumber(maxBlockNumber._opt._is_some, mapFieldFromNoir(maxBlockNumber._opt._value));
 }
 
 /**
@@ -941,6 +920,7 @@ function mapNullifierNonExistentReadRequestHintsToNoir(
 
 function mapValidationRequestsToNoir(requests: ValidationRequests): ValidationRequestsNoir {
   return {
+    for_rollup: mapRollupValidationRequestsToNoir(requests.forRollup),
     note_hash_read_requests: mapTuple(requests.noteHashReadRequests, mapSideEffectToNoir),
     nullifier_read_requests: mapTuple(requests.nullifierReadRequests, mapReadRequestContextToNoir),
     nullifier_non_existent_read_requests: mapTuple(
@@ -957,6 +937,7 @@ function mapValidationRequestsToNoir(requests: ValidationRequests): ValidationRe
 
 function mapValidationRequestsFromNoir(requests: ValidationRequestsNoir): ValidationRequests {
   return new ValidationRequests(
+    mapRollupValidationRequestsFromNoir(requests.for_rollup),
     mapTupleFromNoir(requests.note_hash_read_requests, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(
       requests.nullifier_read_requests,
@@ -977,6 +958,33 @@ function mapValidationRequestsFromNoir(requests: ValidationRequestsNoir): Valida
   );
 }
 
+export function mapRollupValidationRequestsToNoir(
+  rollupValidationRequests: RollupValidationRequests,
+): RollupValidationRequestsNoir {
+  return {
+    max_block_number: mapMaxBlockNumberToNoir(rollupValidationRequests.maxBlockNumber),
+  };
+}
+
+export function mapRollupValidationRequestsFromNoir(
+  rollupValidationRequests: RollupValidationRequestsNoir,
+): RollupValidationRequests {
+  return new RollupValidationRequests(mapMaxBlockNumberFromNoir(rollupValidationRequests.max_block_number));
+}
+
+export function mapMaxBlockNumberToNoir(maxBlockNumber: MaxBlockNumber): MaxBlockNumberNoir {
+  return {
+    _opt: {
+      _is_some: maxBlockNumber.isSome,
+      _value: mapFieldToNoir(maxBlockNumber.value),
+    },
+  };
+}
+
+export function mapMaxBlockNumberFromNoir(maxBlockNumber: MaxBlockNumberNoir): MaxBlockNumber {
+  return new MaxBlockNumber(maxBlockNumber._opt._is_some, mapFieldFromNoir(maxBlockNumber._opt._value));
+}
+
 /**
  * Maps combined accumulated data from noir to the parsed type.
  * @param combinedAccumulatedData - The noir combined accumulated data.
@@ -986,25 +994,6 @@ export function mapCombinedAccumulatedDataFromNoir(
   combinedAccumulatedData: CombinedAccumulatedDataNoir,
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
-<<<<<<< HEAD
-    mapMaxBlockNumberFromNoir(combinedAccumulatedData.max_block_number),
-    mapTupleFromNoir(
-      combinedAccumulatedData.note_hash_read_requests,
-      MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-      mapSideEffectFromNoir,
-    ),
-    mapTupleFromNoir(
-      combinedAccumulatedData.nullifier_read_requests,
-      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-      mapReadRequestContextFromNoir,
-    ),
-    mapTupleFromNoir(
-      combinedAccumulatedData.nullifier_key_validation_requests,
-      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-      mapNullifierKeyValidationRequestContextFromNoir,
-    ),
-=======
->>>>>>> master
     mapTupleFromNoir(combinedAccumulatedData.new_note_hashes, MAX_NEW_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -1072,7 +1061,6 @@ export function mapAccumulatedNonRevertibleDataFromNoir(
   accumulatedMetaData: PrivateAccumulatedNonRevertibleDataNoir,
 ): PrivateAccumulatedNonRevertibleData {
   return new PrivateAccumulatedNonRevertibleData(
-    mapMaxBlockNumberFromNoir(accumulatedMetaData.max_block_number),
     mapTupleFromNoir(accumulatedMetaData.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(
       accumulatedMetaData.new_nullifiers,
@@ -1096,7 +1084,6 @@ export function mapAccumulatedNonRevertibleDataToNoir(
   accumulatedMetaData: PrivateAccumulatedNonRevertibleData,
 ): PrivateAccumulatedNonRevertibleDataNoir {
   return {
-    max_block_number: mapMaxBlockNumberToNoir(accumulatedMetaData.maxBlockNumber),
     new_note_hashes: mapTuple(accumulatedMetaData.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(accumulatedMetaData.newNullifiers, mapSideEffectLinkedToNoir),
     public_call_stack: mapTuple(accumulatedMetaData.publicCallStack, mapCallRequestToNoir),
@@ -1128,16 +1115,6 @@ export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
-<<<<<<< HEAD
-    max_block_number: mapMaxBlockNumberToNoir(combinedAccumulatedData.maxBlockNumber),
-    note_hash_read_requests: mapTuple(combinedAccumulatedData.noteHashReadRequests, mapSideEffectToNoir),
-    nullifier_read_requests: mapTuple(combinedAccumulatedData.nullifierReadRequests, mapReadRequestContextToNoir),
-    nullifier_key_validation_requests: mapTuple(
-      combinedAccumulatedData.nullifierKeyValidationRequests,
-      mapNullifierKeyValidationRequestContextToNoir,
-    ),
-=======
->>>>>>> master
     new_note_hashes: mapTuple(combinedAccumulatedData.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapSideEffectLinkedToNoir),
     private_call_stack: mapTuple(combinedAccumulatedData.privateCallStack, mapCallRequestToNoir),
@@ -1198,6 +1175,7 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
   return {
     aggregation_object: {},
     constants: mapCombinedConstantDataToNoir(inputs.constants),
+    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     validation_requests: mapValidationRequestsToNoir(inputs.validationRequests),
     end: mapPublicAccumulatedRevertibleDataToNoir(inputs.end),
     end_non_revertible: mapPublicAccumulatedNonRevertibleDataToNoir(inputs.endNonRevertibleData),
@@ -1213,6 +1191,7 @@ export function mapRollupKernelCircuitPublicInputsToNoir(
 ): RollupKernelCircuitPublicInputsNoir {
   return {
     aggregation_object: {},
+    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     end: mapCombinedAccumulatedDataToNoir(inputs.end),
   };
@@ -1239,12 +1218,6 @@ export function mapPublicAccumulatedNonRevertibleDataToNoir(
   data: PublicAccumulatedNonRevertibleData,
 ): PublicAccumulatedNonRevertibleDataNoir {
   return {
-<<<<<<< HEAD
-    max_block_number: mapMaxBlockNumberToNoir(data.maxBlockNumber),
-    nullifier_read_requests: mapTuple(data.nullifierReadRequests, mapReadRequestContextToNoir),
-    nullifier_non_existent_read_requests: mapTuple(data.nullifierNonExistentReadRequests, mapReadRequestContextToNoir),
-=======
->>>>>>> master
     new_note_hashes: mapTuple(data.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(data.newNullifiers, mapSideEffectLinkedToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
@@ -1346,6 +1319,7 @@ export function mapPrivateKernelTailCircuitPublicInputsFromNoir(
 ): PrivateKernelTailCircuitPublicInputs {
   return new PrivateKernelTailCircuitPublicInputs(
     AggregationObject.makeFake(),
+    mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapAccumulatedNonRevertibleDataFromNoir(inputs.end_non_revertible),
     mapFinalAccumulatedDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
@@ -1360,6 +1334,7 @@ export function mapPrivateKernelTailCircuitPublicInputsToNoir(
 ): PrivateKernelTailCircuitPublicInputsNoir {
   return {
     aggregation_object: {},
+    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     end: mapFinalAccumulatedDataToNoir(inputs.end),
     end_non_revertible: mapAccumulatedNonRevertibleDataToNoir(inputs.endNonRevertibleData),
@@ -1430,6 +1405,7 @@ export function mapPublicKernelCircuitPublicInputsFromNoir(
 ): PublicKernelCircuitPublicInputs {
   return new PublicKernelCircuitPublicInputs(
     AggregationObject.makeFake(),
+    mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapValidationRequestsFromNoir(inputs.validation_requests),
     mapPublicAccumulatedNonRevertibleDataFromNoir(inputs.end_non_revertible),
     mapPublicAccumulatedRevertibleDataFromNoir(inputs.end),
@@ -1445,16 +1421,6 @@ export function mapPublicAccumulatedNonRevertibleDataFromNoir(
   data: PublicAccumulatedNonRevertibleDataNoir,
 ): PublicAccumulatedNonRevertibleData {
   return new PublicAccumulatedNonRevertibleData(
-<<<<<<< HEAD
-    mapMaxBlockNumberFromNoir(data.max_block_number),
-    mapTupleFromNoir(data.nullifier_read_requests, MAX_NULLIFIER_READ_REQUESTS_PER_TX, mapReadRequestContextFromNoir),
-    mapTupleFromNoir(
-      data.nullifier_non_existent_read_requests,
-      MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
-      mapReadRequestContextFromNoir,
-    ),
-=======
->>>>>>> master
     mapTupleFromNoir(data.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(data.new_nullifiers, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(

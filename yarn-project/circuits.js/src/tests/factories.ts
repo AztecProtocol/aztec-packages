@@ -134,6 +134,7 @@ import { PrivateKernelInitCircuitPrivateInputs } from '../structs/kernel/private
 import { PrivateKernelInnerCircuitPrivateInputs } from '../structs/kernel/private_kernel_inner_circuit_private_inputs.js';
 import { RollupKernelCircuitPublicInputs } from '../structs/kernel/rollup_kernel_circuit_public_inputs.js';
 import { RollupKernelData } from '../structs/kernel/rollup_kernel_data.js';
+import { RollupValidationRequests } from '../structs/rollup_validation_requests.js';
 import { ValidationRequests } from '../structs/validation_requests.js';
 
 /**
@@ -266,12 +267,17 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 
 export function makeValidationRequests(seed = 1) {
   return new ValidationRequests(
+    makeRollupValidationRequests(seed),
     makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, sideEffectFromNumber, seed + 0x80),
     makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x90),
     makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeReadRequestContext, seed + 0x95),
     makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, makeNullifierKeyValidationRequestContext, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
+}
+
+export function makeRollupValidationRequests(seed = 1) {
+  return new RollupValidationRequests(new MaxBlockNumber(true, new Fr(seed + 0x31415)));
 }
 
 /**
@@ -443,6 +449,7 @@ export function makePublicKernelCircuitPublicInputs(
 ): PublicKernelCircuitPublicInputs {
   return new PublicKernelCircuitPublicInputs(
     makeAggregationObject(seed),
+    makeRollupValidationRequests(seed),
     makeValidationRequests(seed),
     makeCombinedAccumulatedNonRevertibleData(seed, fullAccumulatedData),
     makeCombinedAccumulatedRevertibleData(seed, fullAccumulatedData),
@@ -467,6 +474,7 @@ export function makeRollupKernelCircuitPublicInputs(
     makeAggregationObject(seed),
     makeCombinedAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
+    makeRollupValidationRequests(seed),
   );
 }
 /**
@@ -496,6 +504,7 @@ export function makePrivateKernelInnerCircuitPublicInputs(
 export function makePrivateKernelTailCircuitPublicInputs(seed = 1, full = true): PrivateKernelTailCircuitPublicInputs {
   return new PrivateKernelTailCircuitPublicInputs(
     makeAggregationObject(seed),
+    makeRollupValidationRequests(seed),
     makeAccumulatedNonRevertibleData(seed + 0x100, full),
     makeFinalAccumulatedData(seed + 0x200, full),
     makeConstantData(seed + 0x300),
