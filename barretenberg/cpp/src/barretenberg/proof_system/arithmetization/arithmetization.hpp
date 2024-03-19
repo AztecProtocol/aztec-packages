@@ -151,21 +151,21 @@ template <typename FF_> class UltraArith {
     struct TraceBlocks {
         UltraTraceBlock pub_inputs;
         UltraTraceBlock arithmetic;
-        UltraTraceBlock genperm;
+        UltraTraceBlock delta_range;
         UltraTraceBlock elliptic;
         UltraTraceBlock aux;
         UltraTraceBlock lookup;
 
         TraceBlocks() { aux.has_ram_rom = true; }
 
-        auto get() { return RefArray{ pub_inputs, arithmetic, genperm, elliptic, aux, lookup }; }
+        auto get() { return RefArray{ pub_inputs, arithmetic, delta_range, elliptic, aux, lookup }; }
 
         void summarize()
         {
             info("Gate blocks summary:");
             info("pub inputs:\t", pub_inputs.size());
             info("arithmetic:\t", arithmetic.size());
-            info("gen perm:\t", genperm.size());
+            info("delta range:\t", delta_range.size());
             info("elliptic:\t", elliptic.size());
             info("auxiliary:\t", aux.size());
             info("lookups:\t", lookup.size());
@@ -254,7 +254,8 @@ template <typename FF_> class UltraHonkArith {
         UltraHonkTraceBlock ecc_op;
         UltraHonkTraceBlock pub_inputs;
         UltraHonkTraceBlock arithmetic;
-        UltraHonkTraceBlock genperm;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/919): Change: GenPermSort --> DeltaRangeConstraint
+        UltraHonkTraceBlock delta_range;
         UltraHonkTraceBlock elliptic;
         UltraHonkTraceBlock aux;
         UltraHonkTraceBlock lookup;
@@ -266,7 +267,7 @@ template <typename FF_> class UltraHonkArith {
 
         auto get()
         {
-            return RefArray{ ecc_op, pub_inputs, arithmetic, genperm,           elliptic,
+            return RefArray{ ecc_op, pub_inputs, arithmetic, delta_range,       elliptic,
                              aux,    lookup,     busread,    poseidon_external, poseidon_internal };
         }
 
@@ -276,7 +277,7 @@ template <typename FF_> class UltraHonkArith {
             info("goblin ecc op:\t", ecc_op.size());
             info("pub inputs:\t", pub_inputs.size());
             info("arithmetic:\t", arithmetic.size());
-            info("gen perm:\t", genperm.size());
+            info("delta range:\t", delta_range.size());
             info("elliptic:\t", elliptic.size());
             info("auxiliary:\t", aux.size());
             info("lookups:\t", lookup.size());

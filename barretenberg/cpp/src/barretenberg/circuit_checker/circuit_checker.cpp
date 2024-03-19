@@ -190,9 +190,9 @@ void CircuitChecker::populate_values(
     values.w_o = builder.get_variable(block.w_o()[idx]);
     // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that we
     // are indexing into the correct block before updating the w_4 value.
-    if (memory_data.read_record_gates.contains(idx) && block.has_ram_rom) {
+    if (block.has_ram_rom && memory_data.read_record_gates.contains(idx)) {
         values.w_4 = compute_memory_record_term(values.w_l, values.w_r, values.w_o, memory_data.eta);
-    } else if (memory_data.write_record_gates.contains(idx) && block.has_ram_rom) {
+    } else if (block.has_ram_rom && memory_data.write_record_gates.contains(idx)) {
         values.w_4 = compute_memory_record_term(values.w_l, values.w_r, values.w_o, memory_data.eta) + FF::one();
     } else {
         values.w_4 = builder.get_variable(block.w_4()[idx]);
@@ -203,10 +203,10 @@ void CircuitChecker::populate_values(
         values.w_l_shift = builder.get_variable(block.w_l()[idx + 1]);
         values.w_r_shift = builder.get_variable(block.w_r()[idx + 1]);
         values.w_o_shift = builder.get_variable(block.w_o()[idx + 1]);
-        if (memory_data.read_record_gates.contains(idx + 1) && block.has_ram_rom) {
+        if (block.has_ram_rom && memory_data.read_record_gates.contains(idx + 1)) {
             values.w_4_shift =
                 compute_memory_record_term(values.w_l_shift, values.w_r_shift, values.w_o_shift, memory_data.eta);
-        } else if (memory_data.write_record_gates.contains(idx + 1) && block.has_ram_rom) {
+        } else if (block.has_ram_rom && memory_data.write_record_gates.contains(idx + 1)) {
             values.w_4_shift =
                 compute_memory_record_term(values.w_l_shift, values.w_r_shift, values.w_o_shift, memory_data.eta) +
                 FF::one();
