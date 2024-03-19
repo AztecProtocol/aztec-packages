@@ -194,8 +194,9 @@ export class TxValidator {
 
   #validateMaxBlockNumber(tx: Tx | ProcessedTx): TxValidationStatus {
     const maxBlockNumber = tx.data.rollupValidationRequests.maxBlockNumber;
+
     if (maxBlockNumber.isSome && maxBlockNumber.value < this.#globalVariables.blockNumber) {
-      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for emitting duplicate nullifiers`);
+      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for low max block number`);
       return INVALID_TX;
     } else {
       return VALID_TX;
