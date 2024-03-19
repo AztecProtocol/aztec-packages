@@ -100,7 +100,9 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, FILTER_ARGS>
 ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
-    let opt_notes = get_notes_internal(storage_slot, options);
+    let mut opt_notes = get_notes_internal(storage_slot, options);
+    let mut write_index = 0;
+
     let mut num_notes = 0;
     let mut prev_fields = [0; N];
     for i in 0..opt_notes.len() {
@@ -121,6 +123,13 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
             context.push_note_hash_read_request(note_hash_for_read_request);
 
             num_notes += 1;
+
+            if (write_index != i) {
+                opt_notes[write_index] = Option::some(note);
+                opt_notes[i] = Option::none();
+            }
+
+            write_index += 1;
         };
     }
     if options.limit != 0 {
