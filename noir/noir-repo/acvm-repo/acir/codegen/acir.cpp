@@ -571,6 +571,17 @@ namespace Circuit {
             static Mov bincodeDeserialize(std::vector<uint8_t>);
         };
 
+        struct ConditionalMov {
+            Circuit::MemoryAddress destination;
+            Circuit::MemoryAddress source_a;
+            Circuit::MemoryAddress source_b;
+            Circuit::MemoryAddress condition;
+
+            friend bool operator==(const ConditionalMov&, const ConditionalMov&);
+            std::vector<uint8_t> bincodeSerialize() const;
+            static ConditionalMov bincodeDeserialize(std::vector<uint8_t>);
+        };
+
         struct Load {
             Circuit::MemoryAddress destination;
             Circuit::MemoryAddress source_pointer;
@@ -612,7 +623,7 @@ namespace Circuit {
             static Stop bincodeDeserialize(std::vector<uint8_t>);
         };
 
-        std::variant<BinaryFieldOp, BinaryIntOp, Cast, JumpIfNot, JumpIf, Jump, CalldataCopy, Call, Const, Return, ForeignCall, Mov, Load, Store, BlackBox, Trap, Stop> value;
+        std::variant<BinaryFieldOp, BinaryIntOp, Cast, JumpIfNot, JumpIf, Jump, CalldataCopy, Call, Const, Return, ForeignCall, Mov, ConditionalMov, Load, Store, BlackBox, Trap, Stop> value;
 
         friend bool operator==(const BrilligOpcode&, const BrilligOpcode&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -4815,6 +4826,53 @@ Circuit::BrilligOpcode::Mov serde::Deserializable<Circuit::BrilligOpcode::Mov>::
     Circuit::BrilligOpcode::Mov obj;
     obj.destination = serde::Deserializable<decltype(obj.destination)>::deserialize(deserializer);
     obj.source = serde::Deserializable<decltype(obj.source)>::deserialize(deserializer);
+    return obj;
+}
+
+namespace Circuit {
+
+    inline bool operator==(const BrilligOpcode::ConditionalMov &lhs, const BrilligOpcode::ConditionalMov &rhs) {
+        if (!(lhs.destination == rhs.destination)) { return false; }
+        if (!(lhs.source_a == rhs.source_a)) { return false; }
+        if (!(lhs.source_b == rhs.source_b)) { return false; }
+        if (!(lhs.condition == rhs.condition)) { return false; }
+        return true;
+    }
+
+    inline std::vector<uint8_t> BrilligOpcode::ConditionalMov::bincodeSerialize() const {
+        auto serializer = serde::BincodeSerializer();
+        serde::Serializable<BrilligOpcode::ConditionalMov>::serialize(*this, serializer);
+        return std::move(serializer).bytes();
+    }
+
+    inline BrilligOpcode::ConditionalMov BrilligOpcode::ConditionalMov::bincodeDeserialize(std::vector<uint8_t> input) {
+        auto deserializer = serde::BincodeDeserializer(input);
+        auto value = serde::Deserializable<BrilligOpcode::ConditionalMov>::deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.size()) {
+            throw serde::deserialization_error("Some input bytes were not read");
+        }
+        return value;
+    }
+
+} // end of namespace Circuit
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Circuit::BrilligOpcode::ConditionalMov>::serialize(const Circuit::BrilligOpcode::ConditionalMov &obj, Serializer &serializer) {
+    serde::Serializable<decltype(obj.destination)>::serialize(obj.destination, serializer);
+    serde::Serializable<decltype(obj.source_a)>::serialize(obj.source_a, serializer);
+    serde::Serializable<decltype(obj.source_b)>::serialize(obj.source_b, serializer);
+    serde::Serializable<decltype(obj.condition)>::serialize(obj.condition, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Circuit::BrilligOpcode::ConditionalMov serde::Deserializable<Circuit::BrilligOpcode::ConditionalMov>::deserialize(Deserializer &deserializer) {
+    Circuit::BrilligOpcode::ConditionalMov obj;
+    obj.destination = serde::Deserializable<decltype(obj.destination)>::deserialize(deserializer);
+    obj.source_a = serde::Deserializable<decltype(obj.source_a)>::deserialize(deserializer);
+    obj.source_b = serde::Deserializable<decltype(obj.source_b)>::deserialize(deserializer);
+    obj.condition = serde::Deserializable<decltype(obj.condition)>::deserialize(deserializer);
     return obj;
 }
 
