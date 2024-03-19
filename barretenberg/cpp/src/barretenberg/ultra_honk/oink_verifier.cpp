@@ -17,10 +17,9 @@ template <IsUltraFlavor Flavor> OinkOutput<Flavor> OinkVerifier<Flavor>::verify(
     execute_log_derivative_inverse_round();
     execute_grand_product_computation_round();
 
-    return OinkOutput<Flavor>{
-        .relation_parameters = relation_parameters,
-        .commitments = witness_comms,
-    };
+    return OinkOutput<Flavor>{ .relation_parameters = std::move(relation_parameters),
+                               .commitments = std::move(witness_comms),
+                               .public_inputs = std::move(public_inputs) };
 }
 
 /**
@@ -115,11 +114,8 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivativ
  */
 template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
 {
-    const FF public_input_delta = compute_public_input_delta<Flavor>(key->public_inputs,
-                                                                     relation_parameters.beta,
-                                                                     relation_parameters.gamma,
-                                                                     key->circuit_size,
-                                                                     key->pub_inputs_offset);
+    const FF public_input_delta = compute_public_input_delta<Flavor>(
+        public_inputs, relation_parameters.beta, relation_parameters.gamma, key->circuit_size, key->pub_inputs_offset);
     const FF lookup_grand_product_delta =
         compute_lookup_grand_product_delta<FF>(relation_parameters.beta, relation_parameters.gamma, key->circuit_size);
 

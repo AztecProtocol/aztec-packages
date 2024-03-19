@@ -9,9 +9,10 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
 {
     auto& key = inst->verification_key;
     OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
-    auto [relation_parameters, witness_commitments] = oink_verifier.verify();
-    inst->relation_parameters = relation_parameters;
-    inst->witness_commitments = witness_commitments;
+    auto [relation_parameters, witness_commitments, public_inputs] = oink_verifier.verify();
+    inst->relation_parameters = std::move(relation_parameters);
+    inst->witness_commitments = std::move(witness_commitments);
+    inst->public_inputs = std::move(public_inputs);
 
     // Get the relation separation challenges
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
