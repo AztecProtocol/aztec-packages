@@ -6,9 +6,29 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 0.28.0
+## 0.30.0
+### [AztecJS] Simplify authwit syntax
+```diff
+- const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+- await wallets[0].setPublicAuth(messageHash, true).send().wait();
++ await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+```
 
-### Automatic NoteInterface implementation and selector changes
+```diff
+const action = asset
+    .withWallet(wallets[1])
+    .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce);
+-const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+-const witness = await wallets[0].createAuthWitness(messageHash);
++const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+await wallets[1].addAuthWitness(witness);
+```
+
+Also note some of the naming changes:
+`setPublicAuth` -> `setPublicAuthWit`
+`createAuthWitness` -> `createAuthWit`
+
+### [Aztec.nr] Automatic NoteInterface implementation and selector changes
 
 Implementing a note required a fair amount of boilerplate code, which has been substituted by the `#[aztec(note)]` attribute. 
 
