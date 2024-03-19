@@ -40,11 +40,10 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_roun
     ASSERT(public_input_size == key->num_public_inputs);
     ASSERT(pub_inputs_offset == key->pub_inputs_offset);
 
-    key->public_inputs.clear();
     for (size_t i = 0; i < public_input_size; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
-        key->public_inputs.emplace_back(public_input_i);
+        public_inputs.emplace_back(public_input_i);
     }
 }
 
