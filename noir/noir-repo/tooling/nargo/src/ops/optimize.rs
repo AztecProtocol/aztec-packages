@@ -16,8 +16,10 @@ pub fn optimize_program(mut compiled_program: CompiledProgram) -> CompiledProgra
 
 pub fn optimize_contract(contract: CompiledContract) -> CompiledContract {
     let functions = vecmap(contract.functions, |mut func| {
-        let (optimized_bytecode, location_map) =
-            acvm::compiler::optimize(func.bytecode.functions[0].clone());
+        let (optimized_bytecode, location_map) = acvm::compiler::optimize(
+            std::mem::take(&mut func.bytecode.functions[0]),
+            expression_width,
+        );
         func.bytecode.functions[0] = optimized_bytecode;
         func.debug.update_acir(location_map);
         func
