@@ -15,7 +15,7 @@ Inserts the root of a merkle tree containing all of the L2 to L1 messages in a b
 
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |
-| `_l2BlockNumber` | `uint256` |The L2 Block Number in which the L2 to L1 messages reside |
+| `_l2BlockNumber` | `uint256` | The L2 Block Number in which the L2 to L1 messages reside |
 | `_root` | `bytes32` | The merkle root of the tree where all the L2 to L1 messages are leaves |
 | `_height` | `uint256` | The height of the merkle tree that the root corresponds to |
 
