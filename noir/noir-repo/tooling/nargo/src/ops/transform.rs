@@ -26,7 +26,7 @@ pub fn transform_contract(
 ) -> CompiledContract {
     let functions = vecmap(contract.functions, |mut func| {
         let (optimized_bytecode, location_map) = acvm::compiler::compile(
-            std::mem::take(&mut compiled_program.program.functions[0]),
+            std::mem::take(&mut func.bytecode.functions[0]),
             expression_width,
         );
         func.bytecode.functions[0] = optimized_bytecode;
