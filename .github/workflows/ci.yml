@@ -13,7 +13,7 @@ jobs:
       { matrix: { environment: [x86, arm], test: [e2e-escrow-contract] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
+      group: pr-${{ github.event.pull_request.number }}-${{ job.name }}
       cancel-in-progress: true
     steps:
       - name: Checkout
@@ -32,11 +32,10 @@ jobs:
 
   bb-native-tests:
     runs-on: ubuntu-latest
-    # run for both x86_64 and arm64
     strategy: { matrix: { environment: [x86, arm] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
+      group: pr-${{ github.event.pull_request.number }}-${{ job.name }}
       cancel-in-progress: true
     steps:
       - name: Checkout
