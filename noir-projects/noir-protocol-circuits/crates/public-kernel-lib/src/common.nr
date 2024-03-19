@@ -68,13 +68,12 @@ pub fn initialize_emitted_end_values(
     }
 
     let start_non_revertible = previous_kernel.public_inputs.end_non_revertible;
-
     circuit_outputs.end_non_revertible.new_note_hashes = array_to_bounded_vec(start_non_revertible.new_note_hashes);
     circuit_outputs.end_non_revertible.new_nullifiers = array_to_bounded_vec(start_non_revertible.new_nullifiers);
     circuit_outputs.end_non_revertible.public_data_update_requests = array_to_bounded_vec(start_non_revertible.public_data_update_requests);
 
     // TODO - should be propagated only in initialize_end_values() and clear them in the tail circuit. The 
-    // max_block_number must be propated to the rollup however.
+    // max_block_number must be propagated to the rollup however, and not cleared.
     let start = previous_kernel.public_inputs.validation_requests;
     circuit_outputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
     circuit_outputs.validation_requests.public_data_reads = array_to_bounded_vec(start.public_data_reads);
