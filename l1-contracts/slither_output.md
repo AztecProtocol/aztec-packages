@@ -32,9 +32,9 @@ src/core/libraries/HeaderLib.sol#L148
 
 
  - [ ] ID-2
-[TxsDecoder.decode(bytes).vars](src/core/libraries/decoders/TxsDecoder.sol#L81) is a local variable never initialized
+[TxsDecoder.decode(bytes).vars](src/core/libraries/decoders/TxsDecoder.sol#L77) is a local variable never initialized
 
-src/core/libraries/decoders/TxsDecoder.sol#L81
+src/core/libraries/decoders/TxsDecoder.sol#L77
 
 
 ## unused-return
@@ -50,10 +50,10 @@ src/core/Rollup.sol#L60-L104
 Impact: Medium
 Confidence: High
  - [ ] ID-4
-Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L341-L343):
-	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L342)
+Dubious typecast in [MessagesDecoder.read4(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L133-L135):
+	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L134)
 
-src/core/libraries/decoders/TxsDecoder.sol#L341-L343
+src/core/libraries/decoders/MessagesDecoder.sol#L133-L135
 
 
  - [ ] ID-5
@@ -71,6 +71,34 @@ src/core/libraries/decoders/MessagesDecoder.sol#L164-L166
 
 
  - [ ] ID-7
+Dubious typecast in [Outbox.sendL1Messages(bytes32[])](src/core/messagebridge/Outbox.sol#L38-L46):
+	uint256 => uint32 casting occurs in [version = uint32(REGISTRY.getVersionFor(msg.sender))](src/core/messagebridge/Outbox.sol#L40)
+
+src/core/messagebridge/Outbox.sol#L38-L46
+
+
+ - [ ] ID-6
+Dubious typecast in [MessagesDecoder.read1(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L123-L125):
+	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L124)
+
+src/core/libraries/decoders/MessagesDecoder.sol#L123-L125
+
+
+ - [ ] ID-7
+Dubious typecast in [TxsDecoder.read4(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L317-L319):
+	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(slice(_data,_offset,4))))](src/core/libraries/decoders/TxsDecoder.sol#L318)
+
+src/core/libraries/decoders/TxsDecoder.sol#L317-L319
+
+
+ - [ ] ID-8
+Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L307-L309):
+	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L308)
+
+src/core/libraries/decoders/TxsDecoder.sol#L307-L309
+
+
+ - [ ] ID-9
 Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L143-L184):
 	bytes => bytes32 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L151-L153)
 	bytes => bytes4 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L151-L153)
@@ -94,13 +122,6 @@ Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L
 	bytes => bytes32 casting occurs in [header.globalVariables.feeRecipient = bytes32(_header)](src/core/libraries/HeaderLib.sol#L181)
 
 src/core/libraries/HeaderLib.sol#L143-L184
-
-
- - [ ] ID-8
-Dubious typecast in [MessagesDecoder.read1(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L154-L156):
-	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L155)
-
-src/core/libraries/decoders/MessagesDecoder.sol#L154-L156
 
 
 ## missing-zero-check
@@ -196,19 +217,18 @@ src/core/messagebridge/Outbox.sol#L18-L132
 ## assembly
 Impact: Informational
 Confidence: High
- - [ ] ID-19
-[MessagesDecoder.decode(bytes)](src/core/libraries/decoders/MessagesDecoder.sol#L61-L146) uses assembly
-	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L80-L82)
-	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L116-L122)
+ - [ ] ID-21
+[TxsDecoder.computeRoot(bytes32[])](src/core/libraries/decoders/TxsDecoder.sol#L249-L268) uses assembly
+	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L256-L258)
 
-src/core/libraries/decoders/MessagesDecoder.sol#L61-L146
+src/core/libraries/decoders/TxsDecoder.sol#L249-L268
 
 
- - [ ] ID-20
-[TxsDecoder.computeRoot(bytes32[])](src/core/libraries/decoders/TxsDecoder.sol#L265-L284) uses assembly
-	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L272-L274)
+ - [ ] ID-22
+[MessagesDecoder.decode(bytes)](src/core/libraries/decoders/MessagesDecoder.sol#L53-L115) uses assembly
+	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L86-L92)
 
-src/core/libraries/decoders/TxsDecoder.sol#L265-L284
+src/core/libraries/decoders/MessagesDecoder.sol#L53-L115
 
 
 ## dead-code
