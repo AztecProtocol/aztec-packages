@@ -79,7 +79,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
 
     OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
 
-    auto pairing_points = KZG::reduce_verify(pcs_verification_key, batched_claim, transcript).get_pairing_points();
+    auto pairing_points = KZG::reduce_verify(batched_claim, transcript);
 
     return pairing_points;
 }

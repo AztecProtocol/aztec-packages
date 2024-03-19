@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/ref_span.hpp"
@@ -543,11 +544,10 @@ template <typename PCS> class ZeroMorphVerifier_ {
         if constexpr (Curve::is_stdlib_type) {
             auto builder = x_challenge.get_context();
             scalars.emplace_back(FF(builder, -1) * batched_evaluation * x_challenge * phi_n_x);
-            commitments.emplace_back(Commitment::from_witness(builder, first_g1));
         } else {
             scalars.emplace_back(FF(-1) * batched_evaluation * x_challenge * phi_n_x);
-            commitments.emplace_back(first_g1);
         }
+        commitments.emplace_back(first_g1);
 
         // Add contribution: x * \sum_{i=0}^{m-1} \rho^i*[f_i]
         auto rho_pow = FF(1);
@@ -627,25 +627,16 @@ template <typename PCS> class ZeroMorphVerifier_ {
         return result;
     }
 
-    /**
-     * @brief Verify a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted
-     * polynomials g_i
-     *
-     * @param commitments Commitments to polynomials f_i and g_i (unshifted and to-be-shifted)
-     * @param claimed_evaluations Claimed evaluations v_i = f_i(u) and w_i = h_i(u) = g_i_shifted(u)
-     * @param multivariate_challenge Challenge point u
-     * @param transcript
-     * @return std::array<Commitment, 2> Inputs to the final pairing check
-     */
-    static VerifierAccumulator verify(const std::shared_ptr<VerifierCommitmentKey<Curve>>& vk,
-                                      RefSpan<Commitment> unshifted_commitments,
-                                      RefSpan<Commitment> to_be_shifted_commitments,
-                                      RefSpan<FF> unshifted_evaluations,
-                                      RefSpan<FF> shifted_evaluations,
-                                      std::span<FF> multivariate_challenge,
-                                      auto& transcript,
-                                      const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
-                                      RefSpan<FF> concatenated_evaluations = {})
+    static OpeningClaim<Curve> compute_univariate_evaluation_opening_claim(
+        RefSpan<Commitment> unshifted_commitments,
+        RefSpan<Commitment> to_be_shifted_commitments,
+        RefSpan<FF> unshifted_evaluations,
+        RefSpan<FF> shifted_evaluations,
+        std::span<FF> multivariate_challenge,
+        Commitment first_g1,
+        auto& transcript,
+        const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+        RefSpan<FF> concatenated_evaluations = {})
     {
         size_t log_N = multivariate_challenge.size();
         FF rho = transcript->template get_challenge<FF>("rho");
@@ -686,7 +677,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
         auto C_zeta_x = compute_C_zeta_x(C_q, C_q_k, y_challenge, x_challenge);
 
         // Compute commitment C_{Z_x}
-        Commitment C_Z_x = compute_C_Z_x(vk->srs->get_first_g1(),
+        Commitment C_Z_x = compute_C_Z_x(first_g1,
                                          unshifted_commitments,
                                          to_be_shifted_commitments,
                                          C_q_k,
@@ -698,20 +689,87 @@ template <typename PCS> class ZeroMorphVerifier_ {
 
         // Compute commitment C_{\zeta,Z}
         Commitment C_zeta_Z;
+        FF evaluation;
         if constexpr (Curve::is_stdlib_type) {
             // Express operation as a batch_mul in order to use Goblinization if available
             auto builder = z_challenge.get_context();
             std::vector<FF> scalars = { FF(builder, 1), z_challenge };
             std::vector<Commitment> points = { C_zeta_x, C_Z_x };
             C_zeta_Z = Commitment::batch_mul(points, scalars);
+            evaluation = FF::from_witness(builder, 0);
         } else {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
+            evaluation = FF(0);
         }
 
-        return PCS::reduce_verify(
-            vk,
-            { .opening_pair = { .challenge = x_challenge, .evaluation = FF(0) }, .commitment = C_zeta_Z },
-            transcript);
+        return { .opening_pair = { .challenge = x_challenge, .evaluation = evaluation }, .commitment = C_zeta_Z };
+    }
+
+    /**
+     * @brief Verify a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted
+     * polynomials g_i
+     *
+     * @param commitments Commitments to polynomials f_i and g_i (unshifted and to-be-shifted)
+     * @param claimed_evaluations Claimed evaluations v_i = f_i(u) and w_i = h_i(u) = g_i_shifted(u)
+     * @param multivariate_challenge Challenge point u
+     * @param transcript
+     * @return std::array<Commitment, 2> Inputs to the final pairing check
+     */
+    static VerifierAccumulator verify(RefSpan<Commitment> unshifted_commitments,
+                                      RefSpan<Commitment> to_be_shifted_commitments,
+                                      RefSpan<FF> unshifted_evaluations,
+                                      RefSpan<FF> shifted_evaluations,
+                                      std::span<FF> multivariate_challenge,
+                                      auto& transcript,
+                                      const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+                                      RefSpan<FF> concatenated_evaluations = {})
+    {
+        Commitment first_g1;
+        if constexpr (Curve::is_stdlib_type) {
+            auto builder = multivariate_challenge[0].get_context();
+            first_g1 = Commitment::one(builder);
+        } else {
+            first_g1 = Commitment::one();
+        }
+        auto opening_claim = compute_univariate_evaluation_opening_claim(unshifted_commitments,
+                                                                         to_be_shifted_commitments,
+                                                                         unshifted_evaluations,
+                                                                         shifted_evaluations,
+                                                                         multivariate_challenge,
+                                                                         first_g1,
+                                                                         transcript,
+                                                                         concatenation_group_commitments,
+                                                                         concatenated_evaluations);
+        return PCS::reduce_verify(opening_claim, transcript);
+    }
+
+    static VerifierAccumulator verify(RefSpan<Commitment> unshifted_commitments,
+                                      RefSpan<Commitment> to_be_shifted_commitments,
+                                      RefSpan<FF> unshifted_evaluations,
+                                      RefSpan<FF> shifted_evaluations,
+                                      std::span<FF> multivariate_challenge,
+                                      const std::shared_ptr<VerifierCommitmentKey<Curve>>& vk,
+                                      auto& transcript,
+                                      const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
+                                      RefSpan<FF> concatenated_evaluations = {})
+    {
+        Commitment first_g1;
+        if constexpr (Curve::is_stdlib_type) {
+            auto builder = multivariate_challenge[0].get_context();
+            first_g1 = Commitment::from_witness(builder, vk->srs->get_first_g1());
+        } else {
+            first_g1 = vk->srs->get_first_g1();
+        }
+        auto opening_claim = compute_univariate_evaluation_opening_claim(unshifted_commitments,
+                                                                         to_be_shifted_commitments,
+                                                                         unshifted_evaluations,
+                                                                         shifted_evaluations,
+                                                                         multivariate_challenge,
+                                                                         first_g1,
+                                                                         transcript,
+                                                                         concatenation_group_commitments,
+                                                                         concatenated_evaluations);
+        return PCS::reduce_verify(vk, opening_claim, transcript);
     }
 };
 

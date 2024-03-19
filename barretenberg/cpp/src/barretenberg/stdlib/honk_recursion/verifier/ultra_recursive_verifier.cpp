@@ -116,14 +116,13 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
     // Execute ZeroMorph multilinear PCS evaluation verifier
-    auto verifier_accumulator = ZeroMorph::verify(pcs_verification_key,
-                                                  commitments.get_unshifted(),
+    auto verifier_accumulator = ZeroMorph::verify(commitments.get_unshifted(),
                                                   commitments.get_to_be_shifted(),
                                                   claimed_evaluations.get_unshifted(),
                                                   claimed_evaluations.get_shifted(),
                                                   multivariate_challenge,
                                                   transcript);
-    return verifier_accumulator.get_pairing_points();
+    return verifier_accumulator;
 }
 
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;

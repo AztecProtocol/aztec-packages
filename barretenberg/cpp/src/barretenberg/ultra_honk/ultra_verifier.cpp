@@ -148,15 +148,14 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 
     // Execute ZeroMorph rounds and check the pcs verifier accumulator returned. See
     // https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
-    auto pcs_verifier_accumulator = ZeroMorph::verify(key->pcs_verification_key,
-                                                      commitments.get_unshifted(),
-                                                      commitments.get_to_be_shifted(),
-                                                      claimed_evaluations.get_unshifted(),
-                                                      claimed_evaluations.get_shifted(),
-                                                      multivariate_challenge,
-                                                      transcript);
-
-    return sumcheck_verified.value() && pcs_verifier_accumulator.check();
+    auto pairing_points = ZeroMorph::verify(commitments.get_unshifted(),
+                                            commitments.get_to_be_shifted(),
+                                            claimed_evaluations.get_unshifted(),
+                                            claimed_evaluations.get_shifted(),
+                                            multivariate_challenge,
+                                            transcript);
+    auto pcs_verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    return sumcheck_verified.value() && pcs_verified;
     ;
 }
 

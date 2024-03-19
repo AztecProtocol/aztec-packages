@@ -73,7 +73,7 @@ TEST_F(IPATest, OpenZeroPolynomial)
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
     auto result = IPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
-    EXPECT_TRUE(result.check());
+    EXPECT_TRUE(result);
 }
 
 // This test makes sure that even if the whole vector \vec{b} generated from the x, at which we open the polynomial, is
@@ -98,7 +98,7 @@ TEST_F(IPATest, OpenAtZero)
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
     auto result = IPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
-    EXPECT_TRUE(result.check());
+    EXPECT_TRUE(result);
 }
 
 namespace bb {
@@ -187,7 +187,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
     transcript->reset_indices();
 
     // Verify
-    EXPECT_TRUE(IPA::reduce_verify_internal(this->vk(), opening_claim, transcript).check());
+    EXPECT_TRUE(IPA::reduce_verify_internal(this->vk(), opening_claim, transcript));
 }
 #endif
 } // namespace bb
@@ -227,7 +227,7 @@ TEST_F(IPATest, Open)
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
     auto result = IPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
-    EXPECT_TRUE(result.check());
+    EXPECT_TRUE(result);
 
     EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
 }
@@ -322,7 +322,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     const auto shplonk_verifier_claim =
         ShplonkVerifier::reduce_verification(this->vk(), gemini_verifier_claim, verifier_transcript);
-    auto accumulator = IPA::reduce_verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
+    auto result = IPA::reduce_verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
 
-    EXPECT_EQ(accumulator.check(), true);
+    EXPECT_EQ(result, true);
 }

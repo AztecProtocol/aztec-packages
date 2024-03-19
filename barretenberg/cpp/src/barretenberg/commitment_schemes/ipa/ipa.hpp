@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
-#include "barretenberg/commitment_schemes/verifier_accumulator.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -81,7 +80,7 @@ template <typename Curve_> class IPA {
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = bb::Polynomial<Fr>;
-    using VerifierAccumulator = VerifierAccumulator<Curve>;
+    using VerifierAccumulator = bool;
 
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
 #ifdef IPA_TEST
@@ -463,7 +462,7 @@ template <typename Curve_> class IPA {
         // Step 11.
         // Check if C_right == C₀
         bool verified = (C_zero.normalize() == right_hand_side.normalize());
-        return VerifierAccumulator(verified, vk);
+        return verified;
     }
 
   public:

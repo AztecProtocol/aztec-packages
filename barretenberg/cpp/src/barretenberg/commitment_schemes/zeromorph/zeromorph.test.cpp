@@ -15,6 +15,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
     using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
+    using VerifierAccumulator = typename PCS::VerifierAccumulator;
     using ZeroMorphProver = ZeroMorphProver_<PCS>;
     using ZeroMorphVerifier = ZeroMorphVerifier_<PCS>;
 
@@ -91,16 +92,28 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
 
         auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-        // Execute Verifier protocol
-        auto verifier_accumulator = ZeroMorphVerifier::verify(this->vk(),
-                                                              RefVector(f_commitments),
-                                                              RefVector(g_commitments),
-                                                              RefVector(v_evaluations),
-                                                              RefVector(w_evaluations),
-                                                              u_challenge,
-                                                              verifier_transcript);
-
-        bool verified = verifier_accumulator.check();
+        VerifierAccumulator result;
+        bool verified = false;
+        if constexpr (std::same_as<PCS, KZG<curve::BN254>>) {
+            // Execute Verifier protocol
+            result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
+                                               RefVector(g_commitments), // to-be-shifted
+                                               RefVector(v_evaluations), // unshifted
+                                               RefVector(w_evaluations), // shifted
+                                               u_challenge,
+                                               verifier_transcript);
+            verified = this->vk()->pairing_check(result[0], result[1]);
+        } else {
+            // Execute Verifier protocol
+            result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
+                                               RefVector(g_commitments), // to-be-shifted
+                                               RefVector(v_evaluations), // unshifted
+                                               RefVector(w_evaluations), // shifted
+                                               u_challenge,
+                                               this->vk(),
+                                               verifier_transcript);
+            verified = result;
+        }
 
         // The prover and verifier manifests should agree
         EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
@@ -116,6 +129,7 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
     using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
+    using VerifierAccumulator = typename PCS::VerifierAccumulator;
     using ZeroMorphProver = ZeroMorphProver_<PCS>;
     using ZeroMorphVerifier = ZeroMorphVerifier_<PCS>;
 
@@ -245,20 +259,32 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
                                to_vector_of_ref_vectors(concatenation_groups));
 
         auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+        VerifierAccumulator result;
+        if constexpr (std::same_as<PCS, KZG<curve::BN254>>) {
+            // Execute Verifier protocol
+            result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
+                                               RefVector(g_commitments), // to-be-shifted
+                                               RefVector(v_evaluations), // unshifted
+                                               RefVector(w_evaluations), // shifted
+                                               u_challenge,
+                                               verifier_transcript,
+                                               to_vector_of_ref_vectors(concatenation_groups_commitments),
+                                               RefVector(c_evaluations));
+            verified = this->vk()->pairing_check(result[0], result[1]);
 
-        // Execute Verifier protocol
-        auto verifier_accumulator =
-            ZeroMorphVerifier::verify(this->vk(),
-                                      RefVector(f_commitments), // unshifted
-                                      RefVector(g_commitments), // to-be-shifted
-                                      RefVector(v_evaluations), // unshifted
-                                      RefVector(w_evaluations), // shifted
-                                      u_challenge,
-                                      verifier_transcript,
-                                      to_vector_of_ref_vectors(concatenation_groups_commitments),
-                                      RefVector(c_evaluations));
-
-        verified = verifier_accumulator.check();
+        } else {
+            // Execute Verifier protocol
+            result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
+                                               RefVector(g_commitments), // to-be-shifted
+                                               RefVector(v_evaluations), // unshifted
+                                               RefVector(w_evaluations), // shifted
+                                               u_challenge,
+                                               this->vk(),
+                                               verifier_transcript,
+                                               to_vector_of_ref_vectors(concatenation_groups_commitments),
+                                               RefVector(c_evaluations));
+            verified = result;
+        }
 
         // The prover and verifier manifests should agree
         EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
@@ -266,7 +292,7 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
     }
 };
 
-using PCSTypes = ::testing::Types</*KZG<curve::BN254>,*/ IPA<curve::Grumpkin>>;
+using PCSTypes = ::testing::Types<KZG<curve::BN254>, IPA<curve::Grumpkin>>;
 TYPED_TEST_SUITE(ZeroMorphTest, PCSTypes);
 TYPED_TEST_SUITE(ZeroMorphWithConcatenationTest, PCSTypes);
 
