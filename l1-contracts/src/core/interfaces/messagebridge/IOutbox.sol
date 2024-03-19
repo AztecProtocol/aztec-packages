@@ -19,6 +19,7 @@ interface IOutbox {
     uint256 leafIndex
   );
 
+  // docs:start:outbox_insert
   /**
    * @notice Inserts the root of a merkle tree containing all of the L2 to L1 messages in
    * a block specified by _l2BlockNumber.
@@ -29,7 +30,9 @@ interface IOutbox {
    * @param _height - The height of the merkle tree that the root corresponds to
    */
   function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _height) external;
+  // docs:end:outbox_insert
 
+  // docs:start:outbox_consme
   /**
    * @notice Consumes an entry from the Outbox
    * @dev Only useable by portals / recipients of messages
@@ -47,7 +50,9 @@ interface IOutbox {
     DataStructures.L2ToL1Msg calldata _message,
     bytes32[] calldata _path
   ) external;
+  // docs:end:outbox_consume
 
+  // docs:start:outbox_has_message_been_consumed_at_block_and_index
   /**
    * @notice Checks to see if an index of the L2 to L1 message tree for a specific block has been consumed
    * @dev - This function does not throw. Out-of-bounds access is considered valid, but will always return false
@@ -58,4 +63,5 @@ interface IOutbox {
     external
     view
     returns (bool);
+  // docs:end:outbox_has_message_been_consumed_at_block_and_index
 }

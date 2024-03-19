@@ -6,11 +6,11 @@ The `Outbox` is a contract deployed on L1 that handles message passing from the 
 
 **Links**: [Interface](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol), [Implementation](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/messagebridge/Outbox.sol).
 
-## `sendL1Messages()`
+## `insert()`
 
 Inserts multiple messages from the `Rollup`.
 
-#include_code outbox_send_l1_msg l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
+#include_code outbox_insert l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |
@@ -40,35 +40,20 @@ Allows a recipient to consume a message from the `Outbox`.
 - Will revert with `Outbox__NothingToConsume(bytes32 entryKey)` if the message does not exist.
 - Will revert with `Outbox__InvalidVersion(uint256 entry, uint256 message)` if the version of the entry and message sender don't match (wrong rollup).
 
-## `get()`
-Retrieves the `entry` for a given message. The entry contains fee, occurrences, deadline and version information. 
-
-#include_code outbox_get l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
-
-| Name           | Type        | Description |
-| -------------- | -------     | ----------- |
-| `_entryKey`    | `bytes32`   | The entry key (message hash) |
-| ReturnValue    | `Entry`     | The entry for the given key | 
-
 #### Edge cases
 - Will revert with `Outbox__NothingToConsume(bytes32 entryKey)` if the message does not exist.
 
-## `contains()`
-Returns whether the key is found in the inbox.
+## `hasMessageBeenConsumedAtBlockAndIndex()`
 
-#include_code outbox_contains l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
+Allows a recipient to consume a message from the `Outbox`.
 
-| Name           | Type        | Description |
-| -------------- | -------     | ----------- |
-| `_entryKey`    | `bytes32`   | The entry key (message hash)|
-| ReturnValue    | `bool`   | True if contained, false otherwise| 
+#include_code outbox_has_message_been_consumed_at_block_and_index l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
-## `computeEntryKey()`
-Computes the hash of a message.
-
-#include_code outbox_compute_entry_key l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
 | Name           | Type        | Description |
 | -------------- | -------     | ----------- |
-| `_message`     | `L2ToL1Msg` | The message to compute hash for |
+| `_message`     | `L2ToL1Msg` | The message to consume |
 | ReturnValue    | `bytes32`   | The hash of the message | 
+
+#### Edge cases
+- Will revert with `Outbox__NothingToConsume(bytes32 entryKey)` if the message does not exist.
