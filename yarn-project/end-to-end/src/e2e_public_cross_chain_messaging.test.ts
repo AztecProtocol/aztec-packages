@@ -16,7 +16,7 @@ import {
 } from '@aztec/aztec.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
-import { InboxAbi, NewOutboxAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-contracts.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
@@ -45,7 +45,7 @@ describe('e2e_public_cross_chain_messaging', () => {
   let l2Token: TokenContract;
   let l2Bridge: TokenBridgeContract;
   let inbox: any;
-  let newOutbox: GetContractReturnType<typeof NewOutboxAbi, PublicClient<HttpTransport, Chain>>;
+  let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   beforeAll(async () => {
     ({ aztecNode, pxe, deployL1ContractsValues, wallets, accounts, logger, teardown } = await setup(2));
@@ -68,7 +68,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     ethAccount = crossChainTestHarness.ethAccount;
     ownerAddress = crossChainTestHarness.ownerAddress;
     inbox = crossChainTestHarness.inbox;
-    newOutbox = crossChainTestHarness.newOutbox;
+    outbox = crossChainTestHarness.outbox;
 
     logger('Successfully deployed contracts and initialized portal');
   }, 100_000);
@@ -275,7 +275,7 @@ describe('e2e_public_cross_chain_messaging', () => {
         leaf,
       );
 
-      const txHash = await newOutbox.write.consume(
+      const txHash = await outbox.write.consume(
         [
           BigInt(l2TxReceipt.blockNumber!),
           BigInt(l2MessageIndex),
@@ -295,7 +295,7 @@ describe('e2e_public_cross_chain_messaging', () => {
       // We decode the event log before checking it
       const txLog = txReceipt.logs[0];
       const topics = decodeEventLog({
-        abi: NewOutboxAbi,
+        abi: OutboxAbi,
         data: txLog.data,
         topics: txLog.topics,
       }) as {
