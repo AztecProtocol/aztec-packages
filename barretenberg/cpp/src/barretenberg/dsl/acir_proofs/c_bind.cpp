@@ -68,17 +68,17 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
     *out = to_heap_buffer(proof_data);
 }
 
-WASM_EXPORT void acir_goblin_accumulate(in_ptr acir_composer_ptr,
-                                        uint8_t const* acir_vec,
-                                        uint8_t const* witness_vec,
-                                        uint8_t** out)
+WASM_EXPORT void acir_honk_prove(in_ptr acir_composer_ptr,
+                                 uint8_t const* acir_vec,
+                                 uint8_t const* witness_vec,
+                                 uint8_t** out)
 {
-    auto acir_composer = reinterpret_cast<acir_proofs::GoblinAcirComposer*>(*acir_composer_ptr);
+    auto acir_composer = reinterpret_cast<acir_proofs::HonkAcirComposer*>(*acir_composer_ptr);
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     acir_composer->create_circuit(constraint_system, witness);
-    auto proof = acir_composer->accumulate();
+    auto proof = acir_composer->prove();
     auto proof_data_buf = to_buffer</*include_size=*/true>(
         proof); // template parameter needs to be set so that vector deserialization from
                 // buffer, which reads the size at the beginning can be done properly
@@ -133,12 +133,12 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* a
     *out = to_heap_buffer(to_buffer(*pk));
 }
 
-WASM_EXPORT void acir_goblin_verify_accumulator(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
+WASM_EXPORT void acir_honk_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::GoblinAcirComposer*>(*acir_composer_ptr);
     auto proof_data_buf = from_buffer<std::vector<uint8_t>>(proof_buf);
     auto proof = from_buffer<std::vector<bb::fr>>(proof_data_buf);
-    *result = acir_composer->verify_accumulator(proof);
+    *result = acir_composer->verify(proof);
 }
 
 WASM_EXPORT void acir_goblin_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)

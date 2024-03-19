@@ -98,6 +98,8 @@ template <typename Builder = UltraCircuitBuilder>
 Builder create_circuit(const AcirFormat& constraint_system, size_t size_hint = 0, WitnessVector const& witness = {});
 
 template <typename Builder>
-void build_constraints(Builder& builder, AcirFormat const& constraint_system, bool has_valid_witness_assignments);
+void build_constraints(Builder& builder,
+                       AcirFormat const& constraint_system,
+                       bool has_valid_witness_assignments = true);
 
 } // namespace acir_format

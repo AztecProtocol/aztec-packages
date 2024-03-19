@@ -15,7 +15,11 @@ class HonkAcirComposer {
 
   public:
     HonkAcirComposer() = default;
+    using Builder = acir_format::GoblinBuilder;
+    using Prover = GoblinUltraProver;
+    using Verifier = GoblinUltraVerifier;
     using ProverInstance = bb::Goblin::GoblinUltraProverInstance;
+    using ProvingKey = GoblinUltraFlavor::ProvingKey;
     using VerificationKey = GoblinUltraFlavor::VerificationKey;
     using OpQueue = bb::ECCOpQueue;
 
@@ -28,15 +32,14 @@ class HonkAcirComposer {
     void create_circuit(acir_format::AcirFormat& constraint_system, acir_format::WitnessVector& witness);
 
     /**
-     * @brief Accumulate a circuit via Goblin
-     * @details For the present circuit, construct a GUH proof and the vkey needed to verify it
+     * @brief Generate a GUH proof for the circuit
      *
-     * @return std::vector<bb::fr> The GUH proof bytes
+     * @return std::vector<bb::fr> GUH proof
      */
     std::vector<bb::fr> prove();
 
     /**
-     * @brief Verify the Goblin accumulator (the GUH proof) using the vkey internal to Goblin
+     * @brief Verify a GUH proof for the circuit
      *
      * @param proof
      * @return bool Whether or not the proof was verified
@@ -44,11 +47,11 @@ class HonkAcirComposer {
     bool verify(std::vector<bb::fr> const& proof);
 
   private:
-    std::shared_ptr<ProverInstance> instance;
-    acir_format::GoblinBuilder builder_;
+    std::shared_ptr<ProvingKey> proving_key; // Needed to construct a verification key
+    Builder builder_;
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
-    bool verbose_ = true;
 
+    bool verbose_ = true;
     template <typename... Args> inline void vinfo(Args... args)
     {
         if (verbose_) {
