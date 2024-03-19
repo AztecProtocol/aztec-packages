@@ -5,9 +5,10 @@ use noirc_driver::{CompiledContract, CompiledProgram};
 /// multiple ACIR functions
 
 pub fn optimize_program(mut compiled_program: CompiledProgram) -> CompiledProgram {
-    // TODO: Work to get rid of these clones by borrowing `Circuit` in the acvm compiler or by accepted a `Program`
-    let (optimized_circuit, location_map) =
-        acvm::compiler::optimize(compiled_program.program.functions[0].clone());
+       let (optimized_circuit, location_map) = acvm::compiler::optimize(
+        std::mem::take(&mut compiled_program.program.functions[0]),
+        expression_width,
+    );
     compiled_program.program.functions[0] = optimized_circuit;
     compiled_program.debug.update_acir(location_map);
     compiled_program
