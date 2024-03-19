@@ -367,30 +367,38 @@ void AvmTraceBuilder::set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_ta
  * @brief Copy value and tag from a memory cell at position src_offset to the
  *        memory cell at position dst_offset
  *
+ * @param indirect A byte encoding information about indirect/direct memory access.
  * @param src_offset Offset of source memory cell
  * @param dst_offset Offset of destination memory cell
  */
-void AvmTraceBuilder::op_mov(bool indirect, uint32_t const src_offset, uint32_t const dst_offset)
+void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
     bool tag_match = true;
     uint32_t direct_src_offset = src_offset;
     uint32_t direct_dst_offset = dst_offset;
 
-    if (indirect) {
+    bool indirect_src_flag = static_cast<bool>(indirect & 0x01);
+    bool indirect_dst_flag = static_cast<bool>((indirect & 0x02) >> 1);
+
+    if (indirect_src_flag) {
         auto read_ind_a =
             mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_A, src_offset);
+        tag_match = read_ind_a.tag_match;
+        direct_src_offset = uint32_t(read_ind_a.val);
+    }
+
+    if (indirect_dst_flag) {
         auto read_ind_c =
             mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_C, dst_offset);
-        tag_match = read_ind_a.tag_match && read_ind_c.tag_match;
-        direct_src_offset = uint32_t(read_ind_a.val);
+        tag_match = tag_match && read_ind_c.tag_match;
         direct_dst_offset = uint32_t(read_ind_c.val);
     }
 
     // Reading from memory and loading into ia without tag check.
     auto const [val, tag] = mem_trace_builder.read_and_load_mov_opcode(clk, direct_src_offset);
 
-    // Write into memory value c from intermediate register ic.
+    // Write into memory from intermediate register ic.
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, direct_dst_offset, val, tag);
 
     main_trace.push_back(Row{
@@ -405,10 +413,10 @@ void AvmTraceBuilder::op_mov(bool indirect, uint32_t const src_offset, uint32_t 
         .avm_main_mem_op_a = 1,
         .avm_main_mem_op_c = 1,
         .avm_main_rwc = 1,
-        .avm_main_ind_a = indirect ? src_offset : 0,
-        .avm_main_ind_c = indirect ? dst_offset : 0,
-        .avm_main_ind_op_a = static_cast<uint32_t>(indirect),
-        .avm_main_ind_op_c = static_cast<uint32_t>(indirect),
+        .avm_main_ind_a = indirect_src_flag ? src_offset : 0,
+        .avm_main_ind_c = indirect_dst_flag ? dst_offset : 0,
+        .avm_main_ind_op_a = static_cast<uint32_t>(indirect_src_flag),
+        .avm_main_ind_op_c = static_cast<uint32_t>(indirect_dst_flag),
         .avm_main_mem_idx_a = direct_src_offset,
         .avm_main_mem_idx_c = direct_dst_offset,
     });
