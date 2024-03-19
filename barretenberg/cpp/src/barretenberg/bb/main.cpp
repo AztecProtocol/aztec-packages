@@ -15,6 +15,7 @@
 #include <barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp>
 #include <barretenberg/dsl/acir_proofs/acir_composer.hpp>
 #include <barretenberg/dsl/acir_proofs/goblin_acir_composer.hpp>
+#include <barretenberg/dsl/acir_proofs/honk_acir_composer.hpp>
 #include <barretenberg/srs/global_crs.hpp>
 #include <cstdint>
 #include <iostream>
@@ -127,6 +128,30 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     return verified;
 }
 
+bool proveAndVerifyHonk(const std::string& bytecodePath, const std::string& witnessPath)
+{
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
+    // to max circuit size present in acir tests suite.
+    size_t hardcoded_bn254_dyadic_size_hack = 1 << 19;
+    init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
+
+    // Populate the acir constraint system and witness from gzipped data
+    auto constraint_system = get_constraint_system(bytecodePath);
+    auto witness = get_witness(witnessPath);
+
+    // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
+    acir_proofs::HonkAcirComposer acir_composer;
+    acir_composer.create_circuit(constraint_system, witness);
+
+    // Call accumulate to generate a GoblinUltraHonk proof
+    auto proof = acir_composer.prove();
+
+    // Verify the GoblinUltraHonk proof
+    auto verified = acir_composer.verify(proof);
+
+    return verified;
+}
+
 /**
  * @brief Constructs and verifies a Honk proof for an ACIR circuit via the Goblin accumulate mechanism
  *
@@ -144,8 +169,6 @@ bool accumulateAndVerifyGoblin(const std::string& bytecodePath, const std::strin
     // to max circuit size present in acir tests suite.
     size_t hardcoded_bn254_dyadic_size_hack = 1 << 19;
     init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
-    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
-    init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
 
     // Populate the acir constraint system and witness from gzipped data
     auto constraint_system = get_constraint_system(bytecodePath);
@@ -568,6 +591,9 @@ int main(int argc, char* argv[])
         }
         if (command == "prove_and_verify") {
             return proveAndVerify(bytecode_path, witness_path) ? 0 : 1;
+        }
+        if (command == "prove_and_verify_honk") {
+            return proveAndVerifyHonk(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "accumulate_and_verify_goblin") {
             return accumulateAndVerifyGoblin(bytecode_path, witness_path) ? 0 : 1;

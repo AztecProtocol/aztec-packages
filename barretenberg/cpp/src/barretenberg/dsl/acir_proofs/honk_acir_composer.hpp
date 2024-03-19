@@ -1,0 +1,56 @@
+#pragma once
+#include <barretenberg/dsl/acir_format/acir_format.hpp>
+#include <barretenberg/goblin/goblin.hpp>
+
+namespace acir_proofs {
+
+/**
+ * @brief A class responsible for marshalling construction of keys and prover and verifier instances used to prove
+ * satisfiability of circuits written in ACIR.
+ *
+ */
+class HonkAcirComposer {
+
+    using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
+
+  public:
+    HonkAcirComposer() = default;
+
+    /**
+     * @brief Create a GUH circuit from an acir constraint system and a witness
+     *
+     * @param constraint_system ACIR representation of the constraints defining the circuit
+     * @param witness The witness values known to ACIR during construction of the constraint system
+     */
+    void create_circuit(acir_format::AcirFormat& constraint_system, acir_format::WitnessVector& witness);
+
+    /**
+     * @brief Accumulate a circuit via Goblin
+     * @details For the present circuit, construct a GUH proof and the vkey needed to verify it
+     *
+     * @return std::vector<bb::fr> The GUH proof bytes
+     */
+    std::vector<bb::fr> prove();
+
+    /**
+     * @brief Verify the Goblin accumulator (the GUH proof) using the vkey internal to Goblin
+     *
+     * @param proof
+     * @return bool Whether or not the proof was verified
+     */
+    bool verify(std::vector<bb::fr> const& proof);
+
+  private:
+    acir_format::GoblinBuilder builder_;
+    Goblin goblin;
+    bool verbose_ = true;
+
+    template <typename... Args> inline void vinfo(Args... args)
+    {
+        if (verbose_) {
+            info(args...);
+        }
+    }
+};
+
+} // namespace acir_proofs

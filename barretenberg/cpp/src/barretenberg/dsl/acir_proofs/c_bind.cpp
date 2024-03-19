@@ -7,6 +7,7 @@
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_proofs/goblin_acir_composer.hpp"
+#include "barretenberg/dsl/acir_proofs/honk_acir_composer.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -25,6 +26,11 @@ WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* acir_vec, uint32_t* exact
 WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out)
 {
     *out = new acir_proofs::AcirComposer(ntohl(*size_hint));
+}
+
+WASM_EXPORT void acir_new_honk_acir_composer(out_ptr out)
+{
+    *out = new acir_proofs::HonkAcirComposer();
 }
 
 WASM_EXPORT void acir_new_goblin_acir_composer(out_ptr out)

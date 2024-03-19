@@ -23,16 +23,16 @@ void GoblinAcirComposer::create_circuit(acir_format::AcirFormat& constraint_syst
 
 std::vector<bb::fr> GoblinAcirComposer::accumulate()
 {
-    // // Construct a GUH proof for the circuit via the accumulate mechanism
-    // return goblin.accumulate_for_acir(builder_);
+    // Construct a GUH proof for the circuit via the accumulate mechanism
+    return goblin.accumulate_for_acir(builder_);
 
-    // Construct one final GUH proof via the accumulate mechanism
-    std::vector<bb::fr> ultra_proof = goblin.accumulate_for_acir(builder_);
+    // // Construct one final GUH proof via the accumulate mechanism
+    // std::vector<bb::fr> ultra_proof = goblin.accumulate_for_acir(builder_);
 
-    // Construct a Goblin proof (ECCVM, Translator, Merge); result stored internally
-    goblin.prove_for_acir();
+    // // Construct a Goblin proof (ECCVM, Translator, Merge); result stored internally
+    // goblin.prove_for_acir();
 
-    return ultra_proof;
+    // return ultra_proof;
 }
 
 bool GoblinAcirComposer::verify_accumulator(std::vector<bb::fr> const& proof)
