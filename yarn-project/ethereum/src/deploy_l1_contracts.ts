@@ -138,7 +138,7 @@ export const deployL1Contracts = async (
       abi: contractsToDeploy.rollup.contractAbi,
       client: publicClient,
     });
-    inboxAddress = EthAddress.fromString((await rollup.read.INBOX()) as any);
+    inboxAddress = EthAddress.fromString((await rollup.read.INBOX([])) as any);
   }
   logger(`Inbox available at ${inboxAddress}`);
 
@@ -149,7 +149,7 @@ export const deployL1Contracts = async (
       abi: contractsToDeploy.rollup.contractAbi,
       client: publicClient,
     });
-    outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX()) as any);
+    outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX([])) as any);
   }
   logger(`Outbox available at ${outboxAddress}`);
 
