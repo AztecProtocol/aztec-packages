@@ -5,7 +5,7 @@ use dep::types::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsBuilder,
     max_block_number::MaxBlockNumber, membership_witness::NoteHashReadRequestMembershipWitness,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    private_kernel::private_call_data::PrivateCallData, kernel_data::{PrivateKernelInnerData},
+    private_kernel::private_call_data::PrivateCallData, kernel_data::PrivateKernelInnerData,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, EthAddress, PartialAddress, compute_initialization_hash},
@@ -403,15 +403,4 @@ pub fn compute_siloed_nullifier_secret_key(secret_key: GrumpkinPrivateKey, contr
         0
     );
     field_to_grumpkin_private_key(hash)
-}
-
-fn min<T>(lhs: T, rhs: T) -> T where T: Ord {
-    if lhs < rhs { lhs } else { rhs }
-}
-
-#[test]
-fn test_min() {
-    assert(min(3, 5) == 3);
-    assert(min(5, 3) == 3);
-    assert(min(3, 3) == 3);
 }
