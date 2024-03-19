@@ -88,6 +88,14 @@ class STerm {
     TermType type;
     std::unordered_map<OpType, cvc5::Kind> operations;
 
+    STerm()
+        : solver(nullptr)
+        , term(cvc5::Term())
+        , isFiniteField(false)
+        , isInteger(false)
+        , isBitVector(false)
+        , type(TermType::FFTerm){};
+
     explicit STerm(
         const std::string& t, Solver* slv, bool isconst = false, uint32_t base = 16, TermType type = TermType::FFTerm);
 
