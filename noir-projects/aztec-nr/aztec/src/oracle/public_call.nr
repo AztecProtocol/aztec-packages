@@ -1,4 +1,7 @@
-use dep::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, constants::RETURN_VALUES_LENGTH};
+use dep::protocol_types::{
+    abis::function_selector::FunctionSelector, address::AztecAddress,
+    abis::public_call_stack_item::PublicCallStackItem, constants::PUBLIC_FUNCTION_CALL_RESULT_LENGTH
+};
 
 #[oracle(callPublicFunction)]
 fn call_public_function_oracle(
@@ -8,7 +11,7 @@ fn call_public_function_oracle(
     _side_effect_counter: u32,
     _is_static_call: bool,
     _is_delegate_call: bool
-) -> [Field; RETURN_VALUES_LENGTH] {}
+) -> [Field; PUBLIC_FUNCTION_CALL_RESULT_LENGTH] {}
 
 unconstrained pub fn call_public_function_internal(
     contract_address: AztecAddress,
@@ -17,13 +20,16 @@ unconstrained pub fn call_public_function_internal(
     side_effect_counter: u32,
     is_static_call: bool,
     is_delegate_call: bool
-) -> [Field; RETURN_VALUES_LENGTH] {
-    call_public_function_oracle(
+) -> [Field; PUBLIC_FUNCTION_CALL_RESULT_LENGTH] {
+    let fields = call_public_function_oracle(
         contract_address,
         function_selector,
         args_hash,
         side_effect_counter,
         is_static_call,
         is_delegate_call
-    )
+    );
+
+    // TODO: this should be a PublicCallStackItem, but it's big and blows up the bytecode size
+    fields
 }

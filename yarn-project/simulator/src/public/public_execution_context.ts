@@ -1,5 +1,12 @@
 import { FunctionL2Logs, NullifierMembershipWitness, UnencryptedL2Log } from '@aztec/circuit-types';
-import { CallContext, FunctionData, FunctionSelector, GlobalVariables, Header } from '@aztec/circuits.js';
+import {
+  CallContext,
+  FunctionData,
+  FunctionSelector,
+  GlobalVariables,
+  Header,
+  PublicCallStackItem,
+} from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -29,7 +36,7 @@ export class PublicExecutionContext extends TypedOracle {
     private readonly header: Header,
     private readonly globalVariables: GlobalVariables,
     private readonly packedArgsCache: PackedArgsCache,
-    private readonly sideEffectCounter: SideEffectCounter,
+    private sideEffectCounter: SideEffectCounter,
     private readonly stateDb: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
     private readonly commitmentsDb: CommitmentsDB,
@@ -170,7 +177,7 @@ export class PublicExecutionContext extends TypedOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ) {
+  ): Promise<PublicCallStackItem> {
     isStaticCall = isStaticCall || this.execution.callContext.isStaticCall;
 
     const args = this.packedArgsCache.unpack(argsHash);
@@ -192,7 +199,6 @@ export class PublicExecutionContext extends TypedOracle {
       functionSelector,
       isDelegateCall,
       isStaticCall,
-      sideEffectCounter,
     });
 
     const nestedExecution: PublicExecution = {
@@ -207,7 +213,7 @@ export class PublicExecutionContext extends TypedOracle {
       this.header,
       this.globalVariables,
       this.packedArgsCache,
-      this.sideEffectCounter,
+      new SideEffectCounter(sideEffectCounter),
       this.stateDb,
       this.contractsDb,
       this.commitmentsDb,
@@ -226,10 +232,17 @@ export class PublicExecutionContext extends TypedOracle {
       );
     }
 
+    // TODO remove this once public reads/writes are tracked by the context
     this.nestedExecutions.push(childExecutionResult);
     this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
 
-    return childExecutionResult.returnValues;
+    // TODO remove this once storage reads/writes are tracked by the context
+    // this is needed because side effect counters for storage reads/writes are tracked in this class
+    // calling a public function advances the side effect counter
+    // we need to update our own counter so that future side effects don't end up overlapping
+    this.sideEffectCounter = new SideEffectCounter(childExecutionResult.endSideEffectCounter.toNumber() + 1);
+
+    return childExecutionResult.callStackItem;
   }
 
   public async getNullifierMembershipWitness(

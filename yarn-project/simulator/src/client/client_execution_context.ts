@@ -352,7 +352,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     const derivedCallContext = await this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
-      sideEffectCounter,
       isDelegateCall,
       isStaticCall,
     );
@@ -413,7 +412,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     const derivedCallContext = await this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
-      sideEffectCounter,
       isDelegateCall,
       isStaticCall,
     );
@@ -424,6 +422,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       parentCallContext: this.callContext,
       functionData: FunctionData.fromAbi(targetArtifact),
       contractAddress: targetContractAddress,
+      counter: sideEffectCounter,
     });
 
     // TODO($846): if enqueued public calls are associated with global
@@ -451,7 +450,6 @@ export class ClientExecutionContext extends ViewDataOracle {
   private async deriveCallContext(
     targetContractAddress: AztecAddress,
     targetArtifact: FunctionArtifact,
-    startSideEffectCounter: number,
     isDelegateCall = false,
     isStaticCall = false,
   ) {
@@ -463,7 +461,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
       isDelegateCall,
       isStaticCall,
-      startSideEffectCounter,
     );
   }
 

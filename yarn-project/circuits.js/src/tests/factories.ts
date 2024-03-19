@@ -392,7 +392,6 @@ export function makeCallContext(seed = 0, storageContractAddress = makeAztecAddr
     makeSelector(seed + 3),
     false,
     false,
-    0,
   );
 }
 
@@ -518,13 +517,13 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
     functionSelector: makeSelector(seed + 3),
     isStaticCall: false,
     isDelegateCall: false,
-    sideEffectCounter: 0,
   });
   return new PublicCallRequest(
     makeAztecAddress(seed),
     new FunctionData(makeSelector(seed + 0x1), false),
     childCallContext,
     parentCallContext,
+    0,
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),
   );
 }
@@ -851,7 +850,6 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
       makeSelector(seed + 4),
       true,
       true,
-      0,
     ),
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),

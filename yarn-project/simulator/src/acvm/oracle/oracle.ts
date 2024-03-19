@@ -1,14 +1,12 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
-import { RETURN_VALUES_LENGTH } from '@aztec/circuits.js';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
-import { toACVMField, toAcvmEnqueuePublicFunctionResult } from '../serialize.js';
+import { toACVMField, toAcvmEnqueuePublicFunctionResult, toAcvmPublicFunctionResult } from '../serialize.js';
 import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
 import { TypedOracle } from './typed_oracle.js';
 
@@ -325,7 +323,7 @@ export class Oracle {
     [isStaticCall]: ACVMField[],
     [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const returnValues = await this.typedOracle.callPublicFunction(
+    const callStackItem = await this.typedOracle.callPublicFunction(
       AztecAddress.fromField(fromACVMField(contractAddress)),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
@@ -333,7 +331,7 @@ export class Oracle {
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
-    return padArrayEnd(returnValues, Fr.ZERO, RETURN_VALUES_LENGTH).map(toACVMField);
+    return toAcvmPublicFunctionResult(callStackItem);
   }
 
   async enqueuePublicFunctionCall(

@@ -200,13 +200,13 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
     functionSelector: makeSelector(seed + 3),
     isStaticCall: false,
     isDelegateCall: false,
-    sideEffectCounter: 0,
   });
   return new PublicCallRequest(
     makeAztecAddress(seed),
     new FunctionData(makeSelector(seed + 0x1), false),
     childCallContext,
     parentCallContext,
+    0,
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),
   );
 }
@@ -225,7 +225,6 @@ export function makeCallContext(seed = 0, storageContractAddress = makeAztecAddr
     makeSelector(seed + 3),
     false,
     false,
-    0,
   );
 }
 
