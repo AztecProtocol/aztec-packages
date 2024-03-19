@@ -12,7 +12,6 @@ import {
   SiblingPath,
   TxHash,
   TxReceipt,
-  TxStatus,
   Wallet,
   computeMessageSecretHash,
   deployL1Contract,
@@ -24,7 +23,6 @@ import {
   OutboxAbi,
   PortalERC20Abi,
   PortalERC20Bytecode,
-  RollupAbi,
   TokenPortalAbi,
   TokenPortalBytecode,
 } from '@aztec/l1-artifacts';
@@ -38,9 +36,8 @@ import {
   HttpTransport,
   PublicClient,
   WalletClient,
-  getAddress,
   getContract,
-  getFunctionSelector,
+  toFunctionSelector,
 } from 'viem';
 
 // docs:start:deployAndInitializeTokenAndBridgeContracts
@@ -409,7 +406,7 @@ export class CrossChainTestHarness {
     ]);
 
     expect(
-      await this.newOutbox.read.hasMessageBeenConsumedAtBlockAndIndex([BigInt(blockNumber), BigInt(messageIndex)], {}),
+      await this.outbox.read.hasMessageBeenConsumedAtBlockAndIndex([BigInt(blockNumber), BigInt(messageIndex)], {}),
     ).toBe(false);
 
     await this.walletClient.writeContract(withdrawRequest);
@@ -418,7 +415,7 @@ export class CrossChainTestHarness {
     }).rejects.toThrow();
 
     expect(
-      await this.newOutbox.read.hasMessageBeenConsumedAtBlockAndIndex([BigInt(blockNumber), BigInt(messageIndex)], {}),
+      await this.outbox.read.hasMessageBeenConsumedAtBlockAndIndex([BigInt(blockNumber), BigInt(messageIndex)], {}),
     ).toBe(true);
   }
 
