@@ -46,6 +46,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                     note_struct.name.0.contents
                 )),
             })?;
+        let note_interface_impl_span: Option<Span> = trait_impl.object_type.span;
         // Look for the note struct implementation, generate a default one if it doesn't exist (in order to append methods to it)
         let existing_impl = module.impls.iter_mut().find(|r#impl| match &r#impl.object_type.typ {
             UnresolvedTypeData::Named(path, _, _) => path.last_segment().eq(&note_struct.name),
@@ -81,27 +82,33 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
         }?;
 
         // Automatically inject the header field if it's not present
-        if !note_struct.fields.iter().any(|(_, field_type)| match &field_type.typ {
-            UnresolvedTypeData::Named(path, _, _) => path.last_segment().0.contents == "NoteHeader",
-            _ => false,
-        }) {
-            note_struct.fields.push((
+        let (header_field_name, _) = if let Some(existing_header) =
+            note_struct.fields.iter().find(|(_, field_type)| match &field_type.typ {
+                UnresolvedTypeData::Named(path, _, _) => {
+                    path.last_segment().0.contents == "NoteHeader"
+                }
+                _ => false,
+            }) {
+            existing_header.clone()
+        } else {
+            let generated_header = (
                 ident("header"),
                 make_type(UnresolvedTypeData::Named(
                     chained_dep!("aztec", "note", "note_header", "NoteHeader"),
                     vec![],
                     false,
                 )),
-            ));
-        }
+            );
+            note_struct.fields.push(generated_header.clone());
+            generated_header
+        };
+
         for (field_ident, field_type) in note_struct.fields.iter() {
             note_fields.push((
                 field_ident.0.contents.to_string(),
                 field_type.typ.to_string().replace("plain::", ""),
             ));
         }
-
-        let note_interface_impl_span = trait_impl.object_type.span;
 
         if !check_trait_method_implemented(trait_impl, "serialize_content")
             && !check_trait_method_implemented(trait_impl, "deserialize_content")
@@ -111,6 +118,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                 &note_type,
                 &note_fields,
                 &note_serialized_len,
+                &header_field_name.0.contents,
                 note_interface_impl_span,
             )?;
             trait_impl.items.push(TraitImplItem::Function(note_serialize_content_fn));
@@ -119,6 +127,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                 &note_type,
                 &note_fields,
                 &note_serialized_len,
+                &header_field_name.0.contents,
                 note_interface_impl_span,
             )?;
             trait_impl.items.push(TraitImplItem::Function(note_deserialize_content_fn));
@@ -126,20 +135,33 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             let note_properties_struct = generate_note_properties_struct(
                 &note_type,
                 &note_fields,
+                &header_field_name.0.contents,
                 note_interface_impl_span,
             )?;
             note_properties_structs.push(note_properties_struct);
-            let note_properties_fn =
-                generate_note_properties_fn(&note_type, &note_fields, note_interface_impl_span)?;
+            let note_properties_fn = generate_note_properties_fn(
+                &note_type,
+                &note_fields,
+                &header_field_name.0.contents,
+                note_interface_impl_span,
+            )?;
             note_impl.methods.push((note_properties_fn, note_impl.type_span));
         }
 
         if !check_trait_method_implemented(trait_impl, "get_header") {
-            let get_header_fn = generate_note_get_header(&note_type, note_interface_impl_span)?;
+            let get_header_fn = generate_note_get_header(
+                &note_type,
+                &header_field_name.0.contents,
+                note_interface_impl_span,
+            )?;
             trait_impl.items.push(TraitImplItem::Function(get_header_fn));
         }
         if !check_trait_method_implemented(trait_impl, "set_header") {
-            let set_header_fn = generate_note_set_header(&note_type, note_interface_impl_span)?;
+            let set_header_fn = generate_note_set_header(
+                &note_type,
+                &header_field_name.0.contents,
+                note_interface_impl_span,
+            )?;
             trait_impl.items.push(TraitImplItem::Function(set_header_fn));
         }
 
@@ -162,15 +184,16 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
 
 fn generate_note_get_header(
     note_type: &String,
+    note_header_field_name: &String,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
     let function_source = format!(
         "
         fn get_header(note: {}) -> dep::aztec::note::note_header::NoteHeader {{
-            note.header
+            note.{}
         }}
     ",
-        note_type
+        note_type, note_header_field_name
     )
     .to_string();
 
@@ -184,21 +207,23 @@ fn generate_note_get_header(
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
+    noir_fn.def.span = impl_span.unwrap();
     noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
 
 fn generate_note_set_header(
     note_type: &String,
+    note_header_field_name: &String,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
     let function_source = format!(
         "
         fn set_header(self: &mut {}, header: dep::aztec::note::note_header::NoteHeader) {{
-            self.header = header;
+            self.{} = header;
         }}
     ",
-        note_type
+        note_type, note_header_field_name
     );
 
     let (function_ast, errors) = parse_program(&function_source);
@@ -212,6 +237,7 @@ fn generate_note_set_header(
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
+    noir_fn.def.span = impl_span.unwrap();
     noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
@@ -246,6 +272,7 @@ fn generate_note_get_type_id(
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
+    noir_fn.def.span = impl_span.unwrap();
     noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
@@ -262,9 +289,11 @@ fn generate_note_get_type_id(
 fn generate_note_properties_struct(
     note_type: &str,
     note_fields: &[(String, String)],
+    note_header_field_name: &String,
     impl_span: Option<Span>,
 ) -> Result<NoirStruct, AztecMacroError> {
-    let struct_source = generate_note_properties_struct_source(note_type, note_fields);
+    let struct_source =
+        generate_note_properties_struct_source(note_type, note_fields, note_header_field_name);
 
     let (struct_ast, errors) = parse_program(&struct_source);
     if !errors.is_empty() {
@@ -293,10 +322,15 @@ fn generate_note_deserialize_content(
     note_type: &str,
     note_fields: &[(String, String)],
     note_serialize_len: &String,
+    note_header_field_name: &String,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
-    let function_source =
-        generate_note_deserialize_content_source(note_type, note_fields, note_serialize_len);
+    let function_source = generate_note_deserialize_content_source(
+        note_type,
+        note_fields,
+        note_serialize_len,
+        note_header_field_name,
+    );
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
@@ -309,6 +343,7 @@ fn generate_note_deserialize_content(
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
+    noir_fn.def.span = impl_span.unwrap();
     noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
@@ -324,22 +359,28 @@ fn generate_note_serialize_content(
     note_type: &str,
     note_fields: &[(String, String)],
     note_serialize_len: &String,
+    note_header_field_name: &String,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
-    let function_source =
-        generate_note_serialize_content_source(note_type, note_fields, note_serialize_len);
+    let function_source = generate_note_serialize_content_source(
+        note_type,
+        note_fields,
+        note_serialize_len,
+        note_header_field_name,
+    );
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
         dbg!(errors);
         return Err(AztecMacroError::CouldNotImplementNoteInterface {
-            secondary_message: Some("Failed to parse Noir macro code (fn seserialize_content). This is either a bug in the compiler or the Noir macro code".to_string()),
+            secondary_message: Some("Failed to parse Noir macro code (fn serialize_content). This is either a bug in the compiler or the Noir macro code".to_string()),
             span: impl_span
         });
     }
 
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
+    noir_fn.def.span = impl_span.unwrap();
     noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
@@ -348,9 +389,11 @@ fn generate_note_serialize_content(
 fn generate_note_properties_fn(
     note_type: &str,
     note_fields: &[(String, String)],
+    note_header_field_name: &String,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
-    let function_source = generate_note_properties_fn_source(note_type, note_fields);
+    let function_source =
+        generate_note_properties_fn_source(note_type, note_fields, note_header_field_name);
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
         dbg!(errors);
@@ -361,6 +404,7 @@ fn generate_note_properties_fn(
     }
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
+    noir_fn.def.span = impl_span.unwrap();
     noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
@@ -394,6 +438,7 @@ fn generate_compute_note_content_hash(
     }
     let mut function_ast = function_ast.into_sorted();
     let mut noir_fn = function_ast.functions.remove(0);
+    noir_fn.def.span = impl_span.unwrap();
     noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
@@ -403,11 +448,12 @@ fn generate_compute_note_content_hash(
 fn generate_note_properties_struct_source(
     note_type: &str,
     note_fields: &[(String, String)],
+    note_header_field_name: &String,
 ) -> String {
     let note_property_selectors = note_fields
         .iter()
         .filter_map(|(field_name, _)| {
-            if field_name != "header" {
+            if field_name != note_header_field_name {
                 Some(format!(
                     "{}: dep::aztec::note::note_getter_options::PropertySelector",
                     field_name
@@ -428,12 +474,16 @@ fn generate_note_properties_struct_source(
     .to_string()
 }
 
-fn generate_note_properties_fn_source(note_type: &str, note_fields: &[(String, String)]) -> String {
+fn generate_note_properties_fn_source(
+    note_type: &str,
+    note_fields: &[(String, String)],
+    note_header_field_name: &String,
+) -> String {
     let note_property_selectors = note_fields
         .iter()
         .enumerate()
         .filter_map(|(index, (field_name, _))| {
-            if field_name != "header" {
+            if field_name != note_header_field_name {
                 Some(format!(
                     "{}: dep::aztec::note::note_getter_options::PropertySelector {{ index: {}, offset: 0, length: 32 }}",
                     field_name,
@@ -461,11 +511,12 @@ fn generate_note_serialize_content_source(
     note_type: &str,
     note_fields: &[(String, String)],
     note_serialize_len: &String,
+    note_header_field_name: &String,
 ) -> String {
     let note_fields = note_fields
         .iter()
         .filter_map(|(field_name, field_type)| {
-            if field_name != "header" {
+            if field_name != note_header_field_name {
                 if field_type == "Field" {
                     Some(format!("self.{}", field_name))
                 } else {
@@ -491,12 +542,13 @@ fn generate_note_deserialize_content_source(
     note_type: &str,
     note_fields: &[(String, String)],
     note_serialize_len: &String,
+    note_header_field_name: &String,
 ) -> String {
     let note_fields = note_fields
         .iter()
         .enumerate()
         .map(|(index, (field_name, field_type))| {
-            if field_name != "header" {
+            if field_name != note_header_field_name {
                 // TODO: Simplify this when https://github.com/noir-lang/noir/issues/4463 is fixed
                 if field_type.eq("Field")
                     || Regex::new(r"u[0-9]+").unwrap().is_match(field_type)
@@ -510,7 +562,10 @@ fn generate_note_deserialize_content_source(
                     )
                 }
             } else {
-                "header: dep::aztec::note::note_header::NoteHeader::empty()".to_string()
+                format!(
+                    "{}: dep::aztec::note::note_header::NoteHeader::empty()",
+                    note_header_field_name
+                )
             }
         })
         .collect::<Vec<String>>()
