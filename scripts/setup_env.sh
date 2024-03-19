@@ -22,6 +22,6 @@ EOF
 
 # Install earthly
 wget -q https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O /usr/local/bin/earthly-bin
-echo '/usr/local/bin/earthly-bin -P --disable-remote-registry-proxy --use-inline-cache --save-inline-cache' >> /usr/local/bin/earthly
+echo '/usr/local/bin/earthly-bin -P --disable-remote-registry-proxy --use-inline-cache --save-inline-cache $@' >> /usr/local/bin/earthly
 chmod +x /usr/local/bin/earthly*
 echo EARTHLY_CONFIG=$(dirname $(realpath $0))/earthly-config.yml >> $GITHUB_ENV
