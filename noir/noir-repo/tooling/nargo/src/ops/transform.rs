@@ -9,7 +9,6 @@ pub fn transform_program(
     mut compiled_program: CompiledProgram,
     expression_width: ExpressionWidth,
 ) -> CompiledProgram {
-    // TODO: Work to get rid of these clones by borrowing `Circuit` in the acvm compiler or by accepted a `Program`
     let (optimized_circuit, location_map) = acvm::compiler::compile(
         std::mem::take(&mut compiled_program.program.functions[0]),
         expression_width,
