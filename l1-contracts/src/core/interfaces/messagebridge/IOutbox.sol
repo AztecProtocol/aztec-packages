@@ -32,7 +32,7 @@ interface IOutbox {
   function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _height) external;
   // docs:end:outbox_insert
 
-  // docs:start:outbox_consme
+  // docs:start:outbox_consume
   /**
    * @notice Consumes an entry from the Outbox
    * @dev Only useable by portals / recipients of messages
