@@ -126,7 +126,7 @@ describe('L1Publisher integration', () => {
     });
     outbox = getContract({
       address: outboxAddress,
-      abi: InboxAbi,
+      abi: OutboxAbi,
       client: walletClient,
     });
 
