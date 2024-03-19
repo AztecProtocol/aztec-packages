@@ -5,7 +5,7 @@ use noirc_driver::{CompiledContract, CompiledProgram};
 /// multiple ACIR functions
 
 pub fn optimize_program(mut compiled_program: CompiledProgram) -> CompiledProgram {
-       let (optimized_circuit, location_map) = acvm::compiler::optimize(
+    let (optimized_circuit, location_map) = acvm::compiler::optimize(
         std::mem::take(&mut compiled_program.program.functions[0]),
         expression_width,
     );
