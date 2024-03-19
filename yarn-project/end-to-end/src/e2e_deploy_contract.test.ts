@@ -16,7 +16,6 @@ import {
   Wallet,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
-  isContractDeployed,
 } from '@aztec/aztec.js';
 import {
   broadcastPrivateFunction,
@@ -27,7 +26,7 @@ import {
 import { ContractClassIdPreimage, Point } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { StatefulTestContract } from '@aztec/noir-contracts.js';
+import { CounterContract, StatefulTestContract } from '@aztec/noir-contracts.js';
 import { TestContract, TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { SequencerClient } from '@aztec/sequencer-client';
@@ -57,12 +56,16 @@ describe('e2e_deploy_contract', () => {
     it('should deploy a test contract', async () => {
       const salt = Fr.random();
       const publicKey = accounts[0].publicKey;
-      const deploymentData = getContractInstanceFromDeployParams(TestContractArtifact, { salt, publicKey });
+      const deploymentData = getContractInstanceFromDeployParams(TestContractArtifact, {
+        salt,
+        publicKey,
+        deployer: wallet.getAddress(),
+      });
       const deployer = new ContractDeployer(TestContractArtifact, wallet, publicKey);
       const receipt = await deployer.deploy().send({ contractAddressSalt: salt }).wait({ wallet });
       expect(receipt.contract.address).toEqual(deploymentData.address);
-      expect(await isContractDeployed(pxe, deploymentData.address)).toBe(true);
-      expect(await isContractDeployed(pxe, AztecAddress.random())).toBe(false);
+      expect(await pxe.getContractInstance(deploymentData.address)).toBeDefined();
+      expect(await pxe.isContractPubliclyDeployed(deploymentData.address)).toBeDefined();
     }, 60_000);
 
     /**
@@ -111,10 +114,8 @@ describe('e2e_deploy_contract', () => {
       const receipt = await deployer.deploy().send({ portalContract }).wait();
       const address = receipt.contract.address;
 
-      expect((await pxe.getContractData(address))?.portalContractAddress.toString()).toEqual(portalContract.toString());
-      expect((await pxe.getExtendedContractData(address))?.contractData.portalContractAddress.toString()).toEqual(
-        portalContract.toString(),
-      );
+      const expectedPortal = portalContract.toString();
+      expect((await pxe.getContractInstance(address))?.portalContractAddress.toString()).toEqual(expectedPortal);
     }, 60_000);
 
     it('should not deploy a contract which failed the public part of the execution', async () => {
@@ -138,13 +139,12 @@ describe('e2e_deploy_contract', () => {
 
         const [goodTxReceipt, badTxReceipt] = await Promise.all([goodTx.getReceipt(), badTx.getReceipt()]);
 
+        // Both the good and bad transactions are included
         expect(goodTxReceipt.blockNumber).toEqual(expect.any(Number));
-        // the bad transaction is included
         expect(badTxReceipt.blockNumber).toEqual(expect.any(Number));
 
-        await expect(pxe.getContractData(badDeploy.getInstance().address)).resolves.toBeUndefined();
-        // but did not deploy
-        await expect(pxe.getExtendedContractData(badDeploy.getInstance().address)).resolves.toBeUndefined();
+        // But the bad tx did not deploy
+        await expect(pxe.isContractClassPubliclyRegistered(badDeploy.getInstance().address)).resolves.toBeFalsy();
       } finally {
         sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
       }
@@ -253,6 +253,14 @@ describe('e2e_deploy_contract', () => {
         /Initialization hash does not match/,
       );
     });
+
+    it('refuses to initialize an instance from a different deployer', async () => {
+      const owner = await registerRandomAccount(pxe);
+      const contract = await registerContract(wallet, StatefulTestContract, { initArgs: [owner, 42], deployer: owner });
+      await expect(contract.methods.constructor(owner, 42).simulate()).rejects.toThrow(
+        /Initializer address is not the contract deployer/i,
+      );
+    });
   });
 
   describe('registering a contract class', () => {
@@ -302,7 +310,7 @@ describe('e2e_deploy_contract', () => {
         let initArgs: StatefulContractCtorArgs;
         let contract: StatefulTestContract;
 
-        const deployInstance = async (opts: { constructorName?: string } = {}) => {
+        const deployInstance = async (opts: { constructorName?: string; deployer?: AztecAddress } = {}) => {
           const initArgs = [accounts[0].address, 42] as StatefulContractCtorArgs;
           const salt = Fr.random();
           const portalAddress = EthAddress.random();
@@ -312,7 +320,8 @@ describe('e2e_deploy_contract', () => {
             salt,
             publicKey,
             portalAddress,
-            constructorName: opts.constructorName,
+            constructorArtifact: opts.constructorName,
+            deployer: opts.deployer,
           });
           const { address, contractClassId } = instance;
           logger(`Deploying contract instance at ${address.toString()} class id ${contractClassId.toString()}`);
@@ -333,6 +342,7 @@ describe('e2e_deploy_contract', () => {
             portalAddress: instance.portalContractAddress,
             publicKey,
             initArgs,
+            deployer: opts.deployer,
           });
           expect(registered.address).toEqual(instance.address);
           const contract = await StatefulTestContract.at(instance.address, wallet);
@@ -353,6 +363,7 @@ describe('e2e_deploy_contract', () => {
             expect(deployed!.portalContractAddress).toEqual(instance.portalContractAddress);
             expect(deployed!.publicKeysHash).toEqual(instance.publicKeysHash);
             expect(deployed!.salt).toEqual(instance.salt);
+            expect(deployed!.deployer).toEqual(instance.deployer);
           });
 
           it('calls a public function with no init check on the deployed instance', async () => {
@@ -443,10 +454,28 @@ describe('e2e_deploy_contract', () => {
 
     testDeployingAnInstance('from a contract', async instance => {
       // Register the instance to be deployed in the pxe
-      await wallet.addContracts([{ artifact, instance }]);
+      await wallet.registerContract({ artifact, instance });
       // Set up the contract that calls the deployer (which happens to be the TestContract) and call it
       const deployer = await TestContract.deploy(wallet).send().deployed();
       await deployer.methods.deploy_contract(instance.address).send().wait();
+    });
+
+    describe('error scenarios in deployment', () => {
+      it('refuses to call a public function on an undeployed contract', async () => {
+        const whom = accounts[0].address;
+        const instance = await registerContract(wallet, StatefulTestContract, { initArgs: [whom, 42] });
+        await expect(
+          instance.methods.increment_public_value_no_init_check(whom, 10).send({ skipPublicSimulation: true }).wait(),
+        ).rejects.toThrow(/dropped/);
+      });
+
+      it('refuses to deploy an instance from a different deployer', () => {
+        const instance = getContractInstanceFromDeployParams(artifact, {
+          constructorArgs: [AztecAddress.random(), 42],
+          deployer: AztecAddress.random(),
+        });
+        expect(() => deployInstance(wallet, instance)).toThrow(/does not match/i);
+      });
     });
   });
 
@@ -462,7 +491,18 @@ describe('e2e_deploy_contract', () => {
 
     it('publicly deploys and initializes a contract', async () => {
       const owner = accounts[0];
+      logger.debug(`Deploying stateful test contract`);
       const contract = await StatefulTestContract.deploy(wallet, owner, 42).send().deployed();
+      expect(await contract.methods.summed_values(owner).view()).toEqual(42n);
+      logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
+      await contract.methods.increment_public_value(owner, 84).send().wait();
+      expect(await contract.methods.get_public_value(owner).view()).toEqual(84n);
+    }, 60_000);
+
+    it('publicly universally deploys and initializes a contract', async () => {
+      const owner = accounts[0];
+      const opts = { universalDeploy: true };
+      const contract = await StatefulTestContract.deploy(wallet, owner, 42).send(opts).deployed();
       expect(await contract.methods.summed_values(owner).view()).toEqual(42n);
       await contract.methods.increment_public_value(owner, 84).send().wait();
       expect(await contract.methods.get_public_value(owner).view()).toEqual(84n);
@@ -485,6 +525,30 @@ describe('e2e_deploy_contract', () => {
       await contract.methods.create_note(owner, 30).send().wait();
       expect(await contract.methods.summed_values(owner).view()).toEqual(30n);
     }, 60_000);
+
+    it('deploys a contract with a default initializer not named constructor', async () => {
+      logger.debug(`Deploying contract with a default initializer named initialize`);
+      const opts = { skipClassRegistration: true, skipPublicDeployment: true };
+      const contract = await CounterContract.deploy(wallet, 10, accounts[0]).send(opts).deployed();
+      logger.debug(`Calling a function to ensure the contract was properly initialized`);
+      await contract.methods.increment(accounts[0]).send().wait();
+      expect(await contract.methods.get_counter(accounts[0]).view()).toEqual(11n);
+    });
+
+    it('publicly deploys a contract with no constructor', async () => {
+      logger.debug(`Deploying contract with no constructor`);
+      const contract = await TestContract.deploy(wallet).send().deployed();
+      logger.debug(`Call a public function to check that it was publicly deployed`);
+      const receipt = await contract.methods.emit_unencrypted(42).send().wait();
+      const logs = await pxe.getUnencryptedLogs({ txHash: receipt.txHash });
+      expect(logs.logs[0].log.data.toString('hex').replace(/^0+/, '')).toEqual('2a');
+    });
+
+    it('refuses to deploy a contract with no constructor and no public deployment', async () => {
+      logger.debug(`Deploying contract with no constructor and skipping public deploy`);
+      const opts = { skipPublicDeployment: true, skipClassRegistration: true };
+      await expect(TestContract.deploy(wallet).simulate(opts)).rejects.toThrow(/no function calls needed/i);
+    });
 
     it.skip('publicly deploys and calls a public function in the same batched call', async () => {
       // TODO(@spalladino): Requires being able to read a nullifier on the same tx it was emitted.
@@ -512,16 +576,24 @@ type ContractArtifactClass<T extends ContractBase> = {
 async function registerContract<T extends ContractBase>(
   wallet: Wallet,
   contractArtifact: ContractArtifactClass<T>,
-  opts: { salt?: Fr; publicKey?: Point; portalAddress?: EthAddress; initArgs?: any[]; constructorName?: string } = {},
+  opts: {
+    salt?: Fr;
+    publicKey?: Point;
+    portalAddress?: EthAddress;
+    initArgs?: any[];
+    constructorName?: string;
+    deployer?: AztecAddress;
+  } = {},
 ): Promise<T> {
-  const { salt, publicKey, portalAddress, initArgs, constructorName } = opts;
+  const { salt, publicKey, portalAddress, initArgs, constructorName, deployer } = opts;
   const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, {
     constructorArgs: initArgs ?? [],
-    constructorName,
+    constructorArtifact: constructorName,
     salt,
     publicKey,
     portalAddress,
+    deployer,
   });
-  await wallet.addContracts([{ artifact: contractArtifact.artifact, instance }]);
+  await wallet.registerContract({ artifact: contractArtifact.artifact, instance });
   return contractArtifact.at(instance.address, wallet);
 }

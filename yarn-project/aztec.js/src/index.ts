@@ -41,7 +41,6 @@ export {
   AztecAddressLike,
   FunctionSelectorLike,
   WrappedFieldLike,
-  isContractDeployed,
   EthCheatCodes,
   computeAuthWitMessageHash,
   computeInnerAuthWitHash,
@@ -69,7 +68,7 @@ export {
   GlobalVariables,
   GrumpkinScalar,
   Point,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromDeployParams, // TODO(@spalladino) This method should be used from within the DeployMethod but not exposed in aztec.js
   getContractClassFromArtifact,
   INITIAL_L2_BLOCK_NUM,
 } from '@aztec/circuits.js';
@@ -83,9 +82,6 @@ export {
   AztecNode,
   Body,
   CompleteAddress,
-  ContractData,
-  DeployedContract,
-  ExtendedContractData,
   ExtendedNote,
   FunctionCall,
   GrumpkinPrivateKey,

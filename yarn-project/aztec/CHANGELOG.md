@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.29.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.28.1...aztec-package-v0.29.0) (2024-03-18)
+
+
+### Features
+
+* Initial Earthly CI ([#5069](https://github.com/AztecProtocol/aztec-packages/issues/5069)) ([8e75fe5](https://github.com/AztecProtocol/aztec-packages/commit/8e75fe5c47250e860a4eae4dbf0973c503221720))
+
+## [0.28.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.28.0...aztec-package-v0.28.1) (2024-03-14)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.28.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.27.2...aztec-package-v0.28.0) (2024-03-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* Support contracts with no constructor ([#5175](https://github.com/AztecProtocol/aztec-packages/issues/5175))
+
+### Features
+
+* Support contracts with no constructor ([#5175](https://github.com/AztecProtocol/aztec-packages/issues/5175)) ([df7fa32](https://github.com/AztecProtocol/aztec-packages/commit/df7fa32f34e790231e091c38a4a6e84be5407763))
+
+## [0.27.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.27.1...aztec-package-v0.27.2) (2024-03-13)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
 ## [0.27.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.27.0...aztec-package-v0.27.1) (2024-03-12)
 
 

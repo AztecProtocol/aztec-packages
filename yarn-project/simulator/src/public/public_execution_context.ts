@@ -50,7 +50,13 @@ export class PublicExecutionContext extends TypedOracle {
    */
   public getInitialWitness(witnessStartIndex = 0) {
     const { callContext, args } = this.execution;
-    const fields = [...callContext.toFields(), ...this.header.toFields(), ...this.globalVariables.toFields(), ...args];
+    const fields = [
+      ...callContext.toFields(),
+      ...this.header.toFields(),
+      ...this.globalVariables.toFields(),
+      new Fr(this.sideEffectCounter.current()),
+      ...args,
+    ];
 
     return toACVMWitness(witnessStartIndex, fields);
   }
@@ -161,6 +167,7 @@ export class PublicExecutionContext extends TypedOracle {
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
+    sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
   ) {
@@ -170,17 +177,13 @@ export class PublicExecutionContext extends TypedOracle {
     this.log(`Public function call: addr=${targetContractAddress} selector=${functionSelector} args=${args.join(',')}`);
 
     const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.ZERO;
-    const isInternal = await this.contractsDb.getIsInternal(targetContractAddress, functionSelector);
-    if (isInternal === undefined) {
-      throw new Error(`ERR: Method not found - ${targetContractAddress.toString()}:${functionSelector.toString()}`);
-    }
 
     const acir = await this.contractsDb.getBytecode(targetContractAddress, functionSelector);
     if (!acir) {
       throw new Error(`Bytecode not found for ${targetContractAddress}:${functionSelector}`);
     }
 
-    const functionData = new FunctionData(functionSelector, isInternal, false, false);
+    const functionData = new FunctionData(functionSelector, false);
 
     const callContext = CallContext.from({
       msgSender: isDelegateCall ? this.execution.callContext.msgSender : this.execution.contractAddress,
@@ -189,7 +192,7 @@ export class PublicExecutionContext extends TypedOracle {
       functionSelector,
       isDelegateCall,
       isStaticCall,
-      startSideEffectCounter: 0, // TODO use counters in public execution
+      sideEffectCounter,
     });
 
     const nestedExecution: PublicExecution = {

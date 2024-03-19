@@ -6,7 +6,6 @@ import {
   FunctionData,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_NEW_NOTE_HASHES_PER_CALL,
   NOTE_HASH_TREE_HEIGHT,
   PartialStateReference,
   PublicCallRequest,
@@ -49,7 +48,7 @@ import {
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
-import { getFunctionSelector } from 'viem';
+import { toFunctionSelector } from 'viem';
 
 import { KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
@@ -210,15 +209,7 @@ describe('Private Execution test suite', () => {
     acirSimulator = new AcirSimulator(oracle, node);
   });
 
-  describe('empty constructor', () => {
-    it('should run the empty constructor', async () => {
-      const artifact = getFunctionArtifact(TestContractArtifact, 'constructor');
-      const result = await runSimulator({ artifact });
-
-      const emptyCommitments = new Array(MAX_NEW_NOTE_HASHES_PER_CALL).fill(Fr.ZERO);
-      expect(sideEffectArrayToValueArray(result.callStackItem.publicInputs.newNoteHashes)).toEqual(emptyCommitments);
-    });
-
+  describe('no constructor', () => {
     it('emits a field as an unencrypted log', async () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'emit_msg_sender');
       const result = await runSimulator({ artifact, msgSender: owner });
@@ -534,7 +525,6 @@ describe('Private Execution test suite', () => {
 
     describe('L1 to L2', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_private_message');
-      const canceller = EthAddress.random();
       let bridgedAmount = 100n;
 
       const secretHashForRedeemingNotes = new Fr(2n);
@@ -557,19 +547,14 @@ describe('Private Execution test suite', () => {
 
       const computePreimage = () =>
         buildL1ToL2Message(
-          getFunctionSelector('mint_private(bytes32,uint256,address)').substring(2),
-          [secretHashForRedeemingNotes, new Fr(bridgedAmount), canceller.toField()],
+          toFunctionSelector('mint_private(bytes32,uint256)').substring(2),
+          [secretHashForRedeemingNotes, new Fr(bridgedAmount)],
           crossChainMsgRecipient ?? contractAddress,
           secretForL1ToL2MessageConsumption,
         );
 
       const computeArgs = () =>
-        encodeArguments(artifact, [
-          secretHashForRedeemingNotes,
-          bridgedAmount,
-          canceller.toField(),
-          secretForL1ToL2MessageConsumption,
-        ]);
+        encodeArguments(artifact, [secretHashForRedeemingNotes, bridgedAmount, secretForL1ToL2MessageConsumption]);
 
       const mockOracles = async (updateHeader = true) => {
         const tree = await insertLeaves([preimage.hash()], 'l1ToL2Messages');
@@ -618,7 +603,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Message not in state');
+        ).rejects.toThrow('Message not in state');
       });
 
       it('Invalid recipient', async () => {
@@ -640,7 +625,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Message not in state');
+        ).rejects.toThrow('Message not in state');
       });
 
       it('Invalid sender', async () => {
@@ -661,7 +646,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Message not in state');
+        ).rejects.toThrow('Message not in state');
       });
 
       it('Invalid chainid', async () => {
@@ -681,7 +666,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(2n) },
           }),
-        ).rejects.toThrowError('Message not in state');
+        ).rejects.toThrow('Message not in state');
       });
 
       it('Invalid version', async () => {
@@ -701,7 +686,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(2n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Message not in state');
+        ).rejects.toThrow('Message not in state');
       });
 
       it('Invalid content', async () => {
@@ -722,7 +707,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Message not in state');
+        ).rejects.toThrow('Message not in state');
       });
 
       it('Invalid Secret', async () => {
@@ -743,7 +728,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Message not in state');
+        ).rejects.toThrow('Message not in state');
       });
     });
 
@@ -809,7 +794,6 @@ describe('Private Execution test suite', () => {
 
       // Alter function data to match the manipulated oracle
       const functionData = FunctionData.fromAbi(childContractArtifact);
-      functionData.isInternal = isInternal;
 
       const publicCallRequest = PublicCallRequest.from({
         contractAddress: childAddress,
@@ -822,7 +806,7 @@ describe('Private Execution test suite', () => {
           functionSelector: childSelector,
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: 1,
+          sideEffectCounter: 1,
         }),
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
@@ -831,7 +815,7 @@ describe('Private Execution test suite', () => {
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: 1,
+          sideEffectCounter: 1,
         }),
       });
 
@@ -1152,7 +1136,7 @@ describe('Private Execution test suite', () => {
       const unexpectedChainId = Fr.random();
       await expect(
         runSimulator({ artifact, msgSender: owner, args, txContext: { chainId: unexpectedChainId, version } }),
-      ).rejects.toThrowError('Invalid chain id');
+      ).rejects.toThrow('Invalid chain id');
     });
 
     it('Throws when version is incorrectly set', async () => {
@@ -1160,7 +1144,7 @@ describe('Private Execution test suite', () => {
       const unexpectedVersion = Fr.random();
       await expect(
         runSimulator({ artifact, msgSender: owner, args, txContext: { chainId, version: unexpectedVersion } }),
-      ).rejects.toThrowError('Invalid version');
+      ).rejects.toThrow('Invalid version');
     });
   });
 
@@ -1187,7 +1171,7 @@ describe('Private Execution test suite', () => {
       const unexpectedHeaderHash = Fr.random();
       const args = [unexpectedHeaderHash];
 
-      await expect(runSimulator({ artifact, msgSender: owner, args })).rejects.toThrowError('Invalid header hash');
+      await expect(runSimulator({ artifact, msgSender: owner, args })).rejects.toThrow('Invalid header hash');
     });
   });
 });

@@ -6,7 +6,6 @@ import {
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   SentTx,
-  computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
 import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 import {
@@ -142,7 +141,8 @@ describe('e2e_dapp_subscription', () => {
     await expectMapping(
       bananasPublicBalances,
       [aliceAddress, bobAddress, bananaFPC.address],
-      [PUBLICLY_MINTED_BANANAS + REFUND, 0n, FEE_AMOUNT], // alice receives a public refund (for now)
+      // refund is done via a transparent note for now
+      [PUBLICLY_MINTED_BANANAS, 0n, FEE_AMOUNT],
     );
 
     await expectMapping(
@@ -151,6 +151,8 @@ describe('e2e_dapp_subscription', () => {
       [bananaFPC.address, subscriptionContract.address, sequencerAddress],
       [INITIAL_GAS_BALANCE - FEE_AMOUNT, INITIAL_GAS_BALANCE, FEE_AMOUNT],
     );
+
+    // REFUND_AMOUNT is a transparent note note
   });
 
   it('should allow Alice to subscribe by paying with bananas in public', async () => {
@@ -181,7 +183,7 @@ describe('e2e_dapp_subscription', () => {
       [
         // we have the refund from the previous test,
         // but since we paid publicly this time, the refund should have been "squashed"
-        PUBLICLY_MINTED_BANANAS + REFUND - FEE_AMOUNT,
+        PUBLICLY_MINTED_BANANAS - FEE_AMOUNT,
         0n, // Bob still has no public bananas
         2n * FEE_AMOUNT, // because this is the second time we've used the FPC
       ],
@@ -235,8 +237,7 @@ describe('e2e_dapp_subscription', () => {
   ) {
     const nonce = Fr.random();
     const action = bananaCoin.methods.transfer(aliceAddress, bobAddress, SUBSCRIPTION_AMOUNT, nonce);
-    const messageHash = computeAuthWitMessageHash(subscriptionContract.address, action.request());
-    await aliceWallet.createAuthWitness(messageHash);
+    await aliceWallet.createAuthWit({ caller: subscriptionContract.address, action });
 
     return subscriptionContract
       .withWallet(aliceWallet)

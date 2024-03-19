@@ -60,7 +60,7 @@ describe('Aztec persistence', () => {
     deployL1ContractsValues = initialContext.deployL1ContractsValues;
 
     ownerPrivateKey = Fq.random();
-    const ownerWallet = await getUnsafeSchnorrAccount(initialContext.pxe, ownerPrivateKey, Fr.ZERO).waitDeploy();
+    const ownerWallet = await getUnsafeSchnorrAccount(initialContext.pxe, ownerPrivateKey, Fr.ZERO).waitSetup();
     ownerAddress = ownerWallet.getCompleteAddress();
     ownerSalt = ownerWallet.salt;
 
@@ -149,7 +149,7 @@ describe('Aztec persistence', () => {
     });
 
     it('allows spending of private notes', async () => {
-      const otherWallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitDeploy();
+      const otherWallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitSetup();
 
       const initialOwnerBalance = await contract.methods.balance_of_private(ownerWallet.getAddress()).view();
 
@@ -191,51 +191,45 @@ describe('Aztec persistence', () => {
     });
 
     it('the node has the contract', async () => {
-      await expect(context.aztecNode.getContractData(contractAddress)).resolves.toBeDefined();
+      await expect(context.aztecNode.getContract(contractAddress)).resolves.toBeDefined();
     });
 
     it('pxe does not know of the deployed contract', async () => {
       await context.pxe.registerRecipient(ownerAddress);
 
-      const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitDeploy();
+      const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitSetup();
       await expect(TokenContract.at(contractAddress, wallet)).rejects.toThrow(/has not been registered/);
     });
 
     it("pxe does not have owner's private notes", async () => {
-      await context.pxe.addContracts([
-        {
-          artifact: TokenContract.artifact,
-          instance: contractInstance,
-        },
-      ]);
+      await context.pxe.registerContract({
+        artifact: TokenContract.artifact,
+        instance: contractInstance,
+      });
       await context.pxe.registerRecipient(ownerAddress);
 
-      const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitDeploy();
+      const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitSetup();
       const contract = await TokenContract.at(contractAddress, wallet);
       await expect(contract.methods.balance_of_private(ownerAddress.address).view()).resolves.toEqual(0n);
     });
 
     it('has access to public storage', async () => {
-      await context.pxe.addContracts([
-        {
-          artifact: TokenContract.artifact,
-          instance: contractInstance,
-        },
-      ]);
+      await context.pxe.registerContract({
+        artifact: TokenContract.artifact,
+        instance: contractInstance,
+      });
 
-      const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitDeploy();
+      const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitSetup();
       const contract = await TokenContract.at(contractAddress, wallet);
 
       await expect(contract.methods.total_supply().view()).resolves.toBeGreaterThan(0n);
     });
 
     it('pxe restores notes after registering the owner', async () => {
-      await context.pxe.addContracts([
-        {
-          artifact: TokenContract.artifact,
-          instance: contractInstance,
-        },
-      ]);
+      await context.pxe.registerContract({
+        artifact: TokenContract.artifact,
+        instance: contractInstance,
+      });
 
       const ownerAccount = getUnsafeSchnorrAccount(context.pxe, ownerPrivateKey, ownerSalt);
       await ownerAccount.register();
@@ -263,12 +257,10 @@ describe('Aztec persistence', () => {
     beforeAll(async () => {
       const temporaryContext = await setup(0, { deployL1ContractsValues }, {});
 
-      await temporaryContext.pxe.addContracts([
-        {
-          artifact: TokenContract.artifact,
-          instance: contractInstance,
-        },
-      ]);
+      await temporaryContext.pxe.registerContract({
+        artifact: TokenContract.artifact,
+        instance: contractInstance,
+      });
 
       const ownerAccount = getUnsafeSchnorrAccount(temporaryContext.pxe, ownerPrivateKey, ownerSalt);
       await ownerAccount.register();
