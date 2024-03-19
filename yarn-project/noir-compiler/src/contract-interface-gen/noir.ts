@@ -142,7 +142,7 @@ function generateFunctionInterface(functionData: FunctionArtifact, kind: 'privat
   const { name, parameters } = functionData;
   const selector = FunctionSelector.fromNameAndParameters(name, parameters);
   const serialization = generateSerialization(parameters);
-  const contextType = kind === 'private' ? '&mut PrivateContext' : 'PublicContext';
+  const contextType = kind === 'private' ? '&mut PrivateContext' : '&mut PublicContext';
   const callStatement = generateCallStatement(selector, functionData.functionType);
   const allParams = ['self', `context: ${contextType}`, ...parameters.map(p => generateParameter(p, functionData))];
   const isPrivate = isPrivateCall(functionData.functionType);
