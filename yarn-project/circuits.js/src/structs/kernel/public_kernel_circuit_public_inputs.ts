@@ -1,6 +1,9 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { inspect } from 'util';
+
 import { AggregationObject } from '../aggregation_object.js';
+import { ValidationRequests } from '../validation_requests.js';
 import {
   CombinedAccumulatedData,
   PublicAccumulatedNonRevertibleData,
@@ -20,6 +23,10 @@ export class PublicKernelCircuitPublicInputs {
      * Aggregated proof of all the previous kernel iterations.
      */
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
+    /**
+     * Validation requests accumulated from public functions.
+     */
+    public validationRequests: ValidationRequests,
     /**
      * Accumulated side effects and enqueued calls that are not revertible.
      */
@@ -44,23 +51,33 @@ export class PublicKernelCircuitPublicInputs {
      * Indicates whether the teardown kernel is needed.
      */
     public needsTeardown: boolean,
+    /**
+     * Indicates whether execution of the public circuit reverted.
+     */
+    public reverted: boolean,
   ) {}
 
   toBuffer() {
     return serializeToBuffer(
       this.aggregationObject,
+      this.validationRequests,
       this.endNonRevertibleData,
       this.end,
       this.constants,
       this.needsSetup,
       this.needsAppLogic,
       this.needsTeardown,
+      this.reverted,
     );
   }
 
   get combinedData() {
+    if (this.needsSetup || this.needsAppLogic || this.needsTeardown) {
+      throw new Error('Cannot combine data when the circuit is not finished');
+    }
+
     if (!this.combined) {
-      this.combined = CombinedAccumulatedData.recombine(this.endNonRevertibleData, this.end);
+      this.combined = CombinedAccumulatedData.recombine(this.endNonRevertibleData, this.end, this.reverted);
     }
     return this.combined;
   }
@@ -74,9 +91,11 @@ export class PublicKernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PublicKernelCircuitPublicInputs(
       reader.readObject(AggregationObject),
+      reader.readObject(ValidationRequests),
       reader.readObject(PublicAccumulatedNonRevertibleData),
       reader.readObject(PublicAccumulatedRevertibleData),
       reader.readObject(CombinedConstantData),
+      reader.readBoolean(),
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readBoolean(),
@@ -86,12 +105,28 @@ export class PublicKernelCircuitPublicInputs {
   static empty() {
     return new PublicKernelCircuitPublicInputs(
       AggregationObject.makeFake(),
+      ValidationRequests.empty(),
       PublicAccumulatedNonRevertibleData.empty(),
       PublicAccumulatedRevertibleData.empty(),
       CombinedConstantData.empty(),
-      true,
-      true,
-      true,
+      false,
+      false,
+      false,
+      false,
     );
+  }
+
+  [inspect.custom]() {
+    return `PublicKernelCircuitPublicInputs {
+      aggregationObject: ${this.aggregationObject},
+      validationRequests: ${inspect(this.validationRequests)},
+      endNonRevertibleData: ${inspect(this.endNonRevertibleData)},
+      end: ${inspect(this.end)},
+      constants: ${this.constants},
+      needsSetup: ${this.needsSetup},
+      needsAppLogic: ${this.needsAppLogic},
+      needsTeardown: ${this.needsTeardown},
+      reverted: ${this.reverted}
+      }`;
   }
 }

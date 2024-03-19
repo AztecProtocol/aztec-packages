@@ -1,50 +1,25 @@
-import { ContractData, L2BlockL2Logs, PublicDataWrite, TxEffect } from '@aztec/circuit-types';
-import {
-  MAX_NEW_CONTRACTS_PER_TX,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-} from '@aztec/circuits.js';
+import { L2BlockL2Logs, TxEffect } from '@aztec/circuit-types';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { makeTuple } from '@aztec/foundation/array';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { inspect } from 'util';
+
 export class Body {
-  constructor(public l1ToL2Messages: Fr[], public txEffects: TxEffect[]) {}
+  constructor(
+    public l1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
+    public txEffects: TxEffect[],
+  ) {}
 
   /**
    * Serializes a block body
    * @returns A serialized L2 block body.
    */
   toBuffer() {
-    const newNoteHashes = this.txEffects.flatMap(txEffect => txEffect.newNoteHashes);
-    const newNullifiers = this.txEffects.flatMap(txEffect => txEffect.newNullifiers);
-    const newPublicDataWrites = this.txEffects.flatMap(txEffect => txEffect.newPublicDataWrites);
-    const newL2ToL1Msgs = this.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs);
-    const newContracts = this.txEffects.flatMap(txEffect => txEffect.contractLeaves);
-    const newContractData = this.txEffects.flatMap(txEffect => txEffect.contractData);
-    const newL1ToL2Messages = this.l1ToL2Messages;
-    const newEncryptedLogs = this.encryptedLogs;
-    const newUnencryptedLogs = this.unencryptedLogs;
-
-    return serializeToBuffer(
-      newNoteHashes.length,
-      newNoteHashes,
-      newNullifiers.length,
-      newNullifiers,
-      newPublicDataWrites.length,
-      newPublicDataWrites,
-      newL2ToL1Msgs.length,
-      newL2ToL1Msgs,
-      newContracts.length,
-      newContracts,
-      newContractData,
-      newL1ToL2Messages.length,
-      newL1ToL2Messages,
-      newEncryptedLogs,
-      newUnencryptedLogs,
-    );
+    return serializeToBuffer(this.l1ToL2Messages.length, this.l1ToL2Messages, this.txEffects.length, this.txEffects);
   }
 
   /**
@@ -53,77 +28,30 @@ export class Body {
    */
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
-    const newNoteHashes = reader.readVector(Fr);
-    const newNullifiers = reader.readVector(Fr);
-    const newPublicDataWrites = reader.readVector(PublicDataWrite);
-    const newL2ToL1Msgs = reader.readVector(Fr);
-    const newContracts = reader.readVector(Fr);
-    const newContractData = reader.readArray(newContracts.length, ContractData);
-    // TODO(sean): could an optimization of this be that it is encoded such that zeros are assumed
-    // It seems the da/ tx hash would be fine, would only need to edit circuits ?
-    const newL1ToL2Messages = reader.readVector(Fr);
+    const l1ToL2Messages = reader.readVector(Fr);
 
-    // Because TX's in a block are padded to nearest power of 2, this is finding the nearest nonzero tx filled with 1 nullifier
-    const numberOfNonEmptyTxs = calculateNumTxsFromNullifiers(newNullifiers);
+    return new this(
+      padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+      reader.readVector(TxEffect),
+    );
+  }
 
-    const newEncryptedLogs = reader.readObject(L2BlockL2Logs);
-    const newUnencryptedLogs = reader.readObject(L2BlockL2Logs);
+  [inspect.custom]() {
+    // print non empty l2ToL1Messages and txEffects
+    const l1ToL2Messages = this.l1ToL2Messages.filter(h => !h.isZero());
 
-    if (
-      new L2BlockL2Logs(newEncryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0 ||
-      new L2BlockL2Logs(newUnencryptedLogs.txLogs.slice(numberOfNonEmptyTxs)).getTotalLogCount() !== 0
-    ) {
-      throw new Error('Logs exist in the padded area');
-    }
-
-    const txEffects: TxEffect[] = [];
-
-    const numberOfTxsIncludingEmpty = newNullifiers.length / MAX_NEW_NULLIFIERS_PER_TX;
-
-    for (let i = 0; i < numberOfTxsIncludingEmpty; i += 1) {
-      // TODO(#4720): this should use TxEffect.fromBuffer
-      txEffects.push(
-        new TxEffect(
-          newNoteHashes.slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX) as Tuple<
-            Fr,
-            typeof MAX_NEW_NOTE_HASHES_PER_TX
-          >,
-          newNullifiers.slice(i * MAX_NEW_NULLIFIERS_PER_TX, (i + 1) * MAX_NEW_NULLIFIERS_PER_TX) as Tuple<
-            Fr,
-            typeof MAX_NEW_NULLIFIERS_PER_TX
-          >,
-          newL2ToL1Msgs.slice(i * MAX_NEW_L2_TO_L1_MSGS_PER_TX, (i + 1) * MAX_NEW_L2_TO_L1_MSGS_PER_TX) as Tuple<
-            Fr,
-            typeof MAX_NEW_L2_TO_L1_MSGS_PER_TX
-          >,
-          newPublicDataWrites.slice(
-            i * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-            (i + 1) * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-          ) as Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-          newContracts.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX) as Tuple<
-            Fr,
-            typeof MAX_NEW_CONTRACTS_PER_TX
-          >,
-          newContractData.slice(i * MAX_NEW_CONTRACTS_PER_TX, (i + 1) * MAX_NEW_CONTRACTS_PER_TX) as Tuple<
-            ContractData,
-            typeof MAX_NEW_CONTRACTS_PER_TX
-          >,
-          newEncryptedLogs.txLogs[i],
-          newUnencryptedLogs.txLogs[i],
-        ),
-      );
-    }
-
-    return new this(newL1ToL2Messages, txEffects);
+    return `Body {
+  l1ToL2Messages: ${inspect(l1ToL2Messages)},
+  txEffects: ${inspect(this.txEffects)},
+}`;
   }
 
   /**
-   * Computes the calldata hash for the L2 block
-   * This calldata hash is also computed by the rollup contract when the block is submitted,
-   * and inside the circuit, it is part of the public inputs.
-   * @returns The calldata hash.
+   * Computes the transactions effects hash for the L2 block
+   * This hash is also computed in the `AvailabilityOracle` and the `Circuit`.
+   * @returns The txs effects hash.
    */
-  getCalldataHash() {
+  getTxsEffectsHash() {
     const computeRoot = (leafs: Buffer[]): Buffer => {
       const layers: Buffer[][] = [leafs];
       let activeLayer = 0;
@@ -165,17 +93,22 @@ export class Body {
 
   get numberOfTxs() {
     // We gather all the txEffects that are not empty (the ones that have been padded by checking the first newNullifier of the txEffect);
-    return this.txEffects.reduce((acc, txEffect) => (!txEffect.newNullifiers[0].equals(Fr.ZERO) ? acc + 1 : acc), 0);
-  }
-}
-
-function calculateNumTxsFromNullifiers(nullifiers: Fr[]) {
-  let numberOfNonEmptyTxs = 0;
-  for (let i = 0; i < nullifiers.length; i += MAX_NEW_NULLIFIERS_PER_TX) {
-    if (!nullifiers[i].equals(Fr.ZERO)) {
-      numberOfNonEmptyTxs++;
-    }
+    return this.txEffects.reduce((acc, txEffect) => (!txEffect.nullifiers[0].equals(Fr.ZERO) ? acc + 1 : acc), 0);
   }
 
-  return numberOfNonEmptyTxs;
+  static random(
+    txsPerBlock = 4,
+    numPrivateCallsPerTx = 2,
+    numPublicCallsPerTx = 3,
+    numEncryptedLogsPerCall = 2,
+    numUnencryptedLogsPerCall = 1,
+    numL1ToL2MessagesPerCall = 2,
+  ) {
+    const l1ToL2Messages = makeTuple(numL1ToL2MessagesPerCall, Fr.random);
+    const txEffects = [...new Array(txsPerBlock)].map(_ =>
+      TxEffect.random(numPrivateCallsPerTx, numPublicCallsPerTx, numEncryptedLogsPerCall, numUnencryptedLogsPerCall),
+    );
+
+    return new Body(padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP), txEffects);
+  }
 }

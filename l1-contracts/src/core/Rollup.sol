@@ -14,9 +14,11 @@ import {HeaderLib} from "./libraries/HeaderLib.sol";
 import {MessagesDecoder} from "./libraries/decoders/MessagesDecoder.sol";
 import {Hash} from "./libraries/Hash.sol";
 import {Errors} from "./libraries/Errors.sol";
+import {Constants} from "./libraries/ConstantsGen.sol";
 
 // Contracts
 import {MockVerifier} from "../mock/MockVerifier.sol";
+import {Inbox} from "./messagebridge/Inbox.sol";
 
 /**
  * @title Rollup
@@ -28,6 +30,7 @@ contract Rollup is IRollup {
   MockVerifier public immutable VERIFIER;
   IRegistry public immutable REGISTRY;
   IAvailabilityOracle public immutable AVAILABILITY_ORACLE;
+  IInbox public immutable INBOX;
   uint256 public immutable VERSION;
 
   bytes32 public archive; // Root of the archive tree
@@ -40,6 +43,7 @@ contract Rollup is IRollup {
     VERIFIER = new MockVerifier();
     REGISTRY = _registry;
     AVAILABILITY_ORACLE = _availabilityOracle;
+    INBOX = new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
     VERSION = 1;
   }
 
@@ -53,7 +57,7 @@ contract Rollup is IRollup {
   function process(
     bytes calldata _header,
     bytes32 _archive,
-    bytes calldata _body, // TODO(#3938) Update this to pass in only th messages and not the whole body.
+    bytes calldata _body, // TODO(#5073) Nuke this when updating to the new message model
     bytes memory _proof
   ) external override(IRollup) {
     // Decode and validate header
@@ -61,12 +65,12 @@ contract Rollup is IRollup {
     HeaderLib.validate(header, VERSION, lastBlockTs, archive);
 
     // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
-    if (!AVAILABILITY_ORACLE.isAvailable(header.contentCommitment.txsHash)) {
-      revert Errors.Rollup__UnavailableTxs(header.contentCommitment.txsHash);
+    if (!AVAILABILITY_ORACLE.isAvailable(header.contentCommitment.txsEffectsHash)) {
+      revert Errors.Rollup__UnavailableTxs(header.contentCommitment.txsEffectsHash);
     }
 
     // Decode the cross-chain messages (Will be removed as part of message model change)
-    (,, bytes32[] memory l1ToL2Msgs, bytes32[] memory l2ToL1Msgs) = MessagesDecoder.decode(_body);
+    (,,, bytes32[] memory l2ToL1Msgs) = MessagesDecoder.decode(_body);
 
     bytes32[] memory publicInputs = new bytes32[](1);
     publicInputs[0] = _computePublicInputHash(_header, _archive);
@@ -80,9 +84,10 @@ contract Rollup is IRollup {
     archive = _archive;
     lastBlockTs = block.timestamp;
 
-    // @todo (issue #605) handle fee collector
-    IInbox inbox = REGISTRY.getInbox();
-    inbox.batchConsume(l1ToL2Msgs, msg.sender);
+    bytes32 inHash = INBOX.consume();
+    if (header.contentCommitment.inHash != inHash) {
+      revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
+    }
 
     IOutbox outbox = REGISTRY.getOutbox();
     outbox.sendL1Messages(l2ToL1Msgs);

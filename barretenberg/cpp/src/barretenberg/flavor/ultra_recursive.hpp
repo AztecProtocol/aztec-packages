@@ -25,9 +25,9 @@
 #include <type_traits>
 #include <vector>
 
+#include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 
 namespace bb {
 
@@ -49,6 +49,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
   public:
     using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
     using Curve = stdlib::bn254<CircuitBuilder>;
+    using PCS = KZG<Curve>;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::Element;
     using FF = typename Curve::ScalarField;
@@ -56,7 +57,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
 
     static constexpr size_t NUM_WIRES = UltraFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
@@ -269,8 +270,10 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>> {
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        std::vector<FF> public_inputs;
+
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {
             this->circuit_size = circuit_size;
@@ -285,9 +288,15 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
+            this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = native_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;
+            this->pub_inputs_offset = native_key->pub_inputs_offset;
+            this->public_inputs = std::vector<FF>(native_key->num_public_inputs);
+            for (auto [public_input, native_public_input] : zip_view(this->public_inputs, native_key->public_inputs)) {
+                public_input = FF::from_witness(builder, native_public_input);
+            }
             this->q_m = Commitment::from_witness(builder, native_key->q_m);
             this->q_l = Commitment::from_witness(builder, native_key->q_l);
             this->q_r = Commitment::from_witness(builder, native_key->q_r);
@@ -317,8 +326,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     };
 
     /**
-     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
-     * at one point.
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
+     * evaluated at one point.
      */
     class AllValues : public AllEntities<FF> {
       public:
@@ -329,8 +338,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
     /**
      * @brief A container for commitment labels.
-     * @note It's debatable whether this should inherit from AllEntities. since most entries are not strictly needed. It
-     * has, however, been useful during debugging to have these labels available.
+     * @note It's debatable whether this should inherit from AllEntities. since most entries are not strictly
+     * needed. It has, however, been useful during debugging to have these labels available.
      *
      */
     class CommitmentLabels : public AllEntities<std::string> {

@@ -1,147 +1,21 @@
 #include "protogalaxy_verifier.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 namespace bb {
-
-template <class VerifierInstances>
-void ProtoGalaxyVerifier_<VerifierInstances>::receive_accumulator(const std::shared_ptr<Instance>& inst,
-                                                                  const std::string& domain_separator)
-{
-    // Get circuit parameters
-    inst->instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
-    inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
-    inst->public_input_size =
-        transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
-
-    // Get folded public inputs
-    for (size_t i = 0; i < inst->public_input_size; ++i) {
-        auto public_input_i =
-            transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
-        inst->public_inputs.emplace_back(public_input_i);
-    }
-
-    // Get folded relation parameters
-    auto eta = transcript->template receive_from_prover<FF>(domain_separator + "_eta");
-    auto beta = transcript->template receive_from_prover<FF>(domain_separator + "_beta");
-    auto gamma = transcript->template receive_from_prover<FF>(domain_separator + "_gamma");
-    auto public_input_delta = transcript->template receive_from_prover<FF>(domain_separator + "_public_input_delta");
-    auto lookup_grand_product_delta =
-        transcript->template receive_from_prover<FF>(domain_separator + "_lookup_grand_product_delta");
-    inst->relation_parameters =
-        RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
-
-    // Get the folded relation separator challenges \vec{α}
-    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        inst->alphas[idx] =
-            transcript->template receive_from_prover<FF>(domain_separator + "_alpha_" + std::to_string(idx));
-    }
-
-    inst->target_sum = transcript->template receive_from_prover<FF>(domain_separator + "_target_sum");
-
-    // Get the folded gate challenges, \vec{β} in the paper
-    inst->gate_challenges = std::vector<FF>(inst->log_instance_size);
-    for (size_t idx = 0; idx < inst->log_instance_size; idx++) {
-        inst->gate_challenges[idx] =
-            transcript->template receive_from_prover<FF>(domain_separator + "_gate_challenge_" + std::to_string(idx));
-    }
-
-    // Get the folded commitments to all witness polynomials
-    auto comm_view = inst->witness_commitments.get_all();
-    auto witness_labels = inst->commitment_labels.get_witness();
-    for (size_t idx = 0; idx < witness_labels.size(); idx++) {
-        comm_view[idx] =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + witness_labels[idx]);
-    }
-
-    // Get the folded commitments to selector polynomials
-    inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
-    auto vk_view = inst->verification_key->get_all();
-    auto vk_labels = inst->commitment_labels.get_precomputed();
-    for (size_t idx = 0; idx < vk_labels.size(); idx++) {
-        vk_view[idx] = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + vk_labels[idx]);
-    }
-}
 
 template <class VerifierInstances>
 void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(const std::shared_ptr<Instance>& inst,
                                                                             const std::string& domain_separator)
 {
-    // Get circuit parameters and the public inputs
-    inst->instance_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
-    inst->log_instance_size = static_cast<size_t>(numeric::get_msb(inst->instance_size));
-    inst->public_input_size =
-        transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
-
-    for (size_t i = 0; i < inst->public_input_size; ++i) {
-        auto public_input_i =
-            transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
-        inst->public_inputs.emplace_back(public_input_i);
-    }
-
-    inst->pub_inputs_offset =
-        transcript->template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
-
-    // Get commitments to first three wire polynomials
-    auto labels = inst->commitment_labels;
-    auto& witness_commitments = inst->witness_commitments;
-    witness_commitments.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_l);
-    witness_commitments.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_r);
-    witness_commitments.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_o);
-
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        // Get  commitments to the ECC wire polynomials and databus polynomials
-        witness_commitments.ecc_op_wire_1 =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_1);
-        witness_commitments.ecc_op_wire_2 =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_2);
-        witness_commitments.ecc_op_wire_3 =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_3);
-        witness_commitments.ecc_op_wire_4 =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_4);
-        witness_commitments.calldata =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.calldata);
-        witness_commitments.calldata_read_counts =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.calldata_read_counts);
-    }
-
-    // Get challenge for sorted list batching and wire four memory records commitment
-    auto eta = transcript->template get_challenge<FF>(domain_separator + "_eta");
-    witness_commitments.sorted_accum =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.sorted_accum);
-    witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
-
-    // Get permutation challenges and commitment to permutation and lookup grand products
-    auto [beta, gamma] =
-        transcript->template get_challenges<FF>(domain_separator + "_beta", domain_separator + "_gamma");
-
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
-        witness_commitments.lookup_inverses = transcript->template receive_from_prover<Commitment>(
-            domain_separator + "_" + commitment_labels.lookup_inverses);
-    }
-
-    witness_commitments.z_perm =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_perm);
-    witness_commitments.z_lookup =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
-
-    // Compute correction terms for grand products
-    const FF public_input_delta = compute_public_input_delta<Flavor>(
-        inst->public_inputs, beta, gamma, inst->instance_size, inst->pub_inputs_offset);
-    const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, inst->instance_size);
-    inst->relation_parameters =
-        RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
+    auto& key = inst->verification_key;
+    OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
+    auto [relation_parameters, witness_commitments] = oink_verifier.verify();
+    inst->relation_parameters = relation_parameters;
+    inst->witness_commitments = witness_commitments;
 
     // Get the relation separation challenges
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
         inst->alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));
-    }
-
-    // Get the commitments to the selector polynomials for the given instance
-    inst->verification_key = std::make_shared<VerificationKey>(inst->instance_size, inst->public_input_size);
-    auto vk_view = inst->verification_key->get_all();
-    auto vk_labels = labels.get_precomputed();
-    for (size_t idx = 0; idx < vk_labels.size(); idx++) {
-        vk_view[idx] = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + vk_labels[idx]);
     }
 }
 
@@ -154,14 +28,10 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
     auto index = 0;
     auto inst = instances[0];
     auto domain_separator = std::to_string(index);
-    inst->is_accumulator = transcript->template receive_from_prover<bool>(domain_separator + "is_accumulator");
-    if (inst->is_accumulator) {
-        receive_accumulator(inst, domain_separator);
-    } else {
-        // This is the first round of folding and we need to generate some gate challenges.
+    if (!inst->is_accumulator) {
         receive_and_finalise_instance(inst, domain_separator);
         inst->target_sum = 0;
-        inst->gate_challenges = std::vector<FF>(inst->log_instance_size, 0);
+        inst->gate_challenges = std::vector<FF>(inst->verification_key->log_circuit_size, 0);
     }
     index++;
 
@@ -173,26 +43,24 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
 }
 
 template <class VerifierInstances>
-bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(const std::vector<FF>& fold_data)
+std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(
+    const std::vector<FF>& fold_data)
 {
     prepare_for_folding(fold_data);
 
     auto delta = transcript->template get_challenge<FF>("delta");
     auto accumulator = get_accumulator();
-    auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
+    auto deltas = compute_round_challenge_pows(accumulator->verification_key->log_circuit_size, delta);
 
-    std::vector<FF> perturbator_coeffs(accumulator->log_instance_size + 1, 0);
+    std::vector<FF> perturbator_coeffs(accumulator->verification_key->log_circuit_size + 1, 0);
     if (accumulator->is_accumulator) {
-        for (size_t idx = 0; idx <= accumulator->log_instance_size; idx++) {
+        for (size_t idx = 1; idx <= accumulator->verification_key->log_circuit_size; idx++) {
             perturbator_coeffs[idx] =
                 transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
         }
     }
 
-    if (perturbator_coeffs[0] != accumulator->target_sum) {
-        return false;
-    }
-
+    perturbator_coeffs[0] = accumulator->target_sum;
     auto perturbator = Polynomial<FF>(perturbator_coeffs);
     FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
@@ -211,60 +79,70 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(const std::ve
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
 
-    // Compute next folding parameters and verify against the ones received from the prover
-    auto expected_next_target_sum =
-        perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
-    auto next_target_sum = transcript->template receive_from_prover<FF>("next_target_sum");
-    bool verified = (expected_next_target_sum == next_target_sum);
-    auto expected_betas_star = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
-    for (size_t idx = 0; idx < accumulator->log_instance_size; idx++) {
-        auto beta_star = transcript->template receive_from_prover<FF>("next_gate_challenge_" + std::to_string(idx));
-        verified = verified & (expected_betas_star[idx] == beta_star);
-    }
-
-    // Compute ϕ and verify against the data received from the prover
-    WitnessCommitments acc_witness_commitments;
-    auto witness_labels = commitment_labels.get_witness();
-    size_t comm_idx = 0;
-    for (auto& expected_comm : acc_witness_commitments.get_all()) {
-        expected_comm = Commitment::infinity();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
+    auto next_accumulator = std::make_shared<Instance>(accumulator->verification_key);
+    next_accumulator->verification_key = std::make_shared<VerificationKey>(
+        accumulator->verification_key->circuit_size, accumulator->verification_key->num_public_inputs);
+    next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
+    next_accumulator->verification_key->pub_inputs_offset = accumulator->verification_key->pub_inputs_offset;
+    size_t vk_idx = 0;
+    for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
         size_t inst = 0;
+        expected_vk = Commitment::infinity();
         for (auto& instance : instances) {
-            expected_comm = expected_comm + instance->witness_commitments.get_all()[comm_idx] * lagranges[inst];
+            expected_vk = expected_vk + instance->verification_key->get_all()[vk_idx] * lagranges[inst];
             inst++;
         }
-        auto comm = transcript->template receive_from_prover<Commitment>("next_" + witness_labels[comm_idx]);
-        verified = verified & (comm == expected_comm);
-        comm_idx++;
+        vk_idx++;
     }
-
-    std::vector<FF> folded_public_inputs(instances[0]->public_inputs.size(), 0);
-    size_t el_idx = 0;
-    for (auto& expected_el : folded_public_inputs) {
+    next_accumulator->verification_key->num_public_inputs = accumulator->verification_key->num_public_inputs;
+    next_accumulator->verification_key->public_inputs =
+        std::vector<FF>(next_accumulator->verification_key->num_public_inputs, 0);
+    size_t public_input_idx = 0;
+    for (auto& public_input : next_accumulator->verification_key->public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/830)
-            if (instance->public_inputs.size() >= folded_public_inputs.size()) {
-                expected_el += instance->public_inputs[el_idx] * lagranges[inst];
+            if (instance->verification_key->num_public_inputs >=
+                next_accumulator->verification_key->num_public_inputs) {
+                public_input += instance->verification_key->public_inputs[public_input_idx] * lagranges[inst];
                 inst++;
-            };
+            }
         }
-        auto el = transcript->template receive_from_prover<FF>("next_public_input" + std::to_string(el_idx));
-        verified = verified & (el == expected_el);
-        el_idx++;
+        public_input_idx++;
+    }
+    next_accumulator->is_accumulator = true;
+
+    // Compute next folding parameters
+    next_accumulator->target_sum =
+        perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
+    next_accumulator->gate_challenges =
+        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
+
+    // Compute ϕ
+    auto& acc_witness_commitments = next_accumulator->witness_commitments;
+    size_t comm_idx = 0;
+    for (auto& comm : acc_witness_commitments.get_all()) {
+        comm = Commitment::infinity();
+        size_t inst = 0;
+        for (auto& instance : instances) {
+            comm = comm + instance->witness_commitments.get_all()[comm_idx] * lagranges[inst];
+            inst++;
+        }
+        comm_idx++;
     }
 
-    for (size_t alpha_idx = 0; alpha_idx < NUM_SUBRELATIONS - 1; alpha_idx++) {
-        FF alpha(0);
+    size_t alpha_idx = 0;
+    for (auto& alpha : next_accumulator->alphas) {
+        alpha = FF(0);
         size_t instance_idx = 0;
         for (auto& instance : instances) {
             alpha += instance->alphas[alpha_idx] * lagranges[instance_idx];
             instance_idx++;
         }
-        auto next_alpha = transcript->template receive_from_prover<FF>("next_alpha_" + std::to_string(alpha_idx));
-        verified = verified & (alpha == next_alpha);
+        alpha_idx++;
     }
-    auto expected_parameters = bb::RelationParameters<FF>{};
+    auto& expected_parameters = next_accumulator->relation_parameters;
     for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
         auto instance = instances[inst_idx];
         expected_parameters.eta += instance->relation_parameters.eta * lagranges[inst_idx];
@@ -276,38 +154,7 @@ bool ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(const std::ve
             instance->relation_parameters.lookup_grand_product_delta * lagranges[inst_idx];
     }
 
-    auto next_eta = transcript->template receive_from_prover<FF>("next_eta");
-    verified = verified & (next_eta == expected_parameters.eta);
-
-    auto next_beta = transcript->template receive_from_prover<FF>("next_beta");
-    verified = verified & (next_beta == expected_parameters.beta);
-
-    auto next_gamma = transcript->template receive_from_prover<FF>("next_gamma");
-    verified = verified & (next_gamma == expected_parameters.gamma);
-
-    auto next_public_input_delta = transcript->template receive_from_prover<FF>("next_public_input_delta");
-    verified = verified & (next_public_input_delta == expected_parameters.public_input_delta);
-
-    auto next_lookup_grand_product_delta =
-        transcript->template receive_from_prover<FF>("next_lookup_grand_product_delta");
-    verified = verified & (next_lookup_grand_product_delta == expected_parameters.lookup_grand_product_delta);
-
-    auto acc_vk = std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
-    auto vk_labels = commitment_labels.get_precomputed();
-    size_t vk_idx = 0;
-    for (auto& expected_vk : acc_vk->get_all()) {
-        size_t inst = 0;
-        expected_vk = Commitment::infinity();
-        for (auto& instance : instances) {
-            expected_vk = expected_vk + instance->verification_key->get_all()[vk_idx] * lagranges[inst];
-            inst++;
-        }
-        auto vk = transcript->template receive_from_prover<Commitment>("next_" + vk_labels[vk_idx]);
-        verified = verified & (vk == expected_vk);
-        vk_idx++;
-    }
-
-    return verified;
+    return next_accumulator;
 }
 
 template class ProtoGalaxyVerifier_<VerifierInstances_<UltraFlavor, 2>>;

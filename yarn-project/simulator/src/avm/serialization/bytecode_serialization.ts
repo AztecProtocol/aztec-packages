@@ -17,15 +17,18 @@ import {
   FeePerDAGas,
   FeePerL1Gas,
   FeePerL2Gas,
+  FieldDiv,
   InternalCall,
   InternalReturn,
   Jump,
   JumpI,
+  L1ToL2MessageExists,
   Lt,
   Lte,
   Mov,
   Mul,
   Not,
+  NoteHashExists,
   NullifierExists,
   Or,
   Origin,
@@ -64,6 +67,7 @@ const INSTRUCTION_SET = () =>
     [Sub.opcode, Sub],
     [Mul.opcode, Mul],
     [Div.opcode, Div],
+    [FieldDiv.opcode, FieldDiv],
     [Eq.opcode, Eq],
     [Lt.opcode, Lt],
     [Lte.opcode, Lte],
@@ -112,11 +116,11 @@ const INSTRUCTION_SET = () =>
     // World State
     [SLoad.opcode, SLoad], // Public Storage
     [SStore.opcode, SStore], // Public Storage
-    //[NoteHashExists.opcode, NoteHashExists], // Notes & Nullifiers
+    [NoteHashExists.opcode, NoteHashExists], // Notes & Nullifiers
     [EmitNoteHash.opcode, EmitNoteHash], // Notes & Nullifiers
     [NullifierExists.opcode, NullifierExists], // Notes & Nullifiers
     [EmitNullifier.opcode, EmitNullifier], // Notes & Nullifiers
-    //[Readl1tol2msg.opcode, Readl1tol2msg], // Messages
+    [L1ToL2MessageExists.opcode, L1ToL2MessageExists], // Messages
     //[HeaderMember.opcode, HeaderMember], // Header
 
     // Accrued Substate

@@ -1,15 +1,12 @@
-// docs:start:cross_chain_test_harness
 import {
   AztecAddress,
   DebugLogger,
   EthAddress,
   Fr,
   PXE,
-  TxStatus,
   Wallet,
   computeMessageSecretHash,
   deployL1Contract,
-  sleep,
 } from '@aztec/aztec.js';
 import { GasPortalAbi, GasPortalBytecode, OutboxAbi, PortalERC20Abi, PortalERC20Bytecode } from '@aztec/l1-artifacts';
 import { GasTokenContract } from '@aztec/noir-contracts.js';
@@ -17,7 +14,11 @@ import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 
-// docs:start:deployAndInitializeTokenAndBridgeContracts
+export interface IGasBridgingTestHarness {
+  bridgeFromL1ToL2(l1TokenBalance: bigint, bridgeAmount: bigint, owner: AztecAddress): Promise<void>;
+  l2Token: GasTokenContract;
+}
+
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract, its L2 bridge contract and attach is to the portal.
  * @param wallet - the wallet instance
@@ -83,21 +84,33 @@ export async function deployAndInitializeTokenAndBridgeContracts(
 
   return { gasL2, gasPortalAddress, gasPortal, gasL1 };
 }
-// docs:end:deployAndInitializeTokenAndBridgeContracts
 
-/**
- * A Class for testing cross chain interactions, contains common interactions
- * shared between cross chain tests.
- */
-export class GasBridgingTestHarness {
-  static async new(
-    pxeService: PXE,
-    publicClient: PublicClient<HttpTransport, Chain>,
-    walletClient: any,
-    wallet: Wallet,
-    logger: DebugLogger,
-    underlyingERC20Address?: EthAddress,
-  ): Promise<GasBridgingTestHarness> {
+export interface GasPortalTestingHarnessFactoryConfig {
+  pxeService: PXE;
+  publicClient: PublicClient<HttpTransport, Chain>;
+  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  wallet: Wallet;
+  logger: DebugLogger;
+  underlyingERC20Address?: EthAddress;
+  mockL1?: boolean;
+}
+export class GasPortalTestingHarnessFactory {
+  private constructor(private config: GasPortalTestingHarnessFactoryConfig) {}
+
+  private async createMock() {
+    const wallet = this.config.wallet;
+
+    const gasL2 = await GasTokenContract.deploy(wallet)
+      .send({
+        contractAddressSalt: getCanonicalGasToken().instance.salt,
+      })
+      .deployed();
+    return Promise.resolve(new MockGasBridgingTestHarness(gasL2));
+  }
+
+  private async createReal() {
+    const { pxeService, publicClient, walletClient, wallet, logger, underlyingERC20Address } = this.config;
+
     const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     const owner = wallet.getCompleteAddress();
     const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
@@ -134,6 +147,28 @@ export class GasBridgingTestHarness {
     );
   }
 
+  static create(config: GasPortalTestingHarnessFactoryConfig): Promise<IGasBridgingTestHarness> {
+    const factory = new GasPortalTestingHarnessFactory(config);
+    if (config.mockL1) {
+      return factory.createMock();
+    } else {
+      return factory.createReal();
+    }
+  }
+}
+
+class MockGasBridgingTestHarness implements IGasBridgingTestHarness {
+  constructor(public l2Token: GasTokenContract) {}
+  async bridgeFromL1ToL2(_l1TokenBalance: bigint, bridgeAmount: bigint, owner: AztecAddress): Promise<void> {
+    await this.l2Token.methods.mint_public(owner, bridgeAmount).send().wait();
+  }
+}
+
+/**
+ * A Class for testing cross chain interactions, contains common interactions
+ * shared between cross chain tests.
+ */
+class GasBridgingTestHarness implements IGasBridgingTestHarness {
   constructor(
     /** Private eXecution Environment (PXE). */
     public pxeService: PXE,
@@ -182,22 +217,14 @@ export class GasBridgingTestHarness {
     await this.underlyingERC20.write.approve([this.tokenPortalAddress.toString(), bridgeAmount], {} as any);
 
     // Deposit tokens to the TokenPortal
-    const deadline = 2 ** 32 - 1; // max uint32
-
     this.logger('Sending messages to L1 portal to be consumed publicly');
-    const args = [
-      l2Address.toString(),
-      bridgeAmount,
-      this.ethAccount.toString(),
-      deadline,
-      secretHash.toString(),
-    ] as const;
-    const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
+    const args = [l2Address.toString(), bridgeAmount, secretHash.toString()] as const;
+    const { result: entryKeyHex } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
       account: this.ethAccount.toString(),
     } as any);
     await this.tokenPortal.write.depositToAztecPublic(args, {} as any);
 
-    return Fr.fromString(messageKeyHex);
+    return Fr.fromString(entryKeyHex);
   }
 
   async sendTokensToPortalPrivate(
@@ -218,20 +245,18 @@ export class GasBridgingTestHarness {
       deadline,
       secretHashForL2MessageConsumption.toString(),
     ] as const;
-    const { result: messageKeyHex } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {
+    const { result: entryKeyHex } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {
       account: this.ethAccount.toString(),
     } as any);
     await this.tokenPortal.write.depositToAztecPrivate(args, {} as any);
 
-    return Fr.fromString(messageKeyHex);
+    return Fr.fromString(entryKeyHex);
   }
 
-  async consumeMessageOnAztecAndMintPublicly(bridgeAmount: bigint, owner: AztecAddress, messageKey: Fr, secret: Fr) {
+  async consumeMessageOnAztecAndMintPublicly(bridgeAmount: bigint, owner: AztecAddress, secret: Fr) {
     this.logger('Consuming messages on L2 Publicly');
     // Call the mint tokens function on the Aztec.nr contract
-    const tx = this.l2Token.methods.claim_public(owner, bridgeAmount, this.ethAccount, messageKey, secret).send();
-    const receipt = await tx.wait();
-    expect(receipt.status).toBe(TxStatus.MINED);
+    await this.l2Token.methods.claim_public(owner, bridgeAmount, secret).send().wait();
   }
 
   async getL2PublicBalanceOf(owner: AztecAddress) {
@@ -250,17 +275,15 @@ export class GasBridgingTestHarness {
     await this.mintTokensOnL1(l1TokenBalance);
 
     // 2. Deposit tokens to the TokenPortal
-    const messageKey = await this.sendTokensToPortalPublic(bridgeAmount, owner, secretHash);
+    await this.sendTokensToPortalPublic(bridgeAmount, owner, secretHash);
     expect(await this.getL1BalanceOf(this.ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    // Wait for the archiver to process the message
-    await sleep(2500);
-
-    // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
+    // Perform an unrelated transactions on L2 to progress the rollup by 2 blocks.
+    await this.l2Token.methods.check_balance(0).send().wait();
     await this.l2Token.methods.check_balance(0).send().wait();
 
     // 3. Consume L1-> L2 message and mint public tokens on L2
-    await this.consumeMessageOnAztecAndMintPublicly(bridgeAmount, owner, messageKey, secret);
+    await this.consumeMessageOnAztecAndMintPublicly(bridgeAmount, owner, secret);
     await this.expectPublicBalanceOnL2(owner, bridgeAmount);
   }
 }

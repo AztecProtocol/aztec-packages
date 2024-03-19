@@ -7,15 +7,13 @@ mod types;
 // This is made as a separate contract for one thing mainly. Making it simpler to use.
 // TODO(#4760): Rename slow updates to shared mutable and ideally move the impl to state-vars in aztec-nr.
 contract SlowTree {
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
-    use dep::std::option::Option;
-    use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
-    use dep::aztec::{
-        context::{PrivateContext, PublicContext, Context},
-        note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::{Map, PublicMutable, PrivateSet},
-        protocol_types::type_serialization::FIELD_SERIALIZED_LEN
+    use dep::aztec::prelude::{
+        AztecAddress, FunctionSelector, NoteHeader, NoteInterface, NoteViewerOptions, PrivateContext,
+        Map, PublicMutable, PrivateSet
     };
+
+    use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
+    use dep::aztec::{context::{PublicContext, Context}, protocol_types::type_serialization::FIELD_SERIALIZED_LEN};
     use dep::slow_updates_tree::{SlowMap, Leaf, SlowUpdateProof, compute_merkle_root, deserialize_slow_update_proof};
 
     // docs:start:import_pop_capsule
@@ -35,8 +33,6 @@ contract SlowTree {
     }
     // docs:end:constants_and_storage
 
-    #[aztec(private)]
-    fn constructor() {}
     // docs:start:initialize
     #[aztec(public)]
     fn initialize() {
@@ -75,7 +71,8 @@ contract SlowTree {
     // docs:end:read_at_private
     // docs:start:assert_current_root
     #[aztec(public)]
-    internal fn _assert_current_root(caller: Field, expected: Field) {
+    #[aztec(internal)]
+    fn _assert_current_root(caller: Field, expected: Field) {
         let root = storage.trees.at(caller).current_root();
         assert(root == expected, "Root does not match expected");
     }
@@ -117,7 +114,8 @@ contract SlowTree {
     // docs:end:update_at_private
     // docs:start:_update
     #[aztec(public)]
-    internal fn _update(
+    #[aztec(internal)]
+    fn _update(
         caller: Field,
         index: Field,
         new_value: Field,

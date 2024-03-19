@@ -180,7 +180,6 @@ export class Sequencer {
       this.log.info(`Building block ${newBlockNumber} with ${validTxs.length} transactions`);
       this.state = SequencerState.CREATING_BLOCK;
 
-      // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       const processor = await this.publicProcessorFactory.create(historicalHeader, newGlobalVariables);
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs));
@@ -205,8 +204,8 @@ export class Sequencer {
 
       // Get l1 to l2 messages from the contract
       this.log('Requesting L1 to L2 messages from contract');
-      const l1ToL2Messages = await this.getPendingL1ToL2Messages();
-      this.log('Successfully retrieved L1 to L2 messages from contract');
+      const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(newBlockNumber));
+      this.log(`Retrieved ${l1ToL2Messages.length} L1 to L2 messages for block ${newBlockNumber}`);
 
       // Build the new block by running the rollup circuits
       this.log(`Assembling block with txs ${processedValidTxs.map(tx => tx.hash).join(', ')}`);
@@ -228,46 +227,11 @@ export class Sequencer {
 
       await assertBlockHeight();
 
-      await this.publishExtendedContractData(processedValidTxs, block);
-
-      await assertBlockHeight();
-
       await this.publishL2Block(block);
       this.log.info(`Submitted rollup block ${block.number} with ${processedValidTxs.length} transactions`);
     } catch (err) {
       this.log.error(`Rolling back world state DB due to error assembling block`, (err as any).stack);
       await this.worldState.getLatest().rollback();
-    }
-  }
-
-  /**
-   * Gets new extended contract data from the txs and publishes it on chain.
-   * @param validTxs - The set of real transactions being published as part of the block.
-   * @param block - The L2Block to be published.
-   */
-  protected async publishExtendedContractData(validTxs: ProcessedTx[], block: L2Block) {
-    // Publishes contract data for txs to the network and awaits the tx to be mined
-    this.state = SequencerState.PUBLISHING_CONTRACT_DATA;
-    const newContracts = validTxs.flatMap(tx => tx.newContracts).filter(cd => !cd.isEmpty());
-
-    if (newContracts.length === 0) {
-      this.log.debug(`No new contracts to publish in block ${block.number}`);
-      return;
-    }
-
-    const blockCalldataHash = block.body.getCalldataHash();
-    this.log.info(`Publishing ${newContracts.length} contracts in block ${block.number}`);
-
-    const publishedContractData = await this.publisher.processNewContractData(
-      block.number,
-      blockCalldataHash,
-      newContracts,
-    );
-
-    if (publishedContractData) {
-      this.log(`Successfully published new contract data for block ${block.number}`);
-    } else if (!publishedContractData && newContracts.length) {
-      this.log(`Failed to publish new contract data for block ${block.number}`);
     }
   }
 
@@ -348,14 +312,14 @@ export class Sequencer {
   /**
    * Pads the set of txs to a power of two and assembles a block by calling the block builder.
    * @param txs - Processed txs to include in the next block.
-   * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
+   * @param l1ToL2Messages - L1 to L2 messages to be part of the block.
    * @param emptyTx - Empty tx to repeat at the end of the block to pad to a power of two.
    * @param globalVariables - Global variables to use in the block.
    * @returns The new block.
    */
   protected async buildBlock(
     txs: ProcessedTx[],
-    newL1ToL2Messages: Fr[],
+    l1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
     globalVariables: GlobalVariables,
   ) {
@@ -364,19 +328,10 @@ export class Sequencer {
     const emptyTxCount = txsTargetSize - txs.length;
 
     const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
-    this.log(`Building block ${globalVariables.blockNumber}`);
+    this.log(`Building block ${globalVariables.blockNumber.toBigInt()}`);
 
-    const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, newL1ToL2Messages);
+    const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, l1ToL2Messages);
     return block;
-  }
-
-  /**
-   * Calls the archiver to pull upto `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` message keys
-   * (archiver returns the top messages sorted by fees)
-   * @returns An array of L1 to L2 messages' messageKeys
-   */
-  protected async getPendingL1ToL2Messages(): Promise<Fr[]> {
-    return await this.l1ToL2MessageSource.getPendingL1ToL2Messages();
   }
 
   /**

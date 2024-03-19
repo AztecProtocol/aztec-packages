@@ -3,10 +3,11 @@
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
+#include "barretenberg/stdlib/plonk_recursion/verifier/program_settings.hpp"
+#include "barretenberg/stdlib/plonk_recursion/verifier/verifier.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/recursion/verifier/program_settings.hpp"
-#include "barretenberg/stdlib/recursion/verifier/verifier.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 using namespace bb::plonk;
@@ -150,7 +151,7 @@ template <typename OuterBuilder> class RecursiveCircuit {
     }
     static void check_pairing(const circuit_outputs& circuit_output)
     {
-        auto g2_lines = bb::srs::get_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
+        auto g2_lines = bb::srs::get_bn254_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
         g1::affine_element P[2];
         P[0].x = outer_scalar_field(circuit_output.aggregation_state.P0.x.get_value().lo);
         P[0].y = outer_scalar_field(circuit_output.aggregation_state.P0.y.get_value().lo);

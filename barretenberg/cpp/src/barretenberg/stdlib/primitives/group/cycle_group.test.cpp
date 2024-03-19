@@ -1,8 +1,8 @@
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include <gtest/gtest.h>
@@ -61,7 +61,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
     cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
     a.validate_is_on_curve();
     EXPECT_FALSE(builder.failed());
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 /**
@@ -80,7 +80,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
     cycle_group_ct a(x, y, /*_is_infinity=*/true); // marks this point as the point at infinity
     a.validate_is_on_curve();
     EXPECT_FALSE(builder.failed());
-    EXPECT_TRUE(builder.check_circuit());
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 /**
@@ -99,7 +99,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
     cycle_group_ct a(x, y, /*_is_infinity=*/false);
     a.validate_is_on_curve();
     EXPECT_TRUE(builder.failed());
-    EXPECT_FALSE(builder.check_circuit());
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 TYPED_TEST(CycleGroupTest, TestDbl)
@@ -119,7 +119,7 @@ TYPED_TEST(CycleGroupTest, TestDbl)
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -143,7 +143,7 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalAdd)
     add(TestFixture::generators[0], TestFixture::generators[1], true, false);
     add(TestFixture::generators[0], TestFixture::generators[1], true, true);
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -163,7 +163,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddSucceed)
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -182,7 +182,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddFail)
 
     EXPECT_TRUE(builder.failed());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, false);
 }
 
@@ -253,7 +253,7 @@ TYPED_TEST(CycleGroupTest, TestAdd)
         EXPECT_EQ(result, expected);
     }
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -277,7 +277,7 @@ TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
     add(TestFixture::generators[0], TestFixture::generators[1], true, false);
     add(TestFixture::generators[0], TestFixture::generators[1], true, true);
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -297,7 +297,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalSubtractSucceed)
     AffineElement result = c.get_value();
     EXPECT_EQ(result, expected);
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -316,7 +316,7 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalSubtractFail)
 
     EXPECT_TRUE(builder.failed());
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, false);
 }
 
@@ -389,7 +389,7 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
         EXPECT_TRUE(c.get_value().is_point_at_infinity());
     }
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 
@@ -576,7 +576,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         EXPECT_EQ(result.is_point_at_infinity().get_value(), true);
     }
 
-    bool check_result = builder.check_circuit();
+    bool check_result = CircuitChecker::check(builder);
     EXPECT_EQ(check_result, true);
 }
 
@@ -616,7 +616,7 @@ TYPED_TEST(CycleGroupTest, TestMul)
         }
     }
 
-    bool proof_result = builder.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
 #pragma GCC diagnostic pop

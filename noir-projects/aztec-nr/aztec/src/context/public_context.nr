@@ -1,21 +1,22 @@
 use crate::{
-    context::inputs::PublicContextInputs, messaging::process_l1_to_l2_message,
-    oracle::{arguments, public_call::call_public_function_internal}
+    context::{inputs::PublicContextInputs, interface::ContextInterface},
+    messaging::process_l1_to_l2_message, oracle::{arguments, public_call::call_public_function_internal}
 };
 use dep::protocol_types::{
     abis::{
     global_variables::GlobalVariables, function_selector::FunctionSelector,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem,
-    public_circuit_public_inputs::PublicCircuitPublicInputs,
+    public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, EthAddress},
     constants::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_READ_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256,
-    RETURN_VALUES_LENGTH
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
+    NUM_FIELDS_PER_SHA256, RETURN_VALUES_LENGTH
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     hash::hash_args, header::Header, messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader
@@ -28,6 +29,8 @@ struct PublicContext {
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
+    nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    nullifier_non_existent_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL>,
     contract_storage_update_requests: BoundedVec<StorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
     contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
@@ -46,15 +49,66 @@ struct PublicContext {
     prover_address: AztecAddress,
 }
 
+impl ContextInterface for PublicContext {
+    fn msg_sender(self) -> AztecAddress {
+        self.inputs.call_context.msg_sender
+    }
+
+    fn this_address(self) -> AztecAddress {
+        self.inputs.call_context.storage_contract_address
+    }
+
+    fn this_portal_address(self) -> EthAddress {
+        self.inputs.call_context.portal_contract_address
+    }
+
+    fn chain_id(self) -> Field {
+        self.inputs.public_global_variables.chain_id
+    }
+
+    fn version(self) -> Field {
+        self.inputs.public_global_variables.version
+    }
+
+    fn selector(self) -> FunctionSelector {
+        self.inputs.call_context.function_selector
+    }
+
+    fn get_args_hash(self) -> Field {
+        self.args_hash
+    }
+
+    fn get_header(self) -> Header {
+        self.historical_header
+    }
+
+    fn push_new_note_hash(&mut self, note_hash: Field) {
+        let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
+        self.new_note_hashes.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
+    fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
+        let side_effect = SideEffectLinkedToNoteHash {
+            value: nullifier,
+            note_hash: 0, // cannot nullify pending notes in public context
+            counter: self.side_effect_counter
+        };
+        self.new_nullifiers.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
+}
+
 impl PublicContext {
     pub fn new(inputs: PublicContextInputs, args_hash: Field) -> PublicContext {
-        let empty_storage_read = StorageRead::empty();
-        let empty_storage_update = StorageUpdateRequest::empty();
         PublicContext {
             inputs,
-            side_effect_counter: inputs.call_context.start_side_effect_counter,
+            side_effect_counter: inputs.start_side_effect_counter,
             args_hash,
             return_values: BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            nullifier_non_existent_read_requests: BoundedVec::new(),
             contract_storage_update_requests: BoundedVec::new(),
             contract_storage_reads: BoundedVec::new(),
             public_call_stack_hashes: BoundedVec::new(),
@@ -68,35 +122,6 @@ impl PublicContext {
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
         }
-    }
-
-    pub fn is_deployment(self) -> bool {
-        // TODO(#4738): Implement this
-        false
-    }
-
-    pub fn msg_sender(self) -> AztecAddress {
-        self.inputs.call_context.msg_sender
-    }
-
-    pub fn this_address(self) -> AztecAddress {
-        self.inputs.call_context.storage_contract_address
-    }
-
-    pub fn this_portal_address(self) -> EthAddress {
-        self.inputs.call_context.portal_contract_address
-    }
-
-    pub fn chain_id(self) -> Field {
-        self.inputs.public_global_variables.chain_id
-    }
-
-    pub fn version(self) -> Field {
-        self.inputs.public_global_variables.version
-    }
-
-    pub fn selector(self) -> FunctionSelector {
-        self.inputs.call_context.function_selector
     }
 
     pub fn block_number(self) -> Field {
@@ -124,6 +149,8 @@ impl PublicContext {
         let pub_circuit_pub_inputs = PublicCircuitPublicInputs {
             call_context: self.inputs.call_context, // Done
             args_hash: self.args_hash, // Done
+            nullifier_read_requests: self.nullifier_read_requests.storage,
+            nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests.storage,
             contract_storage_update_requests: self.contract_storage_update_requests.storage,
             contract_storage_reads: self.contract_storage_reads.storage,
             return_values: self.return_values.storage,
@@ -131,27 +158,26 @@ impl PublicContext {
             new_nullifiers: self.new_nullifiers.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            start_side_effect_counter: self.inputs.start_side_effect_counter,
+            end_side_effect_counter: self.side_effect_counter,
             unencrypted_logs_hash,
             unencrypted_log_preimages_length,
             historical_header: self.inputs.historical_header,
-            prover_address: self.prover_address
+            prover_address: self.prover_address,
+            reverted: false
         };
         pub_circuit_pub_inputs
     }
 
-    pub fn push_new_note_hash(&mut self, note_hash: Field) {
-        let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
-        self.new_note_hashes.push(side_effect);
+    pub fn push_nullifier_read_request(&mut self, nullifier: Field) {
+        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
+        self.nullifier_read_requests.push(request);
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 
-    pub fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
-        let side_effect = SideEffectLinkedToNoteHash {
-            value: nullifier,
-            note_hash: 0, // cannot nullify pending notes in public context
-            counter: self.side_effect_counter
-        };
-        self.new_nullifiers.push(side_effect);
+    pub fn push_nullifier_non_existent_read_request(&mut self, nullifier: Field) {
+        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
+        self.nullifier_non_existent_read_requests.push(request);
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 
@@ -160,7 +186,7 @@ impl PublicContext {
         self.new_l2_to_l1_msgs.push(message);
     }
 
-    pub fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field, sender: EthAddress) {
+    pub fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress) {
         let this = (*self).this_address();
         let nullifier = process_l1_to_l2_message(
             self.historical_header.state.l1_to_l2_message_tree.root,
@@ -168,7 +194,6 @@ impl PublicContext {
             sender,
             self.chain_id(),
             self.version(),
-            msg_key,
             content,
             secret
         );
@@ -190,59 +215,81 @@ impl PublicContext {
     }
 
     pub fn call_public_function<ARGS_COUNT>(
-        _self: Self,
+        self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, false, false)
+        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
     pub fn static_call_public_function<ARGS_COUNT>(
-        _self: Self,
+        self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, true, false)
+        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
     pub fn delegate_call_public_function<ARGS_COUNT>(
-        _self: Self,
+        self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
-        call_public_function_internal(contract_address, function_selector, args_hash, false, true)
+        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
     pub fn call_public_function_no_args(
-        _self: Self,
+        self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, false, false)
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, false)
     }
 
     pub fn static_call_public_function_no_args(
-        _self: Self,
+        self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, true, false)
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0, true, false)
     }
 
     pub fn delegate_call_public_function_no_args(
-        _self: Self,
+        self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        call_public_function_internal(contract_address, function_selector, 0, false, true)
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, true)
+    }
+
+    pub fn call_public_function_with_packed_args(
+        self: &mut Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args_hash: Field,
+        is_static_call: bool,
+        is_delegate_call: bool
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        let side_effect_counter = self.side_effect_counter;
+        // TODO get next value from output of `call_public_function_internal`
+        self.side_effect_counter += 1;
+
+        call_public_function_internal(
+            contract_address,
+            function_selector,
+            args_hash,
+            side_effect_counter,
+            is_static_call,
+            is_delegate_call
+        )
     }
 }

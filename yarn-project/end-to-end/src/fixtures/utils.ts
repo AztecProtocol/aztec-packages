@@ -8,7 +8,7 @@ import {
   BatchCall,
   CheatCodes,
   CompleteAddress,
-  Contract,
+  ContractMethod,
   DebugLogger,
   DeployL1Contracts,
   EthCheatCodes,
@@ -22,6 +22,7 @@ import {
   createDebugLogger,
   createPXEClient,
   deployL1Contracts,
+  fileURLToPath,
   makeFetch,
   waitForPXE,
 } from '@aztec/aztec.js';
@@ -29,8 +30,6 @@ import { deployInstance, registerContractClass } from '@aztec/aztec.js/deploymen
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
-  ContractDeploymentEmitterAbi,
-  ContractDeploymentEmitterBytecode,
   InboxAbi,
   InboxBytecode,
   OutboxAbi,
@@ -40,9 +39,11 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
+import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { PXEService, PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { SequencerClient } from '@aztec/sequencer-client';
 
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import {
   Account,
@@ -62,10 +63,33 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
-const { PXE_URL = '' } = process.env;
+const {
+  PXE_URL = '',
+  NOIR_RELEASE_DIR = 'noir-repo/target/release',
+  TEMP_DIR = '/tmp',
+  ACVM_BINARY_PATH = '',
+  ACVM_WORKING_DIRECTORY = '',
+} = process.env;
 
 const getAztecUrl = () => {
   return PXE_URL;
+};
+
+// Determines if we have access to the acvm binary and a tmp folder for temp files
+const getACVMConfig = async (logger: DebugLogger) => {
+  try {
+    const expectedAcvmPath = ACVM_BINARY_PATH
+      ? ACVM_BINARY_PATH
+      : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../noir/', NOIR_RELEASE_DIR)}/acvm`;
+    await fs.access(expectedAcvmPath, fs.constants.R_OK);
+    const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${TEMP_DIR}/acvm`;
+    await fs.mkdir(acvmWorkingDirectory, { recursive: true });
+    logger(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
+    return { acvmWorkingDirectory, expectedAcvmPath };
+  } catch (err) {
+    logger(`Native ACVM not available, error: ${err}`);
+    return undefined;
+  }
 };
 
 export const setupL1Contracts = async (
@@ -74,10 +98,6 @@ export const setupL1Contracts = async (
   logger: DebugLogger,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
-    contractDeploymentEmitter: {
-      contractAbi: ContractDeploymentEmitterAbi,
-      contractBytecode: ContractDeploymentEmitterBytecode,
-    },
     registry: {
       contractAbi: RegistryAbi,
       contractBytecode: RegistryBytecode,
@@ -163,6 +183,7 @@ async function setupWithRemoteEnvironment(
   config: AztecNodeConfig,
   logger: DebugLogger,
   numberOfAccounts: number,
+  deployProtocolContracts = false,
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
   const aztecNodeUrl = getAztecUrl();
@@ -200,6 +221,10 @@ async function setupWithRemoteEnvironment(
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
+  if (deployProtocolContracts) {
+    await deployPublicProtocolContracts(wallets[0]);
+  }
+
   return {
     aztecNode,
     sequencer: undefined,
@@ -221,6 +246,9 @@ type SetupOptions = {
   stateLoad?: string;
   /** Previously deployed contracts on L1 */
   deployL1ContractsValues?: DeployL1Contracts;
+
+  /** Deploy protocol contracts */
+  deployProtocolContracts?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -280,7 +308,7 @@ export async function setup(
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts);
+    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts, opts.deployProtocolContracts);
   }
 
   const deployL1ContractsValues =
@@ -290,10 +318,23 @@ export async function setup(
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
   logger('Creating and synching an aztec node...');
+
+  const acvmConfig = await getACVMConfig(logger);
+  if (acvmConfig) {
+    config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
+    config.acvmBinaryPath = acvmConfig.expectedAcvmPath;
+  }
+  config.l1BlockPublishRetryIntervalMS = 100;
   const aztecNode = await AztecNodeService.createAndSync(config);
   const sequencer = aztecNode.getSequencer();
 
   const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
+
+  if (opts.deployProtocolContracts) {
+    // this should be a neutral wallet, but the SignerlessWallet only accepts a single function call
+    // and this needs two: one to register the class and another to deploy the instance
+    await deployPublicProtocolContracts(wallets[0]);
+  }
 
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
 
@@ -369,16 +410,6 @@ export function getLogger() {
   return createDebugLogger('aztec:' + describeBlockName);
 }
 
-// docs:start:delay
-/**
- * Sleep for a given number of milliseconds.
- * @param ms - the number of milliseconds to sleep for
- */
-export function delay(ms: number): Promise<void> {
-  return new Promise<void>(resolve => setTimeout(resolve, ms));
-}
-// docs:end:delay
-
 /**
  * Checks the number of encrypted logs in the last block is as expected.
  * @param aztecNode - The instance of aztec node for retrieving the logs.
@@ -431,14 +462,14 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessag
   expect(asciiLogs).toStrictEqual(logMessages);
 };
 
-export type PublicBalancesFn = ReturnType<typeof getPublicBalancesFn>;
-export function getPublicBalancesFn(
+export type BalancesFn = ReturnType<typeof getBalancesFn>;
+export function getBalancesFn(
   symbol: string,
-  contract: Contract,
+  method: ContractMethod,
   logger: any,
 ): (...addresses: AztecAddress[]) => Promise<bigint[]> {
   const balances = async (...addresses: AztecAddress[]) => {
-    const b = await Promise.all(addresses.map(address => contract.methods.balance_of_public(address).view()));
+    const b = await Promise.all(addresses.map(address => method(address).view()));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger(debugString);
     return b;
@@ -447,13 +478,36 @@ export function getPublicBalancesFn(
   return balances;
 }
 
-export async function assertPublicBalances(
-  balances: PublicBalancesFn,
-  addresses: AztecAddress[],
-  expectedBalances: bigint[],
-) {
-  const actualBalances = await balances(...addresses);
-  for (let i = 0; i < addresses.length; i++) {
-    expect(actualBalances[i]).toBe(expectedBalances[i]);
+export async function expectMapping<K, V>(
+  fn: (...k: K[]) => Promise<V[]>,
+  inputs: K[],
+  expectedOutputs: V[],
+): Promise<void> {
+  expect(inputs.length).toBe(expectedOutputs.length);
+
+  const outputs = await fn(...inputs);
+
+  expect(outputs).toEqual(expectedOutputs);
+}
+
+/**
+ * Deploy the protocol contracts to a running instance.
+ */
+export async function deployPublicProtocolContracts(deployer: Wallet) {
+  // "deploy" the Gas token as it contains public functions
+  const canonicalGasToken = getCanonicalGasToken();
+
+  if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
+    return;
   }
+
+  await new BatchCall(deployer, [
+    (await registerContractClass(deployer, canonicalGasToken.artifact)).request(),
+    deployInstance(deployer, canonicalGasToken.instance).request(),
+  ])
+    .send()
+    .wait();
+
+  await expect(deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)).resolves.toBe(true);
+  await expect(deployer.getContractInstance(canonicalGasToken.instance.address)).resolves.toBeDefined();
 }

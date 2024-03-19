@@ -12,9 +12,8 @@ import {
   PXE,
   Wallet,
 } from '@aztec/aztec.js';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
-
-import { randomBytes } from 'crypto';
 
 import { setup } from './fixtures/utils.js';
 
@@ -61,9 +60,7 @@ function itShouldBehaveLikeAnAccountContract(
       const accountAddress = wallet.getCompleteAddress();
       const invalidWallet = await walletAt(context.pxe, getAccountContract(GrumpkinScalar.random()), accountAddress);
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
-      await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrowError(
-        /Cannot satisfy constraint.*/,
-      );
+      await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrow(/Cannot satisfy constraint.*/);
     });
   });
 }
@@ -71,7 +68,7 @@ function itShouldBehaveLikeAnAccountContract(
 describe('e2e_account_contracts', () => {
   const walletSetup = async (pxe: PXE, encryptionPrivateKey: GrumpkinPrivateKey, accountContract: AccountContract) => {
     const account = new AccountManager(pxe, encryptionPrivateKey, accountContract);
-    return await account.deploy().then(tx => tx.getWallet());
+    return await account.waitSetup();
   };
 
   const walletAt = async (pxe: PXE, accountContract: AccountContract, address: CompleteAddress) => {

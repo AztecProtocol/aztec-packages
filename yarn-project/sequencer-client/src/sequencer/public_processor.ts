@@ -1,9 +1,10 @@
-import { ContractDataSource, L1ToL2MessageSource, Tx } from '@aztec/circuit-types';
+import { L1ToL2MessageSource, SimulationError, Tx } from '@aztec/circuit-types';
 import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
 import { GlobalVariables, Header } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
+import { ContractDataSource } from '@aztec/types/contracts';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import { EmptyPublicProver } from '../prover/empty.js';
@@ -11,9 +12,17 @@ import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
+import { SimulationProvider } from '../simulator/simulation_provider.js';
 import { AbstractPhaseManager } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
-import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
+import {
+  FailedTx,
+  ProcessedTx,
+  getPreviousOutputAndProof,
+  makeEmptyProcessedTx,
+  makeProcessedTx,
+  validateProcessedTx,
+} from './processed_tx.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -23,6 +32,7 @@ export class PublicProcessorFactory {
     private merkleTree: MerkleTreeOperations,
     private contractDataSource: ContractDataSource,
     private l1Tol2MessagesDataSource: L1ToL2MessageSource,
+    private simulator: SimulationProvider,
   ) {}
 
   /**
@@ -45,7 +55,7 @@ export class PublicProcessorFactory {
     return new PublicProcessor(
       this.merkleTree,
       publicExecutor,
-      new RealPublicKernelCircuitSimulator(),
+      new RealPublicKernelCircuitSimulator(this.simulator),
       new EmptyPublicProver(),
       globalVariables,
       historicalHeader,
@@ -97,17 +107,15 @@ export class PublicProcessor {
         this.publicStateDB,
       );
       this.log(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
-      let { publicKernelPublicInput, publicKernelProof } = AbstractPhaseManager.getKernelOutputAndProof(
-        tx,
-        undefined,
-        undefined,
-      );
+      let { publicKernelPublicInput, previousProof: proof } = getPreviousOutputAndProof(tx, undefined, undefined);
+      let revertReason: SimulationError | undefined;
       const timer = new Timer();
       try {
         while (phase) {
-          const output = await phase.handle(tx, publicKernelPublicInput, publicKernelProof);
+          const output = await phase.handle(tx, publicKernelPublicInput, proof);
           publicKernelPublicInput = output.publicKernelOutput;
-          publicKernelProof = output.publicKernelProof;
+          proof = output.publicKernelProof;
+          revertReason ??= output.revertReason;
           phase = PhaseManagerFactory.phaseFromOutput(
             publicKernelPublicInput,
             phase,
@@ -122,10 +130,12 @@ export class PublicProcessor {
           );
         }
 
-        const processedTransaction = makeProcessedTx(tx, publicKernelPublicInput, publicKernelProof);
+        const processedTransaction = makeProcessedTx(tx, publicKernelPublicInput, proof, revertReason);
+        validateProcessedTx(processedTransaction);
+
         result.push(processedTransaction);
 
-        this.log(`Processed public part of ${tx.data.endNonRevertibleData.newNullifiers[0]}`, {
+        this.log(`Processed public part of ${tx.data.endNonRevertibleData.newNullifiers[0].value}`, {
           eventName: 'tx-sequencer-processing',
           duration: timer.ms(),
           publicDataUpdateRequests:
@@ -133,9 +143,14 @@ export class PublicProcessor {
             0,
           ...tx.getStats(),
         } satisfies TxSequencerProcessingStats);
-      } catch (err) {
-        const failedTx = await phase!.rollback(tx, err);
-        failed.push(failedTx);
+      } catch (err: any) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage}`);
+
+        failed.push({
+          tx,
+          error: err instanceof Error ? err : new Error(errorMessage),
+        });
       }
     }
 

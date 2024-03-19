@@ -2,17 +2,22 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
+retry ecr_login
 extract_repo docs /usr/src extracted-repo
 cd extracted-repo/src/docs
 npm install netlify-cli -g
 
 DEPLOY_OUTPUT=""
 
-# Check if we're on master
-if [ "$1" = "master" ]; then
-    # Deploy to production if the argument is "master"
+if should_release; then
+    # Deploy to production only on a release
+    if [ -z "$COMMIT_TAG" ]; then
+        echo "No commit tag, not deploying to npm."
+        exit 0
+    fi
     DEPLOY_OUTPUT=$(netlify deploy --site aztec-docs-dev --prod)
-else    
+elif [ "$1" != "master" ]; then
+    # Deploy preview on PRs
     # TODO we should prob see if check_rebuild can be used for this
     PR_URL="$2"
     API_URL="${PR_URL/github.com/api.github.com/repos}"
@@ -38,8 +43,6 @@ else
     UNIQUE_DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -E "https://.*aztec-docs-dev.netlify.app" | awk '{print $4}')
     echo "Unique deploy URL: $UNIQUE_DEPLOY_URL"
 
-    extract_repo yarn-project /usr/src project
-    cd project/src/yarn-project/scripts
-
+    cd ../yarn-project/scripts
     UNIQUE_DEPLOY_URL=$UNIQUE_DEPLOY_URL yarn docs-preview-comment
 fi

@@ -1,20 +1,19 @@
 import {
   AccountWallet,
   AztecAddress,
+  AztecNode,
   DebugLogger,
   EthAddress,
   Fr,
   PXE,
-  TxStatus,
   computeAuthWitMessageHash,
-  sleep,
 } from '@aztec/aztec.js';
 import { deployL1Contract } from '@aztec/ethereum';
-import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
+import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 
 import { jest } from '@jest/globals';
-import { Chain, HttpTransport, PublicClient, getContract, parseEther } from 'viem';
+import { Chain, HttpTransport, PublicClient, decodeEventLog, getContract, parseEther } from 'viem';
 
 import { publicDeployAccounts } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
@@ -31,6 +30,8 @@ const TIMEOUT = 360_000;
 
 /** Objects to be returned by the uniswap setup function */
 export type UniswapSetupContext = {
+  /** Aztec Node instance */
+  aztecNode: AztecNode;
   /** The Private eXecution Environment (PXE). */
   pxe: PXE;
   /** Logger instance named as the current test. */
@@ -58,6 +59,7 @@ export const uniswapL1L2TestSuite = (
     const WETH9_ADDRESS: EthAddress = EthAddress.fromString('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2');
     const DAI_ADDRESS: EthAddress = EthAddress.fromString('0x6B175474E89094C44Da98b954EedeAC495271d0F');
 
+    let aztecNode: AztecNode;
     let pxe: PXE;
     let logger: DebugLogger;
 
@@ -80,11 +82,10 @@ export const uniswapL1L2TestSuite = (
     const wethAmountToBridge = parseEther('1');
     const uniswapFeeTier = 3000n;
     const minimumOutputAmount = 0n;
-    const deadlineForDepositingSwappedDai = BigInt(2 ** 32 - 1); // max uint32
 
     beforeAll(async () => {
       let publicClient: PublicClient<HttpTransport, Chain>;
-      ({ pxe, logger, publicClient, walletClient, ownerWallet, sponsorWallet } = await setup());
+      ({ aztecNode, pxe, logger, publicClient, walletClient, ownerWallet, sponsorWallet } = await setup());
 
       // walletClient = deployL1ContractsValues.walletClient;
       // const publicClient = deployL1ContractsValues.publicClient;
@@ -101,6 +102,7 @@ export const uniswapL1L2TestSuite = (
 
       logger('Deploying DAI Portal, initializing and deploying l2 contract...');
       daiCrossChainHarness = await CrossChainTestHarness.new(
+        aztecNode,
         pxe,
         publicClient,
         walletClient,
@@ -111,6 +113,7 @@ export const uniswapL1L2TestSuite = (
 
       logger('Deploying WETH Portal, initializing and deploying l2 contract...');
       wethCrossChainHarness = await CrossChainTestHarness.new(
+        aztecNode,
         pxe,
         publicClient,
         walletClient,
@@ -156,12 +159,15 @@ export const uniswapL1L2TestSuite = (
     // docs:start:uniswap_private
     it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
       const wethL1BeforeBalance = await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress);
+      if (wethL1BeforeBalance < wethAmountToBridge) {
+        throw new Error('Not enough WETH to run this test. Try restarting anvil.');
+      }
 
       // 1. Approve and deposit weth to the portal and move to L2
       const [secretForMintingWeth, secretHashForMintingWeth] = wethCrossChainHarness.generateClaimSecret();
       const [secretForRedeemingWeth, secretHashForRedeemingWeth] = wethCrossChainHarness.generateClaimSecret();
 
-      const messageKey = await wethCrossChainHarness.sendTokensToPortalPrivate(
+      const tokenDepositMsgLeaf = await wethCrossChainHarness.sendTokensToPortalPrivate(
         secretHashForRedeemingWeth,
         wethAmountToBridge,
         secretHashForMintingWeth,
@@ -174,18 +180,13 @@ export const uniswapL1L2TestSuite = (
         wethAmountToBridge,
       );
 
-      // Wait for the archiver to process the message
-      await sleep(5000);
-
-      // Perform an unrelated transaction on L2 to progress the rollup. Here we mint public tokens.
-      await wethCrossChainHarness.mintTokensPublicOnL2(0n);
+      await wethCrossChainHarness.makeMessageConsumable(tokenDepositMsgLeaf);
 
       // 2. Claim WETH on L2
       logger('Minting weth on L2');
-      await wethCrossChainHarness.consumeMessageOnAztecAndMintSecretly(
+      await wethCrossChainHarness.consumeMessageOnAztecAndMintPrivately(
         secretHashForRedeemingWeth,
         wethAmountToBridge,
-        messageKey,
         secretForMintingWeth,
       );
       await wethCrossChainHarness.redeemShieldPrivatelyOnL2(wethAmountToBridge, secretForRedeemingWeth);
@@ -202,13 +203,15 @@ export const uniswapL1L2TestSuite = (
       // 3. Owner gives uniswap approval to unshield funds to self on its behalf
       logger('Approving uniswap to unshield funds to self on my behalf');
       const nonceForWETHUnshieldApproval = new Fr(1n);
-      const unshieldToUniswapMessageHash = computeAuthWitMessageHash(
-        uniswapL2Contract.address,
-        wethCrossChainHarness.l2Token.methods
-          .unshield(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHUnshieldApproval)
-          .request(),
-      );
-      await ownerWallet.createAuthWitness(unshieldToUniswapMessageHash);
+      await ownerWallet.createAuthWit({
+        caller: uniswapL2Contract.address,
+        action: wethCrossChainHarness.l2Token.methods.unshield(
+          ownerAddress,
+          uniswapL2Contract.address,
+          wethAmountToBridge,
+          nonceForWETHUnshieldApproval,
+        ),
+      });
 
       // 4. Swap on L1 - sends L2 to L1 message to withdraw WETH to L1 and another message to swap assets.
       logger('Withdrawing weth to L1 and sending message to swap to dai');
@@ -216,7 +219,7 @@ export const uniswapL1L2TestSuite = (
         daiCrossChainHarness.generateClaimSecret();
       const [secretForRedeemingDai, secretHashForRedeemingDai] = daiCrossChainHarness.generateClaimSecret();
 
-      const withdrawReceipt = await uniswapL2Contract.methods
+      await uniswapL2Contract.methods
         .swap_private(
           wethCrossChainHarness.l2Token.address,
           wethCrossChainHarness.l2Bridge.address,
@@ -227,13 +230,10 @@ export const uniswapL1L2TestSuite = (
           minimumOutputAmount,
           secretHashForRedeemingDai,
           secretHashForDepositingSwappedDai,
-          deadlineForDepositingSwappedDai,
-          ownerEthAddress,
           ownerEthAddress,
         )
         .send()
         .wait();
-      expect(withdrawReceipt.status).toBe(TxStatus.MINED);
       // ensure that user's funds were burnt
       await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethL2BalanceBeforeSwap - wethAmountToBridge);
       // ensure that uniswap contract didn't eat the funds.
@@ -255,17 +255,27 @@ export const uniswapL1L2TestSuite = (
         minimumOutputAmount,
         secretHashForRedeemingDai.toString(),
         secretHashForDepositingSwappedDai.toString(),
-        deadlineForDepositingSwappedDai,
-        ownerEthAddress.toString(),
         true,
       ] as const;
-      const { result: depositDaiMessageKeyHex } = await uniswapPortal.simulate.swapPrivate(swapArgs, {
-        account: ownerEthAddress.toString(),
-      } as any);
 
       // this should also insert a message into the inbox.
-      await uniswapPortal.write.swapPrivate(swapArgs, {} as any);
-      const depositDaiMessageKey = Fr.fromString(depositDaiMessageKeyHex);
+      const txHash = await uniswapPortal.write.swapPrivate(swapArgs, {} as any);
+
+      // We get the msg leaf from event so that we can later wait for it to be available for consumption
+      let tokenOutMsgLeaf: Fr;
+      {
+        const txReceipt = await daiCrossChainHarness.publicClient.waitForTransactionReceipt({
+          hash: txHash,
+        });
+
+        const txLog = txReceipt.logs[9];
+        const topics = decodeEventLog({
+          abi: InboxAbi,
+          data: txLog.data,
+          topics: txLog.topics,
+        });
+        tokenOutMsgLeaf = Fr.fromString(topics.args.value);
+      }
 
       // weth was swapped to dai and send to portal
       const daiL1BalanceOfPortalAfter = await daiCrossChainHarness.getL1BalanceOf(
@@ -274,17 +284,14 @@ export const uniswapL1L2TestSuite = (
       expect(daiL1BalanceOfPortalAfter).toBeGreaterThan(daiL1BalanceOfPortalBeforeSwap);
       const daiAmountToBridge = BigInt(daiL1BalanceOfPortalAfter - daiL1BalanceOfPortalBeforeSwap);
 
-      // Wait for the archiver to process the message
-      await sleep(5000);
-      // send a transfer tx to force through rollup with the message included
-      await wethCrossChainHarness.mintTokensPublicOnL2(0n);
+      // Wait for the message to be available for consumption
+      await daiCrossChainHarness.makeMessageConsumable(tokenOutMsgLeaf);
 
       // 6. claim dai on L2
       logger('Consuming messages to mint dai on L2');
-      await daiCrossChainHarness.consumeMessageOnAztecAndMintSecretly(
+      await daiCrossChainHarness.consumeMessageOnAztecAndMintPrivately(
         secretHashForRedeemingDai,
         daiAmountToBridge,
-        depositDaiMessageKey,
         secretForDepositingSwappedDai,
       );
       await daiCrossChainHarness.redeemShieldPrivatelyOnL2(daiAmountToBridge, secretForRedeemingDai);
@@ -308,7 +315,7 @@ export const uniswapL1L2TestSuite = (
       // 1. Approve and deposit weth to the portal and move to L2
       const [secretForMintingWeth, secretHashForMintingWeth] = wethCrossChainHarness.generateClaimSecret();
 
-      const messageKey = await wethCrossChainHarness.sendTokensToPortalPublic(
+      const wethDepositMsgLeaf = await wethCrossChainHarness.sendTokensToPortalPublic(
         wethAmountToBridge,
         secretHashForMintingWeth,
       );
@@ -320,19 +327,12 @@ export const uniswapL1L2TestSuite = (
         wethAmountToBridge,
       );
 
-      // Wait for the archiver to process the message
-      await sleep(5000);
-
-      // Perform an unrelated transaction on L2 to progress the rollup. Here we transfer 0 tokens
-      await wethCrossChainHarness.mintTokensPublicOnL2(0n);
+      // Wait for the message to be available for consumption
+      await wethCrossChainHarness.makeMessageConsumable(wethDepositMsgLeaf);
 
       // 2. Claim WETH on L2
       logger('Minting weth on L2');
-      await wethCrossChainHarness.consumeMessageOnAztecAndMintPublicly(
-        wethAmountToBridge,
-        messageKey,
-        secretForMintingWeth,
-      );
+      await wethCrossChainHarness.consumeMessageOnAztecAndMintPublicly(wethAmountToBridge, secretForMintingWeth);
       await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, wethAmountToBridge);
 
       // Store balances
@@ -347,7 +347,7 @@ export const uniswapL1L2TestSuite = (
           .transfer_public(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHTransferApproval)
           .request(),
       );
-      await ownerWallet.setPublicAuth(transferMessageHash, true).send().wait();
+      await ownerWallet.setPublicAuthWit(transferMessageHash, true).send().wait();
 
       // before swap - check nonce_for_burn_approval stored on uniswap
       // (which is used by uniswap to approve the bridge to burn funds on its behalf to exit to L1)
@@ -371,17 +371,14 @@ export const uniswapL1L2TestSuite = (
           minimumOutputAmount,
           ownerAddress,
           secretHashForDepositingSwappedDai,
-          deadlineForDepositingSwappedDai,
-          ownerEthAddress,
           ownerEthAddress,
           nonceForSwap,
         );
       const swapMessageHash = computeAuthWitMessageHash(sponsorAddress, action.request());
-      await ownerWallet.setPublicAuth(swapMessageHash, true).send().wait();
+      await ownerWallet.setPublicAuthWit(swapMessageHash, true).send().wait();
 
       // 4.2 Call swap_public from user2 on behalf of owner
-      const withdrawReceipt = await action.send().wait();
-      expect(withdrawReceipt.status).toBe(TxStatus.MINED);
+      await action.send().wait();
 
       // check weth balance of owner on L2 (we first bridged `wethAmountToBridge` into L2 and now withdrew it!)
       await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, wethL2BalanceBeforeSwap - wethAmountToBridge);
@@ -403,17 +400,28 @@ export const uniswapL1L2TestSuite = (
         minimumOutputAmount,
         ownerAddress.toString(),
         secretHashForDepositingSwappedDai.toString(),
-        deadlineForDepositingSwappedDai,
-        ownerEthAddress.toString(),
         true,
       ] as const;
-      const { result: depositDaiMessageKeyHex } = await uniswapPortal.simulate.swapPublic(swapArgs, {
-        account: ownerEthAddress.toString(),
-      } as any);
 
       // this should also insert a message into the inbox.
-      await uniswapPortal.write.swapPublic(swapArgs, {} as any);
-      const depositDaiMessageKey = Fr.fromString(depositDaiMessageKeyHex);
+      const txHash = await uniswapPortal.write.swapPublic(swapArgs, {} as any);
+
+      // We get the msg leaf from event so that we can later wait for it to be available for consumption
+      let outTokenDepositMsgLeaf: Fr;
+      {
+        const txReceipt = await daiCrossChainHarness.publicClient.waitForTransactionReceipt({
+          hash: txHash,
+        });
+
+        const txLog = txReceipt.logs[9];
+        const topics = decodeEventLog({
+          abi: InboxAbi,
+          data: txLog.data,
+          topics: txLog.topics,
+        });
+        outTokenDepositMsgLeaf = Fr.fromString(topics.args.value);
+      }
+
       // weth was swapped to dai and send to portal
       const daiL1BalanceOfPortalAfter = await daiCrossChainHarness.getL1BalanceOf(
         daiCrossChainHarness.tokenPortalAddress,
@@ -421,18 +429,12 @@ export const uniswapL1L2TestSuite = (
       expect(daiL1BalanceOfPortalAfter).toBeGreaterThan(daiL1BalanceOfPortalBeforeSwap);
       const daiAmountToBridge = BigInt(daiL1BalanceOfPortalAfter - daiL1BalanceOfPortalBeforeSwap);
 
-      // Wait for the archiver to process the message
-      await sleep(5000);
-      // send a transfer tx to force through rollup with the message included
-      await wethCrossChainHarness.mintTokensPublicOnL2(0n);
+      // Wait for the message to be available for consumption
+      await daiCrossChainHarness.makeMessageConsumable(outTokenDepositMsgLeaf);
 
       // 6. claim dai on L2
       logger('Consuming messages to mint dai on L2');
-      await daiCrossChainHarness.consumeMessageOnAztecAndMintPublicly(
-        daiAmountToBridge,
-        depositDaiMessageKey,
-        secretForDepositingSwappedDai,
-      );
+      await daiCrossChainHarness.consumeMessageOnAztecAndMintPublicly(daiAmountToBridge, secretForDepositingSwappedDai);
       await daiCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, daiL2BalanceBeforeSwap + daiAmountToBridge);
 
       const wethL2BalanceAfterSwap = await wethCrossChainHarness.getL2PublicBalanceOf(ownerAddress);
@@ -472,12 +474,10 @@ export const uniswapL1L2TestSuite = (
             minimumOutputAmount,
             Fr.random(),
             Fr.random(),
-            deadlineForDepositingSwappedDai,
-            ownerEthAddress,
             ownerEthAddress,
           )
           .simulate(),
-      ).rejects.toThrowError(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
+      ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
     });
 
     it("can't swap if user passes a token different to what the bridge tracks", async () => {
@@ -490,13 +490,15 @@ export const uniswapL1L2TestSuite = (
       // 2. owner gives uniswap approval to unshield funds:
       logger('Approving uniswap to unshield funds to self on my behalf');
       const nonceForWETHUnshieldApproval = new Fr(3n);
-      const unshieldToUniswapMessageHash = computeAuthWitMessageHash(
-        uniswapL2Contract.address,
-        wethCrossChainHarness.l2Token.methods
-          .unshield(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHUnshieldApproval)
-          .request(),
-      );
-      await ownerWallet.createAuthWitness(unshieldToUniswapMessageHash);
+      await ownerWallet.createAuthWit({
+        caller: uniswapL2Contract.address,
+        action: wethCrossChainHarness.l2Token.methods.unshield(
+          ownerAddress,
+          uniswapL2Contract.address,
+          wethAmountToBridge,
+          nonceForWETHUnshieldApproval,
+        ),
+      });
 
       // 3. Swap but send the wrong token address
       logger('Swap but send the wrong token address');
@@ -512,12 +514,10 @@ export const uniswapL1L2TestSuite = (
             minimumOutputAmount,
             Fr.random(),
             Fr.random(),
-            deadlineForDepositingSwappedDai,
-            ownerEthAddress,
             ownerEthAddress,
           )
           .simulate(),
-      ).rejects.toThrowError('Assertion failed: input_asset address is not the same as seen in the bridge contract');
+      ).rejects.toThrow('Assertion failed: input_asset address is not the same as seen in the bridge contract');
     });
 
     // edge cases for public flow:
@@ -534,12 +534,12 @@ export const uniswapL1L2TestSuite = (
           .transfer_public(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHTransferApproval)
           .request(),
       );
-      await ownerWallet.setPublicAuth(transferMessageHash, true).send().wait();
+      await ownerWallet.setPublicAuthWit(transferMessageHash, true).send().wait();
 
       // No approval to call `swap` but should work even without it:
       const [_, secretHashForDepositingSwappedDai] = daiCrossChainHarness.generateClaimSecret();
 
-      const withdrawReceipt = await uniswapL2Contract.methods
+      await uniswapL2Contract.methods
         .swap_public(
           ownerAddress,
           wethCrossChainHarness.l2Bridge.address,
@@ -550,14 +550,11 @@ export const uniswapL1L2TestSuite = (
           minimumOutputAmount,
           ownerAddress,
           secretHashForDepositingSwappedDai,
-          deadlineForDepositingSwappedDai,
-          ownerEthAddress,
           ownerEthAddress,
           Fr.ZERO, // nonce for swap -> doesn't matter
         )
         .send()
         .wait();
-      expect(withdrawReceipt.status).toBe(TxStatus.MINED);
       // check weth balance of owner on L2 (we first bridged `wethAmountToBridge` into L2 and now withdrew it!)
       await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, 0n);
     });
@@ -581,17 +578,15 @@ export const uniswapL1L2TestSuite = (
           minimumOutputAmount,
           ownerAddress,
           secretHashForDepositingSwappedDai,
-          deadlineForDepositingSwappedDai,
-          ownerEthAddress,
           ownerEthAddress,
           nonceForSwap,
         );
       const swapMessageHash = computeAuthWitMessageHash(approvedUser, action.request());
-      await ownerWallet.setPublicAuth(swapMessageHash, true).send().wait();
+      await ownerWallet.setPublicAuthWit(swapMessageHash, true).send().wait();
 
       // Swap!
-      await expect(action.simulate()).rejects.toThrowError(
-        "Assertion failed: Message not authorized by account 'result == IS_VALID_SELECTOR'",
+      await expect(action.simulate()).rejects.toThrow(
+        "Assertion failed: Message not authorized by account 'is_valid == true'",
       );
     });
 
@@ -605,7 +600,7 @@ export const uniswapL1L2TestSuite = (
           .transfer_public(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHTransferApproval)
           .request(),
       );
-      await ownerWallet.setPublicAuth(transferMessageHash, true).send().wait();
+      await ownerWallet.setPublicAuthWit(transferMessageHash, true).send().wait();
 
       await expect(
         uniswapL2Contract.methods
@@ -619,13 +614,11 @@ export const uniswapL1L2TestSuite = (
             minimumOutputAmount,
             ownerAddress,
             Fr.random(),
-            deadlineForDepositingSwappedDai,
-            ownerEthAddress,
             ownerEthAddress,
             Fr.ZERO,
           )
           .simulate(),
-      ).rejects.toThrowError(`Assertion failed: Message not authorized by account 'result == IS_VALID_SELECTOR'`);
+      ).rejects.toThrow(`Assertion failed: Message not authorized by account 'is_valid == true'`);
     });
 
     // tests when trying to mix private and public flows:
@@ -639,21 +632,22 @@ export const uniswapL1L2TestSuite = (
       // Owner gives uniswap approval to unshield funds to self on its behalf
       logger('Approving uniswap to unshield funds to self on my behalf');
       const nonceForWETHUnshieldApproval = new Fr(4n);
-
-      const unshieldToUniswapMessageHash = computeAuthWitMessageHash(
-        uniswapL2Contract.address,
-        wethCrossChainHarness.l2Token.methods
-          .unshield(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHUnshieldApproval)
-          .request(),
-      );
-      await ownerWallet.createAuthWitness(unshieldToUniswapMessageHash);
+      await ownerWallet.createAuthWit({
+        caller: uniswapL2Contract.address,
+        action: wethCrossChainHarness.l2Token.methods.unshield(
+          ownerAddress,
+          uniswapL2Contract.address,
+          wethAmountToBridge,
+          nonceForWETHUnshieldApproval,
+        ),
+      });
       const wethL2BalanceBeforeSwap = await wethCrossChainHarness.getL2PrivateBalanceOf(ownerAddress);
 
       // Swap
       logger('Withdrawing weth to L1 and sending message to swap to dai');
       const secretHashForDepositingSwappedDai = Fr.random();
 
-      const withdrawReceipt = await uniswapL2Contract.methods
+      await uniswapL2Contract.methods
         .swap_private(
           wethCrossChainHarness.l2Token.address,
           wethCrossChainHarness.l2Bridge.address,
@@ -664,13 +658,10 @@ export const uniswapL1L2TestSuite = (
           minimumOutputAmount,
           Fr.random(),
           secretHashForDepositingSwappedDai,
-          deadlineForDepositingSwappedDai,
-          ownerEthAddress,
           ownerEthAddress,
         )
         .send()
         .wait();
-      expect(withdrawReceipt.status).toBe(TxStatus.MINED);
       // ensure that user's funds were burnt
       await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethL2BalanceBeforeSwap - wethAmountToBridge);
 
@@ -684,15 +675,13 @@ export const uniswapL1L2TestSuite = (
         minimumOutputAmount,
         ownerAddress.toString(),
         secretHashForDepositingSwappedDai.toString(),
-        deadlineForDepositingSwappedDai,
-        ownerEthAddress.toString(),
         true,
       ] as const;
       await expect(
         uniswapPortal.simulate.swapPublic(swapArgs, {
           account: ownerEthAddress.toString(),
         } as any),
-      ).rejects.toThrowError('The contract function "swapPublic" reverted.');
+      ).rejects.toThrow('The contract function "swapPublic" reverted.');
     });
 
     it("can't call swap_private on L1 if called swap_public on L2", async () => {
@@ -707,11 +696,11 @@ export const uniswapL1L2TestSuite = (
           .transfer_public(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHTransferApproval)
           .request(),
       );
-      await ownerWallet.setPublicAuth(transferMessageHash, true).send().wait();
+      await ownerWallet.setPublicAuthWit(transferMessageHash, true).send().wait();
 
       // Call swap_public on L2
       const secretHashForDepositingSwappedDai = Fr.random();
-      const withdrawReceipt = await uniswapL2Contract.methods
+      await uniswapL2Contract.methods
         .swap_public(
           ownerAddress,
           wethCrossChainHarness.l2Bridge.address,
@@ -722,14 +711,11 @@ export const uniswapL1L2TestSuite = (
           minimumOutputAmount,
           ownerAddress,
           secretHashForDepositingSwappedDai,
-          deadlineForDepositingSwappedDai,
-          ownerEthAddress,
           ownerEthAddress,
           Fr.ZERO,
         )
         .send()
         .wait();
-      expect(withdrawReceipt.status).toBe(TxStatus.MINED);
       // check weth balance of owner on L2 (we first bridged `wethAmountToBridge` into L2 and now withdrew it!)
       await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, 0n);
 
@@ -744,15 +730,13 @@ export const uniswapL1L2TestSuite = (
         minimumOutputAmount,
         secretHashForRedeemingDai.toString(),
         secretHashForDepositingSwappedDai.toString(),
-        deadlineForDepositingSwappedDai,
-        ownerEthAddress.toString(),
         true,
       ] as const;
       await expect(
         uniswapPortal.simulate.swapPrivate(swapArgs, {
           account: ownerEthAddress.toString(),
         } as any),
-      ).rejects.toThrowError('The contract function "swapPrivate" reverted.');
+      ).rejects.toThrow('The contract function "swapPrivate" reverted.');
     });
   });
 };

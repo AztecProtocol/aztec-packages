@@ -1,17 +1,15 @@
-import { Body, ContractData, L2Block, MerkleTreeId, PublicDataWrite, TxEffect, TxL2Logs } from '@aztec/circuit-types';
+import { Body, L2Block, MerkleTreeId, TxEffect } from '@aztec/circuit-types';
+import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
+  BaseParityInputs,
   BaseRollupInputs,
-  CONTRACT_SUBTREE_HEIGHT,
-  CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
   ConstantRollupData,
   GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  MAX_NEW_CONTRACTS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -23,6 +21,7 @@ import {
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NUM_BASE_PARITY_PER_ROOT_PARITY,
   NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
@@ -32,31 +31,34 @@ import {
   Proof,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
-  PublicKernelData,
   ROLLUP_VK_TREE_HEIGHT,
+  RollupKernelCircuitPublicInputs,
+  RollupKernelData,
   RollupTypes,
+  RootParityInput,
+  RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
   StateDiffHints,
   StateReference,
   VK_TREE_HEIGHT,
   VerificationKey,
 } from '@aztec/circuits.js';
-import { makeTuple } from '@aztec/foundation/array';
+import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { elapsed } from '@aztec/foundation/timer';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import chunk from 'lodash.chunk';
+import { inspect } from 'util';
 
 import { VerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
-import { ProcessedTx } from '../sequencer/processed_tx.js';
+import { ProcessedTx, toTxEffect } from '../sequencer/processed_tx.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { BlockBuilder } from './index.js';
 import { TreeNames } from './types.js';
@@ -87,49 +89,28 @@ export class SoloBlockBuilder implements BlockBuilder {
    * Builds an L2 block with the given number containing the given txs, updating state trees.
    * @param globalVariables - Global variables to be used in the block.
    * @param txs - Processed transactions to include in the block.
-   * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
+   * @param l1ToL2Messages - L1 to L2 messages to be part of the block.
    * @param timestamp - Timestamp of the block.
    * @returns The new L2 block and a correctness proof as returned by the root rollup circuit.
    */
   public async buildL2Block(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    newL1ToL2Messages: Fr[],
+    l1ToL2Messages: Fr[],
   ): Promise<[L2Block, Proof]> {
     // Check txs are good for processing by checking if all the tree snapshots in header are non-empty
     this.validateTxs(txs);
 
+    // We pad the messages as the circuits expect that.
+    const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+
     // We fill the tx batch with empty txs, we process only one tx at a time for now
-    const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
+    const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, l1ToL2MessagesPadded);
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
-    const txEffects: TxEffect[] = txs.map(
-      tx =>
-        // TODO(#4720): Combined data should most likely contain the tx effect directly
-        new TxEffect(
-          tx.data.combinedData.newNoteHashes.map((c: SideEffect) => c.value) as Tuple<
-            Fr,
-            typeof MAX_NEW_NOTE_HASHES_PER_TX
-          >,
-          tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value) as Tuple<
-            Fr,
-            typeof MAX_NEW_NULLIFIERS_PER_TX
-          >,
-          tx.data.combinedData.newL2ToL1Msgs,
-          tx.data.combinedData.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)) as Tuple<
-            PublicDataWrite,
-            typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-          >,
-          tx.data.combinedData.newContracts.map(cd => cd.hash()) as Tuple<Fr, typeof MAX_NEW_CONTRACTS_PER_TX>,
-          tx.data.combinedData.newContracts.map(
-            cd => new ContractData(cd.contractAddress, cd.portalContractAddress),
-          ) as Tuple<ContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
-          tx.encryptedLogs || new TxL2Logs([]),
-          tx.unencryptedLogs || new TxL2Logs([]),
-        ),
-    );
+    const txEffects: TxEffect[] = txs.map(tx => toTxEffect(tx));
 
-    const blockBody = new Body(newL1ToL2Messages, txEffects);
+    const blockBody = new Body(l1ToL2MessagesPadded, txEffects);
 
     const l2Block = L2Block.fromFields({
       archive: circuitsOutput.archive,
@@ -137,11 +118,12 @@ export class SoloBlockBuilder implements BlockBuilder {
       body: blockBody,
     });
 
-    if (!l2Block.body.getCalldataHash().equals(circuitsOutput.header.contentCommitment.txsHash)) {
+    if (!l2Block.body.getTxsEffectsHash().equals(circuitsOutput.header.contentCommitment.txsEffectsHash)) {
+      this.debug(inspect(blockBody));
       throw new Error(
-        `Calldata hash mismatch, ${l2Block.body
-          .getCalldataHash()
-          .toString('hex')} == ${circuitsOutput.header.contentCommitment.txsHash.toString('hex')} `,
+        `Txs effects hash mismatch, ${l2Block.body
+          .getTxsEffectsHash()
+          .toString('hex')} == ${circuitsOutput.header.contentCommitment.txsEffectsHash.toString('hex')} `,
       );
     }
 
@@ -160,9 +142,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       if (txHeader.state.partial.nullifierTree.isZero()) {
         throw new Error(`Empty nullifier tree in tx: ${toFriendlyJSON(tx)}`);
       }
-      if (txHeader.state.partial.contractTree.isZero()) {
-        throw new Error(`Empty contract tree in tx: ${toFriendlyJSON(tx)}`);
-      }
       if (txHeader.state.partial.publicDataTree.isZero()) {
         throw new Error(`Empty public data tree in tx: ${toFriendlyJSON(tx)}`);
       }
@@ -177,7 +156,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async runCircuits(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    newL1ToL2Messages: Fr[],
+    l1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
   ): Promise<[RootRollupPublicInputs, Proof]> {
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
@@ -185,54 +164,175 @@ export class SoloBlockBuilder implements BlockBuilder {
       throw new Error(`Length of txs for the block should be a power of two and at least two (got ${txs.length})`);
     }
 
-    // padArrayEnd throws if the array is already full. Otherwise it pads till we reach the required size
-    const newL1ToL2MessagesTuple = padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    // BASE PARITY CIRCUIT (run in parallel)
+    // Note: In the future we will want to cache the results of empty base and root parity circuits so that we don't
+    // have to run them. (It will most likely be quite common that some base parity circuits will be "empty")
+    let baseParityInputs: BaseParityInputs[] = [];
+    let elapsedBaseParityOutputsPromise: Promise<[number, RootParityInput[]]>;
+    {
+      baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
+        BaseParityInputs.fromSlice(l1ToL2Messages, i),
+      );
 
-    // Run the base rollup circuits for the txs
-    const baseRollupOutputs: [BaseOrMergeRollupPublicInputs, Proof][] = [];
-    for (const tx of txs) {
-      baseRollupOutputs.push(await this.baseRollupCircuit(tx, globalVariables));
-    }
-
-    // Run merge rollups in layers until we have only two outputs
-    let mergeRollupInputs: [BaseOrMergeRollupPublicInputs, Proof][] = baseRollupOutputs;
-    let mergeRollupOutputs: [BaseOrMergeRollupPublicInputs, Proof][] = [];
-    while (mergeRollupInputs.length > 2) {
-      for (const pair of chunk(mergeRollupInputs, 2)) {
-        const [r1, r2] = pair;
-        mergeRollupOutputs.push(await this.mergeRollupCircuit(r1, r2));
+      const baseParityOutputs: Promise<RootParityInput>[] = [];
+      for (const inputs of baseParityInputs) {
+        baseParityOutputs.push(this.baseParityCircuit(inputs));
       }
-      mergeRollupInputs = mergeRollupOutputs;
-      mergeRollupOutputs = [];
+      elapsedBaseParityOutputsPromise = elapsed(() => Promise.all(baseParityOutputs));
     }
 
-    // Run the root rollup with the last two merge rollups (or base, if no merge layers)
-    const [mergeOutputLeft, mergeOutputRight] = mergeRollupInputs;
-    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, newL1ToL2MessagesTuple);
+    // BASE ROLLUP CIRCUIT (run in parallel)
+    let elapsedBaseRollupOutputsPromise: Promise<[number, [BaseOrMergeRollupPublicInputs, Proof][]]>;
+    const baseRollupInputs: BaseRollupInputs[] = [];
+    {
+      // Perform all tree insertions and retrieve snapshots for all base rollups
+      const treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>[] = [];
+      for (const tx of txs) {
+        const input = await this.buildBaseRollupInput(tx, globalVariables);
+        baseRollupInputs.push(input);
+        const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
+          async (id: MerkleTreeId) => {
+            return { key: id, value: await this.getTreeSnapshot(id) };
+          },
+        );
+        const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map(
+          (await Promise.all(promises)).map(obj => [obj.key, obj.value]),
+        );
+        treeSnapshots.push(snapshots);
+      }
+
+      // Run the base rollup circuits for the txs in parallel
+      const baseRollupOutputs: Promise<[BaseOrMergeRollupPublicInputs, Proof]>[] = [];
+      for (let i = 0; i < txs.length; i++) {
+        baseRollupOutputs.push(this.baseRollupCircuit(txs[i], baseRollupInputs[i], treeSnapshots[i]));
+      }
+
+      elapsedBaseRollupOutputsPromise = elapsed(() => Promise.all(baseRollupOutputs));
+    }
+
+    // ROOT PARITY CIRCUIT
+    let elapsedRootParityOutputPromise: Promise<[number, RootParityInput]>;
+    let rootParityInputs: RootParityInputs;
+    {
+      // First we await the base parity outputs
+      const [duration, baseParityOutputs] = await elapsedBaseParityOutputsPromise;
+
+      // We emit stats for base parity circuits
+      for (let i = 0; i < baseParityOutputs.length; i++) {
+        this.debug(`Simulated base parity circuit`, {
+          eventName: 'circuit-simulation',
+          circuitName: 'base-parity',
+          duration: duration / baseParityOutputs.length,
+          inputSize: baseParityInputs[i].toBuffer().length,
+          outputSize: baseParityOutputs[i].toBuffer().length,
+        } satisfies CircuitSimulationStats);
+      }
+
+      rootParityInputs = new RootParityInputs(
+        baseParityOutputs as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
+      );
+      elapsedRootParityOutputPromise = elapsed(() => this.rootParityCircuit(rootParityInputs));
+    }
+
+    // MERGE ROLLUP CIRCUIT (each layer run in parallel)
+    let mergeOutputLeft: [BaseOrMergeRollupPublicInputs, Proof];
+    let mergeOutputRight: [BaseOrMergeRollupPublicInputs, Proof];
+    {
+      // Run merge rollups in layers until we have only two outputs
+      const [duration, mergeInputs] = await elapsedBaseRollupOutputsPromise;
+
+      // We emit stats for base rollup circuits
+      for (let i = 0; i < mergeInputs.length; i++) {
+        this.debug(`Simulated base rollup circuit`, {
+          eventName: 'circuit-simulation',
+          circuitName: 'base-rollup',
+          duration: duration / mergeInputs.length,
+          inputSize: baseRollupInputs[i].toBuffer().length,
+          outputSize: mergeInputs[i][0].toBuffer().length,
+        } satisfies CircuitSimulationStats);
+      }
+
+      let mergeRollupInputs: [BaseOrMergeRollupPublicInputs, Proof][] = mergeInputs;
+      while (mergeRollupInputs.length > 2) {
+        const mergeInputStructs: MergeRollupInputs[] = [];
+        for (const pair of chunk(mergeRollupInputs, 2)) {
+          const [r1, r2] = pair;
+          mergeInputStructs.push(this.createMergeRollupInputs(r1, r2));
+        }
+
+        const [duration, mergeOutputs] = await elapsed(() =>
+          Promise.all(mergeInputStructs.map(async input => await this.mergeRollupCircuit(input))),
+        );
+
+        // We emit stats for merge rollup circuits
+        for (let i = 0; i < mergeOutputs.length; i++) {
+          this.debug(`Simulated merge rollup circuit`, {
+            eventName: 'circuit-simulation',
+            circuitName: 'merge-rollup',
+            duration: duration / mergeOutputs.length,
+            inputSize: mergeInputStructs[i].toBuffer().length,
+            outputSize: mergeOutputs[i][0].toBuffer().length,
+          } satisfies CircuitSimulationStats);
+        }
+        mergeRollupInputs = mergeOutputs;
+      }
+
+      // Run the root rollup with the last two merge rollups (or base, if no merge layers)
+      [mergeOutputLeft, mergeOutputRight] = mergeRollupInputs;
+    }
+
+    // Finally, we emit stats for root parity circuit
+    const [duration, rootParityOutput] = await elapsedRootParityOutputPromise;
+    this.debug(`Simulated root parity circuit`, {
+      eventName: 'circuit-simulation',
+      circuitName: 'root-parity',
+      duration: duration,
+      inputSize: rootParityInputs.toBuffer().length,
+      outputSize: rootParityOutput.toBuffer().length,
+    } satisfies CircuitSimulationStats);
+
+    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, rootParityOutput, l1ToL2Messages);
+  }
+
+  protected async baseParityCircuit(inputs: BaseParityInputs): Promise<RootParityInput> {
+    this.debug(`Running base parity circuit`);
+    const parityPublicInputs = await this.simulator.baseParityCircuit(inputs);
+    const proof = await this.prover.getBaseParityProof(inputs, parityPublicInputs);
+    return new RootParityInput(proof, parityPublicInputs);
+  }
+
+  protected async rootParityCircuit(inputs: RootParityInputs): Promise<RootParityInput> {
+    this.debug(`Running root parity circuit`);
+    const parityPublicInputs = await this.simulator.rootParityCircuit(inputs);
+    const proof = await this.prover.getRootParityProof(inputs, parityPublicInputs);
+    return new RootParityInput(proof, parityPublicInputs);
   }
 
   protected async baseRollupCircuit(
     tx: ProcessedTx,
-    globalVariables: GlobalVariables,
+    inputs: BaseRollupInputs,
+    treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
   ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     this.debug(`Running base rollup for ${tx.hash}`);
-    const rollupInput = await this.buildBaseRollupInput(tx, globalVariables);
-    const rollupOutput = await this.simulator.baseRollupCircuit(rollupInput);
-    await this.validatePartialState(rollupOutput.end);
-    const proof = await this.prover.getBaseRollupProof(rollupInput, rollupOutput);
+    const rollupOutput = await this.simulator.baseRollupCircuit(inputs);
+    this.validatePartialState(rollupOutput.end, treeSnapshots);
+    const proof = await this.prover.getBaseRollupProof(inputs, rollupOutput);
     return [rollupOutput, proof];
   }
 
-  protected async mergeRollupCircuit(
+  protected createMergeRollupInputs(
     left: [BaseOrMergeRollupPublicInputs, Proof],
     right: [BaseOrMergeRollupPublicInputs, Proof],
-  ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
+  ) {
     const vk = this.getVerificationKey(left[0].rollupType);
     const mergeInputs = new MergeRollupInputs([
       this.getPreviousRollupDataFromPublicInputs(left[0], left[1], vk),
       this.getPreviousRollupDataFromPublicInputs(right[0], right[1], vk),
     ]);
+    return mergeInputs;
+  }
 
+  protected async mergeRollupCircuit(mergeInputs: MergeRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     this.debug(`Running merge rollup circuit`);
     const output = await this.simulator.mergeRollupCircuit(mergeInputs);
     const proof = await this.prover.getMergeRollupProof(mergeInputs, output);
@@ -253,15 +353,16 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async rootRollupCircuit(
     left: [BaseOrMergeRollupPublicInputs, Proof],
     right: [BaseOrMergeRollupPublicInputs, Proof],
-    newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
+    l1ToL2Roots: RootParityInput,
+    l1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
   ): Promise<[RootRollupPublicInputs, Proof]> {
     this.debug(`Running root rollup circuit`);
-    const rootInput = await this.getRootRollupInput(...left, ...right, newL1ToL2Messages);
+    const rootInput = await this.getRootRollupInput(...left, ...right, l1ToL2Roots, l1ToL2Messages);
 
-    // Update the local trees to include the new l1 to l2 messages
+    // Update the local trees to include the l1 to l2 messages
     await this.db.appendLeaves(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      newL1ToL2Messages.map(m => m.toBuffer()),
+      l1ToL2Messages.map(m => m.toBuffer()),
     );
 
     // Simulate and get proof for the root circuit
@@ -278,40 +379,42 @@ export class SoloBlockBuilder implements BlockBuilder {
     return [rootOutput, rootProof];
   }
 
-  protected async validatePartialState(partialState: PartialStateReference) {
-    await Promise.all([
-      this.validateSimulatedTree(
-        await this.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
-        partialState.noteHashTree,
-        'NoteHashTree',
-      ),
-      this.validateSimulatedTree(
-        await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
-        partialState.nullifierTree,
-        'NullifierTree',
-      ),
-      this.validateSimulatedTree(
-        await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE),
-        partialState.contractTree,
-        'ContractTree',
-      ),
-      this.validateSimulatedTree(
-        await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
-        partialState.publicDataTree,
-        'PublicDataTree',
-      ),
-    ]);
+  protected validatePartialState(
+    partialState: PartialStateReference,
+    treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
+  ) {
+    this.validateSimulatedTree(
+      treeSnapshots.get(MerkleTreeId.NOTE_HASH_TREE)!,
+      partialState.noteHashTree,
+      'NoteHashTree',
+    );
+    this.validateSimulatedTree(
+      treeSnapshots.get(MerkleTreeId.NULLIFIER_TREE)!,
+      partialState.nullifierTree,
+      'NullifierTree',
+    );
+    this.validateSimulatedTree(
+      treeSnapshots.get(MerkleTreeId.PUBLIC_DATA_TREE)!,
+      partialState.publicDataTree,
+      'PublicDataTree',
+    );
   }
 
   protected async validateState(state: StateReference) {
-    await Promise.all([
-      this.validateSimulatedTree(
-        await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
-        state.l1ToL2MessageTree,
-        'L1ToL2MessageTree',
-      ),
-      this.validatePartialState(state.partial),
-    ]);
+    const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
+      async (id: MerkleTreeId) => {
+        return { key: id, value: await this.getTreeSnapshot(id) };
+      },
+    );
+    const snapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot> = new Map(
+      (await Promise.all(promises)).map(obj => [obj.key, obj.value]),
+    );
+    this.validatePartialState(state.partial, snapshots);
+    this.validateSimulatedTree(
+      await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
+      state.l1ToL2MessageTree,
+      'L1ToL2MessageTree',
+    );
   }
 
   // Validate that the roots of all local trees match the output of the root circuit simulation
@@ -347,6 +450,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     rollupProofLeft: Proof,
     rollupOutputRight: BaseOrMergeRollupPublicInputs,
     rollupProofRight: Proof,
+    l1ToL2Roots: RootParityInput,
     newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
   ) {
     const vk = this.getVerificationKey(rollupOutputLeft.rollupType);
@@ -388,6 +492,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     return RootRollupInputs.from({
       previousRollupData,
+      l1ToL2Roots,
       newL1ToL2Messages,
       newL1ToL2MessageTreeRootSiblingPath,
       startL1ToL2MessageTreeSnapshot,
@@ -416,9 +521,14 @@ export class SoloBlockBuilder implements BlockBuilder {
     );
   }
 
-  protected getKernelDataFor(tx: ProcessedTx) {
-    return new PublicKernelData(
-      tx.data,
+  protected getKernelDataFor(tx: ProcessedTx): RollupKernelData {
+    const inputs = new RollupKernelCircuitPublicInputs(
+      tx.data.aggregationObject,
+      tx.data.combinedData,
+      tx.data.constants,
+    );
+    return new RollupKernelData(
+      inputs,
       tx.proof,
 
       // VK for the kernel circuit
@@ -500,12 +610,12 @@ export class SoloBlockBuilder implements BlockBuilder {
 
   protected async processPublicDataUpdateRequests(tx: ProcessedTx) {
     const combinedPublicDataUpdateRequests = tx.data.combinedData.publicDataUpdateRequests.map(updateRequest => {
-      return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue).toBuffer();
+      return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue);
     });
     const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } =
       await this.db.batchInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
-        combinedPublicDataUpdateRequests,
+        combinedPublicDataUpdateRequests.map(x => x.toBuffer()),
         // TODO(#3675) remove oldValue from update requests
         PUBLIC_DATA_SUBTREE_HEIGHT,
       );
@@ -545,6 +655,12 @@ export class SoloBlockBuilder implements BlockBuilder {
       return lowLeavesWitnessData[i].leafPreimage as PublicDataTreeLeafPreimage;
     });
 
+    // validate that the sortedPublicDataWrites and sortedPublicDataWritesIndexes are in the correct order
+    // otherwise it will just fail in the circuit
+    assertPermutation(combinedPublicDataUpdateRequests, sortedPublicDataWrites, sortedPublicDataWritesIndexes, (a, b) =>
+      a.equals(b),
+    );
+
     return {
       lowPublicDataWritesPreimages,
       lowPublicDataWritesMembershipWitnesses,
@@ -563,8 +679,8 @@ export class SoloBlockBuilder implements BlockBuilder {
     const newPublicDataReadsPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX> =
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => PublicDataTreeLeafPreimage.empty());
 
-    for (const i in tx.data.combinedData.publicDataReads) {
-      const leafSlot = tx.data.combinedData.publicDataReads[i].leafSlot.value;
+    for (const i in tx.data.validationRequests.publicDataReads) {
+      const leafSlot = tx.data.validationRequests.publicDataReads[i].leafSlot.value;
       const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
       if (!lowLeafResult) {
         throw new Error(`Public data tree should have one initial leaf`);
@@ -591,7 +707,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     const start = new PartialStateReference(
       await this.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
       await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
-      await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE),
       await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
     );
 
@@ -605,25 +720,9 @@ export class SoloBlockBuilder implements BlockBuilder {
       i < noteHashSubtreeSiblingPathArray.length ? noteHashSubtreeSiblingPathArray[i] : Fr.ZERO,
     );
 
-    const contractSubtreeSiblingPathArray = await this.getSubtreeSiblingPath(
-      MerkleTreeId.CONTRACT_TREE,
-      CONTRACT_SUBTREE_HEIGHT,
-    );
-
-    const contractSubtreeSiblingPath = makeTuple(CONTRACT_SUBTREE_SIBLING_PATH_LENGTH, i =>
-      i < contractSubtreeSiblingPathArray.length ? contractSubtreeSiblingPathArray[i] : Fr.ZERO,
-    );
-
-    // Update the contract and note hash trees with the new items being inserted to get the new roots
+    // Update the note hash trees with the new items being inserted to get the new roots
     // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-    const newContracts = tx.data.combinedData.newContracts.map(cd => cd.hash());
     const newNoteHashes = tx.data.combinedData.newNoteHashes.map(x => x.value.toBuffer());
-
-    await this.db.appendLeaves(
-      MerkleTreeId.CONTRACT_TREE,
-      newContracts.map(x => x.toBuffer()),
-    );
-
     await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, newNoteHashes);
 
     // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
@@ -675,7 +774,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       sortedNullifierIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
       noteHashSubtreeSiblingPath,
       nullifierSubtreeSiblingPath,
-      contractSubtreeSiblingPath,
       publicDataSiblingPath,
     });
 
