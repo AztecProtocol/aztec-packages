@@ -15,6 +15,7 @@
 #include "../field/field.hpp"
 
 #include "../circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 
 namespace bb::stdlib {
 
@@ -174,17 +175,12 @@ template <typename Builder> class bigfielddyn {
 
     bigfielddyn& operator=(const bigfielddyn& other);
     bigfielddyn& operator=(bigfielddyn&& other);
-    // code assumes modulus is at most 256 bits so good to define it via a uint256_t
-    // static constexpr uint256_t modulus = (uint256_t(T::modulus_0, T::modulus_1, T::modulus_2, T::modulus_3));
+    // Using uint512_t allows to use 2^{256} as modulus
     uint512_t modulus_u512;
-    static constexpr uint64_t NUM_LIMB_BITS = plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+    static constexpr uint64_t NUM_LIMB_BITS = NUM_LIMB_BITS_IN_FIELD_SIMULATION;
     uint64_t num_last_limb_bits = modulus_u512.get_msb() + 1 - (NUM_LIMB_BITS * 3); // NUM_LAST_LIMB_BITS
-    //   static constexpr uint1024_t DEFAULT_MAXIMUM_REMAINDER =
-    //     (uint1024_t(1) << (NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS)) - uint1024_t(1);
     uint1024_t default_maximum_remainder = (uint1024_t(1) << (NUM_LIMB_BITS * 3 + num_last_limb_bits)) - uint1024_t(1);
     static constexpr uint256_t DEFAULT_MAXIMUM_LIMB = (uint256_t(1) << NUM_LIMB_BITS) - uint256_t(1);
-    // static constexpr uint256_t DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB =
-    //     (uint256_t(1) << NUM_LAST_LIMB_BITS) - uint256_t(1);
     uint256_t default_maximum_most_significant_limb = (uint256_t(1) << num_last_limb_bits) - uint256_t(1);
     static constexpr uint64_t LOG2_BINARY_MODULUS = NUM_LIMB_BITS * 4;
     static constexpr bool is_composite = true; // false only when fr is native
@@ -261,7 +257,7 @@ template <typename Builder> class bigfielddyn {
     bigfielddyn bad_mul(const bigfielddyn& other) const;
 
     bigfielddyn operator/(const bigfielddyn& other) const;
-    bigfielddyn operator-() const { return bigfielddyn(get_context(), uint256_t(0)) - *this; }
+    bigfielddyn operator-() const { return bigfielddyn(get_context(), uint256_t(0), modulus_u512) - *this; }
 
     bigfielddyn operator+=(const bigfielddyn& other)
     {
@@ -338,18 +334,18 @@ template <typename Builder> class bigfielddyn {
     /**
      * Create a public one constant
      * */
-    static bigfielddyn one()
+    static bigfielddyn one(uint512_t modulus)
     {
-        bigfielddyn result(nullptr, uint256_t(1));
+        bigfielddyn result(nullptr, uint256_t(1), modulus);
         return result;
     }
 
     /**
      * Create a public zero constant
      * */
-    static bigfielddyn zero()
+    static bigfielddyn zero(uint512_t modulus)
     {
-        bigfielddyn result(nullptr, uint256_t(0));
+        bigfielddyn result(nullptr, uint256_t(0), modulus);
         return result;
     }
 
@@ -364,7 +360,7 @@ template <typename Builder> class bigfielddyn {
         uint512_t multiple_of_modulus = ((get_maximum_unreduced_value() / modulus_u512) + 1) * modulus_u512;
         auto msb = multiple_of_modulus.get_msb();
 
-        bigfielddyn result(nullptr, uint256_t(0));
+        bigfielddyn result(nullptr, uint256_t(0), modulus_u512);
         result.binary_basis_limbs[0] = Limb(bb::fr(multiple_of_modulus.slice(0, NUM_LIMB_BITS).lo));
         result.binary_basis_limbs[1] = Limb(bb::fr(multiple_of_modulus.slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS).lo));
         result.binary_basis_limbs[2] = Limb(bb::fr(multiple_of_modulus.slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS).lo));

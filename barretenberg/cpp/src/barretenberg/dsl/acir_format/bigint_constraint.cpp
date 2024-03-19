@@ -34,8 +34,10 @@ ModulusId modulus_param_to_id(ModulusParam param)
         secp256r1::FrParams::modulus_2 == param.modulus_2 && secp256r1::FrParams::modulus_3 == param.modulus_3) {
         return ModulusId::SECP256R1_FR;
     }
-    return ModulusId::U256;
-    //    return ModulusId::UNKNOWN;
+    if (0 == param.modulus_0 && 0 == param.modulus_1 && 0 == param.modulus_2 && 0 == param.modulus_3) {
+        return ModulusId::U256;
+    }
+    return ModulusId::UNKNOWN;
 }
 
 template void create_bigint_operations_constraint<UltraCircuitBuilder>(const BigIntOperation& input,
@@ -62,16 +64,6 @@ template void create_bigint_div_constraint<GoblinUltraCircuitBuilder>(
 template <typename Builder>
 void create_bigint_addition_constraint(const BigIntOperation& input, DSLBigInts<Builder>& dsl_bigint)
 {
-    info("before:");
-    info(dsl_bigint.builder->get_num_gates(),
-         ", ",
-         dsl_bigint.builder->blocks.main.size(),
-         ", ",
-         dsl_bigint.builder->blocks.arithmetic.size(),
-         ", ",
-         dsl_bigint.builder->blocks.aux.size(),
-         ", ",
-         dsl_bigint.builder->cached_partial_non_native_field_multiplications.size());
     switch (dsl_bigint.get_modulus_id(input.lhs)) {
     case ModulusId::BN254_FR: {
         auto lhs = dsl_bigint.bn254_fr(input.lhs);
@@ -112,11 +104,7 @@ void create_bigint_addition_constraint(const BigIntOperation& input, DSLBigInts<
     case ModulusId::U256: {
         auto lhs = dsl_bigint.uint256(input.lhs);
         auto rhs = dsl_bigint.uint256(input.rhs);
-        // uint512_t modulus = uint512_t(1) << 256;
-        bb::stdlib::bigfielddyn<Builder> result = lhs + rhs;
-
-        dsl_bigint.set_big_uint256(result, input.result);
-        info("added");
+        dsl_bigint.set_big_uint256(lhs + rhs, input.result);
         break;
     }
 
@@ -124,17 +112,6 @@ void create_bigint_addition_constraint(const BigIntOperation& input, DSLBigInts<
         ASSERT(false);
     }
     }
-
-    info("after addtion:");
-    info(dsl_bigint.builder->get_num_gates(),
-         ", ",
-         dsl_bigint.builder->blocks.main.size(),
-         ", ",
-         dsl_bigint.builder->blocks.arithmetic.size(),
-         ", ",
-         dsl_bigint.builder->blocks.aux.size(),
-         ", ",
-         dsl_bigint.builder->cached_partial_non_native_field_multiplications.size());
 }
 
 template <typename Builder>
@@ -175,6 +152,12 @@ void create_bigint_sub_constraint(const BigIntOperation& input, DSLBigInts<Build
         auto lhs = dsl_bigint.secp256r1_fr(input.lhs);
         auto rhs = dsl_bigint.secp256r1_fr(input.rhs);
         dsl_bigint.set_secp256r1_fr(lhs - rhs, input.result);
+        break;
+    }
+    case ModulusId::U256: {
+        auto lhs = dsl_bigint.uint256(input.lhs);
+        auto rhs = dsl_bigint.uint256(input.rhs);
+        dsl_bigint.set_big_uint256(lhs - rhs, input.result);
         break;
     }
     default: {
@@ -223,6 +206,12 @@ void create_bigint_mul_constraint(const BigIntOperation& input, DSLBigInts<Build
         dsl_bigint.set_secp256r1_fr(lhs * rhs, input.result);
         break;
     }
+    case ModulusId::U256: {
+        auto lhs = dsl_bigint.uint256(input.lhs);
+        auto rhs = dsl_bigint.uint256(input.rhs);
+        dsl_bigint.set_big_uint256(lhs * rhs, input.result);
+        break;
+    }
     default: {
         ASSERT(false);
     }
@@ -267,6 +256,13 @@ void create_bigint_div_constraint(const BigIntOperation& input, DSLBigInts<Build
         auto lhs = dsl_bigint.secp256r1_fr(input.lhs);
         auto rhs = dsl_bigint.secp256r1_fr(input.rhs);
         dsl_bigint.set_secp256r1_fr(lhs / rhs, input.result);
+        break;
+    }
+    case ModulusId::U256: {
+        auto lhs = dsl_bigint.uint256(input.lhs);
+        auto rhs = dsl_bigint.uint256(input.rhs);
+        auto result = lhs / rhs;
+        dsl_bigint.set_big_uint256(result, input.result);
         break;
     }
     default: {
@@ -348,7 +344,6 @@ void create_bigint_from_le_bytes_constraint(Builder& builder,
     bb::stdlib::byte_array<Builder> bytes = rev_bytes.reverse();
 
     auto modulus_id = modulus_param_to_id(modulus);
-
     switch (modulus_id) {
     case BN254_FQ: {
         auto big = big_bn254_fq(bytes);
@@ -447,13 +442,9 @@ void create_bigint_to_le_bytes_constraint(Builder& builder,
         break;
     }
     case U256: {
-        info(input.input);
         big_uint256 big = dsl_bigints.uint256(input.input);
-        info("to-bytes");
         big.self_reduce();
-
         byte_array = big.to_byte_array();
-        info("tb done");
         break;
     }
     case UNKNOWN:

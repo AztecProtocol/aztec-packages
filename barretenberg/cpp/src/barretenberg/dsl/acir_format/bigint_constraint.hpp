@@ -188,7 +188,11 @@ template <typename Builder> class DSLBigInts {
         this->m_secp256k1_fr[bigint_id] = bigint;
     }
 
-    void set_big_uint256(const big_uint256& bigint, uint32_t bigint_id) { this->m_big_uint256[bigint_id] = bigint; }
+    void set_big_uint256(const big_uint256& bigint, uint32_t bigint_id)
+    {
+        // Insert because we cannot use bigfielddyn constructor without parameters
+        this->m_big_uint256.insert_or_assign(bigint_id, bigint);
+    }
 
     big_uint256 uint256(uint32_t bigint_id)
     {
