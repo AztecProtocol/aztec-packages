@@ -17,7 +17,11 @@ import {
 } from '@aztec/circuit-types';
 import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import {
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+} from '@aztec/types/contracts';
 
 import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
 import { DataRetrieval } from '../data_retrieval.js';
@@ -61,6 +65,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private contractClasses: Map<string, ContractClassPublic> = new Map();
 
+  private privateFunctions: Map<string, ExecutablePrivateFunctionWithMembershipProof[]> = new Map();
+
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
   private lastL1BlockNewBlocks: bigint = 0n;
@@ -72,7 +78,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   ) {}
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    return Promise.resolve(this.contractClasses.get(id.toString()));
+    const contractClass = this.contractClasses.get(id.toString());
+    return Promise.resolve(
+      contractClass && {
+        ...contractClass,
+        privateFunctions: this.privateFunctions.get(id.toString()) ?? [],
+      },
+    );
   }
 
   public getContractClassIds(): Promise<Fr[]> {
@@ -81,6 +93,19 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return Promise.resolve(this.contractInstances.get(address.toString()));
+  }
+
+  public addPrivateFunctions(
+    contractClassId: Fr,
+    newPrivateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
+  ): Promise<boolean> {
+    const privateFunctions = this.privateFunctions.get(contractClassId.toString()) ?? [];
+    const updatedPrivateFunctions = [
+      ...privateFunctions,
+      ...newPrivateFunctions.filter(newFn => !privateFunctions.find(f => f.selector.equals(newFn.selector))),
+    ];
+    this.privateFunctions.set(contractClassId.toString(), updatedPrivateFunctions);
+    return Promise.resolve(true);
   }
 
   public addContractClasses(data: ContractClassPublic[], _blockNumber: number): Promise<boolean> {

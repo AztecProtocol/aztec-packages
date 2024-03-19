@@ -1,6 +1,5 @@
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { PartialBy } from '@aztec/foundation/types';
 
 const VERSION = 1 as const;
 
@@ -61,6 +60,28 @@ interface ContractClassCommitments {
 /** A contract class with its precomputed id. */
 export type ContractClassWithId = ContractClass & Pick<ContractClassCommitments, 'id'>;
 
-/** A contract class with public bytecode information only. */
-export type ContractClassPublic = PartialBy<ContractClass, 'privateFunctions'> &
-  Pick<ContractClassCommitments, 'id' | 'privateFunctionsRoot'>;
+/** A contract class with public bytecode information and optional private. */
+export type ContractClassPublic = {
+  privateFunctions: ExecutablePrivateFunctionWithMembershipProof[];
+} & Pick<ContractClassCommitments, 'id' | 'privateFunctionsRoot'> &
+  Omit<ContractClass, 'privateFunctions'>;
+
+/** Private function definition with executable bytecode. */
+export interface ExecutablePrivateFunction extends PrivateFunction {
+  /** ACIR and Brillig bytecode in hex */
+  bytecode: string;
+}
+
+/** Sibling paths and sibling commitments for proving membership of a private function within a contract class. */
+export type PrivateFunctionMembershipProof = {
+  artifactMetadataHash: Fr;
+  functionMetadataHash: Fr;
+  unconstrainedFunctionsArtifactTreeRoot: Fr;
+  privateFunctionTreeSiblingPath: Fr[];
+  privateFunctionTreeLeafIndex: number;
+  artifactTreeSiblingPath: Fr[];
+  artifactTreeLeafIndex: number;
+};
+
+/** A private function with a memebership proof. */
+export type ExecutablePrivateFunctionWithMembershipProof = ExecutablePrivateFunction & PrivateFunctionMembershipProof;

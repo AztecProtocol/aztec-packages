@@ -13,7 +13,11 @@ import {
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { ContractClassRegisteredEvent, FunctionSelector } from '@aztec/circuits.js';
-import { ContractInstanceDeployedEvent } from '@aztec/circuits.js/contract';
+import {
+  ContractInstanceDeployedEvent,
+  PrivateFunctionBroadcastedEvent,
+  isValidPrivateFunctionMembershipProof,
+} from '@aztec/circuits.js/contract';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -28,6 +32,7 @@ import {
   PublicFunction,
 } from '@aztec/types/contracts';
 
+import groupBy from 'lodash.groupby';
 import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
 
 import { ArchiverDataStore } from './archiver_store.js';
@@ -54,11 +59,6 @@ export class Archiver implements ArchiveSource {
    * A promise in which we will be continually fetching new L2 blocks.
    */
   private runningPromise?: RunningPromise;
-
-  /**
-   * Use this to track logged block in order to avoid repeating the same message.
-   */
-  private lastLoggedL1BlockNumber = 0n;
 
   /**
    * Creates a new instance of the Archiver.
@@ -276,6 +276,7 @@ export class Archiver implements ArchiveSource {
           .map(log => UnencryptedL2Log.fromBuffer(log));
         await this.storeRegisteredContractClasses(blockLogs, block.number);
         await this.storeDeployedContractInstances(blockLogs, block.number);
+        await this.storeBroadcastedIndividualFunctions(blockLogs, block.number);
       }),
     );
 
@@ -305,6 +306,28 @@ export class Archiver implements ArchiveSource {
     if (contractInstances.length > 0) {
       contractInstances.forEach(c => this.log(`Storing contract instance at ${c.address.toString()}`));
       await this.store.addContractInstances(contractInstances, blockNum);
+    }
+  }
+
+  private async storeBroadcastedIndividualFunctions(allLogs: UnencryptedL2Log[], _blockNum: number) {
+    const events = PrivateFunctionBroadcastedEvent.fromLogs(allLogs, getCanonicalClassRegistererAddress());
+    for (const [classIdString, classEvents] of Object.entries(groupBy(events, e => e.contractClassId.toString()))) {
+      const contractClassId = Fr.fromString(classIdString);
+      const contractClass = await this.store.getContractClass(contractClassId);
+      if (!contractClass) {
+        this.log.warn(`Skipping private functions as contract class ${contractClassId.toString()} was not found`);
+        continue;
+      }
+      const validFns = classEvents
+        .map(e => e.toExecutableFunctionWithMembershipProof())
+        .filter(fn => isValidPrivateFunctionMembershipProof(fn, contractClass));
+      if (validFns.length !== classEvents.length) {
+        this.log.warn(`Skipping ${classEvents.length - validFns.length} invalid private functions`);
+      }
+      if (validFns.length > 0) {
+        this.log(`Storing ${validFns.length} private functions for contract class ${contractClassId.toString()}`);
+      }
+      await this.store.addPrivateFunctions(contractClassId, validFns);
     }
   }
 
