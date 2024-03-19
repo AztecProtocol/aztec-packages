@@ -12,10 +12,12 @@ import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
 import { BlockBuilder } from '../block_builder/index.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
+import { WorldStatePublicDB } from '../simulator/public_executor.js';
 import { ceilPowerOfTwo } from '../utils.js';
 import { SequencerConfig } from './config.js';
 import { ProcessedTx } from './processed_tx.js';
 import { PublicProcessorFactory } from './public_processor.js';
+import { TxValidator } from './tx_validator.js';
 
 /**
  * Sequencer client
@@ -47,6 +49,7 @@ export class Sequencer {
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private publicProcessorFactory: PublicProcessorFactory,
     config: SequencerConfig = {},
+    private gasPortalAddress = EthAddress.ZERO,
     private log = createDebugLogger('aztec:sequencer'),
   ) {
     this.updateConfig(config);
@@ -171,8 +174,20 @@ export class Sequencer {
       );
 
       // Filter out invalid txs
+      const trees = this.worldState.getLatest();
+      const txValidator = new TxValidator(
+        {
+          getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
+            return trees.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+          },
+        },
+        new WorldStatePublicDB(trees),
+        this.gasPortalAddress,
+        newGlobalVariables,
+      );
+
       // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
-      const validTxs = await this.takeValidTxs(pendingTxs, newGlobalVariables);
+      const validTxs = await this.takeValidTxs(pendingTxs, txValidator);
       if (validTxs.length < this.minTxsPerBLock) {
         return;
       }
@@ -193,7 +208,7 @@ export class Sequencer {
       // public functions emitting nullifiers would pass earlier check but fail here.
       // Note that we're checking all nullifiers generated in the private execution twice,
       // we could store the ones already checked and skip them here as an optimization.
-      const processedValidTxs = await this.takeValidTxs(processedTxs, newGlobalVariables);
+      const processedValidTxs = await this.takeValidTxs(processedTxs, txValidator);
 
       if (processedValidTxs.length === 0) {
         this.log('No txs processed correctly to build block. Exiting');
@@ -202,12 +217,10 @@ export class Sequencer {
 
       await assertBlockHeight();
 
-      const newModelL1ToL2Messages = await this.l1ToL2MessageSource.getNewL1ToL2Messages(BigInt(newBlockNumber));
-
       // Get l1 to l2 messages from the contract
       this.log('Requesting L1 to L2 messages from contract');
-      const l1ToL2Messages = await this.getPendingL1ToL2EntryKeys();
-      this.log('Successfully retrieved L1 to L2 messages from contract');
+      const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(newBlockNumber));
+      this.log(`Retrieved ${l1ToL2Messages.length} L1 to L2 messages for block ${newBlockNumber}`);
 
       // Build the new block by running the rollup circuits
       this.log(`Assembling block with txs ${processedValidTxs.map(tx => tx.hash).join(', ')}`);
@@ -216,7 +229,7 @@ export class Sequencer {
 
       const emptyTx = processor.makeEmptyProcessedTx();
       const [rollupCircuitsDuration, block] = await elapsed(() =>
-        this.buildBlock(processedValidTxs, newModelL1ToL2Messages, l1ToL2Messages, emptyTx, newGlobalVariables),
+        this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables),
       );
 
       this.log(`Assembled block ${block.number}`, {
@@ -253,47 +266,14 @@ export class Sequencer {
     }
   }
 
-  protected async takeValidTxs<T extends Tx | ProcessedTx>(txs: T[], globalVariables: GlobalVariables): Promise<T[]> {
-    const validTxs: T[] = [];
-    const txsToDelete = [];
-    const thisBlockNullifiers: Set<bigint> = new Set();
-
-    // Process txs until we get to maxTxsPerBlock, rejecting double spends in the process
-    for (const tx of txs) {
-      if (tx.data.constants.txContext.chainId.value !== globalVariables.chainId.value) {
-        this.log(
-          `Deleting tx for incorrect chain ${tx.data.constants.txContext.chainId.toString()}, tx hash ${Tx.getHash(
-            tx,
-          )}`,
-        );
-        txsToDelete.push(tx);
-        continue;
-      }
-      if (await this.isTxDoubleSpend(tx)) {
-        this.log(`Deleting double spend tx ${Tx.getHash(tx)}`);
-        txsToDelete.push(tx);
-        continue;
-      } else if (this.isTxDoubleSpendSameBlock(tx, thisBlockNullifiers)) {
-        // We don't drop these txs from the p2p pool immediately since they become valid
-        // again if the current block fails to be published for some reason.
-        this.log(`Skipping tx with double-spend for this same block ${Tx.getHash(tx)}`);
-        continue;
-      }
-
-      tx.data.end.newNullifiers.forEach(n => thisBlockNullifiers.add(n.value.toBigInt()));
-      tx.data.endNonRevertibleData.newNullifiers.forEach(n => thisBlockNullifiers.add(n.value.toBigInt()));
-      validTxs.push(tx);
-      if (validTxs.length >= this.maxTxsPerBlock) {
-        break;
-      }
+  protected async takeValidTxs<T extends Tx | ProcessedTx>(txs: T[], validator: TxValidator): Promise<T[]> {
+    const [valid, invalid] = await validator.validateTxs(txs);
+    if (invalid.length > 0) {
+      this.log(`Dropping invalid txs from the p2p pool ${Tx.getHashes(invalid).join(', ')}`);
+      await this.p2pClient.deleteTxs(Tx.getHashes(invalid));
     }
 
-    // Make sure we remove these from the tx pool so we do not consider it again
-    if (txsToDelete.length > 0) {
-      await this.p2pClient.deleteTxs(Tx.getHashes([...txsToDelete]));
-    }
-
-    return validTxs;
+    return valid.slice(0, this.maxTxsPerBlock);
   }
 
   /**
@@ -314,16 +294,14 @@ export class Sequencer {
   /**
    * Pads the set of txs to a power of two and assembles a block by calling the block builder.
    * @param txs - Processed txs to include in the next block.
-   * @param newModelL1ToL2Messages - L1 to L2 messages emitted by the new inbox.
-   * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
+   * @param l1ToL2Messages - L1 to L2 messages to be part of the block.
    * @param emptyTx - Empty tx to repeat at the end of the block to pad to a power of two.
    * @param globalVariables - Global variables to use in the block.
    * @returns The new block.
    */
   protected async buildBlock(
     txs: ProcessedTx[],
-    newModelL1ToL2Messages: Fr[], // TODO(#4492): Rename this when purging the old inbox
-    newL1ToL2Messages: Fr[], // TODO(#4492): Nuke this when purging the old inbox
+    l1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
     globalVariables: GlobalVariables,
   ) {
@@ -332,74 +310,10 @@ export class Sequencer {
     const emptyTxCount = txsTargetSize - txs.length;
 
     const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
-    this.log(`Building block ${globalVariables.blockNumber}`);
+    this.log(`Building block ${globalVariables.blockNumber.toBigInt()}`);
 
-    const [block] = await this.blockBuilder.buildL2Block(
-      globalVariables,
-      allTxs,
-      newModelL1ToL2Messages,
-      newL1ToL2Messages,
-    );
+    const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, l1ToL2Messages);
     return block;
-  }
-
-  /**
-   * Calls the archiver to pull upto `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` entry keys
-   * (archiver returns the top messages sorted by fees)
-   * @returns An array of L1 to L2 messages' entryKeys
-   */
-  protected async getPendingL1ToL2EntryKeys(): Promise<Fr[]> {
-    return await this.l1ToL2MessageSource.getPendingL1ToL2EntryKeys();
-  }
-
-  /**
-   * Returns true if one of the tx nullifiers exist on the block being built.
-   * @param tx - The tx to test.
-   * @param thisBlockNullifiers - The nullifiers added so far.
-   */
-  protected isTxDoubleSpendSameBlock(tx: Tx | ProcessedTx, thisBlockNullifiers: Set<bigint>): boolean {
-    // We only consider non-empty nullifiers
-    const newNullifiers = [
-      ...tx.data.endNonRevertibleData.newNullifiers.filter(n => !n.isEmpty()),
-      ...tx.data.end.newNullifiers.filter(n => !n.isEmpty()),
-    ];
-
-    for (const nullifier of newNullifiers) {
-      if (thisBlockNullifiers.has(nullifier.value.toBigInt())) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Returns true if one of the transaction nullifiers exist.
-   * Nullifiers prevent double spends in a private context.
-   * @param tx - The transaction.
-   * @returns Whether this is a problematic double spend that the L1 contract would reject.
-   */
-  protected async isTxDoubleSpend(tx: Tx | ProcessedTx): Promise<boolean> {
-    // We only consider non-empty nullifiers
-    const newNullifiers = [
-      ...tx.data.endNonRevertibleData.newNullifiers.filter(n => !n.isEmpty()),
-      ...tx.data.end.newNullifiers.filter(n => !n.isEmpty()),
-    ];
-
-    // Ditch this tx if it has a repeated nullifiers
-    const uniqNullifiers = new Set(newNullifiers.map(n => n.value.toBigInt()));
-    if (uniqNullifiers.size !== newNullifiers.length) {
-      return true;
-    }
-
-    for (const nullifier of newNullifiers) {
-      // TODO(AD): this is an exhaustive search currently
-      const db = this.worldState.getLatest();
-      const indexInDb = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
-      if (indexInDb !== undefined) {
-        return true;
-      }
-    }
-    return false;
   }
 
   get coinbase(): EthAddress {

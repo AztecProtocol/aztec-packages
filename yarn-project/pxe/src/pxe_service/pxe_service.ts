@@ -1,10 +1,6 @@
 import {
   AuthWitness,
   AztecNode,
-  ContractDao,
-  ContractData,
-  DeployedContract,
-  ExtendedContractData,
   ExtendedNote,
   FunctionCall,
   GetUnencryptedLogsResponse,
@@ -35,12 +31,11 @@ import {
   PartialAddress,
   PrivateKernelTailCircuitPublicInputs,
   PublicCallRequest,
-  computeArtifactHash,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { DecodedReturn, encodeArguments } from '@aztec/foundation/abi';
+import { ContractArtifact, DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
@@ -218,36 +213,46 @@ export class PXEService implements PXE {
     return Promise.resolve(recipient);
   }
 
-  public async addContracts(contracts: DeployedContract[]) {
-    const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.instance));
-    await Promise.all(contractDaos.map(c => this.db.addContract(c)));
-    await this.addArtifactsAndInstancesFromDeployedContracts(contracts);
-    for (const contract of contractDaos) {
-      const instance = contract.instance;
-      const contractAztecAddress = instance.address;
-      const hasPortal = instance.portalContractAddress && !instance.portalContractAddress.isZero();
-      const portalInfo = hasPortal ? ` with portal ${instance.portalContractAddress.toChecksumString()}` : '';
-      this.log.info(`Added contract ${contract.name} at ${contractAztecAddress}${portalInfo}`);
-      await this.synchronizer.reprocessDeferredNotesForContract(contractAztecAddress);
-    }
+  public async registerContractClass(artifact: ContractArtifact): Promise<void> {
+    const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+    await this.db.addContractArtifact(contractClassId, artifact);
+    this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
 
-  private async addArtifactsAndInstancesFromDeployedContracts(contracts: DeployedContract[]) {
-    for (const contract of contracts) {
-      const artifact = contract.artifact;
-      const artifactHash = computeArtifactHash(artifact);
-      const contractClassId = computeContractClassId(getContractClassFromArtifact({ ...artifact, artifactHash }));
+  public async registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }) {
+    const { instance } = contract;
+    let { artifact } = contract;
+
+    if (artifact) {
+      // If the user provides an artifact, validate it against the expected class id and register it
+      const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+      if (!contractClassId.equals(instance.contractClassId)) {
+        throw new Error(
+          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
+        );
+      }
       await this.db.addContractArtifact(contractClassId, artifact);
-      await this.db.addContractInstance(contract.instance);
+    } else {
+      // Otherwise, make sure there is an artifact already registered for that class id
+      artifact = await this.db.getContractArtifact(instance.contractClassId);
+      if (!artifact) {
+        throw new Error(
+          `Missing contract artifact for class id ${instance.contractClassId} for contract ${instance.address}`,
+        );
+      }
     }
+
+    this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}`);
+    await this.db.addContractInstance(instance);
+    await this.synchronizer.reprocessDeferredNotesForContract(instance.address);
   }
 
-  public async getContracts(): Promise<AztecAddress[]> {
-    return (await this.db.getContracts()).map(c => c.instance.address);
+  public getContracts(): Promise<AztecAddress[]> {
+    return this.db.getContractsAddresses();
   }
 
   public async getPublicStorageAt(contract: AztecAddress, slot: Fr) {
-    if ((await this.getContractData(contract)) === undefined) {
+    if (!(await this.getContractInstance(contract))) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
     return await this.node.getPublicStorageAt(contract, slot);
@@ -382,9 +387,6 @@ export class PXEService implements PXE {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
     }
-    if (txRequest.functionData.isInternal === undefined) {
-      throw new Error(`Unspecified internal are not allowed`);
-    }
 
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
@@ -441,14 +443,6 @@ export class PXEService implements PXE {
 
   async getBlockNumber(): Promise<number> {
     return await this.node.getBlockNumber();
-  }
-
-  public async getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return await this.node.getExtendedContractData(contractAddress);
-  }
-
-  public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return await this.node.getContractData(contractAddress);
   }
 
   /**
@@ -657,9 +651,13 @@ export class PXEService implements PXE {
         if (contract) {
           err.enrichWithContractName(parsedContractAddress, contract.name);
           selectors.forEach(selector => {
-            const functionArtifact = contract.functions.find(f => f.selector.toString() === selector);
+            const functionArtifact = contract.functions.find(f => FunctionSelector.fromString(selector).equals(f));
             if (functionArtifact) {
-              err.enrichWithFunctionName(parsedContractAddress, functionArtifact.selector, functionArtifact.name);
+              err.enrichWithFunctionName(
+                parsedContractAddress,
+                FunctionSelector.fromNameAndParameters(functionArtifact),
+                functionArtifact.name,
+              );
             }
           });
         }
@@ -748,5 +746,9 @@ export class PXEService implements PXE {
 
   public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
     return !!(await this.node.getContractClass(id));
+  }
+
+  public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
+    return !!(await this.node.getContract(address));
   }
 }

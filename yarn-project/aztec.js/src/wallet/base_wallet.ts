@@ -1,8 +1,5 @@
 import {
   AuthWitness,
-  ContractData,
-  DeployedContract,
-  ExtendedContractData,
   ExtendedNote,
   FunctionCall,
   GetUnencryptedLogsResponse,
@@ -18,11 +15,13 @@ import {
   TxReceipt,
 } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
 import { FeeOptions } from '../account/interface.js';
 import { Wallet } from '../account/wallet.js';
+import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 
 /**
  * A base class for Wallet implementations
@@ -34,8 +33,21 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createTxExecutionRequest(execs: FunctionCall[], fee?: FeeOptions): Promise<TxExecutionRequest>;
 
-  abstract createAuthWitness(message: Fr): Promise<AuthWitness>;
+  abstract createAuthWit(
+    messageHashOrIntent:
+      | Fr
+      | Buffer
+      | {
+          /** The caller to approve  */
+          caller: AztecAddress;
+          /** The action to approve */
+          action: ContractFunctionInteraction | FunctionCall;
+        },
+  ): Promise<AuthWitness>;
 
+  getAddress() {
+    return this.getCompleteAddress().address;
+  }
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.pxe.getContractInstance(address);
   }
@@ -63,8 +75,14 @@ export abstract class BaseWallet implements Wallet {
   getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
     return this.pxe.getRecipient(address);
   }
-  addContracts(contracts: DeployedContract[]): Promise<void> {
-    return this.pxe.addContracts(contracts);
+  registerContract(contract: {
+    /** Instance */ instance: ContractInstanceWithAddress;
+    /** Associated artifact */ artifact?: ContractArtifact;
+  }): Promise<void> {
+    return this.pxe.registerContract(contract);
+  }
+  registerContractClass(artifact: ContractArtifact): Promise<void> {
+    return this.pxe.registerContractClass(artifact);
   }
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
@@ -100,12 +118,6 @@ export abstract class BaseWallet implements Wallet {
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress | undefined): Promise<any> {
     return this.pxe.viewTx(functionName, args, to, from);
   }
-  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return this.pxe.getExtendedContractData(contractAddress);
-  }
-  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return this.pxe.getContractData(contractAddress);
-  }
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.pxe.getUnencryptedLogs(filter);
   }
@@ -129,5 +141,8 @@ export abstract class BaseWallet implements Wallet {
   }
   isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
     return this.pxe.isContractClassPubliclyRegistered(id);
+  }
+  isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
+    return this.pxe.isContractPubliclyDeployed(address);
   }
 }

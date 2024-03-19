@@ -66,7 +66,11 @@ pub async fn execute_circuit_with_black_box_solver(
     console_error_panic_hook::set_once();
     let program: Program = Program::deserialize_program(&program)
         .map_err(|_| JsExecutionError::new("Failed to deserialize circuit. This is likely due to differing serialization formats between ACVM_JS and your compiler".to_string(), None))?;
-    let circuit = &program.functions[0];
+    let circuit = match program.functions.len() {
+        0 => return Ok(initial_witness),
+        1 => &program.functions[0],
+        _ => return Err(JsExecutionError::new("Program contains multiple circuits however ACVM currently only supports programs containing a single circuit".to_string(), None).into())
+    };
 
     let mut acvm = ACVM::new(&solver.0, &circuit.opcodes, initial_witness.into());
 
