@@ -96,7 +96,7 @@ contract RollupTest is DecoderBase {
 
     uint256 ts = block.timestamp + 1;
     assembly {
-      mstore(add(header, add(0x20, 0x0191)), ts)
+      mstore(add(header, add(0x20, 0x0194)), ts)
     }
 
     availabilityOracle.publish(body);
