@@ -1067,6 +1067,7 @@ export function makeRootRollupPublicInputs(
     aggregationObject: makeAggregationObject(seed),
     archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
     header: makeHeader(seed + 0x200, blockNumber),
+    l1ToL2MessagesHash: [new Fr(3n), new Fr(4n)],
   });
 }
 

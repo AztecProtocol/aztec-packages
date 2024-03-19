@@ -6,6 +6,7 @@ import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
 import { AggregationObject } from '../aggregation_object.js';
 import { Header } from '../header.js';
@@ -84,10 +85,12 @@ export class RootRollupPublicInputs {
     public archive: AppendOnlyTreeSnapshot,
     /** A header of an L2 block. */
     public header: Header,
+    /** Hash of the L1 to L2 messages. */
+    public l1ToL2MessagesHash: [Fr, Fr],
   ) {}
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
-    return [fields.aggregationObject, fields.archive, fields.header] as const;
+    return [fields.aggregationObject, fields.archive, fields.header, fields.l1ToL2MessagesHash] as const;
   }
 
   toBuffer() {
@@ -109,6 +112,7 @@ export class RootRollupPublicInputs {
       reader.readObject(AggregationObject),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(Header),
+      reader.readArray(NUM_FIELDS_PER_SHA256, Fr) as [Fr, Fr],
     );
   }
 }
