@@ -1,6 +1,11 @@
+FROM aztecprotocol/barretenberg-x86_64-linux-clang-assert as bb
+
 FROM rust:bullseye
+COPY --from=bb /usr/src/barretenberg/cpp/build /usr/src/barretenberg/cpp/build
+
 ARG COMMIT_HASH
 ENV COMMIT_HASH=${COMMIT_HASH}
+ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/cpp/build/bin/bb
 RUN apt update && apt install -y libc++1
 WORKDIR /usr/src/noir
 COPY . .
