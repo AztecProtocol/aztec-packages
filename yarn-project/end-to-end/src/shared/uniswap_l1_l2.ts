@@ -22,9 +22,7 @@ import {
   PublicClient,
   WalletClient,
   decodeEventLog,
-  getAddress,
   getContract,
-  getFunctionSelector,
   parseEther,
   toFunctionSelector,
 } from 'viem';
@@ -513,7 +511,7 @@ export const uniswapL1L2TestSuite = (
       const withdrawContent = Fr.fromBufferReduce(
         sha256(
           Buffer.concat([
-            Buffer.from(getFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
+            Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
             uniswapPortalAddress.toBuffer32(),
             new Fr(wethAmountToBridge).toBuffer(),
             uniswapPortalAddress.toBuffer32(),
@@ -848,7 +846,7 @@ export const uniswapL1L2TestSuite = (
         sha256(
           Buffer.concat([
             Buffer.from(
-              getFunctionSelector(
+              toFunctionSelector(
                 'swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address)',
               ).substring(2),
               'hex',
@@ -880,7 +878,7 @@ export const uniswapL1L2TestSuite = (
       const withdrawContent = Fr.fromBufferReduce(
         sha256(
           Buffer.concat([
-            Buffer.from(getFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
+            Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
             uniswapPortalAddress.toBuffer32(),
             new Fr(wethAmountToBridge).toBuffer(),
             uniswapPortalAddress.toBuffer32(),
@@ -985,7 +983,7 @@ export const uniswapL1L2TestSuite = (
         sha256(
           Buffer.concat([
             Buffer.from(
-              getFunctionSelector(
+              toFunctionSelector(
                 'swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)',
               ).substring(2),
               'hex',
@@ -1017,7 +1015,7 @@ export const uniswapL1L2TestSuite = (
       const withdrawContent = Fr.fromBufferReduce(
         sha256(
           Buffer.concat([
-            Buffer.from(getFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
+            Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
             uniswapPortalAddress.toBuffer32(),
             new Fr(wethAmountToBridge).toBuffer(),
             uniswapPortalAddress.toBuffer32(),
