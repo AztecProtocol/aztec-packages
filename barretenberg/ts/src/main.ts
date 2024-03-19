@@ -71,6 +71,13 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
   return { api, acirComposer, circuitSize, subgroupSize };
 }
 
+async function initHonk(bytecodePath: string, crsPath: string) {
+  const initData = await init(bytecodePath, crsPath);
+  const { api } = initData;
+  initData.acirComposer = await api.acirNewHonkAcirComposer();
+  return initData;
+}
+
 async function initGoblin(bytecodePath: string, crsPath: string) {
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove this subgroup size hack
   const hardcodedGrumpkinSubgroupSizeHack = 262144;
@@ -129,20 +136,20 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
   /* eslint-enable camelcase */
 }
 
-export async function accumulateAndVerifyGoblin(bytecodePath: string, witnessPath: string, crsPath: string) {
+export async function proveAndVerifyHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
   const acir_test = path.basename(process.cwd());
 
   const { api, acirComposer, circuitSize, subgroupSize } = await initGoblin(bytecodePath, crsPath);
   try {
-    debug(`In accumulateAndVerifyGoblin:`);
+    debug(`In proveAndVerifyHonk:`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
 
     writeBenchmark('gate_count', circuitSize, { acir_test, threads });
     writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
 
-    debug(`acirGoblinAccumulate()`);
+    debug(`prove()`);
     const proofTimer = new Timer();
     const proof = await api.acirGoblinAccumulate(acirComposer, bytecode, witness);
     writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
@@ -380,13 +387,13 @@ program
   });
 
 program
-  .command('accumulate_and_verify_goblin')
+  .command('prove_and_verify_honk')
   .description('Generate a GUH proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
-    const result = await accumulateAndVerifyGoblin(bytecodePath, witnessPath, crsPath);
+    const result = await proveAndVerifyHonk(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 
