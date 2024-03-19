@@ -110,7 +110,7 @@ describe('e2e_public_cross_chain_messaging', () => {
       l2Bridge.address,
       l2Token.methods.burn_public(ownerAddress, withdrawAmount, nonce).request(),
     );
-    await user1Wallet.setPublicAuth(burnMessageHash, true).send().wait();
+    await user1Wallet.setPublicAuthWit(burnMessageHash, true).send().wait();
 
     // 5. Withdraw owner's funds from L2 to L1
     const entryKey = await crossChainTestHarness.checkEntryIsNotInOutbox(withdrawAmount);
@@ -212,7 +212,7 @@ describe('e2e_public_cross_chain_messaging', () => {
 
     await expect(
       l2Bridge.withWallet(user2Wallet).methods.claim_private(secretHash, bridgeAmount, secret).simulate(),
-    ).rejects.toThrow(`L1 to L2 message index not found in the store for message ${wrongMessage.hash().toString()}`);
+    ).rejects.toThrow(`No L1 to L2 message found for entry key ${wrongMessage.hash().toString()}`);
   }, 60_000);
 
   // Note: We register one portal address when deploying contract but that address is no-longer the only address
