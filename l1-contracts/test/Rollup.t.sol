@@ -141,7 +141,6 @@ contract RollupTest is DecoderBase {
     assertEq(inbox.toConsume(), toConsume + 1, "Message subtree not consumed");
 
     bytes32 l2ToL1MessageTreeRoot;
-
     {
       uint256 treeHeight =
         MerkleLib.calculateTreeHeightFromSize(full.messages.l2ToL1Messages.length);

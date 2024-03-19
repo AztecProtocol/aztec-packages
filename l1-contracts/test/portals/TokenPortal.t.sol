@@ -26,7 +26,6 @@ contract TokenPortalTest is Test {
 
   uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
 
-  event LeafInserted(uint256 indexed blockNumber, uint256 index, bytes32 value);
   event MessageConsumed(bytes32 indexed entryKey, address indexed recipient);
 
   Registry internal registry;
@@ -115,7 +114,7 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit LeafInserted(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    emit IInbox.LeafInserted(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
     // event we will get
 
     // Perform op
@@ -140,7 +139,7 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit LeafInserted(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    emit IInbox.LeafInserted(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
 
     // Perform op
     bytes32 leaf = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);
