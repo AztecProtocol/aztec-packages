@@ -897,7 +897,7 @@ impl<'a> Resolver<'a> {
         let name_ident = HirIdent::non_trait_method(id, location);
 
         let attributes = func.attributes().clone();
-        
+
         let mut generics = vecmap(&self.generics, |(_, typevar, _)| typevar.clone());
         let mut parameters = vec![];
         let mut parameter_types = vec![];
@@ -977,7 +977,10 @@ impl<'a> Resolver<'a> {
             .map(|(name, typevar, _span)| (name.clone(), typevar.clone()))
             .collect();
 
-        let should_inline = attributes.function.as_ref().map_or(true, |func_attribute| !func_attribute.is_foldable());
+        let should_inline = attributes
+            .function
+            .as_ref()
+            .map_or(true, |func_attribute| !func_attribute.is_foldable());
         if func.name() == "basic_func" {
             dbg!(attributes.clone());
         }

@@ -48,7 +48,8 @@ impl Ssa {
 
             // This check is always true with the addition of the above guard, but I'm
             // keeping it in case the guard on brillig functions is ever removed.
-            let abort_on_error = function.runtime() == RuntimeType::Acir;
+            let abort_on_error =
+                if let RuntimeType::Acir(_) = function.runtime() { true } else { false };
             find_all_loops(function).unroll_each_loop(function, abort_on_error)?;
         }
         Ok(self)
@@ -464,7 +465,12 @@ impl<'f> LoopIteration<'f> {
 mod tests {
     use crate::ssa::{
         function_builder::FunctionBuilder,
-        ir::{function::RuntimeType, instruction::BinaryOp, map::Id, types::Type},
+        ir::{
+            function::{InlineType, RuntimeType},
+            instruction::BinaryOp,
+            map::Id,
+            types::Type,
+        },
     };
 
     #[test]
@@ -503,7 +509,8 @@ mod tests {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir, false);
+        let mut builder =
+            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
 
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();
@@ -605,7 +612,8 @@ mod tests {
         //     return Field 0
         // }
         let main_id = Id::test_new(0);
-        let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir, false);
+        let mut builder =
+            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
 
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();

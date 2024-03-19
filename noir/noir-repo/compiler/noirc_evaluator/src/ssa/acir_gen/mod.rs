@@ -25,6 +25,7 @@ use crate::brillig::brillig_ir::artifact::GeneratedBrillig;
 use crate::brillig::brillig_ir::BrilligContext;
 use crate::brillig::{brillig_gen::brillig_fn::FunctionContext as BrilligFunctionContext, Brillig};
 use crate::errors::{InternalError, InternalWarning, RuntimeError, SsaReport};
+use crate::ssa::ir::function::InlineType;
 pub(crate) use acir_ir::generated_acir::GeneratedAcir;
 
 use acvm::acir::native_types::Witness;
@@ -181,28 +182,46 @@ impl Ssa {
         brillig: Brillig,
         abi_distinctness: Distinctness,
         last_array_uses: &HashMap<ValueId, InstructionId>,
-    ) -> Result<GeneratedAcir, RuntimeError> {
-        let context = Context::new();
-        let mut generated_acir = context.convert_ssa(self, brillig, last_array_uses)?;
+    ) -> Result<Vec<GeneratedAcir>, RuntimeError> {
+        // let x = ssa.functions.iter().enumerate().map(|(i, (id, _))| {
+        //     ssa.id_to_index.insert(*id, *i);
+        // });
+
+        let mut acirs = Vec::new();
+        for (_, function) in &self.functions {
+            let context = Context::new();
+            let generated_acir =
+                context.convert_ssa_function(&self, function, &brillig, last_array_uses)?;
+
+            acirs.push(generated_acir);
+        }
+        // dbg!(acirs.clone());
+        // TODO: check wheter doing this for a single circuit's return witnessese is correct.
+        // We may need it for all foldable circuits, as any circuit being folded is essentially an entry point. However, I do not know how that
+        // plays a part when we potentially want not inlined functions normally as part of the compiler.
+        let main_func_acir = &mut acirs[0];
+        // Previous code
+        // let mut context = Context::new();
+        // let mut generated_acir = context.convert_ssa(self, brillig, last_array_uses)?;
 
         match abi_distinctness {
             Distinctness::Distinct => {
                 // Create a witness for each return witness we have
                 // to guarantee that the return witnesses are distinct
-                let distinct_return_witness: Vec<_> = generated_acir
+                let distinct_return_witness: Vec<_> = main_func_acir
                     .return_witnesses
                     .clone()
                     .into_iter()
                     .map(|return_witness| {
-                        generated_acir
+                        main_func_acir
                             .create_witness_for_expression(&Expression::from(return_witness))
                     })
                     .collect();
 
-                generated_acir.return_witnesses = distinct_return_witness;
-                Ok(generated_acir)
+                main_func_acir.return_witnesses = distinct_return_witness;
+                Ok(acirs)
             }
-            Distinctness::DuplicationAllowed => Ok(generated_acir),
+            Distinctness::DuplicationAllowed => Ok(acirs),
         }
     }
 }
@@ -225,17 +244,49 @@ impl Context {
         }
     }
 
-    /// Converts SSA into ACIR
-    fn convert_ssa(
+    // /// Converts SSA into ACIR
+    // fn convert_ssa(
+    //     &mut self,
+    //     ssa: Ssa,
+    //     brillig: Brillig,
+    //     last_array_uses: &HashMap<ValueId, InstructionId>,
+    // ) -> Result<GeneratedAcir, RuntimeError> {
+    // let mut acirs = Vec::new();
+    // for (id, function) in &ssa.functions {
+    //     let x = match function.runtime() {
+    //         RuntimeType::Acir(_) => {
+    //             // TODO: remove this brillig clone
+    //             self.convert_acir_main(function, &ssa, &brillig, last_array_uses)
+    //         }
+    //         RuntimeType::Brillig => {
+    //             self.convert_brillig_main(function, &brillig)
+    //         }
+    //     };
+    //     // println!("acir for {id}: {}",);
+    //     println!("acir for {id}");
+    //     dbg!(x.clone());
+    //     acirs.push(x);
+    // }
+    // acirs[0].clone()
+    //     // let main_func = ssa.main();
+    //     // match main_func.runtime() {
+    //     //     // TODO: hanlde this shit
+    //     //     RuntimeType::Acir(_) => self.convert_acir_main(main_func, &ssa, &brillig, last_array_uses),
+    //     //     RuntimeType::Brillig => self.convert_brillig_main(main_func, &brillig),
+    //     // }
+    // }
+
+    fn convert_ssa_function(
         self,
-        ssa: Ssa,
-        brillig: Brillig,
+        ssa: &Ssa,
+        function: &Function,
+        brillig: &Brillig,
         last_array_uses: &HashMap<ValueId, InstructionId>,
     ) -> Result<GeneratedAcir, RuntimeError> {
-        let main_func = ssa.main();
-        match main_func.runtime() {
-            RuntimeType::Acir => self.convert_acir_main(main_func, &ssa, brillig, last_array_uses),
-            RuntimeType::Brillig => self.convert_brillig_main(main_func, brillig),
+        match function.runtime() {
+            // TODO: hanlde this shit
+            RuntimeType::Acir(_) => self.convert_acir_main(function, ssa, brillig, last_array_uses),
+            RuntimeType::Brillig => self.convert_brillig_main(function, brillig),
         }
     }
 
@@ -243,7 +294,7 @@ impl Context {
         mut self,
         main_func: &Function,
         ssa: &Ssa,
-        brillig: Brillig,
+        brillig: &Brillig,
         last_array_uses: &HashMap<ValueId, InstructionId>,
     ) -> Result<GeneratedAcir, RuntimeError> {
         let dfg = &main_func.dfg;
@@ -257,7 +308,7 @@ impl Context {
                 *instruction_id,
                 dfg,
                 ssa,
-                &brillig,
+                brillig,
                 last_array_uses,
             )?);
         }
@@ -269,7 +320,7 @@ impl Context {
     fn convert_brillig_main(
         mut self,
         main_func: &Function,
-        brillig: Brillig,
+        brillig: &Brillig,
     ) -> Result<GeneratedAcir, RuntimeError> {
         let dfg = &main_func.dfg;
 
@@ -282,7 +333,7 @@ impl Context {
         let outputs: Vec<AcirType> =
             vecmap(main_func.returns(), |result_id| dfg.type_of_value(*result_id).into());
 
-        let code = self.gen_brillig_for(main_func, &brillig)?;
+        let code = self.gen_brillig_for(main_func, brillig)?;
 
         // We specifically do not attempt execution of the brillig code being generated as this can result in it being
         // replaced with constraints on witnesses to the program outputs.
@@ -537,15 +588,34 @@ impl Context {
                     Value::Function(id) => {
                         let func = &ssa.functions[id];
                         match func.runtime() {
-                            RuntimeType::Acir => unimplemented!(
-                                "expected an intrinsic/brillig call, but found {func:?}. All ACIR methods should be inlined"
-                            ),
+                            RuntimeType::Acir(inline_type) => {
+                                assert!(!matches!(inline_type, InlineType::Inline), "ICE: Got an ACIR function named {} that should have already been inlined", func.name());
+
+                                let inputs = vecmap(arguments, |arg| self.convert_value(*arg, dfg));
+                                let output_count = result_ids.iter().fold(0usize, |sum, result_id| {
+                                    sum + dfg.try_get_array_length(*result_id).expect("ICE: need to implement returning slices from folded functions")
+                                });
+
+                                let final_program_id = ssa
+                                    .id_to_index
+                                    .get(id)
+                                    .expect("ICE: should have an associated final index");
+                                self.acir_context.call_acir_function(
+                                    *final_program_id,
+                                    inputs,
+                                    output_count,
+                                )?;
+                            }
                             RuntimeType::Brillig => {
-                                // Check that we are not attempting to return a slice from 
+                                // Check that we are not attempting to return a slice from
                                 // an unconstrained runtime to a constrained runtime
                                 for result_id in result_ids {
                                     if dfg.type_of_value(*result_id).contains_slice_element() {
-                                        return Err(RuntimeError::UnconstrainedSliceReturnToConstrained { call_stack: self.acir_context.get_call_stack() })
+                                        return Err(
+                                            RuntimeError::UnconstrainedSliceReturnToConstrained {
+                                                call_stack: self.acir_context.get_call_stack(),
+                                            },
+                                        );
                                     }
                                 }
 
@@ -553,9 +623,18 @@ impl Context {
 
                                 let code = self.gen_brillig_for(func, brillig)?;
 
-                                let outputs: Vec<AcirType> = vecmap(result_ids, |result_id| dfg.type_of_value(*result_id).into());
+                                let outputs: Vec<AcirType> = vecmap(result_ids, |result_id| {
+                                    dfg.type_of_value(*result_id).into()
+                                });
 
-                                let output_values = self.acir_context.brillig(self.current_side_effects_enabled_var, code, inputs, outputs, true, false)?;
+                                let output_values = self.acir_context.brillig(
+                                    self.current_side_effects_enabled_var,
+                                    code,
+                                    inputs,
+                                    outputs,
+                                    true,
+                                    false,
+                                )?;
 
                                 // Compiler sanity check
                                 assert_eq!(result_ids.len(), output_values.len(), "ICE: The number of Brillig output values should match the result ids in SSA");
@@ -565,7 +644,11 @@ impl Context {
                                         let array_id = dfg.resolve(*result.0);
                                         let block_id = self.block_id(&array_id);
                                         let array_typ = dfg.type_of_value(array_id);
-                                        self.initialize_array(block_id, array_typ.flattened_size(), Some(result.1.clone()))?;
+                                        self.initialize_array(
+                                            block_id,
+                                            array_typ.flattened_size(),
+                                            Some(result.1.clone()),
+                                        )?;
                                     }
                                     self.ssa_values.insert(*result.0, result.1);
                                 }
@@ -2274,4 +2357,130 @@ fn can_omit_element_sizes_array(array_typ: &Type) -> bool {
     };
 
     !types.iter().any(|typ| typ.contains_an_array())
+}
+
+#[cfg(test)]
+mod test {
+    use acvm::acir::{circuit::Opcode, native_types::Witness};
+
+    use crate::{
+        brillig::Brillig,
+        ssa::{
+            function_builder::FunctionBuilder,
+            ir::{
+                function::{InlineType, RuntimeType},
+                instruction::BinaryOp,
+                map::Id,
+                types::Type,
+            },
+        },
+    };
+    use fxhash::FxHashMap as HashMap;
+
+    #[test]
+    fn basic_call_codegen() {
+        // acir(inline) fn main f0 {
+        // b0(v0: Field, v1: Field):
+        //     call f1(v0, v1)
+        //     call f1(v0, v1)
+        //     return
+        // }
+        // acir(fold) fn foo f1 {
+        // b0(v0: Field, v1: Field):
+        //     v13 = eq v0, v1
+        //     constrain v13 == u1 0
+        //     return
+        // }
+
+        let foo_id = Id::test_new(0);
+        let mut builder =
+            FunctionBuilder::new("main".into(), foo_id, RuntimeType::Acir(InlineType::default()));
+        let main_v0 = builder.add_parameter(Type::field());
+        let main_v1 = builder.add_parameter(Type::field());
+
+        let foo_id = Id::test_new(1);
+        let foo = builder.import_function(foo_id);
+        builder.insert_call(foo, vec![main_v0, main_v1], vec![]).to_vec();
+        builder.insert_call(foo, vec![main_v0, main_v1], vec![]).to_vec();
+        builder.terminate_with_return(vec![]);
+
+        builder.new_function("foo".into(), foo_id, InlineType::Fold);
+        let foo_v0 = builder.add_parameter(Type::field());
+        let foo_v1 = builder.add_parameter(Type::field());
+
+        let foo_equality_check = builder.insert_binary(foo_v0, BinaryOp::Eq, foo_v1);
+        let zero = builder.field_constant(0u128);
+        builder.insert_constrain(foo_equality_check, zero, None);
+        builder.terminate_with_return(vec![]);
+
+        let ssa = builder.finish();
+
+        let acir_functions = ssa
+            .into_acir(
+                Brillig::default(),
+                noirc_frontend::Distinctness::Distinct,
+                &HashMap::default(),
+            )
+            .expect("Should compile manually written SSA into ACIR");
+        // Expected result:
+        // main f0
+        // GeneratedAcir {
+        //     ...
+        //     opcodes: [
+        //         CALL func 1: inputs: [Witness(0), Witness(1)], outputs: [],
+        //         CALL func 1: inputs: [Witness(0), Witness(1)], outputs: [],
+        //     ],
+        //     return_witnesses: [],
+        //     input_witnesses: [
+        //         Witness(
+        //             0,
+        //         ),
+        //         Witness(
+        //             1,
+        //         ),
+        //     ],
+        //     ...
+        // }
+        // foo f1
+        // GeneratedAcir {
+        //     ...
+        //     opcodes: [
+        //         EXPR [ (-1, _0) (1, _1) (-1, _2) 0 ],
+        //         BRILLIG: inputs: [Single(Expression { mul_terms: [], linear_combinations: [(1, Witness(2))], q_c: 0 })]
+        //         outputs: [Simple(Witness(3))]
+        //         [Brillig opcodes...]
+        //         EXPR [ (1, _2, _3) (1, _4) -1 ],
+        //         EXPR [ (1, _2, _4) 0 ],
+        //         EXPR [ (1, _4) 0 ],
+        //     ],
+        //     return_witnesses: [],
+        //     input_witnesses: [
+        //         Witness(
+        //             0,
+        //         ),
+        //         Witness(
+        //             1,
+        //         ),
+        //     ],
+        //     ...
+        // }
+
+        let main = &acir_functions[0];
+        assert_eq!(main.opcodes().len(), 2, "Should have two calls to `foo`");
+        for opcode in main.opcodes() {
+            match opcode {
+                Opcode::Call { id, inputs, outputs } => {
+                    assert_eq!(*id, 1, "Main was expected to call the same function");
+                    assert_eq!(inputs[0], Witness(0), "First input was not the first witness");
+                    assert_eq!(inputs[1], Witness(1), "Second input was not the second witness");
+                    assert!(outputs.is_empty(), "Expected `foo` to return nothing");
+                }
+                _ => panic!("Expected only Call opcodes in main"),
+            }
+        }
+
+        let foo = &acir_functions[1];
+        assert_eq!(foo.input_witnesses[0], Witness(0), "First input was not the first witness");
+        assert_eq!(foo.input_witnesses[1], Witness(1), "Second input was not the second witness");
+    }
 }

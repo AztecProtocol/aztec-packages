@@ -17,7 +17,7 @@ use super::{
     ir::{
         basic_block::BasicBlock,
         dfg::{CallStack, InsertInstructionResult},
-        function::RuntimeType,
+        function::{InlineType, RuntimeType},
         instruction::{ConstrainError, InstructionId, Intrinsic},
     },
     ssa_gen::Ssa,
@@ -46,10 +46,10 @@ impl FunctionBuilder {
         function_name: String,
         function_id: FunctionId,
         runtime: RuntimeType,
-        should_fold: bool,
     ) -> Self {
-        let mut new_function = Function::new(function_name, function_id, should_fold);
+        let mut new_function = Function::new(function_name, function_id);
         new_function.set_runtime(runtime);
+
         let current_block = new_function.entry_block();
 
         Self {
@@ -70,9 +70,8 @@ impl FunctionBuilder {
         name: String,
         function_id: FunctionId,
         runtime_type: RuntimeType,
-        should_fold: bool,
     ) {
-        let mut new_function = Function::new(name, function_id, should_fold);
+        let mut new_function = Function::new(name, function_id);
         new_function.set_runtime(runtime_type);
         self.current_block = new_function.entry_block();
 
@@ -81,13 +80,18 @@ impl FunctionBuilder {
     }
 
     /// Finish the current function and create a new ACIR function.
-    pub(crate) fn new_function(&mut self, name: String, function_id: FunctionId, should_fold: bool,) {
-        self.new_function_with_type(name, function_id, RuntimeType::Acir, should_fold);
+    pub(crate) fn new_function(
+        &mut self,
+        name: String,
+        function_id: FunctionId,
+        inline_type: InlineType,
+    ) {
+        self.new_function_with_type(name, function_id, RuntimeType::Acir(inline_type));
     }
 
     /// Finish the current function and create a new unconstrained function.
     pub(crate) fn new_brillig_function(&mut self, name: String, function_id: FunctionId) {
-        self.new_function_with_type(name, function_id, RuntimeType::Brillig, false);
+        self.new_function_with_type(name, function_id, RuntimeType::Brillig);
     }
 
     /// Consume the FunctionBuilder returning all the functions it has generated.
@@ -450,7 +454,7 @@ mod tests {
     use acvm::FieldElement;
 
     use crate::ssa::ir::{
-        function::RuntimeType,
+        function::{InlineType, RuntimeType},
         instruction::{Endian, Intrinsic},
         map::Id,
         types::Type,
@@ -465,7 +469,8 @@ mod tests {
         // let x = 7;
         // let bits = x.to_le_bits(8);
         let func_id = Id::test_new(0);
-        let mut builder = FunctionBuilder::new("func".into(), func_id, RuntimeType::Acir, false);
+        let mut builder =
+            FunctionBuilder::new("func".into(), func_id, RuntimeType::Acir(InlineType::default()));
         let one = builder.numeric_constant(FieldElement::one(), Type::bool());
         let zero = builder.numeric_constant(FieldElement::zero(), Type::bool());
 

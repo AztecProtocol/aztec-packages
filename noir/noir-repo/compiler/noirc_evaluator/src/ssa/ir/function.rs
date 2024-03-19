@@ -12,18 +12,26 @@ use super::value::ValueId;
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub(crate) enum RuntimeType {
     // A noir function, to be compiled in ACIR and executed by ACVM
-    Acir,
+    Acir(InlineType),
     // Unconstrained function, to be compiled to brillig and executed by the Brillig VM
     Brillig,
 }
 
+/// Represents how a RuntimeType::Acir function should be inlined.
+/// This type is only relevant for ACIR functions as we do not inline any Brillig functions
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub(crate) enum InlineType {
-    /// The most basic entry point can expect all its functions to be inlined. 
+    /// The most basic entry point can expect all its functions to be inlined.
     /// All function calls are expected to be inlined into a single ACIR.
     Inline,
     /// Functions marked as foldable will not be inlined and compiled separately into ACIR
     Fold,
+}
+
+impl Default for InlineType {
+    fn default() -> Self {
+        InlineType::Inline
+    }
 }
 
 /// A function holds a list of instructions.
@@ -44,10 +52,6 @@ pub(crate) struct Function {
 
     runtime: RuntimeType,
 
-    /// Represents how an ACIR function should be inlined.
-    /// This type should only be accessed when operating on a function of RuntimeType::Acir
-    inline_type: InlineType,
-
     /// The DataFlowGraph holds the majority of data pertaining to the function
     /// including its blocks, instructions, and values.
     pub(crate) dfg: DataFlowGraph,
@@ -60,7 +64,7 @@ impl Function {
     pub(crate) fn new(name: String, id: FunctionId) -> Self {
         let mut dfg = DataFlowGraph::default();
         let entry_block = dfg.make_block();
-        Self { name, id, entry_block, dfg, runtime: RuntimeType::Acir, inline_type: InlineType::Inline }
+        Self { name, id, entry_block, dfg, runtime: RuntimeType::Acir(InlineType::default()) }
     }
 
     /// The name of the function.
@@ -84,13 +88,18 @@ impl Function {
         self.runtime = runtime;
     }
 
-    pub(crate) fn inline_type(&self) -> InlineType {
-        assert!(matches!(self.runtime, RuntimeType::Acir), "ICE: We should only check the inline type for ACIR functions. All Brillig functions are expected to not be inlined");
-        self.inline_type
+    pub(crate) fn inline_type(&self) -> Option<InlineType> {
+        if let RuntimeType::Acir(inline_type) = self.runtime {
+            Some(inline_type)
+        } else {
+            None
+        }
     }
 
     pub(crate) fn set_inline_type(&mut self, inline_type: InlineType) {
-        self.inline_type = inline_type
+        if let RuntimeType::Acir(old_inline_type) = &mut self.runtime {
+            *old_inline_type = inline_type;
+        }
     }
 
     /// Retrieves the entry block of a function.
@@ -151,8 +160,17 @@ impl Function {
 impl std::fmt::Display for RuntimeType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RuntimeType::Acir => write!(f, "acir"),
+            RuntimeType::Acir(inline_type) => write!(f, "acir({inline_type})"),
             RuntimeType::Brillig => write!(f, "brillig"),
+        }
+    }
+}
+
+impl std::fmt::Display for InlineType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InlineType::Inline => write!(f, "inline"),
+            InlineType::Fold => write!(f, "fold"),
         }
     }
 }

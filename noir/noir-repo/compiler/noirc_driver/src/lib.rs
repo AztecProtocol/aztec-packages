@@ -10,6 +10,7 @@ use iter_extended::vecmap;
 use noirc_abi::{AbiParameter, AbiType, ContractEvent};
 use noirc_errors::{CustomDiagnostic, FileDiagnostic};
 use noirc_evaluator::create_circuit;
+use noirc_evaluator::create_program;
 use noirc_evaluator::errors::RuntimeError;
 use noirc_frontend::debug::build_debug_crate_file;
 use noirc_frontend::graph::{CrateId, CrateName};
@@ -290,7 +291,8 @@ pub fn compile_main(
         compile_no_check(context, options, main, cached_program, options.force_compile)
             .map_err(FileDiagnostic::from)?;
 
-    let compilation_warnings = vecmap(compiled_program.warnings.clone(), FileDiagnostic::from);
+    let compilation_warnings =
+        vecmap(compiled_program.warnings.clone(), |warnings| FileDiagnostic::from(warnings));
     if options.deny_warnings && !compilation_warnings.is_empty() {
         return Err(compilation_warnings);
     }
@@ -478,21 +480,26 @@ pub fn compile_no_check(
         return Ok(cached_program.expect("cache must exist for hashes to match"));
     }
     let visibility = program.return_visibility;
-    let (circuit, debug, input_witnesses, return_witnesses, warnings) =
-        create_circuit(program, options.show_ssa, options.show_brillig, options.force_brillig)?;
+    // let (circuit, debug, input_witnesses, return_witnesses, warnings) =
+    // create_circuit(program, options.show_ssa, options.show_brillig, options.force_brillig)?;
+
+    let (program, debug, warnings, input_witnesses, return_witnesses) =
+        create_program(program, options.show_ssa, options.show_brillig, options.force_brillig)?;
 
     let abi =
         abi_gen::gen_abi(context, &main_function, input_witnesses, return_witnesses, visibility);
-    let file_map = filter_relevant_files(&[debug.clone()], &context.file_manager);
+    // let file_map = filter_relevant_files(&[debug.clone()], &context.file_manager);
+    let file_map = filter_relevant_files(&debug, &context.file_manager);
 
     Ok(CompiledProgram {
         hash,
         // TODO(https://github.com/noir-lang/noir/issues/4428)
-        program: Program { functions: vec![circuit] },
-        debug,
+        program,
+        // TODO(https://github.com/noir-lang/noir/issues/4428)
+        debug: debug[0].clone(),
         abi,
         file_map,
         noir_version: NOIR_ARTIFACT_VERSION_STRING.to_string(),
-        warnings,
+        warnings: warnings[0].clone(),
     })
 }

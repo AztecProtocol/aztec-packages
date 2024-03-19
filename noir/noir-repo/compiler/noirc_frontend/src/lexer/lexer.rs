@@ -733,10 +733,7 @@ mod tests {
         let mut lexer = Lexer::new(input);
         let token = lexer.next_token().unwrap();
 
-        assert_eq!(
-            token.token(),
-            &Token::Attribute(Attribute::Function(FunctionAttribute::Fold))
-        );
+        assert_eq!(token.token(), &Token::Attribute(Attribute::Function(FunctionAttribute::Fold)));
     }
 
     #[test]

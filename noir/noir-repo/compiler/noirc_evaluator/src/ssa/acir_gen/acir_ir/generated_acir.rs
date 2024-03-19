@@ -24,7 +24,7 @@ use acvm::{
 use iter_extended::vecmap;
 use num_bigint::BigUint;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 /// The output of the Acir-gen pass
 pub(crate) struct GeneratedAcir {
     /// The next witness index that may be declared.
@@ -80,6 +80,10 @@ impl GeneratedAcir {
 
     pub(crate) fn take_opcodes(&mut self) -> Vec<AcirOpcode> {
         std::mem::take(&mut self.opcodes)
+    }
+
+    pub(crate) fn next_opcode_index(&self) -> usize {
+        self.opcodes.len()
     }
 
     /// Updates the witness index counter and returns

@@ -209,6 +209,7 @@ pub struct Function {
     pub return_type: Type,
     pub unconstrained: bool,
     pub should_fold: bool,
+    pub func_sig: FunctionSignature,
 }
 
 /// Compared to hir_def::types::Type, this monomorphized Type has:
@@ -243,6 +244,7 @@ impl Type {
 #[derive(Debug, Clone, Hash)]
 pub struct Program {
     pub functions: Vec<Function>,
+    pub function_signatures: Vec<FunctionSignature>,
     pub main_function_signature: FunctionSignature,
     /// Indicates whether witness indices are allowed to reoccur in the ABI of the resulting ACIR.
     ///
@@ -262,6 +264,7 @@ impl Program {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         functions: Vec<Function>,
+        function_signatures: Vec<FunctionSignature>,
         main_function_signature: FunctionSignature,
         return_distinctness: Distinctness,
         return_location: Option<Location>,
@@ -273,6 +276,7 @@ impl Program {
     ) -> Program {
         Program {
             functions,
+            function_signatures,
             main_function_signature,
             return_distinctness,
             return_location,

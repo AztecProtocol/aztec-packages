@@ -160,8 +160,10 @@ pub fn monomorphize_debug(
         undo_instantiation_bindings(impl_bindings);
         undo_instantiation_bindings(bindings);
     }
+    let func_sigs = vecmap(monomorphizer.finished_functions.iter(), |(_, f)| f.func_sig.clone());
 
     let functions = vecmap(monomorphizer.finished_functions, |(_, f)| f);
+    // let (functions, func_sigs) = monomorphizer.finished_functions.into_iter().map(|(_, f)| (f, f.func_sig.clone())).unzip();
     let FuncMeta { return_distinctness, return_visibility, kind, .. } =
         monomorphizer.interner.function_meta(&main);
 
@@ -169,6 +171,7 @@ pub fn monomorphize_debug(
         monomorphizer.debug_type_tracker.extract_vars_and_types();
     let program = Program::new(
         functions,
+        func_sigs,
         function_sig,
         *return_distinctness,
         monomorphizer.return_location,
@@ -303,6 +306,7 @@ impl<'interner> Monomorphizer<'interner> {
         }
 
         let meta = self.interner.function_meta(&f).clone();
+        let func_sig = meta.function_signature();
         let modifiers = self.interner.function_modifiers(&f);
         let name = self.interner.function_name(&f).to_owned();
 
@@ -319,7 +323,16 @@ impl<'interner> Monomorphizer<'interner> {
 
         let parameters = self.parameters(&meta.parameters);
         let body = self.expr(body_expr_id)?;
-        let function = ast::Function { id, name, parameters, body, return_type, unconstrained, should_fold };
+        let function = ast::Function {
+            id,
+            name,
+            parameters,
+            body,
+            return_type,
+            unconstrained,
+            should_fold,
+            func_sig,
+        };
 
         self.push_function(id, function);
         Ok(())
@@ -1339,7 +1352,16 @@ impl<'interner> Monomorphizer<'interner> {
         let name = lambda_name.to_owned();
         let unconstrained = false;
 
-        let function = ast::Function { id, name, parameters, body, return_type, unconstrained, should_fold: false };
+        let function = ast::Function {
+            id,
+            name,
+            parameters,
+            body,
+            return_type,
+            unconstrained,
+            should_fold: false,
+            func_sig: FunctionSignature::default(),
+        };
         self.push_function(id, function);
 
         let typ =
@@ -1453,7 +1475,16 @@ impl<'interner> Monomorphizer<'interner> {
         parameters.append(&mut converted_parameters);
 
         let unconstrained = false;
-        let function = ast::Function { id, name, parameters, body, return_type, unconstrained, should_fold: false };
+        let function = ast::Function {
+            id,
+            name,
+            parameters,
+            body,
+            return_type,
+            unconstrained,
+            should_fold: false,
+            func_sig: FunctionSignature::default(),
+        };
         self.push_function(id, function);
 
         let lambda_value =
@@ -1571,7 +1602,16 @@ impl<'interner> Monomorphizer<'interner> {
         let name = lambda_name.to_owned();
 
         let unconstrained = false;
-        let function = ast::Function { id, name, parameters, body, return_type, unconstrained, should_fold: false };
+        let function = ast::Function {
+            id,
+            name,
+            parameters,
+            body,
+            return_type,
+            unconstrained,
+            should_fold: false,
+            func_sig: FunctionSignature::default(),
+        };
         self.push_function(id, function);
 
         ast::Expression::Ident(ast::Ident {

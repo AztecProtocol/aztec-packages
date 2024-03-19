@@ -101,6 +101,12 @@ impl From<NumericType> for AcirType {
     }
 }
 
+/// An identifier for a location in the code.
+///
+/// It is assumed that an entity will keep a map
+/// of labels to opcode locations.
+pub(crate) type Label = String;
+
 #[derive(Debug, Default)]
 /// Context object which holds the relationship between
 /// `Variables`(AcirVar) and types such as `Expression` and `Witness`
@@ -124,6 +130,9 @@ pub(crate) struct AcirContext {
 
     /// The BigIntContext, used to generate identifiers for BigIntegers
     big_int_ctx: BigIntContext,
+
+    /// Set of labels (function identifiers) which are external to the bytecode
+    unresolved_external_call_labels: Vec<(usize, Label)>,
 }
 
 impl AcirContext {
@@ -1443,13 +1452,13 @@ impl AcirContext {
 
     /// Terminates the context and takes the resulting `GeneratedAcir`
     pub(crate) fn finish(
-        mut self,
+        &mut self,
         inputs: Vec<Witness>,
         warnings: Vec<SsaReport>,
     ) -> GeneratedAcir {
         self.acir_ir.input_witnesses = inputs;
         self.acir_ir.warnings = warnings;
-        self.acir_ir
+        self.acir_ir.clone()
     }
 
     /// Adds `Data` into the context and assigns it a Variable.
@@ -1755,6 +1764,23 @@ impl AcirContext {
                 unreachable!("Dynamic array should already be initialized");
             }
         }
+        Ok(())
+    }
+
+    pub(crate) fn call_acir_function(
+        &mut self,
+        id: u32,
+        inputs: Vec<AcirValue>,
+        output_count: usize,
+    ) -> Result<(), RuntimeError> {
+        let inputs = self.prepare_inputs_for_black_box_func_call(inputs)?;
+        let inputs = inputs
+            .iter()
+            .flat_map(|input| vecmap(input, |input| input.witness))
+            .collect::<Vec<_>>();
+        let outputs = vecmap(0..output_count, |_| self.acir_ir.next_witness_index());
+
+        self.acir_ir.push_opcode(Opcode::Call { id, inputs, outputs });
         Ok(())
     }
 }
