@@ -15,6 +15,9 @@ class HonkAcirComposer {
 
   public:
     HonkAcirComposer() = default;
+    using ProverInstance = bb::Goblin::GoblinUltraProverInstance;
+    using VerificationKey = GoblinUltraFlavor::VerificationKey;
+    using OpQueue = bb::ECCOpQueue;
 
     /**
      * @brief Create a GUH circuit from an acir constraint system and a witness
@@ -41,8 +44,9 @@ class HonkAcirComposer {
     bool verify(std::vector<bb::fr> const& proof);
 
   private:
+    std::shared_ptr<ProverInstance> instance;
     acir_format::GoblinBuilder builder_;
-    Goblin goblin;
+    std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     bool verbose_ = true;
 
     template <typename... Args> inline void vinfo(Args... args)

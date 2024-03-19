@@ -8,10 +8,9 @@ namespace acir_proofs {
 
 void HonkAcirComposer::create_circuit(acir_format::AcirFormat& constraint_system, acir_format::WitnessVector& witness)
 {
-    // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    builder_ = acir_format::GoblinBuilder{
-        goblin.op_queue, witness, constraint_system.public_inputs, constraint_system.varnum
-    };
+    // Construct a builder using the witness and public input data from acir and a clean op_queue
+    builder_ =
+        acir_format::GoblinBuilder{ op_queue, witness, constraint_system.public_inputs, constraint_system.varnum };
 
     // Populate constraints in the builder via the data in constraint_system
     acir_format::build_constraints(builder_, constraint_system, true);
@@ -23,13 +22,18 @@ void HonkAcirComposer::create_circuit(acir_format::AcirFormat& constraint_system
 
 std::vector<bb::fr> HonkAcirComposer::prove()
 {
-    // Construct a GUH proof for the circuit via the accumulate mechanism
-    return goblin.accumulate_for_acir(builder_);
+    instance = std::make_shared<ProverInstance>(builder_);
+    GoblinUltraProver prover{ instance };
+
+    return prover.construct_proof();
 }
 
 bool HonkAcirComposer::verify(std::vector<bb::fr> const& proof)
 {
-    return goblin.verify_accumulator_for_acir(proof);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    GoblinUltraVerifier verifier{ verification_key };
+
+    return verifier.verify_proof(proof);
 }
 
 } // namespace acir_proofs
