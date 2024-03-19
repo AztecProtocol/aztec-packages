@@ -1,4 +1,4 @@
-use crate::{constants::{MAX_BLOCK_NUMBER_LENGTH}, traits::{Deserialize, Serialize}};
+use crate::{constants::MAX_BLOCK_NUMBER_LENGTH, traits::{Deserialize, Serialize}};
 
 struct MaxBlockNumber {
     _opt: Option<u32>
@@ -12,15 +12,7 @@ impl Default for MaxBlockNumber {
 
 impl Eq for MaxBlockNumber {
     fn eq(self, other: Self) -> bool {
-        // Option does not impl Eq, so we do this manually for now
-        // TODO: replace with self._opt == other._opt once https://github.com/noir-lang/noir/pull/4549 is merged
-        if self._opt.is_none() & other._opt.is_none() {
-            true
-        } else if self._opt.is_some() & other._opt.is_some() {
-            self._opt.unwrap_unchecked() == other._opt.unwrap_unchecked()
-        } else {
-            false
-        }       
+        self._opt == other._opt
     }
 }
 
@@ -153,40 +145,3 @@ fn get_lower_with_u32_some() {
     assert_eq(MaxBlockNumber::get_lower_with_u32(a, b).unwrap(), 13);
     assert_eq(MaxBlockNumber::get_lower_with_u32(a, c).unwrap(), 8);
 }
-
-// TODO: these are Option.Eq tests, remove once https://github.com/noir-lang/noir/pull/4549 is merged
-#[test]
-fn eq_none_none() {
-    let a = MaxBlockNumber::default();
-    let b = MaxBlockNumber::default();
-    assert(a.eq(b));
-}
-
-#[test]
-fn eq_none_some() {
-    let a = MaxBlockNumber::default();
-    let b = MaxBlockNumber::new(42);
-    assert(!a.eq(b));
-}
-
-#[test]
-fn eq_some_nome() {
-    let a = MaxBlockNumber::new(42);
-    let b = MaxBlockNumber::default();
-    assert(!a.eq(b));
-}
-
-#[test]
-fn eq_some_some_neq() {
-    let a = MaxBlockNumber::new(42);
-    let b = MaxBlockNumber::new(13);
-    assert(!a.eq(b));
-}
-
-#[test]
-fn eq_some_some_eq() {
-    let a = MaxBlockNumber::new(42);
-    let b = MaxBlockNumber::new(42);
-    assert(a.eq(b));
-}
-
