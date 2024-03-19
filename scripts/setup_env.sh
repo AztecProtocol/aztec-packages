@@ -22,4 +22,4 @@ EOF
 
 # Install earthly
 $(dirname $0)/earthly --version
-echo "PATH=$(dirname $(realpath $0)):\$PATH" >> $GITHUB_ENV
+echo "PATH=$(dirname $(realpath $0)):$PATH" >> $GITHUB_ENV
