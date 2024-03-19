@@ -14,7 +14,6 @@ CONTRACTS=(
   "l1-contracts:Registry"
   "l1-contracts:Inbox"
   "l1-contracts:Outbox"
-  "l1-contracts:NewOutbox"
   "l1-contracts:Rollup"
   "l1-contracts:TokenPortal"
   "l1-contracts:PortalERC20"

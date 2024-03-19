@@ -21,7 +21,6 @@ import {
 } from '@aztec/aztec.js';
 import {
   InboxAbi,
-  NewOutboxAbi,
   OutboxAbi,
   PortalERC20Abi,
   PortalERC20Bytecode,
@@ -60,7 +59,6 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   walletClient: WalletClient<HttpTransport, Chain, Account>,
   publicClient: PublicClient<HttpTransport, Chain>,
   rollupRegistryAddress: EthAddress,
-  newOutboxAddress: `0x${string}`,
   owner: AztecAddress,
   underlyingERC20Address?: EthAddress,
 ): Promise<{
@@ -126,7 +124,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
 
   // initialize portal
   await tokenPortal.write.initialize(
-    [rollupRegistryAddress.toString(), newOutboxAddress, underlyingERC20Address.toString(), bridge.address.toString()],
+    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), bridge.address.toString()],
     {} as any,
   );
 
@@ -164,23 +162,6 @@ export class CrossChainTestHarness {
       client: walletClient,
     });
 
-    // TODO(#4492): Nuke this once the old inbox is purged
-    let newOutboxAddress!: `0x${string}`;
-    {
-      const rollup = getContract({
-        address: getAddress(l1ContractAddresses.rollupAddress.toString()),
-        abi: RollupAbi,
-        client: publicClient,
-      });
-      newOutboxAddress = await rollup.read.NEW_OUTBOX();
-    }
-
-    const newOutbox = getContract({
-      address: newOutboxAddress,
-      abi: NewOutboxAbi,
-      client: walletClient,
-    });
-
     // Deploy and initialize all required contracts
     logger('Deploying and initializing token, portal and its bridge...');
     const { token, bridge, tokenPortalAddress, tokenPortal, underlyingERC20 } =
@@ -189,7 +170,6 @@ export class CrossChainTestHarness {
         walletClient,
         publicClient,
         l1ContractAddresses.registryAddress,
-        newOutbox.address,
         owner.address,
         underlyingERC20Address,
       );
@@ -207,7 +187,6 @@ export class CrossChainTestHarness {
       underlyingERC20,
       inbox,
       outbox,
-      newOutbox,
       publicClient,
       walletClient,
       owner.address,
@@ -237,10 +216,9 @@ export class CrossChainTestHarness {
     /** Underlying token for portal tests. */
     public underlyingERC20: any,
     /** Message Bridge Inbox. */
-    public inbox: any,
+    public inbox: GetContractReturnType<typeof InboxAbi, WalletClient<HttpTransport, Chain, Account>>,
     /** Message Bridge Outbox. */
-    public outbox: any,
-    public newOutbox: GetContractReturnType<typeof NewOutboxAbi, WalletClient<HttpTransport, Chain, Account>>,
+    public outbox: GetContractReturnType<typeof OutboxAbi, WalletClient<HttpTransport, Chain, Account>>,
     /** Viem Public client instance. */
     public publicClient: PublicClient<HttpTransport, Chain>,
     /** Viem Wallet Client instance. */
