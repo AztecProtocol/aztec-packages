@@ -22,7 +22,7 @@ Inserts the root of a merkle tree containing all of the L2 to L1 messages in a b
 #### Edge cases
 
 - Will revert with `Outbox__Unauthorized()` if `msg.sender != ROLLUP_CONTRACT`. 
-- Will revert with `Errors.Outbox__RootAlreadySetAtBlock(uint256 _l2BlockNumber)` if the root for the specific block has already been set.
+- Will revert with `Errors.Outbox__RootAlreadySetAtBlock(uint256 l2BlockNumber)` if the root for the specific block has already been set.
 - Will revert with `Errors.Outbox__InsertingInvalidRoot()` if the rollup is trying to insert a zeroed root.
 
 ## `consume()`
