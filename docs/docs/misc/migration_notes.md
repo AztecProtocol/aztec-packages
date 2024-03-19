@@ -32,8 +32,6 @@ Also note some of the naming changes:
 
 Implementing a note required a fair amount of boilerplate code, which has been substituted by the `#[aztec(note)]` attribute. 
 
-Before:
-
 ```diff
 + #[aztec(note)]
 struct AddressNote {
