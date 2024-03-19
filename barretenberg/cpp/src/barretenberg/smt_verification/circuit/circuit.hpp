@@ -57,7 +57,7 @@ class Circuit {
 
     explicit Circuit(CircuitSchema& circuit_info,
                      Solver* solver,
-                     TermType type,
+                     TermType type = TermType::FFTerm,
                      const std::string& tag = "",
                      bool optimizations = true);
 
