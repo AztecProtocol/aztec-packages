@@ -139,7 +139,7 @@ export async function retrieveL1ToL2Messages(
     const l1ToL2Messages = processLeafInsertedLogs(leafInsertedLogs);
     retrievedL1ToL2Messages.push(...l1ToL2Messages);
     // handles the case when there are no new messages:
-    searchStartBlock = (leafInsertedLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock);
+    searchStartBlock = (leafInsertedLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock) + 1n;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { lastProcessedL1BlockNumber: searchStartBlock, retrievedData: retrievedL1ToL2Messages };
+  return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedL1ToL2Messages };
 }
