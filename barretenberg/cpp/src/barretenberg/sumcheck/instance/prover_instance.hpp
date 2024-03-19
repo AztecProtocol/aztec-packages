@@ -33,8 +33,6 @@ template <class Flavor> class ProverInstance_ {
     std::shared_ptr<ProvingKey> proving_key;
     ProverPolynomials prover_polynomials;
 
-    std::array<Polynomial, 4> sorted_polynomials;
-
     RelationSeparator alphas;
     bb::RelationParameters<FF> relation_parameters;
 
@@ -69,7 +67,7 @@ template <class Flavor> class ProverInstance_ {
 
         construct_table_polynomials(circuit, dyadic_circuit_size);
 
-        sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
+        proving_key->sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
 
         std::span<FF> public_wires_source = proving_key->w_r;
 

@@ -109,6 +109,7 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bb::EvaluationDomain<FF> evaluation_domain;
     std::shared_ptr<CommitmentKey_> commitment_key;
+    std::array<Polynomial, 4> sorted_polynomials;
 
     // offset due to placing zero wires at the start of execution trace
     // non-zero  for Instances constructed from circuits, this concept doesn't exist for accumulated

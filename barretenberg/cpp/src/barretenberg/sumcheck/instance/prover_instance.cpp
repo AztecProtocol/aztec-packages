@@ -120,13 +120,13 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_list_accumu
 
     // Construct s via Horner, i.e. s = s_1 + η(s_2 + η(s_3 + η*s_4))
     for (size_t i = 0; i < circuit_size; ++i) {
-        FF T0 = sorted_polynomials[3][i];
+        FF T0 = proving_key->sorted_polynomials[3][i];
         T0 *= eta;
-        T0 += sorted_polynomials[2][i];
+        T0 += proving_key->sorted_polynomials[2][i];
         T0 *= eta;
-        T0 += sorted_polynomials[1][i];
+        T0 += proving_key->sorted_polynomials[1][i];
         T0 *= eta;
-        T0 += sorted_polynomials[0][i];
+        T0 += proving_key->sorted_polynomials[0][i];
         sorted_list_accumulator[i] = T0;
     }
     proving_key->sorted_accum = sorted_list_accumulator.share();
