@@ -33,12 +33,13 @@ msgpack::sbuffer create_polynomial_evaluation_circuit(size_t n, bool pub_coeffs)
         } else {
             coeffs.emplace_back(witness_t(&builder, fr::random_element()));
         }
+        builder.set_variable_name(coeffs.back().get_witness_index(), "coeff_" + std::to_string(i));
     }
 
     field_t z(witness_t(&builder, 10));
     builder.set_variable_name(z.get_witness_index(), "point");
 
-    field_t res(witness_t(&builder, 0));
+    field_t res = field_t::from_witness_index(&builder, 0);
 
     for (size_t i = 0; i < n; i++) {
         res = res * z + coeffs[i];
@@ -80,33 +81,31 @@ void model_variables(Circuit& c, Solver* s, STerm& evaluation)
 
 TEST(polynomial_evaluation, public)
 {
-    size_t n = 20;
+    size_t n = 40;
     auto buf = create_polynomial_evaluation_circuit(n, true);
 
     CircuitSchema circuit_info = unpack_from_buffer(buf);
     Solver s(circuit_info.modulus);
     Circuit circuit(circuit_info, &s, TermType::FFTerm);
     STerm ev = direct_polynomial_evaluation(circuit, n);
+    ev != circuit["result"];
 
-    bool res = smt_timer(&s);
-
+    bool res = smt_timer(&s, false);
     ASSERT_FALSE(res);
-    info("Gates: ", circuit.get_num_gates());
-    info("Result: ", s.getResult());
 }
 
 TEST(polynomial_evaluation, private)
 {
-    size_t n = 20;
+    size_t n = 40;
     auto buf = create_polynomial_evaluation_circuit(n, false);
 
     CircuitSchema circuit_info = unpack_from_buffer(buf);
-
     Solver s(circuit_info.modulus);
     Circuit circuit(circuit_info, &s, TermType::FFTerm);
     STerm ev = direct_polynomial_evaluation(circuit, n);
+    ev != circuit["result"];
 
-    bool res = smt_timer(&s);
+    bool res = smt_timer(&s, false);
     ASSERT_FALSE(res);
     info("Gates: ", circuit.get_num_gates());
     info("Result: ", s.getResult());
