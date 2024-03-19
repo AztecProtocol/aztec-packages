@@ -1,5 +1,4 @@
 #include "barretenberg/smt_verification/terms/term.hpp"
-#include "ffterm.hpp"
 
 namespace smt_terms {
 
