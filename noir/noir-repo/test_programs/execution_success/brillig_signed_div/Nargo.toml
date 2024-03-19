@@ -1,5 +1,5 @@
 [package]
-name = "field_comparisons"
+name = "brillig_signed_div"
 type = "bin"
 authors = [""]
 
