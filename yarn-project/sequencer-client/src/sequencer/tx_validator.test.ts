@@ -160,25 +160,25 @@ describe('TxValidator', () => {
   });
 
   describe('inspects tx max block number', () => {
-    it('rejects tx with lower block number', async () => {
+    it('rejects tx with lower max block number', async () => {
       const badTx = maxBlockNumberTx(globalVariables.blockNumber.sub(new Fr(1)));
 
       await expect(validator.validateTxs([badTx])).resolves.toEqual([[], [badTx]]);
     });
 
-    it('allows tx with larger block number', async () => {
+    it('allows tx with larger max block number', async () => {
       const goodTx = maxBlockNumberTx(globalVariables.blockNumber.add(new Fr(1)));
 
       await expect(validator.validateTxs([goodTx])).resolves.toEqual([[goodTx], []]);
     });
 
-    it('allows tx with equal block number', async () => {
+    it('allows tx with equal max block number', async () => {
       const goodTx = maxBlockNumberTx(globalVariables.blockNumber);
 
       await expect(validator.validateTxs([goodTx])).resolves.toEqual([[goodTx], []]);
     });
 
-    it('allows tx with unset block number', async () => {
+    it('allows tx with unset max block number', async () => {
       const goodTx = nonFeePayingTx();
 
       await expect(validator.validateTxs([goodTx])).resolves.toEqual([[goodTx], []]);
