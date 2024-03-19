@@ -79,24 +79,24 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
     ++this->num_gates;
 
     // q_sort
-    blocks.genperm.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
-    blocks.genperm.q_m().emplace_back(0);
-    blocks.genperm.q_1().emplace_back(0);
-    blocks.genperm.q_2().emplace_back(0);
-    blocks.genperm.q_3().emplace_back(0);
-    blocks.genperm.q_4().emplace_back(0);
-    blocks.genperm.q_c().emplace_back(0);
-    blocks.genperm.q_sort().emplace_back(1);
-    blocks.genperm.q_arith().emplace_back(0);
-    blocks.genperm.q_lookup_type().emplace_back(0);
-    blocks.genperm.q_elliptic().emplace_back(0);
-    blocks.genperm.q_aux().emplace_back(0);
+    blocks.delta_range.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.delta_range.q_m().emplace_back(0);
+    blocks.delta_range.q_1().emplace_back(0);
+    blocks.delta_range.q_2().emplace_back(0);
+    blocks.delta_range.q_3().emplace_back(0);
+    blocks.delta_range.q_4().emplace_back(0);
+    blocks.delta_range.q_c().emplace_back(0);
+    blocks.delta_range.q_sort().emplace_back(1);
+    blocks.delta_range.q_arith().emplace_back(0);
+    blocks.delta_range.q_lookup_type().emplace_back(0);
+    blocks.delta_range.q_elliptic().emplace_back(0);
+    blocks.delta_range.q_aux().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.genperm.pad_additional();
+        blocks.delta_range.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
-    create_dummy_gate(blocks.genperm, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    create_dummy_gate(blocks.delta_range, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // q_elliptic
     blocks.elliptic.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
@@ -956,29 +956,29 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
     this->assert_valid_variables(variable_index);
 
     for (size_t i = 0; i < variable_index.size(); i += gate_width) {
-        blocks.genperm.populate_wires(
+        blocks.delta_range.populate_wires(
             variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
 
         ++this->num_gates;
-        blocks.genperm.q_m().emplace_back(0);
-        blocks.genperm.q_1().emplace_back(0);
-        blocks.genperm.q_2().emplace_back(0);
-        blocks.genperm.q_3().emplace_back(0);
-        blocks.genperm.q_c().emplace_back(0);
-        blocks.genperm.q_arith().emplace_back(0);
-        blocks.genperm.q_4().emplace_back(0);
-        blocks.genperm.q_sort().emplace_back(1);
-        blocks.genperm.q_elliptic().emplace_back(0);
-        blocks.genperm.q_lookup_type().emplace_back(0);
-        blocks.genperm.q_aux().emplace_back(0);
+        blocks.delta_range.q_m().emplace_back(0);
+        blocks.delta_range.q_1().emplace_back(0);
+        blocks.delta_range.q_2().emplace_back(0);
+        blocks.delta_range.q_3().emplace_back(0);
+        blocks.delta_range.q_c().emplace_back(0);
+        blocks.delta_range.q_arith().emplace_back(0);
+        blocks.delta_range.q_4().emplace_back(0);
+        blocks.delta_range.q_sort().emplace_back(1);
+        blocks.delta_range.q_elliptic().emplace_back(0);
+        blocks.delta_range.q_lookup_type().emplace_back(0);
+        blocks.delta_range.q_aux().emplace_back(0);
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
-            blocks.genperm.pad_additional();
+            blocks.delta_range.pad_additional();
         }
         check_selector_length_consistency();
     }
     // dummy gate needed because of sort widget's check of next row
     create_dummy_gate(
-        blocks.genperm, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
+        blocks.delta_range, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
 }
 
 /**
@@ -1042,7 +1042,7 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint_with_edges(
     ASSERT(variable_index.size() % gate_width == 0 && variable_index.size() > gate_width);
     this->assert_valid_variables(variable_index);
 
-    auto& block = blocks.genperm;
+    auto& block = blocks.delta_range;
 
     // Add an arithmetic gate to ensure the first input is equal to the start value of the range being checked
     create_add_gate({ variable_index[0], this->zero_idx, this->zero_idx, 1, 0, 0, -start });
