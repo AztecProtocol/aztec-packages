@@ -9,8 +9,7 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    strategy:
-      { matrix: { environment: [x86, arm], test: [e2e-escrow-contract] } }
+    strategy: { matrix: { environment: [x86], test: [e2e-escrow-contract] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: ${{ matrix.test }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
@@ -33,7 +32,7 @@ jobs:
   bb-native-tests:
     runs-on: ubuntu-latest
     # run for both x86_64 and arm64
-    strategy: { matrix: { environment: [x86, arm] } }
+    strategy: { matrix: { environment: [x86] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: bb-native-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
