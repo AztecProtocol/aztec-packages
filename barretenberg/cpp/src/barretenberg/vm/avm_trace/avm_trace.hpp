@@ -28,8 +28,8 @@ class AvmTraceBuilder {
 
     uint32_t getPc() const { return pc; }
 
-    // Addition with direct memory access.
-    void op_add(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Addition with direct or indirect memory access.
+    void op_add(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
     // Subtraction with direct memory access.
     void op_sub(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
@@ -68,7 +68,7 @@ class AvmTraceBuilder {
     // CALLDATACOPY opcode with direct/indirect memory access, i.e.,
     // direct: M[dst_offset:dst_offset+copy_size] = calldata[cd_offset:cd_offset+copy_size]
     // indirect: M[M[dst_offset]:M[dst_offset]+copy_size] = calldata[cd_offset:cd_offset+copy_size]
-    void calldata_copy(bool indirect,
+    void calldata_copy(uint8_t indirect,
                        uint32_t cd_offset,
                        uint32_t copy_size,
                        uint32_t dst_offset,
@@ -77,14 +77,29 @@ class AvmTraceBuilder {
     // RETURN opcode with direct and indirect memory access, i.e.,
     // direct:   return(M[ret_offset:ret_offset+ret_size])
     // indirect: return(M[M[ret_offset]:M[ret_offset]+ret_size])
-    std::vector<FF> return_op(bool indirect, uint32_t ret_offset, uint32_t ret_size);
+    std::vector<FF> return_op(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
 
   private:
+    // Used for the standard indirect address resolution of three operands opcode.
+    struct IndirectThreeResolution {
+        bool tag_match = false;
+        uint32_t direct_a_offset;
+        uint32_t direct_b_offset;
+        uint32_t direct_dst_offset;
+
+        bool indirect_flag_a = false;
+        bool indirect_flag_b = false;
+        bool indirect_flag_c = false;
+    };
+
     std::vector<Row> main_trace;
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
 
     void finalise_mem_trace_lookup_counts();
+
+    IndirectThreeResolution resolve_ind_three(
+        uint32_t clk, uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
 
     uint32_t pc = 0;
     uint32_t internal_return_ptr = CALLSTACK_OFFSET;
