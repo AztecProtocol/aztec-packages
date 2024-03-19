@@ -16,11 +16,11 @@ import {
 /**
  * Data retrieved from logs
  */
-type DataRetrieval<T> = {
+export type DataRetrieval<T> = {
   /**
-   * The next block number.
+   * Blocknumber of the last L1 block from which we obtained data.
    */
-  nextEthBlockNumber: bigint;
+  lastProcessedL1BlockNumber: bigint;
   /**
    * The data returned.
    */
@@ -35,7 +35,7 @@ type DataRetrieval<T> = {
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
  * @param expectedNextL2BlockNum - The next L2 block number that we expect to find.
- * @returns An array of tuples representing block metadata including the header, archive tree snapshot, and associated l1 block number; as well as the next eth block to search from.
+ * @returns An array of tuples representing block metadata including the header, archive tree snapshot; as well as the next eth block to search from.
  */
 export async function retrieveBlockMetadataFromRollup(
   publicClient: PublicClient,
@@ -44,8 +44,8 @@ export async function retrieveBlockMetadataFromRollup(
   searchStartBlock: bigint,
   searchEndBlock: bigint,
   expectedNextL2BlockNum: bigint,
-): Promise<DataRetrieval<[Header, AppendOnlyTreeSnapshot, bigint]>> {
-  const retrievedBlockMetadata: [Header, AppendOnlyTreeSnapshot, bigint][] = [];
+): Promise<DataRetrieval<[Header, AppendOnlyTreeSnapshot]>> {
+  const retrievedBlockMetadata: [Header, AppendOnlyTreeSnapshot][] = [];
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
@@ -69,7 +69,7 @@ export async function retrieveBlockMetadataFromRollup(
     searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
     expectedNextL2BlockNum += BigInt(newBlockMetadata.length);
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlockMetadata };
+  return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedBlockMetadata };
 }
 
 /**
@@ -108,7 +108,7 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
     retrievedBlockBodies.push(...newBlockBodies);
     searchStartBlock = l2TxsPublishedLogs[l2TxsPublishedLogs.length - 1].blockNumber! + 1n;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedBlockBodies };
+  return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedBlockBodies };
 }
 
 /**
@@ -141,5 +141,5 @@ export async function retrieveL1ToL2Messages(
     // handles the case when there are no new messages:
     searchStartBlock = (leafInsertedLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock) + 1n;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { nextEthBlockNumber: searchStartBlock, retrievedData: retrievedL1ToL2Messages };
+  return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedL1ToL2Messages };
 }
