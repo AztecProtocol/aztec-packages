@@ -121,13 +121,19 @@ void default_model_single(const std::vector<std::string>& special,
  * @param s
  * @return bool is system satisfiable?
  */
-bool smt_timer(smt_solver::Solver* s)
+bool smt_timer(smt_solver::Solver* s, bool mins)
 {
     auto start = std::chrono::high_resolution_clock::now();
     bool res = s->check();
     auto stop = std::chrono::high_resolution_clock::now();
-    double duration = static_cast<double>(duration_cast<std::chrono::minutes>(stop - start).count());
-    info("Time passed: ", duration);
+    double duration = 0.0;
+    if (mins) {
+        duration = static_cast<double>(duration_cast<std::chrono::minutes>(stop - start).count());
+        info("Time elapsed: ", duration, " min");
+    } else {
+        duration = static_cast<double>(duration_cast<std::chrono::seconds>(stop - start).count());
+        info("Time elapsed: ", duration, " sec");
+    }
 
     info(s->cvc_result);
     return res;
