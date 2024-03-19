@@ -11,7 +11,6 @@ import {
 import {
   GasPortalAbi,
   GasPortalBytecode,
-  NewOutboxAbi,
   OutboxAbi,
   PortalERC20Abi,
   PortalERC20Bytecode,
@@ -132,23 +131,6 @@ export class GasPortalTestingHarnessFactory {
     const owner = wallet.getCompleteAddress();
     const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
 
-    // TODO(#4492): Nuke this once the old inbox is purged
-    let newOutboxAddress!: `0x${string}`;
-    {
-      const rollup = getContract({
-        address: getAddress(l1ContractAddresses.rollupAddress.toString()),
-        abi: RollupAbi,
-        client: publicClient,
-      });
-      newOutboxAddress = await rollup.read.NEW_OUTBOX();
-    }
-
-    const newOutbox = getContract({
-      address: newOutboxAddress,
-      abi: NewOutboxAbi,
-      client: walletClient,
-    });
-
     const outbox = getContract({
       address: l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
@@ -176,7 +158,6 @@ export class GasPortalTestingHarnessFactory {
       gasPortal,
       gasL1,
       outbox,
-      newOutbox,
       publicClient,
       walletClient,
     );
@@ -223,8 +204,7 @@ class GasBridgingTestHarness implements IGasBridgingTestHarness {
     /** Underlying token for portal tests. */
     public underlyingERC20: any,
     /** Message Bridge Outbox. */
-    public outbox: any,
-    public newOutbox: GetContractReturnType<typeof NewOutboxAbi, PublicClient<HttpTransport, Chain>>,
+    public outbox: GetContractReturnType<typeof NewOutboxAbi, PublicClient<HttpTransport, Chain>>,
     /** Viem Public client instance. */
     public publicClient: PublicClient<HttpTransport, Chain>,
     /** Viem Wallet Client instance. */

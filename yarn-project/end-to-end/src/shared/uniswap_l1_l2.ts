@@ -19,6 +19,7 @@ import {
   Chain,
   GetContractReturnType,
   HttpTransport,
+  PublicClient,
   WalletClient,
   getAddress,
   getContract,
@@ -47,8 +48,10 @@ export type UniswapSetupContext = {
   pxe: PXE;
   /** Logger instance named as the current test. */
   logger: DebugLogger;
-  /** Values we get from deploying L1 contracts */
-  deployL1ContractsValues: DeployL1Contracts;
+  /** Viem Public client instance. */
+  publicClient: PublicClient<HttpTransport, Chain>;
+  /** Viem Wallet Client instance. */
+  walletClient: WalletClient<HttpTransport, Chain, Account>;
   /** The owner wallet. */
   ownerWallet: AccountWallet;
   /** The sponsor wallet. */
@@ -73,7 +76,7 @@ export const uniswapL1L2TestSuite = (
     let logger: DebugLogger;
 
     let walletClient: WalletClient<HttpTransport, Chain, Account>;
-    let deployL1ContractsValues: DeployL1Contracts;
+    let publicClient: PublicClient<HttpTransport, Chain>;
 
     let ownerWallet: AccountWallet;
     let ownerAddress: AztecAddress;
@@ -94,10 +97,7 @@ export const uniswapL1L2TestSuite = (
     const minimumOutputAmount = 0n;
 
     beforeAll(async () => {
-      ({ aztecNode, pxe, logger, deployL1ContractsValues, ownerWallet, sponsorWallet } = await setup());
-
-      walletClient = deployL1ContractsValues.walletClient;
-      const publicClient = deployL1ContractsValues.publicClient;
+      ({ aztecNode, pxe, logger, publicClient, walletClient, ownerWallet, sponsorWallet } = await setup());
 
       if (Number(await publicClient.getBlockNumber()) < expectedForkBlockNumber) {
         throw new Error('This test must be run on a fork of mainnet with the expected fork block');
@@ -151,19 +151,8 @@ export const uniswapL1L2TestSuite = (
 
       const registryAddress = (await pxe.getNodeInfo()).l1ContractAddresses.registryAddress;
 
-      // TODO(#4492): Nuke this once the old inbox is purged
-      let newOutboxAddress!: `0x${string}`;
-      {
-        const rollup = getContract({
-          address: getAddress(deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString()),
-          abi: RollupAbi,
-          client: publicClient,
-        });
-        newOutboxAddress = await rollup.read.NEW_OUTBOX();
-      }
-
       await uniswapPortal.write.initialize(
-        [registryAddress.toString(), newOutboxAddress, uniswapL2Contract.address.toString()],
+        [registryAddress.toString(), uniswapL2Contract.address.toString()],
         {} as any,
       );
     });
@@ -286,7 +275,7 @@ export const uniswapL1L2TestSuite = (
             uniswapL2Contract.address.toBuffer(),
             new Fr(1).toBuffer(), // aztec version
             EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-            new Fr(deployL1ContractsValues.publicClient.chain.id).toBuffer(), // chain id
+            new Fr(publicClient.chain.id).toBuffer(), // chain id
             swapPrivateContent.toBuffer(),
           ]),
         ),
@@ -309,7 +298,7 @@ export const uniswapL1L2TestSuite = (
             wethCrossChainHarness.l2Bridge.address.toBuffer(),
             new Fr(1).toBuffer(), // aztec version
             wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-            new Fr(deployL1ContractsValues.publicClient.chain.id).toBuffer(), // chain id
+            new Fr(publicClient.chain.id).toBuffer(), // chain id
             withdrawContent.toBuffer(),
           ]),
         ),
@@ -517,7 +506,7 @@ export const uniswapL1L2TestSuite = (
             uniswapL2Contract.address.toBuffer(),
             new Fr(1).toBuffer(), // aztec version
             EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-            new Fr(deployL1ContractsValues.publicClient.chain.id).toBuffer(), // chain id
+            new Fr(publicClient.chain.id).toBuffer(), // chain id
             swapPublicContent.toBuffer(),
           ]),
         ),
@@ -540,7 +529,7 @@ export const uniswapL1L2TestSuite = (
             wethCrossChainHarness.l2Bridge.address.toBuffer(),
             new Fr(1).toBuffer(), // aztec version
             wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-            new Fr(deployL1ContractsValues.publicClient.chain.id).toBuffer(), // chain id
+            new Fr(publicClient.chain.id).toBuffer(), // chain id
             withdrawContent.toBuffer(),
           ]),
         ),
@@ -886,7 +875,7 @@ export const uniswapL1L2TestSuite = (
             uniswapL2Contract.address.toBuffer(),
             new Fr(1).toBuffer(), // aztec version
             EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-            new Fr(deployL1ContractsValues.publicClient.chain.id).toBuffer(), // chain id
+            new Fr(publicClient.chain.id).toBuffer(), // chain id
             swapPrivateContent.toBuffer(),
           ]),
         ),
@@ -909,7 +898,7 @@ export const uniswapL1L2TestSuite = (
             wethCrossChainHarness.l2Bridge.address.toBuffer(),
             new Fr(1).toBuffer(), // aztec version
             wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-            new Fr(deployL1ContractsValues.publicClient.chain.id).toBuffer(), // chain id
+            new Fr(publicClient.chain.id).toBuffer(), // chain id
             withdrawContent.toBuffer(),
           ]),
         ),
@@ -1025,7 +1014,7 @@ export const uniswapL1L2TestSuite = (
             uniswapL2Contract.address.toBuffer(),
             new Fr(1).toBuffer(), // aztec version
             EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-            new Fr(deployL1ContractsValues.publicClient.chain.id).toBuffer(), // chain id
+            new Fr(publicClient.chain.id).toBuffer(), // chain id
             swapPublicContent.toBuffer(),
           ]),
         ),
@@ -1048,7 +1037,7 @@ export const uniswapL1L2TestSuite = (
             wethCrossChainHarness.l2Bridge.address.toBuffer(),
             new Fr(1).toBuffer(), // aztec version
             wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-            new Fr(deployL1ContractsValues.publicClient.chain.id).toBuffer(), // chain id
+            new Fr(publicClient.chain.id).toBuffer(), // chain id
             withdrawContent.toBuffer(),
           ]),
         ),

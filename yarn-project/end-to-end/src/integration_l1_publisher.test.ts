@@ -27,7 +27,7 @@ import { fr, makeNewSideEffect, makeNewSideEffectLinkedToNoteHash, makeProof } f
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { AvailabilityOracleAbi, InboxAbi, NewOutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
   L1Publisher,
@@ -77,10 +77,11 @@ describe('L1Publisher integration', () => {
 
   let rollupAddress: Address;
   let inboxAddress: Address;
+  let outboxAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
   let inbox: GetContractReturnType<typeof InboxAbi, WalletClient<HttpTransport, Chain>>;
-  let newOutbox: GetContractReturnType<typeof NewOutboxAbi, PublicClient<HttpTransport, Chain>>;
+  let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
   let l2Proof: Buffer;
@@ -110,6 +111,7 @@ describe('L1Publisher integration', () => {
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
+    outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
 
     // Set up contract instances
     rollup = getContract({
@@ -122,11 +124,9 @@ describe('L1Publisher integration', () => {
       abi: InboxAbi,
       client: walletClient,
     });
-
-    const newOutboxAddress = await rollup.read.NEW_OUTBOX();
-    newOutbox = getContract({
-      address: newOutboxAddress,
-      abi: NewOutboxAbi,
+    outbox = getContract({
+      address: outboxAddress,
+      abi: InboxAbi,
       client: walletClient,
     });
 
@@ -372,7 +372,7 @@ describe('L1Publisher integration', () => {
 
       const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-     const [emptyRoot] = await newOutbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
+     const [emptyRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
 
      expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
@@ -418,14 +418,14 @@ describe('L1Publisher integration', () => {
       await tree.appendLeaves(newL2ToL1MsgsArray.map(l2ToL1Msg => l2ToL1Msg.toBuffer()));
 
       const expectedRoot = tree.getRoot(true);
-      const [actualRoot] = await newOutbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
+      const [actualRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
 
       expect(`0x${expectedRoot.toString('hex')}`).toEqual(actualRoot);
 
       // check that values are inserted into the outbox
       for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
         expect(
-          await newOutbox.read.hasMessageBeenConsumedAtBlockAndIndex([
+          await outbox.read.hasMessageBeenConsumedAtBlockAndIndex([
             block.header.globalVariables.blockNumber.toBigInt(),
             BigInt(j),
           ]),

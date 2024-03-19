@@ -44,7 +44,7 @@ describe('e2e_public_cross_chain_messaging', () => {
   let crossChainTestHarness: CrossChainTestHarness;
   let l2Token: TokenContract;
   let l2Bridge: TokenBridgeContract;
-  let inbox: any;
+  let inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   beforeAll(async () => {
