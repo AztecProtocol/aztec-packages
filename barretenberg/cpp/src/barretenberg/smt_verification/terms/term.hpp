@@ -12,11 +12,15 @@ using namespace smt_solver;
  *
  */
 enum class TermType { FFTerm, FFITerm, BVTerm };
-
 std::ostream& operator<<(std::ostream& os, TermType type);
 
 enum class OpType : int32_t { ADD, SUB, MUL, DIV, NEG, XOR, AND, OR, GT, GE, LT, LE, MOD, RSH, LSH, ROTR, ROTL };
 
+/**
+ * @brief precomputed map that contains allowed
+ * operations for each of three symbolic types
+ *
+ */
 const std::unordered_map<TermType, std::unordered_map<OpType, cvc5::Kind>> typed_operations = {
     { TermType::FFTerm,
       { { OpType::ADD, cvc5::Kind::FINITE_FIELD_ADD },
@@ -63,6 +67,9 @@ const std::unordered_map<TermType, std::unordered_map<OpType, cvc5::Kind>> typed
  *
  * @details Can be a Finite Field/Integer Mod/BitVector symbolic variable or a constant.
  * Supports basic arithmetic operations: +, -, *, /.
+ * Additionally
+ * FFITerm supports inequalities: <, <=, >, >=
+ * BVTerm supports inequalities and bitwise operations: ^, &, |, >>, <<, ror, rol
  *
  */
 class STerm {

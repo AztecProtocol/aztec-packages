@@ -4,11 +4,12 @@
 namespace smt_terms {
 
 /**
- * Create a finite field symbolic variable.
+ * Create a symbolic variable.
  *
- * @param name Name of the variable. Should be unique per variable.
- * @param slv  Pointer to the global solver.
- * @return Finite field symbolic variable.
+ * @param name Name of the variable. Should be unique per variable
+ * @param slv  Pointer to the global solver
+ * @param type FFTerm, FFITerm or BVTerm
+ * @return symbolic variable
  * */
 STerm STerm::Var(const std::string& name, Solver* slv, TermType type)
 {
@@ -16,12 +17,14 @@ STerm STerm::Var(const std::string& name, Solver* slv, TermType type)
 };
 
 /**
- * Create a finite field numeric member.
+ * Create constant symbolic variable.
+ * i.e. term with predefined constant value
  *
  * @param val  String representation of the value.
  * @param slv  Pointer to the global solver.
  * @param base Base of the string representation. 16 by default.
- * @return Finite field constant.
+ * @param type FFTerm, FFITerm or BVTerm
+ * @return numeric constant
  * */
 STerm STerm::Const(const std::string& val, Solver* slv, uint32_t base, TermType type)
 {
@@ -167,7 +170,7 @@ void STerm::operator/=(const STerm& other)
 }
 
 /**
- * Create an equality constraint between two finite field elements.
+ * Create an equality constraint between two symbolic variables of the same type
  *
  */
 void STerm::operator==(const STerm& other) const
@@ -185,7 +188,7 @@ void STerm::operator==(const STerm& other) const
 }
 
 /**
- * Create an inequality constraint between two finite field elements.
+ * Create an inequality constraint between two symbolic variables of the same type
  *
  */
 void STerm::operator!=(const STerm& other) const
@@ -429,6 +432,9 @@ std::ostream& operator<<(std::ostream& os, const TermType type)
     };
     return os;
 }
+
+// Parametrized calls to STerm constructor
+// so you won't need to use TermType each time to define a new variable.
 
 STerm FFVar(const std::string& name, Solver* slv)
 {
