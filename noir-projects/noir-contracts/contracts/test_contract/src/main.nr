@@ -36,6 +36,7 @@ contract Test {
         value: Field,
     }
 
+    #[aztec(storage)]
     struct Storage {
         example_constant: PrivateImmutable<FieldNote>,
         example_set: PrivateSet<FieldNote>,
