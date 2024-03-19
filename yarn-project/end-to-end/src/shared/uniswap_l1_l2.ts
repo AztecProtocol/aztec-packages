@@ -8,9 +8,9 @@ import {
   PXE,
   computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
-import { DeployL1Contracts, deployL1Contract } from '@aztec/ethereum';
+import { deployL1Contract } from '@aztec/ethereum';
 import { sha256 } from '@aztec/foundation/crypto';
-import { RollupAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
+import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 
 import { jest } from '@jest/globals';
@@ -21,10 +21,12 @@ import {
   HttpTransport,
   PublicClient,
   WalletClient,
+  decodeEventLog,
   getAddress,
   getContract,
   getFunctionSelector,
   parseEther,
+  toFunctionSelector,
 } from 'viem';
 
 import { publicDeployAccounts } from '../fixtures/utils.js';
@@ -250,8 +252,8 @@ export const uniswapL1L2TestSuite = (
         sha256(
           Buffer.concat([
             Buffer.from(
-              getFunctionSelector(
-                'swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address,address)',
+              toFunctionSelector(
+                'swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address)',
               ).substring(2),
               'hex',
             ),
@@ -262,8 +264,6 @@ export const uniswapL1L2TestSuite = (
             new Fr(minimumOutputAmount).toBuffer(),
             secretHashForRedeemingDai.toBuffer(),
             secretHashForDepositingSwappedDai.toBuffer(),
-            new Fr(deadlineForDepositingSwappedDai).toBuffer(),
-            ownerEthAddress.toBuffer32(),
             ownerEthAddress.toBuffer32(),
           ]),
         ),
@@ -284,7 +284,7 @@ export const uniswapL1L2TestSuite = (
       const withdrawContent = Fr.fromBufferReduce(
         sha256(
           Buffer.concat([
-            Buffer.from(getFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
+            Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
             uniswapPortalAddress.toBuffer32(),
             new Fr(wethAmountToBridge).toBuffer(),
             uniswapPortalAddress.toBuffer32(),
@@ -481,8 +481,8 @@ export const uniswapL1L2TestSuite = (
         sha256(
           Buffer.concat([
             Buffer.from(
-              getFunctionSelector(
-                'swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address,address)',
+              toFunctionSelector(
+                'swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)',
               ).substring(2),
               'hex',
             ),
@@ -493,8 +493,6 @@ export const uniswapL1L2TestSuite = (
             new Fr(minimumOutputAmount).toBuffer(),
             ownerAddress.toBuffer(),
             secretHashForDepositingSwappedDai.toBuffer(),
-            new Fr(deadlineForDepositingSwappedDai).toBuffer(),
-            ownerEthAddress.toBuffer32(),
             ownerEthAddress.toBuffer32(),
           ]),
         ),
@@ -851,7 +849,7 @@ export const uniswapL1L2TestSuite = (
           Buffer.concat([
             Buffer.from(
               getFunctionSelector(
-                'swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address,address)',
+                'swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address)',
               ).substring(2),
               'hex',
             ),
@@ -862,8 +860,6 @@ export const uniswapL1L2TestSuite = (
             new Fr(minimumOutputAmount).toBuffer(),
             secretHashForRedeemingDai.toBuffer(),
             secretHashForDepositingSwappedDai.toBuffer(),
-            new Fr(deadlineForDepositingSwappedDai).toBuffer(),
-            ownerEthAddress.toBuffer32(),
             ownerEthAddress.toBuffer32(),
           ]),
         ),
@@ -968,7 +964,7 @@ export const uniswapL1L2TestSuite = (
 
       // Call swap_public on L2
       const secretHashForDepositingSwappedDai = Fr.random();
-      await uniswapL2Contract.methods
+      const withdrawReceipt = await uniswapL2Contract.methods
         .swap_public(
           ownerAddress,
           wethCrossChainHarness.l2Bridge.address,
@@ -990,7 +986,7 @@ export const uniswapL1L2TestSuite = (
           Buffer.concat([
             Buffer.from(
               getFunctionSelector(
-                'swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address,address)',
+                'swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)',
               ).substring(2),
               'hex',
             ),
@@ -1001,8 +997,6 @@ export const uniswapL1L2TestSuite = (
             new Fr(minimumOutputAmount).toBuffer(),
             ownerAddress.toBuffer(),
             secretHashForDepositingSwappedDai.toBuffer(),
-            new Fr(deadlineForDepositingSwappedDai).toBuffer(),
-            ownerEthAddress.toBuffer32(),
             ownerEthAddress.toBuffer32(),
           ]),
         ),

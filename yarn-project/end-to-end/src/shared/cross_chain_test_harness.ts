@@ -328,7 +328,8 @@ export class CrossChainTestHarness {
   async withdrawPrivateFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO): Promise<FieldsOf<TxReceipt>> {
     const withdrawReceipt = await this.l2Bridge.methods
       .exit_to_l1_private(this.l2Token.address, this.ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-      .send().wait();
+      .send()
+      .wait();
 
     return withdrawReceipt;
   }
@@ -336,7 +337,8 @@ export class CrossChainTestHarness {
   async withdrawPublicFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO): Promise<FieldsOf<TxReceipt>> {
     const withdrawReceipt = await this.l2Bridge.methods
       .exit_to_l1_public(this.ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-      .send().wait();
+      .send()
+      .wait();
 
     return withdrawReceipt;
   }

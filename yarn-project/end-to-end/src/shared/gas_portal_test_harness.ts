@@ -8,27 +8,11 @@ import {
   computeMessageSecretHash,
   deployL1Contract,
 } from '@aztec/aztec.js';
-import {
-  GasPortalAbi,
-  GasPortalBytecode,
-  OutboxAbi,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
-  RollupAbi,
-} from '@aztec/l1-artifacts';
+import { GasPortalAbi, GasPortalBytecode, OutboxAbi, PortalERC20Abi, PortalERC20Bytecode } from '@aztec/l1-artifacts';
 import { GasTokenContract } from '@aztec/noir-contracts.js';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 
-import {
-  Account,
-  Chain,
-  GetContractReturnType,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
-  getAddress,
-  getContract,
-} from 'viem';
+import { Account, Chain, GetContractReturnType, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 
 export interface IGasBridgingTestHarness {
   bridgeFromL1ToL2(l1TokenBalance: bigint, bridgeAmount: bigint, owner: AztecAddress): Promise<void>;
@@ -204,7 +188,7 @@ class GasBridgingTestHarness implements IGasBridgingTestHarness {
     /** Underlying token for portal tests. */
     public underlyingERC20: any,
     /** Message Bridge Outbox. */
-    public outbox: GetContractReturnType<typeof NewOutboxAbi, PublicClient<HttpTransport, Chain>>,
+    public outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>,
     /** Viem Public client instance. */
     public publicClient: PublicClient<HttpTransport, Chain>,
     /** Viem Wallet Client instance. */

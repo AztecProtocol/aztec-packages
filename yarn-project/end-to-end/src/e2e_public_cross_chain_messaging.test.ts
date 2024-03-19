@@ -331,11 +331,14 @@ describe('e2e_public_cross_chain_messaging', () => {
       );
 
       // We inject the message to Inbox
-      const txHash = await inbox.write.sendL2Message([
-        { actor: message.recipient.recipient.toString() as Hex, version: 1n },
-        message.content.toString() as Hex,
-        message.secretHash.toString() as Hex,
-      ] as const);
+      const txHash = await inbox.write.sendL2Message(
+        [
+          { actor: message.recipient.recipient.toString() as Hex, version: 1n },
+          message.content.toString() as Hex,
+          message.secretHash.toString() as Hex,
+        ] as const,
+        {} as any,
+      );
 
       // We check that the message was correctly injected by checking the emitted event
       const msgLeaf = message.hash();
