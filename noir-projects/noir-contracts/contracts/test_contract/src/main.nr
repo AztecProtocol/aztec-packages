@@ -20,7 +20,7 @@ contract Test {
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
     },
-        deploy::{deploy_contract as aztec_deploy_contract},
+        deploy::deploy_contract as aztec_deploy_contract,
         oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, rand::rand},
         log::emit_unencrypted_log_from_private
     };
@@ -65,7 +65,9 @@ contract Test {
 
     #[aztec(private)]
     fn request_max_block_number(max_block_number: u32, enqueue_public_call: bool) {
+        // docs:start:request-max-block-number
         context.request_max_block_number(max_block_number);
+        // docs:end:request-max-block-number
 
         if enqueue_public_call {
             let _ = context.call_public_function(
@@ -274,11 +276,7 @@ contract Test {
     }
 
     #[aztec(public)]
-    fn consume_mint_public_message(
-        to: AztecAddress,
-        amount: Field,
-        secret: Field
-    ) {
+    fn consume_mint_public_message(to: AztecAddress, amount: Field, secret: Field) {
         let content_hash = get_mint_public_content_hash(to, amount);
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(content_hash, secret, context.this_portal_address());
