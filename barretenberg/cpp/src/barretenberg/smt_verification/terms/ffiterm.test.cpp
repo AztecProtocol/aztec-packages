@@ -97,6 +97,9 @@ TEST(FFITerm, division)
     ASSERT_EQ(bvals, yvals);
 }
 
+// This test aims to check for the absence of unintended
+// behavior. If an unsupported operator is called, an info message appears in stderr
+// and the value is supposed to remain unchanged.
 TEST(FFITerm, unsupported_operations)
 {
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001");

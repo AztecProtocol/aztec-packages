@@ -21,7 +21,13 @@ TEST(BVTerm, addition)
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
     uint_ct c = a + b;
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+
+    uint32_t modulus_base = 16;
+    uint32_t bitvector_size = 32;
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             modulus_base,
+             bitvector_size);
 
     STerm x = BVVar("x", &s);
     STerm y = BVVar("y", &s);
@@ -44,7 +50,13 @@ TEST(BVTerm, subtraction)
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
     uint_ct c = a - b;
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+
+    uint32_t modulus_base = 16;
+    uint32_t bitvector_size = 32;
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             modulus_base,
+             bitvector_size);
 
     STerm x = BVVar("x", &s);
     STerm y = BVVar("y", &s);
@@ -67,7 +79,13 @@ TEST(BVTerm, xor)
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
     uint_ct b = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
     uint_ct c = a ^ b;
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+
+    uint32_t modulus_base = 16;
+    uint32_t bitvector_size = 32;
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             modulus_base,
+             bitvector_size);
 
     STerm x = BVVar("x", &s);
     STerm y = BVVar("y", &s);
@@ -89,7 +107,13 @@ TEST(BVTerm, rotr)
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
     uint_ct b = a.ror(10);
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+
+    uint32_t modulus_base = 16;
+    uint32_t bitvector_size = 32;
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             modulus_base,
+             bitvector_size);
 
     STerm x = BVVar("x", &s);
     STerm y = x.rotr(10);
@@ -109,7 +133,13 @@ TEST(BVTerm, rotl)
     StandardCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, static_cast<uint32_t>(fr::random_element()));
     uint_ct b = a.rol(10);
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+
+    uint32_t modulus_base = 16;
+    uint32_t bitvector_size = 32;
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             modulus_base,
+             bitvector_size);
 
     STerm x = BVVar("x", &s);
     STerm y = x.rotl(10);
@@ -126,9 +156,18 @@ TEST(BVTerm, rotl)
 
 // MUL, LSH, RSH, AND and OR are not tested, since they are not bijective
 
+// This test aims to check for the absence of unintended
+// behavior. If an unsupported operator is called, an info message appears in stderr
+// and the value is supposed to remain unchanged.
 TEST(BVTerm, unsupported_operations)
 {
-    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config, 16, 32);
+
+    uint32_t modulus_base = 16;
+    uint32_t bitvector_size = 32;
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             modulus_base,
+             bitvector_size);
 
     STerm x = BVVar("x", &s);
     STerm y = BVVar("y", &s);
