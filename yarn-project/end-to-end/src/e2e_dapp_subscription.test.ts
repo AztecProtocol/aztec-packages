@@ -7,7 +7,7 @@ import {
   PublicFeePaymentMethod,
   SentTx,
 } from '@aztec/aztec.js';
-import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
+import { DefaultDappEntrypoint } from '@aztec/aztec.js/entrypoint';
 import {
   AppSubscriptionContract,
   TokenContract as BananaCoin,

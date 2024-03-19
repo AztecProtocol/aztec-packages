@@ -19,7 +19,6 @@
   },
   "workspaces": [
     "accounts",
-    "entrypoints",
     "simulator",
     "archiver",
     "aztec-faucet",
