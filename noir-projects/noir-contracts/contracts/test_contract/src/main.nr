@@ -366,7 +366,7 @@ contract Test {
     fn consume_note_from_secret(secret: Field) {
         let notes_set = storage.example_set;
         let secret_hash = compute_secret_hash(secret);
-        let options = NoteGetterOptions::new().select(0, secret_hash, Option::none()).set_limit(1);
+        let options = NoteGetterOptions::new().select(FieldNote::properties().value, secret_hash, Option::none()).set_limit(1);
         let notes = notes_set.get_notes(options);
         let note = notes[0].unwrap_unchecked();
         notes_set.remove(note);
