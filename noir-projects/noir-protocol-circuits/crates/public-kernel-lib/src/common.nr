@@ -73,7 +73,7 @@ pub fn initialize_emitted_end_values(
     circuit_outputs.end_non_revertible.public_data_update_requests = array_to_bounded_vec(start_non_revertible.public_data_update_requests);
 
     // TODO - should be propagated only in initialize_end_values() and clear them in the tail circuit. The 
-    // max_block_number must be propagated to the rollup however, and not cleared.
+    // max_block_number must be propagated to the rollup however as a RollupValidationRequest.
     let start = previous_kernel.public_inputs.validation_requests;
     circuit_outputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
     circuit_outputs.validation_requests.public_data_reads = array_to_bounded_vec(start.public_data_reads);
