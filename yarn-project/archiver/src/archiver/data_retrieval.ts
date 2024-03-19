@@ -66,10 +66,10 @@ export async function retrieveBlockMetadataFromRollup(
       l2BlockProcessedLogs,
     );
     retrievedBlockMetadata.push(...newBlockMetadata);
-    searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber!;
+    searchStartBlock = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1].blockNumber! + 1n;
     expectedNextL2BlockNum += BigInt(newBlockMetadata.length);
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { lastProcessedL1BlockNumber: searchStartBlock, retrievedData: retrievedBlockMetadata };
+  return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedBlockMetadata };
 }
 
 /**
@@ -106,9 +106,9 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
 
     const newBlockBodies = await processTxsPublishedLogs(publicClient, l2TxsPublishedLogs);
     retrievedBlockBodies.push(...newBlockBodies);
-    searchStartBlock = l2TxsPublishedLogs[l2TxsPublishedLogs.length - 1].blockNumber!;
+    searchStartBlock = l2TxsPublishedLogs[l2TxsPublishedLogs.length - 1].blockNumber! + 1n;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { lastProcessedL1BlockNumber: searchStartBlock, retrievedData: retrievedBlockBodies };
+  return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedBlockBodies };
 }
 
 /**
