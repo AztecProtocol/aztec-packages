@@ -1,7 +1,6 @@
 import {
   AuthWitness,
   AztecNode,
-  DeployedContract,
   ExtendedNote,
   FunctionCall,
   GetUnencryptedLogsResponse,
@@ -32,12 +31,11 @@ import {
   PartialAddress,
   PrivateKernelTailCircuitPublicInputs,
   PublicCallRequest,
-  computeArtifactHash,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { ContractArtifact, DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
@@ -215,18 +213,38 @@ export class PXEService implements PXE {
     return Promise.resolve(recipient);
   }
 
-  public async addContracts(contracts: DeployedContract[]) {
-    for (const contract of contracts) {
-      const { instance, artifact } = contract;
-      const artifactHash = computeArtifactHash(artifact);
-      const contractClassId = computeContractClassId(getContractClassFromArtifact({ ...artifact, artifactHash }));
+  public async registerContractClass(artifact: ContractArtifact): Promise<void> {
+    const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+    await this.db.addContractArtifact(contractClassId, artifact);
+    this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
+  }
+
+  public async registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }) {
+    const { instance } = contract;
+    let { artifact } = contract;
+
+    if (artifact) {
+      // If the user provides an artifact, validate it against the expected class id and register it
+      const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+      if (!contractClassId.equals(instance.contractClassId)) {
+        throw new Error(
+          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
+        );
+      }
       await this.db.addContractArtifact(contractClassId, artifact);
-      await this.db.addContractInstance(instance);
-      const hasPortal = instance.portalContractAddress && !instance.portalContractAddress.isZero();
-      const portalInfo = hasPortal ? ` with portal ${instance.portalContractAddress.toChecksumString()}` : '';
-      this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}${portalInfo}`);
-      await this.synchronizer.reprocessDeferredNotesForContract(instance.address);
+    } else {
+      // Otherwise, make sure there is an artifact already registered for that class id
+      artifact = await this.db.getContractArtifact(instance.contractClassId);
+      if (!artifact) {
+        throw new Error(
+          `Missing contract artifact for class id ${instance.contractClassId} for contract ${instance.address}`,
+        );
+      }
     }
+
+    this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}`);
+    await this.db.addContractInstance(instance);
+    await this.synchronizer.reprocessDeferredNotesForContract(instance.address);
   }
 
   public getContracts(): Promise<AztecAddress[]> {
