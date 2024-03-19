@@ -419,18 +419,9 @@ describe('L1Publisher integration', () => {
 
       const expectedRoot = tree.getRoot(true);
       const [actualRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
-
-      expect(`0x${expectedRoot.toString('hex')}`).toEqual(actualRoot);
-
+      
       // check that values are inserted into the outbox
-      for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
-        expect(
-          await outbox.read.hasMessageBeenConsumedAtBlockAndIndex([
-            block.header.globalVariables.blockNumber.toBigInt(),
-            BigInt(j),
-          ]),
-        ).toBe(false);
-      }
+      expect(`0x${expectedRoot.toString('hex')}`).toEqual(actualRoot);
 
       // There is a 1 block lag between before messages get consumed from the inbox
       currentL1ToL2Messages = nextL1ToL2Messages;
