@@ -55,7 +55,6 @@ pub(crate) fn generate_ssa(
 
     // Queue the main function for compilation
     context.get_or_queue_function(main_id);
-    dbg!(main.should_fold);
     let main_inline_type = if main.should_fold { InlineType::Fold } else { InlineType::Inline };
     let mut function_context = FunctionContext::new(
         main.name.clone(),

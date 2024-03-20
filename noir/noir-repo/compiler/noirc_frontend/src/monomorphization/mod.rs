@@ -307,6 +307,7 @@ impl<'interner> Monomorphizer<'interner> {
 
         let meta = self.interner.function_meta(&f).clone();
         let func_sig = meta.function_signature();
+
         let modifiers = self.interner.function_modifiers(&f);
         let name = self.interner.function_name(&f).to_owned();
 
@@ -319,7 +320,6 @@ impl<'interner> Monomorphizer<'interner> {
         let unconstrained = modifiers.is_unconstrained;
 
         let should_fold = !meta.should_inline;
-        dbg!(should_fold);
 
         let parameters = self.parameters(&meta.parameters);
         let body = self.expr(body_expr_id)?;

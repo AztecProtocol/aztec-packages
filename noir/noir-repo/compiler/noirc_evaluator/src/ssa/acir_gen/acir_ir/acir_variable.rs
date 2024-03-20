@@ -1772,7 +1772,7 @@ impl AcirContext {
         id: u32,
         inputs: Vec<AcirValue>,
         output_count: usize,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<Vec<AcirVar>, RuntimeError> {
         let inputs = self.prepare_inputs_for_black_box_func_call(inputs)?;
         let inputs = inputs
             .iter()
@@ -1780,8 +1780,17 @@ impl AcirContext {
             .collect::<Vec<_>>();
         let outputs = vecmap(0..output_count, |_| self.acir_ir.next_witness_index());
 
+        // Convert `Witness` values which are now constrained to be the output of the
+        // black box function call into `AcirVar`s.
+        //
+        // We do not apply range information on the output of the black box function.
+        // See issue #1439
+        let results = vecmap(&outputs, |witness_index| {
+            self.add_data(AcirVarData::Witness(*witness_index))
+        });
+
         self.acir_ir.push_opcode(Opcode::Call { id, inputs, outputs });
-        Ok(())
+        Ok(results)
     }
 }
 

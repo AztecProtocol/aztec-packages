@@ -100,8 +100,6 @@ fn get_entry_point_functions(ssa: &Ssa) -> BTreeSet<FunctionId> {
     let functions = ssa.functions.iter();
     let mut entry_points = functions
         .filter(|(_, function)| {
-            dbg!(function.runtime());
-            dbg!(function.id());
             let inline_filter = match function.runtime() {
                 RuntimeType::Acir(inline_type) => match inline_type {
                     InlineType::Inline => false,
@@ -109,9 +107,7 @@ fn get_entry_point_functions(ssa: &Ssa) -> BTreeSet<FunctionId> {
                 },
                 RuntimeType::Brillig => true,
             };
-            dbg!(inline_filter);
             inline_filter
-            // function.runtime() == RuntimeType::Brillig
         })
         .map(|(id, _)| *id)
         .collect::<BTreeSet<_>>();
@@ -363,13 +359,10 @@ impl<'function> PerFunctionContext<'function> {
             match &self.source_function.dfg[*id] {
                 Instruction::Call { func, arguments } => match self.get_function(*func) {
                     Some(function) => match ssa.functions[&function].runtime() {
-                        // TODO: update this to differentiate the inline types
                         RuntimeType::Acir(InlineType::Inline) => {
-                            dbg!(function);
                             self.inline_function(ssa, *id, function, arguments)
                         }
                         RuntimeType::Acir(InlineType::Fold) | RuntimeType::Brillig => {
-                            dbg!(function);
                             self.push_instruction(*id)
                         }
                     },

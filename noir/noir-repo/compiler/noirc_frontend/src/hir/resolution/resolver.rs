@@ -981,12 +981,6 @@ impl<'a> Resolver<'a> {
             .function
             .as_ref()
             .map_or(true, |func_attribute| !func_attribute.is_foldable());
-        if func.name() == "basic_func" {
-            dbg!(attributes.clone());
-        }
-        // if matches!(attributes.function, Some(FunctionAttribute::Fold)) {
-        //     dbg!(name_ident.clone());
-        // }
 
         FuncMeta {
             name: name_ident,

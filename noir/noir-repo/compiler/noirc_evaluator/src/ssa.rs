@@ -73,10 +73,6 @@ pub(crate) fn optimize_into_acir(
 
     let last_array_uses = ssa.find_last_array_uses();
 
-    // map(|(i, (id, _)| {
-    //     ssa.id_to_index.insert(*id, *i);
-    // });
-
     ssa.into_acir(brillig, abi_distinctness, &last_array_uses)
 }
 
@@ -165,6 +161,7 @@ pub fn create_program(
     (AcirProgram, Vec<DebugInfo>, Vec<Vec<SsaReport>>, Vec<Witness>, Vec<Witness>),
     RuntimeError,
 > {
+    let func_names = program.functions.iter().map(|function| function.name.clone()).collect::<Vec<_>>();
     // TODO: Check whether the debug tracker stores information across the program and not just main
     let debug_variables = program.debug_variables.clone();
     let debug_types = program.debug_types.clone();
@@ -191,7 +188,9 @@ pub fn create_program(
     let mut main_return_witnesses = Vec::new();
     // Using a flag here to avoid enumarting the loop as main is expected to be the first circuit
     let mut is_main = true;
+    let mut index = 0;
     for (acir, func_sig) in generated_acir.into_iter().zip(func_sigs) {
+        // dbg!(func_names[index].clone());
         let (circuit, debug_info, warnings, input_witnesses, return_witnesses) =
             convert_generated_acir_into_circuit(
                 acir,
@@ -200,6 +199,7 @@ pub fn create_program(
                 debug_variables.clone(),
                 debug_functions.clone(),
                 debug_types.clone(),
+                is_main,
             );
         functions.push(circuit);
         debug_infos.push(debug_info);
@@ -209,6 +209,7 @@ pub fn create_program(
             main_return_witnesses = return_witnesses;
         }
         is_main = false;
+        index += 1;
     }
 
     let program = AcirProgram { functions };
@@ -223,6 +224,7 @@ fn convert_generated_acir_into_circuit(
     debug_variables: DebugVariables,
     debug_functions: DebugFunctions,
     debug_types: DebugTypes,
+    is_main: bool,
 ) -> (Circuit, DebugInfo, Vec<SsaReport>, Vec<Witness>, Vec<Witness>) {
     let opcodes = generated_acir.take_opcodes();
     let current_witness_index = generated_acir.current_witness_index().0;
@@ -237,8 +239,10 @@ fn convert_generated_acir_into_circuit(
 
     let locations = locations.clone();
 
-    let (public_parameter_witnesses, private_parameters) =
-        split_public_and_private_inputs(&func_sig, &input_witnesses);
+    // let (public_parameter_witnesses, private_parameters) =
+    //     split_public_and_private_inputs(&func_sig, &input_witnesses);
+
+    let (public_parameter_witnesses, private_parameters) = if is_main { split_public_and_private_inputs(&func_sig, &input_witnesses) } else { (BTreeSet::default(), BTreeSet::default()) };
 
     let public_parameters = PublicInputs(public_parameter_witnesses);
     let return_values = PublicInputs(return_witnesses.iter().copied().collect());

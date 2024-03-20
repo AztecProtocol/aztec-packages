@@ -190,10 +190,12 @@ impl Ssa {
         let mut acirs = Vec::new();
         for (_, function) in &self.functions {
             let context = Context::new();
-            let generated_acir =
-                context.convert_ssa_function(&self, function, &brillig, last_array_uses)?;
+            // let generated_acir =
+            //     // context.convert_ssa_function(&self, function, &brillig, last_array_uses)?;
 
-            acirs.push(generated_acir);
+            if let Some(generated_acir) = context.convert_ssa_function(&self, function, &brillig, last_array_uses)? {
+                acirs.push(generated_acir);
+            }
         }
         // dbg!(acirs.clone());
         // TODO: check wheter doing this for a single circuit's return witnessese is correct.
@@ -244,49 +246,23 @@ impl Context {
         }
     }
 
-    // /// Converts SSA into ACIR
-    // fn convert_ssa(
-    //     &mut self,
-    //     ssa: Ssa,
-    //     brillig: Brillig,
-    //     last_array_uses: &HashMap<ValueId, InstructionId>,
-    // ) -> Result<GeneratedAcir, RuntimeError> {
-    // let mut acirs = Vec::new();
-    // for (id, function) in &ssa.functions {
-    //     let x = match function.runtime() {
-    //         RuntimeType::Acir(_) => {
-    //             // TODO: remove this brillig clone
-    //             self.convert_acir_main(function, &ssa, &brillig, last_array_uses)
-    //         }
-    //         RuntimeType::Brillig => {
-    //             self.convert_brillig_main(function, &brillig)
-    //         }
-    //     };
-    //     // println!("acir for {id}: {}",);
-    //     println!("acir for {id}");
-    //     dbg!(x.clone());
-    //     acirs.push(x);
-    // }
-    // acirs[0].clone()
-    //     // let main_func = ssa.main();
-    //     // match main_func.runtime() {
-    //     //     // TODO: hanlde this shit
-    //     //     RuntimeType::Acir(_) => self.convert_acir_main(main_func, &ssa, &brillig, last_array_uses),
-    //     //     RuntimeType::Brillig => self.convert_brillig_main(main_func, &brillig),
-    //     // }
-    // }
-
     fn convert_ssa_function(
         self,
         ssa: &Ssa,
         function: &Function,
         brillig: &Brillig,
         last_array_uses: &HashMap<ValueId, InstructionId>,
-    ) -> Result<GeneratedAcir, RuntimeError> {
+    ) -> Result<Option<GeneratedAcir>, RuntimeError> {
         match function.runtime() {
             // TODO: hanlde this shit
-            RuntimeType::Acir(_) => self.convert_acir_main(function, ssa, brillig, last_array_uses),
-            RuntimeType::Brillig => self.convert_brillig_main(function, brillig),
+            RuntimeType::Acir(_) => Ok(Some(self.convert_acir_main(function, ssa, brillig, last_array_uses)?)),
+            RuntimeType::Brillig => {
+                if function.id() == ssa.main_id {
+                    Ok(Some(self.convert_brillig_main(function, brillig)?))
+                } else {
+                    Ok(None)
+                }
+            }
         }
     }
 
@@ -323,7 +299,7 @@ impl Context {
         brillig: &Brillig,
     ) -> Result<GeneratedAcir, RuntimeError> {
         let dfg = &main_func.dfg;
-
+        
         let inputs = try_vecmap(dfg[main_func.entry_block()].parameters(), |param_id| {
             let typ = dfg.type_of_value(*param_id);
             self.create_value_from_type(&typ, &mut |this, _| Ok(this.acir_context.add_variable()))
@@ -593,18 +569,43 @@ impl Context {
 
                                 let inputs = vecmap(arguments, |arg| self.convert_value(*arg, dfg));
                                 let output_count = result_ids.iter().fold(0usize, |sum, result_id| {
-                                    sum + dfg.try_get_array_length(*result_id).expect("ICE: need to implement returning slices from folded functions")
+                                    // TODO: handle complex return types from ACIR functions
+                                    sum + dfg.try_get_array_length(*result_id).unwrap_or(1)
                                 });
 
                                 let final_program_id = ssa
                                     .id_to_index
                                     .get(id)
                                     .expect("ICE: should have an associated final index");
-                                self.acir_context.call_acir_function(
+                                let result_vars = self.acir_context.call_acir_function(
                                     *final_program_id,
                                     inputs,
                                     output_count,
                                 )?;
+                                let result_values = self.convert_vars_to_values(result_vars, dfg, result_ids);
+                                for (result, output) in result_ids.iter().zip(result_values) {
+                                    match &output {
+                                        // We need to make sure we initialize arrays returned from intrinsic calls
+                                        // or else they will fail if accessed with a dynamic index
+                                        AcirValue::Array(_) => {
+                                            let block_id = self.block_id(result);
+                                            let array_typ = dfg.type_of_value(*result);
+                                            let len = if matches!(array_typ, Type::Array(_, _)) {
+                                                array_typ.flattened_size()
+                                            } else {
+                                                Self::flattened_value_size(&output)
+                                            };
+                                            self.initialize_array(block_id, len, Some(output.clone()))?;
+                                        }
+                                        AcirValue::DynamicArray(_) => {
+                                            // Do nothing as a dynamic array returned from a slice intrinsic should already be initialized
+                                        }
+                                        AcirValue::Var(_, _) => {
+                                            // Do nothing
+                                        }
+                                    }
+                                    self.ssa_values.insert(*result, output);
+                                }
                             }
                             RuntimeType::Brillig => {
                                 // Check that we are not attempting to return a slice from
