@@ -1,6 +1,9 @@
 name: Run CI with Earthly
 on:
-  push: {}
+  push:
+    branches:
+      - master
+  pull_request_target: {}
   workflow_dispatch: {}
 
 jobs:
