@@ -15,6 +15,7 @@ global secpr1_fq = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
 global secpr1_fr = [0x51, 0x25, 0x63, 0xFC, 0xC2, 0xCA, 0xB9, 0xF3, 0x84, 0x9E, 0x17, 0xA7, 0xAD, 0xFA, 0xE6, 0xBC,
                     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,0xFF, 0xFF, 0xFF, 0xFF];
 // docs:end:curve_order_base
+global u256_modulus = [0;32];
 
 struct BigInt {
     pointer: u32,
@@ -347,6 +348,56 @@ impl Div for Secpr1Fr {
 }
 impl Eq for Secpr1Fr {
     fn eq(self: Self, other: Secpr1Fr) -> bool {
+        self.inner.check_32_bytes(other.inner)
+    }
+}
+
+struct U256 {
+    inner: BigInt,
+}
+
+impl BigField for U256 {
+    fn from_le_bytes(bytes: [u8]) -> U256 {
+        U256 {
+            inner: BigInt::from_le_bytes(bytes, u256_modulus)
+        }
+    }
+    fn to_le_bytes(self) -> [u8] {
+        self.inner.to_le_bytes()
+    }
+}
+
+impl Add for U256 { 
+    fn add(self: Self, other: U256) -> U256 {
+        U256 {
+            inner: self.inner.bigint_add(other.inner)
+        }
+    }
+}
+impl Sub for U256 { 
+    fn sub(self: Self, other: U256) -> U256 {
+        U256 {
+            inner: self.inner.bigint_sub(other.inner)
+        }
+    }
+}
+impl Mul for U256 { 
+    fn mul(self: Self, other: U256) -> U256 {
+        U256 {
+            inner: self.inner.bigint_mul(other.inner)
+        }
+
+    }
+}
+impl Div for U256 { 
+    fn div(self: Self, other: U256) -> U256 {
+        U256 {
+            inner: self.inner.bigint_div(other.inner)
+        }
+    }
+}
+impl Eq for U256 {
+    fn eq(self: Self, other: U256) -> bool {
         self.inner.check_32_bytes(other.inner)
     }
 }

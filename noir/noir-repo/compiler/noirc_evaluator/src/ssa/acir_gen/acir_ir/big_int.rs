@@ -41,6 +41,18 @@ impl BigIntContext {
         self.modulus[idx.to_u128() as usize].clone()
     }
 
+    /// Returns the number of bytes needed to represent the big integer
+    pub(crate) fn modulus_bytes_len(&self, idx: FieldElement) -> u64 {
+        let modulus = self.modulus(idx);
+        if modulus == BigUint::from(0_u32) {
+            // Modulus are truncated to 32 bytes in ACIR, so
+            // 2^{256} modulus should be 0
+            32
+        } else {
+            ((modulus - BigUint::from(1_u32)).bits() - 1) / 8 + 1
+        }
+    }
+
     /// Returns the BigIntId corresponding to the given identifier
     pub(crate) fn get(&self, id: FieldElement) -> BigIntId {
         self.big_integers[id.to_u128() as usize]
