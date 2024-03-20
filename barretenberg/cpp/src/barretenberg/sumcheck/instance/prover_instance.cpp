@@ -79,12 +79,12 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator
     relation_parameters.eta = eta;
     // Compute sorted witness-table accumulator
     proving_key->compute_sorted_list_accumulator(eta);
-    proving_key->sorted_accum = proving_key->sorted_accum.share();
+    prover_polynomials.sorted_accum = proving_key->sorted_accum.share();
     prover_polynomials.sorted_accum_shift = proving_key->sorted_accum.shifted();
 
     // Finalize fourth wire polynomial by adding lookup memory records
     add_plookup_memory_records_to_wire_4(eta);
-    proving_key->w_4 = proving_key->w_4.share();
+    prover_polynomials.w_4 = proving_key->w_4.share();
     prover_polynomials.w_4_shift = proving_key->w_4.shifted();
 }
 
