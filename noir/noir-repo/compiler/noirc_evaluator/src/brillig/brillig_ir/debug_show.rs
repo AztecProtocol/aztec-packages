@@ -53,8 +53,7 @@ impl DebugToString for BrilligBinaryOp {
             BrilligBinaryOp::Mul => "*".into(),
             BrilligBinaryOp::Equals => "==".into(),
             BrilligBinaryOp::FieldDiv => "f/".into(),
-            BrilligBinaryOp::SignedDiv => "/".into(),
-            BrilligBinaryOp::UnsignedDiv => "//".into(),
+            BrilligBinaryOp::UnsignedDiv => "/".into(),
             BrilligBinaryOp::LessThan => "<".into(),
             BrilligBinaryOp::LessThanEquals => "<=".into(),
             BrilligBinaryOp::And => "&&".into(),
@@ -62,10 +61,7 @@ impl DebugToString for BrilligBinaryOp {
             BrilligBinaryOp::Xor => "^".into(),
             BrilligBinaryOp::Shl => "<<".into(),
             BrilligBinaryOp::Shr => ">>".into(),
-            BrilligBinaryOp::Modulo { is_signed_integer } => {
-                let op = if *is_signed_integer { "%" } else { "%%" };
-                op.into()
-            }
+            BrilligBinaryOp::Modulo => "%".into(),
         }
     }
 }
@@ -123,6 +119,24 @@ impl DebugShow {
     /// Emits a `mov` instruction.
     pub(crate) fn mov_instruction(&self, destination: MemoryAddress, source: MemoryAddress) {
         debug_println!(self.enable_debug_trace, "  MOV {}, {}", destination, source);
+    }
+
+    /// Emits a conditional `mov` instruction.
+    pub(crate) fn conditional_mov_instruction(
+        &self,
+        destination: MemoryAddress,
+        condition: MemoryAddress,
+        source_a: MemoryAddress,
+        source_b: MemoryAddress,
+    ) {
+        debug_println!(
+            self.enable_debug_trace,
+            "  CMOV {} = {}? {} : {}",
+            destination,
+            condition,
+            source_a,
+            source_b
+        );
     }
 
     /// Emits a `cast` instruction.

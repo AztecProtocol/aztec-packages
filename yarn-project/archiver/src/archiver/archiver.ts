@@ -33,6 +33,7 @@ import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'vi
 import { ArchiverDataStore } from './archiver_store.js';
 import { ArchiverConfig } from './config.js';
 import {
+  DataRetrieval,
   retrieveBlockBodiesFromAvailabilityOracle,
   retrieveBlockMetadataFromRollup,
   retrieveL1ToL2Messages,
@@ -195,12 +196,7 @@ export class Archiver implements ArchiveSource {
       );
     }
 
-    await this.store.addL1ToL2Messages(
-      retrievedL1ToL2Messages.retrievedData,
-      // -1n because the function expects the last block in which the message was emitted and not the one after next
-      // TODO(#5264): Check whether this could be cleaned up - `nextEthBlockNumber` value doesn't seem to be used much
-      retrievedL1ToL2Messages.nextEthBlockNumber - 1n,
-    );
+    await this.store.addL1ToL2Messages(retrievedL1ToL2Messages);
 
     // Read all data from chain and then write to our stores at the end
     const nextExpectedL2BlockNum = BigInt((await this.store.getSynchedL2BlockNumber()) + 1);
@@ -214,50 +210,50 @@ export class Archiver implements ArchiveSource {
     );
 
     const blockBodies = retrievedBlockBodies.retrievedData.map(([blockBody]) => blockBody);
-
     await this.store.addBlockBodies(blockBodies);
 
-    const retrievedBlockMetadata = await retrieveBlockMetadataFromRollup(
-      this.publicClient,
-      this.rollupAddress,
-      blockUntilSynced,
-      lastL1Blocks.blocks + 1n,
-      currentL1BlockNumber,
-      nextExpectedL2BlockNum,
-    );
-
-    const retrievedBodyHashes = retrievedBlockMetadata.retrievedData.map(
-      ([header]) => header.contentCommitment.txsEffectsHash,
-    );
-
-    const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
-
-    if (retrievedBlockMetadata.retrievedData.length !== blockBodiesFromStore.length) {
-      throw new Error('Block headers length does not equal block bodies length');
-    }
-
-    const retrievedBlocks = {
-      retrievedData: retrievedBlockMetadata.retrievedData.map(
-        (blockMetadata, i) =>
-          new L2Block(blockMetadata[1], blockMetadata[0], blockBodiesFromStore[i], blockMetadata[2]),
-      ),
-    };
-
-    if (retrievedBlocks.retrievedData.length === 0) {
-      return;
-    } else {
-      this.log(
-        `Retrieved ${retrievedBlocks.retrievedData.length} new L2 blocks between L1 blocks ${
-          lastL1Blocks.blocks + 1n
-        } and ${currentL1BlockNumber}.`,
+    // Now that we have block bodies we will retrieve block metadata and build L2 blocks from the bodies and
+    // the metadata
+    let retrievedBlocks: DataRetrieval<L2Block>;
+    {
+      const retrievedBlockMetadata = await retrieveBlockMetadataFromRollup(
+        this.publicClient,
+        this.rollupAddress,
+        blockUntilSynced,
+        lastL1Blocks.blocks + 1n,
+        currentL1BlockNumber,
+        nextExpectedL2BlockNum,
       );
-    }
 
-    // create the block number -> block hash mapping to ensure we retrieve the appropriate events
-    const blockNumberToBodyHash: { [key: number]: Buffer | undefined } = {};
-    retrievedBlocks.retrievedData.forEach((block: L2Block) => {
-      blockNumberToBodyHash[block.number] = block.header.contentCommitment.txsEffectsHash;
-    });
+      const retrievedBodyHashes = retrievedBlockMetadata.retrievedData.map(
+        ([header]) => header.contentCommitment.txsEffectsHash,
+      );
+
+      const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
+
+      if (retrievedBlockMetadata.retrievedData.length !== blockBodiesFromStore.length) {
+        throw new Error('Block headers length does not equal block bodies length');
+      }
+
+      const blocks = retrievedBlockMetadata.retrievedData.map(
+        (blockMetadata, i) => new L2Block(blockMetadata[1], blockMetadata[0], blockBodiesFromStore[i]),
+      );
+
+      if (blocks.length === 0) {
+        return;
+      } else {
+        this.log(
+          `Retrieved ${blocks.length} new L2 blocks between L1 blocks ${
+            lastL1Blocks.blocks + 1n
+          } and ${currentL1BlockNumber}.`,
+        );
+      }
+
+      retrievedBlocks = {
+        lastProcessedL1BlockNumber: retrievedBlockMetadata.lastProcessedL1BlockNumber,
+        retrievedData: blocks,
+      };
+    }
 
     await Promise.all(
       retrievedBlocks.retrievedData.map(block => {
@@ -280,7 +276,7 @@ export class Archiver implements ArchiveSource {
       }),
     );
 
-    await this.store.addBlocks(retrievedBlocks.retrievedData);
+    await this.store.addBlocks(retrievedBlocks);
   }
 
   /**
@@ -430,9 +426,9 @@ export class Archiver implements ArchiveSource {
   /**
    * Gets the L1 to L2 message index in the L1 to L2 message tree.
    * @param l1ToL2Message - The L1 to L2 message.
-   * @returns The index of the L1 to L2 message in the L1 to L2 message tree.
+   * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint> {
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.store.getL1ToL2MessageIndex(l1ToL2Message);
   }
 

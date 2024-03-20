@@ -100,12 +100,10 @@ describe('e2e_cross_chain_messaging', () => {
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    const burnMessageHash = computeAuthWitMessageHash(
-      l2Bridge.address,
-      l2Token.methods.burn(ownerAddress, withdrawAmount, nonce).request(),
-    );
-    const witness = await user1Wallet.createAuthWitness(burnMessageHash);
-    await user1Wallet.addAuthWitness(witness);
+    await user1Wallet.createAuthWit({
+      caller: l2Bridge.address,
+      action: l2Token.methods.burn(ownerAddress, withdrawAmount, nonce),
+    });
     // docs:end:authwit_to_another_sc
 
     // 5. Withdraw owner's funds from L2 to L1
@@ -164,7 +162,7 @@ describe('e2e_cross_chain_messaging', () => {
         .withWallet(user2Wallet)
         .methods.claim_private(secretHashForL2MessageConsumption, bridgeAmount, secretForL2MessageConsumption)
         .simulate(),
-    ).rejects.toThrow(`L1 to L2 message index not found in the store for message ${wrongMessage.hash().toString()}`);
+    ).rejects.toThrow(`No L1 to L2 message found for entry key ${wrongMessage.hash().toString()}`);
 
     // send the right one -
     const consumptionReceipt = await l2Bridge
