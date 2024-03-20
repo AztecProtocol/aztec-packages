@@ -54,15 +54,15 @@ impl MaxBlockNumber {
         self._opt.unwrap_unchecked()
     }
 
-    pub fn get_lower(lhs: MaxBlockNumber, rhs: MaxBlockNumber) -> MaxBlockNumber {
+    pub fn min(lhs: MaxBlockNumber, rhs: MaxBlockNumber) -> MaxBlockNumber {
         if rhs.is_none() {
             lhs // lhs might also be none, but in that case both would be
         } else {
-            MaxBlockNumber::get_lower_with_u32(lhs, rhs.unwrap_unchecked())
+            MaxBlockNumber::min_with_u32(lhs, rhs.unwrap_unchecked())
         }
     }
 
-    pub fn get_lower_with_u32(lhs: MaxBlockNumber, rhs: u32) -> MaxBlockNumber {
+    pub fn min_with_u32(lhs: MaxBlockNumber, rhs: u32) -> MaxBlockNumber {
         if lhs._opt.is_none() {
             MaxBlockNumber::new(rhs)
         } else {
@@ -103,45 +103,45 @@ fn default_unwrap_panics() {
 }
 
 #[test]
-fn get_lower_default_default() {
+fn min_default_default() {
     let a = MaxBlockNumber::default();
     let b = MaxBlockNumber::default();
 
-    assert(MaxBlockNumber::get_lower(a, b).is_none());
+    assert(MaxBlockNumber::min(a, b).is_none());
 }
 
 #[test]
-fn get_lower_default_some() {
+fn min_default_some() {
     let a = MaxBlockNumber::default();
     let b = MaxBlockNumber::new(13);
 
-    assert_eq(MaxBlockNumber::get_lower(a, b).unwrap(), 13);
-    assert_eq(MaxBlockNumber::get_lower(b, a).unwrap(), 13);
+    assert_eq(MaxBlockNumber::min(a, b).unwrap(), 13);
+    assert_eq(MaxBlockNumber::min(b, a).unwrap(), 13);
 }
 
 #[test]
-fn get_lower_some_some() {
+fn min_some_some() {
     let a = MaxBlockNumber::new(13);
     let b = MaxBlockNumber::new(42);
 
-    assert_eq(MaxBlockNumber::get_lower(a, b).unwrap(), 13);
-    assert_eq(MaxBlockNumber::get_lower(b, a).unwrap(), 13);
+    assert_eq(MaxBlockNumber::min(a, b).unwrap(), 13);
+    assert_eq(MaxBlockNumber::min(b, a).unwrap(), 13);
 }
 
 #[test]
-fn get_lower_with_u32_default() {
+fn min_with_u32_default() {
     let a = MaxBlockNumber::default();
     let b = 42;
 
-    assert_eq(MaxBlockNumber::get_lower_with_u32(a, b).unwrap(), 42);
+    assert_eq(MaxBlockNumber::min_with_u32(a, b).unwrap(), 42);
 }
 
 #[test]
-fn get_lower_with_u32_some() {
+fn min_with_u32_some() {
     let a = MaxBlockNumber::new(13);
     let b = 42;
     let c = 8;
 
-    assert_eq(MaxBlockNumber::get_lower_with_u32(a, b).unwrap(), 13);
-    assert_eq(MaxBlockNumber::get_lower_with_u32(a, c).unwrap(), 8);
+    assert_eq(MaxBlockNumber::min_with_u32(a, b).unwrap(), 13);
+    assert_eq(MaxBlockNumber::min_with_u32(a, c).unwrap(), 8);
 }
