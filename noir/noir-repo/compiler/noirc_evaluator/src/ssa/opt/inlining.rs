@@ -356,12 +356,8 @@ impl<'function> PerFunctionContext<'function> {
             match &self.source_function.dfg[*id] {
                 Instruction::Call { func, arguments } => match self.get_function(*func) {
                     Some(function) => match ssa.functions[&function].runtime() {
-                        RuntimeType::Acir(InlineType::Inline) => {
-                            self.inline_function(ssa, *id, function, arguments)
-                        }
-                        RuntimeType::Acir(InlineType::Fold) | RuntimeType::Brillig => {
-                            self.push_instruction(*id)
-                        }
+                        RuntimeType::Acir(InlineType::Inline) => self.inline_function(ssa, *id, function, arguments),
+                        RuntimeType::Acir(InlineType::Fold) | RuntimeType::Brillig => self.push_instruction(*id),
                     },
                     None => self.push_instruction(*id),
                 },
