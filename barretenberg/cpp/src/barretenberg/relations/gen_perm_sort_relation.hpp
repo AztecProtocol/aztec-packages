@@ -36,30 +36,34 @@ template <typename FF_> class GenPermSortRelationImpl {
                                   const FF& scaling_factor)
     {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using View = typename Accumulator::View;
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
-        auto w_4 = View(in.w_4);
-        auto w_1_shift = View(in.w_l_shift);
-        auto q_sort = View(in.q_sort);
+        // using View = typename Accumulator::View;
+        // auto w_1 = View(in.w_l);
+        // auto w_2 = View(in.w_r);
+        // auto w_3 = View(in.w_o);
+        // auto w_4 = View(in.w_4);
+        // auto w_1_shift = View(in.w_l_shift);
+        // auto q_sort = View(in.q_sort);
+        // const Accumulator& w_1 = in.w_l;
+        // const Accumulator& w_2 = in.w_r;
+        // const Accumulator& w_3 = in.w_o;
+        // const Accumulator& w_4 = in.w_4;
 
         static const FF minus_one = FF(-1);
         static const FF minus_two = FF(-2);
         static const FF minus_three = FF(-3);
 
         // Compute wire differences
-        auto delta_1 = w_2 - w_1;
-        auto delta_2 = w_3 - w_2;
-        auto delta_3 = w_4 - w_3;
-        auto delta_4 = w_1_shift - w_4;
+        Accumulator delta_1 = in.w_r - in.w_l;
+        Accumulator delta_2 = in.w_o - in.w_r;
+        Accumulator delta_3 = in.w_4 - in.w_o;
+        Accumulator delta_4 = in.w_l_shift - in.w_4;
 
         // Contribution (1)
-        auto tmp_1 = delta_1;
+        Accumulator tmp_1 = delta_1;
         tmp_1 *= (delta_1 + minus_one);
         tmp_1 *= (delta_1 + minus_two);
         tmp_1 *= (delta_1 + minus_three);
-        tmp_1 *= q_sort;
+        tmp_1 *= in.q_sort;
         tmp_1 *= scaling_factor;
         std::get<0>(accumulators) += tmp_1;
 
@@ -68,7 +72,7 @@ template <typename FF_> class GenPermSortRelationImpl {
         tmp_2 *= (delta_2 + minus_one);
         tmp_2 *= (delta_2 + minus_two);
         tmp_2 *= (delta_2 + minus_three);
-        tmp_2 *= q_sort;
+        tmp_2 *= in.q_sort;
         tmp_2 *= scaling_factor;
         std::get<1>(accumulators) += tmp_2;
 
@@ -77,7 +81,7 @@ template <typename FF_> class GenPermSortRelationImpl {
         tmp_3 *= (delta_3 + minus_one);
         tmp_3 *= (delta_3 + minus_two);
         tmp_3 *= (delta_3 + minus_three);
-        tmp_3 *= q_sort;
+        tmp_3 *= in.q_sort;
         tmp_3 *= scaling_factor;
         std::get<2>(accumulators) += tmp_3;
 
@@ -86,7 +90,7 @@ template <typename FF_> class GenPermSortRelationImpl {
         tmp_4 *= (delta_4 + minus_one);
         tmp_4 *= (delta_4 + minus_two);
         tmp_4 *= (delta_4 + minus_three);
-        tmp_4 *= q_sort;
+        tmp_4 *= in.q_sort;
         tmp_4 *= scaling_factor;
         std::get<3>(accumulators) += tmp_4;
     };

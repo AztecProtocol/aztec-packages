@@ -26,14 +26,14 @@ template <typename FF_> class UltraPermutationRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
 
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
-        auto w_4 = View(in.w_4);
-        auto id_1 = View(in.id_1);
-        auto id_2 = View(in.id_2);
-        auto id_3 = View(in.id_3);
-        auto id_4 = View(in.id_4);
+        const Accumulator& w_1 = in.w_l;
+        const Accumulator& w_2 = in.w_r;
+        const Accumulator& w_3 = in.w_o;
+        const Accumulator& w_4 = in.w_4;
+        const Accumulator& id_1 = in.id_1;
+        const Accumulator& id_2 = in.id_2;
+        const Accumulator& id_3 = in.id_3;
+        const Accumulator& id_4 = in.id_4;
 
         const auto& beta = ParameterView(params.beta);
         const auto& gamma = ParameterView(params.gamma);
@@ -49,15 +49,15 @@ template <typename FF_> class UltraPermutationRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
 
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
-        auto w_4 = View(in.w_4);
+        const Accumulator& w_1 = in.w_l;
+        const Accumulator& w_2 = in.w_r;
+        const Accumulator& w_3 = in.w_o;
+        const Accumulator& w_4 = in.w_4;
 
-        auto sigma_1 = View(in.sigma_1);
-        auto sigma_2 = View(in.sigma_2);
-        auto sigma_3 = View(in.sigma_3);
-        auto sigma_4 = View(in.sigma_4);
+        const Accumulator& sigma_1 = in.sigma_1;
+        const Accumulator& sigma_2 = in.sigma_2;
+        const Accumulator& sigma_3 = in.sigma_3;
+        const Accumulator& sigma_4 = in.sigma_4;
 
         const auto& beta = ParameterView(params.beta);
         const auto& gamma = ParameterView(params.gamma);
@@ -90,10 +90,10 @@ template <typename FF_> class UltraPermutationRelationImpl {
             using View = typename Accumulator::View;
             using ParameterView = GetParameterView<Parameters, View>;
             const auto public_input_delta = ParameterView(params.public_input_delta);
-            const auto z_perm = View(in.z_perm);
-            const auto z_perm_shift = View(in.z_perm_shift);
-            const auto lagrange_first = View(in.lagrange_first);
-            const auto lagrange_last = View(in.lagrange_last);
+            const Accumulator& z_perm = in.z_perm;
+            const Accumulator& z_perm_shift = in.z_perm_shift;
+            const Accumulator& lagrange_first = in.lagrange_first;
+            const Accumulator& lagrange_last = in.lagrange_last;
 
             // witness degree: deg 5 - deg 5 = deg 5
             // total degree: deg 9 - deg 10 = deg 10
@@ -107,11 +107,13 @@ template <typename FF_> class UltraPermutationRelationImpl {
         // Contribution (2)
         [&]() {
             using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
-            using View = typename Accumulator::View;
-            auto z_perm_shift = View(in.z_perm_shift);
-            auto lagrange_last = View(in.lagrange_last);
-
-            std::get<1>(accumulators) += (lagrange_last * z_perm_shift) * scaling_factor;
+            // using View = typename Accumulator::View;
+            // auto z_perm_shift = View(in.z_perm_shift);
+            // auto lagrange_last = View(in.lagrange_last);
+            Accumulator tmp(in.z_perm_shift);
+            tmp *= in.lagrange_last;
+            tmp *= scaling_factor;
+            std::get<1>(accumulators) += tmp;
         }();
     };
 };
