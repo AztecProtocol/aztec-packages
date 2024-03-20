@@ -77,7 +77,7 @@ To store it on the disk just do
 
     `Solver` instance has useful method `print_assertions` that will output all the assertions in kind of human readable format(not SMT2 lang).
 
-    There's also a function `smt_timer(Solver& s, bool mins)` in `barretenberg/smt_verification/util/smt_util.hpp` that will run the `check`, measure the time in minutes/seconds and send it to stdout.
+    There's also a function `smt_timer(Solver& s)` in `barretenberg/smt_verification/util/smt_util.hpp` that will run the `check`, measure the time in minutes:seconds and send it to stdout.
 	
 3. Initialize the Circuit 
 
@@ -292,4 +292,4 @@ void model_variables(Circuit<smt_terms::STerm>& c, Solver* s, FFTerm& evaluation
 }
 ```
 
-More examples can be found in [terms/ffterm.test.cpp](terms/ffterm.test.cpp), [circuit/circuit.test.cpp](circuit/circuit.test.cpp) and [smt_polynomials.test.cpp](smt_polynomials.test.cpp).
+More examples can be found in [terms/ffterm.test.cpp](terms/ffterm.test.cpp), [circuit/circuit.test.cpp](circuit/circuit.test.cpp), [smt_polynomials.test.cpp](smt_polynomials.test.cpp) and [bb_tests](bb_tests)
