@@ -30,7 +30,6 @@ jobs:
         run: echo "SANITIZED_REF=$(echo ${{ github.ref }} | sed 's/\//-/g')" >> $GITHUB_ENV
 
       - name: Test
-        working-directory: ./yarn-project/end-to-end
         run: |
           earthly --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.event.number || env.SANITIZED_REF}} --sat build-${{ matrix.environment }} --push +build
 
@@ -62,7 +61,6 @@ jobs:
 
       - name: Test
         working-directory: ./yarn-project/end-to-end
-
         run: |
           earthly --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.pull_request.number || env.SANITIZED_REF }} --sat e2e-${{ matrix.environment }} +${{ matrix.test }}
 
