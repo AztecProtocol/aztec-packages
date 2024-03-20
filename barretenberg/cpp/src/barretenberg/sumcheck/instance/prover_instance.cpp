@@ -74,12 +74,6 @@ void ProverInstance_<Flavor>::construct_table_polynomials(Circuit& circuit, size
     proving_key->table_4 = table_polynomials[3].share();
 }
 
-template <class Flavor> void ProverInstance_<Flavor>::initialize_prover_polynomials()
-{
-    ProverPolynomials prover_polys(proving_key);
-    prover_polynomials = std::move(prover_polys);
-}
-
 template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
 {
     relation_parameters.eta = eta;

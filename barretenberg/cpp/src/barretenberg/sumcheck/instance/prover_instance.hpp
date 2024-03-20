@@ -86,8 +86,6 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_() = default;
     ~ProverInstance_() = default;
 
-    void initialize_prover_polynomials();
-
     void compute_sorted_accumulator_polynomials(FF);
 
     void compute_sorted_list_accumulator(FF);

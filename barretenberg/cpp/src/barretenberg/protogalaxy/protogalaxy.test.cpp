@@ -117,7 +117,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         construct_circuit(builder);
 
         auto instance = std::make_shared<ProverInstance>(builder);
-        instance->initialize_prover_polynomials();
+        instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
         auto eta = FF::random_element();
         auto beta = FF::random_element();
