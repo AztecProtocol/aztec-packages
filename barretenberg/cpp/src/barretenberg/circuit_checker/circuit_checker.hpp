@@ -14,6 +14,10 @@ concept IsCheckable = bb::IsAnyOf<T,
                                   UltraCircuitBuilder,
                                   GoblinUltraCircuitBuilder>;
 
+/**
+ * @brief The unified interface for check circuit functionality implemented in the specialized CircuitChecker classes
+ *
+ */
 class CircuitChecker {
   public:
     template <typename Builder> static bool check(const Builder& builder)
