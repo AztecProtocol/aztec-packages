@@ -225,12 +225,6 @@ contract PendingNoteHashes {
             get_then_nullify_fn_selector,
             args
         );
-
-        let _callStackItem4 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
-            get_note_zero_fn_selector,
-            [owner.to_field()]
-        );
     }
     // Confirm cannot get/read a pending note hash in a nested call
     // that is created/inserted later in execution but in the parent.
