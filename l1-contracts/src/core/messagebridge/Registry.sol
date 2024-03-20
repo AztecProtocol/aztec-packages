@@ -126,4 +126,12 @@ contract Registry is IRegistry {
     version = rollupToVersion[_rollup];
     return (version, version > 0);
   }
+
+  /**
+   * @notice Returns the number of registered rollup versions
+   * @return The number of registered rollup versions
+   */
+   function getNumberOfVersions() external view returns (uint256) {
+    return numberOfVersions;
+  }
 }
