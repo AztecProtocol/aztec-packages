@@ -202,8 +202,7 @@ contract PendingNoteHashes {
         amount: Field,
         owner: AztecAddress,
         insert_fn_selector: FunctionSelector,
-        get_then_nullify_fn_selector: FunctionSelector,
-        get_note_zero_fn_selector: FunctionSelector
+        get_then_nullify_fn_selector: FunctionSelector
     ) {
         // args for nested calls
         let args = [amount, owner.to_field()];
