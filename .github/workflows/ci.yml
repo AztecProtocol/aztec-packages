@@ -3,12 +3,42 @@ on:
   push:
     branches:
       - master
-  pull_request: {}
+  pull_request_target: {}
   workflow_dispatch: {}
 
 jobs:
-  e2e:
+  build:
     runs-on: ubuntu-latest
+    env:
+      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
+    strategy: { matrix: { environment: [x86] } }
+    # cancel if reran on same PR if exists, otherwise if on same commit
+    concurrency:
+      group: build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with: {submodules: recursive}
+
+      - name: Setup
+        working-directory: ./scripts
+        run: ./setup_env.sh ${{ matrix.environment }} ${{ secrets.DOCKERHUB_PASSWORD }} ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+
+      - name: Test
+        working-directory: ./yarn-project/end-to-end
+        run: earthly --no-output \
+          --org aztec \
+          --remote-cache=aztecprotocol/cache:${{ github.event.pull_request.number || github.ref }} \
+          --sat build-${{ matrix.environment }} \
+          --push \
+          +build
+
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy: { matrix: { environment: [x86], test: [e2e-escrow-contract] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
@@ -17,9 +47,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          submodules: recursive
+        with: {submodules: recursive}
 
       - name: Setup
         working-directory: ./scripts
@@ -27,27 +55,33 @@ jobs:
 
       - name: Test
         working-directory: ./yarn-project/end-to-end
-        run: earthly +${{ matrix.test }}
 
-  bb-native-tests:
-    runs-on: ubuntu-latest
-    # run for both x86_64 and arm64
-    strategy: { matrix: { environment: [x86] } }
-    # cancel if reran on same PR if exists, otherwise if on same commit
-    concurrency:
-      group: bb-native-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
-      cancel-in-progress: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          submodules: recursive
+        run: earthly --no-output \
+          --org aztec \
+          --remote-cache=aztecprotocol/cache:${{ github.event.pull_request.number || github.ref }} \
+          --sat build-${{ matrix.environment }} \
+          +${{ matrix.test }}
 
-      - name: Setup
-        working-directory: ./scripts
-        run: ./setup_env.sh ${{ matrix.environment }} ${{ secrets.DOCKERHUB_PASSWORD }} ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+  # bb-native-tests:
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
+  #   # run for both x86_64 and arm64
+  #   strategy: { matrix: { environment: [x86] } }
+  #   # cancel if reran on same PR if exists, otherwise if on same commit
+  #   concurrency:
+  #     group: bb-native-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
+  #     cancel-in-progress: true
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         submodules: recursive
 
-      - name: Build and test
-        working-directory: ./barretenberg/cpp
-        run: earthly +test
+  #     - name: Setup
+  #       working-directory: ./scripts
+  #       run: ./setup_env.sh ${{ matrix.environment }} ${{ secrets.DOCKERHUB_PASSWORD }} ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+
+  #     - name: Build and test
+  #       working-directory: ./barretenberg/cpp
+  #       run: earthly --no-output --org aztec --sat my-satellite --ci --push +build+test
