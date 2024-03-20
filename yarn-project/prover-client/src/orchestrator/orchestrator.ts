@@ -15,7 +15,6 @@ import {
   RootParityInputs,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { randomBytes } from '@aztec/foundation/crypto';
 import { MemoryFifo } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple } from '@aztec/foundation/serialize';
@@ -40,6 +39,7 @@ import {
   getTreeSnapshot,
   validateTx,
 } from './block-building-helpers.js';
+import { MergeRollupInputData, PROVING_JOB_TYPE, ProvingJob, ProvingState } from './proving-state.js';
 
 const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 
@@ -49,194 +49,12 @@ const logger = createDebugLogger('aztec:prover:proving-orchestrator');
  * 2. Tree insertions are performed as required to generate transaction specific proofs
  * 3. Those transaction specific proofs are generated in the necessary order accounting for dependencies
  * 4. Once a transaction is proven, it will be incorporated into a merge proof
- * 5. Merge proofs are produced at each level of the tree untl the root proof is produced
+ * 5. Merge proofs are produced at each level of the tree until the root proof is produced
  *
  * The proving implementation is determined by the provided prover implementation. This could be for example a local prover or a remote prover pool.
  */
 
 const SLEEP_TIME = 50;
-
-/**
- * Enums and structs to communicate the type of work required in each request.
- */
-enum PROVING_JOB_TYPE {
-  STATE_UPDATE,
-  BASE_ROLLUP,
-  MERGE_ROLLUP,
-  ROOT_ROLLUP,
-  BASE_PARITY,
-  ROOT_PARITY,
-}
-
-type ProvingJob = {
-  type: PROVING_JOB_TYPE;
-  operation: () => Promise<void>;
-};
-
-type MergeRollupInputData = {
-  inputs: [BaseOrMergeRollupPublicInputs | undefined, BaseOrMergeRollupPublicInputs | undefined];
-  proofs: [Proof | undefined, Proof | undefined];
-};
-
-/**
- * The current state of the proving schedule. Contains the raw inputs (txs) and intermediate state to generate every constituent proof in the tree.
- * Carries an identifier so we can identify if the proving state is dicarded and a new one started.
- * Captures resolve and reject callbacks to provide a promise base interface to the consumer of our proving.
- */
-class ProvingState {
-  private _stateIdentifier: string;
-  private _mergeRollupInputs: MergeRollupInputData[] = [];
-  private _rootParityInputs: Array<RootParityInput | undefined> = [];
-  private _finalRootParityInput: RootParityInput | undefined;
-  private __finished = false;
-  private _txs: ProcessedTx[] = [];
-  constructor(
-    private _numTxs: number,
-    private _completionCallback: (result: ProvingResult) => void,
-    private _rejectionCallback: (reason: string) => void,
-    private _globalVariables: GlobalVariables,
-    private _newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
-    numRootParityInputs: number,
-    private _emptyTx: ProcessedTx,
-  ) {
-    this._stateIdentifier = randomBytes(32).toString('hex');
-    this._rootParityInputs = Array.from({ length: numRootParityInputs }).map(_ => undefined);
-  }
-
-  public get baseMergeLevel() {
-    return BigInt(Math.ceil(Math.log2(this.totalNumTxs)) - 1);
-  }
-
-  public get numMergeLevels() {
-    return this.baseMergeLevel;
-  }
-
-  public get numRealTxs() {
-    return this._numTxs;
-  }
-
-  public get numPaddingTxs() {
-    return this.totalNumTxs - this.numRealTxs;
-  }
-
-  public get totalNumTxs() {
-    const pow2Txs = Math.ceil(Math.log2(this.numRealTxs));
-    return 2 ** pow2Txs;
-  }
-
-  public addNewTx(tx: ProcessedTx) {
-    this._txs.push(tx);
-    return this._txs.length - 1;
-  }
-
-  public get transactionsReceived() {
-    return this._txs.length;
-  }
-
-  public get globalVariables() {
-    return this._globalVariables;
-  }
-
-  public get newL1ToL2Messages() {
-    return this._newL1ToL2Messages;
-  }
-
-  public get stateIdentifier() {
-    return this._stateIdentifier;
-  }
-
-  public get finalRootParityInput() {
-    return this._finalRootParityInput;
-  }
-
-  public set finalRootParityInput(input: RootParityInput | undefined) {
-    this._finalRootParityInput = input;
-  }
-
-  public get rootParityInputs() {
-    return this._rootParityInputs;
-  }
-
-  public verifyState(stateId: string) {
-    return stateId === this._stateIdentifier && !this.__finished;
-  }
-
-  public get emptyTx() {
-    return this._emptyTx;
-  }
-
-  public get allTxs() {
-    return this._txs;
-  }
-
-  public storeMergeInputs(
-    mergeInputs: [BaseOrMergeRollupPublicInputs, Proof],
-    indexWithinMerge: number,
-    indexOfMerge: number,
-  ) {
-    if (!this._mergeRollupInputs[indexOfMerge]) {
-      const mergeInputData: MergeRollupInputData = {
-        inputs: [undefined, undefined],
-        proofs: [undefined, undefined],
-      };
-      mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
-      mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
-      this._mergeRollupInputs[indexOfMerge] = mergeInputData;
-      return false;
-    }
-    const mergeInputData = this._mergeRollupInputs[indexOfMerge];
-    mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
-    mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
-    return true;
-  }
-
-  public getMergeInputs(indexOfMerge: number) {
-    return this._mergeRollupInputs[indexOfMerge];
-  }
-
-  public isReadyForRootRollup() {
-    if (this._mergeRollupInputs[0] === undefined) {
-      return false;
-    }
-    if (this._mergeRollupInputs[0].inputs.findIndex(p => !p) !== -1) {
-      return false;
-    }
-    if (this._finalRootParityInput === undefined) {
-      return false;
-    }
-    return true;
-  }
-
-  public setRootParityInputs(inputs: RootParityInput, index: number) {
-    this._rootParityInputs[index] = inputs;
-  }
-
-  public areRootParityInputsReady() {
-    return this._rootParityInputs.findIndex(p => !p) === -1;
-  }
-
-  public reject(reason: string, stateIdentifier: string) {
-    if (!this.verifyState(stateIdentifier)) {
-      return;
-    }
-    if (this.__finished) {
-      return;
-    }
-    this.__finished = true;
-    this._rejectionCallback(reason);
-  }
-
-  public resolve(result: ProvingResult, stateIdentifier: string) {
-    if (!this.verifyState(stateIdentifier)) {
-      return;
-    }
-    if (this.__finished) {
-      return;
-    }
-    this.__finished = true;
-    this._completionCallback(result);
-  }
-}
 
 /**
  * The orchestrator, managing the flow of recursive proving operations required to build the rollup proof tree.
@@ -273,12 +91,12 @@ export class ProvingOrchestrator {
   }
 
   /**
-   *
+   * Starts off a new block
    * @param numTxs - The number of real transactions in the block
    * @param globalVariables - The global variables for the block
    * @param l1ToL2Messages - The l1 to l2 messages for the block
    * @param emptyTx - The instance of an empty transaction to be used to pad this block
-   * @returns A promise norifying of the result of proving
+   * @returns A promise notifying of the result of proving
    */
   public startNewBlock(
     numTxs: number,
@@ -378,7 +196,7 @@ export class ProvingOrchestrator {
       try {
         await job();
       } catch (err) {
-        logger.error(`Error thrown when proving: ${err}`);
+        logger.error(`Error thrown when proving job type ${PROVING_JOB_TYPE[jobType]}: ${err}`);
         this.provingState!.reject(`${err}`, stateIdentifier);
       }
     };
@@ -453,7 +271,7 @@ export class ProvingOrchestrator {
       return;
     }
     const currentLevel = this.provingState!.numMergeLevels + 1n;
-    logger.info(`Completed base rollup at index ${index}`);
+    logger.info(`Completed base rollup at index ${index}, current level ${currentLevel}`);
     this.storeAndExecuteNextMergeLevel(currentLevel, index, baseRollupOutputs, stateIdentifier);
   }
 
@@ -469,7 +287,7 @@ export class ProvingOrchestrator {
       [mergeInputData.inputs[0]!, mergeInputData.proofs[0]!],
       [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!],
     );
-    const [duration, circuitOuptuts] = await elapsed(() =>
+    const [duration, circuitOutputs] = await elapsed(() =>
       executeMergeRollupCircuit(circuitInputs, this.simulator, this.prover, logger),
     );
     logger.debug(`Simulated merge rollup circuit`, {
@@ -477,13 +295,13 @@ export class ProvingOrchestrator {
       circuitName: 'merge-rollup',
       duration,
       inputSize: circuitInputs.toBuffer().length,
-      outputSize: circuitOuptuts[0].toBuffer().length,
+      outputSize: circuitOutputs[0].toBuffer().length,
     } satisfies CircuitSimulationStats);
     if (!this.provingState?.verifyState(stateIdentifier)) {
       return;
     }
     logger.info(`Completed merge rollup at level ${level}, index ${index}`);
-    this.storeAndExecuteNextMergeLevel(level, index, circuitOuptuts, stateIdentifier);
+    this.storeAndExecuteNextMergeLevel(level, index, circuitOutputs, stateIdentifier);
   }
 
   // Executes the root rollup circuit
@@ -535,7 +353,7 @@ export class ProvingOrchestrator {
   }
 
   // Executes the base parity circuit and stores the intermediate state for the root parity circuit
-  // Enqueus the root parity circuit if all inputs are available
+  // Enqueues the root parity circuit if all inputs are available
   private async runBaseParityCircuit(inputs: BaseParityInputs, index: number, stateIdentifier: string) {
     const [duration, circuitOutputs] = await elapsed(() =>
       executeBaseParityCircuit(inputs, this.simulator, this.prover, logger),
@@ -552,7 +370,7 @@ export class ProvingOrchestrator {
     }
     this.provingState!.setRootParityInputs(circuitOutputs, index);
 
-    if (this.provingState!.areRootParityInputsReady()) {
+    if (!this.provingState!.areRootParityInputsReady()) {
       // not ready to run the root parity circuit yet
       return;
     }
@@ -565,7 +383,7 @@ export class ProvingOrchestrator {
   }
 
   // Runs the root parity circuit ans stored the outputs
-  // Enqueues the root rollup proof if all iinputs are available
+  // Enqueues the root rollup proof if all inputs are available
   private async runRootParityCircuit(inputs: RootParityInputs, stateIdentifier: string) {
     const [duration, circuitOutputs] = await elapsed(() =>
       executeRootParityCircuit(inputs, this.simulator, this.prover, logger),

@@ -429,6 +429,19 @@ describe('prover/tx-prover', () => {
       expect(result.block.number).toEqual(blockNumber);
     }, 30_000);
 
+    it('builds a block with 1 transaction', async () => {
+      const txs = await Promise.all([makeEmptyProcessedTx()]);
+
+      const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
+
+      for (const tx of txs) {
+        builder.addNewTx(tx);
+      }
+
+      const result = await blockPromise;
+      expect(result.block.number).toEqual(blockNumber);
+    }, 30_000);
+
     it('builds a mixed L2 block', async () => {
       const txs = await Promise.all([
         makeBloatedProcessedTx(1),
