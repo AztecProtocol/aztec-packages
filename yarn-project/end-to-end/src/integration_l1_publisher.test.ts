@@ -45,6 +45,7 @@ import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import * as fs from 'fs';
 import {
+  Account,
   Address,
   Chain,
   GetContractReturnType,
@@ -73,6 +74,7 @@ const numberOfConsecutiveBlocks = 2;
 
 describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
+  let walletClient: WalletClient<HttpTransport, Chain, Account>;
   let l1ContractAddresses: L1ContractAddresses;
   let deployerAccount: PrivateKeyAccount;
 
@@ -103,7 +105,11 @@ describe('L1Publisher integration', () => {
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
-    ({ l1ContractAddresses, publicClient } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger));
+    ({ l1ContractAddresses, publicClient, walletClient } = await setupL1Contracts(
+      config.rpcUrl,
+      deployerAccount,
+      logger,
+    ));
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
@@ -118,7 +124,7 @@ describe('L1Publisher integration', () => {
     inbox = getContract({
       address: inboxAddress,
       abi: InboxAbi,
-      client: publicClient,
+      client: walletClient,
     });
     outbox = getContract({
       address: outboxAddress,
@@ -416,7 +422,7 @@ describe('L1Publisher integration', () => {
 
       const expectedRoot = tree.getRoot(true);
       const [actualRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
-      
+
       // check that values are inserted into the outbox
       expect(`0x${expectedRoot.toString('hex')}`).toEqual(actualRoot);
 
