@@ -1,20 +1,18 @@
-
-import { HonkTypes } from "./HonkVerifierTypes.sol";
+import {HonkTypes} from "./HonkVerifierTypes.sol";
 
 // TODO: this should be somewhat dynamic across the board
-import { Add2HonkVerificationKey } from "./keys/Add2HonkVerificationKey.sol";
+import {Add2HonkVerificationKey} from "./keys/Add2HonkVerificationKey.sol";
 
 import "forge-std/console.sol";
 
 /// Smart contract verifier of honk proofs
 contract HonkVerifier {
-
     /// Plan of action
     /// We want to implement the non goblinised version of the protocol
 
     /// 0. Implement loading the verification key
 
-    /// 1. Generate challenges 
+    /// 1. Generate challenges
     /// 2. Perform the public inputs delta calculations
 
     /// 3. Implement the sumcheck verifier
@@ -30,14 +28,12 @@ contract HonkVerifier {
 
     struct ProofParameters {
         uint256 logCircuitSize;
-
     }
 
     struct TranscriptParameters {
         // Relation Challenges
         uint256[NUMBER_OF_SUBRELATIONS] alphas;
         uint256[LOG_N] gateChallenges;
-
         // perm challenges
         uint256 beta;
         uint256 gamma;
@@ -50,48 +46,30 @@ contract HonkVerifier {
     function loadVerificationKey() internal returns (HonkTypes.VerificationKey memory) {
         // Load the verification key -> this can be hardcoded
         return Add2HonkVerificationKey.loadVerificationKey();
-    } 
+    }
 
     function loadProof(bytes calldata proof) internal returns (HonkTypes.Proof memory) {
         HonkTypes.Proof memory p;
 
         // Metadata
         p.circuitSize = uint256(bytes32(proof[0x00:0x20]));
+        console.log("circuitSize");
+        console.log(p.circuitSize);
         p.publicInputsSize = uint256(bytes32(proof[0x20:0x40]));
         p.publicInputsOffset = uint256(bytes32(proof[0x40:0x60]));
 
         // Commitments
-        p.w1 =  HonkTypes.G1Point({
-            x: uint256(bytes32(proof[0x60:0x80])),
-            y: uint256(bytes32(proof[0x80:0xa0]))
-        });
-        p.w2 = HonkTypes.G1Point({
-            x: uint256(bytes32(proof[0xa0:0xc0])),
-            y: uint256(bytes32(proof[0xc0:0xe0]))
-        });
-        p.w3 = HonkTypes.G1Point({
-
-            x: uint256(bytes32(proof[0xe0:0x100])),
-            y: uint256(bytes32(proof[0x100:0x120]))
-        });
+        p.w1 = HonkTypes.G1Point({x: uint256(bytes32(proof[0x60:0x80])), y: uint256(bytes32(proof[0x80:0xa0]))});
+        p.w2 = HonkTypes.G1Point({x: uint256(bytes32(proof[0xa0:0xc0])), y: uint256(bytes32(proof[0xc0:0xe0]))});
+        p.w3 = HonkTypes.G1Point({x: uint256(bytes32(proof[0xe0:0x100])), y: uint256(bytes32(proof[0x100:0x120]))});
 
         // Lookup / Permutation Helper Commitments
-        p.sortedAccum =  HonkTypes.G1Point({
-            x: uint256(bytes32(proof[0x120:0x140])),
-            y: uint256(bytes32(proof[0x140:0x160]))
-        });
-        p.w4 =  HonkTypes.G1Point({
-            x: uint256(bytes32(proof[0x160:0x180])),
-            y: uint256(bytes32(proof[0x180:0x1a0]))
-        });
-        p.zPerm =  HonkTypes.G1Point({
-            x: uint256(bytes32(proof[0x1a0:0x1c0])),
-            y: uint256(bytes32(proof[0x1c0:0x1e0]))
-        });
-        p.zLookup = HonkTypes.G1Point({
-            x: uint256(bytes32(proof[0x1e0:0x200])),
-            y: uint256(bytes32(proof[0x200:0x220]))
-        });
+        p.sortedAccum =
+            HonkTypes.G1Point({x: uint256(bytes32(proof[0x120:0x140])), y: uint256(bytes32(proof[0x140:0x160]))});
+        p.w4 = HonkTypes.G1Point({x: uint256(bytes32(proof[0x160:0x180])), y: uint256(bytes32(proof[0x180:0x1a0]))});
+        p.zPerm = HonkTypes.G1Point({x: uint256(bytes32(proof[0x1a0:0x1c0])), y: uint256(bytes32(proof[0x1c0:0x1e0]))});
+        p.zLookup =
+            HonkTypes.G1Point({x: uint256(bytes32(proof[0x1e0:0x200])), y: uint256(bytes32(proof[0x200:0x220]))});
 
         // Sumcheck univariates
         // TODO: in this case we know what log_n is - so we hard code it, we would want this to be included in
@@ -113,31 +91,32 @@ contract HonkVerifier {
 
         // Zero morph Commitments
         for (uint256 i = 0; i < LOG_N; i++) {
-            uint256 xStart = 0x220 + LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * 0x20 + NUMBER_OF_ENTITIES * 0x20 + i * 0x40;
+            uint256 xStart =
+                0x220 + LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * 0x20 + NUMBER_OF_ENTITIES * 0x20 + i * 0x40;
             uint256 xEnd = xStart + 0x20;
             uint256 yStart = xEnd;
             uint256 yEnd = yStart + 0x20;
-            p.zmCqs[i] = HonkTypes.G1Point({
-                x: uint256(bytes32(proof[xStart:xEnd])),
-                y: uint256(bytes32(proof[yStart:yEnd]))
-            });
+            p.zmCqs[i] =
+                HonkTypes.G1Point({x: uint256(bytes32(proof[xStart:xEnd])), y: uint256(bytes32(proof[yStart:yEnd]))});
         }
 
         // TODO: the hardcoded figures here will be wrong
         // Probably worth just preprocessing these
-        p.zmCq =  HonkTypes.G1Point({
-            x: uint256(bytes32(proof[0x220 + LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * 0x20 + NUMBER_OF_ENTITIES * 0x20 + LOG_N * 0x40:0x240])),
+        p.zmCq = HonkTypes.G1Point({
+            x: uint256(
+                bytes32(
+                    proof[
+                        0x220 + LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * 0x20 + NUMBER_OF_ENTITIES * 0x20 + LOG_N * 0x40:
+                            0x240
+                    ]
+                )
+                ),
             y: uint256(bytes32(proof[0x240:0x260]))
         });
-        p.zmPi =  HonkTypes.G1Point({
-            x: uint256(bytes32(proof[0x260:0x280])),
-            y: uint256(bytes32(proof[0x280:0x2a0]))
-        });
+        p.zmPi = HonkTypes.G1Point({x: uint256(bytes32(proof[0x260:0x280])), y: uint256(bytes32(proof[0x280:0x2a0]))});
 
         return p;
     }
-
-
 
     error PublicInputsLengthWrong();
 
@@ -149,38 +128,31 @@ contract HonkVerifier {
             revert PublicInputsLengthWrong();
         }
 
-        // Perform each of the rounds 
+        // Perform each of the rounds
         TranscriptParameters memory tp = computeChallenges(p, vk, publicInputs);
 
         // Compute the public input delta
-        uint256 publicInputDelta = computePublicInputDelta(
-            publicInputs, 
-            tp.beta, 
-            tp.gamma,
-            vk.circuitSize,
-            p.publicInputsOffset
-        );
+        uint256 publicInputDelta =
+            computePublicInputDelta(publicInputs, tp.beta, tp.gamma, vk.circuitSize, p.publicInputsOffset);
 
-        uint256 grandProductPlookupDelta = computeLookupGrandProductDelta(
-            tp.beta,
-            tp.gamma,
-            vk.circuitSize
-        );
-
-
+        uint256 grandProductPlookupDelta = computeLookupGrandProductDelta(tp.beta, tp.gamma, vk.circuitSize);
     }
 
-    function computeChallenges(HonkTypes.Proof memory proof, HonkTypes.VerificationKey memory vk, uint256[] calldata publicInputs) internal returns (TranscriptParameters memory) {
+    function computeChallenges(
+        HonkTypes.Proof memory proof,
+        HonkTypes.VerificationKey memory vk,
+        uint256[] calldata publicInputs
+    ) internal returns (TranscriptParameters memory) {
         TranscriptParameters memory tp;
 
         // We generate the first challenge by hashing the public inputs
         // TODO: check the length here
-        
+
         // publicInputs.length = 3 - this will be templated in the end!!!
         bytes32[3 + 6] memory round0;
         round0[0] = bytes32(proof.circuitSize);
         round0[1] = bytes32(proof.publicInputsSize);
-        round0[2] = bytes32(proof.publicInputsOffset); 
+        round0[2] = bytes32(proof.publicInputsOffset);
         for (uint256 i = 0; i < publicInputs.length; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
@@ -207,8 +179,8 @@ contract HonkVerifier {
         uint256 beta = uint256(keccak256(abi.encodePacked(round1)));
 
         // We generate the gamma challenge by hashing beta
-        // TODO: Check this is how we create spare challenges 
-        uint256 gamma = uint256(keccak256(abi.encodePacked(beta))); 
+        // TODO: Check this is how we create spare challenges
+        uint256 gamma = uint256(keccak256(abi.encodePacked(beta)));
 
         // WORKTODO: there are more items pushed to the sumcheck challenges 1
         uint256[NUMBER_OF_SUBRELATIONS] memory alphas = generateAlphaChallenges(gamma);
@@ -221,13 +193,13 @@ contract HonkVerifier {
         uint256 rhoChallenge = generateRhoChallenge(proof, sumCheckUChallenges[LOG_N - 1]);
 
         // uint256 zmY = generateZmYChallenge(proof, rhoChallenge);
-
-
-
     }
 
-    // Alpha challenges non-linearise the gate contributions 
-    function generateAlphaChallenges(uint256 previousChallenge) internal returns (uint256[NUMBER_OF_SUBRELATIONS] memory) {
+    // Alpha challenges non-linearise the gate contributions
+    function generateAlphaChallenges(uint256 previousChallenge)
+        internal
+        returns (uint256[NUMBER_OF_SUBRELATIONS] memory)
+    {
         uint256[NUMBER_OF_SUBRELATIONS] memory alphas;
         uint256 prevChallenge = previousChallenge;
         for (uint256 i = 0; i < NUMBER_OF_SUBRELATIONS; i++) {
@@ -247,7 +219,10 @@ contract HonkVerifier {
         return gate_challanges;
     }
 
-    function generateSumcheckChallenges(HonkTypes.Proof memory proof, uint256 prevChallenge) internal returns (uint256[LOG_N] memory) {
+    function generateSumcheckChallenges(HonkTypes.Proof memory proof, uint256 prevChallenge)
+        internal
+        returns (uint256[LOG_N] memory)
+    {
         uint256[LOG_N] memory sumcheckChallenges;
         uint256 prevChallenge = prevChallenge;
         for (uint256 i = 0; i < LOG_N; i++) {
@@ -279,9 +254,13 @@ contract HonkVerifier {
 
     // We add an offset to the public inputs, this adds the values of our public inputs
     // to the copy constraints
-    function computePublicInputDelta(uint256[] memory publicInputs, uint256 beta, uint256 gamma, 
-        // TODO: check how to deal with this Domain size and offset are somewhat new 
-        uint256 domainSize, uint256 offset
+    function computePublicInputDelta(
+        uint256[] memory publicInputs,
+        uint256 beta,
+        uint256 gamma,
+        // TODO: check how to deal with this Domain size and offset are somewhat new
+        uint256 domainSize,
+        uint256 offset
     ) internal returns (uint256) {
         uint256 numerator = 1;
         uint256 denominator = 1;
@@ -303,7 +282,9 @@ contract HonkVerifier {
     }
 
     // Incorportate the original plookup construction into honk
-    function computeLookupGrandProductDelta(uint256 beta, uint256 gamma, 
+    function computeLookupGrandProductDelta(
+        uint256 beta,
+        uint256 gamma,
         // Again double check - i think it comes from the proving key
         uint256 domainSize
     ) internal returns (uint256) {
@@ -314,5 +295,4 @@ contract HonkVerifier {
     // function verifySumcheck() {}
 
     // function verifyZeroMorph() {}
-
 }

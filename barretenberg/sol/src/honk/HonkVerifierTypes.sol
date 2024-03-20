@@ -12,7 +12,6 @@ library HonkTypes {
         uint256 circuitSize;
         uint256 logCircuitSize;
         uint256 publicInputsSize;
-
         // Selectors
         G1Point qm;
         G1Point qc;
@@ -40,7 +39,7 @@ library HonkTypes {
         G1Point t2;
         G1Point t3;
         G1Point t4;
-        // Fixed first and last 
+        // Fixed first and last
         G1Point lagrangeFirst;
         G1Point lagrangeLast;
     }
@@ -56,23 +55,19 @@ library HonkTypes {
         uint256 circuitSize;
         uint256 publicInputsSize;
         uint256 publicInputsOffset;
-
         // Free wires
         G1Point w1;
         G1Point w2;
         G1Point w3;
         G1Point w4;
-
         // Lookup helpers - classic plookup
         G1Point sortedAccum;
         G1Point zPerm;
         G1Point zLookup;
-
         // Sumcheck
         // TODO: [uinvariate[batched_relation_partial_length]] - not sure how to represent a univariate
         uint256[LOG_N][BATCHED_RELATION_PARTIAL_LENGTH] sumcheckUnivariates;
         uint256[NUMBER_OF_ENTITIES] sumcheckEvaluations;
-
         // Zero morph
         G1Point[LOG_N] zmCqs;
         G1Point zmCq;

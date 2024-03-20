@@ -129,7 +129,6 @@ contract TestBase is Test {
              * only contains 2 byteso f useful data.
              *
              */
-
             let base := input
             function slice(v, tableptr) {
                 mstore(0x1e, mload(add(tableptr, shl(1, and(v, 0xff)))))
