@@ -101,12 +101,6 @@ impl From<NumericType> for AcirType {
     }
 }
 
-/// An identifier for a location in the code.
-///
-/// It is assumed that an entity will keep a map
-/// of labels to opcode locations.
-pub(crate) type Label = String;
-
 #[derive(Debug, Default)]
 /// Context object which holds the relationship between
 /// `Variables`(AcirVar) and types such as `Expression` and `Witness`
@@ -130,9 +124,6 @@ pub(crate) struct AcirContext {
 
     /// The BigIntContext, used to generate identifiers for BigIntegers
     big_int_ctx: BigIntContext,
-
-    /// Set of labels (function identifiers) which are external to the bytecode
-    unresolved_external_call_labels: Vec<(usize, Label)>,
 }
 
 impl AcirContext {
