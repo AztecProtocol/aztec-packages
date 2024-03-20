@@ -104,6 +104,8 @@ export class ProvingOrchestrator {
     l1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
   ): Promise<ProvingResult> {
+    logger.info(`Starting new block with ${numTxs} transactions`);
+    // we start the block by enqueueing all of the base parity circuits
     let baseParityInputs: BaseParityInputs[] = [];
     let l1ToL2MessagesPadded: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>;
     try {
@@ -151,6 +153,8 @@ export class ProvingOrchestrator {
     validateTx(tx);
 
     logger.info(`Received transaction :${tx.hash}`);
+
+    // We start the transaction by enqueueing the state updates
 
     const txIndex = this.provingState!.addNewTx(tx);
     // we start this transaction off by enqueueing it's state updates
@@ -207,7 +211,7 @@ export class ProvingOrchestrator {
     this.jobQueue.put(provingJob);
   }
 
-  // Prepares the inputs to the base rollup circuit, called first for any transaction
+  // Updates the merkle trees for a transaction. The first enqueued job for a transaction
   private async prepareBaseRollupInputs(
     index: bigint,
     tx: ProcessedTx,
@@ -470,7 +474,7 @@ export class ProvingOrchestrator {
           // we are shutting down
           this.stopped = true;
         } else if (job.type === PROVING_JOB_TYPE.STATE_UPDATE) {
-          // These have to be done seperately, they are not atmoic and can't be executed in parallel
+          // These have to be done separately, they are not atomic and can't be executed in parallel
           await job.operation();
         } else {
           // a proving job, add it to the pool of outstanding jobs
