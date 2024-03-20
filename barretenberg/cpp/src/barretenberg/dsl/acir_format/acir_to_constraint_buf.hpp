@@ -129,7 +129,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                     .witness = arg.input.witness.value,
                     .num_bits = arg.input.num_bits,
                 });
-            } else if constexpr (std::is_same_v<T, Circuit::BlackBoxFuncCall::Sha256Compression>) {
+            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Sha256Compression>) {
                 af.sha256_compression.push_back(Sha256Compression{
                     .inputs = map(arg.inputs,
                                   [](auto& e) {
