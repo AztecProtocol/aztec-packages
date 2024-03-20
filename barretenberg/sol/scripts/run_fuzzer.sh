@@ -16,5 +16,4 @@ if [ "$PLONK_FLAVOUR" == "honk" ]; then
 fi
 
 # @note This needs to be updated to point to the generator
-echo "$BIN $PLONK_FLAVOUR $CIRCUIT_FLAVOUR $SRS_PATH $INPUTS"
 $BIN $PLONK_FLAVOUR $CIRCUIT_FLAVOUR $SRS_PATH $INPUTS

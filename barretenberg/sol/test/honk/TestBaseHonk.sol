@@ -15,8 +15,8 @@ contract TestBaseHonk is TestBase {
     }
 
     function testValidProof() public {
-        bytes memory proofData = fuzzer.with_circuit_flavour(DifferentialFuzzer.CircuitFlavour.Blake).generate_proof();
-        (bytes32[] memory publicInputs, bytes memory proof) = splitProof(proofData, PUBLIC_INPUT_COUNT);
+        bytes memory proofData = fuzzer.generate_proof();
+        (bytes32[] memory publicInputs, bytes memory proof) = splitProofHonk(proofData, PUBLIC_INPUT_COUNT);
         assertTrue(verifier.verify(proof, publicInputs), "The proof is not valid");
     }
 }

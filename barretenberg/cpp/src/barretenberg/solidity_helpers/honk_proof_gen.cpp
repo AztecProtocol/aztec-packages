@@ -17,6 +17,8 @@ using numeric::uint256_t;
 
 using ProverInstance = ProverInstance_<UltraKeccakFlavor>;
 using VerificationKey = UltraKeccakFlavor::VerificationKey;
+using Prover = UltraKeccakProver;
+using Verifier = UltraKeccakVerifier;
 
 template <template <typename> typename Circuit> void generate_proof(uint256_t inputs[])
 {
@@ -24,12 +26,10 @@ template <template <typename> typename Circuit> void generate_proof(uint256_t in
     UltraCircuitBuilder builder = Circuit<UltraCircuitBuilder>::generate(inputs);
 
     auto instance = std::make_shared<ProverInstance>(builder);
-    UltraKeccakProver prover(instance);
+    Prover prover(instance);
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
-    UltraKeccakVerifier verifier(verification_key);
+    Verifier verifier(verification_key);
 
-    // auto instance = composer.create_instance(circuit);
-    // auto prover = composer.create_prover(instance);
     HonkProof proof = prover.construct_proof();
     {
         if (!verifier.verify_proof(proof)) {
@@ -69,11 +69,6 @@ int main(int argc, char** argv)
     const std::string circuit_flavour = args[2];
     const std::string srs_path = args[3];
     const std::string string_input = args[4];
-
-    // info("plonk_flavour: ", plonk_flavour);
-    // info("circuit_flavour: ", circuit_flavour);
-    // info("srs_path: ", srs_path);
-    // info("public_inputs: ", string_input);
 
     bb::srs::init_crs_factory(srs_path);
 

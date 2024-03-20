@@ -419,7 +419,9 @@ inline bb::fr keccak_hash_uint256(std::vector<bb::fr> const& data)
 // Losing 2 bits of this is not an issue -> we can just reduce mod p
 {
     // cast into uint256_t
+    info("hash size", data.size());
     std::vector<uint8_t> buffer = to_buffer(data);
+    info("buffer size", buffer.size());
 
     keccak256 hash_result = ethash_keccak256(&buffer[0], buffer.size());
     for (auto& word : hash_result.word64s) {
@@ -463,6 +465,8 @@ struct SolidityTranscriptParams {
     }
     template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
     {
+        // TODO(md): Need to refactor this to be able to NOT just be field elements - Im working about it in the
+        // verifier for keccak resulting in twice as much hashing
         return bb::field_conversion::convert_to_bn254_frs(element);
     }
 };

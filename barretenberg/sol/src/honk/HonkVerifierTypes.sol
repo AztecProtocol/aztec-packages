@@ -7,6 +7,14 @@ library HonkTypes {
         uint256 y;
     }
 
+    // TODO(md): temporary work around transcript fields
+    struct G1ProofPoint {
+        uint256 x_0;
+        uint256 x_1;
+        uint256 y_0;
+        uint256 y_1;
+    }
+
     struct VerificationKey {
         // Misc Params
         uint256 circuitSize;
@@ -49,28 +57,28 @@ library HonkTypes {
     uint256 constant NUMBER_OF_ENTITIES = 43;
 
     /// Log of the circuit size - precomputed
-    uint256 constant LOG_N = 4;
+    uint256 constant LOG_N = 5;
 
     struct Proof {
         uint256 circuitSize;
         uint256 publicInputsSize;
         uint256 publicInputsOffset;
         // Free wires
-        G1Point w1;
-        G1Point w2;
-        G1Point w3;
-        G1Point w4;
+        G1ProofPoint  w1;
+        G1ProofPoint  w2;
+        G1ProofPoint  w3;
+        G1ProofPoint w4;
         // Lookup helpers - classic plookup
-        G1Point sortedAccum;
-        G1Point zPerm;
-        G1Point zLookup;
+        G1ProofPoint sortedAccum;
+        G1ProofPoint zPerm;
+        G1ProofPoint zLookup;
         // Sumcheck
         // TODO: [uinvariate[batched_relation_partial_length]] - not sure how to represent a univariate
-        uint256[LOG_N][BATCHED_RELATION_PARTIAL_LENGTH] sumcheckUnivariates;
+        uint256[BATCHED_RELATION_PARTIAL_LENGTH][LOG_N] sumcheckUnivariates;
         uint256[NUMBER_OF_ENTITIES] sumcheckEvaluations;
         // Zero morph
-        G1Point[LOG_N] zmCqs;
-        G1Point zmCq;
-        G1Point zmPi;
+        G1ProofPoint[LOG_N] zmCqs;
+        G1ProofPoint zmCq;
+        G1ProofPoint zmPi;
     }
 }
