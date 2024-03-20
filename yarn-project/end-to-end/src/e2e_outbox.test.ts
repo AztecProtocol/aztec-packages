@@ -8,7 +8,7 @@ import {
   SiblingPath,
   sha256,
 } from '@aztec/aztec.js';
-import { toTruncField } from '@aztec/foundation/serialize';
+import { toTruncField, truncateAndPad } from '@aztec/foundation/serialize';
 import { SHA256 } from '@aztec/merkle-tree';
 import { TestContract } from '@aztec/noir-contracts.js';
 
@@ -94,12 +94,12 @@ describe('E2E Outbox Tests', () => {
     const firstLayer = merkleSha256.hash(...firstLayerInput);
     index /= 2;
     // In the circuit, the 'firstLayer' is the kernel out hash, which is truncated to 31 bytes
-    // To match the result, the below preimages and the output are truncated to 31
+    // To match the result, the below preimages and the output are truncated to 31 then padded
     const secondLayerInput: [Buffer, Buffer] =
       index & 0x1
-        ? [siblingPath.toBufferArray()[1].subarray(0, 31), firstLayer.subarray(0, 31)]
-        : [firstLayer.subarray(0, 31), siblingPath.toBufferArray()[1].subarray(0, 31)];
-    return merkleSha256.hash(...secondLayerInput).subarray(0, 31);
+        ? [truncateAndPad(siblingPath.toBufferArray()[1]), truncateAndPad(firstLayer)]
+        : [truncateAndPad(firstLayer), truncateAndPad(siblingPath.toBufferArray()[1])];
+    return truncateAndPad(merkleSha256.hash(...secondLayerInput));
   }
 
   function makeL2ToL1Message(recipient: EthAddress, content: Fr = Fr.ZERO): Fr {

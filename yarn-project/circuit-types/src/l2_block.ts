@@ -2,7 +2,7 @@ import { Body, TxEffect, TxHash } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header, STRING_ENCODING } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer, toTruncField } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer, toTruncField, truncateAndPad } from '@aztec/foundation/serialize';
 
 import { makeAppendOnlyTreeSnapshot, makeHeader } from './l2_block_code_to_purge.js';
 
@@ -195,7 +195,7 @@ export class L2Block {
     // Create a long buffer of all of the l1 to l2 messages
     const l1ToL2Messages = Buffer.concat(this.body.l1ToL2Messages.map(message => message.toBuffer()));
     // Truncated to match noir and contract funcations
-    return sha256(l1ToL2Messages).subarray(0, 31);
+    return truncateAndPad(sha256(l1ToL2Messages));
   }
 
   /**
