@@ -31,20 +31,20 @@ class AvmTraceBuilder {
     // Addition with direct or indirect memory access.
     void op_add(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
-    // Subtraction with direct memory access.
-    void op_sub(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Subtraction with direct or indirect memory access.
+    void op_sub(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
-    // Multiplication with direct memory access.
-    void op_mul(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Multiplication with direct or indirect memory access.
+    void op_mul(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
-    // Division with direct memory access.
-    void op_div(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Division with direct or indirect memory access.
+    void op_div(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
-    // Bitwise not with direct memory access.
-    void op_not(uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Bitwise not with direct or indirect memory access.
+    void op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
-    // Equality with direct memory access.
-    void op_eq(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Equality with direct or indirect memory access.
+    void op_eq(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
     // Set a constant from bytecode with direct memory access.
     void set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);

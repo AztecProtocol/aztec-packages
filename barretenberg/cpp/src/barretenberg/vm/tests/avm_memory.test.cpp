@@ -79,7 +79,7 @@ TEST_F(AvmMemoryTests, mismatchedTagEqOperation)
     trace_builder.set(3, 0, AvmMemoryTag::U32);
     trace_builder.set(5, 1, AvmMemoryTag::U16);
 
-    trace_builder.op_eq(0, 1, 2, AvmMemoryTag::U32);
+    trace_builder.op_eq(0, 0, 1, 2, AvmMemoryTag::U32);
     trace_builder.halt();
     auto trace = trace_builder.finalize();
 
@@ -123,7 +123,7 @@ TEST_F(AvmMemoryTests, mLastAccessViolation)
     trace_builder.set(9, 1, AvmMemoryTag::U8);
 
     //                           Memory layout:     [4,9,0,0,0,0,....]
-    trace_builder.op_sub(1, 0, 2, AvmMemoryTag::U8); // [4,9,5,0,0,0.....]
+    trace_builder.op_sub(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,5,0,0,0.....]
     trace_builder.halt();
     auto trace = trace_builder.finalize();
 
@@ -154,8 +154,8 @@ TEST_F(AvmMemoryTests, readWriteConsistencyValViolation)
     trace_builder.set(9, 1, AvmMemoryTag::U8);
 
     //                           Memory layout:      [4,9,0,0,0,0,....]
-    trace_builder.op_mul(1, 0, 2, AvmMemoryTag::U8); // [4,9,36,0,0,0.....]
-    trace_builder.return_op(0, 2, 1);                // Return single memory word at position 2 (36)
+    trace_builder.op_mul(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,36,0,0,0.....]
+    trace_builder.return_op(0, 2, 1);                   // Return single memory word at position 2 (36)
     auto trace = trace_builder.finalize();
 
     // Find the row with multiplication operation
@@ -184,8 +184,8 @@ TEST_F(AvmMemoryTests, readWriteConsistencyTagViolation)
     trace_builder.set(9, 1, AvmMemoryTag::U8);
 
     //                           Memory layout:      [4,9,0,0,0,0,....]
-    trace_builder.op_mul(1, 0, 2, AvmMemoryTag::U8); // [4,9,36,0,0,0.....]
-    trace_builder.return_op(0, 2, 1);                // Return single memory word at position 2 (36)
+    trace_builder.op_mul(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,36,0,0,0.....]
+    trace_builder.return_op(0, 2, 1);                   // Return single memory word at position 2 (36)
     auto trace = trace_builder.finalize();
 
     // Find the row with multiplication operation
@@ -224,7 +224,7 @@ TEST_F(AvmMemoryTests, mismatchedTagErrorViolation)
 {
     trace_builder.calldata_copy(0, 0, 2, 0, std::vector<FF>{ 98, 12 });
 
-    trace_builder.op_sub(0, 1, 4, AvmMemoryTag::U8);
+    trace_builder.op_sub(0, 0, 1, 4, AvmMemoryTag::U8);
     trace_builder.halt();
     auto trace = trace_builder.finalize();
 
@@ -258,7 +258,7 @@ TEST_F(AvmMemoryTests, consistentTagNoErrorViolation)
 {
     trace_builder.calldata_copy(0, 0, 2, 0, std::vector<FF>{ 84, 7 });
 
-    trace_builder.op_div(0, 1, 4, AvmMemoryTag::FF);
+    trace_builder.op_div(0, 0, 1, 4, AvmMemoryTag::FF);
     trace_builder.halt();
     auto trace = trace_builder.finalize();
 
