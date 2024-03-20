@@ -10,7 +10,14 @@ fn main(x: Field, y: pub Field) {
 // }
 
 #[fold]
-fn basic_func(x: Field, y: Field) -> Field {
+fn basic_func(x: Field, y: Field) -> Field{
+    // assert(x != y);
+    nested_call(x + 2, y)
+    // let q = basic_func(x, y);
+}
+
+#[fold]
+fn nested_call(x: Field, y: Field) -> Field {
     assert(x != y);
-    x + y
+    x
 }

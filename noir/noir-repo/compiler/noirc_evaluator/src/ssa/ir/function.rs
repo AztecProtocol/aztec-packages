@@ -19,19 +19,14 @@ pub(crate) enum RuntimeType {
 
 /// Represents how a RuntimeType::Acir function should be inlined.
 /// This type is only relevant for ACIR functions as we do not inline any Brillig functions
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub(crate) enum InlineType {
     /// The most basic entry point can expect all its functions to be inlined.
     /// All function calls are expected to be inlined into a single ACIR.
+    #[default]
     Inline,
     /// Functions marked as foldable will not be inlined and compiled separately into ACIR
     Fold,
-}
-
-impl Default for InlineType {
-    fn default() -> Self {
-        InlineType::Inline
-    }
 }
 
 /// A function holds a list of instructions.

@@ -1785,9 +1785,8 @@ impl AcirContext {
         //
         // We do not apply range information on the output of the black box function.
         // See issue #1439
-        let results = vecmap(&outputs, |witness_index| {
-            self.add_data(AcirVarData::Witness(*witness_index))
-        });
+        let results =
+            vecmap(&outputs, |witness_index| self.add_data(AcirVarData::Witness(*witness_index)));
 
         self.acir_ir.push_opcode(Opcode::Call { id, inputs, outputs });
         Ok(results)

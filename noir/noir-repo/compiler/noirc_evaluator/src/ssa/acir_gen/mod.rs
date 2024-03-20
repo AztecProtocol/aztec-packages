@@ -183,22 +183,17 @@ impl Ssa {
         abi_distinctness: Distinctness,
         last_array_uses: &HashMap<ValueId, InstructionId>,
     ) -> Result<Vec<GeneratedAcir>, RuntimeError> {
-        // let x = ssa.functions.iter().enumerate().map(|(i, (id, _))| {
-        //     ssa.id_to_index.insert(*id, *i);
-        // });
-
         let mut acirs = Vec::new();
-        for (_, function) in &self.functions {
+        for function in self.functions.values() {
             let context = Context::new();
-            // let generated_acir =
-            //     // context.convert_ssa_function(&self, function, &brillig, last_array_uses)?;
-
-            if let Some(generated_acir) = context.convert_ssa_function(&self, function, &brillig, last_array_uses)? {
+            if let Some(generated_acir) =
+                context.convert_ssa_function(&self, function, &brillig, last_array_uses)?
+            {
                 acirs.push(generated_acir);
             }
         }
-        // dbg!(acirs.clone());
-        // TODO: check wheter doing this for a single circuit's return witnessese is correct.
+
+        // TODO: check wheter doing this for a single circuit's return witnesses is correct.
         // We may need it for all foldable circuits, as any circuit being folded is essentially an entry point. However, I do not know how that
         // plays a part when we potentially want not inlined functions normally as part of the compiler.
         let main_func_acir = &mut acirs[0];
@@ -254,8 +249,18 @@ impl Context {
         last_array_uses: &HashMap<ValueId, InstructionId>,
     ) -> Result<Option<GeneratedAcir>, RuntimeError> {
         match function.runtime() {
-            // TODO: hanlde this shit
-            RuntimeType::Acir(_) => Ok(Some(self.convert_acir_main(function, ssa, brillig, last_array_uses)?)),
+            RuntimeType::Acir(inline_type) => {
+                match inline_type {
+                    InlineType::Fold => {}
+                    InlineType::Inline => {
+                        if function.id() != ssa.main_id {
+                            panic!("ACIR function should have been inlined earlier if not marked otherwise");
+                        }
+                    }
+                }
+                // We only want to convert entry point functions. This being `main` and those marked with `#[fold]`
+                Ok(Some(self.convert_acir_main(function, ssa, brillig, last_array_uses)?))
+            }
             RuntimeType::Brillig => {
                 if function.id() == ssa.main_id {
                     Ok(Some(self.convert_brillig_main(function, brillig)?))
@@ -299,7 +304,7 @@ impl Context {
         brillig: &Brillig,
     ) -> Result<GeneratedAcir, RuntimeError> {
         let dfg = &main_func.dfg;
-        
+
         let inputs = try_vecmap(dfg[main_func.entry_block()].parameters(), |param_id| {
             let typ = dfg.type_of_value(*param_id);
             self.create_value_from_type(&typ, &mut |this, _| Ok(this.acir_context.add_variable()))
@@ -568,10 +573,11 @@ impl Context {
                                 assert!(!matches!(inline_type, InlineType::Inline), "ICE: Got an ACIR function named {} that should have already been inlined", func.name());
 
                                 let inputs = vecmap(arguments, |arg| self.convert_value(*arg, dfg));
-                                let output_count = result_ids.iter().fold(0usize, |sum, result_id| {
-                                    // TODO: handle complex return types from ACIR functions
-                                    sum + dfg.try_get_array_length(*result_id).unwrap_or(1)
-                                });
+                                let output_count =
+                                    result_ids.iter().fold(0usize, |sum, result_id| {
+                                        // TODO: handle complex return types from ACIR functions
+                                        sum + dfg.try_get_array_length(*result_id).unwrap_or(1)
+                                    });
 
                                 let final_program_id = ssa
                                     .id_to_index
@@ -582,7 +588,8 @@ impl Context {
                                     inputs,
                                     output_count,
                                 )?;
-                                let result_values = self.convert_vars_to_values(result_vars, dfg, result_ids);
+                                let result_values =
+                                    self.convert_vars_to_values(result_vars, dfg, result_ids);
                                 for (result, output) in result_ids.iter().zip(result_values) {
                                     match &output {
                                         // We need to make sure we initialize arrays returned from intrinsic calls
@@ -595,7 +602,11 @@ impl Context {
                                             } else {
                                                 Self::flattened_value_size(&output)
                                             };
-                                            self.initialize_array(block_id, len, Some(output.clone()))?;
+                                            self.initialize_array(
+                                                block_id,
+                                                len,
+                                                Some(output.clone()),
+                                            )?;
                                         }
                                         AcirValue::DynamicArray(_) => {
                                             // Do nothing as a dynamic array returned from a slice intrinsic should already be initialized
@@ -2412,14 +2423,17 @@ fn can_omit_element_sizes_array(array_typ: &Type) -> bool {
 
 #[cfg(test)]
 mod test {
-    use acvm::acir::{circuit::Opcode, native_types::Witness};
+    use acvm::{
+        acir::{circuit::Opcode, native_types::Witness},
+        FieldElement,
+    };
 
     use crate::{
         brillig::Brillig,
         ssa::{
             function_builder::FunctionBuilder,
             ir::{
-                function::{InlineType, RuntimeType},
+                function::{FunctionId, InlineType, RuntimeType},
                 instruction::BinaryOp,
                 map::Id,
                 types::Type,
@@ -2428,21 +2442,38 @@ mod test {
     };
     use fxhash::FxHashMap as HashMap;
 
-    #[test]
-    fn basic_call_codegen() {
-        // acir(inline) fn main f0 {
-        // b0(v0: Field, v1: Field):
-        //     call f1(v0, v1)
-        //     call f1(v0, v1)
-        //     return
-        // }
+    fn build_basic_foo_with_return(builder: &mut FunctionBuilder, foo_id: FunctionId) {
         // acir(fold) fn foo f1 {
         // b0(v0: Field, v1: Field):
-        //     v13 = eq v0, v1
-        //     constrain v13 == u1 0
-        //     return
+        //     v2 = eq v0, v1
+        //     constrain v2 == u1 0
+        //     return v0
         // }
+        builder.new_function("foo".into(), foo_id, InlineType::Fold);
+        let foo_v0 = builder.add_parameter(Type::field());
+        let foo_v1 = builder.add_parameter(Type::field());
 
+        let foo_equality_check = builder.insert_binary(foo_v0, BinaryOp::Eq, foo_v1);
+        let zero = builder.field_constant(0u128);
+        builder.insert_constrain(foo_equality_check, zero, None);
+        builder.terminate_with_return(vec![foo_v0]);
+    }
+
+    #[test]
+    fn basic_call_with_outputs_assert() {
+        // acir(inline) fn main f0 {
+        //     b0(v0: Field, v1: Field):
+        //       v2 = call f1(v0, v1)
+        //       v3 = call f1(v0, v1)
+        //       constrain v2 == v3
+        //       return
+        //     }
+        // acir(fold) fn foo f1 {
+        //     b0(v0: Field, v1: Field):
+        //       v2 = eq v0, v1
+        //       constrain v2 == u1 0
+        //       return v0
+        //     }
         let foo_id = Id::test_new(0);
         let mut builder =
             FunctionBuilder::new("main".into(), foo_id, RuntimeType::Acir(InlineType::default()));
@@ -2451,18 +2482,14 @@ mod test {
 
         let foo_id = Id::test_new(1);
         let foo = builder.import_function(foo_id);
-        builder.insert_call(foo, vec![main_v0, main_v1], vec![]).to_vec();
-        builder.insert_call(foo, vec![main_v0, main_v1], vec![]).to_vec();
+        let main_call1_results =
+            builder.insert_call(foo, vec![main_v0, main_v1], vec![Type::field()]).to_vec();
+        let main_call2_results =
+            builder.insert_call(foo, vec![main_v0, main_v1], vec![Type::field()]).to_vec();
+        builder.insert_constrain(main_call1_results[0], main_call2_results[0], None);
         builder.terminate_with_return(vec![]);
 
-        builder.new_function("foo".into(), foo_id, InlineType::Fold);
-        let foo_v0 = builder.add_parameter(Type::field());
-        let foo_v1 = builder.add_parameter(Type::field());
-
-        let foo_equality_check = builder.insert_binary(foo_v0, BinaryOp::Eq, foo_v1);
-        let zero = builder.field_constant(0u128);
-        builder.insert_constrain(foo_equality_check, zero, None);
-        builder.terminate_with_return(vec![]);
+        build_basic_foo_with_return(&mut builder, foo_id);
 
         let ssa = builder.finish();
 
@@ -2478,8 +2505,9 @@ mod test {
         // GeneratedAcir {
         //     ...
         //     opcodes: [
-        //         CALL func 1: inputs: [Witness(0), Witness(1)], outputs: [],
-        //         CALL func 1: inputs: [Witness(0), Witness(1)], outputs: [],
+        //         CALL func 1: inputs: [Witness(0), Witness(1)], outputs: [Witness(2)],
+        //         CALL func 1: inputs: [Witness(0), Witness(1)], outputs: [Witness(3)],
+        //         EXPR [ (1, _2) (-1, _3) 0 ],
         //     ],
         //     return_witnesses: [],
         //     input_witnesses: [
@@ -2496,15 +2524,13 @@ mod test {
         // GeneratedAcir {
         //     ...
         //     opcodes: [
-        //         EXPR [ (-1, _0) (1, _1) (-1, _2) 0 ],
-        //         BRILLIG: inputs: [Single(Expression { mul_terms: [], linear_combinations: [(1, Witness(2))], q_c: 0 })]
-        //         outputs: [Simple(Witness(3))]
-        //         [Brillig opcodes...]
-        //         EXPR [ (1, _2, _3) (1, _4) -1 ],
-        //         EXPR [ (1, _2, _4) 0 ],
-        //         EXPR [ (1, _4) 0 ],
+        //         Same as opcodes as the expected result of `basic_call_codegen`
         //     ],
-        //     return_witnesses: [],
+        //     return_witnesses: [
+        //         Witness(
+        //             0,
+        //         ),
+        //     ],
         //     input_witnesses: [
         //         Witness(
         //             0,
@@ -2514,24 +2540,221 @@ mod test {
         //         ),
         //     ],
         //     ...
-        // }
+        // },
 
-        let main = &acir_functions[0];
-        assert_eq!(main.opcodes().len(), 2, "Should have two calls to `foo`");
-        for opcode in main.opcodes() {
-            match opcode {
-                Opcode::Call { id, inputs, outputs } => {
-                    assert_eq!(*id, 1, "Main was expected to call the same function");
-                    assert_eq!(inputs[0], Witness(0), "First input was not the first witness");
-                    assert_eq!(inputs[1], Witness(1), "Second input was not the second witness");
-                    assert!(outputs.is_empty(), "Expected `foo` to return nothing");
-                }
-                _ => panic!("Expected only Call opcodes in main"),
+        let main_acir = &acir_functions[0];
+        let main_opcodes = main_acir.opcodes();
+        assert_eq!(main_opcodes.len(), 3, "Should have two calls to `foo`");
+
+        check_call_opcode(&main_opcodes[0], 1, vec![Witness(0), Witness(1)], vec![Witness(2)]);
+        check_call_opcode(&main_opcodes[1], 1, vec![Witness(0), Witness(1)], vec![Witness(3)]);
+
+        match &main_opcodes[2] {
+            Opcode::AssertZero(expr) => {
+                assert_eq!(expr.linear_combinations[0].0, FieldElement::from(1u128));
+                assert_eq!(expr.linear_combinations[0].1, Witness(2));
+
+                assert_eq!(expr.linear_combinations[1].0, FieldElement::from(-1i128));
+                assert_eq!(expr.linear_combinations[1].1, Witness(3));
+                assert_eq!(expr.q_c, FieldElement::from(0u128));
             }
+            _ => {}
         }
+    }
 
-        let foo = &acir_functions[1];
-        assert_eq!(foo.input_witnesses[0], Witness(0), "First input was not the first witness");
-        assert_eq!(foo.input_witnesses[1], Witness(1), "Second input was not the second witness");
+    #[test]
+    fn call_output_as_next_call_input() {
+        // acir(inline) fn main f0 {
+        //     b0(v0: Field, v1: Field):
+        //       v3 = call f1(v0, v1)
+        //       v4 = call f1(v3, v1)
+        //       constrain v3 == v4
+        //       return
+        //     }
+        // acir(fold) fn foo f1 {
+        //     b0(v0: Field, v1: Field):
+        //       v2 = eq v0, v1
+        //       constrain v2 == u1 0
+        //       return v0
+        //     }
+        let foo_id = Id::test_new(0);
+        let mut builder =
+            FunctionBuilder::new("main".into(), foo_id, RuntimeType::Acir(InlineType::default()));
+        let main_v0 = builder.add_parameter(Type::field());
+        let main_v1 = builder.add_parameter(Type::field());
+
+        let foo_id = Id::test_new(1);
+        let foo = builder.import_function(foo_id);
+        let main_call1_results =
+            builder.insert_call(foo, vec![main_v0, main_v1], vec![Type::field()]).to_vec();
+        let main_call2_results = builder
+            .insert_call(foo, vec![main_call1_results[0], main_v1], vec![Type::field()])
+            .to_vec();
+        builder.insert_constrain(main_call1_results[0], main_call2_results[0], None);
+        builder.terminate_with_return(vec![]);
+
+        build_basic_foo_with_return(&mut builder, foo_id);
+
+        let ssa = builder.finish();
+
+        let acir_functions = ssa
+            .into_acir(
+                Brillig::default(),
+                noirc_frontend::Distinctness::Distinct,
+                &HashMap::default(),
+            )
+            .expect("Should compile manually written SSA into ACIR");
+        // The expected result should look very similar to the abvoe test expect that the input witnesses of the `Call`
+        // opcodes will be different. The changes can discerned from the checks below.
+
+        let main_acir = &acir_functions[0];
+        let main_opcodes = main_acir.opcodes();
+        assert_eq!(main_opcodes.len(), 3, "Should have two calls to `foo` and an assert");
+
+        check_call_opcode(&main_opcodes[0], 1, vec![Witness(0), Witness(1)], vec![Witness(2)]);
+        // The output of the first call should be the input of the second call
+        check_call_opcode(&main_opcodes[1], 1, vec![Witness(2), Witness(1)], vec![Witness(3)]);
+    }
+
+    #[test]
+    fn basic_nested_call() {
+        // SSA for the following Noir program:
+        // fn main(x: Field, y: pub Field) {
+        //     let z = func_with_nested_foo_call(x, y);
+        //     let z2 = func_with_nested_foo_call(x, y);
+        //     assert(z == z2);
+        // }
+        // #[fold]
+        // fn func_with_nested_foo_call(x: Field, y: Field) -> Field {
+        //     nested_call(x + 2, y)
+        // }
+        // #[fold]
+        // fn foo(x: Field, y: Field) -> Field {
+        //     assert(x != y);
+        //     x
+        // }
+        //
+        // SSA:
+        // acir(inline) fn main f0 {
+        //     b0(v0: Field, v1: Field):
+        //       v3 = call f1(v0, v1)
+        //       v4 = call f1(v0, v1)
+        //       constrain v3 == v4
+        //       return
+        //     }
+        // acir(fold) fn func_with_nested_foo_call f1 {
+        //     b0(v0: Field, v1: Field):
+        //       v3 = add v0, Field 2
+        //       v5 = call f2(v3, v1)
+        //       return v5
+        //   }
+        // acir(fold) fn foo f2 {
+        //     b0(v0: Field, v1: Field):
+        //       v2 = eq v0, v1
+        //       constrain v2 == Field 0
+        //       return v0
+        //   }
+        let foo_id = Id::test_new(0);
+        let mut builder =
+            FunctionBuilder::new("main".into(), foo_id, RuntimeType::Acir(InlineType::default()));
+        let main_v0 = builder.add_parameter(Type::field());
+        let main_v1 = builder.add_parameter(Type::field());
+
+        let func_with_nested_foo_call_id = Id::test_new(1);
+        let func_with_nested_foo_call = builder.import_function(func_with_nested_foo_call_id);
+        let main_call1_results = builder
+            .insert_call(func_with_nested_foo_call, vec![main_v0, main_v1], vec![Type::field()])
+            .to_vec();
+        let main_call2_results = builder
+            .insert_call(func_with_nested_foo_call, vec![main_v0, main_v1], vec![Type::field()])
+            .to_vec();
+        builder.insert_constrain(main_call1_results[0], main_call2_results[0], None);
+        builder.terminate_with_return(vec![]);
+
+        builder.new_function(
+            "func_with_nested_foo_call".into(),
+            func_with_nested_foo_call_id,
+            InlineType::Fold,
+        );
+        let func_with_nested_call_v0 = builder.add_parameter(Type::field());
+        let func_with_nested_call_v1 = builder.add_parameter(Type::field());
+
+        let two = builder.field_constant(2u128);
+        let v0_plus_two = builder.insert_binary(func_with_nested_call_v0, BinaryOp::Add, two);
+
+        let foo_id = Id::test_new(2);
+        let foo_call = builder.import_function(foo_id);
+        let foo_call = builder
+            .insert_call(foo_call, vec![v0_plus_two, func_with_nested_call_v1], vec![Type::field()])
+            .to_vec();
+        builder.terminate_with_return(vec![foo_call[0]]);
+
+        build_basic_foo_with_return(&mut builder, foo_id);
+
+        let ssa = builder.finish();
+
+        let acir_functions = ssa
+            .into_acir(
+                Brillig::default(),
+                noirc_frontend::Distinctness::Distinct,
+                &HashMap::default(),
+            )
+            .expect("Should compile manually written SSA into ACIR");
+
+        assert_eq!(acir_functions.len(), 3, "Should have three ACIR functions");
+
+        let main_acir = &acir_functions[0];
+        let main_opcodes = main_acir.opcodes();
+        assert_eq!(main_opcodes.len(), 3, "Should have two calls to `foo` and an assert");
+
+        // Both of these should call func_with_nested_foo_call f1
+        check_call_opcode(&main_opcodes[0], 1, vec![Witness(0), Witness(1)], vec![Witness(2)]);
+        // The output of the first call should be the input of the second call
+        check_call_opcode(&main_opcodes[1], 1, vec![Witness(0), Witness(1)], vec![Witness(3)]);
+
+        let func_with_nested_call_acir = &acir_functions[1];
+        let func_with_nested_call_opcodes = func_with_nested_call_acir.opcodes();
+        assert_eq!(
+            func_with_nested_call_opcodes.len(),
+            2,
+            "Should have an expression and a call to a nested `foo`"
+        );
+        // Should call foo f2
+        check_call_opcode(
+            &func_with_nested_call_opcodes[1],
+            2,
+            vec![Witness(2), Witness(1)],
+            vec![Witness(3)],
+        );
+    }
+
+    fn check_call_opcode(
+        opcode: &Opcode,
+        expected_id: u32,
+        expected_inputs: Vec<Witness>,
+        expected_outputs: Vec<Witness>,
+    ) {
+        match opcode {
+            Opcode::Call { id, inputs, outputs } => {
+                assert_eq!(
+                    *id, expected_id,
+                    "Main was expected to call {expected_id} but got {}",
+                    *id
+                );
+                for (expected_input, input) in expected_inputs.iter().zip(inputs) {
+                    assert_eq!(
+                        expected_input, input,
+                        "Expected witness {expected_input:?} but got {input:?}"
+                    );
+                }
+                for (expected_output, output) in expected_outputs.iter().zip(outputs) {
+                    assert_eq!(
+                        expected_output, output,
+                        "Expected witness {expected_output:?} but got {output:?}"
+                    );
+                }
+            }
+            _ => panic!("Expected only Call opcode"),
+        }
     }
 }

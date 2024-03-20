@@ -48,8 +48,7 @@ impl Ssa {
 
             // This check is always true with the addition of the above guard, but I'm
             // keeping it in case the guard on brillig functions is ever removed.
-            let abort_on_error =
-                if let RuntimeType::Acir(_) = function.runtime() { true } else { false };
+            let abort_on_error = matches!(function.runtime(), RuntimeType::Acir(_));
             find_all_loops(function).unroll_each_loop(function, abort_on_error)?;
         }
         Ok(self)

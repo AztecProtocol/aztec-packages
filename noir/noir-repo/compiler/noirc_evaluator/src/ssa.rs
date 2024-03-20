@@ -18,7 +18,6 @@ use acvm::acir::{
     native_types::Witness,
 };
 
-use iter_extended::vecmap;
 use noirc_errors::debug_info::{DebugFunctions, DebugInfo, DebugTypes, DebugVariables};
 
 use noirc_frontend::{
@@ -161,7 +160,6 @@ pub fn create_program(
     (AcirProgram, Vec<DebugInfo>, Vec<Vec<SsaReport>>, Vec<Witness>, Vec<Witness>),
     RuntimeError,
 > {
-    let func_names = program.functions.iter().map(|function| function.name.clone()).collect::<Vec<_>>();
     // TODO: Check whether the debug tracker stores information across the program and not just main
     let debug_variables = program.debug_variables.clone();
     let debug_types = program.debug_types.clone();
@@ -177,18 +175,21 @@ pub fn create_program(
         force_brillig_output,
     )?;
 
-    // let main_generated_acir = generated_acir.get(0).expect("ICE: Must have a main function");
-    // let main_input_witnesses = main_generated_acir.input_witnesses;
-    // let main_return_witnesses = main_generated_acir.return_witnesses;
-
     let mut functions = vec![];
     let mut debug_infos = vec![];
     let mut warning_infos = vec![];
     let mut main_input_witnesses = Vec::new();
     let mut main_return_witnesses = Vec::new();
-    // Using a flag here to avoid enumarting the loop as main is expected to be the first circuit
+    // TODO: Using a flag here to avoid enumarting the loop as main is expected to be the first circuit
+    // We need function signatures to accurately set-up the `public_parameters` and `private_parameters`
+    // fields of a `Circuit`. However, a func_sig is restricted to what the main ABI allows. We need to be able
+    // to discern whether we have an ACIR function without an `InlineType::Inline` and treat that as an entry point function.
+    // For now we only treat main as an entry point function.
+    // Probably will need something like this:
+    // ```
+    // let entry_point_funcs = program.functions.iter().map(|function| function.should_fold).collect::<Vec<_>>();
+    // ```
     let mut is_main = true;
-    let mut index = 0;
     for (acir, func_sig) in generated_acir.into_iter().zip(func_sigs) {
         // dbg!(func_names[index].clone());
         let (circuit, debug_info, warnings, input_witnesses, return_witnesses) =
@@ -209,7 +210,6 @@ pub fn create_program(
             main_return_witnesses = return_witnesses;
         }
         is_main = false;
-        index += 1;
     }
 
     let program = AcirProgram { functions };
@@ -242,7 +242,11 @@ fn convert_generated_acir_into_circuit(
     // let (public_parameter_witnesses, private_parameters) =
     //     split_public_and_private_inputs(&func_sig, &input_witnesses);
 
-    let (public_parameter_witnesses, private_parameters) = if is_main { split_public_and_private_inputs(&func_sig, &input_witnesses) } else { (BTreeSet::default(), BTreeSet::default()) };
+    let (public_parameter_witnesses, private_parameters) = if is_main {
+        split_public_and_private_inputs(&func_sig, &input_witnesses)
+    } else {
+        (BTreeSet::default(), BTreeSet::default())
+    };
 
     let public_parameters = PublicInputs(public_parameter_witnesses);
     let return_values = PublicInputs(return_witnesses.iter().copied().collect());

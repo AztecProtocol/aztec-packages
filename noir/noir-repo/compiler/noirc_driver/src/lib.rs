@@ -3,13 +3,12 @@
 #![warn(unreachable_pub)]
 #![warn(clippy::semicolon_if_nothing_returned)]
 
-use acvm::acir::circuit::{ExpressionWidth, Program};
+use acvm::acir::circuit::ExpressionWidth;
 use clap::Args;
 use fm::{FileId, FileManager};
 use iter_extended::vecmap;
 use noirc_abi::{AbiParameter, AbiType, ContractEvent};
 use noirc_errors::{CustomDiagnostic, FileDiagnostic};
-use noirc_evaluator::create_circuit;
 use noirc_evaluator::create_program;
 use noirc_evaluator::errors::RuntimeError;
 use noirc_frontend::debug::build_debug_crate_file;
@@ -292,7 +291,7 @@ pub fn compile_main(
             .map_err(FileDiagnostic::from)?;
 
     let compilation_warnings =
-        vecmap(compiled_program.warnings.clone(), |warnings| FileDiagnostic::from(warnings));
+        vecmap(compiled_program.warnings.clone(), FileDiagnostic::from);
     if options.deny_warnings && !compilation_warnings.is_empty() {
         return Err(compilation_warnings);
     }
