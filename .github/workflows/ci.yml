@@ -31,7 +31,7 @@ jobs:
 
       - name: Test
         run: |
-          earthly --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.event.number || env.SANITIZED_REF}} --sat build-${{ matrix.environment }} --push +build
+          earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.event.number || env.SANITIZED_REF}} --sat build-${{ matrix.environment }} --push +build
 
   e2e:
     needs: build
@@ -62,7 +62,7 @@ jobs:
       - name: Test
         working-directory: ./yarn-project/end-to-end
         run: |
-          earthly --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.pull_request.number || env.SANITIZED_REF }} --sat e2e-${{ matrix.environment }} +${{ matrix.test }}
+          earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.pull_request.number || env.SANITIZED_REF }} --sat e2e-${{ matrix.environment }} +${{ matrix.test }}
 
   # bb-native-tests:
   #   runs-on: ubuntu-latest
