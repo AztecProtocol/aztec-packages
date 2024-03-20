@@ -21,9 +21,8 @@ contract SchnorrAccount {
         // docs:start:storage
         signing_public_key: PrivateImmutable<PublicKeyNote>,
         // docs:end:storage
+        approved_actions: Map<Field, PublicMutable<bool>>,
     }
-
-    global ACCOUNT_ACTIONS_STORAGE_SLOT = 2;
 
     // Constructs the contract
     #[aztec(private)]
@@ -39,19 +38,19 @@ contract SchnorrAccount {
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts file
     #[aztec(private)]
     fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
-        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::private(&mut context, storage.approved_actions.storage_slot, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload);
     }
 
     #[aztec(private)]
     fn spend_private_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::private(&mut context, storage.approved_actions.storage_slot, is_valid_impl);
         actions.spend_private_authwit(inner_hash)
     }
 
     #[aztec(public)]
     fn spend_public_authwit(inner_hash: Field) -> Field {
-        let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::public(&mut context, storage.approved_actions.storage_slot, is_valid_impl);
         actions.spend_public_authwit(inner_hash)
     }
 
@@ -64,7 +63,7 @@ contract SchnorrAccount {
     #[aztec(public)]
     #[aztec(internal)]
     fn approve_public_authwit(outer_hash: Field) {
-        let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::public(&mut context, storage.approved_actions.storage_slot, is_valid_impl);
         actions.approve_public_authwit(outer_hash)
     }
 
@@ -106,8 +105,6 @@ contract SchnorrAccount {
     * Both values will be `false` if the nullifier is spent 
     */
     unconstrained fn lookup_validity(myself: AztecAddress, block_number: u32, check_private: bool, message_hash: Field) -> pub [bool; 2] {
-        let storage = Storage::init(Context::none());
-        
         let valid_in_private = if check_private {
             let public_key = storage.signing_public_key.view_note();
             let witness: [Field; 64] = get_auth_witness(message_hash);
@@ -125,12 +122,7 @@ contract SchnorrAccount {
             false
         };
 
-        let public_state: Map<Field, PublicMutable<bool>> = Map::new(
-            Context::none(),
-            ACCOUNT_ACTIONS_STORAGE_SLOT,
-            |context, slot| { PublicMutable::new(context, slot)}
-        );
-        let valid_in_public = public_state.at(message_hash).read();
+        let valid_in_public = storage.approved_actions.at(message_hash).read();
 
         // Compute the nullifier and check if it is spent
         // This will BLINDLY TRUST the oracle, but the oracle is us, and 
