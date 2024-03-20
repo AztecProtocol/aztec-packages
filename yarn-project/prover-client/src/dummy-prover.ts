@@ -1,5 +1,5 @@
 import { L2Block, ProcessedTx, ProverClient, ProvingResult } from '@aztec/circuit-types';
-import { GlobalVariables, Proof, makeEmptyProof } from '@aztec/circuits.js';
+import { GlobalVariables, makeEmptyProof } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 export class DummyProver implements ProverClient {
@@ -11,22 +11,17 @@ export class DummyProver implements ProverClient {
     return Promise.resolve();
   }
 
-  public static new(): Promise<ProverClient> {
+  public static new(): Promise<DummyProver> {
     return Promise.resolve(new DummyProver());
   }
 
-  public proveBlock(
-    _globalVariables: GlobalVariables,
-    _txs: ProcessedTx[],
-    _newModelL1ToL2Messages: Fr[], // TODO(#4492): Rename this when purging the old inbox
-    _newL1ToL2Messages: Fr[], // TODO(#4492): Nuke this when purging the old inbox
-  ): Promise<[L2Block, Proof]> {
-    return Promise.resolve([L2Block.random(1), makeEmptyProof()]);
+  startNewBlock(_numTxs: number, _globalVariables: GlobalVariables, _newL1ToL2Messages: Fr[], _newModelL1ToL2Messages: Fr[], _emptyTx: ProcessedTx): Promise<ProvingResult> {
+    const result: ProvingResult = {
+      proof: makeEmptyProof(),
+      block: L2Block.random(1),
+    }
+    return Promise.resolve(result);
   }
 
-  startNewBlock(_numTxs: number, _completionCallback: (result: ProvingResult) => void, _globalVariables: GlobalVariables): void {
-  }
-
-  addNewTx(_tx: ProcessedTx): void {
-  }
+  addNewTx(tx: ProcessedTx): void {}
 }

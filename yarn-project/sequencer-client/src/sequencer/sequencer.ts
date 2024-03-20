@@ -1,8 +1,7 @@
 import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, ProcessedTx, Tx } from '@aztec/circuit-types';
-import { ProverClient } from '@aztec/circuit-types/interfaces';
+import { BlockProver } from '@aztec/circuit-types/interfaces';
 import { L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import { AztecAddress, EthAddress, GlobalVariables } from '@aztec/circuits.js';
-import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -12,7 +11,6 @@ import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
 
 import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
-import { ceilPowerOfTwo } from '../utils.js';
 import { SequencerConfig } from './config.js';
 import { PublicProcessorFactory } from './public_processor.js';
 
@@ -41,7 +39,7 @@ export class Sequencer {
     private globalsBuilder: GlobalVariableBuilder,
     private p2pClient: P2P,
     private worldState: WorldStateSynchronizer,
-    private prover: ProverClient,
+    private prover: BlockProver,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private publicProcessorFactory: PublicProcessorFactory,
@@ -326,15 +324,14 @@ export class Sequencer {
     emptyTx: ProcessedTx,
     globalVariables: GlobalVariables,
   ) {
-    // Pad the txs array with empty txs to be a power of two, at least 2
-    const txsTargetSize = Math.max(ceilPowerOfTwo(txs.length), 2);
-    const emptyTxCount = txsTargetSize - txs.length;
+    const blockPromise = this.prover.startNewBlock(txs.length, globalVariables, newL1ToL2Messages, newModelL1ToL2Messages, emptyTx);
 
-    const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
-    this.log(`Building block ${globalVariables.blockNumber}`);
+    for (const tx of txs) {
+      this.prover.addNewTx(tx);
+    }
 
-    const [block] = await this.prover.proveBlock(globalVariables, allTxs, newModelL1ToL2Messages, newL1ToL2Messages);
-    return block;
+    const result = await blockPromise;
+    return result.block;
   }
 
   /**

@@ -4,6 +4,7 @@ import {
   L2BlockSource,
   MerkleTreeId,
   ProverClient,
+  ProvingResult,
   Tx,
   TxHash,
   makeEmptyProcessedTx,
@@ -104,9 +105,13 @@ describe('sequencer', () => {
     tx.data.constants.txContext.chainId = chainId;
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
+    const result: ProvingResult = {
+      proof,
+      block
+    }
 
     p2p.getTxs.mockResolvedValueOnce([tx]);
-    proverClient.proveBlock.mockResolvedValueOnce([block, proof]);
+    proverClient.startNewBlock.mockResolvedValueOnce(result);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
@@ -117,7 +122,7 @@ describe('sequencer', () => {
 
     const expectedTxHashes = [...Tx.getHashes([tx]), ...times(1, () => TxHash.ZERO)];
 
-    expect(proverClient.proveBlock).toHaveBeenCalledWith(
+    expect(proverClient.startNewBlock).toHaveBeenCalledWith(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
@@ -134,9 +139,13 @@ describe('sequencer', () => {
     const doubleSpendTx = txs[1];
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
+    const result: ProvingResult = {
+      proof,
+      block
+    }
 
     p2p.getTxs.mockResolvedValueOnce(txs);
-    proverClient.proveBlock.mockResolvedValueOnce([block, proof]);
+    proverClient.startNewBlock.mockResolvedValueOnce(result);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
@@ -155,7 +164,7 @@ describe('sequencer', () => {
 
     const expectedTxHashes = Tx.getHashes([txs[0], txs[2]]);
 
-    expect(proverClient.proveBlock).toHaveBeenCalledWith(
+    expect(proverClient.startNewBlock).toHaveBeenCalledWith(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
@@ -173,9 +182,13 @@ describe('sequencer', () => {
     const invalidChainTx = txs[1];
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
+    const result: ProvingResult = {
+      proof,
+      block
+    }
 
     p2p.getTxs.mockResolvedValueOnce(txs);
-    proverClient.proveBlock.mockResolvedValueOnce([block, proof]);
+    proverClient.startNewBlock.mockResolvedValueOnce(result);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
@@ -189,7 +202,7 @@ describe('sequencer', () => {
 
     const expectedTxHashes = Tx.getHashes([txs[0], txs[2]]);
 
-    expect(proverClient.proveBlock).toHaveBeenCalledWith(
+    expect(proverClient.startNewBlock).toHaveBeenCalledWith(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
@@ -204,9 +217,13 @@ describe('sequencer', () => {
     tx.data.constants.txContext.chainId = chainId;
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
+    const result: ProvingResult = {
+      proof,
+      block
+    }
 
     p2p.getTxs.mockResolvedValueOnce([tx]);
-    proverClient.proveBlock.mockResolvedValueOnce([block, proof]);
+    proverClient.startNewBlock.mockResolvedValueOnce(result);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),

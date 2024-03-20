@@ -55,7 +55,6 @@ import {
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
 import { makeTuple, range } from '@aztec/foundation/array';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { to2Fields } from '@aztec/foundation/serialize';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -65,10 +64,9 @@ import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as memdown, type MemDown } from 'memdown';
 
-import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
-import { EmptyRollupProver } from '../prover/empty.js';
+import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
-import { RealRollupCircuitSimulator, RollupSimulator } from '../simulator/rollup.js';
+import { RollupSimulator } from '../simulator/rollup.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
@@ -77,7 +75,6 @@ describe('prover/tx-prover', () => {
   let builder: ProvingOrchestrator;
   let builderDb: MerkleTreeOperations;
   let expectsDb: MerkleTreeOperations;
-  let vks: VerificationKeys;
 
   let simulator: MockProxy<RollupSimulator>;
   let prover: MockProxy<RollupProver>;
@@ -104,10 +101,9 @@ describe('prover/tx-prover', () => {
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     expectsDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
-    vks = getVerificationKeys();
     simulator = mock<RollupSimulator>();
     prover = mock<RollupProver>();
-    builder = new ProvingOrchestrator(builderDb, new WASMSimulator(), getVerificationKeys());
+    builder = new ProvingOrchestrator(builderDb, new WASMSimulator(), getVerificationKeys(), prover);
 
     // Create mock l1 to L2 messages
     newModelMockL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
@@ -123,6 +119,7 @@ describe('prover/tx-prover', () => {
     prover.getBaseParityProof.mockResolvedValue(emptyProof);
     prover.getRootParityProof.mockResolvedValue(emptyProof);
     prover.getBaseRollupProof.mockResolvedValue(emptyProof);
+    prover.getMergeRollupProof.mockResolvedValue(emptyProof);
     prover.getRootRollupProof.mockResolvedValue(emptyProof);
     simulator.baseParityCircuit
       .mockResolvedValueOnce(makeParityPublicInputs(1))
@@ -181,138 +178,133 @@ describe('prover/tx-prover', () => {
     }
   };
 
-  const updateL1ToL2MessageTree = async (l1ToL2Messages: Fr[]) => {
-    const asBuffer = l1ToL2Messages.map(m => m.toBuffer());
-    await expectsDb.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, asBuffer);
-  };
+  // const updateL1ToL2MessageTree = async (l1ToL2Messages: Fr[]) => {
+  //   const asBuffer = l1ToL2Messages.map(m => m.toBuffer());
+  //   await expectsDb.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, asBuffer);
+  // };
 
-  const updateArchive = async () => {
-    const blockHash = rootRollupOutput.header.hash();
-    await expectsDb.appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
-  };
+  // const updateArchive = async () => {
+  //   const blockHash = rootRollupOutput.header.hash();
+  //   await expectsDb.appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
+  // };
 
-  const getTreeSnapshot = async (tree: MerkleTreeId) => {
-    const treeInfo = await expectsDb.getTreeInfo(tree);
-    return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
-  };
+  // const getTreeSnapshot = async (tree: MerkleTreeId) => {
+  //   const treeInfo = await expectsDb.getTreeInfo(tree);
+  //   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
+  // };
 
-  const getPartialStateReference = async () => {
-    return new PartialStateReference(
-      await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
-      await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
-      await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
-    );
-  };
+  // const getPartialStateReference = async () => {
+  //   return new PartialStateReference(
+  //     await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
+  //     await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
+  //     await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
+  //   );
+  // };
 
-  const getStateReference = async () => {
-    return new StateReference(
-      await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
-      await getPartialStateReference(),
-    );
-  };
+  // const getStateReference = async () => {
+  //   return new StateReference(
+  //     await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
+  //     await getPartialStateReference(),
+  //   );
+  // };
 
-  const buildMockSimulatorInputs = async () => {
-    const kernelOutput = makePrivateKernelTailCircuitPublicInputs();
-    kernelOutput.constants.historicalHeader = await expectsDb.buildInitialHeader();
-    kernelOutput.needsAppLogic = false;
-    kernelOutput.needsSetup = false;
-    kernelOutput.needsTeardown = false;
+  // const buildMockSimulatorInputs = async () => {
+  //   const kernelOutput = makePrivateKernelTailCircuitPublicInputs();
+  //   kernelOutput.constants.historicalHeader = await expectsDb.buildInitialHeader();
+  //   kernelOutput.needsAppLogic = false;
+  //   kernelOutput.needsSetup = false;
+  //   kernelOutput.needsTeardown = false;
 
-    const tx = makeProcessedTx(
-      new Tx(
-        kernelOutput,
-        emptyProof,
-        makeEmptyLogs(),
-        makeEmptyLogs(),
-        times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
-      ),
-    );
+  //   const tx = makeProcessedTx(
+  //     new Tx(
+  //       kernelOutput,
+  //       emptyProof,
+  //       makeEmptyLogs(),
+  //       makeEmptyLogs(),
+  //       times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
+  //     ),
+  //   );
 
-    const txs = [tx, await makeEmptyProcessedTx()];
+  //   const txs = [tx, await makeEmptyProcessedTx()];
 
-    // Calculate what would be the tree roots after the first tx and update mock circuit output
-    await updateExpectedTreesFromTxs([txs[0]]);
-    baseRollupOutputLeft.end = await getPartialStateReference();
-    baseRollupOutputLeft.txsEffectsHash = to2Fields(toTxEffect(tx).hash());
+  //   // Calculate what would be the tree roots after the first tx and update mock circuit output
+  //   await updateExpectedTreesFromTxs([txs[0]]);
+  //   baseRollupOutputLeft.end = await getPartialStateReference();
+  //   baseRollupOutputLeft.txsEffectsHash = to2Fields(toTxEffect(tx).hash());
 
-    // Same for the tx on the right
-    await updateExpectedTreesFromTxs([txs[1]]);
-    baseRollupOutputRight.end = await getPartialStateReference();
-    baseRollupOutputRight.txsEffectsHash = to2Fields(toTxEffect(tx).hash());
+  //   // Same for the tx on the right
+  //   await updateExpectedTreesFromTxs([txs[1]]);
+  //   baseRollupOutputRight.end = await getPartialStateReference();
+  //   baseRollupOutputRight.txsEffectsHash = to2Fields(toTxEffect(tx).hash());
 
-    // Update l1 to l2 message tree
-    await updateL1ToL2MessageTree(mockL1ToL2Messages);
+  //   // Update l1 to l2 message tree
+  //   await updateL1ToL2MessageTree(mockL1ToL2Messages);
 
-    // Collect all new nullifiers, commitments, and contracts from all txs in this block
-    const txEffects: TxEffect[] = txs.map(tx => toTxEffect(tx));
+  //   // Collect all new nullifiers, commitments, and contracts from all txs in this block
+  //   const txEffects: TxEffect[] = txs.map(tx => toTxEffect(tx));
 
-    const body = new Body(padArrayEnd(mockL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP), txEffects);
-    // We are constructing the block here just to get body hash/calldata hash so we can pass in an empty archive and header
-    const l2Block = L2Block.fromFields({
-      archive: AppendOnlyTreeSnapshot.zero(),
-      header: Header.empty(),
-      // Only the values below go to body hash/calldata hash
-      body,
+  //   const body = new Body(padArrayEnd(mockL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP), txEffects);
+  //   // We are constructing the block here just to get body hash/calldata hash so we can pass in an empty archive and header
+  //   const l2Block = L2Block.fromFields({
+  //     archive: AppendOnlyTreeSnapshot.zero(),
+  //     header: Header.empty(),
+  //     // Only the values below go to body hash/calldata hash
+  //     body,
+  //   });
+
+  //   // Now we update can make the final header, compute the block hash and update archive
+  //   rootRollupOutput.header.globalVariables = globalVariables;
+  //   rootRollupOutput.header.contentCommitment.txsEffectsHash = l2Block.body.getTxsEffectsHash();
+  //   rootRollupOutput.header.state = await getStateReference();
+
+  //   await updateArchive();
+  //   rootRollupOutput.archive = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
+
+  //   return txs;
+  // };
+
+  describe('error handling', () => {
+    beforeEach(async () => {
+      builder = await ProvingOrchestrator.new(builderDb, new WASMSimulator(), prover);
     });
 
-    // Now we update can make the final header, compute the block hash and update archive
-    rootRollupOutput.header.globalVariables = globalVariables;
-    rootRollupOutput.header.contentCommitment.txsEffectsHash = l2Block.body.getTxsEffectsHash();
-    rootRollupOutput.header.state = await getStateReference();
+    it.each([
+      ['Base Rollup Failed', () => { prover.getBaseRollupProof.mockRejectedValue('Base Rollup Failed')}],
+      ['Merge Rollup Failed', () => { prover.getMergeRollupProof.mockRejectedValue('Merge Rollup Failed')}],
+      ['Root Rollup Failed', () => { prover.getRootRollupProof.mockRejectedValue('Root Rollup Failed')}],
+      ['Base Parity Failed', () => { prover.getBaseParityProof.mockRejectedValue('Base Parity Failed')}],
+      ['Root Parity Failed', () => { prover.getRootParityProof.mockRejectedValue('Root Parity Failed')}],
+    ] as const)(
+      'handles a %s error',
+      async (message: string, fn: ()=> void) => {
+        fn();
+        const txs = await Promise.all([
+          makeEmptyProcessedTx(),
+          makeEmptyProcessedTx(),
+          makeEmptyProcessedTx(),
+          makeEmptyProcessedTx(),
+        ]);
+  
+        const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], [], await makeEmptyProcessedTx());
+  
+        for (const tx of txs) {
+          builder.addNewTx(tx);
+        }
+        await expect(blockPromise).rejects.toEqual(message);
+      }, 60000);
 
-    await updateArchive();
-    rootRollupOutput.archive = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
-
-    return txs;
-  };
-
-  // describe('mock simulator', () => {
-  //   beforeAll(() => {
-  //     jest.spyOn(TxEffect.prototype, 'hash').mockImplementation(() => {
-  //       return Buffer.alloc(32, 0);
-  //     });
-  //   });
-
-  //   afterAll(() => {
-  //     jest.restoreAllMocks();
-  //   });
-
-  //   beforeEach(() => {
-  //     // Create instance to test
-  //     builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
-  //     // since we now assert on the hash of the tx effect while running the base rollup,
-  //     // we need to mock the hash function to return a constant value
-  //   });
-
-  //   it('builds an L2 block using mock simulator', async () => {
-  //     // Assemble a fake transaction
-  //     const txs = await buildMockSimulatorInputs();
-
-  //     // Actually build a block!
-  //     const [l2Block, proof] = await builder.buildL2Block(
-  //       globalVariables,
-  //       txs,
-  //       newModelMockL1ToL2Messages,
-  //       mockL1ToL2Messages,
-  //     );
-
-  //     expect(l2Block.number).toEqual(blockNumber);
-  //     expect(proof).toEqual(emptyProof);
-  //   }, 20000);
-
-  //   it('rejects if too many l1 to l2 messages are provided', async () => {
-  //     // Assemble a fake transaction
-  //     const txs = await buildMockSimulatorInputs();
-  //     const l1ToL2Messages = new Array(100).fill(new Fr(0n));
-  //     await expect(
-  //       builder.buildL2Block(globalVariables, txs, newModelMockL1ToL2Messages, l1ToL2Messages),
-  //     ).rejects.toThrow();
-  //   });
-  // });
+    afterEach(async () => {
+      await builder.stop();
+    })
+  });
 
   describe('circuits simulator', () => {
-    beforeEach(() => {
-      builder = new ProvingOrchestrator(builderDb, new WASMSimulator(), getVerificationKeys());
+    beforeEach(async () => {
+      builder = await ProvingOrchestrator.new(builderDb, new WASMSimulator(), prover);
+    });
+
+    afterEach(async () => {
+      await builder.stop();
     });
 
     const makeBloatedProcessedTx = async (seed = 0x1) => {
@@ -364,41 +356,43 @@ describe('prover/tx-prover', () => {
       return processedTx;
     };
 
-    // it.each([
-    //   [0, 4],
-    //   [1, 4],
-    //   [4, 4],
-    //   [0, 16],
-    //   [16, 16],
-    // ] as const)(
-    //   'builds an L2 block with %i bloated txs and %i txs total',
-    //   async (bloatedCount: number, totalCount: number) => {
-    //     const noteHashTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
-    //     const txs = [
-    //       ...(await Promise.all(times(bloatedCount, makeBloatedProcessedTx))),
-    //       ...(await Promise.all(times(totalCount - bloatedCount, makeEmptyProcessedTx))),
-    //     ];
+    it.each([
+      [0, 4],
+      [1, 4],
+      [4, 4],
+      [0, 16],
+      [16, 16],
+    ] as const)(
+      'builds an L2 block with %i bloated txs and %i txs total',
+      async (bloatedCount: number, totalCount: number) => {
+        const noteHashTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+        const txs = [
+          ...(await Promise.all(times(bloatedCount, makeBloatedProcessedTx))),
+          ...(await Promise.all(times(totalCount - bloatedCount, makeEmptyProcessedTx))),
+        ];
 
-    //     const [l2Block] = await builder.buildL2Block(
-    //       globalVariables,
-    //       txs,
-    //       newModelMockL1ToL2Messages,
-    //       mockL1ToL2Messages,
-    //     );
-    //     expect(l2Block.number).toEqual(blockNumber);
+        const blockPromise = builder.startNewBlock(txs.length, globalVariables, mockL1ToL2Messages, newModelMockL1ToL2Messages, await makeEmptyProcessedTx());
 
-    //     await updateExpectedTreesFromTxs(txs);
-    //     const noteHashTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+        for (const tx of txs) {
+          builder.addNewTx(tx);
+        }
+  
+        const result = await blockPromise;
 
-    //     if (bloatedCount > 0) {
-    //       expect(noteHashTreeAfter.root).not.toEqual(noteHashTreeBefore.root);
-    //     }
+        expect(result.block.number).toEqual(blockNumber);
 
-    //     const expectedNoteHashTreeAfter = await expectsDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE).then(t => t.root);
-    //     expect(noteHashTreeAfter.root).toEqual(expectedNoteHashTreeAfter);
-    //   },
-    //   60000,
-    // );
+        await updateExpectedTreesFromTxs(txs);
+        const noteHashTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+
+        if (bloatedCount > 0) {
+          expect(noteHashTreeAfter.root).not.toEqual(noteHashTreeBefore.root);
+        }
+
+        const expectedNoteHashTreeAfter = await expectsDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE).then(t => t.root);
+        expect(noteHashTreeAfter.root).toEqual(expectedNoteHashTreeAfter);
+      },
+      60000,
+    );
 
     it('builds an empty L2 block', async () => {
       const txs = await Promise.all([
@@ -408,13 +402,14 @@ describe('prover/tx-prover', () => {
         makeEmptyProcessedTx(),
       ]);
 
-      const [l2Block] = await builder.proveBlock(
-        globalVariables,
-        txs,
-        newModelMockL1ToL2Messages,
-        mockL1ToL2Messages,
-      );
-      expect(l2Block.number).toEqual(blockNumber);
+      const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], [], await makeEmptyProcessedTx());
+
+      for (const tx of txs) {
+        builder.addNewTx(tx);
+      }
+
+      const result = await blockPromise;
+      expect(result.block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('builds a mixed L2 block', async () => {
@@ -427,8 +422,57 @@ describe('prover/tx-prover', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const [l2Block] = await builder.proveBlock(globalVariables, txs, newModelMockL1ToL2Messages, l1ToL2Messages);
-      expect(l2Block.number).toEqual(blockNumber);
+      const blockPromise = builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages, newModelMockL1ToL2Messages, await makeEmptyProcessedTx());
+
+      for (const tx of txs) {
+        builder.addNewTx(tx);
+      }
+
+      const result = await blockPromise;
+      expect(result.block.number).toEqual(blockNumber);
     }, 200_000);
+
+    it('builds an unbalanced L2 block', async () => {
+      const txs = await Promise.all([
+        makeEmptyProcessedTx(),
+        makeEmptyProcessedTx(),
+        makeEmptyProcessedTx(),
+      ]);
+
+      const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
+
+      const blockPromise = builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages, newModelMockL1ToL2Messages, await makeEmptyProcessedTx());
+
+      for (const tx of txs) {
+        builder.addNewTx(tx);
+      }
+
+      const result = await blockPromise;
+      expect(result.block.number).toEqual(blockNumber);
+    }, 200_000);
+
+    it('throws if adding too many transactions', async () => {
+      const txs = await Promise.all([
+        makeEmptyProcessedTx(),
+        makeEmptyProcessedTx(),
+        makeEmptyProcessedTx(),
+        makeEmptyProcessedTx(),
+      ]);
+
+      const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], [], await makeEmptyProcessedTx());
+
+      for (const tx of txs) {
+        builder.addNewTx(tx);
+      }
+
+      await expect(async () => builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(`Rollup already contains 4 transactions`);
+
+      const result = await blockPromise;
+      expect(result.block.number).toEqual(blockNumber);
+    }, 30_000);
+
+    it('throws if adding a transaction before start', async () => {
+      await expect(async () => builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(`Invalid proving state, call startNewBlock before adding transactions`);
+    }, 30_000);
   });
 });

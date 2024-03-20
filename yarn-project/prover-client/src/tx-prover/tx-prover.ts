@@ -1,4 +1,4 @@
-import { L2Block, ProcessedTx } from '@aztec/circuit-types';
+import { ProcessedTx } from '@aztec/circuit-types';
 import { ProverClient, ProvingResult } from '@aztec/circuit-types/interfaces';
 import { Fr, GlobalVariables, Proof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -7,12 +7,10 @@ import { WorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
 
-import { SoloBlockBuilder } from '../block_builder/solo_block_builder.js';
 import { ProverConfig } from '../config.js';
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { EmptyRollupProver } from '../prover/empty.js';
-import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 
 const logger = createDebugLogger('aztec:prover:tx-prover');
 
@@ -42,21 +40,23 @@ async function getSimulationProvider(config: ProverConfig): Promise<SimulationPr
  */
 export class TxProver implements ProverClient {
   private orchestrator: ProvingOrchestrator;
-  constructor(private worldStateSynchronizer: WorldStateSynchronizer, private simulationProvider: SimulationProvider, protected vks: VerificationKeys) {
-    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), simulationProvider, getVerificationKeys());
+  constructor(worldStateSynchronizer: WorldStateSynchronizer, simulationProvider: SimulationProvider, protected vks: VerificationKeys) {
+    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), simulationProvider, getVerificationKeys(), new EmptyRollupProver());
   }
 
   /**
    * Starts the prover instance
    */
   public async start() {
-    return await Promise.resolve();
+    return await this.orchestrator.start();
   }
 
   /**
    * Stops the prover instance
    */
-  public async stop() {}
+  public async stop() {
+    await this.orchestrator.stop();
+  }
 
   /**
    *
@@ -70,23 +70,8 @@ export class TxProver implements ProverClient {
     return prover;
   }
 
-  public async proveBlock(
-    globalVariables: GlobalVariables,
-    txs: ProcessedTx[],
-    newModelL1ToL2Messages: Fr[], // TODO(#4492): Rename this when purging the old inbox
-    newL1ToL2Messages: Fr[], // TODO(#4492): Nuke this when purging the old inbox
-  ): Promise<[L2Block, Proof]> {
-    const blockBuilder = new SoloBlockBuilder(
-      this.worldStateSynchronizer.getLatest(),
-      getVerificationKeys(),
-      new RealRollupCircuitSimulator(this.simulationProvider),
-      new EmptyRollupProver(),
-    );
-    return await blockBuilder.buildL2Block(globalVariables, txs, newModelL1ToL2Messages, newL1ToL2Messages);
-  }
-
-  public startNewBlock(numTxs: number, completionCallback: (result: ProvingResult) => void, globalVariables: GlobalVariables): void {
-    this.orchestrator.startNewBlock(numTxs, completionCallback, globalVariables);
+  public startNewBlock(numTxs: number, globalVariables: GlobalVariables, newL1ToL2Messages: Fr[], newModelL1ToL2Messages: Fr[], emptyTx: ProcessedTx): Promise<ProvingResult> {
+    return this.orchestrator.startNewBlock(numTxs, globalVariables, newL1ToL2Messages, newModelL1ToL2Messages, emptyTx);
   }
 
   public addNewTx(tx: ProcessedTx): void {

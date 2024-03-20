@@ -12,6 +12,8 @@ import {
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
+  L2BlockSource,
+  ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '@aztec/circuit-types';
@@ -34,17 +36,16 @@ import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, NewInboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
-  EmptyRollupProver,
   RealRollupCircuitSimulator,
-  SoloBlockBuilder,
-  getVerificationKeys,
+  TxProver
 } from '@aztec/prover-client';
 import { L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
 import { WASMSimulator } from '@aztec/simulator';
-import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { MerkleTrees, ServerWorldStateSynchronizer, WorldStateConfig } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import * as fs from 'fs';
+import { MockProxy, mock } from 'jest-mock-extended';
 import {
   Address,
   Chain,
@@ -88,11 +89,13 @@ describe('L1Publisher integration', () => {
   let publisher: L1Publisher;
   let l2Proof: Buffer;
 
-  let builder: SoloBlockBuilder;
-  let builderDb: MerkleTreeOperations;
+  let builder: TxProver;
+  let builderDb: MerkleTrees;
 
   // The header of the last block
   let prevHeader: Header;
+
+  let blockSource: MockProxy<L2BlockSource>;
 
   const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
 
@@ -138,9 +141,16 @@ describe('L1Publisher integration', () => {
       client: publicClient,
     });
 
-    builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
-    const simulator = new RealRollupCircuitSimulator(new WASMSimulator());
-    builder = new SoloBlockBuilder(builderDb, getVerificationKeys(), simulator, new EmptyRollupProver());
+    const tmpStore = openTmpStore();
+    builderDb = await MerkleTrees.new(tmpStore);
+    blockSource = mock<L2BlockSource>();
+    blockSource.getBlocks.mockResolvedValue([]);
+    const worldStateConfig: WorldStateConfig = {
+      worldStateBlockCheckIntervalMS: 10000,
+      l2QueueSize: 10
+    }
+    const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
+    builder = await TxProver.new({}, worldStateSynchronizer);
     l2Proof = Buffer.alloc(0);
 
     publisher = getL1Publisher({
@@ -155,7 +165,7 @@ describe('L1Publisher integration', () => {
     coinbase = config.coinbase || EthAddress.random();
     feeRecipient = config.feeRecipient || AztecAddress.random();
 
-    prevHeader = await builderDb.buildInitialHeader();
+    prevHeader = await builderDb.buildInitialHeader(false);
   }, 100_000);
 
   const makeEmptyProcessedTx = () => {
@@ -326,6 +336,14 @@ describe('L1Publisher integration', () => {
     fs.writeFileSync(path, output, 'utf8');
   };
 
+  const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], newModelL1ToL2Messages: Fr[], l1ToL2Messages: Fr[], emptyTx: ProcessedTx) => {
+    const blockPromise = builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages, newModelL1ToL2Messages, emptyTx);
+    for (const tx of txs) {
+      builder.addNewTx(tx);
+    }
+    return blockPromise;
+  }
+
   it('Block body is correctly published to AvailabilityOracle', async () => {
     const body = Body.random();
     // `sendPublishTx` function is private so I am hacking around TS here. I think it's ok for test purposes.
@@ -408,7 +426,8 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const [block] = await builder.buildL2Block(globalVariables, txs, newModelL1ToL2Messages, l1ToL2Messages);
+      const result = await buildBlock(globalVariables, txs, newModelL1ToL2Messages, l1ToL2Messages, await makeEmptyProcessedTx());
+      const block = result.block;
       prevHeader = block.header;
 
       // check that values are in the inbox
@@ -493,7 +512,8 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages, l1ToL2Messages);
+      const result = await buildBlock(globalVariables, txs, l1ToL2Messages, l1ToL2Messages, await makeEmptyProcessedTx());
+      const block = result.block;
       prevHeader = block.header;
 
       writeJson(`empty_block_${i}`, block, l1ToL2Messages, [], AztecAddress.ZERO, deployerAccount.address);
