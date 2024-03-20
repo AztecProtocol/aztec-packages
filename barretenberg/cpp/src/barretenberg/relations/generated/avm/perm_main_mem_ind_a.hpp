@@ -9,10 +9,10 @@
 
 namespace bb {
 
-class two_column_sparse_perm_permutation_settings {
+class perm_main_mem_ind_a_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 1;
+    constexpr static size_t COLUMNS_PER_SET = 3;
 
     /**
      * @brief If this method returns true on a row of values, then the inverse polynomial at this index. Otherwise the
@@ -23,7 +23,7 @@ class two_column_sparse_perm_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.toy_sparse_lhs == 1 || in.toy_sparse_rhs == 1);
+        return (in.avm_main_ind_op_a == 1 || in.avm_mem_m_ind_op_a == 1);
     }
 
     /**
@@ -46,12 +46,16 @@ class two_column_sparse_perm_permutation_settings {
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.two_column_sparse_perm,
-                                     in.toy_sparse_lhs,
-                                     in.toy_sparse_lhs,
-                                     in.toy_sparse_rhs,
-                                     in.toy_sparse_column_1,
-                                     in.toy_sparse_column_2);
+        return std::forward_as_tuple(in.perm_main_mem_ind_a,
+                                     in.avm_main_ind_op_a,
+                                     in.avm_main_ind_op_a,
+                                     in.avm_mem_m_ind_op_a,
+                                     in.avm_main_clk,
+                                     in.avm_main_ind_a,
+                                     in.avm_main_mem_idx_a,
+                                     in.avm_mem_m_clk,
+                                     in.avm_mem_m_addr,
+                                     in.avm_mem_m_val);
     }
 
     /**
@@ -74,18 +78,21 @@ class two_column_sparse_perm_permutation_settings {
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.two_column_sparse_perm,
-                                     in.toy_sparse_lhs,
-                                     in.toy_sparse_lhs,
-                                     in.toy_sparse_rhs,
-                                     in.toy_sparse_column_1,
-                                     in.toy_sparse_column_2);
+        return std::forward_as_tuple(in.perm_main_mem_ind_a,
+                                     in.avm_main_ind_op_a,
+                                     in.avm_main_ind_op_a,
+                                     in.avm_mem_m_ind_op_a,
+                                     in.avm_main_clk,
+                                     in.avm_main_ind_a,
+                                     in.avm_main_mem_idx_a,
+                                     in.avm_mem_m_clk,
+                                     in.avm_mem_m_addr,
+                                     in.avm_mem_m_val);
     }
 };
 
 template <typename FF_>
-using two_column_sparse_perm_relation = GenericPermutationRelation<two_column_sparse_perm_permutation_settings, FF_>;
-template <typename FF_>
-using two_column_sparse_perm = GenericPermutation<two_column_sparse_perm_permutation_settings, FF_>;
+using perm_main_mem_ind_a_relation = GenericPermutationRelation<perm_main_mem_ind_a_permutation_settings, FF_>;
+template <typename FF_> using perm_main_mem_ind_a = GenericPermutation<perm_main_mem_ind_a_permutation_settings, FF_>;
 
 } // namespace bb
