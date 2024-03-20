@@ -478,15 +478,12 @@ pub fn compile_no_check(
         return Ok(cached_program.expect("cache must exist for hashes to match"));
     }
     let visibility = program.return_visibility;
-    // let (circuit, debug, input_witnesses, return_witnesses, warnings) =
-    // create_circuit(program, options.show_ssa, options.show_brillig, options.force_brillig)?;
 
     let (program, debug, warnings, input_witnesses, return_witnesses) =
         create_program(program, options.show_ssa, options.show_brillig, options.force_brillig)?;
 
     let abi =
         abi_gen::gen_abi(context, &main_function, input_witnesses, return_witnesses, visibility);
-    // let file_map = filter_relevant_files(&[debug.clone()], &context.file_manager);
     let file_map = filter_relevant_files(&debug, &context.file_manager);
 
     Ok(CompiledProgram {
