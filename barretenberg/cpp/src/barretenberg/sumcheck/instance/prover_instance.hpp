@@ -88,8 +88,6 @@ template <class Flavor> class ProverInstance_ {
 
     void compute_sorted_accumulator_polynomials(FF);
 
-    void compute_sorted_list_accumulator(FF);
-
     void compute_logderivative_inverse(FF, FF)
         requires IsGoblinFlavor<Flavor>;
 

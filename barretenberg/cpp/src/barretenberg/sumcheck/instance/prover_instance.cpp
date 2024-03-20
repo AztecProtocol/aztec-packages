@@ -78,45 +78,14 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator
 {
     relation_parameters.eta = eta;
     // Compute sorted witness-table accumulator
-    compute_sorted_list_accumulator(eta);
-    prover_polynomials.sorted_accum = proving_key->sorted_accum.share();
+    proving_key->compute_sorted_list_accumulator(eta);
+    proving_key->sorted_accum = proving_key->sorted_accum.share();
     prover_polynomials.sorted_accum_shift = proving_key->sorted_accum.shifted();
 
     // Finalize fourth wire polynomial by adding lookup memory records
     add_plookup_memory_records_to_wire_4(eta);
-    prover_polynomials.w_4 = proving_key->w_4.share();
+    proving_key->w_4 = proving_key->w_4.share();
     prover_polynomials.w_4_shift = proving_key->w_4.shifted();
-}
-
-/**
- * @brief Construct sorted list accumulator polynomial 's'.
- *
- * @details Compute s = s_1 + η*s_2 + η²*s_3 + η³*s_4 (via Horner) where s_i are the
- * sorted concatenated witness/table polynomials
- *
- * @param key proving key
- * @param sorted_list_polynomials sorted concatenated witness/table polynomials
- * @param eta random challenge
- * @return Polynomial
- */
-template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_list_accumulator(FF eta)
-{
-    const size_t circuit_size = proving_key->circuit_size;
-
-    auto sorted_list_accumulator = Polynomial{ circuit_size };
-
-    // Construct s via Horner, i.e. s = s_1 + η(s_2 + η(s_3 + η*s_4))
-    for (size_t i = 0; i < circuit_size; ++i) {
-        FF T0 = proving_key->sorted_polynomials[3][i];
-        T0 *= eta;
-        T0 += proving_key->sorted_polynomials[2][i];
-        T0 *= eta;
-        T0 += proving_key->sorted_polynomials[1][i];
-        T0 *= eta;
-        T0 += proving_key->sorted_polynomials[0][i];
-        sorted_list_accumulator[i] = T0;
-    }
-    proving_key->sorted_accum = sorted_list_accumulator.share();
 }
 
 /**
