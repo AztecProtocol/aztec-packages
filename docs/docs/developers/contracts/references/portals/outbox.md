@@ -46,7 +46,7 @@ Allows a recipient to consume a message from the `Outbox`.
 - Will revert with `Outbox__NothingToConsumeAtBlock(uint256 l2BlockNumber)` if the root for the block has not been set yet.
 - Will revert with `Outbox__AlreadyNullified(uint256 l2BlockNumber, uint256 leafIndex)` if the message at leafIndex for the block has already been consumed.
 - Will revert with `Outbox__InvalidPathLength(uint256 expected, uint256 actual)` if the existing height of the L2 to L1 message tree, and the supplied height do not match.
-- Will revert with `MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual)` if unable to verify the message existence in the tree.
+- Will revert with `MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual, bytes32 leaf, uint256 leafIndex)` if unable to verify the message existence in the tree. It returns the message as a leaf, as well as the index of the leaf to expose more info about the error.
 
 
 ## `hasMessageBeenConsumedAtBlockAndIndex()`
