@@ -132,7 +132,6 @@ describe('public_processor', () => {
           tx.data.needsSetup,
           tx.data.needsAppLogic,
           tx.data.needsTeardown,
-          false, // reverted
         ),
         proof: tx.proof,
         encryptedLogs: tx.encryptedLogs,

@@ -56,10 +56,6 @@ export class PublicKernelCircuitPublicInputs {
      * Indicates whether the teardown kernel is needed.
      */
     public needsTeardown: boolean,
-    /**
-     * Indicates whether execution of the public circuit reverted.
-     */
-    public reverted: boolean,
   ) {}
 
   toBuffer() {
@@ -73,7 +69,6 @@ export class PublicKernelCircuitPublicInputs {
       this.needsSetup,
       this.needsAppLogic,
       this.needsTeardown,
-      this.reverted,
     );
   }
 
@@ -83,7 +78,7 @@ export class PublicKernelCircuitPublicInputs {
     }
 
     if (!this.combined) {
-      this.combined = CombinedAccumulatedData.recombine(this.endNonRevertibleData, this.end, this.reverted);
+      this.combined = CombinedAccumulatedData.recombine(this.endNonRevertibleData, this.end);
     }
     return this.combined;
   }
@@ -105,7 +100,6 @@ export class PublicKernelCircuitPublicInputs {
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readBoolean(),
-      reader.readBoolean(),
     );
   }
 
@@ -120,22 +114,20 @@ export class PublicKernelCircuitPublicInputs {
       false,
       false,
       false,
-      false,
     );
   }
 
   [inspect.custom]() {
     return `PublicKernelCircuitPublicInputs {
-      aggregationObject: ${this.aggregationObject},
-      rollupValidationRequests: ${inspect(this.rollupValidationRequests)},
-      validationRequests: ${inspect(this.validationRequests)},
-      endNonRevertibleData: ${inspect(this.endNonRevertibleData)},
-      end: ${inspect(this.end)},
-      constants: ${this.constants},
-      needsSetup: ${this.needsSetup},
-      needsAppLogic: ${this.needsAppLogic},
-      needsTeardown: ${this.needsTeardown},
-      reverted: ${this.reverted}
-      }`;
+  aggregationObject: ${this.aggregationObject},
+  rollupValidationRequests: ${inspect(this.rollupValidationRequests)},
+  validationRequests: ${inspect(this.validationRequests)},
+  endNonRevertibleData: ${inspect(this.endNonRevertibleData)},
+  end: ${inspect(this.end)},
+  constants: ${this.constants},
+  needsSetup: ${this.needsSetup},
+  needsAppLogic: ${this.needsAppLogic},
+  needsTeardown: ${this.needsTeardown},
+}`;
   }
 }

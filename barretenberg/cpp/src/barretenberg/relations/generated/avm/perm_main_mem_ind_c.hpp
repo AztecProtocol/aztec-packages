@@ -9,10 +9,10 @@
 
 namespace bb {
 
-class two_column_perm_permutation_settings {
+class perm_main_mem_ind_c_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 2;
+    constexpr static size_t COLUMNS_PER_SET = 3;
 
     /**
      * @brief If this method returns true on a row of values, then the inverse polynomial at this index. Otherwise the
@@ -23,7 +23,7 @@ class two_column_perm_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.toy_q_tuple_set == 1 || in.toy_q_tuple_set == 1);
+        return (in.avm_main_ind_op_c == 1 || in.avm_mem_m_ind_op_c == 1);
     }
 
     /**
@@ -46,14 +46,16 @@ class two_column_perm_permutation_settings {
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.two_column_perm,
-                                     in.toy_q_tuple_set,
-                                     in.toy_q_tuple_set,
-                                     in.toy_q_tuple_set,
-                                     in.toy_set_1_column_1,
-                                     in.toy_set_1_column_2,
-                                     in.toy_set_2_column_1,
-                                     in.toy_set_2_column_2);
+        return std::forward_as_tuple(in.perm_main_mem_ind_c,
+                                     in.avm_main_ind_op_c,
+                                     in.avm_main_ind_op_c,
+                                     in.avm_mem_m_ind_op_c,
+                                     in.avm_main_clk,
+                                     in.avm_main_ind_c,
+                                     in.avm_main_mem_idx_c,
+                                     in.avm_mem_m_clk,
+                                     in.avm_mem_m_addr,
+                                     in.avm_mem_m_val);
     }
 
     /**
@@ -76,19 +78,21 @@ class two_column_perm_permutation_settings {
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.two_column_perm,
-                                     in.toy_q_tuple_set,
-                                     in.toy_q_tuple_set,
-                                     in.toy_q_tuple_set,
-                                     in.toy_set_1_column_1,
-                                     in.toy_set_1_column_2,
-                                     in.toy_set_2_column_1,
-                                     in.toy_set_2_column_2);
+        return std::forward_as_tuple(in.perm_main_mem_ind_c,
+                                     in.avm_main_ind_op_c,
+                                     in.avm_main_ind_op_c,
+                                     in.avm_mem_m_ind_op_c,
+                                     in.avm_main_clk,
+                                     in.avm_main_ind_c,
+                                     in.avm_main_mem_idx_c,
+                                     in.avm_mem_m_clk,
+                                     in.avm_mem_m_addr,
+                                     in.avm_mem_m_val);
     }
 };
 
 template <typename FF_>
-using two_column_perm_relation = GenericPermutationRelation<two_column_perm_permutation_settings, FF_>;
-template <typename FF_> using two_column_perm = GenericPermutation<two_column_perm_permutation_settings, FF_>;
+using perm_main_mem_ind_c_relation = GenericPermutationRelation<perm_main_mem_ind_c_permutation_settings, FF_>;
+template <typename FF_> using perm_main_mem_ind_c = GenericPermutation<perm_main_mem_ind_c_permutation_settings, FF_>;
 
 } // namespace bb
