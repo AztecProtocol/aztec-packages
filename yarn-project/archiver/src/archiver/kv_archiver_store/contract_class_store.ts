@@ -82,13 +82,12 @@ function serializeContractClassPublic(contractClass: Omit<ContractClassPublic, '
 }
 
 function serializePrivateFunction(fn: ExecutablePrivateFunctionWithMembershipProof): Buffer {
-  const bytecode = Buffer.from(fn.bytecode, 'base64');
   return serializeToBuffer(
     fn.selector,
     fn.vkHash,
     fn.isInternal,
-    bytecode.length,
-    bytecode,
+    fn.bytecode.length,
+    fn.bytecode,
     fn.functionMetadataHash,
     fn.artifactMetadataHash,
     fn.unconstrainedFunctionsArtifactTreeRoot,
@@ -137,7 +136,7 @@ function deserializePrivateFunction(buffer: Buffer | BufferReader): ExecutablePr
     selector: reader.readObject(FunctionSelector),
     vkHash: reader.readObject(Fr),
     isInternal: reader.readBoolean(),
-    bytecode: reader.readBuffer().toString('base64'),
+    bytecode: reader.readBuffer(),
     functionMetadataHash: reader.readObject(Fr),
     artifactMetadataHash: reader.readObject(Fr),
     unconstrainedFunctionsArtifactTreeRoot: reader.readObject(Fr),

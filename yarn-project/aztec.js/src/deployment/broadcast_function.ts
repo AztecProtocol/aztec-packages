@@ -46,7 +46,7 @@ export function broadcastPrivateFunction(
 
   const vkHash = computeVerificationKeyHash(privateFunctionArtifact.verificationKey!);
   const bytecode = bufferAsFields(
-    Buffer.from(privateFunctionArtifact.bytecode, 'base64'),
+    privateFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
 
@@ -95,10 +95,7 @@ export function broadcastUnconstrainedFunction(
     privateFunctionsArtifactTreeRoot,
   } = createUnconstrainedFunctionMembershipProof(selector, artifact);
 
-  const bytecode = bufferAsFields(
-    Buffer.from(functionArtifact.bytecode, 'base64'),
-    MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-  );
+  const bytecode = bufferAsFields(functionArtifact.bytecode, MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS);
 
   const registerer = getRegistererContract(wallet);
   return registerer.methods.broadcast_unconstrained_function(

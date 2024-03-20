@@ -130,7 +130,7 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArt
     isInitializer: fn.custom_attributes.includes(AZTEC_INITIALIZER_ATTRIBUTE),
     parameters,
     returnTypes,
-    bytecode: fn.bytecode,
+    bytecode: Buffer.from(fn.bytecode, 'base64'),
     verificationKey: mockVerificationKey,
     debugSymbols: fn.debug_symbols,
   };

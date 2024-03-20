@@ -94,7 +94,7 @@ export class PrivateFunctionBroadcastedEvent {
   toFunctionWithMembershipProof(): ExecutablePrivateFunctionWithMembershipProof {
     return {
       ...this.privateFunction,
-      bytecode: this.privateFunction.bytecode.toString('base64'),
+      bytecode: this.privateFunction.bytecode,
       functionMetadataHash: this.privateFunction.metadataHash,
       artifactMetadataHash: this.artifactMetadataHash,
       unconstrainedFunctionsArtifactTreeRoot: this.unconstrainedFunctionsArtifactTreeRoot,

@@ -78,8 +78,8 @@ export type ContractClassPublic = {
 
 /** Private function definition with executable bytecode. */
 export interface ExecutablePrivateFunction extends PrivateFunction {
-  /** ACIR and Brillig bytecode in b64 */
-  bytecode: string; // TODO(@spalladino) Use buffer for bytecode everywhere
+  /** ACIR and Brillig bytecode */
+  bytecode: Buffer;
 }
 
 /** Sibling paths and sibling commitments for proving membership of a private function within a contract class. */

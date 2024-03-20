@@ -87,7 +87,7 @@ export function isValidUnconstrainedFunctionMembershipProof(
 ) {
   const log = createDebugLogger('aztec:circuits:function_membership_proof');
 
-  const functionArtifactHash = computeFunctionArtifactHash({ ...fn, bytecode: fn.bytecode.toString('base64') });
+  const functionArtifactHash = computeFunctionArtifactHash(fn);
   const computedArtifactFunctionTreeRoot = Fr.fromBuffer(
     computeRootFromSiblingPath(
       functionArtifactHash.toBuffer(),
