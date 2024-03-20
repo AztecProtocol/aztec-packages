@@ -7,6 +7,7 @@ import {Rollup} from "../../src/core/Rollup.sol";
 import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
+import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
 import {Hash} from "../../src/core/libraries/Hash.sol";
 import {Errors} from "../../src/core/libraries/Errors.sol";
 
@@ -197,13 +198,13 @@ contract UniswapPortalTest is Test {
       abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
     );
 
-    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      DataStructures.OutboxMessageMetadata({
+    PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 0,
         _path: withdrawSiblingPath
       }),
-      DataStructures.OutboxMessageMetadata({
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 1,
         _path: swapSiblingPath
@@ -252,13 +253,13 @@ contract UniswapPortalTest is Test {
       abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
     );
 
-    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      DataStructures.OutboxMessageMetadata({
+    PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 0,
         _path: withdrawSiblingPath
       }),
-      DataStructures.OutboxMessageMetadata({
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 1,
         _path: swapSiblingPath
@@ -311,13 +312,13 @@ contract UniswapPortalTest is Test {
       abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
     );
 
-    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      DataStructures.OutboxMessageMetadata({
+    PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 0,
         _path: withdrawSiblingPath
       }),
-      DataStructures.OutboxMessageMetadata({
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 1,
         _path: swapSiblingPath
@@ -347,13 +348,13 @@ contract UniswapPortalTest is Test {
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
       _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey, l2BlockNumber);
 
-    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      DataStructures.OutboxMessageMetadata({
+    PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 0,
         _path: withdrawSiblingPath
       }),
-      DataStructures.OutboxMessageMetadata({
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 1,
         _path: swapSiblingPath
@@ -394,13 +395,13 @@ contract UniswapPortalTest is Test {
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
       _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey, l2BlockNumber);
 
-    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      DataStructures.OutboxMessageMetadata({
+    PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 0,
         _path: withdrawSiblingPath
       }),
-      DataStructures.OutboxMessageMetadata({
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 1,
         _path: swapSiblingPath
@@ -441,13 +442,13 @@ contract UniswapPortalTest is Test {
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
       _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey, l2BlockNumber);
 
-    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      DataStructures.OutboxMessageMetadata({
+    PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 0,
         _path: withdrawSiblingPath
       }),
-      DataStructures.OutboxMessageMetadata({
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 1,
         _path: swapSiblingPath
@@ -531,13 +532,13 @@ contract UniswapPortalTest is Test {
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
       _addMessagesToOutbox(daiWithdrawEntryKey, swapEntryKey, l2BlockNumber);
 
-    DataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      DataStructures.OutboxMessageMetadata({
+    PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 0,
         _path: withdrawSiblingPath
       }),
-      DataStructures.OutboxMessageMetadata({
+      PortalDataStructures.OutboxMessageMetadata({
         _l2BlockNumber: l2BlockNumber,
         _leafIndex: 1,
         _path: swapSiblingPath

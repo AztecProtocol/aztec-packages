@@ -5,6 +5,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IRegistry} from "../../src/core/interfaces/messagebridge/IRegistry.sol";
 import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
+import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
 import {Hash} from "../../src/core/libraries/Hash.sol";
 
 // docs:start:setup
@@ -64,7 +65,7 @@ contract UniswapPortal {
     bytes32 _secretHashForL1ToL2Message,
     bool _withCaller,
     // Avoiding stack too deep
-    DataStructures.OutboxMessageMetadata[2] calldata _outboxMessageMetadata
+    PortalDataStructures.OutboxMessageMetadata[2] calldata _outboxMessageMetadata
   ) public returns (bytes32) {
     LocalSwapVars memory vars;
 
@@ -170,7 +171,8 @@ contract UniswapPortal {
     bytes32 _secretHashForRedeemingMintedNotes,
     bytes32 _secretHashForL1ToL2Message,
     bool _withCaller,
-    DataStructures.OutboxMessageMetadata[2] calldata _outboxMessageMetadata
+    // Avoiding stack too deep
+    PortalDataStructures.OutboxMessageMetadata[2] calldata _outboxMessageMetadata
   ) public returns (bytes32) {
     LocalSwapVars memory vars;
 
