@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /build
 
 SAVE IMAGE --push aztecprotocol/cache:bb-ubuntu-lunar
+SAVE IMAGE --cache-hint
 
 build-wasi-sdk-image:
     WORKDIR /
@@ -57,6 +58,7 @@ source:
     COPY --keep-ts --dir src/barretenberg src/CMakeLists.txt src
     # cmake source
     COPY --keep-ts --dir cmake CMakeLists.txt CMakePresets.json .
+    RUN touch echof
 
 preset-release-assert-all:
     FROM +source
@@ -81,6 +83,7 @@ preset-wasm:
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
     RUN ./src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
     SAVE ARTIFACT bin
+    SAVE IMAGE --cache-hint
 
 preset-gcc:
     FROM +source

@@ -4,41 +4,12 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    env:
-      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
-    strategy: { matrix: { environment: [x86] } }
-    # cancel if reran on same PR if exists, otherwise if on same commit
-    concurrency:
-      group: build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
-      cancel-in-progress: true
-    steps:
-      - uses: earthly/actions-setup@v1
-        with:
-          version: v0.8.5
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with: {submodules: recursive}
-
-      - name: Setup
-        working-directory: ./scripts
-        run: ./setup_env.sh ${{ matrix.environment }} ${{ secrets.DOCKERHUB_PASSWORD }} ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-
-      - name: Replace Slashes in GitHub Ref
-        run: echo "SANITIZED_REF=$(echo ${{ github.ref }} | sed 's/\//-/g')" >> $GITHUB_ENV
-
-      - name: Test
-        run: |
-          earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.event.number || env.SANITIZED_REF}} --sat build-${{ matrix.environment }} --push +build
-
   e2e:
     needs: build
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
-    strategy: { matrix: { environment: [x86], test: [e2e-escrow-contract] } }
+    strategy: { matrix: { environment: [arm64, amd64], test: [e2e-escrow-contract, e2e-account-contracts] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: ${{ matrix.test }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
@@ -56,34 +27,48 @@ jobs:
         working-directory: ./scripts
         run: ./setup_env.sh ${{ matrix.environment }} ${{ secrets.DOCKERHUB_PASSWORD }} ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
 
-      - name: Replace Slashes in GitHub Ref
-        run: echo "SANITIZED_REF=$(echo ${{ github.ref }} | sed 's/\//-/g')" >> $GITHUB_ENV
-
       - name: Test
         working-directory: ./yarn-project/end-to-end
         run: |
-          earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.pull_request.number || env.SANITIZED_REF }} --sat e2e-${{ matrix.environment }} +${{ matrix.test }}
+          # TODO put in script
+          # TODO clean up output if already created
+          earthly sat launch --size 4xlarge --platform linux/${{matrix.environment}} build-${{github.actor}}-${{ matrix.environment }} || true
+          if [ ${{ github.ref_name }} = master ] ; then
+            # update the remote cache
+            export EARTHLY_PUSH=true
+          fi
+          # TODO need to use more SAVE IMAGE --cache-hint and explicit BUILD statements for remote-cache to work well but then it should read artifacts from master done by all runners
+          earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:${{matrix.test}} --sat build-${{github.actor}}-${{ matrix.environment }} +${{ matrix.test }}
 
-  # bb-native-tests:
-  #   runs-on: ubuntu-latest
-  #   env:
-  #     EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
-  #   # run for both x86_64 and arm64
-  #   strategy: { matrix: { environment: [x86] } }
-  #   # cancel if reran on same PR if exists, otherwise if on same commit
-  #   concurrency:
-  #     group: bb-native-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
-  #     cancel-in-progress: true
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #       with:
-  #         submodules: recursive
+  bb-native-tests:
+    runs-on: ubuntu-latest
+    env:
+      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
+    # run for both x86_64 and arm64
+    strategy: { matrix: { environment: [x86, arm] } }
+    # cancel if reran on same PR if exists, otherwise if on same commit
+    concurrency:
+      group: bb-native-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-  #     - name: Setup
-  #       working-directory: ./scripts
-  #       run: ./setup_env.sh ${{ matrix.environment }} ${{ secrets.DOCKERHUB_PASSWORD }} ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+      - name: Setup
+        working-directory: ./scripts
+        run: ./setup_env.sh ${{ matrix.environment }} ${{ secrets.DOCKERHUB_PASSWORD }} ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
 
-  #     - name: Build and test
-  #       working-directory: ./barretenberg/cpp
-  #       run: earthly --no-output --org aztec --sat my-satellite --ci --push +build+test
+      - name: Build and test
+        working-directory: ./barretenberg/cpp
+        run:  |
+          # TODO put in script
+          # TODO clean up output if already created
+          earthly sat launch --size 4xlarge --platform linux/${{matrix.environment}} build-${{github.actor}}-${{ matrix.environment }} || true
+          if [ ${{ github.ref_name }} = master ] ; then
+            # update the remote cache
+            export EARTHLY_PUSH=true
+          fi
+          # TODO need to use more SAVE IMAGE --cache-hint and explicit BUILD statements for remote-cache to work well but then it should read artifacts from master done by all runners
+          earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:bb-native-tests --sat build-${{github.actor}}-${{ matrix.environment }} +test
