@@ -26,8 +26,7 @@ describe('unconstrained_function_membership_proof', () => {
 
   it('computes and verifies a proof', () => {
     const proof = createUnconstrainedFunctionMembershipProof(selector, artifact);
-    const bytecode = Buffer.from(unconstrainedFunction.bytecode, 'base64');
-    const fn = { ...unconstrainedFunction, ...proof, bytecode, selector };
+    const fn = { ...unconstrainedFunction, ...proof, selector };
     expect(isValidUnconstrainedFunctionMembershipProof(fn, contractClass)).toBeTruthy();
   });
 
@@ -38,8 +37,7 @@ describe('unconstrained_function_membership_proof', () => {
       const original = proof[field];
       const mangled = Array.isArray(original) ? [Fr.random(), ...original.slice(1)] : Fr.random();
       const wrong = { ...proof, [field]: mangled };
-      const bytecode = Buffer.from(unconstrainedFunction.bytecode, 'base64');
-      const fn = { ...unconstrainedFunction, ...wrong, bytecode, selector, vkHash };
+      const fn = { ...unconstrainedFunction, ...wrong, selector, vkHash };
       expect(isValidUnconstrainedFunctionMembershipProof(fn, contractClass)).toBeFalsy();
     },
   );

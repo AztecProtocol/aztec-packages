@@ -1285,7 +1285,7 @@ export function makeExecutablePrivateFunctionWithMembershipProof(
 ): ExecutablePrivateFunctionWithMembershipProof {
   return {
     selector: makeSelector(seed),
-    bytecode: makeBytes(100, seed + 1).toString('base64'),
+    bytecode: makeBytes(100, seed + 1),
     artifactTreeSiblingPath: makeTuple(3, fr, seed + 2),
     artifactTreeLeafIndex: seed + 2,
     privateFunctionTreeSiblingPath: makeTuple(3, fr, seed + 3),

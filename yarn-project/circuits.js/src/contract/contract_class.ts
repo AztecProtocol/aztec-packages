@@ -21,7 +21,7 @@ export function getContractClassFromArtifact(
     .filter(f => f.functionType === FunctionType.OPEN)
     .map(f => ({
       selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
-      bytecode: Buffer.from(f.bytecode, 'base64'),
+      bytecode: f.bytecode,
       isInternal: f.isInternal,
     }))
     .sort(cmpFunctionArtifacts);
