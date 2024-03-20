@@ -18,6 +18,7 @@ import {
   ContractClassPublic,
   ContractInstanceWithAddress,
   ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
 import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
@@ -67,11 +68,12 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return (await Promise.all(data.map(c => this.#contractClassStore.addContractClass(c)))).every(Boolean);
   }
 
-  addPrivateFunctions(
+  addFunctions(
     contractClassId: Fr,
     privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
+    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
   ): Promise<boolean> {
-    return this.#contractClassStore.addPrivateFunctions(contractClassId, privateFunctions);
+    return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, unconstrainedFunctions);
   }
 
   async addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {

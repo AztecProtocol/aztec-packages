@@ -16,7 +16,9 @@ import { ContractClassRegisteredEvent, FunctionSelector } from '@aztec/circuits.
 import {
   ContractInstanceDeployedEvent,
   PrivateFunctionBroadcastedEvent,
+  UnconstrainedFunctionBroadcastedEvent,
   isValidPrivateFunctionMembershipProof,
+  isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js/contract';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -29,7 +31,9 @@ import {
   ContractClassPublic,
   ContractDataSource,
   ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
   PublicFunction,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
 import groupBy from 'lodash.groupby';
@@ -310,24 +314,46 @@ export class Archiver implements ArchiveSource {
   }
 
   private async storeBroadcastedIndividualFunctions(allLogs: UnencryptedL2Log[], _blockNum: number) {
-    const events = PrivateFunctionBroadcastedEvent.fromLogs(allLogs, getCanonicalClassRegistererAddress());
-    for (const [classIdString, classEvents] of Object.entries(groupBy(events, e => e.contractClassId.toString()))) {
+    // Filter out private and unconstrained function broadcast events
+    const privateFnEvents = PrivateFunctionBroadcastedEvent.fromLogs(allLogs, getCanonicalClassRegistererAddress());
+    const unconstrainedFnEvents = UnconstrainedFunctionBroadcastedEvent.fromLogs(
+      allLogs,
+      getCanonicalClassRegistererAddress(),
+    );
+
+    // Group all events by contract class id
+    for (const [classIdString, classEvents] of Object.entries(
+      groupBy([...privateFnEvents, ...unconstrainedFnEvents], e => e.contractClassId.toString()),
+    )) {
       const contractClassId = Fr.fromString(classIdString);
       const contractClass = await this.store.getContractClass(contractClassId);
       if (!contractClass) {
-        this.log.warn(`Skipping private functions as contract class ${contractClassId.toString()} was not found`);
+        this.log.warn(`Skipping broadcasted functions as contract class ${contractClassId.toString()} was not found`);
         continue;
       }
-      const validFns = classEvents
-        .map(e => e.toExecutableFunctionWithMembershipProof())
-        .filter(fn => isValidPrivateFunctionMembershipProof(fn, contractClass));
-      if (validFns.length !== classEvents.length) {
-        this.log.warn(`Skipping ${classEvents.length - validFns.length} invalid private functions`);
+
+      // Split private and unconstrained functions, and filter out invalid ones
+      const allFns = classEvents.map(e => e.toFunctionWithMembershipProof());
+      const privateFns = allFns.filter(
+        (fn): fn is ExecutablePrivateFunctionWithMembershipProof => 'unconstrainedFunctionsArtifactTreeRoot' in fn,
+      );
+      const unconstrainedFns = allFns.filter(
+        (fn): fn is UnconstrainedFunctionWithMembershipProof => 'privateFunctionsArtifactTreeRoot' in fn,
+      );
+      const validPrivateFns = privateFns.filter(fn => isValidPrivateFunctionMembershipProof(fn, contractClass));
+      const validUnconstrainedFns = unconstrainedFns.filter(fn =>
+        isValidUnconstrainedFunctionMembershipProof(fn, contractClass),
+      );
+      const validFnCount = validPrivateFns.length + validUnconstrainedFns.length;
+      if (validFnCount !== allFns.length) {
+        this.log.warn(`Skipping ${allFns.length - validFnCount} invalid functions`);
       }
-      if (validFns.length > 0) {
-        this.log(`Storing ${validFns.length} private functions for contract class ${contractClassId.toString()}`);
+
+      // Store the functions in the contract class in a single operation
+      if (validFnCount > 0) {
+        this.log(`Storing ${validFnCount} functions for contract class ${contractClassId.toString()}`);
       }
-      await this.store.addPrivateFunctions(contractClassId, validFns);
+      await this.store.addFunctions(contractClassId, validPrivateFns, validUnconstrainedFns);
     }
   }
 

@@ -8,6 +8,7 @@ import {
   ExecutablePrivateFunctionWithMembershipProof,
   PrivateFunction,
   PublicFunction,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
 import { SchnorrSignature } from '../barretenberg/index.js';
@@ -1287,6 +1288,18 @@ export function makeExecutablePrivateFunctionWithMembershipProof(
   };
 }
 
+export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): UnconstrainedFunctionWithMembershipProof {
+  return {
+    selector: makeSelector(seed),
+    bytecode: makeBytes(100, seed + 1),
+    artifactTreeSiblingPath: makeTuple(3, fr, seed + 2),
+    artifactTreeLeafIndex: seed + 2,
+    artifactMetadataHash: fr(seed + 4),
+    functionMetadataHash: fr(seed + 5),
+    privateFunctionsArtifactTreeRoot: fr(seed + 6),
+  };
+}
+
 export function makeContractClassPublic(seed = 0): ContractClassPublic {
   const artifactHash = fr(seed + 1);
   const publicFunctions = makeTuple(3, makeContractClassPublicFunction, seed + 2);
@@ -1301,6 +1314,7 @@ export function makeContractClassPublic(seed = 0): ContractClassPublic {
     privateFunctionsRoot,
     publicFunctions,
     privateFunctions: [],
+    unconstrainedFunctions: [],
     version: 1,
   };
 }

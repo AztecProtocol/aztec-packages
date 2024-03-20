@@ -21,6 +21,7 @@ import {
   ContractClassPublic,
   ContractInstanceWithAddress,
   ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
 import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
@@ -67,6 +68,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private privateFunctions: Map<string, ExecutablePrivateFunctionWithMembershipProof[]> = new Map();
 
+  private unconstrainedFunctions: Map<string, UnconstrainedFunctionWithMembershipProof[]> = new Map();
+
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
   private lastL1BlockNewBlocks: bigint = 0n;
@@ -83,6 +86,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       contractClass && {
         ...contractClass,
         privateFunctions: this.privateFunctions.get(id.toString()) ?? [],
+        unconstrainedFunctions: this.unconstrainedFunctions.get(id.toString()) ?? [],
       },
     );
   }
@@ -95,16 +99,25 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.contractInstances.get(address.toString()));
   }
 
-  public addPrivateFunctions(
+  public addFunctions(
     contractClassId: Fr,
     newPrivateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
+    newUnconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
   ): Promise<boolean> {
     const privateFunctions = this.privateFunctions.get(contractClassId.toString()) ?? [];
+    const unconstrainedFunctions = this.unconstrainedFunctions.get(contractClassId.toString()) ?? [];
     const updatedPrivateFunctions = [
       ...privateFunctions,
       ...newPrivateFunctions.filter(newFn => !privateFunctions.find(f => f.selector.equals(newFn.selector))),
     ];
+    const updatedUnconstrainedFunctions = [
+      ...unconstrainedFunctions,
+      ...newUnconstrainedFunctions.filter(
+        newFn => !unconstrainedFunctions.find(f => f.selector.equals(newFn.selector)),
+      ),
+    ];
     this.privateFunctions.set(contractClassId.toString(), updatedPrivateFunctions);
+    this.unconstrainedFunctions.set(contractClassId.toString(), updatedUnconstrainedFunctions);
     return Promise.resolve(true);
   }
 

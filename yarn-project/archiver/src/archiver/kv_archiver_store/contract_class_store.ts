@@ -1,7 +1,11 @@
 import { Fr, FunctionSelector, Vector } from '@aztec/circuits.js';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecKVStore, AztecMap } from '@aztec/kv-store';
-import { ContractClassPublic, ExecutablePrivateFunctionWithMembershipProof } from '@aztec/types/contracts';
+import {
+  ContractClassPublic,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/types/contracts';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
@@ -26,9 +30,10 @@ export class ContractClassStore {
     return Array.from(this.#contractClasses.keys()).map(key => Fr.fromString(key));
   }
 
-  async addPrivateFunctions(
+  async addFunctions(
     contractClassId: Fr,
     newPrivateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
+    newUnconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
   ): Promise<boolean> {
     await this.db.transaction(() => {
       const existingClassBuffer = this.#contractClasses.get(contractClassId.toString());
@@ -37,13 +42,19 @@ export class ContractClassStore {
       }
 
       const existingClass = deserializeContractClassPublic(existingClassBuffer);
-      const existingFns = existingClass.privateFunctions;
+      const { privateFunctions: existingPrivateFns, unconstrainedFunctions: existingUnconstrainedFns } = existingClass;
 
-      const updatedClass = {
+      const updatedClass: Omit<ContractClassPublic, 'id'> = {
         ...existingClass,
         privateFunctions: [
-          ...existingFns,
-          ...newPrivateFunctions.filter(newFn => !existingFns.some(f => f.selector.equals(newFn.selector))),
+          ...existingPrivateFns,
+          ...newPrivateFunctions.filter(newFn => !existingPrivateFns.some(f => f.selector.equals(newFn.selector))),
+        ],
+        unconstrainedFunctions: [
+          ...existingUnconstrainedFns,
+          ...newUnconstrainedFunctions.filter(
+            newFn => !existingUnconstrainedFns.some(f => f.selector.equals(newFn.selector)),
+          ),
         ],
       };
       void this.#contractClasses.set(contractClassId.toString(), serializeContractClassPublic(updatedClass));
@@ -62,6 +73,8 @@ function serializeContractClassPublic(contractClass: Omit<ContractClassPublic, '
     ) ?? [],
     contractClass.privateFunctions.length,
     contractClass.privateFunctions.map(serializePrivateFunction),
+    contractClass.unconstrainedFunctions.length,
+    contractClass.unconstrainedFunctions.map(serializeUnconstrainedFunction),
     contractClass.packedBytecode.length,
     contractClass.packedBytecode,
     contractClass.privateFunctionsRoot,
@@ -86,6 +99,19 @@ function serializePrivateFunction(fn: ExecutablePrivateFunctionWithMembershipPro
   );
 }
 
+function serializeUnconstrainedFunction(fn: UnconstrainedFunctionWithMembershipProof): Buffer {
+  return serializeToBuffer(
+    fn.selector,
+    fn.bytecode.length,
+    fn.bytecode,
+    fn.functionMetadataHash,
+    fn.artifactMetadataHash,
+    fn.privateFunctionsArtifactTreeRoot,
+    new Vector(fn.artifactTreeSiblingPath),
+    fn.artifactTreeLeafIndex,
+  );
+}
+
 function deserializeContractClassPublic(buffer: Buffer): Omit<ContractClassPublic, 'id'> {
   const reader = BufferReader.asReader(buffer);
   return {
@@ -99,6 +125,7 @@ function deserializeContractClassPublic(buffer: Buffer): Omit<ContractClassPubli
       }),
     }),
     privateFunctions: reader.readVector({ fromBuffer: deserializePrivateFunction }),
+    unconstrainedFunctions: reader.readVector({ fromBuffer: deserializeUnconstrainedFunction }),
     packedBytecode: reader.readBuffer(),
     privateFunctionsRoot: reader.readObject(Fr),
   };
@@ -116,6 +143,19 @@ function deserializePrivateFunction(buffer: Buffer | BufferReader): ExecutablePr
     unconstrainedFunctionsArtifactTreeRoot: reader.readObject(Fr),
     privateFunctionTreeSiblingPath: reader.readVector(Fr),
     privateFunctionTreeLeafIndex: reader.readNumber(),
+    artifactTreeSiblingPath: reader.readVector(Fr),
+    artifactTreeLeafIndex: reader.readNumber(),
+  };
+}
+
+function deserializeUnconstrainedFunction(buffer: Buffer | BufferReader): UnconstrainedFunctionWithMembershipProof {
+  const reader = BufferReader.asReader(buffer);
+  return {
+    selector: reader.readObject(FunctionSelector),
+    bytecode: reader.readBuffer(),
+    functionMetadataHash: reader.readObject(Fr),
+    artifactMetadataHash: reader.readObject(Fr),
+    privateFunctionsArtifactTreeRoot: reader.readObject(Fr),
     artifactTreeSiblingPath: reader.readVector(Fr),
     artifactTreeLeafIndex: reader.readNumber(),
   };

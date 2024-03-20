@@ -81,6 +81,7 @@ export class ContractClassRegisteredEvent {
       publicFunctions: unpackBytecode(this.packedPublicBytecode),
       version: this.version,
       privateFunctions: [],
+      unconstrainedFunctions: [],
     };
   }
 }

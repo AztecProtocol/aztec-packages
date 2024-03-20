@@ -16,6 +16,7 @@ import {
   ContractClassPublic,
   ContractInstanceWithAddress,
   ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
 import { DataRetrieval } from './data_retrieval.js';
@@ -165,9 +166,10 @@ export interface ArchiverDataStore {
   /**
    * Adds private functions to a contract class.
    */
-  addPrivateFunctions(
+  addFunctions(
     contractClassId: Fr,
     privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
+    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
   ): Promise<boolean>;
 
   /**

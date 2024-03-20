@@ -1,7 +1,11 @@
 import { InboxLeaf, L2Block, L2BlockContext, LogId, LogType, TxHash, UnencryptedL2Log } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
 import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
-import { makeContractClassPublic, makeExecutablePrivateFunctionWithMembershipProof } from '@aztec/circuits.js/testing';
+import {
+  makeContractClassPublic,
+  makeExecutablePrivateFunctionWithMembershipProof,
+  makeUnconstrainedFunctionWithMembershipProof,
+} from '@aztec/circuits.js/testing';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { ContractClassPublic, ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
@@ -246,17 +250,32 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
       it('adds new private functions', async () => {
         const fns = times(3, makeExecutablePrivateFunctionWithMembershipProof);
-        await store.addPrivateFunctions(contractClass.id, fns);
+        await store.addFunctions(contractClass.id, fns, []);
         const stored = await store.getContractClass(contractClass.id);
         expect(stored?.privateFunctions).toEqual(fns);
       });
 
       it('does not duplicate private functions', async () => {
         const fns = times(3, makeExecutablePrivateFunctionWithMembershipProof);
-        await store.addPrivateFunctions(contractClass.id, fns.slice(0, 1));
-        await store.addPrivateFunctions(contractClass.id, fns);
+        await store.addFunctions(contractClass.id, fns.slice(0, 1), []);
+        await store.addFunctions(contractClass.id, fns, []);
         const stored = await store.getContractClass(contractClass.id);
         expect(stored?.privateFunctions).toEqual(fns);
+      });
+
+      it('adds new unconstrained functions', async () => {
+        const fns = times(3, makeUnconstrainedFunctionWithMembershipProof);
+        await store.addFunctions(contractClass.id, [], fns);
+        const stored = await store.getContractClass(contractClass.id);
+        expect(stored?.unconstrainedFunctions).toEqual(fns);
+      });
+
+      it('does not duplicate unconstrained functions', async () => {
+        const fns = times(3, makeUnconstrainedFunctionWithMembershipProof);
+        await store.addFunctions(contractClass.id, [], fns.slice(0, 1));
+        await store.addFunctions(contractClass.id, [], fns);
+        const stored = await store.getContractClass(contractClass.id);
+        expect(stored?.unconstrainedFunctions).toEqual(fns);
       });
     });
 
