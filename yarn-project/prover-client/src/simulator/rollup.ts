@@ -118,7 +118,7 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
     const witness = await this.simulationProvider.simulateCircuit(witnessMap, BaseRollupArtifact);
 
     const result = convertBaseRollupOutputsFromWitnessMap(witness);
-    
+
     return Promise.resolve(result);
   }
   /**

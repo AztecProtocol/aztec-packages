@@ -324,7 +324,13 @@ export class Sequencer {
     emptyTx: ProcessedTx,
     globalVariables: GlobalVariables,
   ) {
-    const blockPromise = this.prover.startNewBlock(txs.length, globalVariables, newL1ToL2Messages, newModelL1ToL2Messages, emptyTx);
+    const blockPromise = this.prover.startNewBlock(
+      txs.length,
+      globalVariables,
+      newL1ToL2Messages,
+      newModelL1ToL2Messages,
+      emptyTx,
+    );
 
     for (const tx of txs) {
       this.prover.addNewTx(tx);

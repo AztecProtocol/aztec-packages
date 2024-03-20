@@ -107,8 +107,8 @@ describe('sequencer', () => {
     const proof = makeEmptyProof();
     const result: ProvingResult = {
       proof,
-      block
-    }
+      block,
+    };
 
     p2p.getTxs.mockResolvedValueOnce([tx]);
     proverClient.startNewBlock.mockResolvedValueOnce(result);
@@ -141,8 +141,8 @@ describe('sequencer', () => {
     const proof = makeEmptyProof();
     const result: ProvingResult = {
       proof,
-      block
-    }
+      block,
+    };
 
     p2p.getTxs.mockResolvedValueOnce(txs);
     proverClient.startNewBlock.mockResolvedValueOnce(result);
@@ -184,8 +184,8 @@ describe('sequencer', () => {
     const proof = makeEmptyProof();
     const result: ProvingResult = {
       proof,
-      block
-    }
+      block,
+    };
 
     p2p.getTxs.mockResolvedValueOnce(txs);
     proverClient.startNewBlock.mockResolvedValueOnce(result);
@@ -219,8 +219,8 @@ describe('sequencer', () => {
     const proof = makeEmptyProof();
     const result: ProvingResult = {
       proof,
-      block
-    }
+      block,
+    };
 
     p2p.getTxs.mockResolvedValueOnce([tx]);
     proverClient.startNewBlock.mockResolvedValueOnce(result);

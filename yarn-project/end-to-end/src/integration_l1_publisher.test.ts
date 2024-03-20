@@ -35,12 +35,8 @@ import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, NewInboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import {
-  RealRollupCircuitSimulator,
-  TxProver
-} from '@aztec/prover-client';
+import { TxProver } from '@aztec/prover-client';
 import { L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
-import { WASMSimulator } from '@aztec/simulator';
 import { MerkleTrees, ServerWorldStateSynchronizer, WorldStateConfig } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
@@ -147,8 +143,8 @@ describe('L1Publisher integration', () => {
     blockSource.getBlocks.mockResolvedValue([]);
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
-      l2QueueSize: 10
-    }
+      l2QueueSize: 10,
+    };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     builder = await TxProver.new({}, worldStateSynchronizer);
     l2Proof = Buffer.alloc(0);
@@ -336,13 +332,25 @@ describe('L1Publisher integration', () => {
     fs.writeFileSync(path, output, 'utf8');
   };
 
-  const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], newModelL1ToL2Messages: Fr[], l1ToL2Messages: Fr[], emptyTx: ProcessedTx) => {
-    const blockPromise = builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages, newModelL1ToL2Messages, emptyTx);
+  const buildBlock = (
+    globalVariables: GlobalVariables,
+    txs: ProcessedTx[],
+    newModelL1ToL2Messages: Fr[],
+    l1ToL2Messages: Fr[],
+    emptyTx: ProcessedTx,
+  ) => {
+    const blockPromise = builder.startNewBlock(
+      txs.length,
+      globalVariables,
+      l1ToL2Messages,
+      newModelL1ToL2Messages,
+      emptyTx,
+    );
     for (const tx of txs) {
       builder.addNewTx(tx);
     }
     return blockPromise;
-  }
+  };
 
   it('Block body is correctly published to AvailabilityOracle', async () => {
     const body = Body.random();
@@ -426,7 +434,13 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const result = await buildBlock(globalVariables, txs, newModelL1ToL2Messages, l1ToL2Messages, await makeEmptyProcessedTx());
+      const result = await buildBlock(
+        globalVariables,
+        txs,
+        newModelL1ToL2Messages,
+        l1ToL2Messages,
+        makeEmptyProcessedTx(),
+      );
       const block = result.block;
       prevHeader = block.header;
 
@@ -512,7 +526,7 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const result = await buildBlock(globalVariables, txs, l1ToL2Messages, l1ToL2Messages, await makeEmptyProcessedTx());
+      const result = await buildBlock(globalVariables, txs, l1ToL2Messages, l1ToL2Messages, makeEmptyProcessedTx());
       const block = result.block;
       prevHeader = block.header;
 

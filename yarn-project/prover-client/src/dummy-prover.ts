@@ -15,13 +15,19 @@ export class DummyProver implements ProverClient {
     return Promise.resolve(new DummyProver());
   }
 
-  startNewBlock(_numTxs: number, _globalVariables: GlobalVariables, _newL1ToL2Messages: Fr[], _newModelL1ToL2Messages: Fr[], _emptyTx: ProcessedTx): Promise<ProvingResult> {
+  startNewBlock(
+    _numTxs: number,
+    _globalVariables: GlobalVariables,
+    _newL1ToL2Messages: Fr[],
+    _newModelL1ToL2Messages: Fr[],
+    _emptyTx: ProcessedTx,
+  ): Promise<ProvingResult> {
     const result: ProvingResult = {
       proof: makeEmptyProof(),
       block: L2Block.random(1),
-    }
+    };
     return Promise.resolve(result);
   }
 
-  addNewTx(tx: ProcessedTx): void {}
+  addNewTx(_tx: ProcessedTx): void {}
 }

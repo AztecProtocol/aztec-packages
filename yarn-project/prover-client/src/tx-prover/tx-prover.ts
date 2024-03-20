@@ -1,6 +1,6 @@
 import { ProcessedTx } from '@aztec/circuit-types';
 import { ProverClient, ProvingResult } from '@aztec/circuit-types/interfaces';
-import { Fr, GlobalVariables, Proof } from '@aztec/circuits.js';
+import { Fr, GlobalVariables } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from '@aztec/simulator';
 import { WorldStateSynchronizer } from '@aztec/world-state';
@@ -34,21 +34,30 @@ async function getSimulationProvider(config: ProverConfig): Promise<SimulationPr
   return new WASMSimulator();
 }
 
-
 /**
  * A prover accepting individual transaction requests
  */
 export class TxProver implements ProverClient {
   private orchestrator: ProvingOrchestrator;
-  constructor(worldStateSynchronizer: WorldStateSynchronizer, simulationProvider: SimulationProvider, protected vks: VerificationKeys) {
-    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), simulationProvider, getVerificationKeys(), new EmptyRollupProver());
+  constructor(
+    worldStateSynchronizer: WorldStateSynchronizer,
+    simulationProvider: SimulationProvider,
+    protected vks: VerificationKeys,
+  ) {
+    this.orchestrator = new ProvingOrchestrator(
+      worldStateSynchronizer.getLatest(),
+      simulationProvider,
+      getVerificationKeys(),
+      new EmptyRollupProver(),
+    );
   }
 
   /**
    * Starts the prover instance
    */
-  public async start() {
-    return await this.orchestrator.start();
+  public start() {
+    this.orchestrator.start();
+    return Promise.resolve();
   }
 
   /**
@@ -70,12 +79,17 @@ export class TxProver implements ProverClient {
     return prover;
   }
 
-  public startNewBlock(numTxs: number, globalVariables: GlobalVariables, newL1ToL2Messages: Fr[], newModelL1ToL2Messages: Fr[], emptyTx: ProcessedTx): Promise<ProvingResult> {
+  public startNewBlock(
+    numTxs: number,
+    globalVariables: GlobalVariables,
+    newL1ToL2Messages: Fr[],
+    newModelL1ToL2Messages: Fr[],
+    emptyTx: ProcessedTx,
+  ): Promise<ProvingResult> {
     return this.orchestrator.startNewBlock(numTxs, globalVariables, newL1ToL2Messages, newModelL1ToL2Messages, emptyTx);
   }
 
   public addNewTx(tx: ProcessedTx): void {
     this.orchestrator.addNewTx(tx);
   }
-
 }

@@ -1,27 +1,47 @@
 import { Body, L2Block, MerkleTreeId, ProcessedTx, TxEffect, toTxEffect } from '@aztec/circuit-types';
 import { ProvingResult } from '@aztec/circuit-types/interfaces';
-import { AppendOnlyTreeSnapshot, BaseOrMergeRollupPublicInputs, BaseParityInputs, BaseRollupInputs, Fr, GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, NUM_BASE_PARITY_PER_ROOT_PARITY, Proof, RootParityInput, RootParityInputs } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { SimulationProvider } from '@aztec/simulator';
-import { MerkleTreeOperations } from '@aztec/world-state';
-
-
 import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import {
+  AppendOnlyTreeSnapshot,
+  BaseOrMergeRollupPublicInputs,
+  BaseParityInputs,
+  BaseRollupInputs,
+  Fr,
+  GlobalVariables,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NUM_BASE_PARITY_PER_ROOT_PARITY,
+  Proof,
+  RootParityInput,
+  RootParityInputs,
+} from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { MemoryFifo } from '@aztec/foundation/fifo';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple } from '@aztec/foundation/serialize';
 import { sleep } from '@aztec/foundation/sleep';
 import { elapsed } from '@aztec/foundation/timer';
+import { SimulationProvider } from '@aztec/simulator';
+import { MerkleTreeOperations } from '@aztec/world-state';
+
 import { inspect } from 'util';
+
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
 import { RealRollupCircuitSimulator, RollupSimulator } from '../simulator/rollup.js';
-import { buildBaseRollupInput, createMergeRollupInputs, executeBaseParityCircuit, executeBaseRollupCircuit, executeMergeRollupCircuit, executeRootParityCircuit, executeRootRollupCircuit, getTreeSnapshot, validateTx } from './block-building-helpers.js';
-
+import {
+  buildBaseRollupInput,
+  createMergeRollupInputs,
+  executeBaseParityCircuit,
+  executeBaseRollupCircuit,
+  executeMergeRollupCircuit,
+  executeRootParityCircuit,
+  executeRootRollupCircuit,
+  getTreeSnapshot,
+  validateTx,
+} from './block-building-helpers.js';
 
 const logger = createDebugLogger('aztec:prover:proving-orchestrator');
-
 
 /**
  * Implements an event driven proving scheduler to build the recursive proof tree. The idea being:
@@ -30,7 +50,7 @@ const logger = createDebugLogger('aztec:prover:proving-orchestrator');
  * 3. Those transaction specific proofs are generated in the necessary order accounting for dependencies
  * 4. Once a transaction is proven, it will be incorporated into a merge proof
  * 5. Merge proofs are produced at each level of the tree untl the root proof is produced
- * 
+ *
  * The proving implementation is determined by the provided prover implementation. This could be for example a local prover or a remote prover pool.
  */
 
@@ -49,15 +69,14 @@ enum PROVING_JOB_TYPE {
 }
 
 type ProvingJob = {
-  type: PROVING_JOB_TYPE,
+  type: PROVING_JOB_TYPE;
   operation: () => Promise<void>;
-}
+};
 
 type MergeRollupInputData = {
   inputs: [BaseOrMergeRollupPublicInputs | undefined, BaseOrMergeRollupPublicInputs | undefined];
   proofs: [Proof | undefined, Proof | undefined];
-}
-
+};
 
 /**
  * The current state of the proving schedule. Contains the raw inputs (txs) and intermediate state to generate every constituent proof in the tree.
@@ -71,7 +90,15 @@ class ProvingState {
   private _finalRootParityInput: RootParityInput | undefined;
   private __finished = false;
   private _txs: ProcessedTx[] = [];
-  constructor(private _numTxs: number, private _completionCallback: (result: ProvingResult) => void, private _rejectionCallback: (reason: string) => void, private _globalVariables: GlobalVariables, private _newL1ToL2Messages: Fr[], numRootParityInputs: number, private _emptyTx: ProcessedTx) {
+  constructor(
+    private _numTxs: number,
+    private _completionCallback: (result: ProvingResult) => void,
+    private _rejectionCallback: (reason: string) => void,
+    private _globalVariables: GlobalVariables,
+    private _newL1ToL2Messages: Fr[],
+    numRootParityInputs: number,
+    private _emptyTx: ProcessedTx,
+  ) {
     this._stateIdentifier = randomBytes(32).toString('hex');
     this._rootParityInputs = Array.from({ length: numRootParityInputs }).map(_ => undefined);
   }
@@ -84,9 +111,13 @@ class ProvingState {
     return this.baseMergeLevel;
   }
 
-  public get numRealTxs() { return this._numTxs; }
+  public get numRealTxs() {
+    return this._numTxs;
+  }
 
-  public get numPaddingTxs() { return this.totalNumTxs - this.numRealTxs; }
+  public get numPaddingTxs() {
+    return this.totalNumTxs - this.numRealTxs;
+  }
 
   public get totalNumTxs() {
     const pow2Txs = Math.ceil(Math.log2(this.numRealTxs));
@@ -98,27 +129,51 @@ class ProvingState {
     return this._txs.length - 1;
   }
 
-  public get transactionsReceived() { return this._txs.length; }
+  public get transactionsReceived() {
+    return this._txs.length;
+  }
 
-  public get globalVariables() { return this._globalVariables; }
+  public get globalVariables() {
+    return this._globalVariables;
+  }
 
-  public get newL1ToL2Messages() { return this._newL1ToL2Messages; }
+  public get newL1ToL2Messages() {
+    return this._newL1ToL2Messages;
+  }
 
-  public get stateIdentifier() { return this._stateIdentifier; }
+  public get stateIdentifier() {
+    return this._stateIdentifier;
+  }
 
-  public get finalRootParityInput() { return this._finalRootParityInput; }
+  public get finalRootParityInput() {
+    return this._finalRootParityInput;
+  }
 
-  public set finalRootParityInput(input: RootParityInput | undefined) { this._finalRootParityInput = input; }
+  public set finalRootParityInput(input: RootParityInput | undefined) {
+    this._finalRootParityInput = input;
+  }
 
-  public get rootParityInputs() { return this._rootParityInputs; }
+  public get rootParityInputs() {
+    return this._rootParityInputs;
+  }
 
-  public verifyState(stateId: string) { return stateId === this._stateIdentifier && !this.__finished; }
+  public verifyState(stateId: string) {
+    return stateId === this._stateIdentifier && !this.__finished;
+  }
 
-  public get emptyTx() { return this._emptyTx; }
+  public get emptyTx() {
+    return this._emptyTx;
+  }
 
-  public get allTxs() { return this._txs; }
+  public get allTxs() {
+    return this._txs;
+  }
 
-  public storeMergeInputs(mergeInputs: [BaseOrMergeRollupPublicInputs, Proof], indexWithinMerge: number, indexOfMerge: number) {
+  public storeMergeInputs(
+    mergeInputs: [BaseOrMergeRollupPublicInputs, Proof],
+    indexWithinMerge: number,
+    indexOfMerge: number,
+  ) {
     if (!this._mergeRollupInputs[indexOfMerge]) {
       const mergeInputData: MergeRollupInputData = {
         inputs: [undefined, undefined],
@@ -133,7 +188,7 @@ class ProvingState {
     mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
     mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
     return true;
-  } 
+  }
 
   public getMergeInputs(indexOfMerge: number) {
     return this._mergeRollupInputs[indexOfMerge];
@@ -183,7 +238,6 @@ class ProvingState {
   }
 }
 
-
 /**
  * The orchestrator, managing the flow of recursive proving operations required to build the rollup proof tree.
  */
@@ -193,7 +247,12 @@ export class ProvingOrchestrator {
   private simulator: RollupSimulator;
   private jobProcessPromise?: Promise<void>;
   private stopped = false;
-  constructor(private db: MerkleTreeOperations, simulationProvider: SimulationProvider, protected vks: VerificationKeys, private prover: RollupProver) {
+  constructor(
+    private db: MerkleTreeOperations,
+    simulationProvider: SimulationProvider,
+    protected vks: VerificationKeys,
+    private prover: RollupProver,
+  ) {
     this.simulator = new RealRollupCircuitSimulator(simulationProvider);
   }
 
@@ -214,7 +273,7 @@ export class ProvingOrchestrator {
   }
 
   /**
-   * 
+   *
    * @param numTxs - The number of real transactions in the block
    * @param globalVariables - The global variables for the block
    * @param newL1ToL2Messages - The l1 to l2 messages for the block
@@ -222,7 +281,13 @@ export class ProvingOrchestrator {
    * @param emptyTx - The instance of an empty transaction to be used to pad this block
    * @returns A promise norifying of the result of proving
    */
-  public startNewBlock(numTxs: number, globalVariables: GlobalVariables, newL1ToL2Messages: Fr[], newModelL1ToL2Messages: Fr[], emptyTx: ProcessedTx): Promise<ProvingResult> {
+  public startNewBlock(
+    numTxs: number,
+    globalVariables: GlobalVariables,
+    newL1ToL2Messages: Fr[],
+    newModelL1ToL2Messages: Fr[],
+    emptyTx: ProcessedTx,
+  ): Promise<ProvingResult> {
     let baseParityInputs: BaseParityInputs[] = [];
     const newModelL1ToL2MessagesTuple = padArrayEnd(
       newModelL1ToL2Messages,
@@ -234,11 +299,21 @@ export class ProvingOrchestrator {
     );
 
     const promise = new Promise<ProvingResult>((resolve, reject) => {
-      this.provingState = new ProvingState(numTxs, resolve, reject, globalVariables, newL1ToL2Messages, baseParityInputs.length, emptyTx);
+      this.provingState = new ProvingState(
+        numTxs,
+        resolve,
+        reject,
+        globalVariables,
+        newL1ToL2Messages,
+        baseParityInputs.length,
+        emptyTx,
+      );
     });
 
     for (let i = 0; i < baseParityInputs.length; i++) {
-      this.enqueueJob(this.provingState!.stateIdentifier, PROVING_JOB_TYPE.BASE_PARITY, () => this.runBaseParityCircuit(baseParityInputs[i], i, this.provingState!.stateIdentifier));
+      this.enqueueJob(this.provingState!.stateIdentifier, PROVING_JOB_TYPE.BASE_PARITY, () =>
+        this.runBaseParityCircuit(baseParityInputs[i], i, this.provingState!.stateIdentifier),
+      );
     }
     return promise;
   }
@@ -262,15 +337,28 @@ export class ProvingOrchestrator {
 
     const txIndex = this.provingState!.addNewTx(tx);
     // we start this transaction off by enqueueing it's state updates
-    this.enqueueJob(this.provingState!.stateIdentifier, PROVING_JOB_TYPE.STATE_UPDATE, () => this.prepareBaseRollupInputs(BigInt(txIndex), tx, this.provingState!.globalVariables, this.provingState!.stateIdentifier));
-
+    this.enqueueJob(this.provingState!.stateIdentifier, PROVING_JOB_TYPE.STATE_UPDATE, () =>
+      this.prepareBaseRollupInputs(
+        BigInt(txIndex),
+        tx,
+        this.provingState!.globalVariables,
+        this.provingState!.stateIdentifier,
+      ),
+    );
 
     if (this.provingState.transactionsReceived === this.provingState.numRealTxs) {
       // we need to pad the rollup with empty transactions
       const numPaddingTxs = this.provingState.numPaddingTxs;
       for (let i = 0; i < numPaddingTxs; i++) {
         const paddingTxIndex = this.provingState.addNewTx(this.provingState.emptyTx);
-        this.enqueueJob(this.provingState!.stateIdentifier, PROVING_JOB_TYPE.STATE_UPDATE, () => this.prepareBaseRollupInputs(BigInt(paddingTxIndex), this.provingState!.emptyTx, this.provingState!.globalVariables, this.provingState!.stateIdentifier));
+        this.enqueueJob(this.provingState!.stateIdentifier, PROVING_JOB_TYPE.STATE_UPDATE, () =>
+          this.prepareBaseRollupInputs(
+            BigInt(paddingTxIndex),
+            this.provingState!.emptyTx,
+            this.provingState!.globalVariables,
+            this.provingState!.stateIdentifier,
+          ),
+        );
       }
     }
   }
@@ -282,7 +370,7 @@ export class ProvingOrchestrator {
    * @param job - The actual job, returns a promise notifying of the job's completion
    */
   private enqueueJob(stateIdentifier: string, jobType: PROVING_JOB_TYPE, job: () => Promise<void>) {
-    if (!this.provingState!.verifyState(stateIdentifier)){
+    if (!this.provingState!.verifyState(stateIdentifier)) {
       return;
     }
     // We use a 'safeJob'. We don't want promise rejections in the proving pool, we want to capture the error here
@@ -294,16 +382,21 @@ export class ProvingOrchestrator {
         logger.error(`Error thrown when proving: ${err}`);
         this.provingState!.reject(`${err}`, stateIdentifier);
       }
-    }
+    };
     const provingJob: ProvingJob = {
       type: jobType,
       operation: safeJob,
-    }
+    };
     this.jobQueue.put(provingJob);
   }
 
   // Prepares the inputs to the base rollup circuit, called first for any transaction
-  private async prepareBaseRollupInputs(index: bigint, tx: ProcessedTx, globalVariables: GlobalVariables, stateIdentifier: string) {
+  private async prepareBaseRollupInputs(
+    index: bigint,
+    tx: ProcessedTx,
+    globalVariables: GlobalVariables,
+    stateIdentifier: string,
+  ) {
     const inputs = await buildBaseRollupInput(tx, globalVariables, this.db);
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {
@@ -318,14 +411,20 @@ export class ProvingOrchestrator {
       return;
     }
 
-    this.enqueueJob(stateIdentifier, PROVING_JOB_TYPE.BASE_ROLLUP, () => this.runBaseRollup(index, tx, inputs, treeSnapshots, stateIdentifier));
+    this.enqueueJob(stateIdentifier, PROVING_JOB_TYPE.BASE_ROLLUP, () =>
+      this.runBaseRollup(index, tx, inputs, treeSnapshots, stateIdentifier),
+    );
   }
 
   // Stores the intermediate inputs prepared for a merge proof
-  private storeMergeInputs(currentLevel: bigint, currentIndex: bigint, mergeInputs: [BaseOrMergeRollupPublicInputs, Proof]) {
+  private storeMergeInputs(
+    currentLevel: bigint,
+    currentIndex: bigint,
+    mergeInputs: [BaseOrMergeRollupPublicInputs, Proof],
+  ) {
     const mergeLevel = currentLevel - 1n;
     const indexWithinMergeLevel = currentIndex >> 1n;
-    const mergeIndex = (2n ** mergeLevel) - 1n + indexWithinMergeLevel;
+    const mergeIndex = 2n ** mergeLevel - 1n + indexWithinMergeLevel;
     const subscript = Number(mergeIndex);
     const indexWithinMerge = Number(currentIndex & 1n);
     const ready = this.provingState!.storeMergeInputs(mergeInputs, indexWithinMerge, subscript);
@@ -339,9 +438,11 @@ export class ProvingOrchestrator {
     tx: ProcessedTx,
     inputs: BaseRollupInputs,
     treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
-    stateIdentifier: string
+    stateIdentifier: string,
   ) {
-    const [duration, baseRollupOutputs] = await elapsed(() => executeBaseRollupCircuit(tx, inputs, treeSnapshots, this.simulator, this.prover, logger));
+    const [duration, baseRollupOutputs] = await elapsed(() =>
+      executeBaseRollupCircuit(tx, inputs, treeSnapshots, this.simulator, this.prover, logger),
+    );
     logger.debug(`Simulated base rollup circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'base-rollup',
@@ -359,9 +460,19 @@ export class ProvingOrchestrator {
 
   // Executes the merge rollup circuit and stored the output as intermediate state for the parent merge/root circuit
   // Executes the next level of merge if all inputs are available
-  private async runMergeRollup(level: bigint, index: bigint, mergeInputData: MergeRollupInputData, stateIdentifier: string) {
-    const circuitInputs = createMergeRollupInputs([mergeInputData.inputs[0]!, mergeInputData.proofs[0]!], [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!]);
-    const [duration, circuitOuptuts] = await elapsed(() => executeMergeRollupCircuit(circuitInputs, this.simulator, this.prover, logger));
+  private async runMergeRollup(
+    level: bigint,
+    index: bigint,
+    mergeInputData: MergeRollupInputData,
+    stateIdentifier: string,
+  ) {
+    const circuitInputs = createMergeRollupInputs(
+      [mergeInputData.inputs[0]!, mergeInputData.proofs[0]!],
+      [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!],
+    );
+    const [duration, circuitOuptuts] = await elapsed(() =>
+      executeMergeRollupCircuit(circuitInputs, this.simulator, this.prover, logger),
+    );
     logger.debug(`Simulated merge rollup circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'merge-rollup',
@@ -373,18 +484,38 @@ export class ProvingOrchestrator {
       return;
     }
     logger.info(`Completed merge rollup at level ${level}, index ${index}`);
-    this.storeAndExecuteNextMergeLevel(level, index, circuitOuptuts, stateIdentifier);    
+    this.storeAndExecuteNextMergeLevel(level, index, circuitOuptuts, stateIdentifier);
   }
 
   // Executes the root rollup circuit
-  private async runRootRollup(mergeInputData: MergeRollupInputData, rootParityInput: RootParityInput, stateIdentifier: string) {
-    const newL1ToL2MessagesTuple = padArrayEnd(this.provingState!.newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    const [circuitsOutput, proof] = await executeRootRollupCircuit([mergeInputData.inputs[0]!, mergeInputData.proofs[0]!], [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!], rootParityInput, newL1ToL2MessagesTuple, this.simulator, this.prover, this.db, logger);
+  private async runRootRollup(
+    mergeInputData: MergeRollupInputData,
+    rootParityInput: RootParityInput,
+    stateIdentifier: string,
+  ) {
+    const newL1ToL2MessagesTuple = padArrayEnd(
+      this.provingState!.newL1ToL2Messages,
+      Fr.ZERO,
+      NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+    );
+    const [circuitsOutput, proof] = await executeRootRollupCircuit(
+      [mergeInputData.inputs[0]!, mergeInputData.proofs[0]!],
+      [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!],
+      rootParityInput,
+      newL1ToL2MessagesTuple,
+      this.simulator,
+      this.prover,
+      this.db,
+      logger,
+    );
     logger.info(`Completed root rollup`);
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const txEffects: TxEffect[] = this.provingState!.allTxs.map(tx => toTxEffect(tx));
 
-    const blockBody = new Body(padArrayEnd(this.provingState!.newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP), txEffects);
+    const blockBody = new Body(
+      padArrayEnd(this.provingState!.newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+      txEffects,
+    );
 
     const l2Block = L2Block.fromFields({
       archive: circuitsOutput.archive,
@@ -403,7 +534,7 @@ export class ProvingOrchestrator {
 
     const provingResult: ProvingResult = {
       block: l2Block,
-      proof
+      proof,
     };
     logger.info(`Successfully proven block ${l2Block.number}!`);
     this.provingState!.resolve(provingResult, stateIdentifier);
@@ -412,7 +543,9 @@ export class ProvingOrchestrator {
   // Executes the base parity circuit and stores the intermediate state for the root parity circuit
   // Enqueus the root parity circuit if all inputs are available
   private async runBaseParityCircuit(inputs: BaseParityInputs, index: number, stateIdentifier: string) {
-    const [duration, circuitOutputs] = await elapsed(() => executeBaseParityCircuit(inputs, this.simulator, this.prover, logger));
+    const [duration, circuitOutputs] = await elapsed(() =>
+      executeBaseParityCircuit(inputs, this.simulator, this.prover, logger),
+    );
     logger.debug(`Simulated base parity circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'base-parity',
@@ -430,15 +563,19 @@ export class ProvingOrchestrator {
       return;
     }
     const rootParityInputs = new RootParityInputs(
-      this.provingState!.rootParityInputs as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>
+      this.provingState!.rootParityInputs as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
     );
-    this.enqueueJob(stateIdentifier, PROVING_JOB_TYPE.ROOT_PARITY, () => this.runRootParityCircuit(rootParityInputs, stateIdentifier));
+    this.enqueueJob(stateIdentifier, PROVING_JOB_TYPE.ROOT_PARITY, () =>
+      this.runRootParityCircuit(rootParityInputs, stateIdentifier),
+    );
   }
 
   // Runs the root parity circuit ans stored the outputs
   // Enqueues the root rollup proof if all iinputs are available
   private async runRootParityCircuit(inputs: RootParityInputs, stateIdentifier: string) {
-    const [duration, circuitOutputs] = await elapsed(() => executeRootParityCircuit(inputs, this.simulator, this.prover, logger));
+    const [duration, circuitOutputs] = await elapsed(() =>
+      executeRootParityCircuit(inputs, this.simulator, this.prover, logger),
+    );
     logger.debug(`Simulated root parity circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'root-parity',
@@ -458,10 +595,21 @@ export class ProvingOrchestrator {
       logger('Not ready for root');
       return;
     }
-    this.enqueueJob(stateIdentifier, PROVING_JOB_TYPE.ROOT_ROLLUP, () => this.runRootRollup(this.provingState!.getMergeInputs(0)!, this.provingState!.finalRootParityInput!, stateIdentifier));
+    this.enqueueJob(stateIdentifier, PROVING_JOB_TYPE.ROOT_ROLLUP, () =>
+      this.runRootRollup(
+        this.provingState!.getMergeInputs(0)!,
+        this.provingState!.finalRootParityInput!,
+        stateIdentifier,
+      ),
+    );
   }
 
-  private storeAndExecuteNextMergeLevel(currentLevel: bigint, currentIndex: bigint, mergeInputData: [BaseOrMergeRollupPublicInputs, Proof], stateIdentifier: string) {
+  private storeAndExecuteNextMergeLevel(
+    currentLevel: bigint,
+    currentIndex: bigint,
+    mergeInputData: [BaseOrMergeRollupPublicInputs, Proof],
+    stateIdentifier: string,
+  ) {
     const result = this.storeMergeInputs(currentLevel, currentIndex, mergeInputData);
 
     // Are we ready to execute the next circuit?
@@ -473,7 +621,9 @@ export class ProvingOrchestrator {
       this.checkAndExecuteRootRollup(stateIdentifier);
     } else {
       // onto the next merge level
-      this.enqueueJob(stateIdentifier, PROVING_JOB_TYPE.MERGE_ROLLUP, () => this.runMergeRollup(result.mergeLevel, result.indexWithinMergeLevel, result.mergeInputData, stateIdentifier));
+      this.enqueueJob(stateIdentifier, PROVING_JOB_TYPE.MERGE_ROLLUP, () =>
+        this.runMergeRollup(result.mergeLevel, result.indexWithinMergeLevel, result.mergeInputData, stateIdentifier),
+      );
     }
   }
 
@@ -482,20 +632,24 @@ export class ProvingOrchestrator {
    * Works by managing an input queue of proof requests and an active pool of proving 'jobs'
    */
   private async processJobQueue() {
-
     // Used for determining the current state of a proving job
-    const promiseState = (p: Promise<void>) =>  {
+    const promiseState = (p: Promise<void>) => {
       const t = {};
-      return Promise.race([p, t])
-        .then(v => (v === t)? "pending" : "fulfilled", () => "rejected");
-    }
+      return Promise.race([p, t]).then(
+        v => (v === t ? 'pending' : 'fulfilled'),
+        () => 'rejected',
+      );
+    };
 
     // Just a short break between managing the sets of requests and active jobs
-    const createSleepPromise = () => sleep(SLEEP_TIME).then((_) => { return 0; });
+    const createSleepPromise = () =>
+      sleep(SLEEP_TIME).then(_ => {
+        return 0;
+      });
 
     let sleepPromise = createSleepPromise();
     let promises: Promise<void>[] = [];
-    while(!this.stopped) {
+    while (!this.stopped) {
       // first look for more work
       if (this.jobQueue.length()) {
         // more work could be available
@@ -516,7 +670,9 @@ export class ProvingOrchestrator {
 
       // no more work to add, here we wait for any outstanding jobs to finish and/or sleep a little
       try {
-        const ops = Promise.race(promises).then((_) => { return 1; });      
+        const ops = Promise.race(promises).then(_ => {
+          return 1;
+        });
         const result = await Promise.race([sleepPromise, ops]);
         if (result === 0) {
           // this is the sleep promise
@@ -524,20 +680,21 @@ export class ProvingOrchestrator {
           sleepPromise = createSleepPromise();
           continue;
         }
-      } catch(err) {
+      } catch (err) {
         // We shouldn't get here as all jobs should be wrapped in a 'safeJob' meaning they don't fail!
         logger.error(`Unexpected error in proving orchestrator ${err}`);
       }
 
       // one or more of the jobs completed, remove them
-      const unFulfilledPromises = [];
+      const pendingPromises = [];
       for (const jobPromise of promises) {
         const state = await promiseState(jobPromise);
-        if (state === "pending") {
-          unFulfilledPromises.push(jobPromise);
+        if (state === 'pending') {
+          pendingPromises.push(jobPromise);
         }
       }
-      promises = unFulfilledPromises;
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      promises = pendingPromises;
     }
   }
 }

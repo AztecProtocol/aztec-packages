@@ -1,38 +1,28 @@
 import {
-  Body,
-  L2Block,
   MerkleTreeId,
   ProcessedTx,
-  Tx,
-  TxEffect,
-  makeEmptyLogs,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
   mockTx,
-  toTxEffect,
 } from '@aztec/circuit-types';
 import {
-  AppendOnlyTreeSnapshot,
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
   EthAddress,
   Fr,
   GlobalVariables,
-  Header,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX,
   MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
   MAX_REVERTIBLE_NULLIFIERS_PER_TX,
   MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_SUBTREE_HEIGHT,
-  PartialStateReference,
   Proof,
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
@@ -40,7 +30,6 @@ import {
   RootRollupPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
-  StateReference,
   sideEffectCmp,
 } from '@aztec/circuits.js';
 import {
@@ -49,9 +38,7 @@ import {
   makeNewSideEffect,
   makeNewSideEffectLinkedToNoteHash,
   makeParityPublicInputs,
-  makePrivateKernelTailCircuitPublicInputs,
   makeProof,
-  makePublicCallRequest,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
 import { makeTuple, range } from '@aztec/foundation/array';
@@ -62,7 +49,7 @@ import { WASMSimulator } from '@aztec/simulator';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import { default as memdown, type MemDown } from 'memdown';
+import { type MemDown, default as memdown } from 'memdown';
 
 import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
@@ -269,14 +256,39 @@ describe('prover/tx-prover', () => {
     });
 
     it.each([
-      ['Base Rollup Failed', () => { prover.getBaseRollupProof.mockRejectedValue('Base Rollup Failed')}],
-      ['Merge Rollup Failed', () => { prover.getMergeRollupProof.mockRejectedValue('Merge Rollup Failed')}],
-      ['Root Rollup Failed', () => { prover.getRootRollupProof.mockRejectedValue('Root Rollup Failed')}],
-      ['Base Parity Failed', () => { prover.getBaseParityProof.mockRejectedValue('Base Parity Failed')}],
-      ['Root Parity Failed', () => { prover.getRootParityProof.mockRejectedValue('Root Parity Failed')}],
+      [
+        'Base Rollup Failed',
+        () => {
+          prover.getBaseRollupProof.mockRejectedValue('Base Rollup Failed');
+        },
+      ],
+      [
+        'Merge Rollup Failed',
+        () => {
+          prover.getMergeRollupProof.mockRejectedValue('Merge Rollup Failed');
+        },
+      ],
+      [
+        'Root Rollup Failed',
+        () => {
+          prover.getRootRollupProof.mockRejectedValue('Root Rollup Failed');
+        },
+      ],
+      [
+        'Base Parity Failed',
+        () => {
+          prover.getBaseParityProof.mockRejectedValue('Base Parity Failed');
+        },
+      ],
+      [
+        'Root Parity Failed',
+        () => {
+          prover.getRootParityProof.mockRejectedValue('Root Parity Failed');
+        },
+      ],
     ] as const)(
       'handles a %s error',
-      async (message: string, fn: ()=> void) => {
+      async (message: string, fn: () => void) => {
         fn();
         const txs = await Promise.all([
           makeEmptyProcessedTx(),
@@ -284,18 +296,20 @@ describe('prover/tx-prover', () => {
           makeEmptyProcessedTx(),
           makeEmptyProcessedTx(),
         ]);
-  
+
         const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], [], await makeEmptyProcessedTx());
-  
+
         for (const tx of txs) {
           builder.addNewTx(tx);
         }
         await expect(blockPromise).rejects.toEqual(message);
-      }, 60000);
+      },
+      60000,
+    );
 
     afterEach(async () => {
       await builder.stop();
-    })
+    });
   });
 
   describe('circuits simulator', () => {
@@ -371,12 +385,18 @@ describe('prover/tx-prover', () => {
           ...(await Promise.all(times(totalCount - bloatedCount, makeEmptyProcessedTx))),
         ];
 
-        const blockPromise = builder.startNewBlock(txs.length, globalVariables, mockL1ToL2Messages, newModelMockL1ToL2Messages, await makeEmptyProcessedTx());
+        const blockPromise = builder.startNewBlock(
+          txs.length,
+          globalVariables,
+          mockL1ToL2Messages,
+          newModelMockL1ToL2Messages,
+          await makeEmptyProcessedTx(),
+        );
 
         for (const tx of txs) {
           builder.addNewTx(tx);
         }
-  
+
         const result = await blockPromise;
 
         expect(result.block.number).toEqual(blockNumber);
@@ -422,7 +442,13 @@ describe('prover/tx-prover', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockPromise = builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages, newModelMockL1ToL2Messages, await makeEmptyProcessedTx());
+      const blockPromise = builder.startNewBlock(
+        txs.length,
+        globalVariables,
+        l1ToL2Messages,
+        newModelMockL1ToL2Messages,
+        await makeEmptyProcessedTx(),
+      );
 
       for (const tx of txs) {
         builder.addNewTx(tx);
@@ -433,15 +459,17 @@ describe('prover/tx-prover', () => {
     }, 200_000);
 
     it('builds an unbalanced L2 block', async () => {
-      const txs = await Promise.all([
-        makeEmptyProcessedTx(),
-        makeEmptyProcessedTx(),
-        makeEmptyProcessedTx(),
-      ]);
+      const txs = await Promise.all([makeEmptyProcessedTx(), makeEmptyProcessedTx(), makeEmptyProcessedTx()]);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockPromise = builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages, newModelMockL1ToL2Messages, await makeEmptyProcessedTx());
+      const blockPromise = builder.startNewBlock(
+        txs.length,
+        globalVariables,
+        l1ToL2Messages,
+        newModelMockL1ToL2Messages,
+        await makeEmptyProcessedTx(),
+      );
 
       for (const tx of txs) {
         builder.addNewTx(tx);
@@ -465,14 +493,18 @@ describe('prover/tx-prover', () => {
         builder.addNewTx(tx);
       }
 
-      await expect(async () => builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(`Rollup already contains 4 transactions`);
+      await expect(async () => builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(
+        `Rollup already contains 4 transactions`,
+      );
 
       const result = await blockPromise;
       expect(result.block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('throws if adding a transaction before start', async () => {
-      await expect(async () => builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(`Invalid proving state, call startNewBlock before adding transactions`);
+      await expect(async () => builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(
+        `Invalid proving state, call startNewBlock before adding transactions`,
+      );
     }, 30_000);
   });
 });
