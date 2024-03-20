@@ -783,7 +783,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
                                       RefSpan<FF> concatenated_evaluations = {})
     {
         Commitment first_g1;
-        // Retrieve the first element in the CRS [1]_1 which will be different depending on the curve we operate on
+        // Retrieve the first element in the SRS [1]_1 which will be different depending on the curve we operate on
         if constexpr (Curve::is_stdlib_type) {
             auto builder = multivariate_challenge[0].get_context();
             first_g1 = Commitment::from_witness(builder, vk->srs->get_first_g1());
