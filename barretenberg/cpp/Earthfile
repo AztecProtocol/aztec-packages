@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /build
 
 SAVE IMAGE --push aztecprotocol/cache:bb-ubuntu-lunar
+SAVE IMAGE --cache-hint
 
 build-wasi-sdk-image:
     WORKDIR /
@@ -81,6 +82,7 @@ preset-wasm:
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
     RUN ./src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
     SAVE ARTIFACT bin
+    SAVE IMAGE --cache-hint
 
 preset-gcc:
     FROM +source
@@ -131,7 +133,6 @@ test:
     FROM +preset-release-assert-all
     COPY --dir ./srs_db/+build/. srs_db
     RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
-
 
 # Functions
 RUN_CMAKE:
