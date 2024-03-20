@@ -105,6 +105,15 @@ const config = {
         /* other lifecycle API */
       };
     },
+    //[
+    // "docusaurus-plugin-image-zoom",
+    // {},
+    // {
+    //   zoom: {
+    //     selector: ".markdown > img",
+    //   },
+    // },
+    //],
     [
       "@docusaurus/plugin-ideal-image",
       {
