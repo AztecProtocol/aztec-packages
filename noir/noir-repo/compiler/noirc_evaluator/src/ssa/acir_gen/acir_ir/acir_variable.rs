@@ -1443,13 +1443,13 @@ impl AcirContext {
 
     /// Terminates the context and takes the resulting `GeneratedAcir`
     pub(crate) fn finish(
-        &mut self,
+        mut self,
         inputs: Vec<Witness>,
         warnings: Vec<SsaReport>,
     ) -> GeneratedAcir {
         self.acir_ir.input_witnesses = inputs;
         self.acir_ir.warnings = warnings;
-        self.acir_ir.clone()
+        self.acir_ir
     }
 
     /// Adds `Data` into the context and assigns it a Variable.

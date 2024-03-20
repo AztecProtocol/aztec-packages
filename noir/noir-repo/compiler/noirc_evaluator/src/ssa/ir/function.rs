@@ -83,20 +83,6 @@ impl Function {
         self.runtime = runtime;
     }
 
-    pub(crate) fn inline_type(&self) -> Option<InlineType> {
-        if let RuntimeType::Acir(inline_type) = self.runtime {
-            Some(inline_type)
-        } else {
-            None
-        }
-    }
-
-    pub(crate) fn set_inline_type(&mut self, inline_type: InlineType) {
-        if let RuntimeType::Acir(old_inline_type) = &mut self.runtime {
-            *old_inline_type = inline_type;
-        }
-    }
-
     /// Retrieves the entry block of a function.
     ///
     /// A function's entry block contains the instructions
