@@ -476,10 +476,12 @@ template <typename Curve> class IPA {
      * @remark Detailed documentation can be found in \link IPA::compute_opening_proof_internal
      * compute_opening_proof_internal \endlink.
      */
+    // template <typename Transcript>
     static void compute_opening_proof(const std::shared_ptr<CK>& ck,
                                       const OpeningPair<Curve>& opening_pair,
                                       const Polynomial& polynomial,
-                                      const std::shared_ptr<NativeTranscript>& transcript)
+                                      //   const std::shared_ptr<NativeTranscript>& transcript)
+                                      const auto& transcript)
     {
         compute_opening_proof_internal(ck, opening_pair, polynomial, transcript);
     }
@@ -495,9 +497,11 @@ template <typename Curve> class IPA {
      *
      *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
      */
+    // template <typename Transcript>
     static bool verify(const std::shared_ptr<VK>& vk,
                        const OpeningClaim<Curve>& opening_claim,
-                       const std::shared_ptr<NativeTranscript>& transcript)
+                       //    const std::shared_ptr<NativeTranscript>& transcript)
+                       const auto& transcript)
     {
         return verify_internal(vk, opening_claim, transcript);
     }

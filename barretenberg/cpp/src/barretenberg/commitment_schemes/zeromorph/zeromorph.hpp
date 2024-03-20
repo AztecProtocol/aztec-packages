@@ -317,13 +317,16 @@ template <typename PCS> class ZeroMorphProver_ {
      * @param commitment_key
      * @param transcript
      */
+    // template <typename Transcript>
     static void prove(RefSpan<Polynomial> f_polynomials,
                       RefSpan<Polynomial> g_polynomials,
                       RefSpan<FF> f_evaluations,
                       RefSpan<FF> g_shift_evaluations,
                       std::span<FF> multilinear_challenge,
                       const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
-                      const std::shared_ptr<NativeTranscript>& transcript,
+                      // TODO: HACK ADDING AUTO HERE TO MAKE IT GENERIC LIKE THE OTHERS
+                      //   std::shared_ptr<NativeTranscript>& transcript,
+                      auto& transcript,
                       RefSpan<Polynomial> concatenated_polynomials = {},
                       RefSpan<FF> concatenated_evaluations = {},
                       const std::vector<RefVector<Polynomial>>& concatenation_groups = {})
@@ -441,7 +444,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
     using Curve = typename PCS::Curve;
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using VerifierAccumulator = PCS::VerifierAccumulator;
+    using VerifierAccumulator = typename PCS::VerifierAccumulator;
 
   public:
     /**
@@ -635,11 +638,13 @@ template <typename PCS> class ZeroMorphVerifier_ {
      * @param transcript
      * @return std::array<Commitment, 2> Inputs to the final pairing check
      */
+    // template <typename Transcript>
     static VerifierAccumulator verify(RefSpan<Commitment> unshifted_commitments,
                                       RefSpan<Commitment> to_be_shifted_commitments,
                                       RefSpan<FF> unshifted_evaluations,
                                       RefSpan<FF> shifted_evaluations,
                                       std::span<FF> multivariate_challenge,
+                                      //   std::shared_ptr<NativeTranscript>& transcript,
                                       auto& transcript,
                                       const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
                                       RefSpan<FF> concatenated_evaluations = {})

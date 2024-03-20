@@ -1,7 +1,11 @@
 
 #include <iostream>
+#include <memory>
 
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
+#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 #include "./honk_sol_gen.hpp"
 
@@ -12,20 +16,30 @@
 // #include "utils/instance_sol_gen.hpp"
 // #include "utils/utils.hpp"
 
-template <template <typename> typename Circuit>
+using ProverInstance = ProverInstance_<UltraKeccakFlavor>;
+using VerificationKey = UltraKeccakFlavor::VerificationKey;
+
+// using ProverInstance = ProverInstance_<UltraFlavor>;
+// using VerificationKey = UltraFlavor::VerificationKey;
+
+// template <template <typename> typename Circuit>
 void generate_keys_honk(std::string output_path, std::string flavour_prefix, std::string circuit_name)
 {
-    uint256_t public_inputs[4] = { 0, 0, 0, 0 };
-    auto circuit = Circuit<bb::UltraComposer::CircuitBuilder>::generate(public_inputs);
+    std::array<uint256_t, 4> public_inputs = { 0, 0, 0, 0 };
+    // auto circuit = UltraCircuitBuilder(public_inputs);
+    UltraCircuitBuilder builder = UltraCircuitBuilder();
 
-    bb::UltraComposer composer;
+    // Add each of the public inputs
+    for (size_t i = 0; i < 4; i++) {
+        builder.add_public_variable(public_inputs[i]);
+    }
+    auto instance = std::make_shared<ProverInstance>(builder);
+    UltraKeccakProver prover(instance);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
 
-    auto instance = composer.create_instance(circuit);
-    auto prover = composer.create_prover(instance);
-    auto verifier = composer.create_verifier(instance);
+    // auto instance = std::make_shared<ProverInstance>(builder);
 
-    std::shared_ptr<bb::UltraComposer::VerificationKey> vkey = instance->verification_key;
-    // auto verifier_commitments = instance;
+    // VerificationKey verification_key = std::make_shared<VerificationKey>(instance->proving_key);
 
     // Make verification key file upper case
     circuit_name.at(0) = static_cast<char>(std::toupper(static_cast<unsigned char>(circuit_name.at(0))));
@@ -38,7 +52,7 @@ void generate_keys_honk(std::string output_path, std::string flavour_prefix, std
     {
         auto vk_filename = output_path + "/keys/" + vk_class_name + ".sol";
         std::ofstream os(vk_filename);
-        bb::output_vk_sol_ultra_honk(os, vkey, vk_class_name);
+        bb::output_vk_sol_ultra_honk(os, verification_key, vk_class_name);
         info("VK contract written to: ", vk_filename);
     }
 
@@ -81,13 +95,10 @@ int main(int argc, char** argv)
     info("Generating ", plonk_flavour, " keys for ", circuit_flavour, " circuit");
 
     if (plonk_flavour == "honk") {
-        if (circuit_flavour == "blake") {
-            generate_keys_honk<BlakeCircuit>(output_path, plonk_flavour, circuit_flavour);
-        } else if (circuit_flavour == "add2") {
-            generate_keys_honk<Add2Circuit>(output_path, plonk_flavour, circuit_flavour);
+        if (circuit_flavour == "add2") {
+            // generate_keys_honk<Add2Circuit>(output_path, plonk_flavour, circuit_flavour);
+            generate_keys_honk(output_path, plonk_flavour, circuit_flavour);
             // TODO: recursive proofs
-        } else if (circuit_flavour == "ecdsa") {
-            generate_keys_honk<EcdsaCircuit>(output_path, plonk_flavour, circuit_flavour);
         } else {
             info("Unsupported circuit");
             return 1;

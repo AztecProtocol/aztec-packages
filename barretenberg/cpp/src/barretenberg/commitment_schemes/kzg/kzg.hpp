@@ -30,10 +30,12 @@ template <typename Curve_> class KZG {
      * @param polynomial The witness whose opening proof needs to be computed
      * @param prover_transcript Prover transcript
      */
+    // template <typename Transcript>
     static void compute_opening_proof(std::shared_ptr<CK> ck,
                                       const OpeningPair<Curve>& opening_pair,
                                       const Polynomial& polynomial,
-                                      const std::shared_ptr<NativeTranscript>& prover_trancript)
+                                      //   const std::shared_ptr<NativeTranscript>& prover_trancript)
+                                      const auto& prover_trancript)
     {
         Polynomial quotient = polynomial;
         quotient[0] -= opening_pair.evaluation;
@@ -55,9 +57,11 @@ template <typename Curve_> class KZG {
      *      - P₀ = C − v⋅[1]₁ + r⋅[x]₁
      *      - P₁ = [Q(x)]₁
      */
+    // template <typename Transcript>
     static bool verify(const std::shared_ptr<VK>& vk,
                        const OpeningClaim<Curve>& claim,
-                       const std::shared_ptr<NativeTranscript>& verifier_transcript)
+                       //    const std::shared_ptr<NativeTranscript>& verifier_transcript)
+                       const auto& verifier_transcript)
     {
         auto quotient_commitment = verifier_transcript->template receive_from_prover<Commitment>("KZG:W");
         auto lhs = claim.commitment - (GroupElement::one() * claim.opening_pair.evaluation) +

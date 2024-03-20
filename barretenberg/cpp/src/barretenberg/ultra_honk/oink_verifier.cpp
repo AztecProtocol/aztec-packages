@@ -134,6 +134,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_grand_product
 }
 
 template class OinkVerifier<UltraFlavor>;
+template class OinkVerifier<UltraKeccakFlavor>;
 template class OinkVerifier<GoblinUltraFlavor>;
 
 } // namespace bb

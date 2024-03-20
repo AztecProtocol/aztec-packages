@@ -91,6 +91,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 }
 
 template class UltraVerifier_<UltraFlavor>;
+template class UltraVerifier_<UltraKeccakFlavor>;
 template class UltraVerifier_<GoblinUltraFlavor>;
 
 } // namespace bb

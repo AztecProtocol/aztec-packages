@@ -118,6 +118,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
 }
 
 template class OinkProver<UltraFlavor>;
+template class OinkProver<UltraKeccakFlavor>;
 template class OinkProver<GoblinUltraFlavor>;
 
 } // namespace bb

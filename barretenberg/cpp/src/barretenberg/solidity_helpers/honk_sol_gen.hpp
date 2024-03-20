@@ -1,4 +1,6 @@
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
+// TODO: check if we need these
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 #include <iostream>
 #include <memory>
@@ -8,9 +10,11 @@ namespace bb {
  * Write a solidity file containing the vk params to the given stream.
  * Uses UltraHonk
  **/
-inline void output_vk_sol_ultra_honk(std::ostream& os,
-                                     std::shared_ptr<UltraComposer::VerificationKey> const& key,
-                                     std::string const& class_name)
+inline void output_vk_sol_ultra_honk(
+    std::ostream& os,
+    // TODO: get the VerificationKey outside of the falvor - it's not a part of the flavor
+    auto const& key,
+    std::string const& class_name)
 {
     const auto print_u256 = [&](const bb::fr& element, const std::string& name) {
         os << "            " << name << ": uint256(" << element << ")," << std::endl;

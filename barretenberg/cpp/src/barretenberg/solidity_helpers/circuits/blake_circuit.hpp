@@ -3,6 +3,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
+using namespace bb;
 using namespace bb::plonk;
 using namespace bb::stdlib;
 

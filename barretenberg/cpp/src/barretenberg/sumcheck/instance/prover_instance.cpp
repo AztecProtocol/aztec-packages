@@ -204,6 +204,7 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_poly
 }
 
 template class ProverInstance_<UltraFlavor>;
+template class ProverInstance_<UltraKeccakFlavor>;
 template class ProverInstance_<GoblinUltraFlavor>;
 
 } // namespace bb

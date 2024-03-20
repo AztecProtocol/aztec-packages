@@ -3,6 +3,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/flavor/ultra_keccak.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 

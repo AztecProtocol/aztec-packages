@@ -2,6 +2,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/flavor/ultra_keccak.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 #include "barretenberg/proof_system/execution_trace/execution_trace.hpp"

@@ -2,6 +2,7 @@
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/flavor/ultra_keccak.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
@@ -63,6 +64,7 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 };
 
 using UltraProver = UltraProver_<UltraFlavor>;
+using UltraKeccakProver = UltraProver_<UltraKeccakFlavor>;
 using GoblinUltraProver = UltraProver_<GoblinUltraFlavor>;
 
 } // namespace bb

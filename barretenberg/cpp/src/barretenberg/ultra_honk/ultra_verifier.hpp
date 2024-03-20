@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/flavor/ultra_keccak.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -31,6 +32,7 @@ template <typename Flavor> class UltraVerifier_ {
 };
 
 using UltraVerifier = UltraVerifier_<UltraFlavor>;
+using UltraKeccakVerifier = UltraVerifier_<UltraKeccakFlavor>;
 using GoblinUltraVerifier = UltraVerifier_<GoblinUltraFlavor>;
 
 } // namespace bb

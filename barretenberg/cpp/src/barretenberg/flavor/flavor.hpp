@@ -318,39 +318,22 @@ namespace bb {
  */
 // clang-format off
 
-// template <typename T>
-// concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
-
-// template <typename T>
-// concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra>;
-
-// // TODO: dirty adding this to is goblin flavor
-// template <typename T> 
-// concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, GoblinUltraFlavor>;
-
-// template <typename T> 
-// concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, GoblinUltraFlavor>;
-
-// template <typename T> 
-// concept IsUltraFlavor = IsAnyOf<T, UltraFlavor,  UltraKeccakFlavor, GoblinUltraFlavor>;
-
 template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 template <typename T>
-concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra>;
+concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra, UltraKeccakFlavor>;
 
 template <typename T> 
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, GoblinUltraFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, GoblinUltraFlavor>;
 
 template <typename T> 
-concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, GoblinUltraFlavor>;
+concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, GoblinUltraFlavor>;
 
 template <typename T> 
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, GoblinUltraFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, GoblinUltraFlavor>;
 template <typename T> 
 concept IsGoblinFlavor = IsAnyOf<T, GoblinUltraFlavor,
-                                    // UltraKeccakFlavor,
                                     GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
                                     GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 
@@ -362,7 +345,8 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
 
-template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor, 
+template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
+                                                           UltraKeccakFlavor, 
                                                            GoblinUltraFlavor, 
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>, 
                                                            UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 

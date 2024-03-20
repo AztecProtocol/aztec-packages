@@ -21,6 +21,7 @@
 
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/flavor/ultra_keccak.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
