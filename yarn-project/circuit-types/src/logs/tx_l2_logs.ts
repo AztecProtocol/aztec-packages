@@ -131,7 +131,7 @@ export class TxL2Logs {
 
     for (const logsFromSingleFunctionCall of this.functionLogs) {
       logsHashes[0] = kernelPublicInputsLogsHash;
-      logsHashes[1] = truncateAndPad(logsFromSingleFunctionCall.hash()); // privateCircuitPublicInputsLogsHash
+      logsHashes[1] = logsFromSingleFunctionCall.hash(); // privateCircuitPublicInputsLogsHash
 
       // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
       kernelPublicInputsLogsHash = truncateAndPad(sha256(Buffer.concat(logsHashes)));
