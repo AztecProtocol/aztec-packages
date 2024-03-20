@@ -363,8 +363,6 @@ export class CrossChainTestHarness {
   }
 
   getL2ToL1MessageLeaf(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Fr {
-    this.logger('Ensure that the entry is not in outbox yet');
-
     const content = Fr.fromBufferReduce(
       sha256(
         Buffer.concat([
