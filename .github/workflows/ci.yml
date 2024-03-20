@@ -40,7 +40,7 @@ jobs:
           elif [ "${{ matrix.environment }}" == "x86" ]; then
             PLATFORM=linux/amd64
           fi
-          earthly sat --org aztec launch --size 4xlarge --platform linux/${{matrix.environment}} build-${{github.actor}}-${{ matrix.environment }} || true
+          earthly sat --org aztec launch --size 4xlarge --platform $PLATFORM build-${{github.actor}}-${{ matrix.environment }} || true
           if [ ${{ github.ref_name }} = master ] ; then
             # update the remote cache
             export EARTHLY_PUSH=true
