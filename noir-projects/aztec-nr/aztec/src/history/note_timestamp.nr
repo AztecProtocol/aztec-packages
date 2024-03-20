@@ -18,7 +18,7 @@ fn is_note_in_this_block<Note, N>(
     header.state.partial.note_hash_tree.root == compute_merkle_root(note_hash, witness.index, witness.path)
 }
 
-pub fn get_first_block_timestamp<Note, N>(
+pub fn get_note_inclusion_timestamp<Note, N>(
     note: Note,
     context: PrivateContext
 ) -> Field  where Note: NoteInterface<N> {
