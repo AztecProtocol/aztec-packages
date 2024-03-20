@@ -26,8 +26,6 @@ contract RollupTest is DecoderBase {
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
 
-
-
   AvailabilityOracle internal availabilityOracle;
 
   function setUp() public virtual {

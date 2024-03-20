@@ -92,7 +92,7 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
     }
 
-    // We assume here that the number of L2 to L1 messages per tx is 2. Therefore we just need a tree that is one height 
+    // We assume here that the number of L2 to L1 messages per tx is 2. Therefore we just need a tree that is one height
     // larger (as we can just extend the tree one layer down to hold all the L2 to L1 messages)
     uint256 l2ToL1TreeHeight = header.contentCommitment.txTreeHeight + 1;
     OUTBOX.insert(
