@@ -195,7 +195,7 @@ contract UniswapPortalTest is Test {
     bytes32 consumedRoot = tree2.computeRoot();
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot, l2ToL1MessageToConsume, 0)
     );
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
@@ -250,7 +250,7 @@ contract UniswapPortalTest is Test {
     bytes32 consumedRoot = tree2.computeRoot();
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot, l2ToL1MessageToConsume, 0)
     );
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
@@ -309,7 +309,7 @@ contract UniswapPortalTest is Test {
     }
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot, entryKeyPortalChecksAgainst, 1)
     );
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
@@ -475,7 +475,7 @@ contract UniswapPortalTest is Test {
     }
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot, entryKeyPortalChecksAgainst, 1)
     );
 
     uniswapPortal.swapPublic(
@@ -505,7 +505,7 @@ contract UniswapPortalTest is Test {
       consumedRoot = tree2.computeRoot();
     }
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot, entryKeyPortalChecksAgainst, 1)
     );
     uniswapPortal.swapPublic(
       address(daiTokenPortal),
@@ -565,7 +565,7 @@ contract UniswapPortalTest is Test {
     }
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot)
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, actualRoot, consumedRoot, entryKeyPortalChecksAgainst, 1)
     );
 
     uniswapPortal.swapPrivate(
