@@ -63,11 +63,7 @@ jobs:
         working-directory: ./yarn-project/end-to-end
 
         run: |
-          earthly --no-output
-            --org aztec
-            --remote-cache=aztecprotocol/cache:${{ github.event.pull_request.number || github.ref }}
-            --sat e2e-${{ matrix.environment }}
-            +${{ matrix.test }}
+          earthly --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.pull_request.number || github.ref }} --sat e2e-${{ matrix.environment }} +${{ matrix.test }}
 
   # bb-native-tests:
   #   runs-on: ubuntu-latest
