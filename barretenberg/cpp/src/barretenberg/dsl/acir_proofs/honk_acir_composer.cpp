@@ -21,9 +21,8 @@ void HonkAcirComposer::create_circuit(acir_format::AcirFormat& constraint_system
 
 std::vector<bb::fr> HonkAcirComposer::prove()
 {
-    auto instance = std::make_shared<ProverInstance>(builder_);
-    proving_key = instance->proving_key;
-    Prover prover{ instance };
+    Prover prover{ builder_ };
+    proving_key = prover.instance->proving_key;
 
     return prover.construct_proof();
 }
