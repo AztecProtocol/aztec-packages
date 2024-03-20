@@ -319,7 +319,6 @@ describe('L1Publisher integration', () => {
       txs.length,
       globalVariables,
       l1ToL2Messages,
-      newModelL1ToL2Messages,
       emptyTx,
     );
     for (const tx of txs) {
@@ -394,7 +393,7 @@ describe('L1Publisher integration', () => {
       const result = await buildBlock(
         globalVariables,
         txs,
-        currentL1ToL2Messages
+        currentL1ToL2Messages,
         makeEmptyProcessedTx(),
       );
       const block = result.block;

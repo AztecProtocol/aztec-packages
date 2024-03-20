@@ -287,7 +287,12 @@ export class ProvingOrchestrator {
     emptyTx: ProcessedTx,
   ): Promise<ProvingResult> {
     let baseParityInputs: BaseParityInputs[] = [];
-    const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    let l1ToL2MessagesPadded: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>;
+    try {
+      l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    } catch (err) {
+      throw new Error('Too many L1 to L2 messages');
+    }
     baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
       BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i),
     );

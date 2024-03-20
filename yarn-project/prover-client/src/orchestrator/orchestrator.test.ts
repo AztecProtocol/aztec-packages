@@ -295,7 +295,7 @@ describe('prover/tx-prover', () => {
           makeEmptyProcessedTx(),
         ]);
 
-        const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], [], await makeEmptyProcessedTx());
+        const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
 
         for (const tx of txs) {
           builder.addNewTx(tx);
@@ -307,78 +307,6 @@ describe('prover/tx-prover', () => {
 
     afterEach(async () => {
       await builder.stop();
-    const txs = [tx, await makeEmptyProcessedTx()];
-
-    // Calculate what would be the tree roots after the first tx and update mock circuit output
-    await updateExpectedTreesFromTxs([txs[0]]);
-    baseRollupOutputLeft.end = await getPartialStateReference();
-    baseRollupOutputLeft.txsEffectsHash = to2Fields(toTxEffect(tx).hash());
-
-    // Same for the tx on the right
-    await updateExpectedTreesFromTxs([txs[1]]);
-    baseRollupOutputRight.end = await getPartialStateReference();
-    baseRollupOutputRight.txsEffectsHash = to2Fields(toTxEffect(tx).hash());
-
-    // Update l1 to l2 message tree
-    await updateL1ToL2MessageTree(mockL1ToL2Messages);
-
-    // Collect all new nullifiers, commitments, and contracts from all txs in this block
-    const txEffects: TxEffect[] = txs.map(tx => toTxEffect(tx));
-
-    const body = new Body(padArrayEnd(mockL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP), txEffects);
-    // We are constructing the block here just to get body hash/calldata hash so we can pass in an empty archive and header
-    const l2Block = L2Block.fromFields({
-      archive: AppendOnlyTreeSnapshot.zero(),
-      header: Header.empty(),
-      // Only the values below go to body hash/calldata hash
-      body,
-    });
-
-    // Now we update can make the final header, compute the block hash and update archive
-    rootRollupOutput.header.globalVariables = globalVariables;
-    rootRollupOutput.header.contentCommitment.txsEffectsHash = l2Block.body.getTxsEffectsHash();
-    rootRollupOutput.header.state = await getStateReference();
-
-    await updateArchive();
-    rootRollupOutput.archive = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
-
-    return txs;
-  };
-
-  describe('mock simulator', () => {
-    beforeAll(() => {
-      jest.spyOn(TxEffect.prototype, 'hash').mockImplementation(() => {
-        return Buffer.alloc(32, 0);
-      });
-    });
-
-    afterAll(() => {
-      jest.restoreAllMocks();
-    });
-
-    beforeEach(() => {
-      // Create instance to test
-      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
-      // since we now assert on the hash of the tx effect while running the base rollup,
-      // we need to mock the hash function to return a constant value
-    });
-
-    it('builds an L2 block using mock simulator', async () => {
-      // Assemble a fake transaction
-      const txs = await buildMockSimulatorInputs();
-
-      // Actually build a block!
-      const [l2Block, proof] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
-
-      expect(l2Block.number).toEqual(blockNumber);
-      expect(proof).toEqual(emptyProof);
-    }, 20000);
-
-    it('rejects if too many l1 to l2 messages are provided', async () => {
-      // Assemble a fake transaction
-      const txs = await buildMockSimulatorInputs();
-      const l1ToL2Messages = new Array(100).fill(new Fr(0n));
-      await expect(builder.buildL2Block(globalVariables, txs, l1ToL2Messages)).rejects.toThrow();
     });
   });
 
@@ -459,7 +387,6 @@ describe('prover/tx-prover', () => {
           txs.length,
           globalVariables,
           mockL1ToL2Messages,
-          newModelMockL1ToL2Messages,
           await makeEmptyProcessedTx(),
         );
 
@@ -470,8 +397,6 @@ describe('prover/tx-prover', () => {
         const result = await blockPromise;
 
         expect(result.block.number).toEqual(blockNumber);
-        const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
-        expect(l2Block.number).toEqual(blockNumber);
 
         await updateExpectedTreesFromTxs(txs);
         const noteHashTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
@@ -494,7 +419,7 @@ describe('prover/tx-prover', () => {
         makeEmptyProcessedTx(),
       ]);
 
-      const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], [], await makeEmptyProcessedTx());
+      const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
 
       for (const tx of txs) {
         builder.addNewTx(tx);
@@ -502,8 +427,6 @@ describe('prover/tx-prover', () => {
 
       const result = await blockPromise;
       expect(result.block.number).toEqual(blockNumber);
-      const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
-      expect(l2Block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('builds a mixed L2 block', async () => {
@@ -520,7 +443,6 @@ describe('prover/tx-prover', () => {
         txs.length,
         globalVariables,
         l1ToL2Messages,
-        newModelMockL1ToL2Messages,
         await makeEmptyProcessedTx(),
       );
 
@@ -530,8 +452,6 @@ describe('prover/tx-prover', () => {
 
       const result = await blockPromise;
       expect(result.block.number).toEqual(blockNumber);
-      const [l2Block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
-      expect(l2Block.number).toEqual(blockNumber);
     }, 200_000);
 
     it('builds an unbalanced L2 block', async () => {
@@ -543,19 +463,8 @@ describe('prover/tx-prover', () => {
         txs.length,
         globalVariables,
         l1ToL2Messages,
-        newModelMockL1ToL2Messages,
         await makeEmptyProcessedTx(),
       );
-      const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
-
-      // Must be built after the txs are created
-      await builderDb.batchInsert(
-        MerkleTreeId.NULLIFIER_TREE,
-        updateVals.map(v => toBufferBE(v, 32)),
-        NULLIFIER_SUBTREE_HEIGHT,
-      );
-
-      const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
 
       for (const tx of txs) {
         builder.addNewTx(tx);
@@ -573,7 +482,7 @@ describe('prover/tx-prover', () => {
         makeEmptyProcessedTx(),
       ]);
 
-      const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], [], await makeEmptyProcessedTx());
+      const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
 
       for (const tx of txs) {
         builder.addNewTx(tx);
@@ -592,5 +501,12 @@ describe('prover/tx-prover', () => {
         `Invalid proving state, call startNewBlock before adding transactions`,
       );
     }, 30_000);
+
+    it('rejects if too many l1 to l2 messages are provided', async () => {
+      // Assemble a fake transaction
+      const l1ToL2Messages = new Array(100).fill(new Fr(0n));
+      const blockPromise = builder.startNewBlock(1, globalVariables, l1ToL2Messages, await makeEmptyProcessedTx());
+      await expect(blockPromise).rejects.toEqual('Too many L1 to L2 messages');
+    });
   });
 });

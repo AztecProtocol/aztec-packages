@@ -83,10 +83,9 @@ export class TxProver implements ProverClient {
     numTxs: number,
     globalVariables: GlobalVariables,
     newL1ToL2Messages: Fr[],
-    newModelL1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
   ): Promise<ProvingResult> {
-    return this.orchestrator.startNewBlock(numTxs, globalVariables, newL1ToL2Messages, newModelL1ToL2Messages, emptyTx);
+    return this.orchestrator.startNewBlock(numTxs, globalVariables, newL1ToL2Messages, emptyTx);
   }
 
   public addNewTx(tx: ProcessedTx): void {
