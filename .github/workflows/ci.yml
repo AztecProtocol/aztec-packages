@@ -3,7 +3,7 @@ on:
   push:
     branches: [master]
   pull_request_target:
-    branches: [develop]
+    branches: [*]
     types: [opened, synchronize, reopened]
   workflow_dispatch: {}
 
