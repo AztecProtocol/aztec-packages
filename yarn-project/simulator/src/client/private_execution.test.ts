@@ -50,12 +50,13 @@ import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
+import { KeyPair, MessageLoadOracleInputs, NoteData, Oracle } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { collectUnencryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
+import { ClientExecutionContext } from './client_execution_context.js';
 
 jest.setTimeout(60_000);
 
@@ -1066,6 +1067,17 @@ describe('Private Execution test suite', () => {
       oracle.getCompleteAddress.mockResolvedValue(completeAddress);
       const result = await runSimulator({ artifact, args });
       expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value]);
+    });
+  });
+
+  describe('Get notes', () => {
+    it('fails if returning no notes', async () => {
+      const artifact = getFunctionArtifact(TestContractArtifact, 'call_get_notes');
+
+      const args = [2n, true];
+      oracle.getNotes.mockResolvedValue([]);
+
+      await expect(runSimulator({ artifact, args })).rejects.toThrow();
     });
   });
 
