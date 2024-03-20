@@ -1,4 +1,5 @@
 import { PXE } from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { AccountContract } from '../account/contract.js';
