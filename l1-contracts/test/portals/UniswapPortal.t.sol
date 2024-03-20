@@ -75,7 +75,7 @@ contract UniswapPortalTest is Test {
   function _createDaiWithdrawMessage(address _recipient, address _caller)
     internal
     view
-    returns (bytes32 l2ToL1Message)
+    returns (bytes32 l2ToL1MessageHash)
   {
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(l2TokenAddress, 1),
@@ -97,7 +97,7 @@ contract UniswapPortalTest is Test {
   function _createUniswapSwapMessagePublic(bytes32 _aztecRecipient, address _caller)
     internal
     view
-    returns (bytes32 entryKey)
+    returns (bytes32 l2ToL1MessageHash)
   {
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor(l2UniswapAddress, 1),
