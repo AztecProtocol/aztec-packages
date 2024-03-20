@@ -320,6 +320,17 @@ class UltraFlavor {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
+        ProverPolynomials(std::shared_ptr<ProvingKey>& proving_key)
+        {
+            for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key->get_all())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(*proving_key, key_poly));
+                prover_poly = key_poly.share();
+            }
+            for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key->get_to_be_shifted())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(*proving_key, key_poly) + "_shift"));
+                prover_poly = key_poly.shifted();
+            }
+        }
         // Define all operations as default, except move construction/assignment
         ProverPolynomials() = default;
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;

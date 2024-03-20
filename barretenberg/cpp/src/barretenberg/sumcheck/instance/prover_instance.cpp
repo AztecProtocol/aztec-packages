@@ -76,15 +76,8 @@ void ProverInstance_<Flavor>::construct_table_polynomials(Circuit& circuit, size
 
 template <class Flavor> void ProverInstance_<Flavor>::initialize_prover_polynomials()
 {
-    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), proving_key->get_all())) {
-        ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*proving_key, key_poly));
-        prover_poly = key_poly.share();
-    }
-    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_shifted(), proving_key->get_to_be_shifted())) {
-        ASSERT(flavor_get_label(prover_polynomials, prover_poly) ==
-               (flavor_get_label(*proving_key, key_poly) + "_shift"));
-        prover_poly = key_poly.shifted();
-    }
+    ProverPolynomials prover_polys(proving_key);
+    prover_polynomials = std::move(prover_polys);
 }
 
 template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
