@@ -5,44 +5,46 @@ use crate::{
     context::PrivateContext,
     note::{utils::compute_note_hash_for_consumption, note_interface::NoteInterface},
     oracle::get_membership_witness::get_note_hash_membership_witness,
-    history::{
-    note_inclusion::prove_note_inclusion, note_inclusion::_note_inclusion,
-    nullifier_non_inclusion::prove_note_not_nullified, nullifier_non_inclusion::_nullifier_non_inclusion
-}
+    history::{note_inclusion:: {prove_note_inclusion, prove_note_inclusion_at}}
 };
-use crate::{context::PrivateContext, note::note_interface::NoteInterface};
 
-pub fn get_note_timestamp<Note, N>(
-    note: Note,
-    context: &mut PrivateContext
-) -> Option<u32>
-where Note: NoteInterface<N> {
-    let first_block = 1;
-    let latest_header = context.get_header();
-    let last_block = latest_header.global_variables.block_number;
-    let first_block_included = None;
-
+fn is_note_in_this_block<Note, N>(
+    note: Note, 
+    header: Header
+ ) -> bool where Note: NoteInterface<N> {
+    let note_hash = compute_note_hash_for_consumption(note);
+    let witness = get_note_hash_membership_witness(header.global_variables.block_number as u32, note_hash);
     
-    for i in 0..last_block {
-        if first_block > last_block {
-            break; 
+    header.state.partial.note_hash_tree.root == compute_merkle_root(note_hash, witness.index, witness.path)
+}
+
+pub fn get_first_note_included<Note, N>(
+    note: Note,
+    context: PrivateContext
+) -> Field  where Note: NoteInterface<N> {
+    let mut first_block_number = 1;
+    let mut first_block_included = 0;
+    let latest_header = context.get_header();
+    let mut last_block_number = latest_header.global_variables.block_number as u32;
+
+    for i in 0..last_block_number {
+        if first_block_number > last_block_number {
+            first_block_included = 0; 
         }
-        let mid = first_block + (last_block - first_block) / 2;
-        let temp_context = context.clone();
-
-        let does_note_exist = prove_note_inclusion_at(note.clone(), mid, temp_context);
-
-        if does_note_exist == true {
-            if mid == first_block | !prove_note_inclusion_at(note.clone(), mid - 1, temp_context) {
-                first_block_included = Some(mid); 
-                break;
+        let mid_block_number = first_block_number + (last_block_number - first_block_number) / 2;
+        let mut header = context.get_header_at(mid_block_number);
+        if is_note_in_this_block(note, header) == true {
+              header = context.get_header_at(mid_block_number-1);
+              if (mid_block_number == first_block_number) | (is_note_in_this_block(note, header) == false) {
+                first_block_included = mid_block_number; 
             } else {
-                last_block = mid - 1; 
+                last_block_number = mid_block_number - 1; 
             }
         } else {
-            first_block = mid + 1;
+            first_block_number = mid_block_number + 1;
         }
+        
     }
-
-    first_block_included;
+    let first_block_number_header = context.get_header_at(first_block_number);
+    first_block_number_header.global_variables.timestamp
 }
