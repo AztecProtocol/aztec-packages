@@ -1,7 +1,6 @@
 name: Run CI with Earthly
 on:
   push: {}
-  pull_request_target: {}
   workflow_dispatch: {}
 
 jobs:
@@ -15,6 +14,10 @@ jobs:
       group: build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
       cancel-in-progress: true
     steps:
+      - uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.5
+
       - name: Checkout
         uses: actions/checkout@v4
         with: {submodules: recursive}
@@ -43,6 +46,10 @@ jobs:
       group: ${{ matrix.test }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
       cancel-in-progress: true
     steps:
+      - uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.5
+
       - name: Checkout
         uses: actions/checkout@v4
         with: {submodules: recursive}
