@@ -72,7 +72,10 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
 
     instance->relation_parameters.eta = transcript->template get_challenge<FF>(domain_separator + "eta");
     instance->proving_key->compute_sorted_accumulator_polynomials(instance->relation_parameters.eta);
-
+    instance->prover_polynomials.sorted_accum = instance->proving_key->sorted_accum.share();
+    instance->prover_polynomials.sorted_accum_shift = instance->proving_key->sorted_accum.shifted();
+    instance->prover_polynomials.w_4 = instance->proving_key->w_4.share();
+    instance->prover_polynomials.w_4_shift = instance->proving_key->w_4.shifted();
     // Commit to the sorted witness-table accumulator and the finalized (i.e. with memory records) fourth wire
     // polynomial
     witness_commitments.sorted_accum = commitment_key->commit(instance->proving_key->sorted_accum);
