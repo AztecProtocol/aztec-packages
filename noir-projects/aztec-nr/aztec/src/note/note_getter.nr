@@ -135,7 +135,6 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
     if options.limit != 0 {
         assert(num_notes <= options.limit, "Invalid number of return notes.");
     }
-
     opt_notes
 }
 
