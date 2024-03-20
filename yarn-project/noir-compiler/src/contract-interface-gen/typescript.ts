@@ -200,26 +200,26 @@ export function generateTypescriptContractInterface(input: ContractArtifact, art
 /* eslint-disable */
 import {
   AztecAddress,
-  AztecAddressLike,
+  type AztecAddressLike,
   CompleteAddress,
   Contract,
-  ContractArtifact,
+  type ContractArtifact,
   ContractBase,
   ContractFunctionInteraction,
-  ContractInstanceWithAddress,
-  ContractMethod,
+  type ContractMethod,
+  type ContractInstanceWithAddress,
   DeployMethod,
   EthAddress,
-  EthAddressLike,
-  FieldLike,
+  type EthAddressLike,
+  type FieldLike,
   Fr,
-  FunctionSelectorLike,
+  type FunctionSelectorLike,
   loadContractArtifact,
   NoirCompiledContract,
   Point,
-  PublicKey,
-  Wallet,
-  WrappedFieldLike,
+  type PublicKey,
+  type Wallet,
+  type WrappedFieldLike,
 } from '@aztec/aztec.js';
 ${artifactStatement}
 
@@ -236,7 +236,7 @@ export class ${input.name}Contract extends ContractBase {
   ${artifactGetter}
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
-  public methods!: {
+  declare public methods: {
     ${methods.join('\n')}
   };
 }
