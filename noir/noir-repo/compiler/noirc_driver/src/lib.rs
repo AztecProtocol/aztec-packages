@@ -290,8 +290,7 @@ pub fn compile_main(
         compile_no_check(context, options, main, cached_program, options.force_compile)
             .map_err(FileDiagnostic::from)?;
 
-    let compilation_warnings =
-        vecmap(compiled_program.warnings.clone(), FileDiagnostic::from);
+    let compilation_warnings = vecmap(compiled_program.warnings.clone(), FileDiagnostic::from);
     if options.deny_warnings && !compilation_warnings.is_empty() {
         return Err(compilation_warnings);
     }
