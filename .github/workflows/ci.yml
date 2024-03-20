@@ -29,12 +29,7 @@ jobs:
       - name: Test
         working-directory: ./yarn-project/end-to-end
         run: |
-          earthly --no-output
-            --org aztec
-            --remote-cache=aztecprotocol/cache:${{ github.event.pull_request.number || github.ref }}
-            --sat build-${{ matrix.environment }}
-            --push
-            +build
+          earthly --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.pull_request.number || github.ref }} --sat build-${{ matrix.environment }} --push +build
 
   e2e:
     needs: build
