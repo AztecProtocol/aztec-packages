@@ -926,12 +926,7 @@ describe('Private Execution test suite', () => {
 
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
-      const args = [
-        amountToTransfer,
-        owner,
-        insertFnSelector.toField(),
-        getThenNullifyFnSelector.toField(),
-      ];
+      const args = [amountToTransfer, owner, insertFnSelector.toField(), getThenNullifyFnSelector.toField()];
       const result = await runSimulator({
         args: args,
         artifact: artifact,
@@ -995,11 +990,13 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_bad_get_then_insert_flat');
 
       const args = [amountToTransfer, owner];
-      await expect(runSimulator({
-        args: args,
-        artifact: artifact,
-        contractAddress,
-      })).rejects.toThrow();
+      await expect(
+        runSimulator({
+          args: args,
+          artifact: artifact,
+          contractAddress,
+        }),
+      ).rejects.toThrow();
     });
   });
 
