@@ -26,10 +26,13 @@ jobs:
         working-directory: ./scripts
         run: ./setup_env.sh ${{ matrix.environment }} ${{ secrets.DOCKERHUB_PASSWORD }} ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
 
+      - name: Replace Slashes in GitHub Ref
+        run: echo "SANITIZED_REF=$(echo ${{ github.ref }} | sed 's/\//-/g')" >> $GITHUB_ENV
+
       - name: Test
         working-directory: ./yarn-project/end-to-end
         run: |
-          earthly --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.number || master }} --sat build-${{ matrix.environment }} --push +build
+          earthly --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.event.number || env.SANITIZED_REF}} --sat build-${{ matrix.environment }} --push +build
 
   e2e:
     needs: build
@@ -54,11 +57,14 @@ jobs:
         working-directory: ./scripts
         run: ./setup_env.sh ${{ matrix.environment }} ${{ secrets.DOCKERHUB_PASSWORD }} ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
 
+      - name: Replace Slashes in GitHub Ref
+        run: echo "SANITIZED_REF=$(echo ${{ github.ref }} | sed 's/\//-/g')" >> $GITHUB_ENV
+
       - name: Test
         working-directory: ./yarn-project/end-to-end
 
         run: |
-          earthly --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.number || master }} --sat e2e-${{ matrix.environment }} +${{ matrix.test }}
+          earthly --no-output --org aztec --remote-cache=aztecprotocol/cache:${{ github.event.pull_request.number || env.SANITIZED_REF }} --sat e2e-${{ matrix.environment }} +${{ matrix.test }}
 
   # bb-native-tests:
   #   runs-on: ubuntu-latest
