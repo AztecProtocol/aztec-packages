@@ -17,9 +17,9 @@ Summary
 Impact: High
 Confidence: Medium
  - [ ] ID-0
-Function [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L60-L103) is a non-protected setter archive is written
+Function [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L60-L104) is a non-protected setter archive is written
 
-src/core/Rollup.sol#L60-L103
+src/core/Rollup.sol#L60-L104
 
 
 ## uninitialized-local
@@ -41,9 +41,9 @@ src/core/libraries/decoders/TxsDecoder.sol#L79
 Impact: Medium
 Confidence: Medium
  - [ ] ID-3
-[Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L60-L103) ignores return value by [(l2ToL1Msgs) = MessagesDecoder.decode(_body)](src/core/Rollup.sol#L76)
+[Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L60-L104) ignores return value by [(l2ToL1Msgs) = MessagesDecoder.decode(_body)](src/core/Rollup.sol#L77)
 
-src/core/Rollup.sol#L60-L103
+src/core/Rollup.sol#L60-L104
 
 
 ## pess-dubious-typecast
@@ -134,14 +134,14 @@ src/core/messagebridge/Inbox.sol#L61-L95
 
 
  - [ ] ID-12
-Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L60-L103):
+Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L60-L104):
 	External calls:
-	- [inHash = INBOX.consume()](src/core/Rollup.sol#L90)
-	- [OUTBOX.insert(header.globalVariables.blockNumber,header.contentCommitment.outHash,l2ToL1TreeHeight)](src/core/Rollup.sol#L98-L100)
+	- [inHash = INBOX.consume()](src/core/Rollup.sol#L91)
+	- [OUTBOX.insert(header.globalVariables.blockNumber,header.contentCommitment.outHash,l2ToL1TreeHeight)](src/core/Rollup.sol#L99-L101)
 	Event emitted after the call(s):
-	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L102)
+	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L103)
 
-src/core/Rollup.sol#L60-L103
+src/core/Rollup.sol#L60-L104
 
 
 ## timestamp
@@ -180,10 +180,10 @@ src/core/messagebridge/Inbox.sol#L24-L124
 
 
  - [ ] ID-17
-The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L30-L112) contract:
+The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L30-L113) contract:
 	[Rollup.constructor(IRegistry,IAvailabilityOracle)](src/core/Rollup.sol#L44-L51)
 
-src/core/Rollup.sol#L30-L112
+src/core/Rollup.sol#L30-L113
 
 
  - [ ] ID-18
