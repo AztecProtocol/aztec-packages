@@ -50,13 +50,12 @@ import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { KeyPair, MessageLoadOracleInputs, NoteData, Oracle } from '../acvm/index.js';
+import { KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { collectUnencryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
-import { ClientExecutionContext } from './client_execution_context.js';
 
 jest.setTimeout(60_000);
 
