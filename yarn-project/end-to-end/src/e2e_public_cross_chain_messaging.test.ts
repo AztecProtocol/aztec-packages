@@ -277,9 +277,9 @@ describe('e2e_public_cross_chain_messaging', () => {
 
       const txHash = await outbox.write.consume(
         [
+          l2ToL1Message,
           BigInt(l2TxReceipt.blockNumber!),
           BigInt(l2MessageIndex),
-          l2ToL1Message,
           siblingPath.toBufferArray().map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
         ],
         {} as any,
