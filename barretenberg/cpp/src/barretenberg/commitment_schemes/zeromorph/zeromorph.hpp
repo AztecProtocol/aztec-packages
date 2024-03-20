@@ -627,6 +627,21 @@ template <typename PCS> class ZeroMorphVerifier_ {
         return result;
     }
 
+    /**
+     * @brief Compute the univariate opening claim used in the last step of Zeromorph to verify the univariate PCS
+     * evaluation.
+     *
+     * @param unshifted_commitments
+     * @param to_be_shifted_commitments
+     * @param unshifted_evaluations
+     * @param shifted_evaluations
+     * @param multivariate_challenge
+     * @param first_g1
+     * @param transcript
+     * @param concatenation_group_commitments
+     * @param concatenated_evaluations
+     * @return OpeningClaim<Curve>
+     */
     static OpeningClaim<Curve> compute_univariate_evaluation_opening_claim(
         RefSpan<Commitment> unshifted_commitments,
         RefSpan<Commitment> to_be_shifted_commitments,
@@ -713,7 +728,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
      * @param claimed_evaluations Claimed evaluations v_i = f_i(u) and w_i = h_i(u) = g_i_shifted(u)
      * @param multivariate_challenge Challenge point u
      * @param transcript
-     * @return std::array<Commitment, 2> Inputs to the final pairing check
+     * @return VerifierAccumulator Inputs to the final PCS verification check that will be accumulated
      */
     static VerifierAccumulator verify(RefSpan<Commitment> unshifted_commitments,
                                       RefSpan<Commitment> to_be_shifted_commitments,
@@ -725,6 +740,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
                                       RefSpan<FF> concatenated_evaluations = {})
     {
         Commitment first_g1;
+
         if constexpr (Curve::is_stdlib_type) {
             auto builder = multivariate_challenge[0].get_context();
             first_g1 = Commitment::one(builder);
@@ -743,6 +759,19 @@ template <typename PCS> class ZeroMorphVerifier_ {
         return PCS::reduce_verify(opening_claim, transcript);
     }
 
+    /**
+     * @brief Verify a set of multilinear evaluation claims for unshifted polynomials f_i and to-be-shifted
+     * polynomials g_i.
+     *
+     * @details Identical purpose as the function above but used when the verification of the PCS evaluation protocol
+     * requires the verification key prior to the last step that is accumulated.
+     *
+     * @param commitments Commitments to polynomials f_i and g_i (unshifted and to-be-shifted)
+     * @param claimed_evaluations Claimed evaluations v_i = f_i(u) and w_i = h_i(u) = g_i_shifted(u)
+     * @param multivariate_challenge Challenge point u
+     * @param transcript
+     * @return VerifierAccumulator Inputs to the final PCS verification check that will be accumulated
+     */
     static VerifierAccumulator verify(RefSpan<Commitment> unshifted_commitments,
                                       RefSpan<Commitment> to_be_shifted_commitments,
                                       RefSpan<FF> unshifted_evaluations,
@@ -754,6 +783,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
                                       RefSpan<FF> concatenated_evaluations = {})
     {
         Commitment first_g1;
+        // Retrieve the first element in the CRS [1]_1 which will be different depending on the curve we operate on
         if constexpr (Curve::is_stdlib_type) {
             auto builder = multivariate_challenge[0].get_context();
             first_g1 = Commitment::from_witness(builder, vk->srs->get_first_g1());

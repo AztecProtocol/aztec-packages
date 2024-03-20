@@ -314,7 +314,7 @@ template <typename Curve_> class IPA {
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
      *
-     * @return true/false depending on if the proof verifies (will return an IPA accumulator)
+     * @return true/false depending on if the proof verifies
      *
      * @details The procedure runs as follows:
      *
@@ -461,8 +461,7 @@ template <typename Curve_> class IPA {
 
         // Step 11.
         // Check if C_right == C₀
-        bool verified = (C_zero.normalize() == right_hand_side.normalize());
-        return verified;
+        return (C_zero.normalize() == right_hand_side.normalize());
     }
 
   public:

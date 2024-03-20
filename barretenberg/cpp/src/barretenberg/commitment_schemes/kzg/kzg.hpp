@@ -58,7 +58,6 @@ template <typename Curve_> class KZG {
      */
     static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& claim, const auto& verifier_transcript)
     {
-
         auto quotient_commitment = verifier_transcript->template receive_from_prover<Commitment>("KZG:W");
 
         // Note: The pairing check can be expressed naturally as

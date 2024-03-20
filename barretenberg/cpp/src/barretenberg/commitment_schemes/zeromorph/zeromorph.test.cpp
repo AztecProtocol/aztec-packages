@@ -95,7 +95,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         VerifierAccumulator result;
         bool verified = false;
         if constexpr (std::same_as<PCS, KZG<curve::BN254>>) {
-            // Execute Verifier protocol
+            // Execute Verifier protocol without the need for vk prior the final check
             result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
                                                RefVector(g_commitments), // to-be-shifted
                                                RefVector(v_evaluations), // unshifted
@@ -104,7 +104,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
                                                verifier_transcript);
             verified = this->vk()->pairing_check(result[0], result[1]);
         } else {
-            // Execute Verifier protocol
+            // Execute Verifier protocol with vk
             result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
                                                RefVector(g_commitments), // to-be-shifted
                                                RefVector(v_evaluations), // unshifted
@@ -261,7 +261,7 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
         auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
         VerifierAccumulator result;
         if constexpr (std::same_as<PCS, KZG<curve::BN254>>) {
-            // Execute Verifier protocol
+            // Execute Verifier protocol without the need for vk prior the final check
             result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
                                                RefVector(g_commitments), // to-be-shifted
                                                RefVector(v_evaluations), // unshifted
@@ -273,7 +273,7 @@ template <class PCS> class ZeroMorphWithConcatenationTest : public CommitmentTes
             verified = this->vk()->pairing_check(result[0], result[1]);
 
         } else {
-            // Execute Verifier protocol
+            // Execute Verifier protocol with vk
             result = ZeroMorphVerifier::verify(RefVector(f_commitments), // unshifted
                                                RefVector(g_commitments), // to-be-shifted
                                                RefVector(v_evaluations), // unshifted
