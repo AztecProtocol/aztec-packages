@@ -73,7 +73,7 @@ export interface BatchInsertionResult<TreeHeight extends number, SubtreeSiblingP
 /**
  * Indexed merkle tree.
  */
-export interface IndexedTree extends AppendOnlyTree {
+export interface IndexedTree extends AppendOnlyTree<Buffer> {
   /**
    * Finds the index of the largest leaf whose value is less than or equal to the provided value.
    * @param newValue - The new value to be inserted into the tree.
