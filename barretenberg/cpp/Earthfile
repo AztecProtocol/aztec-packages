@@ -135,7 +135,6 @@ test:
     COPY --dir ./srs_db/+build/. srs_db
     RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
 
-
 # Functions
 RUN_CMAKE:
     # Runs cmake build and leaves binary artifacts at 'bin'

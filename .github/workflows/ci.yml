@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
+    # TODO currently names are coupled to platform
     strategy: { matrix: { environment: [arm64, amd64], test: [e2e-escrow-contract, e2e-account-contracts] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
@@ -30,7 +31,6 @@ jobs:
         working-directory: ./yarn-project/end-to-end
         run: |
           # TODO put in script
-          # TODO clean up output if already created
           earthly sat --org aztec launch --size 4xlarge --platform linux/${{matrix.environment}} build-${{github.actor}}-${{ matrix.environment }} || true
           if [ ${{ github.ref_name }} = master ] ; then
             # update the remote cache
@@ -44,6 +44,7 @@ jobs:
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     # run for both x86_64 and arm64
+    # TODO currently names are coupled to platform
     strategy: { matrix: { environment: [amd64, arm64] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
@@ -63,7 +64,6 @@ jobs:
         working-directory: ./barretenberg/cpp
         run:  |
           # TODO put in script
-          # TODO clean up output if already created
           earthly sat --org aztec launch --size 4xlarge --platform linux/${{matrix.environment}} build-${{github.actor}}-${{ matrix.environment }} || true
           if [ ${{ github.ref_name }} = master ] ; then
             # update the remote cache
