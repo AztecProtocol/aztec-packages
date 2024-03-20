@@ -17,9 +17,9 @@ Summary
 Impact: High
 Confidence: Medium
  - [ ] ID-0
-Function [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L61-L102) is a non-protected setter archive is written
+Function [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L60-L103) is a non-protected setter archive is written
 
-src/core/Rollup.sol#L61-L102
+src/core/Rollup.sol#L60-L103
 
 
 ## uninitialized-local
@@ -41,9 +41,9 @@ src/core/libraries/decoders/TxsDecoder.sol#L79
 Impact: Medium
 Confidence: Medium
  - [ ] ID-3
-[Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L61-L102) ignores return value by [(l2ToL1Msgs) = MessagesDecoder.decode(_body)](src/core/Rollup.sol#L77)
+[Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L60-L103) ignores return value by [(l2ToL1Msgs) = MessagesDecoder.decode(_body)](src/core/Rollup.sol#L76)
 
-src/core/Rollup.sol#L61-L102
+src/core/Rollup.sol#L60-L103
 
 
 ## pess-dubious-typecast
@@ -134,14 +134,14 @@ src/core/messagebridge/Inbox.sol#L61-L95
 
 
  - [ ] ID-12
-Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L61-L102):
+Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L60-L103):
 	External calls:
-	- [inHash = INBOX.consume()](src/core/Rollup.sol#L91)
-	- [OUTBOX.insert(header.globalVariables.blockNumber,header.contentCommitment.outHash,l2ToL1TreeHeight)](src/core/Rollup.sol#L97-L99)
+	- [inHash = INBOX.consume()](src/core/Rollup.sol#L90)
+	- [OUTBOX.insert(header.globalVariables.blockNumber,header.contentCommitment.outHash,l2ToL1TreeHeight)](src/core/Rollup.sol#L98-L100)
 	Event emitted after the call(s):
-	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L101)
+	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L102)
 
-src/core/Rollup.sol#L61-L102
+src/core/Rollup.sol#L60-L103
 
 
 ## timestamp
@@ -180,10 +180,10 @@ src/core/messagebridge/Inbox.sol#L24-L124
 
 
  - [ ] ID-17
-The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L31-L111) contract:
-	[Rollup.constructor(IRegistry,IAvailabilityOracle)](src/core/Rollup.sol#L45-L52)
+The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L30-L112) contract:
+	[Rollup.constructor(IRegistry,IAvailabilityOracle)](src/core/Rollup.sol#L44-L51)
 
-src/core/Rollup.sol#L31-L111
+src/core/Rollup.sol#L30-L112
 
 
  - [ ] ID-18
@@ -266,18 +266,18 @@ src/core/libraries/ConstantsGen.sol#L110
 
 
  - [ ] ID-29
-Variable [Rollup.AVAILABILITY_ORACLE](src/core/Rollup.sol#L34) is too similar to [Rollup.constructor(IRegistry,IAvailabilityOracle)._availabilityOracle](src/core/Rollup.sol#L45)
+Variable [Rollup.AVAILABILITY_ORACLE](src/core/Rollup.sol#L33) is too similar to [Rollup.constructor(IRegistry,IAvailabilityOracle)._availabilityOracle](src/core/Rollup.sol#L44)
 
-src/core/Rollup.sol#L34
+src/core/Rollup.sol#L33
 
 
 ## constable-states
 Impact: Optimization
 Confidence: High
  - [ ] ID-30
-[Rollup.lastWarpedBlockTs](src/core/Rollup.sol#L43) should be constant 
+[Rollup.lastWarpedBlockTs](src/core/Rollup.sol#L42) should be constant 
 
-src/core/Rollup.sol#L43
+src/core/Rollup.sol#L42
 
 
 ## pess-multiple-storage-read
