@@ -44,7 +44,7 @@ jobs:
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     # run for both x86_64 and arm64
-    strategy: { matrix: { environment: [x86, arm] } }
+    strategy: { matrix: { environment: [amd64, arm64] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: bb-native-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
