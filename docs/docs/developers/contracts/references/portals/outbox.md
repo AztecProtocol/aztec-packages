@@ -23,7 +23,7 @@ Inserts the root of a merkle tree containing all of the L2 to L1 messages in a b
 
 - Will revert with `Outbox__Unauthorized()` if `msg.sender != ROLLUP_CONTRACT`. 
 - Will revert with `Errors.Outbox__RootAlreadySetAtBlock(uint256 l2BlockNumber)` if the root for the specific block has already been set.
-- Will revert with `Errors.Outbox__InsertingInvalidRoot()` if the rollup is trying to insert a zeroed root.
+- Will revert with `Errors.Outbox__InsertingInvalidRoot()` if the rollup is trying to insert bytes32(0) as the root.
 
 ## `consume()`
 
@@ -46,7 +46,7 @@ Allows a recipient to consume a message from the `Outbox`.
 - Will revert with `Outbox__NothingToConsumeAtBlock(uint256 l2BlockNumber)` if the root for the block has not been set yet.
 - Will revert with `Outbox__AlreadyNullified(uint256 l2BlockNumber, uint256 leafIndex)` if the message at leafIndex for the block has already been consumed.
 - Will revert with `Outbox__InvalidPathLength(uint256 expected, uint256 actual)` if the existing height of the L2 to L1 message tree, and the supplied height do not match.
-- Otherwise, will revert with `MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual)` if unable to verify the message existence in the tree.
+- Will revert with `MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual)` if unable to verify the message existence in the tree.
 
 
 ## `hasMessageBeenConsumedAtBlockAndIndex()`

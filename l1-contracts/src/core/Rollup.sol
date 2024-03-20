@@ -11,7 +11,6 @@ import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
 
 // Libraries
 import {HeaderLib} from "./libraries/HeaderLib.sol";
-import {MerkleLib} from "./libraries/MerkleLib.sol";
 import {MessagesDecoder} from "./libraries/decoders/MessagesDecoder.sol";
 import {Hash} from "./libraries/Hash.sol";
 import {Errors} from "./libraries/Errors.sol";
@@ -93,7 +92,9 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
     }
 
-    uint256 l2ToL1TreeHeight = MerkleLib.calculateTreeHeightFromSize(l2ToL1Msgs.length);
+    // We assume here that the number of L2 to L1 messages per tx is 2. Therefore we just need a tree that is one height 
+    // larger (as we can just extend the tree one layer down to hold all the L2 to L1 messages)
+    uint256 l2ToL1TreeHeight = header.contentCommitment.txTreeHeight + 1;
     OUTBOX.insert(
       header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeHeight
     );

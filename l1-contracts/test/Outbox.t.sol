@@ -15,7 +15,6 @@ contract OutboxTest is Test {
   using Hash for DataStructures.L2ToL1Msg;
 
   address internal constant ROLLUP_CONTRACT = address(0x42069123);
-  address internal constant NOT_ROLLUP_CONTRACT = address(0x69);
   address internal constant NOT_RECIPIENT = address(0x420);
   uint256 internal constant DEFAULT_TREE_HEIGHT = 2;
   uint256 internal constant AZTEC_VERSION = 1;
@@ -41,10 +40,11 @@ contract OutboxTest is Test {
     });
   }
 
-  function testRevertIfInsertingFromNonRollup() public {
+  function testRevertIfInsertingFromNonRollup(address _caller) public {
+    vm.assume(ROLLUP_CONTRACT != _caller);
     bytes32 root = zeroedTree.computeRoot();
 
-    vm.prank(NOT_ROLLUP_CONTRACT);
+    vm.prank(_caller);
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__Unauthorized.selector));
     outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
   }

@@ -5,7 +5,6 @@ pragma solidity >=0.8.18;
 import {DecoderBase} from "./decoders/Base.sol";
 
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
-import {MerkleLib} from "../src/core/libraries/MerkleLib.sol";
 
 import {Registry} from "../src/core/messagebridge/Registry.sol";
 import {Inbox} from "../src/core/messagebridge/Inbox.sol";
@@ -14,6 +13,7 @@ import {Errors} from "../src/core/libraries/Errors.sol";
 import {Rollup} from "../src/core/Rollup.sol";
 import {AvailabilityOracle} from "../src/core/availability_oracle/AvailabilityOracle.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
+import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 
 /**
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
@@ -24,6 +24,9 @@ contract RollupTest is DecoderBase {
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
+  MerkleTestUtil internal merkleTestUtil;
+
+
 
   AvailabilityOracle internal availabilityOracle;
 
@@ -35,6 +38,8 @@ contract RollupTest is DecoderBase {
     outbox = Outbox(address(rollup.OUTBOX()));
 
     registry.upgrade(address(rollup), address(inbox), address(outbox));
+
+    merkleTestUtil = new MerkleTestUtil();
   }
 
   function testMixedBlock() public {
@@ -143,7 +148,7 @@ contract RollupTest is DecoderBase {
     bytes32 l2ToL1MessageTreeRoot;
     {
       uint256 treeHeight =
-        MerkleLib.calculateTreeHeightFromSize(full.messages.l2ToL1Messages.length);
+        merkleTestUtil.calculateTreeHeightFromSize(full.messages.l2ToL1Messages.length);
       NaiveMerkle tree = new NaiveMerkle(treeHeight);
       for (uint256 i = 0; i < full.messages.l2ToL1Messages.length; i++) {
         tree.insertLeaf(full.messages.l2ToL1Messages[i]);
