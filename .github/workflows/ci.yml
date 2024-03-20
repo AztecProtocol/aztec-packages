@@ -2,8 +2,7 @@ name: Run CI with Earthly
 on:
   push:
     branches: [master]
-  pull_request:
-    types: [opened, synchronize, reopened]
+  pull_request: {}
   workflow_dispatch: {}
 
 jobs:
@@ -24,7 +23,9 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
-        with: {submodules: recursive}
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          submodules: recursive
 
       - name: Setup
         working-directory: ./scripts
@@ -57,6 +58,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           submodules: recursive
 
       - name: Setup
