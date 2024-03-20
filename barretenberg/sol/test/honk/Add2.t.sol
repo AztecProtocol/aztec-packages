@@ -9,6 +9,8 @@ import {HonkVerifier} from "../../src/honk/HonkVerifier.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";
 import {IVerifier} from "../../src/interfaces/IVerifier.sol";
 
+import "forge-std/console.sol";
+
 contract Add2HonkTest is TestBaseHonk {
     function setUp() public override(TestBaseHonk) {
         super.setUp();
@@ -36,6 +38,7 @@ contract Add2HonkTest is TestBaseHonk {
         bytes memory proofData = fuzzer.with_inputs(inputs).generate_proof();
 
         (bytes32[] memory publicInputs, bytes memory proof) = splitProof(proofData, PUBLIC_INPUT_COUNT);
+        console.logBytes(proof);
 
         assertTrue(verifier.verify(proof, publicInputs), "The proof is not valid");
     }
