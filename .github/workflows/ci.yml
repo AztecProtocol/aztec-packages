@@ -31,7 +31,7 @@ jobs:
         run: |
           # TODO put in script
           # TODO clean up output if already created
-          earthly sat launch --size 4xlarge --platform linux/${{matrix.environment}} build-${{github.actor}}-${{ matrix.environment }} || true
+          earthly sat --org aztec launch --size 4xlarge --platform linux/${{matrix.environment}} build-${{github.actor}}-${{ matrix.environment }} || true
           if [ ${{ github.ref_name }} = master ] ; then
             # update the remote cache
             export EARTHLY_PUSH=true
@@ -64,7 +64,7 @@ jobs:
         run:  |
           # TODO put in script
           # TODO clean up output if already created
-          earthly sat launch --size 4xlarge --platform linux/${{matrix.environment}} build-${{github.actor}}-${{ matrix.environment }} || true
+          earthly sat --org aztec launch --size 4xlarge --platform linux/${{matrix.environment}} build-${{github.actor}}-${{ matrix.environment }} || true
           if [ ${{ github.ref_name }} = master ] ; then
             # update the remote cache
             export EARTHLY_PUSH=true
