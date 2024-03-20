@@ -74,7 +74,7 @@ impl BaseRollupInputs {
         let rollup_validation_requests = self.kernel_data.public_inputs.rollup_validation_requests;
 
         // Verify the max block number
-        // TODO: why is block_number a Field and not u32?
+        // TODO #5345: why is block_number a Field and not u32?
         if rollup_validation_requests.max_block_number.is_some() {
             assert(
                 self.constants.global_variables.block_number as u32
