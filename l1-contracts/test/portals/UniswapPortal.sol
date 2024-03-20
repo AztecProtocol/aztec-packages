@@ -106,13 +106,13 @@ contract UniswapPortal {
       IOutbox outbox = registry.getOutbox();
 
       outbox.consume(
-        _outboxMessageMetadata[1]._l2BlockNumber,
-        _outboxMessageMetadata[1]._leafIndex,
         DataStructures.L2ToL1Msg({
           sender: DataStructures.L2Actor(l2UniswapAddress, 1),
           recipient: DataStructures.L1Actor(address(this), block.chainid),
           content: vars.contentHash
         }),
+        _outboxMessageMetadata[1]._l2BlockNumber,
+        _outboxMessageMetadata[1]._leafIndex,
         _outboxMessageMetadata[1]._path
       );
     }
@@ -212,13 +212,13 @@ contract UniswapPortal {
       IOutbox outbox = registry.getOutbox();
 
       outbox.consume(
-        _outboxMessageMetadata[1]._l2BlockNumber,
-        _outboxMessageMetadata[1]._leafIndex,
         DataStructures.L2ToL1Msg({
           sender: DataStructures.L2Actor(l2UniswapAddress, 1),
           recipient: DataStructures.L1Actor(address(this), block.chainid),
           content: vars.contentHash
         }),
+        _outboxMessageMetadata[1]._l2BlockNumber,
+        _outboxMessageMetadata[1]._leafIndex,
         _outboxMessageMetadata[1]._path
       );
     }

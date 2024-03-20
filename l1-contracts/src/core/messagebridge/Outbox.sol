@@ -67,17 +67,17 @@ contract Outbox is IOutbox {
    * @notice Consumes an entry from the Outbox
    * @dev Only useable by portals / recipients of messages
    * @dev Emits `MessageConsumed` when consuming messages
+   * @param _message - The L2 to L1 message
    * @param _l2BlockNumber - The block number specifying the block that contains the message we want to consume
    * @param _leafIndex - The index inside the merkle tree where the message is located
-   * @param _message - The L2 to L1 message
    * @param _path - The sibling path used to prove inclusion of the message, the _path length directly depends
    * on the total amount of L2 to L1 messages in the block. i.e. the length of _path is equal to the depth of the
    * L1 to L2 message tree.
    */
   function consume(
+    DataStructures.L2ToL1Msg calldata _message,
     uint256 _l2BlockNumber,
     uint256 _leafIndex,
-    DataStructures.L2ToL1Msg calldata _message,
     bytes32[] calldata _path
   ) external override(IOutbox) {
     if (msg.sender != _message.recipient.actor) {

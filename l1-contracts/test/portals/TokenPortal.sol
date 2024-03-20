@@ -122,7 +122,7 @@ contract TokenPortal {
 
     IOutbox outbox = registry.getOutbox();
 
-    outbox.consume(_l2BlockNumber, _leafIndex, message, _path);
+    outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 
     underlying.transfer(_recipient, _amount);
   }

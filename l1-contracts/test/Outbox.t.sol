@@ -94,7 +94,7 @@ contract OutboxTest is Test {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Outbox__InvalidRecipient.selector, address(this), NOT_RECIPIENT)
     );
-    outbox.consume(1, 1, fakeMessage, path);
+    outbox.consume(fakeMessage, 1, 1, path);
   }
 
   function testRevertIfConsumingMessageWithInvalidChainId() public {
@@ -105,7 +105,7 @@ contract OutboxTest is Test {
     fakeMessage.recipient.chainId = block.chainid + 1;
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__InvalidChainId.selector));
-    outbox.consume(1, 1, fakeMessage, path);
+    outbox.consume(fakeMessage, 1, 1, path);
   }
 
   function testRevertIfNothingInsertedAtBlockNumber() public {
@@ -117,7 +117,7 @@ contract OutboxTest is Test {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Outbox__NothingToConsumeAtBlock.selector, blockNumber)
     );
-    outbox.consume(blockNumber, 1, fakeMessage, path);
+    outbox.consume(fakeMessage, blockNumber, 1, path);
   }
 
   function testRevertIfTryingToConsumeSameMessage() public {
@@ -132,9 +132,9 @@ contract OutboxTest is Test {
     outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
 
     (bytes32[] memory path,) = tree.computeSiblingPath(0);
-    outbox.consume(1, 0, fakeMessage, path);
+    outbox.consume(fakeMessage, 1, 0, path);
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, 1, 0));
-    outbox.consume(1, 0, fakeMessage, path);
+    outbox.consume(fakeMessage, 1, 0, path);
   }
 
   function testRevertIfPathHeightMismatch() public {
@@ -157,7 +157,7 @@ contract OutboxTest is Test {
         Errors.Outbox__InvalidPathLength.selector, DEFAULT_TREE_HEIGHT, DEFAULT_TREE_HEIGHT + 1
       )
     );
-    outbox.consume(1, 0, fakeMessage, path);
+    outbox.consume(fakeMessage, 1, 0, path);
   }
 
   function testRevertIfTryingToConsumeMessageNotInTree() public {
@@ -182,7 +182,7 @@ contract OutboxTest is Test {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, root, modifiedRoot)
     );
-    outbox.consume(1, 0, fakeMessage, path);
+    outbox.consume(fakeMessage, 1, 0, path);
   }
 
   function testValidInsertAndConsume() public {
@@ -203,7 +203,7 @@ contract OutboxTest is Test {
 
     vm.expectEmit(true, true, true, true, address(outbox));
     emit IOutbox.MessageConsumed(1, root, leaf, 0);
-    outbox.consume(1, 0, fakeMessage, path);
+    outbox.consume(fakeMessage, 1, 0, path);
 
     bool statusAfterConsumption = outbox.hasMessageBeenConsumedAtBlockAndIndex(1, 0);
     assertEq(abi.encode(1), abi.encode(statusAfterConsumption));
@@ -243,7 +243,7 @@ contract OutboxTest is Test {
       vm.expectEmit(true, true, true, true, address(outbox));
       emit IOutbox.MessageConsumed(_blockNumber, root, leaf, i);
       vm.prank(_recipients[i]);
-      outbox.consume(_blockNumber, i, messages[i], path);
+      outbox.consume(messages[i], _blockNumber, i, path);
     }
   }
 

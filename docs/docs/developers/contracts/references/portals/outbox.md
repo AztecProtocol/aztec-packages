@@ -34,9 +34,9 @@ Allows a recipient to consume a message from the `Outbox`.
 
 | Name           | Type        | Description |
 | -------------- | -------     | ----------- |
+| `_message`     | `L2ToL1Msg` | The L2 to L1 message we want to consume |
 | `_l2BlockNumber`     | `uint256` | The block number specifying the block that contains the message we want to consume |
 | `_leafIndex`     | `uint256` | The index inside the merkle tree where the message is located |
-| `_message`     | `L2ToL1Msg` | The L2 to L1 message |
 | `_path`     | `bytes32[]` | The sibling path used to prove inclusion of the message, the _path length directly depends |
 
 #### Edge cases
