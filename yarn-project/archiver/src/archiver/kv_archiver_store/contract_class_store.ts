@@ -68,9 +68,7 @@ function serializeContractClassPublic(contractClass: Omit<ContractClassPublic, '
     numToUInt8(contractClass.version),
     contractClass.artifactHash,
     contractClass.publicFunctions.length,
-    contractClass.publicFunctions?.map(f =>
-      serializeToBuffer(f.selector, f.bytecode.length, f.bytecode, f.isInternal),
-    ) ?? [],
+    contractClass.publicFunctions?.map(f => serializeToBuffer(f.selector, f.bytecode.length, f.bytecode)) ?? [],
     contractClass.privateFunctions.length,
     contractClass.privateFunctions.map(serializePrivateFunction),
     contractClass.unconstrainedFunctions.length,
@@ -85,7 +83,6 @@ function serializePrivateFunction(fn: ExecutablePrivateFunctionWithMembershipPro
   return serializeToBuffer(
     fn.selector,
     fn.vkHash,
-    fn.isInternal,
     fn.bytecode.length,
     fn.bytecode,
     fn.functionMetadataHash,
@@ -120,7 +117,6 @@ function deserializeContractClassPublic(buffer: Buffer): Omit<ContractClassPubli
       fromBuffer: reader => ({
         selector: reader.readObject(FunctionSelector),
         bytecode: reader.readBuffer(),
-        isInternal: reader.readBoolean(),
       }),
     }),
     privateFunctions: reader.readVector({ fromBuffer: deserializePrivateFunction }),
@@ -135,7 +131,6 @@ function deserializePrivateFunction(buffer: Buffer | BufferReader): ExecutablePr
   return {
     selector: reader.readObject(FunctionSelector),
     vkHash: reader.readObject(Fr),
-    isInternal: reader.readBoolean(),
     bytecode: reader.readBuffer(),
     functionMetadataHash: reader.readObject(Fr),
     artifactMetadataHash: reader.readObject(Fr),

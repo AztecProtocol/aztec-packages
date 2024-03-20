@@ -27,11 +27,6 @@ export interface PrivateFunction {
   selector: FunctionSelector;
   /** Hash of the verification key associated to this private function. */
   vkHash: Fr;
-  /**
-   * Whether the function is internal.
-   * @deprecated To be reimplemented as an app-level macro.
-   */
-  isInternal: boolean;
 }
 
 /** Public function definition within a contract class. */
@@ -40,12 +35,6 @@ export interface PublicFunction {
   selector: FunctionSelector;
   /** Public bytecode. */
   bytecode: Buffer;
-  /**
-   * Whether the function is internal.
-   * @deprecated To be reimplemented as an app-level macro.
-   * TODO(@spalladino) Remove this
-   */
-  isInternal: boolean;
 }
 
 /** Unconstrained function definition. */

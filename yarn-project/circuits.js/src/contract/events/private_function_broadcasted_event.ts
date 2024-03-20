@@ -107,9 +107,6 @@ export class PrivateFunctionBroadcastedEvent {
 }
 
 export class BroadcastedPrivateFunction implements PrivateFunction {
-  // TODO: Deleteme
-  public isInternal = false;
-
   constructor(
     /** Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol. */
     public readonly selector: FunctionSelector,

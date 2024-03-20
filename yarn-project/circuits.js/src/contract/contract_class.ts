@@ -22,7 +22,6 @@ export function getContractClassFromArtifact(
     .map(f => ({
       selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
       bytecode: f.bytecode,
-      isInternal: f.isInternal,
     }))
     .sort(cmpFunctionArtifacts);
 
@@ -49,7 +48,6 @@ export function getContractClassPrivateFunctionFromArtifact(
   return {
     selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
     vkHash: computeVerificationKeyHash(f.verificationKey!),
-    isInternal: f.isInternal,
   };
 }
 

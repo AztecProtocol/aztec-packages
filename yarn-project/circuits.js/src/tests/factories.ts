@@ -1294,7 +1294,6 @@ export function makeExecutablePrivateFunctionWithMembershipProof(
     functionMetadataHash: fr(seed + 5),
     unconstrainedFunctionsArtifactTreeRoot: fr(seed + 6),
     vkHash: fr(seed + 7),
-    isInternal: false,
   };
 }
 
@@ -1333,7 +1332,6 @@ function makeContractClassPublicFunction(seed = 0): PublicFunction {
   return {
     selector: FunctionSelector.fromField(fr(seed + 1)),
     bytecode: makeBytes(100, seed + 2),
-    isInternal: false,
   };
 }
 
@@ -1342,7 +1340,6 @@ function makeContractClassPrivateFunction(seed = 0): PrivateFunction {
   return {
     selector: FunctionSelector.fromField(fr(seed + 1)),
     vkHash: fr(seed + 2),
-    isInternal: false,
   };
 }
 
