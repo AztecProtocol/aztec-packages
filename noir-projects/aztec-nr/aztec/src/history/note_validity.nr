@@ -2,7 +2,8 @@ use crate::{
     context::PrivateContext,
     history::{
     note_inclusion::prove_note_inclusion, note_inclusion::_note_inclusion,
-    nullifier_non_inclusion::prove_note_not_nullified, nullifier_non_inclusion::_nullifier_non_inclusion
+    nullifier_non_inclusion::prove_note_not_nullified,
+    nullifier_non_inclusion::nullifier_valid_non_inclusion
 },
     note::{utils::compute_siloed_nullifier, note_interface::NoteInterface}
 };
@@ -23,5 +24,5 @@ pub fn prove_note_validity_at<Note, N>(
     _note_inclusion(note, header);
 
     let nullifier = compute_siloed_nullifier(note, context);
-    _nullifier_non_inclusion(nullifier, header);
+    assert(nullifier_valid_non_inclusion(nullifier, header), "Proving nullifier non-inclusion failed!");
 }

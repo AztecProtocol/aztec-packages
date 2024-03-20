@@ -15,10 +15,6 @@ contract InclusionProofs {
     },
         note_inclusion::{prove_note_inclusion, prove_note_inclusion_at},
         note_validity::{prove_note_validity, prove_note_validity_at},
-        nullifier_inclusion::{
-        prove_nullifier_inclusion, prove_nullifier_inclusion_at, prove_note_is_nullified,
-        prove_note_is_nullified_at
-    },
         nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
         public_value_inclusion::{prove_public_value_inclusion, prove_public_value_inclusion_at}
     };
@@ -186,17 +182,19 @@ contract InclusionProofs {
     ) {
         if (use_block_number) {
             // docs:start:prove_nullifier_inclusion
-            prove_nullifier_inclusion_at(nullifier, block_number, context);
+            assert(
+                context.nullifier_valid_inclusion_at(nullifier, block_number), "Witness not found for nullifier!"
+            );
             // docs:end:prove_nullifier_inclusion
         } else {
-            prove_nullifier_inclusion(nullifier, context);
+            assert(context.nullifier_valid_inclusion(nullifier), "Witness not found for nullifier!");
         }
     }
 
     // Proves nullifier existed at latest block
     #[aztec(public)]
     fn test_nullifier_inclusion_from_public(nullifier: Field) {
-        prove_nullifier_inclusion(nullifier, context);
+        assert(context.nullifier_valid_inclusion(nullifier), "Witness not found for nullifier!");
     }
 
     #[aztec(private)]

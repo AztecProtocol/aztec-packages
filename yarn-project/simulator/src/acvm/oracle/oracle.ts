@@ -1,4 +1,4 @@
-import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
+import { MerkleTreeId, NullifierMembershipWitness, UnencryptedL2Log } from '@aztec/circuit-types';
 import { RETURN_VALUES_LENGTH } from '@aztec/circuits.js';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -97,10 +97,12 @@ export class Oracle {
     const parsedNullifier = fromACVMField(nullifier);
 
     const witness = await this.typedOracle.getNullifierMembershipWitness(parsedBlockNumber, parsedNullifier);
+
     if (!witness) {
-      throw new Error(`Nullifier witness not found for nullifier ${parsedNullifier} at block ${parsedBlockNumber}.`);
+      return [toACVMField(0), ...NullifierMembershipWitness.empty().toFields().map(toACVMField)];
+    } else {
+      return [toACVMField(1), ...witness.toFields().map(toACVMField)];
     }
-    return witness.toFields().map(toACVMField);
   }
 
   async getLowNullifierMembershipWitness(

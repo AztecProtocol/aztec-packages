@@ -1,6 +1,8 @@
 use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
     key::nullifier_key::validate_nullifier_key_against_address, messaging::process_l1_to_l2_message,
+    history::nullifier_inclusion::nullifier_valid_inclusion,
+    history::nullifier_non_inclusion::nullifier_valid_non_inclusion,
     oracle::{
     arguments, call_private_function::call_private_function_internal,
     enqueue_public_function_call::enqueue_public_function_call_internal, context::get_portal_address,
@@ -114,6 +116,26 @@ impl ContextInterface for PrivateContext {
         self.new_nullifiers.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
     }
+
+    fn nullifier_exists(self, nullifier: Field) -> bool {
+        let header = self.get_header();
+        let not_in = nullifier_valid_inclusion(nullifier, header); 
+        let is_in = nullifier_valid_non_inclusion(nullifier, header);
+        // We want to ensure that the user could not just make the nullifier inclusion 
+        // fail with a bad path, therefore it must either be in or not
+        let xor = (not_in | is_in) - (not_in & is_in);
+        xor == false
+    }
+
+    fn nullifier_valid_inclusion(self, nullifier: Field) -> bool {
+        let header = self.get_header();
+        nullifier_valid_inclusion(nullifier, header)
+    }
+
+    fn nullifier_valid_non_inclusion(self, nullifier: Field) -> bool {
+        let header = self.get_header();
+        nullifier_valid_non_inclusion(nullifier, header)
+    }
 }
 
 impl PrivateContext {
@@ -149,6 +171,24 @@ impl PrivateContext {
     // of historical header.
     pub fn get_header_at(self, block_number: u32) -> Header {
         get_header_at(block_number, self)
+    }
+
+    pub fn nullifier_valid_inclusion_at(
+        self,
+        nullifier: Field,
+        block_number: u32 // The block at which we'll prove that the nullifier exists in the nullifier tree
+    ) -> bool {
+        let header = self.get_header_at(block_number);
+        nullifier_valid_inclusion(nullifier, header)
+    }
+
+    pub fn nullifier_valid_non_inclusion_at(
+        self,
+        nullifier: Field,
+        block_number: u32 // The block at which we'll prove that the nullifier does not exist in the nullifier tree
+    ) -> bool {
+        let header = self.get_header_at(block_number);
+        nullifier_valid_non_inclusion(nullifier, header)
     }
 
     pub fn finish(self) -> PrivateCircuitPublicInputs {

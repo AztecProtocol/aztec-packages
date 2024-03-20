@@ -1,6 +1,9 @@
 use crate::{
     context::{inputs::PublicContextInputs, interface::ContextInterface, interface::PublicContextInterface},
-    messaging::process_l1_to_l2_message, oracle::{arguments, public_call::call_public_function_internal}
+    messaging::process_l1_to_l2_message,
+    oracle::{arguments, public_call::call_public_function_internal},
+    history::nullifier_inclusion::nullifier_valid_inclusion,
+    history::nullifier_non_inclusion::nullifier_valid_non_inclusion
 };
 use dep::protocol_types::{
     abis::{
@@ -196,6 +199,24 @@ impl ContextInterface for PublicContext {
         };
         self.new_nullifiers.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
+    fn nullifier_exists(self, nullifier: Field) -> bool {
+        let header = self.get_header();
+        let not_in = nullifier_valid_inclusion(nullifier, header); 
+        let is_in = nullifier_valid_non_inclusion(nullifier, header);
+        // We want to ensure that the user could not just make the nullifier inclusion 
+        // fail with a bad path, therefore it must either be in or not
+        let xor = (not_in | is_in) - (not_in & is_in);
+        xor == false
+    }
+
+    fn nullifier_valid_inclusion(self, nullifier: Field) -> bool {
+        nullifier_valid_inclusion(nullifier, self.get_header())
+    }
+
+    fn nullifier_valid_non_inclusion(self, nullifier: Field) -> bool {
+        nullifier_valid_non_inclusion(nullifier, self.get_header())
     }
 }
 

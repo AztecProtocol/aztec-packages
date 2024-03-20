@@ -4,7 +4,7 @@ use dep::protocol_types::{
 };
 
 // INDEX_LENGTH + NULLIFIER_LEAF_PREIMAGE_LENGTH + NULLIFIER_TREE_HEIGHT
-global NULLIFIER_MEMBERSHIP_WITNESS: Field = 24;
+global NULLIFIER_MEMBERSHIP_WITNESS_LENGTH: Field = 24;
 
 struct NullifierMembershipWitness {
     index: Field,
@@ -13,7 +13,7 @@ struct NullifierMembershipWitness {
 }
 
 impl NullifierMembershipWitness {
-    pub fn deserialize(fields: [Field; NULLIFIER_MEMBERSHIP_WITNESS]) -> Self {
+    pub fn deserialize(fields: [Field; NULLIFIER_MEMBERSHIP_WITNESS_LENGTH]) -> Self {
         let leaf_preimage_fields = arr_copy_slice(fields, [0; NULLIFIER_LEAF_PREIMAGE_LENGTH], 1);
         Self {
             index: fields[0],
@@ -31,7 +31,7 @@ impl NullifierMembershipWitness {
 fn get_low_nullifier_membership_witness_oracle(
     _block_number: u32,
     _nullifier: Field
-) -> [Field; NULLIFIER_MEMBERSHIP_WITNESS] {}
+) -> [Field; NULLIFIER_MEMBERSHIP_WITNESS_LENGTH] {}
 
 // Nullifier here refers to the nullifier we are looking to get non-inclusion proof for (by proving that a lower
 // nullifier's next_value is bigger than the nullifier)
@@ -44,11 +44,18 @@ unconstrained pub fn get_low_nullifier_membership_witness(block_number: u32, nul
 fn get_nullifier_membership_witness_oracle(
     _block_number: u32,
     _nullifier: Field
-) -> [Field; NULLIFIER_MEMBERSHIP_WITNESS] {}
-
-// Nullifier here refers to the nullifier we are looking to get non-inclusion proof for (by proving that a lower
-// nullifier's next_value is bigger than the nullifier)
-unconstrained pub fn get_nullifier_membership_witness(block_number: u32, nullifier: Field) -> NullifierMembershipWitness {
+) -> [Field; 1 + NULLIFIER_MEMBERSHIP_WITNESS_LENGTH] {}
+//           ^ found?
+unconstrained pub fn get_nullifier_membership_witness(
+    block_number: u32,
+    nullifier: Field
+) -> Option<NullifierMembershipWitness> {
     let fields = get_nullifier_membership_witness_oracle(block_number, nullifier);
-    NullifierMembershipWitness::deserialize(fields)
+    let found = fields[0];
+    if found == 0 {
+        Option::none()
+    } else {
+        let witness_fields = arr_copy_slice(fields, [0; NULLIFIER_MEMBERSHIP_WITNESS_LENGTH], 1);
+        Option::some(NullifierMembershipWitness::deserialize(witness_fields))
+    }
 }

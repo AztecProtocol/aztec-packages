@@ -24,6 +24,10 @@ export class NullifierMembershipWitness {
     public readonly siblingPath: SiblingPath<typeof NULLIFIER_TREE_HEIGHT>,
   ) {}
 
+  public static empty(): NullifierMembershipWitness {
+    return new NullifierMembershipWitness(0n, NullifierLeafPreimage.empty(), SiblingPath.empty(NULLIFIER_TREE_HEIGHT));
+  }
+
   /**
    * Returns a field array representation of a nullifier witness.
    * @returns A field array representation of a nullifier witness.

@@ -8,7 +8,7 @@ import { setup } from './fixtures/utils.js';
 process.env.AVM_ENABLED = 'absofrigginlutely';
 const TIMEOUT = 100_000;
 
-describe('e2e_nested_contract', () => {
+describe('e2e_avm_simulator', () => {
   jest.setTimeout(TIMEOUT);
 
   let wallet: Wallet;

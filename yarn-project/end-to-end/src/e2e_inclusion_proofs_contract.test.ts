@@ -113,11 +113,9 @@ describe('e2e_inclusion_proofs_contract', () => {
         it('should throw when testing if note is not nullified at the current block', async () => {
           await expect(
             contract.methods.test_note_not_nullified(owner, true, currentBlockNumber, true).send().wait(),
-          ).rejects.toThrow(
-            /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
-          );
+          ).rejects.toThrow(/nullifier_valid_non_inclusion/);
           await expect(contract.methods.test_note_not_nullified(owner, false, 0n, true).send().wait()).rejects.toThrow(
-            /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
+            /nullifier_valid_non_inclusion/,
           );
         });
 
@@ -131,11 +129,9 @@ describe('e2e_inclusion_proofs_contract', () => {
           const blockNumber = await pxe.getBlockNumber();
           await expect(
             contract.methods.test_note_validity(owner, true, blockNumber, true).send().wait(),
-          ).rejects.toThrow(
-            /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
-          );
+          ).rejects.toThrow(/nullifier_valid_non_inclusion/);
           await expect(contract.methods.test_note_validity(owner, false, 0n, true).send().wait()).rejects.toThrow(
-            /Proving nullifier non-inclusion failed: low_nullifier.value < nullifier.value check failed/,
+            /nullifier_valid_non_inclusion/,
           );
         });
 
@@ -242,10 +238,10 @@ describe('e2e_inclusion_proofs_contract', () => {
 
       await expect(
         contract.methods.test_nullifier_inclusion(randomNullifier, true, blockNumber).send().wait(),
-      ).rejects.toThrow(`Nullifier witness not found for nullifier ${randomNullifier.toString()} at block`);
+      ).rejects.toThrow(/nullifier_valid_inclusion/);
 
       await expect(contract.methods.test_nullifier_inclusion(randomNullifier, false, 0n).send().wait()).rejects.toThrow(
-        `Nullifier witness not found for nullifier ${randomNullifier.toString()} at block`,
+        /nullifier_valid_inclusion/,
       );
     });
   });
@@ -267,7 +263,7 @@ describe('e2e_inclusion_proofs_contract', () => {
       // Or that the positive call fails when trying to prove in the older block
       await expect(
         contract.methods.test_contract_inclusion(address, olderBlock, testDeploy, testInit).simulate(),
-      ).rejects.toThrow(/not found/);
+      ).rejects.toThrow(/nullifier_valid_inclusion/);
     };
 
     it('proves public deployment of a contract', async () => {

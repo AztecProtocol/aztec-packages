@@ -14,6 +14,10 @@ trait ContextInterface {
     fn selector(self) -> FunctionSelector;
     fn get_args_hash(self) -> Field;
     fn get_header(self) -> Header;
+    // nullifiers
+    fn nullifier_exists(self, nullifier: Field) -> bool;
+    fn nullifier_valid_inclusion(self, nullifier: Field) -> bool;
+    fn nullifier_valid_non_inclusion(self, nullifier: Field) -> bool;
 }
 
 // TEMPORARY: This trait is to promote sharing of the current public context

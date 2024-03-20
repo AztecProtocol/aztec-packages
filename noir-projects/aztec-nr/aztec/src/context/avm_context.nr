@@ -46,9 +46,6 @@ impl AVMContext {
     pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         l1_to_l2_msg_exists(msg_hash, msg_leaf_index) == 1
     }
-    pub fn nullifier_exists(self, nullifier: Field) -> bool {
-        nullifier_exists(nullifier) == 1
-    }
 
     fn call_public_function_raw<ARGS_COUNT, RET_COUNT>(
         self: &mut Self,
@@ -200,6 +197,15 @@ impl ContextInterface for AVMContext {
     fn get_args_hash(self) -> Field {
         assert(false, "'get_args_hash' not implemented!");
         0
+    }
+    fn nullifier_exists(self, nullifier: Field) -> bool {
+        nullifier_exists(nullifier) == 1
+    }
+    fn nullifier_valid_inclusion(self, nullifier: Field) -> bool {
+        self.nullifier_exists(nullifier) == false
+    }
+    fn nullifier_valid_non_inclusion(self, nullifier: Field) -> bool {
+        self.nullifier_exists(nullifier) == true
     }
 }
 

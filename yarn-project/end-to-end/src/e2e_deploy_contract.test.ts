@@ -241,9 +241,7 @@ describe('e2e_deploy_contract', () => {
       const initArgs: StatefulContractCtorArgs = [owner, 42];
       const contract = await registerContract(wallet, StatefulTestContract, { initArgs });
       // TODO(@spalladino): It'd be nicer to be able to fail the assert with a more descriptive message.
-      await expect(contract.methods.create_note(owner, 10).send().wait()).rejects.toThrow(
-        /nullifier witness not found/i,
-      );
+      await expect(contract.methods.create_note(owner, 10).send().wait()).rejects.toThrow(/nullifier_valid_inclusion/);
     });
 
     it('refuses to initialize a contract with incorrect args', async () => {

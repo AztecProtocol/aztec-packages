@@ -39,6 +39,15 @@ export class SiblingPath<N extends number> {
   }
 
   /**
+   * Returns an empty (invalid) sibling path of a given size.
+   * @param size - The size of the sibling path.
+   * @returns An empty (invalid) sibling path of a given size.
+   */
+  public static empty<N extends number>(size: N): SiblingPath<N> {
+    return new SiblingPath(size, new Array(size).fill(Buffer.alloc(32)));
+  }
+
+  /**
    * Constructor.
    * @param pathSize - The size of the sibling path.
    * @param path - The sibling path data.
