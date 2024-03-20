@@ -34,6 +34,7 @@ import {
   PublicKernelTailCircuitPrivateInputs,
   RETURN_VALUES_LENGTH,
   ReadRequest,
+  RevertCode,
   SideEffect,
   SideEffectLinkedToNoteHash,
   VK_TREE_HEIGHT,
@@ -239,7 +240,7 @@ export abstract class AbstractPhaseManager {
         // sanity check. Note we can't expect them to just be equal, because e.g.
         // if the simulator reverts in app logic, it "resets" and result.reverted will be false when we run teardown,
         // but the kernel carries the reverted flag forward. But if the simulator reverts, so should the kernel.
-        if (result.reverted && !kernelOutput.reverted) {
+        if (result.reverted && kernelOutput.endNonRevertibleData.revertCode.isOK()) {
           throw new Error(
             `Public kernel circuit did not revert on ${result.execution.contractAddress.toString()}:${functionSelector}, but simulator did.`,
           );
@@ -384,7 +385,8 @@ export abstract class AbstractPhaseManager {
       unencryptedLogsHash,
       unencryptedLogPreimagesLength,
       historicalHeader: this.historicalHeader,
-      reverted: result.reverted,
+      // TODO(@just-mitch): need better mapping from simulator to revert code.
+      revertCode: result.reverted ? RevertCode.REVERTED : RevertCode.OK,
     });
   }
 

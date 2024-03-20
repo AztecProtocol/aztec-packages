@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.30.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.30.0...barretenberg.js-v0.30.1) (2024-03-20)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.30.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.29.0...barretenberg.js-v0.30.0) (2024-03-19)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.29.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.28.1...barretenberg.js-v0.29.0) (2024-03-18)
+
+
+### Features
+
+* Initial Earthly CI ([#5069](https://github.com/AztecProtocol/aztec-packages/issues/5069)) ([8e75fe5](https://github.com/AztecProtocol/aztec-packages/commit/8e75fe5c47250e860a4eae4dbf0973c503221720))
+
 ## [0.28.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.28.0...barretenberg.js-v0.28.1) (2024-03-14)
 
 

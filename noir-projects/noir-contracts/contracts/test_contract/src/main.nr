@@ -20,7 +20,7 @@ contract Test {
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
     },
-        deploy::{deploy_contract as aztec_deploy_contract},
+        deploy::deploy_contract as aztec_deploy_contract,
         oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, rand::rand},
         log::emit_unencrypted_log_from_private
     };
@@ -257,13 +257,8 @@ contract Test {
     }
 
     #[aztec(public)]
-    fn consume_mint_public_message(
-        to: AztecAddress,
-        amount: Field,
-        canceller: EthAddress,
-        secret: Field
-    ) {
-        let content_hash = get_mint_public_content_hash(to, amount, canceller);
+    fn consume_mint_public_message(to: AztecAddress, amount: Field, secret: Field) {
+        let content_hash = get_mint_public_content_hash(to, amount);
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(content_hash, secret, context.this_portal_address());
     }
@@ -272,11 +267,10 @@ contract Test {
     fn consume_mint_private_message(
         secret_hash_for_redeeming_minted_notes: Field,
         amount: Field,
-        canceller: EthAddress,
         secret_for_L1_to_L2_message_consumption: Field
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller);
+        let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount);
         context.consume_l1_to_l2_message(
             content_hash,
             secret_for_L1_to_L2_message_consumption,
@@ -353,7 +347,7 @@ contract Test {
     fn consume_note_from_secret(secret: Field) {
         let notes_set = storage.example_set;
         let secret_hash = compute_secret_hash(secret);
-        let options = NoteGetterOptions::new().select(0, secret_hash, Option::none()).set_limit(1);
+        let options = NoteGetterOptions::new().select(FieldNote::properties().value, secret_hash, Option::none()).set_limit(1);
         let notes = notes_set.get_notes(options);
         let note = notes[0].unwrap_unchecked();
         notes_set.remove(note);
