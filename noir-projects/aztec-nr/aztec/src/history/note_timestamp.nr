@@ -14,11 +14,11 @@ fn is_note_in_this_block<Note, N>(
  ) -> bool where Note: NoteInterface<N> {
     let note_hash = compute_note_hash_for_consumption(note);
     let witness = get_note_hash_membership_witness(header.global_variables.block_number as u32, note_hash);
-    
+
     header.state.partial.note_hash_tree.root == compute_merkle_root(note_hash, witness.index, witness.path)
 }
 
-pub fn get_first_note_included<Note, N>(
+pub fn get_first_block_timestamp<Note, N>(
     note: Note,
     context: PrivateContext
 ) -> Field  where Note: NoteInterface<N> {
