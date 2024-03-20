@@ -113,9 +113,6 @@ pub fn compute_l2_to_l1_hash(
 }
 
 // Computes sha256 hash of 2 input hashes.
-// 
-// This method is bn254 specific. Two fields is needed in order to 
-// encode the sha256 output. It can be abstracted away with any 4-2 hash function.
 //
 // NB: This method now takes in two 31 byte fields - it assumes that any input
 // is the result of a sha_to_field hash and => is truncated

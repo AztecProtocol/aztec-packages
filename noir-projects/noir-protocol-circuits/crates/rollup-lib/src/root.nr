@@ -14,7 +14,7 @@ global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES: u64 = 512;
 
 // Computes the messages hash from the leaves array
 //
-// TODO(Miranda): should this be merged with a generic version of accumulate_sha256? (The logic is largely the same)
+// TODO(Miranda): remove? This appears to be unused
 // Returns the hash truncated to one field element
 fn compute_messages_hash(leaves: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP]) -> [Field; NUM_FIELDS_PER_SHA256] {
     // Slice variation
