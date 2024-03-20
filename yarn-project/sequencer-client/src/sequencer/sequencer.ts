@@ -11,14 +11,10 @@ import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
 
 import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
-<<<<<<< HEAD
-=======
-import { WorldStatePublicDB } from '../simulator/public_executor.js';
-import { ceilPowerOfTwo } from '../utils.js';
->>>>>>> master
 import { SequencerConfig } from './config.js';
 import { PublicProcessorFactory } from './public_processor.js';
 import { TxValidator } from './tx_validator.js';
+import { WorldStatePublicDB } from '../simulator/public_executor.js';
 
 /**
  * Sequencer client

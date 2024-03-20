@@ -95,7 +95,7 @@ class ProvingState {
     private _completionCallback: (result: ProvingResult) => void,
     private _rejectionCallback: (reason: string) => void,
     private _globalVariables: GlobalVariables,
-    private _newL1ToL2Messages: Fr[],
+    private _newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
     numRootParityInputs: number,
     private _emptyTx: ProcessedTx,
   ) {
@@ -276,26 +276,20 @@ export class ProvingOrchestrator {
    *
    * @param numTxs - The number of real transactions in the block
    * @param globalVariables - The global variables for the block
-   * @param newL1ToL2Messages - The l1 to l2 messages for the block
-   * @param newModelL1ToL2Messages - The new mode of l1 to l2 messages for the block
+   * @param l1ToL2Messages - The l1 to l2 messages for the block
    * @param emptyTx - The instance of an empty transaction to be used to pad this block
    * @returns A promise norifying of the result of proving
    */
   public startNewBlock(
     numTxs: number,
     globalVariables: GlobalVariables,
-    newL1ToL2Messages: Fr[],
-    newModelL1ToL2Messages: Fr[],
+    l1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
   ): Promise<ProvingResult> {
     let baseParityInputs: BaseParityInputs[] = [];
-    const newModelL1ToL2MessagesTuple = padArrayEnd(
-      newModelL1ToL2Messages,
-      Fr.ZERO,
-      NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-    );
+    const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
-      BaseParityInputs.fromSlice(newModelL1ToL2MessagesTuple, i),
+      BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i),
     );
 
     const promise = new Promise<ProvingResult>((resolve, reject) => {
@@ -304,7 +298,7 @@ export class ProvingOrchestrator {
         resolve,
         reject,
         globalVariables,
-        newL1ToL2Messages,
+        l1ToL2MessagesPadded,
         baseParityInputs.length,
         emptyTx,
       );
@@ -493,16 +487,11 @@ export class ProvingOrchestrator {
     rootParityInput: RootParityInput,
     stateIdentifier: string,
   ) {
-    const newL1ToL2MessagesTuple = padArrayEnd(
-      this.provingState!.newL1ToL2Messages,
-      Fr.ZERO,
-      NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-    );
     const [circuitsOutput, proof] = await executeRootRollupCircuit(
       [mergeInputData.inputs[0]!, mergeInputData.proofs[0]!],
       [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!],
       rootParityInput,
-      newL1ToL2MessagesTuple,
+      this.provingState!.newL1ToL2Messages,
       this.simulator,
       this.prover,
       this.db,

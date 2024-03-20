@@ -16,8 +16,7 @@ export interface BlockProver {
   startNewBlock(
     numTxs: number,
     globalVariables: GlobalVariables,
-    newL1ToL2Messages: Fr[],
-    newModelL1ToL2Messages: Fr[],
+    l1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
   ): Promise<ProvingResult>;
 
