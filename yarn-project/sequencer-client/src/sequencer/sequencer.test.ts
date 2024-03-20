@@ -73,8 +73,7 @@ describe('sequencer', () => {
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
-      getNewL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
-      getPendingL1ToL2EntryKeys: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
+      getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getBlockNumber: () => Promise.resolve(lastBlockNumber),
     });
 
@@ -93,6 +92,8 @@ describe('sequencer', () => {
   it('builds a block out of a single tx', async () => {
     const tx = mockTx();
     tx.data.constants.txContext.chainId = chainId;
+    tx.data.needsSetup = false;
+    tx.data.needsTeardown = false;
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
 
@@ -112,7 +113,6 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
   });
@@ -121,6 +121,8 @@ describe('sequencer', () => {
     const txs = [mockTx(0x10000), mockTx(0x20000), mockTx(0x30000)];
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
+      tx.data.needsSetup = false;
+      tx.data.needsTeardown = false;
     });
     const doubleSpendTx = txs[1];
     const block = L2Block.random(lastBlockNumber + 1);
@@ -134,7 +136,7 @@ describe('sequencer', () => {
     );
 
     // We make a nullifier from tx1 a part of the nullifier tree, so it gets rejected as double spend
-    const doubleSpendNullifier = doubleSpendTx.data.end.newNullifiers[0].toBuffer();
+    const doubleSpendNullifier = doubleSpendTx.data.end.newNullifiers[0].value.toBuffer();
     merkleTreeOps.findLeafIndex.mockImplementation((treeId: MerkleTreeId, value: Buffer) => {
       return Promise.resolve(
         treeId === MerkleTreeId.NULLIFIER_TREE && value.equals(doubleSpendNullifier) ? 1n : undefined,
@@ -150,7 +152,6 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
@@ -160,6 +161,8 @@ describe('sequencer', () => {
     const txs = [mockTx(0x10000), mockTx(0x20000), mockTx(0x30000)];
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
+      tx.data.needsSetup = false;
+      tx.data.needsTeardown = false;
     });
     const invalidChainTx = txs[1];
     const block = L2Block.random(lastBlockNumber + 1);
@@ -183,7 +186,6 @@ describe('sequencer', () => {
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);

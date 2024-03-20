@@ -35,15 +35,15 @@ exports[`GasToken returns canonical protocol contract 3`] = `
   },
   {
     "isInternal": false,
+    "selector": Selector<0x5b7863df>,
+  },
+  {
+    "isInternal": false,
     "selector": Selector<0x69e04dfd>,
   },
   {
     "isInternal": false,
     "selector": Selector<0x6bfd1d5b>,
-  },
-  {
-    "isInternal": false,
-    "selector": Selector<0xcbfc21a6>,
   },
 ]
 `;

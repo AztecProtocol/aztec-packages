@@ -5,12 +5,11 @@ Summary
  - [pess-dubious-typecast](#pess-dubious-typecast) (9 results) (Medium)
  - [missing-zero-check](#missing-zero-check) (2 results) (Low)
  - [reentrancy-events](#reentrancy-events) (2 results) (Low)
- - [timestamp](#timestamp) (4 results) (Low)
- - [pess-public-vs-external](#pess-public-vs-external) (7 results) (Low)
+ - [timestamp](#timestamp) (1 results) (Low)
+ - [pess-public-vs-external](#pess-public-vs-external) (6 results) (Low)
  - [assembly](#assembly) (2 results) (Informational)
- - [dead-code](#dead-code) (5 results) (Informational)
+ - [dead-code](#dead-code) (3 results) (Informational)
  - [solc-version](#solc-version) (1 results) (Informational)
- - [low-level-calls](#low-level-calls) (1 results) (Informational)
  - [similar-names](#similar-names) (3 results) (Informational)
  - [constable-states](#constable-states) (1 results) (Optimization)
  - [pess-multiple-storage-read](#pess-multiple-storage-read) (6 results) (Optimization)
@@ -18,9 +17,9 @@ Summary
 Impact: High
 Confidence: Medium
  - [ ] ID-0
-Function [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L101) is a non-protected setter archive is written
+Function [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L57-L96) is a non-protected setter archive is written
 
-src/core/Rollup.sol#L58-L101
+src/core/Rollup.sol#L57-L96
 
 
 ## uninitialized-local
@@ -42,9 +41,9 @@ src/core/libraries/decoders/TxsDecoder.sol#L79
 Impact: Medium
 Confidence: Medium
  - [ ] ID-3
-[Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L101) ignores return value by [(l1ToL2Msgs,l2ToL1Msgs) = MessagesDecoder.decode(_body)](src/core/Rollup.sol#L74)
+[Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L57-L96) ignores return value by [(l2ToL1Msgs) = MessagesDecoder.decode(_body)](src/core/Rollup.sol#L73)
 
-src/core/Rollup.sol#L58-L101
+src/core/Rollup.sol#L57-L96
 
 
 ## pess-dubious-typecast
@@ -141,7 +140,7 @@ Confidence: Medium
 [NewInbox.constructor(address,uint256)._rollup](src/core/messagebridge/NewInbox.sol#L41) lacks a zero-check on :
 		- [ROLLUP = _rollup](src/core/messagebridge/NewInbox.sol#L42)
 
-src/core/messagebridge/NewInbox.sol#L41
+src/core/messagebridge/Inbox.sol#L40
 
 
  - [ ] ID-14
@@ -157,23 +156,22 @@ Confidence: Medium
  - [ ] ID-15
 Reentrancy in [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L62-L99):
 	External calls:
-	- [index = currentTree.insertLeaf(leaf)](src/core/messagebridge/NewInbox.sol#L95)
+	- [index = currentTree.insertLeaf(leaf)](src/core/messagebridge/Inbox.sol#L91)
 	Event emitted after the call(s):
-	- [LeafInserted(inProgress,index,leaf)](src/core/messagebridge/NewInbox.sol#L96)
+	- [LeafInserted(inProgress,index,leaf)](src/core/messagebridge/Inbox.sol#L92)
 
-src/core/messagebridge/NewInbox.sol#L62-L99
+src/core/messagebridge/Inbox.sol#L61-L95
 
 
  - [ ] ID-16
 Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L58-L101):
 	External calls:
-	- [inbox.batchConsume(l1ToL2Msgs,msg.sender)](src/core/Rollup.sol#L90)
-	- [inHash = NEW_INBOX.consume()](src/core/Rollup.sol#L92)
-	- [outbox.sendL1Messages(l2ToL1Msgs)](src/core/Rollup.sol#L98)
+	- [inHash = INBOX.consume()](src/core/Rollup.sol#L87)
+	- [outbox.sendL1Messages(l2ToL1Msgs)](src/core/Rollup.sol#L93)
 	Event emitted after the call(s):
-	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L100)
+	- [L2BlockProcessed(header.globalVariables.blockNumber)](src/core/Rollup.sol#L95)
 
-src/core/Rollup.sol#L58-L101
+src/core/Rollup.sol#L57-L96
 
 
 ## timestamp
@@ -232,7 +230,7 @@ src/core/messagebridge/Registry.sol#L22-L129
 The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L30-L110) contract:
 	[Rollup.constructor(IRegistry,IAvailabilityOracle)](src/core/Rollup.sol#L43-L49)
 
-src/core/Rollup.sol#L30-L110
+src/core/messagebridge/Inbox.sol#L24-L124
 
 
  - [ ] ID-24
@@ -302,7 +300,7 @@ src/core/messagebridge/Outbox.sol#L114-L116
  - [ ] ID-32
 [Hash.sha256ToField(bytes32)](src/core/libraries/Hash.sol#L59-L61) is never used and should be removed
 
-src/core/libraries/Hash.sol#L59-L61
+src/core/libraries/Hash.sol#L52-L54
 
 
  - [ ] ID-33
@@ -351,7 +349,7 @@ src/core/libraries/ConstantsGen.sol#L110
  - [ ] ID-39
 Variable [Rollup.AVAILABILITY_ORACLE](src/core/Rollup.sol#L33) is too similar to [Rollup.constructor(IRegistry,IAvailabilityOracle)._availabilityOracle](src/core/Rollup.sol#L43)
 
-src/core/Rollup.sol#L33
+src/core/Rollup.sol#L32
 
 
 ## constable-states
@@ -360,7 +358,7 @@ Confidence: High
  - [ ] ID-40
 [Rollup.lastWarpedBlockTs](src/core/Rollup.sol#L41) should be constant 
 
-src/core/Rollup.sol#L41
+src/core/Rollup.sol#L40
 
 
 ## pess-multiple-storage-read
@@ -375,7 +373,7 @@ src/core/messagebridge/NewOutbox.sol#L44-L64
  - [ ] ID-42
 In a function [NewInbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/NewInbox.sol#L62-L99) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L37) is read multiple times
 
-src/core/messagebridge/NewInbox.sol#L62-L99
+src/core/messagebridge/Inbox.sol#L104-L123
 
 
  - [ ] ID-43
@@ -387,7 +385,7 @@ src/core/messagebridge/frontier_tree/Frontier.sol#L48-L81
  - [ ] ID-44
 In a function [NewInbox.consume()](src/core/messagebridge/NewInbox.sol#L108-L127) variable [NewInbox.inProgress](src/core/messagebridge/NewInbox.sol#L37) is read multiple times
 
-src/core/messagebridge/NewInbox.sol#L108-L127
+src/core/messagebridge/Inbox.sol#L61-L95
 
 
  - [ ] ID-45

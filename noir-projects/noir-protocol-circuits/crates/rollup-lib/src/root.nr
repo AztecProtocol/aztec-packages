@@ -60,9 +60,6 @@ mod tests {
 
     #[test]
     fn check_block_hashes_empty_blocks() {
-        let digest = dep::std::hash::sha256([0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES]);
-        let expected_messages_hash = [ field_from_bytes_32_trunc(digest) ];
-
         let expected_txs_effects_hash = accumulate_sha256(
             [1, 2]
         );
@@ -72,8 +69,6 @@ mod tests {
 
         // check txs effects hash
         assert_eq(outputs.header.content_commitment.txs_effects_hash, expected_txs_effects_hash);
-        // Check messages hash
-        assert_eq(outputs.l1_to_l2_messages_hash, expected_messages_hash);
     }
 
     #[test]

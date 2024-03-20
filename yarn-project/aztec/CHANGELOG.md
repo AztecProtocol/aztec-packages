@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.30.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.29.0...aztec-package-v0.30.0) (2024-03-19)
+
+
+### Miscellaneous
+
+* Add gas portal to l1 contract addresses ([#5265](https://github.com/AztecProtocol/aztec-packages/issues/5265)) ([640c89a](https://github.com/AztecProtocol/aztec-packages/commit/640c89a04d7b780795d40e239be3b3db73a16923)), closes [#5022](https://github.com/AztecProtocol/aztec-packages/issues/5022)
+
+## [0.29.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.28.1...aztec-package-v0.29.0) (2024-03-18)
+
+
+### Features
+
+* Initial Earthly CI ([#5069](https://github.com/AztecProtocol/aztec-packages/issues/5069)) ([8e75fe5](https://github.com/AztecProtocol/aztec-packages/commit/8e75fe5c47250e860a4eae4dbf0973c503221720))
+
 ## [0.28.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.28.0...aztec-package-v0.28.1) (2024-03-14)
 
 

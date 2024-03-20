@@ -1,12 +1,11 @@
 import {
   Body,
   GetUnencryptedLogsResponse,
-  L1ToL2Message,
+  InboxLeaf,
   L2Block,
   L2BlockL2Logs,
   LogFilter,
   LogType,
-  NewInboxLeaf,
   TxEffect,
   TxHash,
   TxReceipt,
@@ -15,19 +14,16 @@ import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
+import { DataRetrieval } from './data_retrieval.js';
+
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
  */
 export type ArchiverL1SynchPoint = {
   /** The last L1 block that added a new L2 block.  */
-  addedBlock: bigint;
-  /** The last L1 block that added messages from the new inbox. */
-  // TODO(#4492): Clean this up and fix the naming
-  newMessages: bigint;
-  /** The last L1 block that added pending messages */
-  addedMessages: bigint;
-  /** The last L1 block that cancelled messages */
-  cancelledMessages: bigint;
+  blocks: bigint;
+  /** The last L1 block that added L1 -> L2 messages from the Inbox. */
+  messages: bigint;
 };
 
 /**
@@ -37,10 +33,10 @@ export type ArchiverL1SynchPoint = {
 export interface ArchiverDataStore {
   /**
    * Append new blocks to the store's list.
-   * @param blocks - The L2 blocks to be added to the store.
+   * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: L2Block[]): Promise<boolean>;
+  addBlocks(blocks: DataRetrieval<L2Block>): Promise<boolean>;
 
   /**
    * Append new block bodies to the store's list.
@@ -93,59 +89,25 @@ export interface ArchiverDataStore {
   ): Promise<boolean>;
 
   /**
-   * Append new L1 to L2 messages to the store.
-   * @param messages - The L1 to L2 messages to be added to the store.
-   * @param lastMessageL1BlockNumber - The L1 block number in which the last message was emitted.
+   * Append L1 to L2 messages to the store.
+   * @param messages - The L1 to L2 messages to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addNewL1ToL2Messages(messages: NewInboxLeaf[], lastMessageL1BlockNumber: bigint): Promise<boolean>;
+  addL1ToL2Messages(messages: DataRetrieval<InboxLeaf>): Promise<boolean>;
 
   /**
-   * Append new pending L1 to L2 messages to the store.
-   * @param messages - The L1 to L2 messages to be added to the store.
-   * @param l1BlockNumber - The block number of the L1 block that added the messages.
-   * @returns True if the operation is successful.
-   * TODO(#4492): Nuke the following when purging the old inbox
-   */
-  addPendingL1ToL2Messages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean>;
-
-  /**
-   * Remove pending L1 to L2 messages from the store (if they were cancelled).
-   * @param entryKeys - The entry keys to be removed from the store.
-   * @param l1BlockNumber - The block number of the L1 block that cancelled the messages.
-   * @returns True if the operation is successful.
-   * TODO(#4492): Nuke the following when purging the old inbox
-   */
-  cancelPendingL1ToL2EntryKeys(entryKeys: Fr[], l1BlockNumber: bigint): Promise<boolean>;
-
-  /**
-   * Messages that have been published in an L2 block are confirmed.
-   * Add them to the confirmed store, also remove them from the pending store.
-   * @param entryKeys - The entry keys to be removed from the store.
-   * @returns True if the operation is successful.
-   */
-  confirmL1ToL2EntryKeys(entryKeys: Fr[]): Promise<boolean>;
-
-  /**
-   * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
-   * @param limit - The number of entries to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
-   * @returns The requested L1 to L2 entry keys.
-   */
-  getPendingL1ToL2EntryKeys(limit: number): Promise<Fr[]>;
-
-  /**
-   * Gets the confirmed L1 to L2 message corresponding to the given entry key.
-   * @param entryKey - The entry key to look up.
-   * @returns The requested L1 to L2 message or throws if not found.
-   */
-  getConfirmedL1ToL2Message(entryKey: Fr): Promise<L1ToL2Message>;
-
-  /**
-   * Gets new L1 to L2 message (to be) included in a given block.
+   * Gets L1 to L2 message (to be) included in a given block.
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getNewL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
+  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
+
+  /**
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * @param l1ToL2Message - The L1 to L2 message.
+   * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
+   */
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined>;
 
   /**
    * Gets up to `limit` amount of logs starting from `from`.
@@ -167,12 +129,12 @@ export interface ArchiverDataStore {
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
-  getBlockNumber(): Promise<number>;
+  getSynchedL2BlockNumber(): Promise<number>;
 
   /**
-   * Gets the last L1 block number processed by the archiver
+   * Gets the synch point of the archiver
    */
-  getL1BlockNumber(): Promise<ArchiverL1SynchPoint>;
+  getSynchedL1BlockNumbers(): Promise<ArchiverL1SynchPoint>;
 
   /**
    * Add new contract classes from an L2 block to the store's list.

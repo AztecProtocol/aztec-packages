@@ -1,4 +1,5 @@
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
@@ -10,7 +11,6 @@ import { NoteFilter } from '../notes/note_filter.js';
 import { Tx, TxHash, TxReceipt } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
-import { DeployedContract } from './deployed-contract.js';
 import { SyncStatus } from './sync-status.js';
 
 // docs:start:pxe-interface
@@ -99,14 +99,21 @@ export interface PXE {
   getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
+   * Registers a contract class in the PXE without registering any associated contract instance with it.
+   *
+   * @param artifact - The build artifact for the contract class.
+   */
+  registerContractClass(artifact: ContractArtifact): Promise<void>;
+
+  /**
    * Adds deployed contracts to the PXE Service. Deployed contract information is used to access the
    * contract code when simulating local transactions. This is automatically called by aztec.js when
    * deploying a contract. Dapps that wish to interact with contracts already deployed should register
    * these contracts in their users' PXE Service through this method.
    *
-   * @param contracts - An array of DeployedContract objects containing contract ABI, address, and portal contract.
+   * @param contract - A contract instance to register, with an optional artifact which can be omitted if the contract class has already been registered.
    */
-  addContracts(contracts: DeployedContract[]): Promise<void>;
+  registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }): Promise<void>;
 
   /**
    * Retrieves the addresses of contracts added to this PXE Service.

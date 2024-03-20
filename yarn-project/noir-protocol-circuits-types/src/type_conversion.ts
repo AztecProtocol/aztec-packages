@@ -1702,7 +1702,6 @@ export function mapRootRollupPublicInputsFromNoir(
     AggregationObject.makeFake(),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.archive),
     mapHeaderFromNoir(rootRollupPublicInputs.header),
-    mapTupleFromNoir(rootRollupPublicInputs.l1_to_l2_messages_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
   );
 }
 

@@ -6,7 +6,6 @@ import {
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   SentTx,
-  computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
 import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 import {
@@ -16,7 +15,7 @@ import {
   FPCContract,
   GasTokenContract,
 } from '@aztec/noir-contracts.js';
-import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
 import { jest } from '@jest/globals';
 
@@ -63,13 +62,16 @@ describe('e2e_dapp_subscription', () => {
 
   beforeAll(async () => {
     process.env.PXE_URL = '';
-    e2eContext = await setup(3, { deployProtocolContracts: true });
+    e2eContext = await setup(3);
     await publicDeployAccounts(e2eContext.wallet, e2eContext.accounts);
 
-    const { wallets, accounts, aztecNode } = e2eContext;
+    const { wallets, accounts, aztecNode, deployL1ContractsValues } = e2eContext;
 
     // this should be a SignerlessWallet but that can't call public functions directly
-    gasTokenContract = await GasTokenContract.at(GasTokenAddress, wallets[0]);
+    gasTokenContract = await GasTokenContract.at(
+      getCanonicalGasTokenAddress(deployL1ContractsValues.l1ContractAddresses.gasPortalAddress),
+      wallets[0],
+    );
 
     aliceAddress = accounts.at(0)!.address;
     bobAddress = accounts.at(1)!.address;
@@ -238,8 +240,7 @@ describe('e2e_dapp_subscription', () => {
   ) {
     const nonce = Fr.random();
     const action = bananaCoin.methods.transfer(aliceAddress, bobAddress, SUBSCRIPTION_AMOUNT, nonce);
-    const messageHash = computeAuthWitMessageHash(subscriptionContract.address, action.request());
-    await aliceWallet.createAuthWitness(messageHash);
+    await aliceWallet.createAuthWit({ caller: subscriptionContract.address, action });
 
     return subscriptionContract
       .withWallet(aliceWallet)
