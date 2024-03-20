@@ -1,6 +1,6 @@
 use crate::abis::{
     accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
-    validation_requests::{RollupValidationRequests, ValidationRequests}
+    validation_requests::ValidationRequests
 };
 use crate::mocked::AggregationObject;
 
