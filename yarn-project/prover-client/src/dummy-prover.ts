@@ -19,7 +19,6 @@ export class DummyProver implements ProverClient {
     _numTxs: number,
     _globalVariables: GlobalVariables,
     _newL1ToL2Messages: Fr[],
-    _newModelL1ToL2Messages: Fr[],
     _emptyTx: ProcessedTx,
   ): Promise<ProvingResult> {
     const result: ProvingResult = {

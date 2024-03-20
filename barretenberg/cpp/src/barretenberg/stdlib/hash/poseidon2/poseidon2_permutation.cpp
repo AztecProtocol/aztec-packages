@@ -16,8 +16,8 @@ namespace bb::stdlib {
  */
 template <typename Params, typename Builder>
 typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Params, Builder>::permutation(
-    Builder* builder,
-    const typename Poseidon2Permutation<Params, Builder>::State& input) requires IsGoblinBuilder<Builder>
+    Builder* builder, const typename Poseidon2Permutation<Params, Builder>::State& input)
+    requires IsGoblinBuilder<Builder>
 {
     // deep copy
     State current_state(input);
@@ -119,8 +119,8 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
  */
 template <typename Params, typename Builder>
 typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Params, Builder>::permutation(
-    Builder* builder,
-    const typename Poseidon2Permutation<Params, Builder>::State& input) requires IsNotGoblinBuilder<Builder>
+    Builder* builder, const typename Poseidon2Permutation<Params, Builder>::State& input)
+    requires IsNotGoblinBuilder<Builder>
 {
     // deep copy
     State current_state(input);
@@ -155,8 +155,8 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
 
 template <typename Params, typename Builder>
 void Poseidon2Permutation<Params, Builder>::add_round_constants(
-    State& input,
-    const typename Poseidon2Permutation<Params, Builder>::RoundConstants& rc) requires IsNotGoblinBuilder<Builder>
+    State& input, const typename Poseidon2Permutation<Params, Builder>::RoundConstants& rc)
+    requires IsNotGoblinBuilder<Builder>
 
 {
     for (size_t i = 0; i < t; ++i) {
@@ -165,7 +165,8 @@ void Poseidon2Permutation<Params, Builder>::add_round_constants(
 }
 
 template <typename Params, typename Builder>
-void Poseidon2Permutation<Params, Builder>::apply_sbox(State& input) requires IsNotGoblinBuilder<Builder>
+void Poseidon2Permutation<Params, Builder>::apply_sbox(State& input)
+    requires IsNotGoblinBuilder<Builder>
 {
     for (auto& in : input) {
         apply_single_sbox(in);
@@ -173,8 +174,8 @@ void Poseidon2Permutation<Params, Builder>::apply_sbox(State& input) requires Is
 }
 
 template <typename Params, typename Builder>
-void Poseidon2Permutation<Params, Builder>::apply_single_sbox(field_t<Builder>& input) requires
-    IsNotGoblinBuilder<Builder>
+void Poseidon2Permutation<Params, Builder>::apply_single_sbox(field_t<Builder>& input)
+    requires IsNotGoblinBuilder<Builder>
 {
     // hardcoded assumption that d = 5. should fix this or not make d configurable
     auto xx = input.sqr();
@@ -183,8 +184,8 @@ void Poseidon2Permutation<Params, Builder>::apply_single_sbox(field_t<Builder>& 
 }
 
 template <typename Params, typename Builder>
-void Poseidon2Permutation<Params, Builder>::matrix_multiplication_internal(State& input) requires
-    IsNotGoblinBuilder<Builder>
+void Poseidon2Permutation<Params, Builder>::matrix_multiplication_internal(State& input)
+    requires IsNotGoblinBuilder<Builder>
 {
     // for t = 4
     auto sum = input[0];

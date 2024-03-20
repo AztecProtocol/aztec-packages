@@ -34,7 +34,7 @@ import { fr, makeNewSideEffect, makeNewSideEffectLinkedToNoteHash, makeProof } f
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { AvailabilityOracleAbi, InboxAbi, NewInboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { TxProver } from '@aztec/prover-client';
 import { L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
 import { MerkleTrees, ServerWorldStateSynchronizer, WorldStateConfig } from '@aztec/world-state';
@@ -315,12 +315,7 @@ describe('L1Publisher integration', () => {
     l1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
   ) => {
-    const blockPromise = builder.startNewBlock(
-      txs.length,
-      globalVariables,
-      l1ToL2Messages,
-      emptyTx,
-    );
+    const blockPromise = builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages, emptyTx);
     for (const tx of txs) {
       builder.addNewTx(tx);
     }
@@ -390,12 +385,7 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const result = await buildBlock(
-        globalVariables,
-        txs,
-        currentL1ToL2Messages,
-        makeEmptyProcessedTx(),
-      );
+      const result = await buildBlock(globalVariables, txs, currentL1ToL2Messages, makeEmptyProcessedTx());
       const block = result.block;
       prevHeader = block.header;
 
