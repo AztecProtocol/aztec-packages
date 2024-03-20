@@ -24,7 +24,7 @@ import {
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import { fr, makeNewSideEffect, makeNewSideEffectLinkedToNoteHash, makeProof } from '@aztec/circuits.js/testing';
-import { createEthereumChain } from '@aztec/ethereum';
+import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -73,6 +73,7 @@ const numberOfConsecutiveBlocks = 2;
 
 describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
+  let l1ContractAddresses: L1ContractAddresses;
   let deployerAccount: PrivateKeyAccount;
 
   let rollupAddress: Address;
@@ -80,7 +81,7 @@ describe('L1Publisher integration', () => {
   let outboxAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
-  let inbox: GetContractReturnType<typeof InboxAbi, WalletClient<HttpTransport, Chain>>;
+  let inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
@@ -102,12 +103,7 @@ describe('L1Publisher integration', () => {
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
-    const {
-      l1ContractAddresses,
-      walletClient,
-      publicClient: publicClient_,
-    } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger);
-    publicClient = publicClient_;
+    ({ l1ContractAddresses, publicClient } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger));
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
@@ -122,12 +118,12 @@ describe('L1Publisher integration', () => {
     inbox = getContract({
       address: inboxAddress,
       abi: InboxAbi,
-      client: walletClient,
+      client: publicClient,
     });
     outbox = getContract({
       address: outboxAddress,
       abi: OutboxAbi,
-      client: walletClient,
+      client: publicClient,
     });
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
