@@ -232,13 +232,17 @@ contract TokenPortalTest is Test {
     vm.startPrank(_caller);
     (bytes32 l2ToL1MessageHash, bytes32 consumedRoot) = _createWithdrawMessageForOutbox(_caller);
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, treeRoot, consumedRoot, l2ToL1MessageHash, 0)
+      abi.encodeWithSelector(
+        Errors.MerkleLib__InvalidRoot.selector, treeRoot, consumedRoot, l2ToL1MessageHash, 0
+      )
     );
     tokenPortal.withdraw(recipient, withdrawAmount, true, l2BlockNumber, 0, siblingPath);
 
     (l2ToL1MessageHash, consumedRoot) = _createWithdrawMessageForOutbox(address(0));
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, treeRoot, consumedRoot, l2ToL1MessageHash, 0)
+      abi.encodeWithSelector(
+        Errors.MerkleLib__InvalidRoot.selector, treeRoot, consumedRoot, l2ToL1MessageHash, 0
+      )
     );
     tokenPortal.withdraw(recipient, withdrawAmount, false, l2BlockNumber, 0, siblingPath);
     vm.stopPrank();
