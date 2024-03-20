@@ -407,7 +407,8 @@ size_t Circuit::prepare_gates(size_t cursor)
     // TODO(alex): Test the effect of this relaxation after the tests are merged.
     if (univariate_flag) {
         if ((q_m == 1) && (q_1 == 0) && (q_2 == 0) && (q_3 == -1) && (q_c == 0)) {
-            (Bool(symbolic_vars[w_l]) == Bool(STerm(0, this->solver, this->type)) | Bool(symbolic_vars[w_l]) == Bool(STerm(1, this->solver, this->type)))
+            (Bool(symbolic_vars[w_l]) == Bool(STerm(0, this->solver, this->type)) |
+             Bool(symbolic_vars[w_l]) == Bool(STerm(1, this->solver, this->type)))
                 .assert_term();
         } else {
             this->handle_univariate_constraint(q_m, q_1, q_2, q_3, q_c, w_l);
