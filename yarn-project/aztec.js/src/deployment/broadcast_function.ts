@@ -1,12 +1,9 @@
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-  computeArtifactFunctionTree,
-  computeArtifactFunctionTreeRoot,
-  computeArtifactMetadataHash,
-  computeFunctionArtifactHash,
   computeVerificationKeyHash,
   createPrivateFunctionMembershipProof,
+  createUnconstrainedFunctionMembershipProof,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/foundation/abi';
@@ -81,23 +78,23 @@ export function broadcastUnconstrainedFunction(
   artifact: ContractArtifact,
   selector: FunctionSelector,
 ): ContractFunctionInteraction {
+  const contractClass = getContractClassFromArtifact(artifact);
   const functionArtifactIndex = artifact.functions.findIndex(
-    fn => fn.functionType === FunctionType.UNCONSTRAINED && FunctionSelector.fromNameAndParameters(fn).equals(selector),
+    fn => fn.functionType === FunctionType.UNCONSTRAINED && selector.equals(fn),
   );
   if (functionArtifactIndex < 0) {
     throw new Error(`Unconstrained function with selector ${selector.toString()} not found`);
   }
   const functionArtifact = artifact.functions[functionArtifactIndex];
 
-  // TODO(@spalladino): Same comment as above on computing duplicated hashes.
-  const artifactMetadataHash = computeArtifactMetadataHash(artifact);
-  const privateArtifactFunctionTreeRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.SECRET);
-  const functionTreePath = computeArtifactFunctionTree(artifact, FunctionType.UNCONSTRAINED)!.getSiblingPath(
-    functionArtifactIndex,
-  );
+  const {
+    artifactMetadataHash,
+    artifactTreeLeafIndex,
+    artifactTreeSiblingPath,
+    functionMetadataHash,
+    privateFunctionsArtifactTreeRoot,
+  } = createUnconstrainedFunctionMembershipProof(selector, artifact);
 
-  const contractClassId = getContractClassFromArtifact(artifact).id;
-  const metadataHash = computeFunctionArtifactHash(functionArtifact);
   const bytecode = bufferAsFields(
     Buffer.from(functionArtifact.bytecode, 'base64'),
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
@@ -105,11 +102,12 @@ export function broadcastUnconstrainedFunction(
 
   const registerer = getRegistererContract(wallet);
   return registerer.methods.broadcast_unconstrained_function(
-    contractClassId,
+    contractClass.id,
     artifactMetadataHash,
-    privateArtifactFunctionTreeRoot,
-    padArrayEnd(functionTreePath.map(Fr.fromBufferReduce), Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
+    privateFunctionsArtifactTreeRoot,
+    padArrayEnd(artifactTreeSiblingPath, Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
+    artifactTreeLeafIndex,
     // eslint-disable-next-line camelcase
-    { selector, metadata_hash: metadataHash, bytecode },
+    { selector, metadata_hash: functionMetadataHash, bytecode },
   );
 }

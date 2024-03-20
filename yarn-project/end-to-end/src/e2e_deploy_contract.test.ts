@@ -300,19 +300,23 @@ describe('e2e_deploy_contract', () => {
       writeTestData('yarn-project/circuits.js/fixtures/PrivateFunctionBroadcastedEventData.hex', logData);
 
       const fetchedClass = await aztecNode.getContractClass(contractClass.id);
-      const fetchedPrivateFunction = fetchedClass!.privateFunctions[0]!;
-      expect(fetchedPrivateFunction).toBeDefined();
-      expect(fetchedPrivateFunction.selector).toEqual(selector);
+      const fetchedFunction = fetchedClass!.privateFunctions[0]!;
+      expect(fetchedFunction).toBeDefined();
+      expect(fetchedFunction.selector).toEqual(selector);
     }, 60_000);
 
-    // TODO(@spalladino): Reenable this test
-    it.skip('broadcasts an unconstrained function', async () => {
+    it('broadcasts an unconstrained function', async () => {
       const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UNCONSTRAINED)!;
       const selector = FunctionSelector.fromNameAndParameters(functionArtifact);
       const tx = await broadcastUnconstrainedFunction(wallet, artifact, selector).send().wait();
       const logs = await pxe.getUnencryptedLogs({ txHash: tx.txHash });
       const logData = logs.logs[0].log.data;
-      writeTestData('yarn-project/circuits.js/fixtures/UnconstrainedFunctionBroadcastedEvent.hex', logData);
+      writeTestData('yarn-project/circuits.js/fixtures/UnconstrainedFunctionBroadcastedEventData.hex', logData);
+
+      const fetchedClass = await aztecNode.getContractClass(contractClass.id);
+      const fetchedFunction = fetchedClass!.unconstrainedFunctions[0]!;
+      expect(fetchedFunction).toBeDefined();
+      expect(fetchedFunction.selector).toEqual(selector);
     }, 60_000);
 
     const testDeployingAnInstance = (how: string, deployFn: (toDeploy: ContractInstanceWithAddress) => Promise<void>) =>

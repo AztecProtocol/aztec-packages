@@ -94,6 +94,7 @@ contract ContractClassRegisterer {
         artifact_metadata_hash: Field,
         private_functions_artifact_tree_root: Field,
         artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
+        artifact_function_tree_leaf_index: Field,
         function_data: UnconstrainedFunction
     ) {
         let event = ClassUnconstrainedFunctionBroadcasted {
@@ -101,6 +102,7 @@ contract ContractClassRegisterer {
             artifact_metadata_hash,
             private_functions_artifact_tree_root,
             artifact_function_tree_sibling_path,
+            artifact_function_tree_leaf_index,
             function: function_data
         };
         dep::aztec::oracle::debug_log::debug_log_array_with_prefix(
