@@ -267,13 +267,14 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     auto circuit_size = proving_key->circuit_size;
 
     // Generate eta, beta and gamma
-    FF eta = FF::random_element();
-    FF beta = FF::random_element();
-    FF gamma = FF::random_element();
+    instance->relation_parameters.eta = FF::random_element();
+    instance->relation_parameters.beta = FF::random_element();
+    instance->relation_parameters.gamma = FF::random_element();
 
+    instance->proving_key->compute_sorted_accumulator_polynomials(instance->relation_parameters.eta);
     instance->prover_polynomials = Flavor::ProverPolynomials(instance->proving_key);
-    instance->compute_sorted_accumulator_polynomials(eta);
-    instance->compute_grand_product_polynomials(beta, gamma);
+    instance->compute_grand_product_polynomials(instance->relation_parameters.beta,
+                                                instance->relation_parameters.gamma);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key->q_arith);
@@ -319,14 +320,15 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     auto circuit_size = proving_key->circuit_size;
 
     // Generate eta, beta and gamma
-    FF eta = FF::random_element();
-    FF beta = FF::random_element();
-    FF gamma = FF::random_element();
+    instance->relation_parameters.eta = FF::random_element();
+    instance->relation_parameters.beta = FF::random_element();
+    instance->relation_parameters.gamma = FF::random_element();
 
+    instance->proving_key->compute_sorted_accumulator_polynomials(instance->relation_parameters.eta);
     instance->prover_polynomials = Flavor::ProverPolynomials(instance->proving_key);
-    instance->compute_sorted_accumulator_polynomials(eta);
-    instance->compute_logderivative_inverse(beta, gamma);
-    instance->compute_grand_product_polynomials(beta, gamma);
+    instance->compute_logderivative_inverse(instance->relation_parameters.beta, instance->relation_parameters.gamma);
+    instance->compute_grand_product_polynomials(instance->relation_parameters.beta,
+                                                instance->relation_parameters.gamma);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key->q_arith);

@@ -70,8 +70,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
 {
 
-    auto eta = transcript->template get_challenge<FF>(domain_separator + "eta");
-    instance->compute_sorted_accumulator_polynomials(eta);
+    instance->relation_parameters.eta = transcript->template get_challenge<FF>(domain_separator + "eta");
+    instance->proving_key->compute_sorted_accumulator_polynomials(instance->relation_parameters.eta);
 
     // Commit to the sorted witness-table accumulator and the finalized (i.e. with memory records) fourth wire
     // polynomial

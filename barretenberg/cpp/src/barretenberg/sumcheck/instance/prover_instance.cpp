@@ -74,58 +74,6 @@ void ProverInstance_<Flavor>::construct_table_polynomials(Circuit& circuit, size
     proving_key->table_4 = table_polynomials[3].share();
 }
 
-template <class Flavor> void ProverInstance_<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
-{
-    relation_parameters.eta = eta;
-    // Compute sorted witness-table accumulator
-    proving_key->compute_sorted_list_accumulator(eta);
-    prover_polynomials.sorted_accum = proving_key->sorted_accum.share();
-    prover_polynomials.sorted_accum_shift = proving_key->sorted_accum.shifted();
-
-    // Finalize fourth wire polynomial by adding lookup memory records
-    add_plookup_memory_records_to_wire_4(eta);
-    prover_polynomials.w_4 = proving_key->w_4.share();
-    prover_polynomials.w_4_shift = proving_key->w_4.shifted();
-}
-
-/**
- * @brief Add plookup memory records to the fourth wire polynomial
- *
- * @details This operation must be performed after the first three wires have been committed to, hence the dependence on
- * the `eta` challenge.
- *
- * @tparam Flavor
- * @param eta challenge produced after commitment to first three wire polynomials
- */
-template <class Flavor> void ProverInstance_<Flavor>::add_plookup_memory_records_to_wire_4(FF eta)
-{
-    // The plookup memory record values are computed at the indicated indices as
-    // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
-    // (See plookup_auxiliary_widget.hpp for details)
-    auto wires = proving_key->get_wires();
-
-    // Compute read record values
-    for (const auto& gate_idx : proving_key->memory_read_records) {
-        wires[3][gate_idx] += wires[2][gate_idx];
-        wires[3][gate_idx] *= eta;
-        wires[3][gate_idx] += wires[1][gate_idx];
-        wires[3][gate_idx] *= eta;
-        wires[3][gate_idx] += wires[0][gate_idx];
-        wires[3][gate_idx] *= eta;
-    }
-
-    // Compute write record values
-    for (const auto& gate_idx : proving_key->memory_write_records) {
-        wires[3][gate_idx] += wires[2][gate_idx];
-        wires[3][gate_idx] *= eta;
-        wires[3][gate_idx] += wires[1][gate_idx];
-        wires[3][gate_idx] *= eta;
-        wires[3][gate_idx] += wires[0][gate_idx];
-        wires[3][gate_idx] *= eta;
-        wires[3][gate_idx] += 1;
-    }
-}
-
 /**
  * @brief Compute the inverse polynomial used in the log derivative lookup argument
  *

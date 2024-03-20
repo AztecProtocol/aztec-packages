@@ -117,16 +117,19 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         construct_circuit(builder);
 
         auto instance = std::make_shared<ProverInstance>(builder);
-        instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
-        auto eta = FF::random_element();
-        auto beta = FF::random_element();
-        auto gamma = FF::random_element();
-        instance->compute_sorted_accumulator_polynomials(eta);
+        instance->relation_parameters.eta = FF::random_element();
+        instance->relation_parameters.beta = FF::random_element();
+        instance->relation_parameters.gamma = FF::random_element();
+
+        instance->proving_key->compute_sorted_accumulator_polynomials(instance->relation_parameters.eta);
+        instance->prover_polynomials = ProverPolynomials(instance->proving_key);
         if constexpr (IsGoblinFlavor<Flavor>) {
-            instance->compute_logderivative_inverse(beta, gamma);
+            instance->compute_logderivative_inverse(instance->relation_parameters.beta,
+                                                    instance->relation_parameters.gamma);
         }
-        instance->compute_grand_product_polynomials(beta, gamma);
+        instance->compute_grand_product_polynomials(instance->relation_parameters.beta,
+                                                    instance->relation_parameters.gamma);
 
         for (auto& alpha : instance->alphas) {
             alpha = FF::random_element();

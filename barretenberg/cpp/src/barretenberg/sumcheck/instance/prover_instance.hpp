@@ -86,8 +86,6 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_() = default;
     ~ProverInstance_() = default;
 
-    void compute_sorted_accumulator_polynomials(FF);
-
     void compute_logderivative_inverse(FF, FF)
         requires IsGoblinFlavor<Flavor>;
 
@@ -107,8 +105,6 @@ template <class Flavor> class ProverInstance_ {
         requires IsGoblinFlavor<Flavor>;
 
     void construct_table_polynomials(Circuit&, size_t);
-
-    void add_plookup_memory_records_to_wire_4(FF);
 };
 
 } // namespace bb
