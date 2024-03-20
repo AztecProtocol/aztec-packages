@@ -80,13 +80,13 @@
     "inArgs": [
       {
         "name": "inputs_buffer",
-        "type": "bb::fr::vec_in_buf"
+        "type": "fr::vec_in_buf"
       }
     ],
     "outArgs": [
       {
         "name": "output",
-        "type": "bb::fr::out_buf"
+        "type": "fr::out_buf"
       }
     ],
     "isAsync": false
@@ -96,13 +96,13 @@
     "inArgs": [
       {
         "name": "inputs_buffer",
-        "type": "bb::fr::vec_in_buf"
+        "type": "fr::vec_in_buf"
       }
     ],
     "outArgs": [
       {
         "name": "output",
-        "type": "bb::fr::out_buf"
+        "type": "fr::out_buf"
       }
     ],
     "isAsync": false
