@@ -25,8 +25,8 @@ pub fn xor(lhs: JsString, rhs: JsString) -> JsString {
 /// Sha256 compression function
 #[wasm_bindgen]
 pub fn sha256_compression(inputs: &[u32], state: &[u32]) -> Vec<u32> {
-    let mut state :[u32; 8] = state.try_into().unwrap();
-    let inputs :[u32; 16] = inputs.try_into().unwrap();
+    let mut state: [u32; 8] = state.try_into().unwrap();
+    let inputs: [u32; 16] = inputs.try_into().unwrap();
     acvm::blackbox_solver::sha256_compression(&mut state, &inputs);
     state.to_vec()
 }
