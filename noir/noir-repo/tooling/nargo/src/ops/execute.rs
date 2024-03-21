@@ -75,7 +75,7 @@ pub fn execute_circuit<B: BlackBoxFunctionSolver, F: ForeignCallExecutor>(
                     }
                 }
             }
-            ACVMStatus::RequiresAcirCall(acir_call) => {
+            ACVMStatus::RequiresAcirCall(_) => {
                 unreachable!("hit RequiresAcirCall status, should have used program executor");
             }
         }
