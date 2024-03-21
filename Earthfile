@@ -3,11 +3,11 @@ FROM ubuntu:lunar
 
 build-ci:
     BUILD ./avm-transpiler/+build
-    BUILD ./barretenberg/cpp/+build-release
+    BUILD ./barretenberg/cpp/+preset-release
     BUILD ./barretenberg/cpp/+preset-wasm
-    BUILD ./barretenberg/cpp/+build-gcc
-    BUILD ./barretenberg/cpp/+build-fuzzing
-    BUILD ./barretenberg/cpp/+build-clang-assert
+    BUILD ./barretenberg/cpp/+preset-gcc
+    BUILD ./barretenberg/cpp/+preset-fuzzing
+    BUILD ./barretenberg/cpp/+preset-clang-assert
     BUILD ./barretenberg/cpp/+test-clang-format
     BUILD ./boxes/+build
     BUILD ./noir/+packages
