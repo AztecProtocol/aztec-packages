@@ -139,7 +139,6 @@ test-all:
   # TODO we need to limit earthly parallelism or sometimes get
   # 'failed to solve: failed to get edge: inconsistent graph state'
   # so we use arbitrary WAIT statement groups. Pending earthly support.
-  failed to get edge: inconsistent graph state
   BUILD +e2e-state-vars
   BUILD +e2e-block-building
   BUILD +e2e-nested-contract
