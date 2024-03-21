@@ -1,6 +1,4 @@
 #pragma once
-#include "barretenberg/commitment_schemes/gemini/gemini.hpp"
-#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/flavor/ecc_vm.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
@@ -70,12 +68,7 @@ template <IsECCVMFlavor Flavor> class ECCVMProver_ {
     FF translation_batching_challenge_v; // to be rederived by the translator verifier
 
     SumcheckOutput<Flavor> sumcheck_output;
-    GeminiProverOutput<Curve> gemini_output;
-    ShplonkProverOutput<Curve> shplonk_output;
     std::shared_ptr<PCSCommitmentKey> commitment_key;
-
-    using Gemini = GeminiProver_<Curve>;
-    using Shplonk = ShplonkProver_<Curve>;
 
   private:
     HonkProof proof;

@@ -185,7 +185,8 @@ template <IsECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_co
         batching_scalar *= ipa_batching_challenge;
     }
 
-    // Compute a proof for the batched univariate opening
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/922): We are doing another round of IPA here with
+    // exactly the same labels and no domain separation so if/when labels are going to matter we are clashing.
     PCS::compute_opening_proof(
         commitment_key, { evaluation_challenge_x, batched_evaluation }, batched_univariate, transcript);
 
@@ -195,7 +196,7 @@ template <IsECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_co
 
 template <IsECCVMFlavor Flavor> HonkProof& ECCVMProver_<Flavor>::export_proof()
 {
-    proof = transcript->export_proof();
+    proof = transcript->proof_data;
     return proof;
 }
 

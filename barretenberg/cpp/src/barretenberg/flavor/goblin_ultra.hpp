@@ -515,7 +515,7 @@ class GoblinUltraFlavor {
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
         Commitment zm_cq_comm;
-        Commitment zm_pi_comm;
+        Commitment kzg_w_comm;
 
         Transcript_() = default;
 
@@ -574,7 +574,7 @@ class GoblinUltraFlavor {
                 zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
             zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
         }
 
         void serialize_full_transcript()
@@ -610,7 +610,7 @@ class GoblinUltraFlavor {
                 serialize_to_buffer(zm_cq_comms[i], proof_data);
             }
             serialize_to_buffer(zm_cq_comm, proof_data);
-            serialize_to_buffer(zm_pi_comm, proof_data);
+            serialize_to_buffer(kzg_w_comm, proof_data);
 
             ASSERT(proof_data.size() == old_proof_length);
         }

@@ -711,7 +711,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
             std::vector<FF> scalars = { FF(builder, 1), z_challenge };
             std::vector<Commitment> points = { C_zeta_x, C_Z_x };
             C_zeta_Z = Commitment::batch_mul(points, scalars);
-            evaluation = FF::from_witness(builder, 0);
+            evaluation = FF(builder, 0);
         } else {
             C_zeta_Z = C_zeta_x + C_Z_x * z_challenge;
             evaluation = FF(0);
@@ -786,7 +786,7 @@ template <typename PCS> class ZeroMorphVerifier_ {
         // Retrieve the first element in the SRS [1]_1 which will be different depending on the curve we operate on
         if constexpr (Curve::is_stdlib_type) {
             auto builder = multivariate_challenge[0].get_context();
-            first_g1 = Commitment::from_witness(builder, vk->srs->get_first_g1());
+            first_g1 = Commitment(builder, vk->srs->get_first_g1());
         } else {
             first_g1 = vk->srs->get_first_g1();
         }

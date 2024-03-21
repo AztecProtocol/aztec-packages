@@ -110,8 +110,10 @@ template <typename Curve_> class IPA {
      *2. Receive the generator challenge \f$u\f$ from the verifier. If it is zero, abort
      *3. Compute the auxiliary generator \f$U=u\cdot G\f$, where \f$G\f$ is a generator of \f$E(\mathbb{F}_p)\f$​
      *4. Set \f$\vec{G}_{k}=\vec{G}\f$, \f$\vec{a}_{k}=\vec{p}\f$ where \f$vec{p}\f$ represent the polynomial's
-     coefficients *5. Compute the vector \f$\vec{b}_{k}=(1,\beta,\beta^2,...,\beta^{d-1})\f$ where \f$p(\beta)$\f is the
-     evaluation we wish to prove *6. Perform \f$k\f$ rounds (for \f$i \in \{k,...,1\}\f$) of:
+     *coefficients 
+ .   *5. Compute the vector \f$\vec{b}_{k}=(1,\beta,\beta^2,...,\beta^{d-1})\f$ where \f$p(\beta)$\f is the
+     evaluation we wish to prove.
+     *6. Perform \f$k\f$ rounds (for \f$i \in \{k,...,1\}\f$) of:
      *   1. Compute
      \f$L_{i-1}=\langle\vec{a}_{i\_low},\vec{G}_{i\_high}\rangle+\langle\vec{a}_{i\_low},\vec{b}_{i\_high}\rangle\cdot
      U\f$​
@@ -352,7 +354,6 @@ template <typename Curve_> class IPA {
         auto aux_generator = Commitment::one() * generator_challenge;
 
         auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
-
         // Step 3.
         // Compute C' = C + f(\beta) ⋅ U
         GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
