@@ -375,9 +375,8 @@ class UltraFlavor {
             relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
             // Compute permutation and lookup grand product polynomials
-            auto proving_key_ptr = std::make_shared<ProvingKey>(*this);
-            auto prover_polynomials = ProverPolynomials(proving_key_ptr);
-            compute_grand_products<UltraFlavor>(proving_key_ptr, prover_polynomials, relation_parameters);
+            auto prover_polynomials = ProverPolynomials(this);
+            compute_grand_products<UltraFlavor>(*this, prover_polynomials, relation_parameters);
             this->z_perm = prover_polynomials.z_perm;
             this->z_lookup = prover_polynomials.z_lookup;
         }
@@ -408,6 +407,17 @@ class UltraFlavor {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
+        ProverPolynomials(ProvingKey* proving_key)
+        {
+            for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key->get_all())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(*proving_key, key_poly));
+                prover_poly = key_poly.share();
+            }
+            for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key->get_to_be_shifted())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(*proving_key, key_poly) + "_shift"));
+                prover_poly = key_poly.shifted();
+            }
+        }
         ProverPolynomials(std::shared_ptr<ProvingKey>& proving_key)
         {
             for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key->get_all())) {
