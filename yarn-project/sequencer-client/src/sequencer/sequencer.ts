@@ -11,10 +11,10 @@ import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
 
 import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { L1Publisher } from '../publisher/l1-publisher.js';
+import { WorldStatePublicDB } from '../simulator/public_executor.js';
 import { SequencerConfig } from './config.js';
 import { PublicProcessorFactory } from './public_processor.js';
 import { TxValidator } from './tx_validator.js';
-import { WorldStatePublicDB } from '../simulator/public_executor.js';
 
 /**
  * Sequencer client
@@ -302,12 +302,7 @@ export class Sequencer {
     emptyTx: ProcessedTx,
     globalVariables: GlobalVariables,
   ) {
-    const blockPromise = this.prover.startNewBlock(
-      txs.length,
-      globalVariables,
-      l1ToL2Messages,
-      emptyTx,
-    );
+    const blockPromise = this.prover.startNewBlock(txs.length, globalVariables, l1ToL2Messages, emptyTx);
 
     for (const tx of txs) {
       this.prover.addNewTx(tx);

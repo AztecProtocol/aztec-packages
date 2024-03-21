@@ -448,6 +448,8 @@ export class ProvingOrchestrator {
    * Works by managing an input queue of proof requests and an active pool of proving 'jobs'
    */
   private async processJobQueue() {
+    // This is temporary to keep benchmarks consistent
+    const maxConcurrentJobs = 1;
     // Used for determining the current state of a proving job
     const promiseState = (p: Promise<void>) => {
       const t = {};
@@ -467,7 +469,7 @@ export class ProvingOrchestrator {
     let promises: Promise<void>[] = [];
     while (!this.stopped) {
       // first look for more work
-      if (this.jobQueue.length()) {
+      if (this.jobQueue.length() && promises.length < maxConcurrentJobs) {
         // more work could be available
         const job = await this.jobQueue.get();
         if (job == null) {

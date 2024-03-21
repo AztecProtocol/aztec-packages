@@ -40,13 +40,13 @@
       "path": "../sequencer-client"
     },
     {
+      "path": "../simulator"
+    },
+    {
       "path": "../types"
     },
     {
       "path": "../world-state"
-    },
-    {
-      "path": "../simulator"
     }
   ],
   "include": ["src"]

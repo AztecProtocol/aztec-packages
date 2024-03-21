@@ -44,6 +44,7 @@ import {
 import { makeTuple, range } from '@aztec/foundation/array';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { to2Fields } from '@aztec/foundation/serialize';
+import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { WASMSimulator } from '@aztec/simulator';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
@@ -466,6 +467,66 @@ describe('prover/tx-prover', () => {
       const result = await blockPromise;
       expect(result.block.number).toEqual(blockNumber);
     }, 200_000);
+
+    it('builds a block concurrently with transactions', async () => {
+      const txs = await Promise.all([
+        makeBloatedProcessedTx(1),
+        makeBloatedProcessedTx(2),
+        makeBloatedProcessedTx(3),
+        makeBloatedProcessedTx(4),
+      ]);
+
+      const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
+
+      const blockPromise = builder.startNewBlock(
+        txs.length,
+        globalVariables,
+        l1ToL2Messages,
+        await makeEmptyProcessedTx(),
+      );
+
+      for (const tx of txs) {
+        builder.addNewTx(tx);
+        await sleep(1000);
+      }
+
+      const result = await blockPromise;
+      expect(result.block.number).toEqual(blockNumber);
+    }, 200_000);
+
+    // it('cancels current blocks and switches to new ones', async () => {
+    //   const txs = await Promise.all([
+    //     makeBloatedProcessedTx(1),
+    //     makeBloatedProcessedTx(2),
+    //     makeBloatedProcessedTx(3),
+    //     makeBloatedProcessedTx(4),
+    //   ]);
+
+    //   const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
+
+    //   const blockPromise1 = builder.startNewBlock(
+    //     txs.length,
+    //     globalVariables,
+    //     l1ToL2Messages,
+    //     await makeEmptyProcessedTx(),
+    //   );
+
+    //   builder.addNewTx(txs[0]);
+
+    //   const blockPromise2 = builder.startNewBlock(
+    //     txs.length,
+    //     globalVariables,
+    //     l1ToL2Messages,
+    //     await makeEmptyProcessedTx(),
+    //   );
+
+    //   builder.addNewTx(txs[0]);
+
+    //   await expect(blockPromise1).rejects.toEqual('Block cancelled');
+
+    //   const result = await blockPromise2;
+    //   expect(result.block.number).toEqual(blockNumber);
+    // }, 200_000);
 
     it('builds an unbalanced L2 block', async () => {
       const txs = await Promise.all([makeEmptyProcessedTx(), makeEmptyProcessedTx(), makeEmptyProcessedTx()]);
