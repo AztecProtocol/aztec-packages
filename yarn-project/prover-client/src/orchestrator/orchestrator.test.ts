@@ -1,6 +1,8 @@
 import {
   MerkleTreeId,
+  PROVING_STATUS,
   ProcessedTx,
+  ProvingSuccess,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
   mockTx,
@@ -301,7 +303,7 @@ describe('prover/tx-prover', () => {
         for (const tx of txs) {
           await builder.addNewTx(tx);
         }
-        await expect(blockTicket.provingPromise).rejects.toEqual(message);
+        await expect(blockTicket.provingPromise).resolves.toEqual({ status: PROVING_STATUS.FAILURE, reason: message });
       },
       60000,
     );
@@ -396,8 +398,9 @@ describe('prover/tx-prover', () => {
         }
 
         const result = await blockTicket.provingPromise;
+        expect(result.status).toBe(PROVING_STATUS.SUCCESS);
 
-        expect(result.block.number).toEqual(blockNumber);
+        expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
 
         await updateExpectedTreesFromTxs(txs);
         const noteHashTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
@@ -427,7 +430,8 @@ describe('prover/tx-prover', () => {
       }
 
       const result = await blockTicket.provingPromise;
-      expect(result.block.number).toEqual(blockNumber);
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+      expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('builds a block with 1 transaction', async () => {
@@ -440,7 +444,8 @@ describe('prover/tx-prover', () => {
       }
 
       const result = await blockTicket.provingPromise;
-      expect(result.block.number).toEqual(blockNumber);
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+      expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('builds a mixed L2 block', async () => {
@@ -465,7 +470,8 @@ describe('prover/tx-prover', () => {
       }
 
       const result = await blockTicket.provingPromise;
-      expect(result.block.number).toEqual(blockNumber);
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+      expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
     }, 200_000);
 
     it('builds a block concurrently with transactions', async () => {
@@ -491,7 +497,8 @@ describe('prover/tx-prover', () => {
       }
 
       const result = await blockTicket.provingPromise;
-      expect(result.block.number).toEqual(blockNumber);
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+      expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
     }, 200_000);
 
     // it('cancels current blocks and switches to new ones', async () => {
@@ -545,7 +552,8 @@ describe('prover/tx-prover', () => {
       }
 
       const result = await blockTicket.provingPromise;
-      expect(result.block.number).toEqual(blockNumber);
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+      expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
     }, 200_000);
 
     it('throws if adding too many transactions', async () => {
@@ -567,7 +575,8 @@ describe('prover/tx-prover', () => {
       );
 
       const result = await blockTicket.provingPromise;
-      expect(result.block.number).toEqual(blockNumber);
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+      expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('throws if adding a transaction before start', async () => {

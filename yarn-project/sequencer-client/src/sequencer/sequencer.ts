@@ -1,5 +1,5 @@
 import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, ProcessedTx, Tx } from '@aztec/circuit-types';
-import { BlockProver } from '@aztec/circuit-types/interfaces';
+import { BlockProver, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
 import { L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import { AztecAddress, EthAddress, GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -309,6 +309,9 @@ export class Sequencer {
     }
 
     const result = await blockTicket.provingPromise;
+    if (result.status === PROVING_STATUS.FAILURE) {
+      throw new Error(`Block proving failed, reason: ${result.reason}`);
+    }
     return result.block;
   }
 

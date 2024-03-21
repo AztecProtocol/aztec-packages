@@ -1,5 +1,5 @@
 import { L1ToL2MessageSource, L2BlockSource } from '@aztec/circuit-types';
-import { ProverClient } from '@aztec/circuit-types/interfaces';
+import { BlockProver } from '@aztec/circuit-types/interfaces';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { P2P } from '@aztec/p2p';
 import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from '@aztec/simulator';
@@ -50,7 +50,7 @@ export class SequencerClient {
    * @param contractDataSource - Provides access to contract bytecode for public executions.
    * @param l2BlockSource - Provides information about the previously published blocks.
    * @param l1ToL2MessageSource - Provides access to L1 to L2 messages.
-   * @param prover - An instance of a prover client.
+   * @param prover - An instance of a block prover
    * @returns A new running instance.
    */
   public static async new(
@@ -60,7 +60,7 @@ export class SequencerClient {
     contractDataSource: ContractDataSource,
     l2BlockSource: L2BlockSource,
     l1ToL2MessageSource: L1ToL2MessageSource,
-    prover: ProverClient,
+    prover: BlockProver,
   ) {
     const publisher = getL1Publisher(config);
     const globalsBuilder = getGlobalVariableBuilder(config);

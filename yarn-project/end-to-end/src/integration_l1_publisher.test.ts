@@ -14,6 +14,7 @@ import {
 import {
   L2BlockSource,
   ProcessedTx,
+  ProvingSuccess,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '@aztec/circuit-types';
@@ -389,7 +390,7 @@ describe('L1Publisher integration', () => {
       );
       const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages, makeEmptyProcessedTx());
       const result = await ticket.provingPromise;
-      const block = result.block;
+      const block = (result as ProvingSuccess).block;
       prevHeader = block.header;
 
       const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
@@ -473,7 +474,7 @@ describe('L1Publisher integration', () => {
       );
       const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages, makeEmptyProcessedTx());
       const result = await blockTicket.provingPromise;
-      const block = result.block;
+      const block = (result as ProvingSuccess).block;
       prevHeader = block.header;
 
       writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);

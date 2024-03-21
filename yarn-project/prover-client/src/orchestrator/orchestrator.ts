@@ -1,5 +1,5 @@
 import { Body, L2Block, MerkleTreeId, ProcessedTx, TxEffect, toTxEffect } from '@aztec/circuit-types';
-import { ProvingResult, ProvingTicket } from '@aztec/circuit-types/interfaces';
+import { PROVING_STATUS, ProvingResult, ProvingTicket } from '@aztec/circuit-types/interfaces';
 import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
@@ -55,6 +55,11 @@ const logger = createDebugLogger('aztec:prover:proving-orchestrator');
  */
 
 const SLEEP_TIME = 50;
+
+enum PROMISE_RESULT {
+  SLEEP,
+  OPERATIONS,
+}
 
 /**
  * The orchestrator, managing the flow of recursive proving operations required to build the rollup proof tree.
@@ -130,11 +135,11 @@ export class ProvingOrchestrator {
         baseParityInputs.length,
         emptyTx,
       );
-    });
+    }).catch((reason: string) => ({ status: PROVING_STATUS.FAILURE, reason } as const));
 
     for (let i = 0; i < baseParityInputs.length; i++) {
-      this.enqueueJob(this.provingState!.stateIdentifier, PROVING_JOB_TYPE.BASE_PARITY, () =>
-        this.runBaseParityCircuit(baseParityInputs[i], i, this.provingState!.stateIdentifier),
+      this.enqueueJob(this.provingState!.Id, PROVING_JOB_TYPE.BASE_PARITY, () =>
+        this.runBaseParityCircuit(baseParityInputs[i], i, this.provingState!.Id),
       );
     }
 
@@ -165,12 +170,7 @@ export class ProvingOrchestrator {
 
     const txIndex = this.provingState!.addNewTx(tx);
     // we start this transaction off by performing it's tree insertions and
-    await this.prepareBaseRollupInputs(
-      BigInt(txIndex),
-      tx,
-      this.provingState!.globalVariables,
-      this.provingState!.stateIdentifier,
-    );
+    await this.prepareBaseRollupInputs(BigInt(txIndex), tx, this.provingState!.globalVariables, this.provingState!.Id);
 
     if (this.provingState.transactionsReceived === this.provingState.numRealTxs) {
       // we need to pad the rollup with empty transactions
@@ -181,7 +181,7 @@ export class ProvingOrchestrator {
           BigInt(paddingTxIndex),
           this.provingState!.emptyTx,
           this.provingState!.globalVariables,
-          this.provingState!.stateIdentifier,
+          this.provingState!.Id,
         );
       }
     }
@@ -352,6 +352,7 @@ export class ProvingOrchestrator {
     }
 
     const provingResult: ProvingResult = {
+      status: PROVING_STATUS.SUCCESS,
       block: l2Block,
       proof,
     };
@@ -382,7 +383,7 @@ export class ProvingOrchestrator {
       return;
     }
     const rootParityInputs = new RootParityInputs(
-      this.provingState!.rootParityInputs as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
+      this.provingState!.rootParityInput as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
     );
     this.enqueueJob(stateIdentifier, PROVING_JOB_TYPE.ROOT_PARITY, () =>
       this.runRootParityCircuit(rootParityInputs, stateIdentifier),
@@ -465,7 +466,7 @@ export class ProvingOrchestrator {
     // Just a short break between managing the sets of requests and active jobs
     const createSleepPromise = () =>
       sleep(SLEEP_TIME).then(_ => {
-        return 0;
+        return PROMISE_RESULT.SLEEP;
       });
 
     let sleepPromise = createSleepPromise();
@@ -486,10 +487,10 @@ export class ProvingOrchestrator {
       // no more work to add, here we wait for any outstanding jobs to finish and/or sleep a little
       try {
         const ops = Promise.race(promises).then(_ => {
-          return 1;
+          return PROMISE_RESULT.OPERATIONS;
         });
         const result = await Promise.race([sleepPromise, ops]);
-        if (result === 0) {
+        if (result === PROMISE_RESULT.OPERATIONS) {
           // this is the sleep promise
           // we simply setup the promise again and go round the loop checking for more work
           sleepPromise = createSleepPromise();

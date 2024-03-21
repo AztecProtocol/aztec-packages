@@ -38,23 +38,23 @@ export type MergeRollupInputData = {
  * Captures resolve and reject callbacks to provide a promise base interface to the consumer of our proving.
  */
 export class ProvingState {
-  private _stateIdentifier: string;
-  private _mergeRollupInputs: MergeRollupInputData[] = [];
-  private _rootParityInputs: Array<RootParityInput | undefined> = [];
-  private _finalRootParityInput: RootParityInput | undefined;
-  private __finished = false;
-  private _txs: ProcessedTx[] = [];
+  private stateIdentifier: string;
+  private mergeRollupInputs: MergeRollupInputData[] = [];
+  private rootParityInputs: Array<RootParityInput | undefined> = [];
+  private finalRootParityInputs: RootParityInput | undefined;
+  private finished = false;
+  private txs: ProcessedTx[] = [];
   constructor(
-    private _numTxs: number,
-    private _completionCallback: (result: ProvingResult) => void,
-    private _rejectionCallback: (reason: string) => void,
-    private _globalVariables: GlobalVariables,
-    private _newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
+    public readonly numTxs: number,
+    private completionCallback: (result: ProvingResult) => void,
+    private rejectionCallback: (reason: string) => void,
+    public readonly globalVariables: GlobalVariables,
+    public readonly newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
     numRootParityInputs: number,
-    private _emptyTx: ProcessedTx,
+    public readonly emptyTx: ProcessedTx,
   ) {
-    this._stateIdentifier = randomBytes(32).toString('hex');
-    this._rootParityInputs = Array.from({ length: numRootParityInputs }).map(_ => undefined);
+    this.stateIdentifier = randomBytes(32).toString('hex');
+    this.rootParityInputs = Array.from({ length: numRootParityInputs }).map(_ => undefined);
   }
 
   public get baseMergeLevel() {
@@ -65,8 +65,8 @@ export class ProvingState {
     return this.baseMergeLevel;
   }
 
-  public get numRealTxs() {
-    return this._numTxs;
+  public get Id() {
+    return this.stateIdentifier;
   }
 
   public get numPaddingTxs() {
@@ -80,48 +80,32 @@ export class ProvingState {
   }
 
   public addNewTx(tx: ProcessedTx) {
-    this._txs.push(tx);
-    return this._txs.length - 1;
+    this.txs.push(tx);
+    return this.txs.length - 1;
   }
 
   public get transactionsReceived() {
-    return this._txs.length;
-  }
-
-  public get globalVariables() {
-    return this._globalVariables;
-  }
-
-  public get newL1ToL2Messages() {
-    return this._newL1ToL2Messages;
-  }
-
-  public get stateIdentifier() {
-    return this._stateIdentifier;
+    return this.txs.length;
   }
 
   public get finalRootParityInput() {
-    return this._finalRootParityInput;
+    return this.finalRootParityInputs;
   }
 
   public set finalRootParityInput(input: RootParityInput | undefined) {
-    this._finalRootParityInput = input;
+    this.finalRootParityInputs = input;
   }
 
-  public get rootParityInputs() {
-    return this._rootParityInputs;
+  public get rootParityInput() {
+    return this.rootParityInputs;
   }
 
   public verifyState(stateId: string) {
-    return stateId === this._stateIdentifier && !this.__finished;
-  }
-
-  public get emptyTx() {
-    return this._emptyTx;
+    return stateId === this.stateIdentifier && !this.finished;
   }
 
   public get allTxs() {
-    return this._txs;
+    return this.txs;
   }
 
   public storeMergeInputs(
@@ -129,66 +113,66 @@ export class ProvingState {
     indexWithinMerge: number,
     indexOfMerge: number,
   ) {
-    if (!this._mergeRollupInputs[indexOfMerge]) {
+    if (!this.mergeRollupInputs[indexOfMerge]) {
       const mergeInputData: MergeRollupInputData = {
         inputs: [undefined, undefined],
         proofs: [undefined, undefined],
       };
       mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
       mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
-      this._mergeRollupInputs[indexOfMerge] = mergeInputData;
+      this.mergeRollupInputs[indexOfMerge] = mergeInputData;
       return false;
     }
-    const mergeInputData = this._mergeRollupInputs[indexOfMerge];
+    const mergeInputData = this.mergeRollupInputs[indexOfMerge];
     mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
     mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
     return true;
   }
 
   public getMergeInputs(indexOfMerge: number) {
-    return this._mergeRollupInputs[indexOfMerge];
+    return this.mergeRollupInputs[indexOfMerge];
   }
 
   public isReadyForRootRollup() {
-    if (this._mergeRollupInputs[0] === undefined) {
+    if (this.mergeRollupInputs[0] === undefined) {
       return false;
     }
-    if (this._mergeRollupInputs[0].inputs.findIndex(p => !p) !== -1) {
+    if (this.mergeRollupInputs[0].inputs.findIndex(p => !p) !== -1) {
       return false;
     }
-    if (this._finalRootParityInput === undefined) {
+    if (this.finalRootParityInput === undefined) {
       return false;
     }
     return true;
   }
 
   public setRootParityInputs(inputs: RootParityInput, index: number) {
-    this._rootParityInputs[index] = inputs;
+    this.rootParityInputs[index] = inputs;
   }
 
   public areRootParityInputsReady() {
-    return this._rootParityInputs.findIndex(p => !p) === -1;
+    return this.rootParityInputs.findIndex(p => !p) === -1;
   }
 
   public reject(reason: string, stateIdentifier: string) {
     if (!this.verifyState(stateIdentifier)) {
       return;
     }
-    if (this.__finished) {
+    if (this.finished) {
       return;
     }
-    this.__finished = true;
-    this._rejectionCallback(reason);
+    this.finished = true;
+    this.rejectionCallback(reason);
   }
 
   public resolve(result: ProvingResult, stateIdentifier: string) {
     if (!this.verifyState(stateIdentifier)) {
       return;
     }
-    if (this.__finished) {
+    if (this.finished) {
       return;
     }
-    this.__finished = true;
-    this._completionCallback(result);
+    this.finished = true;
+    this.completionCallback(result);
   }
 }

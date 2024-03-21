@@ -21,7 +21,8 @@ export class DummyProver implements ProverClient {
     _newL1ToL2Messages: Fr[],
     _emptyTx: ProcessedTx,
   ): Promise<ProvingTicket> {
-    const result: ProvingResult = {
+    const result: ProvingSuccess = {
+      status: PROVING_STATUS.SUCCESS,
       proof: makeEmptyProof(),
       block: L2Block.random(1),
     };

@@ -8,11 +8,18 @@ export enum PROVING_STATUS {
   FAILURE,
 }
 
-export type ProvingResult = {
-  status: PROVING_STATUS;
+export type ProvingSuccess = {
+  status: PROVING_STATUS.SUCCESS;
   block: L2Block;
   proof: Proof;
 };
+
+export type ProvingFailure = {
+  status: PROVING_STATUS.FAILURE;
+  reason: string;
+};
+
+export type ProvingResult = ProvingSuccess | ProvingFailure;
 
 export type ProvingTicket = {
   provingPromise: Promise<ProvingResult>;
