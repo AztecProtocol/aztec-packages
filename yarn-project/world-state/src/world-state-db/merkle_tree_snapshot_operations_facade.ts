@@ -130,7 +130,7 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 
-  handleL2Block(): Promise<HandleL2BlockResult> {
+  handleL2BlockAndMessages(): Promise<HandleL2BlockResult> {
     return Promise.reject(new Error('Tree snapshot operations are read-only'));
   }
 

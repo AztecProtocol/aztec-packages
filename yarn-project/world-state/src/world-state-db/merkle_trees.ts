@@ -346,10 +346,11 @@ export class MerkleTrees implements MerkleTreeDb {
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
+   * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  public async handleL2Block(block: L2Block): Promise<HandleL2BlockResult> {
-    return await this.synchronize(() => this.#handleL2Block(block));
+  public async handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockResult> {
+    return await this.synchronize(() => this.#handleL2BlockAndMessages(block, l1ToL2Messages));
   }
 
   /**
@@ -477,8 +478,9 @@ export class MerkleTrees implements MerkleTreeDb {
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param l2Block - The L2 block to handle.
+   * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */
-  async #handleL2Block(l2Block: L2Block): Promise<HandleL2BlockResult> {
+  async #handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockResult> {
     const treeRootWithIdPairs = [
       [l2Block.header.state.partial.nullifierTree.root, MerkleTreeId.NULLIFIER_TREE],
       [l2Block.header.state.partial.noteHashTree.root, MerkleTreeId.NOTE_HASH_TREE],
@@ -501,7 +503,7 @@ export class MerkleTrees implements MerkleTreeDb {
       // Sync the append only trees
       for (const [tree, leaves] of [
         [MerkleTreeId.NOTE_HASH_TREE, l2Block.body.txEffects.flatMap(txEffect => txEffect.noteHashes)],
-        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l2Block.body.l1ToL2Messages],
+        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages],
       ] as const) {
         await this.#appendLeaves(
           tree,

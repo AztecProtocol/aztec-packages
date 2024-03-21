@@ -1,5 +1,5 @@
 import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
-import { Header, NullifierLeafPreimage, StateReference } from '@aztec/circuits.js';
+import { Fr, Header, NullifierLeafPreimage, StateReference } from '@aztec/circuits.js';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult } from '@aztec/merkle-tree';
 
@@ -143,10 +143,11 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
+   * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  public handleL2Block(block: L2Block): Promise<HandleL2BlockResult> {
-    return this.trees.handleL2Block(block);
+  public handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockResult> {
+    return this.trees.handleL2BlockAndMessages(block, l1ToL2Messages);
   }
 
   /**

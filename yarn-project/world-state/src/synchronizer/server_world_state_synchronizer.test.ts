@@ -1,4 +1,4 @@
-import { L2Block, L2BlockSource, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { AztecKVStore } from '@aztec/kv-store';
@@ -25,9 +25,10 @@ const log = createDebugLogger('aztec:server_world_state_synchronizer_test');
 
 describe('server_world_state_synchronizer', () => {
   let db: AztecKVStore;
-  const rollupSource = mock<L2BlockSource>({
+  const blockAndMessagesSource = mock<L2BlockSource & L1ToL2MessageSource>({
     getBlockNumber: jest.fn(getLatestBlockNumber),
     getBlocks: jest.fn(consumeNextBlocks),
+    getL1ToL2Messages: jest.fn(() => Promise.resolve([])),
   });
 
   const merkleTreeDb = mock<MerkleTreeDb>({
@@ -38,7 +39,7 @@ describe('server_world_state_synchronizer', () => {
       const pedersen: Pedersen = new Pedersen();
       return Promise.resolve(SiblingPath.ZERO(32, INITIAL_LEAF, pedersen) as SiblingPath<number>);
     }),
-    handleL2Block: jest.fn(() => Promise.resolve({ isBlockOurs: false })),
+    handleL2BlockAndMessages: jest.fn(() => Promise.resolve({ isBlockOurs: false })),
   });
 
   const performInitialSync = async (server: ServerWorldStateSynchronizer) => {
@@ -70,7 +71,7 @@ describe('server_world_state_synchronizer', () => {
       .fill(0)
       .map((_, index: number) => L2Block.random(LATEST_BLOCK_NUMBER + index + 1));
 
-    rollupSource.getBlockNumber.mockResolvedValueOnce(LATEST_BLOCK_NUMBER + count);
+    blockAndMessagesSource.getBlockNumber.mockResolvedValueOnce(LATEST_BLOCK_NUMBER + count);
 
     // start the sync process and await it
     await server.start().catch(err => log.error('Sync not completed: ', err));
@@ -88,7 +89,7 @@ describe('server_world_state_synchronizer', () => {
     return new ServerWorldStateSynchronizer(
       db,
       merkleTreeDb as any as MerkleTrees,
-      rollupSource as L2BlockSource,
+      blockAndMessagesSource,
       worldStateConfig,
     );
   };
@@ -210,7 +211,7 @@ describe('server_world_state_synchronizer', () => {
 
   it('immediately syncs if no new blocks', async () => {
     const server = createSynchronizer();
-    rollupSource.getBlockNumber.mockImplementationOnce(() => {
+    blockAndMessagesSource.getBlockNumber.mockImplementationOnce(() => {
       return Promise.resolve(0);
     });
 
@@ -228,7 +229,7 @@ describe('server_world_state_synchronizer', () => {
 
   it("can't be started if already stopped", async () => {
     const server = createSynchronizer();
-    rollupSource.getBlockNumber.mockImplementationOnce(() => {
+    blockAndMessagesSource.getBlockNumber.mockImplementationOnce(() => {
       return Promise.resolve(0);
     });
 
@@ -240,8 +241,8 @@ describe('server_world_state_synchronizer', () => {
     await expect(server.start()).rejects.toThrow();
   });
 
-  it('adds the received L2 blocks', async () => {
-    merkleTreeDb.handleL2Block.mockClear();
+  it('adds the received L2 blocks and messages', async () => {
+    merkleTreeDb.handleL2BlockAndMessages.mockClear();
     const server = createSynchronizer();
     const totalBlocks = LATEST_BLOCK_NUMBER + 1;
     nextBlocks = Array(totalBlocks)
@@ -250,7 +251,7 @@ describe('server_world_state_synchronizer', () => {
     // sync the server
     await server.start();
 
-    expect(merkleTreeDb.handleL2Block).toHaveBeenCalledTimes(totalBlocks);
+    expect(merkleTreeDb.handleL2BlockAndMessages).toHaveBeenCalledTimes(totalBlocks);
     await server.stop();
   });
 
