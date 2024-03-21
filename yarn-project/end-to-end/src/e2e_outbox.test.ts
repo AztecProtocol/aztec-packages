@@ -97,8 +97,8 @@ describe('E2E Outbox Tests', () => {
     // To match the result, the below preimages and the output are truncated to 31 then padded
     const secondLayerInput: [Buffer, Buffer] =
       index & 0x1
-        ? [truncateAndPad(siblingPath.toBufferArray()[1]), truncateAndPad(firstLayer)]
-        : [truncateAndPad(firstLayer), truncateAndPad(siblingPath.toBufferArray()[1])];
+        ? [siblingPath.toBufferArray()[1], truncateAndPad(firstLayer)]
+        : [truncateAndPad(firstLayer), siblingPath.toBufferArray()[1]];
     return truncateAndPad(merkleSha256.hash(...secondLayerInput));
   }
 
