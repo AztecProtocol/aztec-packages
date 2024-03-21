@@ -26,24 +26,24 @@ export class SHA256 implements Hasher {
 }
 
 /**
-* A helper class encapsulating truncated SHA256 hash functionality.
-* @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
-* purposes.
-*/
+ * A helper class encapsulating truncated SHA256 hash functionality.
+ * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
+ * purposes.
+ */
 export class SHA256Trunc implements Hasher {
- /*
-  * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
-  * purposes.
-  */
- public hash(lhs: Uint8Array, rhs: Uint8Array): Buffer {
-   return truncateAndPad(sha256(Buffer.concat([Buffer.from(lhs), Buffer.from(rhs)])));
- }
+  /*
+   * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
+   * purposes.
+   */
+  public hash(lhs: Uint8Array, rhs: Uint8Array): Buffer {
+    return truncateAndPad(sha256(Buffer.concat([Buffer.from(lhs), Buffer.from(rhs)])));
+  }
 
- /*
-  * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
-  * purposes.
-  */
- public hashInputs(inputs: Buffer[]): Buffer {
-   return truncateAndPad(sha256(Buffer.concat(inputs)));
- }
+  /*
+   * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
+   * purposes.
+   */
+  public hashInputs(inputs: Buffer[]): Buffer {
+    return truncateAndPad(sha256(Buffer.concat(inputs)));
+  }
 }
