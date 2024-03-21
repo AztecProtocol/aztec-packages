@@ -1024,9 +1024,7 @@ describe('Private Execution test suite', () => {
       const args = [2n, true];
       oracle.getNotes.mockResolvedValue([]);
 
-      await expect(runSimulator({ artifact, args })).rejects.toThrow(
-        `Assertion failed: Cannot return zero notes`,
-      );
+      await expect(runSimulator({ artifact, args })).rejects.toThrow(`Assertion failed: Cannot return zero notes`);
     });
   });
 
