@@ -74,26 +74,6 @@ void ProverInstance_<Flavor>::construct_table_polynomials(Circuit& circuit, size
     proving_key->table_4 = table_polynomials[3].share();
 }
 
-/**
- * @brief Compute the inverse polynomial used in the log derivative lookup argument
- *
- * @tparam Flavor
- * @param beta
- * @param gamma
- */
-template <class Flavor>
-void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
-    requires IsGoblinFlavor<Flavor>
-{
-    relation_parameters.beta = beta;
-    relation_parameters.gamma = gamma;
-    prover_polynomials = ProverPolynomials(proving_key);
-    // Compute permutation and lookup grand product polynomials
-    bb::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
-        prover_polynomials, relation_parameters, proving_key->circuit_size);
-    proving_key->lookup_inverses = prover_polynomials.lookup_inverses;
-}
-
 template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
 {
     auto public_input_delta = compute_public_input_delta<Flavor>(

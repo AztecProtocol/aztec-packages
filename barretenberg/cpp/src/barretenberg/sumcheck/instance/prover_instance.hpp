@@ -90,9 +90,6 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_() = default;
     ~ProverInstance_() = default;
 
-    void compute_logderivative_inverse(FF, FF)
-        requires IsGoblinFlavor<Flavor>;
-
     void compute_databus_id()
         requires IsGoblinFlavor<Flavor>;
 

@@ -354,6 +354,23 @@ class GoblinUltraFlavor {
                 wires[3][gate_idx] += 1;
             }
         }
+
+        /**
+         * @brief Compute the inverse polynomial used in the log derivative lookup argument
+         *
+         * @tparam Flavor
+         * @param beta
+         * @param gamma
+         */
+        void compute_logderivative_inverse(RelationParameters<FF>& relation_parameters)
+        {
+            auto proving_key_ptr = std::make_shared<ProvingKey>(*this);
+            auto prover_polynomials = ProverPolynomials(proving_key_ptr);
+            // Compute permutation and lookup grand product polynomials
+            bb::compute_logderivative_inverse<GoblinUltraFlavor, typename GoblinUltraFlavor::LogDerivLookupRelation>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            this->lookup_inverses = prover_polynomials.lookup_inverses;
+        }
     };
 
     /**

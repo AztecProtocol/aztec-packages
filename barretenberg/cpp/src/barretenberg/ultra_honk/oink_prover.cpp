@@ -121,7 +121,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     relation_parameters.gamma = gamma;
     if constexpr (IsGoblinFlavor<Flavor>) {
         // Compute and commit to the logderivative inverse used in DataBus
-        instance->compute_logderivative_inverse(beta, gamma);
+        instance->proving_key->compute_logderivative_inverse(relation_parameters);
         witness_commitments.lookup_inverses = commitment_key->commit(instance->proving_key->lookup_inverses);
         transcript->send_to_verifier(domain_separator + commitment_labels.lookup_inverses,
                                      witness_commitments.lookup_inverses);
