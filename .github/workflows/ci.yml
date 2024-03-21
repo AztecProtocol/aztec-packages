@@ -6,6 +6,7 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  build: 
   e2e:
     runs-on: ubuntu-latest
     env:
@@ -29,24 +30,12 @@ jobs:
 
       - name: Setup
         working-directory: ./scripts
-        run: ./setup_env.sh ${{ matrix.environment }} ${{ secrets.DOCKERHUB_PASSWORD }} ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Test
         working-directory: ./yarn-project/end-to-end
         run: |
-          # TODO put in script
-          if [ "${{ matrix.environment }}" == "arm" ]; then
-            PLATFORM=linux/arm64
-          elif [ "${{ matrix.environment }}" == "x86" ]; then
-            PLATFORM=linux/amd64
-          fi
-          earthly sat --org aztec launch --size 4xlarge --platform $PLATFORM build-${{github.actor}}-${{ matrix.environment }} || true
-          if [ ${{ github.ref_name }} = master ] ; then
-            # update the remote cache
-            export EARTHLY_PUSH=true
-          fi
-          # TODO need to use more SAVE IMAGE --cache-hint and explicit BUILD statements for remote-cache to work well but then it should read artifacts from master done by all runners
-          earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:${{matrix.test}} --sat build-${{github.actor}}-${{ matrix.environment }} +${{ matrix.test }}
+          earthly-cloud +${{ matrix.test }}
 
   bb-native-tests:
     runs-on: ubuntu-latest
@@ -68,7 +57,7 @@ jobs:
 
       - name: Setup
         working-directory: ./scripts
-        run: ./setup_env.sh ${{ matrix.environment }} ${{ secrets.DOCKERHUB_PASSWORD }} ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Build and test
         working-directory: ./barretenberg/cpp
@@ -79,10 +68,12 @@ jobs:
           elif [ "${{ matrix.environment }}" == "x86" ]; then
             PLATFORM=linux/amd64
           fi
-          earthly sat --org aztec launch --size 4xlarge --platform $PLATFORM build-${{github.actor}}-${{ matrix.environment }} || true
+          earthly sat --org aztec launch --size 2xlarge --platform $PLATFORM build-${{github.actor}}-${{ matrix.environment }} || true
           if [ ${{ github.ref_name }} = master ] ; then
             # update the remote cache
             export EARTHLY_PUSH=true
           fi
           # TODO need to use more SAVE IMAGE --cache-hint and explicit BUILD statements for remote-cache to work well but then it should read artifacts from master done by all runners
           earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:bb-native-tests --sat build-${{github.actor}}-${{ matrix.environment }} +test
+ 
+  bench:
