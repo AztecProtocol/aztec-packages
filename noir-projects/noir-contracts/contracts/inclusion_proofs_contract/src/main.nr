@@ -202,37 +202,38 @@ contract InclusionProofs {
     #[aztec(private)]
     fn test_public_unused_value_inclusion(block_number: u32 // The block at which we'll prove that the public value exists
     ) {
-        prove_public_value_inclusion_at(
-            0,
-            storage.public_unused_value.storage_slot,
-            context.this_address(),
-            block_number,
-            context
+        assert_eq(
+            prove_public_value_inclusion_at(
+                storage.public_unused_value.storage_slot,
+                context.this_address(),
+                block_number,
+                context
+            ), 0
         );
     }
 
     #[aztec(private)]
     fn test_public_value_inclusion(
-        public_value: Field,
+        expected: Field,
         use_block_number: bool,
         block_number: u32 // The block at which we'll prove that the public value exists
     ) {
-        if (use_block_number) {
+        let actual = if (use_block_number) {
             prove_public_value_inclusion_at(
-                public_value,
                 storage.public_value.storage_slot,
                 context.this_address(),
                 block_number,
                 context
-            );
+            )
         } else {
             prove_public_value_inclusion(
-                public_value,
                 storage.public_value.storage_slot,
                 context.this_address(),
                 context
-            );
-        }
+            )
+        };
+
+        assert_eq(actual, expected, "Actual public value does not match expected");
     }
 
     // Proves that a contract was publicly deployed and/or initialized at block `block_number`.

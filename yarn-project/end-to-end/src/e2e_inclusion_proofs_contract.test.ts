@@ -205,10 +205,10 @@ describe('e2e_inclusion_proofs_contract', () => {
       const randomPublicValue = Fr.random();
       await expect(
         contract.methods.test_public_value_inclusion(randomPublicValue, true, blockNumber).send().wait(),
-      ).rejects.toThrow('Public value does not match the witness');
+      ).rejects.toThrow('Actual public value does not match expected');
       await expect(
         contract.methods.test_public_value_inclusion(randomPublicValue, false, 0n).send().wait(),
-      ).rejects.toThrow('Public value does not match the witness');
+      ).rejects.toThrow('Actual public value does not match expected');
     });
 
     it('proves existence of uninitialized public value', async () => {
