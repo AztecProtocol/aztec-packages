@@ -152,7 +152,6 @@ pub(crate) fn execute_program(
     match solved_witness_err {
     // TODO(https://github.com/noir-lang/noir/issues/4428)
         Ok(solved_witness) => {
-            dbg!(solved_witness.clone());
             Ok(solved_witness.stack[0].witness.clone())
         }
         Err(err) => {

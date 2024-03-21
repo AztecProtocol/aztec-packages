@@ -76,8 +76,7 @@ pub fn execute_circuit<B: BlackBoxFunctionSolver, F: ForeignCallExecutor>(
                 }
             }
             ACVMStatus::RequiresAcirCall(acir_call) => {
-                dbg!(acir_call);
-                todo!("hit RequiresAcirCall status, handle it!");
+                unreachable!("hit RequiresAcirCall status, should have used program executor");
             }
         }
     }
@@ -170,12 +169,9 @@ impl<'a> ProgramExecutor<'a> {
                     }
                 }
                 ACVMStatus::RequiresAcirCall(acir_call) => {
-                    dbg!(acir_call.clone());
                     let acir_to_call = &self.functions[acir_call.id as usize];
-                    dbg!(acir_to_call.clone());
                     let initial_witness = acir_call.initial_witness;
                     let call_solved_witness = self.execute_circuit(acir_to_call, initial_witness, blackbox_solver, foreign_call_executor)?;
-                    dbg!(call_solved_witness.clone());
                     let mut call_resolved_outputs = Vec::new();
                     for witness_index in acir_to_call.return_values.indices() {
                         // TODO: turn this into a real execution error

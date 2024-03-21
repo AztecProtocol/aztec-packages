@@ -469,6 +469,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
             insert_value(output_witness, *result_value, &mut self.witness_map)?;
         }
 
+        self.acir_call_counter += 1;
         Ok(None)
     }
 }
