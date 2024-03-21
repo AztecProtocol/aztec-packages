@@ -672,11 +672,7 @@ impl Context {
                 } else {
                     Self::flattened_value_size(&result.1)
                 };
-                self.initialize_array(
-                    block_id,
-                    len,
-                    Some(result.1.clone()),
-                )?;
+                self.initialize_array(block_id, len, Some(result.1.clone()))?;
             }
             // Do nothing for AcirValue::DynamicArray and AcirValue::Var
             // A dynamic array returned from a function call should already be initialized

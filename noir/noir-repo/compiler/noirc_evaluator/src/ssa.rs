@@ -87,10 +87,6 @@ pub fn create_program(
     force_brillig_output: bool,
 ) -> Result<(AcirProgram, Vec<DebugInfo>, Vec<SsaReport>, Vec<Witness>, Vec<Witness>), RuntimeError>
 {
-    // let entry_point_funcs = program.functions.iter().map(|function| {
-    //     function.should_fold | function.
-    // }).collect::<Vec<_>>();
-
     let debug_variables = program.debug_variables.clone();
     let debug_types = program.debug_types.clone();
     let debug_functions = program.debug_functions.clone();
@@ -104,24 +100,19 @@ pub fn create_program(
         enable_brillig_logging,
         force_brillig_output,
     )?;
-    assert_eq!(generated_acirs.len(), func_sigs.len(), "The generated ACIRs should match the supplied function signatures");
+    assert_eq!(
+        generated_acirs.len(),
+        func_sigs.len(),
+        "The generated ACIRs should match the supplied function signatures"
+    );
 
     let mut functions = vec![];
     let mut debug_infos = vec![];
     let mut warning_infos = vec![];
     let mut main_input_witnesses = Vec::new();
     let mut main_return_witnesses = Vec::new();
-    // TODO: Using a flag here to avoid enumarting the loop as main is expected to be the first circuit
-    // We need function signatures to accurately set-up the `public_parameters` and `private_parameters`
-    // fields of a `Circuit`. However, a func_sig is restricted to what the main ABI allows. We need to be able
-    // to discern whether we have an ACIR function without an `InlineType::Inline` and treat that as an entry point function.
-    // For now we only treat main as an entry point function.
-    // Probably will need something like this:
-    // ```
-    // let entry_point_funcs = program.functions.iter().map(|function| function.should_fold).collect::<Vec<_>>();
-    // ```
+    // For setting up the ABI we need separately specify the input and return witnesses
     let mut is_main = true;
-    // TODO: need to appropriately handle fetching these `func_sigs` so that we do not have more func sigs than generated acirs
     for (acir, func_sig) in generated_acirs.into_iter().zip(func_sigs) {
         let (circuit, debug_info, warnings, input_witnesses, return_witnesses) =
             convert_generated_acir_into_circuit(
@@ -164,18 +155,13 @@ fn convert_generated_acir_into_circuit(
         input_witnesses,
         assert_messages,
         warnings,
-        is_entry_point,
         ..
     } = generated_acir;
-    // dbg!(is_entry_point);
+
     let locations = locations.clone();
 
-    // let (public_parameter_witnesses, private_parameters) = if is_entry_point {
-    //     split_public_and_private_inputs(&func_sig, &input_witnesses)
-    // } else {
-    //     (BTreeSet::default(), BTreeSet::default())
-    // };
-    let (public_parameter_witnesses, private_parameters) = split_public_and_private_inputs(&func_sig, &input_witnesses);
+    let (public_parameter_witnesses, private_parameters) =
+        split_public_and_private_inputs(&func_sig, &input_witnesses);
 
     let public_parameters = PublicInputs(public_parameter_witnesses);
     let return_values = PublicInputs(return_witnesses.iter().copied().collect());

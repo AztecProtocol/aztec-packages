@@ -161,13 +161,17 @@ pub fn monomorphize_debug(
         undo_instantiation_bindings(bindings);
     }
 
-    let func_sigs = monomorphizer.finished_functions.iter().flat_map(|(_, f)| {
-        if f.should_fold || f.id == Program::main_id() {
-            Some(f.func_sig.clone())
-        } else {
-            None
-        }
-    }).collect();
+    let func_sigs = monomorphizer
+        .finished_functions
+        .iter()
+        .flat_map(|(_, f)| {
+            if f.should_fold || f.id == Program::main_id() {
+                Some(f.func_sig.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
 
     let functions = vecmap(monomorphizer.finished_functions, |(_, f)| f);
     let FuncMeta { return_distinctness, return_visibility, kind, .. } =
