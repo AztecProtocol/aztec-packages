@@ -1,4 +1,4 @@
-VERSION --no-use-registry-for-with-docker 0.8
+VERSION 0.8
 
 FROM node:18.19.0
 WORKDIR /build

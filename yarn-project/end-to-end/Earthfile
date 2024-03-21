@@ -1,5 +1,5 @@
 
-VERSION --no-use-registry-for-with-docker 0.8
+VERSION 0.8
 
 get-aztec:
     FROM ubuntu:lunar
@@ -26,7 +26,6 @@ E2E_TEST_HELPER:
     ARG test
     ARG compose_file=./scripts/docker-compose.yml
     ENV TEST=$test
-    COPY $compose_file $compose_file
     WITH DOCKER \
       --load aztecprotocol/aztec:latest=+get-aztec \
       --load aztecprotocol/end-to-end:latest=+get-end-to-end \
@@ -39,7 +38,7 @@ E2E_TEST:
     FUNCTION
     ARG test
     ARG compose_file=./scripts/docker-compose.yml
-    FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
+    LOCALLY
     DO +E2E_TEST_HELPER --test=$test --compose_file=$compose_file
 
 # we could use a parameterized target, but these just print cleaner in earthly log
