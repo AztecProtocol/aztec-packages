@@ -92,10 +92,7 @@ struct ProgramExecutor<'a> {
 
 impl<'a> ProgramExecutor<'a> {
     fn new(functions: &'a [Circuit]) -> Self {
-        ProgramExecutor {
-            functions,
-            witness_stack: WitnessStack::default(),
-        }
+        ProgramExecutor { functions, witness_stack: WitnessStack::default() }
     }
 
     fn finalize(self) -> WitnessStack {
@@ -111,12 +108,12 @@ impl<'a> ProgramExecutor<'a> {
         foreign_call_executor: &mut F,
     ) -> Result<WitnessMap, NargoError> {
         let mut acvm = ACVM::new(blackbox_solver, &circuit.opcodes, initial_witness);
-    
+
         // This message should be resolved by a nargo foreign call only when we have an unsatisfied assertion.
         let mut assert_message: Option<String> = None;
         loop {
             let solver_status = acvm.solve();
-    
+
             match solver_status {
                 ACVMStatus::Solved => break,
                 ACVMStatus::InProgress => {
@@ -132,7 +129,7 @@ impl<'a> ProgramExecutor<'a> {
                         }
                         _ => None,
                     };
-    
+
                     return Err(NargoError::ExecutionError(match call_stack {
                         Some(call_stack) => {
                             // First check whether we have a runtime assertion message that should be resolved on an ACVM failure
@@ -140,11 +137,17 @@ impl<'a> ProgramExecutor<'a> {
                             // messages associated with a specific `OpcodeLocation`.
                             // Otherwise return the provided opcode resolution error.
                             if let Some(assert_message) = assert_message {
-                                ExecutionError::AssertionFailed(assert_message.to_owned(), call_stack)
+                                ExecutionError::AssertionFailed(
+                                    assert_message.to_owned(),
+                                    call_stack,
+                                )
                             } else if let Some(assert_message) = circuit.get_assert_message(
                                 *call_stack.last().expect("Call stacks should not be empty"),
                             ) {
-                                ExecutionError::AssertionFailed(assert_message.to_owned(), call_stack)
+                                ExecutionError::AssertionFailed(
+                                    assert_message.to_owned(),
+                                    call_stack,
+                                )
                             } else {
                                 ExecutionError::SolvingError(error)
                             }
@@ -163,7 +166,7 @@ impl<'a> ProgramExecutor<'a> {
                                 unreachable!("Resolving an assert message should happen only once as the VM should have failed");
                             }
                             assert_message = Some(message);
-    
+
                             acvm.resolve_pending_foreign_call(ForeignCallResult::default());
                         }
                     }
@@ -171,18 +174,27 @@ impl<'a> ProgramExecutor<'a> {
                 ACVMStatus::RequiresAcirCall(acir_call) => {
                     let acir_to_call = &self.functions[acir_call.id as usize];
                     let initial_witness = acir_call.initial_witness;
-                    let call_solved_witness = self.execute_circuit(acir_to_call, initial_witness, blackbox_solver, foreign_call_executor)?;
+                    let call_solved_witness = self.execute_circuit(
+                        acir_to_call,
+                        initial_witness,
+                        blackbox_solver,
+                        foreign_call_executor,
+                    )?;
                     let mut call_resolved_outputs = Vec::new();
                     for witness_index in acir_to_call.return_values.indices() {
                         // TODO: turn this into a real execution error
-                        call_resolved_outputs.push(*call_solved_witness.get_index(witness_index).expect("ACVM Error: should have return index"));
+                        call_resolved_outputs.push(
+                            *call_solved_witness
+                                .get_index(witness_index)
+                                .expect("ACVM Error: should have return index"),
+                        );
                     }
                     acvm.resolve_pending_acir_call(call_resolved_outputs);
                     self.witness_stack.push(acir_call.id, call_solved_witness);
                 }
             }
         }
-    
+
         Ok(acvm.finalize())
     }
 }
@@ -197,7 +209,8 @@ pub fn execute_program<B: BlackBoxFunctionSolver, F: ForeignCallExecutor>(
     let main = &program.functions[0];
 
     let mut executor = ProgramExecutor::new(&program.functions);
-    let main_witness = executor.execute_circuit(main, initial_witness, blackbox_solver, foreign_call_executor)?;
+    let main_witness =
+        executor.execute_circuit(main, initial_witness, blackbox_solver, foreign_call_executor)?;
     executor.witness_stack.push(0, main_witness);
 
     Ok(executor.finalize())

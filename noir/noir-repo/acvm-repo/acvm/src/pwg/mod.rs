@@ -52,7 +52,7 @@ pub enum ACVMStatus {
 
     /// The ACVM has encountered a request for an ACIR [call][acir::circuit::Opcode]
     /// to execute a separate ACVM instance. The result of the ACIR call must be passd back to the ACVM.
-    /// 
+    ///
     /// Once this is done, the ACVM can be restarted to solve the remaining opcodes.
     RequiresAcirCall(AcirCallWaitInfo),
 }
@@ -320,12 +320,10 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                 Ok(Some(foreign_call)) => return self.wait_for_foreign_call(foreign_call),
                 res => res.map(|_| ()),
             },
-            Opcode::Call { .. } => {
-                match self.solve_call_opcode() {
-                    Ok(Some(input_values)) => return self.wait_for_acir_call(input_values),
-                    res => res.map(|_| ()),
-                }
-            }
+            Opcode::Call { .. } => match self.solve_call_opcode() {
+                Ok(Some(input_values)) => return self.wait_for_acir_call(input_values),
+                res => res.map(|_| ()),
+            },
         };
         self.handle_opcode_resolution(resolution)
     }
@@ -446,9 +444,9 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
     }
 
     pub fn solve_call_opcode(&mut self) -> Result<Option<AcirCallWaitInfo>, OpcodeResolutionError> {
-        let Opcode::Call{ id, inputs, outputs }= &self.opcodes[self.instruction_pointer] else {
+        let Opcode::Call { id, inputs, outputs } = &self.opcodes[self.instruction_pointer] else {
             unreachable!("Not executing a Call opcode");
-        }; 
+        };
         // TODO: add a resolution opcode error for this assert
         assert!(*id != 0, "Attempting to call main, not allowed");
 
@@ -458,7 +456,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                 let input_value = *witness_to_value(&self.witness_map, *input_witness)?;
                 initial_witness.insert(Witness(i as u32), input_value);
             }
-            return Ok(Some(AcirCallWaitInfo { id: *id, initial_witness }))
+            return Ok(Some(AcirCallWaitInfo { id: *id, initial_witness }));
         }
 
         let result_values = &self.acir_call_results[self.acir_call_counter];
@@ -547,5 +545,5 @@ pub struct AcirCallWaitInfo {
     /// Index in the list of ACIR function's that should be called
     pub id: u32,
     /// Initial witness for the given circuit to be called
-    pub initial_witness: WitnessMap
+    pub initial_witness: WitnessMap,
 }

@@ -123,7 +123,8 @@ fn execute_program_and_decode(
     let witness_stack = execute_program(&program, &inputs_map, foreign_call_resolver_url)?;
     let public_abi = program.abi.public_abi();
     // Get the entry point witness for the ABI
-    let main_witness = &witness_stack.peek().expect("Should have at least one witness on the stack").witness;
+    let main_witness =
+        &witness_stack.peek().expect("Should have at least one witness on the stack").witness;
     let (_, return_value) = public_abi.decode(main_witness)?;
 
     Ok((return_value, witness_stack))
@@ -139,9 +140,9 @@ pub(crate) fn execute_program(
     let initial_witness = compiled_program.abi.encode(inputs_map, None)?;
 
     let solved_witness_stack_err = nargo::ops::execute_program(
-        &compiled_program.program, 
-        initial_witness, 
-        &blackbox_solver, 
+        &compiled_program.program,
+        initial_witness,
+        &blackbox_solver,
         &mut DefaultForeignCallExecutor::new(true, foreign_call_resolver_url),
     );
     match solved_witness_stack_err {

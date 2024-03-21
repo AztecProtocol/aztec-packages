@@ -122,13 +122,13 @@ pub(crate) fn prove_package(
     let (inputs_map, _) =
         read_inputs_from_file(&package.root_dir, prover_name, Format::Toml, &compiled_program.abi)?;
 
-    let witness_stack =
-        execute_program(&compiled_program, &inputs_map, foreign_call_resolver_url)?;
+    let witness_stack = execute_program(&compiled_program, &inputs_map, foreign_call_resolver_url)?;
 
     // Write public inputs into Verifier.toml
     let public_abi = compiled_program.abi.public_abi();
     // Get the entry point witness for the ABI
-    let main_witness = &witness_stack.peek().expect("Should have at least one witness on the stack").witness;
+    let main_witness =
+        &witness_stack.peek().expect("Should have at least one witness on the stack").witness;
     let (public_inputs, return_value) = public_abi.decode(main_witness)?;
 
     write_inputs_to_file(

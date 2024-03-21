@@ -187,7 +187,11 @@ fn run_async(
             }
 
             if let Some(witness_name) = witness_name {
-                let witness_path = save_witness_to_dir(WitnessStack::from(solved_witness), witness_name, target_dir)?;
+                let witness_path = save_witness_to_dir(
+                    WitnessStack::from(solved_witness),
+                    witness_name,
+                    target_dir,
+                )?;
 
                 println!("[{}] Witness saved to {}", package.name, witness_path.display());
             }
