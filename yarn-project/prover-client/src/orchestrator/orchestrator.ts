@@ -109,6 +109,9 @@ export class ProvingOrchestrator {
     l1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
   ): Promise<ProvingTicket> {
+    if (this.provingState && !this.provingState.isFinished()) {
+      throw new Error("Can't start a new block until the previous block is finished");
+    }
     logger.info(`Starting new block with ${numTxs} transactions`);
     // we start the block by enqueueing all of the base parity circuits
     let baseParityInputs: BaseParityInputs[] = [];
@@ -131,7 +134,7 @@ export class ProvingOrchestrator {
         resolve,
         reject,
         globalVariables,
-        l1ToL2Messages,
+        l1ToL2MessagesPadded,
         baseParityInputs.length,
         emptyTx,
       );
@@ -158,7 +161,7 @@ export class ProvingOrchestrator {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions`);
     }
 
-    if (this.provingState.numRealTxs === this.provingState.transactionsReceived) {
+    if (this.provingState.numTxs === this.provingState.transactionsReceived) {
       throw new Error(`Rollup already contains ${this.provingState.transactionsReceived} transactions`);
     }
 
@@ -172,7 +175,7 @@ export class ProvingOrchestrator {
     // we start this transaction off by performing it's tree insertions and
     await this.prepareBaseRollupInputs(BigInt(txIndex), tx, this.provingState!.globalVariables, this.provingState!.Id);
 
-    if (this.provingState.transactionsReceived === this.provingState.numRealTxs) {
+    if (this.provingState.transactionsReceived === this.provingState.numTxs) {
       // we need to pad the rollup with empty transactions
       const numPaddingTxs = this.provingState.numPaddingTxs;
       for (let i = 0; i < numPaddingTxs; i++) {
@@ -195,6 +198,7 @@ export class ProvingOrchestrator {
    */
   private enqueueJob(stateIdentifier: string, jobType: PROVING_JOB_TYPE, job: () => Promise<void>) {
     if (!this.provingState!.verifyState(stateIdentifier)) {
+      logger(`Discarding job for state ID: ${stateIdentifier}`);
       return;
     }
     // We use a 'safeJob'. We don't want promise rejections in the proving pool, we want to capture the error here
@@ -232,6 +236,7 @@ export class ProvingOrchestrator {
     );
 
     if (!this.provingState?.verifyState(stateIdentifier)) {
+      logger(`Discarding job for state ID: ${stateIdentifier}`);
       return;
     }
 
@@ -275,6 +280,7 @@ export class ProvingOrchestrator {
       outputSize: baseRollupOutputs[0].toBuffer().length,
     } satisfies CircuitSimulationStats);
     if (!this.provingState?.verifyState(stateIdentifier)) {
+      logger(`Discarding job for state ID: ${stateIdentifier}`);
       return;
     }
     const currentLevel = this.provingState!.numMergeLevels + 1n;
@@ -305,6 +311,7 @@ export class ProvingOrchestrator {
       outputSize: circuitOutputs[0].toBuffer().length,
     } satisfies CircuitSimulationStats);
     if (!this.provingState?.verifyState(stateIdentifier)) {
+      logger(`Discarding job for state ID: ${stateIdentifier}`);
       return;
     }
     logger.info(`Completed merge rollup at level ${level}, index ${index}`);
@@ -331,10 +338,7 @@ export class ProvingOrchestrator {
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const txEffects: TxEffect[] = this.provingState!.allTxs.map(tx => toTxEffect(tx));
 
-    const blockBody = new Body(
-      padArrayEnd(this.provingState!.newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
-      txEffects,
-    );
+    const blockBody = new Body(txEffects);
 
     const l2Block = L2Block.fromFields({
       archive: circuitsOutput.archive,
@@ -374,6 +378,7 @@ export class ProvingOrchestrator {
       outputSize: circuitOutputs.toBuffer().length,
     } satisfies CircuitSimulationStats);
     if (!this.provingState?.verifyState(stateIdentifier)) {
+      logger(`Discarding job for state ID: ${stateIdentifier}`);
       return;
     }
     this.provingState!.setRootParityInputs(circuitOutputs, index);
@@ -404,6 +409,7 @@ export class ProvingOrchestrator {
       outputSize: circuitOutputs.toBuffer().length,
     } satisfies CircuitSimulationStats);
     if (!this.provingState?.verifyState(stateIdentifier)) {
+      logger(`Discarding job for state ID: ${stateIdentifier}`);
       return;
     }
     this.provingState!.finalRootParityInput = circuitOutputs;

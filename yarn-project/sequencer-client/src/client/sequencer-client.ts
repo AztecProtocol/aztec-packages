@@ -1,40 +1,15 @@
 import { L1ToL2MessageSource, L2BlockSource } from '@aztec/circuit-types';
 import { BlockProver } from '@aztec/circuit-types/interfaces';
-import { createDebugLogger } from '@aztec/foundation/log';
 import { P2P } from '@aztec/p2p';
-import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from '@aztec/simulator';
+import { SimulationProvider } from '@aztec/simulator';
 import { ContractDataSource } from '@aztec/types/contracts';
 import { WorldStateSynchronizer } from '@aztec/world-state';
-
-import * as fs from 'fs/promises';
 
 import { SequencerClientConfig } from '../config.js';
 import { getGlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { getL1Publisher } from '../publisher/index.js';
 import { Sequencer, SequencerConfig } from '../sequencer/index.js';
 import { PublicProcessorFactory } from '../sequencer/public_processor.js';
-
-const logger = createDebugLogger('aztec:sequencer-client');
-
-/**
- * Factory function to create a simulation provider. Will attempt to use native binary simulation falling back to WASM if unavailable.
- * @param config - The provided sequencer client configuration
- * @returns The constructed simulation provider
- */
-async function getSimulationProvider(config: SequencerClientConfig): Promise<SimulationProvider> {
-  if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
-    try {
-      await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
-      await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
-      logger(`Using native ACVM at ${config.acvmBinaryPath}`);
-      return new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath);
-    } catch {
-      logger(`Failed to access ACVM at ${config.acvmBinaryPath}, falling back to WASM`);
-    }
-  }
-  logger('Using WASM ACVM simulation');
-  return new WASMSimulator();
-}
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -51,6 +26,7 @@ export class SequencerClient {
    * @param l2BlockSource - Provides information about the previously published blocks.
    * @param l1ToL2MessageSource - Provides access to L1 to L2 messages.
    * @param prover - An instance of a block prover
+   * @param simulationProvider - An instance of a simulation provider
    * @returns A new running instance.
    */
   public static async new(
@@ -61,12 +37,11 @@ export class SequencerClient {
     l2BlockSource: L2BlockSource,
     l1ToL2MessageSource: L1ToL2MessageSource,
     prover: BlockProver,
+    simulationProvider: SimulationProvider,
   ) {
     const publisher = getL1Publisher(config);
     const globalsBuilder = getGlobalVariableBuilder(config);
     const merkleTreeDb = worldStateSynchronizer.getLatest();
-
-    const simulationProvider = await getSimulationProvider(config);
 
     const publicProcessorFactory = new PublicProcessorFactory(
       merkleTreeDb,

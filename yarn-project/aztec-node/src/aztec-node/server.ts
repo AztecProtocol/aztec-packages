@@ -64,6 +64,7 @@ import {
 } from '@aztec/world-state';
 
 import { AztecNodeConfig } from './config.js';
+import { getSimulationProvider } from './simulator-factory.js';
 
 /**
  * The aztec node.
@@ -143,12 +144,24 @@ export class AztecNodeService implements AztecNode {
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
     // start the prover if we have been told to
-    const prover = config.disableProver ? await DummyProver.new() : await TxProver.new(config, worldStateSynchronizer);
+    const simulationProvider = await getSimulationProvider(config?.acvmBinaryPath, config?.acvmWorkingDirectory, log);
+    const prover = config.disableProver
+      ? await DummyProver.new()
+      : await TxProver.new(config, worldStateSynchronizer, simulationProvider);
 
     // now create the sequencer
     const sequencer = config.disableSequencer
       ? undefined
-      : await SequencerClient.new(config, p2pClient, worldStateSynchronizer, archiver, archiver, archiver, prover);
+      : await SequencerClient.new(
+          config,
+          p2pClient,
+          worldStateSynchronizer,
+          archiver,
+          archiver,
+          archiver,
+          prover,
+          simulationProvider,
+        );
 
     return new AztecNodeService(
       config,

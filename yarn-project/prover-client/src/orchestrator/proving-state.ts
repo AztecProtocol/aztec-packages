@@ -70,11 +70,11 @@ export class ProvingState {
   }
 
   public get numPaddingTxs() {
-    return this.totalNumTxs - this.numRealTxs;
+    return this.totalNumTxs - this.numTxs;
   }
 
   public get totalNumTxs() {
-    const realTxs = Math.max(2, this.numRealTxs);
+    const realTxs = Math.max(2, this.numTxs);
     const pow2Txs = Math.ceil(Math.log2(realTxs));
     return 2 ** pow2Txs;
   }
@@ -174,5 +174,9 @@ export class ProvingState {
     }
     this.finished = true;
     this.completionCallback(result);
+  }
+
+  public isFinished() {
+    return this.finished;
   }
 }

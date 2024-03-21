@@ -1,4 +1,11 @@
-import { L2Block, ProcessedTx, ProverClient, ProvingResult, ProvingTicket } from '@aztec/circuit-types';
+import {
+  L2Block,
+  PROVING_STATUS,
+  ProcessedTx,
+  ProverClient,
+  ProvingSuccess,
+  ProvingTicket,
+} from '@aztec/circuit-types';
 import { GlobalVariables, makeEmptyProof } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -17,14 +24,14 @@ export class DummyProver implements ProverClient {
 
   startNewBlock(
     _numTxs: number,
-    _globalVariables: GlobalVariables,
+    globalVariables: GlobalVariables,
     _newL1ToL2Messages: Fr[],
     _emptyTx: ProcessedTx,
   ): Promise<ProvingTicket> {
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
       proof: makeEmptyProof(),
-      block: L2Block.random(1),
+      block: L2Block.empty(globalVariables.blockNumber.toNumber()),
     };
     const ticket: ProvingTicket = {
       provingPromise: Promise.resolve(result),
