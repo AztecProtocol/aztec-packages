@@ -2,7 +2,7 @@ use acir::brillig::{BlackBoxOp, HeapArray, HeapVector, Value};
 use acir::{BlackBoxFunc, FieldElement};
 use acvm_blackbox_solver::{
     blake2s, blake3, ecdsa_secp256k1_verify, ecdsa_secp256r1_verify, keccak256, keccakf1600,
-    sha256compression, BlackBoxFunctionSolver, BlackBoxResolutionError,
+    sha256_compression, BlackBoxFunctionSolver, BlackBoxResolutionError,
 };
 
 use crate::Memory;
@@ -214,7 +214,7 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
                 state[i] = value.to_u128() as u32;
             }
 
-            sha256compression(&mut state, &message);
+            sha256_compression(&mut state, &message);
             let state = state.map(|x| Value::from(x as u128));
 
             memory.write_slice(memory.read_ref(output.pointer), &state);
