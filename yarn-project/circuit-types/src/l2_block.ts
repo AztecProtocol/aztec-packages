@@ -128,6 +128,23 @@ export class L2Block {
     );
   }
 
+  /**
+   * Creates an L2 block containing empty data.
+   * @param l2BlockNum - The number of the L2 block.
+   * @returns The L2 block.
+   */
+  static empty(l2BlockNum: number): L2Block {
+    return L2Block.fromFields(
+      {
+        archive: AppendOnlyTreeSnapshot.zero(),
+        header: Header.empty(),
+        body: Body.empty(),
+      },
+      // just for testing purposes, each random L2 block got emitted in the equivalent L1 block
+      BigInt(l2BlockNum),
+    );
+  }
+
   get number(): number {
     return Number(this.header.globalVariables.blockNumber.toBigInt());
   }
