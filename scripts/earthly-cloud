@@ -2,8 +2,8 @@
 
 set -eux
 
-ARCH=$1
-USERNAME=$2
+USERNAME=$1
+ARCH=$2
 
 shift 2
 
