@@ -27,7 +27,6 @@ export class Body {
   }
 
   [inspect.custom]() {
-    // print non empty l2ToL1Messages and txEffects
     return `Body {
   txEffects: ${inspect(this.txEffects)},
 }`;
