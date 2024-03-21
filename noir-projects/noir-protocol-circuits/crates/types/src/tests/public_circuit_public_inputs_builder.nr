@@ -28,11 +28,12 @@ struct PublicCircuitPublicInputsBuilder {
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     start_side_effect_counter: u32,
     end_side_effect_counter: u32,
+    // TODO(Miranda): Remove arrays entirely as NUM_FIELDS_PER_SHA256 = 1
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_log_preimages_length: Field,
     historical_header: Header,
     prover_address: AztecAddress,
-    reverted: bool,
+    revert_code: u8,
 }
 
 impl PublicCircuitPublicInputsBuilder {
@@ -62,7 +63,7 @@ impl PublicCircuitPublicInputsBuilder {
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.historical_header,
             prover_address: self.prover_address,
-            reverted: self.reverted
+            revert_code: self.revert_code
         }
     }
 }

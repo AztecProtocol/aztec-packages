@@ -14,7 +14,7 @@ import {
   ValidationRequests,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { Tuple, fromFieldsTuple } from '@aztec/foundation/serialize';
+import { Tuple, toTruncField } from '@aztec/foundation/serialize';
 
 /**
  * Represents a tx that has been processed by the sequencer public processor,
@@ -49,7 +49,7 @@ export type RevertedTx = ProcessedTx & {
 };
 
 export function isRevertedTx(tx: ProcessedTx): tx is RevertedTx {
-  return tx.data.reverted;
+  return !tx.data.endNonRevertibleData.revertCode.isOK();
 }
 
 export function partitionReverts(txs: ProcessedTx[]): { reverted: RevertedTx[]; nonReverted: ProcessedTx[] } {
@@ -117,7 +117,6 @@ export function getPreviousOutputAndProof(
       tx.data.needsSetup,
       tx.data.needsAppLogic,
       tx.data.needsTeardown,
-      false, // reverted
     );
     return {
       publicKernelPublicInput,
@@ -175,6 +174,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
 
 export function toTxEffect(tx: ProcessedTx): TxEffect {
   return new TxEffect(
+    tx.data.combinedData.revertCode,
     tx.data.combinedData.newNoteHashes.map((c: SideEffect) => c.value) as Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value) as Tuple<
       Fr,
@@ -192,12 +192,11 @@ export function toTxEffect(tx: ProcessedTx): TxEffect {
 
 function validateProcessedTxLogs(tx: ProcessedTx): void {
   const unencryptedLogs = tx.unencryptedLogs || new TxL2Logs([]);
-  const kernelUnencryptedLogsHash = fromFieldsTuple(tx.data.combinedData.unencryptedLogsHash);
-  if (!unencryptedLogs.hash().equals(kernelUnencryptedLogsHash)) {
+  const kernelUnencryptedLogsHash = tx.data.combinedData.unencryptedLogsHash[0];
+  const referenceHash = toTruncField(unencryptedLogs.hash())[0];
+  if (!referenceHash.equals(kernelUnencryptedLogsHash)) {
     throw new Error(
-      `Unencrypted logs hash mismatch. Expected ${unencryptedLogs
-        .hash()
-        .toString('hex')}, got ${kernelUnencryptedLogsHash.toString('hex')}.
+      `Unencrypted logs hash mismatch. Expected ${referenceHash.toString()}, got ${kernelUnencryptedLogsHash.toString()}.
              Processed: ${JSON.stringify(unencryptedLogs.toJSON())}
              Kernel Length: ${tx.data.combinedData.unencryptedLogPreimagesLength}`,
     );

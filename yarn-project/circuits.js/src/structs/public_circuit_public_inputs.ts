@@ -26,6 +26,7 @@ import { ContractStorageUpdateRequest } from './contract_storage_update_request.
 import { Header } from './header.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
 import { ReadRequest } from './read_request.js';
+import { RevertCode } from './revert_code.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from './side_effects.js';
 
 /**
@@ -95,7 +96,7 @@ export class PublicCircuitPublicInputs {
      * Hash of the unencrypted logs emitted in this function call.
      * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
      */
-    public unencryptedLogsHash: [Fr, Fr],
+    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
     /**
      * Length of the unencrypted log preimages emitted in this function call.
      */
@@ -113,7 +114,7 @@ export class PublicCircuitPublicInputs {
     /**
      * Flag indicating if the call was reverted.
      */
-    public reverted: boolean,
+    public revertCode: RevertCode,
   ) {}
 
   /**
@@ -144,11 +145,11 @@ export class PublicCircuitPublicInputs {
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       Fr.ZERO,
-      makeTuple(2, Fr.zero),
+      makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       Fr.ZERO,
       Header.empty(),
       AztecAddress.ZERO,
-      false,
+      RevertCode.OK,
     );
   }
 
@@ -175,7 +176,7 @@ export class PublicCircuitPublicInputs {
       this.unencryptedLogPreimagesLength.isZero() &&
       this.historicalHeader.isEmpty() &&
       this.proverAddress.isZero() &&
-      this.reverted === false
+      this.revertCode.isOK()
     );
   }
 
@@ -203,7 +204,7 @@ export class PublicCircuitPublicInputs {
       fields.unencryptedLogPreimagesLength,
       fields.historicalHeader,
       fields.proverAddress,
-      fields.reverted,
+      fields.revertCode,
     ] as const;
   }
 
@@ -250,7 +251,7 @@ export class PublicCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Header),
       reader.readObject(AztecAddress),
-      reader.readBoolean(),
+      reader.readObject(RevertCode),
     );
   }
 
@@ -275,7 +276,7 @@ export class PublicCircuitPublicInputs {
       reader.readField(),
       Header.fromFields(reader),
       AztecAddress.fromFields(reader),
-      reader.readBoolean(),
+      RevertCode.fromFields(reader),
     );
   }
 

@@ -35,22 +35,22 @@ PrivateKernelInnerCircuitPublicInputs {
   "constants": CombinedConstantData {
     "historicalHeader": Header {
       "contentCommitment": ContentCommitment {
-        "inHash": Buffer<0x536d98837f2dd165a55d5eeae91485954472d56f246df256bf3cae19352a123c>,
-        "outHash": Buffer<0xdb56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71>,
+        "inHash": Buffer<0x00089a9d421a82c4a25f7acbebe69e638d5b064fa8a60e018793dcb0be53752c>,
+        "outHash": Buffer<0x0007638bb56b6dda2b64b8f76841114ac3a87a1820030e2e16772c4d294879c3>,
         "txTreeHeight": Fr<0x0000000000000000000000000000000000000000000000000000000000000001>,
-        "txsEffectsHash": Buffer<0xd9930573f96732cde19427173b66e90796be2171061c863395bb2dd54161af85>,
+        "txsEffectsHash": Buffer<0x002807c70858235323a27419dde0fc745fbab002f33c34d1dc41994b43d27d5e>,
       },
       "globalVariables": {
         "blockNumber": "0x0000000000000000000000000000000000000000000000000000000000000003",
         "chainId": "0x0000000000000000000000000000000000000000000000000000000000007a69",
         "coinbase": "0x0000000000000000000000000000000000000000",
         "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "timestamp": "0x0000000000000000000000000000000000000000000000000000000065f45330",
+        "timestamp": "0x0000000000000000000000000000000000000000000000000000000065fc0c66",
         "version": "0x0000000000000000000000000000000000000000000000000000000000000001",
       },
       "lastArchive": AppendOnlyTreeSnapshot {
         "nextAvailableLeafIndex": 3,
-        "root": Fr<0x0d3b9aa21878073ad184798fd398a6e0d5ef3ad7f6417498536c4d0afa55dc8c>,
+        "root": Fr<0x2d799018a5143b5406d2f66ff03e3e026396ea094ad3775bffc2e63f71c7ef4f>,
       },
       "state": StateReference {
         "l1ToL2MessageTree": AppendOnlyTreeSnapshot {
@@ -60,11 +60,11 @@ PrivateKernelInnerCircuitPublicInputs {
         "partial": PartialStateReference {
           "noteHashTree": AppendOnlyTreeSnapshot {
             "nextAvailableLeafIndex": 384,
-            "root": Fr<0x3029b724279c5ea7f1ba55e5f788ebad8c384d4470fa844679aadc1c22f8e4a6>,
+            "root": Fr<0x198bc624121dc20ca9346776cefe5816f1c745b71d7c78bcd66c165ab2fd93cc>,
           },
           "nullifierTree": AppendOnlyTreeSnapshot {
             "nextAvailableLeafIndex": 512,
-            "root": Fr<0x1fccf1d9dea62d5f8f47fdede728ec9ee83a014aaea876382ca253be2e498220>,
+            "root": Fr<0x1ede270b6a66d2c49eafb1dc2815aff988a10ab9d96cabc4a89d59e5b8259406>,
           },
           "publicDataTree": AppendOnlyTreeSnapshot {
             "nextAvailableLeafIndex": 256,
@@ -83,8 +83,7 @@ PrivateKernelInnerCircuitPublicInputs {
   "end": CombinedAccumulatedData {
     "encryptedLogPreimagesLength": Fr<0x000000000000000000000000000000000000000000000000000000000000000c>,
     "encryptedLogsHash": [
-      Fr<0x000000000000000000000000000000000803f3447b3110b5579626c7861d0793>,
-      Fr<0x00000000000000000000000000000000645004856e6d7946b8eb30aa1c098a2c>,
+      Fr<0x00f33ae280239814c4dfaaafc16fc138a8d3eae52bb962af6576cbb61c2af246>,
     ],
     "newL2ToL1Msgs": [
       Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
@@ -352,7 +351,7 @@ PrivateKernelInnerCircuitPublicInputs {
       SideEffectLinkedToNoteHash {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
         "noteHash": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-        "value": Fr<0x04e0065afe5cd141449781dbb77fbe880320e31ddd61678c7830611241f2c413>,
+        "value": Fr<0x0a5523db965e4ceccdfdfd2e03ca00371c99d4e44eab1c1a9961089f04eaf648>,
       },
       SideEffectLinkedToNoteHash {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
@@ -996,10 +995,12 @@ PrivateKernelInnerCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
     ],
+    "revertCode": RevertCode {
+      "code": 0,
+    },
     "unencryptedLogPreimagesLength": Fr<0x000000000000000000000000000000000000000000000000000000000000000c>,
     "unencryptedLogsHash": [
-      Fr<0x000000000000000000000000000000000803f3447b3110b5579626c7861d0793>,
-      Fr<0x00000000000000000000000000000000645004856e6d7946b8eb30aa1c098a2c>,
+      Fr<0x00f33ae280239814c4dfaaafc16fc138a8d3eae52bb962af6576cbb61c2af246>,
     ],
   },
   "isPrivate": true,
@@ -1890,8 +1891,7 @@ PrivateKernelTailCircuitPublicInputs {
   "end": PrivateAccumulatedRevertibleData {
     "encryptedLogPreimagesLength": Fr<0x0000000000000000000000000000000000000000000000000000000000000138>,
     "encryptedLogsHash": [
-      Fr<0x000000000000000000000000000000001f1c6663105f27cc8111128a8a1de60f>,
-      Fr<0x0000000000000000000000000000000006b2f841d2a8ba7c5ae633186f2c359a>,
+      Fr<0x000a6f11d0fee649628137ebedf70c9cf2e7b081a9e284c9608fc5741fa8fc7a>,
     ],
     "newL2ToL1Msgs": [
       Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
@@ -1900,7 +1900,7 @@ PrivateKernelTailCircuitPublicInputs {
     "newNoteHashes": [
       SideEffect {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000002>,
-        "value": Fr<0x12e2d142afbbc0a9ecc56160154211092e6a64f038861ec93548c95ae456d457>,
+        "value": Fr<0x0f09b243c65692d3eeebc1521a64db5de9d9cf48fb8aa213693bf7989b195210>,
       },
       SideEffect {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
@@ -2127,12 +2127,12 @@ PrivateKernelTailCircuitPublicInputs {
       SideEffectLinkedToNoteHash {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000001>,
         "noteHash": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-        "value": Fr<0x1fec8b4d9e3275a8a8a4b98023924244146b78f69919f2963b225967f54a2a22>,
+        "value": Fr<0x00e39690b5006763b3b7c0929ee4deb8fbe7cb9fc5aa86a270e4b7a90be7d254>,
       },
       SideEffectLinkedToNoteHash {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000003>,
         "noteHash": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-        "value": Fr<0x1df6f14dcd6423ffe380dc26fdd437fd88be29559aecefe1601a21ddf4a77089>,
+        "value": Fr<0x1cd3c5ccb8644ae3a8cbfad44981cabd453de0e0648de28ff014c67ddcdd885d>,
       },
       SideEffectLinkedToNoteHash {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
@@ -2541,8 +2541,7 @@ PrivateKernelTailCircuitPublicInputs {
     ],
     "unencryptedLogPreimagesLength": Fr<0x0000000000000000000000000000000000000000000000000000000000000004>,
     "unencryptedLogsHash": [
-      Fr<0x000000000000000000000000000000001c9ecec90e28d2461650418635878a5c>,
-      Fr<0x0000000000000000000000000000000091e49f47586ecf75f2b0cbb94e897112>,
+      Fr<0x006003947a07e21c81ce2062539d6d6864fe999b58b03fc46f6c190d9eac9b39>,
     ],
   },
   "endNonRevertibleData": PrivateAccumulatedNonRevertibleData {
@@ -2584,7 +2583,7 @@ PrivateKernelTailCircuitPublicInputs {
       SideEffectLinkedToNoteHash {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
         "noteHash": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-        "value": Fr<0x24e73437a259f5752d3f4115f312e9f0540020a432a087048038f1d835f08730>,
+        "value": Fr<0x232f8201f6ff6b414f9b54af28b9a33cbe45817a0f7fe0cd1e8712e86158c2c3>,
       },
       SideEffectLinkedToNoteHash {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
@@ -2654,6 +2653,9 @@ PrivateKernelTailCircuitPublicInputs {
         "startSideEffectCounter": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
       },
     ],
+    "revertCode": RevertCode {
+      "code": 0,
+    },
   },
   "needsAppLogic": false,
   "needsSetup": false,

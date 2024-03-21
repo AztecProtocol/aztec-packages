@@ -47,6 +47,7 @@ import {
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
+  NUM_BYTES_PER_SHA256,
   NUM_FIELDS_PER_SHA256,
   NonMembershipHint,
   NoteHashReadRequestMembershipWitness,
@@ -88,6 +89,7 @@ import {
   ReadRequest,
   ReadRequestContext,
   ReadRequestStatus,
+  RevertCode,
   RollupKernelCircuitPublicInputs,
   RollupKernelData,
   RootParityInput,
@@ -103,7 +105,8 @@ import {
   TxRequest,
   ValidationRequests,
 } from '@aztec/circuits.js';
-import { Tuple, from2Fields, mapTuple, to2Fields } from '@aztec/foundation/serialize';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
 
 import { BaseParityInputs as BaseParityInputsNoir } from './types/parity_base_types.js';
 import { RootParityInputs as RootParityInputsNoir } from './types/parity_root_types.js';
@@ -776,6 +779,14 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
   };
 }
 
+export function mapRevertCodeFromNoir(revertCode: NoirField): RevertCode {
+  return RevertCode.fromField(mapFieldFromNoir(revertCode));
+}
+
+export function mapRevertCodeToNoir(revertCode: RevertCode): NoirField {
+  return mapFieldToNoir(revertCode.toField());
+}
+
 /**
  * Maps an array from noir types to a tuple of parsed types.
  * @param noirArray - The noir array.
@@ -796,20 +807,20 @@ export function mapTupleFromNoir<T, N extends number, M>(
 
 /**
  * Maps a SHA256 hash from noir to the parsed type.
- * @param hash - The hash as it is represented in Noir (2 fields).
- * @returns The hash represented as a 32 bytes long buffer.
+ * @param hash - The hash as it is represented in Noir (1 fields).
+ * @returns The hash represented as a 31 bytes long buffer.
  */
-export function mapSha256HashFromNoir(hash: FixedLengthArray<Field, 2>): Buffer {
-  return from2Fields(mapFieldFromNoir(hash[0]), mapFieldFromNoir(hash[1]));
+export function mapSha256HashFromNoir(hash: FixedLengthArray<Field, typeof NUM_FIELDS_PER_SHA256>): Buffer {
+  return Buffer.concat(hash.map(mapFieldFromNoir).map(fr => toBufferBE(fr.toBigInt(), NUM_BYTES_PER_SHA256)));
 }
 
 /**
  * Maps a sha256 to the representation used in noir.
  * @param hash - The hash represented as a 32 bytes long buffer.
- * @returns The hash as it is represented in Noir (2 fields).
+ * @returns The hash as it is represented in Noir (1 field, truncated).
  */
-export function mapSha256HashToNoir(hash: Buffer): FixedLengthArray<Field, 2> {
-  return to2Fields(hash).map(mapFieldToNoir) as FixedLengthArray<Field, 2>;
+export function mapSha256HashToNoir(hash: Buffer): FixedLengthArray<Field, typeof NUM_FIELDS_PER_SHA256> {
+  return toTruncField(hash).map(mapFieldToNoir) as FixedLengthArray<Field, typeof NUM_FIELDS_PER_SHA256>;
 }
 
 /**
@@ -960,6 +971,7 @@ export function mapCombinedAccumulatedDataFromNoir(
   combinedAccumulatedData: CombinedAccumulatedDataNoir,
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
+    mapRevertCodeFromNoir(combinedAccumulatedData.revert_code),
     mapTupleFromNoir(combinedAccumulatedData.new_note_hashes, MAX_NEW_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -1027,6 +1039,7 @@ export function mapAccumulatedNonRevertibleDataFromNoir(
   accumulatedMetaData: PrivateAccumulatedNonRevertibleDataNoir,
 ): PrivateAccumulatedNonRevertibleData {
   return new PrivateAccumulatedNonRevertibleData(
+    mapRevertCodeFromNoir(accumulatedMetaData.revert_code),
     mapTupleFromNoir(accumulatedMetaData.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(
       accumulatedMetaData.new_nullifiers,
@@ -1050,6 +1063,7 @@ export function mapAccumulatedNonRevertibleDataToNoir(
   accumulatedMetaData: PrivateAccumulatedNonRevertibleData,
 ): PrivateAccumulatedNonRevertibleDataNoir {
   return {
+    revert_code: mapRevertCodeToNoir(accumulatedMetaData.revertCode),
     new_note_hashes: mapTuple(accumulatedMetaData.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(accumulatedMetaData.newNullifiers, mapSideEffectLinkedToNoir),
     public_call_stack: mapTuple(accumulatedMetaData.publicCallStack, mapCallRequestToNoir),
@@ -1081,6 +1095,7 @@ export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
+    revert_code: mapRevertCodeToNoir(combinedAccumulatedData.revertCode),
     new_note_hashes: mapTuple(combinedAccumulatedData.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapSideEffectLinkedToNoir),
     private_call_stack: mapTuple(combinedAccumulatedData.privateCallStack, mapCallRequestToNoir),
@@ -1147,7 +1162,6 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
     needs_setup: inputs.needsSetup,
     needs_app_logic: inputs.needsAppLogic,
     needs_teardown: inputs.needsTeardown,
-    reverted: inputs.reverted,
   };
 }
 
@@ -1182,6 +1196,7 @@ export function mapPublicAccumulatedNonRevertibleDataToNoir(
   data: PublicAccumulatedNonRevertibleData,
 ): PublicAccumulatedNonRevertibleDataNoir {
   return {
+    revert_code: mapRevertCodeToNoir(data.revertCode),
     new_note_hashes: mapTuple(data.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(data.newNullifiers, mapSideEffectLinkedToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
@@ -1374,7 +1389,6 @@ export function mapPublicKernelCircuitPublicInputsFromNoir(
     inputs.needs_setup,
     inputs.needs_app_logic,
     inputs.needs_teardown,
-    inputs.reverted,
   );
 }
 
@@ -1382,6 +1396,7 @@ export function mapPublicAccumulatedNonRevertibleDataFromNoir(
   data: PublicAccumulatedNonRevertibleDataNoir,
 ): PublicAccumulatedNonRevertibleData {
   return new PublicAccumulatedNonRevertibleData(
+    mapRevertCodeFromNoir(data.revert_code),
     mapTupleFromNoir(data.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(data.new_nullifiers, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -1520,7 +1535,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     historical_header: mapHeaderToNoir(publicInputs.historicalHeader),
 
     prover_address: mapAztecAddressToNoir(publicInputs.proverAddress),
-    reverted: publicInputs.reverted,
+    revert_code: mapRevertCodeToNoir(publicInputs.revertCode),
   };
 }
 /**
@@ -1602,8 +1617,8 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
     mapConstantRollupDataFromNoir(baseOrMergeRollupPublicInputs.constants),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.end),
-    mapTupleFromNoir(baseOrMergeRollupPublicInputs.txs_effects_hash, 2, mapFieldFromNoir),
-    mapTupleFromNoir(baseOrMergeRollupPublicInputs.out_hash, 2, mapFieldFromNoir),
+    mapTupleFromNoir(baseOrMergeRollupPublicInputs.txs_effects_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
+    mapTupleFromNoir(baseOrMergeRollupPublicInputs.out_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
   );
 }
 
@@ -1683,7 +1698,7 @@ export function mapRootParityInputToNoir(rootParityInput: RootParityInput): Root
 export function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): ParityPublicInputsNoir {
   return {
     aggregation_object: {},
-    sha_root: mapSha256HashToNoir(parityPublicInputs.shaRoot),
+    sha_root: mapFieldToNoir(parityPublicInputs.shaRoot),
     converted_root: mapFieldToNoir(parityPublicInputs.convertedRoot),
   };
 }
@@ -1711,7 +1726,7 @@ export function mapRootRollupPublicInputsFromNoir(
 export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicInputsNoir): ParityPublicInputs {
   return new ParityPublicInputs(
     AggregationObject.makeFake(),
-    mapSha256HashFromNoir(parityPublicInputs.sha_root),
+    mapFieldFromNoir(parityPublicInputs.sha_root),
     mapFieldFromNoir(parityPublicInputs.converted_root),
   );
 }

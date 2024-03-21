@@ -25,13 +25,15 @@ use crate::traits::is_empty;
 use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
 struct CombinedAccumulatedDataBuilder {
+    revert_code: u8,
+
     new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_TX>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
 
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
-
+    // TODO(Miranda): Remove arrays entirely as NUM_FIELDS_PER_SHA256 = 1
     encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
 
@@ -49,6 +51,7 @@ impl CombinedAccumulatedDataBuilder {
         revertible: PublicAccumulatedRevertibleData
     ) -> CombinedAccumulatedDataBuilder {
         CombinedAccumulatedDataBuilder {
+            revert_code: non_revertible.revert_code,
             new_note_hashes: array_to_bounded_vec(array_concat(non_revertible.new_note_hashes, revertible.new_note_hashes)),
             new_nullifiers: array_to_bounded_vec(array_concat(non_revertible.new_nullifiers, revertible.new_nullifiers)),
             private_call_stack: array_to_bounded_vec(revertible.private_call_stack),
@@ -74,6 +77,7 @@ impl CombinedAccumulatedDataBuilder {
 
     pub fn finish(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
+            revert_code: self.revert_code,
             new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
             private_call_stack: self.private_call_stack.storage,

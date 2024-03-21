@@ -35,7 +35,7 @@ struct PublicCircuitPublicInputs{
 
     start_side_effect_counter: u32,
     end_side_effect_counter: u32,
-
+    // TODO(Miranda): Remove arrays entirely as NUM_FIELDS_PER_SHA256 = 1
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
@@ -48,7 +48,7 @@ struct PublicCircuitPublicInputs{
 
     prover_address: AztecAddress,
 
-    reverted: bool,
+    revert_code: u8,
 }
 
 impl Eq for PublicCircuitPublicInputs {
@@ -94,7 +94,7 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         fields.push(self.unencrypted_log_preimages_length);
         fields.extend_from_array(self.historical_header.serialize());
         fields.push(self.prover_address.to_field());
-        fields.push(self.reverted as Field);
+        fields.push(self.revert_code as Field);
         fields.storage
     }
 }
@@ -121,7 +121,7 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
             prover_address: reader.read_struct(AztecAddress::deserialize),
-            reverted: reader.read() as bool,
+            revert_code: reader.read() as u8,
         };
 
         reader.finish();
@@ -149,6 +149,6 @@ fn empty_hash() {
     let hash = inputs.hash();
 
     // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x083ac560a513d670a7f50f0a3052d42cb9816b7b643e62025b8278652ad637ab;
+    let test_data_empty_hash = 0x0f1eb4e352e8dab6cbab3c63b6d8f3cd2cd90cc7ae5ff142e4dfa2b3e28e01c1;
     assert_eq(hash, test_data_empty_hash);
 }
