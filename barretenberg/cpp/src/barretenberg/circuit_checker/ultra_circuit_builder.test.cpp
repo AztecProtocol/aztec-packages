@@ -12,6 +12,48 @@ namespace bb {
 using plookup::ColumnIdx;
 using plookup::MultiTableId;
 
+TEST(ultra_circuit_constructor, copy_constraints)
+{
+    const auto run_test = [](bool assert_equal) {
+        UltraCircuitBuilder builder;
+        uint32_t a_idx = builder.add_variable(1);
+        uint32_t b_idx = builder.add_variable(2);
+        uint32_t c_idx = builder.add_variable(3);
+
+        uint32_t d_idx = builder.add_variable(5);
+        uint32_t e_idx = builder.add_variable(8);
+        uint32_t f_idx = builder.add_variable(13);
+
+        builder.create_add_gate({ .a = a_idx,
+                                  .b = b_idx,
+                                  .c = c_idx,
+                                  .a_scaling = 1,
+                                  .b_scaling = 1,
+                                  .c_scaling = -1,
+                                  .const_scaling = 0 });
+
+        builder.create_add_gate({ .a = d_idx,
+                                  .b = e_idx,
+                                  .c = f_idx,
+                                  .a_scaling = 1,
+                                  .b_scaling = 1,
+                                  .c_scaling = -1,
+                                  .const_scaling = 0 });
+
+        bool expected_result = true;
+        if (assert_equal) {
+            builder.assert_equal(c_idx, d_idx);
+            expected_result = false;
+        }
+
+        bool result = CircuitChecker::check(builder);
+
+        EXPECT_EQ(result, expected_result);
+    };
+    run_test(false);
+    run_test(true);
+}
+
 TEST(ultra_circuit_constructor, copy_constructor)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
