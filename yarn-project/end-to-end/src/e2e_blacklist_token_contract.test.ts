@@ -389,7 +389,7 @@ describe('e2e_blacklist_token_contract', () => {
             getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           await expect(asset.methods.redeem_shield(accounts[0].address, amount, secret).simulate()).rejects.toThrow(
-            `Assertion failed: Cannot return zero notes 'num_notes != 0'`,
+            `Assertion failed: Cannot return zero notes`,
           );
         });
 
