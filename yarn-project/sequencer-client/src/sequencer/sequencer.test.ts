@@ -125,13 +125,13 @@ describe('sequencer', () => {
     await sequencer.initialSync();
     await sequencer.work();
 
-    const expectedTxHashes = [...Tx.getHashes([tx]), ...times(1, () => TxHash.ZERO)];
-
     expect(proverClient.startNewBlock).toHaveBeenCalledWith(
+      1,
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
-      expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+      publicProcessor.makeEmptyProcessedTx(),
     );
+    expect(proverClient.addNewTx).toHaveBeenCalledWith(expect.objectContaining({ hash: tx.getTxHash() }));
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
   });
 
@@ -171,13 +171,14 @@ describe('sequencer', () => {
     await sequencer.initialSync();
     await sequencer.work();
 
-    const expectedTxHashes = Tx.getHashes([txs[0], txs[2]]);
-
     expect(proverClient.startNewBlock).toHaveBeenCalledWith(
+      2,
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
-      expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+      publicProcessor.makeEmptyProcessedTx(),
     );
+    expect(proverClient.addNewTx).toHaveBeenCalledWith(expect.objectContaining({ hash: txs[0].getTxHash() }));
+    expect(proverClient.addNewTx).toHaveBeenCalledWith(expect.objectContaining({ hash: txs[2].getTxHash() }));
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
   });
@@ -213,13 +214,14 @@ describe('sequencer', () => {
     await sequencer.initialSync();
     await sequencer.work();
 
-    const expectedTxHashes = Tx.getHashes([txs[0], txs[2]]);
-
     expect(proverClient.startNewBlock).toHaveBeenCalledWith(
+      2,
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
-      expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+      publicProcessor.makeEmptyProcessedTx(),
     );
+    expect(proverClient.addNewTx).toHaveBeenCalledWith(expect.objectContaining({ hash: txs[0].getTxHash() }));
+    expect(proverClient.addNewTx).toHaveBeenCalledWith(expect.objectContaining({ hash: txs[2].getTxHash() }));
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
   });

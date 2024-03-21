@@ -1,5 +1,5 @@
 import { ProcessedTx } from '@aztec/circuit-types';
-import { ProverClient, ProvingResult, ProvingTicket } from '@aztec/circuit-types/interfaces';
+import { ProverClient, ProvingTicket } from '@aztec/circuit-types/interfaces';
 import { Fr, GlobalVariables } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from '@aztec/simulator';

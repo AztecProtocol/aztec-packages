@@ -296,12 +296,12 @@ describe('prover/tx-prover', () => {
           makeEmptyProcessedTx(),
         ]);
 
-        const blockPromise = await builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
+        const blockTicket = await builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
 
         for (const tx of txs) {
           await builder.addNewTx(tx);
         }
-        await expect(blockPromise).rejects.toEqual(message);
+        await expect(blockTicket.provingPromise).rejects.toEqual(message);
       },
       60000,
     );
