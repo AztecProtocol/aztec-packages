@@ -7,7 +7,8 @@ export type MetricGroupBy =
   | 'circuit-name'
   | 'classes-registered'
   | 'leaf-count'
-  | 'data-writes';
+  | 'data-writes'
+  | 'circuit-size-in-gates';
 
 /** Definition of a metric to track in benchmarks. */
 export interface Metric {
@@ -23,6 +24,18 @@ export interface Metric {
 
 /** Metric definitions to track from benchmarks. */
 export const Metrics = [
+  {
+    name: 'client_ivc_proving_time_in_ms',
+    groupBy: 'circuit-size-in-gates',
+    description: 'Proving time for ClientIVC grouped by circuit size.',
+    events: [],
+  },
+  {
+    name: 'ultrahonk_proving_time_in_ms',
+    groupBy: 'circuit-size-in-gates',
+    description: 'Proving time for UltraHonk grouped by circuit size.',
+    events: [],
+  },
   {
     name: 'l1_rollup_calldata_size_in_bytes',
     groupBy: 'block-size',
