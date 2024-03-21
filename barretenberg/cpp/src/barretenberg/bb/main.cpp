@@ -445,7 +445,7 @@ void acvm_info(const std::string& output_path)
     const char* jsonData = R"({
     "language": {
         "name" : "PLONK-CSAT",
-        "width" : 3
+        "width" : 4
     }
     })";
 
