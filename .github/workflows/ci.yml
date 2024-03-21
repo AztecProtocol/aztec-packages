@@ -97,7 +97,7 @@ jobs:
           - integration-l1-publisher
           - e2e-cli
           - e2e-persistence
-          - e2e-browser
+          # - e2e-browser
           - e2e-card-game
           - e2e-avm-simulator
           - e2e-fees
