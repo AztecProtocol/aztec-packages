@@ -27,5 +27,5 @@ if grep 'failed to get edge: inconsistent graph state' .output.txt ; then
   # so we use arbitrary WAIT statement groups. Pending earthly support.
   # for now we just try to recover from the failures.
   echo "Got 'inconsistent graph state'. Restarting earthly. See https://github.com/earthly/earthly/issues/2454'"
-  earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:bb-native-tests --sat $RUNNER_PREFIX-$USERNAME-$ARCH $@ 2>&1 | tee .output.txt >&2
+  earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:bb-native-tests --sat $RUNNER_PREFIX-$USERNAME-$ARCH $@
 fi
