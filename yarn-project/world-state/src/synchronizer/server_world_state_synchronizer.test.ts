@@ -1,5 +1,7 @@
 import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
+import { randomInt } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { AztecKVStore } from '@aztec/kv-store';
@@ -26,12 +28,13 @@ const log = createDebugLogger('aztec:server_world_state_synchronizer_test');
 
 describe('server_world_state_synchronizer', () => {
   let db: AztecKVStore;
-  let emptySubtreeInHash: Buffer;
+  let l1ToL2Messages: Fr[];
+  let inHash: Buffer;
 
   const blockAndMessagesSource = mock<L2BlockSource & L1ToL2MessageSource>({
     getBlockNumber: jest.fn(getLatestBlockNumber),
     getBlocks: jest.fn(consumeNextBlocks),
-    getL1ToL2Messages: jest.fn(() => Promise.resolve([])),
+    getL1ToL2Messages: jest.fn(() => Promise.resolve(l1ToL2Messages)),
   });
 
   const merkleTreeDb = mock<MerkleTreeDb>({
@@ -98,17 +101,22 @@ describe('server_world_state_synchronizer', () => {
   };
 
   const getRandomBlock = (blockNumber: number) => {
-    return L2Block.random(blockNumber, 4, 2, 3, 2, 1, emptySubtreeInHash);
+    return L2Block.random(blockNumber, 4, 2, 3, 2, 1, inHash);
   };
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    const numMessages = randomInt(2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT);
+    l1ToL2Messages = Array(numMessages)
+      .fill(0)
+      .map(() => Fr.random());
     const tree = new StandardTree(
       openTmpStore(true),
       new SHA256(),
       'empty_subtree_in_hash',
       L1_TO_L2_MSG_SUBTREE_HEIGHT,
     );
-    emptySubtreeInHash = tree.getRoot(true);
+    await tree.appendLeaves(l1ToL2Messages.map(msg => msg.toBuffer()));
+    inHash = tree.getRoot(true);
   });
 
   beforeEach(() => {
