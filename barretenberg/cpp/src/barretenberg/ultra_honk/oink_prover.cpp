@@ -135,9 +135,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
 
-    instance->compute_grand_product_polynomials(relation_parameters.beta, relation_parameters.gamma);
-    relation_parameters.public_input_delta = instance->relation_parameters.public_input_delta;
-    relation_parameters.lookup_grand_product_delta = instance->relation_parameters.lookup_grand_product_delta;
+    instance->proving_key->compute_grand_product_polynomials(relation_parameters);
 
     witness_commitments.z_perm = commitment_key->commit(instance->proving_key->z_perm);
     witness_commitments.z_lookup = commitment_key->commit(instance->proving_key->z_lookup);

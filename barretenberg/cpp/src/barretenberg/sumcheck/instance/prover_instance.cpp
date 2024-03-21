@@ -2,8 +2,6 @@
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
-#include "barretenberg/proof_system/library/grand_product_delta.hpp"
-#include "barretenberg/proof_system/library/grand_product_library.hpp"
 
 namespace bb {
 /**
@@ -72,23 +70,6 @@ void ProverInstance_<Flavor>::construct_table_polynomials(Circuit& circuit, size
     proving_key->table_2 = table_polynomials[1].share();
     proving_key->table_3 = table_polynomials[2].share();
     proving_key->table_4 = table_polynomials[3].share();
-}
-
-template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
-{
-    auto public_input_delta = compute_public_input_delta<Flavor>(
-        proving_key->public_inputs, beta, gamma, proving_key->circuit_size, proving_key->pub_inputs_offset);
-    relation_parameters.beta = beta;
-    relation_parameters.gamma = gamma;
-    relation_parameters.public_input_delta = public_input_delta;
-    auto lookup_grand_product_delta = compute_lookup_grand_product_delta(beta, gamma, proving_key->circuit_size);
-    relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
-
-    // Compute permutation and lookup grand product polynomials
-    prover_polynomials = ProverPolynomials(proving_key);
-    compute_grand_products<Flavor>(proving_key, prover_polynomials, relation_parameters);
-    proving_key->z_perm = prover_polynomials.z_perm;
-    proving_key->z_lookup = prover_polynomials.z_lookup;
 }
 
 template class ProverInstance_<UltraFlavor>;

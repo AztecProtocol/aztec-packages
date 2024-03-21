@@ -93,8 +93,6 @@ template <class Flavor> class ProverInstance_ {
     void compute_databus_id()
         requires IsGoblinFlavor<Flavor>;
 
-    void compute_grand_product_polynomials(FF, FF);
-
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;

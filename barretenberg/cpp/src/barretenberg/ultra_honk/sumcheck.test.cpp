@@ -155,9 +155,8 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     instance->relation_parameters.gamma = FF::random_element();
 
     instance->proving_key->compute_sorted_accumulator_polynomials(instance->relation_parameters.eta);
+    instance->proving_key->compute_grand_product_polynomials(instance->relation_parameters);
     instance->prover_polynomials = Flavor::ProverPolynomials(instance->proving_key);
-    instance->compute_grand_product_polynomials(instance->relation_parameters.beta,
-                                                instance->relation_parameters.gamma);
 
     auto prover_transcript = Transcript::prover_init_empty();
     auto circuit_size = instance->proving_key->circuit_size;

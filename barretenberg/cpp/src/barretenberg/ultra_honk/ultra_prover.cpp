@@ -81,7 +81,7 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof
 {
     auto [relation_params] = oink_prover.prove();
     instance->relation_parameters = std::move(relation_params);
-    // instance->prover_polynomials = ProverPolynomials(instance->proving_key);
+    instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

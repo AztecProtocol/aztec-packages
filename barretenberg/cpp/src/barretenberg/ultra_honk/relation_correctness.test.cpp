@@ -272,9 +272,8 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     instance->relation_parameters.gamma = FF::random_element();
 
     instance->proving_key->compute_sorted_accumulator_polynomials(instance->relation_parameters.eta);
+    instance->proving_key->compute_grand_product_polynomials(instance->relation_parameters);
     instance->prover_polynomials = Flavor::ProverPolynomials(instance->proving_key);
-    instance->compute_grand_product_polynomials(instance->relation_parameters.beta,
-                                                instance->relation_parameters.gamma);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key->q_arith);
@@ -326,9 +325,8 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
 
     instance->proving_key->compute_sorted_accumulator_polynomials(instance->relation_parameters.eta);
     instance->proving_key->compute_logderivative_inverse(instance->relation_parameters);
+    instance->proving_key->compute_grand_product_polynomials(instance->relation_parameters);
     instance->prover_polynomials = Flavor::ProverPolynomials(instance->proving_key);
-    instance->compute_grand_product_polynomials(instance->relation_parameters.beta,
-                                                instance->relation_parameters.gamma);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key->q_arith);

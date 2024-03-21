@@ -126,9 +126,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         if constexpr (IsGoblinFlavor<Flavor>) {
             instance->proving_key->compute_logderivative_inverse(instance->relation_parameters);
         }
+        instance->proving_key->compute_grand_product_polynomials(instance->relation_parameters);
         instance->prover_polynomials = ProverPolynomials(instance->proving_key);
-        instance->compute_grand_product_polynomials(instance->relation_parameters.beta,
-                                                    instance->relation_parameters.gamma);
 
         for (auto& alpha : instance->alphas) {
             alpha = FF::random_element();
