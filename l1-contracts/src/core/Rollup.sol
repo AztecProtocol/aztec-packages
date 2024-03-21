@@ -11,7 +11,6 @@ import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
 
 // Libraries
 import {HeaderLib} from "./libraries/HeaderLib.sol";
-import {MessagesDecoder} from "./libraries/decoders/MessagesDecoder.sol";
 import {Hash} from "./libraries/Hash.sol";
 import {Errors} from "./libraries/Errors.sol";
 import {Constants} from "./libraries/ConstantsGen.sol";
@@ -19,6 +18,7 @@ import {Constants} from "./libraries/ConstantsGen.sol";
 // Contracts
 import {MockVerifier} from "../mock/MockVerifier.sol";
 import {Inbox} from "./messagebridge/Inbox.sol";
+import {Outbox} from "./messagebridge/Outbox.sol";
 
 /**
  * @title Rollup
@@ -31,6 +31,7 @@ contract Rollup is IRollup {
   IRegistry public immutable REGISTRY;
   IAvailabilityOracle public immutable AVAILABILITY_ORACLE;
   IInbox public immutable INBOX;
+  IOutbox public immutable OUTBOX;
   uint256 public immutable VERSION;
 
   bytes32 public archive; // Root of the archive tree
@@ -44,6 +45,7 @@ contract Rollup is IRollup {
     REGISTRY = _registry;
     AVAILABILITY_ORACLE = _availabilityOracle;
     INBOX = new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
+    OUTBOX = new Outbox(address(this));
     VERSION = 1;
   }
 
@@ -51,15 +53,12 @@ contract Rollup is IRollup {
    * @notice Process an incoming L2 block and progress the state
    * @param _header - The L2 block header
    * @param _archive - A root of the archive tree after the L2 block is applied
-   * @param _body - The L2 block body
    * @param _proof - The proof of correct execution
    */
-  function process(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes calldata _body, // TODO(#5073) Nuke this when updating to the new message model
-    bytes memory _proof
-  ) external override(IRollup) {
+  function process(bytes calldata _header, bytes32 _archive, bytes memory _proof)
+    external
+    override(IRollup)
+  {
     // Decode and validate header
     HeaderLib.Header memory header = HeaderLib.decode(_header);
     HeaderLib.validate(header, VERSION, lastBlockTs, archive);
@@ -68,9 +67,6 @@ contract Rollup is IRollup {
     if (!AVAILABILITY_ORACLE.isAvailable(header.contentCommitment.txsEffectsHash)) {
       revert Errors.Rollup__UnavailableTxs(header.contentCommitment.txsEffectsHash);
     }
-
-    // Decode the cross-chain messages (Will be removed as part of message model change)
-    (,,, bytes32[] memory l2ToL1Msgs) = MessagesDecoder.decode(_body);
 
     bytes32[] memory publicInputs = new bytes32[](1);
     publicInputs[0] = _computePublicInputHash(_header, _archive);
@@ -89,8 +85,12 @@ contract Rollup is IRollup {
       revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
     }
 
-    IOutbox outbox = REGISTRY.getOutbox();
-    outbox.sendL1Messages(l2ToL1Msgs);
+    // We assume here that the number of L2 to L1 messages per tx is 2. Therefore we just need a tree that is one height
+    // larger (as we can just extend the tree one layer down to hold all the L2 to L1 messages)
+    uint256 l2ToL1TreeHeight = header.contentCommitment.txTreeHeight + 1;
+    OUTBOX.insert(
+      header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeHeight
+    );
 
     emit L2BlockProcessed(header.globalVariables.blockNumber);
   }
