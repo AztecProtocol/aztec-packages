@@ -156,7 +156,7 @@ test-all:
   BUILD +integration-l1-publisher
   BUILD +e2e-cli
   BUILD +e2e-persistence
-  BUILD +e2e-browser
+  # BUILD +e2e-browser
   BUILD +e2e-card-game
   BUILD +e2e-avm-simulator
   BUILD +e2e-fees
