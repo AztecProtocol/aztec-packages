@@ -355,6 +355,9 @@ impl BrilligContext {
     ///
     /// Copies the value at `source` into `destination`
     pub(crate) fn mov_instruction(&mut self, destination: MemoryAddress, source: MemoryAddress) {
+        if destination == source {
+            return;
+        }
         self.debug_show.mov_instruction(destination, source);
         self.push_opcode(BrilligOpcode::Mov { destination, source });
     }
