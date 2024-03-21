@@ -4,13 +4,13 @@
     "inArgs": [
       {
         "name": "inputs_buffer",
-        "type": "bb::fr::vec_in_buf"
+        "type": "fr::vec_in_buf"
       }
     ],
     "outArgs": [
       {
         "name": "output",
-        "type": "bb::grumpkin::g1::affine_element::out_buf"
+        "type": "affine_element::out_buf"
       }
     ],
     "isAsync": false
@@ -20,7 +20,7 @@
     "inArgs": [
       {
         "name": "inputs_buffer",
-        "type": "bb::fr::vec_in_buf"
+        "type": "fr::vec_in_buf"
       },
       {
         "name": "hash_index",
@@ -30,7 +30,7 @@
     "outArgs": [
       {
         "name": "output",
-        "type": "bb::fr::out_buf"
+        "type": "fr::out_buf"
       }
     ],
     "isAsync": false
@@ -40,7 +40,7 @@
     "inArgs": [
       {
         "name": "inputs_buffer",
-        "type": "bb::fr::vec_in_buf"
+        "type": "fr::vec_in_buf"
       },
       {
         "name": "hash_index",
@@ -50,7 +50,7 @@
     "outArgs": [
       {
         "name": "output",
-        "type": "bb::fr::out_buf"
+        "type": "fr::out_buf"
       }
     ],
     "isAsync": false
@@ -70,7 +70,7 @@
     "outArgs": [
       {
         "name": "output",
-        "type": "bb::fr::out_buf"
+        "type": "fr::out_buf"
       }
     ],
     "isAsync": false
@@ -80,13 +80,13 @@
     "inArgs": [
       {
         "name": "inputs_buffer",
-        "type": "bb::fr::vec_in_buf"
+        "type": "fr::vec_in_buf"
       }
     ],
     "outArgs": [
       {
         "name": "output",
-        "type": "bb::fr::out_buf"
+        "type": "fr::out_buf"
       }
     ],
     "isAsync": false
@@ -96,13 +96,13 @@
     "inArgs": [
       {
         "name": "inputs_buffer",
-        "type": "bb::fr::vec_in_buf"
+        "type": "fr::vec_in_buf"
       }
     ],
     "outArgs": [
       {
         "name": "output",
-        "type": "bb::fr::out_buf"
+        "type": "fr::out_buf"
       }
     ],
     "isAsync": false
@@ -134,7 +134,7 @@
     "outArgs": [
       {
         "name": "r",
-        "type": "bb::fr::out_buf"
+        "type": "fr::out_buf"
       }
     ],
     "isAsync": false
@@ -599,12 +599,8 @@
     "isAsync": false
   },
   {
-    "functionName": "acir_honk_prove",
+    "functionName": "acir_construct_and_verify_honk_proof",
     "inArgs": [
-      {
-        "name": "acir_composer_ptr",
-        "type": "in_ptr"
-      },
       {
         "name": "constraint_system_buf",
         "type": "const uint8_t *"
@@ -616,8 +612,8 @@
     ],
     "outArgs": [
       {
-        "name": "out",
-        "type": "uint8_t **"
+        "name": "result",
+        "type": "bool *"
       }
     ],
     "isAsync": false
@@ -710,26 +706,6 @@
   },
   {
     "functionName": "acir_verify_proof",
-    "inArgs": [
-      {
-        "name": "acir_composer_ptr",
-        "type": "in_ptr"
-      },
-      {
-        "name": "proof_buf",
-        "type": "const uint8_t *"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "result",
-        "type": "bool *"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "acir_honk_verify",
     "inArgs": [
       {
         "name": "acir_composer_ptr",

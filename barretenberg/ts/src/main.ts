@@ -71,12 +71,12 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
   return { api, acirComposer, circuitSize, subgroupSize };
 }
 
-async function initHonk(bytecodePath: string, crsPath: string) {
-  const initData = await init(bytecodePath, crsPath);
-  const { api } = initData;
-  initData.acirComposer = await api.acirNewHonkAcirComposer();
-  return initData;
-}
+// async function initHonk(bytecodePath: string, crsPath: string) {
+//   const initData = await init(bytecodePath, crsPath);
+//   const { api } = initData;
+//   // initData.acirComposer = await api.acirNewHonkAcirComposer();
+//   return initData;
+// }
 
 async function initGoblin(bytecodePath: string, crsPath: string) {
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove this subgroup size hack
@@ -136,28 +136,16 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
   /* eslint-enable camelcase */
 }
 
-export async function proveAndVerifyHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
+export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
   const acir_test = path.basename(process.cwd());
 
-  const { api, acirComposer, circuitSize, subgroupSize } = await initGoblin(bytecodePath, crsPath);
+  const { api } = await init(bytecodePath, crsPath);
   try {
-    debug(`In proveAndVerifyHonk:`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
 
-    writeBenchmark('gate_count', circuitSize, { acir_test, threads });
-    writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
-
-    debug(`prove()`);
-    const proofTimer = new Timer();
-    const proof = await api.acirGoblinAccumulate(acirComposer, bytecode, witness);
-    writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
-
-    debug(`acirVerifyGoblinProof()`);
-    const verified = await api.acirGoblinVerifyAccumulator(acirComposer, proof);
-    debug(`verified: ${verified}`);
-    console.log({ verified });
+    const verified = await api.acirConstructAndVerifyHonkProof(bytecode, witness);
     return verified;
   } finally {
     await api.destroy();
@@ -387,13 +375,13 @@ program
   });
 
 program
-  .command('prove_and_verify_honk')
+  .command('prove_and_verify_ultra_honk')
   .description('Generate a GUH proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
-    const result = await proveAndVerifyHonk(bytecodePath, witnessPath, crsPath);
+    const result = await proveAndVerifyUltraHonk(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 

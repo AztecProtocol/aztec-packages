@@ -142,12 +142,10 @@ template <typename Flavor> bool proveAndVerifyHonk(const std::string& bytecodePa
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
     // WORKTODO: figure out what to do about "ensure nonzero" gates buffer here
     size_t dyadic_circuit_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + 15);
-    info("dyadic_circuit_size = ", dyadic_circuit_size);
     init_bn254_crs(dyadic_circuit_size);
 
     // Construct Honk proof
     Prover prover{ builder };
-    info("circuit_size = ", prover.instance->proving_key->circuit_size);
     auto proof = prover.construct_proof();
 
     // Verify Honk proof
