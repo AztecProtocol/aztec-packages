@@ -1,6 +1,11 @@
 VERSION 0.8
 FROM ubuntu:lunar
 
+# Install nargo
+COPY ../noir/+nargo/nargo /usr/bin/nargo
+# Install transpiler
+COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
+
 WORKDIR /build
 
 source:
@@ -10,11 +15,6 @@ source:
   RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
 build:
-  FROM +source
-  # Install nargo
-  COPY ../noir/+nargo/nargo /usr/bin/nargo
-  # Install transpiler
-  COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
   RUN apt-get update && apt-get install -y parallel
   RUN cd noir-contracts && NARGO=nargo TRANSPILER=avm-transpiler ./bootstrap.sh
   RUN cd noir-protocol-circuits && NARGO=nargo ./bootstrap.sh
