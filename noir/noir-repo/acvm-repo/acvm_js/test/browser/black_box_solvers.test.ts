@@ -6,6 +6,7 @@ import initACVM, {
   ecdsa_secp256r1_verify,
   initLogLevel,
   keccak256,
+  sha256_compression,
   xor,
 } from '@noir-lang/acvm_js';
 
@@ -30,6 +31,16 @@ it('successfully calculates the bitwise XOR of two fields', async () => {
   for (const testCase of xor_test_cases) {
     const [[lhs, rhs], expectedResult] = testCase;
     expect(xor(lhs, rhs)).to.be.eq(expectedResult);
+  }
+});
+
+it('successfully calculates the sha256 hash', async () => {
+  const { sha256_compression_test_cases } = await import('../shared/black_box_solvers');
+
+  for (const testCase of sha256_compression_test_cases) {
+    const [message, state, expectedResult] = testCase;
+    const hash = sha256_compression(message, state);
+    hash.forEach((value, index) => expect(value).to.be.eq(expectedResult.at(index)));
   }
 });
 
