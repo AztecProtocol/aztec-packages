@@ -24,14 +24,14 @@ export class DummyProver implements ProverClient {
 
   startNewBlock(
     _numTxs: number,
-    globalVariables: GlobalVariables,
+    _globalVariables: GlobalVariables,
     _newL1ToL2Messages: Fr[],
     _emptyTx: ProcessedTx,
   ): Promise<ProvingTicket> {
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
       proof: makeEmptyProof(),
-      block: L2Block.empty(globalVariables.blockNumber.toNumber()),
+      block: L2Block.empty(),
     };
     const ticket: ProvingTicket = {
       provingPromise: Promise.resolve(result),
