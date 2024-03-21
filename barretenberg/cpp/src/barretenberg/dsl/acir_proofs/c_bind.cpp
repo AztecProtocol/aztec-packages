@@ -7,7 +7,6 @@
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_proofs/goblin_acir_composer.hpp"
-#include "barretenberg/dsl/acir_proofs/honk_acir_composer.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -133,13 +132,13 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* a
     *out = to_heap_buffer(to_buffer(*pk));
 }
 
-WASM_EXPORT void acir_honk_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
-{
-    auto acir_composer = reinterpret_cast<acir_proofs::GoblinAcirComposer*>(*acir_composer_ptr);
-    auto proof_data_buf = from_buffer<std::vector<uint8_t>>(proof_buf);
-    auto proof = from_buffer<std::vector<bb::fr>>(proof_data_buf);
-    *result = acir_composer->verify(proof);
-}
+// WASM_EXPORT void acir_honk_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
+// {
+//     auto acir_composer = reinterpret_cast<acir_proofs::GoblinAcirComposer*>(*acir_composer_ptr);
+//     auto proof_data_buf = from_buffer<std::vector<uint8_t>>(proof_buf);
+//     auto proof = from_buffer<std::vector<bb::fr>>(proof_data_buf);
+//     *result = acir_composer->verify(proof);
+// }
 
 WASM_EXPORT void acir_goblin_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
 {

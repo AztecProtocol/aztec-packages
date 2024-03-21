@@ -36,13 +36,13 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
                                    uint8_t** out);
 
 /**
- * @brief Construct a GUH proof
- *
- */
-WASM_EXPORT void acir_honk_prove(in_ptr acir_composer_ptr,
-                                 uint8_t const* constraint_system_buf,
-                                 uint8_t const* witness_buf,
-                                 uint8_t** out);
+//  * @brief Construct a GUH proof
+//  *
+//  */
+// WASM_EXPORT void acir_honk_prove(in_ptr acir_composer_ptr,
+//                                  uint8_t const* constraint_system_buf,
+//                                  uint8_t const* witness_buf,
+//                                  uint8_t** out);
 
 /**
  * @brief Construct a full goblin proof
@@ -64,11 +64,11 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* a
 
 WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
 
-/**
- * @brief Verifies a GUH proof
- *
- */
-WASM_EXPORT void acir_honk_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
+// /**
+//  * @brief Verifies a GUH proof
+//  *
+//  */
+// WASM_EXPORT void acir_honk_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
 
 /**
  * @brief Verifies a full goblin proof (and the GUH proof produced by accumulation)

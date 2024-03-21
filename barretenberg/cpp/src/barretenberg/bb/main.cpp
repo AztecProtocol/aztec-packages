@@ -15,7 +15,6 @@
 #include <barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp>
 #include <barretenberg/dsl/acir_proofs/acir_composer.hpp>
 #include <barretenberg/dsl/acir_proofs/goblin_acir_composer.hpp>
-#include <barretenberg/dsl/acir_proofs/honk_acir_composer.hpp>
 #include <barretenberg/srs/global_crs.hpp>
 #include <cstdint>
 #include <iostream>
