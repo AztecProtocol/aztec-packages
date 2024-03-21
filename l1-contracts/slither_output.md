@@ -50,38 +50,39 @@ src/core/Rollup.sol#L57-L96
 Impact: Medium
 Confidence: High
  - [ ] ID-4
-Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L341-L343):
-	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L342)
-
-src/core/libraries/decoders/TxsDecoder.sol#L341-L343
-
-
- - [ ] ID-5
-Dubious typecast in [TxsDecoder.read4(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L351-L353):
-	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(slice(_data,_offset,4))))](src/core/libraries/decoders/TxsDecoder.sol#L352)
-
-src/core/libraries/decoders/TxsDecoder.sol#L351-L353
-
-
- - [ ] ID-6
 Dubious typecast in [MessagesDecoder.read4(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L164-L166):
 	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L165)
 
 src/core/libraries/decoders/MessagesDecoder.sol#L164-L166
 
 
- - [ ] ID-7
+ - [ ] ID-5
+Dubious typecast in [Hash.sha256ToField(bytes)](src/core/libraries/Hash.sol#L42-L44):
+	bytes32 => bytes31 casting occurs in [bytes32(bytes.concat(new bytes(1),bytes31(sha256(bytes)(_data))))](src/core/libraries/Hash.sol#L43)
+	bytes => bytes32 casting occurs in [bytes32(bytes.concat(new bytes(1),bytes31(sha256(bytes)(_data))))](src/core/libraries/Hash.sol#L43)
+
+src/core/libraries/Hash.sol#L42-L44
+
+
+ - [ ] ID-6
 Dubious typecast in [Outbox.sendL1Messages(bytes32[])](src/core/messagebridge/Outbox.sol#L38-L46):
 	uint256 => uint32 casting occurs in [version = uint32(REGISTRY.getVersionFor(msg.sender))](src/core/messagebridge/Outbox.sol#L40)
 
 src/core/messagebridge/Outbox.sol#L38-L46
 
 
- - [ ] ID-8
-Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L315-L317):
-	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L316)
+ - [ ] ID-7
+Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L342-L344):
+	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L343)
 
-src/core/libraries/decoders/TxsDecoder.sol#L315-L317
+src/core/libraries/decoders/TxsDecoder.sol#L342-L344
+
+
+ - [ ] ID-8
+Dubious typecast in [TxsDecoder.read4(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L352-L354):
+	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(slice(_data,_offset,4))))](src/core/libraries/decoders/TxsDecoder.sol#L353)
+
+src/core/libraries/decoders/TxsDecoder.sol#L352-L354
 
 
  - [ ] ID-9
@@ -110,7 +111,7 @@ Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L
 src/core/libraries/HeaderLib.sol#L143-L184
 
 
- - [ ] ID-9
+ - [ ] ID-10
 Dubious typecast in [MessagesDecoder.read1(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L154-L156):
 	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L155)
 
@@ -219,7 +220,7 @@ src/core/messagebridge/NewOutbox.sol#L18-L132
 ## assembly
 Impact: Informational
 Confidence: High
- - [ ] ID-21
+ - [ ] ID-22
 [MessagesDecoder.decode(bytes)](src/core/libraries/decoders/MessagesDecoder.sol#L61-L146) uses assembly
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L80-L82)
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L116-L122)
@@ -227,11 +228,11 @@ Confidence: High
 src/core/libraries/decoders/MessagesDecoder.sol#L61-L146
 
 
- - [ ] ID-22
-[TxsDecoder.computeRoot(bytes32[])](src/core/libraries/decoders/TxsDecoder.sol#L265-L284) uses assembly
-	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L272-L274)
+ - [ ] ID-23
+[TxsDecoder.computeRoot(bytes32[])](src/core/libraries/decoders/TxsDecoder.sol#L266-L285) uses assembly
+	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L273-L275)
 
-src/core/libraries/decoders/TxsDecoder.sol#L265-L284
+src/core/libraries/decoders/TxsDecoder.sol#L266-L285
 
 
 ## dead-code
