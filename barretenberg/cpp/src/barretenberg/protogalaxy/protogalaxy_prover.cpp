@@ -10,7 +10,7 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
 
     auto [relation_params] = oink_prover.prove();
     instance->relation_parameters = std::move(relation_params);
-    // instance->prover_polynomials = ProverPolynomials(instance->proving_key);
+    instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
     // Generate relation separators alphas for sumcheck
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {

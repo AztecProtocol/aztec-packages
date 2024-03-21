@@ -61,9 +61,7 @@ template <IsUltraFlavor Flavor> class OinkProver {
         , transcript(transcript)
         , commitment_key(commitment_key)
         , domain_separator(std::move(domain_separator))
-    {
-        instance->prover_polynomials = typename Flavor::ProverPolynomials(instance->proving_key);
-    }
+    {}
 
     OinkProverOutput<Flavor> prove();
     void execute_preamble_round();
