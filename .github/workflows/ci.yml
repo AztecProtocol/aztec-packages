@@ -158,8 +158,8 @@ jobs:
 
       - name: Client IVC Bench
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud-bench ${{ github.actor }} ${{ matrix.environment }} +bench-client-ivc
+        run: earthly-cloud-bench ${{ github.actor }} x86 +bench-client-ivc
 
       - name: Ultrahonk Bench
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud-bench ${{ github.actor }} ${{ matrix.environment }} +bench-ultra-honk
+        run: earthly-cloud-bench ${{ github.actor }} x86 +bench-ultra-honk
