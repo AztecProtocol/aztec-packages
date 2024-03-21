@@ -61,7 +61,7 @@ source:
 
 preset-release-assert-all:
     FROM +source
-    RUN cmake --preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert && cmake --build --preset clang16
+    DO +RUN_CMAKE --configure="--preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
     SAVE ARTIFACT bin
 
 preset-release:
@@ -132,7 +132,7 @@ test:
     BUILD +test-clang-format
     FROM +preset-release-assert-all
     COPY --dir ./srs_db/+build/. srs_db
-    RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
+    RUN GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
 
 # Functions
 RUN_CMAKE:
@@ -161,7 +161,7 @@ BENCH_RELEASE:
     FROM +preset-release
     DO +RUN_CMAKE --configure="--preset clang16" --build="--target $target"
     COPY --dir ./srs_db/+build/. srs_db
-    RUN cd build && ./bin/$target $args
+    RUN ./bin/$target $args
 
 BENCH_OP_COUNT_TIME:
     FUNCTION
@@ -170,7 +170,7 @@ BENCH_OP_COUNT_TIME:
     FROM +preset-op-count-time
     DO +RUN_CMAKE --configure="--preset op-count-time" --build="--target $target"
     COPY --dir ./srs_db:+build/. srs_db
-    RUN cd build && ./bin/$target $args
+    RUN ./bin/$target $args
 
 BENCH_OP_COUNT:
     FUNCTION
@@ -179,7 +179,7 @@ BENCH_OP_COUNT:
     FROM +preset-op-count
     DO +RUN_CMAKE --configure="--preset op-count" --build="--target $target"
     COPY --dir ./srs_db/+build/. srs_db
-    RUN cd build && ./bin/$target $args
+    RUN ./bin/$target $args
 
 BENCH_WASM:
     FUNCTION
@@ -188,4 +188,4 @@ BENCH_WASM:
     FROM +preset-wasm
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target $target"
     COPY --dir ./srs_db/+build/. srs_db
-    RUN cd build && ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args
+    RUN ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args
