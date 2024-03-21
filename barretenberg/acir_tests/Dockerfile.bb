@@ -13,7 +13,7 @@ RUN FLOW=prove_then_verify ./run_acir_tests.sh
 # Construct and verify a UltraHonk proof for all acir programs
 RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh
 # Construct and verify a Goblin UltraHonk (GUH) proof for a single arbitrary program
-RUN FLOW=prove_and_verify_ultra_goblin_ultra_honk ./run_acir_tests.sh 6_array
+RUN FLOW=prove_and_verify_goblin_ultra_honk ./run_acir_tests.sh 6_array
 # This is a "full" Goblin flow. It constructs and verifies four proofs: GoblinUltraHonk, ECCVM, Translator, and merge
 RUN FLOW=prove_and_verify_goblin ./run_acir_tests.sh 6_array
 # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
