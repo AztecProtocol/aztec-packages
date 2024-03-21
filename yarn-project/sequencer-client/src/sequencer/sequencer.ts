@@ -302,13 +302,13 @@ export class Sequencer {
     emptyTx: ProcessedTx,
     globalVariables: GlobalVariables,
   ) {
-    const blockPromise = this.prover.startNewBlock(txs.length, globalVariables, l1ToL2Messages, emptyTx);
+    const blockTicket = await this.prover.startNewBlock(txs.length, globalVariables, l1ToL2Messages, emptyTx);
 
     for (const tx of txs) {
-      this.prover.addNewTx(tx);
+      await this.prover.addNewTx(tx);
     }
 
-    const result = await blockPromise;
+    const result = await blockTicket.provingPromise;
     return result.block;
   }
 

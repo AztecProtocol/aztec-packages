@@ -1,5 +1,5 @@
 import { Body, L2Block, MerkleTreeId, ProcessedTx, TxEffect, toTxEffect } from '@aztec/circuit-types';
-import { ProvingResult } from '@aztec/circuit-types/interfaces';
+import { ProvingResult, ProvingTicket } from '@aztec/circuit-types/interfaces';
 import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
@@ -96,14 +96,14 @@ export class ProvingOrchestrator {
    * @param globalVariables - The global variables for the block
    * @param l1ToL2Messages - The l1 to l2 messages for the block
    * @param emptyTx - The instance of an empty transaction to be used to pad this block
-   * @returns A promise notifying of the result of proving
+   * @returns A proving ticket, containing a promise notifying of proving completion
    */
-  public startNewBlock(
+  public async startNewBlock(
     numTxs: number,
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
-  ): Promise<ProvingResult> {
+  ): Promise<ProvingTicket> {
     logger.info(`Starting new block with ${numTxs} transactions`);
     // we start the block by enqueueing all of the base parity circuits
     let baseParityInputs: BaseParityInputs[] = [];
@@ -116,6 +116,9 @@ export class ProvingOrchestrator {
     baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
       BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i),
     );
+
+    //TODO:(@PhilWindle) Temporary until we figure out when to perform L1 to L2 insertions to make state consistency easier.
+    await Promise.resolve();
 
     const promise = new Promise<ProvingResult>((resolve, reject) => {
       this.provingState = new ProvingState(
@@ -134,14 +137,18 @@ export class ProvingOrchestrator {
         this.runBaseParityCircuit(baseParityInputs[i], i, this.provingState!.stateIdentifier),
       );
     }
-    return promise;
+
+    const ticket: ProvingTicket = {
+      provingPromise: promise,
+    };
+    return ticket;
   }
 
   /**
    * The interface to add a simulated transaction to the scheduler
    * @param tx - The transaction to be proven
    */
-  public addNewTx(tx: ProcessedTx): void {
+  public async addNewTx(tx: ProcessedTx): Promise<void> {
     if (!this.provingState) {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions`);
     }
@@ -157,14 +164,12 @@ export class ProvingOrchestrator {
     // We start the transaction by enqueueing the state updates
 
     const txIndex = this.provingState!.addNewTx(tx);
-    // we start this transaction off by enqueueing it's state updates
-    this.enqueueJob(this.provingState!.stateIdentifier, PROVING_JOB_TYPE.STATE_UPDATE, () =>
-      this.prepareBaseRollupInputs(
-        BigInt(txIndex),
-        tx,
-        this.provingState!.globalVariables,
-        this.provingState!.stateIdentifier,
-      ),
+    // we start this transaction off by performing it's tree insertions and
+    await this.prepareBaseRollupInputs(
+      BigInt(txIndex),
+      tx,
+      this.provingState!.globalVariables,
+      this.provingState!.stateIdentifier,
     );
 
     if (this.provingState.transactionsReceived === this.provingState.numRealTxs) {
@@ -172,13 +177,11 @@ export class ProvingOrchestrator {
       const numPaddingTxs = this.provingState.numPaddingTxs;
       for (let i = 0; i < numPaddingTxs; i++) {
         const paddingTxIndex = this.provingState.addNewTx(this.provingState.emptyTx);
-        this.enqueueJob(this.provingState!.stateIdentifier, PROVING_JOB_TYPE.STATE_UPDATE, () =>
-          this.prepareBaseRollupInputs(
-            BigInt(paddingTxIndex),
-            this.provingState!.emptyTx,
-            this.provingState!.globalVariables,
-            this.provingState!.stateIdentifier,
-          ),
+        await this.prepareBaseRollupInputs(
+          BigInt(paddingTxIndex),
+          this.provingState!.emptyTx,
+          this.provingState!.globalVariables,
+          this.provingState!.stateIdentifier,
         );
       }
     }
@@ -472,13 +475,7 @@ export class ProvingOrchestrator {
       if (this.jobQueue.length() && promises.length < maxConcurrentJobs) {
         // more work could be available
         const job = await this.jobQueue.get();
-        if (job == null) {
-          // we are shutting down
-          this.stopped = true;
-        } else if (job.type === PROVING_JOB_TYPE.STATE_UPDATE) {
-          // These have to be done separately, they are not atomic and can't be executed in parallel
-          await job.operation();
-        } else {
+        if (job !== null) {
           // a proving job, add it to the pool of outstanding jobs
           promises.push(job.operation());
         }

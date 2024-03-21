@@ -1,5 +1,5 @@
 import { ProcessedTx } from '@aztec/circuit-types';
-import { ProverClient, ProvingResult } from '@aztec/circuit-types/interfaces';
+import { ProverClient, ProvingResult, ProvingTicket } from '@aztec/circuit-types/interfaces';
 import { Fr, GlobalVariables } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from '@aztec/simulator';
@@ -84,11 +84,11 @@ export class TxProver implements ProverClient {
     globalVariables: GlobalVariables,
     newL1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
-  ): Promise<ProvingResult> {
+  ): Promise<ProvingTicket> {
     return this.orchestrator.startNewBlock(numTxs, globalVariables, newL1ToL2Messages, emptyTx);
   }
 
-  public addNewTx(tx: ProcessedTx): void {
-    this.orchestrator.addNewTx(tx);
+  public addNewTx(tx: ProcessedTx): Promise<void> {
+    return this.orchestrator.addNewTx(tx);
   }
 }

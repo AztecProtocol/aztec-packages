@@ -8,6 +8,10 @@ export type ProvingResult = {
   proof: Proof;
 };
 
+export type ProvingTicket = {
+  provingPromise: Promise<ProvingResult>;
+};
+
 /**
  * The interface to the block prover.
  * Provides the ability to generate proofs and build rollups.
@@ -18,7 +22,7 @@ export interface BlockProver {
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
-  ): Promise<ProvingResult>;
+  ): Promise<ProvingTicket>;
 
-  addNewTx(tx: ProcessedTx): void;
+  addNewTx(tx: ProcessedTx): Promise<void>;
 }

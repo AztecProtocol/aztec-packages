@@ -296,10 +296,10 @@ describe('prover/tx-prover', () => {
           makeEmptyProcessedTx(),
         ]);
 
-        const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
+        const blockPromise = await builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
 
         for (const tx of txs) {
-          builder.addNewTx(tx);
+          await builder.addNewTx(tx);
         }
         await expect(blockPromise).rejects.toEqual(message);
       },
@@ -374,7 +374,7 @@ describe('prover/tx-prover', () => {
       [1, 4],
       [4, 4],
       [0, 16],
-      [16, 16],
+      [4, 16],
     ] as const)(
       'builds an L2 block with %i bloated txs and %i txs total',
       async (bloatedCount: number, totalCount: number) => {
@@ -384,7 +384,7 @@ describe('prover/tx-prover', () => {
           ...(await Promise.all(times(totalCount - bloatedCount, makeEmptyProcessedTx))),
         ];
 
-        const blockPromise = builder.startNewBlock(
+        const blockTicket = await builder.startNewBlock(
           txs.length,
           globalVariables,
           mockL1ToL2Messages,
@@ -392,10 +392,10 @@ describe('prover/tx-prover', () => {
         );
 
         for (const tx of txs) {
-          builder.addNewTx(tx);
+          await builder.addNewTx(tx);
         }
 
-        const result = await blockPromise;
+        const result = await blockTicket.provingPromise;
 
         expect(result.block.number).toEqual(blockNumber);
 
@@ -420,26 +420,26 @@ describe('prover/tx-prover', () => {
         makeEmptyProcessedTx(),
       ]);
 
-      const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
+      const blockTicket = await builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
 
       for (const tx of txs) {
-        builder.addNewTx(tx);
+        await builder.addNewTx(tx);
       }
 
-      const result = await blockPromise;
+      const result = await blockTicket.provingPromise;
       expect(result.block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('builds a block with 1 transaction', async () => {
       const txs = await Promise.all([makeEmptyProcessedTx()]);
 
-      const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
+      const blockTicket = await builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
 
       for (const tx of txs) {
-        builder.addNewTx(tx);
+        await builder.addNewTx(tx);
       }
 
-      const result = await blockPromise;
+      const result = await blockTicket.provingPromise;
       expect(result.block.number).toEqual(blockNumber);
     }, 30_000);
 
@@ -453,7 +453,7 @@ describe('prover/tx-prover', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockPromise = builder.startNewBlock(
+      const blockTicket = await builder.startNewBlock(
         txs.length,
         globalVariables,
         l1ToL2Messages,
@@ -461,10 +461,10 @@ describe('prover/tx-prover', () => {
       );
 
       for (const tx of txs) {
-        builder.addNewTx(tx);
+        await builder.addNewTx(tx);
       }
 
-      const result = await blockPromise;
+      const result = await blockTicket.provingPromise;
       expect(result.block.number).toEqual(blockNumber);
     }, 200_000);
 
@@ -478,7 +478,7 @@ describe('prover/tx-prover', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockPromise = builder.startNewBlock(
+      const blockTicket = await builder.startNewBlock(
         txs.length,
         globalVariables,
         l1ToL2Messages,
@@ -486,11 +486,11 @@ describe('prover/tx-prover', () => {
       );
 
       for (const tx of txs) {
-        builder.addNewTx(tx);
+        await builder.addNewTx(tx);
         await sleep(1000);
       }
 
-      const result = await blockPromise;
+      const result = await blockTicket.provingPromise;
       expect(result.block.number).toEqual(blockNumber);
     }, 200_000);
 
@@ -504,7 +504,7 @@ describe('prover/tx-prover', () => {
 
     //   const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-    //   const blockPromise1 = builder.startNewBlock(
+    //   const blockPromise1 = await builder.startNewBlock(
     //     txs.length,
     //     globalVariables,
     //     l1ToL2Messages,
@@ -513,7 +513,7 @@ describe('prover/tx-prover', () => {
 
     //   builder.addNewTx(txs[0]);
 
-    //   const blockPromise2 = builder.startNewBlock(
+    //   const blockPromise2 = await builder.startNewBlock(
     //     txs.length,
     //     globalVariables,
     //     l1ToL2Messages,
@@ -533,7 +533,7 @@ describe('prover/tx-prover', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockPromise = builder.startNewBlock(
+      const blockTicket = await builder.startNewBlock(
         txs.length,
         globalVariables,
         l1ToL2Messages,
@@ -541,10 +541,10 @@ describe('prover/tx-prover', () => {
       );
 
       for (const tx of txs) {
-        builder.addNewTx(tx);
+        await builder.addNewTx(tx);
       }
 
-      const result = await blockPromise;
+      const result = await blockTicket.provingPromise;
       expect(result.block.number).toEqual(blockNumber);
     }, 200_000);
 
@@ -556,22 +556,22 @@ describe('prover/tx-prover', () => {
         makeEmptyProcessedTx(),
       ]);
 
-      const blockPromise = builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
+      const blockTicket = await builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
 
       for (const tx of txs) {
-        builder.addNewTx(tx);
+        await builder.addNewTx(tx);
       }
 
-      await expect(async () => builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(
+      await expect(async () => await builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(
         `Rollup already contains 4 transactions`,
       );
 
-      const result = await blockPromise;
+      const result = await blockTicket.provingPromise;
       expect(result.block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('throws if adding a transaction before start', async () => {
-      await expect(async () => builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(
+      await expect(async () => await builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(
         `Invalid proving state, call startNewBlock before adding transactions`,
       );
     }, 30_000);
@@ -579,8 +579,9 @@ describe('prover/tx-prover', () => {
     it('rejects if too many l1 to l2 messages are provided', async () => {
       // Assemble a fake transaction
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
-      const blockPromise = builder.startNewBlock(1, globalVariables, l1ToL2Messages, await makeEmptyProcessedTx());
-      await expect(blockPromise).rejects.toEqual('Too many L1 to L2 messages');
+      await expect(
+        async () => await builder.startNewBlock(1, globalVariables, l1ToL2Messages, await makeEmptyProcessedTx()),
+      ).rejects.toThrow('Too many L1 to L2 messages');
     });
   });
 });

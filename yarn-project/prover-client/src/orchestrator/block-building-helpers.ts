@@ -224,6 +224,7 @@ export async function executeRootRollupCircuit(
 
   const rootProof = await prover.getRootRollupProof(rootInput, rootOutput);
 
+  //TODO(@PhilWindle) Move this to orchestrator to ensure that we are still on the same block
   // Update the archive with the latest block header
   logger?.debug(`Updating and validating root trees`);
   await db.updateArchive(rootOutput.header);

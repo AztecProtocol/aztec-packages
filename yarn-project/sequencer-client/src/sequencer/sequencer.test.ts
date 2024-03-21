@@ -5,6 +5,7 @@ import {
   MerkleTreeId,
   ProverClient,
   ProvingResult,
+  ProvingTicket,
   Tx,
   TxHash,
   makeEmptyProcessedTx,
@@ -110,9 +111,12 @@ describe('sequencer', () => {
       proof,
       block,
     };
+    const ticket: ProvingTicket = {
+      provingPromise: Promise.resolve(result),
+    };
 
     p2p.getTxs.mockResolvedValueOnce([tx]);
-    proverClient.startNewBlock.mockResolvedValueOnce(result);
+    proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
@@ -145,9 +149,12 @@ describe('sequencer', () => {
       proof,
       block,
     };
+    const ticket: ProvingTicket = {
+      provingPromise: Promise.resolve(result),
+    };
 
     p2p.getTxs.mockResolvedValueOnce(txs);
-    proverClient.startNewBlock.mockResolvedValueOnce(result);
+    proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
@@ -189,9 +196,12 @@ describe('sequencer', () => {
       proof,
       block,
     };
+    const ticket: ProvingTicket = {
+      provingPromise: Promise.resolve(result),
+    };
 
     p2p.getTxs.mockResolvedValueOnce(txs);
-    proverClient.startNewBlock.mockResolvedValueOnce(result);
+    proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
@@ -223,9 +233,12 @@ describe('sequencer', () => {
       proof,
       block,
     };
+    const ticket: ProvingTicket = {
+      provingPromise: Promise.resolve(result),
+    };
 
     p2p.getTxs.mockResolvedValueOnce([tx]);
-    proverClient.startNewBlock.mockResolvedValueOnce(result);
+    proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
