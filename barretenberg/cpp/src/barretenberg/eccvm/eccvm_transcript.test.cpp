@@ -345,16 +345,17 @@ TYPED_TEST(ECCVMTranscriptTests, StructureTest)
     // try deserializing and serializing with no changes and check proof is still valid
     prover.transcript->deserialize_full_transcript();
     prover.transcript->serialize_full_transcript();
-    EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
+    EXPECT_TRUE(
+        verifier.verify_proof(prover.transcript->proof_data)); // we have changed nothing so proof is still valid
 
     typename Flavor::Commitment one_group_val = Flavor::Commitment::one();
     auto rand_val = Flavor::FF::random_element();
     prover.transcript->transcript_Px_comm = one_group_val * rand_val; // choose random object to modify
     EXPECT_TRUE(verifier.verify_proof(
-        prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
+        prover.transcript->proof_data)); // we have not serialized it back to the proof so it should still be fine
 
     prover.transcript->serialize_full_transcript();
-    EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
+    EXPECT_FALSE(verifier.verify_proof(prover.transcript->proof_data)); // the proof is now wrong after serializing it
 
     prover.transcript->deserialize_full_transcript();
     EXPECT_EQ(static_cast<typename Flavor::Commitment>(prover.transcript->transcript_Px_comm),

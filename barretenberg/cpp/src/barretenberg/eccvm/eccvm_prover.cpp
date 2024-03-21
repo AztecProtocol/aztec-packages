@@ -196,7 +196,7 @@ template <IsECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_co
 
 template <IsECCVMFlavor Flavor> HonkProof& ECCVMProver_<Flavor>::export_proof()
 {
-    proof = transcript->proof_data;
+    proof = transcript->export_proof();
     return proof;
 }
 
