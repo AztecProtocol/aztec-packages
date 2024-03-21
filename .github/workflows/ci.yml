@@ -37,10 +37,10 @@ jobs:
 
       - name: Test
         working-directory: ./yarn-project/end-to-end/
-        run: earthly-cloud ${{ github.actor }} arm +${{ matrix.test }}
+        run: earthly-cloud build-1 ${{ github.actor }} arm +${{ matrix.test }}
 
   # all the end-to-end integration tests for aztec
-  e2e-x86:
+  e2e-x86-1:
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
@@ -60,6 +60,36 @@ jobs:
           - e2e-account-contracts
           - e2e-escrow-contract
           - e2e-inclusion-proofs-contract
+    # cancel if reran on same PR if exists, otherwise if on same commit
+    concurrency:
+      group: ${{ matrix.test }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-x86
+      cancel-in-progress: ${{ github.ref_name != 'master' }}
+    steps:
+      - uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.5
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          submodules: recursive
+
+      - name: Setup
+        working-directory: ./scripts
+        run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Test
+        working-directory: ./yarn-project/end-to-end/
+        run: earthly-cloud build-1 ${{ github.actor }} x86 +${{ matrix.test }}
+
+  e2e-x86-2:
+    runs-on: ubuntu-latest
+    env:
+      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
+    strategy:
+      matrix:
+        test:
           - e2e-pending-note-hashes-contract
           - e2e-ordering
           - uniswap-trade-on-l1-from-l2
@@ -96,7 +126,7 @@ jobs:
 
       - name: Test
         working-directory: ./yarn-project/end-to-end/
-        run: earthly-cloud ${{ github.actor }} x86 +${{ matrix.test }}
+        run: earthly-cloud build-2 ${{ github.actor }} x86 +${{ matrix.test }}
 
   # barretenberg (prover) native tests
   bb-native-tests:
@@ -125,7 +155,7 @@ jobs:
 
       - name: Test
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud ${{ github.actor }} ${{ matrix.environment }} +test
+        run: earthly-cloud build-1 ${{ github.actor }} ${{ matrix.environment }} +test
 
   # All benchmarks, purposefully ran sequential on a machine
   # they should use parallelism within the benchmark, but only one thing should run at a time
@@ -158,8 +188,8 @@ jobs:
 
       - name: Client IVC Bench
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud-bench ${{ github.actor }} x86 +bench-client-ivc
+        run: earthly-cloud bench-1 ${{ github.actor }} x86 +bench-client-ivc
 
       - name: Ultrahonk Bench
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud-bench ${{ github.actor }} x86 +bench-ultra-honk
+        run: earthly-cloud bench-1 ${{ github.actor }} x86 +bench-ultra-honk
