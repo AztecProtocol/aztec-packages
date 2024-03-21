@@ -3,7 +3,13 @@ import { Fr, GlobalVariables, Proof } from '@aztec/circuits.js';
 import { L2Block } from '../l2_block.js';
 import { ProcessedTx } from '../tx/processed_tx.js';
 
+export enum PROVING_STATUS {
+  SUCCESS,
+  FAILURE,
+}
+
 export type ProvingResult = {
+  status: PROVING_STATUS;
   block: L2Block;
   proof: Proof;
 };
