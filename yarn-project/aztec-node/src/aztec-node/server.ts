@@ -144,7 +144,7 @@ export class AztecNodeService implements AztecNode {
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
     // start the prover if we have been told to
-    const simulationProvider = await getSimulationProvider(config?.acvmBinaryPath, config?.acvmWorkingDirectory, log);
+    const simulationProvider = await getSimulationProvider(config, log);
     const prover = config.disableProver
       ? await DummyProver.new()
       : await TxProver.new(config, worldStateSynchronizer, simulationProvider);
