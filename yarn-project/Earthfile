@@ -24,6 +24,7 @@ RUN ln -s /build/yarn-project/node_modules /build/node_modules
 
 # Target for main build process
 build:
+    FROM +source
     ARG EARTHLY_CI
     # TODO: Replace puppeteer with puppeteer-core to avoid this.
     # TODO encapsulate in bash script for cleanliness
@@ -74,6 +75,7 @@ source:
     RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
 end-to-end:
+    FROM +source
     # compilation artifacts for end-to-end
     # TODO encapsulate in bash script for cleanliness
     ARG EARTHLY_CI
