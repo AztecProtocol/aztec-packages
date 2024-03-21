@@ -87,10 +87,11 @@ void ProverInstance_<Flavor>::compute_logderivative_inverse(FF beta, FF gamma)
 {
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
-
+    // prover_polynomials = ProverPolynomials(proving_key);
     // Compute permutation and lookup grand product polynomials
     bb::compute_logderivative_inverse<Flavor, typename Flavor::LogDerivLookupRelation>(
         prover_polynomials, relation_parameters, proving_key->circuit_size);
+    // proving_key->lookup_inverses = prover_polynomials.lookup_inverses;
 }
 
 template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
@@ -104,7 +105,10 @@ template <class Flavor> void ProverInstance_<Flavor>::compute_grand_product_poly
     relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
     // Compute permutation and lookup grand product polynomials
+    // prover_polynomials = ProverPolynomials(proving_key);
     compute_grand_products<Flavor>(proving_key, prover_polynomials, relation_parameters);
+    // proving_key->z_perm = prover_polynomials.z_perm;
+    // proving_key->z_lookup = prover_polynomials.z_lookup;
 }
 
 template class ProverInstance_<UltraFlavor>;

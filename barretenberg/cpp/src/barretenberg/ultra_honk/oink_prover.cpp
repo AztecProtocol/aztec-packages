@@ -3,6 +3,34 @@
 namespace bb {
 
 /**
+ * @brief Oink Prover function that runs all the rounds of the verifier
+ * @details Returns the witness commitments and relation_parameters
+ * @tparam Flavor
+ * @return OinkProverOutput<Flavor>
+ */
+template <IsUltraFlavor Flavor> OinkProverOutput<Flavor> OinkProver<Flavor>::prove()
+{
+    // Add circuit size public input size and public inputs to transcript->
+    execute_preamble_round();
+
+    // Compute first three wire commitments
+    execute_wire_commitments_round();
+
+    // Compute sorted list accumulator and commitment
+    execute_sorted_list_accumulator_round();
+
+    // Fiat-Shamir: beta & gamma
+    execute_log_derivative_inverse_round();
+
+    // Compute grand product(s) and commitments.
+    execute_grand_product_computation_round();
+
+    return OinkProverOutput<Flavor>{
+        .relation_parameters = std::move(relation_parameters),
+    };
+}
+
+/**
  * @brief Add circuit size, public input size, and public inputs to transcript
  *
  */
@@ -70,8 +98,9 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
 {
 
-    instance->relation_parameters.eta = transcript->template get_challenge<FF>(domain_separator + "eta");
-    instance->proving_key->compute_sorted_accumulator_polynomials(instance->relation_parameters.eta);
+    relation_parameters.eta = transcript->template get_challenge<FF>(domain_separator + "eta");
+    instance->relation_parameters.eta = relation_parameters.eta;
+    instance->proving_key->compute_sorted_accumulator_polynomials(relation_parameters.eta);
     instance->prover_polynomials.sorted_accum = instance->proving_key->sorted_accum.share();
     instance->prover_polynomials.sorted_accum_shift = instance->proving_key->sorted_accum.shifted();
     instance->prover_polynomials.w_4 = instance->proving_key->w_4.share();
@@ -92,8 +121,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_inverse_round()
 {
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
-    instance->relation_parameters.beta = beta;
-    instance->relation_parameters.gamma = gamma;
+    relation_parameters.beta = beta;
+    relation_parameters.gamma = gamma;
     if constexpr (IsGoblinFlavor<Flavor>) {
         // Compute and commit to the logderivative inverse used in DataBus
         instance->compute_logderivative_inverse(beta, gamma);
@@ -110,8 +139,9 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
 
-    instance->compute_grand_product_polynomials(instance->relation_parameters.beta,
-                                                instance->relation_parameters.gamma);
+    instance->compute_grand_product_polynomials(relation_parameters.beta, relation_parameters.gamma);
+    relation_parameters.public_input_delta = instance->relation_parameters.public_input_delta;
+    relation_parameters.lookup_grand_product_delta = instance->relation_parameters.lookup_grand_product_delta;
 
     witness_commitments.z_perm = commitment_key->commit(instance->proving_key->z_perm);
     witness_commitments.z_lookup = commitment_key->commit(instance->proving_key->z_lookup);

@@ -25,6 +25,9 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
+template <IsUltraFlavor Flavor> struct OinkProverOutput {
+    bb::RelationParameters<typename Flavor::FF> relation_parameters;
+};
 
 /**
  * @brief Class for all the oink rounds, which are shared between the folding prover and ultra prover.
@@ -48,6 +51,8 @@ template <IsUltraFlavor Flavor> class OinkProver {
     typename Flavor::WitnessCommitments witness_commitments;
     typename Flavor::CommitmentLabels commitment_labels;
 
+    bb::RelationParameters<typename Flavor::FF> relation_parameters;
+
     OinkProver(const std::shared_ptr<ProverInstance_<Flavor>>& inst,
                const std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key,
                const std::shared_ptr<typename Flavor::Transcript>& transcript,
@@ -60,6 +65,7 @@ template <IsUltraFlavor Flavor> class OinkProver {
         instance->prover_polynomials = typename Flavor::ProverPolynomials(instance->proving_key);
     }
 
+    OinkProverOutput<Flavor> prove();
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();
