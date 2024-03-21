@@ -38,7 +38,7 @@ struct PrivateCircuitPublicInputs {
 
     start_side_effect_counter : u32,
     end_side_effect_counter : u32,
-
+    // TODO(Miranda): Remove arrays entirely as NUM_FIELDS_PER_SHA256 = 1
     encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
 
