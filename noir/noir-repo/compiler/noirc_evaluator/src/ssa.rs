@@ -87,6 +87,10 @@ pub fn create_program(
     force_brillig_output: bool,
 ) -> Result<(AcirProgram, Vec<DebugInfo>, Vec<SsaReport>, Vec<Witness>, Vec<Witness>), RuntimeError>
 {
+    // let entry_point_funcs = program.functions.iter().map(|function| {
+    //     function.should_fold | function.
+    // }).collect::<Vec<_>>();
+
     let debug_variables = program.debug_variables.clone();
     let debug_types = program.debug_types.clone();
     let debug_functions = program.debug_functions.clone();
@@ -94,12 +98,13 @@ pub fn create_program(
     let func_sigs = program.function_signatures.clone();
 
     let recursive = program.recursive;
-    let generated_acir = optimize_into_acir(
+    let generated_acirs = optimize_into_acir(
         program,
         enable_ssa_logging,
         enable_brillig_logging,
         force_brillig_output,
     )?;
+    assert_eq!(generated_acirs.len(), func_sigs.len(), "The generated ACIRs should match the supplied function signatures");
 
     let mut functions = vec![];
     let mut debug_infos = vec![];
@@ -116,8 +121,8 @@ pub fn create_program(
     // let entry_point_funcs = program.functions.iter().map(|function| function.should_fold).collect::<Vec<_>>();
     // ```
     let mut is_main = true;
-    for (acir, func_sig) in generated_acir.into_iter().zip(func_sigs) {
-        // dbg!(func_names[index].clone());
+    // TODO: need to appropriately handle fetching these `func_sigs` so that we do not have more func sigs than generated acirs
+    for (acir, func_sig) in generated_acirs.into_iter().zip(func_sigs) {
         let (circuit, debug_info, warnings, input_witnesses, return_witnesses) =
             convert_generated_acir_into_circuit(
                 acir,
@@ -127,7 +132,6 @@ pub fn create_program(
                 debug_variables.clone(),
                 debug_functions.clone(),
                 debug_types.clone(),
-                is_main,
             );
         functions.push(circuit);
         debug_infos.push(debug_info);
@@ -151,7 +155,6 @@ fn convert_generated_acir_into_circuit(
     debug_variables: DebugVariables,
     debug_functions: DebugFunctions,
     debug_types: DebugTypes,
-    is_main: bool,
 ) -> (Circuit, DebugInfo, Vec<SsaReport>, Vec<Witness>, Vec<Witness>) {
     let opcodes = generated_acir.take_opcodes();
     let current_witness_index = generated_acir.current_witness_index().0;
@@ -161,16 +164,18 @@ fn convert_generated_acir_into_circuit(
         input_witnesses,
         assert_messages,
         warnings,
+        is_entry_point,
         ..
     } = generated_acir;
-
+    // dbg!(is_entry_point);
     let locations = locations.clone();
 
-    let (public_parameter_witnesses, private_parameters) = if is_main {
-        split_public_and_private_inputs(&func_sig, &input_witnesses)
-    } else {
-        (BTreeSet::default(), BTreeSet::default())
-    };
+    // let (public_parameter_witnesses, private_parameters) = if is_entry_point {
+    //     split_public_and_private_inputs(&func_sig, &input_witnesses)
+    // } else {
+    //     (BTreeSet::default(), BTreeSet::default())
+    // };
+    let (public_parameter_witnesses, private_parameters) = split_public_and_private_inputs(&func_sig, &input_witnesses);
 
     let public_parameters = PublicInputs(public_parameter_witnesses);
     let return_values = PublicInputs(return_witnesses.iter().copied().collect());

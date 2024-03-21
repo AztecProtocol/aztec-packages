@@ -78,6 +78,8 @@ impl Function {
         self.runtime
     }
 
+    // TODO: make is_entry_point func
+
     /// Set runtime type of the function.
     pub(crate) fn set_runtime(&mut self, runtime: RuntimeType) {
         self.runtime = runtime;

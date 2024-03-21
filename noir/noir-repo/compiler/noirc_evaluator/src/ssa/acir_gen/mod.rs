@@ -667,9 +667,14 @@ impl Context {
                 let array_id = dfg.resolve(*result.0);
                 let block_id = self.block_id(&array_id);
                 let array_typ = dfg.type_of_value(array_id);
+                let len = if matches!(array_typ, Type::Array(_, _)) {
+                    array_typ.flattened_size()
+                } else {
+                    Self::flattened_value_size(&result.1)
+                };
                 self.initialize_array(
                     block_id,
-                    array_typ.flattened_size(),
+                    len,
                     Some(result.1.clone()),
                 )?;
             }

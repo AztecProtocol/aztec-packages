@@ -1449,6 +1449,7 @@ impl AcirContext {
     ) -> GeneratedAcir {
         self.acir_ir.input_witnesses = inputs;
         self.acir_ir.warnings = warnings;
+        self.acir_ir.is_entry_point = true;
         self.acir_ir
     }
 

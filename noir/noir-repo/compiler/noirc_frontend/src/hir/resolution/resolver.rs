@@ -980,7 +980,7 @@ impl<'a> Resolver<'a> {
         let should_fold = attributes
             .function
             .as_ref()
-            .map_or(true, |func_attribute| func_attribute.is_foldable());
+            .map_or(false, |func_attribute| func_attribute.is_foldable());
 
         FuncMeta {
             name: name_ident,

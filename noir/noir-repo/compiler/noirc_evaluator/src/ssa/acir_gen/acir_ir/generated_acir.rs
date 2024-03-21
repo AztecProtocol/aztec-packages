@@ -58,6 +58,8 @@ pub(crate) struct GeneratedAcir {
     pub(crate) assert_messages: BTreeMap<OpcodeLocation, String>,
 
     pub(crate) warnings: Vec<SsaReport>,
+
+    pub(crate) is_entry_point: bool,
 }
 
 impl GeneratedAcir {
