@@ -3,8 +3,8 @@
 set -eux
 
 RUNNER_PREFIX=$1
-USERNAME=$2
-SIZE=$3
+SIZE=$2
+USERNAME=$3
 ARCH=$4
 
 shift 4
