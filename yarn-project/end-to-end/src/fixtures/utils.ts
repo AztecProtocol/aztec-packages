@@ -386,7 +386,7 @@ export async function setup(
     }
 
     if (acvmConfig?.directoryToCleanup) {
-      // remove the temp
+      // remove the temp directory created for the acvm
       logger(`Cleaning up ACVM temp directory ${acvmConfig.directoryToCleanup}`);
       await fs.rm(acvmConfig.directoryToCleanup, { recursive: true, force: true });
     }
