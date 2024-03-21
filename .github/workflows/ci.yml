@@ -15,8 +15,8 @@ jobs:
     strategy: { matrix: { environment: [x86, arm], test: [e2e-escrow-contract, e2e-account-contracts] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      group: ${{ matrix.test }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
-      cancel-in-progress: true
+      group: ${{ matrix.test }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-${{ matrix.environment }}
+      cancel-in-progress: ${{ github.ref_name != 'master' }}
     steps:
       - uses: earthly/actions-setup@v1
         with:
@@ -33,9 +33,8 @@ jobs:
         run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Test
-        working-directory: ./yarn-project/end-to-end
-        run: |
-          earthly-cloud +${{ matrix.test }}
+        working-directory: ./yarn-project/end-to-end/
+        run: earthly-cloud ${{ github.actor }} ${{ matrix.environment }} +${{ matrix.test }}
 
   bb-native-tests:
     runs-on: ubuntu-latest
@@ -46,8 +45,8 @@ jobs:
     strategy: { matrix: { environment: [x86, arm] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      group: bb-native-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
-      cancel-in-progress: true
+      group: bb-native-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-${{ matrix.environment }}
+      cancel-in-progress: ${{ github.ref_name != 'master' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -59,21 +58,35 @@ jobs:
         working-directory: ./scripts
         run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Build and test
-        working-directory: ./barretenberg/cpp
-        run:  |
-          # TODO put in script
-          if [ "${{ matrix.environment }}" == "arm" ]; then
-            PLATFORM=linux/arm64
-          elif [ "${{ matrix.environment }}" == "x86" ]; then
-            PLATFORM=linux/amd64
-          fi
-          earthly sat --org aztec launch --size 2xlarge --platform $PLATFORM build-${{github.actor}}-${{ matrix.environment }} || true
-          if [ ${{ github.ref_name }} = master ] ; then
-            # update the remote cache
-            export EARTHLY_PUSH=true
-          fi
-          # TODO need to use more SAVE IMAGE --cache-hint and explicit BUILD statements for remote-cache to work well but then it should read artifacts from master done by all runners
-          earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:bb-native-tests --sat build-${{github.actor}}-${{ matrix.environment }} +test
- 
+      - name: Test
+        working-directory: ./barretenberg/cpp/
+        run: earthly-cloud ${{ github.actor }} ${{ matrix.environment }} +test
+
   bench:
+    runs-on: ubuntu-latest
+    env:
+      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
+    # cancel if reran on same PR if exists, otherwise if on same commit
+    concurrency:
+      # need this to match the user's bench runner
+      # earthly satellites can't enforce parallelism==1 so we do it through github
+      group: bench-${{ github.actor }}
+      cancel-in-progress: ${{ github.ref_name != 'master' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          submodules: recursive
+
+      - name: Setup
+        working-directory: ./scripts
+        run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Client IVC Bench
+        working-diretory: ./barretenberg/cpp/
+        run: earthly-cloud-bench ${{ github.actor }} ${{ matrix.environment }} +bench-client-ivc
+
+      - name: Ultrahonk Bench
+        working-diretory: ./barretenberg/cpp/
+        run: earthly-cloud-bench ${{ github.actor }} ${{ matrix.environment }} +bench-ultra-honk
