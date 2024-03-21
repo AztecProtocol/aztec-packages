@@ -147,9 +147,12 @@ template <IsUltraFlavor Flavor> bool proveAndVerifyHonk(const std::string& bytec
 
     // Construct a bberg circuit from the acir representation
     auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
-    // WORKTODO: figure out what to do about "ensure nonzero" gates buffer here
-    size_t dyadic_circuit_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + 15);
-    init_bn254_crs(dyadic_circuit_size);
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Add a buffer to the expected circuit size to
+    // account for the addition of "gates to ensure nonzero polynomials" (in Honk only).
+    const size_t additional_gates_buffer = 15; // conservatively large to be safe
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + additional_gates_buffer);
+    init_bn254_crs(srs_size);
 
     // Construct Honk proof
     Prover prover{ builder };

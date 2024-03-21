@@ -382,7 +382,7 @@ program
 
 program
   .command('prove_and_verify_ultra_honk')
-  .description('Generate a GUH proof and verify it. Process exits with success or failure code.')
+  .description('Generate an UltraHonk proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
