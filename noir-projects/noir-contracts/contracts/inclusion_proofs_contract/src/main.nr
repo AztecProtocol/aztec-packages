@@ -20,7 +20,7 @@ contract InclusionProofs {
         prove_note_is_nullified_at
     },
         nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
-        public_value_inclusion::{prove_public_value_inclusion, prove_public_value_inclusion_at}
+        storage::{prove_public_value_inclusion, prove_public_value_inclusion_at}
     };
     // docs:end:imports
     // docs:start:value_note_imports
