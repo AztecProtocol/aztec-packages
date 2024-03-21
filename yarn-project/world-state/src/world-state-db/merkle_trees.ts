@@ -11,6 +11,7 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeaf,
   NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
@@ -20,6 +21,7 @@ import {
   PublicDataTreeLeafPreimage,
   StateReference,
 } from '@aztec/circuits.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
@@ -505,10 +507,14 @@ export class MerkleTrees implements MerkleTreeDb {
       this.log(`Block ${l2Block.number} is not ours, rolling back world state and committing state from chain`);
       await this.#rollback();
 
+      // We pad the messages because always a fixed number of messages is inserted and we need
+      // the `nextAvailableLeafIndex` to correctly progress.
+      const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+
       // Sync the append only trees
       for (const [tree, leaves] of [
         [MerkleTreeId.NOTE_HASH_TREE, l2Block.body.txEffects.flatMap(txEffect => txEffect.noteHashes)],
-        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages],
+        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded],
       ] as const) {
         await this.#appendLeaves(
           tree,
