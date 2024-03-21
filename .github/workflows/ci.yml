@@ -145,6 +145,7 @@ jobs:
       - uses: earthly/actions-setup@v1
         with:
           version: v0.8.5
+          
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -156,9 +157,9 @@ jobs:
         run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Client IVC Bench
-        working-diretory: ./barretenberg/cpp/
+        working-directory: ./barretenberg/cpp/
         run: earthly-cloud-bench ${{ github.actor }} ${{ matrix.environment }} +bench-client-ivc
 
       - name: Ultrahonk Bench
-        working-diretory: ./barretenberg/cpp/
+        working-directory: ./barretenberg/cpp/
         run: earthly-cloud-bench ${{ github.actor }} ${{ matrix.environment }} +bench-ultra-honk
