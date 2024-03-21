@@ -6,7 +6,7 @@ import { jest } from '@jest/globals';
 import { TreeBase } from '../tree_base.js';
 import { TreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
 
-jest.setTimeout(1_000_000);
+jest.setTimeout(50_000);
 
 /** Creates a test suit for snapshots */
 export function describeSnapshotBuilderTestSuite<

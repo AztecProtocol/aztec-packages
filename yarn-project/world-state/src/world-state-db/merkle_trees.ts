@@ -524,17 +524,20 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   public async getSnapshot(blockNumber: number): Promise<TreeSnapshots> {
-    // TODO #5448 fix "as any"
+    const snapshots = await Promise.all([
+      this.trees[MerkleTreeId.NULLIFIER_TREE].getSnapshot(blockNumber),
+      this.trees[MerkleTreeId.NOTE_HASH_TREE].getSnapshot(blockNumber),
+      this.trees[MerkleTreeId.PUBLIC_DATA_TREE].getSnapshot(blockNumber),
+      this.trees[MerkleTreeId.L1_TO_L2_MESSAGE_TREE].getSnapshot(blockNumber),
+      this.trees[MerkleTreeId.ARCHIVE].getSnapshot(blockNumber),
+    ]);
+
     return {
-      [MerkleTreeId.NULLIFIER_TREE]: (await this.trees[MerkleTreeId.NULLIFIER_TREE].getSnapshot(blockNumber)) as any,
-      [MerkleTreeId.NOTE_HASH_TREE]: await this.trees[MerkleTreeId.NOTE_HASH_TREE].getSnapshot(blockNumber),
-      [MerkleTreeId.PUBLIC_DATA_TREE]: (await this.trees[MerkleTreeId.PUBLIC_DATA_TREE].getSnapshot(
-        blockNumber,
-      )) as any,
-      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: await this.trees[MerkleTreeId.L1_TO_L2_MESSAGE_TREE].getSnapshot(
-        blockNumber,
-      ),
-      [MerkleTreeId.ARCHIVE]: await this.trees[MerkleTreeId.ARCHIVE].getSnapshot(blockNumber),
+      [MerkleTreeId.NULLIFIER_TREE]: snapshots[0],
+      [MerkleTreeId.NOTE_HASH_TREE]: snapshots[1],
+      [MerkleTreeId.PUBLIC_DATA_TREE]: snapshots[2],
+      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: snapshots[3],
+      [MerkleTreeId.ARCHIVE]: snapshots[4],
     };
   }
 
