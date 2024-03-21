@@ -328,7 +328,6 @@ void create_bigint_from_le_bytes_constraint(Builder& builder,
     using big_secp256r1_fr = bb::stdlib::bigfield<Builder, secp256r1::FrParams>;
     using big_uint256 = bb::stdlib::bigfielddyn<Builder>;
     using field_ct = bb::stdlib::field_t<Builder>;
-    using byte_array_ct = bb::stdlib::byte_array<Builder>;
 
     // Construct the modulus from its bytes
     uint64_t modulus_64 = 0;
@@ -351,12 +350,10 @@ void create_bigint_from_le_bytes_constraint(Builder& builder,
                                  .modulus_3 = modulus_limbs[3] };
     bb::stdlib::byte_array<Builder> rev_bytes = bb::stdlib::byte_array<Builder>(&builder, 32);
     for (size_t i = 0; i < 32; ++i) {
+        rev_bytes[i] = 0;
         if (i < input.inputs.size()) {
             field_ct element = field_ct::from_witness_index(&builder, input.inputs[i]);
-            byte_array_ct element_bytes(element, 1);
-            rev_bytes.write_at(element_bytes, i);
-        } else {
-            rev_bytes[i] = 0;
+            rev_bytes.set_byte(i, element);
         }
     }
     bb::stdlib::byte_array<Builder> bytes = rev_bytes.reverse();
