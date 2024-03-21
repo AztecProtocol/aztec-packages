@@ -13,7 +13,7 @@ WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* constraint_system_buf,
 
 WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out);
 
-WASM_EXPORT void acir_new_honk_acir_composer(out_ptr out);
+// WASM_EXPORT void acir_new_honk_acir_composer(out_ptr out);
 
 WASM_EXPORT void acir_new_goblin_acir_composer(out_ptr out);
 

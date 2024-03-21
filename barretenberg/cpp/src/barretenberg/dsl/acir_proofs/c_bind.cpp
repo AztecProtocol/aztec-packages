@@ -28,10 +28,10 @@ WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out)
     *out = new acir_proofs::AcirComposer(ntohl(*size_hint));
 }
 
-WASM_EXPORT void acir_new_honk_acir_composer(out_ptr out)
-{
-    *out = new acir_proofs::HonkAcirComposer();
-}
+// WASM_EXPORT void acir_new_honk_acir_composer(out_ptr out)
+// {
+//     *out = new acir_proofs::HonkAcirComposer();
+// }
 
 WASM_EXPORT void acir_new_goblin_acir_composer(out_ptr out)
 {
@@ -68,22 +68,22 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
     *out = to_heap_buffer(proof_data);
 }
 
-WASM_EXPORT void acir_honk_prove(in_ptr acir_composer_ptr,
-                                 uint8_t const* acir_vec,
-                                 uint8_t const* witness_vec,
-                                 uint8_t** out)
-{
-    auto acir_composer = reinterpret_cast<acir_proofs::HonkAcirComposer*>(*acir_composer_ptr);
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
-    auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
+// WASM_EXPORT void acir_honk_prove(in_ptr acir_composer_ptr,
+//                                  uint8_t const* acir_vec,
+//                                  uint8_t const* witness_vec,
+//                                  uint8_t** out)
+// {
+//     auto acir_composer = reinterpret_cast<acir_proofs::HonkAcirComposer*>(*acir_composer_ptr);
+//     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
+//     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
-    acir_composer->create_circuit(constraint_system, witness);
-    auto proof = acir_composer->prove();
-    auto proof_data_buf = to_buffer</*include_size=*/true>(
-        proof); // template parameter needs to be set so that vector deserialization from
-                // buffer, which reads the size at the beginning can be done properly
-    *out = to_heap_buffer(proof_data_buf);
-}
+//     acir_composer->create_circuit(constraint_system, witness);
+//     auto proof = acir_composer->prove();
+//     auto proof_data_buf = to_buffer</*include_size=*/true>(
+//         proof); // template parameter needs to be set so that vector deserialization from
+//                 // buffer, which reads the size at the beginning can be done properly
+//     *out = to_heap_buffer(proof_data_buf);
+// }
 
 WASM_EXPORT void acir_goblin_prove(in_ptr acir_composer_ptr,
                                    uint8_t const* acir_vec,

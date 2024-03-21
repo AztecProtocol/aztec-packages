@@ -128,28 +128,34 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     return verified;
 }
 
-bool proveAndVerifyHonk(const std::string& bytecodePath, const std::string& witnessPath)
+template <typename Flavor> bool proveAndVerifyHonk(const std::string& bytecodePath, const std::string& witnessPath)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
-    // to max circuit size present in acir tests suite.
-    size_t hardcoded_bn254_dyadic_size_hack = 1 << 19;
-    init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
 
     // Populate the acir constraint system and witness from gzipped data
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
-    // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
-    acir_proofs::HonkAcirComposer acir_composer;
-    acir_composer.create_circuit(constraint_system, witness);
+    // Construct a bberg circuit from the acir representation
+    auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
+    // WORKTODO: figure out what to do about "ensure nonzero" gates buffer here
+    size_t dyadic_circuit_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + 15);
+    info("dyadic_circuit_size = ", dyadic_circuit_size);
+    init_bn254_crs(dyadic_circuit_size);
 
-    // Call accumulate to generate a GoblinUltraHonk proof
-    auto proof = acir_composer.prove();
+    // Construct Honk proof
+    Prover prover{ builder };
+    info("circuit_size = ", prover.instance->proving_key->circuit_size);
+    auto proof = prover.construct_proof();
 
-    // Verify the GoblinUltraHonk proof
-    auto verified = acir_composer.verify(proof);
+    // Verify Honk proof
+    auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+    Verifier verifier{ verification_key };
 
-    return verified;
+    return verifier.verify_proof(proof);
 }
 
 /**
@@ -557,8 +563,11 @@ int main(int argc, char* argv[])
         if (command == "prove_and_verify") {
             return proveAndVerify(bytecode_path, witness_path) ? 0 : 1;
         }
-        if (command == "prove_and_verify_honk") {
-            return proveAndVerifyHonk(bytecode_path, witness_path) ? 0 : 1;
+        if (command == "prove_and_verify_ultra_honk") {
+            return proveAndVerifyHonk<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
+        }
+        if (command == "prove_and_verify_goblin_ultra_honk") {
+            return proveAndVerifyHonk<GoblinUltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_goblin") {
             return proveAndVerifyGoblin(bytecode_path, witness_path) ? 0 : 1;
