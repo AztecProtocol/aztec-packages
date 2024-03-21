@@ -293,12 +293,12 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn raw_nested_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)").to_field();
-        let gas = [/*l1Gas*/42, /*l2Gas*/24, /*daGas*/420];
+        let gas = [/*l1_gas*/42, /*l2_gas*/24, /*da_gas*/420];
 
         // Nested call
         let results = context.call_public_function_raw(gas, context.this_address(), selector, [arg_a, arg_b]);
         let data_to_return: [Field; 1] = results.0;
-        // this explicit size   ^ is necessary to ensure that retSize is compile-time
+        // this explicit size   ^ is necessary to ensure that ret_size is compile-time
         // (ensure the data_to_return is in a HeapArray not a HeapVector)
         let success: u8 = results.1;
 
@@ -315,7 +315,7 @@ contract AvmTest {
 
         // Nested call using standard context interface function
         let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(context.this_address(), selector, [arg_a, arg_b]);
-        // this explicit size   ^ is necessary to ensure that retSize is compile-time
+        // this explicit size   ^ is necessary to ensure that ret_size is compile-time
         // (ensure the data_to_return is in a HeapArray not a HeapVector)
 
         let add_result = data_to_return[0];
@@ -326,7 +326,7 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn raw_nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub (Field, u8) {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)").to_field();
-        let gas = [/*l1Gas*/42, /*l2Gas*/24, /*daGas*/420];
+        let gas = [/*l1_gas*/42, /*l2_gas*/24, /*da_gas*/420];
 
         let (result_data, success): ([Field; 1], u8) = context.static_call_public_function_raw(gas, context.this_address(), selector, [arg_a, arg_b]);
 
@@ -337,7 +337,7 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn raw_nested_static_call_to_set_storage() -> pub u8 {
         let selector = FunctionSelector::from_signature("set_storage_single(Field)").to_field();
-        let gas = [/*l1Gas*/42, /*l2Gas*/24, /*daGas*/420];
+        let gas = [/*l1_gas*/42, /*l2_gas*/24, /*da_gas*/420];
         let calldata: [Field; 1] = [20];
 
         let (_data_to_return, success): ([Field; 0], u8) = context.static_call_public_function_raw(gas, context.this_address(), selector, calldata);

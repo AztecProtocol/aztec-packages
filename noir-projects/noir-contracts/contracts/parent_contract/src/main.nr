@@ -94,7 +94,7 @@ contract Parent {
         context.call_public_function(target_contract, target_selector, [target_value + 1]);
     }
 
-    // Private function to enqueue a call to the pubEntryPoint function of this same contract, passing the target arguments provided
+    // Private function to enqueue a call to the pub_entry_point function of this same contract, passing the target arguments provided
     #[aztec(private)]
     fn enqueue_call_to_pub_entry_point(
         target_contract: AztecAddress,
