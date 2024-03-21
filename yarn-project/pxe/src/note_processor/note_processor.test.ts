@@ -9,6 +9,7 @@ import {
   L2BlockL2Logs,
   Note,
   TaggedNote,
+  TxEffect,
   TxL2Logs,
 } from '@aztec/circuit-types';
 import { Fr, INITIAL_L2_BLOCK_NUM, MAX_NEW_NOTE_HASHES_PER_TX } from '@aztec/circuits.js';
@@ -107,16 +108,38 @@ describe('Note Processor', () => {
       } = createEncryptedLogsAndOwnedL1NotePayloads(isTargetBlock ? ownedData : [], isTargetBlock ? ownedNotes : []);
       encryptedLogsArr.push(encryptedLogs);
       ownedL1NotePayloads.push(...payloads);
+      const noteHashesList: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>[] = [];
       for (let i = 0; i < TXS_PER_BLOCK; i++) {
-        block.body.txEffects[i].noteHashes = newNotes
+        const noteHashes = newNotes
           .map(n => computeMockNoteHash(n.notePayload.note))
           .slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX) as Tuple<
           Fr,
           typeof MAX_NEW_NOTE_HASHES_PER_TX
         >;
+        noteHashesList.push(noteHashes);
       }
 
+      // Reconstruct TxEffects because their fields are readonly
+      const txEffects: TxEffect[] = noteHashesList.map((noteHashes, index) => {
+        // Create a new TxEffect instance with the correct noteHashes
+        const existingTxEffect = block.body.txEffects[index];
+        return new TxEffect(
+          existingTxEffect.daGasUsed,
+          existingTxEffect.computeGasUsed,
+          existingTxEffect.revertCode,
+          noteHashes,
+          existingTxEffect.nullifiers,
+          existingTxEffect.l2ToL1Msgs,
+          existingTxEffect.publicDataWrites,
+          existingTxEffect.encryptedLogs,
+          existingTxEffect.unencryptedLogs,
+        );
+      });
+
+      block.body.txEffects = txEffects;
+
       const randomBlockContext = new L2BlockContext(block);
+
       blockContexts.push(randomBlockContext);
     }
     return { blockContexts, encryptedLogsArr, ownedL1NotePayloads };

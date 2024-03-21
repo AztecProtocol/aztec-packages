@@ -77,6 +77,8 @@ impl CombinedAccumulatedDataBuilder {
 
     pub fn finish(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
+            da_gas_used: 0,
+            compute_gas_used: 1,
             revert_code: self.revert_code,
             new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,

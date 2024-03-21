@@ -1,4 +1,12 @@
-import { PublicDataWrite, SimulationError, Tx, TxEffect, TxHash, TxL2Logs } from '@aztec/circuit-types';
+import {
+  CalldataTxEffectFactory,
+  PublicDataWrite,
+  SimulationError,
+  Tx,
+  TxEffect,
+  TxHash,
+  TxL2Logs,
+} from '@aztec/circuit-types';
 import {
   Fr,
   Header,
@@ -172,22 +180,25 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
   };
 }
 
-export function toTxEffect(tx: ProcessedTx): TxEffect {
-  return new TxEffect(
-    tx.data.combinedData.revertCode,
-    tx.data.combinedData.newNoteHashes.map((c: SideEffect) => c.value) as Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
-    tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value) as Tuple<
+// TODO(@just-mitch) need to have gas used on `combinedData`
+export function toTxEffect(tx: ProcessedTx, factory = CalldataTxEffectFactory): TxEffect {
+  return factory.build({
+    revertCode: tx.data.combinedData.revertCode,
+    noteHashes: tx.data.combinedData.newNoteHashes.map((c: SideEffect) => c.value) as Tuple<
+      Fr,
+      typeof MAX_NEW_NOTE_HASHES_PER_TX
+    >,
+    nullifiers: tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value) as Tuple<
       Fr,
       typeof MAX_NEW_NULLIFIERS_PER_TX
     >,
-    tx.data.combinedData.newL2ToL1Msgs,
-    tx.data.combinedData.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)) as Tuple<
-      PublicDataWrite,
-      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-    >,
-    tx.encryptedLogs || new TxL2Logs([]),
-    tx.unencryptedLogs || new TxL2Logs([]),
-  );
+    l2ToL1Msgs: tx.data.combinedData.newL2ToL1Msgs,
+    publicDataWrites: tx.data.combinedData.publicDataUpdateRequests.map(
+      t => new PublicDataWrite(t.leafSlot, t.newValue),
+    ) as Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    encryptedLogs: tx.encryptedLogs || new TxL2Logs([]),
+    unencryptedLogs: tx.unencryptedLogs || new TxL2Logs([]),
+  });
 }
 
 function validateProcessedTxLogs(tx: ProcessedTx): void {

@@ -20,6 +20,7 @@ import {
   Fr,
   FunctionData,
   FunctionSelector,
+  GasUsed,
   GlobalVariables,
   GrumpkinPrivateKey,
   GrumpkinScalar,
@@ -787,6 +788,14 @@ export function mapRevertCodeToNoir(revertCode: RevertCode): NoirField {
   return mapFieldToNoir(revertCode.toField());
 }
 
+export function mapGasUsedFromNoir(gasUsed: NoirField): GasUsed {
+  return new GasUsed(BigInt(mapNumberFromNoir(gasUsed)));
+}
+
+export function mapGasUsedToNoir(gasUsed: GasUsed): NoirField {
+  return mapFieldToNoir(new Fr(gasUsed.value));
+}
+
 /**
  * Maps an array from noir types to a tuple of parsed types.
  * @param noirArray - The noir array.
@@ -1095,6 +1104,9 @@ export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
+    // TODO(@just-mitch): fill in gas used
+    da_gas_used: mapGasUsedToNoir(GasUsed.empty()),
+    compute_gas_used: mapGasUsedToNoir(GasUsed.empty()),
     revert_code: mapRevertCodeToNoir(combinedAccumulatedData.revertCode),
     new_note_hashes: mapTuple(combinedAccumulatedData.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapSideEffectLinkedToNoir),

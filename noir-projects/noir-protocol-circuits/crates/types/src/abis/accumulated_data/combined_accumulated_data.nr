@@ -7,7 +7,8 @@ use crate::{
     call_request::CallRequest, caller_context::CallerContext,
     public_data_update_request::PublicDataUpdateRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
-}
+},
+    traits::Empty
 };
 use crate::constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
@@ -21,6 +22,9 @@ use crate::traits::is_empty;
 use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
 struct CombinedAccumulatedData {
+    da_gas_used: u64,
+    compute_gas_used: u64,
+
     revert_code: u8,
 
     new_note_hashes: [SideEffect; MAX_NEW_NOTE_HASHES_PER_TX],
@@ -52,6 +56,8 @@ impl CombinedAccumulatedData {
         revertible: PublicAccumulatedRevertibleData
     ) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
+            da_gas_used: 0,
+            compute_gas_used: 1,
             revert_code: non_revertible.revert_code,
             new_note_hashes: array_concat(non_revertible.new_note_hashes, revertible.new_note_hashes),
             new_nullifiers: array_concat(non_revertible.new_nullifiers, revertible.new_nullifiers),

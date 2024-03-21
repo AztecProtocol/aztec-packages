@@ -1,6 +1,7 @@
 import { LogType, PublicDataWrite, TxHash, TxL2Logs } from '@aztec/circuit-types';
 import {
   Fr,
+  GasUsed,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -20,33 +21,63 @@ import {
 
 import { inspect } from 'util';
 
-export class TxEffect {
+export enum GasType {
+  DA = 'da',
+  COMPUTE = 'compute',
+}
+export interface ITxEffect {
+  daGasUsed: GasUsed;
+  computeGasUsed: GasUsed;
+  revertCode: RevertCode;
+  noteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>;
+  nullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>;
+  l2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_TX>;
+  publicDataWrites: Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>;
+  encryptedLogs: TxL2Logs;
+  unencryptedLogs: TxL2Logs;
+}
+export type ITxEffectWithoutGasUsed = Omit<ITxEffect, 'daGasUsed' | 'computeGasUsed'>;
+export type GasProfiler = (effect: ITxEffectWithoutGasUsed) => Record<GasType, GasUsed>;
+export interface TxEffectFactory {
+  readonly gasProfiler: GasProfiler;
+  build: (effect: ITxEffectWithoutGasUsed) => TxEffect;
+}
+
+export class TxEffect implements ITxEffect {
   constructor(
+    /**
+     * The amount of da gas used during the transaction.
+     */
+    public readonly daGasUsed: GasUsed,
+    /**
+     * The amount of compute gas used during the transaction.
+     */
+    public readonly computeGasUsed: GasUsed,
     /**
      * Whether the transaction reverted during public app logic.
      */
-    public revertCode: RevertCode,
+    public readonly revertCode: RevertCode,
     /**
      * The note hashes to be inserted into the note hash tree.
      */
-    public noteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public readonly noteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * The nullifiers to be inserted into the nullifier tree.
      */
-    public nullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public readonly nullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * The L2 to L1 messages to be inserted into the messagebox on L1.
      */
-    public l2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
+    public readonly l2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     /**
      * The public data writes to be inserted into the public data tree.
      */
-    public publicDataWrites: Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+    public readonly publicDataWrites: Tuple<PublicDataWrite, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     /**
      * The logs of the txEffect
      */
-    public encryptedLogs: TxL2Logs,
-    public unencryptedLogs: TxL2Logs,
+    public readonly encryptedLogs: TxL2Logs,
+    public readonly unencryptedLogs: TxL2Logs,
   ) {}
 
   toBuffer(): Buffer {
@@ -56,6 +87,8 @@ export class TxEffect {
     const nonZeroPublicDataWrites = this.publicDataWrites.filter(h => !h.isEmpty());
 
     return Buffer.concat([
+      this.daGasUsed.toBuffer(),
+      this.computeGasUsed.toBuffer(),
       this.revertCode.toBuffer(),
       serializeArrayOfBufferableToVector(nonZeroNoteHashes, 1),
       serializeArrayOfBufferableToVector(nonZeroNullifiers, 1),
@@ -74,6 +107,8 @@ export class TxEffect {
   static fromBuffer(buffer: Buffer | BufferReader): TxEffect {
     const reader = BufferReader.asReader(buffer);
 
+    const daGasUsed = GasUsed.fromBuffer(reader);
+    const computeGasUsed = GasUsed.fromBuffer(reader);
     const revertCode = RevertCode.fromBuffer(reader);
     const nonZeroNoteHashes = reader.readVectorUint8Prefix(Fr);
     const nonZeroNullifiers = reader.readVectorUint8Prefix(Fr);
@@ -81,6 +116,8 @@ export class TxEffect {
     const nonZeroPublicDataWrites = reader.readVectorUint8Prefix(PublicDataWrite);
 
     return new TxEffect(
+      daGasUsed,
+      computeGasUsed,
       revertCode,
       padArrayEnd(nonZeroNoteHashes, Fr.ZERO, MAX_NEW_NOTE_HASHES_PER_TX),
       padArrayEnd(nonZeroNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_TX),
@@ -113,6 +150,8 @@ export class TxEffect {
     const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
 
     const inputValue = Buffer.concat([
+      this.daGasUsed.toHashPreimage(),
+      this.computeGasUsed.toHashPreimage(),
       this.revertCode.toHashPreimage(),
       noteHashesBuffer,
       nullifiersBuffer,
@@ -132,6 +171,8 @@ export class TxEffect {
     numUnencryptedLogsPerCall = 1,
   ): TxEffect {
     return new TxEffect(
+      GasUsed.random(),
+      GasUsed.random(),
       RevertCode.random(),
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, Fr.random),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
@@ -165,7 +206,9 @@ export class TxEffect {
     // print out the non-empty fields
 
     return `TxEffect { 
-      revertCode: ${this.revertCode},
+      daGasUsed: ${inspect(this.daGasUsed)},
+      computeGasUsed: ${inspect(this.computeGasUsed)},
+      revertCode: ${inspect(this.revertCode)},
       note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],
       nullifiers: [${this.nullifiers.map(h => h.toString()).join(', ')}],
       l2ToL1Msgs: [${this.l2ToL1Msgs.map(h => h.toString()).join(', ')}],
