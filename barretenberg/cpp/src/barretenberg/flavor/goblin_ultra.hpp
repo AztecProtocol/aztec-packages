@@ -331,7 +331,7 @@ class GoblinUltraFlavor {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        // Define all operations as default, except move construction/assignment
+        // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;
         ProverPolynomials(const ProverPolynomials& o) = delete;

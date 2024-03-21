@@ -33,12 +33,12 @@ jobs:
 
       - name: Setup
         working-directory: ./scripts
-        run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }}
+        run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }} ${{ github.actor }}
 
       - name: Test
         working-directory: ./yarn-project/end-to-end/
-        if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr'
-        run: earthly-cloud build 4xlarge ${{ github.actor }} arm +${{ matrix.test }}
+        if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
+        run: earthly-cloud build arm +${{ matrix.test }}
 
   # all the end-to-end integration tests for aztec
   e2e-x86:
@@ -97,8 +97,9 @@ jobs:
 
       - name: Test
         working-directory: ./yarn-project/end-to-end/
-        if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr'
-        run: earthly-cloud build 4xlarge ${{ github.actor }} x86 +${{ matrix.test }}
+        if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
+        run: |
+          earthly-cloud build x86 +${{ matrix.test }}
 
   # barretenberg (prover) native tests
   bb-native-tests:
@@ -127,8 +128,9 @@ jobs:
 
       - name: Test
         working-directory: ./barretenberg/cpp/
-        if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr'
-        run: earthly-cloud build 4xlarge ${{ github.actor }} ${{ matrix.environment }} +test
+        if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
+        run: |
+          earthly-cloud build ${{ matrix.environment }} +test
 
   # All benchmarks, purposefully ran sequential on a machine
   # they should use parallelism within the benchmark, but only one thing should run at a time
@@ -161,10 +163,10 @@ jobs:
 
       - name: Client IVC Bench
         working-directory: ./barretenberg/cpp/
-        if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr'
-        run: earthly-cloud bench 2xlarge ${{ github.actor }} x86 +bench-client-ivc
+        if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
+        run: earthly-cloud bench x86 +bench-client-ivc
 
       - name: Ultrahonk Bench
         working-directory: ./barretenberg/cpp/
-        if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr'
-        run: earthly-cloud bench 2xlarge ${{ github.actor }} x86 +bench-ultra-honk
+        if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
+        run: earthly-cloud bench x86 +bench-ultra-honk

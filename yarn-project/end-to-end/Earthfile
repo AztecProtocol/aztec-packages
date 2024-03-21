@@ -1,45 +1,21 @@
 
 VERSION 0.8
 
-get-aztec:
-    FROM ubuntu:lunar
-    # for use_aztec_image to work, need to run earthly +build first or have image copied
-    ARG use_aztec_image=false
-    IF [ "$use_aztec_image" != false ]
-      FROM aztecprotocol/cache:aztec
-    ELSE
-      FROM ../+aztec
-    END
-
-get-end-to-end:
-    FROM ubuntu:lunar
-  # for use_end_to_end_image to work, need to run earthly +build first or have image copied
-    ARG use_end_to_end_image=false
-    IF [ $use_end_to_end_image != false ]
-      FROM aztecprotocol/cache:end-to-end
-    ELSE
-      FROM ../+end-to-end-minimal
-    END
-
-E2E_TEST_HELPER:
-    FUNCTION
-    ARG test
-    ARG compose_file=./scripts/docker-compose.yml
-    ENV TEST=$test
-    WITH DOCKER \
-      --load aztecprotocol/aztec:latest=+get-aztec \
-      --load aztecprotocol/end-to-end:latest=+get-end-to-end \
-      --load ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916=../../foundry/+get
-        # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
-        RUN docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
-    END
+# requires first saving the images locally with ../+build-end-to-end
 
 E2E_TEST:
     FUNCTION
     ARG test
     ARG compose_file=./scripts/docker-compose.yml
+    ARG avm_enabled=""
+    ARG enable_gas=""
     LOCALLY
-    DO +E2E_TEST_HELPER --test=$test --compose_file=$compose_file
+    ENV AVM_ENABLED=$avm_enabled
+    ENV ENABLE_GAS=$enable_gas
+    ENV TEST=$test
+    # Note, earthly recommends as WITH DOCKER statement here. We find it's more stable for large 
+    # images to not do that and just save images as needed.
+    RUN for i in {1..20} ; do sleep 1 ; echo docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate ; done
 
 # we could use a parameterized target, but these just print cleaner in earthly log
 e2e-block-building:
@@ -109,19 +85,13 @@ e2e-card-game:
   DO +E2E_TEST --test=e2e_card_game.test.ts
 
 e2e-avm-simulator:
-  FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
-  ENV AVM_ENABLED=1
-  DO +E2E_TEST_HELPER --test=e2e_avm_simulator.test.ts
+  DO +E2E_TEST--test=e2e_avm_simulator.test.ts --avm_enabled=1
 
 e2e-fees:
-  FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
-  ENV ENABLE_GAS=1
-  DO +E2E_TEST_HELPER --test=e2e_fees.test.ts
+  DO +E2E_TEST --test=e2e_fees.test.ts --enable_gas=1
 
 e2e-dapp-subscription:
-  FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
-  ENV ENABLE_GAS=1
-  DO +E2E_TEST_HELPER --test=e2e_dapp_subscription.test.ts
+  DO +E2E_TEST --test=e2e_dapp_subscription.test.ts --enable_gas=1
 
 pxe:
   DO +E2E_TEST --test=pxe_sandbox.test.ts
@@ -130,9 +100,7 @@ cli-docs-sandbox:
   DO +E2E_TEST --test=cli_docs_sandbox.test.ts
 
 e2e-docs-examples:
-  FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
-  ENV AVM_ENABLED=1
-  DO +E2E_TEST_HELPER --test=docs_examples_test.ts
+  DO +E2E_TEST_HELPER --test=docs_examples_test.ts --avm_enabled=1
 
 test-all:
   # TODO we need to limit earthly parallelism or sometimes get

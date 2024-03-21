@@ -2,12 +2,10 @@
 
 set -eux -o pipefail
 
-RUNNER_PREFIX=$1
-SIZE=$2
-USERNAME=$3
-ARCH=$4
+RUNNER_TYPE=$1
+ARCH=$2
 
-shift 4
+shift 2
 
 if [ "$ARCH" == "arm" ]; then
   PLATFORM=linux/arm64
@@ -15,20 +13,31 @@ elif [ "$ARCH" == "x86" ]; then
   PLATFORM=linux/amd64
 fi
 
-# ensure lowercase
-USERNAME=$(echo "$USERNAME" | tr '[:upper:]' '[:lower:]')
-earthly sat --org aztec launch --size $SIZE --platform $PLATFORM $RUNNER_PREFIX-$USERNAME-$ARCH || true
+# default sizes for build type
+if [ "$RUNNER_TYPE" == "build" ] ; then
+  SIZE=4xlarge
+  NUMBER_OF_RUNNERS=2
+elif [ "$RUNNER_TYPE" == "bench" ] ; then
+  NUMBER_OF_RUNNERS=2
+fi
+# we hash our GITHUB_ACTOR to pick from 1 to NUMBER_RUNNERS (inclusive) as RUNNER_ID
+# this means everyone gets assigned to runners based on their user group
+NAME_HASH=$(cksum <<< "$GITHUB_ACTOR" | cut -f 1 -d ' ')
+RUNNER_ID=$(($NAME_HASH % $NUMBER_OF_RUNNERS + 1))
+RUNNER=$RUNNER_TYPE-$RUNNER_ID-$ARCH
+earthly sat --org aztec launch --size $SIZE --platform $PLATFORM $RUNNER || true
+EARTHLY_FLAGS="-P --no-output --org aztec --remote-cache=aztecprotocol/cache:bb-native-tests --sat $RUNNER"
 # capture output to handle earthly edge cases
-if ! earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:bb-native-tests --sat $RUNNER_PREFIX-$USERNAME-$ARCH $@ 2>&1 | tee .output.txt >&2 ; then 
+if ! earthly $EARTHLY_FLAGS $@ 2>&1 | tee .output.txt >&2 ; then 
   # we got a failure, handle retries
   # TODO potentially handle other intermittent errors here
-  if grep 'failed to get edge: inconsistent graph state' .output.txt ; then
+  if grep 'failed to get edge: inconsistent graph state' .output.txt >/dev/null ; then
     # TODO we need to limit earthly parallelism or sometimes get
     # 'failed to solve: failed to get edge: inconsistent graph state'
     # so we use arbitrary WAIT statement groups. Pending earthly support.
     # for now we just try to recover from the failures.
     echo "Got 'inconsistent graph state'. Restarting earthly. See https://github.com/earthly/earthly/issues/2454'"
-    earthly -P --no-output --org aztec --remote-cache=aztecprotocol/cache:bb-native-tests --sat $RUNNER_PREFIX-$USERNAME-$ARCH $@
+    earthly $EARTHLY_FLAGS $@
   else
     # otherwise, propagate error
     exit 1
