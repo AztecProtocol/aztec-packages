@@ -2,7 +2,7 @@ Summary
  - [pess-unprotected-setter](#pess-unprotected-setter) (1 results) (High)
  - [uninitialized-local](#uninitialized-local) (2 results) (Medium)
  - [unused-return](#unused-return) (1 results) (Medium)
- - [pess-dubious-typecast](#pess-dubious-typecast) (5 results) (Medium)
+ - [pess-dubious-typecast](#pess-dubious-typecast) (6 results) (Medium)
  - [missing-zero-check](#missing-zero-check) (2 results) (Low)
  - [reentrancy-events](#reentrancy-events) (2 results) (Low)
  - [timestamp](#timestamp) (1 results) (Low)
@@ -56,7 +56,29 @@ Dubious typecast in [MessagesDecoder.read4(bytes,uint256)](src/core/libraries/de
 src/core/libraries/decoders/MessagesDecoder.sol#L164-L166
 
 
+ - [ ] ID-5
+Dubious typecast in [Hash.sha256ToField(bytes)](src/core/libraries/Hash.sol#L42-L44):
+	bytes32 => bytes31 casting occurs in [bytes32(bytes.concat(new bytes(1),bytes31(sha256(bytes)(_data))))](src/core/libraries/Hash.sol#L43)
+	bytes => bytes32 casting occurs in [bytes32(bytes.concat(new bytes(1),bytes31(sha256(bytes)(_data))))](src/core/libraries/Hash.sol#L43)
+
+src/core/libraries/Hash.sol#L42-L44
+
+
+ - [ ] ID-6
+Dubious typecast in [TxsDecoder.read1(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L342-L344):
+	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(slice(_data,_offset,1))))](src/core/libraries/decoders/TxsDecoder.sol#L343)
+
+src/core/libraries/decoders/TxsDecoder.sol#L342-L344
+
+
  - [ ] ID-7
+Dubious typecast in [TxsDecoder.read4(bytes,uint256)](src/core/libraries/decoders/TxsDecoder.sol#L352-L354):
+	bytes => bytes4 casting occurs in [uint256(uint32(bytes4(slice(_data,_offset,4))))](src/core/libraries/decoders/TxsDecoder.sol#L353)
+
+src/core/libraries/decoders/TxsDecoder.sol#L352-L354
+
+
+ - [ ] ID-8
 Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L143-L184):
 	bytes => bytes32 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L151-L153)
 	bytes => bytes4 casting occurs in [header.lastArchive = AppendOnlyTreeSnapshot(bytes32(_header),uint32(bytes4(_header)))](src/core/libraries/HeaderLib.sol#L151-L153)
@@ -82,7 +104,7 @@ Dubious typecast in [HeaderLib.decode(bytes)](src/core/libraries/HeaderLib.sol#L
 src/core/libraries/HeaderLib.sol#L143-L184
 
 
- - [ ] ID-8
+ - [ ] ID-9
 Dubious typecast in [MessagesDecoder.read1(bytes,uint256)](src/core/libraries/decoders/MessagesDecoder.sol#L154-L156):
 	bytes => bytes1 casting occurs in [uint256(uint8(bytes1(_data)))](src/core/libraries/decoders/MessagesDecoder.sol#L155)
 
@@ -92,14 +114,14 @@ src/core/libraries/decoders/MessagesDecoder.sol#L154-L156
 ## missing-zero-check
 Impact: Low
 Confidence: Medium
- - [ ] ID-9
+ - [ ] ID-10
 [Inbox.constructor(address,uint256)._rollup](src/core/messagebridge/Inbox.sol#L40) lacks a zero-check on :
 		- [ROLLUP = _rollup](src/core/messagebridge/Inbox.sol#L41)
 
 src/core/messagebridge/Inbox.sol#L40
 
 
- - [ ] ID-10
+ - [ ] ID-11
 [Outbox.constructor(address)._rollup](src/core/messagebridge/Outbox.sol#L31) lacks a zero-check on :
 		- [ROLLUP_CONTRACT = _rollup](src/core/messagebridge/Outbox.sol#L32)
 
@@ -109,7 +131,7 @@ src/core/messagebridge/Outbox.sol#L31
 ## reentrancy-events
 Impact: Low
 Confidence: Medium
- - [ ] ID-11
+ - [ ] ID-12
 Reentrancy in [Inbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/Inbox.sol#L61-L95):
 	External calls:
 	- [index = currentTree.insertLeaf(leaf)](src/core/messagebridge/Inbox.sol#L91)
@@ -119,7 +141,7 @@ Reentrancy in [Inbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/
 src/core/messagebridge/Inbox.sol#L61-L95
 
 
- - [ ] ID-12
+ - [ ] ID-13
 Reentrancy in [Rollup.process(bytes,bytes32,bytes,bytes)](src/core/Rollup.sol#L60-L104):
 	External calls:
 	- [inHash = INBOX.consume()](src/core/Rollup.sol#L91)
@@ -133,7 +155,7 @@ src/core/Rollup.sol#L60-L104
 ## timestamp
 Impact: Low
 Confidence: Medium
- - [ ] ID-13
+ - [ ] ID-14
 [HeaderLib.validate(HeaderLib.Header,uint256,uint256,bytes32)](src/core/libraries/HeaderLib.sol#L106-L136) uses timestamp for comparisons
 	Dangerous comparisons:
 	- [_header.globalVariables.timestamp > block.timestamp](src/core/libraries/HeaderLib.sol#L120)
@@ -144,35 +166,35 @@ src/core/libraries/HeaderLib.sol#L106-L136
 ## pess-public-vs-external
 Impact: Low
 Confidence: Medium
- - [ ] ID-14
-The following public functions could be turned into external in [FrontierMerkle](src/core/messagebridge/frontier_tree/Frontier.sol#L7-L93) contract:
-	[FrontierMerkle.constructor(uint256)](src/core/messagebridge/frontier_tree/Frontier.sol#L19-L27)
-
-src/core/messagebridge/frontier_tree/Frontier.sol#L7-L93
-
-
  - [ ] ID-15
+The following public functions could be turned into external in [FrontierMerkle](src/core/messagebridge/frontier_tree/Frontier.sol#L12-L98) contract:
+	[FrontierMerkle.constructor(uint256)](src/core/messagebridge/frontier_tree/Frontier.sol#L24-L32)
+
+src/core/messagebridge/frontier_tree/Frontier.sol#L12-L98
+
+
+ - [ ] ID-16
 The following public functions could be turned into external in [Registry](src/core/messagebridge/Registry.sol#L22-L129) contract:
 	[Registry.constructor()](src/core/messagebridge/Registry.sol#L29-L33)
 
 src/core/messagebridge/Registry.sol#L22-L129
 
 
- - [ ] ID-16
+ - [ ] ID-17
 The following public functions could be turned into external in [Inbox](src/core/messagebridge/Inbox.sol#L24-L124) contract:
 	[Inbox.constructor(address,uint256)](src/core/messagebridge/Inbox.sol#L40-L51)
 
 src/core/messagebridge/Inbox.sol#L24-L124
 
 
- - [ ] ID-17
+ - [ ] ID-18
 The following public functions could be turned into external in [Rollup](src/core/Rollup.sol#L30-L113) contract:
 	[Rollup.constructor(IRegistry,IAvailabilityOracle)](src/core/Rollup.sol#L44-L51)
 
 src/core/Rollup.sol#L30-L113
 
 
- - [ ] ID-18
+ - [ ] ID-19
 The following public functions could be turned into external in [Outbox](src/core/messagebridge/Outbox.sol#L18-L132) contract:
 	[Outbox.constructor(address)](src/core/messagebridge/Outbox.sol#L31-L33)
 
@@ -182,7 +204,7 @@ src/core/messagebridge/Outbox.sol#L18-L132
 ## assembly
 Impact: Informational
 Confidence: High
- - [ ] ID-19
+ - [ ] ID-20
 [MessagesDecoder.decode(bytes)](src/core/libraries/decoders/MessagesDecoder.sol#L61-L146) uses assembly
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L80-L82)
 	- [INLINE ASM](src/core/libraries/decoders/MessagesDecoder.sol#L116-L122)
@@ -190,9 +212,9 @@ Confidence: High
 src/core/libraries/decoders/MessagesDecoder.sol#L61-L146
 
 
- - [ ] ID-20
-[TxsDecoder.computeRoot(bytes32[])](src/core/libraries/decoders/TxsDecoder.sol#L265-L284) uses assembly
-	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L272-L274)
+ - [ ] ID-21
+[TxsDecoder.computeRoot(bytes32[])](src/core/libraries/decoders/TxsDecoder.sol#L266-L285) uses assembly
+	- [INLINE ASM](src/core/libraries/decoders/TxsDecoder.sol#L273-L275)
 
 src/core/libraries/decoders/TxsDecoder.sol#L266-L285
 
@@ -200,31 +222,31 @@ src/core/libraries/decoders/TxsDecoder.sol#L266-L285
 ## dead-code
 Impact: Informational
 Confidence: Medium
- - [ ] ID-21
+ - [ ] ID-22
 [MessageBox.consume(mapping(bytes32 => DataStructures.Entry),bytes32,function(bytes32))](src/core/libraries/MessageBox.sol#L71-L79) is never used and should be removed
 
 src/core/libraries/MessageBox.sol#L71-L79
 
 
- - [ ] ID-22
+ - [ ] ID-23
 [MessageBox.contains(mapping(bytes32 => DataStructures.Entry),bytes32)](src/core/libraries/MessageBox.sol#L87-L92) is never used and should be removed
 
 src/core/libraries/MessageBox.sol#L87-L92
 
 
- - [ ] ID-23
+ - [ ] ID-24
 [MessageBox.get(mapping(bytes32 => DataStructures.Entry),bytes32,function(bytes32))](src/core/libraries/MessageBox.sol#L104-L112) is never used and should be removed
 
 src/core/libraries/MessageBox.sol#L104-L112
 
 
- - [ ] ID-24
+ - [ ] ID-25
 [MessageBox.insert(mapping(bytes32 => DataStructures.Entry),bytes32,uint64,uint32,uint32,function(bytes32,uint64,uint64,uint32,uint32,uint32,uint32))](src/core/libraries/MessageBox.sol#L30-L60) is never used and should be removed
 
 src/core/libraries/MessageBox.sol#L30-L60
 
 
- - [ ] ID-25
+ - [ ] ID-26
 [Hash.sha256ToField(bytes32)](src/core/libraries/Hash.sol#L52-L54) is never used and should be removed
 
 src/core/libraries/Hash.sol#L52-L54
@@ -251,7 +273,7 @@ Variable [Constants.L1_TO_L2_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol
 src/core/libraries/ConstantsGen.sol#L110
 
 
- - [ ] ID-29
+ - [ ] ID-30
 Variable [Rollup.AVAILABILITY_ORACLE](src/core/Rollup.sol#L33) is too similar to [Rollup.constructor(IRegistry,IAvailabilityOracle)._availabilityOracle](src/core/Rollup.sol#L44)
 
 src/core/Rollup.sol#L33
@@ -260,7 +282,7 @@ src/core/Rollup.sol#L33
 ## constable-states
 Impact: Optimization
 Confidence: High
- - [ ] ID-30
+ - [ ] ID-31
 [Rollup.lastWarpedBlockTs](src/core/Rollup.sol#L42) should be constant 
 
 src/core/Rollup.sol#L42
@@ -269,7 +291,7 @@ src/core/Rollup.sol#L42
 ## pess-multiple-storage-read
 Impact: Optimization
 Confidence: High
- - [ ] ID-31
+ - [ ] ID-32
 In a function [Outbox.insert(uint256,bytes32,uint256)](src/core/messagebridge/Outbox.sol#L44-L64) variable [Outbox.roots](src/core/messagebridge/Outbox.sol#L29) is read multiple times
 
 src/core/messagebridge/Outbox.sol#L44-L64

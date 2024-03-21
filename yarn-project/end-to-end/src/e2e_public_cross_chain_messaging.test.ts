@@ -258,7 +258,7 @@ describe('e2e_public_cross_chain_messaging', () => {
         content: content.toString() as Hex,
       };
 
-      const leaf = Fr.fromBufferReduce(
+      const leaf = toTruncField(
         sha256(
           Buffer.concat([
             testContract.address.toBuffer(),
@@ -268,7 +268,7 @@ describe('e2e_public_cross_chain_messaging', () => {
             content.toBuffer(),
           ]),
         ),
-      );
+      )[0];
 
       const [l2MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
         l2TxReceipt.blockNumber!,

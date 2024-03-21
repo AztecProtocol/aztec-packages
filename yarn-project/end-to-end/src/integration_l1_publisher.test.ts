@@ -19,7 +19,7 @@ import { makeTuple, range } from '@aztec/foundation/array';
 import { toTruncField } from '@aztec/foundation/serialize';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { SHA256, StandardTree } from '@aztec/merkle-tree';
+import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import {
   EmptyRollupProver,
   L1Publisher,
@@ -408,7 +408,7 @@ describe('L1Publisher integration', () => {
 
       const treeHeight = Math.ceil(Math.log2(newL2ToL1MsgsArray.length));
 
-      const tree = new StandardTree(openTmpStore(true), new SHA256(), 'temp_outhash_sibling_path', treeHeight);
+      const tree = new StandardTree(openTmpStore(true), new SHA256Trunc(), 'temp_outhash_sibling_path', treeHeight);
       await tree.appendLeaves(newL2ToL1MsgsArray.map(l2ToL1Msg => l2ToL1Msg.toBuffer()));
 
       const expectedRoot = tree.getRoot(true);
