@@ -22,6 +22,12 @@ pub fn xor(lhs: JsString, rhs: JsString) -> JsString {
     field_element_to_js_string(&result)
 }
 
+/// Sha256 compression function
+#[wasm_bindgen]
+pub fn sha256_compression(inputs: &[u32], state: &[u8]) -> Vec<u8> {
+    acvm::blackbox_solver::sha256_compression(inputs, state).unwrap().into()
+}
+
 /// Calculates the Blake2s256 hash of the input bytes
 #[wasm_bindgen]
 pub fn blake2s256(inputs: &[u8]) -> Vec<u8> {
