@@ -6,21 +6,25 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  # Split out for legibility, but uses same runner as e2e and bb-native-tests
-  # thus if this step was deleted entirely, things would still work, but where the build happened would not be clear.
-  # Includes non-integration and non-prover/barretenberg tests
-  build-x86: 
+  # all the end-to-end integration tests for aztec
+  e2e-arm:
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
+    strategy:
+      matrix:
+        test:
+          - e2e-card-game
+          - e2e-crowdfunding-and-claim
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      group: build-x86-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
+      group: ${{ matrix.test }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-arm
       cancel-in-progress: ${{ github.ref_name != 'master' }}
     steps:
       - uses: earthly/actions-setup@v1
         with:
           version: v0.8.5
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -32,39 +36,12 @@ jobs:
         run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Test
-        working-directory: .
-        run: earthly-cloud ${{ github.actor }} x86 +build-ci
-
-  # This is not a matrix build so we can depend on it below
-  build-arm:
-    runs-on: ubuntu-latest
-    env:
-      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
-    # cancel if reran on same PR if exists, otherwise if on same commit
-    concurrency:
-      group: build-arm-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
-      cancel-in-progress: ${{ github.ref_name != 'master' }}
-    steps:
-      - uses: earthly/actions-setup@v1
-        with:
-          version: v0.8.5
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          submodules: recursive
-
-      - name: Setup
-        working-directory: ./scripts
-        run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Test
-        working-directory: .
-        run: earthly-cloud ${{ github.actor }} arm +build-ci
+        working-directory: ./yarn-project/end-to-end/
+        run: earthly-cloud ${{ github.actor }} arm +${{ matrix.test }}
 
   # all the end-to-end integration tests for aztec
-  e2e:
-    needs: build-${{ matrix.environment }}
+  e2e-x86:
+    needs: build-x86
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
@@ -102,7 +79,7 @@ jobs:
           - e2e-docs-examples
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      group: ${{ matrix.test }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-${{ matrix.environment }}
+      group: ${{ matrix.test }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-x86
       cancel-in-progress: ${{ github.ref_name != 'master' }}
     steps:
       - uses: earthly/actions-setup@v1
@@ -121,7 +98,7 @@ jobs:
 
       - name: Test
         working-directory: ./yarn-project/end-to-end/
-        run: earthly-cloud ${{ github.actor }} ${{ matrix.environment }} +${{ matrix.test }}
+        run: earthly-cloud ${{ github.actor }} x86 +${{ matrix.test }}
 
   # barretenberg (prover) native tests
   bb-native-tests:
