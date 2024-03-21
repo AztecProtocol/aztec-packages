@@ -21,7 +21,6 @@
 
 #include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/flavor/ultra.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -39,12 +38,12 @@ template <IsUltraFlavor Flavor> struct OinkProverOutput {
  */
 template <IsUltraFlavor Flavor> class OinkProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using Instance = ProverInstance_<Flavor>;
+    using ProvingKey = typename Flavor::ProvingKey;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
 
   public:
-    std::shared_ptr<Instance> instance;
+    std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<CommitmentKey> commitment_key;
     std::string domain_separator;
@@ -53,11 +52,11 @@ template <IsUltraFlavor Flavor> class OinkProver {
 
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
 
-    OinkProver(const std::shared_ptr<ProverInstance_<Flavor>>& inst,
+    OinkProver(const std::shared_ptr<ProvingKey>& proving_key,
                const std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key,
                const std::shared_ptr<typename Flavor::Transcript>& transcript,
                std::string domain_separator = "")
-        : instance(inst)
+        : proving_key(proving_key)
         , transcript(transcript)
         , commitment_key(commitment_key)
         , domain_separator(std::move(domain_separator))

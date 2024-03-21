@@ -15,7 +15,7 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const 
     : instance(std::move(inst))
     , transcript(transcript)
     , commitment_key(instance->proving_key->commitment_key)
-    , oink_prover(inst, commitment_key, transcript, "")
+    , oink_prover(inst->proving_key, commitment_key, transcript, "")
 {}
 
 /**
@@ -30,7 +30,7 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     : instance(std::make_shared<ProverInstance>(circuit))
     , transcript(std::make_shared<Transcript>())
     , commitment_key(instance->proving_key->commitment_key)
-    , oink_prover(instance, commitment_key, transcript, "")
+    , oink_prover(instance->proving_key, commitment_key, transcript, "")
 {}
 
 /**
