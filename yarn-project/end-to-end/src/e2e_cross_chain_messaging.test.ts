@@ -1,6 +1,7 @@
 import {
   AccountWallet,
   AztecAddress,
+  AztecNode,
   DebugLogger,
   EthAddress,
   Fr,
@@ -10,7 +11,7 @@ import {
   computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
 import { sha256 } from '@aztec/foundation/crypto';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { serializeToBuffer, toTruncField } from '@aztec/foundation/serialize';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { toFunctionSelector } from 'viem/utils';
@@ -19,6 +20,7 @@ import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
 
 describe('e2e_cross_chain_messaging', () => {
+  let aztecNode: AztecNode;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 
@@ -30,13 +32,19 @@ describe('e2e_cross_chain_messaging', () => {
   let crossChainTestHarness: CrossChainTestHarness;
   let l2Token: TokenContract;
   let l2Bridge: TokenBridgeContract;
-  let outbox: any;
 
   beforeEach(async () => {
-    const { aztecNode, pxe, deployL1ContractsValues, wallets, logger: logger_, teardown: teardown_ } = await setup(2);
+    const {
+      aztecNode: aztecNode_,
+      pxe,
+      deployL1ContractsValues,
+      wallets,
+      logger: logger_,
+      teardown: teardown_,
+    } = await setup(2);
 
     crossChainTestHarness = await CrossChainTestHarness.new(
-      aztecNode,
+      aztecNode_,
       pxe,
       deployL1ContractsValues.publicClient,
       deployL1ContractsValues.walletClient,
@@ -48,10 +56,10 @@ describe('e2e_cross_chain_messaging', () => {
     l2Bridge = crossChainTestHarness.l2Bridge;
     ethAccount = crossChainTestHarness.ethAccount;
     ownerAddress = crossChainTestHarness.ownerAddress;
-    outbox = crossChainTestHarness.outbox;
     user1Wallet = wallets[0];
     user2Wallet = wallets[1];
     logger = logger_;
+    aztecNode = aztecNode_;
     teardown = teardown_;
     logger('Successfully deployed contracts and initialized portal');
   }, 100_000);
@@ -107,16 +115,24 @@ describe('e2e_cross_chain_messaging', () => {
     // docs:end:authwit_to_another_sc
 
     // 5. Withdraw owner's funds from L2 to L1
-    const entryKey = await crossChainTestHarness.checkEntryIsNotInOutbox(withdrawAmount);
-    await crossChainTestHarness.withdrawPrivateFromAztecToL1(withdrawAmount, nonce);
+    const l2ToL1Message = crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
+    const l2TxReceipt = await crossChainTestHarness.withdrawPrivateFromAztecToL1(withdrawAmount, nonce);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount - withdrawAmount);
+
+    const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      l2TxReceipt.blockNumber!,
+      l2ToL1Message,
+    );
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
-    await crossChainTestHarness.withdrawFundsFromBridgeOnL1(withdrawAmount, entryKey);
+    await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
+      withdrawAmount,
+      l2TxReceipt.blockNumber!,
+      l2ToL1MessageIndex,
+      siblingPath,
+    );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
-
-    expect(await outbox.read.contains([entryKey.toString()])).toBeFalsy();
   }, 120_000);
   // docs:end:e2e_private_cross_chain
 
@@ -141,14 +157,14 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.makeMessageConsumable(msgLeaf);
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
-    const content = Fr.fromBufferReduce(
+    const content = toTruncField(
       sha256(
         Buffer.concat([
           Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
           serializeToBuffer(...[secretHashForL2MessageConsumption, new Fr(bridgeAmount)]),
         ]),
       ),
-    );
+    )[0];
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
@@ -219,14 +235,14 @@ describe('e2e_cross_chain_messaging', () => {
     // Wait for the message to be available for consumption
     await crossChainTestHarness.makeMessageConsumable(msgLeaf);
 
-    const content = Fr.fromBufferReduce(
+    const content = toTruncField(
       sha256(
         Buffer.concat([
           Buffer.from(toFunctionSelector('mint_public(bytes32,uint256)').substring(2), 'hex'),
           serializeToBuffer(...[ownerAddress, new Fr(bridgeAmount)]),
         ]),
       ),
-    );
+    )[0];
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
