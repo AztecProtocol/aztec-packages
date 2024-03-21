@@ -3,8 +3,9 @@ import {
   L2Block,
   L2BlockSource,
   MerkleTreeId,
+  PROVING_STATUS,
   ProverClient,
-  ProvingResult,
+  ProvingSuccess,
   ProvingTicket,
   makeEmptyProcessedTx,
   makeProcessedTx,
@@ -104,7 +105,8 @@ describe('sequencer', () => {
     tx.data.needsTeardown = false;
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
-    const result: ProvingResult = {
+    const result: ProvingSuccess = {
+      status: PROVING_STATUS.SUCCESS,
       proof,
       block,
     };
@@ -142,7 +144,8 @@ describe('sequencer', () => {
     const doubleSpendTx = txs[1];
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
-    const result: ProvingResult = {
+    const result: ProvingSuccess = {
+      status: PROVING_STATUS.SUCCESS,
       proof,
       block,
     };
@@ -190,7 +193,8 @@ describe('sequencer', () => {
     const invalidChainTx = txs[1];
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
-    const result: ProvingResult = {
+    const result: ProvingSuccess = {
+      status: PROVING_STATUS.SUCCESS,
       proof,
       block,
     };
@@ -228,7 +232,8 @@ describe('sequencer', () => {
     tx.data.constants.txContext.chainId = chainId;
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
-    const result: ProvingResult = {
+    const result: ProvingSuccess = {
+      status: PROVING_STATUS.SUCCESS,
       proof,
       block,
     };

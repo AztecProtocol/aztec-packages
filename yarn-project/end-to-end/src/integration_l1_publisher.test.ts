@@ -1,3 +1,4 @@
+import { ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AztecAddress,
@@ -12,7 +13,6 @@ import {
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
-  L2BlockSource,
   ProcessedTx,
   ProvingSuccess,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
@@ -39,6 +39,7 @@ import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1
 import { SHA256, StandardTree } from '@aztec/merkle-tree';
 import { TxProver } from '@aztec/prover-client';
 import { L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
+import { WASMSimulator } from '@aztec/simulator';
 import { MerkleTrees, ServerWorldStateSynchronizer, WorldStateConfig } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
@@ -95,7 +96,7 @@ describe('L1Publisher integration', () => {
   // The header of the last block
   let prevHeader: Header;
 
-  let blockSource: MockProxy<L2BlockSource>;
+  let blockSource: MockProxy<ArchiveSource>;
 
   const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
 
@@ -136,14 +137,14 @@ describe('L1Publisher integration', () => {
 
     const tmpStore = openTmpStore();
     builderDb = await MerkleTrees.new(tmpStore);
-    blockSource = mock<L2BlockSource>();
+    blockSource = mock<ArchiveSource>();
     blockSource.getBlocks.mockResolvedValue([]);
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
       l2QueueSize: 10,
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
-    builder = await TxProver.new({}, worldStateSynchronizer);
+    builder = await TxProver.new({}, worldStateSynchronizer, new WASMSimulator());
     l2Proof = Buffer.alloc(0);
 
     publisher = getL1Publisher({
