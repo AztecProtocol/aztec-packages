@@ -2,7 +2,7 @@
 //! The purpose of this pass is to inline the instructions of each function call
 //! within the function caller. If all function calls are known, there will only
 //! be a single function remaining when the pass finishes.
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use iter_extended::{btree_map, vecmap};
 
@@ -10,9 +10,9 @@ use crate::ssa::{
     function_builder::FunctionBuilder,
     ir::{
         basic_block::BasicBlockId,
-        dfg::{CallStack, InsertInstructionResult},
+        dfg::{CallStack, DataFlowGraph, InsertInstructionResult},
         function::{Function, FunctionId, RuntimeType},
-        instruction::{Instruction, InstructionId, TerminatorInstruction},
+        instruction::{ConstrainError, Instruction, InstructionId, TerminatorInstruction},
         value::{Value, ValueId},
     },
     ssa_gen::Ssa,
@@ -38,8 +38,22 @@ impl Ssa {
     /// as well save the work for later instead of performing it twice.
     #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn inline_functions(mut self) -> Ssa {
-        self.functions = btree_map(get_entry_point_functions(&self), |entry_point| {
-            let new_function = InlineContext::new(&self, entry_point).inline_all(&self);
+        let calls = get_function_calls(&self);
+        let brillig_entry_points = find_brillig_entry_points_in_ssa(&self, &calls);
+        let recursive_functions = find_all_recursive_functions(self.main_id, &calls);
+        let called_via_constrain = calls.iter().flat_map(|(_id, calls)| calls.via_constrain.iter());
+
+        let must_be_retained: BTreeSet<FunctionId> = recursive_functions
+            .iter()
+            .chain(called_via_constrain)
+            .chain(&brillig_entry_points)
+            .chain(std::iter::once(&self.main_id))
+            .copied()
+            .collect();
+
+        self.functions = btree_map(must_be_retained, |entry_point| {
+            let new_function = InlineContext::new(&self, entry_point, recursive_functions.clone())
+                .inline_all(&self);
             (entry_point, new_function)
         });
 
@@ -60,6 +74,7 @@ struct InlineContext {
 
     // The FunctionId of the entry point function we're inlining into in the old, unmodified Ssa.
     entry_point: FunctionId,
+    not_inlineable: BTreeSet<FunctionId>,
 }
 
 /// The per-function inlining context contains information that is only valid for one function.
@@ -93,17 +108,130 @@ struct PerFunctionContext<'function> {
     inlining_entry: bool,
 }
 
-/// The entry point functions are each function we should inline into - and each function that
-/// should be left in the final program. This is usually just `main` but also includes any
-/// brillig functions used.
-fn get_entry_point_functions(ssa: &Ssa) -> BTreeSet<FunctionId> {
-    let functions = ssa.functions.iter();
-    let mut entry_points = functions
-        .filter(|(_, function)| function.runtime() == RuntimeType::Brillig)
-        .map(|(id, _)| *id)
-        .collect::<BTreeSet<_>>();
+#[derive(Debug, Default)]
+struct CalledFunctions {
+    called_directly: BTreeSet<FunctionId>,
+    via_constrain: BTreeSet<FunctionId>,
+}
 
-    entry_points.insert(ssa.main_id);
+fn extract_direct_call(dfg: &DataFlowGraph, instruction: &Instruction) -> Option<FunctionId> {
+    match instruction {
+        Instruction::Call { func, .. } => match dfg[*func] {
+            Value::Function(id) => Some(id),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn extract_constrain_call(dfg: &DataFlowGraph, instruction: &Instruction) -> Option<FunctionId> {
+    match instruction {
+        Instruction::Constrain(_, _, Some(error)) => match error.as_ref() {
+            ConstrainError::Dynamic(Instruction::Call { func, .. }) => match dfg[*func] {
+                Value::Function(id) => Some(id),
+                _ => None,
+            },
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn get_function_calls(ssa: &Ssa) -> BTreeMap<FunctionId, CalledFunctions> {
+    let mut result = BTreeMap::new();
+    for (&function_id, function) in ssa.functions.iter() {
+        let mut calls = CalledFunctions::default();
+
+        for block in function.reachable_blocks() {
+            let block = &function.dfg[block];
+            for &instruction in block.instructions() {
+                let instruction = &function.dfg[instruction];
+                if let Some(id) = extract_direct_call(&function.dfg, instruction) {
+                    calls.called_directly.insert(id);
+                } else if let Some(id) = extract_constrain_call(&function.dfg, instruction) {
+                    calls.via_constrain.insert(id);
+                }
+            }
+        }
+
+        result.insert(function_id, calls);
+    }
+    result
+}
+
+fn find_recursive_functions(
+    current_function: FunctionId,
+    call_stack: &mut Vec<FunctionId>,
+    recursive_functions: &mut BTreeSet<FunctionId>,
+    calls: &BTreeMap<FunctionId, CalledFunctions>,
+) {
+    if call_stack.contains(&current_function) {
+        recursive_functions.insert(current_function);
+        return;
+    }
+
+    call_stack.push(current_function);
+
+    let called_functions = calls.get(&current_function).expect("Expected function to exist");
+    for &function in &called_functions.called_directly {
+        find_recursive_functions(function, call_stack, recursive_functions, calls);
+    }
+
+    for &function in &called_functions.via_constrain {
+        find_recursive_functions(function, call_stack, recursive_functions, calls);
+    }
+
+    call_stack.pop();
+}
+
+fn find_all_recursive_functions(
+    from: FunctionId,
+    calls: &BTreeMap<FunctionId, CalledFunctions>,
+) -> BTreeSet<FunctionId> {
+    let mut recursive_functions = BTreeSet::new();
+    let mut call_stack = Vec::new();
+    find_recursive_functions(from, &mut call_stack, &mut recursive_functions, calls);
+    recursive_functions
+}
+
+fn find_brillig_entry_points(
+    ssa: &Ssa,
+    current_function: FunctionId,
+    call_stack: &mut Vec<FunctionId>,
+    entry_points: &mut BTreeSet<FunctionId>,
+    calls: &BTreeMap<FunctionId, CalledFunctions>,
+) {
+    let function = ssa.functions.get(&current_function).expect("Expected function to exist");
+    if function.runtime() == RuntimeType::Brillig {
+        entry_points.insert(current_function);
+        return;
+    }
+
+    if call_stack.contains(&current_function) {
+        return;
+    }
+
+    call_stack.push(current_function);
+
+    let called_functions = calls.get(&current_function).expect("Expected function to exist");
+    for &function in &called_functions.called_directly {
+        find_brillig_entry_points(ssa, function, call_stack, entry_points, calls);
+    }
+
+    for &function in &called_functions.via_constrain {
+        find_brillig_entry_points(ssa, function, call_stack, entry_points, calls);
+    }
+
+    call_stack.pop();
+}
+
+fn find_brillig_entry_points_in_ssa(
+    ssa: &Ssa,
+    calls: &BTreeMap<FunctionId, CalledFunctions>,
+) -> BTreeSet<FunctionId> {
+    let mut entry_points = BTreeSet::new();
+    let mut call_stack = Vec::new();
+    find_brillig_entry_points(ssa, ssa.main_id, &mut call_stack, &mut entry_points, calls);
     entry_points
 }
 
@@ -113,10 +241,20 @@ impl InlineContext {
     /// The function being inlined into will always be the main function, although it is
     /// actually a copy that is created in case the original main is still needed from a function
     /// that could not be inlined calling it.
-    fn new(ssa: &Ssa, entry_point: FunctionId) -> InlineContext {
+    fn new(
+        ssa: &Ssa,
+        entry_point: FunctionId,
+        not_inlineable: BTreeSet<FunctionId>,
+    ) -> InlineContext {
         let source = &ssa.functions[&entry_point];
         let builder = FunctionBuilder::new(source.name().to_owned(), entry_point, source.runtime());
-        Self { builder, recursion_level: 0, entry_point, call_stack: CallStack::new() }
+        Self {
+            builder,
+            recursion_level: 0,
+            entry_point,
+            call_stack: CallStack::new(),
+            not_inlineable,
+        }
     }
 
     /// Start inlining the entry point function and all functions reachable from it.
@@ -351,7 +489,18 @@ impl<'function> PerFunctionContext<'function> {
                 Instruction::Call { func, arguments } => match self.get_function(*func) {
                     Some(function) => match ssa.functions[&function].runtime() {
                         RuntimeType::Acir => self.inline_function(ssa, *id, function, arguments),
-                        RuntimeType::Brillig => self.push_instruction(*id),
+                        RuntimeType::Brillig => {
+                            // We can inline the target if it's not in the non inlineable set and we cannot
+                            // inline brillig functions into an acir entry point
+                            if !self.context.not_inlineable.contains(&function)
+                                && ssa.functions.get(&self.context.entry_point).unwrap().runtime()
+                                    == RuntimeType::Brillig
+                            {
+                                self.inline_function(ssa, *id, function, arguments);
+                            } else {
+                                self.push_instruction(*id);
+                            }
+                        }
                     },
                     None => self.push_instruction(*id),
                 },
@@ -487,6 +636,13 @@ impl<'function> PerFunctionContext<'function> {
             }
             TerminatorInstruction::Return { return_values, call_stack } => {
                 let return_values = vecmap(return_values, |value| self.translate_value(*value));
+
+                // Note that `translate_block` would take us back to the point at which the
+                // inlining of this source block began. Since additional blocks may have been
+                // inlined since, we are interested in the block representing the current program
+                // point, obtained via `current_block`.
+                let block_id = self.context.builder.current_block();
+
                 if self.inlining_entry {
                     let mut new_call_stack = self.context.call_stack.clone();
                     new_call_stack.append(call_stack.clone());
@@ -495,11 +651,7 @@ impl<'function> PerFunctionContext<'function> {
                         .set_call_stack(new_call_stack)
                         .terminate_with_return(return_values.clone());
                 }
-                // Note that `translate_block` would take us back to the point at which the
-                // inlining of this source block began. Since additional blocks may have been
-                // inlined since, we are interested in the block representing the current program
-                // point, obtained via `current_block`.
-                let block_id = self.context.builder.current_block();
+
                 Some((block_id, return_values))
             }
         }
