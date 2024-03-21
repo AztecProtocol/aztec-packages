@@ -36,6 +36,10 @@ impl WitnessStack {
     pub fn push(&mut self, index: u32, witness: WitnessMap) {
         self.stack.push(StackItem { index, witness });
     }
+
+    pub fn peek(&self) -> Option<&StackItem> {
+        self.stack.last()
+    }
 }
 
 impl From<WitnessMap> for WitnessStack {
