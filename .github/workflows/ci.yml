@@ -41,7 +41,6 @@ jobs:
 
   # all the end-to-end integration tests for aztec
   e2e-x86:
-    needs: build-x86
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
@@ -102,7 +101,6 @@ jobs:
 
   # barretenberg (prover) native tests
   bb-native-tests:
-    needs: build
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
