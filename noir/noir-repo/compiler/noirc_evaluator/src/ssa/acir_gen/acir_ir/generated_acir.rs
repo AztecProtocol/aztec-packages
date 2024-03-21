@@ -24,7 +24,7 @@ use acvm::{
 use iter_extended::vecmap;
 use num_bigint::BigUint;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 /// The output of the Acir-gen pass
 pub(crate) struct GeneratedAcir {
     /// The next witness index that may be declared.

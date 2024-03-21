@@ -111,7 +111,7 @@ pub fn create_program(
     let mut warning_infos = vec![];
     let mut main_input_witnesses = Vec::new();
     let mut main_return_witnesses = Vec::new();
-    // For setting up the ABI we need separately specify the input and return witnesses
+    // For setting up the ABI we need separately specify main's input and return witnesses
     let mut is_main = true;
     for (acir, func_sig) in generated_acirs.into_iter().zip(func_sigs) {
         let (circuit, debug_info, warnings, input_witnesses, return_witnesses) =
