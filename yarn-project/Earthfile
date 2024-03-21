@@ -69,6 +69,10 @@ aztec:
     # Adding COMMIT_TAG here to rebuild versioned image.
     ARG COMMIT_TAG=""
 
+source:
+    # for debugging rebuilds
+    RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
+
 end-to-end:
     # compilation artifacts for end-to-end
     # TODO encapsulate in bash script for cleanliness
@@ -95,8 +99,6 @@ end-to-end:
             cp -r --parents */dest /node_cache && \
             find . -name '*.tsbuildinfo' -exec cp --parents {} /node_cache \;
     END
-    SAVE ARTIFACT /build
-
     # Build web bundle for browser tests
     RUN yarn workspace @aztec/end-to-end run build:web
     RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
