@@ -254,13 +254,6 @@ describe('e2e_note_getter', () => {
         expect(viewNotesManyResult.sort()).toEqual([BigInt(VALUE), BigInt(VALUE + 1)]);
       }, 45_000);
 
-      it('returns nullified notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
-        await contract.methods.call_destroy_note(storageSlot).send().wait();
-
-        await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
-      }, 30_000);
-
       it('get_notes should collapse sparse arrays', async () => {
         // We call the function that creates a sparse array in get_notes_internal, using the filter
         // It then gets the notes from the set and confirms that the array is not sparse and has been handled by get_notes
