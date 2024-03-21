@@ -220,6 +220,11 @@ export class AccountWallet extends BaseWallet {
           type: { kind: 'integer', sign: 'unsigned', width: 32 },
           visibility: 'private' as ABIParameterVisibility,
         },
+        {
+          name: 'check_private',
+          type: { kind: 'boolean' },
+          visibility: 'private' as ABIParameterVisibility,
+        },
         { name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
       ],
       returnTypes: [{ kind: 'array', length: 2, type: { kind: 'boolean' } }],

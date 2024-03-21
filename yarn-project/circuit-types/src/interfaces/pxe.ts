@@ -35,7 +35,11 @@ export interface PXE {
    */
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
 
-  // @todo @LHerskind
+  /**
+   * Fetches the serialized auth witness for a given message hash or returns undefined if not found.
+   * @param messageHash - The hash of the message for which to get the auth witness.
+   * @returns The serialized auth witness for the given message hash.
+   */
   getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
 
   /**
