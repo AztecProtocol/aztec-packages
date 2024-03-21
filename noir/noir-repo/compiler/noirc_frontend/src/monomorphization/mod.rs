@@ -160,10 +160,10 @@ pub fn monomorphize_debug(
         undo_instantiation_bindings(impl_bindings);
         undo_instantiation_bindings(bindings);
     }
+
     let func_sigs = vecmap(monomorphizer.finished_functions.iter(), |(_, f)| f.func_sig.clone());
 
     let functions = vecmap(monomorphizer.finished_functions, |(_, f)| f);
-    // let (functions, func_sigs) = monomorphizer.finished_functions.into_iter().map(|(_, f)| (f, f.func_sig.clone())).unzip();
     let FuncMeta { return_distinctness, return_visibility, kind, .. } =
         monomorphizer.interner.function_meta(&main);
 
@@ -319,7 +319,7 @@ impl<'interner> Monomorphizer<'interner> {
         });
         let unconstrained = modifiers.is_unconstrained;
 
-        let should_fold = !meta.should_inline;
+        let should_fold = meta.should_fold;
 
         let parameters = self.parameters(&meta.parameters);
         let body = self.expr(body_expr_id)?;

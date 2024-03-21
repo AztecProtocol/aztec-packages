@@ -179,7 +179,7 @@ impl Ssa {
     #[tracing::instrument(level = "trace", skip_all)]
     pub(crate) fn into_acir(
         self,
-        brillig: Brillig,
+        brillig: &Brillig,
         abi_distinctness: Distinctness,
         last_array_uses: &HashMap<ValueId, InstructionId>,
     ) -> Result<Vec<GeneratedAcir>, RuntimeError> {
@@ -187,20 +187,18 @@ impl Ssa {
         for function in self.functions.values() {
             let context = Context::new();
             if let Some(generated_acir) =
-                context.convert_ssa_function(&self, function, &brillig, last_array_uses)?
+                context.convert_ssa_function(&self, function, brillig, last_array_uses)?
             {
                 acirs.push(generated_acir);
             }
         }
 
-        // TODO: check wheter doing this for a single circuit's return witnesses is correct.
-        // We may need it for all foldable circuits, as any circuit being folded is essentially an entry point. However, I do not know how that
+        // TODO: check whether doing this for a single circuit's return witnesses is correct.
+        // We probably need it for all foldable circuits, as any circuit being folded is essentially an entry point. However, I do not know how that
         // plays a part when we potentially want not inlined functions normally as part of the compiler.
+        // Also at the moment we specify Distinctness as part of the ABI exclusively rather than the function itself
+        // so this will need to be updated.
         let main_func_acir = &mut acirs[0];
-        // Previous code
-        // let mut context = Context::new();
-        // let mut generated_acir = context.convert_ssa(self, brillig, last_array_uses)?;
-
         match abi_distinctness {
             Distinctness::Distinct => {
                 // Create a witness for each return witness we have
@@ -579,44 +577,19 @@ impl Context {
                                         sum + dfg.try_get_array_length(*result_id).unwrap_or(1)
                                     });
 
-                                let final_program_id = ssa
+                                let acir_program_id = ssa
                                     .id_to_index
                                     .get(id)
                                     .expect("ICE: should have an associated final index");
-                                let result_vars = self.acir_context.call_acir_function(
-                                    *final_program_id,
+                                let output_vars = self.acir_context.call_acir_function(
+                                    *acir_program_id,
                                     inputs,
                                     output_count,
                                 )?;
-                                let result_values =
-                                    self.convert_vars_to_values(result_vars, dfg, result_ids);
-                                for (result, output) in result_ids.iter().zip(result_values) {
-                                    match &output {
-                                        // We need to make sure we initialize arrays returned from intrinsic calls
-                                        // or else they will fail if accessed with a dynamic index
-                                        AcirValue::Array(_) => {
-                                            let block_id = self.block_id(result);
-                                            let array_typ = dfg.type_of_value(*result);
-                                            let len = if matches!(array_typ, Type::Array(_, _)) {
-                                                array_typ.flattened_size()
-                                            } else {
-                                                Self::flattened_value_size(&output)
-                                            };
-                                            self.initialize_array(
-                                                block_id,
-                                                len,
-                                                Some(output.clone()),
-                                            )?;
-                                        }
-                                        AcirValue::DynamicArray(_) => {
-                                            // Do nothing as a dynamic array returned from a slice intrinsic should already be initialized
-                                        }
-                                        AcirValue::Var(_, _) => {
-                                            // Do nothing
-                                        }
-                                    }
-                                    self.ssa_values.insert(*result, output);
-                                }
+                                let output_values =
+                                    self.convert_vars_to_values(output_vars, dfg, result_ids);
+
+                                self.handle_ssa_call_outputs(result_ids, output_values, dfg)?;
                             }
                             RuntimeType::Brillig => {
                                 // Check that we are not attempting to return a slice from
@@ -651,19 +624,7 @@ impl Context {
                                 // Compiler sanity check
                                 assert_eq!(result_ids.len(), output_values.len(), "ICE: The number of Brillig output values should match the result ids in SSA");
 
-                                for result in result_ids.iter().zip(output_values) {
-                                    if let AcirValue::Array(_) = &result.1 {
-                                        let array_id = dfg.resolve(*result.0);
-                                        let block_id = self.block_id(&array_id);
-                                        let array_typ = dfg.type_of_value(array_id);
-                                        self.initialize_array(
-                                            block_id,
-                                            array_typ.flattened_size(),
-                                            Some(result.1.clone()),
-                                        )?;
-                                    }
-                                    self.ssa_values.insert(*result.0, result.1);
-                                }
+                                self.handle_ssa_call_outputs(result_ids, output_values, dfg)?;
                             }
                         }
                     }
@@ -682,30 +643,7 @@ impl Context {
                         // Issue #1438 causes this check to fail with intrinsics that return 0
                         // results but the ssa form instead creates 1 unit result value.
                         // assert_eq!(result_ids.len(), outputs.len());
-
-                        for (result, output) in result_ids.iter().zip(outputs) {
-                            match &output {
-                                // We need to make sure we initialize arrays returned from intrinsic calls
-                                // or else they will fail if accessed with a dynamic index
-                                AcirValue::Array(_) => {
-                                    let block_id = self.block_id(result);
-                                    let array_typ = dfg.type_of_value(*result);
-                                    let len = if matches!(array_typ, Type::Array(_, _)) {
-                                        array_typ.flattened_size()
-                                    } else {
-                                        Self::flattened_value_size(&output)
-                                    };
-                                    self.initialize_array(block_id, len, Some(output.clone()))?;
-                                }
-                                AcirValue::DynamicArray(_) => {
-                                    // Do nothing as a dynamic array returned from a slice intrinsic should already be initialized
-                                }
-                                AcirValue::Var(_, _) => {
-                                    // Do nothing
-                                }
-                            }
-                            self.ssa_values.insert(*result, output);
-                        }
+                        self.handle_ssa_call_outputs(result_ids, outputs, dfg)?;
                     }
                     Value::ForeignFunction(_) => unreachable!(
                         "All `oracle` methods should be wrapped in an unconstrained fn"
@@ -716,6 +654,31 @@ impl Context {
             _ => unreachable!("expected calling a call instruction"),
         }
         Ok(warnings)
+    }
+
+    fn handle_ssa_call_outputs(
+        &mut self,
+        result_ids: &[ValueId],
+        output_values: Vec<AcirValue>,
+        dfg: &DataFlowGraph,
+    ) -> Result<(), RuntimeError> {
+        for result in result_ids.iter().zip(output_values) {
+            if let AcirValue::Array(_) = &result.1 {
+                let array_id = dfg.resolve(*result.0);
+                let block_id = self.block_id(&array_id);
+                let array_typ = dfg.type_of_value(array_id);
+                self.initialize_array(
+                    block_id,
+                    array_typ.flattened_size(),
+                    Some(result.1.clone()),
+                )?;
+            }
+            // Do nothing for AcirValue::DynamicArray and AcirValue::Var
+            // A dynamic array returned from a function call should already be initialized
+            // and a single variable does not require any extra initialization.
+            self.ssa_values.insert(*result.0, result.1);
+        }
+        Ok(())
     }
 
     fn gen_brillig_for(
@@ -2495,7 +2458,7 @@ mod test {
 
         let acir_functions = ssa
             .into_acir(
-                Brillig::default(),
+                &Brillig::default(),
                 noirc_frontend::Distinctness::Distinct,
                 &HashMap::default(),
             )
@@ -2599,7 +2562,7 @@ mod test {
 
         let acir_functions = ssa
             .into_acir(
-                Brillig::default(),
+                &Brillig::default(),
                 noirc_frontend::Distinctness::Distinct,
                 &HashMap::default(),
             )
@@ -2695,7 +2658,7 @@ mod test {
 
         let acir_functions = ssa
             .into_acir(
-                Brillig::default(),
+                &Brillig::default(),
                 noirc_frontend::Distinctness::Distinct,
                 &HashMap::default(),
             )

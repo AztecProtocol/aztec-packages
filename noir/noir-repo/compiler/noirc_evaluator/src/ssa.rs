@@ -72,7 +72,7 @@ pub(crate) fn optimize_into_acir(
 
     let last_array_uses = ssa.find_last_array_uses();
 
-    ssa.into_acir(brillig, abi_distinctness, &last_array_uses)
+    ssa.into_acir(&brillig, abi_distinctness, &last_array_uses)
 }
 
 /// Compiles the [`Program`] into [`ACIR``][acvm::acir::circuit::Program].
@@ -85,11 +85,8 @@ pub fn create_program(
     enable_ssa_logging: bool,
     enable_brillig_logging: bool,
     force_brillig_output: bool,
-) -> Result<
-    (AcirProgram, Vec<DebugInfo>, Vec<Vec<SsaReport>>, Vec<Witness>, Vec<Witness>),
-    RuntimeError,
-> {
-    // TODO: Check whether the debug tracker stores information across the program and not just main
+) -> Result<(AcirProgram, Vec<DebugInfo>, Vec<SsaReport>, Vec<Witness>, Vec<Witness>), RuntimeError>
+{
     let debug_variables = program.debug_variables.clone();
     let debug_types = program.debug_types.clone();
     let debug_functions = program.debug_functions.clone();
@@ -126,6 +123,7 @@ pub fn create_program(
                 acir,
                 func_sig,
                 recursive,
+                // TODO: get rid of these clones
                 debug_variables.clone(),
                 debug_functions.clone(),
                 debug_types.clone(),
@@ -133,7 +131,7 @@ pub fn create_program(
             );
         functions.push(circuit);
         debug_infos.push(debug_info);
-        warning_infos.push(warnings);
+        warning_infos.extend(warnings);
         if is_main {
             main_input_witnesses = input_witnesses;
             main_return_witnesses = return_witnesses;
@@ -167,9 +165,6 @@ fn convert_generated_acir_into_circuit(
     } = generated_acir;
 
     let locations = locations.clone();
-
-    // let (public_parameter_witnesses, private_parameters) =
-    //     split_public_and_private_inputs(&func_sig, &input_witnesses);
 
     let (public_parameter_witnesses, private_parameters) = if is_main {
         split_public_and_private_inputs(&func_sig, &input_witnesses)

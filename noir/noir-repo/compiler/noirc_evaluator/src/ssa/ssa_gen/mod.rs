@@ -55,13 +55,14 @@ pub(crate) fn generate_ssa(
 
     // Queue the main function for compilation
     context.get_or_queue_function(main_id);
-    let main_inline_type = if main.should_fold { InlineType::Fold } else { InlineType::Inline };
     let mut function_context = FunctionContext::new(
         main.name.clone(),
         &main.parameters,
         if force_brillig_runtime || main.unconstrained {
             RuntimeType::Brillig
         } else {
+            let main_inline_type =
+                if main.should_fold { InlineType::Fold } else { InlineType::Inline };
             RuntimeType::Acir(main_inline_type)
         },
         &context,

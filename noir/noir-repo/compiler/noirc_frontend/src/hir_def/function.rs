@@ -125,9 +125,9 @@ pub struct FuncMeta {
     /// For non-contracts, this means the function is `main`.
     pub is_entry_point: bool,
 
-    /// False if this function is marked with an attribute
+    /// True if this function is marked with an attribute
     /// that indicates it should not be inlined, such as for folding.
-    pub should_inline: bool,
+    pub should_fold: bool,
 }
 
 impl FuncMeta {

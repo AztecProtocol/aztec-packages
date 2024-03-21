@@ -977,10 +977,10 @@ impl<'a> Resolver<'a> {
             .map(|(name, typevar, _span)| (name.clone(), typevar.clone()))
             .collect();
 
-        let should_inline = attributes
+        let should_fold = attributes
             .function
             .as_ref()
-            .map_or(true, |func_attribute| !func_attribute.is_foldable());
+            .map_or(true, |func_attribute| func_attribute.is_foldable());
 
         FuncMeta {
             name: name_ident,
@@ -996,7 +996,7 @@ impl<'a> Resolver<'a> {
             has_body: !func.def.body.is_empty(),
             trait_constraints: self.resolve_trait_constraints(&func.def.where_clause),
             is_entry_point: self.is_entry_point_function(func),
-            should_inline,
+            should_fold,
         }
     }
 

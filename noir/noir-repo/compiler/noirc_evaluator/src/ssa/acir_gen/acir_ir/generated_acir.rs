@@ -82,10 +82,6 @@ impl GeneratedAcir {
         std::mem::take(&mut self.opcodes)
     }
 
-    pub(crate) fn next_opcode_index(&self) -> usize {
-        self.opcodes.len()
-    }
-
     /// Updates the witness index counter and returns
     /// the next witness index.
     pub(crate) fn next_witness_index(&mut self) -> Witness {

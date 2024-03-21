@@ -1772,9 +1772,8 @@ impl AcirContext {
         let outputs = vecmap(0..output_count, |_| self.acir_ir.next_witness_index());
 
         // Convert `Witness` values which are now constrained to be the output of the
-        // black box function call into `AcirVar`s.
-        //
-        // We do not apply range information on the output of the black box function.
+        // ACIR function call into `AcirVar`s.
+        // Similar to black box functions, we do not apply range information on the output of the  function.
         // See issue #1439
         let results =
             vecmap(&outputs, |witness_index| self.add_data(AcirVarData::Witness(*witness_index)));
