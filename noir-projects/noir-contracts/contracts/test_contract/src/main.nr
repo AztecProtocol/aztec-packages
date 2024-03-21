@@ -111,7 +111,7 @@ contract Test {
         emit_unencrypted_log_from_private(&mut context, opt_notes[1].unwrap().value);
     }
 
-    pub fn filter(
+    pub fn filter_that_creates_sparse_array(
         notes: [Option<FieldNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
         _args: bool
     ) -> pub [Option<FieldNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
@@ -129,23 +129,22 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn create_and_get_notes_many_with_filter(storage_slot: Field) {
-        assert(
-            storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
-        );
-
+    pub fn create_and_get_many_notes_with_filter() {
         for i in 0..7 {
             let mut note = FieldNote::new(i as Field);
-            storage.example_set.insert(&mut note, true);
+            storage.example_set.insert(&mut note, false);
         }
         
-        let options = NoteGetterOptions::with_filter(filter, true);
-        let opt_notes: [Option<FieldNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = get_notes(&mut context, storage_slot, options);
+        let options = NoteGetterOptions::with_filter(filter_that_creates_sparse_array, true);
+        // get_notes should collapse this array
+        let opt_notes: [Option<FieldNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = storage.example_set.get_notes(options);
 
         // We can't get the return value of a private function from the outside world in an end to end test, so we
         // expose it via an unecrypted log instead.
-        emit_unencrypted_log_from_private(&mut context, opt_notes[0].unwrap().value);
-        emit_unencrypted_log_from_private(&mut context, opt_notes[1].unwrap().value);
+        for i in 0..7 {
+            // We verify that the array was collapsed by unwrapping the first 7 values.
+            emit_unencrypted_log_from_private(&mut context, opt_notes[i].unwrap().value);
+        }
     }
 
     unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Field {
