@@ -131,7 +131,7 @@ export class ProvingOrchestrator {
         resolve,
         reject,
         globalVariables,
-        l1ToL2MessagesPadded,
+        l1ToL2Messages,
         baseParityInputs.length,
         emptyTx,
       );
