@@ -996,9 +996,7 @@ describe('Private Execution test suite', () => {
           artifact: artifact,
           contractAddress,
         }),
-      ).rejects.toThrow(
-        `Assertion failed: Cannot return zero notes 'num_notes != 0'`
-      );
+      ).rejects.toThrow(`Assertion failed: Cannot return zero notes 'num_notes != 0'`);
     });
   });
 
@@ -1027,7 +1025,7 @@ describe('Private Execution test suite', () => {
       oracle.getNotes.mockResolvedValue([]);
 
       await expect(runSimulator({ artifact, args })).rejects.toThrow(
-        `Assertion failed: Cannot return zero notes 'num_notes != 0'`
+        `Assertion failed: Cannot return zero notes 'num_notes != 0'`,
       );
     });
   });

@@ -83,7 +83,7 @@ describe('e2e_pending_note_hashes_contract', () => {
       .send()
       .wait();
     await expect(deployedContract.methods.get_note_zero_balance(owner).send().wait()).rejects.toThrow(
-      `Assertion failed: Cannot return zero notes 'num_notes != 0'`
+      `Assertion failed: Cannot return zero notes 'num_notes != 0'`,
     );
 
     await expectNoteHashesSquashedExcept(0);
@@ -160,7 +160,7 @@ describe('e2e_pending_note_hashes_contract', () => {
       .send()
       .wait();
     await expect(deployedContract.methods.get_note_zero_balance(owner).send().wait()).rejects.toThrow(
-      `Assertion failed: Cannot return zero notes 'num_notes != 0'`
+      `Assertion failed: Cannot return zero notes 'num_notes != 0'`,
     );
 
     // second TX creates 1 note, but it is squashed!
