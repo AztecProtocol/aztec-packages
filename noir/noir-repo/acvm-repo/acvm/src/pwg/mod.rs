@@ -49,6 +49,12 @@ pub enum ACVMStatus {
     ///
     /// Once this is done, the ACVM can be restarted to solve the remaining opcodes.
     RequiresForeignCall(ForeignCallWaitInfo),
+
+    /// The ACVM has encountered a request for an ACIR [call][acir::circuit::Opcode]
+    /// to execute a separate ACVM instance. The result of the ACIR call must be passd back to the ACVM.
+    /// 
+    /// Once this is done, the ACVM can be restarted to solve the remaining opcodes.
+    RequiresAcirCall(AcirCallWaitInfo),
 }
 
 impl std::fmt::Display for ACVMStatus {
@@ -58,6 +64,7 @@ impl std::fmt::Display for ACVMStatus {
             ACVMStatus::InProgress => write!(f, "In progress"),
             ACVMStatus::Failure(_) => write!(f, "Execution failure"),
             ACVMStatus::RequiresForeignCall(_) => write!(f, "Waiting on foreign call"),
+            ACVMStatus::RequiresAcirCall(_) => write!(f, "Waiting on acir call"),
         }
     }
 }
@@ -147,6 +154,13 @@ pub struct ACVM<'a, B: BlackBoxFunctionSolver> {
     witness_map: WitnessMap,
 
     brillig_solver: Option<BrilligSolver<'a, B>>,
+
+    /// A counter maintained throughout an ACVM process that determines
+    /// whether the caller has resolved the results of an ACIR [call][Opcode::Call].
+    acir_call_counter: usize,
+    /// Represents the outputs of all ACIR calls during an ACVM process
+    /// List is appended onto by the caller upon reaching a [ACVMStatus::RequiresAcirCall]
+    acir_call_results: Vec<Vec<FieldElement>>,
 }
 
 impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
@@ -161,6 +175,8 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
             instruction_pointer: 0,
             witness_map: initial_witness,
             brillig_solver: None,
+            acir_call_counter: 0,
+            acir_call_results: Vec::default(),
         }
     }
 
@@ -244,6 +260,29 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         self.status(ACVMStatus::InProgress);
     }
 
+    /// Sets the status of the VM to `RequriesAcirCall`
+    /// Indicating that the VM is now waiting for an ACIR call to be resolved
+    fn wait_for_acir_call(&mut self, acir_call: AcirCallWaitInfo) -> ACVMStatus {
+        self.status(ACVMStatus::RequiresAcirCall(acir_call))
+    }
+
+    /// Resolves a foreign call's [result][acir::brillig_vm::ForeignCallResult] using a result calculated outside of the ACVM.
+    ///
+    /// The ACVM can then be restarted to solve the remaining Brillig VM process as well as the remaining ACIR opcodes.
+    pub fn resolve_pending_acir_call(&mut self, call_result: Vec<FieldElement>) {
+        if !matches!(self.status, ACVMStatus::RequiresAcirCall(_)) {
+            panic!("ACVM is not expecting an ACIR call response as no call was made");
+        }
+
+        if self.acir_call_counter < self.acir_call_results.len() {
+            panic!("No unresolved foreign calls");
+        }
+        self.acir_call_results.push(call_result);
+
+        // Now that the ACIR call has been resolved then we can resume execution.
+        self.status(ACVMStatus::InProgress);
+    }
+
     /// Executes the ACVM's circuit until execution halts.
     ///
     /// Execution can halt due to three reasons:
@@ -281,7 +320,12 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                 Ok(Some(foreign_call)) => return self.wait_for_foreign_call(foreign_call),
                 res => res.map(|_| ()),
             },
-            Opcode::Call { .. } => todo!("Handle Call opcodes in the ACVM"),
+            Opcode::Call { .. } => {
+                match self.solve_call_opcode() {
+                    Ok(Some(input_values)) => return self.wait_for_acir_call(input_values),
+                    res => res.map(|_| ()),
+                }
+            }
         };
         self.handle_opcode_resolution(resolution)
     }
@@ -400,6 +444,33 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         self.brillig_solver = Some(solver);
         self.solve_opcode()
     }
+
+    pub fn solve_call_opcode(&mut self) -> Result<Option<AcirCallWaitInfo>, OpcodeResolutionError> {
+        let Opcode::Call{ id, inputs, outputs }= &self.opcodes[self.instruction_pointer] else {
+            unreachable!("Not executing a Call opcode");
+        }; 
+        // TODO: add a resolution opcode error for this assert
+        assert!(*id != 0, "Attempting to call main, not allowed");
+
+        if self.acir_call_counter >= self.acir_call_results.len() {
+            let mut initial_witness = WitnessMap::default();
+            for (i, input_witness) in inputs.iter().enumerate() {
+                let input_value = *witness_to_value(&self.witness_map, *input_witness)?;
+                initial_witness.insert(Witness(i as u32), input_value);
+            }
+            return Ok(Some(AcirCallWaitInfo { id: *id, initial_witness }))
+        }
+
+        let result_values = &self.acir_call_results[self.acir_call_counter];
+        // TODO: add a resolution opcode error for this assert
+        assert_eq!(outputs.len(), result_values.len(), "{} result values were provided for ACIR {} call output witnesses, most likely due to codegen", result_values.len(), outputs.len());
+
+        for (output_witness, result_value) in outputs.iter().zip(result_values) {
+            insert_value(output_witness, *result_value, &mut self.witness_map)?;
+        }
+
+        Ok(None)
+    }
 }
 
 // Returns the concrete value for a particular witness
@@ -468,4 +539,12 @@ fn any_witness_from_expression(expr: &Expression) -> Option<Witness> {
     } else {
         Some(expr.linear_combinations[0].1)
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AcirCallWaitInfo {
+    /// Index in the list of ACIR function's that should be called
+    pub id: u32,
+    /// Initial witness for the given circuit to be called
+    pub initial_witness: WitnessMap
 }

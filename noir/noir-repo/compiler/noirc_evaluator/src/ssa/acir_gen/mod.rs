@@ -1430,6 +1430,7 @@ impl Context {
             TerminatorInstruction::Return { return_values, call_stack } => {
                 (return_values, call_stack)
             }
+            // TODO: need to handle this for recursion
             _ => unreachable!("ICE: Program must have a singular return"),
         };
 

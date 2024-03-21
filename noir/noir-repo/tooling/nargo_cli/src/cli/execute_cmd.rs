@@ -137,14 +137,24 @@ pub(crate) fn execute_program(
     let initial_witness = compiled_program.abi.encode(inputs_map, None)?;
 
     // TODO(https://github.com/noir-lang/noir/issues/4428)
-    let solved_witness_err = nargo::ops::execute_circuit(
-        &compiled_program.program.functions[0],
-        initial_witness,
-        &blackbox_solver,
+    let solved_witness_err = nargo::ops::execute_program(
+        &compiled_program.program, 
+        initial_witness, 
+        &blackbox_solver, 
         &mut DefaultForeignCallExecutor::new(true, foreign_call_resolver_url),
     );
+    // let solved_witness_err = nargo::ops::execute_circuit(
+    //     &compiled_program.program.functions[0],
+    //     initial_witness,
+    //     &blackbox_solver,
+    //     &mut DefaultForeignCallExecutor::new(true, foreign_call_resolver_url),
+    // );
     match solved_witness_err {
-        Ok(solved_witness) => Ok(solved_witness),
+    // TODO(https://github.com/noir-lang/noir/issues/4428)
+        Ok(solved_witness) => {
+            dbg!(solved_witness.clone());
+            Ok(solved_witness.stack[0].witness.clone())
+        }
         Err(err) => {
             let debug_artifact = DebugArtifact {
                 debug_symbols: vec![compiled_program.debug.clone()],

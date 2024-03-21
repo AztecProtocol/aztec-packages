@@ -32,6 +32,12 @@ pub struct StackItem {
     pub witness: WitnessMap,
 }
 
+impl WitnessStack {
+    pub fn push(&mut self, index: u32, witness: WitnessMap) {
+        self.stack.push(StackItem { index, witness });
+    }
+}
+
 impl From<WitnessMap> for WitnessStack {
     fn from(witness: WitnessMap) -> Self {
         let stack = vec![StackItem { index: 0, witness }];

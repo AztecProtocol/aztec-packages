@@ -3,6 +3,7 @@ pub use self::compile::{
     compile_workspace, report_errors,
 };
 pub use self::execute::execute_circuit;
+pub use self::execute::execute_program;
 pub use self::foreign_calls::{
     DefaultForeignCallExecutor, ForeignCall, ForeignCallExecutor, NargoForeignCallResult,
 };

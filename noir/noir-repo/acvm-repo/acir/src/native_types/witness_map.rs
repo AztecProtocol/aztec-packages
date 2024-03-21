@@ -43,6 +43,9 @@ impl WitnessMap {
     pub fn insert(&mut self, key: Witness, value: FieldElement) -> Option<FieldElement> {
         self.0.insert(key, value)
     }
+    pub fn values(&self) -> Vec<FieldElement> {
+        self.0.values().copied().collect()
+    }
 }
 
 impl Index<&Witness> for WitnessMap {
