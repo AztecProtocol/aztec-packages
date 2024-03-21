@@ -215,8 +215,8 @@ std::vector<Row> gen_mutated_trace_bit(std::vector<Row> trace,
         auto latch_index = static_cast<size_t>(std::distance(trace.begin(), latched_row));
         // Set the latched row to be 1 earlier than it should be, this triggers the byte length lookup table check.
         trace.at(latch_index - 1).avm_binary_latch = FF(1);
-        // We need to set the result here or it will be deemed incorrectly copied in the equivalence check to main.
-        trace.at(latch_index - 1).avm_binary_acc_ic = c_mutated;
+        // Update the result in the main_ic to be this new value so we dont trigger an incorrect equivalence check.
+        mutate_ic_in_trace(trace, std::move(select_row), trace.at(latch_index - 1).avm_binary_acc_ic, false);
         // We need to zero out the previously latched row so we dont trigger any other relation checks
         latched_row->avm_binary_mem_tag_ctr = 0;
         latched_row->avm_binary_bin_sel = 0;
@@ -437,16 +437,15 @@ std::vector<std::tuple<std::string, BIT_FAILURES>> bit_failures = {
     { "ACC_REL_C", BIT_FAILURES::IncorrectAcc },
     { "ACC_REL_C", BIT_FAILURES::BitDecomposition },
     { "MEM_TAG_REL", BIT_FAILURES::MemTagCtr },
-    { "FACTOR_REL", BIT_FAILURES::IncorrectFactor },
     { "LOOKUP_BYTE_LENGTHS", BIT_FAILURES::ByteLengthError },
     { "LOOKUP_BYTE_OPERATIONS", BIT_FAILURES::ByteLookupError }
 };
-std::vector<ThreeOpParamRow> neg_test_and = { { { 13793, 10590617LLU, 4481 }, AvmMemoryTag::U32 } };
-// For the negativ Or and Xor we carefully select inputs such that the most significant 16-bits are zero for both
-// operands This makes it easier when doing to the lookup-based error checks since we dont have to worry about the
-// equivalence check to main.
-std::vector<ThreeOpParamRow> neg_test_or = { { { 13793, 31385, 32761 }, AvmMemoryTag::U32 } };
-std::vector<ThreeOpParamRow> neg_test_xor = { { { 13793, 31385, 20344 }, AvmMemoryTag::U32 } };
+// For the negative test the output is set to be incorrect so that we can test the byte lookups.
+// Picking "simple" inputs such as zero also makes it easier when check the byte length lookups as we dont
+// need to worry about copying the accmulated a & b registers into the main trace.
+std::vector<ThreeOpParamRow> neg_test_and = { { { 0, 0, 1 }, AvmMemoryTag::U32 } };
+std::vector<ThreeOpParamRow> neg_test_or = { { { 0, 0, 1 }, AvmMemoryTag::U32 } };
+std::vector<ThreeOpParamRow> neg_test_xor = { { { 0, 0, 1 }, AvmMemoryTag::U32 } };
 /******************************************************************************
  * Negative Tests - FF
  ******************************************************************************/
@@ -486,6 +485,7 @@ TEST_P(AvmBitwiseNegativeTestsOr, AllNegativeTests)
     FF ff_output = FF(uint256_t::from_uint128(output));
     std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_or == FF(1); };
     trace = gen_mutated_trace_bit(trace, std::move(select_row), ff_output, failure_mode);
+    // validate_trace_proof(std::move(trace));
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string);
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseNegativeTests,
@@ -506,6 +506,7 @@ TEST_P(AvmBitwiseNegativeTestsXor, AllNegativeTests)
     FF ff_output = FF(uint256_t::from_uint128(output));
     std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_xor == FF(1); };
     trace = gen_mutated_trace_bit(trace, std::move(select_row), ff_output, failure_mode);
+    // validate_trace_proof(std::move(trace));
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string)
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseNegativeTests,

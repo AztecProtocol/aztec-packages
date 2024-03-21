@@ -1214,7 +1214,6 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_binary_bin_ib_bytes = src.bin_ib_bytes;
         dest.avm_binary_bin_ic_bytes = src.bin_ic_bytes;
         dest.avm_binary_latch = FF(static_cast<uint8_t>(src.latch));
-        dest.avm_binary_factor = FF(src.factor);
         dest.avm_binary_mem_tag_ctr = src.mem_tag_ctr;
     }
 
@@ -1258,7 +1257,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
         }
     }
     // Adding extra row for the shifted values at the top of the execution trace.
-    Row first_row = Row{ .avm_main_first = FF(1), .avm_mem_m_lastAccess = FF(1) };
+    Row first_row = Row{ .avm_main_first = FF(1), .avm_mem_m_lastAccess = FF(1), .avm_binary_latch = FF() };
     main_trace.insert(main_trace.begin(), first_row);
 
     auto trace = std::move(main_trace);

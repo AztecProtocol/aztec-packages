@@ -28,19 +28,19 @@ void AvmBinaryTraceBuilder::reset()
 
 /**
  * @brief Helper function to correctly decompose and pad inputs
- * @param val The constant to be written upcasted to u128
- * @return LE encoded bytes with an extra zero padding.
+ * @param val The value to decompose
+ * @param num_bytes The number of bytes given the instr_tag.
+ * @return BE encoded bytes with an extra zero padding (final length is num_bytes + 1).
  */
-std::vector<uint8_t> bytes_decompose(uint128_t const& val)
+std::vector<uint8_t> bytes_decompose_be(uint128_t const& val, size_t num_bytes)
 {
     // This uses a Network Byte Order (Big-Endian) and since a uint128_t is used
     // this is guaranteed to be of length 16 (zero-padded if necessary).
-    std::vector<uint8_t> bytes = to_buffer(val);
+    std::vector<uint8_t> val_bytes = to_buffer(val);
+    // Since the trace expects BE, we take only the portion that corresponds to the bytes we need (given the instr_tag)
+    std::vector<uint8_t> bytes(val_bytes.end() - static_cast<int>(num_bytes), val_bytes.end());
 
-    // We convert it back to Little-Endian.
-    std::reverse(bytes.begin(), bytes.end());
-    // To simplify the loop in witness generation we add a zero at the MSB
-    // as the last accumulated value has a zero in the bytes column
+    // To simplify the loop in witness generation we add a zero at the end since it's a "free input"
     bytes.push_back(0);
     return bytes;
 }
@@ -61,16 +61,13 @@ void AvmBinaryTraceBuilder::entry_builder(
     size_t num_bytes = 1 << (static_cast<uint8_t>(instr_tag) - 1);
 
     // Big Endian encoded
-    std::vector<uint8_t> a_bytes = bytes_decompose(a);
-    std::vector<uint8_t> b_bytes = bytes_decompose(b);
-    std::vector<uint8_t> c_bytes = bytes_decompose(c);
+    std::vector<uint8_t> a_bytes = bytes_decompose_be(a, num_bytes);
+    std::vector<uint8_t> b_bytes = bytes_decompose_be(b, num_bytes);
+    std::vector<uint8_t> c_bytes = bytes_decompose_be(c, num_bytes);
 
     uint128_t acc_ia = 0;
     uint128_t acc_ib = 0;
     uint128_t acc_ic = 0;
-    // Factor set to 256bit. In the last row of accumulation the factor will be 2**num_bytes.
-    // This causes it to overflow the cpp type when we are working with U128.
-    uint256_t factor = 1;
 
     // We have num_bytes + 1 rows to add to the binary trace;
     for (size_t i = 0; i <= num_bytes; i++) {
@@ -79,7 +76,6 @@ void AvmBinaryTraceBuilder::entry_builder(
             .op_id = op_id,
             .instr_tag = static_cast<uint8_t>(instr_tag),
             .mem_tag_ctr = static_cast<uint8_t>(i),
-            .factor = factor,
             .latch = i == num_bytes,
             .acc_ia = FF(uint256_t::from_uint128(acc_ia)),
             .acc_ib = FF(uint256_t::from_uint128(acc_ib)),
@@ -90,11 +86,9 @@ void AvmBinaryTraceBuilder::entry_builder(
         });
         auto lookup_index = static_cast<uint32_t>((op_id << 16) + (a_bytes[i] << 8) + b_bytes[i]);
         byte_operation_counter[lookup_index]++;
-        factor *= 256;
-
-        acc_ia += a_bytes[i] * static_cast<uint128_t>(std::pow(2, 8 * i));
-        acc_ib += b_bytes[i] * static_cast<uint128_t>(std::pow(2, 8 * i));
-        acc_ic += c_bytes[i] * static_cast<uint128_t>(std::pow(2, 8 * i));
+        acc_ia = acc_ia * 256 + a_bytes[i];
+        acc_ib = acc_ib * 256 + b_bytes[i];
+        acc_ic = acc_ic * 256 + c_bytes[i];
     }
     // There is 1 latch per call, therefore byte_length check increments
     byte_length_counter[static_cast<uint8_t>(instr_tag)]++;

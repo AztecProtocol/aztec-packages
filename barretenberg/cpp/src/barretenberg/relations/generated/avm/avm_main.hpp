@@ -7,82 +7,82 @@
 namespace bb::Avm_vm {
 
 template <typename FF> struct Avm_mainRow {
-    FF avm_main_internal_return_ptr_shift{};
-    FF avm_main_mem_idx_b{};
-    FF avm_main_sel_op_add{};
-    FF avm_main_ind_op_b{};
     FF avm_main_sel_op_mul{};
-    FF avm_main_mem_op_b{};
-    FF avm_main_rwc{};
-    FF avm_main_ind_op_c{};
-    FF avm_main_mem_op_c{};
     FF avm_main_sel_halt{};
-    FF avm_main_sel_op_or{};
-    FF avm_main_tag_err{};
-    FF avm_main_sel_op_sub{};
-    FF avm_main_bin_op_id{};
-    FF avm_main_sel_op_not{};
-    FF avm_main_ic{};
-    FF avm_main_sel_jump{};
-    FF avm_main_sel_op_and{};
-    FF avm_main_mem_op_a{};
-    FF avm_main_op_err{};
-    FF avm_main_sel_op_div{};
-    FF avm_main_sel_internal_call{};
-    FF avm_main_rwa{};
-    FF avm_main_mem_idx_a{};
-    FF avm_main_bin_sel{};
-    FF avm_main_sel_op_xor{};
-    FF avm_main_ia{};
-    FF avm_main_sel_op_eq{};
-    FF avm_main_sel_mov{};
-    FF avm_main_alu_sel{};
-    FF avm_main_ind_op_a{};
-    FF avm_main_sel_internal_return{};
-    FF avm_main_ib{};
-    FF avm_main_internal_return_ptr{};
     FF avm_main_inv{};
+    FF avm_main_bin_sel{};
+    FF avm_main_sel_op_and{};
+    FF avm_main_sel_op_not{};
+    FF avm_main_first{};
+    FF avm_main_internal_return_ptr{};
+    FF avm_main_bin_op_id{};
+    FF avm_main_mem_op_c{};
+    FF avm_main_sel_op_xor{};
+    FF avm_main_op_err{};
+    FF avm_main_ib{};
     FF avm_main_rwb{};
     FF avm_main_pc{};
+    FF avm_main_internal_return_ptr_shift{};
+    FF avm_main_sel_op_sub{};
+    FF avm_main_sel_op_eq{};
+    FF avm_main_tag_err{};
+    FF avm_main_sel_op_div{};
+    FF avm_main_mem_idx_a{};
+    FF avm_main_sel_jump{};
+    FF avm_main_sel_op_add{};
+    FF avm_main_ind_op_c{};
+    FF avm_main_ind_op_b{};
+    FF avm_main_sel_internal_return{};
+    FF avm_main_mem_op_b{};
+    FF avm_main_rwa{};
+    FF avm_main_ic{};
+    FF avm_main_mem_idx_b{};
+    FF avm_main_alu_sel{};
+    FF avm_main_ia{};
+    FF avm_main_mem_op_a{};
+    FF avm_main_sel_internal_call{};
+    FF avm_main_ind_op_a{};
     FF avm_main_pc_shift{};
-    FF avm_main_first{};
+    FF avm_main_rwc{};
+    FF avm_main_sel_mov{};
+    FF avm_main_sel_op_or{};
 };
 
 inline std::string get_relation_label_avm_main(int index)
 {
     switch (index) {
-    case 28:
-        return "SUBOP_ERROR_RELEVANT_OP";
-
-    case 42:
-        return "INTERNAL_RETURN_POINTER_CONSISTENCY";
-
-    case 46:
-        return "BIN_SEL_2";
-
-    case 41:
-        return "PC_INCREMENT";
-
-    case 36:
-        return "RETURN_POINTER_DECREMENT";
-
-    case 27:
-        return "SUBOP_DIVISION_ZERO_ERR2";
-
-    case 43:
-        return "MOV_SAME_VALUE";
+    case 26:
+        return "SUBOP_DIVISION_ZERO_ERR1";
 
     case 45:
         return "BIN_SEL_1";
 
+    case 43:
+        return "MOV_SAME_VALUE";
+
     case 25:
         return "SUBOP_DIVISION_FF";
+
+    case 42:
+        return "INTERNAL_RETURN_POINTER_CONSISTENCY";
 
     case 30:
         return "RETURN_POINTER_INCREMENT";
 
-    case 26:
-        return "SUBOP_DIVISION_ZERO_ERR1";
+    case 46:
+        return "BIN_SEL_2";
+
+    case 27:
+        return "SUBOP_DIVISION_ZERO_ERR2";
+
+    case 28:
+        return "SUBOP_ERROR_RELEVANT_OP";
+
+    case 36:
+        return "RETURN_POINTER_DECREMENT";
+
+    case 41:
+        return "PC_INCREMENT";
     }
     return std::to_string(index);
 }

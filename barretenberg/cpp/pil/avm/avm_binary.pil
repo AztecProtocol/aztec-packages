@@ -34,18 +34,6 @@ namespace avm_binary(256);
     // latch is restricted to be a boolean
     latch * (1 - latch) = 0;
 
-    // If latch is 0, the next factor must be the current factor * 256.
-    pol NO_LATCH = (1 - latch) * (factor * 256);
-    // If latch is 1 or this is the first row in the trace, then the next factor starts at 1;
-    latch * avm_main.first = 0; // latch and first cannot both be 1
-
-    // Given the above condition, LATCH_OR_FIRST is guaranteed to be 0 or 1;
-    pol LATCH_OR_FIRST = latch + avm_main.first; 
-
-    // Both conditions are mutually exclusive, (i.e. "xor" since Factor initially starts at 0).
-    #[FACTOR_REL]
-    factor' = (NO_LATCH + LATCH_OR_FIRST) * bin_sel';
-
     // To support dynamically sized memory operands we use a counter against a lookup
     // This counter goes from [0, MEM_TAG] where MEM_TAG is the number of bytes in the
     // corresponding integer. i.e. MEM_TAG is between 1 (U8) and 16(U128).
@@ -65,9 +53,9 @@ namespace avm_binary(256);
     avm_byte_lookup.bin_sel {avm_byte_lookup.table_op_id, avm_byte_lookup.table_input_a,avm_byte_lookup.table_input_b, avm_byte_lookup.table_output};
 
     #[ACC_REL_A]
-    acc_ia' = (acc_ia * (1 - latch) + bin_ia_bytes * factor) * bin_sel';
+    acc_ia' = (bin_ia_bytes + 256 * acc_ia) * (1 - latch);
     #[ACC_REL_B]
-    acc_ib' = (acc_ib * (1 - latch) + bin_ib_bytes * factor) * bin_sel';
+    acc_ib' = (bin_ib_bytes + 256 * acc_ib) * (1 - latch);
     #[ACC_REL_C]
-    acc_ic' = (acc_ic * (1 - latch) + bin_ic_bytes * factor) * bin_sel';
+    acc_ic' = (bin_ic_bytes + 256 * acc_ic) * (1 - latch);
 
