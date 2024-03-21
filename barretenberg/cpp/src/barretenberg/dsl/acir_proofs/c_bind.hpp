@@ -37,9 +37,17 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
  * @brief Construct and verify an UltraHonk proof
  *
  */
-WASM_EXPORT void acir_construct_and_verify_honk_proof(uint8_t const* constraint_system_buf,
-                                                      uint8_t const* witness_buf,
-                                                      bool* result);
+WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* constraint_system_buf,
+                                                  uint8_t const* witness_buf,
+                                                  bool* result);
+
+/**
+ * @brief Construct and verify a GoblinUltraHonk proof
+ *
+ */
+WASM_EXPORT void acir_prove_and_verify_goblin_ultra_honk(uint8_t const* constraint_system_buf,
+                                                         uint8_t const* witness_buf,
+                                                         bool* result);
 
 /**
  * @brief Construct a full goblin proof

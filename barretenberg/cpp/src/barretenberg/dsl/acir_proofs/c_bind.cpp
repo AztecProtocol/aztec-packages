@@ -62,7 +62,7 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
     *out = to_heap_buffer(proof_data);
 }
 
-WASM_EXPORT void acir_construct_and_verify_honk_proof(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
+WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
 {
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
@@ -74,6 +74,24 @@ WASM_EXPORT void acir_construct_and_verify_honk_proof(uint8_t const* acir_vec, u
 
     auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(prover.instance->proving_key);
     UltraVerifier verifier{ verification_key };
+
+    *result = verifier.verify_proof(proof);
+}
+
+WASM_EXPORT void acir_prove_and_verify_goblin_ultra_honk(uint8_t const* acir_vec,
+                                                         uint8_t const* witness_vec,
+                                                         bool* result)
+{
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
+    auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
+
+    auto builder = acir_format::create_circuit<GoblinUltraCircuitBuilder>(constraint_system, 0, witness);
+
+    GoblinUltraProver prover{ builder };
+    auto proof = prover.construct_proof();
+
+    auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(prover.instance->proving_key);
+    GoblinUltraVerifier verifier{ verification_key };
 
     *result = verifier.verify_proof(proof);
 }
