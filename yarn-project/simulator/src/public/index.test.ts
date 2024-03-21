@@ -254,7 +254,7 @@ describe('ACIR public execution simulator', () => {
       );
 
       const childContractAddress = AztecAddress.random();
-      const childValueFn = ChildContractArtifact.functions.find(f => f.name === 'pubGetValue')!;
+      const childValueFn = ChildContractArtifact.functions.find(f => f.name === 'pub_get_value')!;
       const childValueFnSelector = FunctionSelector.fromNameAndParameters(childValueFn.name, childValueFn.parameters);
 
       const initialValue = 3n;

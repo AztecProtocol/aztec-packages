@@ -44,7 +44,7 @@ contract ImportTest {
     // Used for testing calling a function with no arguments
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[aztec(private)]
-    fn callNoArgs(target: AztecAddress) -> Field {
+    fn call_no_args(target: AztecAddress) -> Field {
         let test_contract_instance = TestPrivateContextInterface::at(target);
         let return_values = test_contract_instance.get_this_address(&mut context);
 
@@ -55,7 +55,7 @@ contract ImportTest {
     // Used for testing calling an open function
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[aztec(private)]
-    fn callOpenFn(target: AztecAddress) {
+    fn call_open_fn(target: AztecAddress) {
         let test_contract_instance = TestPrivateContextInterface::at(target);
         test_contract_instance.create_nullifier_public(&mut context, 1, 2);
     }
@@ -64,7 +64,7 @@ contract ImportTest {
     // Used for testing calling an open function from another open function
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[aztec(public)]
-    fn pubCallOpenFn(target: AztecAddress) -> Field {
+    fn pub_call_open_fn(target: AztecAddress) -> Field {
         let test_contract_instance = TestPublicContextInterface::at(target);
         let ret = test_contract_instance.create_nullifier_public(&mut context, 1, 2);
 

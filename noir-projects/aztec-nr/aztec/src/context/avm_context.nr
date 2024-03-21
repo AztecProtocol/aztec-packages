@@ -129,11 +129,11 @@ impl PublicContextInterface for AVMContext {
             args,
             temporary_function_selector.to_field()
         );
-        let returnData: [Field; RETURN_VALUES_LENGTH] = results.0;
+        let data_to_return: [Field; RETURN_VALUES_LENGTH] = results.0;
         let success: u8 = results.1;
         assert(success == 1, "Nested call failed!");
 
-        returnData
+        data_to_return
     }
 
     fn static_call_public_function<ARGS_COUNT>(
@@ -144,7 +144,7 @@ impl PublicContextInterface for AVMContext {
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let gas = [/*l1Gas*/42, /*l2Gas*/24, /*daGas*/420];
 
-        let (returnData, success): ([Field; RETURN_VALUES_LENGTH], u8) = call_static(
+        let (data_to_return, success): ([Field; RETURN_VALUES_LENGTH], u8) = call_static(
             gas,
             contract_address,
             args,
@@ -152,7 +152,7 @@ impl PublicContextInterface for AVMContext {
         );
 
         assert(success == 1, "Nested static call failed!");
-        returnData
+        data_to_return
     }
 
     fn delegate_call_public_function<ARGS_COUNT>(
