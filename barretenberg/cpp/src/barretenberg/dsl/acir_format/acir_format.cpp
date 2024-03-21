@@ -203,7 +203,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
 }
 
 /**
- * @brief Create a circuit from acir constraints and optionally a witness
+ * @brief Specialization for creating Ultra circuit from acir constraints and optionally a witness
  *
  * @tparam Builder
  * @param constraint_system
@@ -224,6 +224,15 @@ UltraCircuitBuilder create_circuit(const AcirFormat& constraint_system, size_t s
     return builder;
 };
 
+/**
+ * @brief Specialization for creating GoblinUltra circuit from acir constraints and optionally a witness
+ *
+ * @tparam Builder
+ * @param constraint_system
+ * @param size_hint
+ * @param witness
+ * @return Builder
+ */
 template <>
 GoblinUltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
                                          [[maybe_unused]] size_t size_hint,
@@ -235,7 +244,8 @@ GoblinUltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
         GoblinUltraCircuitBuilder{ op_queue, witness, constraint_system.public_inputs, constraint_system.varnum };
 
     // Populate constraints in the builder via the data in constraint_system
-    acir_format::build_constraints(builder, constraint_system, true);
+    bool has_valid_witness_assignments = !witness.empty();
+    acir_format::build_constraints(builder, constraint_system, has_valid_witness_assignments);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): Add some arbitrary op gates to ensure the
     // associated polynomials are non-zero and to give ECCVM and Translator some ECC ops to process.

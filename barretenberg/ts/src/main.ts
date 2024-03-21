@@ -71,13 +71,6 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
   return { api, acirComposer, circuitSize, subgroupSize };
 }
 
-// async function initHonk(bytecodePath: string, crsPath: string) {
-//   const initData = await init(bytecodePath, crsPath);
-//   const { api } = initData;
-//   // initData.acirComposer = await api.acirNewHonkAcirComposer();
-//   return initData;
-// }
-
 async function initGoblin(bytecodePath: string, crsPath: string) {
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove this subgroup size hack
   const hardcodedGrumpkinSubgroupSizeHack = 262144;
@@ -138,8 +131,6 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
 
 export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
-  // const acir_test = path.basename(process.cwd());
-
   const { api } = await init(bytecodePath, crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);

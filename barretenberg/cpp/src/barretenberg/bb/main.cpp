@@ -127,7 +127,14 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     return verified;
 }
 
-template <typename Flavor> bool proveAndVerifyHonk(const std::string& bytecodePath, const std::string& witnessPath)
+/**
+ * @brief Constructs and verifies a Honk proof for an acir-generated circuit
+ *
+ * @tparam Flavor
+ * @param bytecodePath Path to serialized acir circuit data
+ * @param witnessPath Path to serialized acir witness data
+ */
+template <IsUltraFlavor Flavor> bool proveAndVerifyHonk(const std::string& bytecodePath, const std::string& witnessPath)
 {
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;

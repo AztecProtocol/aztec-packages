@@ -27,11 +27,6 @@ WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out)
     *out = new acir_proofs::AcirComposer(ntohl(*size_hint));
 }
 
-// WASM_EXPORT void acir_new_honk_acir_composer(out_ptr out)
-// {
-//     *out = new acir_proofs::HonkAcirComposer();
-// }
-
 WASM_EXPORT void acir_new_goblin_acir_composer(out_ptr out)
 {
     *out = new acir_proofs::GoblinAcirComposer();
@@ -69,7 +64,6 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
 
 WASM_EXPORT void acir_construct_and_verify_honk_proof(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
 {
-    // auto acir_composer = reinterpret_cast<acir_proofs::HonkAcirComposer*>(*acir_composer_ptr);
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
@@ -77,16 +71,9 @@ WASM_EXPORT void acir_construct_and_verify_honk_proof(uint8_t const* acir_vec, u
 
     UltraProver prover{ builder };
     auto proof = prover.construct_proof();
-    // auto proof_data_buf = to_buffer</*include_size=*/true>(
-    //     proof); // template parameter needs to be set so that vector deserialization from
-    //             // buffer, which reads the size at the beginning can be done properly
-    // uint8_t* proof_buf = to_heap_buffer(proof);
 
     auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(prover.instance->proving_key);
     UltraVerifier verifier{ verification_key };
-
-    // auto proof_data_buf = from_buffer<std::vector<uint8_t>>(proof_buf);
-    // auto proof_out = from_buffer<std::vector<bb::fr>>(proof_data_buf);
 
     *result = verifier.verify_proof(proof);
 }

@@ -11,8 +11,7 @@ source ./bash_helpers/catch.sh
 trap handle_sigchild SIGCHLD
 
 BIN=${BIN:-../cpp/build/bin/bb}
-FLOW=${FLOW:-prove_and_verify_goblin_ultra_honk}
-# FLOW=${FLOW:-prove_and_verify}
+FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
 BRANCH=master
 VERBOSE=${VERBOSE:-}
