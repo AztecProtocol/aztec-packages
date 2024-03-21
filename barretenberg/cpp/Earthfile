@@ -160,7 +160,7 @@ BENCH_RELEASE:
     ARG args
     FROM +preset-release
     DO +RUN_CMAKE --configure="--preset clang16" --build="--target $target"
-    COPY --dir ./srs_db/+build/. srs_db
+    COPY --dir ./srs_db/+build/. ../srs_db
     RUN ./bin/$target $args
 
 BENCH_OP_COUNT_TIME:
@@ -169,7 +169,7 @@ BENCH_OP_COUNT_TIME:
     ARG args
     FROM +preset-op-count-time
     DO +RUN_CMAKE --configure="--preset op-count-time" --build="--target $target"
-    COPY --dir ./srs_db:+build/. srs_db
+    COPY --dir ./srs_db:+build/. ../srs_db
     RUN ./bin/$target $args
 
 BENCH_OP_COUNT:
@@ -178,7 +178,7 @@ BENCH_OP_COUNT:
     ARG args
     FROM +preset-op-count
     DO +RUN_CMAKE --configure="--preset op-count" --build="--target $target"
-    COPY --dir ./srs_db/+build/. srs_db
+    COPY --dir ./srs_db/+build/. ../srs_db
     RUN ./bin/$target $args
 
 BENCH_WASM:
@@ -187,6 +187,6 @@ BENCH_WASM:
     ARG args
     FROM +preset-wasm
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target $target"
-    COPY --dir ./srs_db/+build/. srs_db
+    COPY --dir ./srs_db/+build/. ../srs_db
     RUN curl https://wasmtime.dev/install.sh -sSf | bash
     RUN ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args
