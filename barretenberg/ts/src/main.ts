@@ -138,7 +138,7 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
 
 export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
-  const acir_test = path.basename(process.cwd());
+  // const acir_test = path.basename(process.cwd());
 
   const { api } = await init(bytecodePath, crsPath);
   try {
