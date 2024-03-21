@@ -1,5 +1,6 @@
 #include "avm_common.test.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace tests_avm {
 using namespace bb::avm_trace;
@@ -32,8 +33,8 @@ void common_validate_arithmetic_op(Row const& main_row,
     EXPECT_EQ(main_row.avm_main_mem_op_b, FF(1));
     EXPECT_EQ(main_row.avm_main_rwb, FF(0));
 
-    // Check the instruction tag
-    EXPECT_EQ(main_row.avm_main_in_tag, FF(static_cast<uint32_t>(tag)));
+    // Check the read instruction tag
+    EXPECT_EQ(main_row.avm_main_r_in_tag, FF(static_cast<uint32_t>(tag)));
 
     // Check that intermediate registers are correctly copied in Alu trace
     EXPECT_EQ(alu_row.avm_alu_alu_ia, a);
@@ -66,6 +67,7 @@ Row common_validate_add(std::vector<Row> const& trace,
     EXPECT_TRUE(alu_row != trace.end());
 
     common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
+    EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(tag)));
 
     // Check that addition selector is set.
     EXPECT_EQ(row->avm_main_sel_op_add, FF(1));
@@ -95,6 +97,7 @@ Row common_validate_sub(std::vector<Row> const& trace,
     EXPECT_TRUE(alu_row != trace.end());
 
     common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
+    EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(tag)));
 
     // Check that subtraction selector is set.
     EXPECT_EQ(row->avm_main_sel_op_sub, FF(1));
@@ -124,6 +127,7 @@ size_t common_validate_mul(std::vector<Row> const& trace,
     EXPECT_TRUE(alu_row != trace.end());
 
     common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
+    EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(tag)));
 
     // Check that multiplication selector is set.
     EXPECT_EQ(row->avm_main_sel_op_mul, FF(1));
@@ -131,6 +135,7 @@ size_t common_validate_mul(std::vector<Row> const& trace,
 
     return static_cast<size_t>(alu_row - trace.begin());
 }
+
 size_t common_validate_eq(std::vector<Row> const& trace,
                           FF const& a,
                           FF const& b,
@@ -152,6 +157,7 @@ size_t common_validate_eq(std::vector<Row> const& trace,
     EXPECT_TRUE(alu_row != trace.end());
 
     common_validate_arithmetic_op(*row, *alu_row, a, b, c, addr_a, addr_b, addr_c, tag);
+    EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U8)));
 
     // Check that equality selector is set.
     EXPECT_EQ(row->avm_main_sel_op_eq, FF(1));

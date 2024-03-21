@@ -46,8 +46,9 @@ void common_validate_op_not(std::vector<Row> const& trace,
     EXPECT_EQ(row->avm_main_mem_op_a, FF(1));
     EXPECT_EQ(row->avm_main_rwa, FF(0));
 
-    // Check the instruction tag
-    EXPECT_EQ(row->avm_main_in_tag, FF(static_cast<uint32_t>(tag)));
+    // Check the instruction tags
+    EXPECT_EQ(row->avm_main_r_in_tag, FF(static_cast<uint32_t>(tag)));
+    EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(tag)));
 
     // Check that intermediate registers are correctly copied in Alu trace
     EXPECT_EQ(alu_row->avm_alu_alu_ia, a);
@@ -542,10 +543,12 @@ TEST_F(AvmBitwiseNegativeTestsFF, UndefinedOverFF)
     // we will need to look at a new way of doing this test.
     for (size_t i = 1; i < 4; i++) {
         trace.at(i).avm_mem_m_tag = FF(6);
-        trace.at(i).avm_mem_m_in_tag = FF(6);
+        trace.at(i).avm_mem_r_in_tag = FF(6);
+        trace.at(i).avm_mem_w_in_tag = FF(6);
         trace.at(i).avm_alu_alu_ff_tag = FF::one();
         trace.at(i).avm_alu_alu_u8_tag = FF::zero();
-        trace.at(i).avm_main_in_tag = FF(6);
+        trace.at(i).avm_main_r_in_tag = FF(6);
+        trace.at(i).avm_main_w_in_tag = FF(6);
         trace.at(i).avm_alu_alu_in_tag = FF(6);
     }
 
