@@ -56,7 +56,7 @@ contract Inbox is IInbox {
    * @param _recipient - The recipient of the message
    * @param _content - The content of the message (application specific)
    * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
-   * @return The key of the message in the set
+   * @return Hash of the sent message.
    */
   function sendL2Message(
     DataStructures.L2Actor memory _recipient,

@@ -255,13 +255,13 @@ export class CrossChainTestHarness {
     // Deposit tokens to the TokenPortal
     this.logger('Sending messages to L1 portal to be consumed publicly');
     const args = [this.ownerAddress.toString(), bridgeAmount, secretHash.toString()] as const;
-    const { result: entryKeyHex } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
+    const { result: messageHash } = await this.tokenPortal.simulate.depositToAztecPublic(args, {
       account: this.ethAccount.toString(),
     } as any);
     const txHash2 = await this.tokenPortal.write.depositToAztecPublic(args, {} as any);
     await this.publicClient.waitForTransactionReceipt({ hash: txHash2 });
 
-    return Fr.fromString(entryKeyHex);
+    return Fr.fromString(messageHash);
   }
 
   async sendTokensToPortalPrivate(
@@ -281,13 +281,13 @@ export class CrossChainTestHarness {
       bridgeAmount,
       secretHashForL2MessageConsumption.toString(),
     ] as const;
-    const { result: entryKeyHex } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {
+    const { result: messageHash } = await this.tokenPortal.simulate.depositToAztecPrivate(args, {
       account: this.ethAccount.toString(),
     } as any);
     const txHash2 = await this.tokenPortal.write.depositToAztecPrivate(args, {} as any);
     await this.publicClient.waitForTransactionReceipt({ hash: txHash2 });
 
-    return Fr.fromString(entryKeyHex);
+    return Fr.fromString(messageHash);
   }
 
   async mintTokensPublicOnL2(amount: bigint) {
@@ -395,7 +395,7 @@ export class CrossChainTestHarness {
     messageIndex: number,
     siblingPath: SiblingPath<number>,
   ) {
-    this.logger('Send L1 tx to consume entry and withdraw funds');
+    this.logger('Send L1 tx to consume message and withdraw funds');
     // Call function on L1 contract to consume the message
     const { request: withdrawRequest } = await this.tokenPortal.simulate.withdraw([
       this.ethAccount.toString(),

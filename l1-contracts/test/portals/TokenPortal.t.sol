@@ -26,7 +26,7 @@ contract TokenPortalTest is Test {
 
   uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
 
-  event MessageConsumed(bytes32 indexed entryKey, address indexed recipient);
+  event MessageConsumed(bytes32 indexed messageHash, address indexed recipient);
 
   Registry internal registry;
 
