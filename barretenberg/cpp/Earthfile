@@ -62,7 +62,7 @@ source:
     COPY --dir src/barretenberg src/CMakeLists.txt src
     # cmake source
     COPY --dir cmake CMakeLists.txt CMakePresets.json .
-    RUN find . -type f -exec sha256sum {} ';' ; echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
+    RUN find . -type f -exec sha256sum {} ';' | rev | sort | rev ; echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
 preset-release-assert-all:
     FROM +source
