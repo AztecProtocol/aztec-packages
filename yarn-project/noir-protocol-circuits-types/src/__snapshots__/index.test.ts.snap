@@ -995,6 +995,9 @@ PrivateKernelInnerCircuitPublicInputs {
         "sideEffectCounter": undefined,
       },
     ],
+    "revertCode": RevertCode {
+      "code": 0,
+    },
     "unencryptedLogPreimagesLength": Fr<0x000000000000000000000000000000000000000000000000000000000000000c>,
     "unencryptedLogsHash": [
       Fr<0x00f33ae280239814c4dfaaafc16fc138a8d3eae52bb962af6576cbb61c2af246>,
@@ -2650,6 +2653,9 @@ PrivateKernelTailCircuitPublicInputs {
         "startSideEffectCounter": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
       },
     ],
+    "revertCode": RevertCode {
+      "code": 0,
+    },
   },
   "needsAppLogic": false,
   "needsSetup": false,
