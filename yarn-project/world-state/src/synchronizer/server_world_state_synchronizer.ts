@@ -202,6 +202,9 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
    */
   private async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockResult> {
     // First we check that the L1 to L2 messages hash to the block inHash.
+    // Note that we cannot optimize this check by checking the root of the subtree after inserting the messages
+    // to the real L1_TO_L2_MESSAGE_TREE (like we do in merkleTreeDb.handleL2BlockAndMessages(...)) because that
+    // tree uses pedersen and we don't have access to the converted root.
     await this.#verifyMessagesHashToInHash(l1ToL2Messages, l2Block.header.contentCommitment.inHash);
 
     // If the above check succeeds, we can proceed to handle the block.
