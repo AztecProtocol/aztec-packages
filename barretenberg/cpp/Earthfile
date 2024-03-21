@@ -188,4 +188,5 @@ BENCH_WASM:
     FROM +preset-wasm
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target $target"
     COPY --dir ./srs_db/+build/. srs_db
+    RUN curl https://wasmtime.dev/install.sh -sSf | bash
     RUN ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args
