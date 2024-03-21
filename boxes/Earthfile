@@ -1,4 +1,4 @@
-VERSION 0.8
+VERSION --no-use-registry-for-with-docker 0.8
 # Produces a container that can be run to test a specific box. See docker-compose.yml.
 
 build:

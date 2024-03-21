@@ -1,4 +1,4 @@
-VERSION 0.8
+VERSION --no-use-registry-for-with-docker 0.8
 FROM node:18.19.0
 RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
 

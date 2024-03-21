@@ -1,5 +1,5 @@
 
-VERSION 0.8
+VERSION --no-use-registry-for-with-docker 0.8
 
 get-aztec:
     FROM ubuntu:lunar
