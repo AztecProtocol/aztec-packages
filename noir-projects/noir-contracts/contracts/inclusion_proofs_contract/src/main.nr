@@ -1,4 +1,3 @@
-// A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
     use dep::aztec::prelude::{
         AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map,
@@ -7,6 +6,7 @@ contract InclusionProofs {
 
     use dep::aztec::protocol_types::{grumpkin_point::GrumpkinPoint, contract_class_id::ContractClassId};
     use dep::aztec::{context::Context, note::note_getter_options::NoteStatus};
+    use dep::aztec::oracle::debug_log::{ debug_log_field };
     // docs:start:imports
     use dep::aztec::history::{
         contract_inclusion::{
@@ -20,7 +20,9 @@ contract InclusionProofs {
         prove_note_is_nullified_at
     },
         nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
-        public_value_inclusion::{prove_public_value_inclusion, prove_public_value_inclusion_at}
+        public_value_inclusion::{prove_public_value_inclusion, prove_public_value_inclusion_at},
+        note_timestamp::{get_note_inclusion_timestamp}
+       
     };
     // docs:end:imports
     // docs:start:value_note_imports
@@ -79,6 +81,25 @@ contract InclusionProofs {
             prove_note_inclusion(maybe_note.unwrap_unchecked(), context);
         }
     }
+
+    #[aztec(private)]
+    fn test_note_timestamp(
+        owner: AztecAddress,
+    ) {
+        let private_values = storage.private_values.at(owner);
+        let mut options = NoteGetterOptions::new().select(
+            ValueNote::properties().owner,
+            owner.to_field(),
+            Option::none()
+        ).set_limit(1);
+        let notes = private_values.get_notes(options);
+        let maybe_note = notes[0];
+
+        let timestamp = get_note_inclusion_timestamp(maybe_note.unwrap_unchecked(), context);
+        debug_log_field(timestamp);
+    }
+
+
 
     #[aztec(private)]
     fn test_note_inclusion_fail_case(
