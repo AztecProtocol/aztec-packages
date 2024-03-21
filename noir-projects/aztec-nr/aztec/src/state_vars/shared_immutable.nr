@@ -1,5 +1,5 @@
 use crate::{
-    context::Context, history::storage::prove_public_value_inclusion,
+    context::Context, history::storage::storage_historical_read,
     oracle::{storage::{storage_read, storage_write}}, state_vars::storage::Storage
 };
 use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize}};
@@ -56,10 +56,9 @@ impl<T> SharedImmutable<T> {
 
         let mut fields = [0; T_SERIALIZED_LEN];
 
-        // Loop over the fields and prove their inclusion in the public tree
         for i in 0..fields.len() {
             fields[i] =
-                prove_public_value_inclusion(
+                storage_historical_read(
                     self.storage_slot + i as Field,
                     (*private_context).this_address(),
                     (*private_context)

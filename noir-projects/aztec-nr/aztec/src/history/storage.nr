@@ -6,24 +6,20 @@ use dep::std::merkle::compute_merkle_root;
 
 use crate::{context::PrivateContext, oracle::get_public_data_witness::get_public_data_witness};
 
-fn _public_value_inclusion(
-    storage_slot: Field,
-    contract_address: AztecAddress,
-    header: Header
-) -> Field {
+fn _storage_historical_read(storage_slot: Field, contract_address: AztecAddress, header: Header) -> Field {
     // 1) Compute the leaf slot by siloing the storage slot with the contract address
     let public_value_leaf_slot = pedersen_hash(
         [contract_address.to_field(), storage_slot],
         GENERATOR_INDEX__PUBLIC_LEAF_INDEX
     );
 
-    // 3) Get the membership witness of the slot
+    // 2) Get the membership witness of the slot
     let witness = get_public_data_witness(
         header.global_variables.block_number as u32,
         public_value_leaf_slot
     );
 
-    // 4) Check that the witness matches the corresponding public_value
+    // 3) Extract the value from the witness leaf and check that the storage slot is correct
     let preimage = witness.leaf_preimage;
 
     // Here we have two cases. Code based on same checks in `validate_public_data_reads` in `base_rollup_inputs`
@@ -41,32 +37,31 @@ fn _public_value_inclusion(
         preimage.value
     };
 
-    // 5) Prove that the leaf we validated is in the public data tree
+    // 4) Prove that the leaf exists in the public data tree. Note that `hash` returns not just the hash of the value
+    // but also the metadata (slot, next index and next slot).
     assert(
         header.state.partial.public_data_tree.root
         == compute_merkle_root(preimage.hash(), witness.index, witness.path), "Proving public value inclusion failed"
     );
-    // --> Now we have traversed the trees all the way up to archive root and that way verified that a specific
-    // `value` was really set in a given contract storage slot at block `block_number` in public data tree.
 
     value
 }
 
-pub fn prove_public_value_inclusion(
-    storage_slot: Field, // The storage slot in which the value is stored
+pub fn storage_historical_read(
+    storage_slot: Field, // The storage slot to read
     contract_address: AztecAddress, // The contract we want to look into
     context: PrivateContext
 ) -> Field {
-    _public_value_inclusion(storage_slot, contract_address, context.historical_header)
+    _storage_historical_read(storage_slot, contract_address, context.historical_header)
 }
 
-pub fn prove_public_value_inclusion_at(
-    storage_slot: Field, // The storage slot in which the value is stored
+pub fn storage_historical_read_at(
+    storage_slot: Field, // The storage slot to read
     contract_address: AztecAddress, // The contract we want to look into
-    block_number: u32, // The block at which we'll prove that the note exists
+    block_number: u32, // The block number at the end of which we'll read the value
     context: PrivateContext
 ) -> Field {
     let header = context.get_header_at(block_number);
 
-    _public_value_inclusion(storage_slot, contract_address, header)
+    _storage_historical_read(storage_slot, contract_address, header)
 }
