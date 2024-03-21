@@ -41,5 +41,9 @@ library FrLib {
 
     // TODO: double check this !
     function exp(Fr base, Fr exponent) pure returns (Fr) {
-        return Fr.wrap(Fr.unwrap(base) ** Fr.unwrap(exponent) % MODULUS);
+        // Implement exponent with a loop as we will overflow otherwise
+        for (uint256 i = 1; i < Fr.unwrap(exponent); i += i) {
+            base = base * base;
+        }
+        return base;
     }

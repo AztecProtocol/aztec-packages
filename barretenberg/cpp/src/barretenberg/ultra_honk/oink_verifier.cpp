@@ -116,19 +116,11 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivativ
  */
 template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
 {
-    info("domain size: ", key->circuit_size);
-    info("publin inputs offset: ", key->pub_inputs_offset);
-    info("beta: ", relation_parameters.beta);
-    info("gamma: ", relation_parameters.gamma);
-
     const FF public_input_delta = compute_public_input_delta<Flavor>(key->public_inputs,
                                                                      relation_parameters.beta,
                                                                      relation_parameters.gamma,
                                                                      key->circuit_size,
                                                                      key->pub_inputs_offset);
-    info("\n\n");
-    info("public inputs delta: ", public_input_delta);
-    info("\n\n");
     const FF lookup_grand_product_delta =
         compute_lookup_grand_product_delta<FF>(relation_parameters.beta, relation_parameters.gamma, key->circuit_size);
 

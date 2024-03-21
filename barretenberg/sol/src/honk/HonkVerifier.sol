@@ -262,10 +262,13 @@ contract HonkVerifier is IVerifier {
         TranscriptParameters memory tp = computeChallenges(p, vk, publicInputs);
 
         // Compute the public input delta
-        Fr publicInputDelta =
+        (Fr publicInputDeltaNumerator, Fr publicInputDeltaDenominator) =
             computePublicInputDelta(publicInputs, tp.beta, tp.gamma, vk.circuitSize, p.publicInputsOffset);
 
         Fr grandProductPlookupDelta = computeLookupGrandProductDelta(tp.beta, tp.gamma, vk.circuitSize);
+        logFr("grandProductPlookupDelta", grandProductPlookupDelta);
+
+        // 
     }
 
     function computeChallenges(
@@ -480,7 +483,7 @@ contract HonkVerifier is IVerifier {
         // TODO: check how to deal with this Domain size and offset are somewhat new
         uint256 domainSize,
         uint256 offset
-    ) internal view returns (Fr) {
+    ) internal view returns (Fr, Fr) {
         logUint("domainSize", domainSize)        ;
         logUint("offset", offset)        ;
 
@@ -493,25 +496,28 @@ contract HonkVerifier is IVerifier {
         // TODO: all of this needs to be mod p
         
         // TODO(md): could we create a custom field type that maps, and has the + operator mapped to it???
-        // numeratorAcc = gamma + beta * (domainSize + offset)
-        // uint256 numeratorAcc = mulmod(addmod(gamma, beta, P), addmod(domainSize, offset, P), P);
-        
-        // uint256 denominatorAcc = mulmod(addmod(gamma, P - beta, P), addmod(offset, 1, P), P);
+        Fr numeratorAcc = gamma + (beta* FrLib.from(domainSize + offset));
+        Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
-        // for (uint256 i = 0; i < publicInputs.length; i++) {
-        //     // TODO(md): remove casts when back to uint256 public inputs
-        //     numerator = numerator * (numeratorAcc + uint256(publicInputs[i]));
-        //     denominator = denominator * (denominatorAcc + uint256(publicInputs[i]));
+        {
+            for (uint256 i = 0; i < publicInputs.length; i++) {
+            // TODO(md): remove casts when back to uint256 public inputs
 
-        //     // TODO: mod p
-        //     numeratorAcc += beta;
-        //     denominatorAcc -= beta;
-        // }
+                // TODO: assuming that public inputs are already mod P here: DOUBLE CHECK
+                // TODO: make sure this check has already been performed
+                numerator = numerator * (numeratorAcc + Fr.wrap(uint256(publicInputs[i])));
+                denominator = denominator * (denominatorAcc + Fr.wrap(uint256(publicInputs[i])));
 
-        // Fr delta = numerator / denominator; // TODO: how for field division?
-        Fr delta = numerator + denominator; // TODO: how for field division?
-        logFr("delta", delta);
-        return delta;
+                numeratorAcc = numeratorAcc + beta;
+                denominatorAcc = denominatorAcc - beta;
+            }
+        }
+
+        logFr("numerator: ", numerator);
+        logFr("denominator: ", denominator);
+
+        // Fr delta = numerator / denominator; // TOOO: batch invert later?
+        return (numerator, denominator);
     }
 
     // Incorportate the original plookup construction into honk
@@ -522,7 +528,7 @@ contract HonkVerifier is IVerifier {
         uint256 domainSize
     ) internal view returns (Fr) {
         Fr gammaByOnePlusBeta = gamma * (beta + Fr.wrap(1));
-        // TODO: move domain to a fr too?
+        // TODO: dont like using ^ for exponent - might just make a function
         return gammaByOnePlusBeta ^ Fr.wrap(domainSize);
     }
 
