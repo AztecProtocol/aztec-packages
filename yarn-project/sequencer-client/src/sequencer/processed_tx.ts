@@ -9,7 +9,6 @@ import {
   PublicAccumulatedNonRevertibleData,
   PublicAccumulatedRevertibleData,
   PublicKernelCircuitPublicInputs,
-  RollupValidationRequests,
   SideEffect,
   SideEffectLinkedToNoteHash,
   ValidationRequests,
