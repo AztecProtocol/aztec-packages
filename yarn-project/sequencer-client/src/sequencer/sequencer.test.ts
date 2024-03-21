@@ -6,8 +6,6 @@ import {
   ProverClient,
   ProvingResult,
   ProvingTicket,
-  Tx,
-  TxHash,
   makeEmptyProcessedTx,
   makeProcessedTx,
   mockTx,
@@ -21,7 +19,6 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { times } from '@aztec/foundation/collection';
 import { P2P, P2PClientState } from '@aztec/p2p';
 import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchronizer } from '@aztec/world-state';
 
