@@ -159,7 +159,7 @@ BENCH_RELEASE:
     ARG target
     ARG args
     FROM +preset-release
-    DO +BUILD --configure="--preset clang16" --build="--target $target"
+    DO +RUN_CMAKE --configure="--preset clang16" --build="--target $target"
     COPY --dir ./srs_db/+build/. srs_db
     RUN cd build && ./bin/$target $args
 
