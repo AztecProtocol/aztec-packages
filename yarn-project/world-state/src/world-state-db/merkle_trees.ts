@@ -39,7 +39,12 @@ import {
 import { Hasher } from '@aztec/types/interfaces';
 
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE, MerkleTreeDb } from './merkle_tree_db.js';
-import { HandleL2BlockResult, IndexedTreeId, MerkleTreeOperations, TreeInfo } from './merkle_tree_operations.js';
+import {
+  HandleL2BlockAndMessagesResult,
+  IndexedTreeId,
+  MerkleTreeOperations,
+  TreeInfo,
+} from './merkle_tree_operations.js';
 import { MerkleTreeOperationsFacade } from './merkle_tree_operations_facade.js';
 
 /**
@@ -349,7 +354,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  public async handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockResult> {
+  public async handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult> {
     return await this.synchronize(() => this.#handleL2BlockAndMessages(block, l1ToL2Messages));
   }
 
@@ -480,7 +485,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param l2Block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */
-  async #handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockResult> {
+  async #handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult> {
     const treeRootWithIdPairs = [
       [l2Block.header.state.partial.nullifierTree.root, MerkleTreeId.NULLIFIER_TREE],
       [l2Block.header.state.partial.noteHashTree.root, MerkleTreeId.NOTE_HASH_TREE],

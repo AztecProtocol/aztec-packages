@@ -9,7 +9,7 @@ import { AztecKVStore, AztecSingleton } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256, StandardTree } from '@aztec/merkle-tree';
 
-import { HandleL2BlockResult, MerkleTreeOperations, MerkleTrees } from '../world-state-db/index.js';
+import { HandleL2BlockAndMessagesResult, MerkleTreeOperations, MerkleTrees } from '../world-state-db/index.js';
 import { MerkleTreeOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
 import { MerkleTreeSnapshotOperationsFacade } from '../world-state-db/merkle_tree_snapshot_operations_facade.js';
 import { WorldStateConfig } from './config.js';
@@ -199,8 +199,12 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param l2Block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
+   * @returns Whether the block handled was produced by this same node.
    */
-  private async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockResult> {
+  private async handleL2BlockAndMessages(
+    l2Block: L2Block,
+    l1ToL2Messages: Fr[],
+  ): Promise<HandleL2BlockAndMessagesResult> {
     // First we check that the L1 to L2 messages hash to the block inHash.
     // Note that we cannot optimize this check by checking the root of the subtree after inserting the messages
     // to the real L1_TO_L2_MESSAGE_TREE (like we do in merkleTreeDb.handleL2BlockAndMessages(...)) because that

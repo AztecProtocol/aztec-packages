@@ -4,7 +4,7 @@ import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { BatchInsertionResult } from '@aztec/merkle-tree';
 
 import { MerkleTreeDb } from './merkle_tree_db.js';
-import { HandleL2BlockResult, MerkleTreeOperations, TreeInfo } from './merkle_tree_operations.js';
+import { HandleL2BlockAndMessagesResult, MerkleTreeOperations, TreeInfo } from './merkle_tree_operations.js';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
@@ -146,7 +146,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  public handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockResult> {
+  public handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult> {
     return this.trees.handleL2BlockAndMessages(block, l1ToL2Messages);
   }
 

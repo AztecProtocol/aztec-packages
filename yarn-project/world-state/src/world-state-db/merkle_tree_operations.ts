@@ -142,7 +142,7 @@ export interface MerkleTreeOperations {
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */
-  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockResult>;
+  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult>;
 
   /**
    * Commits pending changes to the underlying store.
@@ -155,8 +155,8 @@ export interface MerkleTreeOperations {
   rollback(): Promise<void>;
 }
 
-/** Return type for handleL2Block */
-export type HandleL2BlockResult = {
+/** Return type for handleL2BlockAndMessages */
+export type HandleL2BlockAndMessagesResult = {
   /** Whether the block processed was emitted by our sequencer */ isBlockOurs: boolean;
 };
 
