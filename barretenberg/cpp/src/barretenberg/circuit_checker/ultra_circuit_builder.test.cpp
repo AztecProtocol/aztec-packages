@@ -20,9 +20,9 @@ TEST(ultra_circuit_constructor, copy_constraints)
         uint32_t b_idx = builder.add_variable(2);
         uint32_t c_idx = builder.add_variable(3);
 
-        uint32_t d_idx = builder.add_variable(5);
-        uint32_t e_idx = builder.add_variable(8);
-        uint32_t f_idx = builder.add_variable(13);
+        uint32_t d_idx = builder.add_variable(3);
+        uint32_t e_idx = builder.add_variable(4);
+        uint32_t f_idx = builder.add_variable(7);
 
         builder.create_add_gate({ .a = a_idx,
                                   .b = b_idx,
