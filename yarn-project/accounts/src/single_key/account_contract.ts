@@ -35,15 +35,6 @@ export class SingleKeyAccountContract extends DefaultAccountContract {
 class SingleKeyAuthWitnessProvider implements AuthWitnessProvider {
   constructor(private privateKey: GrumpkinPrivateKey, private partialAddress: PartialAddress) {}
 
-  /**
-   * Signs a message hash using the private key and includes the public key and partial address
-   * in the witness.
-   *
-   * Beware that this ONLY signs and rely on the wrapping `wallet_account` to construct the message hash.
-   *
-   * @param messageHash - The message hash to sign.
-   * @returns The authentication witness
-   */
   createAuthWit(messageHash: Fr): Promise<AuthWitness> {
     const schnorr = new Schnorr();
     const signature = schnorr.constructSignature(messageHash.toBuffer(), this.privateKey);

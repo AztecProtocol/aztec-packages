@@ -134,7 +134,7 @@ describe('e2e_authwit_tests', () => {
           await expect(txCancelledAuthwit.wait()).rejects.toThrow('Transaction ');
         });
 
-        it('invalid chain id', async () => {
+        it('invalid version', async () => {
           const invalidVersion = Fr.random();
 
           const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0xbeef')]);
