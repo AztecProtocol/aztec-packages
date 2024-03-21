@@ -1,9 +1,10 @@
 import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
+import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { INITIAL_LEAF, Pedersen } from '@aztec/merkle-tree';
+import { INITIAL_LEAF, Pedersen, SHA256, StandardTree } from '@aztec/merkle-tree';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -25,6 +26,8 @@ const log = createDebugLogger('aztec:server_world_state_synchronizer_test');
 
 describe('server_world_state_synchronizer', () => {
   let db: AztecKVStore;
+  let emptySubtreeInHash: Buffer;
+
   const blockAndMessagesSource = mock<L2BlockSource & L1ToL2MessageSource>({
     getBlockNumber: jest.fn(getLatestBlockNumber),
     getBlocks: jest.fn(consumeNextBlocks),
@@ -51,7 +54,7 @@ describe('server_world_state_synchronizer', () => {
     // create the initial blocks
     nextBlocks = Array(LATEST_BLOCK_NUMBER)
       .fill(0)
-      .map((_, index: number) => L2Block.random(index + 1));
+      .map((_, index: number) => getRandomBlock(index + 1));
 
     // start the sync process and await it
     await server.start().catch(err => log.error('Sync not completed: ', err));
@@ -69,7 +72,7 @@ describe('server_world_state_synchronizer', () => {
     // create the initial blocks
     nextBlocks = Array(count)
       .fill(0)
-      .map((_, index: number) => L2Block.random(LATEST_BLOCK_NUMBER + index + 1));
+      .map((_, index: number) => getRandomBlock(LATEST_BLOCK_NUMBER + index + 1));
 
     blockAndMessagesSource.getBlockNumber.mockResolvedValueOnce(LATEST_BLOCK_NUMBER + count);
 
@@ -94,6 +97,20 @@ describe('server_world_state_synchronizer', () => {
     );
   };
 
+  const getRandomBlock = (blockNumber: number) => {
+    return L2Block.random(blockNumber, 4, 2, 3, 2, 1, emptySubtreeInHash);
+  };
+
+  beforeAll(() => {
+    const tree = new StandardTree(
+      openTmpStore(true),
+      new SHA256(),
+      'empty_subtree_in_hash',
+      L1_TO_L2_MSG_SUBTREE_HEIGHT,
+    );
+    emptySubtreeInHash = tree.getRoot(true);
+  });
+
   beforeEach(() => {
     db = openTmpStore();
   });
@@ -112,7 +129,7 @@ describe('server_world_state_synchronizer', () => {
 
     // create an initial block
     let currentBlockNumber = 0;
-    nextBlocks = [L2Block.random(currentBlockNumber + 1)];
+    nextBlocks = [getRandomBlock(currentBlockNumber + 1)];
 
     // start the sync process but don't await
     server.start().catch(err => log.error('Sync not completed: ', err));
@@ -134,7 +151,7 @@ describe('server_world_state_synchronizer', () => {
         continue;
       }
       currentBlockNumber++;
-      nextBlocks = [L2Block.random(currentBlockNumber + 1)];
+      nextBlocks = [getRandomBlock(currentBlockNumber + 1)];
     }
 
     // check the status again, should be fully synced
@@ -158,7 +175,7 @@ describe('server_world_state_synchronizer', () => {
     const newBlocks = async () => {
       while (currentBlockNumber <= LATEST_BLOCK_NUMBER) {
         await sleep(100);
-        nextBlocks = [...nextBlocks, L2Block.random(++currentBlockNumber)];
+        nextBlocks = [...nextBlocks, getRandomBlock(++currentBlockNumber)];
       }
     };
 
@@ -189,7 +206,7 @@ describe('server_world_state_synchronizer', () => {
     const newBlocks = async () => {
       while (currentBlockNumber < LATEST_BLOCK_NUMBER) {
         await sleep(100);
-        const newBlock = L2Block.random(++currentBlockNumber);
+        const newBlock = getRandomBlock(++currentBlockNumber);
         nextBlocks = [...nextBlocks, newBlock];
       }
     };
@@ -247,7 +264,7 @@ describe('server_world_state_synchronizer', () => {
     const totalBlocks = LATEST_BLOCK_NUMBER + 1;
     nextBlocks = Array(totalBlocks)
       .fill(0)
-      .map((_, index) => L2Block.random(index));
+      .map((_, index) => getRandomBlock(index));
     // sync the server
     await server.start();
 
@@ -262,13 +279,13 @@ describe('server_world_state_synchronizer', () => {
 
     // the server should now be asleep for a long time
     // we will add a new block and force an immediate sync
-    nextBlocks = [L2Block.random(LATEST_BLOCK_NUMBER + 1)];
+    nextBlocks = [getRandomBlock(LATEST_BLOCK_NUMBER + 1)];
     await server.syncImmediate();
 
     let status = await server.status();
     expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER + 1);
 
-    nextBlocks = [L2Block.random(LATEST_BLOCK_NUMBER + 2), L2Block.random(LATEST_BLOCK_NUMBER + 3)];
+    nextBlocks = [getRandomBlock(LATEST_BLOCK_NUMBER + 2), getRandomBlock(LATEST_BLOCK_NUMBER + 3)];
     await server.syncImmediate();
 
     status = await server.status();
@@ -292,7 +309,7 @@ describe('server_world_state_synchronizer', () => {
     // we will add 20 blocks and force a sync to at least LATEST + 5
     nextBlocks = Array(20)
       .fill(0)
-      .map((_, index: number) => L2Block.random(index + 1 + LATEST_BLOCK_NUMBER));
+      .map((_, index: number) => getRandomBlock(index + 1 + LATEST_BLOCK_NUMBER));
     await server.syncImmediate(LATEST_BLOCK_NUMBER + 5);
 
     // we should have synced all of the blocks
@@ -339,7 +356,7 @@ describe('server_world_state_synchronizer', () => {
     // we will add 2 blocks and force a sync to at least LATEST + 5
     nextBlocks = Array(2)
       .fill(0)
-      .map((_, index: number) => L2Block.random(index + 1 + LATEST_BLOCK_NUMBER));
+      .map((_, index: number) => getRandomBlock(index + 1 + LATEST_BLOCK_NUMBER));
     await expect(server.syncImmediate(LATEST_BLOCK_NUMBER + 5)).rejects.toThrow(
       `Unable to sync to block number ${LATEST_BLOCK_NUMBER + 5}, currently synced to block ${LATEST_BLOCK_NUMBER + 2}`,
     );
@@ -367,7 +384,7 @@ describe('server_world_state_synchronizer', () => {
     // create an initial block
     nextBlocks = Array(LATEST_BLOCK_NUMBER)
       .fill(0)
-      .map((_, index: number) => L2Block.random(index + 1));
+      .map((_, index: number) => getRandomBlock(index + 1));
 
     await expect(server.syncImmediate()).rejects.toThrow(`World State is not running, unable to perform sync`);
   });

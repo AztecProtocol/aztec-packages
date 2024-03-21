@@ -95,6 +95,7 @@ export class L2Block {
    * @param numPublicCallsPerTx - The number of public function calls to include in each transaction.
    * @param numEncryptedLogsPerCall - The number of encrypted logs per 1 private function invocation.
    * @param numUnencryptedLogsPerCall - The number of unencrypted logs per 1 public function invocation.
+   * @param inHash - The hash of the L1 to L2 messages subtree which got inserted in this block.
    * @returns The L2 block.
    */
   static random(
@@ -104,6 +105,7 @@ export class L2Block {
     numPublicCallsPerTx = 3,
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
+    inHash: Buffer | undefined = undefined,
   ): L2Block {
     const body = Body.random(
       txsPerBlock,
@@ -118,7 +120,7 @@ export class L2Block {
     return L2Block.fromFields(
       {
         archive: makeAppendOnlyTreeSnapshot(1),
-        header: makeHeader(0, l2BlockNum, txsEffectsHash),
+        header: makeHeader(0, l2BlockNum, txsEffectsHash, inHash),
         body,
       },
       // just for testing purposes, each random L2 block got emitted in the equivalent L1 block
