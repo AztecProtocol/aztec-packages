@@ -319,7 +319,7 @@ describe('L1Publisher integration', () => {
     for (const tx of txs) {
       await builder.addNewTx(tx);
     }
-    return blockTicket.provingPromise;
+    return blockTicket;
   };
 
   it('Block body is correctly published to AvailabilityOracle', async () => {
@@ -463,7 +463,8 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const result = await buildBlock(globalVariables, txs, l1ToL2Messages, makeEmptyProcessedTx());
+      const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages, makeEmptyProcessedTx());
+      const result = await blockTicket.provingPromise;
       const block = result.block;
       prevHeader = block.header;
 
