@@ -20,7 +20,7 @@ TEST(ultra_circuit_constructor, copy_constraints)
         uint32_t b_idx = builder.add_variable(2);
         uint32_t c_idx = builder.add_variable(3);
 
-        uint32_t d_idx = builder.add_variable(3);
+        // uint32_t d_idx = builder.add_variable(3);
         uint32_t e_idx = builder.add_variable(4);
         uint32_t f_idx = builder.add_variable(7);
 
@@ -32,7 +32,7 @@ TEST(ultra_circuit_constructor, copy_constraints)
                                   .c_scaling = -1,
                                   .const_scaling = 0 });
 
-        builder.create_add_gate({ .a = d_idx,
+        builder.create_add_gate({ .a = c_idx,
                                   .b = e_idx,
                                   .c = f_idx,
                                   .a_scaling = 1,
@@ -41,8 +41,11 @@ TEST(ultra_circuit_constructor, copy_constraints)
                                   .const_scaling = 0 });
 
         bool expected_result = true;
-        if (assert_equal) {
-            builder.assert_equal(c_idx, d_idx);
+        if (!assert_equal) {
+            // builder.assert_equal(c_idx, d_idx);
+            builder.variables[c_idx] = 1;
+            builder.variables[e_idx] = 2;
+            builder.variables[f_idx] = 3;
             expected_result = false;
         }
 
