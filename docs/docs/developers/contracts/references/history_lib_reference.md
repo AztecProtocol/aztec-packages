@@ -106,7 +106,7 @@ These return the value stored in a public storage slot of a given contract at th
 
 Note that it is never possible to read the _current_ value in a public storage slot in private since private execution is local and by definition always works on _historical_ state.
 
-### prove_public_value_inclusion
+### storage_historical_read
 
 `storage_historical_read_at` takes 4 parameters:
 
