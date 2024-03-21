@@ -6,12 +6,41 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  # split out for legibility
+  # includes non-integration and non-prover/barretenberg tests
   build: 
-  e2e:
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
-    # TODO currently names are coupled to platform
+    strategy: { matrix: { environment: [x86, arm] } }
+    # cancel if reran on same PR if exists, otherwise if on same commit
+    concurrency:
+      group: ${{ matrix.test }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-${{ matrix.environment }}
+      cancel-in-progress: ${{ github.ref_name != 'master' }}
+    steps:
+      - uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.5
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          submodules: recursive
+
+      - name: Setup
+        working-directory: ./scripts
+        run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Test
+        working-directory: .
+        run: earthly-cloud ${{ github.actor }} ${{ matrix.environment }} +build-ci
+
+  # all the end-to-end integration tests for aztec
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy: { matrix: { environment: [x86, arm], test: [e2e-escrow-contract, e2e-account-contracts] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
@@ -36,18 +65,22 @@ jobs:
         working-directory: ./yarn-project/end-to-end/
         run: earthly-cloud ${{ github.actor }} ${{ matrix.environment }} +${{ matrix.test }}
 
+  # barretenberg (prover) native tests
   bb-native-tests:
+    needs: build
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
-    # run for both x86_64 and arm64
-    # TODO currently names are coupled to platform
     strategy: { matrix: { environment: [x86, arm] } }
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: bb-native-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}-${{ matrix.environment }}
       cancel-in-progress: ${{ github.ref_name != 'master' }}
     steps:
+      - uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.5
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -62,6 +95,10 @@ jobs:
         working-directory: ./barretenberg/cpp/
         run: earthly-cloud ${{ github.actor }} ${{ matrix.environment }} +test
 
+  # All benchmarks, purposefully ran sequential on a machine
+  # they should use parallelism within the benchmark, but only one thing should run at a time
+  # for accurate results
+  # We don't depend on 'build' as we use a different runner and will build components on the fist step that uses them.
   bench:
     runs-on: ubuntu-latest
     env:
@@ -73,6 +110,9 @@ jobs:
       group: bench-${{ github.actor }}
       cancel-in-progress: ${{ github.ref_name != 'master' }}
     steps:
+      - uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.5
       - name: Checkout
         uses: actions/checkout@v4
         with:

@@ -9,13 +9,12 @@ build-ci:
     BUILD ./barretenberg/cpp/+build-fuzzing
     BUILD ./barretenberg/cpp/+build-clang-assert
     BUILD ./barretenberg/cpp/+test-clang-format
-    BUILD ./barretenberg/cpp/+test-clang-format
     BUILD ./boxes/+build
     BUILD ./noir/+packages
     BUILD ./noir/+nargo
     BUILD ./noir-projects/+build
-    BUILD ./yarn-project/+build
-    BUILD +test-end-to-end
+    BUILD ./yarn-project/+end-to-end-minimal
+    BUILD ./yarn-project/+aztec
 
 build-ci-small:
     BUILD ./yarn-project/end-to-end/+e2e-escrow-contract
