@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2022 Aztec
-pragma solidity >=0.8.4;
+pragma solidity >=0.8.21;
 
 import {HonkTypes} from "../HonkVerifierTypes.sol";
 

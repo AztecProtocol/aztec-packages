@@ -7,6 +7,10 @@ import {Add2HonkVerificationKey} from "./keys/Add2HonkVerificationKey.sol";
 import "forge-std/console.sol";
 import "forge-std/console2.sol";
 
+// Easier Field arithmetic library TODO: fix up documentation and describe what this does
+import {Fr, FrLib} from "./Fr.sol";
+
+
 /// Smart contract verifier of honk proofs
 contract HonkVerifier is IVerifier {
     /// Plan of action
@@ -37,27 +41,27 @@ contract HonkVerifier is IVerifier {
 
     struct TranscriptParameters {
         // Relation Challenges
-        uint256[NUMBER_OF_SUBRELATIONS] alphas;
-        uint256[LOG_N] gateChallenges;
-        uint256[LOG_N] sumCheckUChallenges;
+        Fr[NUMBER_OF_SUBRELATIONS] alphas;
+        Fr[LOG_N] gateChallenges;
+        Fr[LOG_N] sumCheckUChallenges;
 
-        uint256 eta;
+        Fr eta;
         
         // perm challenges
-        uint256 beta;
-        uint256 gamma;
+        Fr beta;
+        Fr gamma;
 
-        uint256 rho;
+        Fr rho;
 
         // Zero morph
-        uint256 zmX;
-        uint256 zmY;
-        uint256 zmZ;
+        Fr zmX;
+        Fr zmY;
+        Fr zmZ;
         // TODO: Zero morph quotient
-        uint256 zmQuotient;
+        Fr zmQuotient;
 
-        uint256 publicInputsDelta;
-        uint256 lookupGrandProductDelta;
+        Fr publicInputsDelta;
+        Fr lookupGrandProductDelta;
     }
 
     /// Check how the challenges are calculated on the otherside
@@ -92,6 +96,11 @@ contract HonkVerifier is IVerifier {
 
     function logUint(string memory name, uint256 value) internal pure {
         string memory as_hex = bytes32ToString(bytes32(value));
+        console2.log(name, as_hex);
+    }
+
+    function logFr(string memory name, Fr value) internal pure {
+        string memory as_hex = bytes32ToString(bytes32(Fr.unwrap(value)));
         console2.log(name, as_hex);
     }
 
@@ -253,10 +262,10 @@ contract HonkVerifier is IVerifier {
         TranscriptParameters memory tp = computeChallenges(p, vk, publicInputs);
 
         // Compute the public input delta
-        uint256 publicInputDelta =
+        Fr publicInputDelta =
             computePublicInputDelta(publicInputs, tp.beta, tp.gamma, vk.circuitSize, p.publicInputsOffset);
 
-        uint256 grandProductPlookupDelta = computeLookupGrandProductDelta(tp.beta, tp.gamma, vk.circuitSize);
+        Fr grandProductPlookupDelta = computeLookupGrandProductDelta(tp.beta, tp.gamma, vk.circuitSize);
     }
 
     function computeChallenges(
@@ -285,9 +294,11 @@ contract HonkVerifier is IVerifier {
         tp.zmY =  generateZMYChallenge(tp.rho, proof);
 
         (tp.zmX, tp.zmZ) = generateZMXZChallenges(tp.zmY, proof);
+    
+        return tp;
     }
 
-    function generateEtaChallenge(HonkTypes.Proof memory proof, bytes32[] calldata publicInputs) internal view returns (uint256) {
+    function generateEtaChallenge(HonkTypes.Proof memory proof, bytes32[] calldata publicInputs) internal view returns (Fr) {
         // publicInputs.length = 3 - this will be templated in the end!!!
         // TODO(md): the 12 here will need to be halved when we fix the transcript to not be over field elements
         // TODO(md): the 3 here is hardcoded for the number of public inputs - this will need to be generated / use asm
@@ -320,15 +331,15 @@ contract HonkVerifier is IVerifier {
             console.logBytes32(round0[i]);
         }
 
-        uint256 eta = uint256(keccak256(abi.encodePacked(round0))) % P;
-        logUint("eta", eta);
+        Fr eta = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
+        logFr("eta", eta);
         return eta;
     }
 
-    function generateBetaAndGammaChallenges(uint256 previousChallenge, HonkTypes.Proof memory proof) internal view returns (uint256, uint256) {
+    function generateBetaAndGammaChallenges(Fr previousChallenge, HonkTypes.Proof memory proof) internal view returns (Fr, Fr) {
         // TODO(md): adjust round size when the proof points are generated correctly - 5
         bytes32[9] memory round1;
-        round1[0] = bytes32(previousChallenge);
+        round1[0] = FrLib.toBytes32(previousChallenge);
         round1[1] = bytes32(proof.sortedAccum.x_0);
         round1[2] = bytes32(proof.sortedAccum.x_1);
         round1[3] = bytes32(proof.sortedAccum.y_0);
@@ -338,24 +349,25 @@ contract HonkVerifier is IVerifier {
         round1[7] = bytes32(proof.w4.y_0);
         round1[8] = bytes32(proof.w4.y_1);
 
-        uint256 beta = uint256(keccak256(abi.encodePacked(round1))) % P;
-        logUint("beta", beta);
-        uint256 gamma = uint256(keccak256(abi.encodePacked(beta))) % P;
-        logUint("gamma", gamma);
+        Fr beta = FrLib.fromBytes32(keccak256(abi.encodePacked(round1)));
+        logFr("beta", beta);
+        Fr gamma = FrLib.fromBytes32(keccak256(abi.encodePacked(beta)));
+        logFr("gamma", gamma);
         return (beta, gamma);
     }
 
     // Alpha challenges non-linearise the gate contributions
-    function generateAlphaChallenges(uint256 previousChallenge, HonkTypes.Proof memory proof) 
+    function generateAlphaChallenges(Fr previousChallenge, HonkTypes.Proof memory proof) 
         internal view
-        returns (uint256[NUMBER_OF_SUBRELATIONS] memory)
+        returns (Fr[NUMBER_OF_SUBRELATIONS] memory)
     {
-        uint256[NUMBER_OF_SUBRELATIONS] memory alphas;
+        Fr[NUMBER_OF_SUBRELATIONS] memory alphas;
 
         // Generate the original sumcheck alpha 0 by hashing zPerm and zLookup
         // TODO(md): 5 post correct proof size fix
+        // TODO: type consistency
         uint256[9] memory alpha0;
-        alpha0[0] = previousChallenge;
+        alpha0[0] = Fr.unwrap(previousChallenge);
         alpha0[1] = proof.zPerm.x_0;
         alpha0[2] = proof.zPerm.x_1;
         alpha0[3] = proof.zPerm.y_0;
@@ -365,39 +377,36 @@ contract HonkVerifier is IVerifier {
         alpha0[7] = proof.zLookup.y_0;
         alpha0[8] = proof.zLookup.y_1;
 
-        alphas[0] = uint256(keccak256(abi.encodePacked(alpha0))) % P;
-        logUint("alpha0", alphas[0]);
+        alphas[0] = FrLib.fromBytes32(keccak256(abi.encodePacked(alpha0)));
+        logFr("alpha0", alphas[0]);
 
-
-        uint256 prevChallenge = alphas[0];
+        Fr prevChallenge = alphas[0];
         for (uint256 i = 1; i < NUMBER_OF_SUBRELATIONS; i++) {
-            prevChallenge = uint256(keccak256(abi.encodePacked(prevChallenge))) % P;
+            prevChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(prevChallenge))));
             alphas[i] = prevChallenge;
-            logUint("alpha", alphas[i]);
+            logFr("alpha", alphas[i]);
         }
         return alphas;
     }
 
-    function generateGateChallenges(uint256 previousChalenge) internal view returns (uint256[LOG_N] memory) {
-        uint256[LOG_N] memory gateChallanges;
-        uint256 prevChallenge = previousChalenge;
+    function generateGateChallenges(Fr previousChallenge) internal view returns (Fr[LOG_N] memory) {
+        Fr[LOG_N] memory gateChallanges;
         for (uint256 i = 0; i < LOG_N; i++) {
-            prevChallenge = uint256(keccak256(abi.encodePacked(prevChallenge))) % P;
-            gateChallanges[i] = prevChallenge;
-            logUint("gate", gateChallanges[i]);
+            previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
+            gateChallanges[i] = previousChallenge;
+            logFr("gate", gateChallanges[i]);
         }
         return gateChallanges;
     }
 
-    function generateSumcheckChallenges(HonkTypes.Proof memory proof, uint256 prevChallenge)
+    function generateSumcheckChallenges(HonkTypes.Proof memory proof, Fr prevChallenge)
         internal view
-        returns (uint256[LOG_N] memory)
+        returns (Fr[LOG_N] memory)
     {
-        uint256[LOG_N] memory sumcheckChallenges;
-        uint256 prevChallenge = prevChallenge;
+        Fr[LOG_N] memory sumcheckChallenges;
         for (uint256 i = 0; i < LOG_N; i++) {
             uint256[BATCHED_RELATION_PARTIAL_LENGTH + 1] memory univariateChal;
-            univariateChal[0] = prevChallenge;
+            univariateChal[0] = Fr.unwrap(prevChallenge);
 
             // TODO(opt): memcpy
             for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
@@ -405,32 +414,32 @@ contract HonkVerifier is IVerifier {
             }
 
             // TOOD(md): not too sure about the encode here
-            sumcheckChallenges[i] = uint256(keccak256(abi.encodePacked(univariateChal))) % P;
+            sumcheckChallenges[i] = FrLib.fromBytes32(keccak256(abi.encodePacked(univariateChal)));
             prevChallenge = sumcheckChallenges[i];
-            logUint("sumcheck chal", sumcheckChallenges[i]);
+            logFr("sumcheck chal", sumcheckChallenges[i]);
         }
 
         return sumcheckChallenges;
     }
 
-    function generateRhoChallenge(HonkTypes.Proof memory proof, uint256 prevChallenge) internal view returns (uint256) {
-        uint256[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
+    function generateRhoChallenge(HonkTypes.Proof memory proof, Fr prevChallenge) internal view returns (Fr) {
+        Fr[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
         rhoChallengeElements[0] = prevChallenge;
 
         // TODO: memcpy
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
-            rhoChallengeElements[i + 1] = proof.sumcheckEvaluations[i];
+            rhoChallengeElements[i + 1] = Fr.wrap(proof.sumcheckEvaluations[i]);
         }
 
-        uint256 rho = uint256(keccak256(abi.encodePacked(rhoChallengeElements))) % P;
+        Fr rho = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
 
-        logUint("rho", rho);
+        logFr("rho", rho);
         return rho;
     }
 
-    function generateZMYChallenge(uint256 previousChallenge, HonkTypes.Proof memory proof) internal view returns (uint256) {
+    function generateZMYChallenge(Fr previousChallenge, HonkTypes.Proof memory proof) internal view returns (Fr) {
         uint256[LOG_N * 4 + 1] memory zmY;
-        zmY[0] = previousChallenge;
+        zmY[0] = Fr.unwrap(previousChallenge);
 
         for (uint256 i; i < LOG_N; ++i) {
             zmY[1 + i * 4] = proof.zmCqs[i].x_0;
@@ -439,66 +448,82 @@ contract HonkVerifier is IVerifier {
             zmY[4 + i * 4] = proof.zmCqs[i].y_1;
         }
 
-        uint256 zmy = uint256(keccak256(abi.encodePacked(zmY))) % P;
-        logUint("zmy", zmy);
+        Fr zmy = FrLib.fromBytes32(keccak256(abi.encodePacked(zmY)));
+        logFr("zmy", zmy);
         return zmy;
     }
 
-    function generateZMXZChallenges(uint256 previousChallenge, HonkTypes.Proof memory proof) internal view returns (uint256, uint256) {
+    function generateZMXZChallenges(Fr previousChallenge, HonkTypes.Proof memory proof) internal view returns (Fr, Fr) {
         uint256[4 + 1] memory buf;
-        buf[0] = previousChallenge;
+        buf[0] = Fr.unwrap(previousChallenge);
 
         buf[1] = proof.zmCq.x_0;
         buf[2] = proof.zmCq.x_1;
         buf[3] = proof.zmCq.y_0;
         buf[4] = proof.zmCq.y_1;
 
-        uint256 zmX = uint256(keccak256(abi.encodePacked(buf))) % P;
-        logUint("zmX", zmX);
-        uint256 zmZ = uint256(keccak256(abi.encodePacked(zmX))) % P;
-        logUint("zmZ", zmZ);
+        Fr zmX = FrLib.fromBytes32(keccak256(abi.encodePacked(buf)));
+        logFr("zmX", zmX);
+        Fr zmZ = FrLib.fromBytes32(keccak256(abi.encodePacked(zmX)));
+        logFr("zmZ", zmZ);
         return (zmX, zmZ);
     }
 
     // We add an offset to the public inputs, this adds the values of our public inputs
     // to the copy constraints
+
+    // TODO: mod p all the arithmetic here
     function computePublicInputDelta(
         bytes32[] memory publicInputs,
-        uint256 beta,
-        uint256 gamma,
+        Fr beta,
+        Fr gamma,
         // TODO: check how to deal with this Domain size and offset are somewhat new
         uint256 domainSize,
         uint256 offset
-    ) internal view returns (uint256) {
-        uint256 numerator = 1;
-        uint256 denominator = 1;
+    ) internal view returns (Fr) {
+        logUint("domainSize", domainSize)        ;
+        logUint("offset", offset)        ;
+
+        logFr("beta", beta)        ;
+        logFr("gamma", gamma)        ;
+
+        Fr numerator = Fr.wrap(1);
+        Fr denominator = Fr.wrap(1);
 
         // TODO: all of this needs to be mod p
-        uint256 numeratorAcc = gamma + beta * (domainSize + offset);
-        uint256 denominatorAcc = gamma - beta * (offset + 1);
+        
+        // TODO(md): could we create a custom field type that maps, and has the + operator mapped to it???
+        // numeratorAcc = gamma + beta * (domainSize + offset)
+        // uint256 numeratorAcc = mulmod(addmod(gamma, beta, P), addmod(domainSize, offset, P), P);
+        
+        // uint256 denominatorAcc = mulmod(addmod(gamma, P - beta, P), addmod(offset, 1, P), P);
 
-        for (uint256 i = 0; i < publicInputs.length; i++) {
-            // TODO(md): remove casts when back to uint256 public inputs
-            numerator = numerator * (numeratorAcc + uint256(publicInputs[i]));
-            denominator = denominator * (denominatorAcc + uint256(publicInputs[i]));
+        // for (uint256 i = 0; i < publicInputs.length; i++) {
+        //     // TODO(md): remove casts when back to uint256 public inputs
+        //     numerator = numerator * (numeratorAcc + uint256(publicInputs[i]));
+        //     denominator = denominator * (denominatorAcc + uint256(publicInputs[i]));
 
-            // TODO: mod p
-            numeratorAcc += beta;
-            denominatorAcc -= beta;
-        }
-        // mod p this shit
-        return numerator / denominator;
+        //     // TODO: mod p
+        //     numeratorAcc += beta;
+        //     denominatorAcc -= beta;
+        // }
+
+        // Fr delta = numerator / denominator; // TODO: how for field division?
+        Fr delta = numerator + denominator; // TODO: how for field division?
+        logFr("delta", delta);
+        return delta;
     }
 
     // Incorportate the original plookup construction into honk
     function computeLookupGrandProductDelta(
-        uint256 beta,
-        uint256 gamma,
+        Fr beta,
+        Fr gamma,
         // Again double check - i think it comes from the proving key
         uint256 domainSize
-    ) internal view returns (uint256) {
-        uint256 gammaByOnePlusBeta = gamma * (beta + 1);
-        return gammaByOnePlusBeta ** domainSize;
+    ) internal view returns (Fr) {
+        Fr gammaByOnePlusBeta = gamma * (beta + Fr.wrap(1));
+        // TODO: move domain to a fr too?
+        return gammaByOnePlusBeta ^ Fr.wrap(domainSize);
     }
 
     // function verifySumcheck() {}

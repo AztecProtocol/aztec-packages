@@ -43,7 +43,7 @@ inline void output_vk_sol_ultra_honk(
     //   "// Verification Key Hash: " << key->sha256_hash() << "\n"
       "// SPDX-License-Identifier: Apache-2.0\n"
       "// Copyright 2022 Aztec\n"
-      "pragma solidity >=0.8.4;\n"
+      "pragma solidity >=0.8.21;\n"
       "\n"
       "import { HonkTypes } from \"../HonkVerifierTypes.sol\";\n"
       "library " << class_name << " {\n"
