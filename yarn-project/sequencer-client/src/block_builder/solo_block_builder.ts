@@ -155,6 +155,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     txs: ProcessedTx[],
     l1ToL2Messages: Fr[],
   ): Promise<[RootRollupPublicInputs, Proof]> {
+    // TODO(#5357): Instead of performing the check bellow pad the txs here.
     // Check that the length of the array of txs is a power of two
     // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
     if (txs.length < 2 || (txs.length & (txs.length - 1)) !== 0) {
