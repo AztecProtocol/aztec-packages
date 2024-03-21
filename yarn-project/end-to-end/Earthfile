@@ -21,11 +21,10 @@ get-end-to-end:
       FROM ../+end-to-end-minimal
     END
 
-E2E_TEST:
+E2E_TEST_HELPER:
     FUNCTION
     ARG test
     ARG compose_file=./scripts/docker-compose.yml
-    FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
     ENV TEST=$test
     COPY $compose_file $compose_file
     WITH DOCKER \
@@ -35,8 +34,15 @@ E2E_TEST:
         # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
         RUN docker compose -f $compose_file up --exit-code-from=sandbox --force-recreate
     END
-# we could use a parameterized target, but these just print cleaner in earthly log
 
+E2E_TEST:
+    FUNCTION
+    ARG test
+    ARG compose_file=./scripts/docker-compose.yml
+    FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
+    DO +E2E_TEST_HELPER --test=$test --compose_file=$compose_file
+
+# we could use a parameterized target, but these just print cleaner in earthly log
 e2e-block-building:
   DO +E2E_TEST --test=e2e_block_building.test.ts
 
@@ -101,16 +107,19 @@ e2e-card-game:
   DO +E2E_TEST --test=e2e_card_game.test.ts
 
 e2e-avm-simulator:
+  FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
   ENV AVM_ENABLED=1
-  DO +E2E_TEST --test=e2e_avm_simulator.test.ts
+  DO +E2E_TEST_HELPER --test=e2e_avm_simulator.test.ts
 
 e2e-fees:
+  FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
   ENV ENABLE_GAS=1
-  DO +E2E_TEST --test=e2e_fees.test.ts
+  DO +E2E_TEST_HELPER --test=e2e_fees.test.ts
 
 e2e-dapp-subscription:
+  FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
   ENV ENABLE_GAS=1
-  DO +E2E_TEST --test=e2e_dapp_subscription.test.ts
+  DO +E2E_TEST_HELPER --test=e2e_dapp_subscription.test.ts
 
 pxe:
   DO +E2E_TEST --test=pxe_sandbox.test.ts
@@ -119,8 +128,9 @@ cli-docs-sandbox:
   DO +E2E_TEST --test=cli_docs_sandbox.test.ts
 
 e2e-docs-examples:
+  FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
   ENV AVM_ENABLED=1
-  DO +E2E_TEST --test=docs_examples_test.ts
+  DO +E2E_TEST_HELPER --test=docs_examples_test.ts
 
 test-all:
   BUILD +e2e-state-vars

@@ -46,7 +46,6 @@ jobs:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
       matrix:
-        environment: [x86, arm]
         test:
           - e2e-state-vars
           - e2e-block-building
