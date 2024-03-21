@@ -1430,6 +1430,7 @@ impl Context {
             TerminatorInstruction::Return { return_values, call_stack } => {
                 (return_values, call_stack)
             }
+            // TODO(https://github.com/noir-lang/noir/issues/4616): Enable recursion on foldable/non-inlined ACIR functions
             _ => unreachable!("ICE: Program must have a singular return"),
         };
 
