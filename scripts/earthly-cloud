@@ -7,7 +7,7 @@ USERNAME=$2
 SIZE=$3
 ARCH=$4
 
-shift 3
+shift 4
 
 if [ "$ARCH" == "arm" ]; then
   PLATFORM=linux/arm64
