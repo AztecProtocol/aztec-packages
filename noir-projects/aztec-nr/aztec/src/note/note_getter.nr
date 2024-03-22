@@ -100,7 +100,7 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, FILTER_ARGS>
 ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
-    let mut opt_notes = get_notes_internal(storage_slot, options);
+    let opt_notes = get_notes_internal(storage_slot, options);
     let mut returned_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let mut num_notes = 0;
