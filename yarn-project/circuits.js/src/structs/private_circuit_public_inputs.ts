@@ -22,6 +22,7 @@ import { Header } from '../structs/header.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../structs/side_effects.js';
 import { CallContext } from './call_context.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
+import { MaxBlockNumber } from './max_block_number.js';
 import { NullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
 import { ReadRequest } from './read_request.js';
 
@@ -47,6 +48,10 @@ export class PrivateCircuitPublicInputs {
      * The side-effect counter under which all side effects are non-revertible.
      */
     public minRevertibleSideEffectCounter: Fr,
+    /**
+     * The maximum block number in which this transaction can be included and be valid.
+     */
+    public maxBlockNumber: MaxBlockNumber,
     /**
      * Read requests created by the corresponding function call.
      */
@@ -149,6 +154,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readArray(RETURN_VALUES_LENGTH, Fr),
       reader.readObject(Fr),
+      reader.readObject(MaxBlockNumber),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest),
@@ -176,6 +182,7 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readFieldArray(RETURN_VALUES_LENGTH),
       reader.readField(),
+      reader.readObject(MaxBlockNumber),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest),
@@ -206,6 +213,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
       Fr.ZERO,
+      MaxBlockNumber.empty(),
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest.empty),
@@ -236,6 +244,7 @@ export class PrivateCircuitPublicInputs {
       this.argsHash.isZero() &&
       isZeroArray(this.returnValues) &&
       this.minRevertibleSideEffectCounter.isZero() &&
+      this.maxBlockNumber.isEmpty() &&
       isEmptyArray(this.noteHashReadRequests) &&
       isEmptyArray(this.nullifierReadRequests) &&
       isEmptyArray(this.nullifierKeyValidationRequests) &&
@@ -265,6 +274,7 @@ export class PrivateCircuitPublicInputs {
       fields.argsHash,
       fields.returnValues,
       fields.minRevertibleSideEffectCounter,
+      fields.maxBlockNumber,
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,
       fields.nullifierKeyValidationRequests,
