@@ -85,7 +85,7 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async baseParityCircuit(inputs: BaseParityInputs): Promise<ParityPublicInputs> {
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
 
-    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, BaseParityArtifact);
+    const witness = await this.simulationProvider.simulateCircuit(witnessMap, BaseParityArtifact);
 
     const result = convertBaseParityOutputsFromWitnessMap(witness);
 
@@ -100,7 +100,7 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async rootParityCircuit(inputs: RootParityInputs): Promise<ParityPublicInputs> {
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
-    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, RootParityArtifact);
+    const witness = await this.simulationProvider.simulateCircuit(witnessMap, RootParityArtifact);
 
     const result = convertRootParityOutputsFromWitnessMap(witness);
 
@@ -115,7 +115,7 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
   public async baseRollupCircuit(input: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
     const witnessMap = convertBaseRollupInputsToWitnessMap(input);
 
-    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, BaseRollupArtifact);
+    const witness = await this.simulationProvider.simulateCircuit(witnessMap, BaseRollupArtifact);
 
     const result = convertBaseRollupOutputsFromWitnessMap(witness);
 

@@ -55,6 +55,7 @@ const logger = createDebugLogger('aztec:prover:proving-orchestrator');
  */
 
 const SLEEP_TIME = 50;
+const MAX_CONCURRENT_JOBS = 64;
 
 enum PROMISE_RESULT {
   SLEEP,
@@ -75,6 +76,7 @@ export class ProvingOrchestrator {
     simulationProvider: SimulationProvider,
     protected vks: VerificationKeys,
     private prover: RollupProver,
+    private maxConcurrentJobs = MAX_CONCURRENT_JOBS,
   ) {
     this.simulator = new RealRollupCircuitSimulator(simulationProvider);
   }
@@ -458,8 +460,6 @@ export class ProvingOrchestrator {
    * Works by managing an input queue of proof requests and an active pool of proving 'jobs'
    */
   private async processJobQueue() {
-    // This is temporary to keep benchmarks consistent
-    const maxConcurrentJobs = 1;
     // Used for determining the current state of a proving job
     const promiseState = (p: Promise<void>) => {
       const t = {};
@@ -479,7 +479,7 @@ export class ProvingOrchestrator {
     let promises: Promise<void>[] = [];
     while (!this.stopped) {
       // first look for more work
-      if (this.jobQueue.length() && promises.length < maxConcurrentJobs) {
+      if (this.jobQueue.length() && promises.length < this.maxConcurrentJobs) {
         // more work could be available
         const job = await this.jobQueue.get();
         if (job !== null) {
