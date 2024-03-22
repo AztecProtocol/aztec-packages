@@ -190,9 +190,7 @@ jobs:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      # need this to match the user's bench runner
-      # earthly satellites can't enforce parallelism==1 so we do it through github
-      group: bench-${{ github.actor }}
+      group: ${{ matrix.test }}-${{ github.event.pull_request.number || github.ref_name }}-x86
       cancel-in-progress: ${{ github.ref_name != 'master' }}
     steps:
       - uses: earthly/actions-setup@v1
