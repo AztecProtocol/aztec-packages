@@ -818,7 +818,7 @@ export function mapSha256HashFromNoir(hash: Field): Buffer {
  * @returns The hash as it is represented in Noir (1 field, truncated).
  */
 export function mapSha256HashToNoir(hash: Buffer): Field {
-  return mapFieldToNoir(toTruncField(hash)[0]);
+  return mapFieldToNoir(toTruncField(hash));
 }
 
 /**

@@ -31,9 +31,9 @@ export class ContentCommitment {
   toFields(): Fr[] {
     const serialized = [
       this.txTreeHeight,
-      ...toTruncField(this.txsEffectsHash),
-      ...toTruncField(this.inHash),
-      ...toTruncField(this.outHash),
+      toTruncField(this.txsEffectsHash),
+      toTruncField(this.inHash),
+      toTruncField(this.outHash),
     ];
     if (serialized.length !== CONTENT_COMMITMENT_LENGTH) {
       throw new Error(`Expected content commitment to have 4 fields, but it has ${serialized.length} fields`);
