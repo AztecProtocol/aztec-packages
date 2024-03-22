@@ -22,8 +22,8 @@ void default_model(const std::vector<std::string>& special,
 {
     std::vector<cvc5::Term> vterms1;
     std::vector<cvc5::Term> vterms2;
-    vterms1.reserve(c1.get_num_real_vars());
-    vterms2.reserve(c1.get_num_real_vars());
+    vterms1.reserve(c1.get_num_vars());
+    vterms2.reserve(c1.get_num_vars());
 
     for (uint32_t i = 0; i < c1.get_num_vars(); i++) {
         vterms1.push_back(c1.symbolic_vars[c1.real_variable_index[i]]);
@@ -81,10 +81,10 @@ void default_model_single(const std::vector<std::string>& special,
                           const std::string& fname)
 {
     std::vector<cvc5::Term> vterms;
-    vterms.reserve(c.get_num_real_vars());
+    vterms.reserve(c.get_num_vars());
 
     for (uint32_t i = 0; i < c.get_num_vars(); i++) {
-        vterms.push_back(c.symbolic_vars[i]);
+        vterms.push_back(c.symbolic_vars[c.real_variable_index[i]]);
     }
 
     std::unordered_map<std::string, std::string> mmap = s->model(vterms);

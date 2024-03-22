@@ -47,7 +47,7 @@ std::unordered_map<std::string, std::string> Solver::model(std::unordered_map<st
             str_val = val.getIntegerValue();
         } else if (val.isFiniteFieldValue()) {
             str_val = val.getFiniteFieldValue();
-        } else if (val.isBitVectorValue()){
+        } else if (val.isBitVectorValue()) {
             str_val = val.getBitVectorValue();
         } else {
             throw std::invalid_argument("Expected Integer or FiniteField sorts. Got: " + val.getSort().toString());
@@ -84,7 +84,7 @@ std::unordered_map<std::string, std::string> Solver::model(std::vector<cvc5::Ter
             str_val = val.getIntegerValue();
         } else if (val.isFiniteFieldValue()) {
             str_val = val.getFiniteFieldValue();
-        } else if (val.isBitVectorValue()){
+        } else if (val.isBitVectorValue()) {
             str_val = val.getBitVectorValue();
         } else {
             throw std::invalid_argument("Expected Integer or FiniteField sorts. Got: " + val.getSort().toString());
