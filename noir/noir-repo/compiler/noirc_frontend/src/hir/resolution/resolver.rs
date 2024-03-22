@@ -1163,6 +1163,7 @@ impl<'a> Resolver<'a> {
             pattern: self.resolve_pattern(let_stmt.pattern, definition),
             r#type: self.resolve_type(let_stmt.r#type),
             expression,
+            attributes: let_stmt.attributes,
         })
     }
 
@@ -1175,6 +1176,7 @@ impl<'a> Resolver<'a> {
                     pattern: self.resolve_pattern(let_stmt.pattern, definition),
                     r#type: self.resolve_type(let_stmt.r#type),
                     expression,
+                    attributes: let_stmt.attributes,
                 })
             }
             StatementKind::Constrain(constrain_stmt) => {

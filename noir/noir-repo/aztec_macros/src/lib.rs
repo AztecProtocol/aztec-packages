@@ -14,10 +14,7 @@ use transforms::{
 
 use noirc_frontend::{
     hir::def_collector::dc_crate::{UnresolvedFunctions, UnresolvedTraitImpl},
-    macros_api::{
-        CrateId, FileId, HirContext, MacroError, MacroProcessor, SecondaryAttribute, SortedModule,
-        Span,
-    },
+    macros_api::{CrateId, FileId, HirContext, MacroError, MacroProcessor, SortedModule, Span},
 };
 
 use utils::{
@@ -100,8 +97,8 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
         }
     }
 
-    for structure in module.types.iter() {
-        if structure.attributes.iter().any(|attr| matches!(attr, SecondaryAttribute::Event)) {
+    for structure in module.types.iter_mut() {
+        if structure.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(event)")) {
             module.impls.push(generate_selector_impl(structure));
             has_transformed_module = true;
         }

@@ -2,13 +2,13 @@ use crate::graph::CrateId;
 use crate::hir::def_collector::dc_crate::{CompilationError, DefCollector};
 use crate::hir::Context;
 use crate::macros_api::MacroProcessor;
-use crate::node_interner::{FuncId, NodeInterner, StructId};
+use crate::node_interner::{FuncId, GlobalId, NodeInterner, StructId};
 use crate::parser::{parse_program, ParsedModule, ParserError};
 use crate::token::{FunctionAttribute, SecondaryAttribute, TestScope};
 use arena::{Arena, Index};
 use fm::{FileId, FileManager};
 use noirc_errors::Location;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 mod module_def;
 pub use module_def::*;
 mod item_scope;
@@ -229,8 +229,45 @@ impl CrateDefMap {
                         })
                         .collect();
 
+                    let mut outputs =
+                        ContractOutputs { structs: HashMap::new(), globals: HashMap::new() };
+
+                    interner.get_all_globals().iter().for_each(|global_info| {
+                        interner.global_attributes(&global_info.id).iter().for_each(|attr| {
+                            match attr {
+                                SecondaryAttribute::Abi(tag) => {
+                                    if let Some(tagged) = outputs.globals.get_mut(tag) {
+                                        tagged.push(global_info.id)
+                                    } else {
+                                        outputs
+                                            .globals
+                                            .insert(tag.to_string(), vec![global_info.id]);
+                                    }
+                                }
+                                _ => (),
+                            }
+                        })
+                    });
+
+                    module.type_definitions().for_each(|id| match id {
+                        ModuleDefId::TypeId(struct_id) => interner
+                            .struct_attributes(&struct_id)
+                            .iter()
+                            .for_each(|attr| match attr {
+                                SecondaryAttribute::Abi(tag) => {
+                                    if let Some(tagged) = outputs.structs.get_mut(tag) {
+                                        tagged.push(struct_id)
+                                    } else {
+                                        outputs.structs.insert(tag.to_string(), vec![struct_id]);
+                                    }
+                                }
+                                _ => (),
+                            }),
+                        _ => (),
+                    });
+
                     let name = self.get_module_path(id, module.parent);
-                    Some(Contract { name, location: module.location, functions, events })
+                    Some(Contract { name, location: module.location, functions, events, outputs })
                 } else {
                     None
                 }
@@ -283,6 +320,11 @@ pub struct ContractFunctionMeta {
     pub is_entry_point: bool,
 }
 
+pub struct ContractOutputs {
+    pub structs: HashMap<String, Vec<StructId>>,
+    pub globals: HashMap<String, Vec<GlobalId>>,
+}
+
 /// A 'contract' in Noir source code with a given name, functions and events.
 /// This is not an AST node, it is just a convenient form to return for CrateDefMap::get_all_contracts.
 pub struct Contract {
@@ -291,6 +333,7 @@ pub struct Contract {
     pub location: Location,
     pub functions: Vec<ContractFunctionMeta>,
     pub events: Vec<StructId>,
+    pub outputs: ContractOutputs,
 }
 
 /// Given a FileId, fetch the File, from the FileManager and parse it's content
