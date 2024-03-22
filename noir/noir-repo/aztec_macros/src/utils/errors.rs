@@ -11,7 +11,6 @@ pub enum AztecMacroError {
     UnsupportedStorageType { span: Option<Span>, typ: UnresolvedTypeData },
     CouldNotAssignStorageSlots { secondary_message: Option<String> },
     CouldNotImplementNoteInterface { span: Option<Span>, secondary_message: Option<String> },
-    MultipleStorageDefinitions { span: Option<Span> },
     EventError { span: Span, message: String },
     UnsupportedAttributes { span: Span, secondary_message: Option<String> },
 }
@@ -48,11 +47,6 @@ impl From<AztecMacroError> for MacroError {
                 primary_message: "Could not implement automatic methods for note, please provide an implementation of the NoteInterface trait".to_string(),
                 secondary_message,
                 span
-            },
-            AztecMacroError::MultipleStorageDefinitions { span } => MacroError {
-                primary_message: "Only one struct can be tagged as #[aztec(storage)]".to_string(),
-                secondary_message: None,
-                span,
             },
             AztecMacroError::EventError { span, message } => MacroError {
                 primary_message: message,

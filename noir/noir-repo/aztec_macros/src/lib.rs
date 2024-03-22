@@ -4,7 +4,9 @@ mod utils;
 use transforms::{
     compute_note_hash_and_nullifier::inject_compute_note_hash_and_nullifier,
     events::{generate_selector_impl, transform_events},
-    functions::{transform_function, transform_unconstrained, transform_vm_function},
+    functions::{
+        export_fn_abi, transform_function, transform_unconstrained, transform_vm_function,
+    },
     note_interface::generate_note_interface_impl,
     storage::{
         assign_storage_slots, check_for_storage_definition, check_for_storage_implementation,
@@ -139,6 +141,7 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
 
         // Apply transformations to the function based on collected attributes
         if is_private || is_public {
+            export_fn_abi(&mut module.types, func)?;
             transform_function(
                 if is_private { "Private" } else { "Public" },
                 func,
