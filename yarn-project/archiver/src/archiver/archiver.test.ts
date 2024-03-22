@@ -207,7 +207,7 @@ function makeMessageSentEvent(l1BlockNum: bigint, l2BlockNumber: bigint, index: 
     args: {
       blockNumber: l2BlockNumber,
       index,
-      value: Fr.random().toString(),
+      hash: Fr.random().toString(),
     },
     transactionHash: `0x${l1BlockNum}`,
   } as Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageSent'>;

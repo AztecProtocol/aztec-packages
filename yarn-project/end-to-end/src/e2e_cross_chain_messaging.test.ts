@@ -82,14 +82,14 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
 
     // 2. Deposit tokens to the TokenPortal
-    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPrivate(
+    const msgHash = await crossChainTestHarness.sendTokensToPortalPrivate(
       secretHashForRedeemingMintedNotes,
       bridgeAmount,
       secretHashForL2MessageConsumption,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
+    await crossChainTestHarness.makeMessageConsumable(msgHash);
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintPrivately(
@@ -146,7 +146,7 @@ describe('e2e_cross_chain_messaging', () => {
       crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPrivate(
+    const msgHash = await crossChainTestHarness.sendTokensToPortalPrivate(
       secretHashForRedeemingMintedNotes,
       bridgeAmount,
       secretHashForL2MessageConsumption,
@@ -154,7 +154,7 @@ describe('e2e_cross_chain_messaging', () => {
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the message to be available for consumption
-    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
+    await crossChainTestHarness.makeMessageConsumable(msgHash);
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
     const content = toTruncField(
@@ -227,7 +227,7 @@ describe('e2e_cross_chain_messaging', () => {
     const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
       crossChainTestHarness.generateClaimSecret();
 
-    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPrivate(
+    const msgHash = await crossChainTestHarness.sendTokensToPortalPrivate(
       Fr.random(),
       bridgeAmount,
       secretHashForL2MessageConsumption,
@@ -235,7 +235,7 @@ describe('e2e_cross_chain_messaging', () => {
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(0n);
 
     // Wait for the message to be available for consumption
-    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
+    await crossChainTestHarness.makeMessageConsumable(msgHash);
 
     const content = toTruncField(
       sha256(

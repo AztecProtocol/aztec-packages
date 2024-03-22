@@ -10,7 +10,13 @@ import {DataStructures} from "../../libraries/DataStructures.sol";
  * @notice Lives on L1 and is used to pass messages into the rollup from L1.
  */
 interface IInbox {
-  event MessageSent(uint256 indexed blockNumber, uint256 index, bytes32 value);
+  /**
+   * @notice Emitted when a message is sent
+   * @param blockNumber - The block number in which the message is included
+   * @param index - The index of the message in the block
+   * @param hash - The hash of the message
+   */
+  event MessageSent(uint256 indexed blockNumber, uint256 index, bytes32 hash);
 
   // docs:start:send_l1_to_l2_message
   /**

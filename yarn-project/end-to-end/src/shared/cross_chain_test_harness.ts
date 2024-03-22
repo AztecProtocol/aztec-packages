@@ -463,9 +463,9 @@ export class CrossChainTestHarness {
    * the message is sent to Inbox and when the subtree containing the message is included in the block and then when
    * it's included it becomes available for consumption in the next block because the l1 to l2 message tree.
    */
-  async makeMessageConsumable(msgLeaf: Fr) {
+  async makeMessageConsumable(msgHash: Fr) {
     // We poll isL1ToL2MessageSynced endpoint until the message is available
-    await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(msgLeaf), 'message sync', 10);
+    await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(msgHash), 'message sync', 10);
 
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);
