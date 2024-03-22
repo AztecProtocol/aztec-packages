@@ -72,15 +72,15 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
     auto proof = prover.construct_proof();
     auto proving_key = instance->proving_key;
 
-    for (auto& poly : proving_key->get_selectors()) {
+    for (auto& poly : proving_key.get_selectors()) {
         ensure_non_zero(poly);
     }
 
-    for (auto& poly : proving_key->get_table_polynomials()) {
+    for (auto& poly : proving_key.get_table_polynomials()) {
         ensure_non_zero(poly);
     }
 
-    for (auto& poly : proving_key->get_wires()) {
+    for (auto& poly : proving_key.get_wires()) {
         ensure_non_zero(poly);
     }
 }

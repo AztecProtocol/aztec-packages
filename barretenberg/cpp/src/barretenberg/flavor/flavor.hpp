@@ -159,6 +159,7 @@ class VerificationKey_ : public PrecomputedCommitments {
     size_t pub_inputs_offset = 0;
 
     VerificationKey_() = default;
+    // VerificationKey_(const VerificationKey_& other) = default;
     VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
         this->circuit_size = circuit_size;
@@ -166,18 +167,18 @@ class VerificationKey_ : public PrecomputedCommitments {
         this->num_public_inputs = num_public_inputs;
     };
 
-    template <typename ProvingKeyPtr> VerificationKey_(const ProvingKeyPtr& proving_key)
-    {
-        this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-        this->circuit_size = proving_key->circuit_size;
-        this->log_circuit_size = numeric::get_msb(this->circuit_size);
-        this->num_public_inputs = proving_key->num_public_inputs;
-        this->pub_inputs_offset = proving_key->pub_inputs_offset;
+    // VerificationKey_(ProvingKey& proving_key)
+    // {
+    //     this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+    //     this->circuit_size = proving_key.circuit_size;
+    //     this->log_circuit_size = numeric::get_msb(this->circuit_size);
+    //     this->num_public_inputs = proving_key.num_public_inputs;
+    //     this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
-        for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
-            commitment = proving_key->commitment_key->commit(polynomial);
-        }
-    }
+    //     for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed_polynomials(), this->get_all())) {
+    //         commitment = proving_key.commitment_key->commit(polynomial);
+    //     }
+    // }
 };
 
 // Because of how Gemini is written, is importat to put the polynomials out in this order.

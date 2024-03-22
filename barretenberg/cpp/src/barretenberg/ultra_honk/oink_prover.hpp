@@ -43,7 +43,7 @@ template <IsUltraFlavor Flavor> class OinkProver {
     using FF = typename Flavor::FF;
 
   public:
-    std::shared_ptr<ProvingKey> proving_key;
+    ProvingKey& proving_key;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<CommitmentKey> commitment_key;
     std::string domain_separator;
@@ -52,7 +52,7 @@ template <IsUltraFlavor Flavor> class OinkProver {
 
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
 
-    OinkProver(const std::shared_ptr<ProvingKey>& proving_key,
+    OinkProver(ProvingKey& proving_key,
                const std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key,
                const std::shared_ptr<typename Flavor::Transcript>& transcript,
                std::string domain_separator = "")

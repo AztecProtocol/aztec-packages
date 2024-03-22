@@ -14,7 +14,7 @@ template <IsUltraFlavor Flavor>
 UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const std::shared_ptr<Transcript>& transcript)
     : instance(std::move(inst))
     , transcript(transcript)
-    , commitment_key(instance->proving_key->commitment_key)
+    , commitment_key(instance->proving_key.commitment_key)
     , oink_prover(inst->proving_key, commitment_key, transcript, "")
 {}
 
@@ -29,7 +29,7 @@ template <IsUltraFlavor Flavor>
 UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     : instance(std::make_shared<ProverInstance>(circuit))
     , transcript(std::make_shared<Transcript>())
-    , commitment_key(instance->proving_key->commitment_key)
+    , commitment_key(instance->proving_key.commitment_key)
     , oink_prover(instance->proving_key, commitment_key, transcript, "")
 {}
 
@@ -40,7 +40,7 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
 template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor>;
-    auto circuit_size = instance->proving_key->circuit_size;
+    auto circuit_size = instance->proving_key.circuit_size;
     auto sumcheck = Sumcheck(circuit_size, transcript);
     RelationSeparator alphas;
     for (size_t idx = 0; idx < alphas.size(); idx++) {
