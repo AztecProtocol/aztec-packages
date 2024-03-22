@@ -12,7 +12,7 @@ namespace bb {
 class perm_main_bin_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 6;
+    constexpr static size_t COLUMNS_PER_SET = 5;
 
     /**
      * @brief If this method returns true on a row of values, then the inverse polynomial at this index. Otherwise the
@@ -23,7 +23,7 @@ class perm_main_bin_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.avm_main_bin_sel == 1 || in.avm_binary_latch == 1);
+        return (in.avm_main_bin_sel == 1 || in.avm_binary_start == 1);
     }
 
     /**
@@ -49,19 +49,17 @@ class perm_main_bin_permutation_settings {
         return std::forward_as_tuple(in.perm_main_bin,
                                      in.avm_main_bin_sel,
                                      in.avm_main_bin_sel,
-                                     in.avm_binary_latch,
-                                     in.avm_main_clk,
+                                     in.avm_binary_start,
                                      in.avm_main_ia,
                                      in.avm_main_ib,
                                      in.avm_main_ic,
                                      in.avm_main_bin_op_id,
                                      in.avm_main_in_tag,
-                                     in.avm_binary_bin_clk,
                                      in.avm_binary_acc_ia,
                                      in.avm_binary_acc_ib,
                                      in.avm_binary_acc_ic,
                                      in.avm_binary_op_id,
-                                     in.avm_binary_instr_tag);
+                                     in.avm_binary_in_tag);
     }
 
     /**
@@ -87,19 +85,17 @@ class perm_main_bin_permutation_settings {
         return std::forward_as_tuple(in.perm_main_bin,
                                      in.avm_main_bin_sel,
                                      in.avm_main_bin_sel,
-                                     in.avm_binary_latch,
-                                     in.avm_main_clk,
+                                     in.avm_binary_start,
                                      in.avm_main_ia,
                                      in.avm_main_ib,
                                      in.avm_main_ic,
                                      in.avm_main_bin_op_id,
                                      in.avm_main_in_tag,
-                                     in.avm_binary_bin_clk,
                                      in.avm_binary_acc_ia,
                                      in.avm_binary_acc_ib,
                                      in.avm_binary_acc_ic,
                                      in.avm_binary_op_id,
-                                     in.avm_binary_instr_tag);
+                                     in.avm_binary_in_tag);
     }
 };
 

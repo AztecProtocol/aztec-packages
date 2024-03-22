@@ -1208,12 +1208,12 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_binary_acc_ia = src.acc_ia;
         dest.avm_binary_acc_ib = src.acc_ib;
         dest.avm_binary_acc_ic = src.acc_ic;
-        dest.avm_binary_instr_tag = src.instr_tag;
+        dest.avm_binary_in_tag = src.in_tag;
         dest.avm_binary_op_id = src.op_id;
         dest.avm_binary_bin_ia_bytes = src.bin_ia_bytes;
         dest.avm_binary_bin_ib_bytes = src.bin_ib_bytes;
         dest.avm_binary_bin_ic_bytes = src.bin_ic_bytes;
-        dest.avm_binary_latch = FF(static_cast<uint8_t>(src.latch));
+        dest.avm_binary_start = FF(static_cast<uint8_t>(src.start));
         dest.avm_binary_mem_tag_ctr = src.mem_tag_ctr;
     }
 
@@ -1250,14 +1250,14 @@ std::vector<Row> AvmTraceBuilder::finalize()
         // {U8: 1, U16: 2, U32: 4, U64: 8, U128: 16}
         for (uint8_t avm_in_tag = 0; avm_in_tag < 5; avm_in_tag++) {
             // The +1 here is because the instruction tags we care about (i.e excl U0 and FF) has the range [1,5]
-            main_trace.at(avm_in_tag).avm_byte_lookup_table_instr_tags = avm_in_tag + 1;
+            main_trace.at(avm_in_tag).avm_byte_lookup_table_in_tags = avm_in_tag + 1;
             main_trace.at(avm_in_tag).avm_byte_lookup_table_byte_lengths = static_cast<uint8_t>(pow(2, avm_in_tag));
             main_trace.at(avm_in_tag).lookup_byte_lengths_counts =
                 bin_trace_builder.byte_length_counter[avm_in_tag + 1];
         }
     }
     // Adding extra row for the shifted values at the top of the execution trace.
-    Row first_row = Row{ .avm_main_first = FF(1), .avm_mem_m_lastAccess = FF(1), .avm_binary_latch = FF() };
+    Row first_row = Row{ .avm_main_first = FF(1), .avm_mem_m_lastAccess = FF(1) };
     main_trace.insert(main_trace.begin(), first_row);
 
     auto trace = std::move(main_trace);

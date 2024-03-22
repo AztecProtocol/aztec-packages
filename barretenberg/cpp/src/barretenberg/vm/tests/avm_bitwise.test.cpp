@@ -108,12 +108,12 @@ void common_validate_bit_op(std::vector<Row> const& trace,
 
     // Use the row in the main trace to find the same operation in the alu trace.
     FF clk = row->avm_main_clk;
-    auto bin_row_latched = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
-        return r.avm_binary_bin_clk == clk && r.avm_binary_latch == FF(1);
+    auto bin_row_start = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
+        return r.avm_binary_bin_clk == clk && r.avm_binary_start == FF(1);
     });
 
     // Check that both rows were found
-    EXPECT_TRUE(bin_row_latched != trace.end());
+    EXPECT_TRUE(bin_row_start != trace.end());
     EXPECT_TRUE(row != trace.end());
 
     // Check that the correct result is stored at the expected memory location.
@@ -137,14 +137,14 @@ void common_validate_bit_op(std::vector<Row> const& trace,
     // Check the instruction tag
     EXPECT_EQ(row->avm_main_in_tag, FF(static_cast<uint32_t>(tag)));
 
-    // Check that latched row is the same as what is copied into the main trace
-    EXPECT_EQ(bin_row_latched->avm_binary_acc_ia, a);
-    EXPECT_EQ(bin_row_latched->avm_binary_acc_ib, b);
-    EXPECT_EQ(bin_row_latched->avm_binary_acc_ic, c);
+    // Check that start row is the same as what is copied into the main trace
+    EXPECT_EQ(bin_row_start->avm_binary_acc_ia, a);
+    EXPECT_EQ(bin_row_start->avm_binary_acc_ib, b);
+    EXPECT_EQ(bin_row_start->avm_binary_acc_ic, c);
 
-    EXPECT_EQ(bin_row_latched->avm_binary_op_id, op_id);
-    EXPECT_EQ(bin_row_latched->avm_binary_bin_sel, FF(1));
-    EXPECT_EQ(bin_row_latched->avm_binary_instr_tag, static_cast<uint8_t>(tag));
+    EXPECT_EQ(bin_row_start->avm_binary_op_id, op_id);
+    EXPECT_EQ(bin_row_start->avm_binary_bin_sel, FF(1));
+    EXPECT_EQ(bin_row_start->avm_binary_in_tag, static_cast<uint8_t>(tag));
 }
 
 std::vector<Row> gen_mutated_trace_not(FF const& a, FF const& c_mutated, avm_trace::AvmMemoryTag tag)
@@ -163,10 +163,10 @@ std::vector<Row> gen_mutated_trace_not(FF const& a, FF const& c_mutated, avm_tra
 
 // These are the potential failures we handle for the negative tests involving the binary trace.
 enum BIT_FAILURES {
-    IncorrectFactor,
     BitDecomposition,
     MemTagCtr,
     IncorrectAcc,
+    InconsistentOpId,
     ByteLookupError,
     ByteLengthError,
 };
@@ -177,60 +177,70 @@ std::vector<Row> gen_mutated_trace_bit(std::vector<Row> trace,
 {
     auto main_trace_row = std::ranges::find_if(trace.begin(), trace.end(), select_row);
     auto main_clk = main_trace_row->avm_main_clk;
-    // The corresponding row in the binary trace
+    // The corresponding row in the binary trace as well as the row where start = 1
     auto binary_row = std::ranges::find_if(
         trace.begin(), trace.end(), [main_clk](Row r) { return r.avm_binary_bin_clk == main_clk; });
-    // The corresponding row in the binary trace where the latch is set to 1
-    auto latched_row = std::ranges::find_if(trace.begin(), trace.end(), [main_clk](Row r) {
-        return r.avm_binary_bin_clk == main_clk && r.avm_binary_latch == FF(1);
+    // The corresponding row in the binary trace where the computation ends.
+    auto last_row = std::ranges::find_if(trace.begin(), trace.end(), [main_clk](Row r) {
+        return r.avm_binary_bin_clk == main_clk && r.avm_binary_mem_tag_ctr == FF(0);
     });
     switch (fail_mode) {
-    case IncorrectFactor: {
-        // Simply zero the factor at the start as the relation checks it is 1.
-        binary_row->avm_binary_factor = 0;
-        break;
-    }
     case BitDecomposition: {
         // Incrementing the bytes should indicate an incorrect decomposition
+        // The lookups are checked later so this will throw an error about decomposition
         binary_row->avm_binary_bin_ic_bytes++;
         break;
     }
     case MemTagCtr: {
-        // mem_tag_ctr' - mem_tag_ctr = 2, breaking the incrementing relation
+        // Increment instead of decrementing
         binary_row->avm_binary_mem_tag_ctr++;
         break;
     }
     case IncorrectAcc: {
-        // Accumulator should start at 0;
+        // The lookups are checked later so this will throw an error about accumulation
         binary_row->avm_binary_acc_ic++;
         break;
     }
+    case InconsistentOpId: {
+        // We don't update the first index as that is checked by the permutation check.
+        // So we update the next op_id to be incorrect.
+        auto first_index = static_cast<size_t>(std::distance(trace.begin(), binary_row));
+        trace.at(first_index + 1).avm_binary_op_id++;
+        break;
+    }
     case ByteLookupError: {
-        // In the latched row the bytes = 0, this sets it to a value where the lookup
-        // involving a_bytes and b_bytes are incorrect
-        latched_row->avm_binary_bin_ic_bytes = static_cast<uint8_t>(uint128_t{ c_mutated });
+        // Update the trace to be the mutated value, which also (conveniently)
+        // fits into a byte so we can also update the ic_byte decomposition.
+        // We intentionally select the mutated value to be 0-bytes everywhere else so we dont need to
+        // update anything there or in the corresponding accumulators.
+        mutate_ic_in_trace(trace, std::move(select_row), c_mutated, false);
+        binary_row->avm_binary_acc_ic = c_mutated;
+        binary_row->avm_binary_bin_ic_bytes = static_cast<uint8_t>(uint128_t{ c_mutated });
         break;
     }
-    case ByteLengthError:
-        auto latch_index = static_cast<size_t>(std::distance(trace.begin(), latched_row));
-        // Set the latched row to be 1 earlier than it should be, this triggers the byte length lookup table check.
-        trace.at(latch_index - 1).avm_binary_latch = FF(1);
-        // Update the result in the main_ic to be this new value so we dont trigger an incorrect equivalence check.
-        mutate_ic_in_trace(trace, std::move(select_row), trace.at(latch_index - 1).avm_binary_acc_ic, false);
-        // We need to zero out the previously latched row so we dont trigger any other relation checks
-        latched_row->avm_binary_mem_tag_ctr = 0;
-        latched_row->avm_binary_bin_sel = 0;
-        latched_row->avm_binary_latch = 0;
-        latched_row->avm_binary_factor = 0;
-        latched_row->avm_binary_acc_ia = 0;
-        latched_row->avm_binary_acc_ib = 0;
-        latched_row->avm_binary_acc_ic = 0;
-        latched_row->avm_binary_bin_ia_bytes = 0;
-        latched_row->avm_binary_bin_ib_bytes = 0;
-        latched_row->avm_binary_bin_ic_bytes = 0;
+    case ByteLengthError: {
+        // To trigger this error, we need to start the mem_tag ctr to be incorrect (one less than is should be)
+        // However, to avoid the MEM_REL_TAG error from happening instead, we need to ensure we update the mem_tag
+        // of all rows between the start = 1 and mem_tag = 0;
+        auto last_index = static_cast<size_t>(std::distance(trace.begin(), last_row));
+        auto first_index = static_cast<size_t>(std::distance(trace.begin(), binary_row));
+        for (size_t i = first_index; i <= last_index; i++) {
+            FF ctr = trace.at(i).avm_binary_mem_tag_ctr;
+            if (ctr == FF::one()) {
+                // If the tag is currently 1, it will be set to 0 which means we need to set bin_sel to 1.
+                trace.at(i).avm_binary_bin_sel = FF(1);
+                trace.at(i).avm_binary_mem_tag_ctr = trace.at(i).avm_binary_mem_tag_ctr - 1;
+            } else if (ctr == FF::zero()) {
+                // Leave as zero instead of underflowing
+                trace.at(i).avm_binary_mem_tag_ctr = 0;
+            } else {
+                // Just decrement the mem_tag_ctr
+                trace.at(i).avm_binary_mem_tag_ctr = trace.at(i).avm_binary_mem_tag_ctr - 1;
+            }
+        }
         break;
     }
-
+    }
     return trace;
 }
 } // namespace
@@ -438,7 +448,8 @@ std::vector<std::tuple<std::string, BIT_FAILURES>> bit_failures = {
     { "ACC_REL_C", BIT_FAILURES::BitDecomposition },
     { "MEM_TAG_REL", BIT_FAILURES::MemTagCtr },
     { "LOOKUP_BYTE_LENGTHS", BIT_FAILURES::ByteLengthError },
-    { "LOOKUP_BYTE_OPERATIONS", BIT_FAILURES::ByteLookupError }
+    { "LOOKUP_BYTE_OPERATIONS", BIT_FAILURES::ByteLookupError },
+    { "OP_ID_REL", BIT_FAILURES::InconsistentOpId }
 };
 // For the negative test the output is set to be incorrect so that we can test the byte lookups.
 // Picking "simple" inputs such as zero also makes it easier when check the byte length lookups as we dont
@@ -485,7 +496,6 @@ TEST_P(AvmBitwiseNegativeTestsOr, AllNegativeTests)
     FF ff_output = FF(uint256_t::from_uint128(output));
     std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_or == FF(1); };
     trace = gen_mutated_trace_bit(trace, std::move(select_row), ff_output, failure_mode);
-    // validate_trace_proof(std::move(trace));
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string);
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseNegativeTests,
@@ -506,7 +516,6 @@ TEST_P(AvmBitwiseNegativeTestsXor, AllNegativeTests)
     FF ff_output = FF(uint256_t::from_uint128(output));
     std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_xor == FF(1); };
     trace = gen_mutated_trace_bit(trace, std::move(select_row), ff_output, failure_mode);
-    // validate_trace_proof(std::move(trace));
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string)
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseNegativeTests,

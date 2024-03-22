@@ -265,10 +265,10 @@ namespace avm_main(256);
     bin_sel = (sel_op_and + sel_op_or + sel_op_xor);
     
     #[PERM_MAIN_BIN]
-    bin_sel {clk, ia, ib, ic, bin_op_id, in_tag}
+    bin_sel {ia, ib, ic, bin_op_id, in_tag}
     is
-    avm_binary.latch {avm_binary.bin_clk, avm_binary.acc_ia, avm_binary.acc_ib, avm_binary.acc_ic,
-                      avm_binary.op_id, avm_binary.instr_tag};
+    avm_binary.start {avm_binary.acc_ia, avm_binary.acc_ib, avm_binary.acc_ic,
+                      avm_binary.op_id, avm_binary.in_tag};
 
     #[PERM_MAIN_MEM_A]
     mem_op_a {clk, mem_idx_a, ia, rwa, in_tag, sel_mov}
