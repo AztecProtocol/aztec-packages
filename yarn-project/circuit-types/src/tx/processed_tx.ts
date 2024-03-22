@@ -192,7 +192,7 @@ export function toTxEffect(tx: ProcessedTx): TxEffect {
 
 function validateProcessedTxLogs(tx: ProcessedTx): void {
   const unencryptedLogs = tx.unencryptedLogs || new TxL2Logs([]);
-  const kernelUnencryptedLogsHash = tx.data.combinedData.unencryptedLogsHash[0];
+  const kernelUnencryptedLogsHash = tx.data.combinedData.unencryptedLogsHash;
   const referenceHash = toTruncField(unencryptedLogs.hash())[0];
   if (!referenceHash.equals(kernelUnencryptedLogsHash)) {
     throw new Error(

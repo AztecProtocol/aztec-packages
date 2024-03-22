@@ -47,9 +47,9 @@ export async function executePrivateFunction(
   const encryptedLogs = context.getEncryptedLogs();
   const unencryptedLogs = context.getUnencryptedLogs();
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
-  publicInputs.encryptedLogsHash = toTruncField(encryptedLogs.hash());
+  publicInputs.encryptedLogsHash = toTruncField(encryptedLogs.hash())[0];
   publicInputs.encryptedLogPreimagesLength = new Fr(encryptedLogs.getSerializedLength());
-  publicInputs.unencryptedLogsHash = toTruncField(unencryptedLogs.hash());
+  publicInputs.unencryptedLogsHash = toTruncField(unencryptedLogs.hash())[0];
   publicInputs.unencryptedLogPreimagesLength = new Fr(unencryptedLogs.getSerializedLength());
 
   const callStackItem = new PrivateCallStackItem(contractAddress, functionData, publicInputs);
