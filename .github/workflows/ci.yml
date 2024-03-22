@@ -31,11 +31,10 @@ jobs:
         run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }} ${{ github.actor }}
 
       - name: Test
-        working-directory: ./yarn-project/end-to-end/
+        working-directory: ./yarn-project
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
         run: |
-          earthly-cloud build x86 ../+build-end-to-end
-          earthly-cloud build x86 --no-output +${{ matrix.test }}
+          earthly-cloud build x86 +build-end-to-end
 
   # all the end-to-end integration tests for aztec
   e2e-arm:
@@ -74,6 +73,7 @@ jobs:
 
   # all the end-to-end integration tests for aztec
   e2e-x86:
+    needs: build-x86
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
