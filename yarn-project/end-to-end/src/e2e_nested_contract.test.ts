@@ -91,7 +91,11 @@ describe('e2e_nested_contract', () => {
     it('fails simulation if calling a public function not allowed to be called externally', async () => {
       await expect(
         parentContract.methods
-          .enqueue_call_to_child(childContract.address, (childContract.methods as any).pub_inc_value_internal.selector, 42n)
+          .enqueue_call_to_child(
+            childContract.address,
+            (childContract.methods as any).pub_inc_value_internal.selector,
+            42n,
+          )
           .simulate(),
       ).rejects.toThrow(/Assertion failed: Function pub_inc_value_internal can only be called internally/);
     }, 100_000);
@@ -134,10 +138,10 @@ describe('e2e_nested_contract', () => {
     // through the account contract, if the account entrypoint behaves properly, it will honor
     // this order and not run the private call first which results in the public calls being inverted.
     it('executes public calls in expected order', async () => {
-      const pub_set_valueSelector = childContract.methods.pub_set_value.selector;
+      const pubSetValueSelector = childContract.methods.pub_set_value.selector;
       const actions = [
         childContract.methods.pub_set_value(20n).request(),
-        parentContract.methods.enqueue_call_to_child(childContract.address, pub_set_valueSelector, 40n).request(),
+        parentContract.methods.enqueue_call_to_child(childContract.address, pubSetValueSelector, 40n).request(),
       ];
 
       const tx = await new BatchCall(wallet, actions).send().wait();

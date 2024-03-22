@@ -64,7 +64,11 @@ describe('e2e_static_calls', () => {
 
     it('performs legal (nested) enqueued public static calls', async () => {
       await parentContract.methods
-        .enqueue_static_nested_call_to_pub_function(childContract.address, childContract.methods.pub_get_value.selector, [42n])
+        .enqueue_static_nested_call_to_pub_function(
+          childContract.address,
+          childContract.methods.pub_get_value.selector,
+          [42n],
+        )
         .send()
         .wait();
     }, 100_000);
@@ -114,7 +118,9 @@ describe('e2e_static_calls', () => {
     it('fails when performing illegal enqueued public static calls', async () => {
       await expect(
         parentContract.methods
-          .enqueue_static_call_to_pub_function(childContract.address, childContract.methods.pub_set_value.selector, [42n])
+          .enqueue_static_call_to_pub_function(childContract.address, childContract.methods.pub_set_value.selector, [
+            42n,
+          ])
           .send()
           .wait(),
       ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
@@ -123,9 +129,11 @@ describe('e2e_static_calls', () => {
     it('fails when performing illegal (nested) enqueued public static calls', async () => {
       await expect(
         parentContract.methods
-          .enqueue_static_nested_call_to_pub_function(childContract.address, childContract.methods.pub_set_value.selector, [
-            42n,
-          ])
+          .enqueue_static_nested_call_to_pub_function(
+            childContract.address,
+            childContract.methods.pub_set_value.selector,
+            [42n],
+          )
           .send()
           .wait(),
       ).rejects.toThrow('Static call cannot update the state, emit L2->L1 messages or generate logs');
