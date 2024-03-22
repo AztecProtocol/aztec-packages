@@ -667,7 +667,7 @@ mod tests {
                 },
                 BrilligOpcode::Const {
                     destination: MemoryAddress::from(1),
-                    value: Value::from(fe_0),
+                    value: fe_0,
                     bit_size: 32,
                 },
                 BrilligOpcode::ForeignCall {
@@ -675,7 +675,7 @@ mod tests {
                     destinations: vec![],
                     destination_value_types: vec![],
                     inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
-                    input_value_types: vec![HeapValueType::Simple],
+                    input_value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
                 },
                 BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 },
             ],
