@@ -7,7 +7,7 @@ use acvm::acir::circuit::ExpressionWidth;
 use clap::Args;
 use fm::{FileId, FileManager};
 use iter_extended::vecmap;
-use noirc_abi::{AbiParameter, AbiType, ContractEvent};
+use noirc_abi::{AbiParameter, AbiType, AbiValue};
 use noirc_errors::{CustomDiagnostic, FileDiagnostic};
 use noirc_evaluator::create_program;
 use noirc_evaluator::errors::RuntimeError;
@@ -19,6 +19,7 @@ use noirc_frontend::macros_api::MacroProcessor;
 use noirc_frontend::monomorphization::{monomorphize, monomorphize_debug, MonomorphizationError};
 use noirc_frontend::node_interner::FuncId;
 use noirc_frontend::token::SecondaryAttribute;
+use std::collections::HashMap;
 use std::path::Path;
 use thiserror::Error;
 use tracing::info;
@@ -31,7 +32,7 @@ mod stdlib;
 
 use debug::filter_relevant_files;
 
-pub use contract::{CompiledContract, ContractFunction};
+pub use contract::{CompiledContract, CompiledContractOutputs, ContractFunction};
 pub use debug::DebugFile;
 pub use program::CompiledProgram;
 
@@ -424,18 +425,45 @@ fn compile_contract_inner(
         let debug_infos: Vec<_> = functions.iter().map(|function| function.debug.clone()).collect();
         let file_map = filter_relevant_files(&debug_infos, &context.file_manager);
 
+        let mut out_structs = HashMap::new();
+
+        out_structs.extend(contract.outputs.structs.iter().map(|(tag, structs)| {
+            let structs = structs
+                .iter()
+                .map(|struct_id| {
+                    let typ = context.def_interner.get_struct(*struct_id);
+                    let typ = typ.borrow();
+                    let fields = vecmap(typ.get_fields(&[]), |(name, typ)| {
+                        (name, AbiType::from_type(context, &typ))
+                    });
+                    let path = context.fully_qualified_struct_path(context.root_crate_id(), typ.id);
+                    AbiType::Struct { path, fields }
+                })
+                .collect();
+            (tag.to_string(), structs)
+        }));
+
+        let mut out_globals = HashMap::new();
+
+        out_globals.extend(contract.outputs.globals.iter().map(|(tag, globals)| {
+            let globals: Vec<AbiValue> = globals
+                .iter()
+                .map(|global_id| {
+                    let let_statement =
+                        context.def_interner.get_global_let_statement(*global_id).unwrap();
+                    let hir_expression = context.def_interner.expression(&let_statement.expression);
+                    AbiValue::from_hir_expression(context, hir_expression)
+                })
+                .collect();
+            (tag.to_string(), globals)
+        }));
+
+        let mut out_fns = HashMap::new();
+
         Ok(CompiledContract {
             name: contract.name,
-            events: contract
-                .events
-                .iter()
-                .map(|event_id| {
-                    let typ = context.def_interner.get_struct(*event_id);
-                    let typ = typ.borrow();
-                    ContractEvent::from_struct_type(context, &typ)
-                })
-                .collect(),
             functions,
+            outputs: CompiledContractOutputs { structs: out_structs, globals: out_globals },
             file_map,
             noir_version: NOIR_ARTIFACT_VERSION_STRING.to_string(),
             warnings,

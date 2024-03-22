@@ -11,7 +11,10 @@ use errors::AbiError;
 use input_parser::InputValue;
 use iter_extended::{try_btree_map, try_vecmap, vecmap};
 use noirc_frontend::{
-    hir::Context, Signedness, StructType, Type, TypeBinding, TypeVariableKind, Visibility,
+    hir::Context,
+    hir_def::expr::HirArrayLiteral,
+    macros_api::{HirExpression, HirLiteral},
+    Signedness, Type, TypeBinding, TypeVariableKind, Visibility,
 };
 use serde::{Deserialize, Serialize};
 use std::ops::Range;
@@ -513,30 +516,81 @@ fn decode_string_value(field_elements: &[FieldElement]) -> String {
     final_string.to_owned()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContractEvent {
-    /// Event name
-    name: String,
-    /// The fully qualified path to the event definition
-    path: String,
-
-    /// Fields of the event
-    #[serde(
-        serialize_with = "serialization::serialize_struct_fields",
-        deserialize_with = "serialization::deserialize_struct_fields"
-    )]
-    fields: Vec<(String, AbiType)>,
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum AbiValue {
+    Field {
+        value: FieldElement,
+    },
+    Array {
+        values: Vec<AbiValue>,
+    },
+    Integer {
+        value: i128,
+    },
+    Boolean {
+        value: bool,
+    },
+    Struct {
+        #[serde(
+            serialize_with = "serialization::serialize_struct_field_values",
+            deserialize_with = "serialization::deserialize_struct_field_values"
+        )]
+        fields: Vec<(String, AbiValue)>,
+    },
+    Tuple {
+        fields: Vec<AbiValue>,
+    },
+    String {
+        value: String,
+    },
 }
 
-impl ContractEvent {
-    pub fn from_struct_type(context: &Context, struct_type: &StructType) -> Self {
-        let fields = vecmap(struct_type.get_fields(&[]), |(name, typ)| {
-            (name, AbiType::from_type(context, &typ))
-        });
-        // For the ABI, we always want to resolve the struct paths from the root crate
-        let path = context.fully_qualified_struct_path(context.root_crate_id(), struct_type.id);
-
-        Self { name: struct_type.name.0.contents.clone(), path, fields }
+impl AbiValue {
+    pub fn from_hir_expression(context: &Context, expression: HirExpression) -> Self {
+        match expression {
+            HirExpression::Constructor(constructor) => {
+                let fields = constructor
+                    .fields
+                    .iter()
+                    .map(|(ident, expr_id)| {
+                        (
+                            ident.0.contents.to_string(),
+                            Self::from_hir_expression(
+                                context,
+                                context.def_interner.expression(expr_id),
+                            ),
+                        )
+                    })
+                    .collect();
+                Self::Struct { fields }
+            }
+            HirExpression::Literal(literal) => match literal {
+                HirLiteral::Array(hir_array) => match hir_array {
+                    HirArrayLiteral::Standard(expr_ids) => {
+                        let values = expr_ids
+                            .iter()
+                            .map(|expr_id| {
+                                Self::from_hir_expression(
+                                    context,
+                                    context.def_interner.expression(expr_id),
+                                )
+                            })
+                            .collect();
+                        Self::Array { values }
+                    }
+                    _ => unreachable!("Repeated arrays cannot be used in the abi"),
+                },
+                HirLiteral::Bool(value) => Self::Boolean { value },
+                HirLiteral::Str(value) => Self::String { value },
+                HirLiteral::Integer(field, sign) => {
+                    let value = field.to_i128();
+                    Self::Integer { value: if sign { -1 * value } else { value } }
+                }
+                _ => unreachable!("Literal cannot be used in the abi"),
+            },
+            _ => unreachable!("Type cannot be used in the abi"),
+        }
     }
 }
 

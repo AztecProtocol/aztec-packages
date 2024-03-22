@@ -9,7 +9,7 @@ contract Crowdfunding {
     use dep::value_note::value_note::ValueNote;
     use interfaces::Token;
 
-    #[event]
+    #[aztec(event)]
     struct WithdrawalProcessed {
         who: AztecAddress,
         amount: u64,
