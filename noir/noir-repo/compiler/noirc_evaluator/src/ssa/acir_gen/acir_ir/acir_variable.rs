@@ -1848,12 +1848,12 @@ fn execute_brillig(code: &[BrilligOpcode], inputs: &[BrilligInputs]) -> Option<V
     for input in inputs {
         match input {
             BrilligInputs::Single(expr) => {
-                calldata.push(expr.to_const()?.into());
+                calldata.push(expr.to_const()?);
             }
             BrilligInputs::Array(expr_arr) => {
                 // Attempt to fetch all array input values
                 for expr in expr_arr.iter() {
-                    calldata.push(expr.to_const()?.into());
+                    calldata.push(expr.to_const()?);
                 }
             }
             BrilligInputs::MemoryArray(_) => {

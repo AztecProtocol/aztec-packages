@@ -324,92 +324,90 @@ impl ForeignCallExecutor for DefaultForeignCallExecutor {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use acvm::{
-//         acir::brillig::ForeignCallParam,
-//         brillig_vm::brillig::{ForeignCallResult, Value},
-//         pwg::ForeignCallWaitInfo,
-//         FieldElement,
-//     };
-//     use jsonrpc_core::Result as RpcResult;
-//     use jsonrpc_derive::rpc;
-//     use jsonrpc_http_server::{Server, ServerBuilder};
+#[cfg(test)]
+mod tests {
+    use acvm::{
+        acir::brillig::ForeignCallParam, brillig_vm::brillig::ForeignCallResult,
+        pwg::ForeignCallWaitInfo, FieldElement,
+    };
+    use jsonrpc_core::Result as RpcResult;
+    use jsonrpc_derive::rpc;
+    use jsonrpc_http_server::{Server, ServerBuilder};
 
-//     use crate::ops::{DefaultForeignCallExecutor, ForeignCallExecutor};
+    use crate::ops::{DefaultForeignCallExecutor, ForeignCallExecutor};
 
-//     #[allow(unreachable_pub)]
-//     #[rpc]
-//     pub trait OracleResolver {
-//         #[rpc(name = "echo")]
-//         fn echo(&self, param: ForeignCallParam) -> RpcResult<ForeignCallResult>;
+    #[allow(unreachable_pub)]
+    #[rpc]
+    pub trait OracleResolver {
+        #[rpc(name = "echo")]
+        fn echo(&self, param: ForeignCallParam) -> RpcResult<ForeignCallResult>;
 
-//         #[rpc(name = "sum")]
-//         fn sum(&self, array: ForeignCallParam) -> RpcResult<ForeignCallResult>;
-//     }
+        #[rpc(name = "sum")]
+        fn sum(&self, array: ForeignCallParam) -> RpcResult<ForeignCallResult>;
+    }
 
-//     struct OracleResolverImpl;
+    struct OracleResolverImpl;
 
-//     impl OracleResolver for OracleResolverImpl {
-//         fn echo(&self, param: ForeignCallParam) -> RpcResult<ForeignCallResult> {
-//             Ok(vec![param].into())
-//         }
+    impl OracleResolver for OracleResolverImpl {
+        fn echo(&self, param: ForeignCallParam) -> RpcResult<ForeignCallResult> {
+            Ok(vec![param].into())
+        }
 
-//         fn sum(&self, array: ForeignCallParam) -> RpcResult<ForeignCallResult> {
-//             let mut res: FieldElement = 0_usize.into();
+        fn sum(&self, array: ForeignCallParam) -> RpcResult<ForeignCallResult> {
+            let mut res: FieldElement = 0_usize.into();
 
-//             for value in array.fields() {
-//                 res += value.to_field();
-//             }
+            for value in array.fields() {
+                res += value;
+            }
 
-//             Ok(Value::from(res).into())
-//         }
-//     }
+            Ok(res.into())
+        }
+    }
 
-//     fn build_oracle_server() -> (Server, String) {
-//         let mut io = jsonrpc_core::IoHandler::new();
-//         io.extend_with(OracleResolverImpl.to_delegate());
+    fn build_oracle_server() -> (Server, String) {
+        let mut io = jsonrpc_core::IoHandler::new();
+        io.extend_with(OracleResolverImpl.to_delegate());
 
-//         // Choosing port 0 results in a random port being assigned.
-//         let server = ServerBuilder::new(io)
-//             .start_http(&"127.0.0.1:0".parse().expect("Invalid address"))
-//             .expect("Could not start server");
+        // Choosing port 0 results in a random port being assigned.
+        let server = ServerBuilder::new(io)
+            .start_http(&"127.0.0.1:0".parse().expect("Invalid address"))
+            .expect("Could not start server");
 
-//         let url = format!("http://{}", server.address());
-//         (server, url)
-//     }
+        let url = format!("http://{}", server.address());
+        (server, url)
+    }
 
-//     #[test]
-//     fn test_oracle_resolver_echo() {
-//         let (server, url) = build_oracle_server();
+    #[test]
+    fn test_oracle_resolver_echo() {
+        let (server, url) = build_oracle_server();
 
-//         let mut executor = DefaultForeignCallExecutor::new(false, Some(&url));
+        let mut executor = DefaultForeignCallExecutor::new(false, Some(&url));
 
-//         let foreign_call = ForeignCallWaitInfo {
-//             function: "echo".to_string(),
-//             inputs: vec![ForeignCallParam::Single(1_u128.into())],
-//         };
+        let foreign_call = ForeignCallWaitInfo {
+            function: "echo".to_string(),
+            inputs: vec![ForeignCallParam::Single(1_u128.into())],
+        };
 
-//         let result = executor.execute(&foreign_call);
-//         assert_eq!(result.unwrap(), ForeignCallResult { values: foreign_call.inputs }.into());
+        let result = executor.execute(&foreign_call);
+        assert_eq!(result.unwrap(), ForeignCallResult { values: foreign_call.inputs }.into());
 
-//         server.close();
-//     }
+        server.close();
+    }
 
-//     #[test]
-//     fn test_oracle_resolver_sum() {
-//         let (server, url) = build_oracle_server();
+    #[test]
+    fn test_oracle_resolver_sum() {
+        let (server, url) = build_oracle_server();
 
-//         let mut executor = DefaultForeignCallExecutor::new(false, Some(&url));
+        let mut executor = DefaultForeignCallExecutor::new(false, Some(&url));
 
-//         let foreign_call = ForeignCallWaitInfo {
-//             function: "sum".to_string(),
-//             inputs: vec![ForeignCallParam::Array(vec![1_usize.into(), 2_usize.into()])],
-//         };
+        let foreign_call = ForeignCallWaitInfo {
+            function: "sum".to_string(),
+            inputs: vec![ForeignCallParam::Array(vec![1_usize.into(), 2_usize.into()])],
+        };
 
-//         let result = executor.execute(&foreign_call);
-//         assert_eq!(result.unwrap(), Value::from(3_usize).into());
+        let result = executor.execute(&foreign_call);
+        assert_eq!(result.unwrap(), FieldElement::from(3_usize).into());
 
-//         server.close();
-//     }
-// }
+        server.close();
+    }
+}
