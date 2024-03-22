@@ -5,3 +5,13 @@ trait Storage<T> where T: Serialize<N> + Deserialize<N> {
         self.storage_slot
     }
 }
+
+struct Storable<N> {
+        slot: Field,
+        typ: str<N>
+    }
+
+struct StorableNote<N> {
+        id: Field,
+        typ: str<N>
+    }
