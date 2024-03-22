@@ -1,4 +1,4 @@
-#include "barretenberg/proof_system/circuit_builder/goblin_translator.fuzzer.hpp"
+#include "barretenberg/translator_vm/goblin_translator.fuzzer.hpp"
 /**
  * @brief A very primitive fuzzing harness, no interesting mutations, just parse and throw at the circuit builder
  *
