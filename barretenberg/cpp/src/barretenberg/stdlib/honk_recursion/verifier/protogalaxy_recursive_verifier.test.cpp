@@ -1,7 +1,7 @@
 #include "barretenberg/stdlib/honk_recursion/verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/flavor/ultra_recursive.hpp"
+#include "barretenberg/proof_system/ultra_recursive_flavor.hpp"
 #include "barretenberg/protogalaxy/decider_prover.hpp"
 #include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"

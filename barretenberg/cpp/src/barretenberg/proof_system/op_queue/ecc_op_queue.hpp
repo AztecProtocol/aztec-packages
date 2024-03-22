@@ -1,7 +1,7 @@
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_builder_types.hpp"
+#include "barretenberg/eccvm/eccvm_builder_types.hpp"
 
 namespace bb {
 

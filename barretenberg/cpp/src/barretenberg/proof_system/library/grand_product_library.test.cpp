@@ -1,8 +1,8 @@
 
 #include "grand_product_library.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/proof_system/ultra_flavor.hpp"
 
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include <gtest/gtest.h>

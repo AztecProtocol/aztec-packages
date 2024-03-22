@@ -1,7 +1,7 @@
 #pragma once
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/proof_system/goblin_ultra_flavor.hpp"
+#include "barretenberg/proof_system/ultra_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"

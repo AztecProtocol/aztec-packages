@@ -1,10 +1,10 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/proof_system/goblin_ultra_flavor.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/proof_system/ultra_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {

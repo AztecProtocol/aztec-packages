@@ -1,6 +1,6 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/flavor/ultra_recursive.hpp"
+#include "barretenberg/proof_system/ultra_recursive_flavor.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/ultra_recursive_verifier.hpp"

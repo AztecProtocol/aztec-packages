@@ -1,9 +1,9 @@
 #pragma once
 
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/proof_system/goblin_ultra_flavor.hpp"
 #include "barretenberg/proof_system/library/grand_product_delta.hpp"
+#include "barretenberg/proof_system/ultra_flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
 namespace bb {

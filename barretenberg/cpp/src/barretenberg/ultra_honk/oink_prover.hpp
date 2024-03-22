@@ -19,8 +19,8 @@
 // clang-format on
 #include <utility>
 
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/proof_system/goblin_ultra_flavor.hpp"
+#include "barretenberg/proof_system/ultra_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {

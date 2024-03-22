@@ -12,13 +12,9 @@
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
+#include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
-#include "circuit_builder_base.hpp"
-#include <array>
-#include <cstddef>
-#include <cstdlib>
-#include <iterator>
-#include <tuple>
+
 namespace bb {
 /**
  * @brief GoblinTranslatorCircuitBuilder creates a circuit that evaluates the correctness of the evaluation of

@@ -1,6 +1,6 @@
 #include "goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/proof_system/goblin_ultra_flavor.hpp"
 #include <barretenberg/plonk/proof_system/constants.hpp>
 #include <unordered_map>
 #include <unordered_set>

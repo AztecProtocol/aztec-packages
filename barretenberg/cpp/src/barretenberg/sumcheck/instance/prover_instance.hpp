@@ -1,10 +1,10 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
 #include "barretenberg/proof_system/execution_trace/execution_trace.hpp"
+#include "barretenberg/proof_system/goblin_ultra_flavor.hpp"
+#include "barretenberg/proof_system/ultra_flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
 namespace bb {

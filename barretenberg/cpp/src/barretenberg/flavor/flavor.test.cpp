@@ -1,5 +1,5 @@
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/proof_system/ultra_flavor.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include <cstddef>
 #include <gtest/gtest.h>

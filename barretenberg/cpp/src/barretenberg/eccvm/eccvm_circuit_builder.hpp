@@ -6,7 +6,7 @@
 #include "./transcript_builder.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/flavor/ecc_vm.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
@@ -223,7 +223,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
      * @brief Compute the ECCVM flavor polynomial data required to generate an ECCVM Proof
      *
      * @details RawPolynomial member polynomials that this fn must populate described below
-     *          For full details see `flavor/ecc_vm.hpp`
+     *          For full details see `eccvm/eccvm_flavor.hpp`
      *
      *          lagrange_first: lagrange_first[0] = 1, 0 elsewhere
      *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere
