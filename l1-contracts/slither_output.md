@@ -123,7 +123,7 @@ Reentrancy in [Inbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/
 	External calls:
 	- [index = currentTree.insertLeaf(leaf)](src/core/messagebridge/Inbox.sol#L91)
 	Event emitted after the call(s):
-	- [LeafInserted(inProgress,index,leaf)](src/core/messagebridge/Inbox.sol#L92)
+	- [MessageSent(inProgress,index,leaf)](src/core/messagebridge/Inbox.sol#L92)
 
 src/core/messagebridge/Inbox.sol#L61-L95
 

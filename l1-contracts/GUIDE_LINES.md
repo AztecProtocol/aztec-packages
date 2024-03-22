@@ -121,7 +121,7 @@ Natspec should be written for all functions (`internal` mainly for clarity). Use
 ```solidity
   /**
    * @notice Inserts a new message into the Inbox
-   * @dev Emits `LeafInserted` with data for easy access by the sequencer
+   * @dev Emits `MessageSent` with data for easy access by the sequencer
    * @param _recipient - The recipient of the message
    * @param _content - The content of the message (application specific)
    * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)

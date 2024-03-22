@@ -114,7 +114,7 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.LeafInserted(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
     // event we will get
 
     // Perform op
@@ -139,7 +139,7 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.LeafInserted(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
 
     // Perform op
     bytes32 leaf = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);
