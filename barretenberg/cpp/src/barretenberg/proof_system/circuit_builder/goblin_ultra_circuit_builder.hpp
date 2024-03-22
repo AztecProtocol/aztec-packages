@@ -42,7 +42,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     void populate_ecc_op_wires(const ecc_op_tuple& in);
     ecc_op_tuple decompose_ecc_operands(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
     void set_goblin_ecc_op_code_constant_variables();
-    void create_calldata_lookup_gate(const databus_lookup_gate_<FF>& in);
+    void create_calldata_read_gate(const databus_lookup_gate_<FF>& in);
 
   public:
     GoblinUltraCircuitBuilder_(const size_t size_hint = 0,

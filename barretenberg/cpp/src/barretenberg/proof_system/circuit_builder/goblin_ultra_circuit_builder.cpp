@@ -237,7 +237,7 @@ template <typename FF> uint32_t GoblinUltraCircuitBuilder_<FF>::read_calldata(co
     FF calldata_value = this->get_variable(public_calldata[read_idx]);
     uint32_t value_witness_idx = this->add_variable(calldata_value);
 
-    create_calldata_lookup_gate({ read_idx_witness_idx, value_witness_idx });
+    create_calldata_read_gate({ read_idx_witness_idx, value_witness_idx });
     calldata_read_counts[read_idx]++;
 
     return value_witness_idx;
@@ -250,7 +250,7 @@ template <typename FF> uint32_t GoblinUltraCircuitBuilder_<FF>::read_calldata(co
  * @param databus_lookup_gate_ witness indices corresponding to: calldata index, calldata value
  */
 template <typename FF>
-void GoblinUltraCircuitBuilder_<FF>::create_calldata_lookup_gate(const databus_lookup_gate_<FF>& in)
+void GoblinUltraCircuitBuilder_<FF>::create_calldata_read_gate(const databus_lookup_gate_<FF>& in)
 {
     auto& block = this->blocks.busread;
     block.populate_wires(in.value, in.index, this->zero_idx, this->zero_idx);
