@@ -190,7 +190,7 @@ src/core/libraries/decoders/TxsDecoder.sol#L258-L277
 ## dead-code
 Impact: Informational
 Confidence: Medium
- - [ ] ID-17
+ - [ ] ID-18
 [Hash.sha256ToField(bytes32)](src/core/libraries/Hash.sol#L52-L54) is never used and should be removed
 
 src/core/libraries/Hash.sol#L52-L54
@@ -199,25 +199,25 @@ src/core/libraries/Hash.sol#L52-L54
 ## solc-version
 Impact: Informational
 Confidence: High
- - [ ] ID-18
+ - [ ] ID-19
 solc-0.8.23 is not recommended for deployment
 
 ## similar-names
 Impact: Informational
 Confidence: Medium
- - [ ] ID-19
+ - [ ] ID-20
 Variable [Constants.LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L130) is too similar to [Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP](src/core/libraries/ConstantsGen.sol#L123)
 
 src/core/libraries/ConstantsGen.sol#L130
 
 
- - [ ] ID-20
+ - [ ] ID-21
 Variable [Constants.L1_TO_L2_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L110) is too similar to [Constants.L2_TO_L1_MESSAGE_LENGTH](src/core/libraries/ConstantsGen.sol#L111)
 
 src/core/libraries/ConstantsGen.sol#L110
 
 
- - [ ] ID-21
+ - [ ] ID-22
 Variable [Rollup.AVAILABILITY_ORACLE](src/core/Rollup.sol#L32) is too similar to [Rollup.constructor(IRegistry,IAvailabilityOracle)._availabilityOracle](src/core/Rollup.sol#L43)
 
 src/core/Rollup.sol#L32
@@ -226,7 +226,7 @@ src/core/Rollup.sol#L32
 ## constable-states
 Impact: Optimization
 Confidence: High
- - [ ] ID-22
+ - [ ] ID-23
 [Rollup.lastWarpedBlockTs](src/core/Rollup.sol#L41) should be constant 
 
 src/core/Rollup.sol#L41
@@ -235,38 +235,38 @@ src/core/Rollup.sol#L41
 ## pess-multiple-storage-read
 Impact: Optimization
 Confidence: High
- - [ ] ID-23
+ - [ ] ID-24
 In a function [Outbox.insert(uint256,bytes32,uint256)](src/core/messagebridge/Outbox.sol#L44-L64) variable [Outbox.roots](src/core/messagebridge/Outbox.sol#L29) is read multiple times
 
 src/core/messagebridge/Outbox.sol#L44-L64
 
 
- - [ ] ID-24
+ - [ ] ID-25
 In a function [Inbox.consume()](src/core/messagebridge/Inbox.sol#L104-L123) variable [Inbox.toConsume](src/core/messagebridge/Inbox.sol#L34) is read multiple times
 
 src/core/messagebridge/Inbox.sol#L104-L123
 
 
- - [ ] ID-25
+ - [ ] ID-26
 In a function [Inbox.consume()](src/core/messagebridge/Inbox.sol#L104-L123) variable [Inbox.inProgress](src/core/messagebridge/Inbox.sol#L36) is read multiple times
 
 src/core/messagebridge/Inbox.sol#L104-L123
 
 
- - [ ] ID-26
-In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76) variable [FrontierMerkle.HEIGHT](src/core/messagebridge/frontier_tree/Frontier.sol#L8) is read multiple times
-
-src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76
-
-
  - [ ] ID-27
+In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L48-L81) variable [FrontierMerkle.HEIGHT](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
+
+src/core/messagebridge/frontier_tree/Frontier.sol#L48-L81
+
+
+ - [ ] ID-28
 In a function [Inbox.sendL2Message(DataStructures.L2Actor,bytes32,bytes32)](src/core/messagebridge/Inbox.sol#L61-L95) variable [Inbox.inProgress](src/core/messagebridge/Inbox.sol#L36) is read multiple times
 
 src/core/messagebridge/Inbox.sol#L61-L95
 
 
- - [ ] ID-28
-In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L43-L76) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L13) is read multiple times
+ - [ ] ID-29
+In a function [FrontierMerkle.root()](src/core/messagebridge/frontier_tree/Frontier.sol#L48-L81) variable [FrontierMerkle.frontier](src/core/messagebridge/frontier_tree/Frontier.sol#L18) is read multiple times
 
 src/core/messagebridge/frontier_tree/Frontier.sol#L48-L81
 
