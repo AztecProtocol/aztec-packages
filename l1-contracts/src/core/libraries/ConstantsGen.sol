@@ -72,7 +72,6 @@ library Constants {
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_HEIGHT = 4;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = 12;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
-  uint256 internal constant NUM_FIELDS_PER_SHA256 = 1;
   uint256 internal constant ARGS_HASH_CHUNK_LENGTH = 32;
   uint256 internal constant ARGS_HASH_CHUNK_COUNT = 32;
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000_000_000;
@@ -109,11 +108,12 @@ library Constants {
   uint256 internal constant HEADER_LENGTH = 20;
   uint256 internal constant L1_TO_L2_MESSAGE_LENGTH = 6;
   uint256 internal constant L2_TO_L1_MESSAGE_LENGTH = 2;
+  uint256 internal constant MAX_BLOCK_NUMBER_LENGTH = 2;
   uint256 internal constant NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 4;
   uint256 internal constant NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 5;
   uint256 internal constant PARTIAL_STATE_REFERENCE_LENGTH = 6;
-  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 208;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 205;
+  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 210;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 207;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 198;
   uint256 internal constant STATE_REFERENCE_LENGTH = 8;
   uint256 internal constant TX_CONTEXT_DATA_LENGTH = 4;
