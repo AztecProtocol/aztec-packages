@@ -4,133 +4,109 @@ VERSION 0.8
 # requires first saving the images locally with ../+build-end-to-end
 
 E2E_TEST:
-    FUNCTION
-    ARG test
-    ARG compose_file=./scripts/docker-compose.yml
-    ARG avm_enabled=""
-    ARG enable_gas=""
-    LOCALLY
-    ENV AVM_ENABLED=$avm_enabled
-    ENV ENABLE_GAS=$enable_gas
-    ENV TEST=$test
-    # Note, earthly recommends as WITH DOCKER statement here. We find it's more stable for large 
-    # images to not do that and just save images as needed.
-    RUN for i in {1..20} ; do sleep 1 ; echo docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate ; done
+  FUNCTION
+  ARG test
+  ARG compose_file=./scripts/docker-compose.yml
+  ARG avm_enabled=""
+  ARG enable_gas=""
+  LOCALLY
+  ENV AVM_ENABLED=$avm_enabled
+  ENV ENABLE_GAS=$enable_gas
+  ENV TEST=$test.test.ts
+  RUN ls
+  # Note, earthly recommends as WITH DOCKER statement here. We find it's more stable for large 
+  # images to not do that and just save images as needed.
+  RUN docker compose -p "$test" -f $compose_file up --exit-code-from=end-to-end --force-recreate
 
 # we could use a parameterized target, but these just print cleaner in earthly log
 e2e-block-building:
-  DO +E2E_TEST --test=e2e_block_building.test.ts
+  DO +E2E_TEST --test=e2e_block_building
 
 e2e-nested-contract:
-  DO +E2E_TEST --test=e2e_nested_contract.test.ts
+  DO +E2E_TEST --test=e2e_nested_contract
 
 e2e-static-calls:
-  DO +E2E_TEST --test=e2e_static_calls.test.ts
+  DO +E2E_TEST --test=e2e_static_calls
 
 e2e-state-vars:
-  DO +E2E_TEST --test=e2e_state_vars.test.ts
+  DO +E2E_TEST --test=e2e_state_vars
 
 e2e-delegate-calls:
-  DO +E2E_TEST --test=e2e_delegate_calls.test.ts
+  DO +E2E_TEST --test=e2e_delegate_calls
 
 e2e-non-contract-account:
-  DO +E2E_TEST --test=e2e_non_contract_account.test.ts
+  DO +E2E_TEST --test=e2e_non_contract_account
 
 e2e-cross-chain-messaging:
-  DO +E2E_TEST --test=e2e_cross_chain_messaging.test.ts
+  DO +E2E_TEST --test=e2e_cross_chain_messaging
 
 e2e-crowdfunding-and-claim:
-  DO +E2E_TEST --test=e2e_crowdfunding_and_claim.test.ts
+  DO +E2E_TEST --test=e2e_crowdfunding_and_claim
 
 e2e-public-cross-chain-messaging:
-  DO +E2E_TEST --test=e2e_public_cross_chain_messaging.test.ts
+  DO +E2E_TEST --test=e2e_public_cross_chain_messaging
 
 e2e-public-to-private-messaging:
-  DO +E2E_TEST --test=e2e_public_to_private_messaging.test.ts
+  DO +E2E_TEST --test=e2e_public_to_private_messaging
 
 e2e-account-contracts:
-  DO +E2E_TEST --test=e2e_account_contracts.test.ts
+  DO +E2E_TEST --test=e2e_account_contracts
 
 e2e-escrow-contract:
-  DO +E2E_TEST --test=e2e_escrow_contract.test.ts
+  DO +E2E_TEST --test=e2e_escrow_contract
 
 e2e-inclusion-proofs-contract:
-  DO +E2E_TEST --test=e2e_inclusion_proofs_contract.test.ts
+  DO +E2E_TEST --test=e2e_inclusion_proofs_contract
 
 e2e-pending-note-hashes-contract:
-  DO +E2E_TEST --test=e2e_pending_note_hashes_contract.test.ts
+  DO +E2E_TEST --test=e2e_pending_note_hashes_contract
 
 e2e-ordering:
-  DO +E2E_TEST --test=e2e_ordering.test.ts
+  DO +E2E_TEST --test=e2e_ordering
 
 uniswap-trade-on-l1-from-l2:
-  DO +E2E_TEST --test=uniswap_trade_on_l1_from_l2.test.ts
+  DO +E2E_TEST --test=uniswap_trade_on_l1_from_l2
 
 integration-archiver-l1-to-l2:
-  DO +E2E_TEST --test=integration_archiver_l1_to_l2.test.ts
+  DO +E2E_TEST --test=integration_archiver_l1_to_l2
 
 integration-l1-publisher:
-  DO +E2E_TEST --test=integration_l1_publisher.test.ts
+  DO +E2E_TEST --test=integration_l1_publisher
 
 e2e-cli:
-  DO +E2E_TEST --test=e2e_cli.test.ts
+  DO +E2E_TEST --test=e2e_cli
 
 e2e-persistence:
-  DO +E2E_TEST --test=e2e_persistence.test.ts --compose_file=./scripts/docker-compose-no-sandbox.yml
+  DO +E2E_TEST --test=e2e_persistence --compose_file=./scripts/docker-compose-no-sandbox.yml
 
 e2e-browser:
-  DO +E2E_TEST --test=e2e_aztec_js_browser.test.ts
+  DO +E2E_TEST --test=e2e_aztec_js_browser
 
 e2e-card-game:
-  DO +E2E_TEST --test=e2e_card_game.test.ts
+  DO +E2E_TEST --test=e2e_card_game
 
 e2e-avm-simulator:
-  DO +E2E_TEST--test=e2e_avm_simulator.test.ts --avm_enabled=1
+  DO +E2E_TEST --test=e2e_avm_simulator --avm_enabled=1
 
 e2e-fees:
-  DO +E2E_TEST --test=e2e_fees.test.ts --enable_gas=1
+  DO +E2E_TEST --test=e2e_fees --enable_gas=1
 
 e2e-dapp-subscription:
-  DO +E2E_TEST --test=e2e_dapp_subscription.test.ts --enable_gas=1
+  DO +E2E_TEST --test=e2e_dapp_subscription --enable_gas=1
 
 pxe:
-  DO +E2E_TEST --test=pxe_sandbox.test.ts
+  DO +E2E_TEST --test=pxe_sandbox
 
 cli-docs-sandbox:
-  DO +E2E_TEST --test=cli_docs_sandbox.test.ts
+  DO +E2E_TEST --test=cli_docs_sandbox
 
 e2e-docs-examples:
-  DO +E2E_TEST_HELPER --test=docs_examples_test.ts --avm_enabled=1
+  DO +E2E_TEST --test=docs_examples_test.ts --avm_enabled=1
 
 test-all:
-  # TODO we need to limit earthly parallelism or sometimes get
-  # 'failed to solve: failed to get edge: inconsistent graph state'
-  # so we use arbitrary WAIT statement groups. Pending earthly support.
-  BUILD +e2e-state-vars
-  BUILD +e2e-block-building
-  BUILD +e2e-nested-contract
-  BUILD +e2e-static-calls
-  BUILD +e2e-delegate-calls
-  BUILD +e2e-non-contract-account
-  BUILD +e2e-cross-chain-messaging
-  BUILD +e2e-crowdfunding-and-claim
-  BUILD +e2e-public-cross-chain-messaging
-  BUILD +e2e-public-to-private-messaging
-  BUILD +e2e-account-contracts
-  BUILD +e2e-escrow-contract
-  BUILD +e2e-inclusion-proofs-contract
-  BUILD +e2e-pending-note-hashes-contract
-  BUILD +e2e-ordering
-  BUILD +uniswap-trade-on-l1-from-l2
-  BUILD +integration-archiver-l1-to-l2
-  BUILD +integration-l1-publisher
-  BUILD +e2e-cli
-  BUILD +e2e-persistence
-  # BUILD +e2e-browser
-  BUILD +e2e-card-game
-  BUILD +e2e-avm-simulator
-  BUILD +e2e-fees
-  BUILD +e2e-dapp-subscription
-  BUILD +pxe
-  BUILD +cli-docs-sandbox
-  BUILD +e2e-docs-examples
+  LOCALLY
+  # Just running the targets with LOCALLY will unfortunately not be parallel with earthly naively
+  # We have to do this "clever" hack to use a tiny inline makefile and -j flag to 
+  # run them all parallel interleaved and return error if any error.
+  RUN echo -e "%:\n\tearthly $@" | make -j -f - $(earthly ls | grep -v '+test-all')
+  RUN make -j $(earthly ls | grep -v '+test-all')

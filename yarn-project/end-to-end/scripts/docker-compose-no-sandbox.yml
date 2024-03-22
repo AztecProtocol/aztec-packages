@@ -9,8 +9,8 @@ services:
       else
         exec anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337
       fi'
-    ports:
-      - '8545:8545'
+    expose:
+      - '8545'
 
   end-to-end:
     image: aztecprotocol/end-to-end:latest

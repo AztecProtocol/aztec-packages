@@ -99,6 +99,7 @@ jobs:
         working-directory: ./yarn-project/end-to-end/
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
         run: |
+          earthly-cloud build x86 build-end-to-end
           earthly-cloud build x86 +${{ matrix.test }}
 
   # barretenberg (prover) native tests
@@ -130,7 +131,7 @@ jobs:
         working-directory: ./barretenberg/cpp/
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
         run: |
-          earthly-cloud build ${{ matrix.environment }} +test
+          earthly-cloud build ${{ matrix.environment }} --no-output +test
 
   # All benchmarks, purposefully ran sequential on a machine
   # they should use parallelism within the benchmark, but only one thing should run at a time

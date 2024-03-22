@@ -1,0 +1,3 @@
+global:    
+  org: aztec
+  buildkit_additional_args: ["-e", "BUILDKIT_STEP_LOG_MAX_SIZE=-1"]
