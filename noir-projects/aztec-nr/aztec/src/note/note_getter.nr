@@ -122,9 +122,8 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
             // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
             context.push_note_hash_read_request(note_hash_for_read_request);
 
-
             // The below code is used to collapse a sparse array into one where the values are guaranteed to be at the front of the array
-            // We write at returned_notes
+            // We write at returned_notes[num_notes] because num_notes is only advanced when we have a value in opt_notes
             returned_notes[num_notes] = Option::some(note);
             num_notes += 1;
         };
