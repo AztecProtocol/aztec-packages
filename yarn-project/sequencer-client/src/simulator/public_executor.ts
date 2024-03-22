@@ -225,7 +225,9 @@ export class WorldStateDB implements CommitmentsDB {
 
   public async getL1ToL2MembershipWitness(
     messageHash: Fr,
+    secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+    // TODO: do the nullifier check here
     const index = (await this.db.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messageHash.toBuffer()))!;
     if (index === undefined) {
       throw new Error(`Message ${messageHash.toString()} not found`);

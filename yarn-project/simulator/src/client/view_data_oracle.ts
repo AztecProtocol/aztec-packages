@@ -227,10 +227,11 @@ export class ViewDataOracle extends TypedOracle {
   /**
    * Fetches the a message from the db, given its key.
    * @param messageHash - Hash of the message.
+   * @param secret - Secret used to compute a nullifier (to get non-nullified messages).
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  public async getL1ToL2MembershipWitness(messageHash: Fr) {
-    return await this.db.getL1ToL2MembershipWitness(messageHash);
+  public async getL1ToL2MembershipWitness(messageHash: Fr, secret: Fr) {
+    return await this.db.getL1ToL2MembershipWitness(messageHash, secret);
   }
 
   /**

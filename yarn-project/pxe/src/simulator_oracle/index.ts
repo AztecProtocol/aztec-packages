@@ -6,6 +6,7 @@ import {
   NoteStatus,
   NullifierMembershipWitness,
   PublicDataWitness,
+  SiblingPath,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -133,13 +134,14 @@ export class SimulatorOracle implements DBOracle {
     secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     let nullifierIndex: bigint | undefined;
-    const messageIndex = 0n;
+    let messageIndex = 0n;
+    let siblingPath: SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>;
     do {
       const response = await this.aztecNode.getL1ToL2MessageMembershipWitness('latest', messageHash, messageIndex);
       if (!response) {
         throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
       }
-      const [messageIndex, siblingPath] = response;
+      [messageIndex, siblingPath] = response;
       const messageNullifier = pedersenHash(
         [messageHash, secret, new Fr(messageIndex)].map(v => v.toBuffer()),
         GeneratorIndex.NULLIFIER,
@@ -147,7 +149,8 @@ export class SimulatorOracle implements DBOracle {
       nullifierIndex = await this.getNullifierIndex(messageNullifier);
     } while (nullifierIndex !== undefined);
 
-    return new MessageLoadOracleInputs(index, siblingPath);
+    // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs
+    return new MessageLoadOracleInputs(messageIndex, siblingPath);
   }
 
   /**
