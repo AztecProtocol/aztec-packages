@@ -18,6 +18,7 @@ if [ "$RUNNER_TYPE" == "build" ] ; then
   SIZE=4xlarge
   NUMBER_OF_RUNNERS=2
 elif [ "$RUNNER_TYPE" == "bench" ] ; then
+  SIZE=2xlarge
   NUMBER_OF_RUNNERS=2
 fi
 # we hash our GITHUB_ACTOR to pick from 1 to NUMBER_RUNNERS (inclusive) as RUNNER_ID
