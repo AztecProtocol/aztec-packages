@@ -392,7 +392,7 @@ export class CrossChainTestHarness {
   async withdrawFundsFromBridgeOnL1(
     withdrawAmount: bigint,
     blockNumber: number,
-    messageIndex: number,
+    messageIndex: bigint,
     siblingPath: SiblingPath<number>,
   ) {
     this.logger('Send L1 tx to consume message and withdraw funds');
@@ -402,7 +402,7 @@ export class CrossChainTestHarness {
       withdrawAmount,
       false,
       BigInt(blockNumber),
-      BigInt(messageIndex),
+      messageIndex,
       siblingPath.toBufferArray().map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
     ]);
 

@@ -317,11 +317,11 @@ export const uniswapL1L2TestSuite = (
         daiCrossChainHarness.tokenPortalAddress,
       );
 
-      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         l2UniswapInteractionReceipt.blockNumber!,
         swapPrivateLeaf,
       );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         l2UniswapInteractionReceipt.blockNumber!,
         withdrawLeaf,
       );
@@ -552,11 +552,11 @@ export const uniswapL1L2TestSuite = (
         daiCrossChainHarness.tokenPortalAddress,
       );
 
-      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         uniswapL2Interaction.blockNumber!,
         swapPublicLeaf,
       );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         uniswapL2Interaction.blockNumber!,
         withdrawLeaf,
       );
@@ -919,11 +919,11 @@ export const uniswapL1L2TestSuite = (
         ),
       )[0];
 
-      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         withdrawReceipt.blockNumber!,
         swapPrivateLeaf,
       );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         withdrawReceipt.blockNumber!,
         withdrawLeaf,
       );
@@ -1058,11 +1058,11 @@ export const uniswapL1L2TestSuite = (
         ),
       )[0];
 
-      const [swapPublicL2MessageIndex, swapPublicSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [swapPublicL2MessageIndex, swapPublicSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         withdrawReceipt.blockNumber!,
         swapPublicLeaf,
       );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         withdrawReceipt.blockNumber!,
         withdrawLeaf,
       );

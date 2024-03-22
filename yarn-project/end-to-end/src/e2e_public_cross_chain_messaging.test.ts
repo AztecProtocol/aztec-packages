@@ -122,7 +122,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+    const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
       l2TxReceipt.blockNumber!,
       l2ToL1Message,
     );
@@ -272,7 +272,7 @@ describe('e2e_public_cross_chain_messaging', () => {
         ),
       )[0];
 
-      const [l2MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [l2MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         l2TxReceipt.blockNumber!,
         leaf,
       );
