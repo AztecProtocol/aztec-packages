@@ -370,3 +370,74 @@ pub fn assign_storage_slots(
     }
     Ok(())
 }
+
+pub fn generate_storage_layout(
+    module: &mut SortedModule,
+    storage_struct_name: &String,
+) -> Result<(), AztecMacroError> {
+    let definition = module
+        .types
+        .iter()
+        .find(|r#struct| r#struct.name.0.contents == *storage_struct_name)
+        .unwrap();
+
+    let mut generic_args = vec![];
+    let mut storable_fields = vec![];
+
+    definition.fields.iter().enumerate().for_each(|(index, (field_ident, _))| {
+        storable_fields.push(format!("{}: Storable<N{}>", field_ident, index));
+        generic_args.push(format!("N{}", index));
+    });
+
+    let storage_fields_source = format!(
+        "
+        struct StorageFields<{}> {{
+            {}
+        }}
+    ",
+        generic_args.join(", "),
+        storable_fields.join(",\n")
+    );
+
+    let field_constructors = definition
+        .fields
+        .iter()
+        .flat_map(|field| {
+            generate_storage_field_constructor(field, slot_zero.clone())
+                .map(|expression| (field.0.clone(), expression))
+        })
+        .collect();
+
+    let storage_constructor_statement = make_statement(StatementKind::Expression(expression(
+        ExpressionKind::constructor((chained_path!(storage_struct_name), field_constructors)),
+    )));
+
+    let init = NoirFunction::normal(FunctionDefinition::normal(
+        &ident("init"),
+        &vec![],
+        &[(
+            ident("context"),
+            make_type(UnresolvedTypeData::Named(
+                chained_dep!("aztec", "context", "Context"),
+                vec![],
+                true,
+            )),
+        )],
+        &BlockExpression(vec![storage_constructor_statement]),
+        &[],
+        &return_type(chained_path!("Self")),
+    ));
+
+    let storage_impl = TypeImpl {
+        object_type: UnresolvedType {
+            typ: UnresolvedTypeData::Named(chained_path!(storage_struct_name), vec![], true),
+            span: Some(Span::default()),
+        },
+        type_span: Span::default(),
+        generics: vec![],
+        methods: vec![(init, Span::default())],
+    };
+    module.impls.push(storage_impl);
+
+    Ok(())
+}
