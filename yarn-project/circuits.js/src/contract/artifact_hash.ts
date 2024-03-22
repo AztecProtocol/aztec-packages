@@ -60,8 +60,8 @@ export function computeArtifactHashPreimage(artifact: ContractArtifact) {
 
 export function computeArtifactMetadataHash(artifact: ContractArtifact) {
   // TODO(@spalladino): Should we use the sorted event selectors instead? They'd need to be unique for that.
-  const metadata = { name: artifact.name, events: artifact.events };
-  return sha256Fr(Buffer.from(JSON.stringify(metadata), 'utf-8'));
+  const metadata = { name: artifact.name, outputs: artifact.outputs };
+  return sha256(Buffer.from(JSON.stringify(metadata), 'utf-8'));
 }
 
 export function computeArtifactFunctionTreeRoot(artifact: ContractArtifact, fnType: FunctionType) {
