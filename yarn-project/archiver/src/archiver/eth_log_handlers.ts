@@ -17,8 +17,8 @@ export function processMessageSentLogs(
 ): InboxLeaf[] {
   const leaves: InboxLeaf[] = [];
   for (const log of logs) {
-    const { blockNumber, index, hash } = log.args;
-    leaves.push(new InboxLeaf(blockNumber, index, Fr.fromString(hash)));
+    const { l2BlockNumber, index, hash } = log.args;
+    leaves.push(new InboxLeaf(l2BlockNumber, index, Fr.fromString(hash)));
   }
   return leaves;
 }

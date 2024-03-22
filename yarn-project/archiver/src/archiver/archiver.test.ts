@@ -198,14 +198,14 @@ function makeTxsPublishedEvent(l1BlockNum: bigint, txsEffectsHash: Buffer) {
 /**
  * Makes fake L1ToL2 MessageSent events for testing purposes.
  * @param l1BlockNum - L1 block number.
- * @param l2BlockNumber - The L2 block number of the leaf inserted.
+ * @param l2BlockNumber - The L2 block number of in which the message was included.
  * @returns MessageSent event logs.
  */
 function makeMessageSentEvent(l1BlockNum: bigint, l2BlockNumber: bigint, index: bigint) {
   return {
     blockNumber: l1BlockNum,
     args: {
-      blockNumber: l2BlockNumber,
+      l2BlockNumber,
       index,
       hash: Fr.random().toString(),
     },

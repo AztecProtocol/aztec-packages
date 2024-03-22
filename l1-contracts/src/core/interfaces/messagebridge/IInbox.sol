@@ -12,11 +12,11 @@ import {DataStructures} from "../../libraries/DataStructures.sol";
 interface IInbox {
   /**
    * @notice Emitted when a message is sent
-   * @param blockNumber - The block number in which the message is included
+   * @param l2BlockNumber - The L2 block number in which the message is included
    * @param index - The index of the message in the block
    * @param hash - The hash of the message
    */
-  event MessageSent(uint256 indexed blockNumber, uint256 index, bytes32 hash);
+  event MessageSent(uint256 indexed l2BlockNumber, uint256 index, bytes32 hash);
 
   // docs:start:send_l1_to_l2_message
   /**
