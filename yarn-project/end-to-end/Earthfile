@@ -71,8 +71,8 @@ e2e-pending-note-hashes-contract:
 e2e-ordering:
   DO +E2E_TEST --test=e2e_ordering
 
-# uniswap-trade-on-l1-from-l2:
-#   DO +E2E_TEST --test=uniswap_trade_on_l1_from_l2
+uniswap-trade-on-l1-from-l2:
+  DO +E2E_TEST --test=uniswap_trade_on_l1_from_l2
 
 integration-archiver-l1-to-l2:
   DO +E2E_TEST --test=integration_archiver_l1_to_l2
