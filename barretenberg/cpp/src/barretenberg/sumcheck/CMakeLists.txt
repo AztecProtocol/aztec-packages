@@ -1,1 +1,1 @@
-barretenberg_module(sumcheck flavor srs transcript)
+barretenberg_module(sumcheck proof_system srs transcript)
