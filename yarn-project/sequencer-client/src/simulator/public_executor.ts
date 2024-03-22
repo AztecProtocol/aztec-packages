@@ -2,7 +2,6 @@ import {
   L1ToL2MessageSource,
   MerkleTreeId,
   NullifierMembershipWitness,
-  SiblingPath,
   Tx,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -13,14 +12,12 @@ import {
   EthAddress,
   Fr,
   FunctionSelector,
-  GeneratorIndex,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   NullifierLeafPreimage,
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getCanonicalClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicStateDB } from '@aztec/simulator';
@@ -233,7 +230,7 @@ export class WorldStateDB implements CommitmentsDB {
     let nullifierIndex: bigint | undefined;
     let messageIndex: bigint | undefined;
 
-    // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> ewe need to check
+    // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> we need to check
     // for nullifiers because messages can have duplicates.
     do {
       messageIndex = (await this.db.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messageHash.toBuffer()))!;
@@ -241,12 +238,7 @@ export class WorldStateDB implements CommitmentsDB {
         throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
       }
 
-      // TODO: create separate helper function
-      const messageNullifier = pedersenHash(
-        [messageHash, secret, new Fr(messageIndex)].map(v => v.toBuffer()),
-        GeneratorIndex.NULLIFIER,
-      );
-
+      const messageNullifier = computeL1ToL2MessageNullifier(messageHash, secret, messageIndex);
       nullifierIndex = await this.getNullifierIndex(messageNullifier);
     } while (nullifierIndex !== undefined);
 

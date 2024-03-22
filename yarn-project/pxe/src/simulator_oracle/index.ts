@@ -14,16 +14,15 @@ import {
   EthAddress,
   Fr,
   FunctionSelector,
-  GeneratorIndex,
   Header,
-  L1_TO_L2_MSG_TREE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT
 } from '@aztec/circuits.js';
 import { FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
-import { pedersenHash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { DBOracle, KeyPair, MessageLoadOracleInputs } from '@aztec/simulator';
 import { ContractInstance } from '@aztec/types/contracts';
 
+import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { PxeDatabase } from '../database/index.js';
 
@@ -137,7 +136,7 @@ export class SimulatorOracle implements DBOracle {
     let messageIndex = 0n;
     let siblingPath: SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>;
 
-    // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> ewe need to check
+    // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> we need to check
     // for nullifiers because messages can have duplicates.
     do {
       const response = await this.aztecNode.getL1ToL2MessageMembershipWitness('latest', messageHash, messageIndex);
@@ -146,11 +145,7 @@ export class SimulatorOracle implements DBOracle {
       }
       [messageIndex, siblingPath] = response;
 
-      // TODO: create separate helper function
-      const messageNullifier = pedersenHash(
-        [messageHash, secret, new Fr(messageIndex)].map(v => v.toBuffer()),
-        GeneratorIndex.NULLIFIER,
-      );
+      const messageNullifier = computeL1ToL2MessageNullifier(messageHash, secret, messageIndex);
       nullifierIndex = await this.getNullifierIndex(messageNullifier);
     } while (nullifierIndex !== undefined);
 
