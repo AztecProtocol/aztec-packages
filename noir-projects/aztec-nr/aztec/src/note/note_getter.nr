@@ -101,9 +101,7 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
     options: NoteGetterOptions<Note, N, FILTER_ARGS>
 ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
     let mut opt_notes = get_notes_internal(storage_slot, options);
-
     let mut returned_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    let mut write_index = 0;
 
     let mut num_notes = 0;
     let mut prev_fields = [0; N];
@@ -124,18 +122,19 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
             // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
             context.push_note_hash_read_request(note_hash_for_read_request);
 
-            num_notes += 1;
 
             // The below code is used to collapse a sparse array into one where the values are guaranteed to be at the front of the array
-            // The condition activates if at any point there was a gap in the array, (i was advanced; by not write_index)
-            // In this case we move our note at i to returned_notes at write_index
-            returned_notes[write_index] = Option::some(note);
-            write_index += 1;
+            // We write at returned_notes
+            returned_notes[num_notes] = Option::some(note);
+            num_notes += 1;
         };
     }
     if options.limit != 0 {
         assert(num_notes <= options.limit, "Invalid number of return notes.");
     }
+
+    assert(num_notes != 0, "Cannot return zero notes");
+
     returned_notes
 }
 
