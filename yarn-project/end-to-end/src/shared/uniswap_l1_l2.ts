@@ -179,7 +179,7 @@ export const uniswapL1L2TestSuite = (
       const [secretForMintingWeth, secretHashForMintingWeth] = wethCrossChainHarness.generateClaimSecret();
       const [secretForRedeemingWeth, secretHashForRedeemingWeth] = wethCrossChainHarness.generateClaimSecret();
 
-      const tokenDepositMsgLeaf = await wethCrossChainHarness.sendTokensToPortalPrivate(
+      const tokenDepositMsgHash = await wethCrossChainHarness.sendTokensToPortalPrivate(
         secretHashForRedeemingWeth,
         wethAmountToBridge,
         secretHashForMintingWeth,
@@ -192,7 +192,7 @@ export const uniswapL1L2TestSuite = (
         wethAmountToBridge,
       );
 
-      await wethCrossChainHarness.makeMessageConsumable(tokenDepositMsgLeaf);
+      await wethCrossChainHarness.makeMessageConsumable(tokenDepositMsgHash);
 
       // 2. Claim WETH on L2
       logger('Minting weth on L2');
@@ -317,11 +317,11 @@ export const uniswapL1L2TestSuite = (
         daiCrossChainHarness.tokenPortalAddress,
       );
 
-      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         l2UniswapInteractionReceipt.blockNumber!,
         swapPrivateLeaf,
       );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         l2UniswapInteractionReceipt.blockNumber!,
         withdrawLeaf,
       );
@@ -358,7 +358,7 @@ export const uniswapL1L2TestSuite = (
       const txHash = await uniswapPortal.write.swapPrivate(swapArgs, {} as any);
 
       // We get the msg leaf from event so that we can later wait for it to be available for consumption
-      let tokenOutMsgLeaf: Fr;
+      let tokenOutMsgHash: Fr;
       {
         const txReceipt = await daiCrossChainHarness.publicClient.waitForTransactionReceipt({
           hash: txHash,
@@ -370,7 +370,7 @@ export const uniswapL1L2TestSuite = (
           data: txLog.data,
           topics: txLog.topics,
         });
-        tokenOutMsgLeaf = Fr.fromString(topics.args.value);
+        tokenOutMsgHash = Fr.fromString(topics.args.hash);
       }
 
       // weth was swapped to dai and send to portal
@@ -381,7 +381,7 @@ export const uniswapL1L2TestSuite = (
       const daiAmountToBridge = BigInt(daiL1BalanceOfPortalAfter - daiL1BalanceOfPortalBeforeSwap);
 
       // Wait for the message to be available for consumption
-      await daiCrossChainHarness.makeMessageConsumable(tokenOutMsgLeaf);
+      await daiCrossChainHarness.makeMessageConsumable(tokenOutMsgHash);
 
       // 6. claim dai on L2
       logger('Consuming messages to mint dai on L2');
@@ -411,7 +411,7 @@ export const uniswapL1L2TestSuite = (
       // 1. Approve and deposit weth to the portal and move to L2
       const [secretForMintingWeth, secretHashForMintingWeth] = wethCrossChainHarness.generateClaimSecret();
 
-      const wethDepositMsgLeaf = await wethCrossChainHarness.sendTokensToPortalPublic(
+      const wethDepositMsgHash = await wethCrossChainHarness.sendTokensToPortalPublic(
         wethAmountToBridge,
         secretHashForMintingWeth,
       );
@@ -424,7 +424,7 @@ export const uniswapL1L2TestSuite = (
       );
 
       // Wait for the message to be available for consumption
-      await wethCrossChainHarness.makeMessageConsumable(wethDepositMsgLeaf);
+      await wethCrossChainHarness.makeMessageConsumable(wethDepositMsgHash);
 
       // 2. Claim WETH on L2
       logger('Minting weth on L2');
@@ -439,6 +439,8 @@ export const uniswapL1L2TestSuite = (
       const nonceForWETHTransferApproval = new Fr(1n);
       const transferMessageHash = computeAuthWitMessageHash(
         uniswapL2Contract.address,
+        ownerWallet.getChainId(),
+        ownerWallet.getVersion(),
         wethCrossChainHarness.l2Token.methods
           .transfer_public(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHTransferApproval)
           .request(),
@@ -470,7 +472,12 @@ export const uniswapL1L2TestSuite = (
           ownerEthAddress,
           nonceForSwap,
         );
-      const swapMessageHash = computeAuthWitMessageHash(sponsorAddress, action.request());
+      const swapMessageHash = computeAuthWitMessageHash(
+        sponsorAddress,
+        ownerWallet.getChainId(),
+        ownerWallet.getVersion(),
+        action.request(),
+      );
       await ownerWallet.setPublicAuthWit(swapMessageHash, true).send().wait();
 
       // 4.2 Call swap_public from user2 on behalf of owner
@@ -545,11 +552,11 @@ export const uniswapL1L2TestSuite = (
         daiCrossChainHarness.tokenPortalAddress,
       );
 
-      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         uniswapL2Interaction.blockNumber!,
         swapPublicLeaf,
       );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         uniswapL2Interaction.blockNumber!,
         withdrawLeaf,
       );
@@ -586,7 +593,7 @@ export const uniswapL1L2TestSuite = (
       const txHash = await uniswapPortal.write.swapPublic(swapArgs, {} as any);
 
       // We get the msg leaf from event so that we can later wait for it to be available for consumption
-      let outTokenDepositMsgLeaf: Fr;
+      let outTokenDepositMsgHash: Fr;
       {
         const txReceipt = await daiCrossChainHarness.publicClient.waitForTransactionReceipt({
           hash: txHash,
@@ -598,7 +605,7 @@ export const uniswapL1L2TestSuite = (
           data: txLog.data,
           topics: txLog.topics,
         });
-        outTokenDepositMsgLeaf = Fr.fromString(topics.args.value);
+        outTokenDepositMsgHash = Fr.fromString(topics.args.hash);
       }
 
       // weth was swapped to dai and send to portal
@@ -609,7 +616,7 @@ export const uniswapL1L2TestSuite = (
       const daiAmountToBridge = BigInt(daiL1BalanceOfPortalAfter - daiL1BalanceOfPortalBeforeSwap);
 
       // Wait for the message to be available for consumption
-      await daiCrossChainHarness.makeMessageConsumable(outTokenDepositMsgLeaf);
+      await daiCrossChainHarness.makeMessageConsumable(outTokenDepositMsgHash);
 
       // 6. claim dai on L2
       logger('Consuming messages to mint dai on L2');
@@ -636,6 +643,9 @@ export const uniswapL1L2TestSuite = (
 
       const expectedMessageHash = computeAuthWitMessageHash(
         uniswapL2Contract.address,
+        ownerWallet.getChainId(),
+        ownerWallet.getVersion(),
+
         wethCrossChainHarness.l2Token.methods
           .unshield(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHUnshieldApproval)
           .request(),
@@ -709,6 +719,9 @@ export const uniswapL1L2TestSuite = (
       const nonceForWETHTransferApproval = new Fr(2n);
       const transferMessageHash = computeAuthWitMessageHash(
         uniswapL2Contract.address,
+        ownerWallet.getChainId(),
+        ownerWallet.getVersion(),
+
         wethCrossChainHarness.l2Token.methods
           .transfer_public(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHTransferApproval)
           .request(),
@@ -760,7 +773,12 @@ export const uniswapL1L2TestSuite = (
           ownerEthAddress,
           nonceForSwap,
         );
-      const swapMessageHash = computeAuthWitMessageHash(approvedUser, action.request());
+      const swapMessageHash = computeAuthWitMessageHash(
+        approvedUser,
+        ownerWallet.getChainId(),
+        ownerWallet.getVersion(),
+        action.request(),
+      );
       await ownerWallet.setPublicAuthWit(swapMessageHash, true).send().wait();
 
       // Swap!
@@ -775,6 +793,8 @@ export const uniswapL1L2TestSuite = (
 
       const transferMessageHash = computeAuthWitMessageHash(
         uniswapL2Contract.address,
+        ownerWallet.getChainId(),
+        ownerWallet.getVersion(),
         wethCrossChainHarness.l2Token.methods
           .transfer_public(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHTransferApproval)
           .request(),
@@ -899,11 +919,11 @@ export const uniswapL1L2TestSuite = (
         ),
       )[0];
 
-      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         withdrawReceipt.blockNumber!,
         swapPrivateLeaf,
       );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         withdrawReceipt.blockNumber!,
         withdrawLeaf,
       );
@@ -955,6 +975,8 @@ export const uniswapL1L2TestSuite = (
       const nonceForWETHTransferApproval = new Fr(5n);
       const transferMessageHash = computeAuthWitMessageHash(
         uniswapL2Contract.address,
+        ownerWallet.getChainId(),
+        ownerWallet.getVersion(),
         wethCrossChainHarness.l2Token.methods
           .transfer_public(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHTransferApproval)
           .request(),
@@ -1036,11 +1058,11 @@ export const uniswapL1L2TestSuite = (
         ),
       )[0];
 
-      const [swapPublicL2MessageIndex, swapPublicSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [swapPublicL2MessageIndex, swapPublicSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         withdrawReceipt.blockNumber!,
         swapPublicLeaf,
       );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         withdrawReceipt.blockNumber!,
         withdrawLeaf,
       );

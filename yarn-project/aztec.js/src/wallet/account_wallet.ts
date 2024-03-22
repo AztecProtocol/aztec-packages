@@ -2,8 +2,9 @@ import { AuthWitness, FunctionCall, PXE, TxExecutionRequest } from '@aztec/circu
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { ABIParameterVisibility, FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 
-import { AccountInterface, FeeOptions } from '../account/interface.js';
+import { AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { FeeOptions } from '../entrypoint/entrypoint.js';
 import { computeAuthWitMessageHash } from '../utils/authwit.js';
 import { BaseWallet } from './base_wallet.js';
 
@@ -17,6 +18,14 @@ export class AccountWallet extends BaseWallet {
 
   createTxExecutionRequest(execs: FunctionCall[], fee?: FeeOptions): Promise<TxExecutionRequest> {
     return this.account.createTxExecutionRequest(execs, fee);
+  }
+
+  getChainId(): Fr {
+    return this.account.getChainId();
+  }
+
+  getVersion(): Fr {
+    return this.account.getVersion();
   }
 
   /**
@@ -35,6 +44,10 @@ export class AccountWallet extends BaseWallet {
           caller: AztecAddress;
           /** The action to approve */
           action: ContractFunctionInteraction | FunctionCall;
+          /** The chain id to approve */
+          chainId?: Fr;
+          /** The version to approve  */
+          version?: Fr;
         },
   ): Promise<AuthWitness> {
     const messageHash = this.getMessageHash(messageHashOrIntent);
@@ -59,6 +72,10 @@ export class AccountWallet extends BaseWallet {
           caller: AztecAddress;
           /** The action to approve */
           action: ContractFunctionInteraction | FunctionCall;
+          /** The chain id to approve */
+          chainId?: Fr;
+          /** The version to approve  */
+          version?: Fr;
         },
     authorized: boolean,
   ): ContractFunctionInteraction {
@@ -84,16 +101,26 @@ export class AccountWallet extends BaseWallet {
           caller: AztecAddress;
           /** The action to approve */
           action: ContractFunctionInteraction | FunctionCall;
+          /** The chain id to approve */
+          chainId?: Fr;
+          /** The version to approve  */
+          version?: Fr;
         },
   ): Fr {
     if (Buffer.isBuffer(messageHashOrIntent)) {
       return Fr.fromBuffer(messageHashOrIntent);
     } else if (messageHashOrIntent instanceof Fr) {
       return messageHashOrIntent;
-    } else if (messageHashOrIntent.action instanceof ContractFunctionInteraction) {
-      return computeAuthWitMessageHash(messageHashOrIntent.caller, messageHashOrIntent.action.request());
+    } else {
+      return computeAuthWitMessageHash(
+        messageHashOrIntent.caller,
+        messageHashOrIntent.chainId || this.getChainId(),
+        messageHashOrIntent.version || this.getVersion(),
+        messageHashOrIntent.action instanceof ContractFunctionInteraction
+          ? messageHashOrIntent.action.request()
+          : messageHashOrIntent.action,
+      );
     }
-    return computeAuthWitMessageHash(messageHashOrIntent.caller, messageHashOrIntent.action);
   }
 
   /**
@@ -113,6 +140,10 @@ export class AccountWallet extends BaseWallet {
           caller: AztecAddress;
           /** The action to approve */
           action: ContractFunctionInteraction | FunctionCall;
+          /** The chain id to approve */
+          chainId?: Fr;
+          /** The version to approve  */
+          version?: Fr;
         },
   ): Promise<{
     /** boolean flag indicating if the authwit is valid in private context */
@@ -148,6 +179,10 @@ export class AccountWallet extends BaseWallet {
           caller: AztecAddress;
           /** The action to approve */
           action: ContractFunctionInteraction | FunctionCall;
+          /** The chain id to approve */
+          chainId?: Fr;
+          /** The version to approve  */
+          version?: Fr;
         },
   ): ContractFunctionInteraction {
     const message = this.getMessageHash(messageHashOrIntent);

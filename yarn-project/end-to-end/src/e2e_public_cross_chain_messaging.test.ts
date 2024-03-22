@@ -89,11 +89,11 @@ describe('e2e_public_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
 
     // 2. Deposit tokens to the TokenPortal
-    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const msgHash = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the message to be available for consumption
-    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
+    await crossChainTestHarness.makeMessageConsumable(msgHash);
 
     // 3. Consume L1 -> L2 message and mint public tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, secret);
@@ -108,6 +108,8 @@ describe('e2e_public_cross_chain_messaging', () => {
     const nonce = Fr.random();
     const burnMessageHash = computeAuthWitMessageHash(
       l2Bridge.address,
+      wallets[0].getChainId(),
+      wallets[0].getVersion(),
       l2Token.methods.burn_public(ownerAddress, withdrawAmount, nonce).request(),
     );
     await user1Wallet.setPublicAuthWit(burnMessageHash, true).send().wait();
@@ -120,7 +122,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+    const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
       l2TxReceipt.blockNumber!,
       l2ToL1Message,
     );
@@ -145,10 +147,10 @@ describe('e2e_public_cross_chain_messaging', () => {
     const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const msgHash = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
+    await crossChainTestHarness.makeMessageConsumable(msgHash);
 
     const content = toTruncField(
       sha256(
@@ -198,10 +200,10 @@ describe('e2e_public_cross_chain_messaging', () => {
     const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(bridgeAmount);
-    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const msgHash = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(0n);
 
-    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
+    await crossChainTestHarness.makeMessageConsumable(msgHash);
 
     // Wrong message hash
     const content = toTruncField(
@@ -221,7 +223,7 @@ describe('e2e_public_cross_chain_messaging', () => {
 
     await expect(
       l2Bridge.withWallet(user2Wallet).methods.claim_private(secretHash, bridgeAmount, secret).simulate(),
-    ).rejects.toThrow(`No L1 to L2 message found for entry key ${wrongMessage.hash().toString()}`);
+    ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 60_000);
 
   // Note: We register one portal address when deploying contract but that address is no-longer the only address
@@ -270,7 +272,7 @@ describe('e2e_public_cross_chain_messaging', () => {
         ),
       )[0];
 
-      const [l2MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+      const [l2MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         l2TxReceipt.blockNumber!,
         leaf,
       );
@@ -341,7 +343,7 @@ describe('e2e_public_cross_chain_messaging', () => {
       );
 
       // We check that the message was correctly injected by checking the emitted event
-      const msgLeaf = message.hash();
+      const msgHash = message.hash();
       {
         const txReceipt = await crossChainTestHarness.publicClient.waitForTransactionReceipt({
           hash: txHash,
@@ -357,13 +359,13 @@ describe('e2e_public_cross_chain_messaging', () => {
           data: txLog.data,
           topics: txLog.topics,
         });
-        const receivedMsgLeaf = topics.args.value;
+        const receivedMsgHash = topics.args.hash;
 
         // We check that the leaf inserted into the subtree matches the expected message hash
-        expect(receivedMsgLeaf).toBe(msgLeaf.toString());
+        expect(receivedMsgHash).toBe(msgHash.toString());
       }
 
-      await crossChainTestHarness.makeMessageConsumable(msgLeaf);
+      await crossChainTestHarness.makeMessageConsumable(msgHash);
 
       // Finally, e consume the L1 -> L2 message using the test contract either from private or public
       if (isPrivate) {
