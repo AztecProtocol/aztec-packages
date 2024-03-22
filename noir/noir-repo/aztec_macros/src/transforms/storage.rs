@@ -32,12 +32,8 @@ pub fn check_for_storage_definition(
     let result: Vec<&NoirStruct> = module
         .types
         .iter()
-        .filter_map(|r#struct| {
-            if r#struct.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(storage)")) {
-                Some(r#struct)
-            } else {
-                None
-            }
+        .filter(|r#struct| {
+            r#struct.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(storage)"))
         })
         .collect();
     if result.len() > 1 {

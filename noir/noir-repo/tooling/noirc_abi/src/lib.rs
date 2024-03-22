@@ -585,7 +585,7 @@ impl AbiValue {
                 HirLiteral::Str(value) => Self::String { value },
                 HirLiteral::Integer(field, sign) => {
                     let value = field.to_i128();
-                    Self::Integer { value: if sign { -1 * value } else { value } }
+                    Self::Integer { value: if sign { -value } else { value } }
                 }
                 _ => unreachable!("Literal cannot be used in the abi"),
             },
