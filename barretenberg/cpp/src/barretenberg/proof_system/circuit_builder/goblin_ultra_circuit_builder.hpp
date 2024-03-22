@@ -96,7 +96,6 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
      */
     size_t get_num_gates() const override
     {
-        // WORKTODO: add todo to update this with poseidon etc?
         auto num_ultra_gates = UltraCircuitBuilder_<UltraHonkArith<FF>>::get_num_gates();
         auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
         return num_ultra_gates + num_goblin_ecc_op_gates;
