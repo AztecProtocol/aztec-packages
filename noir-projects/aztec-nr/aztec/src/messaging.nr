@@ -25,7 +25,7 @@ pub fn process_l1_to_l2_message(
     );
     let message_hash = msg.hash();
 
-    let returned_message = get_l1_to_l2_membership_witness(message_hash);
+    let returned_message = get_l1_to_l2_membership_witness(message_hash, secret);
     let leaf_index = returned_message[0];
     let sibling_path = arr_copy_slice(returned_message, [0; L1_TO_L2_MSG_TREE_HEIGHT], 1);
 

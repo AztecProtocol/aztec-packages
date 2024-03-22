@@ -136,12 +136,17 @@ export class SimulatorOracle implements DBOracle {
     let nullifierIndex: bigint | undefined;
     let messageIndex = 0n;
     let siblingPath: SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>;
+
+    // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> ewe need to check
+    // for nullifiers because messages can have duplicates.
     do {
       const response = await this.aztecNode.getL1ToL2MessageMembershipWitness('latest', messageHash, messageIndex);
       if (!response) {
         throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
       }
       [messageIndex, siblingPath] = response;
+
+      // TODO: create separate helper function
       const messageNullifier = pedersenHash(
         [messageHash, secret, new Fr(messageIndex)].map(v => v.toBuffer()),
         GeneratorIndex.NULLIFIER,
