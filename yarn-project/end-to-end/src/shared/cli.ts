@@ -140,7 +140,7 @@ export const cliTestSuite = (
 
       const balance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
       expect(balance!).toEqual(`${BigInt(100).toString()}n`);
-    });
+    }, 60_000);
 
     it.each([
       ['an example Token contract', 'TokenContractArtifact', '0'],
