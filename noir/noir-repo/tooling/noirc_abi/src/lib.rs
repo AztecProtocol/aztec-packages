@@ -522,14 +522,17 @@ pub enum AbiValue {
     Field {
         value: FieldElement,
     },
-    Array {
-        values: Vec<AbiValue>,
-    },
     Integer {
         value: i128,
     },
     Boolean {
         value: bool,
+    },
+    String {
+        value: String,
+    },
+    Array {
+        value: Vec<AbiValue>,
     },
     Struct {
         #[serde(
@@ -540,9 +543,6 @@ pub enum AbiValue {
     },
     Tuple {
         fields: Vec<AbiValue>,
-    },
-    String {
-        value: String,
     },
 }
 
@@ -568,7 +568,7 @@ impl AbiValue {
             HirExpression::Literal(literal) => match literal {
                 HirLiteral::Array(hir_array) => match hir_array {
                     HirArrayLiteral::Standard(expr_ids) => {
-                        let values = expr_ids
+                        let value = expr_ids
                             .iter()
                             .map(|expr_id| {
                                 Self::from_hir_expression(
@@ -577,7 +577,7 @@ impl AbiValue {
                                 )
                             })
                             .collect();
-                        Self::Array { values }
+                        Self::Array { value }
                     }
                     _ => unreachable!("Repeated arrays cannot be used in the abi"),
                 },

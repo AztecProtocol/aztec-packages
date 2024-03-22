@@ -192,7 +192,7 @@ function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion
   return {
     name: contract.name,
     functions: contract.functions.map(generateFunctionArtifact),
-    events: contract.events,
+    outputs: contract.outputs,
     fileMap: contract.file_map,
     aztecNrVersion,
   };
