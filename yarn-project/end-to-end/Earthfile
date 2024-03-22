@@ -9,11 +9,16 @@ E2E_TEST:
   ARG compose_file=./scripts/docker-compose.yml
   ARG avm_enabled=""
   ARG enable_gas=""
+  ARG build_end_to_end=false
   LOCALLY
   ENV AVM_ENABLED=$avm_enabled
   ENV ENABLE_GAS=$enable_gas
   ENV TEST=$test.test.ts
-  RUN ls
+  IF [ $build_end_to_end = true ]
+    WAIT 
+      BUILD ../+build-end-to-end
+    END
+  END
   # Note, earthly recommends as WITH DOCKER statement here. We find it's more stable for large 
   # images to not do that and just save images as needed.
   RUN echo failure > results/$test.result
