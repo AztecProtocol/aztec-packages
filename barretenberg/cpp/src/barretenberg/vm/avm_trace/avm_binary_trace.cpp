@@ -30,18 +30,18 @@ void AvmBinaryTraceBuilder::reset()
  * @brief Helper function to correctly decompose and pad inputs
  * @param val The value to decompose
  * @param num_bytes The number of bytes given the instr_tag.
- * @return BE encoded bytes with an extra zero padding (final length is num_bytes + 1).
+ * @return LE encoded bytes with an extra zero padding (final length is num_bytes + 1).
  */
 std::vector<uint8_t> bytes_decompose_le(uint128_t const& val)
 {
     // This uses a Network Byte Order (Big-Endian) and since a uint128_t is used
     // this is guaranteed to be of length 16 (zero-padded if necessary).
     std::vector<uint8_t> bytes = to_buffer(val);
-    // Since the trace expects BE, we take only the portion that corresponds to the bytes we need (given the instr_tag)
+    // Since the trace expects LE.
     std::reverse(bytes.begin(), bytes.end());
-    // std::vector<uint8_t> bytes(val_bytes.end() - static_cast<int>(num_bytes), val_bytes.end());
-
-    // To simplify the loop in witness generation we add a zero at the end since it's a "free input"
+    // To simplify the loop in witness generation we need an extra zero at index num_bytes + 1.
+    // Since the array is already padded to length 16, we still need to add one more 0 for the instance
+    // where we are operating on a U128
     bytes.push_back(0);
     return bytes;
 }
