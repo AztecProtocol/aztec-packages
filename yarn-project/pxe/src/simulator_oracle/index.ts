@@ -15,14 +15,14 @@ import {
   Fr,
   FunctionSelector,
   Header,
-  L1_TO_L2_MSG_TREE_HEIGHT
+  L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
 import { FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { DBOracle, KeyPair, MessageLoadOracleInputs } from '@aztec/simulator';
 import { ContractInstance } from '@aztec/types/contracts';
 
-import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { PxeDatabase } from '../database/index.js';
 
