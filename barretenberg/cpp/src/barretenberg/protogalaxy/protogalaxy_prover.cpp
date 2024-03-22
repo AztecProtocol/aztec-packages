@@ -57,7 +57,6 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::make_shared<Instance>();
     next_accumulator->is_accumulator = true;
-    next_accumulator->proving_key = std::move(instances[0]->proving_key);
 
     // Compute the next target sum and send the next folding parameters to the verifier
     FF next_target_sum =
@@ -69,7 +68,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // Initialize prover polynomials
     ProverPolynomials acc_prover_polynomials;
     for (auto& polynomial : acc_prover_polynomials.get_all()) {
-        polynomial = typename Flavor::Polynomial(next_accumulator->proving_key.circuit_size);
+        polynomial = typename Flavor::Polynomial(instances[0]->proving_key.circuit_size);
     }
 
     // Fold the prover polynomials
@@ -92,8 +91,8 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // verification, the verifier will produce ϕ* as well and check it against what was sent by the prover.
 
     // Fold the public inputs and send to the verifier
-    next_accumulator->proving_key.public_inputs =
-        std::vector<FF>(next_accumulator->proving_key.public_inputs.size(), 0);
+    next_accumulator->proving_key.num_public_inputs = instances[0]->proving_key.num_public_inputs;
+    next_accumulator->proving_key.public_inputs = std::vector<FF>(instances[0]->proving_key.public_inputs.size(), 0);
     size_t el_idx = 0;
     for (auto& el : next_accumulator->proving_key.public_inputs) {
         size_t inst = 0;
@@ -125,6 +124,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
         combined_relation_parameters.lookup_grand_product_delta.evaluate(challenge),
     };
     next_accumulator->relation_parameters = folded_relation_parameters;
+    next_accumulator->proving_key = std::move(instances[0]->proving_key);
     return next_accumulator;
 }
 
