@@ -101,6 +101,8 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
     options: NoteGetterOptions<Note, N, FILTER_ARGS>
 ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
     let mut opt_notes = get_notes_internal(storage_slot, options);
+
+    let mut returned_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut write_index = 0;
 
     let mut num_notes = 0;
@@ -126,19 +128,15 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
 
             // The below code is used to collapse a sparse array into one where the values are guaranteed to be at the front of the array
             // The condition activates if at any point there was a gap in the array, (i was advanced; by not write_index)
-            // In this case we move our note at i to the write_index (the last empty spot in the array), and fill the last read index with nothing.
-            if (write_index != i) {
-                opt_notes[write_index] = Option::some(note);
-                opt_notes[i] = Option::none();
-            }
-
+            // In this case we move our note at i to returned_notes at write_index
+            returned_notes[write_index] = Option::some(note);
             write_index += 1;
         };
     }
     if options.limit != 0 {
         assert(num_notes <= options.limit, "Invalid number of return notes.");
     }
-    opt_notes
+    returned_notes
 }
 
 unconstrained fn get_note_internal<Note, N>(storage_slot: Field) -> Note where Note: NoteInterface<N> {

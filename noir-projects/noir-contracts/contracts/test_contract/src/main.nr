@@ -115,6 +115,7 @@ contract Test {
         notes: [Option<FieldNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
         _args: bool
     ) -> pub [Option<FieldNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+        // selected is our returned sparse array
         let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
         selected[1] = notes[0];
@@ -130,6 +131,7 @@ contract Test {
 
     #[aztec(private)]
     pub fn create_and_get_many_notes_with_filter() {
+        // We create 7 notes to test getting them later
         for i in 0..7 {
             let mut note = FieldNote::new(i as Field);
             storage.example_set.insert(&mut note, false);
