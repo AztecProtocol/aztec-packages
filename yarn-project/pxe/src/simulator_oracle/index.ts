@@ -13,10 +13,12 @@ import {
   EthAddress,
   Fr,
   FunctionSelector,
+  GeneratorIndex,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { DBOracle, KeyPair, MessageLoadOracleInputs } from '@aztec/simulator';
 import { ContractInstance } from '@aztec/types/contracts';
@@ -123,14 +125,28 @@ export class SimulatorOracle implements DBOracle {
   /**
    * Fetches the a message from the db, given its key.
    * @param messageHash - Hash of the message.
+   * @param secret - Secret used to compute a nullifier (to get non-nullified messages).
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  async getL1ToL2MembershipWitness(messageHash: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    const response = await this.aztecNode.getL1ToL2MessageMembershipWitness('latest', messageHash);
-    if (!response) {
-      throw new Error(`No L1 to L2 message found for message hash ${messageHash.toString()}`);
-    }
-    const [index, siblingPath] = response;
+  async getL1ToL2MembershipWitness(
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+    let nullifierIndex: bigint | undefined;
+    const messageIndex = 0n;
+    do {
+      const response = await this.aztecNode.getL1ToL2MessageMembershipWitness('latest', messageHash, messageIndex);
+      if (!response) {
+        throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
+      }
+      const [messageIndex, siblingPath] = response;
+      const messageNullifier = pedersenHash(
+        [messageHash, secret, new Fr(messageIndex)].map(v => v.toBuffer()),
+        GeneratorIndex.NULLIFIER,
+      );
+      nullifierIndex = await this.getNullifierIndex(messageNullifier);
+    } while (nullifierIndex !== undefined);
+
     return new MessageLoadOracleInputs(index, siblingPath);
   }
 
