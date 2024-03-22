@@ -4,7 +4,7 @@ use dep::types::{
     mocked::AggregationObject, hash::accumulate_sha256,
     constants::{
     NUM_FIELDS_PER_SHA256, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-    MAX_NEW_L2_TO_L1_MSGS_PER_TX, NUM_unencrypted_logs_hashES_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
+    MAX_NEW_L2_TO_L1_MSGS_PER_TX, NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 },
     utils::uint256::U256,
@@ -189,7 +189,7 @@ pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData) -> [Field; NUM
         txs_effects_hash_input[offset + j] = unencrypted_logs_hash[j];
     }
 
-    offset += NUM_unencrypted_logs_hashES_PER_TX * NUM_FIELDS_PER_SHA256;
+    offset += NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256;
     assert_eq(offset, TX_EFFECTS_HASH_INPUT_FIELDS); // Sanity check
 
     let mut hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
@@ -213,6 +213,6 @@ fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
         + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
         + MAX_NEW_L2_TO_L1_MSGS_PER_TX
         + NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256
-        + NUM_unencrypted_logs_hashES_PER_TX * NUM_FIELDS_PER_SHA256;
+        + NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256;
     assert(TX_EFFECTS_HASH_INPUT_FIELDS == expected_size, "tx effects hash input size is incorrect");
 }
