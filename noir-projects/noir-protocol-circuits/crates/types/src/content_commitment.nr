@@ -14,10 +14,10 @@ impl Serialize<CONTENT_COMMITMENT_LENGTH> for ContentCommitment {
   fn serialize(self) -> [Field; CONTENT_COMMITMENT_LENGTH] {
     let mut fields: BoundedVec<Field, CONTENT_COMMITMENT_LENGTH> = BoundedVec::new();
 
-    fields.extend_from_array([self.tx_tree_height]);
-    fields.extend_from_array([self.txs_effects_hash]);
-    fields.extend_from_array([self.in_hash]);
-    fields.extend_from_array([self.out_hash]);
+    fields.push(self.tx_tree_height);
+    fields.push(self.txs_effects_hash);
+    fields.push(self.in_hash);
+    fields.push(self.out_hash);
 
     fields.storage
   }
