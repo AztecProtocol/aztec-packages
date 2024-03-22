@@ -100,7 +100,7 @@ jobs:
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
         run: |
           earthly-cloud build x86 build-end-to-end
-          earthly-cloud build x86 +${{ matrix.test }}
+          earthly-cloud build x86 --no-output +${{ matrix.test }}
 
   # barretenberg (prover) native tests
   bb-native-tests:
@@ -165,9 +165,9 @@ jobs:
       - name: Client IVC Bench
         working-directory: ./barretenberg/cpp/
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
-        run: earthly-cloud bench x86 +bench-client-ivc
+        run: earthly-cloud bench x86 --no-output +bench-client-ivc
 
       - name: Ultrahonk Bench
         working-directory: ./barretenberg/cpp/
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
-        run: earthly-cloud bench x86 +bench-ultra-honk
+        run: earthly-cloud bench x86 --no-output +bench-ultra-honk
