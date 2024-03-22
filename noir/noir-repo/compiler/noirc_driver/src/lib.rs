@@ -458,8 +458,6 @@ fn compile_contract_inner(
             (tag.to_string(), globals)
         }));
 
-        let mut out_fns = HashMap::new();
-
         Ok(CompiledContract {
             name: contract.name,
             functions,
