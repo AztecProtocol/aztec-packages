@@ -47,14 +47,14 @@ class AvmTraceBuilder {
     // Equality with direct or indirect memory access.
     void op_eq(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
-    // Bitwise and with direct memory access.
-    void op_and(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Bitwise and with direct or indirect memory access.
+    void op_and(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
-    // Bitwise or with direct memory access.
-    void op_or(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Bitwise or with direct or indirect memory access.
+    void op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
-    // Bitwise xor with direct memory access.
-    void op_xor(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Bitwise xor with direct or indirect memory access.
+    void op_xor(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
     // Set a constant from bytecode with direct memory access.
     void set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);

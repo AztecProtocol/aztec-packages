@@ -363,7 +363,7 @@ TEST_P(AvmBitwiseTestsAnd, AllAndTest)
     const auto [a, b, output] = operands;
     trace_builder.set(a, 0, mem_tag);
     trace_builder.set(b, 1, mem_tag);
-    trace_builder.op_and(0, 1, 2, mem_tag);
+    trace_builder.op_and(0, 0, 1, 2, mem_tag);
     trace_builder.return_op(0, 2, 1);
 
     auto trace = trace_builder.finalize();
@@ -384,7 +384,7 @@ TEST_P(AvmBitwiseTestsOr, AllOrTest)
     const auto [a, b, output] = operands;
     trace_builder.set(a, 0, mem_tag);
     trace_builder.set(b, 1, mem_tag);
-    trace_builder.op_or(0, 1, 2, mem_tag);
+    trace_builder.op_or(0, 0, 1, 2, mem_tag);
     trace_builder.return_op(0, 2, 1);
     auto trace = trace_builder.finalize();
 
@@ -405,7 +405,7 @@ TEST_P(AvmBitwiseTestsXor, AllXorTest)
     const auto [a, b, output] = operands;
     trace_builder.set(a, 0, mem_tag);
     trace_builder.set(b, 1, mem_tag);
-    trace_builder.op_xor(0, 1, 2, mem_tag);
+    trace_builder.op_xor(0, 0, 1, 2, mem_tag);
     trace_builder.return_op(0, 2, 1);
     auto trace = trace_builder.finalize();
 
@@ -469,7 +469,7 @@ TEST_P(AvmBitwiseNegativeTestsAnd, AllNegativeTests)
     auto trace_builder = avm_trace::AvmTraceBuilder();
     trace_builder.set(uint128_t{ a }, 0, mem_tag);
     trace_builder.set(uint128_t{ b }, 1, mem_tag);
-    trace_builder.op_and(0, 1, 2, mem_tag);
+    trace_builder.op_and(0, 0, 1, 2, mem_tag);
     trace_builder.halt();
     auto trace = trace_builder.finalize();
     FF ff_output = FF(uint256_t::from_uint128(output));
@@ -490,7 +490,7 @@ TEST_P(AvmBitwiseNegativeTestsOr, AllNegativeTests)
     auto trace_builder = avm_trace::AvmTraceBuilder();
     trace_builder.set(uint128_t{ a }, 0, mem_tag);
     trace_builder.set(uint128_t{ b }, 1, mem_tag);
-    trace_builder.op_or(0, 1, 2, mem_tag);
+    trace_builder.op_or(0, 0, 1, 2, mem_tag);
     trace_builder.halt();
     auto trace = trace_builder.finalize();
     FF ff_output = FF(uint256_t::from_uint128(output));
@@ -510,7 +510,7 @@ TEST_P(AvmBitwiseNegativeTestsXor, AllNegativeTests)
     auto trace_builder = avm_trace::AvmTraceBuilder();
     trace_builder.set(uint128_t{ a }, 0, mem_tag);
     trace_builder.set(uint128_t{ b }, 1, mem_tag);
-    trace_builder.op_xor(0, 1, 2, mem_tag);
+    trace_builder.op_xor(0, 0, 1, 2, mem_tag);
     trace_builder.halt();
     auto trace = trace_builder.finalize();
     FF ff_output = FF(uint256_t::from_uint128(output));
