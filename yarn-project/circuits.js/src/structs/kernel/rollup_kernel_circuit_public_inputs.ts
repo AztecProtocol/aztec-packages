@@ -30,7 +30,7 @@ export class RollupKernelCircuitPublicInputs {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.aggregationObject, this.end, this.constants);
+    return serializeToBuffer(this.aggregationObject, this.end, this.constants, this.rollupValidationRequests);
   }
 
   /**
