@@ -17,19 +17,20 @@ fi
 if [ "$RUNNER_TYPE" == "build" ] ; then
   SIZE=4xlarge
   NUMBER_OF_RUNNERS=2
-  # we do chunky jobs, don't go overboard
-  MAX_PARALLELISM=8
+  # TODO why cant we set this??
+  # MAX_PARALLELISM=8
 elif [ "$RUNNER_TYPE" == "bench" ] ; then
   SIZE=2xlarge
   NUMBER_OF_RUNNERS=2
-  MAX_PARALLEISM=1
+  # MAX_PARALLELISM=1
 fi
+
 # we hash our GITHUB_ACTOR to pick from 1 to NUMBER_RUNNERS (inclusive) as RUNNER_ID
 # this means everyone gets assigned to runners based on their user group
 NAME_HASH=$(cksum <<< "$GITHUB_ACTOR" | cut -f 1 -d ' ')
 RUNNER_ID=$(($NAME_HASH % $NUMBER_OF_RUNNERS + 1))
 RUNNER=$RUNNER_TYPE-$RUNNER_ID-$ARCH
-earthly sat --org aztec launch --size $SIZE --feature-flag buildkit-max-parallelism=$MAX_PARALLELISM --platform $PLATFORM $RUNNER || true
+earthly sat --org aztec launch --size $SIZE --platform $PLATFORM $RUNNER || true
 EARTHLY_FLAGS="--org aztec --remote-cache=aztecprotocol/cache:bb-native-tests --sat $RUNNER"
 # capture output to handle earthly edge cases
 if ! earthly $EARTHLY_FLAGS $@ 2>&1 | tee .output.txt >&2 ; then 

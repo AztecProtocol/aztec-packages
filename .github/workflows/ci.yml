@@ -190,7 +190,8 @@ jobs:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      group: ${{ matrix.test }}-${{ github.event.pull_request.number || github.ref_name }}-x86
+      # TODO no longer exclusive.. revisit this
+      group: ${{ github.actor }}-x86
       cancel-in-progress: ${{ github.ref_name != 'master' }}
     steps:
       - uses: earthly/actions-setup@v1
