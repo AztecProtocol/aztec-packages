@@ -399,45 +399,5 @@ pub fn generate_storage_layout(
         storable_fields.join(",\n")
     );
 
-    let field_constructors = definition
-        .fields
-        .iter()
-        .flat_map(|field| {
-            generate_storage_field_constructor(field, slot_zero.clone())
-                .map(|expression| (field.0.clone(), expression))
-        })
-        .collect();
-
-    let storage_constructor_statement = make_statement(StatementKind::Expression(expression(
-        ExpressionKind::constructor((chained_path!(storage_struct_name), field_constructors)),
-    )));
-
-    let init = NoirFunction::normal(FunctionDefinition::normal(
-        &ident("init"),
-        &vec![],
-        &[(
-            ident("context"),
-            make_type(UnresolvedTypeData::Named(
-                chained_dep!("aztec", "context", "Context"),
-                vec![],
-                true,
-            )),
-        )],
-        &BlockExpression(vec![storage_constructor_statement]),
-        &[],
-        &return_type(chained_path!("Self")),
-    ));
-
-    let storage_impl = TypeImpl {
-        object_type: UnresolvedType {
-            typ: UnresolvedTypeData::Named(chained_path!(storage_struct_name), vec![], true),
-            span: Some(Span::default()),
-        },
-        type_span: Span::default(),
-        generics: vec![],
-        methods: vec![(init, Span::default())],
-    };
-    module.impls.push(storage_impl);
-
     Ok(())
 }
