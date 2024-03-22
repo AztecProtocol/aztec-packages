@@ -156,7 +156,6 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(
         }
     }
 
-    proving_key->num_ecc_op_gates = builder.blocks.ecc_op.size();
     proving_key->ecc_op_wire_1 = op_wire_polynomials[0].share();
     proving_key->ecc_op_wire_2 = op_wire_polynomials[1].share();
     proving_key->ecc_op_wire_3 = op_wire_polynomials[2].share();
