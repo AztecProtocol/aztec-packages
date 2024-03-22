@@ -268,6 +268,7 @@ class GoblinUltraFlavor {
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
+        std::array<Polynomial, 4> sorted_polynomials;
 
         size_t num_ecc_op_gates; // needed to determine public input offset
 
@@ -290,7 +291,7 @@ class GoblinUltraFlavor {
          * @param eta random challenge
          * @return Polynomial
          */
-        void compute_sorted_list_accumulator(FF eta)
+        void compute_sorted_list_accumulator(const FF& eta)
         {
             const size_t circuit_size = this->circuit_size;
 
@@ -310,7 +311,7 @@ class GoblinUltraFlavor {
             this->sorted_accum = sorted_list_accumulator.share();
         }
 
-        void compute_sorted_accumulator_polynomials(FF eta)
+        void compute_sorted_accumulator_polynomials(const FF& eta)
         {
             // Compute sorted witness-table accumulator
             this->compute_sorted_list_accumulator(eta);
@@ -328,7 +329,7 @@ class GoblinUltraFlavor {
          * @tparam Flavor
          * @param eta challenge produced after commitment to first three wire polynomials
          */
-        void add_plookup_memory_records_to_wire_4(FF eta)
+        void add_plookup_memory_records_to_wire_4(const FF& eta)
         {
             // The plookup memory record values are computed at the indicated indices as
             // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
@@ -364,15 +365,20 @@ class GoblinUltraFlavor {
          * @param beta
          * @param gamma
          */
-        void compute_logderivative_inverse(RelationParameters<FF>& relation_parameters)
+        void compute_logderivative_inverse(const RelationParameters<FF>& relation_parameters)
         {
-            auto prover_polynomials = ProverPolynomials(this);
+            auto prover_polynomials = ProverPolynomials(*this);
             // Compute permutation and lookup grand product polynomials
             bb::compute_logderivative_inverse<GoblinUltraFlavor, typename GoblinUltraFlavor::LogDerivLookupRelation>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             this->lookup_inverses = prover_polynomials.lookup_inverses;
         }
 
+        /**
+         * @brief Computes public_input_delta, lookup_grand_product_delta, the z_perm and z_lookup polynomials
+         *
+         * @param relation_parameters
+         */
         void compute_grand_product_polynomials(RelationParameters<FF>& relation_parameters)
         {
             auto public_input_delta = compute_public_input_delta<GoblinUltraFlavor>(this->public_inputs,
@@ -386,7 +392,7 @@ class GoblinUltraFlavor {
             relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
             // Compute permutation and lookup grand product polynomials
-            auto prover_polynomials = ProverPolynomials(this);
+            auto prover_polynomials = ProverPolynomials(*this);
             compute_grand_products<GoblinUltraFlavor>(*this, prover_polynomials, relation_parameters);
             this->z_perm = prover_polynomials.z_perm;
             this->z_lookup = prover_polynomials.z_lookup;
@@ -446,14 +452,14 @@ class GoblinUltraFlavor {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        ProverPolynomials(ProvingKey* proving_key)
+        ProverPolynomials(ProvingKey& proving_key)
         {
-            for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key->get_all())) {
-                ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(*proving_key, key_poly));
+            for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
                 prover_poly = key_poly.share();
             }
-            for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key->get_to_be_shifted())) {
-                ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(*proving_key, key_poly) + "_shift"));
+            for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(proving_key, key_poly) + "_shift"));
                 prover_poly = key_poly.shifted();
             }
         }
