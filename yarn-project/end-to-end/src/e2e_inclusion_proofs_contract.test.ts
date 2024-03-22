@@ -206,7 +206,7 @@ describe('e2e_inclusion_proofs_contract', () => {
 
     it('reads a historical unset public value in private context', async () => {
       // This test scenario is interesting because the codepath for storage values that were never set is different
-      // (since they're don't exist in the tree).
+      // (since they don't exist in the tree).
       const blockNumber = await getRandomBlockNumber();
       await contract.methods.test_storage_historical_read_unset_slot(blockNumber).send().wait();
     });
@@ -294,6 +294,6 @@ describe('e2e_inclusion_proofs_contract', () => {
   };
 
   const getRandomBlockNumberBeforeDeployment = () => {
-    return randomInt(deploymentBlockNumber - INITIAL_L2_BLOCK_NUM);
+    return randomInt(deploymentBlockNumber - INITIAL_L2_BLOCK_NUM) + INITIAL_L2_BLOCK_NUM;
   };
 });

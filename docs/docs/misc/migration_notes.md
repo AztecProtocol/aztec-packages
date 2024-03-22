@@ -10,7 +10,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ### [Aztec.nr] Public storage historical read API improvement
 
-`history::public_value_inclusion::prove_public_value_inclusion` has been renamed to `history::storage::storage_historical_read`, and it's API changed slightly. Instead of receiving a `value` parameter it now returns the historical value stored at that slot.
+`history::public_value_inclusion::prove_public_value_inclusion` has been renamed to `history::storage::storage_historical_read`, and its API changed slightly. Instead of receiving a `value` parameter it now returns the historical value stored at that slot.
 
 If you were using an oracle to get the value to pass to `prove_public_value_inclusion`, drop the oracle and use the return value from `storage_historical_read` instead:
 

@@ -33,7 +33,7 @@ fn _storage_historical_read(storage_slot: Field, contract_address: AztecAddress,
     let value = if is_in_range {
         0
     } else {
-        assert_eq(preimage.slot, public_value_leaf_slot, "Public data slot don't match witness");
+        assert_eq(preimage.slot, public_value_leaf_slot, "Public data slot doesn't match witness");
         preimage.value
     };
 
