@@ -72,18 +72,11 @@ jobs:
         working-directory: ./scripts
         run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }} ${{ github.actor }}
 
-      - name: Download artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: E2E Build Image
-          path: /tmp/e2e-${{ github.event.pull_request.head.sha }}.tar
-
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
         # We don't do much on arm, just run it on their builder
         run: 
-          docker load --input /tmp/e2e-${{ github.event.pull_request.head.sha }}.tar
           earthly-cloud build arm +${{ matrix.test }} --build_end_to_end=true
 
   # all the end-to-end integration tests for aztec
@@ -142,11 +135,17 @@ jobs:
         working-directory: ./scripts
         run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }} ${{ github.actor }}
 
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: E2E Build Image
+          path: /tmp/e2e-${{ github.event.pull_request.head.sha }}.tar
+
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
         run: |
-          earthly-cloud build x86 ../+build-end-to-end
+          docker load --input /tmp/e2e-${{ github.event.pull_request.head.sha }}.tar
           earthly-cloud build x86 --no-output +${{ matrix.test }}
 
   # barretenberg (prover) native tests
