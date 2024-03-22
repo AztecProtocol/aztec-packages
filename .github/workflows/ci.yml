@@ -99,7 +99,7 @@ jobs:
         working-directory: ./yarn-project/end-to-end/
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
         run: |
-          earthly-cloud build x86 build-end-to-end
+          earthly-cloud build x86 ../+build-end-to-end
           earthly-cloud build x86 --no-output +${{ matrix.test }}
 
   # barretenberg (prover) native tests
