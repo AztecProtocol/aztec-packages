@@ -122,7 +122,7 @@ pub(crate) mod tests {
     use std::vec;
 
     use acvm::acir::brillig::{
-        ForeignCallParam, ForeignCallResult, HeapVector, MemoryAddress, Value, ValueOrArray,
+        ForeignCallParam, ForeignCallResult, HeapVector, MemoryAddress, ValueOrArray,
     };
     use acvm::brillig_vm::brillig::HeapValueType;
     use acvm::brillig_vm::{VMStatus, VM};

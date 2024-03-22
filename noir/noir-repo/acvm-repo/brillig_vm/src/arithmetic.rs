@@ -3,38 +3,71 @@ use acir::FieldElement;
 use num_bigint::BigUint;
 use num_traits::{One, ToPrimitive, Zero};
 
-/// Evaluate a binary operation on two FieldElements and return the result as a FieldElement.
+use crate::memory::MemoryValue;
+
+/// Evaluate a binary operation on two FieldElement memory values.
 pub(crate) fn evaluate_binary_field_op(
     op: &BinaryFieldOp,
-    a: FieldElement,
-    b: FieldElement,
-) -> FieldElement {
-    match op {
+    a: MemoryValue,
+    b: MemoryValue,
+) -> Result<MemoryValue, String> {
+    if a.bit_size != b.bit_size {
+        return Err(format!(
+            "bit sizes for lhs ({}) and rhs ({}) for op {:?} must match",
+            a.bit_size, b.bit_size, op
+        )
+        .to_string());
+    }
+    if a.bit_size != FieldElement::max_num_bits() {
+        return Err(format!("bit size ({}) for op {:?} must be field", a.bit_size, op).to_string());
+    }
+
+    let a = a.value;
+    let b = b.value;
+    Ok(match op {
         // Perform addition, subtraction, multiplication, and division based on the BinaryOp variant.
-        BinaryFieldOp::Add => a + b,
-        BinaryFieldOp::Sub => a - b,
-        BinaryFieldOp::Mul => a * b,
-        BinaryFieldOp::Div => a / b,
+        BinaryFieldOp::Add => (a + b).into(),
+        BinaryFieldOp::Sub => (a - b).into(),
+        BinaryFieldOp::Mul => (a * b).into(),
+        BinaryFieldOp::Div => (a / b).into(),
         BinaryFieldOp::IntegerDiv => {
             let a_big = BigUint::from_bytes_be(&a.to_be_bytes());
             let b_big = BigUint::from_bytes_be(&b.to_be_bytes());
 
             let result = a_big / b_big;
-            FieldElement::from_be_bytes_reduce(&result.to_bytes_be())
+            FieldElement::from_be_bytes_reduce(&result.to_bytes_be()).into()
         }
         BinaryFieldOp::Equals => (a == b).into(),
         BinaryFieldOp::LessThan => (a < b).into(),
         BinaryFieldOp::LessThanEquals => (a <= b).into(),
-    }
+    })
 }
 
-/// Evaluate a binary operation on two unsigned big integers with a given bit size and return the result as a big integer.
-pub(crate) fn evaluate_binary_bigint_op(
+/// Evaluate a binary operation on two unsigned big integers with a given bit size.
+pub(crate) fn evaluate_binary_int_op(
     op: &BinaryIntOp,
-    a: BigUint,
-    b: BigUint,
+    a: MemoryValue,
+    b: MemoryValue,
     bit_size: u32,
-) -> Result<BigUint, String> {
+) -> Result<MemoryValue, String> {
+    if a.bit_size != b.bit_size {
+        return Err(format!(
+            "bit sizes for lhs ({}) and rhs ({}) for op {:?} must match",
+            a.bit_size, b.bit_size, op
+        )
+        .to_string());
+    }
+    if a.bit_size != bit_size {
+        return Err(format!(
+            "bit size for lhs ({}) must match op bit size ({}) for op {:?}",
+            a.bit_size, bit_size, op
+        )
+        .to_string());
+    }
+
+    let a = BigUint::from_bytes_be(&a.value.to_be_bytes());
+    let b = BigUint::from_bytes_be(&b.value.to_be_bytes());
+
     let bit_modulo = &(BigUint::one() << bit_size);
     let result = match op {
         // Perform addition, subtraction, and multiplication, applying a modulo operation to keep the result within the bit size.
@@ -79,18 +112,29 @@ pub(crate) fn evaluate_binary_bigint_op(
         BinaryIntOp::Or => (a | b) % bit_modulo,
         BinaryIntOp::Xor => (a ^ b) % bit_modulo,
         BinaryIntOp::Shl => {
-            assert!(bit_size <= 128, "unsupported bit size for right shift");
+            if bit_size > 128 {
+                return Err("unsupported bit size for left shift".to_string());
+            }
             let b = b.to_u128().unwrap();
             (a << b) % bit_modulo
         }
         BinaryIntOp::Shr => {
-            assert!(bit_size <= 128, "unsupported bit size for right shift");
+            if bit_size > 128 {
+                return Err("unsupported bit size for right shift".to_string());
+            }
             let b = b.to_u128().unwrap();
             (a >> b) % bit_modulo
         }
     };
 
-    Ok(result)
+    let result_as_field = FieldElement::from_be_bytes_reduce(&result.to_bytes_be());
+
+    Ok(match op {
+        BinaryIntOp::Equals | BinaryIntOp::LessThan | BinaryIntOp::LessThanEquals => {
+            MemoryValue::new(result_as_field, 1)
+        }
+        _ => MemoryValue::new(result_as_field, bit_size),
+    })
 }
 
 #[cfg(test)]
@@ -104,12 +148,15 @@ mod tests {
     }
 
     fn evaluate_u128(op: &BinaryIntOp, a: u128, b: u128, bit_size: u32) -> u128 {
-        // Convert to big integers
-        let lhs_big = BigUint::from(a);
-        let rhs_big = BigUint::from(b);
-        let result_value = evaluate_binary_bigint_op(op, lhs_big, rhs_big, bit_size).unwrap();
+        let result_value = evaluate_binary_int_op(
+            op,
+            MemoryValue::new(a.into(), bit_size),
+            MemoryValue::new(b.into(), bit_size),
+            bit_size,
+        )
+        .unwrap();
         // Convert back to u128
-        result_value.to_u128().unwrap()
+        result_value.value.to_u128()
     }
 
     fn to_negative(a: u128, bit_size: u32) -> u128 {

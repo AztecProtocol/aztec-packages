@@ -320,7 +320,7 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
         };
 
         for (index, value) in memory.iter().enumerate() {
-            println!("{index} = {}", value.to_field());
+            println!("{index} = {}", value);
         }
     }
 

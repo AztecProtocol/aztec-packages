@@ -2,7 +2,7 @@ use crate::foreign_calls::DebugForeignCallExecutor;
 use acvm::acir::circuit::{Circuit, Opcode, OpcodeLocation};
 use acvm::acir::native_types::{Witness, WitnessMap};
 use acvm::brillig_vm::brillig::ForeignCallResult;
-use acvm::brillig_vm::brillig::Value;
+use acvm::brillig_vm::MemoryValue;
 use acvm::pwg::{
     ACVMStatus, BrilligSolver, BrilligSolverStatus, ForeignCallWaitInfo, StepResult, ACVM,
 };
@@ -506,7 +506,7 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
         acir_index < opcodes.len() && matches!(opcodes[acir_index], Opcode::Brillig(..))
     }
 
-    pub(super) fn get_brillig_memory(&self) -> Option<&[Value]> {
+    pub(super) fn get_brillig_memory(&self) -> Option<&[MemoryValue]> {
         self.brillig_solver.as_ref().map(|solver| solver.get_memory())
     }
 

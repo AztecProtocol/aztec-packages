@@ -1,5 +1,5 @@
 use acvm::{
-    acir::brillig::{BinaryFieldOp, BinaryIntOp, MemoryAddress, Opcode as BrilligOpcode, Value},
+    acir::brillig::{BinaryFieldOp, BinaryIntOp, MemoryAddress, Opcode as BrilligOpcode},
     FieldElement,
 };
 
@@ -17,7 +17,7 @@ pub(crate) fn directive_invert() -> GeneratedBrillig {
     let input = MemoryAddress::from(0);
     let one_const = MemoryAddress::from(1);
     // Location of the stop opcode
-    let stop_location = 3;
+    let stop_location = 4;
 
     GeneratedBrillig {
         byte_code: vec![
@@ -27,7 +27,7 @@ pub(crate) fn directive_invert() -> GeneratedBrillig {
             // Put value one in register (1)
             BrilligOpcode::Const {
                 destination: one_const,
-                value: Value::from(1_usize),
+                value: FieldElement::from(1_usize),
                 bit_size: FieldElement::max_num_bits(),
             },
             // Divide 1 by the input, and set the result of the division into register (0)
@@ -53,15 +53,28 @@ pub(crate) fn directive_invert() -> GeneratedBrillig {
 ///    (a/b, a-a/b*b)
 /// }
 /// ```
-pub(crate) fn directive_quotient(bit_size: u32) -> GeneratedBrillig {
+pub(crate) fn directive_quotient(mut bit_size: u32) -> GeneratedBrillig {
     // `a` is (0) (i.e register index 0)
     // `b` is (1)
+    if bit_size > FieldElement::max_num_bits() {
+        bit_size = FieldElement::max_num_bits();
+    }
     GeneratedBrillig {
         byte_code: vec![
             BrilligOpcode::CalldataCopy {
                 destination_address: MemoryAddress::from(0),
                 size: 2,
                 offset: 0,
+            },
+            BrilligOpcode::Cast {
+                destination: MemoryAddress(0),
+                source: MemoryAddress(0),
+                bit_size,
+            },
+            BrilligOpcode::Cast {
+                destination: MemoryAddress(1),
+                source: MemoryAddress(1),
+                bit_size,
             },
             //q = a/b is set into register (2)
             BrilligOpcode::BinaryIntOp {

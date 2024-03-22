@@ -58,6 +58,8 @@ impl BrilligContext {
         let modulus_field =
             SingleAddrVariable::new(self.allocate_register(), FieldElement::max_num_bits());
 
+        let modulus_byte = SingleAddrVariable::new(self.allocate_register(), 8);
+
         self.codegen_loop(target_vector.size, |ctx, iterator_register| {
             // Compute the modulus
             ctx.binary_instruction(
@@ -66,8 +68,10 @@ impl BrilligContext {
                 modulus_field,
                 BrilligBinaryOp::Modulo,
             );
+            // Cast it
+            ctx.cast_instruction(modulus_byte, modulus_field);
             // Write it
-            ctx.codegen_array_set(target_vector.pointer, iterator_register, modulus_field.address);
+            ctx.codegen_array_set(target_vector.pointer, iterator_register, modulus_byte.address);
             // Integer div the field
             ctx.binary_instruction(
                 shifted_field,
@@ -80,6 +84,7 @@ impl BrilligContext {
         // Deallocate our temporary registers
         self.deallocate_single_addr(shifted_field);
         self.deallocate_single_addr(modulus_field);
+        self.deallocate_single_addr(modulus_byte);
         self.deallocate_single_addr(radix_as_field);
 
         if big_endian {

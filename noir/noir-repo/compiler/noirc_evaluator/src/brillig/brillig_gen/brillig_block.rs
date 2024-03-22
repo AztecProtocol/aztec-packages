@@ -514,7 +514,7 @@ impl<'block> BrilligBlock<'block> {
                         .extract_vector();
 
                     // Update the user-facing slice length
-                    self.brillig_context.mov_instruction(target_len.address, limb_count.address);
+                    self.brillig_context.cast_instruction(target_len, limb_count);
 
                     self.brillig_context.codegen_to_radix(
                         source,
@@ -554,7 +554,7 @@ impl<'block> BrilligBlock<'block> {
                     let radix = self.brillig_context.make_constant_instruction(2_usize.into(), 32);
 
                     // Update the user-facing slice length
-                    self.brillig_context.mov_instruction(target_len.address, limb_count.address);
+                    self.brillig_context.cast_instruction(target_len, limb_count);
 
                     self.brillig_context.codegen_to_radix(
                         source,
@@ -654,7 +654,7 @@ impl<'block> BrilligBlock<'block> {
                     // Create a field constant with the max
                     let max = BigUint::from(2_u128).pow(*max_bit_size) - BigUint::from(1_u128);
                     let right = self.brillig_context.make_constant_instruction(
-                        FieldElement::from_be_bytes_reduce(&max.to_bytes_be()).into(),
+                        FieldElement::from_be_bytes_reduce(&max.to_bytes_be()),
                         FieldElement::max_num_bits(),
                     );
 
@@ -1547,7 +1547,7 @@ impl<'block> BrilligBlock<'block> {
                         self.variables.allocate_constant(self.brillig_context, value_id, dfg);
 
                     self.brillig_context
-                        .const_instruction(new_variable.extract_single_addr(), (*constant).into());
+                        .const_instruction(new_variable.extract_single_addr(), *constant);
                     new_variable
                 }
             }
