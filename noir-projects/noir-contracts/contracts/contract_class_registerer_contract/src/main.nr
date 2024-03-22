@@ -2,9 +2,10 @@ mod events;
 mod capsule;
 
 contract ContractClassRegisterer {
+    use dep::aztec::context::PrivateContext;
     use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, emit_unencrypted_log};
     use dep::aztec::protocol_types::{
-        contract_class_id::ContractClassId,
+        hash::hash_args, contract_class_id::ContractClassId,
         constants::{
         ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, FUNCTION_TREE_HEIGHT,
         MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE
@@ -23,11 +24,23 @@ contract ContractClassRegisterer {
     use crate::capsule::pop_capsule;
 
     #[aztec(private)]
-    fn register(artifact_hash: Field, private_functions_root: Field, public_bytecode_commitment: Field) {
+    #[aztec(nocontextcreation)]
+    fn register(
+        artifact_hash: Field,
+        private_functions_root: Field,
+        public_bytecode_commitment: Field,
+        packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS]
+    ) {
+        // We manually create the context so we can manually hash the args using the bytecode array as slice
+        // See https://github.com/noir-lang/noir/issues/4395#issuecomment-2007694169 for context
+        let mut hasher_slice = packed_public_bytecode.as_slice();
+        hasher_slice = hasher_slice.push_front(public_bytecode_commitment);
+        hasher_slice = hasher_slice.push_front(private_functions_root);
+        hasher_slice = hasher_slice.push_front(artifact_hash);
+        let mut context = PrivateContext::new(inputs, hash_args(hasher_slice));
+
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
         // TODO: Validate packed_public_bytecode is legit public bytecode
-
-        let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = pop_capsule();
 
         // Compute contract class id from preimage
         let contract_class_id = ContractClassId::compute(

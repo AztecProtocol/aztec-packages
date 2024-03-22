@@ -31,6 +31,7 @@ pub fn transform_function(
     is_initializer: bool,
     insert_init_check: bool,
     is_internal: bool,
+    insert_context_creation: bool,
 ) -> Result<(), AztecMacroError> {
     let context_name = format!("{}Context", ty);
     let inputs_name = format!("{}ContextInputs", ty);
@@ -60,8 +61,10 @@ pub fn transform_function(
     }
 
     // Insert the context creation as the first action
-    let create_context = create_context(&context_name, &func.def.parameters)?;
-    func.def.body.statements.splice(0..0, (create_context).iter().cloned());
+    if insert_context_creation {
+        let create_context = create_context(&context_name, &func.def.parameters)?;
+        func.def.body.statements.splice(0..0, (create_context).iter().cloned());
+    }
 
     // Add the inputs to the params
     let input = create_inputs(&inputs_name);
