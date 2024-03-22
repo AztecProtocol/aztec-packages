@@ -1,6 +1,5 @@
 #include "avm_execution.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/flavor/generated/avm_flavor.hpp"
 #include "barretenberg/proof_system/circuit_builder/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
@@ -8,6 +7,7 @@
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
 #include "barretenberg/vm/generated/avm_composer.hpp"
+#include "barretenberg/vm/generated/avm_flavor.hpp"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

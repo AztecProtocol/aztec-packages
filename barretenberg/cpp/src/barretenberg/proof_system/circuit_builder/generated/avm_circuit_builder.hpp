@@ -11,7 +11,6 @@
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 
-#include "barretenberg/flavor/generated/avm_flavor.hpp"
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
@@ -24,6 +23,7 @@
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_a.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_b.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_c.hpp"
+#include "barretenberg/vm/generated/avm_flavor.hpp"
 
 namespace bb {
 
