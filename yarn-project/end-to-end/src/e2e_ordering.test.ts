@@ -91,8 +91,8 @@ describe('e2e_ordering', () => {
       const directValue = 20n;
 
       const expectedOrders = {
-        set_value_twice_with_nested_first: [nestedValue, directValue] as bigint[],
-        set_value_twice_with_nested_last: [directValue, nestedValue] as bigint[],
+        set_value_twice_with_nested_first: [nestedValue, directValue] as bigint[], // eslint-disable-line camelcase
+        set_value_twice_with_nested_last: [directValue, nestedValue] as bigint[], // eslint-disable-line camelcase
       } as const;
 
       it.each(['set_value_twice_with_nested_first', 'set_value_twice_with_nested_last'] as const)(
