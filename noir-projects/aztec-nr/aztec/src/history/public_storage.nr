@@ -6,7 +6,7 @@ use dep::std::merkle::compute_merkle_root;
 
 use crate::{context::PrivateContext, oracle::get_public_data_witness::get_public_data_witness};
 
-fn _storage_historical_read(storage_slot: Field, contract_address: AztecAddress, header: Header) -> Field {
+fn _public_storage_historical_read(storage_slot: Field, contract_address: AztecAddress, header: Header) -> Field {
     // 1) Compute the leaf slot by siloing the storage slot with the contract address
     let public_value_leaf_slot = pedersen_hash(
         [contract_address.to_field(), storage_slot],
@@ -47,21 +47,21 @@ fn _storage_historical_read(storage_slot: Field, contract_address: AztecAddress,
     value
 }
 
-pub fn storage_historical_read(
+pub fn public_storage_historical_read(
+    context: PrivateContext,
     storage_slot: Field, // The storage slot to read
-    contract_address: AztecAddress, // The contract we want to look into
-    context: PrivateContext
+    contract_address: AztecAddress // The contract we want to look into
 ) -> Field {
-    _storage_historical_read(storage_slot, contract_address, context.historical_header)
+    _public_storage_historical_read(storage_slot, contract_address, context.historical_header)
 }
 
-pub fn storage_historical_read_at(
+pub fn public_storage_historical_read_at(
+    context: PrivateContext,
     storage_slot: Field, // The storage slot to read
     contract_address: AztecAddress, // The contract we want to look into
-    block_number: u32, // The block number at the end of which we'll read the value
-    context: PrivateContext
+    block_number: u32 // The block number at the end of which we'll read the value
 ) -> Field {
     let header = context.get_header_at(block_number);
 
-    _storage_historical_read(storage_slot, contract_address, header)
+    _public_storage_historical_read(storage_slot, contract_address, header)
 }

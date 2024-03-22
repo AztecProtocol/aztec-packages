@@ -10,21 +10,21 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ### [Aztec.nr] Public storage historical read API improvement
 
-`history::public_value_inclusion::prove_public_value_inclusion` has been renamed to `history::storage::storage_historical_read`, and its API changed slightly. Instead of receiving a `value` parameter it now returns the historical value stored at that slot.
+`history::public_value_inclusion::prove_public_value_inclusion` has been renamed to `history::public_storage::public_storage_historical_read`, and its API changed slightly. Instead of receiving a `value` parameter it now returns the historical value stored at that slot.
 
-If you were using an oracle to get the value to pass to `prove_public_value_inclusion`, drop the oracle and use the return value from `storage_historical_read` instead:
+If you were using an oracle to get the value to pass to `prove_public_value_inclusion`, drop the oracle and use the return value from `public_storage_historical_read` instead:
 
 ```diff
 - let value = read_storage();
 - prove_public_value_inclusion(value, storage_slot, contract_address, context);
-+ let value = storage_historical_read(storage_slot, contract_address, context);
++ let value = public_storage_historical_read(storage_slot, contract_address, context);
 ```
 
-If you were proving historical existence of a value you got via some other constrained means, perform an assertion against the return value of `storage_historical_read` instead:
+If you were proving historical existence of a value you got via some other constrained means, perform an assertion against the return value of `public_storage_historical_read` instead:
 
 ```diff
 - prove_public_value_inclusion(value, storage_slot, contract_address, context);
-+ assert(storage_historical_read(storage_slot, contract_address, context) == value);
++ assert(public_storage_historical_read(storage_slot, contract_address, context) == value);
 ```
 
 ## 0.30.0

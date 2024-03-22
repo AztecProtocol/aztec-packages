@@ -100,30 +100,30 @@ This proves that a nullifier was not included in a certain block (can be used to
 
 Instead of passing the nullifier, you can check that a note has not been nullified by passing the note.
 
-## Storage historical reads
+## Public storage historical reads
 
-These return the value stored in a public storage slot of a given contract at the end of the execution of a certain block (the latest one if using `storage_historical_read`).
+These return the value stored in a public storage slot of a given contract at the end of the execution of a certain block (the latest one if using `public_storage_historical_read`).
 
 Note that it is never possible to read the _current_ value in a public storage slot in private since private execution is local and by definition always works on _historical_ state.
 
-### storage_historical_read
+### public_storage_historical_read
 
-`storage_historical_read_at` takes 4 parameters:
+`public_storage_historical_read_at` takes 4 parameters:
 
 | Name             | Type           | Description                              |
 | ---------------- | -------------- | ---------------------------------------- |
+| context          | PrivateContext | Private context                          |
 | storage_slot     | Field          | Storage slot                             |
 | contract_address | AztecAddress   | The contract that owns the storage slot  |
 | block_number     | u32            | Historical block number in which to read |
-| context          | PrivateContext | Private context                          |
 
-`storage_historical_read` takes 3 parameters:
+`public_storage_historical_read` takes 3 parameters. `block_number` is implicitly the historical block number from the context:
 
 | Name             | Type           | Description                             |
 | ---------------- | -------------- | --------------------------------------- |
+| context          | PrivateContext | Private context                         |
 | storage_slot     | Field          | Storage slot                            |
 | contract_address | AztecAddress   | The contract that owns the storage slot |
-| context          | PrivateContext | Private context                         |
 
 ## Contract inclusion
 

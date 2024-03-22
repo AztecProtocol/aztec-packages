@@ -20,7 +20,7 @@ contract InclusionProofs {
         prove_note_is_nullified_at
     },
         nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
-        storage::{storage_historical_read, storage_historical_read_at}
+        public_storage::{public_storage_historical_read, public_storage_historical_read_at}
     };
     // docs:end:imports
     // docs:start:value_note_imports
@@ -203,11 +203,11 @@ contract InclusionProofs {
     fn test_storage_historical_read_unset_slot(block_number: u32 // The block at which we'll read the public storage value
     ) {
         assert_eq(
-            storage_historical_read_at(
+            public_storage_historical_read_at(
+                context,
                 storage.public_unused_value.storage_slot,
                 context.this_address(),
-                block_number,
-                context
+                block_number
             ), 0
         );
     }
@@ -219,17 +219,17 @@ contract InclusionProofs {
         block_number: u32 // The block at which we'll read the public storage value
     ) {
         let actual = if (use_block_number) {
-            storage_historical_read_at(
+            public_storage_historical_read_at(
+                context,
                 storage.public_value.storage_slot,
                 context.this_address(),
-                block_number,
-                context
+                block_number
             )
         } else {
-            storage_historical_read(
+            public_storage_historical_read(
+                context,
                 storage.public_value.storage_slot,
-                context.this_address(),
-                context
+                context.this_address()
             )
         };
 

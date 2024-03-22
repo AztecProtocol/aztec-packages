@@ -1,5 +1,5 @@
 use crate::{
-    context::Context, history::storage::storage_historical_read,
+    context::Context, history::public_storage::storage_historical_read,
     oracle::{storage::{storage_read, storage_write}}, state_vars::storage::Storage
 };
 use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize}};
@@ -58,10 +58,10 @@ impl<T> SharedImmutable<T> {
 
         for i in 0..fields.len() {
             fields[i] =
-                storage_historical_read(
+                public_storage_historical_read(
+                    (*private_context),
                     self.storage_slot + i as Field,
-                    (*private_context).this_address(),
-                    (*private_context)
+                    (*private_context).this_address()
                 );
         }
         T::deserialize(fields)
