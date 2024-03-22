@@ -12,6 +12,7 @@
 .env*
 *.log
 *.swp
+**/*.result
 **/.tsbuildinfo
 **/tsconfig.tsbuildinfo
 **/.eslintcache
