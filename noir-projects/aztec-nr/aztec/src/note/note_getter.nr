@@ -124,6 +124,9 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
 
             num_notes += 1;
 
+            // The below code is used to collapse a sparse array into one where the values are guaranteed to be at the front of the array
+            // The condition activates if at any point there was a gap in the array, (i was advanced; by not write_index)
+            // In this case we move our note at i to the write_index (the last empty spot in the array), and fill the last read index with nothing.
             if (write_index != i) {
                 opt_notes[write_index] = Option::some(note);
                 opt_notes[i] = Option::none();
