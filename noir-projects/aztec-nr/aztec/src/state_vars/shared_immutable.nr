@@ -1,5 +1,5 @@
 use crate::{
-    context::Context, history::public_storage::storage_historical_read,
+    context::Context, history::public_storage::public_storage_historical_read,
     oracle::{storage::{storage_read, storage_write}}, state_vars::storage::Storage
 };
 use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize}};
