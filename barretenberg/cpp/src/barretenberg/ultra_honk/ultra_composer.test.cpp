@@ -70,7 +70,7 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
     UltraProver prover(instance);
     auto proof = prover.construct_proof();
-    auto proving_key = instance->proving_key;
+    auto& proving_key = instance->proving_key;
 
     for (auto& poly : proving_key.get_selectors()) {
         ensure_non_zero(poly);

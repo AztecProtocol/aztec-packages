@@ -263,7 +263,7 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
 
     // Create a prover (it will compute proving key and witness)
     auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
-    auto proving_key = instance->proving_key;
+    auto& proving_key = instance->proving_key;
     auto circuit_size = proving_key.circuit_size;
 
     // Generate eta, beta and gamma
@@ -315,7 +315,7 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
 
     // Create a prover (it will compute proving key and witness)
     auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
-    auto proving_key = instance->proving_key;
+    auto& proving_key = instance->proving_key;
     auto circuit_size = proving_key.circuit_size;
 
     // Generate eta, beta and gamma
