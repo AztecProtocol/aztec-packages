@@ -190,9 +190,9 @@ fn simple_brillig_foreign_call() {
             brillig::Opcode::ForeignCall {
                 function: "invert".into(),
                 destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
-                destination_value_types: vec![HeapValueType::Simple],
+                destination_value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
                 inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
-                input_value_types: vec![HeapValueType::Simple],
+                input_value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
             },
             brillig::Opcode::Stop { return_data_offset: 0, return_data_size: 1 },
         ],
@@ -264,8 +264,8 @@ fn complex_brillig_foreign_call() {
             },
             brillig::Opcode::Const {
                 destination: MemoryAddress(0),
-                value: brillig::Value::from(32_usize),
-                bit_size: 32,
+                value: FieldElement::from(32_usize),
+                bit_size: 64,
             },
             brillig::Opcode::CalldataCopy {
                 destination_address: MemoryAddress(1),
@@ -280,8 +280,11 @@ fn complex_brillig_foreign_call() {
                     ValueOrArray::MemoryAddress(MemoryAddress::from(1)),
                 ],
                 input_value_types: vec![
-                    HeapValueType::Array { size: 3, value_types: vec![HeapValueType::Simple] },
-                    HeapValueType::Simple,
+                    HeapValueType::Array {
+                        size: 3,
+                        value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                    },
+                    HeapValueType::Simple(FieldElement::max_num_bits()),
                 ],
                 destinations: vec![
                     ValueOrArray::HeapArray(HeapArray { pointer: 0.into(), size: 3 }),
@@ -289,9 +292,12 @@ fn complex_brillig_foreign_call() {
                     ValueOrArray::MemoryAddress(MemoryAddress::from(36)),
                 ],
                 destination_value_types: vec![
-                    HeapValueType::Array { size: 3, value_types: vec![HeapValueType::Simple] },
-                    HeapValueType::Simple,
-                    HeapValueType::Simple,
+                    HeapValueType::Array {
+                        size: 3,
+                        value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                    },
+                    HeapValueType::Simple(FieldElement::max_num_bits()),
+                    HeapValueType::Simple(FieldElement::max_num_bits()),
                 ],
             },
             brillig::Opcode::Stop { return_data_offset: 32, return_data_size: 5 },
