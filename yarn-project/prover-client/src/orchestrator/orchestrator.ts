@@ -496,7 +496,7 @@ export class ProvingOrchestrator {
           return PROMISE_RESULT.OPERATIONS;
         });
         const result = await Promise.race([sleepPromise, ops]);
-        if (result === PROMISE_RESULT.OPERATIONS) {
+        if (result === PROMISE_RESULT.SLEEP) {
           // this is the sleep promise
           // we simply setup the promise again and go round the loop checking for more work
           sleepPromise = createSleepPromise();
