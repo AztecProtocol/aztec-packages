@@ -10,6 +10,52 @@ import "forge-std/console2.sol";
 // Easier Field arithmetic library TODO: fix up documentation and describe what this does
 import {Fr, FrLib} from "./Fr.sol";
 
+// ENUM FOR WIRES
+enum WIRE {
+    Q_C,
+    Q_L,
+    Q_R,
+    Q_O,
+    Q_4,
+    Q_M,
+    Q_ARITH,
+    Q_SORT,
+    Q_ELLIPTIC,
+    Q_AUX,
+    Q_LOOKUP,
+    SIGMA_1,
+    SIGMA_2,
+    SIGMA_3,
+    SIGMA_4,
+    ID_1,
+    ID_2,
+    ID_3,
+    ID_4,
+    TABLE_1,
+    TABLE_2,
+    TABLE_3,
+    TABLE_4,
+    LAGRANGE_FIRST,
+    LAGRANGE_LAST,
+    W_L,
+    W_R,
+    W_O,
+    W_4,
+    SORTED_ACCUM,
+    Z_PERM,
+    Z_LOOKUP,
+    TABLE_1_SHIFT,
+    TABLE_2_SHIFT,
+    TABLE_3_SHIFT,
+    TABLE_4_SHIFT,
+    W_L_SHIFT,
+    W_R_SHIFT,
+    W_O_SHIFT,
+    W_4_SHIFT,
+    SORTED_ACCUM_SHIFT,
+    Z_PERM_SHIFT,
+    Z_LOOKUP_SHIFT
+}
 
 /// Smart contract verifier of honk proofs
 contract HonkVerifier is IVerifier {
@@ -25,9 +71,10 @@ contract HonkVerifier is IVerifier {
     /// 4. Implement the zero morph verifier
 
     // TODO: increase this number accordingly
-    uint256 constant NUMBER_OF_SUBRELATIONS = 17;
-    uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 7;
-    uint256 constant NUMBER_OF_ENTITIES = 43;
+    uint256 internal constant NUMBER_OF_SUBRELATIONS = 17;
+    uint256 internal constant BATCHED_RELATION_PARTIAL_LENGTH = 7;
+    uint256 internal constant NUMBER_OF_ENTITIES = 43;
+    Fr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = Fr.wrap(17); // -(-17) 
 
     uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order
     uint256 constant P = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
@@ -102,6 +149,11 @@ contract HonkVerifier is IVerifier {
     function logFr(string memory name, Fr value) internal pure {
         string memory as_hex = bytes32ToString(bytes32(Fr.unwrap(value)));
         console2.log(name, as_hex);
+    }
+
+    function logFr(string memory name, uint256 i, Fr value) internal pure {
+        string memory as_hex = bytes32ToString(bytes32(Fr.unwrap(value)));
+        console2.log(name, i, as_hex);
     }
 
     function loadProof(bytes calldata proof) internal view returns (HonkTypes.Proof memory) {
@@ -179,10 +231,10 @@ contract HonkVerifier is IVerifier {
 
                 uint256 start = loop_boundary + (j * 0x20);
                 uint256 end = start + 0x20;
-                p.sumcheckUnivariates[i][j] = uint256(bytes32(proof[start:end]));
+                p.sumcheckUnivariates[i][j] = FrLib.fromBytes32(bytes32(proof[start:end]));
 
                 string memory name = string(abi.encodePacked("sumcheckUnivariates", i, " ", j));
-                logUint(name, p.sumcheckUnivariates[i][j]);
+                logFr(name, p.sumcheckUnivariates[i][j]);
 
             }
         }
@@ -192,10 +244,9 @@ contract HonkVerifier is IVerifier {
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
             uint256 start = boundary + (i * 0x20);
             uint256 end = start + 0x20;
-            p.sumcheckEvaluations[i] = uint256(bytes32(proof[start:end]));
+            p.sumcheckEvaluations[i] = FrLib.fromBytes32(bytes32(proof[start:end]));
 
-            console.log("sumcheck evaluations", i);
-            console.logBytes32(bytes32(p.sumcheckEvaluations[i]));
+            logFr("sumcheck evaluations", i, p.sumcheckEvaluations[i]);
         }
 
         boundary = boundary + (NUMBER_OF_ENTITIES * 0x20);
@@ -262,13 +313,14 @@ contract HonkVerifier is IVerifier {
         TranscriptParameters memory tp = computeChallenges(p, vk, publicInputs);
 
         // Compute the public input delta
-        (Fr publicInputDeltaNumerator, Fr publicInputDeltaDenominator) =
+        tp.publicInputsDelta =
             computePublicInputDelta(publicInputs, tp.beta, tp.gamma, vk.circuitSize, p.publicInputsOffset);
 
-        Fr grandProductPlookupDelta = computeLookupGrandProductDelta(tp.beta, tp.gamma, vk.circuitSize);
-        logFr("grandProductPlookupDelta", grandProductPlookupDelta);
+        tp.lookupGrandProductDelta = computeLookupGrandProductDelta(tp.beta, tp.gamma, vk.circuitSize);
 
-        // 
+        // Sumcheck
+        bool success = verifySumcheck(p, tp);
+
     }
 
     function computeChallenges(
@@ -359,6 +411,7 @@ contract HonkVerifier is IVerifier {
         return (beta, gamma);
     }
 
+
     // Alpha challenges non-linearise the gate contributions
     function generateAlphaChallenges(Fr previousChallenge, HonkTypes.Proof memory proof) 
         internal view
@@ -408,8 +461,8 @@ contract HonkVerifier is IVerifier {
     {
         Fr[LOG_N] memory sumcheckChallenges;
         for (uint256 i = 0; i < LOG_N; i++) {
-            uint256[BATCHED_RELATION_PARTIAL_LENGTH + 1] memory univariateChal;
-            univariateChal[0] = Fr.unwrap(prevChallenge);
+            Fr[BATCHED_RELATION_PARTIAL_LENGTH + 1] memory univariateChal;
+            univariateChal[0] = prevChallenge;
 
             // TODO(opt): memcpy
             for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
@@ -431,7 +484,7 @@ contract HonkVerifier is IVerifier {
 
         // TODO: memcpy
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
-            rhoChallengeElements[i + 1] = Fr.wrap(proof.sumcheckEvaluations[i]);
+            rhoChallengeElements[i + 1] = proof.sumcheckEvaluations[i];
         }
 
         Fr rho = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
@@ -483,7 +536,7 @@ contract HonkVerifier is IVerifier {
         // TODO: check how to deal with this Domain size and offset are somewhat new
         uint256 domainSize,
         uint256 offset
-    ) internal view returns (Fr, Fr) {
+    ) internal view returns (Fr) {
         logUint("domainSize", domainSize)        ;
         logUint("offset", offset)        ;
 
@@ -493,8 +546,6 @@ contract HonkVerifier is IVerifier {
         Fr numerator = Fr.wrap(1);
         Fr denominator = Fr.wrap(1);
 
-        // TODO: all of this needs to be mod p
-        
         // TODO(md): could we create a custom field type that maps, and has the + operator mapped to it???
         Fr numeratorAcc = gamma + (beta* FrLib.from(domainSize + offset));
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
@@ -517,7 +568,7 @@ contract HonkVerifier is IVerifier {
         logFr("denominator: ", denominator);
 
         // Fr delta = numerator / denominator; // TOOO: batch invert later?
-        return (numerator, denominator);
+        return FrLib.div(numerator, denominator);
     }
 
     // Incorportate the original plookup construction into honk
@@ -532,7 +583,430 @@ contract HonkVerifier is IVerifier {
         return gammaByOnePlusBeta ^ Fr.wrap(domainSize);
     }
 
-    // function verifySumcheck() {}
+    // TODO: check this is 0
+    uint256 constant ROUND_TARGET = 0;
+
+    function verifySumcheck(HonkTypes.Proof memory proof, TranscriptParameters memory tp) internal view returns (bool){
+        bool verified = false;
+
+        // TODO: This multivariate challenge is used in the final round
+        Fr[LOG_N] memory multivariateChallenge;
+
+        Fr roundTarget;
+        Fr powPartialEvaluation = Fr.wrap(1);
+
+        // We perform sumcheck reductions over log n rounds ( the multivariate degree )
+        for (uint256 round; round < LOG_N; ++round) {
+            // TODO: these must be mod p ????
+            Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate = proof.sumcheckUnivariates[round];
+            bool valid = checkSum(roundUnivariate, roundTarget);
+
+            Fr roundChallenge = tp.sumCheckUChallenges[round];
+            multivariateChallenge[round] = roundChallenge;
+
+            // Update the round target for the next rounf
+            roundTarget = computeNextTargetSum(roundUnivariate, roundChallenge);
+            powPartialEvaluation = partiallyEvaluatePOW(tp, powPartialEvaluation, roundChallenge, round);
+        }
+
+        // Last round 
+
+        accumulateRelationEvaluations(proof, tp, powPartialEvaluation);
+
+        
+
+
+        
+        return verified;
+    }
+
+    // TODO: i assume that the round univarate will be a sliding window, so i will need to be included in here
+    function checkSum(Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate, Fr roundTarget) internal view returns (bool) {
+        Fr totalSum = roundUnivariate[0] + roundUnivariate[1];
+        return totalSum != roundTarget;
+    }
+
+
+    // TODO: inject into the keys PRECOMPUTED FOR THIS CIRCUIT SIZE - should be inline compiled
+    Fr[BATCHED_RELATION_PARTIAL_LENGTH] BARYCENTRIC_LAGRANGE_DENOMINATORS = [
+        Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000002d0),
+        Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff89),
+        Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000000030),
+        Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffffdd),
+        Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000000030),
+        Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff89),
+        Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000002d0)
+    ];
+
+    Fr[BATCHED_RELATION_PARTIAL_LENGTH] BARYCENTRIC_DOMAIN = [
+        Fr.wrap(0x00),
+        Fr.wrap(0x01),
+        Fr.wrap(0x02),
+        Fr.wrap(0x03),
+        Fr.wrap(0x04),
+        Fr.wrap(0x05),
+        Fr.wrap(0x06)
+    ];
+
+    // Return the new target sum for the next sumcheck round
+    function computeNextTargetSum(Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariates, Fr roundChallenge) internal view returns (Fr) {
+
+        // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
+
+        // TODO: we want to model this using the same array for each iteration to not use up too much space
+        // Performing Barycentric evaluations
+        // Compute B(x)
+        Fr numeratorValue = Fr.wrap(1);        
+        // TODO: this will move with domain start and domain end, which i take as fixed for now
+        for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
+            numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
+        }
+
+        // Numerator is correct
+        logFr("numerator value 1", numeratorValue);
+
+        // Calculate domain size N of inverses -- TODO: montgomery's trick
+        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
+        for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
+            Fr inv = BARYCENTRIC_LAGRANGE_DENOMINATORS[i];
+            inv = inv * (roundChallenge - BARYCENTRIC_DOMAIN[i]);
+            inv = FrLib.invert(inv);
+            denominatorInverses[i] = inv;
+            logFr("domain inverse", i, inv);
+        }
+
+        Fr result;
+        for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
+            Fr term = roundUnivariates[i];
+            term = term * denominatorInverses[i]; // TODO ADJUST VS DOMAIN
+            result = result + term;
+        }
+        // Scale the sum by the value of B(x) 
+        result = result * numeratorValue;
+        
+        logFr("next target sum", result);
+        return result;
+    }
+
+    function partiallyEvaluatePOW(TranscriptParameters memory tp, Fr currentEvaluation, Fr roundChallenge, uint256 round) internal view returns (Fr) {
+        // Univariate evaluation of the monomial ((1-X_l) + X_l.B_l) at the challenge point X_l=u_l
+
+        //                                                                                  TODO: subtraction wont wrap?
+        Fr univariateEval = Fr.wrap(1) + (roundChallenge * (tp.gateChallenges[round] - Fr.wrap(1)));
+        currentEvaluation = currentEvaluation * univariateEval;
+
+        return currentEvaluation;
+    }
+
+    // Calculate the contributions of each relation to the expected value of the full honk relation
+    // 
+    // For each relation, we use the purported values ( the ones provided by the prover ) of the multivariates to
+    // calculate a contribution to the purported value of the full Honk relation. 
+    // These are stored in the evaluations part of the proof object.
+    // We add these together, with the appropiate scaling factor ( the alphas calculated in challenges )
+    // This value is checked against the final value of the target total sum - et voila!
+    function accumulateRelationEvaluations(HonkTypes.Proof memory proof, TranscriptParameters memory tp, Fr powPartialEval) internal view returns (Fr) {
+        // Fr[LOG_N] memory powUnivariate = tp.gateChallenges;
+        Fr[NUMBER_OF_ENTITIES] memory purportedEvaluations = proof.sumcheckEvaluations;
+
+        // NOTE: relation parameters will just be tp
+        // In here we will check each relation manually
+
+        // Maybe we can lay this out with a file for each relation group?
+        // Order of realtions matters here
+
+        // TODO: will need to check shifts?
+        Fr[NUMBER_OF_SUBRELATIONS] memory evaluations;
+
+        accumulateArithmeticRelation(purportedEvaluations, evaluations, powPartialEval);
+        accumulatePermutationRelation(purportedEvaluations, tp, evaluations, powPartialEval);
+        accumulateLookupRelation(purportedEvaluations, tp, evaluations, powPartialEval);
+        accumulateGenPermRelation(purportedEvaluations, evaluations, powPartialEval);
+        accumulateEllipticRelation(purportedEvaluations, evaluations, powPartialEval);
+
+
+    }
+
+    // Relations can go in their own files and be nice and readable
+    function accumulateArithmeticRelation(Fr[NUMBER_OF_ENTITIES] memory p, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr powPartialEval) internal view returns (Fr[2] memory){
+        // sadly using memory loading to work around stack too deep
+
+        // Relation 0
+        // WIRES
+        
+        Fr q_arith = p[uint(WIRE.Q_ARITH)];
+        {
+            Fr neg_half = Fr.wrap(0) - (FrLib.invert(Fr.wrap(2)));
+
+            Fr accum = (q_arith - Fr.wrap(3)) * (p[uint(WIRE.Q_M)] * p[uint(WIRE.W_R)] * p[uint(WIRE.W_L)]) * neg_half;
+            accum = accum + (p[uint(WIRE.Q_L)] * p[uint(WIRE.W_L)]) + (p[uint(WIRE.Q_R)] * p[uint(WIRE.W_R)]) + (p[uint(WIRE.Q_O)] * p[uint(WIRE.W_O)]) + (p[uint(WIRE.Q_4)] * p[uint(WIRE.W_4)]) + p[uint(WIRE.Q_C)];
+            accum = accum + (q_arith - Fr.wrap(1)) * p[uint(WIRE.W_4_SHIFT)];
+            accum = accum * q_arith;
+            accum = accum * powPartialEval;
+            evals[0] = accum;
+            logFr("aritmetic relation 0: ", accum);
+        }
+
+        // TODO: return into the evals object
+
+        // Relation 1
+        {
+
+            Fr accum = p[uint(WIRE.W_L)] + p[uint(WIRE.W_4)] - p[uint(WIRE.W_L_SHIFT)] + p[uint(WIRE.Q_M)];
+            accum = accum * (q_arith - Fr.wrap(2));
+            accum = accum * (q_arith - Fr.wrap(1));
+            accum = accum * q_arith;
+            accum = accum * powPartialEval;
+            logFr("aritmetic relation 1: ", accum);
+            evals[1] = accum;
+        }
+        // TODO: return into the evals object
+    }
+
+    function accumulatePermutationRelation(Fr[NUMBER_OF_ENTITIES] memory p, TranscriptParameters memory tp, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr powPartialEval) internal view {
+        Fr grand_product_numerator;
+        Fr grand_product_denominator;
+
+        {
+            Fr num = p[uint(WIRE.W_L)] + p[uint(WIRE.ID_1)] * tp.beta + tp.gamma;
+            num = num * (p[uint(WIRE.W_R)] + p[uint(WIRE.ID_2)] * tp.beta + tp.gamma);
+            num = num * (p[uint(WIRE.W_O)] + p[uint(WIRE.ID_3)] * tp.beta + tp.gamma);
+            num = num * (p[uint(WIRE.W_4)] + p[uint(WIRE.ID_4)] * tp.beta + tp.gamma);
+
+            grand_product_numerator = num;
+            logFr("numerator", grand_product_numerator);
+        }
+        {
+            Fr den = p[uint(WIRE.W_L)] + p[uint(WIRE.SIGMA_1)] * tp.beta + tp.gamma;
+            den  = den * (p[uint(WIRE.W_R)] + p[uint(WIRE.SIGMA_2)] * tp.beta + tp.gamma);
+            den  = den * (p[uint(WIRE.W_O)] + p[uint(WIRE.SIGMA_3)] * tp.beta + tp.gamma);
+            den  = den * (p[uint(WIRE.W_4)] + p[uint(WIRE.SIGMA_4)] * tp.beta + tp.gamma);
+
+            grand_product_denominator = den;
+            logFr("denominator", grand_product_denominator);
+        }
+
+        // Contribution 2
+        {
+            Fr acc = (p[uint(WIRE.Z_PERM)] + p[uint(WIRE.LAGRANGE_FIRST)]) * grand_product_numerator; 
+
+            acc = acc - ((p[uint(WIRE.Z_PERM_SHIFT)] + (p[uint(WIRE.LAGRANGE_LAST)] * tp.publicInputsDelta)) *  grand_product_denominator);
+            acc = acc * powPartialEval;
+            evals[2] = acc;
+            logFr("perm rel 0: ", acc);
+        }
+
+        // Contribution 3
+        {
+            Fr acc = (p[uint(WIRE.LAGRANGE_LAST)] * p[uint(WIRE.Z_PERM_SHIFT)]) * powPartialEval;
+            evals[3] = acc;
+            logFr("perm rel 1: ", acc);
+        }
+    }
+
+
+    struct LookupParams {
+        Fr eta_sqr;
+        Fr eta_cube;
+        Fr one_plus_beta;
+        Fr gamma_by_one_plus_beta;
+
+        Fr wire_accum;
+        Fr table_accum;
+        Fr table_accum_shift;
+    }
+
+    function accumulateLookupRelation(Fr[NUMBER_OF_ENTITIES] memory p, TranscriptParameters memory tp, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr powPartialEval) internal view {
+        Fr grand_product_numerator;
+        Fr grand_product_denominator;
+
+        LookupParams memory lp;
+        {
+            lp.eta_sqr = tp.eta * tp.eta;
+            lp.eta_cube = lp.eta_sqr * tp.eta;
+            lp.one_plus_beta = tp.beta + Fr.wrap(1);
+            lp.gamma_by_one_plus_beta = tp.gamma * lp.one_plus_beta;
+        }
+
+        {
+            {
+                // (p[uint(WIRE.W_L)] + q_2*p[uint(WIRE.W_1_SHIFT)]) + η(p[uint(WIRE.W_R)] + q_m*p[uint(WIRE.W_2_SHIFT)]) + η²(p[uint(WIRE.W_O)] + q_c*p[uint(WIRE.W_3_SHIFT)]) + η³q_index.
+                // deg 2 or 4
+                Fr wire_accum = (p[uint(WIRE.W_L)] + p[uint(WIRE.Q_R)] * p[uint(WIRE.W_L_SHIFT)]);
+                wire_accum = wire_accum + (p[uint(WIRE.W_R)] + p[uint(WIRE.Q_M)] * p[uint(WIRE.W_R_SHIFT)]) * tp.eta;
+                wire_accum = wire_accum +
+                          (p[uint(WIRE.W_O)] + p[uint(WIRE.Q_C)] * p[uint(WIRE.W_O_SHIFT)]) * lp.eta_sqr;
+                wire_accum = wire_accum + p[uint(WIRE.Q_O)] * lp.eta_cube;
+                lp.wire_accum = wire_accum;
+            }
+
+            // t_1 + ηt_2 + η²t_3 + η³t_4
+            // deg 1 or 4
+            {
+                Fr table_accum = p[uint(WIRE.TABLE_1)] + p[uint(WIRE.TABLE_2)] * tp.eta;
+                table_accum = table_accum + p[uint(WIRE.TABLE_3)] * lp.eta_sqr;
+                table_accum = table_accum + p[uint(WIRE.TABLE_4)] * lp.eta_cube;
+                logFr("table_accum", table_accum);
+
+                lp.table_accum = table_accum;
+            }
+
+            // t_1_shift + ηt_2_shift + η²t_3_shift + η³t_4_shift
+            // deg 4
+            {
+                lp.table_accum_shift =
+                    p[uint(WIRE.TABLE_1_SHIFT)] + p[uint(WIRE.TABLE_2_SHIFT)] * tp.eta + p[uint(WIRE.TABLE_3_SHIFT)] * lp.eta_sqr + p[uint(WIRE.TABLE_4_SHIFT)] * lp.eta_cube;
+                
+         }
+
+            {
+                Fr acc = (p[uint(WIRE.Q_LOOKUP)] * lp.wire_accum + tp.gamma);                          // deg 2 or 4
+                acc = acc * (lp.table_accum + lp.table_accum_shift * tp.beta + lp.gamma_by_one_plus_beta);  // 1 or 5
+                acc = acc * lp.one_plus_beta;                                                             // deg 1
+                grand_product_numerator = acc;                                            // deg 4 or 10
+                logFr("grand product numerator", grand_product_numerator);
+            }
+        }
+        {
+            Fr acc = (p[uint(WIRE.SORTED_ACCUM)] + p[uint(WIRE.SORTED_ACCUM_SHIFT)] * tp.beta + lp.gamma_by_one_plus_beta);
+            grand_product_denominator = acc;
+            logFr("grand product denominator", grand_product_denominator);
+        }
+
+        // Contribution 3
+        {
+            logFr("l gpd:", tp.lookupGrandProductDelta);
+
+            Fr acc = grand_product_numerator * (p[uint(WIRE.Z_LOOKUP)] + p[uint(WIRE.LAGRANGE_FIRST)]) - grand_product_denominator * (p[uint(WIRE.Z_LOOKUP_SHIFT)] + p[uint(WIRE.LAGRANGE_LAST)] * tp.lookupGrandProductDelta);
+            acc = acc * powPartialEval;
+            evals[3] = acc;
+            logFr("lookup cont 0", acc);
+        }
+
+        // Contribution 4
+        {
+            Fr acc = p[uint(WIRE.LAGRANGE_LAST)] * p[uint(WIRE.Z_LOOKUP_SHIFT)] * powPartialEval;
+            evals[4] = acc;
+            logFr("lookup cont 1", acc);
+        }
+    }
+
+    function accumulateGenPermRelation(Fr[NUMBER_OF_ENTITIES] memory p, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr powPartialEval) internal view {
+        Fr minus_one = Fr.wrap(0) - Fr.wrap(1);
+        Fr minus_two = Fr.wrap(0) - Fr.wrap(2);
+        Fr minus_three = Fr.wrap(0) - Fr.wrap(3);
+
+        // Compute wire differences
+        Fr delta_1 = p[uint(WIRE.W_R)] - p[uint(WIRE.W_L)];
+        Fr delta_2 = p[uint(WIRE.W_O)] - p[uint(WIRE.W_R)];
+        Fr delta_3 = p[uint(WIRE.W_4)] - p[uint(WIRE.W_O)];
+        Fr delta_4 = p[uint(WIRE.W_L_SHIFT)] - p[uint(WIRE.W_4)];
+
+        // Contribution 5
+        {
+        Fr acc = delta_1;
+        acc = acc * (delta_1 + minus_one);
+        acc = acc * (delta_1 + minus_two);
+        acc = acc * (delta_1 + minus_three);
+        acc = acc * p[uint(WIRE.Q_SORT)];
+        acc = acc * powPartialEval;
+        evals[5] = acc;
+        logFr("gen perm 1: ", acc);
+
+        }
+
+        // Contribution 6
+        {
+        Fr acc = delta_2;
+        acc = acc * (delta_2 + minus_one);
+        acc = acc * (delta_2 + minus_two);
+        acc = acc * (delta_2 + minus_three);
+        acc = acc * p[uint(WIRE.Q_SORT)];
+        acc = acc * powPartialEval;
+        evals[6] = acc;
+        logFr("gen perm 2: ", acc);
+        }
+
+        // Contribution 7
+        {
+        Fr acc = delta_3;
+        acc = acc * (delta_3 + minus_one);
+        acc = acc * (delta_3 + minus_two);
+        acc = acc * (delta_3 + minus_three);
+        acc = acc * p[uint(WIRE.Q_SORT)];
+        acc = acc * powPartialEval;
+        evals[7] = acc;
+        logFr("gen perm 3: ", acc);
+        }
+
+        // Contribution 8
+        {
+        Fr acc = delta_4;
+        acc = acc * (delta_4 + minus_one);
+        acc = acc * (delta_4 + minus_two);
+        acc = acc * (delta_4 + minus_three);
+        acc = acc * p[uint(WIRE.Q_SORT)];
+        acc = acc * powPartialEval;
+        evals[8] = acc;
+        logFr("gen perm 4: ", acc);
+        }
+
+    }
+
+    function accumulateEllipticRelation(Fr[NUMBER_OF_ENTITIES] memory p, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr powPartialEval) internal view {
+        
+        // Contribution 9 point addition, x-coordinate check
+        // p[uint(WIRE.Q_ELLIPTIC)] * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*p[uint(WIRE.Q_L)] = 0
+        Fr x_diff = (p[uint(WIRE.W_L_SHIFT)] - p[uint(WIRE.W_R)]);
+        Fr y1_sqr = (p[uint(WIRE.W_R)] * p[uint(WIRE.W_R)]);
+        {
+            Fr y2_sqr = (p[uint(WIRE.W_4_SHIFT)] * p[uint(WIRE.W_4_SHIFT)]);
+            Fr y1y2 = p[uint(WIRE.W_R)] * p[uint(WIRE.W_4_SHIFT)] * p[uint(WIRE.Q_L)];
+            Fr x_add_identity = (p[uint(WIRE.W_R_SHIFT)] + p[uint(WIRE.W_L_SHIFT)] + p[uint(WIRE.W_R)]);
+            x_add_identity = x_add_identity * x_diff * x_diff;
+            x_add_identity = x_add_identity - y2_sqr - y1_sqr + y1y2 + y1y2;
+
+            evals[9] = x_add_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * (Fr.wrap(1) - p[uint(WIRE.Q_M)]);
+        }
+
+        // Contribution 10 point addition, x-coordinate check
+        // p[uint(WIRE.Q_ELLIPTIC)] * (p[uint(WIRE.Q_L)] * y1 + y3)(x2 - x1) + (x3 - x1)(y2 - p[uint(WIRE.Q_L)] * y1) = 0
+        {
+            Fr y1_plus_y3 = p[uint(WIRE.W_R)] + p[uint(WIRE.W_O_SHIFT)];
+            Fr y_diff = p[uint(WIRE.W_4_SHIFT)] * p[uint(WIRE.Q_L)] - p[uint(WIRE.W_R)];
+            Fr y_add_identity = y1_plus_y3 * x_diff + (p[uint(WIRE.W_R_SHIFT)] - p[uint(WIRE.W_R)]) * y_diff;
+            evals[10] = y_add_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * (Fr.wrap(1) - p[uint(WIRE.Q_M)]);
+        }
+
+        // Contribution 11 point doubling, x-coordinate check
+        // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
+        // N.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
+        {
+            Fr x_pow_4 = (y1_sqr - GRUMPKIN_CURVE_B_PARAMETER_NEGATED) * p[uint(WIRE.W_R)];
+            Fr y1_sqr_mul_4 = y1_sqr + y1_sqr;
+            y1_sqr_mul_4 = y1_sqr_mul_4 + y1_sqr_mul_4;
+            Fr x1_pow_4_mul_9 = x_pow_4 * Fr.wrap(9);
+            Fr x_double_identity = (p[uint(WIRE.W_R_SHIFT)] + p[uint(WIRE.W_R)] + p[uint(WIRE.W_R)]) * y1_sqr_mul_4 - x1_pow_4_mul_9;
+            evals[9] = evals[9] + x_double_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * p[uint(WIRE.Q_M)];
+
+            logFr("elliptic 0", evals[9]);
+        }
+
+        // Contribution 12 point doubling, y-coordinate check
+        // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
+        {
+            Fr x1_sqr_mul_3 = (p[uint(WIRE.W_R)] + p[uint(WIRE.W_R)] + p[uint(WIRE.W_R)]) * p[uint(WIRE.W_R)];
+            Fr y_double_identity = x1_sqr_mul_3 * (p[uint(WIRE.W_R)] - p[uint(WIRE.W_R_SHIFT)]) - (p[uint(WIRE.W_R)] + p[uint(WIRE.W_R)]) * (p[uint(WIRE.W_R)] + p[uint(WIRE.W_O_SHIFT)]);
+            evals[10] = evals[10] + y_double_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * p[uint(WIRE.Q_M)];
+
+            logFr("elliptic 1", evals[10]);
+        }
+    }
+
+
+    // TODO: convert each of the 4 limb commitments into single limb for accumulation
+
+
 
     // function verifyZeroMorph() {}
 }
