@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.21;
 
+import {Fr} from "./Fr.sol";
+
 library HonkTypes {
     struct G1Point {
         uint256 x;
@@ -74,8 +76,8 @@ library HonkTypes {
         G1ProofPoint zLookup;
         // Sumcheck
         // TODO: [uinvariate[batched_relation_partial_length]] - not sure how to represent a univariate
-        uint256[BATCHED_RELATION_PARTIAL_LENGTH][LOG_N] sumcheckUnivariates;
-        uint256[NUMBER_OF_ENTITIES] sumcheckEvaluations;
+        Fr[BATCHED_RELATION_PARTIAL_LENGTH][LOG_N] sumcheckUnivariates;
+        Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
         // Zero morph
         G1ProofPoint[LOG_N] zmCqs;
         G1ProofPoint zmCq;
