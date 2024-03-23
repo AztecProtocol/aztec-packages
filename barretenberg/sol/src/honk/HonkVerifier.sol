@@ -953,53 +953,77 @@ contract HonkVerifier is IVerifier {
 
     }
 
+    struct EllipticParams {
+        Fr x_1;
+        Fr y_1;
+        Fr x_2;
+        Fr y_2;
+        Fr y_3;
+        Fr x_3;
+
+    }
+
     function accumulateEllipticRelation(Fr[NUMBER_OF_ENTITIES] memory p, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr powPartialEval) internal view {
+        EllipticParams memory ep;
+        ep.x_1 = p[uint(WIRE.W_R)];
+        ep.y_1 = p[uint(WIRE.W_O)];
         
+        ep.x_2 = p[uint(WIRE.W_L_SHIFT)];
+        ep.y_2 = p[uint(WIRE.W_4_SHIFT)];
+        ep.y_3 = p[uint(WIRE.W_O_SHIFT)];
+        ep.x_3 = p[uint(WIRE.W_R_SHIFT)];
+
+        Fr q_sign = p[uint(WIRE.Q_L)];
+        Fr q_is_double = p[uint(WIRE.Q_M)];
+
         // Contribution 9 point addition, x-coordinate check
-        // p[uint(WIRE.Q_ELLIPTIC)] * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*p[uint(WIRE.Q_L)] = 0
-        Fr x_diff = (p[uint(WIRE.W_L_SHIFT)] - p[uint(WIRE.W_R)]);
-        Fr y1_sqr = (p[uint(WIRE.W_R)] * p[uint(WIRE.W_R)]);
+        // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
+        Fr x_diff = (ep.x_2 - ep.x_1);
+        Fr y1_sqr = (ep.y_1 * ep.y_1);
         {
-            Fr y2_sqr = (p[uint(WIRE.W_4_SHIFT)] * p[uint(WIRE.W_4_SHIFT)]);
-            Fr y1y2 = p[uint(WIRE.W_R)] * p[uint(WIRE.W_4_SHIFT)] * p[uint(WIRE.Q_L)];
-            Fr x_add_identity = (p[uint(WIRE.W_R_SHIFT)] + p[uint(WIRE.W_L_SHIFT)] + p[uint(WIRE.W_R)]);
+            // Move to top
+            Fr partialEval = powPartialEval;
+
+            Fr y2_sqr = (ep.y_2 * ep.y_2);
+            Fr y1y2 = ep.y_1 * ep.y_2 * q_sign;
+            Fr x_add_identity = (ep.x_3 + ep.x_2 + ep.x_1);
             x_add_identity = x_add_identity * x_diff * x_diff;
             x_add_identity = x_add_identity - y2_sqr - y1_sqr + y1y2 + y1y2;
 
-            evals[9] = x_add_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * (Fr.wrap(1) - p[uint(WIRE.Q_M)]);
+            evals[9] = x_add_identity * partialEval * p[uint(WIRE.Q_ELLIPTIC)] * (Fr.wrap(1) - q_is_double);
         }
 
         // Contribution 10 point addition, x-coordinate check
-        // p[uint(WIRE.Q_ELLIPTIC)] * (p[uint(WIRE.Q_L)] * y1 + y3)(x2 - x1) + (x3 - x1)(y2 - p[uint(WIRE.Q_L)] * y1) = 0
+        // q_elliptic * (q_sign * y1 + y3)(x2 - x1) + (x3 - x1)(y2 - q_sign * y1) = 0
         {
-            Fr y1_plus_y3 = p[uint(WIRE.W_R)] + p[uint(WIRE.W_O_SHIFT)];
-            Fr y_diff = p[uint(WIRE.W_4_SHIFT)] * p[uint(WIRE.Q_L)] - p[uint(WIRE.W_R)];
-            Fr y_add_identity = y1_plus_y3 * x_diff + (p[uint(WIRE.W_R_SHIFT)] - p[uint(WIRE.W_R)]) * y_diff;
-            evals[10] = y_add_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * (Fr.wrap(1) - p[uint(WIRE.Q_M)]);
+            Fr y1_plus_y3 = ep.y_1 + ep.y_3;
+            Fr y_diff = ep.y_2 * q_sign - ep.y_1;
+            Fr y_add_identity = y1_plus_y3 * x_diff + (ep.x_3 - ep.x_1) * y_diff;
+            evals[10] = y_add_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * (Fr.wrap(1) - q_is_double);
         }
 
         // Contribution 11 point doubling, x-coordinate check
         // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
         // N.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
         {
-            Fr x_pow_4 = (y1_sqr - GRUMPKIN_CURVE_B_PARAMETER_NEGATED) * p[uint(WIRE.W_R)];
+            Fr x_pow_4 = (y1_sqr + GRUMPKIN_CURVE_B_PARAMETER_NEGATED) * ep.x_1;
             Fr y1_sqr_mul_4 = y1_sqr + y1_sqr;
             y1_sqr_mul_4 = y1_sqr_mul_4 + y1_sqr_mul_4;
             Fr x1_pow_4_mul_9 = x_pow_4 * Fr.wrap(9);
-            Fr x_double_identity = (p[uint(WIRE.W_R_SHIFT)] + p[uint(WIRE.W_R)] + p[uint(WIRE.W_R)]) * y1_sqr_mul_4 - x1_pow_4_mul_9;
-            evals[9] = evals[9] + x_double_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * p[uint(WIRE.Q_M)];
-
-            logFr("elliptic 0", evals[9]);
+            Fr x_double_identity = (ep.x_3 + ep.x_1 + ep.x_1) * y1_sqr_mul_4 - x1_pow_4_mul_9;
+            
+            Fr acc = x_double_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * q_is_double;
+            evals[9] = evals[9] + acc;
+            logFr("middle 0", evals[9]);
         }
 
         // Contribution 12 point doubling, y-coordinate check
         // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
         {
-            Fr x1_sqr_mul_3 = (p[uint(WIRE.W_R)] + p[uint(WIRE.W_R)] + p[uint(WIRE.W_R)]) * p[uint(WIRE.W_R)];
-            Fr y_double_identity = x1_sqr_mul_3 * (p[uint(WIRE.W_R)] - p[uint(WIRE.W_R_SHIFT)]) - (p[uint(WIRE.W_R)] + p[uint(WIRE.W_R)]) * (p[uint(WIRE.W_R)] + p[uint(WIRE.W_O_SHIFT)]);
-            evals[10] = evals[10] + y_double_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * p[uint(WIRE.Q_M)];
-
-            logFr("elliptic 1", evals[10]);
+            Fr x1_sqr_mul_3 = (ep.x_1 + ep.x_1 + ep.x_1) * ep.x_1;
+            Fr y_double_identity = x1_sqr_mul_3 * (ep.x_1 - ep.x_3) - (ep.y_1 + ep.y_1) * (ep.y_1 + ep.y_3);
+            evals[10] = evals[10] + y_double_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * q_is_double;
+            logFr("middle 1", evals[10]);
         }
     }
 
