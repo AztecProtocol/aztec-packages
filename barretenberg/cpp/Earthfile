@@ -21,7 +21,6 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /build
 
-SAVE IMAGE pep2/pep3:pep3
 SAVE IMAGE --push aztecprotocol/cache:bb-ubuntu-lunar
 SAVE IMAGE --cache-hint
 

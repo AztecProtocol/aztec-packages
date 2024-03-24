@@ -113,8 +113,8 @@ end-to-end-minimal:
     ENTRYPOINT ["yarn", "test"]
 
 build-end-to-end:
-    ARG EARTHLY_BUILD_SHA
+    ARG EARTHLY_GIT_HASH
     FROM +end-to-end-minimal
-    SAVE IMAGE --push aztecprotocol/end-to-end-cache:$EARTHLY_BUILD_SHA
+    SAVE IMAGE --push aztecprotocol/end-to-end-cache:$EARTHLY_GIT_HASH
     FROM +aztec
-    SAVE IMAGE --push aztecprotocol/aztec-cache:$EARTHLY_BUILD_SHA
+    SAVE IMAGE --push aztecprotocol/aztec-cache:$EARTHLY_GIT_HASH
