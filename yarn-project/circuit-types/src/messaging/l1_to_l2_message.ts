@@ -1,4 +1,4 @@
-import { sha256 } from '@aztec/foundation/crypto';
+import { sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -26,10 +26,6 @@ export class L1ToL2Message {
      * The hash of the spending secret.
      */
     public readonly secretHash: Fr,
-    /**
-     * The entry key for the message - optional.
-     */
-    public readonly entryKey?: Fr,
   ) {}
 
   /**
@@ -45,7 +41,7 @@ export class L1ToL2Message {
   }
 
   hash(): Fr {
-    return Fr.fromBufferReduce(sha256(serializeToBuffer(...this.toFields())));
+    return sha256ToField(serializeToBuffer(...this.toFields()));
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): L1ToL2Message {
@@ -70,7 +66,7 @@ export class L1ToL2Message {
     return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Fr.ZERO, Fr.ZERO);
   }
 
-  static random(entryKey?: Fr): L1ToL2Message {
-    return new L1ToL2Message(L1Actor.random(), L2Actor.random(), Fr.random(), Fr.random(), entryKey);
+  static random(): L1ToL2Message {
+    return new L1ToL2Message(L1Actor.random(), L2Actor.random(), Fr.random(), Fr.random());
   }
 }

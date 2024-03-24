@@ -1,11 +1,10 @@
-import { Tx } from '@aztec/circuit-types';
+import { ProcessedTx, Tx } from '@aztec/circuit-types';
 import { AztecAddress, EthAddress, Fr, GlobalVariables } from '@aztec/circuits.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Logger, createDebugLogger } from '@aztec/foundation/log';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
-import { ProcessedTx } from './processed_tx.js';
 
 /** A source of what nullifiers have been committed to the state trees */
 export interface NullifierSource {
@@ -73,6 +72,11 @@ export class TxValidator {
 
       // skip already processed transactions
       if (tx instanceof Tx && (await this.#validateFee(tx)) === INVALID_TX) {
+        invalidTxs.push(tx);
+        continue;
+      }
+
+      if (this.#validateMaxBlockNumber(tx) === INVALID_TX) {
         invalidTxs.push(tx);
         continue;
       }
@@ -185,5 +189,16 @@ export class TxValidator {
     }
 
     return VALID_TX;
+  }
+
+  #validateMaxBlockNumber(tx: Tx | ProcessedTx): TxValidationStatus {
+    const maxBlockNumber = tx.data.rollupValidationRequests.maxBlockNumber;
+
+    if (maxBlockNumber.isSome && maxBlockNumber.value < this.#globalVariables.blockNumber) {
+      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for low max block number`);
+      return INVALID_TX;
+    } else {
+      return VALID_TX;
+    }
   }
 }
