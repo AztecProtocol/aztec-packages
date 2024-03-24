@@ -68,7 +68,7 @@ aztec:
 
 source:
     # for debugging rebuilds
-    RUN find # echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
+    RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
 end-to-end:
     FROM +source
