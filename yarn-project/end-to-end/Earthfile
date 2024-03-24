@@ -3,27 +3,54 @@ VERSION 0.8
 
 # requires first saving the images locally with ../+build-end-to-end
 
+# run lcoally, used for our mainly x86 jobs
+E2E_TEST_LOCAL:
+  FUNCTION
+  ARG test
+  ARG compose_file=./scripts/docker-compose.yml
+  ARG avm_enabled=""
+  ARG enable_gas=""
+  LOCALLY
+  ENV AVM_ENABLED=$avm_enabled
+  ENV ENABLE_GAS=$enable_gas
+  ENV TEST=$test.test.ts
+  # Locally, we do not use WITH DOCKER as we have had issues with earthly copying big images
+  RUN docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
+
+# run on satellite, used for our few ARM jobs (means github runner doesn't need to be ARM)
+E2E_TEST_REMOTE:
+  FUNCTION
+  ARG test
+  ARG compose_file=./scripts/docker-compose.yml
+  ARG avm_enabled=""
+  ARG enable_gas=""
+  FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
+  ENV AVM_ENABLED=$avm_enabled
+  ENV ENABLE_GAS=$enable_gas
+  ENV TEST=$test.test.ts
+  COPY $compose_file $compose_file
+  # For ARM, we do use WITH DOCKER as we don't have many e2e tests, but note E2E_TEST_LOCAL
+  WITH DOCKER \
+    --load aztecprotocol/aztec:latest=../+aztec \
+    --load aztecprotocol/end-to-end:latest=../+end-to-end-minimal \
+    --load ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916=../../foundry/+get
+      # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
+      RUN docker compose -f $compose_file up --exit-code-from=sandbox --force-recreate
+  END
+
 E2E_TEST:
   FUNCTION
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG avm_enabled=""
   ARG enable_gas=""
-  ARG build_end_to_end=false
+  ARG E2E_REMOTE=false
   LOCALLY
-  ENV AVM_ENABLED=$avm_enabled
-  ENV ENABLE_GAS=$enable_gas
-  ENV TEST=$test.test.ts
-  IF [ $build_end_to_end = true ]
-    WAIT 
-      BUILD ../+build-end-to-end
-    END
+  IF [ $E2E_REMOTE = true ]
+    DO +E2E_TEST_REMOTE --test=$test --compose_file=$compose_file --avm_enabled=$avm_enabled --enable_gas=$enable_gas
+  ELSE
+    DO +E2E_TEST_LOCAL --test=$test --compose_file=$compose_file --avm_enabled=$avm_enabled --enable_gas=$enable_gas
   END
-  # Note, earthly recommends as WITH DOCKER statement here. We find it's more stable for large 
-  # images to not do that and just save images as needed.
-  RUN echo failure > results/$test.result
-  RUN docker compose -p "$test" -f $compose_file up --exit-code-from=end-to-end --force-recreate
-  RUN echo success > results/$test.result
 
 # we could use a parameterized target, but these just print cleaner in earthly log
 e2e-block-building:
