@@ -11,7 +11,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk/proof_system/constants.hpp"
-#include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include <cstddef>
 namespace bb {
 using ECCVMOperation = ECCOpQueue::ECCVMOperation;

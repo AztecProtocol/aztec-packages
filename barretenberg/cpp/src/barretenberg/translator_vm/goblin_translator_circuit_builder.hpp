@@ -11,9 +11,9 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
-#include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
-#include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
+#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 
 namespace bb {
 /**

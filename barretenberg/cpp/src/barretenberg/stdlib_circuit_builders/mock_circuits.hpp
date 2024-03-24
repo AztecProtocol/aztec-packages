@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
 
 namespace bb {
 

@@ -1,0 +1,1 @@
+barretenberg_module(plonk_honk_shared relations crypto_pedersen_hash srs stdlib_circuit_builders)

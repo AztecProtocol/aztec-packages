@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/proof_system/circuit_builder/circuit_builder_base.hpp"
+#include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 #include <cstdint>
 

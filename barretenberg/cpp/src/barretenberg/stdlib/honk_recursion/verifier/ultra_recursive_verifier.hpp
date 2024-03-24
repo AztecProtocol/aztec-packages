@@ -1,8 +1,8 @@
 #pragma once
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/proof_system/goblin_ultra_recursive_flavor.hpp"
-#include "barretenberg/proof_system/ultra_recursive_flavor.hpp"
 #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb::stdlib::recursion::honk {

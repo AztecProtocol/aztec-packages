@@ -1,6 +1,6 @@
 #include "goblin_translator_circuit_builder.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include <array>
 #include <cstddef>
 #include <gtest/gtest.h>

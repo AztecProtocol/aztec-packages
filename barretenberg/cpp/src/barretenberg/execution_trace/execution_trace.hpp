@@ -1,6 +1,6 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/proof_system/composer/permutation_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
 namespace bb {

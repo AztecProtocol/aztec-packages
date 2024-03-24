@@ -1,6 +1,6 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
-#include "barretenberg/proof_system/goblin_ultra_flavor.hpp"
-#include "barretenberg/proof_system/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
 #include <benchmark/benchmark.h>
 

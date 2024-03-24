@@ -1,6 +1,6 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/proof_system/polynomial_store/polynomial_store.hpp"
+#include "barretenberg/polynomials/polynomial_store.hpp"
 
 #include <memory>
 

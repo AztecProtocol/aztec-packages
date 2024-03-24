@@ -1,7 +1,5 @@
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
-#include "barretenberg/proof_system/goblin_ultra_flavor.hpp"
-#include "barretenberg/proof_system/library/grand_product_library.hpp"
-#include "barretenberg/proof_system/ultra_flavor.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
@@ -10,6 +8,8 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 
 #include <gtest/gtest.h>

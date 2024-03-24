@@ -5,11 +5,11 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/proof_system/goblin_ultra_flavor.hpp"
-#include "barretenberg/proof_system/ultra_flavor.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/utils.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 
 namespace bb {

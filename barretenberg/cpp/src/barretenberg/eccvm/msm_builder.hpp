@@ -3,7 +3,7 @@
 #include <cstddef>
 
 #include "./eccvm_builder_types.hpp"
-#include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 
 namespace bb {
 

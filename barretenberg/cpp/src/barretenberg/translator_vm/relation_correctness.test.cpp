@@ -1,5 +1,5 @@
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
-#include "barretenberg/proof_system/library/grand_product_library.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
 
 #include <gtest/gtest.h>

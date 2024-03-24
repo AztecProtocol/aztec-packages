@@ -1,8 +1,8 @@
-#include "barretenberg/proof_system/composer/composer_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
-#include "barretenberg/proof_system/types/circuit_type.hpp"
-#include "barretenberg/proof_system/ultra_flavor.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include <array>
 #include <gtest/gtest.h>
 

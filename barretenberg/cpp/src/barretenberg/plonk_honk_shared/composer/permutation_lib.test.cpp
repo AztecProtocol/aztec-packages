@@ -1,8 +1,8 @@
-#include "barretenberg/proof_system/composer/permutation_lib.hpp"
-#include "barretenberg/proof_system/composer/composer_lib.hpp"
-#include "barretenberg/proof_system/types/circuit_type.hpp"
-#include "barretenberg/proof_system/ultra_flavor.hpp"
+#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include <array>
 #include <gtest/gtest.h>
 

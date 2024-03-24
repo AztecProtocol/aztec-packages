@@ -1,1 +1,1 @@
-barretenberg_module(circuit_checker proof_system)
+barretenberg_module(circuit_checker stdlib_circuit_builders)

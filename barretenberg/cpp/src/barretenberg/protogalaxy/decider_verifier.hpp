@@ -1,8 +1,8 @@
 #pragma once
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/proof_system/goblin_ultra_flavor.hpp"
-#include "barretenberg/proof_system/ultra_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 

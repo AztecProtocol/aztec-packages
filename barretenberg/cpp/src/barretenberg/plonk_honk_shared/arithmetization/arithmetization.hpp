@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/proof_system/types/circuit_type.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include <array>
 #include <barretenberg/common/slab_allocator.hpp>
 #include <cstddef>

@@ -1,8 +1,8 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
-#include "barretenberg/proof_system/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "barretenberg/serialize/cbind.hpp"
 #include <utility>
 
