@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 
+# This script uses Earthly cloud satellites based on a runner type and hash.
+# ARM or x86 can be specified.
+# Usage: earthly-cloud <runner type> <architecture> [options]
+# Arguments:
+#   runner type: The type of runner, e.g., 'build' or 'bench'.
+#   architecture: The target architecture, e.g., 'arm' or 'x86'.
 set -eu -o pipefail
 
-RUNNER_TYPE=$1
-ARCH=$2
-
+# Check if at least two arguments are passed
+if [ $# -lt 2 ]; then
+    echo "Error: Insufficient arguments provided."
+    echo "Usage: $0 <runner type> <architecture> [options]"
+    exit 1
+fi
 shift 2
 
 if [ "$ARCH" == "arm" ]; then
