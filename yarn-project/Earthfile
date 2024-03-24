@@ -66,11 +66,6 @@ aztec:
     # 31544   typescript
     # 62368   @types
 
-    # The version has been updated in yarn-project.
-    # Adding COMMIT_TAG here to rebuild versioned image.
-    ARG COMMIT_TAG=""
-    SAVE IMAGE aztecprotocol/aztec:latest
-
 source:
     # for debugging rebuilds
     RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
@@ -116,8 +111,10 @@ end-to-end-minimal:
     COPY +end-to-end/build /build
     WORKDIR /build/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
-    SAVE IMAGE aztecprotocol/end-to-end:latest
 
 build-end-to-end:
-    BUILD +end-to-end-minimal
-    BUILD +aztec
+    ARG EARTHLY_BUILD_SHA
+    FROM +end-to-end-minimal
+    SAVE IMAGE --push aztecprotocol/end-to-end-cache:$EARTHLY_BUILD_SHA
+    FROM +aztec
+    SAVE IMAGE --push aztecprotocol/aztec-cache:$EARTHLY_BUILD_SHA

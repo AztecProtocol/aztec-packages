@@ -34,14 +34,8 @@ jobs:
         working-directory: ./yarn-project
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
         run: |
-          earthly-cloud build x86 +build-end-to-end
-          docker save -o /tmp/e2e-${{ github.event.pull_request.head.sha }}.tar aztecprotocol/aztec:latest aztecprotocol/end-to-end:latest
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: E2E Build Image
-          path: /tmp/e2e-${{ github.event.pull_request.head.sha }}.tar
+          # push to registry
+          earthly-cloud build x86 --push +build-end-to-end
 
   # all the end-to-end integration tests for aztec
   e2e-arm:
@@ -135,17 +129,10 @@ jobs:
         working-directory: ./scripts
         run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }} ${{ github.actor }}
 
-      - name: Download artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: E2E Build Image
-          path: /tmp/e2e-${{ github.event.pull_request.head.sha }}.tar
-
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
         run: |
-          docker load --input /tmp/e2e-${{ github.event.pull_request.head.sha }}.tar
           earthly-cloud build x86 --no-output +${{ matrix.test }}
 
   # barretenberg (prover) native tests
@@ -177,6 +164,8 @@ jobs:
         working-directory: ./barretenberg/cpp/
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
         run: |
+          docker pull aztecprotocol/aztec-cache:$(git rev-parse HEAD)
+          docker pull aztecprotocol/end-to-end-cache:$(git rev-parse HEAD)
           earthly-cloud build ${{ matrix.environment }} --no-output +test
 
   # All benchmarks, purposefully ran sequential on a machine

@@ -13,7 +13,7 @@ services:
       - '8545'
 
   end-to-end:
-    image: aztecprotocol/end-to-end:latest
+    image: aztecprotocol/end-to-end-cache:latest
     environment:
       BENCHMARK: 'true'
       DEBUG: ${DEBUG:-'aztec:*'}

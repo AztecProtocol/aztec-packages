@@ -31,7 +31,7 @@ NAME_HASH=$(cksum <<< "$GITHUB_ACTOR" | cut -f 1 -d ' ')
 RUNNER_ID=$(($NAME_HASH % $NUMBER_OF_RUNNERS + 1))
 RUNNER=$RUNNER_TYPE-$RUNNER_ID-$ARCH
 earthly sat --org aztec launch --size $SIZE --platform $PLATFORM $RUNNER || true
-EARTHLY_FLAGS="--org aztec --remote-cache=aztecprotocol/cache:bb-native-tests --sat $RUNNER"
+EARTHLY_FLAGS="--no-output --org aztec --remote-cache=aztecprotocol/cache:bb-native-tests --sat $RUNNER"
 # capture output to handle earthly edge cases
 if ! earthly $EARTHLY_FLAGS $@ 2>&1 | tee .output.txt >&2 ; then 
   # we got a failure, handle retries
