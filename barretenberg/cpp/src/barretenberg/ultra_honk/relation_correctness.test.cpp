@@ -1,15 +1,18 @@
 #include "barretenberg/flavor/goblin_translator.hpp"
+#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
+#include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
+#include "barretenberg/sumcheck/instance/prover_instance.hpp"
+
 #include <gtest/gtest.h>
 using namespace bb;
 
@@ -30,15 +33,7 @@ void ensure_non_zero(auto& polynomial)
  */
 template <typename Flavor, typename Relation> void check_relation(auto circuit_size, auto& polynomials, auto params)
 {
-    using AllValues = typename Flavor::AllValues;
     for (size_t i = 0; i < circuit_size; i++) {
-
-        // Extract an array containing all the polynomial evaluations at a given row i
-        AllValues evaluations_at_index_i;
-        for (auto [eval, poly] : zip_view(evaluations_at_index_i.get_all(), polynomials.get_all())) {
-            eval = poly[i];
-        }
-
         // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
         SumcheckArrayOfValuesOverSubrelations result;
@@ -47,7 +42,7 @@ template <typename Flavor, typename Relation> void check_relation(auto circuit_s
         }
 
         // Evaluate each constraint in the relation and check that each is satisfied
-        Relation::accumulate(result, evaluations_at_index_i, params, 1);
+        Relation::accumulate(result, polynomials.get_row(i), params, 1);
         for (auto& element : result) {
             ASSERT_EQ(element, 0);
         }
@@ -143,7 +138,7 @@ template <typename Flavor> void create_some_lookup_gates(auto& circuit_builder)
         plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
 }
 
-template <typename Flavor> void create_some_genperm_sort_gates(auto& circuit_builder)
+template <typename Flavor> void create_some_delta_range_constraint_gates(auto& circuit_builder)
 {
     // Add a sort gate (simply checks that consecutive inputs have a difference of < 4)
     using FF = typename Flavor::FF;
@@ -262,30 +257,31 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     // Create an assortment of representative gates
     create_some_add_gates<Flavor>(builder);
     create_some_lookup_gates<Flavor>(builder);
-    create_some_genperm_sort_gates<Flavor>(builder);
+    create_some_delta_range_constraint_gates<Flavor>(builder);
     create_some_elliptic_curve_addition_gates<Flavor>(builder);
     create_some_RAM_gates<Flavor>(builder);
 
     // Create a prover (it will compute proving key and witness)
-    auto composer = UltraComposer();
-    auto instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
     auto proving_key = instance->proving_key;
     auto circuit_size = proving_key->circuit_size;
 
     // Generate eta, beta and gamma
-    FF eta = FF::random_element();
-    FF eta_two = FF::random_element();
-    FF eta_three = FF::random_element();
-    FF beta = FF::random_element();
-    FF gamma = FF::random_element();
+    instance->relation_parameters.eta = FF::random_element();
+    instance->relation_parameters.eta_two = FF::random_element();
+    instance->relation_parameters.eta_three = FF::random_element();
+    instance->relation_parameters.beta = FF::random_element();
+    instance->relation_parameters.gamma = FF::random_element();
 
-    instance->initialize_prover_polynomials();
-    instance->compute_sorted_accumulator_polynomials(eta, eta_two, eta_three);
-    instance->compute_grand_product_polynomials(beta, gamma);
+    instance->proving_key->compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
+                                                                  instance->relation_parameters.eta_two,
+                                                                  instance->relation_parameters.eta_three);
+    instance->proving_key->compute_grand_product_polynomials(instance->relation_parameters);
+    instance->prover_polynomials = Flavor::ProverPolynomials(instance->proving_key);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key->q_arith);
-    ensure_non_zero(proving_key->q_sort);
+    ensure_non_zero(proving_key->q_delta_range);
     ensure_non_zero(proving_key->q_lookup);
     ensure_non_zero(proving_key->q_elliptic);
     ensure_non_zero(proving_key->q_aux);
@@ -316,32 +312,33 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     // Create an assortment of representative gates
     create_some_add_gates<Flavor>(builder);
     create_some_lookup_gates<Flavor>(builder);
-    create_some_genperm_sort_gates<Flavor>(builder);
+    create_some_delta_range_constraint_gates<Flavor>(builder);
     create_some_elliptic_curve_addition_gates<Flavor>(builder);
     create_some_RAM_gates<Flavor>(builder);
     create_some_ecc_op_queue_gates<Flavor>(builder); // Goblin!
 
     // Create a prover (it will compute proving key and witness)
-    auto composer = GoblinUltraComposer();
-    auto instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
     auto proving_key = instance->proving_key;
     auto circuit_size = proving_key->circuit_size;
 
     // Generate eta, beta and gamma
-    FF eta = FF::random_element();
-    FF eta_two = FF::random_element();
-    FF eta_three = FF::random_element();
-    FF beta = FF::random_element();
-    FF gamma = FF::random_element();
+    instance->relation_parameters.eta = FF::random_element();
+    instance->relation_parameters.eta_two = FF::random_element();
+    instance->relation_parameters.eta_three = FF::random_element();
+    instance->relation_parameters.beta = FF::random_element();
+    instance->relation_parameters.gamma = FF::random_element();
 
-    instance->initialize_prover_polynomials();
-    instance->compute_sorted_accumulator_polynomials(eta, eta_two, eta_three);
-    instance->compute_logderivative_inverse(beta, gamma);
-    instance->compute_grand_product_polynomials(beta, gamma);
+    instance->proving_key->compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
+                                                                  instance->relation_parameters.eta_two,
+                                                                  instance->relation_parameters.eta_three);
+    instance->proving_key->compute_logderivative_inverse(instance->relation_parameters);
+    instance->proving_key->compute_grand_product_polynomials(instance->relation_parameters);
+    instance->prover_polynomials = Flavor::ProverPolynomials(instance->proving_key);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key->q_arith);
-    ensure_non_zero(proving_key->q_sort);
+    ensure_non_zero(proving_key->q_delta_range);
     ensure_non_zero(proving_key->q_lookup);
     ensure_non_zero(proving_key->q_elliptic);
     ensure_non_zero(proving_key->q_aux);
@@ -476,7 +473,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     compute_goblin_translator_range_constraint_ordered_polynomials<Flavor>(&prover_polynomials, mini_circuit_size);
 
     // Compute the fixed numerator (part of verification key)
-    compute_extra_range_constraint_numerator<Flavor>(&prover_polynomials, full_circuit_size);
+    prover_polynomials.compute_extra_range_constraint_numerator();
 
     // Compute concatenated polynomials (4 polynomials produced from other constraint polynomials by concatenation)
     compute_concatenated_polynomials<Flavor>(&prover_polynomials);
@@ -492,7 +489,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorPermutationRelationCorrectness)
     check_relation<Flavor, std::tuple_element_t<0, Relations>>(full_circuit_size, prover_polynomials, params);
 }
 
-TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
+TEST_F(RelationCorrectnessTests, GoblinTranslatorDeltaRangeConstraintRelationCorrectness)
 {
     using Flavor = GoblinTranslatorFlavor;
     using FF = typename Flavor::FF;
@@ -513,11 +510,11 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
         polynomial = Polynomial{ circuit_size };
     }
 
-    // Construct lagrange polynomials that are needed for Goblin Translator's GenPermSort Relation
+    // Construct lagrange polynomials that are needed for Goblin Translator's DeltaRangeConstraint Relation
     prover_polynomials.lagrange_first[0] = 1;
     prover_polynomials.lagrange_last[circuit_size - 1] = 1;
 
-    // Create a vector and fill with necessary steps for the GenPermSort relation
+    // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation
     auto sorted_elements_count = (max_value / sort_step) + 1;
     std::vector<uint64_t> vector_for_sorting(circuit_size);
     for (size_t i = 0; i < sorted_elements_count - 1; i++) {
@@ -563,7 +560,7 @@ TEST_F(RelationCorrectnessTests, GoblinTranslatorGenPermSortRelationCorrectness)
 
     using Relations = typename Flavor::Relations;
 
-    // Check that GenPermSort relation is satisfied across each row of the prover polynomials
+    // Check that DeltaRangeConstraint relation is satisfied across each row of the prover polynomials
     check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
 }
 

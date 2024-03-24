@@ -6,11 +6,13 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/library/grand_product_delta.hpp"
+#include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
+#include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
@@ -53,7 +55,7 @@ class GoblinUltraFlavor {
     using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
                                   bb::LookupRelation<FF>,
-                                  bb::GenPermSortRelation<FF>,
+                                  bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
                                   bb::AuxiliaryRelation<FF>,
                                   bb::EccOpQueueRelation<FF>,
@@ -103,7 +105,7 @@ class GoblinUltraFlavor {
                               q_o,                  // column 4
                               q_4,                  // column 5
                               q_arith,              // column 6
-                              q_sort,               // column 7
+                              q_delta_range,        // column 7
                               q_elliptic,           // column 8
                               q_aux,                // column 9
                               q_lookup,             // column 10
@@ -139,7 +141,7 @@ class GoblinUltraFlavor {
                              q_o,
                              q_4,
                              q_arith,
-                             q_sort,
+                             q_delta_range,
                              q_elliptic,
                              q_aux,
                              q_lookup,
@@ -266,8 +268,7 @@ class GoblinUltraFlavor {
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
-
-        size_t num_ecc_op_gates; // needed to determine public input offset
+        std::array<Polynomial, 4> sorted_polynomials;
 
         auto get_to_be_shifted()
         {
@@ -276,6 +277,114 @@ class GoblinUltraFlavor {
         };
         // The plookup wires that store plookup read data.
         auto get_table_column_wires() { return RefArray{ w_l, w_r, w_o }; };
+
+        void compute_sorted_accumulator_polynomials(const FF& eta, const FF& eta_two, const FF& eta_three)
+        {
+            // Compute sorted witness-table accumulator
+            compute_sorted_list_accumulator(eta, eta_two, eta_three);
+
+            // Finalize fourth wire polynomial by adding lookup memory records
+            add_plookup_memory_records_to_wire_4(eta, eta_two, eta_three);
+        }
+
+        /**
+         * @brief Construct sorted list accumulator polynomial 's'.
+         *
+         * @details Compute s = s_1 + η*s_2 + η²*s_3 + η³*s_4 (via Horner) where s_i are the
+         * sorted concatenated witness/table polynomials
+         *
+         * @param key proving key
+         * @param sorted_list_polynomials sorted concatenated witness/table polynomials
+         * @param eta random challenge
+         * @return Polynomial
+         */
+        void compute_sorted_list_accumulator(const FF& eta, const FF& eta_two, const FF& eta_three)
+        {
+
+            auto sorted_list_accumulator = Polynomial{ this->circuit_size };
+
+            // Construct s via Horner, i.e. s = s_1 + η(s_2 + η(s_3 + η*s_4))
+            for (size_t i = 0; i < this->circuit_size; ++i) {
+                FF T0 = sorted_polynomials[3][i] * eta_three;
+                T0 += sorted_polynomials[2][i] * eta_two;
+                T0 += sorted_polynomials[1][i] * eta;
+                T0 += sorted_polynomials[0][i];
+                sorted_list_accumulator[i] = T0;
+            }
+            sorted_accum = sorted_list_accumulator.share();
+        }
+
+        /**
+         * @brief Add plookup memory records to the fourth wire polynomial
+         *
+         * @details This operation must be performed after the first three wires have been committed to, hence the
+         * dependence on the `eta` challenge.
+         *
+         * @tparam Flavor
+         * @param eta challenge produced after commitment to first three wire polynomials
+         */
+        void add_plookup_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
+        {
+            // The plookup memory record values are computed at the indicated indices as
+            // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
+            // (See plookup_auxiliary_widget.hpp for details)
+            auto wires = get_wires();
+
+            // Compute read record values
+            for (const auto& gate_idx : memory_read_records) {
+                wires[3][gate_idx] += wires[2][gate_idx] * eta_three;
+                wires[3][gate_idx] += wires[1][gate_idx] * eta_two;
+                wires[3][gate_idx] += wires[0][gate_idx] * eta;
+            }
+
+            // Compute write record values
+            for (const auto& gate_idx : memory_write_records) {
+                wires[3][gate_idx] += wires[2][gate_idx] * eta_three;
+                wires[3][gate_idx] += wires[1][gate_idx] * eta_two;
+                wires[3][gate_idx] += wires[0][gate_idx] * eta;
+                wires[3][gate_idx] += 1;
+            }
+        }
+
+        /**
+         * @brief Compute the inverse polynomial used in the log derivative lookup argument
+         *
+         * @tparam Flavor
+         * @param beta
+         * @param gamma
+         */
+        void compute_logderivative_inverse(const RelationParameters<FF>& relation_parameters)
+        {
+            auto prover_polynomials = ProverPolynomials(*this);
+            // Compute permutation and lookup grand product polynomials
+            bb::compute_logderivative_inverse<GoblinUltraFlavor, typename GoblinUltraFlavor::LogDerivLookupRelation>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            this->lookup_inverses = prover_polynomials.lookup_inverses;
+        }
+
+        /**
+         * @brief Computes public_input_delta, lookup_grand_product_delta, the z_perm and z_lookup polynomials
+         *
+         * @param relation_parameters
+         */
+        void compute_grand_product_polynomials(RelationParameters<FF>& relation_parameters)
+        {
+            auto public_input_delta = compute_public_input_delta<GoblinUltraFlavor>(this->public_inputs,
+                                                                                    relation_parameters.beta,
+                                                                                    relation_parameters.gamma,
+                                                                                    this->circuit_size,
+                                                                                    this->pub_inputs_offset);
+            relation_parameters.public_input_delta = public_input_delta;
+            auto lookup_grand_product_delta = compute_lookup_grand_product_delta(
+                relation_parameters.beta, relation_parameters.gamma, this->circuit_size);
+            relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
+
+            // Compute permutation and lookup grand product polynomials
+            auto prover_polynomials = ProverPolynomials(*this);
+            compute_grand_products<GoblinUltraFlavor>(*this, prover_polynomials, relation_parameters);
+            this->z_perm = prover_polynomials.z_perm;
+            this->z_lookup = prover_polynomials.z_lookup;
+        }
     };
 
     /**
@@ -287,7 +396,7 @@ class GoblinUltraFlavor {
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>>;
+    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
@@ -331,6 +440,28 @@ class GoblinUltraFlavor {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
+        ProverPolynomials(ProvingKey& proving_key)
+        {
+            for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
+                prover_poly = key_poly.share();
+            }
+            for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(proving_key, key_poly) + "_shift"));
+                prover_poly = key_poly.shifted();
+            }
+        }
+        ProverPolynomials(std::shared_ptr<ProvingKey>& proving_key)
+        {
+            for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key->get_all())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(*proving_key, key_poly));
+                prover_poly = key_poly.share();
+            }
+            for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key->get_to_be_shifted())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(*proving_key, key_poly) + "_shift"));
+                prover_poly = key_poly.shifted();
+            }
+        }
         // Define all operations as default, except move construction/assignment
         ProverPolynomials() = default;
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;
@@ -386,7 +517,7 @@ class GoblinUltraFlavor {
             q_4 = "Q_4";
             q_m = "Q_M";
             q_arith = "Q_ARITH";
-            q_sort = "Q_SORT";
+            q_delta_range = "Q_SORT";
             q_elliptic = "Q_ELLIPTIC";
             q_aux = "Q_AUX";
             q_lookup = "Q_LOOKUP";
@@ -427,7 +558,7 @@ class GoblinUltraFlavor {
             this->q_4 = verification_key->q_4;
             this->q_c = verification_key->q_c;
             this->q_arith = verification_key->q_arith;
-            this->q_sort = verification_key->q_sort;
+            this->q_delta_range = verification_key->q_delta_range;
             this->q_elliptic = verification_key->q_elliptic;
             this->q_aux = verification_key->q_aux;
             this->q_lookup = verification_key->q_lookup;
@@ -476,6 +607,7 @@ class GoblinUltraFlavor {
     /**
      * @brief Derived class that defines proof structure for GoblinUltra proofs, as well as supporting functions.
      * Note: Made generic for use in GoblinUltraRecursive.
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/877): Remove this Commitment template parameter
      */
     template <typename Commitment> class Transcript_ : public NativeTranscript {
       public:
@@ -501,7 +633,7 @@ class GoblinUltraFlavor {
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
         Commitment zm_cq_comm;
-        Commitment zm_pi_comm;
+        Commitment kzg_w_comm;
 
         Transcript_() = default;
 
@@ -560,7 +692,7 @@ class GoblinUltraFlavor {
                 zm_cq_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
             zm_cq_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
         }
 
         void serialize_full_transcript()
@@ -596,7 +728,7 @@ class GoblinUltraFlavor {
                 serialize_to_buffer(zm_cq_comms[i], proof_data);
             }
             serialize_to_buffer(zm_cq_comm, proof_data);
-            serialize_to_buffer(zm_pi_comm, proof_data);
+            serialize_to_buffer(kzg_w_comm, proof_data);
 
             ASSERT(proof_data.size() == old_proof_length);
         }

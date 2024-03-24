@@ -1,13 +1,13 @@
 version: '3'
 services:
   fork:
-    image: ghcr.io/foundry-rs/foundry:nightly-a44aa13cfc23491ba32aaedc093e9488c1a6db43
+    image: ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916
     entrypoint: >
       sh -c '
       if [ -n "$FORK_BLOCK_NUMBER" ] && [ -n "$FORK_URL" ]; then
-        exec anvil -p 8545 --host 0.0.0.0 --chain-id 31337 --fork-url "$FORK_URL" --fork-block-number "$FORK_BLOCK_NUMBER"
+        anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337 --fork-url "$FORK_URL" --fork-block-number "$FORK_BLOCK_NUMBER"
       else
-        exec anvil -p 8545 --host 0.0.0.0 --chain-id 31337
+        anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337
       fi'
     ports:
       - '8545:8545'
@@ -26,6 +26,7 @@ services:
       PXE_BLOCK_POLLING_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
       AVM_ENABLED: ${AVM_ENABLED:-}
+      ENABLE_GAS: ${ENABLE_GAS:-}
     ports:
       - '8080:8080'
 
@@ -40,6 +41,7 @@ services:
       PXE_URL: http://sandbox:8080
     command: ${TEST:-./src/e2e_deploy_contract.test.ts}
     volumes:
+      # TODO(AD) currently earthly uses /build instead of /usr/src
       - ../log:/usr/src/yarn-project/end-to-end/log:rw
     depends_on:
       - sandbox

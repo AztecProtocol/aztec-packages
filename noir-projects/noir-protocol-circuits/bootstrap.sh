@@ -15,5 +15,6 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-# Build the circuits. `yarn build` handles cleaning as well
-yarn build
+echo "Compiling protocol circuits..."
+NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
+$NARGO compile --silence-warnings

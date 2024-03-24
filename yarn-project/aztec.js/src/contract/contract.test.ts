@@ -1,4 +1,4 @@
-import { ExtendedContractData, Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/circuit-types';
+import { Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { ABIParameterVisibility, ContractArtifact, FunctionType } from '@aztec/foundation/abi';
@@ -12,7 +12,6 @@ import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
   let wallet: MockProxy<Wallet>;
-  let resolvedExtendedContractData: ExtendedContractData;
   let contractAddress: AztecAddress;
   let account: CompleteAddress;
   let contractInstance: ContractInstanceWithAddress;
@@ -28,7 +27,8 @@ describe('Contract Class', () => {
     registryAddress: EthAddress.random(),
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
-    contractDeploymentEmitterAddress: EthAddress.random(),
+    gasTokenAddress: EthAddress.random(),
+    gasPortalAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',
@@ -42,6 +42,7 @@ describe('Contract Class', () => {
     functions: [
       {
         name: 'bar',
+        isInitializer: false,
         functionType: FunctionType.SECRET,
         isInternal: false,
         debugSymbols: '',
@@ -62,19 +63,21 @@ describe('Contract Class', () => {
           },
         ],
         returnTypes: [],
-        bytecode: '0af',
+        bytecode: Buffer.alloc(8, 0xfa),
       },
       {
         name: 'baz',
+        isInitializer: false,
         functionType: FunctionType.OPEN,
         isInternal: false,
         parameters: [],
         returnTypes: [],
-        bytecode: '0be',
+        bytecode: Buffer.alloc(8, 0xfb),
         debugSymbols: '',
       },
       {
         name: 'qux',
+        isInitializer: false,
         functionType: FunctionType.UNCONSTRAINED,
         isInternal: false,
         parameters: [
@@ -93,7 +96,7 @@ describe('Contract Class', () => {
             width: 32,
           },
         ],
-        bytecode: '0cd',
+        bytecode: Buffer.alloc(8, 0xfc),
         debugSymbols: '',
       },
     ],
@@ -102,14 +105,12 @@ describe('Contract Class', () => {
   };
 
   beforeEach(() => {
-    resolvedExtendedContractData = ExtendedContractData.random();
-    contractAddress = resolvedExtendedContractData.contractData.contractAddress;
+    contractAddress = AztecAddress.random();
     account = CompleteAddress.random();
     contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
 
     wallet = mock<Wallet>();
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
-    wallet.getExtendedContractData.mockResolvedValue(resolvedExtendedContractData);
     wallet.getContractInstance.mockResolvedValue(contractInstance);
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.viewTx.mockResolvedValue(mockViewResultValue);

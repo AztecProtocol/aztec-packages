@@ -1,3 +1,5 @@
+import { inspect } from 'util';
+
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
@@ -120,6 +122,12 @@ abstract class BaseField {
     return this.toBigInt() < rhs.toBigInt();
   }
 
+  cmp(rhs: BaseField): -1 | 0 | 1 {
+    const lhsBigInt = this.toBigInt();
+    const rhsBigInt = rhs.toBigInt();
+    return lhsBigInt === rhsBigInt ? 0 : lhsBigInt < rhsBigInt ? -1 : 1;
+  }
+
   isZero(): boolean {
     return this.toBuffer().equals(ZERO_BUFFER);
   }
@@ -185,6 +193,10 @@ export class Fr extends BaseField {
     super(value);
   }
 
+  [inspect.custom]() {
+    return `Fr<${this.toString()}>`;
+  }
+
   protected modulus() {
     return Fr.MODULUS;
   }
@@ -195,6 +207,10 @@ export class Fr extends BaseField {
 
   static zero() {
     return Fr.ZERO;
+  }
+
+  static isZero(value: Fr) {
+    return value.isZero();
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -232,6 +248,15 @@ export class Fr extends BaseField {
     const bInv = modInverse(rhs.toBigInt());
     return this.mul(bInv);
   }
+
+  // Integer division.
+  ediv(rhs: Fr) {
+    if (rhs.isZero()) {
+      throw new Error('Division by zero');
+    }
+
+    return new Fr(this.toBigInt() / rhs.toBigInt());
+  }
 }
 
 /**
@@ -250,6 +275,10 @@ export class Fq extends BaseField {
   static MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47n;
   private static HIGH_SHIFT = BigInt((BaseField.SIZE_IN_BYTES / 2) * 8);
   private static LOW_MASK = (1n << Fq.HIGH_SHIFT) - 1n;
+
+  [inspect.custom]() {
+    return `Fq<${this.toString()}>`;
+  }
 
   get low(): Fr {
     return new Fr(this.toBigInt() & Fq.LOW_MASK);
@@ -326,3 +355,8 @@ function extendedEuclidean(a: bigint, modulus: bigint): [bigint, bigint, bigint]
  */
 export type GrumpkinScalar = Fq;
 export const GrumpkinScalar = Fq;
+
+/** Wraps a function that returns a buffer so that all results are reduced into a field of the given type. */
+export function reduceFn<TInput, TField extends BaseField>(fn: (input: TInput) => Buffer, field: DerivedField<TField>) {
+  return (input: TInput) => fromBufferReduce(fn(input), field);
+}

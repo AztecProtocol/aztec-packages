@@ -1,8 +1,0 @@
-[package]
-name = "rollup_lib"
-type = "lib"
-authors = [""]
-compiler_version = ">=0.18.0"
-
-[dependencies]
-types = { path = "../types" }

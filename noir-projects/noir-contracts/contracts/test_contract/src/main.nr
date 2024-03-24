@@ -1,25 +1,28 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract Test {
-    use dep::std::option::Option;
+    use dep::aztec::prelude::{
+        AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
+        PrivateContext, PrivateImmutable, PrivateSet
+    };
+
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        address::{AztecAddress, EthAddress},
-        constants::{MAX_READ_REQUESTS_PER_CALL, MAX_NOTES_PER_PAGE}, hash::hash_args
+        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTES_PER_PAGE}, hash::hash_args
     };
     // docs:start:unencrypted_import
-    use dep::aztec::log::emit_unencrypted_log;
+    use dep::aztec::prelude::emit_unencrypted_log;
     // docs:end:unencrypted_import
 
     use dep::aztec::{
-        context::{Context, inputs::private_context_inputs::PrivateContextInputs}, hash::pedersen_hash,
-        context::PrivateContext,
+        context::{Context, inputs::private_context_inputs::PrivateContextInputs},
+        hash::{pedersen_hash, compute_secret_hash},
         note::{
-        note_header::NoteHeader, utils as note_utils, lifecycle::{create_note, destroy_note},
-        note_getter::{get_notes, view_notes}, note_getter_options::{NoteGetterOptions, NoteStatus},
-        note_viewer_options::NoteViewerOptions
+        lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
+        note_getter_options::NoteStatus
     },
+        deploy::deploy_contract as aztec_deploy_contract,
         oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, rand::rand},
-        state_vars::PrivateImmutable, log::emit_unencrypted_log_from_private
+        log::emit_unencrypted_log_from_private
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::field_note::field_note::FieldNote;
@@ -32,12 +35,8 @@ contract Test {
 
     struct Storage {
         example_constant: PrivateImmutable<FieldNote>,
+        example_set: PrivateSet<FieldNote>,
     }
-
-    #[aztec(private)]
-    // docs:start:empty-constructor
-    fn constructor() {}
-    // docs:end:empty-constructor
 
     #[aztec(private)]
     fn get_public_key(address: AztecAddress) -> [Field; 2] {
@@ -65,6 +64,25 @@ contract Test {
     }
 
     #[aztec(private)]
+    fn request_max_block_number(max_block_number: u32, enqueue_public_call: bool) {
+        // docs:start:request-max-block-number
+        context.request_max_block_number(max_block_number);
+        // docs:end:request-max-block-number
+
+        if enqueue_public_call {
+            let _ = context.call_public_function(
+                context.this_address(),
+                FunctionSelector::from_signature("dummy_public_call()"),
+                []
+            );
+        }
+    }
+
+    #[aztec(public)]
+    #[aztec(internal)]
+    fn dummy_public_call() {}
+
+    #[aztec(private)]
     fn call_create_note(value: Field, owner: AztecAddress, storage_slot: Field) {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
@@ -85,7 +103,7 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let opt_notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL] = get_notes(&mut context, storage_slot, options);
+        let opt_notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = get_notes(&mut context, storage_slot, options);
 
         // We can't get the return value of a private function from the outside world in an end to end test, so we
         // expose it via an unecrypted log instead.
@@ -104,7 +122,7 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let opt_notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL] = get_notes(&mut context, storage_slot, options);
+        let opt_notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = get_notes(&mut context, storage_slot, options);
 
         // We can't get the return value of a private function from the outside world in an end to end test, so we
         // expose it via an unecrypted log instead.
@@ -152,7 +170,7 @@ contract Test {
         );
 
         let options = NoteGetterOptions::new();
-        let opt_notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL] = get_notes(&mut context, storage_slot, options);
+        let opt_notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = get_notes(&mut context, storage_slot, options);
 
         let note = opt_notes[0].unwrap();
 
@@ -258,30 +276,21 @@ contract Test {
     }
 
     #[aztec(public)]
-    fn consume_mint_public_message(
-        to: AztecAddress,
-        amount: Field,
-        canceller: EthAddress,
-        msg_key: Field,
-        secret: Field
-    ) {
-        let content_hash = get_mint_public_content_hash(to, amount, canceller);
+    fn consume_mint_public_message(to: AztecAddress, amount: Field, secret: Field) {
+        let content_hash = get_mint_public_content_hash(to, amount);
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(msg_key, content_hash, secret, context.this_portal_address());
+        context.consume_l1_to_l2_message(content_hash, secret, context.this_portal_address());
     }
 
     #[aztec(private)]
     fn consume_mint_private_message(
         secret_hash_for_redeeming_minted_notes: Field,
         amount: Field,
-        canceller: EthAddress,
-        msg_key: Field,
         secret_for_L1_to_L2_message_consumption: Field
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller);
+        let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount);
         context.consume_l1_to_l2_message(
-            msg_key,
             content_hash,
             secret_for_L1_to_L2_message_consumption,
             context.this_portal_address()
@@ -290,24 +299,22 @@ contract Test {
 
     #[aztec(public)]
     fn consume_message_from_arbitrary_sender_public(
-        msg_key: Field,
         content: Field,
         secret: Field,
         sender: EthAddress
     ) {
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(msg_key, content, secret, sender);
+        context.consume_l1_to_l2_message(content, secret, sender);
     }
 
     #[aztec(private)]
     fn consume_message_from_arbitrary_sender_private(
-        msg_key: Field,
         content: Field,
         secret: Field,
         sender: EthAddress
     ) {
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(msg_key, content, secret, sender);
+        context.consume_l1_to_l2_message(content, secret, sender);
     }
 
     #[aztec(private)]
@@ -349,14 +356,30 @@ contract Test {
         assert(context.historical_header.hash() == header_hash, "Invalid header hash");
     }
 
+    #[aztec(private)]
+    fn deploy_contract(target: AztecAddress) {
+        aztec_deploy_contract(&mut context, target);
+    }
+
+    #[aztec(private)]
+    // Adapted from TokenContract#redeem_shield but without an initcheck so it can be run in simulator/src/client/private_execution.test.ts
+    fn consume_note_from_secret(secret: Field) {
+        let notes_set = storage.example_set;
+        let secret_hash = compute_secret_hash(secret);
+        let options = NoteGetterOptions::new().select(FieldNote::properties().value, secret_hash, Option::none()).set_limit(1);
+        let notes = notes_set.get_notes(options);
+        let note = notes[0].unwrap_unchecked();
+        notes_set.remove(note);
+    }
+
     unconstrained fn get_constant() -> pub Field {
         let constant = storage.example_constant.view_note();
         constant.value
     }
 
     // Purely exists for testing
-    unconstrained fn get_random(kindaSeed: Field) -> pub Field {
-        kindaSeed * rand()
+    unconstrained fn get_random(kinda_seed: Field) -> pub Field {
+        kinda_seed * rand()
     }
 
     struct DummyNote {

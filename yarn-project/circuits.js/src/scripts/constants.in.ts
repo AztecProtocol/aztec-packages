@@ -1,9 +1,8 @@
-import { fileURLToPath } from '@aztec/foundation/url';
-
 import * as fs from 'fs';
 import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
-const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/src/crates/types/src/constants.nr';
+const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr';
 const TS_CONSTANTS_FILE = '../constants.gen.ts';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
 
@@ -123,7 +122,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
       return;
     }
 
-    const [, name, _type, value] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*(0x[a-fA-F0-9]+|\d+);/) || [];
+    const [, name, _type, value] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*(0x[a-fA-F0-9]+|[\d_]+);/) || [];
     if (!name || !value) {
       // eslint-disable-next-line no-console
       console.warn(`Unknown content: ${line}`);
@@ -157,6 +156,7 @@ function main(): void {
 
   // Solidity
   const solidityTargetPath = join(__dirname, SOLIDITY_CONSTANTS_FILE);
+  fs.mkdirSync(dirname(solidityTargetPath), { recursive: true });
   generateSolidityConstants(parsedContent, solidityTargetPath);
 }
 

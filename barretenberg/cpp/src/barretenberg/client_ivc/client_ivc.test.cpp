@@ -3,8 +3,6 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/stdlib/recursion/honk/verifier/protogalaxy_recursive_verifier.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 #include <gtest/gtest.h>
 using namespace bb;
@@ -20,7 +18,6 @@ class ClientIVCTests : public ::testing::Test {
     using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;
     using Builder = ClientIVC::ClientCircuit;
-    using Composer = GoblinUltraComposer;
     using ProverAccumulator = ClientIVC::ProverAccumulator;
     using VerifierAccumulator = ClientIVC::VerifierAccumulator;
     using VerifierInstance = ClientIVC::VerifierInstance;
@@ -32,6 +29,12 @@ class ClientIVCTests : public ::testing::Test {
     using RecursiveVerifierInstances = ::bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+    using DeciderProver = ClientIVC::DeciderProver;
+    using DeciderVerifier = ClientIVC::DeciderVerifier;
+    using ProverInstances = ProverInstances_<Flavor>;
+    using FoldingProver = ProtoGalaxyProver_<ProverInstances>;
+    using VerifierInstances = VerifierInstances_<Flavor>;
+    using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
 
     /**
      * @brief Construct mock circuit with arithmetic gates and goblin ops
@@ -42,8 +45,8 @@ class ClientIVCTests : public ::testing::Test {
     static Builder create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 15)
     {
         Builder circuit{ ivc.goblin.op_queue };
-        GoblinMockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
-        GoblinMockCircuits::construct_goblin_ecc_op_circuit(circuit);
+        MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
+        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
         return circuit;
     }
 
@@ -83,14 +86,13 @@ class ClientIVCTests : public ::testing::Test {
         const std::shared_ptr<Flavor::VerificationKey>& verifier_inst_vk)
     {
         // Verify fold proof
-        Composer composer;
         auto new_verifier_inst = std::make_shared<VerifierInstance>(verifier_inst_vk);
-        auto folding_verifier = composer.create_folding_verifier({ prev_verifier_accumulator, new_verifier_inst });
+        FoldingVerifier folding_verifier({ prev_verifier_accumulator, new_verifier_inst });
         auto verifier_accumulator = folding_verifier.verify_folding_proof(fold_proof);
 
         // Run decider
-        auto decider_prover = composer.create_decider_prover(prover_accumulator);
-        auto decider_verifier = composer.create_decider_verifier(verifier_accumulator);
+        DeciderProver decider_prover(prover_accumulator);
+        DeciderVerifier decider_verifier(verifier_accumulator);
         auto decider_proof = decider_prover.construct_proof();
         bool decision = decider_verifier.verify_proof(decider_proof);
         EXPECT_TRUE(decision);
@@ -105,18 +107,20 @@ class ClientIVCTests : public ::testing::Test {
  */
 TEST_F(ClientIVCTests, Full)
 {
+    using VerificationKey = Flavor::VerificationKey;
+
     ClientIVC ivc;
     // Initialize IVC with function circuit
     Builder function_circuit = create_mock_circuit(ivc);
     ivc.initialize(function_circuit);
 
-    auto function_vk = ivc.prover_fold_output.accumulator->verification_key;
+    auto function_vk = std::make_shared<VerificationKey>(ivc.prover_fold_output.accumulator->proving_key);
     auto foo_verifier_instance = std::make_shared<VerifierInstance>(function_vk);
     // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
     Builder kernel_circuit = create_mock_circuit(ivc);
     FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
     // This will have a different verification key because we added the recursive merge verification to the circuit
-    auto function_vk_with_merge = ivc.prover_instance->verification_key;
+    auto function_vk_with_merge = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
     auto kernel_vk = function_vk_with_merge;
     auto intermediary_acc = update_accumulator_and_decide_native(
         ivc.prover_fold_output.accumulator, kernel_fold_proof, foo_verifier_instance, kernel_vk);
@@ -137,7 +141,7 @@ TEST_F(ClientIVCTests, Full)
         foo_verifier_instance = construct_mock_folding_kernel(
             kernel_circuit, kernel_fold_output, function_fold_output, foo_verifier_instance);
         FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
-        kernel_vk = ivc.prover_instance->verification_key;
+        kernel_vk = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
 
         intermediary_acc = update_accumulator_and_decide_native(
             ivc.prover_fold_output.accumulator, kernel_fold_proof, intermediary_acc, kernel_vk);

@@ -35,51 +35,53 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     add_public_calldata(FF(25)); // ensure there is at least one entry in calldata
     uint32_t raw_read_idx = 0;   // read first entry in calldata
     auto read_idx = this->add_variable(raw_read_idx);
-    FF calldata_value = this->get_variable(public_calldata[raw_read_idx]);
-    auto value_idx = this->add_variable(calldata_value);
-    create_calldata_lookup_gate({ read_idx, value_idx });
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/821): automate updating of read counts
-    calldata_read_counts[raw_read_idx]++;
+    read_calldata(read_idx);
 
-    // mock gates that use poseidon selectors, with all zeros as input
-    this->blocks.main.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
-    this->blocks.main.q_m().emplace_back(0);
-    this->blocks.main.q_1().emplace_back(0);
-    this->blocks.main.q_2().emplace_back(0);
-    this->blocks.main.q_3().emplace_back(0);
-    this->blocks.main.q_c().emplace_back(0);
-    this->blocks.main.q_arith().emplace_back(0);
-    this->blocks.main.q_4().emplace_back(0);
-    this->blocks.main.q_sort().emplace_back(0);
-    this->blocks.main.q_lookup_type().emplace_back(0);
-    this->blocks.main.q_elliptic().emplace_back(0);
-    this->blocks.main.q_aux().emplace_back(0);
-    this->blocks.main.q_busread().emplace_back(0);
-    this->blocks.main.q_poseidon2_external().emplace_back(1);
-    this->blocks.main.q_poseidon2_internal().emplace_back(1);
+    // mock a poseidon external gate, with all zeros as input
+    this->blocks.poseidon_external.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    this->blocks.poseidon_external.q_m().emplace_back(0);
+    this->blocks.poseidon_external.q_1().emplace_back(0);
+    this->blocks.poseidon_external.q_2().emplace_back(0);
+    this->blocks.poseidon_external.q_3().emplace_back(0);
+    this->blocks.poseidon_external.q_c().emplace_back(0);
+    this->blocks.poseidon_external.q_arith().emplace_back(0);
+    this->blocks.poseidon_external.q_4().emplace_back(0);
+    this->blocks.poseidon_external.q_delta_range().emplace_back(0);
+    this->blocks.poseidon_external.q_lookup_type().emplace_back(0);
+    this->blocks.poseidon_external.q_elliptic().emplace_back(0);
+    this->blocks.poseidon_external.q_aux().emplace_back(0);
+    this->blocks.poseidon_external.q_busread().emplace_back(0);
+    this->blocks.poseidon_external.q_poseidon2_external().emplace_back(1);
+    this->blocks.poseidon_external.q_poseidon2_internal().emplace_back(0);
     this->check_selector_length_consistency();
-
     ++this->num_gates;
 
-    // second gate that stores the output of all zeros of the poseidon gates
-    this->blocks.main.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
-    this->blocks.main.q_m().emplace_back(0);
-    this->blocks.main.q_1().emplace_back(0);
-    this->blocks.main.q_2().emplace_back(0);
-    this->blocks.main.q_3().emplace_back(0);
-    this->blocks.main.q_c().emplace_back(0);
-    this->blocks.main.q_arith().emplace_back(0);
-    this->blocks.main.q_4().emplace_back(0);
-    this->blocks.main.q_sort().emplace_back(0);
-    this->blocks.main.q_lookup_type().emplace_back(0);
-    this->blocks.main.q_elliptic().emplace_back(0);
-    this->blocks.main.q_aux().emplace_back(0);
-    this->blocks.main.q_busread().emplace_back(0);
-    this->blocks.main.q_poseidon2_external().emplace_back(0);
-    this->blocks.main.q_poseidon2_internal().emplace_back(0);
-    this->check_selector_length_consistency();
+    // dummy gate to be read into by previous poseidon external gate via shifts
+    this->create_dummy_gate(
+        this->blocks.poseidon_external, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
+    // mock a poseidon internal gate, with all zeros as input
+    this->blocks.poseidon_internal.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    this->blocks.poseidon_internal.q_m().emplace_back(0);
+    this->blocks.poseidon_internal.q_1().emplace_back(0);
+    this->blocks.poseidon_internal.q_2().emplace_back(0);
+    this->blocks.poseidon_internal.q_3().emplace_back(0);
+    this->blocks.poseidon_internal.q_c().emplace_back(0);
+    this->blocks.poseidon_internal.q_arith().emplace_back(0);
+    this->blocks.poseidon_internal.q_4().emplace_back(0);
+    this->blocks.poseidon_internal.q_delta_range().emplace_back(0);
+    this->blocks.poseidon_internal.q_lookup_type().emplace_back(0);
+    this->blocks.poseidon_internal.q_elliptic().emplace_back(0);
+    this->blocks.poseidon_internal.q_aux().emplace_back(0);
+    this->blocks.poseidon_internal.q_busread().emplace_back(0);
+    this->blocks.poseidon_internal.q_poseidon2_external().emplace_back(0);
+    this->blocks.poseidon_internal.q_poseidon2_internal().emplace_back(1);
+    this->check_selector_length_consistency();
     ++this->num_gates;
+
+    // dummy gate to be read into by previous poseidon internal gate via shifts
+    this->create_dummy_gate(
+        this->blocks.poseidon_internal, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 }
 
 /**
@@ -170,15 +172,7 @@ ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::decompose_ecc_operands(uint32_t op_
     z_2 = z_2.to_montgomery_form();
 
     // Populate ultra ops in OpQueue with the decomposed operands
-    op_queue->ultra_ops[0].emplace_back(this->variables[op_idx]);
-    op_queue->ultra_ops[1].emplace_back(x_lo);
-    op_queue->ultra_ops[2].emplace_back(x_hi);
-    op_queue->ultra_ops[3].emplace_back(y_lo);
-
-    op_queue->ultra_ops[0].emplace_back(this->zero_idx);
-    op_queue->ultra_ops[1].emplace_back(y_hi);
-    op_queue->ultra_ops[2].emplace_back(z_1);
-    op_queue->ultra_ops[3].emplace_back(z_2);
+    op_queue->populate_ultra_ops({ this->variables[op_idx], x_lo, x_hi, y_lo, y_hi, z_1, z_2 });
 
     // Add variables for decomposition and get indices needed for op wires
     auto x_lo_idx = this->add_variable(x_lo);
@@ -196,8 +190,8 @@ ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::decompose_ecc_operands(uint32_t op_
  *
  * @param in Variables array indices corresponding to operation inputs
  * @note We dont explicitly set values for the selectors here since their values are fully determined by
- * num_ecc_op_gates. E.g. in the composer we can reconstruct q_ecc_op as the indicator on the first num_ecc_op_gates
- * indices. All other selectors are simply 0 on this domain.
+ * the number of ecc op gates. E.g. in the composer we can reconstruct q_ecc_op as the indicator over the range of ecc
+ * op gates. All other selectors are simply 0 on this domain.
  */
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::populate_ecc_op_wires(const ecc_op_tuple& in)
 {
@@ -210,8 +204,6 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::populate_ecc_op_wire
     for (auto& selector : this->blocks.ecc_op.selectors) {
         selector.emplace_back(0);
     }
-
-    num_ecc_op_gates += 2;
 };
 
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
@@ -223,31 +215,59 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::set_goblin_ecc_op_co
 }
 
 /**
+ * @brief Read from calldata
+ * @details Creates a calldata lookup gate based on the read data
+ *
+ * @tparam FF
+ * @param read_idx_witness_idx Variable index of the read index
+ * @return uint32_t Variable index of the result of the read
+ */
+template <typename FF> uint32_t GoblinUltraCircuitBuilder_<FF>::read_calldata(const uint32_t& read_idx_witness_idx)
+{
+    // Get the raw index into the calldata
+    const uint32_t read_idx = static_cast<uint32_t>(uint256_t(this->get_variable(read_idx_witness_idx)));
+
+    // Ensure that the read index is valid
+    ASSERT(read_idx < public_calldata.size());
+
+    // Create a variable corresponding to the result of the read. Note that we do not in general connect reads from
+    // calldata via copy constraints (i.e. we create a unique variable for the result of each read)
+    FF calldata_value = this->get_variable(public_calldata[read_idx]);
+    uint32_t value_witness_idx = this->add_variable(calldata_value);
+
+    create_calldata_read_gate({ read_idx_witness_idx, value_witness_idx });
+    calldata_read_counts[read_idx]++;
+
+    return value_witness_idx;
+}
+
+/**
  * @brief Create a calldata lookup/read gate
  *
  * @tparam FF
  * @param databus_lookup_gate_ witness indices corresponding to: calldata index, calldata value
  */
 template <typename FF>
-void GoblinUltraCircuitBuilder_<FF>::create_calldata_lookup_gate(const databus_lookup_gate_<FF>& in)
+void GoblinUltraCircuitBuilder_<FF>::create_calldata_read_gate(const databus_lookup_gate_<FF>& in)
 {
-    this->blocks.main.populate_wires(in.value, in.index, this->zero_idx, this->zero_idx);
-    this->blocks.main.q_busread().emplace_back(1);
+    auto& block = this->blocks.busread;
+    block.populate_wires(in.value, in.index, this->zero_idx, this->zero_idx);
+    block.q_busread().emplace_back(1);
 
     // populate all other components with zero
-    this->blocks.main.q_m().emplace_back(0);
-    this->blocks.main.q_1().emplace_back(0);
-    this->blocks.main.q_2().emplace_back(0);
-    this->blocks.main.q_3().emplace_back(0);
-    this->blocks.main.q_c().emplace_back(0);
-    this->blocks.main.q_sort().emplace_back(0);
-    this->blocks.main.q_arith().emplace_back(0);
-    this->blocks.main.q_4().emplace_back(0);
-    this->blocks.main.q_lookup_type().emplace_back(0);
-    this->blocks.main.q_elliptic().emplace_back(0);
-    this->blocks.main.q_aux().emplace_back(0);
-    this->blocks.main.q_poseidon2_external().emplace_back(0);
-    this->blocks.main.q_poseidon2_internal().emplace_back(0);
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(0);
+    block.q_2().emplace_back(0);
+    block.q_3().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.q_delta_range().emplace_back(0);
+    block.q_arith().emplace_back(0);
+    block.q_4().emplace_back(0);
+    block.q_lookup_type().emplace_back(0);
+    block.q_elliptic().emplace_back(0);
+    block.q_aux().emplace_back(0);
+    block.q_poseidon2_external().emplace_back(0);
+    block.q_poseidon2_internal().emplace_back(0);
     this->check_selector_length_consistency();
 
     ++this->num_gates;
@@ -259,21 +279,22 @@ void GoblinUltraCircuitBuilder_<FF>::create_calldata_lookup_gate(const databus_l
 template <typename FF>
 void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
 {
-    this->blocks.main.populate_wires(in.a, in.b, in.c, in.d);
-    this->blocks.main.q_m().emplace_back(0);
-    this->blocks.main.q_1().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
-    this->blocks.main.q_2().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
-    this->blocks.main.q_3().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
-    this->blocks.main.q_c().emplace_back(0);
-    this->blocks.main.q_arith().emplace_back(0);
-    this->blocks.main.q_4().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
-    this->blocks.main.q_sort().emplace_back(0);
-    this->blocks.main.q_lookup_type().emplace_back(0);
-    this->blocks.main.q_elliptic().emplace_back(0);
-    this->blocks.main.q_aux().emplace_back(0);
-    this->blocks.main.q_busread().emplace_back(0);
-    this->blocks.main.q_poseidon2_external().emplace_back(1);
-    this->blocks.main.q_poseidon2_internal().emplace_back(0);
+    auto& block = this->blocks.poseidon_external;
+    block.populate_wires(in.a, in.b, in.c, in.d);
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+    block.q_2().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
+    block.q_3().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
+    block.q_c().emplace_back(0);
+    block.q_arith().emplace_back(0);
+    block.q_4().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
+    block.q_delta_range().emplace_back(0);
+    block.q_lookup_type().emplace_back(0);
+    block.q_elliptic().emplace_back(0);
+    block.q_aux().emplace_back(0);
+    block.q_busread().emplace_back(0);
+    block.q_poseidon2_external().emplace_back(1);
+    block.q_poseidon2_internal().emplace_back(0);
     this->check_selector_length_consistency();
     ++this->num_gates;
 }
@@ -284,247 +305,24 @@ void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseid
 template <typename FF>
 void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in)
 {
-    this->blocks.main.populate_wires(in.a, in.b, in.c, in.d);
-    this->blocks.main.q_m().emplace_back(0);
-    this->blocks.main.q_1().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
-    this->blocks.main.q_2().emplace_back(0);
-    this->blocks.main.q_3().emplace_back(0);
-    this->blocks.main.q_c().emplace_back(0);
-    this->blocks.main.q_arith().emplace_back(0);
-    this->blocks.main.q_4().emplace_back(0);
-    this->blocks.main.q_sort().emplace_back(0);
-    this->blocks.main.q_lookup_type().emplace_back(0);
-    this->blocks.main.q_elliptic().emplace_back(0);
-    this->blocks.main.q_aux().emplace_back(0);
-    this->blocks.main.q_busread().emplace_back(0);
-    this->blocks.main.q_poseidon2_external().emplace_back(0);
-    this->blocks.main.q_poseidon2_internal().emplace_back(1);
+    auto& block = this->blocks.poseidon_internal;
+    block.populate_wires(in.a, in.b, in.c, in.d);
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+    block.q_2().emplace_back(0);
+    block.q_3().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.q_arith().emplace_back(0);
+    block.q_4().emplace_back(0);
+    block.q_delta_range().emplace_back(0);
+    block.q_lookup_type().emplace_back(0);
+    block.q_elliptic().emplace_back(0);
+    block.q_aux().emplace_back(0);
+    block.q_busread().emplace_back(0);
+    block.q_poseidon2_external().emplace_back(0);
+    block.q_poseidon2_internal().emplace_back(1);
     this->check_selector_length_consistency();
     ++this->num_gates;
-}
-
-/**
- * @brief Poseidon2 end round gate, needed because poseidon2 rounds compare with shifted wires
- * @details The Poseidon2 permutation is 64 rounds, but needs to be a block of 65 rows, since the result of applying a
- * round of Poseidon2 is stored in the next row (the shifted row). As a result, we need this end row to compare with the
- * result from the 64th round of Poseidon2. Note that it does not activate any selectors since it only serves as a
- * comparison through the shifted wires.
- */
-template <typename FF> void GoblinUltraCircuitBuilder_<FF>::create_poseidon2_end_gate(const poseidon2_end_gate_<FF>& in)
-{
-    this->blocks.main.populate_wires(in.a, in.b, in.c, in.d);
-    this->blocks.main.q_m().emplace_back(0);
-    this->blocks.main.q_1().emplace_back(0);
-    this->blocks.main.q_2().emplace_back(0);
-    this->blocks.main.q_3().emplace_back(0);
-    this->blocks.main.q_c().emplace_back(0);
-    this->blocks.main.q_arith().emplace_back(0);
-    this->blocks.main.q_4().emplace_back(0);
-    this->blocks.main.q_sort().emplace_back(0);
-    this->blocks.main.q_lookup_type().emplace_back(0);
-    this->blocks.main.q_elliptic().emplace_back(0);
-    this->blocks.main.q_aux().emplace_back(0);
-    this->blocks.main.q_busread().emplace_back(0);
-    this->blocks.main.q_poseidon2_external().emplace_back(0);
-    this->blocks.main.q_poseidon2_internal().emplace_back(0);
-    this->check_selector_length_consistency();
-    ++this->num_gates;
-}
-
-template <typename FF>
-inline FF GoblinUltraCircuitBuilder_<FF>::compute_poseidon2_external_identity(FF q_poseidon2_external_value,
-                                                                              FF q_1_value,
-                                                                              FF q_2_value,
-                                                                              FF q_3_value,
-                                                                              FF q_4_value,
-                                                                              FF w_1_value,
-                                                                              FF w_2_value,
-                                                                              FF w_3_value,
-                                                                              FF w_4_value,
-                                                                              FF w_1_shifted_value,
-                                                                              FF w_2_shifted_value,
-                                                                              FF w_3_shifted_value,
-                                                                              FF w_4_shifted_value,
-                                                                              FF alpha_base,
-                                                                              FF alpha) const
-{
-    // Power of alpha to separate individual sub-relations
-    // TODO(kesha): This is a repeated computation which can be efficiently optimized
-    const FF alpha_a = alpha_base;
-    const FF alpha_b = alpha_a * alpha;
-    const FF alpha_c = alpha_b * alpha;
-    const FF alpha_d = alpha_c * alpha;
-
-    FF s1 = w_1_value + q_1_value;
-    FF s2 = w_2_value + q_2_value;
-    FF s3 = w_3_value + q_3_value;
-    FF s4 = w_4_value + q_4_value;
-
-    FF u1 = s1 * s1;
-    u1 *= u1;
-    u1 *= s1;
-    FF u2 = s2 * s2;
-    u2 *= u2;
-    u2 *= s2;
-    FF u3 = s3 * s3;
-    u3 *= u3;
-    u3 *= s3;
-    FF u4 = s4 * s4;
-    u4 *= u4;
-    u4 *= s4;
-
-    auto t0 = u1 + u2;
-    auto t1 = u3 + u4;
-    auto t2 = u2 + u2;
-    t2 += t1;
-    auto t3 = u4 + u4;
-    t3 += t0;
-    auto v4 = t1 + t1;
-    v4 += v4;
-    v4 += t3;
-    auto v2 = t0 + t0;
-    v2 += v2;
-    v2 += t2;
-    auto v1 = t3 + v2;
-    auto v3 = t2 + v4;
-
-    return q_poseidon2_external_value * (alpha_a * (v1 - w_1_shifted_value) + alpha_b * (v2 - w_2_shifted_value) +
-                                         alpha_c * (v3 - w_3_shifted_value) + alpha_d * (v4 - w_4_shifted_value));
-}
-
-template <typename FF>
-inline FF GoblinUltraCircuitBuilder_<FF>::compute_poseidon2_internal_identity(FF q_poseidon2_internal_value,
-                                                                              FF q_1_value,
-                                                                              FF w_1_value,
-                                                                              FF w_2_value,
-                                                                              FF w_3_value,
-                                                                              FF w_4_value,
-                                                                              FF w_1_shifted_value,
-                                                                              FF w_2_shifted_value,
-                                                                              FF w_3_shifted_value,
-                                                                              FF w_4_shifted_value,
-                                                                              FF alpha_base,
-                                                                              FF alpha) const
-{
-    // Power of alpha to separate individual sub-relations
-    // TODO(kesha): This is a repeated computation which can be efficiently optimized
-    const FF alpha_a = alpha_base;
-    const FF alpha_b = alpha_a * alpha;
-    const FF alpha_c = alpha_b * alpha;
-    const FF alpha_d = alpha_c * alpha;
-
-    auto s1 = w_1_value + q_1_value;
-
-    auto u1 = s1 * s1;
-    u1 *= u1;
-    u1 *= s1;
-
-    auto sum = u1 + w_2_value + w_3_value + w_4_value;
-    auto v1 = u1 * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0];
-    v1 += sum;
-    auto v2 = w_2_value * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1];
-    v2 += sum;
-    auto v3 = w_3_value * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2];
-    v3 += sum;
-    auto v4 = w_4_value * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3];
-    v4 += sum;
-
-    return q_poseidon2_internal_value * (alpha_a * (v1 - w_1_shifted_value) + alpha_b * (v2 - w_2_shifted_value) +
-                                         alpha_c * (v3 - w_3_shifted_value) + alpha_d * (v4 - w_4_shifted_value));
-}
-
-template <typename FF> bool GoblinUltraCircuitBuilder_<FF>::check_circuit()
-{
-    bool result = true;
-    if (!UltraCircuitBuilder_<UltraHonkArith<FF>>::check_circuit()) {
-        return false;
-    }
-
-    const FF poseidon2_external_base = FF::random_element();
-    const FF poseidon2_internal_base = FF::random_element();
-    const FF alpha = FF::random_element();
-
-    // For each gate
-    for (size_t i = 0; i < this->num_gates; i++) {
-        FF q_poseidon2_external_value;
-        FF q_poseidon2_internal_value;
-        FF q_1_value;
-        FF q_2_value;
-        FF q_3_value;
-        FF q_4_value;
-        FF w_1_value;
-        FF w_2_value;
-        FF w_3_value;
-        FF w_4_value;
-        // Get the values of selectors and wires and update tag products along the way
-        q_poseidon2_external_value = this->blocks.main.q_poseidon2_external()[i];
-        q_poseidon2_internal_value = this->blocks.main.q_poseidon2_internal()[i];
-        q_1_value = this->blocks.main.q_1()[i];
-        q_2_value = this->blocks.main.q_2()[i];
-        q_3_value = this->blocks.main.q_3()[i];
-        q_4_value = this->blocks.main.q_4()[i];
-        w_1_value = this->get_variable(this->blocks.main.w_l()[i]);
-        w_2_value = this->get_variable(this->blocks.main.w_r()[i]);
-        w_3_value = this->get_variable(this->blocks.main.w_o()[i]);
-        w_4_value = this->get_variable(this->blocks.main.w_4()[i]);
-        FF w_1_shifted_value;
-        FF w_2_shifted_value;
-        FF w_3_shifted_value;
-        FF w_4_shifted_value;
-        if (i < (this->num_gates - 1)) {
-            w_1_shifted_value = this->get_variable(this->blocks.main.w_l()[i + 1]);
-            w_2_shifted_value = this->get_variable(this->blocks.main.w_r()[i + 1]);
-            w_3_shifted_value = this->get_variable(this->blocks.main.w_o()[i + 1]);
-            w_4_shifted_value = this->get_variable(this->blocks.main.w_4()[i + 1]);
-        } else {
-            w_1_shifted_value = FF::zero();
-            w_2_shifted_value = FF::zero();
-            w_3_shifted_value = FF::zero();
-            w_4_shifted_value = FF::zero();
-        }
-        if (!compute_poseidon2_external_identity(q_poseidon2_external_value,
-                                                 q_1_value,
-                                                 q_2_value,
-                                                 q_3_value,
-                                                 q_4_value,
-                                                 w_1_value,
-                                                 w_2_value,
-                                                 w_3_value,
-                                                 w_4_value,
-                                                 w_1_shifted_value,
-                                                 w_2_shifted_value,
-                                                 w_3_shifted_value,
-                                                 w_4_shifted_value,
-                                                 poseidon2_external_base,
-                                                 alpha)
-                 .is_zero()) {
-#ifndef FUZZING
-            info("Poseidon2External identity fails at gate ", i);
-#endif
-            result = false;
-            break;
-        }
-        if (!compute_poseidon2_internal_identity(q_poseidon2_internal_value,
-                                                 q_1_value,
-                                                 w_1_value,
-                                                 w_2_value,
-                                                 w_3_value,
-                                                 w_4_value,
-                                                 w_1_shifted_value,
-                                                 w_2_shifted_value,
-                                                 w_3_shifted_value,
-                                                 w_4_shifted_value,
-                                                 poseidon2_internal_base,
-                                                 alpha)
-                 .is_zero()) {
-#ifndef FUZZING
-            info("Poseidon2Internal identity fails at gate ", i);
-#endif
-            result = false;
-            break;
-        }
-    }
-    return result;
 }
 
 template class GoblinUltraCircuitBuilder_<bb::fr>;

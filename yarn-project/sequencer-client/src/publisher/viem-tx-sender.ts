@@ -1,7 +1,7 @@
-import { BLOB_SIZE_IN_BYTES, ExtendedContractData, L2Block } from '@aztec/circuit-types';
+import { L2Block } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AvailabilityOracleAbi, ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import {
   GetContractReturnType,
@@ -39,10 +39,6 @@ export class ViemTxSender implements L1PublisherTxSender {
     typeof RollupAbi,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
-  private contractDeploymentEmitterContract: GetContractReturnType<
-    typeof ContractDeploymentEmitterAbi,
-    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
-  >;
 
   private log = createDebugLogger('aztec:sequencer:viem-tx-sender');
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
@@ -73,11 +69,6 @@ export class ViemTxSender implements L1PublisherTxSender {
       abi: RollupAbi,
       client: walletClient,
     });
-    this.contractDeploymentEmitterContract = getContract({
-      address: getAddress(l1Contracts.contractDeploymentEmitterAddress.toString()),
-      abi: ContractDeploymentEmitterAbi,
-      client: walletClient,
-    });
   }
 
   async getCurrentArchive(): Promise<Buffer> {
@@ -86,7 +77,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   }
 
   checkIfTxsAreAvailable(block: L2Block): Promise<boolean> {
-    const args = [`0x${block.body.getCalldataHash().toString('hex')}`] as const;
+    const args = [`0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`] as const;
     return this.availabilityOracleContract.read.isAvailable(args);
   }
 
@@ -154,7 +145,6 @@ export class ViemTxSender implements L1PublisherTxSender {
     const args = [
       `0x${encodedData.header.toString('hex')}`,
       `0x${encodedData.archive.toString('hex')}`,
-      `0x${encodedData.body.toString('hex')}`,
       `0x${encodedData.proof.toString('hex')}`,
     ] as const;
 
@@ -166,46 +156,6 @@ export class ViemTxSender implements L1PublisherTxSender {
       account: this.account,
     });
     return hash;
-  }
-
-  /**
-   * Sends a tx to the contract deployment emitter contract with contract deployment data such as bytecode. Returns once the tx has been mined.
-   * @param l2BlockNum - Number of the L2 block that owns this encrypted logs.
-   * @param l2BlockHash - The hash of the block corresponding to this data.
-   * @param newExtendedContractData - Data to publish.
-   * @returns The hash of the mined tx.
-   */
-  async sendEmitContractDeploymentTx(
-    l2BlockNum: number,
-    l2BlockHash: Buffer,
-    newExtendedContractData: ExtendedContractData[],
-  ): Promise<(string | undefined)[]> {
-    const hashes: string[] = [];
-    for (const extendedContractData of newExtendedContractData) {
-      const args = [
-        BigInt(l2BlockNum),
-        extendedContractData.contractData.contractAddress.toString() as Hex,
-        extendedContractData.contractData.portalContractAddress.toString() as Hex,
-        `0x${l2BlockHash.toString('hex')}`,
-        extendedContractData.contractClassId.toString(),
-        extendedContractData.saltedInitializationHash.toString(),
-        extendedContractData.publicKeyHash.toString(),
-        `0x${extendedContractData.bytecode.toString('hex')}`,
-      ] as const;
-
-      const codeSize = extendedContractData.bytecode.length;
-      this.log(`Bytecode is ${codeSize} bytes and require ${codeSize / BLOB_SIZE_IN_BYTES} blobs`);
-
-      const gas = await this.contractDeploymentEmitterContract.estimateGas.emitContractDeployment(args, {
-        account: this.account,
-      });
-      const hash = await this.contractDeploymentEmitterContract.write.emitContractDeployment(args, {
-        gas,
-        account: this.account,
-      });
-      hashes.push(hash);
-    }
-    return hashes;
   }
 
   /**

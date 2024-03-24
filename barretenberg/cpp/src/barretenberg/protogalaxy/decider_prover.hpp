@@ -18,14 +18,13 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Curve = typename Flavor::Curve;
+    using PCS = typename Flavor::PCS;
     using Instance = ProverInstance_<Flavor>;
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     explicit DeciderProver_(const std::shared_ptr<Instance>&,
-                            const std::shared_ptr<CommitmentKey>&,
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     BB_PROFILE void execute_relation_check_rounds();
@@ -48,12 +47,13 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
 
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    using ZeroMorph = ZeroMorphProver_<Curve>;
+    using ZeroMorph = ZeroMorphProver_<PCS>;
 
   private:
     HonkProof proof;
 };
 
-using DeciderProver = DeciderProver_<UltraFlavor>;
+using UltraDeciderProver = DeciderProver_<UltraFlavor>;
+using GoblinUltraDeciderProver = DeciderProver_<GoblinUltraFlavor>;
 
 } // namespace bb

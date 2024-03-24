@@ -147,20 +147,16 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
         cycle_index++;
     }
 
-    // Add information about public inputs to the computation
+    // Add information about public inputs so that the cycles can be altered later; See the construction of the
+    // permutation polynomials for details.
     const auto num_public_inputs = static_cast<uint32_t>(circuit_constructor.public_inputs.size());
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/862): this is brittle. depends on when PI are placed.
-    // how can we make this more robust?
-    // The public inputs are placed at the top of the execution trace, potentially offset by a zero row.
-    const size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
-    size_t pub_input_offset = num_zero_rows;
-    // If Goblin, PI are further offset by number of ecc op gates
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        pub_input_offset += circuit_constructor.num_ecc_op_gates;
+    size_t pub_inputs_offset = 0;
+    if constexpr (IsHonkFlavor<Flavor>) {
+        pub_inputs_offset = proving_key->pub_inputs_offset;
     }
     for (size_t i = 0; i < num_public_inputs; ++i) {
-        size_t idx = i + pub_input_offset;
+        size_t idx = i + pub_inputs_offset;
         mapping.sigmas[0][idx].row_index = static_cast<uint32_t>(idx);
         mapping.sigmas[0][idx].column_index = 0;
         mapping.sigmas[0][idx].is_public_input = true;
@@ -349,19 +345,16 @@ void compute_monomial_and_coset_fft_polynomials_from_lagrange(std::string label,
 
 /**
  * @brief Compute Lagrange Polynomials L_0 and L_{n-1} and put them in the polynomial cache
- *
- * @param key Proving key where we will save the polynomials
  */
-template <typename Flavor> inline void compute_first_and_last_lagrange_polynomials(const auto& proving_key)
+template <typename FF>
+inline std::tuple<Polynomial<FF>, Polynomial<FF>> compute_first_and_last_lagrange_polynomials(const size_t circuit_size)
 {
-    const size_t n = proving_key->circuit_size;
-    typename Flavor::Polynomial lagrange_polynomial_0(n);
-    typename Flavor::Polynomial lagrange_polynomial_n_min_1(n);
+    Polynomial<FF> lagrange_polynomial_0(circuit_size);
+    Polynomial<FF> lagrange_polynomial_n_min_1(circuit_size);
     lagrange_polynomial_0[0] = 1;
-    proving_key->lagrange_first = lagrange_polynomial_0.share();
 
-    lagrange_polynomial_n_min_1[n - 1] = 1;
-    proving_key->lagrange_last = lagrange_polynomial_n_min_1.share();
+    lagrange_polynomial_n_min_1[circuit_size - 1] = 1;
+    return std::make_tuple(lagrange_polynomial_0.share(), lagrange_polynomial_n_min_1.share());
 }
 
 /**

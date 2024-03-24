@@ -4,8 +4,7 @@ const contractAddresses =
   'registryAddress:REGISTRY_CONTRACT_ADDRESS - string - The deployed L1 registry contract address.\n' +
   'inboxAddress:INBOX_CONTRACT_ADDRESS - string - The deployed L1 inbox contract address.\n' +
   'outboxAddress:OUTBOX_CONTRACT_ADDRESS - string - The deployed L1 outbox contract address.\n' +
-  'contractDeploymentEmitterAddress:CONTRACT_DEPLOYMENT_EMITTER_ADDRESS - string - The deployed L1 contract deployment emitter contract address.\n';
-('availabilityOracleAddress:AVAILABILITY_ORACLE_CONTRACT_ADDRESS - string - The deployed L1 availability oracle contract address.\n');
+  'availabilityOracleAddress:AVAILABILITY_ORACLE_CONTRACT_ADDRESS - string - The deployed L1 availability oracle contract address.\n';
 const p2pOptions =
   'p2pBlockCheckIntervalMS:P2P_BLOCK_CHECK_INTERVAL_MS - number - The frequency in which to check for blocks. Default: 100\n' +
   'p2pL2QueueSize:P2P_L2_QUEUE_SIZE - number - Size of queue of L2 blocks to store. Default: 1000\n' +
@@ -64,7 +63,14 @@ export const cliTexts = {
     'requiredConfirmations:SEQ_REQUIRED_CONFIRMATIONS - number - The number of confirmations required before publishing a block. Default: 1\n' +
     'l1BlockPublishRetryIntervalMS:SEQ_PUBLISH_RETRY_INTERVAL_MS - number - The interval in ms to wait before retrying to publish a block. Default: 1000\n' +
     'transactionPollingIntervalMS:SEQ_TX_POLLING_INTERVAL_MS - number - The interval in ms to wait before polling for new transactions. Default: 1000\n' +
+    'acvmBinaryPath:ACVM_BINARY_PATH - string - The full path to an instance of the acvm cli application. If not provided will fallback to WASM circuit simulation\n' +
+    'acvmWorkingDirectory:ACVM_WORKING_DIRECTORY - string - A directory to use for temporary files used by the acvm application. If not provided WASM circuit simulation will be used\n' +
     contractAddresses,
+  prover:
+    'Starts a Prover with options. If started additionally to --node, the Prover will attach to that node.\n' +
+    'Available options are listed below as cliProperty:ENV_VARIABLE_NAME.\n' +
+    'acvmBinaryPath:ACVM_BINARY_PATH - string - The full path to an instance of the acvm cli application. If not provided will fallback to WASM circuit simulation\n' +
+    'acvmWorkingDirectory:ACVM_WORKING_DIRECTORY - string - A directory to use for temporary files used by the acvm application. If not provided WASM circuit simulation will be used\n',
   p2pBootstrap:
     'Starts a P2P bootstrap node with options.\n' +
     'Available options are listed below as cliProperty:ENV_VARIABLE_NAME.\n' +

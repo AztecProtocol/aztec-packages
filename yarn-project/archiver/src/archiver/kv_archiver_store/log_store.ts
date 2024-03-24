@@ -1,13 +1,13 @@
 import {
   ExtendedUnencryptedL2Log,
   GetUnencryptedLogsResponse,
-  INITIAL_L2_BLOCK_NUM,
   L2BlockL2Logs,
   LogFilter,
   LogId,
   LogType,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
@@ -88,7 +88,7 @@ export class LogStore {
       throw new Error('Missing txHash');
     }
 
-    const [blockNumber, txIndex] = this.blockStore.getL2TxLocation(filter.txHash) ?? [];
+    const [blockNumber, txIndex] = this.blockStore.getTxLocation(filter.txHash) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return { logs: [], maxLogsHit: false };
     }

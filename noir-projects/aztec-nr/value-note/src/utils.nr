@@ -1,15 +1,12 @@
-use dep::std::option::Option;
-use dep::aztec::context::PrivateContext;
-use dep::aztec::note::note_getter_options::{NoteGetterOptions, SortOrder};
+use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions};
+use dep::aztec::note::note_getter_options::SortOrder;
 use dep::aztec::oracle::get_public_key::get_public_key;
-use dep::aztec::state_vars::PrivateSet;
 use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN}};
-use dep::aztec::protocol_types::address::AztecAddress;
 
 // Sort the note values (0th field) in descending order.
 // Pick the fewest notes whose sum is equal to or greater than `amount`.
 pub fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteGetterOptions<ValueNote, VALUE_NOTE_LEN, Field> {
-    NoteGetterOptions::with_filter(filter_notes_min_sum, amount).sort(0, SortOrder.DESC)
+    NoteGetterOptions::with_filter(filter_notes_min_sum, amount).sort(ValueNote::properties().value, SortOrder.DESC)
 }
 
 // Creates a new note for the recipient.

@@ -59,7 +59,7 @@ cd ~/.aztec && docker-compose up
 If you wish to run components of the Aztec network stack separately, you can use the `aztec start` command with various options for enabling components.
 
 ```bash
-aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] ----p2p-bootstrap [p2pOptions]
+aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
 ```
 
 Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. If you want to e.g. run a PXE separately to a node, you can:
@@ -133,7 +133,6 @@ REGISTRY_CONTRACT_ADDRESS=0x01234567890abcde01234567890abcde
 INBOX_CONTRACT_ADDRESS=0x01234567890abcde01234567890abcde
 OUTBOX_CONTRACT_ADDRESS=0x01234567890abcde01234567890abcde
 ROLLUP_CONTRACT_ADDRESS=0x01234567890abcde01234567890abcde
-CONTRACT_DEPLOYMENT_EMITTER_ADDRESS=0x01234567890abcde01234567890abcde
 
 ## Sequencer variables ##
 SEQ_PUBLISHER_PRIVATE_KEY=0x01234567890abcde01234567890abcde # Private key of an ethereum account that will be used by the sequencer to publish blocks.
@@ -193,7 +192,7 @@ ImportTestContractArtifact
 InclusionProofsContractArtifact
 LendingContractArtifact
 ParentContractArtifact
-PendingCommitmentsContractArtifact
+PendingNoteHashesContractArtifact
 PriceFeedContractArtifact
 SchnorrAccountContractArtifact
 SchnorrHardcodedAccountContractArtifact

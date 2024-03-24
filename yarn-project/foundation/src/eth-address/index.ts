@@ -1,3 +1,5 @@
+import { inspect } from 'util';
+
 import { keccak256String } from '../crypto/keccak/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { Fr } from '../fields/index.js';
@@ -158,6 +160,10 @@ export class EthAddress {
     return `0x${this.buffer.toString('hex')}` as `0x${string}`;
   }
 
+  [inspect.custom]() {
+    return `EthAddress<${this.toString()}>`;
+  }
+
   /**
    * Returns the Ethereum address as a checksummed string.
    * The output string will have characters in the correct upper or lowercase form, according to EIP-55.
@@ -184,7 +190,6 @@ export class EthAddress {
    *
    * @returns A 32-byte Buffer containing the padded Ethereum address.
    */
-  // TODO(#3938): nuke this
   public toBuffer32() {
     const buffer = Buffer.alloc(32);
     this.buffer.copy(buffer, 12);

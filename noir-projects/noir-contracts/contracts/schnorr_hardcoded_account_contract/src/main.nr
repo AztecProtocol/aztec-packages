@@ -2,10 +2,7 @@
 // Account contract that uses Schnorr signatures for authentication using a hardcoded public key.
 contract SchnorrHardcodedAccount {
     use dep::std;
-    use dep::aztec::{
-        context::PrivateContext,
-        protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector}
-    };
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext};
 
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
@@ -16,9 +13,6 @@ contract SchnorrHardcodedAccount {
     global public_key_y: Field = 0x29155934ffaa105323695b5f91faadd84acc21f4a8bda2fad760f992d692bc7f;
 
     global ACCOUNT_ACTIONS_STORAGE_SLOT = 1;
-
-    #[aztec(private)]
-    fn constructor() {}
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
@@ -40,12 +34,14 @@ contract SchnorrHardcodedAccount {
     }
 
     #[aztec(private)]
-    internal fn cancel_authwit(outer_hash: Field) {
+    #[aztec(internal)]
+    fn cancel_authwit(outer_hash: Field) {
         context.push_new_nullifier(outer_hash, 0);
     }
 
     #[aztec(public)]
-    internal fn approve_public_authwit(outer_hash: Field) {
+    #[aztec(internal)]
+    fn approve_public_authwit(outer_hash: Field) {
         let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.approve_public_authwit(outer_hash)
     }

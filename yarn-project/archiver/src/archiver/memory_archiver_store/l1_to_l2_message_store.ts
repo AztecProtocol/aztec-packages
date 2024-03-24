@@ -1,91 +1,68 @@
-import { L1ToL2Message } from '@aztec/circuit-types';
+import { InboxLeaf } from '@aztec/circuit-types';
+import {
+  INITIAL_L2_BLOCK_NUM,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+} from '@aztec/circuits.js/constants';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
- * A simple in-memory implementation of an L1 to L2 message store
- * that handles message duplication.
+ * A simple in-memory implementation of an L1 to L2 message store.
  */
 export class L1ToL2MessageStore {
   /**
-   * A map containing the message key to the corresponding L1 to L2
-   * messages (and the number of times the message has been seen).
+   * A map pointing from a key in a "blockNum-messageIndex" format to the corresponding L1 to L2 message hash.
    */
-  protected store: Map<bigint, L1ToL2MessageAndCount> = new Map();
+  protected store: Map<string, Fr> = new Map();
+
+  #l1ToL2MessagesSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
   constructor() {}
 
-  addMessage(messageKey: Fr, message: L1ToL2Message) {
-    const messageKeyBigInt = messageKey.toBigInt();
-    const msgAndCount = this.store.get(messageKeyBigInt);
-    if (msgAndCount) {
-      msgAndCount.count++;
-    } else {
-      this.store.set(messageKeyBigInt, { message, count: 1 });
+  addMessage(message: InboxLeaf) {
+    if (message.index >= this.#l1ToL2MessagesSubtreeSize) {
+      throw new Error(`Message index ${message.index} out of subtree range`);
     }
+    const key = `${message.blockNumber}-${message.index}`;
+    this.store.set(key, message.leaf);
   }
 
-  getMessage(messageKey: Fr): L1ToL2Message | undefined {
-    return this.store.get(messageKey.value)?.message;
-  }
-
-  getMessageAndCount(messageKey: Fr): L1ToL2MessageAndCount | undefined {
-    return this.store.get(messageKey.value);
-  }
-}
-
-/**
- * Specifically for the store that will hold pending messages
- * for removing messages or fetching multiple messages.
- */
-export class PendingL1ToL2MessageStore extends L1ToL2MessageStore {
-  getMessageKeys(limit: number): Fr[] {
-    if (limit < 1) {
-      return [];
-    }
-    // fetch `limit` number of messages from the store with the highest fee.
-    // Note the store has multiple of the same message. So if a message has count 2, include both of them in the result:
+  getMessages(blockNumber: bigint): Fr[] {
     const messages: Fr[] = [];
-    const sortedMessages = Array.from(this.store.values()).sort((a, b) => b.message.fee - a.message.fee);
-    for (const messageAndCount of sortedMessages) {
-      for (let i = 0; i < messageAndCount.count; i++) {
-        messages.push(messageAndCount.message.entryKey!);
-        if (messages.length === limit) {
-          return messages;
+    let undefinedMessageFound = false;
+    for (let messageIndex = 0; messageIndex < this.#l1ToL2MessagesSubtreeSize; messageIndex++) {
+      // This is inefficient but probably fine for now.
+      const key = `${blockNumber}-${messageIndex}`;
+      const message = this.store.get(key);
+      if (message) {
+        if (undefinedMessageFound) {
+          throw new Error(`L1 to L2 message gap found in block ${blockNumber}`);
         }
+        messages.push(message);
+      } else {
+        undefinedMessageFound = true;
+        // We continue iterating over messages here to verify that there are no more messages after the undefined one.
+        // --> If this was the case this would imply there is some issue with log fetching.
       }
     }
     return messages;
   }
 
-  removeMessage(messageKey: Fr) {
-    // ignore 0 - messageKey is a hash, so a 0 can probabilistically never occur. It is best to skip it.
-    if (messageKey.equals(Fr.ZERO)) {
-      return;
+  /**
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * @param l1ToL2Message - The L1 to L2 message.
+   * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
+   */
+  getMessageIndex(l1ToL2Message: Fr): bigint | undefined {
+    for (const [key, message] of this.store.entries()) {
+      if (message.equals(l1ToL2Message)) {
+        const [blockNumber, messageIndex] = key.split('-');
+        const indexInTheWholeTree =
+          (BigInt(blockNumber) - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) +
+          BigInt(messageIndex);
+        return indexInTheWholeTree;
+      }
     }
-
-    const messageKeyBigInt = messageKey.value;
-    const msgAndCount = this.store.get(messageKeyBigInt);
-    if (!msgAndCount) {
-      throw new Error(`Unable to remove message: L1 to L2 Message with key ${messageKeyBigInt} not found in store`);
-    }
-    if (msgAndCount.count > 1) {
-      msgAndCount.count--;
-    } else {
-      this.store.delete(messageKeyBigInt);
-    }
+    return undefined;
   }
 }
-
-/**
- * Useful to keep track of the number of times a message has been seen.
- */
-type L1ToL2MessageAndCount = {
-  /**
-   * The message.
-   */
-  message: L1ToL2Message;
-  /**
-   * The number of times the message has been seen.
-   */
-  count: number;
-};

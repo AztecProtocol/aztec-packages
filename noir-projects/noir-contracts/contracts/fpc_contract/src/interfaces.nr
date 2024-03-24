@@ -1,6 +1,7 @@
-use dep::aztec::context::{PrivateContext, PublicContext};
+use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, PrivateContext};
+use dep::aztec::context::PublicContext;
 
-use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, constants::RETURN_VALUES_LENGTH};
+use dep::aztec::protocol_types::constants::RETURN_VALUES_LENGTH;
 
 struct Token {
   address: AztecAddress,
@@ -13,7 +14,7 @@ impl Token {
 
     pub fn transfer_public(
         self: Self,
-        context: PublicContext,
+        context: &mut PublicContext,
         from: AztecAddress,
         to: AztecAddress,
         amount: Field,
@@ -23,6 +24,21 @@ impl Token {
             self.address,
             FunctionSelector::from_signature("transfer_public((Field),(Field),Field,Field)"),
             [from.to_field(), to.to_field(), amount, nonce]
+        );
+    }
+
+    pub fn shield(
+        self: Self,
+        context: &mut PublicContext,
+        from: AztecAddress,
+        amount: Field,
+        secret_hash: Field,
+        nonce: Field
+    ) {
+        let _ = context.call_public_function(
+            self.address,
+            FunctionSelector::from_signature("shield((Field),Field,Field,Field)"),
+            [from.to_field(), amount, secret_hash, nonce]
         );
     }
 

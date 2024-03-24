@@ -14,49 +14,42 @@ import {Hash} from "../Hash.sol";
  * @dev Assumes the input trees to be padded.
  *
  * -------------------
- * You can use https://gist.github.com/LHerskind/724a7e362c97e8ac2902c6b961d36830 to generate the below outline.
+ * You can use scripts/l2_block_data_specification_comment.py to generate the below outline.
  * -------------------
  * L2 Body Data Specification
  * -------------------
- *  | byte start                                                                                                                | num bytes  | name
- *  | ---                                                                                                                       | ---        | ---
- *  | 0x0                                                                                                                       | 0x4        | len(newL1ToL2Msgs) (denoted a)
- *  | 0x4                                                                                                                       | a * 0x20   | newL1ToL2Msgs
- *  | 0x4 + a * 0x20 = tx0Start                                                                                                 | 0x4        | len(numTxs) (denoted t)
- *  |                                                                                                                           |            | TxEffect 0 {
- *  | tx0Start                                                                                                                  | 0x1        |   len(newNoteHashes) (denoted b)
- *  | tx0Start + 0x1                                                                                                            | b * 0x20   |   newNoteHashes
- *  | tx0Start + 0x1 + b * 0x20                                                                                                 | 0x1        |   len(newNullifiers) (denoted c)
- *  | tx0Start + 0x1 + b * 0x20 + 0x1                                                                                           | c * 0x20   |   newNullifiers
- *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20                                                                                | 0x1        |   len(newL2ToL1Msgs) (denoted d)
- *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1                                                                          | d * 0x20   |   newL2ToL1Msgs
- *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20                                                               | 0x1        |   len(newPublicDataWrites) (denoted e)
- *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01                                                        | e * 0x40   |   newPublicDataWrites
- *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40                                             | 0x1        |   len(contracts) (denoted f)
- *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x1                                       | f * 0x20   |   newContracts
- *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x1 + f * 0x20                            | f * 0x34   |   newContractsData
- *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x1 + f * 0x20 + f * 0x34                 | 0x04       |   byteLen(newEncryptedLogs) (denoted g)
- *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x1 + f * 0x20 + f * 0x34 + 0x4           | g          |   newEncryptedLogs
- *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x1 + f * 0x20 + f * 0x34 + 0x4 + g       | 0x04       |   byteLen(newUnencryptedLogs) (denoted h)
- *  | tx0Start + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x1 + f * 0x20 + f * 0x34 + 0x4 + g + 0x4 | h          |   newUnencryptedLogs
- *  |                                                                                                                           |            | },
- *  |                                                                                                                           |            | TxEffect 1 {
- *  |                                                                                                                           |            |   ...
- *  |                                                                                                                           |            | },
- *  |                                                                                                                           |            | ...
- *  |                                                                                                                           |            | TxEffect (t - 1) {
- *  |                                                                                                                           |            |   ...
- *  |                                                                                                                           |            | },
+ *  | byte start                                                                                | num bytes  | name
+ *  | ---                                                                                       | ---        | ---
+ *  | 0x0                                                                                       | 0x4        | len(numTxs) (denoted t)
+ *  |                                                                                           |            | TxEffect 0 {
+ *  | 0x4                                                                                       | 0x1        |   len(newNoteHashes) (denoted b)
+ *  | 0x4 + 0x1                                                                                 | b * 0x20   |   newNoteHashes
+ *  | 0x4 + 0x1 + b * 0x20                                                                      | 0x1        |   len(newNullifiers) (denoted c)
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1                                                                | c * 0x20   |   newNullifiers
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20                                                     | 0x1        |   len(newL2ToL1Msgs) (denoted d)
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1                                               | d * 0x20   |   newL2ToL1Msgs
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20                                    | 0x1        |   len(newPublicDataWrites) (denoted e)
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01                             | e * 0x40   |   newPublicDataWrites
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40                  | 0x04       |   byteLen(newEncryptedLogs) (denoted f)
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4            | f          |   newEncryptedLogs
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f        | 0x04       |   byteLen(newUnencryptedLogs) (denoted g)
+ *  | 0x4 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f + 0x4  | g          |   newUnencryptedLogs
+ *  |                                                                                           |            | },
+ *  |                                                                                           |            | TxEffect 1 {
+ *  |                                                                                           |            |   ...
+ *  |                                                                                           |            | },
+ *  |                                                                                           |            | ...
+ *  |                                                                                           |            | TxEffect (t - 1) {
+ *  |                                                                                           |            |   ...
+ *  |                                                                                           |            | },
  */
 library TxsDecoder {
   struct ArrayOffsets {
+    uint256 revertCode;
     uint256 noteHash;
     uint256 nullifier;
-    uint256 publicData;
     uint256 l2ToL1Msgs;
-    uint256 contracts;
-    uint256 contractData;
-    uint256 l1ToL2Msgs;
+    uint256 publicData;
   }
 
   struct Counts {
@@ -64,18 +57,14 @@ library TxsDecoder {
     uint256 nullifier;
     uint256 l2ToL1Msgs;
     uint256 publicData;
-    uint256 contracts;
-    uint256 contractData;
   }
 
   // Note: Used in `computeConsumables` to get around stack too deep errors.
   struct ConsumablesVars {
     bytes32[] baseLeaves;
-    bytes32[] l2ToL1Msgs;
     bytes baseLeaf;
     bytes32 encryptedLogsHash;
     bytes32 unencryptedLogsHash;
-    uint256 l1Tol2MsgsCount;
   }
 
   /**
@@ -90,12 +79,7 @@ library TxsDecoder {
     uint256 offset = 0;
 
     {
-      // L1 to L2 messages
-      uint256 count = read4(_body, offset);
-      vars.l1Tol2MsgsCount = count;
-      offset += 0x4 + count * 0x20;
-
-      count = read4(_body, offset); // number of tx effects
+      uint256 count = read4(_body, offset); // number of tx effects
       offset += 0x4;
       vars.baseLeaves = new bytes32[](count);
     }
@@ -106,6 +90,7 @@ library TxsDecoder {
         /*
          * Compute the leaf to insert.
          * Leaf_i = (
+         *    revertCode,
          *    newNoteHashesKernel,
          *    newNullifiersKernel,
          *    newPublicDataWritesKernel,
@@ -119,6 +104,10 @@ library TxsDecoder {
          * Note that we always read data, the l2Block (atm) must therefore include dummy or zero-notes for
          * Zero values.
          */
+
+        // Revert Code
+        offsets.revertCode = offset;
+        offset += 0x1;
 
         // Note hashes
         uint256 count = read1(_body, offset);
@@ -148,27 +137,6 @@ library TxsDecoder {
         offsets.publicData = offset;
         offset += count * 0x40; // each public data write is 0x40 bytes long
 
-        // Contracts
-        count = read1(_body, offset);
-        offset += 0x1;
-        counts.contracts = count;
-        offsets.contracts = offset;
-        offset += count * 0x20; // each contract leaf is 0x20 bytes long
-
-        // Contract data
-        counts.contractData = count; // count is the same as contracts
-        offsets.contractData = offset;
-        offset += count * 0x34; // each contract data is 0x34 bytes long
-
-        bytes memory contractData = new bytes(Constants.CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP);
-        if (counts.contracts == 1) {
-          contractData = bytes.concat(
-            slice(_body, offsets.contractData, 0x20), // newContractDataKernel.aztecAddress
-            bytes12(0), // We pad the ethAddress to 32 bytes, we don't use sliceAndPad here because we want to prefix
-            slice(_body, offsets.contractData + 0x20, 0x14) // newContractDataKernel.ethAddress
-          );
-        }
-
         /**
          * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
          * Note: will advance offsets by the number of bytes processed.
@@ -178,43 +146,38 @@ library TxsDecoder {
 
         // Insertions are split into multiple `bytes.concat` to work around stack too deep.
         vars.baseLeaf = bytes.concat(
+          // pad the revert code to 32 bytes to match the hash preimage
+          sliceAndPadLeft(_body, offsets.revertCode, 0x1, 0x20),
           bytes.concat(
-            sliceAndPad(
+            sliceAndPadRight(
               _body,
               offsets.noteHash,
               counts.noteHash * 0x20,
               Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP
             ),
-            sliceAndPad(
+            sliceAndPadRight(
               _body,
               offsets.nullifier,
               counts.nullifier * 0x20,
               Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP
             ),
-            sliceAndPad(
+            sliceAndPadRight(
               _body,
               offsets.l2ToL1Msgs,
               counts.l2ToL1Msgs * 0x20,
               Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP
             ),
-            sliceAndPad(
+            sliceAndPadRight(
               _body,
               offsets.publicData,
               counts.publicData * 0x40,
               Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP
-            ),
-            sliceAndPad(
-              _body,
-              offsets.contracts,
-              counts.contracts * 0x20,
-              Constants.CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP
             )
           ),
-          contractData,
           bytes.concat(vars.encryptedLogsHash, vars.unencryptedLogsHash)
         );
 
-        vars.baseLeaves[i] = sha256(vars.baseLeaf);
+        vars.baseLeaves[i] = Hash.sha256ToField(vars.baseLeaf);
       }
     }
 
@@ -272,14 +235,15 @@ library TxsDecoder {
 
       // Hash the logs of this iteration's function call
       bytes32 privateCircuitPublicInputsLogsHash =
-        sha256(slice(_body, offset, privateCircuitPublicInputLogsLength));
+        Hash.sha256ToField(slice(_body, offset, privateCircuitPublicInputLogsLength));
       offset += privateCircuitPublicInputLogsLength;
 
       // Decrease remaining logs length by this privateCircuitPublicInputsLogs's length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
       remainingLogsLength -= (privateCircuitPublicInputLogsLength + 0x4);
 
-      kernelPublicInputsLogsHash =
-        sha256(bytes.concat(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
+      kernelPublicInputsLogsHash = Hash.sha256ToField(
+        bytes.concat(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash)
+      );
     }
 
     return (kernelPublicInputsLogsHash, offset);
@@ -304,7 +268,7 @@ library TxsDecoder {
 
     for (uint256 i = 0; i < treeDepth; i++) {
       for (uint256 j = 0; j < treeSize; j += 2) {
-        _leafs[j / 2] = sha256(bytes.concat(_leafs[j], _leafs[j + 1]));
+        _leafs[j / 2] = Hash.sha256ToField(bytes.concat(_leafs[j], _leafs[j + 1]));
       }
       treeSize /= 2;
     }
@@ -335,11 +299,29 @@ library TxsDecoder {
    * @param _targetLength - The length of the padded array
    * @return The slice
    */
-  function sliceAndPad(bytes calldata _data, uint256 _start, uint256 _length, uint256 _targetLength)
-    internal
-    pure
-    returns (bytes memory)
-  {
+  function sliceAndPadLeft(
+    bytes calldata _data,
+    uint256 _start,
+    uint256 _length,
+    uint256 _targetLength
+  ) internal pure returns (bytes memory) {
+    return bytes.concat(new bytes(_targetLength - _length), _data[_start:_start + _length]);
+  }
+
+  /**
+   * @notice Wrapper around the slicing and padding to avoid some stack too deep
+   * @param _data - The data to slice
+   * @param _start - The start of the slice
+   * @param _length - The length of the slice
+   * @param _targetLength - The length of the padded array
+   * @return The slice
+   */
+  function sliceAndPadRight(
+    bytes calldata _data,
+    uint256 _start,
+    uint256 _length,
+    uint256 _targetLength
+  ) internal pure returns (bytes memory) {
     return bytes.concat(_data[_start:_start + _length], new bytes(_targetLength - _length));
   }
 

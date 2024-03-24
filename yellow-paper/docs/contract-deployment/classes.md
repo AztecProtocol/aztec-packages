@@ -26,6 +26,8 @@ The structure of a contract class is defined as:
 | `private_functions` | [`PrivateFunction[]`](#private-function) | List of individual private functions, constructors included. |
 | `packed_public_bytecode` | `Field[]` | [Packed bytecode representation](../public-vm/bytecode-validation-circuit.md#packed-bytecode-representation) of the AVM bytecode for all public functions in this contract. |
 
+The public function are sorted in ascending order by their function selector before being packed. This is to ensure consistent hashing later.
+
 Note that individual public functions are not first-class citizens in the protocol, so the contract entire public function bytecode is stored in the class, unlike private or unconstrained functions which are differentiated individual circuits recognized by the protocol.
 
 As for unconstrained functions, these are not used standalone within the protocol. They are either inlined within private functions, or called from a PXE as _getters_ for a contract. Calling from a private function to an unconstrained one in a different contract is forbidden, since the caller would have no guarantee of the code run by the callee. Considering this, unconstrained functions are not part of a contract class at the protocol level.
@@ -41,7 +43,7 @@ public_bytecode_commitment = calculate_commitment(packed_public_bytecode)
 contract_class_id = pedersen([artifact_hash, private_functions_root, public_bytecode_commitment], GENERATOR__CLASS_IDENTIFIER_V1)
 ```
 
-Private Functions are hashed into Function Leaves before being merkleized into a tree of height [`FUNCTION_TREE_HEIGHT`](../constants.md#tree-constants). Empty leaves have value `0`. A poseidon hash is used. The AVM public bytecode commitment is calculated as [defined in the Public VM section](../public-vm/bytecode-validation-circuit.md#committed-representation).
+Private Functions are sorted in ascending order by their selector and then hashed into Function Leaves before being merkleized into a tree of height [`FUNCTION_TREE_HEIGHT`](../constants.md#tree-constants). Empty leaves have value `0`. A poseidon hash is used. The AVM public bytecode commitment is calculated as [defined in the Public VM section](../public-vm/bytecode-validation-circuit.md#committed-representation).
 
 ### Private Function
 
@@ -75,11 +77,13 @@ unconstrained_functions_artifact_tree_root = merkleize(unconstrained_functions_a
 artifact_hash = sha256(
   private_functions_artifact_tree_root,
   unconstrained_functions_artifact_tree_root,
-  artifact_metadata,
+  artifact_metadata_hash,
 )
 ```
 
-For the artifact hash merkleization and hashing is done using sha256, since it is computed and verified outside of circuits and does not need to be SNARK friendly. Fields are left-padded with zeros to 256 bits before being hashed. Function leaves are sorted in ascending order before being merkleized, according to their function selectors. Note that a tree with dynamic height is built instead of having a tree with a fixed height, since the merkleization is done out of a circuit.
+For the artifact hash merkleization and hashing is done using sha256, since it is computed and verified outside of circuits and does not need to be SNARK friendly, and then wrapped around the field's maximum value. Fields are left-padded with zeros to 256 bits before being hashed. Function leaves are sorted in ascending order before being merkleized, according to their function selectors. Note that a tree with dynamic height is built instead of having a tree with a fixed height, since the merkleization is done out of a circuit.
+
+<!-- TODO: Verify with the crypto team it is ok to wrap around the field modulus, or consider going Poseidon everywhere. -->
 
 Bytecode for private functions is a mix of ACIR and Brillig, whereas unconstrained function bytecode is Brillig exclusively, as described on the [bytecode section](../bytecode/index.md).
 
@@ -124,13 +128,16 @@ In pseudocode:
 function register(
   artifact_hash: Field,
   private_functions_root: Field,
+  public_bytecode_commitment: Point,
   packed_public_bytecode: Field[],
 )
-  assert is_valid_packed_public_bytecode(packed_public_bytecode)
-
   version = 1
-  bytecode_commitment = calculate_commitment(packed_public_bytecode)
-  contract_class_id = pedersen([version, artifact_hash, private_functions_root, bytecode_commitment], GENERATOR__CLASS_IDENTIFIER)
+
+  assert is_valid_packed_public_bytecode(packed_public_bytecode)
+  computed_bytecode_commitment = calculate_commitment(packed_public_bytecode)
+  assert public_bytecode_commitment == computed_bytecode_commitment
+
+  contract_class_id = pedersen([version, artifact_hash, private_functions_root, computed_bytecode_commitment], GENERATOR__CLASS_IDENTIFIER)
 
   emit_nullifier contract_class_id
   emit_unencrypted_event ContractClassRegistered(contract_class_id, version, artifact_hash, private_functions_root, packed_public_bytecode)
@@ -150,57 +157,27 @@ The `ContractClassRegisterer` will need to exist from the genesis of the Aztec N
 
 The `ContractClassRegisterer` has an additional private `broadcast` functions that can be used for broadcasting on-chain the bytecode, both ACIR and Brillig, for private functions and unconstrained in the contract. Any user can freely call this function. Given that ACIR and Brillig [do not have a circuit-friendly commitment](../bytecode/index.md), it is left up to nodes to perform this check.
 
-Broadcasted contract artifacts that do not match with their corresponding `artifact_hash`, or that reference a `contract_class_id` that has not been broadcasted, can be safely discarded.
-
-```
-function broadcast_all_private_functions(
-  contract_class_id: Field,
-  artifact_metadata: Field,
-  unconstrained_functions_artifact_tree_root: Field,
-  functions: { selector: Field, metadata: Field, vk_hash: Field, bytecode: Field[] }[],
-)
-  emit_unencrypted_event ClassPrivateFunctionsBroadcasted(
-    contract_class_id,
-    artifact_metadata,
-    unconstrained_functions_artifact_tree_root,
-    functions,
-  )
-```
-
-```
-function broadcast_all_unconstrained_functions(
-  contract_class_id: Field,
-  artifact_metadata: Field,
-  private_functions_artifact_tree_root: Field,
-  functions:{ selector: Field, metadata: Field, bytecode: Field[] }[],
-)
-  emit_unencrypted_event ClassUnconstrainedFunctionsBroadcasted(
-    contract_class_id,
-    artifact_metadata,
-    unconstrained_functions_artifact_tree_root,
-    functions,
-  )
-```
-
-<!-- TODO: What representation of bytecode can we use here?  -->
-
-The broadcast functions are split between private and unconstrained to allow for private bytecode to be broadcasted, which is valuable for composability purposes, without having to also include unconstrained functions, which could be costly to do due to data broadcasting costs. Additionally, note that each broadcast function must include enough information to reconstruct the `artifact_hash` from the Contract Class, so nodes can verify it against the one previously registered.
-
-The `ContractClassRegisterer` contract also allows broadcasting individual functions, in case not every function needs to be put on-chain. This requires providing a Merkle membership proof for the function within its tree, that nodes can validate.
+Broadcasted function artifacts that do not match with their corresponding `artifact_hash`, or that reference a `contract_class_id` that has not been broadcasted, can be safely discarded.
 
 ```
 function broadcast_private_function(
   contract_class_id: Field,
-  artifact_metadata: Field,
+  artifact_metadata_hash: Field,
   unconstrained_functions_artifact_tree_root: Field,
-  function_leaf_sibling_path: Field,
-  function: { selector: Field, metadata: Field, vk_hash: Field, bytecode: Field[] },
+  private_function_tree_sibling_path: Field[],
+  private_function_tree_leaf_index: Field,
+  artifact_function_tree_sibling_path: Field[],
+  artifact_function_tree_leaf_index: Field,
+  function: { selector: Field, metadata_hash: Field, vk_hash: Field, bytecode: Field[] },
 )
   emit_unencrypted_event ClassPrivateFunctionBroadcasted(
     contract_class_id,
-    artifact_metadata,
+    artifact_metadata_hash,
     unconstrained_functions_artifact_tree_root,
-    function_leaf_sibling_path,
+    private_function_tree_sibling_path,
+    private_function_tree_leaf_index,
+    artifact_function_tree_sibling_path,
+    artifact_function_tree_leaf_index,
     function,
   )
 ```
@@ -208,18 +185,63 @@ function broadcast_private_function(
 ```
 function broadcast_unconstrained_function(
   contract_class_id: Field,
-  artifact_metadata: Field,
+  artifact_metadata_hash: Field,
   private_functions_artifact_tree_root: Field,
-  function_leaf_sibling_path: Field,
-  function: { selector: Field, metadata: Field, bytecode: Field[] }[],
+  artifact_function_tree_sibling_path: Field[],
+  artifact_function_tree_leaf_index: Field
+  function: { selector: Field, metadata_hash: Field, bytecode: Field[] }[],
 )
   emit_unencrypted_event ClassUnconstrainedFunctionBroadcasted(
     contract_class_id,
-    artifact_metadata,
-    unconstrained_functions_artifact_tree_root,
-    function_leaf_sibling_path: Field,
+    artifact_metadata_hash,
+    private_functions_artifact_tree_root,
+    artifact_function_tree_sibling_path,
+    artifact_function_tree_leaf_index,
     function,
   )
 ```
 
+<!-- TODO: What representation of bytecode can we use here? -->
+
+The broadcast functions are split between private and unconstrained to allow for private bytecode to be broadcasted, which is valuable for composability purposes, without having to also include unconstrained functions, which could be costly to do due to data broadcasting costs. Additionally, note that each broadcast function must include enough information to reconstruct the `artifact_hash` from the Contract Class, so nodes can verify it against the one previously registered.
+
+A node that captures a `ClassPrivateFunctionBroadcasted` should perform the following validation steps before storing the private function information in its database:
+
+```
+// Load contract class from local db
+contract_class = db.get_contract_class(contract_class_id)
+
+// Compute function leaf and assert it belongs to the private functions tree
+function_leaf = pedersen([selector as Field, vk_hash], GENERATOR__FUNCTION_LEAF)
+computed_private_function_tree_root = compute_root(function_leaf, private_function_tree_sibling_path, private_function_tree_leaf_index)
+assert computed_private_function_tree_root == contract_class.private_function_root
+
+// Compute artifact leaf and assert it belongs to the artifact
+artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))
+computed_artifact_private_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path, artifact_function_tree_leaf_index)
+computed_artifact_hash = sha256(computed_artifact_private_function_tree_root, unconstrained_functions_artifact_tree_root, artifact_metadata_hash)
+assert computed_artifact_hash == contract_class.artifact_hash
+```
+
+<!-- TODO: Requiring two sibling paths isn't nice. This is because we are splitting private function information across two trees: one for the protocol, that deals only with selectors and vk hashes, and one for the artifact, which deals with bytecode and metadata. If we are fine adding a `function_stuff_hash` to the function leaf that goes into the protocol tree, we could get rid of the second sibling path, but that introduces stuff into the private function tree that is not strictly needed and requires unnecessary hashing in the kernel. -->
+
+The check for an unconstrained function is similar:
+
+```
+// Load contract class from local db
+contract_class = db.get_contract_class(contract_class_id)
+
+// Compute artifact leaf and assert it belongs to the artifact
+artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))
+computed_artifact_unconstrained_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path, artifact_function_tree_leaf_index)
+computed_artifact_hash = sha256(private_functions_artifact_tree_root, computed_artifact_unconstrained_function_tree_root, artifact_metadata_hash)
+assert computed_artifact_hash == contract_class.artifact_hash
+```
+
 It is strongly recommended for developers registering new classes to broadcast the code for `compute_hash_and_nullifier`, so any private message recipients have the code available to process their incoming notes. However, the `ContractClassRegisterer` contract does not enforce this during registration, since it is difficult to check the multiple signatures for `compute_hash_and_nullifier` as they may evolve over time to account for new note sizes.
+
+## Discarded Approaches
+
+### Bundling private function information into a single tree
+
+Data about private functions is split across two trees: one for the protocol, that deals only with selectors and verification keys, and one for the artifact, which deals with bytecode and metadata. While bundling together both trees would simplify the representation, it would also pollute the protocol circuits and require more hashing there. In order to minimize in-circuit hashing, we opted for keeping non-protocol info completely out of circuits.

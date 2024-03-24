@@ -1,6 +1,7 @@
 dest
 node_modules
 .cache
+scripts/.earthly
 .pnp.cjs
 .pnp.loader.mjs
 build/
@@ -15,3 +16,5 @@ cmake-build-debug
 
 .graphite*
 .DS_Store
+
+**/*.dockerignore

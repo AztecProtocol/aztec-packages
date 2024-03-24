@@ -10,20 +10,21 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
+  MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  MAX_READ_REQUESTS_PER_CALL,
-  NUM_FIELDS_PER_SHA256,
   PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
-import { ContractDeploymentData } from '../structs/contract_deployment_data.js';
 import { Header } from '../structs/header.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../structs/side_effects.js';
 import { CallContext } from './call_context.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
+import { MaxBlockNumber } from './max_block_number.js';
 import { NullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
+import { ReadRequest } from './read_request.js';
 
 /**
  * Public inputs to a private circuit.
@@ -48,9 +49,17 @@ export class PrivateCircuitPublicInputs {
      */
     public minRevertibleSideEffectCounter: Fr,
     /**
+     * The maximum block number in which this transaction can be included and be valid.
+     */
+    public maxBlockNumber: MaxBlockNumber,
+    /**
      * Read requests created by the corresponding function call.
      */
-    public readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_CALL>,
+    public noteHashReadRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    /**
+     * Nullifier read requests created by the corresponding function call.
+     */
+    public nullifierReadRequests: Tuple<ReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     /**
      * Nullifier key validation requests created by the corresponding function call.
      */
@@ -79,19 +88,23 @@ export class PrivateCircuitPublicInputs {
      */
     public newL2ToL1Msgs: Tuple<L2ToL1Message, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
+     * The side effect counter at the start of this call.
+     */
+    public startSideEffectCounter: Fr,
+    /**
      * The end side effect counter for this call.
      */
     public endSideEffectCounter: Fr,
     /**
      * Hash of the encrypted logs emitted in this function call.
-     * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public encryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public encryptedLogsHash: Fr,
     /**
      * Hash of the unencrypted logs emitted in this function call.
-     * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public unencryptedLogsHash: Fr,
     /**
      * Length of the encrypted log preimages emitted in this function call.
      * Note: Here so that the gas cost of this request can be measured by circuits, without actually needing to feed
@@ -106,10 +119,6 @@ export class PrivateCircuitPublicInputs {
      * Header of a block whose state is used during private execution (not the block the transaction is included in).
      */
     public historicalHeader: Header,
-    /**
-     * Deployment data of contracts being deployed in this kernel iteration.
-     */
-    public contractDeploymentData: ContractDeploymentData,
     /**
      * Chain Id of the instance.
      *
@@ -145,7 +154,9 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readArray(RETURN_VALUES_LENGTH, Fr),
       reader.readObject(Fr),
-      reader.readArray(MAX_READ_REQUESTS_PER_CALL, SideEffect),
+      reader.readObject(MaxBlockNumber),
+      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect),
+      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
@@ -153,12 +164,12 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
-      reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
-      reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Header),
-      reader.readObject(ContractDeploymentData),
       reader.readObject(Fr),
       reader.readObject(Fr),
     );
@@ -171,7 +182,9 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readFieldArray(RETURN_VALUES_LENGTH),
       reader.readField(),
-      reader.readArray(MAX_READ_REQUESTS_PER_CALL, SideEffect),
+      reader.readObject(MaxBlockNumber),
+      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect),
+      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash),
@@ -179,12 +192,12 @@ export class PrivateCircuitPublicInputs {
       reader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
-      reader.readFieldArray(NUM_FIELDS_PER_SHA256),
-      reader.readFieldArray(NUM_FIELDS_PER_SHA256),
+      reader.readField(),
+      reader.readField(),
+      reader.readField(),
       reader.readField(),
       reader.readField(),
       reader.readObject(Header),
-      reader.readObject(ContractDeploymentData),
       reader.readField(),
       reader.readField(),
     );
@@ -200,7 +213,9 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
       Fr.ZERO,
-      makeTuple(MAX_READ_REQUESTS_PER_CALL, SideEffect.empty),
+      MaxBlockNumber.empty(),
+      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect.empty),
+      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest.empty),
       makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
@@ -208,12 +223,12 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
-      makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
-      makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       Header.empty(),
-      ContractDeploymentData.empty(),
       Fr.ZERO,
       Fr.ZERO,
     );
@@ -229,19 +244,20 @@ export class PrivateCircuitPublicInputs {
       this.argsHash.isZero() &&
       isZeroArray(this.returnValues) &&
       this.minRevertibleSideEffectCounter.isZero() &&
-      isEmptyArray(this.readRequests) &&
+      this.maxBlockNumber.isEmpty() &&
+      isEmptyArray(this.noteHashReadRequests) &&
+      isEmptyArray(this.nullifierReadRequests) &&
       isEmptyArray(this.nullifierKeyValidationRequests) &&
       isEmptyArray(this.newNoteHashes) &&
       isEmptyArray(this.newNullifiers) &&
       isZeroArray(this.privateCallStackHashes) &&
       isZeroArray(this.publicCallStackHashes) &&
       isEmptyArray(this.newL2ToL1Msgs) &&
-      isZeroArray(this.encryptedLogsHash) &&
-      isZeroArray(this.unencryptedLogsHash) &&
+      this.encryptedLogsHash.isZero() &&
+      this.unencryptedLogsHash.isZero() &&
       this.encryptedLogPreimagesLength.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
       this.historicalHeader.isEmpty() &&
-      this.contractDeploymentData.isEmpty() &&
       this.chainId.isZero() &&
       this.version.isZero()
     );
@@ -258,20 +274,22 @@ export class PrivateCircuitPublicInputs {
       fields.argsHash,
       fields.returnValues,
       fields.minRevertibleSideEffectCounter,
-      fields.readRequests,
+      fields.maxBlockNumber,
+      fields.noteHashReadRequests,
+      fields.nullifierReadRequests,
       fields.nullifierKeyValidationRequests,
       fields.newNoteHashes,
       fields.newNullifiers,
       fields.privateCallStackHashes,
       fields.publicCallStackHashes,
       fields.newL2ToL1Msgs,
+      fields.startSideEffectCounter,
       fields.endSideEffectCounter,
       fields.encryptedLogsHash,
       fields.unencryptedLogsHash,
       fields.encryptedLogPreimagesLength,
       fields.unencryptedLogPreimagesLength,
       fields.historicalHeader,
-      fields.contractDeploymentData,
       fields.chainId,
       fields.version,
     ] as const;

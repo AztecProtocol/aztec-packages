@@ -8,11 +8,17 @@
   "references": [
     {
       "path": "../aztec.js"
+    },
+    {
+      "path": "../noir-compiler"
     }
   ],
   "include": [
     "src",
     "artifacts",
-    "artifacts/*.json",
+    "artifacts/*.json"
   ],
+  "exclude": [
+    "dest"
+  ]
 }

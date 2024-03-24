@@ -1,3 +1,6 @@
+import { randomInt } from '@aztec/foundation/crypto';
+import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+
 import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '../constants.gen.js';
 import { makePrivateCircuitPublicInputs } from '../tests/factories.js';
 import { PrivateCircuitPublicInputs } from './private_circuit_public_inputs.js';
@@ -6,8 +9,8 @@ describe('PrivateCircuitPublicInputs', () => {
   let inputs: PrivateCircuitPublicInputs;
 
   beforeAll(() => {
-    const randomInt = Math.floor(Math.random() * 1000);
-    inputs = makePrivateCircuitPublicInputs(randomInt);
+    setupCustomSnapshotSerializers(expect);
+    inputs = makePrivateCircuitPublicInputs(randomInt(1000));
   });
 
   it('serializes to buffer and back', () => {
@@ -43,7 +46,11 @@ describe('PrivateCircuitPublicInputs', () => {
     const hash = inputs.hash();
     expect(hash).toMatchSnapshot();
 
-    // Value used in empty_hash test in private_circuit_public_inputs.nr
-    // console.log("hash", hash.toString());
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/types/src/abis/private_circuit_public_inputs.nr',
+      'test_data_empty_hash',
+      hash.toString(),
+    );
   });
 });

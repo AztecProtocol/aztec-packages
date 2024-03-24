@@ -11,15 +11,14 @@ mod types;
 
 contract Token {
     // Libs
-    use dep::std::option::Option;
 
     use dep::compressed_string::FieldCompressedString;
 
-    use dep::aztec::{
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader, utils as note_utils},
-        hash::{compute_secret_hash}, state_vars::{Map, PublicMutable, SharedImmutable, PrivateSet},
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress}
+    use dep::aztec::prelude::{
+        NoteGetterOptions, NoteHeader, Map, PublicMutable, SharedImmutable, PrivateSet,
+        FunctionSelector, AztecAddress
     };
+    use dep::aztec::hash::compute_secret_hash;
 
     // docs:start:import_authwit
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
@@ -53,16 +52,17 @@ contract Token {
     // docs:end:storage_struct
 
     // docs:start:constructor
-    #[aztec(private)]
+    #[aztec(public)]
+    #[aztec(initializer)]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
-        let selector = FunctionSelector::from_signature("_initialize((Field),(Field),(Field),u8)");
-        let name_s = FieldCompressedString::from_string(name);
-        let symbol_s = FieldCompressedString::from_string(symbol);
-        context.call_public_function(
-            context.this_address(),
-            selector,
-            [admin.to_field(), name_s.serialize()[0], symbol_s.serialize()[0], decimals as Field]
-        );
+        assert(!admin.is_zero(), "invalid admin");
+        storage.admin.write(admin);
+        storage.minters.at(admin).write(true);
+        storage.name.initialize(FieldCompressedString::from_string(name));
+        storage.symbol.initialize(FieldCompressedString::from_string(symbol));
+        // docs:start:initialize_decimals
+        storage.decimals.initialize(decimals);
+        // docs:end:initialize_decimals
     }
     // docs:end:constructor
 
@@ -176,7 +176,8 @@ contract Token {
     }
 
     #[aztec(public)]
-    internal fn assert_minter_and_mint(minter: AztecAddress, amount: Field) {
+    #[aztec(internal)]
+    fn assert_minter_and_mint(minter: AztecAddress, amount: Field) {
         assert(storage.minters.at(minter).read(), "caller is not minter");
         let supply = storage.total_supply.read() + U128::from_integer(amount);
         storage.total_supply.write(supply);
@@ -248,7 +249,11 @@ contract Token {
         let secret_hash = compute_secret_hash(secret);
         // Get 1 note (set_limit(1)) which has amount stored in field with index 0 (select(0, amount)) and secret_hash
         // stored in field with index 1 (select(1, secret_hash)).
-        let options = NoteGetterOptions::new().select(0, amount, Option::none()).select(1, secret_hash, Option::none()).set_limit(1);
+        let options = NoteGetterOptions::new().select(TransparentNote::properties().amount, amount, Option::none()).select(
+            TransparentNote::properties().secret_hash,
+            secret_hash,
+            Option::none()
+        ).set_limit(1);
         let notes = pending_shields.get_notes(options);
         let note = notes[0].unwrap_unchecked();
         // Remove the note from the pending shields set
@@ -310,30 +315,12 @@ contract Token {
     }
     // docs:end:burn
 
-    // docs:start:initialize
-    #[aztec(public)]
-    internal fn _initialize(
-        new_admin: AztecAddress,
-        name: FieldCompressedString,
-        symbol: FieldCompressedString,
-        decimals: u8
-    ) {
-        assert(!new_admin.is_zero(), "invalid admin");
-        storage.admin.write(new_admin);
-        storage.minters.at(new_admin).write(true);
-        storage.name.initialize(name);
-        storage.symbol.initialize(symbol);
-        // docs:start:initialize_decimals
-        storage.decimals.initialize(decimals);
-        // docs:end:initialize_decimals
-    }
-    // docs:end:initialize
-
     /// Internal ///
 
     // docs:start:increase_public_balance
     #[aztec(public)]
-    internal fn _increase_public_balance(to: AztecAddress, amount: Field) {
+    #[aztec(internal)]
+    fn _increase_public_balance(to: AztecAddress, amount: Field) {
         let new_balance = storage.public_balances.at(to).read().add(U128::from_integer(amount));
         storage.public_balances.at(to).write(new_balance);
     }
@@ -341,7 +328,8 @@ contract Token {
 
     // docs:start:reduce_total_supply
     #[aztec(public)]
-    internal fn _reduce_total_supply(amount: Field) {
+    #[aztec(internal)]
+    fn _reduce_total_supply(amount: Field) {
         // Only to be called from burn.
         let new_supply = storage.total_supply.read().sub(U128::from_integer(amount));
         storage.total_supply.write(new_supply);

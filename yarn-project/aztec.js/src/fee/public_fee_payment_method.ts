@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { computeAuthWitMessageHash } from '../utils/authwit.js';
-import { AccountWalletWithPrivateKey } from '../wallet/account_wallet_with_private_key.js';
+import { AccountWallet } from '../wallet/account_wallet.js';
 import { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
@@ -16,16 +16,16 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     /**
      * The asset used to pay the fee.
      */
-    private asset: AztecAddress,
+    protected asset: AztecAddress,
     /**
      * Address which will hold the fee payment.
      */
-    private paymentContract: AztecAddress,
+    protected paymentContract: AztecAddress,
 
     /**
      * An auth witness provider to authorize fee payments
      */
-    private wallet: AccountWalletWithPrivateKey,
+    protected wallet: AccountWallet,
   ) {}
 
   /**
@@ -51,26 +51,28 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
    */
   getFunctionCalls(maxFee: Fr): Promise<FunctionCall[]> {
     const nonce = Fr.random();
-    const messageHash = computeAuthWitMessageHash(this.paymentContract, {
-      args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
-      functionData: new FunctionData(
-        FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-        false,
-        false,
-        false,
-      ),
-      to: this.asset,
-    });
+
+    const messageHash = computeAuthWitMessageHash(
+      this.paymentContract,
+      this.wallet.getChainId(),
+      this.wallet.getVersion(),
+      {
+        args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
+        functionData: new FunctionData(
+          FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
+          false,
+        ),
+        to: this.asset,
+      },
+    );
 
     return Promise.resolve([
-      this.wallet.setPublicAuth(messageHash, true).request(),
+      this.wallet.setPublicAuthWit(messageHash, true).request(),
       {
         to: this.getPaymentContract(),
         functionData: new FunctionData(
           FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
-          false,
           true,
-          false,
         ),
         args: [maxFee, this.asset, nonce],
       },

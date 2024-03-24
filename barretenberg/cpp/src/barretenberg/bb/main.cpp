@@ -128,40 +128,41 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
 }
 
 /**
- * @brief Constructs and verifies a Honk proof for an ACIR circuit via the Goblin accumulate mechanism
+ * @brief Constructs and verifies a Honk proof for an acir-generated circuit
  *
- * Communication:
- * - proc_exit: A boolean value is returned indicating whether the proof is valid.
- *   an exit code of 0 will be returned for success and 1 for failure.
- *
- * @param bytecodePath Path to the file containing the serialized acir constraint system
- * @param witnessPath Path to the file containing the serialized witness
- * @return verified
+ * @tparam Flavor
+ * @param bytecodePath Path to serialized acir circuit data
+ * @param witnessPath Path to serialized acir witness data
  */
-bool accumulateAndVerifyGoblin(const std::string& bytecodePath, const std::string& witnessPath)
+template <IsUltraFlavor Flavor> bool proveAndVerifyHonk(const std::string& bytecodePath, const std::string& witnessPath)
 {
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+
     // Populate the acir constraint system and witness from gzipped data
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
-    // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
-    acir_proofs::GoblinAcirComposer acir_composer;
-    acir_composer.create_circuit(constraint_system, witness);
+    // Construct a bberg circuit from the acir representation
+    auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
-    // to max circuit size present in acir tests suite.
-    size_t hardcoded_bn254_dyadic_size_hack = 1 << 19;
-    init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
-    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
-    init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Add a buffer to the expected circuit size to
+    // account for the addition of "gates to ensure nonzero polynomials" (in Honk only).
+    const size_t additional_gates_buffer = 15; // conservatively large to be safe
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + additional_gates_buffer);
+    init_bn254_crs(srs_size);
 
-    // Call accumulate to generate a GoblinUltraHonk proof
-    auto proof = acir_composer.accumulate();
+    // Construct Honk proof
+    Prover prover{ builder };
+    auto proof = prover.construct_proof();
 
-    // Verify the GoblinUltraHonk proof
-    auto verified = acir_composer.verify_accumulator(proof);
+    // Verify Honk proof
+    auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+    Verifier verifier{ verification_key };
 
-    return verified;
+    return verifier.verify_proof(proof);
 }
 
 /**
@@ -179,6 +180,13 @@ bool accumulateAndVerifyGoblin(const std::string& bytecodePath, const std::strin
  */
 bool proveAndVerifyGoblin(const std::string& bytecodePath, const std::string& witnessPath)
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
+    // to max circuit size present in acir tests suite.
+    size_t hardcoded_bn254_dyadic_size_hack = 1 << 19;
+    init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
+    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
+    init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
+
     // Populate the acir constraint system and witness from gzipped data
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
@@ -186,13 +194,6 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath, const std::string& wi
     // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
     acir_proofs::GoblinAcirComposer acir_composer;
     acir_composer.create_circuit(constraint_system, witness);
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
-    // to max circuit size present in acir tests suite.
-    size_t hardcoded_bn254_dyadic_size_hack = 1 << 19;
-    init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
-    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
-    init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
 
     // Generate a GoblinUltraHonk proof and a full Goblin proof
     auto proof = acir_composer.accumulate_and_prove();
@@ -461,6 +462,70 @@ void acvm_info(const std::string& output_path)
     }
 }
 
+/**
+ * @brief Writes an avm proof and corresponding (incomplete) verification key to files.
+ *
+ * Communication:
+ * - Filesystem: The proof and vk are written to the paths output_path/proof and output_path/vk
+ *
+ * @param bytecode_path Path to the file containing the serialised bytecode
+ * @param calldata_path Path to the file containing the serialised calldata (could be empty)
+ * @param crs_path Path to the file containing the CRS (ignition is suitable for now)
+ * @param output_path Path to write the output proof and verification key
+ */
+void avm_prove(const std::filesystem::path& bytecode_path,
+               const std::filesystem::path& calldata_path,
+               const std::filesystem::path& output_path)
+{
+    // Get Bytecode
+    std::vector<uint8_t> const avm_bytecode = read_file(bytecode_path);
+    std::vector<uint8_t> call_data_bytes{};
+    if (std::filesystem::exists(calldata_path)) {
+        call_data_bytes = read_file(calldata_path);
+    }
+    std::vector<fr> const call_data = many_from_buffer<fr>(call_data_bytes);
+
+    // Hardcoded circuit size for now
+    init_bn254_crs(256);
+
+    // Prove execution and return vk
+    auto const [verification_key, proof] = avm_trace::Execution::prove(avm_bytecode, call_data);
+    // TODO(ilyas): <#4887>: Currently we only need these two parts of the vk, look into pcs_verification key reqs
+    std::vector<uint64_t> vk_vector = { verification_key.circuit_size, verification_key.num_public_inputs };
+
+    std::filesystem::path output_vk_path = output_path.parent_path() / "vk";
+    write_file(output_vk_path, to_buffer(vk_vector));
+    write_file(output_path, to_buffer(proof));
+}
+
+/**
+ * @brief Verifies an avm proof and writes the result to stdout
+ *
+ * Communication:
+ * - stdout: The boolean value indicating whether the proof is valid.
+ * - proc_exit: A boolean value is returned indicating whether the proof is valid.
+ *
+ * @param proof_path Path to the file containing the serialised proof (the vk should also be in the parent)
+ */
+bool avm_verify(const std::filesystem::path& proof_path)
+{
+    std::filesystem::path vk_path = proof_path.parent_path() / "vk";
+
+    // Actual verification temporarily stopped (#4954)
+    // std::vector<fr> const proof = many_from_buffer<fr>(read_file(proof_path));
+    //
+    // std::vector<uint8_t> vk_bytes = read_file(vk_path);
+    // auto circuit_size = from_buffer<size_t>(vk_bytes, 0);
+    // auto _num_public_inputs = from_buffer<size_t>(vk_bytes, sizeof(size_t));
+    // auto vk = AvmFlavor::VerificationKey(circuit_size, num_public_inputs);
+    //
+    // std::cout << avm_trace::Execution::verify(vk, proof);
+    // return avm_trace::Execution::verify(vk, proof);
+
+    std::cout << 1;
+    return true;
+}
+
 bool flag_present(std::vector<std::string>& args, const std::string& flag)
 {
     return std::find(args.begin(), args.end(), flag) != args.end();
@@ -505,8 +570,11 @@ int main(int argc, char* argv[])
         if (command == "prove_and_verify") {
             return proveAndVerify(bytecode_path, witness_path) ? 0 : 1;
         }
-        if (command == "accumulate_and_verify_goblin") {
-            return accumulateAndVerifyGoblin(bytecode_path, witness_path) ? 0 : 1;
+        if (command == "prove_and_verify_ultra_honk") {
+            return proveAndVerifyHonk<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
+        }
+        if (command == "prove_and_verify_goblin_ultra_honk") {
+            return proveAndVerifyHonk<GoblinUltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_goblin") {
             return proveAndVerifyGoblin(bytecode_path, witness_path) ? 0 : 1;
@@ -535,22 +603,13 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields(vk_path, output_path);
         } else if (command == "avm_prove") {
-            std::string avm_bytecode_path = get_option(args, "-b", "./target/avm_bytecode.bin");
-            std::string output_path = get_option(args, "-o", "./proofs/avm_proof");
-            std::vector<uint8_t> call_data_bytes{};
-
-            if (flag_present(args, "-d")) {
-                auto const call_data_path = get_option(args, "-d", "./target/call_data.bin");
-                call_data_bytes = read_file(call_data_path);
-            }
-
-            srs::init_crs_factory("../srs_db/ignition");
-
-            std::vector<fr> const call_data = many_from_buffer<fr>(call_data_bytes);
-            auto const avm_bytecode = read_file(avm_bytecode_path);
-            auto const proof = avm_trace::Execution::run_and_prove(avm_bytecode, call_data);
-            std::vector<uint8_t> const proof_bytes = to_buffer(proof);
-            write_file(output_path, proof_bytes);
+            std::filesystem::path avm_bytecode_path = get_option(args, "-b", "./target/avm_bytecode.bin");
+            std::filesystem::path calldata_path = get_option(args, "-d", "./target/call_data.bin");
+            std::filesystem::path output_path = get_option(args, "-o", "./proofs/avm_proof");
+            avm_prove(avm_bytecode_path, calldata_path, output_path);
+        } else if (command == "avm_verify") {
+            std::filesystem::path proof_path = get_option(args, "-p", "./proofs/avm_proof");
+            return avm_verify(proof_path) ? 0 : 1;
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;

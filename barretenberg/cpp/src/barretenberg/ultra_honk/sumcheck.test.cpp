@@ -4,13 +4,12 @@
 #include "barretenberg/proof_system/library/grand_product_library.hpp"
 #include "barretenberg/proof_system/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
+#include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
 
 #include <gtest/gtest.h>
 
@@ -148,19 +147,21 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         false);
 
     // Create a prover (it will compute proving key and witness)
-    auto composer = UltraComposer();
-    auto instance = composer.create_prover_instance(builder);
+    auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
 
     // Generate eta, beta and gamma
-    FF eta = FF::random_element();
-    FF eta_two = FF::random_element();
-    FF eta_three = FF::random_element();
-    FF beta = FF::random_element();
-    FF gamma = FF::random_element();
+    instance->relation_parameters.eta = FF::random_element();
+    instance->relation_parameters.eta = FF::random_element();
+    instance->relation_parameters.eta_two = FF::random_element();
+    instance->relation_parameters.eta_three = FF::random_element();
+    instance->relation_parameters.beta = FF::random_element();
+    instance->relation_parameters.gamma = FF::random_element();
 
-    instance->initialize_prover_polynomials();
-    instance->compute_sorted_accumulator_polynomials(eta, eta_two, eta_three);
-    instance->compute_grand_product_polynomials(beta, gamma);
+    instance->proving_key->compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
+                                                                  instance->relation_parameters.eta_two,
+                                                                  instance->relation_parameters.eta_three);
+    instance->proving_key->compute_grand_product_polynomials(instance->relation_parameters);
+    instance->prover_polynomials = Flavor::ProverPolynomials(instance->proving_key);
 
     auto prover_transcript = Transcript::prover_init_empty();
     auto circuit_size = instance->proving_key->circuit_size;

@@ -192,15 +192,13 @@ impl TestPrivateContextInterface {
         secret_hash_for_redeeming_minted_notes: Field,
         amount: Field,
         canceller: CancellerConsumeMintPrivateMessageStruct,
-        msg_key: Field,
         secret_for_L1_to_L2_message_consumption: Field
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let mut serialized_args = [0; 5];
+        let mut serialized_args = [0; 4];
         serialized_args[0] = secret_hash_for_redeeming_minted_notes;
         serialized_args[1] = amount;
         serialized_args[2] = canceller.inner;
-        serialized_args[3] = msg_key;
-        serialized_args[4] = secret_for_L1_to_L2_message_consumption;
+        serialized_args[3] = secret_for_L1_to_L2_message_consumption;
 
         context.call_private_function(
             self.address,
@@ -247,15 +245,13 @@ impl TestPrivateContextInterface {
         to: ToConsumeMintPublicMessageStruct,
         amount: Field,
         canceller: CancellerConsumeMintPublicMessageStruct,
-        msg_key: Field,
         secret: Field
     ) {
-        let mut serialized_args = [0; 5];
+        let mut serialized_args = [0; 4];
         serialized_args[0] = to.inner;
         serialized_args[1] = amount;
         serialized_args[2] = canceller.inner;
-        serialized_args[3] = msg_key;
-        serialized_args[4] = secret;
+        serialized_args[3] = secret;
 
         context.call_public_function(
             self.address,
@@ -292,7 +288,7 @@ impl TestPublicContextInterface {
 
     pub fn create_nullifier_public(
         self,
-        context: PublicContext,
+        context: &mut PublicContext,
         amount: Field,
         secret_hash: Field
     ) -> [Field; RETURN_VALUES_LENGTH] {
@@ -307,7 +303,11 @@ impl TestPublicContextInterface {
         )
     }
 
-    pub fn emit_unencrypted(self, context: PublicContext, value: Field) -> [Field; RETURN_VALUES_LENGTH] {
+    pub fn emit_unencrypted(
+        self,
+        context: &mut PublicContext,
+        value: Field
+    ) -> [Field; RETURN_VALUES_LENGTH] {
         let mut serialized_args = [0; 1];
         serialized_args[0] = value;
 
@@ -318,7 +318,7 @@ impl TestPublicContextInterface {
         )
     }
 
-    pub fn is_time_equal(self, context: PublicContext, time: Field) -> [Field; RETURN_VALUES_LENGTH] {
+    pub fn is_time_equal(self, context: &mut PublicContext, time: Field) -> [Field; RETURN_VALUES_LENGTH] {
         let mut serialized_args = [0; 1];
         serialized_args[0] = time;
 
@@ -331,7 +331,7 @@ impl TestPublicContextInterface {
 
     pub fn create_l2_to_l1_message_public(
         self,
-        context: PublicContext,
+        context: &mut PublicContext,
         amount: Field,
         secret_hash: Field
     ) -> [Field; RETURN_VALUES_LENGTH] {
@@ -348,19 +348,17 @@ impl TestPublicContextInterface {
 
     pub fn consume_mint_public_message(
         self,
-        context: PublicContext,
+        context: &mut PublicContext,
         to: ToConsumeMintPublicMessageStruct,
         amount: Field,
         canceller: CancellerConsumeMintPublicMessageStruct,
-        msg_key: Field,
         secret: Field
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let mut serialized_args = [0; 5];
+        let mut serialized_args = [0; 4];
         serialized_args[0] = to.inner;
         serialized_args[1] = amount;
         serialized_args[2] = canceller.inner;
-        serialized_args[3] = msg_key;
-        serialized_args[4] = secret;
+        serialized_args[3] = secret;
 
         context.call_public_function(
             self.address,

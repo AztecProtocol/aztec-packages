@@ -13,15 +13,12 @@ mod types;
 
 contract DocsExample {
     // how to import dependencies defined in your workspace
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
-    use dep::aztec::{
-        note::{
-        note_header::NoteHeader, note_getter_options::{NoteGetterOptions, Comparator},
-        note_viewer_options::{NoteViewerOptions}, utils as note_utils
-    },
-        context::{PrivateContext, PublicContext, Context},
-        state_vars::{Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable, PrivateSet, SharedImmutable}
+    use dep::aztec::prelude::{
+        AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
+        PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
+        PrivateSet, SharedImmutable
     };
+    use dep::aztec::{note::note_getter_options::Comparator, context::{PublicContext, Context}};
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
@@ -96,9 +93,6 @@ contract DocsExample {
         }
     }
 
-    #[aztec(private)]
-    fn constructor() {}
-
     #[aztec(public)]
     fn initialize_shared_immutable(points: u8) {
         let mut new_leader = Leader { account: context.msg_sender(), points };
@@ -164,7 +158,11 @@ contract DocsExample {
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
     unconstrained fn read_note(amount: Field, comparator: u8) -> pub [Option<CardNote>; 10] {
-        let options = NoteViewerOptions::new().select(0, amount, Option::some(comparator));
+        let options = NoteViewerOptions::new().select(
+            CardNote::properties().points,
+            amount,
+            Option::some(comparator)
+        );
         let notes = storage.set.view_notes(options);
 
         notes
@@ -217,7 +215,8 @@ contract DocsExample {
     }
 
     #[aztec(public)]
-    internal fn update_leader(account: AztecAddress, points: u8) {
+    #[aztec(internal)]
+    fn update_leader(account: AztecAddress, points: u8) {
         let new_leader = Leader { account, points };
         storage.leader.write(new_leader);
     }

@@ -5,7 +5,7 @@ namespace bb {
 template <typename Flavor>
 MergeVerifier_<Flavor>::MergeVerifier_()
     : transcript(std::make_shared<Transcript>())
-    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, bb::srs::get_bn254_crs_factory())){};
+    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>()){};
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_i^(j), j = 1,2,3,4.
@@ -75,8 +75,8 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
 
     OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
 
-    auto verified = PCS::verify(pcs_verification_key, batched_claim, transcript);
-
+    auto pairing_points = PCS::reduce_verify(batched_claim, transcript);
+    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
     return identity_checked && verified;
 }
 

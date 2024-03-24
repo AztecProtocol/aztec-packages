@@ -111,7 +111,7 @@ describe('e2e_card_game', () => {
       logger(`Deploying account contract ${i}/${toRegister.length}...`);
       const encryptionPrivateKey = toRegister[i];
       const account = getSchnorrAccount(pxe, encryptionPrivateKey, GrumpkinScalar.random());
-      const wallet = await account.waitDeploy({ interval: 0.1 });
+      const wallet = await account.waitSetup({ interval: 0.1 });
       wallets.push(wallet);
     }
     logger('Account contracts deployed');
@@ -172,7 +172,7 @@ describe('e2e_card_game', () => {
           .join_game(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[1])])
           .send()
           .wait(),
-      ).rejects.toThrow(/Card not found/);
+      ).rejects.toThrow(`Assertion failed: Cannot return zero notes`);
 
       const collection = await contract.methods.view_collection_cards(firstPlayer, 0).view({ from: firstPlayer });
       expect(unwrapOptions(collection)).toHaveLength(1);

@@ -73,6 +73,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include <array>
+#include <barretenberg/srs/global_crs.hpp>
 #include <concepts>
 #include <vector>
 
@@ -109,6 +110,15 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     bb::EvaluationDomain<FF> evaluation_domain;
     std::shared_ptr<CommitmentKey_> commitment_key;
 
+    // offset due to placing zero wires at the start of execution trace
+    // non-zero  for Instances constructed from circuits, this concept doesn't exist for accumulated
+    // instances
+    size_t pub_inputs_offset = 0;
+
+    // The number of public inputs has to be the same for all instances because they are
+    // folded element by element.
+    std::vector<FF> public_inputs;
+
     std::vector<std::string> get_labels() const
     {
         return concatenate(PrecomputedPolynomials::get_labels(), WitnessPolynomials::get_labels());
@@ -142,8 +152,12 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
  */
-template <typename PrecomputedCommitments> class VerificationKey_ : public PrecomputedCommitments {
+template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
+class VerificationKey_ : public PrecomputedCommitments {
   public:
+    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
+    size_t pub_inputs_offset = 0;
+
     VerificationKey_() = default;
     VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
@@ -151,11 +165,14 @@ template <typename PrecomputedCommitments> class VerificationKey_ : public Preco
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
     };
+
     template <typename ProvingKeyPtr> VerificationKey_(const ProvingKeyPtr& proving_key)
     {
+        this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         this->circuit_size = proving_key->circuit_size;
         this->log_circuit_size = numeric::get_msb(this->circuit_size);
         this->num_public_inputs = proving_key->num_public_inputs;
+        this->pub_inputs_offset = proving_key->pub_inputs_offset;
 
         for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
             commitment = proving_key->commitment_key->commit(polynomial);
@@ -301,6 +318,9 @@ concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra
 
 template <typename T>
 concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra>;
+
+template <typename T> 
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, GoblinUltraFlavor>;
 
 template <typename T> 
 concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, GoblinUltraFlavor>;

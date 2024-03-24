@@ -18,7 +18,7 @@ const pxe = createPXEClient(PXE_URL);
 // docs:end:define_account_vars
 
 // docs:start:create_wallet
-const wallet = await getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey).waitDeploy();
+const wallet = await getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey).waitSetup();
 // docs:end:create_wallet
 
 // docs:start:deploy_contract
@@ -42,5 +42,5 @@ const _tx = await contract.methods.transfer(1, wallet).send().wait();
 // docs:end:send_transaction
 
 // docs:start:call_view_function
-const _balance = await contract.methods.getBalance(wallet.getAddress()).view();
+const _balance = await contract.methods.get_balance(wallet.getAddress()).view();
 // docs:end:call_view_function

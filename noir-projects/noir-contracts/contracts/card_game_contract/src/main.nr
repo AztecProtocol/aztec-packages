@@ -5,10 +5,9 @@ contract CardGame {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, constants::MAX_NOTES_PER_PAGE};
     use dep::aztec::{context::Context, hash::pedersen_hash, state_vars::{Map, PublicMutable}};
 
-    use dep::std::option::Option;
     use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
 
-    use dep::aztec::note::{note_header::NoteHeader, utils as note_utils};
+    use dep::aztec::note::note_header::NoteHeader;
 
     use crate::cards::{PACK_CARDS, Deck, Card, get_pack_cards, compute_deck_strength};
     use crate::game::{NUMBER_OF_PLAYERS, NUMBER_OF_CARDS_DECK, PLAYABLE_CARDS, PlayerEntry, Game, GAME_SERIALIZED_LEN};
@@ -18,9 +17,6 @@ contract CardGame {
         game_decks: Map<Field, Map<AztecAddress, Deck>>,
         games: Map<Field, PublicMutable<Game>>,
     }
-
-    #[aztec(private)]
-    fn constructor() {}
 
     #[aztec(private)]
     fn buy_pack(seed: Field // The randomness used to generate the cards. Passed in for now.
@@ -52,7 +48,8 @@ contract CardGame {
     }
 
     #[aztec(public)]
-    internal fn on_game_joined(game: u32, player: AztecAddress, deck_strength: u32) {
+    #[aztec(internal)]
+    fn on_game_joined(game: u32, player: AztecAddress, deck_strength: u32) {
         let game_storage = storage.games.at(game as Field);
 
         let mut game_data = game_storage.read();
@@ -88,7 +85,8 @@ contract CardGame {
     }
 
     #[aztec(public)]
-    internal fn on_card_played(game: u32, player: AztecAddress, card_as_field: Field) {
+    #[aztec(internal)]
+    fn on_card_played(game: u32, player: AztecAddress, card_as_field: Field) {
         let game_storage = storage.games.at(game as Field);
 
         let mut game_data = game_storage.read();
@@ -118,7 +116,8 @@ contract CardGame {
     }
 
     #[aztec(public)]
-    internal fn on_cards_claimed(game: u32, player: AztecAddress, cards_hash: Field) {
+    #[aztec(internal)]
+    fn on_cards_claimed(game: u32, player: AztecAddress, cards_hash: Field) {
         let game_storage = storage.games.at(game as Field);
         let mut game_data = game_storage.read();
 

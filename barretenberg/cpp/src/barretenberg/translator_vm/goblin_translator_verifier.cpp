@@ -6,25 +6,16 @@
 namespace bb {
 
 GoblinTranslatorVerifier::GoblinTranslatorVerifier(
-    const std::shared_ptr<typename Flavor::VerificationKey>& verifier_key,
+    const std::shared_ptr<GoblinTranslatorVerifier::VerificationKey>& verifier_key,
     const std::shared_ptr<Transcript>& transcript)
     : key(verifier_key)
     , transcript(transcript)
 {}
 
-GoblinTranslatorVerifier::GoblinTranslatorVerifier(GoblinTranslatorVerifier&& other) noexcept
-    : key(std::move(other.key))
-    , pcs_verification_key(std::move(other.pcs_verification_key))
-{}
-
-GoblinTranslatorVerifier& GoblinTranslatorVerifier::operator=(GoblinTranslatorVerifier&& other) noexcept
-{
-    key = std::move(other.key);
-    pcs_verification_key = (std::move(other.pcs_verification_key));
-    commitments.clear();
-    pcs_fr_elements.clear();
-    return *this;
-}
+GoblinTranslatorVerifier::GoblinTranslatorVerifier(
+    const std::shared_ptr<GoblinTranslatorVerifier::ProvingKey>& proving_key,
+    const std::shared_ptr<Transcript>& transcript)
+    : GoblinTranslatorVerifier(std::make_shared<GoblinTranslatorFlavor::VerificationKey>(proving_key), transcript){};
 
 void GoblinTranslatorVerifier::put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                                            const BF& batching_challenge_v,
@@ -253,22 +244,21 @@ bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        info("sumcheck failed");
         return false;
     }
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
     // unrolled protocol.
-    auto pairing_points = ZeroMorphVerifier_<Flavor::Curve>::verify(commitments.get_unshifted(),
-                                                                    commitments.get_to_be_shifted(),
-                                                                    claimed_evaluations.get_unshifted(),
-                                                                    claimed_evaluations.get_shifted(),
-                                                                    multivariate_challenge,
-                                                                    transcript,
-                                                                    commitments.get_concatenation_groups(),
-                                                                    claimed_evaluations.get_concatenated_constraints());
+    auto pairing_points = ZeroMorphVerifier_<Flavor::PCS>::verify(commitments.get_unshifted(),
+                                                                  commitments.get_to_be_shifted(),
+                                                                  claimed_evaluations.get_unshifted(),
+                                                                  claimed_evaluations.get_shifted(),
+                                                                  multivariate_challenge,
+                                                                  transcript,
+                                                                  commitments.get_concatenation_groups(),
+                                                                  claimed_evaluations.get_concatenated_constraints());
 
-    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
     return verified;
 }

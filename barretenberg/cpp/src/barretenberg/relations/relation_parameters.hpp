@@ -40,8 +40,10 @@ template <typename T> struct RelationParameters {
                                    { T(0), T(0), T(0), T(0), T(0) },
                                    { T(0), T(0), T(0), T(0), T(0) } } };
 
-    static constexpr int NUM_TO_FOLD = 5;
-    auto get_to_fold() { return RefArray{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta }; }
+    auto get_to_fold()
+    {
+        return RefArray{ eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta };
+    }
 
     static RelationParameters get_random()
     {

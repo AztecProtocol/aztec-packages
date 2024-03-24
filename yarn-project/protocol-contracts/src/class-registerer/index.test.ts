@@ -1,13 +1,12 @@
-import omit from 'lodash.omit';
+import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js';
 
-import { ClassRegistererAddress, getCanonicalClassRegisterer } from './index.js';
+import { getCanonicalClassRegisterer, getCanonicalClassRegistererAddress } from './index.js';
 
 describe('ClassRegisterer', () => {
   it('returns canonical protocol contract', () => {
     const contract = getCanonicalClassRegisterer();
-    contract.contractClass.privateFunctions.sort((a, b) => a.selector.value - b.selector.value);
-    contract.contractClass.publicFunctions.sort((a, b) => a.selector.value - b.selector.value);
-    expect(omit(contract, 'artifact')).toMatchSnapshot();
-    expect(contract.address.toString()).toEqual(ClassRegistererAddress.toString());
+    expect(computeContractAddressFromInstance(contract.instance)).toEqual(contract.address);
+    expect(getContractClassFromArtifact(contract.artifact).id).toEqual(contract.contractClass.id);
+    expect(contract.address.toString()).toEqual(getCanonicalClassRegistererAddress().toString());
   });
 });

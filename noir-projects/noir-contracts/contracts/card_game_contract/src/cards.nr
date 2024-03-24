@@ -1,11 +1,11 @@
+use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, NoteHeader, NoteGetterOptions, NoteViewerOptions};
+
 use dep::aztec::{
-    protocol_types::{address::AztecAddress, constants::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL}},
-    context::{PrivateContext, PublicContext, Context},
-    note::{
-    note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
-    note_getter::view_notes
+    protocol_types::{
+    traits::{ToField, Serialize, FromField},
+    constants::{MAX_NOTES_PER_PAGE, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL}
 },
-    state_vars::PrivateSet
+    context::{PublicContext, Context}, note::note_getter::view_notes, state_vars::PrivateSet
 };
 use dep::std;
 use dep::std::{option::Option};
@@ -17,19 +17,23 @@ struct Card {
     points: u32,
 }
 
-impl Card {
-    pub fn from_field(field: Field) -> Card {
+impl FromField for Card {
+ fn from_field(field: Field) -> Card {
         let value_bytes = field.to_le_bytes(32);
         let strength = (value_bytes[0] as u32) + (value_bytes[1] as u32) * 256;
         let points = (value_bytes[2] as u32) + (value_bytes[3] as u32) * 256;
         Card { strength, points }
     }
+}
 
-    pub fn to_field(self) -> Field {
-        self.strength as Field + (self.points as Field) * 65536
+impl ToField for Card {
+ fn to_field(self) -> Field {
+        self.strength as Field + (self.points as Field)*65536
     }
+}
 
-    pub fn serialize(self) -> [Field; 2] {
+impl Serialize<2> for Card {
+    fn serialize(self) -> [Field; 2] {
         [self.strength as Field, self.points as Field]
     }
 }
@@ -66,10 +70,10 @@ struct Deck {
 }
 
 pub fn filter_cards<N>(
-    notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL],
+    notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     desired_cards: [Card; N]
-) -> [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL] {
-    let mut selected = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
+) -> [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+    let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let mut found = [false; N];
 
@@ -161,7 +165,11 @@ impl Deck {
 
 global PACK_CARDS = 3; // Limited by number of write requests (max 4)
 
-pub fn get_pack_cards(seed: Field, owner: AztecAddress, context: &mut PrivateContext) -> [Card; PACK_CARDS] {
+pub fn get_pack_cards(
+    seed: Field,
+    owner: AztecAddress,
+    context: &mut PrivateContext
+) -> [Card; PACK_CARDS] {
     // generate pseudo randomness deterministically from 'seed' and user secret
     let secret = context.request_nullifier_secret_key(owner);
     let mix = secret.high + secret.low + seed;
@@ -169,7 +177,7 @@ pub fn get_pack_cards(seed: Field, owner: AztecAddress, context: &mut PrivateCon
 
     let mut cards = [Card::from_field(0); PACK_CARDS];
     // we generate PACK_CARDS cards
-    assert((PACK_CARDS as u64) < 8, "Cannot generate more than 8 cards");
+    assert(PACK_CARDS < 8, "Cannot generate more than 8 cards");
     for i in 0..PACK_CARDS {
         let strength = (random_bytes[i] as u32) + (random_bytes[i + 1] as u32) * 256;
         let points = (random_bytes[i + 2] as u32) + (random_bytes[i + 3] as u32) * 256;

@@ -24,7 +24,6 @@ direction TB
 class PartialStateReference {
     note_hash_tree: Snapshot
     nullifier_tree: Snapshot
-    contract_tree: Snapshot
     public_data_tree: Snapshot
 }
 
@@ -40,7 +39,8 @@ class GlobalVariables {
     version: Fr
     chain_id: Fr
     coinbase: EthAddress
-    fee_recipient: Address}
+    fee_recipient: Address
+}
 
 class ContentCommitment {
     tx_tree_height: Fr
@@ -60,12 +60,6 @@ Header *-- ContentCommitment: content_commitment
 Header *-- StateReference : state
 Header *-- GlobalVariables : global_variables
 
-class ContractData {
-    leaf: Fr
-    address: Address
-    portal: EthAddress
-}
-
 class Logs {
     private: EncryptedLogs
     public: UnencryptedLogs
@@ -80,11 +74,9 @@ class TxEffect {
     note_hashes: List~Fr~
     nullifiers: List~Fr~
     l2_to_l1_msgs: List~Fr~
-    contracts: List~ContractData~
     public_writes: List~PublicDataWrite~
     logs: Logs
 }
-TxEffect *-- "m" ContractData: contracts
 TxEffect *-- "m" PublicDataWrite: public_writes
 TxEffect *-- Logs : logs
 
@@ -130,13 +122,29 @@ class ChildRollupData {
 }
 ChildRollupData *-- BaseOrMergeRollupPublicInputs: public_inputs
 
-class MessageCompressionBaseOrMergePublicInputs {
+
+class BaseParityInputs {
+    msgs: List~Fr[2]~
+}
+
+class ParityPublicInputs {
+    aggregation_object: AggregationObject
     sha_root: Fr[2]
     converted_root: Fr
 }
 
+class RootParityInputs {
+    children: List~ParityPublicInputs~
+}
+RootParityInputs *-- ParityPublicInputs: children
+
+class RootParityInput {
+    proof: Proof
+    public_inputs: ParityPublicInputs
+}
+RootParityInput *-- ParityPublicInputs: public_inputs
 class RootRollupInputs {
-    l1_to_l2_roots: MessageCompressionBaseOrMergePublicInputs
+    l1_to_l2_roots: RootParityInput
     l1_to_l2_msgs_sibling_path: List~Fr~
     parent: Header,
     parent_sibling_path: List~Fr~
@@ -144,7 +152,7 @@ class RootRollupInputs {
     left: ChildRollupData
     right: ChildRollupData
 }
-RootRollupInputs *-- MessageCompressionBaseOrMergePublicInputs: l1_to_l2_roots
+RootRollupInputs *-- RootParityInput: l1_to_l2_roots
 RootRollupInputs *-- ChildRollupData: left
 RootRollupInputs *-- ChildRollupData: right
 RootRollupInputs *-- Header : parent
@@ -161,7 +169,7 @@ RootRollupPublicInputs *--Header : header
 
 ```python
 def RootRollupCircuit(
-    l1_to_l2_roots: MessageCompressionBaseOrMergePublicInputs,
+    l1_to_l2_roots: RootParityInput,
     l1_to_l2_msgs_sibling_path: List[Fr],
     parent: Header,
     parent_sibling_path: List[Fr],
@@ -171,6 +179,7 @@ def RootRollupCircuit(
 ) -> RootRollupPublicInputs:
     assert left.proof.is_valid(left.public_inputs)
     assert right.proof.is_valid(right.public_inputs)
+    assert l1_to_l2_roots.proof.verify(l1_to_l2_roots.public_inputs)
 
     assert left.public_inputs.constants == right.public_inputs.constants
     assert left.public_inputs.end == right.public_inputs.start
@@ -190,10 +199,10 @@ def RootRollupCircuit(
     # Update the l1 to l2 msg tree
     l1_to_l2_msg_tree = merkle_insertion(
         parent.state.l1_to_l2_message_tree,
-        l1_to_l2_roots.converted_root,
+        l1_to_l2_roots.public_inputs.converted_root,
         l1_to_l2_msgs_sibling_path,
-        L1_TO_L2_SUBTREE_HEIGHT,
-        L1_To_L2_HEIGHT
+        L1_TO_L2_MSG_SUBTREE_HEIGHT,
+        L1_TO_L2_MSG_TREE_HEIGHT
     )
 
     header = Header(
@@ -201,7 +210,7 @@ def RootRollupCircuit(
         content_commitment: ContentCommitment(
             tx_tree_height = left.public_inputs.height_in_block_tree + 1,
             txs_hash = SHA256(left.public_inputs.txs_hash | right.public_inputs.txs_hash),
-            in_hash = l1_to_l2_roots.sha_root,
+            in_hash = l1_to_l2_roots.public_inputs.sha_root,
             out_hash = SHA256(left.public_inputs.out_hash | right.public_inputs.out_hash),
         ),
         state = StateReference(

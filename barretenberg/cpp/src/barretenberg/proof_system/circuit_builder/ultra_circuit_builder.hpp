@@ -313,7 +313,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        blocks.main.reserve(size_hint);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/870): reserve space in blocks here somehow?
         this->zero_idx = put_constant_variable(FF::zero());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
     };
@@ -338,7 +338,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                          bool recursive = false)
         : CircuitBuilderBase<FF>(size_hint)
     {
-        blocks.main.reserve(size_hint);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/870): reserve space in blocks here somehow?
 
         for (size_t idx = 0; idx < varnum; ++idx) {
             // Zeros are added for variables whose existence is known but whose values are not yet known. The values may
@@ -408,9 +408,11 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 #if NDEBUG
         // do nothing
 #else
-        size_t nominal_size = blocks.main.selectors[0].size();
-        for (size_t idx = 1; idx < blocks.main.selectors.size(); ++idx) {
-            ASSERT(blocks.main.selectors[idx].size() == nominal_size);
+        for (auto& block : blocks.get()) {
+            size_t nominal_size = block.selectors[0].size();
+            for (size_t idx = 1; idx < block.selectors.size(); ++idx) {
+                ASSERT(block.selectors[idx].size() == nominal_size);
+            }
         }
 #endif // NDEBUG
     }
@@ -702,6 +704,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         const uint32_t variable_index,
         const size_t num_bits,
         std::string const& msg = "decompose_into_default_range_better_for_oddlimbnum");
+    void create_dummy_gate(auto& block, const uint32_t&, const uint32_t&, const uint32_t&, const uint32_t&);
     void create_dummy_constraints(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint_with_edges(const std::vector<uint32_t>& variable_index, const FF&, const FF&);
@@ -792,63 +795,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     void process_RAM_array(const size_t ram_id);
     void process_RAM_arrays();
 
-    // Circuit evaluation methods
-
-    FF compute_arithmetic_identity(FF q_arith_value,
-                                   FF q_1_value,
-                                   FF q_2_value,
-                                   FF q_3_value,
-                                   FF q_4_value,
-                                   FF q_m_value,
-                                   FF q_c_value,
-                                   FF w_1_value,
-                                   FF w_2_value,
-                                   FF w_3_value,
-                                   FF w_4_value,
-                                   FF w_1_shifted_value,
-                                   FF w_4_shifted_value,
-                                   const FF alpha_base,
-                                   const FF alpha) const;
-    FF compute_auxilary_identity(FF q_aux_value,
-                                 FF q_arith_value,
-                                 FF q_1_value,
-                                 FF q_2_value,
-                                 FF q_3_value,
-                                 FF q_4_value,
-                                 FF q_m_value,
-                                 FF q_c_value,
-                                 FF w_1_value,
-                                 FF w_2_value,
-                                 FF w_3_value,
-                                 FF w_4_value,
-                                 FF w_1_shifted_value,
-                                 FF w_2_shifted_value,
-                                 FF w_3_shifted_value,
-                                 FF w_4_shifted_value,
-                                 FF alpha_base,
-                                 FF alpha,
-                                 FF eta) const;
-    FF compute_elliptic_identity(FF q_elliptic_value,
-                                 FF q_1_value,
-                                 FF q_m_value,
-                                 FF w_2_value,
-                                 FF w_3_value,
-                                 FF w_1_shifted_value,
-                                 FF w_2_shifted_value,
-                                 FF w_3_shifted_value,
-                                 FF w_4_shifted_value,
-                                 FF alpha_base,
-                                 FF alpha) const;
-    FF compute_genperm_sort_identity(FF q_sort_value,
-                                     FF w_1_value,
-                                     FF w_2_value,
-                                     FF w_3_value,
-                                     FF w_4_value,
-                                     FF w_1_shifted_value,
-                                     FF alpha_base,
-                                     FF alpha) const;
-
-    bool check_circuit();
+    uint256_t hash_circuit();
 };
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
 } // namespace bb

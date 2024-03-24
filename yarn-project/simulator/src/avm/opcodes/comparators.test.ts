@@ -1,5 +1,5 @@
 import { AvmContext } from '../avm_context.js';
-import { Field, TypeTag, Uint16, Uint32 } from '../avm_memory_types.js';
+import { Field, TypeTag, Uint8, Uint16, Uint32 } from '../avm_memory_types.js';
 import { TagCheckError } from '../errors.js';
 import { initContext } from '../fixtures/index.js';
 import { Eq, Lt, Lte } from './comparators.js';
@@ -43,7 +43,7 @@ describe('Comparators', () => {
       ].forEach(i => i.execute(context));
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 10, /*size=*/ 4);
-      expect(actual).toEqual([new Uint32(0), new Uint32(0), new Uint32(1)]);
+      expect(actual).toEqual([new Uint8(0), new Uint8(0), new Uint8(1)]);
     });
 
     it('Works on field elements', async () => {
@@ -56,7 +56,7 @@ describe('Comparators', () => {
       ].forEach(i => i.execute(context));
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 10, /*size=*/ 4);
-      expect(actual).toEqual([new Field(0), new Field(0), new Field(1)]);
+      expect(actual).toEqual([new Uint8(0), new Uint8(0), new Uint8(1)]);
     });
 
     it('InTag is checked', async () => {
@@ -107,14 +107,22 @@ describe('Comparators', () => {
       ].forEach(i => i.execute(context));
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 10, /*size=*/ 4);
-      expect(actual).toEqual([new Uint32(0), new Uint32(1), new Uint32(0)]);
+      expect(actual).toEqual([new Uint8(0), new Uint8(1), new Uint8(0)]);
     });
 
-    it('Does not work on field elements', async () => {
-      await expect(() =>
-        new Lt(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10).execute(context),
-      ).rejects.toThrow(TagCheckError);
+    it('Works on field elements', async () => {
+      context.machineState.memory.setSlice(0, [new Field(1), new Field(2), new Field(0)]);
+
+      [
+        new Lt(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10),
+        new Lt(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11),
+        new Lt(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12),
+      ].forEach(i => i.execute(context));
+
+      const actual = context.machineState.memory.getSlice(/*offset=*/ 10, /*size=*/ 4);
+      expect(actual).toEqual([new Uint8(0), new Uint8(1), new Uint8(0)]);
     });
+
     it('InTag is checked', async () => {
       context.machineState.memory.setSlice(0, [new Field(1), new Uint32(2), new Uint16(3)]);
 
@@ -163,13 +171,20 @@ describe('Comparators', () => {
       ].forEach(i => i.execute(context));
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 10, /*size=*/ 4);
-      expect(actual).toEqual([new Uint32(1), new Uint32(1), new Uint32(0)]);
+      expect(actual).toEqual([new Uint8(1), new Uint8(1), new Uint8(0)]);
     });
 
-    it('Does not work on field elements', async () => {
-      await expect(() =>
-        new Lte(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 10).execute(context),
-      ).rejects.toThrow(TagCheckError);
+    it('Works on field elements', async () => {
+      context.machineState.memory.setSlice(0, [new Field(1), new Field(2), new Field(0)]);
+
+      [
+        new Lte(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 10),
+        new Lte(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 11),
+        new Lte(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 2, /*dstOffset=*/ 12),
+      ].forEach(i => i.execute(context));
+
+      const actual = context.machineState.memory.getSlice(/*offset=*/ 10, /*size=*/ 4);
+      expect(actual).toEqual([new Uint8(1), new Uint8(1), new Uint8(0)]);
     });
 
     it('InTag is checked', async () => {

@@ -1,77 +1,66 @@
-import { L1ToL2Message } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { InboxLeaf } from '@aztec/circuit-types';
+import {
+  Fr,
+  INITIAL_L2_BLOCK_NUM,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+} from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecCounter, AztecKVStore, AztecMap, AztecSingleton } from '@aztec/kv-store';
+import { AztecKVStore, AztecMap, AztecSingleton } from '@aztec/kv-store';
 
-/**
- * A message stored in the database
- */
-type Message = {
-  /** The L1ToL2Message */
-  message: Buffer;
-  /** The message's fee */
-  fee: number;
-  /** Has it _ever_ been confirmed? */
-  confirmed: boolean;
-};
+import { DataRetrieval } from '../data_retrieval.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class MessageStore {
-  #messages: AztecMap<string, Message>;
-  #pendingMessagesByFee: AztecCounter<[number, string]>;
-  #lastL1BlockAddingMessages: AztecSingleton<bigint>;
-  #lastL1BlockCancellingMessages: AztecSingleton<bigint>;
+  #l1ToL2Messages: AztecMap<string, Buffer>;
+  #l1ToL2MessageIndices: AztecMap<string, bigint>;
+  #lastL1BlockMessages: AztecSingleton<bigint>;
 
   #log = createDebugLogger('aztec:archiver:message_store');
 
+  #l1ToL2MessagesSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
+
   constructor(private db: AztecKVStore) {
-    this.#messages = db.openMap('archiver_l1_to_l2_messages');
-    this.#pendingMessagesByFee = db.openCounter('archiver_messages_by_fee');
-    this.#lastL1BlockAddingMessages = db.openSingleton('archiver_last_l1_block_adding_messages');
-    this.#lastL1BlockCancellingMessages = db.openSingleton('archiver_last_l1_block_cancelling_messages');
+    this.#l1ToL2Messages = db.openMap('archiver_l1_to_l2_messages');
+    this.#l1ToL2MessageIndices = db.openMap('archiver_l1_to_l2_message_indices');
+    this.#lastL1BlockMessages = db.openSingleton('archiver_last_l1_block_new_messages');
   }
 
   /**
-   * Gets the last L1 block number that emitted new messages and the block that cancelled messages.
+   * Gets the last L1 block number that emitted new messages.
    * @returns The last L1 block number processed
    */
-  getL1BlockNumber() {
-    return {
-      addedMessages: this.#lastL1BlockAddingMessages.get() ?? 0n,
-      cancelledMessages: this.#lastL1BlockCancellingMessages.get() ?? 0n,
-    };
+  getSynchedL1BlockNumber(): bigint {
+    return this.#lastL1BlockMessages.get() ?? 0n;
   }
 
   /**
-   * Append new pending L1 to L2 messages to the store.
-   * @param messages - The L1 to L2 messages to be added to the store.
-   * @param l1BlockNumber - The L1 block number for which to add the messages.
+   * Append L1 to L2 messages to the store.
+   * @param messages - The L1 to L2 messages to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addPendingMessages(messages: L1ToL2Message[], l1BlockNumber: bigint): Promise<boolean> {
+  addL1ToL2Messages(messages: DataRetrieval<InboxLeaf>): Promise<boolean> {
     return this.db.transaction(() => {
-      const lastL1BlockNumber = this.#lastL1BlockAddingMessages.get() ?? 0n;
-      if (lastL1BlockNumber >= l1BlockNumber) {
+      const lastL1BlockNumber = this.#lastL1BlockMessages.get() ?? 0n;
+      if (lastL1BlockNumber >= messages.lastProcessedL1BlockNumber) {
         return false;
       }
 
-      void this.#lastL1BlockAddingMessages.set(l1BlockNumber);
+      void this.#lastL1BlockMessages.set(messages.lastProcessedL1BlockNumber);
 
-      for (const message of messages) {
-        const messageKey = message.entryKey?.toString();
-        if (!messageKey) {
-          throw new Error('Message does not have an entry key');
+      for (const message of messages.retrievedData) {
+        if (message.index >= this.#l1ToL2MessagesSubtreeSize) {
+          throw new Error(`Message index ${message.index} out of subtree range`);
         }
+        const key = `${message.blockNumber}-${message.index}`;
+        void this.#l1ToL2Messages.setIfNotExists(key, message.leaf.toBuffer());
 
-        void this.#messages.setIfNotExists(messageKey, {
-          message: message.toBuffer(),
-          fee: message.fee,
-          confirmed: false,
-        });
-
-        void this.#pendingMessagesByFee.update([message.fee, messageKey], 1);
+        const indexInTheWholeTree =
+          (message.blockNumber - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) +
+          message.index;
+        void this.#l1ToL2MessageIndices.setIfNotExists(message.leaf.toString(), indexInTheWholeTree);
       }
 
       return true;
@@ -79,92 +68,33 @@ export class MessageStore {
   }
 
   /**
-   * Remove pending L1 to L2 messages from the store (if they were cancelled).
-   * @param messageKeys - The message keys to be removed from the store.
-   * @param l1BlockNumber - The L1 block number for which to remove the messages.
-   * @returns True if the operation is successful.
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * @param l1ToL2Message - The L1 to L2 message.
+   * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  cancelPendingMessages(messageKeys: Fr[], l1BlockNumber: bigint): Promise<boolean> {
-    return this.db.transaction(() => {
-      const lastL1BlockNumber = this.#lastL1BlockCancellingMessages.get() ?? 0n;
-      if (lastL1BlockNumber >= l1BlockNumber) {
-        return false;
-      }
+  public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    const index = this.#l1ToL2MessageIndices.get(l1ToL2Message.toString());
+    return Promise.resolve(index);
+  }
 
-      void this.#lastL1BlockCancellingMessages.set(l1BlockNumber);
-
-      for (const messageKey of messageKeys) {
-        const messageCtx = this.#messages.get(messageKey.toString());
-        if (!messageCtx) {
-          throw new Error(`Message ${messageKey.toString()} not found`);
+  getL1ToL2Messages(blockNumber: bigint): Fr[] {
+    const messages: Fr[] = [];
+    let undefinedMessageFound = false;
+    for (let messageIndex = 0; messageIndex < this.#l1ToL2MessagesSubtreeSize; messageIndex++) {
+      // This is inefficient but probably fine for now.
+      const key = `${blockNumber}-${messageIndex}`;
+      const message = this.#l1ToL2Messages.get(key);
+      if (message) {
+        if (undefinedMessageFound) {
+          throw new Error(`L1 to L2 message gap found in block ${blockNumber}`);
         }
-
-        void this.#pendingMessagesByFee.update([messageCtx.fee, messageKey.toString()], -1);
-      }
-
-      return true;
-    });
-  }
-
-  /**
-   * Messages that have been published in an L2 block are confirmed.
-   * Add them to the confirmed store, also remove them from the pending store.
-   * @param messageKeys - The message keys to be removed from the store.
-   * @returns True if the operation is successful.
-   */
-  confirmPendingMessages(messageKeys: Fr[]): Promise<boolean> {
-    return this.db.transaction(() => {
-      for (const messageKey of messageKeys) {
-        const messageCtx = this.#messages.get(messageKey.toString());
-        if (!messageCtx) {
-          throw new Error(`Message ${messageKey.toString()} not found`);
-        }
-        messageCtx.confirmed = true;
-
-        void this.#messages.set(messageKey.toString(), messageCtx);
-        void this.#pendingMessagesByFee.update([messageCtx.fee, messageKey.toString()], -1);
-      }
-
-      return true;
-    });
-  }
-
-  /**
-   * Gets the confirmed L1 to L2 message corresponding to the given message key.
-   * @param messageKey - The message key to look up.
-   * @returns The requested L1 to L2 message or throws if not found.
-   */
-  getConfirmedMessage(messageKey: Fr): L1ToL2Message {
-    const messageCtx = this.#messages.get(messageKey.toString());
-    if (!messageCtx) {
-      throw new Error(`Message ${messageKey.toString()} not found`);
-    }
-
-    if (!messageCtx.confirmed) {
-      throw new Error(`Message ${messageKey.toString()} not confirmed`);
-    }
-
-    return L1ToL2Message.fromBuffer(messageCtx.message);
-  }
-
-  /**
-   * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
-   * @param limit - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
-   * @returns The requested L1 to L2 message keys.
-   */
-  getPendingMessageKeysByFee(limit: number): Fr[] {
-    const messageKeys: Fr[] = [];
-
-    for (const [[_, messageKey], count] of this.#pendingMessagesByFee.entries({
-      reverse: true,
-    })) {
-      // put `count` copies of this message in the result list
-      messageKeys.push(...Array(count).fill(Fr.fromString(messageKey)));
-      if (messageKeys.length >= limit) {
-        break;
+        messages.push(Fr.fromBuffer(message));
+      } else {
+        undefinedMessageFound = true;
+        // We continue iterating over messages here to verify that there are no more messages after the undefined one.
+        // --> If this was the case this would imply there is some issue with log fetching.
       }
     }
-
-    return messageKeys;
+    return messages;
   }
 }

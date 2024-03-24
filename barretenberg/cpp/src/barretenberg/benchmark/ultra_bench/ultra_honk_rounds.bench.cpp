@@ -1,9 +1,8 @@
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
+#include "barretenberg/benchmark/ultra_bench/mock_circuits.hpp"
 #include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 
 using namespace benchmark;
@@ -45,11 +44,14 @@ BB_PROFILE static void test_round_inner(State& state, GoblinUltraProver& prover,
         }
     };
 
-    time_if_index(PREAMBLE, [&] { prover.execute_preamble_round(); });
-    time_if_index(WIRE_COMMITMENTS, [&] { prover.execute_wire_commitments_round(); });
-    time_if_index(SORTED_LIST_ACCUMULATOR, [&] { prover.execute_sorted_list_accumulator_round(); });
-    time_if_index(LOG_DERIVATIVE_INVERSE, [&] { prover.execute_log_derivative_inverse_round(); });
-    time_if_index(GRAND_PRODUCT_COMPUTATION, [&] { prover.execute_grand_product_computation_round(); });
+    time_if_index(PREAMBLE, [&] { prover.oink_prover.execute_preamble_round(); });
+    time_if_index(WIRE_COMMITMENTS, [&] { prover.oink_prover.execute_wire_commitments_round(); });
+    time_if_index(SORTED_LIST_ACCUMULATOR, [&] { prover.oink_prover.execute_sorted_list_accumulator_round(); });
+    time_if_index(LOG_DERIVATIVE_INVERSE, [&] { prover.oink_prover.execute_log_derivative_inverse_round(); });
+    time_if_index(GRAND_PRODUCT_COMPUTATION, [&] { prover.oink_prover.execute_grand_product_computation_round(); });
+    // we need to get the relation_parameters and prover_polynomials from the oink_prover
+    prover.instance->relation_parameters = prover.oink_prover.relation_parameters;
+    prover.instance->prover_polynomials = GoblinUltraFlavor::ProverPolynomials(prover.instance->proving_key);
     time_if_index(RELATION_CHECK, [&] { prover.execute_relation_check_rounds(); });
     time_if_index(ZEROMORPH, [&] { prover.execute_zeromorph_rounds(); });
 }
@@ -58,12 +60,14 @@ BB_PROFILE static void test_round(State& state, size_t index) noexcept
     auto log2_num_gates = static_cast<size_t>(state.range(0));
     bb::srs::init_crs_factory("../srs_db/ignition");
 
-    GoblinUltraComposer composer;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/761) benchmark both sparse and dense circuits
-    GoblinUltraProver prover = bb::mock_proofs::get_prover(
-        composer, &bb::mock_proofs::generate_basic_arithmetic_circuit<GoblinUltraCircuitBuilder>, log2_num_gates);
+    auto prover = bb::mock_circuits::get_prover<GoblinUltraProver>(
+        &bb::mock_circuits::generate_basic_arithmetic_circuit<GoblinUltraCircuitBuilder>, log2_num_gates);
     for (auto _ : state) {
+        state.PauseTiming();
         test_round_inner(state, prover, index);
+        state.ResumeTiming();
+        // NOTE: google bench is very finnicky, must end in ResumeTiming() for correctness
     }
 }
 #define ROUND_BENCHMARK(round)                                                                                         \

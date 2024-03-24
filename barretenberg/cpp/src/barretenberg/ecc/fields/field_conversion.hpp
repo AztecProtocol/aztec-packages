@@ -122,15 +122,4 @@ template <typename T> T inline convert_challenge(const bb::fr& challenge)
     }
 }
 
-grumpkin::fr convert_to_grumpkin_fr(const bb::fr& f);
-
-template <typename T> T inline convert_challenge(const bb::fr& challenge)
-{
-    if constexpr (std::is_same_v<T, bb::fr>) {
-        return challenge;
-    } else if constexpr (std::is_same_v<T, grumpkin::fr>) {
-        return convert_to_grumpkin_fr(challenge);
-    }
-}
-
 } // namespace bb::field_conversion

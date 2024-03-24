@@ -1,48 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`PublicCallStackItem Computes a callstack item hash 1`] = `"0x1f71c0d6bd03e409df694549b6aa83d706cfe55427152e6ec443ec64fa62d3a0"`;
+exports[`PublicCallStackItem Computes a callstack item hash 1`] = `"0x05e9e448563aa811c209cc557136ac56b55f9f2f31ee54d41b697389fd45dc1c"`;
 
-exports[`PublicCallStackItem Computes a callstack item request hash 1`] = `"0x2812dfeffdb7553fbbdd27c03fbdf61e3aa9bab3209db39f78838508ad892803"`;
+exports[`PublicCallStackItem Computes a callstack item request hash 1`] = `"0x141bbf6bc30f0a19640983354528288239b68edd5c1edd9955a007801230d7b6"`;
 
-exports[`PublicCallStackItem computes hash 1`] = `
-Fr {
-  "asBigInt": 5564031247356020353810998760199482863796790393190610135965142067359455090525n,
-  "asBuffer": {
-    "data": [
-      12,
-      77,
-      33,
-      77,
-      64,
-      203,
-      33,
-      253,
-      25,
-      21,
-      66,
-      225,
-      22,
-      94,
-      25,
-      36,
-      156,
-      159,
-      227,
-      54,
-      40,
-      115,
-      108,
-      155,
-      82,
-      234,
-      144,
-      55,
-      50,
-      211,
-      151,
-      93,
-    ],
-    "type": "Buffer",
-  },
-}
-`;
+exports[`PublicCallStackItem computes hash 1`] = `Fr<0x0a9961096ae423e5c4bc1175bb191b8c2b2ad63feda7ce5599842909c09d9973>`;

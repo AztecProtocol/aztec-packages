@@ -26,15 +26,15 @@ import { Fr } from '@aztec/foundation/fields';
 //  endLifetime: Fr;
 //};
 //
-//export type TracedNoteHashCheck = {
-//  callPointer: Fr;
-//  storageAddress: Fr;
-//  leafIndex: Fr;
-//  noteHash: Fr;
-//  exists: boolean;
-//  counter: Fr;
-//  endLifetime: Fr;
-//};
+export type TracedNoteHashCheck = {
+  callPointer: Fr;
+  storageAddress: Fr;
+  leafIndex: Fr;
+  noteHash: Fr;
+  exists: boolean;
+  counter: Fr;
+  endLifetime: Fr;
+};
 //
 //export type TracedNoteHash = {
 //  callPointer: Fr;
@@ -64,16 +64,15 @@ export type TracedNullifierCheck = {
 //  counter: Fr;
 //  endLifetime: Fr;
 //};
-//
-//export type TracedL1toL2MessageRead = {
-//  callPointer: Fr;
-//  portal: Fr; // EthAddress
-//  leafIndex: Fr;
-//  msgKey: Fr;
-//  exists: Fr;
-//  message: []; // omitted from VM public inputs
-//};
-//
+
+export type TracedL1toL2MessageCheck = {
+  //callPointer: Fr;
+  leafIndex: Fr;
+  msgHash: Fr;
+  exists: boolean;
+  //endLifetime: Fr;
+};
+
 //export type TracedArchiveLeafCheck = {
 //  leafIndex: Fr;
 //  leaf: Fr;

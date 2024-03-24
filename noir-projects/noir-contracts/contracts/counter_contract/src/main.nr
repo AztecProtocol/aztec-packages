@@ -1,10 +1,7 @@
 contract Counter {
     // docs:start:imports
-    use dep::aztec::protocol_types::address::AztecAddress;
-    use dep::aztec::{
-        context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
-        state_vars::Map
-    };
+    use dep::aztec::prelude::{AztecAddress, Map};
+    use dep::aztec::context::Context;
     use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
     use dep::easy_private_state::EasyPrivateUint;
     // docs:end:imports
@@ -17,7 +14,9 @@ contract Counter {
 
     // docs:start:constructor
     #[aztec(private)]
-    fn constructor(headstart: u64, owner: AztecAddress) {
+    #[aztec(initializer)]
+    // We can name our initializer anything we want as long as it's marked as aztec(initializer)
+    fn initialize(headstart: u64, owner: AztecAddress) {
         let counters = storage.counters;
         counters.at(owner).add(headstart, owner);
     }
@@ -25,7 +24,7 @@ contract Counter {
 
     // docs:start:increment
     #[aztec(private)]
-      fn increment(owner: AztecAddress) {
+    fn increment(owner: AztecAddress) {
         let counters = storage.counters;
         counters.at(owner).add(1, owner);
     }

@@ -8,19 +8,265 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
-### Autogenerate `compute_note_hash_and_nullifier`
+### [Aztec.nr] Public storage historical read API improvement
+
+`history::public_value_inclusion::prove_public_value_inclusion` has been renamed to `history::public_storage::public_storage_historical_read`, and its API changed slightly. Instead of receiving a `value` parameter it now returns the historical value stored at that slot.
+
+If you were using an oracle to get the value to pass to `prove_public_value_inclusion`, drop the oracle and use the return value from `public_storage_historical_read` instead:
+
+```diff
+- let value = read_storage();
+- prove_public_value_inclusion(value, storage_slot, contract_address, context);
++ let value = public_storage_historical_read(storage_slot, contract_address, context);
+```
+
+If you were proving historical existence of a value you got via some other constrained means, perform an assertion against the return value of `public_storage_historical_read` instead:
+
+```diff
+- prove_public_value_inclusion(value, storage_slot, contract_address, context);
++ assert(public_storage_historical_read(storage_slot, contract_address, context) == value);
+```
+
+## 0.30.0
+
+### [AztecJS] Simplify authwit syntax
+
+```diff
+- const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+- await wallets[0].setPublicAuth(messageHash, true).send().wait();
++ await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+```
+
+```diff
+const action = asset
+    .withWallet(wallets[1])
+    .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce);
+-const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+-const witness = await wallets[0].createAuthWitness(messageHash);
++const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+await wallets[1].addAuthWitness(witness);
+```
+
+Also note some of the naming changes:
+`setPublicAuth` -> `setPublicAuthWit`
+`createAuthWitness` -> `createAuthWit`
+
+### [Aztec.nr] Automatic NoteInterface implementation and selector changes
+
+Implementing a note required a fair amount of boilerplate code, which has been substituted by the `#[aztec(note)]` attribute.
+
+```diff
++ #[aztec(note)]
+struct AddressNote {
+    address: AztecAddress,
+    owner: AztecAddress,
+    randomness: Field,
+    header: NoteHeader
+}
+
+impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
+-    fn serialize_content(self) -> [Field; ADDRESS_NOTE_LEN]{
+-        [self.address.to_field(), self.owner.to_field(), self.randomness]
+-    }
+-
+-    fn deserialize_content(serialized_note: [Field; ADDRESS_NOTE_LEN]) -> Self {
+-        AddressNote {
+-            address: AztecAddress::from_field(serialized_note[0]),
+-            owner: AztecAddress::from_field(serialized_note[1]),
+-            randomness: serialized_note[2],
+-            header: NoteHeader::empty(),
+-        }
+-    }
+-
+-    fn compute_note_content_hash(self) -> Field {
+-        pedersen_hash(self.serialize_content(), 0)
+-    }
+-
+    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
+        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+        let secret = context.request_nullifier_secret_key(self.owner);
+        pedersen_hash([
+            note_hash_for_nullify,
+            secret.low,
+            secret.high,
+        ],0)
+    }
+
+    fn compute_nullifier_without_context(self) -> Field {
+        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+        let secret = get_nullifier_secret_key(self.owner);
+        pedersen_hash([
+            note_hash_for_nullify,
+            secret.low,
+            secret.high,
+        ],0)
+    }
+
+-    fn set_header(&mut self, header: NoteHeader) {
+-        self.header = header;
+-    }
+-
+-    fn get_header(note: Self) -> NoteHeader {
+-        note.header
+-    }
+
+    fn broadcast(self, context: &mut PrivateContext, slot: Field) {
+        let encryption_pub_key = get_public_key(self.owner);
+        emit_encrypted_log(
+            context,
+            (*context).this_address(),
+            slot,
+            Self::get_note_type_id(),
+            encryption_pub_key,
+            self.serialize_content(),
+        );
+    }
+
+-    fn get_note_type_id() -> Field {
+-        6510010011410111511578111116101
+-    }
+}
+```
+
+Automatic note (de)serialization implementation also means it is now easier to filter notes using `NoteGetterOptions.select` via the `::properties()` helper:
+
+Before:
+
+```rust
+let options = NoteGetterOptions::new().select(0, amount, Option::none()).select(1, owner.to_field(), Option::none()).set_limit(1);
+```
+
+After:
+
+```rust
+let options = NoteGetterOptions::new().select(ValueNote::properties().value, amount, Option::none()).select(ValueNote::properties().owner, owner.to_field(), Option::none()).set_limit(1);
+```
+
+The helper returns a metadata struct that looks like this (if autogenerated)
+
+```rust
+ValueNoteProperties {
+    value: PropertySelector { index: 0, offset: 0, length: 32 },
+    owner: PropertySelector { index: 1, offset: 0, length: 32 },
+    randomness: PropertySelector { index: 2, offset: 0, length: 32 },
+}
+```
+
+It can also be used for the `.sort` method.
+
+## 0.27.0
+
+### `initializer` macro replaces `constructor`
+
+Before this version, every contract was required to have exactly one `constructor` private function, that was used for deployment. We have now removed this requirement, and made `constructor` a function like any other.
+
+To signal that a function can be used to **initialize** a contract, you must now decorate it with the `#[aztec(initializer)]` attribute. Initializers are regular functions that set an "initialized" flag (a nullifier) for the contract. A contract can only be initialized once, and contract functions can only be called after the contract has been initialized, much like a constructor. However, if a contract defines no initializers, it can be called at any time. Additionally, you can define as many initializer functions in a contract as you want, both private and public.
+
+To migrate from current code, simply add an initializer attribute to your constructor functions.
+
+```diff
++ #[aztec(initializer)]
+#[aztec(private)]
+fn constructor() { ... }
+```
+
+If your private constructor was used to just call a public internal initializer, then remove the private constructor and flag the public function as initializer. And if your private constructor was an empty one, just remove it.
+
+## 0.25.0
+
+### [Aztec.nr] Static calls
+
+It is now possible to perform static calls from both public and private functions. Static calls forbid any modification to the state, including L2->L1 messages or log generation. Once a static context is set through a static all, every subsequent call will also be treated as static via context propagation.
+
+```rust
+context.static_call_private_function(targetContractAddress, targetSelector, args);
+
+context.static_call_public_function(targetContractAddress, targetSelector, args);
+```
+
+### [Aztec.nr] Introduction to `prelude`
+
+A new `prelude` module to include common Aztec modules and types.
+This simplifies dependency syntax. For example:
+
+```rust
+use dep::aztec::protocol_types::address::AztecAddress;
+use dep::aztec::{
+    context::{PrivateContext, Context}, note::{note_header::NoteHeader, utils as note_utils},
+    state_vars::Map
+};
+```
+
+Becomes:
+
+```rust
+use dep::aztec::prelude::{AztecAddress, NoteHeader, PrivateContext, Map};
+use dep::aztec::context::Context;
+use dep::aztec::notes::utils as note_utils;
+```
+
+This will be further simplified in future versions (See [4496](https://github.com/AztecProtocol/aztec-packages/pull/4496) for further details).
+
+The prelude consists of
+
+#include_code prelude /noir-projects/aztec-nr/aztec/src/prelude.nr rust
+
+### `internal` is now a macro
+
+The `internal` keyword is now removed from Noir, and is replaced by an `aztec(internal)` attribute in the function. The resulting behavior is exactly the same: these functions will only be callable from within the same contract.
+
+Before:
+
+```rust
+#[aztec(private)]
+internal fn double(input: Field) -> Field {
+    input * 2
+}
+```
+
+After:
+
+```rust
+#[aztec(private)]
+#[aztec(internal)]
+fn double(input: Field) -> Field {
+    input * 2
+}
+```
+
+### [Aztec.nr] No SafeU120 anymore!
+
+Noir now have overflow checks by default. So we don't need SafeU120 like libraries anymore.
+
+You can replace it with `U128` instead
+
+Before:
+
+```
+SafeU120::new(0)
+```
+
+Now:
+
+```
+U128::from_integer(0)
+```
+
+### [Aztec.nr] `compute_note_hash_and_nullifier` is now autogenerated
 
 Historically developers have been required to include a `compute_note_hash_and_nullifier` function in each of their contracts. This function is now automatically generated, and all instances of it in contract code can be safely removed.
 
 It is possible to provide a user-defined implementation, in which case auto-generation will be skipped (though there are no known use cases for this).
 
-### Updated naming of state variable wrappers
+### [Aztec.nr] Updated naming of state variable wrappers
+
 We have decided to change the naming of our state variable wrappers because the naming was not clear.
 The changes are as follows:
+
 1. `Singleton` -> `PrivateMutable`
 2. `ImmutableSingleton` -> `PrivateImmutable`
 3. `StablePublicState` -> `SharedImmutable`
-5. `PublicState` -> `PublicMutable`
+4. `PublicState` -> `PublicMutable`
 
 This is the meaning of "private", "public" and "shared":
 Private: read (R) and write (W) from private, not accessible from public
@@ -28,6 +274,48 @@ Public: not accessible from private, R/W from public
 Shared: R from private, R/W from public
 
 Note: `SlowUpdates` will be renamed to `SharedMutable` once the implementation is ready.
+
+### [Aztec.nr] Authwit updates
+
+Authentication Witnesses have been updates such that they are now cancellable and scoped to a specific consumer.
+This means that the `authwit` nullifier must be emitted from the account contract, which require changes to the interface.
+Namely, the `assert_current_call_valid_authwit_public` and `assert_current_call_valid_authwit` in `auth.nr` will **NO LONGER** emit a nullifier.
+Instead it will call a `spend_*_authwit` function in the account contract - which will emit the nullifier and perform a few checks.
+This means that the `is_valid` functions have been removed to not confuse it for a non-mutating function (static).
+Furthermore, the `caller` parameter of the "authwits" have been moved "further out" such that the account contract can use it in validation, allowing scoped approvals from the account POV.
+For most contracts, this won't be changing much, but for the account contract, it will require a few changes.
+
+Before:
+
+```rust
+#[aztec(public)]
+fn is_valid_public(message_hash: Field) -> Field {
+    let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+    actions.is_valid_public(message_hash)
+}
+
+#[aztec(private)]
+fn is_valid(message_hash: Field) -> Field {
+    let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+    actions.is_valid(message_hash)
+}
+```
+
+After:
+
+```rust
+#[aztec(private)]
+fn spend_private_authwit(inner_hash: Field) -> Field {
+    let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+    actions.spend_private_authwit(inner_hash)
+}
+
+#[aztec(public)]
+fn spend_public_authwit(inner_hash: Field) -> Field {
+    let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+    actions.spend_public_authwit(inner_hash)
+}
+```
 
 ## 0.24.0
 
@@ -112,7 +400,7 @@ Aztec contracts are now moved outside of the `yarn-project` folder and into `noi
 Before:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.23.0", directory = "yarn-project/noir-contracts/src/contracts/easy_private_token_contract"}
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.23.0", directory = "yarn-project/noir-contracts/contracts/easy_private_token_contract"}
 ```
 
 Now, update the `yarn-project` folder for `noir-projects`:
@@ -649,7 +937,7 @@ const tokenBigInt = (await bridge.methods.token().view()).inner;
 
 ```toml
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
-protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/noir-protocol-circuits/src/crates/types"}
+protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/noir-protocol-circuits/crates/types"}
 ```
 
 ### [Aztec.nr] moving compute_address func to AztecAddress
@@ -703,11 +991,11 @@ Aztec contracts are now moved outside of the `src` folder, so you need to update
 Before:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "yarn-project/noir-contracts/src/contracts/easy_private_token_contract"}
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "noir-projects/noir-contracts/contracts/easy_private_token_contract"}
 ```
 
 Now, just remove the `src` folder,:
 
 ```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "yarn-project/noir-contracts/contracts/easy_private_token_contract"}
+easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "noir-projects/noir-contracts/contracts/easy_private_token_contract"}
 ```

@@ -1,5 +1,7 @@
 #include "avm_mem_trace.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
+#include "barretenberg/vm/avm_trace/avm_trace.hpp"
+#include <cstdint>
 
 namespace bb::avm_trace {
 
@@ -86,7 +88,14 @@ void AvmMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint32_t const m_clk,
 {
     FF one_min_inv = FF(1) - (FF(static_cast<uint32_t>(m_in_tag)) - FF(static_cast<uint32_t>(m_tag))).invert();
 
-    // Lookup counter hint, used for #[equiv_tag_err] lookup (joined on clk)
+    // Relevant for inclusion (lookup) check #[INCL_MEM_TAG_ERR]. We need to
+    // flag the first memory entry per clk key. The number of memory entries
+    // with m_tag_err enabled can be higher than one for a given clk value.
+    // The repetition of the same clk in the lookup table side (right hand
+    // side, here, memory table) should be accounted for ONLY ONCE.
+    bool tag_err_count_relevant = !m_tag_err_lookup_counts.contains(m_clk);
+
+    // Lookup counter hint, used for #[INCL_MAIN_TAG_ERR] lookup (joined on clk)
     m_tag_err_lookup_counts[m_clk]++;
 
     mem_trace.emplace_back(MemoryTraceEntry{ .m_clk = m_clk,
@@ -96,15 +105,15 @@ void AvmMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint32_t const m_clk,
                                              .m_tag = m_tag,
                                              .m_in_tag = m_in_tag,
                                              .m_tag_err = true,
-                                             .m_one_min_inv = one_min_inv });
+                                             .m_one_min_inv = one_min_inv,
+                                             .m_tag_err_count_relevant = tag_err_count_relevant });
 }
 
 /**
- * @brief Add a memory trace entry corresponding to a memory load into the intermediate
- *        passed register.
+ * @brief Add a memory trace entry corresponding to a memory load.
  *
  * @param clk The main clock
- * @param interm_reg The intermediate register
+ * @param sub_clk The sub-clock pertaining to the memory operation
  * @param addr The memory address
  * @param val The value to be loaded
  * @param m_in_tag The memory tag of the instruction
@@ -112,22 +121,9 @@ void AvmMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint32_t const m_clk,
  * @return A boolean indicating that memory tag matches (resp. does not match) the
  *         instruction tag. Set to false in case of a mismatch.
  */
-bool AvmMemTraceBuilder::load_in_mem_trace(
-    uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag)
+bool AvmMemTraceBuilder::load_from_mem_trace(
+    uint32_t clk, uint32_t sub_clk, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag)
 {
-    uint32_t sub_clk = 0;
-    switch (interm_reg) {
-    case IntermRegister::IA:
-        sub_clk = SUB_CLK_LOAD_A;
-        break;
-    case IntermRegister::IB:
-        sub_clk = SUB_CLK_LOAD_B;
-        break;
-    case IntermRegister::IC:
-        sub_clk = SUB_CLK_LOAD_C;
-        break;
-    }
-
     auto m_tag = memory_tag.at(addr);
     if (m_tag == AvmMemoryTag::U0 || m_tag == m_in_tag) {
         insert_in_mem_trace(clk, sub_clk, addr, val, m_in_tag, false);
@@ -169,6 +165,37 @@ void AvmMemTraceBuilder::store_in_mem_trace(
 }
 
 /**
+ * @brief Handle a read memory operation specific to MOV opcode. Load the corresponding
+ *        value to the intermediate register ia. A memory trace entry for the load
+ *        operation is added. It is permissive in the sense that we do not enforce tag
+ *        matching with against any instruction tag. In addition, the specific selector
+ *        for MOV opcode is enabled.
+ *
+ * @param clk Main clock
+ * @param addr Memory address of the source offset
+ *
+ * @return Result of the read operation containing the value and the tag of the memory cell
+ *         at the supplied address.
+ */
+std::pair<FF, AvmMemoryTag> AvmMemTraceBuilder::read_and_load_mov_opcode(uint32_t const clk, uint32_t const addr)
+{
+    FF const& val = memory.at(addr);
+    AvmMemoryTag m_tag = memory_tag.at(addr);
+
+    mem_trace.emplace_back(MemoryTraceEntry{
+        .m_clk = clk,
+        .m_sub_clk = SUB_CLK_LOAD_A,
+        .m_addr = addr,
+        .m_val = val,
+        .m_tag = m_tag,
+        .m_in_tag = m_tag,
+        .m_sel_mov = true,
+    });
+
+    return std::make_pair(val, m_tag);
+}
+
+/**
  * @brief Handle a read memory operation and load the corresponding value to the
  *        supplied intermediate register. A memory trace entry for the load operation
  *        is added.
@@ -186,8 +213,47 @@ AvmMemTraceBuilder::MemRead AvmMemTraceBuilder::read_and_load_from_memory(uint32
                                                                           uint32_t const addr,
                                                                           AvmMemoryTag const m_in_tag)
 {
+    uint32_t sub_clk = 0;
+    switch (interm_reg) {
+    case IntermRegister::IA:
+        sub_clk = SUB_CLK_LOAD_A;
+        break;
+    case IntermRegister::IB:
+        sub_clk = SUB_CLK_LOAD_B;
+        break;
+    case IntermRegister::IC:
+        sub_clk = SUB_CLK_LOAD_C;
+        break;
+    }
+
     FF val = memory.at(addr);
-    bool tagMatch = load_in_mem_trace(clk, interm_reg, addr, val, m_in_tag);
+    bool tagMatch = load_from_mem_trace(clk, sub_clk, addr, val, m_in_tag);
+
+    return MemRead{
+        .tag_match = tagMatch,
+        .val = val,
+    };
+}
+
+AvmMemTraceBuilder::MemRead AvmMemTraceBuilder::indirect_read_and_load_from_memory(uint32_t clk,
+                                                                                   IndirectRegister ind_reg,
+                                                                                   uint32_t addr)
+{
+    uint32_t sub_clk = 0;
+    switch (ind_reg) {
+    case IndirectRegister::IND_A:
+        sub_clk = SUB_CLK_IND_LOAD_A;
+        break;
+    case IndirectRegister::IND_B:
+        sub_clk = SUB_CLK_IND_LOAD_B;
+        break;
+    case IndirectRegister::IND_C:
+        sub_clk = SUB_CLK_IND_LOAD_C;
+        break;
+    }
+
+    FF val = memory.at(addr);
+    bool tagMatch = load_from_mem_trace(clk, sub_clk, addr, val, AvmMemoryTag::U32);
 
     return MemRead{
         .tag_match = tagMatch,

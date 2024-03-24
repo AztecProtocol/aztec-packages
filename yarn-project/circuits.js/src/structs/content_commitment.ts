@@ -1,33 +1,42 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, from2Fields, serializeToBuffer, to2Fields } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
 
 export const NUM_BYTES_PER_SHA256 = 32;
 
 export class ContentCommitment {
-  constructor(public txTreeHeight: Fr, public txsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
-    if (txsHash.length !== NUM_BYTES_PER_SHA256) {
-      throw new Error(`txsHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
+  constructor(public txTreeHeight: Fr, public txsEffectsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
+    if (txsEffectsHash.length !== NUM_BYTES_PER_SHA256) {
+      throw new Error(`txsEffectsHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
+    }
+    if (txsEffectsHash[0] !== 0) {
+      throw new Error(`txsEffectsHash buffer should be truncated and left padded`);
     }
     if (inHash.length !== NUM_BYTES_PER_SHA256) {
       throw new Error(`inHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
     }
+    if (inHash[0] !== 0) {
+      throw new Error(`inHash buffer should be truncated and left padded`);
+    }
     if (outHash.length !== NUM_BYTES_PER_SHA256) {
       throw new Error(`outHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
+    }
+    if (outHash[0] !== 0) {
+      throw new Error(`outHash buffer should be truncated and left padded`);
     }
   }
 
   toBuffer() {
-    return serializeToBuffer(this.txTreeHeight, this.txsHash, this.inHash, this.outHash);
+    return serializeToBuffer(this.txTreeHeight, this.txsEffectsHash, this.inHash, this.outHash);
   }
 
   toFields(): Fr[] {
     const serialized = [
       this.txTreeHeight,
-      ...to2Fields(this.txsHash),
-      ...to2Fields(this.inHash),
-      ...to2Fields(this.outHash),
+      Fr.fromBuffer(this.txsEffectsHash),
+      Fr.fromBuffer(this.inHash),
+      Fr.fromBuffer(this.outHash),
     ];
     if (serialized.length !== CONTENT_COMMITMENT_LENGTH) {
       throw new Error(`Expected content commitment to have 4 fields, but it has ${serialized.length} fields`);
@@ -50,9 +59,9 @@ export class ContentCommitment {
     const reader = FieldReader.asReader(fields);
     return new ContentCommitment(
       reader.readField(),
-      from2Fields(reader.readField(), reader.readField()),
-      from2Fields(reader.readField(), reader.readField()),
-      from2Fields(reader.readField(), reader.readField()),
+      reader.readField().toBuffer(),
+      reader.readField().toBuffer(),
+      reader.readField().toBuffer(),
     );
   }
 
@@ -68,7 +77,7 @@ export class ContentCommitment {
   isEmpty(): boolean {
     return (
       this.txTreeHeight.isZero() &&
-      this.txsHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
+      this.txsEffectsHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
       this.inHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
       this.outHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256))
     );

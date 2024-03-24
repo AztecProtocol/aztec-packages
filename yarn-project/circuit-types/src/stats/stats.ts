@@ -54,6 +54,8 @@ export type CircuitSimulationStats = {
   eventName: 'circuit-simulation';
   /** Name of the circuit. */
   circuitName:
+    | 'base-parity'
+    | 'root-parity'
     | 'base-rollup'
     | 'private-kernel-init'
     | 'private-kernel-ordering'
@@ -62,7 +64,8 @@ export type CircuitSimulationStats = {
     | 'private-kernel-inner'
     | 'public-kernel-setup'
     | 'public-kernel-app-logic'
-    | 'public-kernel-teardown';
+    | 'public-kernel-teardown'
+    | 'public-kernel-tail';
   /** Duration in ms. */
   duration: number;
   /** Size in bytes of circuit inputs. */
@@ -137,14 +140,12 @@ export type TxStats = {
   encryptedLogSize: number;
   /** Serialized size of unencrypted logs. */
   unencryptedLogSize: number;
-  /** Serialized size of new contract data. */
-  newContractDataSize: number;
-  /** Number of new contracts deployed in this tx. */
-  newContractCount: number;
-  /** comm */
+  /** New commitments count */
   newCommitmentCount: number;
-  /** a */
+  /** New nullifier count */
   newNullifierCount: number;
+  /** How many classes were registered through the canonical class registerer. */
+  classRegisteredCount: number;
 };
 
 /**

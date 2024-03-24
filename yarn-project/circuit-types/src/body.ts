@@ -1,20 +1,19 @@
 import { L2BlockL2Logs, TxEffect } from '@aztec/circuit-types';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer, truncateAndPad } from '@aztec/foundation/serialize';
 
-import times from 'lodash.times';
+import { inspect } from 'util';
 
 export class Body {
-  constructor(public l1ToL2Messages: Fr[], public txEffects: TxEffect[]) {}
+  constructor(public txEffects: TxEffect[]) {}
 
   /**
    * Serializes a block body
    * @returns A serialized L2 block body.
    */
   toBuffer() {
-    return serializeToBuffer(this.l1ToL2Messages.length, this.l1ToL2Messages, this.txEffects.length, this.txEffects);
+    return serializeToBuffer(this.txEffects.length, this.txEffects);
   }
 
   /**
@@ -23,16 +22,22 @@ export class Body {
    */
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
-    return new this(reader.readVector(Fr), reader.readVector(TxEffect));
+
+    return new this(reader.readVector(TxEffect));
+  }
+
+  [inspect.custom]() {
+    return `Body {
+  txEffects: ${inspect(this.txEffects)},
+}`;
   }
 
   /**
-   * Computes the calldata hash for the L2 block
-   * This calldata hash is also computed by the rollup contract when the block is submitted,
-   * and inside the circuit, it is part of the public inputs.
-   * @returns The calldata hash.
+   * Computes the transactions effects hash for the L2 block
+   * This hash is also computed in the `AvailabilityOracle` and the `Circuit`.
+   * @returns The txs effects hash.
    */
-  getCalldataHash() {
+  getTxsEffectsHash() {
     const computeRoot = (leafs: Buffer[]): Buffer => {
       const layers: Buffer[][] = [leafs];
       let activeLayer = 0;
@@ -45,7 +50,7 @@ export class Body {
           const left = layers[activeLayer][i];
           const right = layers[activeLayer][i + 1];
 
-          layer.push(sha256(Buffer.concat([left, right])));
+          layer.push(truncateAndPad(sha256(Buffer.concat([left, right]))));
         }
 
         layers.push(layer);
@@ -74,7 +79,7 @@ export class Body {
 
   get numberOfTxs() {
     // We gather all the txEffects that are not empty (the ones that have been padded by checking the first newNullifier of the txEffect);
-    return this.txEffects.reduce((acc, txEffect) => (!txEffect.newNullifiers[0].equals(Fr.ZERO) ? acc + 1 : acc), 0);
+    return this.txEffects.reduce((acc, txEffect) => (!txEffect.nullifiers[0].equals(Fr.ZERO) ? acc + 1 : acc), 0);
   }
 
   static random(
@@ -84,11 +89,14 @@ export class Body {
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
   ) {
-    const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
     const txEffects = [...new Array(txsPerBlock)].map(_ =>
       TxEffect.random(numPrivateCallsPerTx, numPublicCallsPerTx, numEncryptedLogsPerCall, numUnencryptedLogsPerCall),
     );
 
-    return new Body(newL1ToL2Messages, txEffects);
+    return new Body(txEffects);
+  }
+
+  static empty() {
+    return new Body([]);
   }
 }

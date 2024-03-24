@@ -44,10 +44,13 @@ export function getConfigEnvVars(): SequencerClientConfig {
     ROLLUP_CONTRACT_ADDRESS,
     REGISTRY_CONTRACT_ADDRESS,
     INBOX_CONTRACT_ADDRESS,
-    CONTRACT_DEPLOYMENT_EMITTER_ADDRESS,
     OUTBOX_CONTRACT_ADDRESS,
+    GAS_TOKEN_CONTRACT_ADDRESS,
+    GAS_PORTAL_CONTRACT_ADDRESS,
     COINBASE,
     FEE_RECIPIENT,
+    ACVM_WORKING_DIRECTORY,
+    ACVM_BINARY_PATH,
   } = process.env;
 
   const publisherPrivateKey: Hex = SEQ_PUBLISHER_PRIVATE_KEY
@@ -62,8 +65,9 @@ export function getConfigEnvVars(): SequencerClientConfig {
     registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
     inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
     outboxAddress: OUTBOX_CONTRACT_ADDRESS ? EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    contractDeploymentEmitterAddress: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
-      ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
+    gasTokenAddress: GAS_TOKEN_CONTRACT_ADDRESS ? EthAddress.fromString(GAS_TOKEN_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    gasPortalAddress: GAS_PORTAL_CONTRACT_ADDRESS
+      ? EthAddress.fromString(GAS_PORTAL_CONTRACT_ADDRESS)
       : EthAddress.ZERO,
   };
 
@@ -82,5 +86,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     // TODO: undefined should not be allowed for the following 2 values in PROD
     coinbase: COINBASE ? EthAddress.fromString(COINBASE) : undefined,
     feeRecipient: FEE_RECIPIENT ? AztecAddress.fromString(FEE_RECIPIENT) : undefined,
+    acvmWorkingDirectory: ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : undefined,
+    acvmBinaryPath: ACVM_BINARY_PATH ? ACVM_BINARY_PATH : undefined,
   };
 }

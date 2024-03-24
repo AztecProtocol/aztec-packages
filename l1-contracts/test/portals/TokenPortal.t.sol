@@ -5,39 +5,34 @@ import "forge-std/Test.sol";
 // Rollup Processor
 import {Rollup} from "../../src/core/Rollup.sol";
 import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
-import {Inbox} from "../../src/core/messagebridge/Inbox.sol";
+import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
-import {Outbox} from "../../src/core/messagebridge/Outbox.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 import {Hash} from "../../src/core/libraries/Hash.sol";
 import {Errors} from "../../src/core/libraries/Errors.sol";
 
 // Interfaces
-import {IRegistry} from "../../src/core/interfaces/messagebridge/IRegistry.sol";
 import {IInbox} from "../../src/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
 
 // Portal tokens
 import {TokenPortal} from "./TokenPortal.sol";
 import {PortalERC20} from "./PortalERC20.sol";
 
+import {NaiveMerkle} from "../merkle/Naive.sol";
+
 contract TokenPortalTest is Test {
-  event MessageAdded(
-    bytes32 indexed entryKey,
-    address indexed sender,
-    bytes32 indexed recipient,
-    uint256 senderChainId,
-    uint256 recipientVersion,
-    uint32 deadline,
-    uint64 fee,
-    bytes32 content,
-    bytes32 secretHash
-  );
-  event L1ToL2MessageCancelled(bytes32 indexed entryKey);
-  event MessageConsumed(bytes32 indexed entryKey, address indexed recipient);
+  using Hash for DataStructures.L1ToL2Msg;
+
+  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
+
+  event MessageConsumed(bytes32 indexed messageHash, address indexed recipient);
 
   Registry internal registry;
-  Inbox internal inbox;
-  Outbox internal outbox;
+
+  IInbox internal inbox;
+  IOutbox internal outbox;
+
   Rollup internal rollup;
   bytes32 internal l2TokenAddress = bytes32(uint256(0x42));
 
@@ -55,7 +50,6 @@ contract TokenPortalTest is Test {
   // this hash is just a random 32 byte string
   bytes32 internal secretHashForRedeemingMintedNotes =
     0x157e4fec49805c924e28150fc4b36824679bc17ecb1d7d9f6a9effb7fde6b6a0;
-  uint64 internal bid = 1 ether;
 
   // params for withdraw:
   address internal recipient = address(0xdead);
@@ -63,9 +57,9 @@ contract TokenPortalTest is Test {
 
   function setUp() public {
     registry = new Registry();
-    inbox = new Inbox(address(registry));
-    outbox = new Outbox(address(registry));
     rollup = new Rollup(registry, new AvailabilityOracle());
+    inbox = rollup.INBOX();
+    outbox = rollup.OUTBOX();
 
     registry.upgrade(address(rollup), address(inbox), address(outbox));
 
@@ -77,7 +71,7 @@ contract TokenPortalTest is Test {
     vm.deal(address(this), 100 ether);
   }
 
-  function _createExpectedMintPrivateL1ToL2Message(address _canceller)
+  function _createExpectedMintPrivateL1ToL2Message()
     internal
     view
     returns (DataStructures.L1ToL2Msg memory)
@@ -87,19 +81,14 @@ contract TokenPortalTest is Test {
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
-          "mint_private(bytes32,uint256,address)",
-          secretHashForRedeemingMintedNotes,
-          amount,
-          _canceller
+          "mint_private(bytes32,uint256)", secretHashForRedeemingMintedNotes, amount
         )
         ),
-      secretHash: secretHashForL2MessageConsumption,
-      deadline: deadline,
-      fee: bid
+      secretHash: secretHashForL2MessageConsumption
     });
   }
 
-  function _createExpectedMintPublicL1ToL2Message(address _canceller)
+  function _createExpectedMintPublicL1ToL2Message()
     internal
     view
     returns (DataStructures.L1ToL2Msg memory)
@@ -107,12 +96,8 @@ contract TokenPortalTest is Test {
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
-      content: Hash.sha256ToField(
-        abi.encodeWithSignature("mint_public(bytes32,uint256,address)", to, amount, _canceller)
-        ),
-      secretHash: secretHashForL2MessageConsumption,
-      deadline: deadline,
-      fee: bid
+      content: Hash.sha256ToField(abi.encodeWithSignature("mint_public(bytes32,uint256)", to, amount)),
+      secretHash: secretHashForL2MessageConsumption
     });
   }
 
@@ -122,41 +107,24 @@ contract TokenPortalTest is Test {
     portalERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
-    DataStructures.L1ToL2Msg memory expectedMessage =
-      _createExpectedMintPrivateL1ToL2Message(address(this));
-    bytes32 expectedEntryKey = inbox.computeEntryKey(expectedMessage);
+    DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPrivateL1ToL2Message();
+
+    bytes32 expectedLeaf = expectedMessage.sha256ToField();
 
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit MessageAdded(
-      expectedEntryKey,
-      expectedMessage.sender.actor,
-      expectedMessage.recipient.actor,
-      expectedMessage.sender.chainId,
-      expectedMessage.recipient.version,
-      expectedMessage.deadline,
-      expectedMessage.fee,
-      expectedMessage.content,
-      expectedMessage.secretHash
-    );
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
+    // event we will get
 
     // Perform op
-    bytes32 entryKey = tokenPortal.depositToAztecPrivate{value: bid}(
-      secretHashForRedeemingMintedNotes,
-      amount,
-      address(this),
-      deadline,
-      secretHashForL2MessageConsumption
+    bytes32 leaf = tokenPortal.depositToAztecPrivate(
+      secretHashForRedeemingMintedNotes, amount, secretHashForL2MessageConsumption
     );
 
-    assertEq(entryKey, expectedEntryKey, "returned entry key and calculated entryKey should match");
+    assertEq(leaf, expectedLeaf, "returned leaf and calculated leaf should match");
 
-    // Check that the message is in the inbox
-    DataStructures.Entry memory entry = inbox.get(entryKey);
-    assertEq(entry.count, 1);
-
-    return entryKey;
+    return leaf;
   }
 
   function testDepositPublic() public returns (bytes32) {
@@ -165,139 +133,27 @@ contract TokenPortalTest is Test {
     portalERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message
-    DataStructures.L1ToL2Msg memory expectedMessage =
-      _createExpectedMintPublicL1ToL2Message(address(this));
-    bytes32 expectedEntryKey = inbox.computeEntryKey(expectedMessage);
+    DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPublicL1ToL2Message();
+    bytes32 expectedLeaf = expectedMessage.sha256ToField();
 
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit MessageAdded(
-      expectedEntryKey,
-      expectedMessage.sender.actor,
-      expectedMessage.recipient.actor,
-      expectedMessage.sender.chainId,
-      expectedMessage.recipient.version,
-      expectedMessage.deadline,
-      expectedMessage.fee,
-      expectedMessage.content,
-      expectedMessage.secretHash
-    );
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, 0, expectedLeaf);
 
     // Perform op
-    bytes32 entryKey = tokenPortal.depositToAztecPublic{value: bid}(
-      to, amount, address(this), deadline, secretHashForL2MessageConsumption
-    );
+    bytes32 leaf = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);
 
-    assertEq(entryKey, expectedEntryKey, "returned entry key and calculated entryKey should match");
+    assertEq(leaf, expectedLeaf, "returned leaf and calculated leaf should match");
 
-    // Check that the message is in the inbox
-    DataStructures.Entry memory entry = inbox.get(entryKey);
-    assertEq(entry.count, 1);
-
-    return entryKey;
-  }
-
-  function testCancelPublic() public {
-    bytes32 expectedEntryKey = testDepositPublic();
-    // now cancel the message - move time forward (post deadline)
-    vm.warp(deadline + 1 days);
-
-    // ensure no one else can cancel the message:
-    vm.startPrank(address(0xdead));
-    bytes32 expectedWrongEntryKey =
-      inbox.computeEntryKey(_createExpectedMintPublicL1ToL2Message(address(0xdead)));
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, expectedWrongEntryKey)
-    );
-    tokenPortal.cancelL1ToAztecMessagePublic(
-      to, amount, deadline, secretHashForL2MessageConsumption, bid
-    );
-    vm.stopPrank();
-
-    // ensure cant cancel with cancelPrivate (since deposit was public)
-    expectedWrongEntryKey =
-      inbox.computeEntryKey(_createExpectedMintPrivateL1ToL2Message(address(this)));
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, expectedWrongEntryKey)
-    );
-    tokenPortal.cancelL1ToAztecMessagePrivate(
-      secretHashForRedeemingMintedNotes, amount, deadline, secretHashForL2MessageConsumption, bid
-    );
-
-    // actually cancel the message
-    // check event was emitted
-    vm.expectEmit(true, false, false, false);
-    // expected event:
-    emit L1ToL2MessageCancelled(expectedEntryKey);
-    // perform op
-    bytes32 entryKey = tokenPortal.cancelL1ToAztecMessagePublic(
-      to, amount, deadline, secretHashForL2MessageConsumption, bid
-    );
-
-    assertEq(entryKey, expectedEntryKey, "returned entry key and calculated entryKey should match");
-    assertFalse(inbox.contains(entryKey), "entry still in inbox");
-    assertEq(
-      portalERC20.balanceOf(address(this)),
-      mintAmount,
-      "assets should be transferred back to this contract"
-    );
-    assertEq(portalERC20.balanceOf(address(tokenPortal)), 0, "portal should have no assets");
-  }
-
-  function testCancelPrivate() public {
-    bytes32 expectedEntryKey = testDepositPrivate();
-    // now cancel the message - move time forward (post deadline)
-    vm.warp(deadline + 1 days);
-
-    // ensure no one else can cancel the message:
-    vm.startPrank(address(0xdead));
-    bytes32 expectedWrongEntryKey =
-      inbox.computeEntryKey(_createExpectedMintPrivateL1ToL2Message(address(0xdead)));
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, expectedWrongEntryKey)
-    );
-    tokenPortal.cancelL1ToAztecMessagePrivate(
-      secretHashForRedeemingMintedNotes, amount, deadline, secretHashForL2MessageConsumption, bid
-    );
-    vm.stopPrank();
-
-    // ensure cant cancel with cancelPublic (since deposit was private)
-    expectedWrongEntryKey =
-      inbox.computeEntryKey(_createExpectedMintPublicL1ToL2Message(address(this)));
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, expectedWrongEntryKey)
-    );
-    tokenPortal.cancelL1ToAztecMessagePublic(
-      to, amount, deadline, secretHashForL2MessageConsumption, bid
-    );
-
-    // actually cancel the message
-    // check event was emitted
-    vm.expectEmit(true, false, false, false);
-    // expected event:
-    emit L1ToL2MessageCancelled(expectedEntryKey);
-    // perform op
-    bytes32 entryKey = tokenPortal.cancelL1ToAztecMessagePrivate(
-      secretHashForRedeemingMintedNotes, amount, deadline, secretHashForL2MessageConsumption, bid
-    );
-
-    assertEq(entryKey, expectedEntryKey, "returned entry key and calculated entryKey should match");
-    assertFalse(inbox.contains(entryKey), "entry still in inbox");
-    assertEq(
-      portalERC20.balanceOf(address(this)),
-      mintAmount,
-      "assets should be transferred back to this contract"
-    );
-    assertEq(portalERC20.balanceOf(address(tokenPortal)), 0, "portal should have no assets");
+    return leaf;
   }
 
   function _createWithdrawMessageForOutbox(address _designatedCaller)
     internal
-    view
-    returns (bytes32)
+    returns (bytes32, bytes32)
   {
-    bytes32 entryKey = outbox.computeEntryKey(
+    bytes32 l2ToL1Message = Hash.sha256ToField(
       DataStructures.L2ToL1Msg({
         sender: DataStructures.L2Actor({actor: l2TokenAddress, version: 1}),
         recipient: DataStructures.L1Actor({actor: address(tokenPortal), chainId: block.chainid}),
@@ -308,71 +164,100 @@ contract TokenPortalTest is Test {
           )
       })
     );
-    return entryKey;
+
+    uint256 treeHeight = 1;
+    NaiveMerkle tree = new NaiveMerkle(treeHeight);
+    tree.insertLeaf(l2ToL1Message);
+    bytes32 treeRoot = tree.computeRoot();
+
+    return (l2ToL1Message, treeRoot);
   }
 
-  function _addWithdrawMessageInOutbox(address _designatedCaller) internal returns (bytes32) {
+  function _addWithdrawMessageInOutbox(address _designatedCaller, uint256 _l2BlockNumber)
+    internal
+    returns (bytes32, bytes32[] memory, bytes32)
+  {
     // send assets to the portal
     portalERC20.mint(address(tokenPortal), withdrawAmount);
 
     // Create the message
-    bytes32[] memory entryKeys = new bytes32[](1);
-    entryKeys[0] = _createWithdrawMessageForOutbox(_designatedCaller);
+    (bytes32 l2ToL1Message,) = _createWithdrawMessageForOutbox(_designatedCaller);
+
+    uint256 treeHeight = 1;
+    NaiveMerkle tree = new NaiveMerkle(treeHeight);
+    tree.insertLeaf(l2ToL1Message);
+
+    (bytes32[] memory siblingPath,) = tree.computeSiblingPath(0);
+
+    bytes32 treeRoot = tree.computeRoot();
     // Insert messages into the outbox (impersonating the rollup contract)
     vm.prank(address(rollup));
-    outbox.sendL1Messages(entryKeys);
-    return entryKeys[0];
+    outbox.insert(_l2BlockNumber, treeRoot, treeHeight);
+
+    return (l2ToL1Message, siblingPath, treeRoot);
   }
 
   function testAnyoneCanCallWithdrawIfNoDesignatedCaller(address _caller) public {
     vm.assume(_caller != address(0));
-    bytes32 expectedEntryKey = _addWithdrawMessageInOutbox(address(0));
+
+    uint256 l2BlockNumber = 69;
+    // add message with caller as this address
+    (bytes32 l2ToL1Message, bytes32[] memory siblingPath, bytes32 treeRoot) =
+      _addWithdrawMessageInOutbox(address(0), l2BlockNumber);
     assertEq(portalERC20.balanceOf(recipient), 0);
 
     vm.startPrank(_caller);
     vm.expectEmit(true, true, true, true);
-    emit MessageConsumed(expectedEntryKey, address(tokenPortal));
-    bytes32 actualEntryKey = tokenPortal.withdraw(recipient, withdrawAmount, false);
-    assertEq(expectedEntryKey, actualEntryKey);
+    emit IOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, 0);
+    tokenPortal.withdraw(recipient, withdrawAmount, false, l2BlockNumber, 0, siblingPath);
+
     // Should have received 654 RNA tokens
     assertEq(portalERC20.balanceOf(recipient), withdrawAmount);
 
     // Should not be able to withdraw again
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, actualEntryKey)
+      abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, l2BlockNumber, 0)
     );
-    tokenPortal.withdraw(recipient, withdrawAmount, false);
+    tokenPortal.withdraw(recipient, withdrawAmount, false, l2BlockNumber, 0, siblingPath);
     vm.stopPrank();
   }
 
   function testWithdrawWithDesignatedCallerFailsForOtherCallers(address _caller) public {
     vm.assume(_caller != address(this));
+    uint256 l2BlockNumber = 69;
     // add message with caller as this address
-    _addWithdrawMessageInOutbox(address(this));
+    (, bytes32[] memory siblingPath, bytes32 treeRoot) =
+      _addWithdrawMessageInOutbox(address(this), l2BlockNumber);
 
     vm.startPrank(_caller);
-    bytes32 entryKeyPortalChecksAgainst = _createWithdrawMessageForOutbox(_caller);
+    (bytes32 l2ToL1MessageHash, bytes32 consumedRoot) = _createWithdrawMessageForOutbox(_caller);
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
+      abi.encodeWithSelector(
+        Errors.MerkleLib__InvalidRoot.selector, treeRoot, consumedRoot, l2ToL1MessageHash, 0
+      )
     );
-    tokenPortal.withdraw(recipient, withdrawAmount, true);
+    tokenPortal.withdraw(recipient, withdrawAmount, true, l2BlockNumber, 0, siblingPath);
 
-    entryKeyPortalChecksAgainst = _createWithdrawMessageForOutbox(address(0));
+    (l2ToL1MessageHash, consumedRoot) = _createWithdrawMessageForOutbox(address(0));
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKeyPortalChecksAgainst)
+      abi.encodeWithSelector(
+        Errors.MerkleLib__InvalidRoot.selector, treeRoot, consumedRoot, l2ToL1MessageHash, 0
+      )
     );
-    tokenPortal.withdraw(recipient, withdrawAmount, false);
+    tokenPortal.withdraw(recipient, withdrawAmount, false, l2BlockNumber, 0, siblingPath);
     vm.stopPrank();
   }
 
   function testWithdrawWithDesignatedCallerSucceedsForDesignatedCaller() public {
+    uint256 l2BlockNumber = 69;
     // add message with caller as this address
-    bytes32 expectedEntryKey = _addWithdrawMessageInOutbox(address(this));
+    (bytes32 l2ToL1Message, bytes32[] memory siblingPath, bytes32 treeRoot) =
+      _addWithdrawMessageInOutbox(address(this), l2BlockNumber);
 
     vm.expectEmit(true, true, true, true);
-    emit MessageConsumed(expectedEntryKey, address(tokenPortal));
-    bytes32 actualEntryKey = tokenPortal.withdraw(recipient, withdrawAmount, true);
-    assertEq(expectedEntryKey, actualEntryKey);
+    emit IOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, 0);
+    tokenPortal.withdraw(recipient, withdrawAmount, true, l2BlockNumber, 0, siblingPath);
+
     // Should have received 654 RNA tokens
     assertEq(portalERC20.balanceOf(recipient), withdrawAmount);
   }

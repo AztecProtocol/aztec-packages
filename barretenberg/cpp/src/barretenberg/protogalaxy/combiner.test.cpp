@@ -23,7 +23,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
 
     const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
         std::fill(polys.q_arith.begin(), polys.q_arith.end(), 1);
-        std::fill(polys.q_sort.begin(), polys.q_sort.end(), 0);
+        std::fill(polys.q_delta_range.begin(), polys.q_delta_range.end(), 0);
         std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
         std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
         std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
@@ -45,7 +45,8 @@ TEST(Protogalaxy, CombinerOn2Instances)
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 instance->prover_polynomials = std::move(prover_polynomials);
-                instance->instance_size = 2;
+                instance->proving_key = std::make_shared<Flavor::ProvingKey>();
+                instance->proving_key->circuit_size = 2;
                 instance_data[idx] = instance;
             }
 
@@ -53,19 +54,20 @@ TEST(Protogalaxy, CombinerOn2Instances)
             instances.alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
             auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
             auto result = prover.compute_combiner(instances, pow_polynomial);
-            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 87706,
-                                                                          13644570,
-                                                                          76451738,
-                                                                          226257946,
-                                                                          static_cast<uint64_t>(500811930),
-                                                                          static_cast<uint64_t>(937862426),
-                                                                          static_cast<uint64_t>(1575158170),
-                                                                          static_cast<uint64_t>(2450447898),
-                                                                          static_cast<uint64_t>(3601480346),
-                                                                          static_cast<uint64_t>(5066004250),
-                                                                          static_cast<uint64_t>(6881768346),
-                                                                          static_cast<uint64_t>(9086521370),
-                                                                          /*static_cast<uint64_t>(11718012058)*/ });
+            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{
+                87706,
+                13644570,
+                76451738,
+                226257946,
+                static_cast<uint64_t>(500811930),
+                static_cast<uint64_t>(937862426),
+                static_cast<uint64_t>(1575158170),
+                static_cast<uint64_t>(2450447898),
+                static_cast<uint64_t>(3601480346),
+                static_cast<uint64_t>(5066004250),
+                static_cast<uint64_t>(6881768346),
+                static_cast<uint64_t>(9086521370),
+            });
             EXPECT_EQ(result, expected_result);
         } else {
             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
@@ -77,7 +79,8 @@ TEST(Protogalaxy, CombinerOn2Instances)
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 instance->prover_polynomials = std::move(prover_polynomials);
-                instance->instance_size = 2;
+                instance->proving_key = std::make_shared<Flavor::ProvingKey>();
+                instance->proving_key->circuit_size = 2;
                 instance_data[idx] = instance;
             }
 
@@ -131,7 +134,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
             auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
             auto result = prover.compute_combiner(instances, pow_polynomial);
             auto expected_result =
-                Univariate<FF, 12>(std::array<FF, 12>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660 /*, 792*/ });
+                Univariate<FF, 12>(std::array<FF, 12>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660 });
 
             EXPECT_EQ(result, expected_result);
         }
@@ -149,7 +152,7 @@ TEST(Protogalaxy, CombinerOn4Instances)
 
     const auto zero_all_selectors = [](auto& polys) {
         std::fill(polys.q_arith.begin(), polys.q_arith.end(), 0);
-        std::fill(polys.q_sort.begin(), polys.q_sort.end(), 0);
+        std::fill(polys.q_delta_range.begin(), polys.q_delta_range.end(), 0);
         std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
         std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
         std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
@@ -167,7 +170,8 @@ TEST(Protogalaxy, CombinerOn4Instances)
             auto prover_polynomials = get_zero_prover_polynomials<Flavor>(
                 /*log_circuit_size=*/1);
             instance->prover_polynomials = std::move(prover_polynomials);
-            instance->instance_size = 2;
+            instance->proving_key = std::make_shared<Flavor::ProvingKey>();
+            instance->proving_key->circuit_size = 2;
             instance_data[idx] = instance;
         }
 

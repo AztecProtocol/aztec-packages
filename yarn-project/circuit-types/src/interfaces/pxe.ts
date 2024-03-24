@@ -1,17 +1,16 @@
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
 import { AuthWitness } from '../auth_witness.js';
-import { ContractData, ExtendedContractData } from '../contract_data.js';
 import { L2Block } from '../l2_block.js';
-import { L2Tx } from '../l2_tx.js';
 import { GetUnencryptedLogsResponse, LogFilter } from '../logs/index.js';
 import { ExtendedNote } from '../notes/index.js';
 import { NoteFilter } from '../notes/note_filter.js';
 import { Tx, TxHash, TxReceipt } from '../tx/index.js';
+import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
-import { DeployedContract } from './deployed-contract.js';
 import { SyncStatus } from './sync-status.js';
 
 // docs:start:pxe-interface
@@ -35,6 +34,13 @@ export interface PXE {
    * deserialized and processed by the account contract.
    */
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
+
+  /**
+   * Fetches the serialized auth witness for a given message hash or returns undefined if not found.
+   * @param messageHash - The hash of the message for which to get the auth witness.
+   * @returns The serialized auth witness for the given message hash.
+   */
+  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
 
   /**
    * Adding a capsule to the capsule dispenser.
@@ -100,14 +106,21 @@ export interface PXE {
   getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
+   * Registers a contract class in the PXE without registering any associated contract instance with it.
+   *
+   * @param artifact - The build artifact for the contract class.
+   */
+  registerContractClass(artifact: ContractArtifact): Promise<void>;
+
+  /**
    * Adds deployed contracts to the PXE Service. Deployed contract information is used to access the
    * contract code when simulating local transactions. This is automatically called by aztec.js when
    * deploying a contract. Dapps that wish to interact with contracts already deployed should register
    * these contracts in their users' PXE Service through this method.
    *
-   * @param contracts - An array of DeployedContract objects containing contract ABI, address, and portal contract.
+   * @param contract - A contract instance to register, with an optional artifact which can be omitted if the contract class has already been registered.
    */
-  addContracts(contracts: DeployedContract[]): Promise<void>;
+  registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }): Promise<void>;
 
   /**
    * Retrieves the addresses of contracts added to this PXE Service.
@@ -124,6 +137,7 @@ export interface PXE {
    * @param simulatePublic - Whether to simulate the public part of the transaction.
    * @returns A transaction ready to be sent to the network for execution.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
+   * Also throws if simulatePublic is true and public simulation reverts.
    */
   simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
 
@@ -145,11 +159,11 @@ export interface PXE {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
-   * Fetches a transaction by its hash.
-   * @param txHash - The transaction hash
-   * @returns A transaction object or undefined if the transaction hasn't been mined yet
+   * Get a tx effect.
+   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
+   * @returns The requested tx effect.
    */
-  getTx(txHash: TxHash): Promise<L2Tx | undefined>;
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -170,6 +184,15 @@ export interface PXE {
    * @returns The requested notes.
    */
   getNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
+
+  /**
+   * Finds the nonce(s) for a given note.
+   * @param note - The note to find the nonces for.
+   * @returns The nonces of the note.
+   * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
+   * TODO(#4956): Un-expose this
+   */
+  getNoteNonces(note: ExtendedNote): Promise<Fr[]>;
 
   /**
    * Adds a note to the database.
@@ -198,23 +221,6 @@ export interface PXE {
    * @returns The result of the view function call, structured based on the function ABI.
    */
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
-
-  /**
-   * Gets the extended contract data for this contract. Extended contract data includes the address,
-   * portal contract address on L1, public functions, partial address, and encryption public key.
-   *
-   * @param contractAddress - The contract's address.
-   * @returns The extended contract data if found.
-   */
-  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined>;
-
-  /**
-   * Gets the portal contract address on L1 for the given contract.
-   *
-   * @param contractAddress - The contract's address.
-   * @returns The contract's portal address if found.
-   */
-  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
@@ -287,5 +293,12 @@ export interface PXE {
    * @param id - Identifier of the class.
    */
   isContractClassPubliclyRegistered(id: Fr): Promise<boolean>;
+
+  /**
+   * Queries the node to check whether the contract instance with the given address has been publicly deployed,
+   * regardless of whether this PXE knows about the contract or not.
+   * TODO(@spalladino): Same notes as above.
+   */
+  isContractPubliclyDeployed(address: AztecAddress): Promise<boolean>;
 }
 // docs:end:pxe-interface

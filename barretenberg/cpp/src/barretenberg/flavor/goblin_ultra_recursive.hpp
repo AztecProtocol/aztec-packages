@@ -10,17 +10,9 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
-#include "barretenberg/srs/factories/crs_factory.hpp"
-#include <array>
-#include <concepts>
-#include <span>
-#include <string>
-#include <type_traits>
-#include <vector>
-
+#include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 
 namespace bb {
 
@@ -42,6 +34,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
   public:
     using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
     using Curve = stdlib::bn254<CircuitBuilder>;
+    using PCS = KZG<Curve>;
     using GroupElement = typename Curve::Element;
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::Element;
@@ -49,7 +42,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     // Note(luke): Eventually this may not be needed at all
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
 
     static constexpr size_t NUM_WIRES = GoblinUltraFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
@@ -104,7 +97,8 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
      * circuits.
      * This differs from GoblinUltra in how we construct the commitments.
      */
-    class VerificationKey : public VerificationKey_<GoblinUltraFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey
+        : public VerificationKey_<GoblinUltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {
@@ -121,9 +115,11 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
+            this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = native_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;
+            this->pub_inputs_offset = native_key->pub_inputs_offset;
             this->q_m = Commitment::from_witness(builder, native_key->q_m);
             this->q_l = Commitment::from_witness(builder, native_key->q_l);
             this->q_r = Commitment::from_witness(builder, native_key->q_r);
@@ -131,7 +127,7 @@ template <typename BuilderType> class GoblinUltraRecursiveFlavor_ {
             this->q_4 = Commitment::from_witness(builder, native_key->q_4);
             this->q_c = Commitment::from_witness(builder, native_key->q_c);
             this->q_arith = Commitment::from_witness(builder, native_key->q_arith);
-            this->q_sort = Commitment::from_witness(builder, native_key->q_sort);
+            this->q_delta_range = Commitment::from_witness(builder, native_key->q_delta_range);
             this->q_elliptic = Commitment::from_witness(builder, native_key->q_elliptic);
             this->q_aux = Commitment::from_witness(builder, native_key->q_aux);
             this->q_lookup = Commitment::from_witness(builder, native_key->q_lookup);

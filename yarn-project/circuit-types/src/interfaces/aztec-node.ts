@@ -1,6 +1,5 @@
 import {
   ARCHIVE_HEIGHT,
-  CONTRACT_TREE_HEIGHT,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -12,20 +11,16 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-import { ContractData, ExtendedContractData } from '../contract_data.js';
-import { L1ToL2MessageAndIndex } from '../l1_to_l2_message.js';
 import { L2Block } from '../l2_block.js';
-import { L2Tx } from '../l2_tx.js';
 import { GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { SiblingPath } from '../sibling_path/index.js';
-import { Tx, TxHash } from '../tx/index.js';
+import { Tx, TxHash, TxReceipt } from '../tx/index.js';
+import { TxEffect } from '../tx_effect.js';
 import { SequencerConfig } from './configs.js';
+import { L2BlockNumber } from './l2_block_number.js';
 import { NullifierMembershipWitness } from './nullifier_tree.js';
 import { PublicDataWitness } from './public_data_tree.js';
-
-/** Helper type for a specific L2 block number or the latest block number */
-type BlockNumber = number | 'latest';
 
 /**
  * The aztec node.
@@ -39,18 +34,7 @@ export interface AztecNode {
    * @param leafValue - The value to search for
    * @returns The index of the given leaf in the given tree or undefined if not found.
    */
-  findLeafIndex(blockNumber: BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
-
-  /**
-   * Returns a sibling path for the given index in the contract tree.
-   * @param blockNumber - The block number at which to get the data.
-   * @param leafIndex - The index of the leaf for which the sibling path is required.
-   * @returns The sibling path for the leaf index.
-   */
-  getContractSiblingPath(
-    blockNumber: BlockNumber,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>>;
+  findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
 
   /**
    * Returns a sibling path for the given index in the nullifier tree.
@@ -59,7 +43,7 @@ export interface AztecNode {
    * @returns The sibling path for the leaf index.
    */
   getNullifierSiblingPath(
-    blockNumber: BlockNumber,
+    blockNumber: L2BlockNumber,
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof NULLIFIER_TREE_HEIGHT>>;
 
@@ -70,28 +54,42 @@ export interface AztecNode {
    * @returns The sibling path for the leaf index.
    */
   getNoteHashSiblingPath(
-    blockNumber: BlockNumber,
+    blockNumber: L2BlockNumber,
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
 
   /**
-   * Gets a confirmed/consumed L1 to L2 message for the given message key (throws if not found).
-   * and its index in the merkle tree
-   * @param messageKey - The message key.
-   * @returns The map containing the message and index.
+   * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
+   * @param blockNumber - The block number at which to get the data.
+   * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
+   * @returns A tuple of the index and the sibling path of the message  (undefined if not found).
    */
-  getL1ToL2MessageAndIndex(messageKey: Fr): Promise<L1ToL2MessageAndIndex>;
+  getL1ToL2MessageMembershipWitness(
+    blockNumber: L2BlockNumber,
+    l1ToL2Message: Fr,
+  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
   /**
-   * Returns a sibling path for a leaf in the committed l1 to l2 data tree.
-   * @param blockNumber - The block number at which to get the data.
-   * @param leafIndex - Index of the leaf in the tree.
-   * @returns The sibling path.
+   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
+   * @param l1ToL2Message - The L1 to L2 message to check.
+   * @returns Whether the message is synced and ready to be included in a block.
    */
-  getL1ToL2MessageSiblingPath(
-    blockNumber: BlockNumber,
-    leafIndex: bigint,
-  ): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
+  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
+
+  /**
+   * Returns a membership witness of an l2ToL1Message in an ephemeral l2 to l1 message tree.
+   * @dev Membership witness is a consists of the index and the sibling path of the l2ToL1Message.
+   * @remarks This tree is considered ephemeral because it is created on-demand by: taking all the l2ToL1 messages
+   * in a single block, and then using them to make a variable depth append-only tree with these messages as leaves.
+   * The tree is discarded immediately after calculating what we need from it.
+   * @param blockNumber - The block number at which to get the data.
+   * @param l2ToL1Message - The l2ToL1Message to get the membership witness for.
+   * @returns A tuple of the index and the sibling path of the L2ToL1Message.
+   */
+  getL2ToL1MessageMembershipWitness(
+    blockNumber: L2BlockNumber,
+    l2ToL1Message: Fr,
+  ): Promise<[bigint, SiblingPath<number>]>;
 
   /**
    * Returns a sibling path for a leaf in the committed historic blocks tree.
@@ -99,7 +97,7 @@ export interface AztecNode {
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  getArchiveSiblingPath(blockNumber: BlockNumber, leafIndex: bigint): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>>;
+  getArchiveSiblingPath(blockNumber: L2BlockNumber, leafIndex: bigint): Promise<SiblingPath<typeof ARCHIVE_HEIGHT>>;
 
   /**
    * Returns a sibling path for a leaf in the committed public data tree.
@@ -108,7 +106,7 @@ export interface AztecNode {
    * @returns The sibling path.
    */
   getPublicDataSiblingPath(
-    blockNumber: BlockNumber,
+    blockNumber: L2BlockNumber,
     leafIndex: bigint,
   ): Promise<SiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>>;
 
@@ -119,7 +117,7 @@ export interface AztecNode {
    * @returns The nullifier membership witness (if found).
    */
   getNullifierMembershipWitness(
-    blockNumber: BlockNumber,
+    blockNumber: L2BlockNumber,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
 
@@ -133,7 +131,7 @@ export interface AztecNode {
    * we are trying to prove non-inclusion for.
    */
   getLowNullifierMembershipWitness(
-    blockNumber: BlockNumber,
+    blockNumber: L2BlockNumber,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
 
@@ -146,7 +144,7 @@ export interface AztecNode {
    * "in range" slot, means that the slot doesn't exist and the value is 0. If the low leaf preimage corresponds to the exact slot, the current value
    * is contained in the leaf preimage.
    */
-  getPublicDataTreeWitness(blockNumber: BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  getPublicDataTreeWitness(blockNumber: L2BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
 
   /**
    * Get a block specified by its number.
@@ -193,21 +191,6 @@ export interface AztecNode {
   getL1ContractAddresses(): Promise<L1ContractAddresses>;
 
   /**
-   * Get the extended contract data for this contract.
-   * @param contractAddress - The contract data address.
-   * @returns The extended contract data or undefined if not found.
-   */
-  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined>;
-
-  /**
-   * Lookup the contract data for this contract.
-   * Contains the ethereum portal address .
-   * @param contractAddress - The contract data address.
-   * @returns The contract's address & portal address.
-   */
-  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
-
-  /**
    * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
    * @param limit - The maximum number of logs to return.
@@ -231,11 +214,21 @@ export interface AztecNode {
   sendTx(tx: Tx): Promise<void>;
 
   /**
-   * Get a settled tx.
-   * @param txHash - The txHash being requested.
-   * @returns The tx requested.
+   * Fetches a transaction receipt for a given transaction hash. Returns a mined receipt if it was added
+   * to the chain, a pending receipt if it's still in the mempool of the connected Aztec node, or a dropped
+   * receipt if not found in the connected Aztec node.
+   *
+   * @param txHash - The transaction hash.
+   * @returns A receipt of the transaction.
    */
-  getTx(txHash: TxHash): Promise<L2Tx | undefined>;
+  getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
+
+  /**
+   * Get a tx effect.
+   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
+   * @returns The requested tx effect.
+   */
+  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
 
   /**
    * Method to retrieve pending txs.

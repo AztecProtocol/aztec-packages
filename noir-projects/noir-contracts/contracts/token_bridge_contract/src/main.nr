@@ -7,9 +7,9 @@ mod token_interface;
 // Bridge has to be set as a minter on the token before it can be used
 
 contract TokenBridge {
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
+    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, PublicMutable};
 
-    use dep::aztec::{context::{Context}, hash::{compute_secret_hash}, state_vars::{PublicMutable}};
+    use dep::aztec::{context::Context, hash::compute_secret_hash};
 
     use dep::token_portal_content_hash_lib::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 
@@ -24,6 +24,7 @@ contract TokenBridge {
 
     // Constructs the contract.
     #[aztec(private)]
+    #[aztec(initializer)]
     fn constructor(token: AztecAddress) {
         let selector = FunctionSelector::from_signature("_initialize((Field))");
         context.call_public_function(context.this_address(), selector, [token.to_field()]);
@@ -33,14 +34,14 @@ contract TokenBridge {
     // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[aztec(public)]
-    fn claim_public(to: AztecAddress, amount: Field, canceller: EthAddress, msg_key: Field, secret: Field) {
-        let content_hash = get_mint_public_content_hash(to, amount, canceller);
+    fn claim_public(to: AztecAddress, amount: Field, secret: Field) {
+        let content_hash = get_mint_public_content_hash(to, amount);
 
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(msg_key, content_hash, secret, context.this_portal_address());
+        context.consume_l1_to_l2_message(content_hash, secret, context.this_portal_address());
 
         // Mint tokens
-        Token::at(storage.token.read()).mint_public(context, to, amount);
+        Token::at(storage.token.read()).mint_public(&mut context, to, amount);
     }
     // docs:end:claim_public
 
@@ -51,15 +52,15 @@ contract TokenBridge {
     fn exit_to_l1_public(
         recipient: EthAddress, // ethereum address to withdraw to
         amount: Field,
-        callerOnL1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
+        caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         nonce: Field // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
         // Send an L2 to L1 message
-        let content = get_withdraw_content_hash(recipient, amount, callerOnL1);
+        let content = get_withdraw_content_hash(recipient, amount, caller_on_l1);
         context.message_portal(context.this_portal_address(), content);
 
         // Burn tokens
-        Token::at(storage.token.read()).burn_public(context, context.msg_sender(), amount, nonce);
+        Token::at(storage.token.read()).burn_public(&mut context, context.msg_sender(), amount, nonce);
     }
     // docs:end:exit_to_l1_public
     // docs:start:claim_private
@@ -69,14 +70,11 @@ contract TokenBridge {
     fn claim_private(
         secret_hash_for_redeeming_minted_notes: Field, // secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
         amount: Field,
-        canceller: EthAddress,
-        msg_key: Field, // L1 to L2 message key as derived from the inbox contract
         secret_for_L1_to_L2_message_consumption: Field // secret used to consume the L1 to L2 message
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller);
+        let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount);
         context.consume_l1_to_l2_message(
-            msg_key,
             content_hash,
             secret_for_L1_to_L2_message_consumption,
             context.this_portal_address()
@@ -102,11 +100,11 @@ contract TokenBridge {
         token: AztecAddress,
         recipient: EthAddress, // ethereum address to withdraw to
         amount: Field,
-        callerOnL1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
+        caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         nonce: Field // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
         // Send an L2 to L1 message
-        let content = get_withdraw_content_hash(recipient, amount, callerOnL1);
+        let content = get_withdraw_content_hash(recipient, amount, caller_on_l1);
         context.message_portal(context.this_portal_address(), content);
 
         // docs:start:call_assert_token_is_same
@@ -139,7 +137,9 @@ contract TokenBridge {
     // docs:end:read_token
 
     #[aztec(public)]
-    internal fn _initialize(token: AztecAddress) {
+    #[aztec(internal)]
+    #[aztec(noinitcheck)]
+    fn _initialize(token: AztecAddress) {
         storage.token.write(token);
     }
 
@@ -148,14 +148,16 @@ contract TokenBridge {
     // Also, note that user hashes their secret in private and only sends the hash in public
     // meaning only user can `redeem_shield` at a later time with their secret.
     #[aztec(public)]
-    internal fn _call_mint_on_token(amount: Field, secret_hash: Field) {
-        Token::at(storage.token.read()).mint_private(context, amount, secret_hash);
+    #[aztec(internal)]
+    fn _call_mint_on_token(amount: Field, secret_hash: Field) {
+        Token::at(storage.token.read()).mint_private(&mut context, amount, secret_hash);
     }
     // docs:end:call_mint_on_token
 
     // docs:start:assert_token_is_same
     #[aztec(public)]
-    internal fn _assert_token_is_same(token: AztecAddress) {
+    #[aztec(internal)]
+    fn _assert_token_is_same(token: AztecAddress) {
         assert(storage.token.read().eq(token), "Token address is not the same as seen in storage");
     }
     // docs:end:assert_token_is_same

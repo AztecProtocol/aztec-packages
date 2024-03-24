@@ -7,14 +7,16 @@
 namespace bb {
 
 template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<Transcript>& transcript,
-                                           const std::shared_ptr<VerifierInstance>& accumulator)
+DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator,
+                                           const std::shared_ptr<Transcript>& transcript)
     : accumulator(accumulator)
+    , pcs_verification_key(accumulator->verification_key->pcs_verification_key)
     , transcript(transcript)
 {}
+
 template <typename Flavor>
 DeciderVerifier_<Flavor>::DeciderVerifier_()
-    : pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, bb::srs::get_bn254_crs_factory()))
+    : pcs_verification_key(std::make_unique<VerifierCommitmentKey>())
     , transcript(std::make_shared<Transcript>())
 {}
 
@@ -25,15 +27,16 @@ DeciderVerifier_<Flavor>::DeciderVerifier_()
  */
 template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
-    using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphVerifier_<Curve>;
+    using PCS = typename Flavor::PCS;
+    using ZeroMorph = ZeroMorphVerifier_<PCS>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
     transcript = std::make_shared<Transcript>(proof);
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
-    auto sumcheck = SumcheckVerifier<Flavor>(accumulator->log_instance_size, transcript, accumulator->target_sum);
+    auto sumcheck =
+        SumcheckVerifier<Flavor>(accumulator->verification_key->log_circuit_size, transcript, accumulator->target_sum);
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);

@@ -15,6 +15,20 @@ namespace avm_mem(256);
 
     pol commit m_in_tag; // Instruction memory tag ("foreign key" pointing to avm_main.in_tag)
 
+    // Indicator of the intermediate register pertaining to the memory operation (foreign key to avm_main.mem_op_XXX)
+    pol commit m_op_a;
+    pol commit m_op_b;
+    pol commit m_op_c;
+
+    // Indicator of the indirect register pertaining to the memory operation (foreign key to avm_main.ind_op_XXX)
+    pol commit m_ind_op_a;
+    pol commit m_ind_op_b;
+    pol commit m_ind_op_c;
+
+    // Selector for MOV opcode (copied from main trace for loading operation on intermediated register ia)
+    // Boolean constraint is performed in main trace.
+    pol commit m_sel_mov;
+
     // Error columns
     pol commit m_tag_err; // Boolean (1 if m_in_tag != m_tag is detected)
 
@@ -26,9 +40,24 @@ namespace avm_mem(256);
     m_last * (1 - m_last) = 0;
     m_rw * (1 - m_rw) = 0;
     m_tag_err * (1 - m_tag_err) = 0;
+    m_op_a * (1 - m_op_a) = 0;
+    m_op_b * (1 - m_op_b) = 0;
+    m_op_c * (1 - m_op_c) = 0;
+    m_ind_op_a * (1 - m_ind_op_a) = 0;
+    m_ind_op_b * (1 - m_ind_op_b) = 0;
+    m_ind_op_c * (1 - m_ind_op_c) = 0;
 
     // TODO: m_addr is u32 and 0 <= m_tag <= 6
     //       (m_in_tag will be constrained through inclusion check to main trace)
+
+    // Maximum one memory operation enabled per row
+    pol MEM_SEL = m_op_a + m_op_b + m_op_c + m_ind_op_a + m_ind_op_b + m_ind_op_c;
+    MEM_SEL * (MEM_SEL - 1) = 0;
+
+    // sub_clk derivation
+    pol IND_OP = m_ind_op_a + m_ind_op_b + m_ind_op_c;
+    m_sub_clk = MEM_SEL * (m_ind_op_b + m_op_b + 2 * (m_ind_op_c + m_op_c) + 3 * (1 - IND_OP + m_rw));
+    // We need the MEM_SEL factor as the right factor is not zero when all columns are zero.
 
     // Remark: m_lastAccess == 1 on first row and therefore any relation with the
     //         multiplicative term (1 - m_lastAccess) implicitly includes (1 - avm_main.first)
@@ -98,9 +127,24 @@ namespace avm_mem(256);
     // m_in_tag == m_tag ==> m_tag_err == 0 (first relation)
     // m_tag_err == 0 ==> m_one_min_inv == 0 by second relation. First relation ==> m_in_tag - m_tag == 0
 
-    // TODO: when introducing load/store as sub-operations, we will have to add consistency of intermediate
-    // register values ia, ib, ic
+    //====== Indirect Memory Constraints =====================================
+    // Enforce m_in_tag == 3, i.e., in_tag must be U32
+    m_ind_op_a * (m_in_tag - 3) = 0;
+    m_ind_op_b * (m_in_tag - 3) = 0;
+    m_ind_op_c * (m_in_tag - 3) = 0;
 
-    // Inter-table Constraints
-    
-    // TODO: {m_clk, m_in_tag} IN {avm_main.clk, avm_main.in_tag}
+    // Indirect operation is always a load
+    m_ind_op_a * m_rw = 0;
+    m_ind_op_b * m_rw = 0;
+    m_ind_op_c * m_rw = 0;
+
+    //====== MOV Opcode in_tag Constraint =====================================
+    // The following constraint ensures that the m_in_tag is set to m_tag for
+    // the load operation pertaining to Ia.
+    // The permutation check #[PERM_MAIN_MEM_A] guarantees that the m_in_tag
+    // value load operation for Ia is copied back in the main trace. Then,
+    // #[PERM_MAIN_MEM_C] copies back m_in_tag for store operation from Ic.
+    // Finally, the following constraint guarantees that m_tag is correct for
+    // the output.
+    #[MOV_SAME_TAG]
+    m_sel_mov * m_tag_err = 0; // Equivalent to m_sel_mov * (m_in_tag - m_tag) = 0

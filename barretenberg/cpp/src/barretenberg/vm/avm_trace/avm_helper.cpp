@@ -9,7 +9,7 @@ namespace bb::avm_trace {
  * @param beg The index of the beginning of the slice. (included)
  * @param end The index of the end of the slice (not included).
  */
-void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end)
+void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end, bool enable_selectors)
 {
     info("Built circuit with ", trace.size(), " rows");
 
@@ -46,14 +46,16 @@ void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end)
         info("alu_ic              ", trace.at(i).avm_alu_alu_ic);
 
         info("=======MAIN TRACE====================================================================");
+        info("clk:                ", trace.at(i).avm_main_clk);
         info("ia:                 ", trace.at(i).avm_main_ia);
         info("ib:                 ", trace.at(i).avm_main_ib);
         info("ic:                 ", trace.at(i).avm_main_ic);
+        info("in_tag              ", trace.at(i).avm_main_in_tag);
+        info("tag_err             ", trace.at(i).avm_main_tag_err);
         info("first:              ", trace.at(i).avm_main_first);
         info("last:               ", trace.at(i).avm_main_last);
 
         info("=======MEM_OP_A======================================================================");
-        info("clk:                ", trace.at(i).avm_main_clk);
         info("mem_op_a:           ", trace.at(i).avm_main_mem_op_a);
         info("mem_idx_a:          ", trace.at(i).avm_main_mem_idx_a);
         info("rwa:                ", trace.at(i).avm_main_rwa);
@@ -67,8 +69,28 @@ void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end)
         info("mem_op_c:           ", trace.at(i).avm_main_mem_op_c);
         info("mem_idx_c:          ", trace.at(i).avm_main_mem_idx_c);
         info("rwc:                ", trace.at(i).avm_main_rwc);
+
+        if (enable_selectors) {
+            info("=======SELECTORS======================================================================");
+            info("sel_op_add:           ", trace.at(i).avm_main_sel_op_add);
+            info("sel_op_sub:           ", trace.at(i).avm_main_sel_op_sub);
+            info("sel_op_mul:           ", trace.at(i).avm_main_sel_op_mul);
+            info("sel_op_eq:            ", trace.at(i).avm_main_sel_op_eq);
+            info("sel_op_not:           ", trace.at(i).avm_main_sel_op_not);
+            info("sel_op_sel_alu:       ", trace.at(i).avm_main_alu_sel);
+        }
+
         info("\n");
     }
+}
+
+bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx)
+{
+    if (operand_idx > 7) {
+        return false;
+    }
+
+    return static_cast<bool>((ind_value & (1 << operand_idx)) >> operand_idx);
 }
 
 } // namespace bb::avm_trace

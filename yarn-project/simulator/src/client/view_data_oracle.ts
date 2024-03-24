@@ -184,10 +184,14 @@ export class ViewDataOracle extends TypedOracle {
   public async getNotes(
     storageSlot: Fr,
     numSelects: number,
-    selectBy: number[],
+    selectByIndexes: number[],
+    selectByOffsets: number[],
+    selectByLengths: number[],
     selectValues: Fr[],
     selectComparators: number[],
-    sortBy: number[],
+    sortByIndexes: number[],
+    sortByOffsets: number[],
+    sortByLengths: number[],
     sortOrder: number[],
     limit: number,
     offset: number,
@@ -195,10 +199,15 @@ export class ViewDataOracle extends TypedOracle {
   ): Promise<NoteData[]> {
     const dbNotes = await this.db.getNotes(this.contractAddress, storageSlot, status);
     return pickNotes<NoteData>(dbNotes, {
-      selects: selectBy
-        .slice(0, numSelects)
-        .map((index, i) => ({ index, value: selectValues[i], comparator: selectComparators[i] })),
-      sorts: sortBy.map((index, i) => ({ index, order: sortOrder[i] })),
+      selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
+        selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
+        value: selectValues[i],
+        comparator: selectComparators[i],
+      })),
+      sorts: sortByIndexes.map((index, i) => ({
+        selector: { index, offset: sortByOffsets[i], length: sortByLengths[i] },
+        order: sortOrder[i],
+      })),
       limit,
       offset,
     });
@@ -217,11 +226,11 @@ export class ViewDataOracle extends TypedOracle {
 
   /**
    * Fetches the a message from the db, given its key.
-   * @param msgKey - A buffer representing the message key.
-   * @returns The l1 to l2 message data
+   * @param messageHash - Hash of the message.
+   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  public async getL1ToL2Message(msgKey: Fr) {
-    return await this.db.getL1ToL2Message(msgKey);
+  public async getL1ToL2MembershipWitness(messageHash: Fr) {
+    return await this.db.getL1ToL2MembershipWitness(messageHash);
   }
 
   /**

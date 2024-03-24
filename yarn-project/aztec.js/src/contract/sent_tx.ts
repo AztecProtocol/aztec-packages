@@ -63,20 +63,20 @@ export class SentTx {
       throw new Error('Cannot set getNotes to true if waitForNotesSync is false');
     }
     const receipt = await this.waitForReceipt(opts);
-    if (receipt.status !== TxStatus.MINED) {
-      throw new Error(`Transaction ${await this.getTxHash()} was ${receipt.status}`);
+    if (receipt.status !== TxStatus.MINED && receipt.status !== TxStatus.REVERTED) {
+      throw new Error(
+        `Transaction ${await this.getTxHash()} was ${receipt.status}. Reason: ${receipt.error ?? 'unknown'}`,
+      );
     }
     if (opts?.debug) {
       const txHash = await this.getTxHash();
-      const tx = (await this.pxe.getTx(txHash))!;
+      const tx = (await this.pxe.getTxEffect(txHash))!;
       const visibleNotes = await this.pxe.getNotes({ txHash });
       receipt.debugInfo = {
-        newNoteHashes: tx.newNoteHashes,
-        newNullifiers: tx.newNullifiers,
-        newPublicDataWrites: tx.newPublicDataWrites,
-        newL2ToL1Msgs: tx.newL2ToL1Msgs,
-        newContracts: tx.newContracts,
-        newContractData: tx.newContractData,
+        noteHashes: tx.noteHashes.filter(n => !n.isZero()),
+        nullifiers: tx.nullifiers.filter(n => !n.isZero()),
+        publicDataWrites: tx.publicDataWrites.filter(p => !p.isEmpty()),
+        l2ToL1Msgs: tx.l2ToL1Msgs.filter(l => !l.isZero()),
         visibleNotes,
       };
     }

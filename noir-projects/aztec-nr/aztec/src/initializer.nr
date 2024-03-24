@@ -1,29 +1,45 @@
-use dep::protocol_types::hash::silo_nullifier;
-use crate::context::PrivateContext;
+use dep::protocol_types::{
+    hash::{silo_nullifier, pedersen_hash},
+    constants::GENERATOR_INDEX__CONSTRUCTOR,
+    abis::function_selector::FunctionSelector,
+};
 
-pub fn mark_as_initialized(context: &mut PrivateContext) {
-  let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context);
-  context.push_new_nullifier(init_nullifier, 0);
+use crate::{
+    context::{PrivateContext, PublicContext, ContextInterface},
+    oracle::get_contract_instance::get_contract_instance,
+    history::nullifier_inclusion::prove_nullifier_inclusion,
+};
 
-  // We push a commitment as well and use this value to check initialization,
-  // since we cannot yet read a nullifier from the same tx in which it was emitted.
-  // Eventually, when that's supported, we should delete this note_hash and
-  // have all checks rely on reading the nullifier directly.
-  // TODO(@spalladino) Remove when possible.
-  context.push_new_note_hash(init_nullifier);
+pub fn mark_as_initialized<TContext>(context: &mut TContext) where TContext: ContextInterface {
+    let init_nullifier = compute_unsiloed_contract_initialization_nullifier(*context);
+    ContextInterface::push_new_nullifier(context, init_nullifier, 0);
 }
 
-// TODO(@spalladino): Add a variant using PublicContext once we can read nullifiers or note hashes from public-land.
-pub fn assert_is_initialized(context: &mut PrivateContext) {
-  let init_nullifier = compute_contract_initialization_nullifier(context);
-  context.push_read_request(init_nullifier);
+pub fn assert_is_initialized<TContext>(context: &mut TContext) where TContext: ContextInterface {
+    let init_nullifier = compute_contract_initialization_nullifier(*context);
+    prove_nullifier_inclusion(init_nullifier, *context);
 }
 
-pub fn compute_contract_initialization_nullifier(context: &mut PrivateContext) -> Field {
-  let address = context.this_address();
-  silo_nullifier(address, compute_unsiloed_contract_initialization_nullifier(context))
+pub fn compute_contract_initialization_nullifier<TContext>(context: TContext) -> Field where TContext: ContextInterface {
+    let address = context.this_address();
+    silo_nullifier(
+        address,
+        compute_unsiloed_contract_initialization_nullifier(context)
+    )
 }
 
-pub fn compute_unsiloed_contract_initialization_nullifier(context: &mut PrivateContext) -> Field {
-  context.this_address().to_field()
+pub fn compute_unsiloed_contract_initialization_nullifier<TContext>(context: TContext) -> Field where TContext: ContextInterface {
+    context.this_address().to_field()
+}
+
+pub fn assert_initialization_matches_address_preimage<TContext>(context: TContext) where TContext: ContextInterface {
+    let address = context.this_address(); 
+    let instance = get_contract_instance(address);
+    let expected_init = compute_initialization_hash(context.selector(), context.get_args_hash());
+    assert(instance.initialization_hash == expected_init, "Initialization hash does not match");
+    assert((instance.deployer.is_zero()) | (instance.deployer == context.msg_sender()), "Initializer address is not the contract deployer");
+}
+
+pub fn compute_initialization_hash(init_selector: FunctionSelector, init_args_hash: Field) -> Field {
+    pedersen_hash([init_selector.to_field(), init_args_hash], GENERATOR_INDEX__CONSTRUCTOR)
 }

@@ -1,4 +1,3 @@
-use dep::std::option::Option;
 use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
 
 use dep::protocol_types::{address::AztecAddress, utils::arr_copy_slice};
@@ -31,10 +30,14 @@ unconstrained pub fn notify_nullified_note<N>(nullifier: Field, inner_note_hash:
 fn get_notes_oracle<N, S>(
     _storage_slot: Field,
     _num_selects: u8,
-    _select_by: [u8; N],
+    _select_by_indexes: [u8; N],
+    _select_by_offsets: [u8; N],
+    _select_by_lengths: [u8; N],
     _select_values: [Field; N],
     _select_comparators: [u8; N],
-    _sort_by: [u8; N],
+    _sort_by_indexes: [u8; N],
+    _sort_by_offsets: [u8; N],
+    _sort_by_lengths: [u8; N],
     _sort_order: [u8; N],
     _limit: u32,
     _offset: u32,
@@ -46,10 +49,14 @@ fn get_notes_oracle<N, S>(
 unconstrained fn get_notes_oracle_wrapper<N, S>(
     storage_slot: Field,
     num_selects: u8,
-    select_by: [u8; N],
+    select_by_indexes: [u8; N],
+    select_by_offsets: [u8; N],
+    select_by_lengths: [u8; N],
     select_values: [Field; N],
     select_comparators: [u8; N],
-    sort_by: [u8; N],
+    sort_by_indexes: [u8; N],
+    sort_by_offsets: [u8; N],
+    sort_by_lengths: [u8; N],
     sort_order: [u8; N],
     limit: u32,
     offset: u32,
@@ -60,10 +67,14 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
     get_notes_oracle(
         storage_slot,
         num_selects,
-        select_by,
+        select_by_indexes,
+        select_by_offsets,
+        select_by_lengths,
         select_values,
         select_comparators,
-        sort_by,
+        sort_by_indexes,
+        sort_by_offsets,
+        sort_by_lengths,
         sort_order,
         limit,
         offset,
@@ -76,10 +87,14 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
 unconstrained pub fn get_notes<Note, N, M, S, NS>(
     storage_slot: Field,
     num_selects: u8,
-    select_by: [u8; M],
+    select_by_indexes: [u8; M],
+    select_by_offsets: [u8; M],
+    select_by_lengths: [u8; M],
     select_values: [Field; M],
     select_comparators: [u8; M],
-    sort_by: [u8; M],
+    sort_by_indexes: [u8; M],
+    sort_by_offsets: [u8; M],
+    sort_by_lengths: [u8; M],
     sort_order: [u8; M],
     limit: u32,
     offset: u32,
@@ -91,10 +106,14 @@ unconstrained pub fn get_notes<Note, N, M, S, NS>(
     let fields = get_notes_oracle_wrapper(
         storage_slot,
         num_selects,
-        select_by,
+        select_by_indexes,
+        select_by_offsets,
+        select_by_lengths,
         select_values,
         select_comparators,
-        sort_by,
+        sort_by_indexes,
+        sort_by_offsets,
+        sort_by_lengths,
         sort_order,
         limit,
         offset,
@@ -114,7 +133,7 @@ unconstrained pub fn get_notes<Note, N, M, S, NS>(
             let header = NoteHeader { contract_address, nonce, storage_slot, is_transient };
             let serialized_note = arr_copy_slice(fields, [0; N], read_offset + 2);
             let mut note = Note::deserialize_content(serialized_note);
-            // TODO: change this to note.setHeader(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
+            // TODO: change this to note.set_header(header) once https://github.com/noir-lang/noir/issues/4095 is fixed
             Note::set_header(&mut note, header);
             placeholder_opt_notes[i] = Option::some(note);
         };

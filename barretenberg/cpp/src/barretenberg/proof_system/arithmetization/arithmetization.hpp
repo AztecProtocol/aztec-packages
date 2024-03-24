@@ -24,7 +24,7 @@ namespace bb {
  *
  * struct Component {
  *     using Arithmetic = component::Arithmetic3Wires;
- *     using RangeConstraints = component::Base4Accumulators or component::GenPerm or...
+ *     using RangeConstraints = component::Base4Accumulators or component::DeltaRangeConstraint or...
  *     using LookupTables = component::Plookup4Wire or component::CQ8Wire or...
  *     ...
  * };
@@ -48,8 +48,12 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 
     Wires wires; // vectors of indices into a witness variables array
     Selectors selectors;
+    bool has_ram_rom = false;   // does the block contain RAM/ROM gates
+    bool is_pub_inputs = false; // is this the public inputs block
 
     bool operator==(const ExecutionTraceBlock& other) const = default;
+
+    size_t size() const { return std::get<0>(this->wires).size(); }
 
     void reserve(size_t size_hint)
     {
@@ -82,12 +86,20 @@ template <typename FF_> class StandardArith {
         auto& w_l() { return std::get<0>(this->wires); };
         auto& w_r() { return std::get<1>(this->wires); };
         auto& w_o() { return std::get<2>(this->wires); };
+        const auto& w_l() const { return std::get<0>(this->wires); };
+        const auto& w_r() const { return std::get<1>(this->wires); };
+        const auto& w_o() const { return std::get<2>(this->wires); };
 
         auto& q_m() { return this->selectors[0]; };
         auto& q_1() { return this->selectors[1]; };
         auto& q_2() { return this->selectors[2]; };
         auto& q_3() { return this->selectors[3]; };
         auto& q_c() { return this->selectors[4]; };
+        const auto& q_m() const { return this->selectors[0]; };
+        const auto& q_1() const { return this->selectors[1]; };
+        const auto& q_2() const { return this->selectors[2]; };
+        const auto& q_3() const { return this->selectors[3]; };
+        const auto& q_c() const { return this->selectors[4]; };
     };
 
     struct TraceBlocks {
@@ -131,7 +143,7 @@ template <typename FF_> class UltraArith {
         auto& q_3() { return this->selectors[4]; };
         auto& q_4() { return this->selectors[5]; };
         auto& q_arith() { return this->selectors[6]; };
-        auto& q_sort() { return this->selectors[7]; };
+        auto& q_delta_range() { return this->selectors[7]; };
         auto& q_elliptic() { return this->selectors[8]; };
         auto& q_aux() { return this->selectors[9]; };
         auto& q_lookup_type() { return this->selectors[10]; };
@@ -139,9 +151,31 @@ template <typename FF_> class UltraArith {
 
     struct TraceBlocks {
         UltraTraceBlock pub_inputs;
-        UltraTraceBlock main;
+        UltraTraceBlock arithmetic;
+        UltraTraceBlock delta_range;
+        UltraTraceBlock elliptic;
+        UltraTraceBlock aux;
+        UltraTraceBlock lookup;
 
-        auto get() { return RefArray{ pub_inputs, main }; }
+        TraceBlocks()
+        {
+            aux.has_ram_rom = true;
+            pub_inputs.is_pub_inputs = true;
+        }
+
+        auto get() { return RefArray{ pub_inputs, arithmetic, delta_range, elliptic, aux, lookup }; }
+
+        void summarize()
+        {
+            info("Gate blocks summary:");
+            info("pub inputs:\t", pub_inputs.size());
+            info("arithmetic:\t", arithmetic.size());
+            info("delta range:\t", delta_range.size());
+            info("elliptic:\t", elliptic.size());
+            info("auxiliary:\t", aux.size());
+            info("lookups:\t", lookup.size());
+            info("");
+        }
 
         bool operator==(const TraceBlocks& other) const = default;
     };
@@ -186,7 +220,7 @@ template <typename FF_> class UltraHonkArith {
         auto& q_3() { return this->selectors[4]; };
         auto& q_4() { return this->selectors[5]; };
         auto& q_arith() { return this->selectors[6]; };
-        auto& q_sort() { return this->selectors[7]; };
+        auto& q_delta_range() { return this->selectors[7]; };
         auto& q_elliptic() { return this->selectors[8]; };
         auto& q_aux() { return this->selectors[9]; };
         auto& q_lookup_type() { return this->selectors[10]; };
@@ -224,9 +258,44 @@ template <typename FF_> class UltraHonkArith {
     struct TraceBlocks {
         UltraHonkTraceBlock ecc_op;
         UltraHonkTraceBlock pub_inputs;
-        UltraHonkTraceBlock main;
+        UltraHonkTraceBlock arithmetic;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/919): Change: DeltaRangeConstraint -->
+        // DeltaRangeConstraint
+        UltraHonkTraceBlock delta_range;
+        UltraHonkTraceBlock elliptic;
+        UltraHonkTraceBlock aux;
+        UltraHonkTraceBlock lookup;
+        UltraHonkTraceBlock busread;
+        UltraHonkTraceBlock poseidon_external;
+        UltraHonkTraceBlock poseidon_internal;
 
-        auto get() { return RefArray{ ecc_op, pub_inputs, main }; }
+        TraceBlocks()
+        {
+            aux.has_ram_rom = true;
+            pub_inputs.is_pub_inputs = true;
+        }
+
+        auto get()
+        {
+            return RefArray{ ecc_op, pub_inputs, arithmetic, delta_range,       elliptic,
+                             aux,    lookup,     busread,    poseidon_external, poseidon_internal };
+        }
+
+        void summarize()
+        {
+            info("Gate blocks summary:");
+            info("goblin ecc op:\t", ecc_op.size());
+            info("pub inputs:\t", pub_inputs.size());
+            info("arithmetic:\t", arithmetic.size());
+            info("delta range:\t", delta_range.size());
+            info("elliptic:\t", elliptic.size());
+            info("auxiliary:\t", aux.size());
+            info("lookups:\t", lookup.size());
+            info("busread:\t", busread.size());
+            info("poseidon ext:\t", poseidon_external.size());
+            info("poseidon int:\t", poseidon_internal.size());
+            info("");
+        }
 
         bool operator==(const TraceBlocks& other) const = default;
     };

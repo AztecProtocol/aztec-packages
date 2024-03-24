@@ -2,17 +2,17 @@ mod events;
 mod capsule;
 
 contract ContractClassRegisterer {
-    use dep::std::option::Option;
+    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, emit_unencrypted_log};
     use dep::aztec::protocol_types::{
-        address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
+        contract_class_id::ContractClassId,
         constants::{
         ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, FUNCTION_TREE_HEIGHT,
         MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE
     },
-        traits::{Serialize}
+        traits::Serialize
     };
 
-    use dep::aztec::log::{emit_unencrypted_log, emit_unencrypted_log_from_private};
+    use dep::aztec::log::emit_unencrypted_log_from_private;
 
     use crate::events::{
         class_registered::ContractClassRegistered,
@@ -21,9 +21,6 @@ contract ContractClassRegisterer {
     };
 
     use crate::capsule::pop_capsule;
-
-    #[aztec(private)]
-    fn constructor() {}
 
     #[aztec(private)]
     fn register(artifact_hash: Field, private_functions_root: Field, public_bytecode_commitment: Field) {
@@ -62,7 +59,9 @@ contract ContractClassRegisterer {
         artifact_metadata_hash: Field,
         unconstrained_functions_artifact_tree_root: Field,
         private_function_tree_sibling_path: [Field; FUNCTION_TREE_HEIGHT],
+        private_function_tree_leaf_index: Field,
         artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
+        artifact_function_tree_leaf_index: Field,
         function_data: PrivateFunction
     ) {
         let event = ClassPrivateFunctionBroadcasted {
@@ -70,7 +69,9 @@ contract ContractClassRegisterer {
             artifact_metadata_hash,
             unconstrained_functions_artifact_tree_root,
             private_function_tree_sibling_path,
+            private_function_tree_leaf_index,
             artifact_function_tree_sibling_path,
+            artifact_function_tree_leaf_index,
             function: function_data
         };
         dep::aztec::oracle::debug_log::debug_log_array_with_prefix(
@@ -93,6 +94,7 @@ contract ContractClassRegisterer {
         artifact_metadata_hash: Field,
         private_functions_artifact_tree_root: Field,
         artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
+        artifact_function_tree_leaf_index: Field,
         function_data: UnconstrainedFunction
     ) {
         let event = ClassUnconstrainedFunctionBroadcasted {
@@ -100,6 +102,7 @@ contract ContractClassRegisterer {
             artifact_metadata_hash,
             private_functions_artifact_tree_root,
             artifact_function_tree_sibling_path,
+            artifact_function_tree_leaf_index,
             function: function_data
         };
         dep::aztec::oracle::debug_log::debug_log_array_with_prefix(

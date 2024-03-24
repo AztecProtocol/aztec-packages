@@ -8,7 +8,7 @@ import {
   BatchCall,
   CheatCodes,
   CompleteAddress,
-  Contract,
+  ContractMethod,
   DebugLogger,
   DeployL1Contracts,
   EthCheatCodes,
@@ -17,32 +17,40 @@ import {
   LogType,
   PXE,
   SentTx,
+  SignerlessWallet,
   Wallet,
   createAztecNodeClient,
   createDebugLogger,
   createPXEClient,
   deployL1Contracts,
+  fileURLToPath,
   makeFetch,
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multi-call';
+import { randomBytes } from '@aztec/foundation/crypto';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
-  ContractDeploymentEmitterAbi,
-  ContractDeploymentEmitterBytecode,
+  GasPortalAbi,
+  GasPortalBytecode,
   InboxAbi,
   InboxBytecode,
   OutboxAbi,
   OutboxBytecode,
+  PortalERC20Abi,
+  PortalERC20Bytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
+import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 import { PXEService, PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { SequencerClient } from '@aztec/sequencer-client';
 
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import {
   Account,
@@ -52,6 +60,7 @@ import {
   PrivateKeyAccount,
   createPublicClient,
   createWalletClient,
+  getContract,
   http,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -62,10 +71,39 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
-const { PXE_URL = '' } = process.env;
+const {
+  PXE_URL = '',
+  NOIR_RELEASE_DIR = 'noir-repo/target/release',
+  TEMP_DIR = '/tmp',
+  ACVM_BINARY_PATH = '',
+  ACVM_WORKING_DIRECTORY = '',
+  ENABLE_GAS = '',
+} = process.env;
 
 const getAztecUrl = () => {
   return PXE_URL;
+};
+
+// Determines if we have access to the acvm binary and a tmp folder for temp files
+const getACVMConfig = async (logger: DebugLogger) => {
+  try {
+    const expectedAcvmPath = ACVM_BINARY_PATH
+      ? ACVM_BINARY_PATH
+      : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../noir/', NOIR_RELEASE_DIR)}/acvm`;
+    await fs.access(expectedAcvmPath, fs.constants.R_OK);
+    const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
+    const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
+    await fs.mkdir(acvmWorkingDirectory, { recursive: true });
+    logger(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
+    return {
+      acvmWorkingDirectory,
+      expectedAcvmPath,
+      directoryToCleanup: ACVM_WORKING_DIRECTORY ? undefined : tempWorkingDirectory,
+    };
+  } catch (err) {
+    logger(`Native ACVM not available, error: ${err}`);
+    return undefined;
+  }
 };
 
 export const setupL1Contracts = async (
@@ -74,10 +112,6 @@ export const setupL1Contracts = async (
   logger: DebugLogger,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
-    contractDeploymentEmitter: {
-      contractAbi: ContractDeploymentEmitterAbi,
-      contractBytecode: ContractDeploymentEmitterBytecode,
-    },
     registry: {
       contractAbi: RegistryAbi,
       contractBytecode: RegistryBytecode,
@@ -98,9 +132,38 @@ export const setupL1Contracts = async (
       contractAbi: RollupAbi,
       contractBytecode: RollupBytecode,
     },
+    gasToken: {
+      contractAbi: PortalERC20Abi,
+      contractBytecode: PortalERC20Bytecode,
+    },
+    gasPortal: {
+      contractAbi: GasPortalAbi,
+      contractBytecode: GasPortalBytecode,
+    },
   };
-  return await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts);
+
+  const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts);
+  await initGasBridge(l1Data);
+
+  return l1Data;
 };
+
+async function initGasBridge({ walletClient, l1ContractAddresses }: DeployL1Contracts) {
+  const gasPortal = getContract({
+    address: l1ContractAddresses.gasPortalAddress.toString(),
+    abi: GasPortalAbi,
+    client: walletClient,
+  });
+
+  await gasPortal.write.initialize(
+    [
+      l1ContractAddresses.registryAddress.toString(),
+      l1ContractAddresses.gasTokenAddress.toString(),
+      getCanonicalGasTokenAddress(l1ContractAddresses.gasPortalAddress).toString(),
+    ],
+    {} as any,
+  );
+}
 
 /**
  * Sets up Private eXecution Environment (PXE).
@@ -200,6 +263,12 @@ async function setupWithRemoteEnvironment(
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
+  if (['1', 'true'].includes(ENABLE_GAS)) {
+    // this contract might already have been deployed
+    // the following function is idempotent
+    await deployCanonicalGasToken(new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint()));
+  }
+
   return {
     aztecNode,
     sequencer: undefined,
@@ -290,10 +359,21 @@ export async function setup(
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
   logger('Creating and synching an aztec node...');
+
+  const acvmConfig = await getACVMConfig(logger);
+  if (acvmConfig) {
+    config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
+    config.acvmBinaryPath = acvmConfig.expectedAcvmPath;
+  }
+  config.l1BlockPublishRetryIntervalMS = 100;
   const aztecNode = await AztecNodeService.createAndSync(config);
   const sequencer = aztecNode.getSequencer();
 
   const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
+
+  if (['1', 'true'].includes(ENABLE_GAS)) {
+    await deployCanonicalGasToken(new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint()));
+  }
 
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
 
@@ -303,6 +383,12 @@ export async function setup(
     }
     if (pxe instanceof PXEService) {
       await pxe?.stop();
+    }
+
+    if (acvmConfig?.directoryToCleanup) {
+      // remove the temp directory created for the acvm
+      logger(`Cleaning up ACVM temp directory ${acvmConfig.directoryToCleanup}`);
+      await fs.rm(acvmConfig.directoryToCleanup, { recursive: true, force: true });
     }
   };
 
@@ -369,16 +455,6 @@ export function getLogger() {
   return createDebugLogger('aztec:' + describeBlockName);
 }
 
-// docs:start:delay
-/**
- * Sleep for a given number of milliseconds.
- * @param ms - the number of milliseconds to sleep for
- */
-export function delay(ms: number): Promise<void> {
-  return new Promise<void>(resolve => setTimeout(resolve, ms));
-}
-// docs:end:delay
-
 /**
  * Checks the number of encrypted logs in the last block is as expected.
  * @param aztecNode - The instance of aztec node for retrieving the logs.
@@ -431,14 +507,14 @@ export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessag
   expect(asciiLogs).toStrictEqual(logMessages);
 };
 
-export type PublicBalancesFn = ReturnType<typeof getPublicBalancesFn>;
-export function getPublicBalancesFn(
+export type BalancesFn = ReturnType<typeof getBalancesFn>;
+export function getBalancesFn(
   symbol: string,
-  contract: Contract,
+  method: ContractMethod,
   logger: any,
 ): (...addresses: AztecAddress[]) => Promise<bigint[]> {
   const balances = async (...addresses: AztecAddress[]) => {
-    const b = await Promise.all(addresses.map(address => contract.methods.balance_of_public(address).view()));
+    const b = await Promise.all(addresses.map(address => method(address).view()));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger(debugString);
     return b;
@@ -447,13 +523,37 @@ export function getPublicBalancesFn(
   return balances;
 }
 
-export async function assertPublicBalances(
-  balances: PublicBalancesFn,
-  addresses: AztecAddress[],
-  expectedBalances: bigint[],
-) {
-  const actualBalances = await balances(...addresses);
-  for (let i = 0; i < addresses.length; i++) {
-    expect(actualBalances[i]).toBe(expectedBalances[i]);
+export async function expectMapping<K, V>(
+  fn: (...k: K[]) => Promise<V[]>,
+  inputs: K[],
+  expectedOutputs: V[],
+): Promise<void> {
+  expect(inputs.length).toBe(expectedOutputs.length);
+
+  const outputs = await fn(...inputs);
+
+  expect(outputs).toEqual(expectedOutputs);
+}
+
+/**
+ * Deploy the protocol contracts to a running instance.
+ */
+export async function deployCanonicalGasToken(deployer: Wallet) {
+  // "deploy" the Gas token as it contains public functions
+  const gasPortalAddress = (await deployer.getNodeInfo()).l1ContractAddresses.gasPortalAddress;
+  const canonicalGasToken = getCanonicalGasToken(gasPortalAddress);
+
+  if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
+    return;
   }
+
+  await new BatchCall(deployer, [
+    (await registerContractClass(deployer, canonicalGasToken.artifact)).request(),
+    deployInstance(deployer, canonicalGasToken.instance).request(),
+  ])
+    .send()
+    .wait();
+
+  await expect(deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)).resolves.toBe(true);
+  await expect(deployer.getContractInstance(canonicalGasToken.instance.address)).resolves.toBeDefined();
 }

@@ -160,7 +160,7 @@ Circuits work by having a fixed size array. As such, we have limits on how many 
 - too many transient read requests in one tx
 - too many transient read request membership witnesses in one tx
 
-You can have a look at our current constants/limitations in [constants.nr](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-protocol-circuits/src/crates/types/src/constants.nr)
+You can have a look at our current constants/limitations in [constants.nr](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr)
 
 #### 7008 - MEMBERSHIP_CHECK_FAILED
 
@@ -177,17 +177,15 @@ Users may create a proof against a historical state in Aztec. The rollup circuit
 
 ## Archiver Errors
 
-- "L1 to L2 Message with key ${messageKey.toString()} not found in the confirmed messages store" - happens when the L1 to L2 message doesn't exist or is "pending", when the user has sent a message on L1 via the Inbox contract but it has yet to be included in an L2 block by the sequencer - user has to wait for sequencer to pick it up and the archiver to sync the respective L2 block. You can get the sequencer to pick it up by doing an arbitrary transaction on L2 (eg send DAI to yourself). This would give the sequencer a transaction to process and as a side effect it would look for any pending messages it should include.
-
-- "Unable to remove message: L1 to L2 Message with key ${messageKeyBigInt} not found in store" - happens when trying to confirm a non-existent pending message or cancelling such a message. Perhaps the sequencer has already confirmed the message?
+- "No L1 to L2 message found for message hash ${messageHash.toString()}" - happens when the L1 to L2 message doesn't exist or is "pending", when the user has sent a message on L1 via the Inbox contract but it has yet to be included in an L2 block by the sequencer - user has to wait for enough blocks to progress and for the archiver to sync the respective L2 block. You can get the sequencer to pick it up by doing 2 arbitrary transaction on L2 (eg. send DAI to yourself 2 times). This would give the sequencer a transaction to process and as a side effect it would consume 2 subtrees of new messages from the Inbox contract. 2 subtrees needs to be consumed and not just 1 because there is a 1 block lag to prevent the subtree from changing when the sequencer is proving.
 
 - "Block number mismatch: expected ${l2BlockNum} but got ${block.number}" - The archiver keeps track of the next expected L2 block number. It throws this error if it got a different one when trying to sync with the rollup contract's events on L1.
 
 ## Sequencer Errors
 
-- "Calldata hash mismatch" - the sequencer assembles a block and sends it to the rollup circuits for proof generation. Along with the proof, the circuits return the hash of the calldata that must be sent to the Rollup contract on L1. Before doing so, the sequencer sanity checks that this hash is equivalent to the calldata hash of the block that it submitted. This could be a bug in our code e.g. if we are ordering things differently in circuits and in our transaction/block (e.g. incorrect ordering of encrypted logs or queued public calls). Easiest way to debug this is by printing the calldata of the block both on the TS (in l2Block.getCalldataHash()) and C++ side (in the base rollup)
+- "Txs effects hash mismatch" - the sequencer assembles a block and sends it to the rollup circuits for proof generation. Along with the proof, the circuits return the hash of the transaction effects that must be sent to the Rollup contract on L1. Before doing so, the sequencer sanity checks that this hash is equivalent to the transaction effects hash of the block that it submitted. This could be a bug in our code e.g. if we are ordering things differently in circuits and in our transaction/block (e.g. incorrect ordering of encrypted logs or queued public calls). Easiest way to debug this is by printing the txs effects hash of the block both on the TS (in l2Block.getTxsEffectsHash()) and noir side (in the base rollup)
 
-- "${treeName} tree root mismatch" - like with calldata mismatch, it validates that the root of the tree matches the output of the circuit simulation. The tree name could be Public data tree, Note Hash Tree, Contract tree, Nullifier tree or the L1ToL2Message tree,
+- "${treeName} tree root mismatch" - like with txs effects hash mismatch, it validates that the root of the tree matches the output of the circuit simulation. The tree name could be Public data tree, Note Hash Tree, Contract tree, Nullifier tree or the L1ToL2Message tree,
 
 - "${treeName} tree next available leaf index mismatch" - validating a tree's root is not enough. It also checks that the `next_available_leaf_index` is as expected. This is the next index we can insert new values into. Note that for the public data tree, this test is skipped since as it is a sparse tree unlike the others.
 

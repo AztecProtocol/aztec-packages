@@ -1,5 +1,6 @@
 #include "avm_execution.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/flavor/generated/avm_flavor.hpp"
 #include "barretenberg/proof_system/circuit_builder/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
@@ -7,9 +8,11 @@
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
 #include "barretenberg/vm/generated/avm_composer.hpp"
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <tuple>
 #include <variant>
 #include <vector>
 
@@ -35,7 +38,41 @@ HonkProof Execution::run_and_prove(std::vector<uint8_t> const& bytecode, std::ve
 
     auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
-    return prover.construct_proof();
+    auto verifier = composer.create_verifier(circuit_builder);
+    auto proof = prover.construct_proof();
+    return proof;
+}
+
+std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<uint8_t> const& bytecode,
+                                                                   std::vector<FF> const& calldata)
+{
+    auto instructions = Deserialization::parse(bytecode);
+    auto trace = gen_trace(instructions, calldata);
+    auto circuit_builder = bb::AvmCircuitBuilder();
+    circuit_builder.set_trace(std::move(trace));
+
+    // Temporarily use this until #4954 is resolved
+    assert(circuit_builder.check_circuit());
+
+    auto composer = AvmComposer();
+    auto prover = composer.create_prover(circuit_builder);
+    auto verifier = composer.create_verifier(circuit_builder);
+    auto proof = prover.construct_proof();
+    // TODO(#4887): Might need to return PCS vk when full verify is supported
+    return std::make_tuple(*verifier.key, proof);
+}
+
+bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
+{
+    auto verification_key = std::make_shared<AvmFlavor::VerificationKey>(vk);
+    AvmVerifier verifier(verification_key);
+
+    // todo: not needed for now until we verify the PCS/pairing of the proof
+    // auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size,
+    // crs_factory_);
+    // output_state.pcs_verification_key = std::move(pcs_verification_key);
+
+    return verifier.verify_proof(proof);
 }
 
 /**
@@ -58,44 +95,52 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     while ((pc = trace_builder.getPc()) < inst_size) {
         auto inst = instructions.at(pc);
 
+        // TODO: We do not yet support the indirect flag. Therefore we do not extract
+        // inst.operands(0) (i.e. the indirect flag) when processiing the instructions.
         switch (inst.op_code) {
             // Compute
             // Compute - Arithmetic
         case OpCode::ADD:
-            trace_builder.op_add(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.op_add(std::get<uint8_t>(inst.operands.at(0)),
                                  std::get<uint32_t>(inst.operands.at(2)),
                                  std::get<uint32_t>(inst.operands.at(3)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(0)));
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
         case OpCode::SUB:
-            trace_builder.op_sub(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.op_sub(std::get<uint8_t>(inst.operands.at(0)),
                                  std::get<uint32_t>(inst.operands.at(2)),
                                  std::get<uint32_t>(inst.operands.at(3)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(0)));
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
         case OpCode::MUL:
-            trace_builder.op_mul(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.op_mul(std::get<uint8_t>(inst.operands.at(0)),
                                  std::get<uint32_t>(inst.operands.at(2)),
                                  std::get<uint32_t>(inst.operands.at(3)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(0)));
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
         case OpCode::DIV:
-            trace_builder.op_div(std::get<uint32_t>(inst.operands.at(1)),
+            trace_builder.op_div(std::get<uint8_t>(inst.operands.at(0)),
                                  std::get<uint32_t>(inst.operands.at(2)),
                                  std::get<uint32_t>(inst.operands.at(3)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(0)));
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
         // Compute - Bitwise
         case OpCode::NOT:
-            trace_builder.op_not(std::get<uint32_t>(inst.operands.at(1)),
-                                 std::get<uint32_t>(inst.operands.at(3)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(0)));
+            trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
             // Execution Environment - Calldata
         case OpCode::CALLDATACOPY:
-            trace_builder.calldata_copy(std::get<uint32_t>(inst.operands.at(0)),
+            trace_builder.calldata_copy(std::get<uint8_t>(inst.operands.at(0)),
                                         std::get<uint32_t>(inst.operands.at(1)),
                                         std::get<uint32_t>(inst.operands.at(2)),
+                                        std::get<uint32_t>(inst.operands.at(3)),
                                         calldata);
             break;
             // Machine State - Internal Control Flow
@@ -112,24 +157,25 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         case OpCode::SET: {
             uint32_t dst_offset = 0;
             uint128_t val = 0;
-            AvmMemoryTag in_tag = std::get<AvmMemoryTag>(inst.operands.at(0));
-            dst_offset = std::get<uint32_t>(inst.operands.at(2));
+            // Skip the indirect flag at index 0;
+            AvmMemoryTag in_tag = std::get<AvmMemoryTag>(inst.operands.at(1));
+            dst_offset = std::get<uint32_t>(inst.operands.at(3));
 
             switch (in_tag) {
             case AvmMemoryTag::U8:
-                val = std::get<uint8_t>(inst.operands.at(1));
+                val = std::get<uint8_t>(inst.operands.at(2));
                 break;
             case AvmMemoryTag::U16:
-                val = std::get<uint16_t>(inst.operands.at(1));
+                val = std::get<uint16_t>(inst.operands.at(2));
                 break;
             case AvmMemoryTag::U32:
-                val = std::get<uint32_t>(inst.operands.at(1));
+                val = std::get<uint32_t>(inst.operands.at(2));
                 break;
             case AvmMemoryTag::U64:
-                val = std::get<uint64_t>(inst.operands.at(1));
+                val = std::get<uint64_t>(inst.operands.at(2));
                 break;
             case AvmMemoryTag::U128:
-                val = std::get<uint128_t>(inst.operands.at(1));
+                val = std::get<uint128_t>(inst.operands.at(2));
                 break;
             default:
                 break;
@@ -138,9 +184,16 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.set(val, dst_offset, in_tag);
             break;
         }
+        case OpCode::MOV:
+            trace_builder.op_mov(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(1)),
+                                 std::get<uint32_t>(inst.operands.at(2)));
+            break;
             // Control Flow - Contract Calls
         case OpCode::RETURN:
-            trace_builder.return_op(std::get<uint32_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
+            trace_builder.return_op(std::get<uint8_t>(inst.operands.at(0)),
+                                    std::get<uint32_t>(inst.operands.at(1)),
+                                    std::get<uint32_t>(inst.operands.at(2)));
             break;
         default:
             break;

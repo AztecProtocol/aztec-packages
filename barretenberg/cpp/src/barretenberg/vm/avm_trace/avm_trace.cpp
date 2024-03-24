@@ -8,6 +8,9 @@
 #include <sys/types.h>
 #include <vector>
 
+#include "avm_common.hpp"
+#include "avm_helper.hpp"
+#include "avm_mem_trace.hpp"
 #include "avm_trace.hpp"
 
 namespace bb::avm_trace {
@@ -32,30 +35,82 @@ void AvmTraceBuilder::reset()
     alu_trace_builder.reset();
 }
 
+AvmTraceBuilder::IndirectThreeResolution AvmTraceBuilder::resolve_ind_three(
+    uint32_t clk, uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+{
+    bool indirect_flag_a = is_operand_indirect(indirect, 0);
+    bool indirect_flag_b = is_operand_indirect(indirect, 1);
+    bool indirect_flag_c = is_operand_indirect(indirect, 2);
+
+    uint32_t direct_a_offset = a_offset;
+    uint32_t direct_b_offset = b_offset;
+    uint32_t direct_dst_offset = dst_offset;
+
+    bool tag_match = true;
+
+    if (indirect_flag_a) {
+        auto read_ind_a = mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_A, a_offset);
+        direct_a_offset = uint32_t(read_ind_a.val);
+        tag_match = tag_match && read_ind_a.tag_match;
+    }
+
+    if (indirect_flag_b) {
+        auto read_ind_b = mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_B, b_offset);
+        direct_b_offset = uint32_t(read_ind_b.val);
+        tag_match = tag_match && read_ind_b.tag_match;
+    }
+
+    if (indirect_flag_c) {
+        auto read_ind_c =
+            mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_C, dst_offset);
+        direct_dst_offset = uint32_t(read_ind_c.val);
+        tag_match = tag_match && read_ind_c.tag_match;
+    }
+
+    return IndirectThreeResolution{
+        .tag_match = tag_match,
+        .direct_a_offset = direct_a_offset,
+        .direct_b_offset = direct_b_offset,
+        .direct_dst_offset = direct_dst_offset,
+        .indirect_flag_a = indirect_flag_a,
+        .indirect_flag_b = indirect_flag_b,
+        .indirect_flag_c = indirect_flag_c,
+    };
+}
+
 /**
- * @brief Addition with direct memory access.
+ * @brief Addition with direct or indirect memory access.
  *
+ * @param indirect A byte encoding information about indirect/direct memory access.
  * @param a_offset An index in memory pointing to the first operand of the addition.
  * @param b_offset An index in memory pointing to the second operand of the addition.
  * @param dst_offset An index in memory pointing to the output of the addition.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_add(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_add(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
+    auto const res = resolve_ind_three(clk, indirect, a_offset, b_offset, dst_offset);
+    bool tag_match = res.tag_match;
+
     // Reading from memory and loading into ia resp. ib.
-    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, a_offset, in_tag);
-    auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, b_offset, in_tag);
-    bool tag_match = read_a.tag_match && read_b.tag_match;
+    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, res.direct_a_offset, in_tag);
+    auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, res.direct_b_offset, in_tag);
+    tag_match = read_a.tag_match && read_b.tag_match;
 
     // a + b = c
-    FF a = tag_match ? read_a.val : FF(0);
-    FF b = tag_match ? read_b.val : FF(0);
-    FF c = alu_trace_builder.op_add(a, b, in_tag, clk);
+    FF a = read_a.val;
+    FF b = read_b.val;
+
+    // In case of a memory tag error, we do not perform the computation.
+    // Therefore, we do not create any entry in ALU table and store the value 0 as
+    // output (c) in memory.
+    FF c = tag_match ? alu_trace_builder.op_add(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
-    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, res.direct_dst_offset, c, in_tag);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -71,36 +126,51 @@ void AvmTraceBuilder::op_add(uint32_t a_offset, uint32_t b_offset, uint32_t dst_
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
         .avm_main_rwc = FF(1),
-        .avm_main_mem_idx_a = FF(a_offset),
-        .avm_main_mem_idx_b = FF(b_offset),
-        .avm_main_mem_idx_c = FF(dst_offset),
+        .avm_main_ind_a = res.indirect_flag_a ? FF(a_offset) : FF(0),
+        .avm_main_ind_b = res.indirect_flag_b ? FF(b_offset) : FF(0),
+        .avm_main_ind_c = res.indirect_flag_c ? FF(dst_offset) : FF(0),
+        .avm_main_ind_op_a = FF(static_cast<uint32_t>(res.indirect_flag_a)),
+        .avm_main_ind_op_b = FF(static_cast<uint32_t>(res.indirect_flag_b)),
+        .avm_main_ind_op_c = FF(static_cast<uint32_t>(res.indirect_flag_c)),
+        .avm_main_mem_idx_a = FF(res.direct_a_offset),
+        .avm_main_mem_idx_b = FF(res.direct_b_offset),
+        .avm_main_mem_idx_c = FF(res.direct_dst_offset),
     });
-};
+}
 
 /**
- * @brief Subtraction with direct memory access.
+ * @brief Subtraction with direct or indirect memory access.
  *
+ * @param indirect A byte encoding information about indirect/direct memory access.
  * @param a_offset An index in memory pointing to the first operand of the subtraction.
  * @param b_offset An index in memory pointing to the second operand of the subtraction.
  * @param dst_offset An index in memory pointing to the output of the subtraction.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_sub(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_sub(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
+    auto const res = resolve_ind_three(clk, indirect, a_offset, b_offset, dst_offset);
+    bool tag_match = res.tag_match;
+
     // Reading from memory and loading into ia resp. ib.
-    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, a_offset, in_tag);
-    auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, b_offset, in_tag);
-    bool tag_match = read_a.tag_match && read_b.tag_match;
+    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, res.direct_a_offset, in_tag);
+    auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, res.direct_b_offset, in_tag);
+    tag_match = read_a.tag_match && read_b.tag_match;
 
     // a - b = c
-    FF a = tag_match ? read_a.val : FF(0);
-    FF b = tag_match ? read_b.val : FF(0);
-    FF c = alu_trace_builder.op_sub(a, b, in_tag, clk);
+    FF a = read_a.val;
+    FF b = read_b.val;
+
+    // In case of a memory tag error, we do not perform the computation.
+    // Therefore, we do not create any entry in ALU table and store the value 0 as
+    // output (c) in memory.
+    FF c = tag_match ? alu_trace_builder.op_sub(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
-    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, res.direct_dst_offset, c, in_tag);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -116,36 +186,51 @@ void AvmTraceBuilder::op_sub(uint32_t a_offset, uint32_t b_offset, uint32_t dst_
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
         .avm_main_rwc = FF(1),
-        .avm_main_mem_idx_a = FF(a_offset),
-        .avm_main_mem_idx_b = FF(b_offset),
-        .avm_main_mem_idx_c = FF(dst_offset),
+        .avm_main_ind_a = res.indirect_flag_a ? FF(a_offset) : FF(0),
+        .avm_main_ind_b = res.indirect_flag_b ? FF(b_offset) : FF(0),
+        .avm_main_ind_c = res.indirect_flag_c ? FF(dst_offset) : FF(0),
+        .avm_main_ind_op_a = FF(static_cast<uint32_t>(res.indirect_flag_a)),
+        .avm_main_ind_op_b = FF(static_cast<uint32_t>(res.indirect_flag_b)),
+        .avm_main_ind_op_c = FF(static_cast<uint32_t>(res.indirect_flag_c)),
+        .avm_main_mem_idx_a = FF(res.direct_a_offset),
+        .avm_main_mem_idx_b = FF(res.direct_b_offset),
+        .avm_main_mem_idx_c = FF(res.direct_dst_offset),
     });
-};
+}
 
 /**
- * @brief Multiplication with direct memory access.
+ * @brief Multiplication with direct or indirect memory access.
  *
+ * @param indirect A byte encoding information about indirect/direct memory access.
  * @param a_offset An index in memory pointing to the first operand of the multiplication.
  * @param b_offset An index in memory pointing to the second operand of the multiplication.
  * @param dst_offset An index in memory pointing to the output of the multiplication.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_mul(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_mul(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
+    auto const res = resolve_ind_three(clk, indirect, a_offset, b_offset, dst_offset);
+    bool tag_match = res.tag_match;
+
     // Reading from memory and loading into ia resp. ib.
-    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, a_offset, in_tag);
-    auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, b_offset, in_tag);
-    bool tag_match = read_a.tag_match && read_b.tag_match;
+    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, res.direct_a_offset, in_tag);
+    auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, res.direct_b_offset, in_tag);
+    tag_match = read_a.tag_match && read_b.tag_match;
 
     // a * b = c
-    FF a = tag_match ? read_a.val : FF(0);
-    FF b = tag_match ? read_b.val : FF(0);
-    FF c = alu_trace_builder.op_mul(a, b, in_tag, clk);
+    FF a = read_a.val;
+    FF b = read_b.val;
+
+    // In case of a memory tag error, we do not perform the computation.
+    // Therefore, we do not create any entry in ALU table and store the value 0 as
+    // output (c) in memory.
+    FF c = tag_match ? alu_trace_builder.op_mul(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
-    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, res.direct_dst_offset, c, in_tag);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -161,28 +246,39 @@ void AvmTraceBuilder::op_mul(uint32_t a_offset, uint32_t b_offset, uint32_t dst_
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
         .avm_main_rwc = FF(1),
-        .avm_main_mem_idx_a = FF(a_offset),
-        .avm_main_mem_idx_b = FF(b_offset),
-        .avm_main_mem_idx_c = FF(dst_offset),
+        .avm_main_ind_a = res.indirect_flag_a ? FF(a_offset) : FF(0),
+        .avm_main_ind_b = res.indirect_flag_b ? FF(b_offset) : FF(0),
+        .avm_main_ind_c = res.indirect_flag_c ? FF(dst_offset) : FF(0),
+        .avm_main_ind_op_a = FF(static_cast<uint32_t>(res.indirect_flag_a)),
+        .avm_main_ind_op_b = FF(static_cast<uint32_t>(res.indirect_flag_b)),
+        .avm_main_ind_op_c = FF(static_cast<uint32_t>(res.indirect_flag_c)),
+        .avm_main_mem_idx_a = FF(res.direct_a_offset),
+        .avm_main_mem_idx_b = FF(res.direct_b_offset),
+        .avm_main_mem_idx_c = FF(res.direct_dst_offset),
     });
 }
 
 /** TODO: Implement for non finite field types
- * @brief Division with direct memory access.
+ * @brief Division with direct or indirect memory access.
  *
+ * @param indirect A byte encoding information about indirect/direct memory access.
  * @param a_offset An index in memory pointing to the first operand of the division.
  * @param b_offset An index in memory pointing to the second operand of the division.
  * @param dst_offset An index in memory pointing to the output of the division.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_div(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_div(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
+    auto const res = resolve_ind_three(clk, indirect, a_offset, b_offset, dst_offset);
+    bool tag_match = res.tag_match;
+
     // Reading from memory and loading into ia resp. ib.
-    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, a_offset, in_tag);
-    auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, b_offset, in_tag);
-    bool tag_match = read_a.tag_match && read_b.tag_match;
+    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, res.direct_a_offset, in_tag);
+    auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, res.direct_b_offset, in_tag);
+    tag_match = read_a.tag_match && read_b.tag_match;
 
     // a * b^(-1) = c
     FF a = read_a.val;
@@ -203,7 +299,7 @@ void AvmTraceBuilder::op_div(uint32_t a_offset, uint32_t b_offset, uint32_t dst_
     }
 
     // Write into memory value c from intermediate register ic.
-    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, res.direct_dst_offset, c, in_tag);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -221,36 +317,62 @@ void AvmTraceBuilder::op_div(uint32_t a_offset, uint32_t b_offset, uint32_t dst_
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
         .avm_main_rwc = FF(1),
-        .avm_main_mem_idx_a = FF(a_offset),
-        .avm_main_mem_idx_b = FF(b_offset),
-        .avm_main_mem_idx_c = FF(dst_offset),
+        .avm_main_ind_a = res.indirect_flag_a ? FF(a_offset) : FF(0),
+        .avm_main_ind_b = res.indirect_flag_b ? FF(b_offset) : FF(0),
+        .avm_main_ind_c = res.indirect_flag_c ? FF(dst_offset) : FF(0),
+        .avm_main_ind_op_a = FF(static_cast<uint32_t>(res.indirect_flag_a)),
+        .avm_main_ind_op_b = FF(static_cast<uint32_t>(res.indirect_flag_b)),
+        .avm_main_ind_op_c = FF(static_cast<uint32_t>(res.indirect_flag_c)),
+        .avm_main_mem_idx_a = FF(res.direct_a_offset),
+        .avm_main_mem_idx_b = FF(res.direct_b_offset),
+        .avm_main_mem_idx_c = FF(res.direct_dst_offset),
     });
 }
 
 /**
- * @brief Bitwise not with direct memory access.
+ * @brief Bitwise not with direct or indirect memory access.
  *
+ * @param indirect A byte encoding information about indirect/direct memory access.
  * @param a_offset An index in memory pointing to the only operand of Not.
  * @param dst_offset An index in memory pointing to the output of Not.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_not(uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
+    bool tag_match = true;
+    uint32_t direct_a_offset = a_offset;
+    uint32_t direct_dst_offset = dst_offset;
+
+    bool indirect_a_flag = is_operand_indirect(indirect, 0);
+    bool indirect_c_flag = is_operand_indirect(indirect, 1);
+
+    if (indirect_a_flag) {
+        auto read_ind_a = mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_A, a_offset);
+        tag_match = read_ind_a.tag_match;
+        direct_a_offset = uint32_t(read_ind_a.val);
+    }
+
+    if (indirect_c_flag) {
+        auto read_ind_c =
+            mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_C, dst_offset);
+        tag_match = tag_match && read_ind_c.tag_match;
+        direct_dst_offset = uint32_t(read_ind_c.val);
+    }
 
     // Reading from memory and loading into ia.
-    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, a_offset, in_tag);
-
+    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, direct_a_offset, in_tag);
+    tag_match = read_a.tag_match && tag_match;
     // ~a = c
-    FF a = read_a.tag_match ? read_a.val : FF(0);
-    // TODO(4613): If tag_match == false, then the value of c
-    // will not be zero which would not satisfy the constraint that
-    // ic == 0 whenever tag_err == 1. This constraint might be removed
-    // as part of #4613.
-    FF c = alu_trace_builder.op_not(a, in_tag, clk);
+    FF a = read_a.val;
+
+    // In case of a memory tag error, we do not perform the computation.
+    // Therefore, we do not create any entry in ALU table and store the value 0 as
+    // output (c) in memory.
+    FF c = tag_match ? alu_trace_builder.op_not(a, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
-    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, direct_dst_offset, c, in_tag);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -264,40 +386,48 @@ void AvmTraceBuilder::op_not(uint32_t a_offset, uint32_t dst_offset, AvmMemoryTa
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_c = FF(1),
         .avm_main_rwc = FF(1),
-        .avm_main_mem_idx_a = FF(a_offset),
-        .avm_main_mem_idx_c = FF(dst_offset),
+        .avm_main_ind_a = indirect_a_flag ? FF(a_offset) : FF(0),
+        .avm_main_ind_c = indirect_c_flag ? FF(dst_offset) : FF(0),
+        .avm_main_ind_op_a = FF(static_cast<uint32_t>(indirect_a_flag)),
+        .avm_main_ind_op_c = FF(static_cast<uint32_t>(indirect_c_flag)),
+        .avm_main_mem_idx_a = FF(direct_a_offset),
+        .avm_main_mem_idx_c = FF(direct_dst_offset),
     });
-};
+}
 
 /**
- * @brief Equality with direct memory access.
+ * @brief Equality with direct or indirect memory access.
  *
+ * @param indirect A byte encoding information about indirect/direct memory access.
  * @param a_offset An index in memory pointing to the first operand of the equality.
  * @param b_offset An index in memory pointing to the second operand of the equality.
  * @param dst_offset An index in memory pointing to the output of the equality.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_eq(uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_eq(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
 
+    auto const res = resolve_ind_three(clk, indirect, a_offset, b_offset, dst_offset);
+    bool tag_match = res.tag_match;
+
     // Reading from memory and loading into ia resp. ib.
-    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, a_offset, in_tag);
-    auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, b_offset, in_tag);
-    bool tag_match = read_a.tag_match && read_b.tag_match;
+    auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, res.direct_a_offset, in_tag);
+    auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, res.direct_b_offset, in_tag);
+    tag_match = read_a.tag_match && read_b.tag_match;
 
     // c = a == b ? 1 : 0
-    FF a = tag_match ? read_a.val : FF(0);
-    FF b = tag_match ? read_b.val : FF(0);
+    FF a = read_a.val;
+    FF b = read_b.val;
 
-    // TODO(4613): If tag_match == false, then the value of c
-    // will not be zero which would not satisfy the constraint that
-    // ic == 0 whenever tag_err == 1. This constraint might be removed
-    // as part of #4613.
-    FF c = alu_trace_builder.op_eq(a, b, in_tag, clk);
+    // In case of a memory tag error, we do not perform the computation.
+    // Therefore, we do not create any entry in ALU table and store the value 0 as
+    // output (c) in memory.
+    FF c = tag_match ? alu_trace_builder.op_eq(a, b, in_tag, clk) : FF(0);
 
     // Write into memory value c from intermediate register ic.
-    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, dst_offset, c, in_tag);
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, res.direct_dst_offset, c, in_tag);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -313,9 +443,15 @@ void AvmTraceBuilder::op_eq(uint32_t a_offset, uint32_t b_offset, uint32_t dst_o
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
         .avm_main_rwc = FF(1),
-        .avm_main_mem_idx_a = FF(a_offset),
-        .avm_main_mem_idx_b = FF(b_offset),
-        .avm_main_mem_idx_c = FF(dst_offset),
+        .avm_main_ind_a = res.indirect_flag_a ? FF(a_offset) : FF(0),
+        .avm_main_ind_b = res.indirect_flag_b ? FF(b_offset) : FF(0),
+        .avm_main_ind_c = res.indirect_flag_c ? FF(dst_offset) : FF(0),
+        .avm_main_ind_op_a = FF(static_cast<uint32_t>(res.indirect_flag_a)),
+        .avm_main_ind_op_b = FF(static_cast<uint32_t>(res.indirect_flag_b)),
+        .avm_main_ind_op_c = FF(static_cast<uint32_t>(res.indirect_flag_c)),
+        .avm_main_mem_idx_a = FF(res.direct_a_offset),
+        .avm_main_mem_idx_b = FF(res.direct_b_offset),
+        .avm_main_mem_idx_c = FF(res.direct_dst_offset),
     });
 }
 
@@ -352,29 +488,87 @@ void AvmTraceBuilder::set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_ta
 }
 
 /**
+ * @brief Copy value and tag from a memory cell at position src_offset to the
+ *        memory cell at position dst_offset
+ *
+ * @param indirect A byte encoding information about indirect/direct memory access.
+ * @param src_offset Offset of source memory cell
+ * @param dst_offset Offset of destination memory cell
+ */
+void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+    bool tag_match = true;
+    uint32_t direct_src_offset = src_offset;
+    uint32_t direct_dst_offset = dst_offset;
+
+    bool indirect_src_flag = is_operand_indirect(indirect, 0);
+    bool indirect_dst_flag = is_operand_indirect(indirect, 1);
+
+    if (indirect_src_flag) {
+        auto read_ind_a =
+            mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_A, src_offset);
+        tag_match = read_ind_a.tag_match;
+        direct_src_offset = uint32_t(read_ind_a.val);
+    }
+
+    if (indirect_dst_flag) {
+        auto read_ind_c =
+            mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_C, dst_offset);
+        tag_match = tag_match && read_ind_c.tag_match;
+        direct_dst_offset = uint32_t(read_ind_c.val);
+    }
+
+    // Reading from memory and loading into ia without tag check.
+    auto const [val, tag] = mem_trace_builder.read_and_load_mov_opcode(clk, direct_src_offset);
+
+    // Write into memory from intermediate register ic.
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, direct_dst_offset, val, tag);
+
+    main_trace.push_back(Row{
+        .avm_main_clk = clk,
+        .avm_main_pc = pc++,
+        .avm_main_internal_return_ptr = internal_return_ptr,
+        .avm_main_sel_mov = 1,
+        .avm_main_in_tag = static_cast<uint32_t>(tag),
+        .avm_main_tag_err = static_cast<uint32_t>(!tag_match),
+        .avm_main_ia = val,
+        .avm_main_ic = val,
+        .avm_main_mem_op_a = 1,
+        .avm_main_mem_op_c = 1,
+        .avm_main_rwc = 1,
+        .avm_main_ind_a = indirect_src_flag ? src_offset : 0,
+        .avm_main_ind_c = indirect_dst_flag ? dst_offset : 0,
+        .avm_main_ind_op_a = static_cast<uint32_t>(indirect_src_flag),
+        .avm_main_ind_op_c = static_cast<uint32_t>(indirect_dst_flag),
+        .avm_main_mem_idx_a = direct_src_offset,
+        .avm_main_mem_idx_c = direct_dst_offset,
+    });
+}
+
+/**
  * @brief CALLDATACOPY opcode with direct memory access, i.e.,
- *        M[dst_offset:dst_offset+copy_size] = calldata[cd_offset:cd_offset+copy_size]
+ *        direct: M[dst_offset:dst_offset+copy_size] = calldata[cd_offset:cd_offset+copy_size]
+ *        indirect: M[M[dst_offset]:M[dst_offset]+copy_size] = calldata[cd_offset:cd_offset+copy_size]
  *        Simplified version with exclusively memory store operations and
- *        values from M_calldata passed by an array and loaded into
+ *        values from calldata passed by an array and loaded into
  *        intermediate registers.
  *        Assume that caller passes call_data_mem which is large enough so that
  *        no out-of-bound memory issues occur.
- *        TODO: Implement the indirect memory version (maybe not required)
  *        TODO: taking care of intermediate register values consistency and propagating their
  *        values to the next row when not overwritten.
  *        TODO: error handling if dst_offset + copy_size > 2^32 which would lead to
  *              out-of-bound memory write. Similarly, if cd_offset + copy_size is larger
  *              than call_data_mem.size()
  *
+ * @param indirect A byte encoding information about indirect/direct memory access.
  * @param cd_offset The starting index of the region in calldata to be copied.
  * @param copy_size The number of finite field elements to be copied into memory.
  * @param dst_offset The starting index of memory where calldata will be copied to.
  * @param call_data_mem The vector containing calldata.
  */
-void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
-                                    uint32_t copy_size,
-                                    uint32_t dst_offset,
-                                    std::vector<FF> const& call_data_mem)
+void AvmTraceBuilder::calldata_copy(
+    uint8_t indirect, uint32_t cd_offset, uint32_t copy_size, uint32_t dst_offset, std::vector<FF> const& call_data_mem)
 {
     // We parallelize storing memory operations in chunk of 3, i.e., 1 per intermediate register.
     // The variable pos is an index pointing to the first storing operation (pertaining to intermediate
@@ -384,6 +578,7 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
     // cd_offset + pos + 2:   Ic memory store operation
 
     uint32_t pos = 0;
+    uint32_t direct_dst_offset = dst_offset; // Will be overwritten in indirect mode.
 
     while (pos < copy_size) {
         FF ib(0);
@@ -398,8 +593,20 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
 
         FF ia = call_data_mem.at(cd_offset + pos);
         uint32_t mem_op_a(1);
-        uint32_t mem_idx_a = dst_offset + pos;
         uint32_t rwa = 1;
+
+        bool indirect_flag = false;
+        bool tag_match = true;
+
+        if (pos == 0 && is_operand_indirect(indirect, 0)) {
+            indirect_flag = true;
+            auto ind_read =
+                mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_A, dst_offset);
+            direct_dst_offset = uint32_t(ind_read.val);
+            tag_match = ind_read.tag_match;
+        }
+
+        uint32_t mem_idx_a = direct_dst_offset + pos;
 
         // Storing from Ia
         mem_trace_builder.write_into_memory(clk, IntermRegister::IA, mem_idx_a, ia, AvmMemoryTag::FF);
@@ -407,7 +614,7 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
         if (copy_size - pos > 1) {
             ib = call_data_mem.at(cd_offset + pos + 1);
             mem_op_b = 1;
-            mem_idx_b = dst_offset + pos + 1;
+            mem_idx_b = direct_dst_offset + pos + 1;
             rwb = 1;
 
             // Storing from Ib
@@ -417,7 +624,7 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
         if (copy_size - pos > 2) {
             ic = call_data_mem.at(cd_offset + pos + 2);
             mem_op_c = 1;
-            mem_idx_c = dst_offset + pos + 2;
+            mem_idx_c = direct_dst_offset + pos + 2;
             rwc = 1;
 
             // Storing from Ic
@@ -429,6 +636,7 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
             .avm_main_pc = FF(pc++),
             .avm_main_internal_return_ptr = FF(internal_return_ptr),
             .avm_main_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+            .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
             .avm_main_ia = ia,
             .avm_main_ib = ib,
             .avm_main_ic = ic,
@@ -438,6 +646,8 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
             .avm_main_rwa = FF(rwa),
             .avm_main_rwb = FF(rwb),
             .avm_main_rwc = FF(rwc),
+            .avm_main_ind_a = indirect_flag ? FF(dst_offset) : FF(0),
+            .avm_main_ind_op_a = FF(indirect_flag),
             .avm_main_mem_idx_a = FF(mem_idx_a),
             .avm_main_mem_idx_b = FF(mem_idx_b),
             .avm_main_mem_idx_c = FF(mem_idx_c),
@@ -452,20 +662,21 @@ void AvmTraceBuilder::calldata_copy(uint32_t cd_offset,
 }
 
 /**
- * @brief RETURN opcode with direct memory access, i.e.,
- *        return(M[ret_offset:ret_offset+ret_size])
+ * @brief RETURN opcode with direct and indirect memory access, i.e.,
+ *        direct:   return(M[ret_offset:ret_offset+ret_size])
+ *        indirect: return(M[M[ret_offset]:M[ret_offset]+ret_size])
  *        Simplified version with exclusively memory load operations into
  *        intermediate registers and then values are copied to the returned vector.
- *        TODO: Implement the indirect memory version (maybe not required)
  *        TODO: taking care of flagging this row as the last one? Special STOP flag?
  *        TODO: error handling if ret_offset + ret_size > 2^32 which would lead to
  *              out-of-bound memory read.
  *
+ * @param indirect A byte encoding information about indirect/direct memory access.
  * @param ret_offset The starting index of the memory region to be returned.
  * @param ret_size The number of elements to be returned.
  * @return The returned memory region as a std::vector.
  */
-std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_size)
+std::vector<FF> AvmTraceBuilder::return_op(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size)
 {
     if (ret_size == 0) {
         halt();
@@ -478,9 +689,11 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
     // ret_offset + pos:       Ia memory load operation
     // ret_offset + pos + 1:   Ib memory load operation
     // ret_offset + pos + 2:   Ic memory load operation
+    // In indirect mode, ret_offset is first resolved by the first indirect load.
 
     uint32_t pos = 0;
     std::vector<FF> returnMem;
+    uint32_t direct_ret_offset = ret_offset; // Will be overwritten in indirect mode.
 
     while (pos < ret_size) {
         FF ib(0);
@@ -492,36 +705,47 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
         auto clk = static_cast<uint32_t>(main_trace.size());
 
         uint32_t mem_op_a(1);
-        uint32_t mem_idx_a = ret_offset + pos;
+        bool indirect_flag = false;
+        bool tag_match = true;
+
+        if (pos == 0 && is_operand_indirect(indirect, 0)) {
+            indirect_flag = true;
+            auto ind_read =
+                mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_A, ret_offset);
+            direct_ret_offset = uint32_t(ind_read.val);
+            tag_match = ind_read.tag_match;
+        }
+
+        uint32_t mem_idx_a = direct_ret_offset + pos;
 
         // Reading and loading to Ia
         auto read_a = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, mem_idx_a, AvmMemoryTag::FF);
-        bool tag_match = read_a.tag_match;
+        tag_match = tag_match && read_a.tag_match;
 
         FF ia = read_a.val;
         returnMem.push_back(ia);
 
         if (ret_size - pos > 1) {
             mem_op_b = 1;
-            mem_idx_b = ret_offset + pos + 1;
+            mem_idx_b = direct_ret_offset + pos + 1;
 
             // Reading and loading to Ib
             auto read_b =
                 mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, mem_idx_b, AvmMemoryTag::FF);
             tag_match = tag_match && read_b.tag_match;
-            FF ib = read_b.val;
+            ib = read_b.val;
             returnMem.push_back(ib);
         }
 
         if (ret_size - pos > 2) {
             mem_op_c = 1;
-            mem_idx_c = ret_offset + pos + 2;
+            mem_idx_c = direct_ret_offset + pos + 2;
 
             // Reading and loading to Ic
             auto read_c =
                 mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IC, mem_idx_c, AvmMemoryTag::FF);
             tag_match = tag_match && read_c.tag_match;
-            FF ic = read_c.val;
+            ic = read_c.val;
             returnMem.push_back(ic);
         }
 
@@ -532,12 +756,14 @@ std::vector<FF> AvmTraceBuilder::return_op(uint32_t ret_offset, uint32_t ret_siz
             .avm_main_sel_halt = FF(1),
             .avm_main_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
             .avm_main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
-            .avm_main_ia = tag_match ? ia : FF(0),
-            .avm_main_ib = tag_match ? ib : FF(0),
-            .avm_main_ic = tag_match ? ic : FF(0),
+            .avm_main_ia = ia,
+            .avm_main_ib = ib,
+            .avm_main_ic = ic,
             .avm_main_mem_op_a = FF(mem_op_a),
             .avm_main_mem_op_b = FF(mem_op_b),
             .avm_main_mem_op_c = FF(mem_op_c),
+            .avm_main_ind_a = indirect_flag ? FF(ret_offset) : FF(0),
+            .avm_main_ind_op_a = FF(static_cast<uint32_t>(indirect_flag)),
             .avm_main_mem_idx_a = FF(mem_idx_a),
             .avm_main_mem_idx_b = FF(mem_idx_b),
             .avm_main_mem_idx_c = FF(mem_idx_c),
@@ -619,15 +845,16 @@ void AvmTraceBuilder::internal_call(uint32_t jmp_dest)
     internal_call_stack.push(stored_pc);
 
     // Add the return location to the memory trace
-    mem_trace_builder.write_into_memory(clk, IntermRegister::IB, internal_return_ptr, FF(stored_pc), AvmMemoryTag::FF);
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IB, internal_return_ptr, FF(stored_pc), AvmMemoryTag::U32);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_pc = FF(pc),
         .avm_main_internal_return_ptr = FF(internal_return_ptr),
         .avm_main_sel_internal_call = FF(1),
+        .avm_main_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
         .avm_main_ia = FF(jmp_dest),
-        .avm_main_ib = stored_pc,
+        .avm_main_ib = FF(stored_pc),
         .avm_main_mem_op_b = FF(1),
         .avm_main_rwb = FF(1),
         .avm_main_mem_idx_b = FF(internal_return_ptr),
@@ -654,16 +881,17 @@ void AvmTraceBuilder::internal_return()
 
     // Internal return pointer is decremented
     // We want to load the value pointed by the internal pointer
-    auto read_a =
-        mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IA, internal_return_ptr - 1, AvmMemoryTag::FF);
+    auto read_a = mem_trace_builder.read_and_load_from_memory(
+        clk, IntermRegister::IA, internal_return_ptr - 1, AvmMemoryTag::U32);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
         .avm_main_pc = pc,
         .avm_main_internal_return_ptr = FF(internal_return_ptr),
         .avm_main_sel_internal_return = FF(1),
+        .avm_main_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
         .avm_main_tag_err = FF(static_cast<uint32_t>(!read_a.tag_match)),
-        .avm_main_ia = read_a.tag_match ? read_a.val : FF(0),
+        .avm_main_ia = read_a.val,
         .avm_main_mem_op_a = FF(1),
         .avm_main_rwa = FF(0),
         .avm_main_mem_idx_a = FF(internal_return_ptr - 1),
@@ -683,10 +911,10 @@ void AvmTraceBuilder::internal_return()
 // counts column here
 //
 // NOTE: its coupled to pil - this is not the final iteration
-void AvmTraceBuilder::finalise_mem_trace_lookup_counts(std::map<uint32_t, uint32_t> const& tag_err_lookup_counts)
+void AvmTraceBuilder::finalise_mem_trace_lookup_counts()
 {
-    for (auto const& [clk, count] : tag_err_lookup_counts) {
-        main_trace.at(clk).equiv_tag_err_counts = count;
+    for (auto const& [clk, count] : mem_trace_builder.m_tag_err_lookup_counts) {
+        main_trace.at(clk).incl_main_tag_err_counts = count;
     }
 }
 
@@ -707,7 +935,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
     size_t alu_trace_size = alu_trace.size();
 
     // Get tag_err counts from the mem_trace_builder
-    this->finalise_mem_trace_lookup_counts(mem_trace_builder.m_tag_err_lookup_counts);
+    finalise_mem_trace_lookup_counts();
 
     // TODO: We will have to handle this through error handling and not an assertion
     // Smaller than N because we have to add an extra initial row to support shifted
@@ -738,6 +966,35 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_mem_m_tag = FF(static_cast<uint32_t>(src.m_tag));
         dest.avm_mem_m_tag_err = FF(static_cast<uint32_t>(src.m_tag_err));
         dest.avm_mem_m_one_min_inv = src.m_one_min_inv;
+        dest.avm_mem_m_sel_mov = FF(static_cast<uint32_t>(src.m_sel_mov));
+
+        dest.incl_mem_tag_err_counts = FF(static_cast<uint32_t>(src.m_tag_err_count_relevant));
+
+        switch (src.m_sub_clk) {
+        case AvmMemTraceBuilder::SUB_CLK_LOAD_A:
+        case AvmMemTraceBuilder::SUB_CLK_STORE_A:
+            dest.avm_mem_m_op_a = 1;
+            break;
+        case AvmMemTraceBuilder::SUB_CLK_LOAD_B:
+        case AvmMemTraceBuilder::SUB_CLK_STORE_B:
+            dest.avm_mem_m_op_b = 1;
+            break;
+        case AvmMemTraceBuilder::SUB_CLK_LOAD_C:
+        case AvmMemTraceBuilder::SUB_CLK_STORE_C:
+            dest.avm_mem_m_op_c = 1;
+            break;
+        case AvmMemTraceBuilder::SUB_CLK_IND_LOAD_A:
+            dest.avm_mem_m_ind_op_a = 1;
+            break;
+        case AvmMemTraceBuilder::SUB_CLK_IND_LOAD_B:
+            dest.avm_mem_m_ind_op_b = 1;
+            break;
+        case AvmMemTraceBuilder::SUB_CLK_IND_LOAD_C:
+            dest.avm_mem_m_ind_op_c = 1;
+            break;
+        default:
+            break;
+        }
 
         if (i + 1 < mem_trace_size) {
             auto const& next = mem_trace.at(i + 1);
@@ -768,6 +1025,10 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_alu_alu_u64_tag = FF(static_cast<uint32_t>(src.alu_u64_tag));
         dest.avm_alu_alu_u128_tag = FF(static_cast<uint32_t>(src.alu_u128_tag));
 
+        dest.avm_alu_alu_in_tag = dest.avm_alu_alu_u8_tag + FF(2) * dest.avm_alu_alu_u16_tag +
+                                  FF(3) * dest.avm_alu_alu_u32_tag + FF(4) * dest.avm_alu_alu_u64_tag +
+                                  FF(5) * dest.avm_alu_alu_u128_tag + FF(6) * dest.avm_alu_alu_ff_tag;
+
         dest.avm_alu_alu_ia = src.alu_ia;
         dest.avm_alu_alu_ib = src.alu_ib;
         dest.avm_alu_alu_ic = src.alu_ic;
@@ -788,6 +1049,22 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
         dest.avm_alu_alu_u64_r0 = FF(src.alu_u64_r0);
         dest.avm_alu_alu_op_eq_diff_inv = FF(src.alu_op_eq_diff_inv);
+
+        // Not all rows in ALU are enabled with a selector. For instance,
+        // multiplication over u128 is taking two lines.
+        if (dest.avm_alu_alu_op_add == FF(1) || dest.avm_alu_alu_op_sub == FF(1) || dest.avm_alu_alu_op_mul == FF(1) ||
+            dest.avm_alu_alu_op_eq == FF(1) || dest.avm_alu_alu_op_not == FF(1)) {
+            dest.avm_alu_alu_sel = FF(1);
+        }
+    }
+
+    // Deriving redundant selectors/tags for the main trace.
+    for (Row& r : main_trace) {
+        if ((r.avm_main_sel_op_add == FF(1) || r.avm_main_sel_op_sub == FF(1) || r.avm_main_sel_op_mul == FF(1) ||
+             r.avm_main_sel_op_eq == FF(1) || r.avm_main_sel_op_not == FF(1)) &&
+            r.avm_main_tag_err == FF(0)) {
+            r.avm_main_alu_sel = FF(1);
+        }
     }
 
     // Adding extra row for the shifted values at the top of the execution trace.

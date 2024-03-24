@@ -5,6 +5,7 @@ export const mockContractArtifact: ContractArtifact = {
   functions: [
     {
       name: 'constructor',
+      isInitializer: true,
       functionType: FunctionType.SECRET,
       isInternal: false,
       parameters: [
@@ -17,11 +18,12 @@ export const mockContractArtifact: ContractArtifact = {
         },
       ],
       returnTypes: [],
-      bytecode: 'constructorBytecode',
+      bytecode: Buffer.alloc(8, 0xfa),
       debugSymbols: '',
     },
     {
       name: 'mockFunction',
+      isInitializer: false,
       functionType: FunctionType.SECRET,
       isInternal: false,
       parameters: [
@@ -59,7 +61,7 @@ export const mockContractArtifact: ContractArtifact = {
         },
       ],
       returnTypes: [{ kind: 'boolean' }],
-      bytecode: 'mockBytecode',
+      bytecode: Buffer.alloc(8, 0xfa),
       debugSymbols: '',
     },
   ],

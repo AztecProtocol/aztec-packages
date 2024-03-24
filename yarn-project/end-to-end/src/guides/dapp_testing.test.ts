@@ -6,6 +6,7 @@ import {
   Fr,
   Note,
   PXE,
+  TxStatus,
   computeMessageSecretHash,
   createPXEClient,
   waitForPXE,
@@ -219,14 +220,14 @@ describe('guides/dapp/testing', () => {
       it('asserts a local transaction simulation fails by calling simulate', async () => {
         // docs:start:local-tx-fails
         const call = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 200n, 0);
-        await expect(call.simulate()).rejects.toThrowError(/Balance too low/);
+        await expect(call.simulate()).rejects.toThrow(/Balance too low/);
         // docs:end:local-tx-fails
       }, 30_000);
 
       it('asserts a local transaction simulation fails by calling send', async () => {
         // docs:start:local-tx-fails-send
         const call = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 200n, 0);
-        await expect(call.send().wait()).rejects.toThrowError(/Balance too low/);
+        await expect(call.send().wait()).rejects.toThrow(/Balance too low/);
         // docs:end:local-tx-fails-send
       }, 30_000);
 
@@ -239,22 +240,26 @@ describe('guides/dapp/testing', () => {
         await call2.simulate();
 
         await call1.send().wait();
-        await expect(call2.send().wait()).rejects.toThrowError(/dropped/);
+        await expect(call2.send().wait()).rejects.toThrow(/dropped/);
         // docs:end:tx-dropped
       }, 30_000);
 
       it('asserts a simulation for a public function call fails', async () => {
         // docs:start:local-pub-fails
         const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
-        await expect(call.simulate()).rejects.toThrowError(U128_UNDERFLOW_ERROR);
+        await expect(call.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
         // docs:end:local-pub-fails
       }, 30_000);
 
-      it('asserts a transaction with a failing public call is dropped (until we get public reverts)', async () => {
-        // docs:start:pub-dropped
+      it('asserts a transaction with a failing public call is included (with no state changes)', async () => {
+        // docs:start:pub-reverted
         const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
-        await expect(call.send({ skipPublicSimulation: true }).wait()).rejects.toThrowError(/dropped/);
-        // docs:end:pub-dropped
+        const receipt = await call.send({ skipPublicSimulation: true }).wait();
+        expect(receipt.status).toEqual(TxStatus.REVERTED);
+        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
+        const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
+        expect(balance.value).toEqual(100n);
+        // docs:end:pub-reverted
       }, 30_000);
     });
   });

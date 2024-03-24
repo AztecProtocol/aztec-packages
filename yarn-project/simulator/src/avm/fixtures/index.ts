@@ -1,4 +1,5 @@
-import { GlobalVariables } from '@aztec/circuits.js';
+import { SiblingPath } from '@aztec/circuit-types';
+import { GlobalVariables, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -7,7 +8,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../../index.js';
+import { CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicStateDB } from '../../index.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
@@ -99,4 +100,16 @@ export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachi
  */
 export function allSameExcept(original: any, overrides: any): any {
   return merge({}, original, overrides);
+}
+
+/**
+ * Create an empty L1ToL2Message oracle input
+ */
+export function initL1ToL2MessageOracleInput(
+  leafIndex?: bigint,
+): MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT> {
+  return new MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
+    leafIndex ?? 0n,
+    new SiblingPath(L1_TO_L2_MSG_TREE_HEIGHT, Array(L1_TO_L2_MSG_TREE_HEIGHT)),
+  );
 }

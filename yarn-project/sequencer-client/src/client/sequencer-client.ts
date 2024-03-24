@@ -1,16 +1,15 @@
-import { ContractDataSource, L1ToL2MessageSource, L2BlockSource } from '@aztec/circuit-types';
+import { L1ToL2MessageSource, L2BlockSource } from '@aztec/circuit-types';
+import { BlockProver } from '@aztec/circuit-types/interfaces';
 import { P2P } from '@aztec/p2p';
+import { SimulationProvider } from '@aztec/simulator';
+import { ContractDataSource } from '@aztec/types/contracts';
 import { WorldStateSynchronizer } from '@aztec/world-state';
 
-import { SoloBlockBuilder } from '../block_builder/solo_block_builder.js';
 import { SequencerClientConfig } from '../config.js';
 import { getGlobalVariableBuilder } from '../global_variable_builder/index.js';
-import { getVerificationKeys } from '../mocks/verification_keys.js';
-import { EmptyRollupProver } from '../prover/empty.js';
 import { getL1Publisher } from '../publisher/index.js';
 import { Sequencer, SequencerConfig } from '../sequencer/index.js';
 import { PublicProcessorFactory } from '../sequencer/public_processor.js';
-import { RealRollupCircuitSimulator } from '../simulator/rollup.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -26,6 +25,8 @@ export class SequencerClient {
    * @param contractDataSource - Provides access to contract bytecode for public executions.
    * @param l2BlockSource - Provides information about the previously published blocks.
    * @param l1ToL2MessageSource - Provides access to L1 to L2 messages.
+   * @param prover - An instance of a block prover
+   * @param simulationProvider - An instance of a simulation provider
    * @returns A new running instance.
    */
   public static async new(
@@ -35,30 +36,31 @@ export class SequencerClient {
     contractDataSource: ContractDataSource,
     l2BlockSource: L2BlockSource,
     l1ToL2MessageSource: L1ToL2MessageSource,
+    prover: BlockProver,
+    simulationProvider: SimulationProvider,
   ) {
     const publisher = getL1Publisher(config);
     const globalsBuilder = getGlobalVariableBuilder(config);
     const merkleTreeDb = worldStateSynchronizer.getLatest();
 
-    const blockBuilder = new SoloBlockBuilder(
+    const publicProcessorFactory = new PublicProcessorFactory(
       merkleTreeDb,
-      getVerificationKeys(),
-      new RealRollupCircuitSimulator(),
-      new EmptyRollupProver(),
+      contractDataSource,
+      l1ToL2MessageSource,
+      simulationProvider,
     );
-
-    const publicProcessorFactory = new PublicProcessorFactory(merkleTreeDb, contractDataSource, l1ToL2MessageSource);
 
     const sequencer = new Sequencer(
       publisher,
       globalsBuilder,
       p2pClient,
       worldStateSynchronizer,
-      blockBuilder,
+      prover,
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
       config,
+      config.l1Contracts.gasPortalAddress,
     );
 
     await sequencer.start();

@@ -10,6 +10,7 @@ describe('abi/encoder', () => {
       name: 'constructor',
       functionType: FunctionType.SECRET,
       isInternal: false,
+      isInitializer: true,
       parameters: [
         {
           name: 'owner',
@@ -29,6 +30,7 @@ describe('abi/encoder', () => {
   it('serializes arrays of fields', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
+      isInitializer: true,
       functionType: FunctionType.SECRET,
       isInternal: false,
       parameters: [
@@ -52,6 +54,7 @@ describe('abi/encoder', () => {
   it('serializes string', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
+      isInitializer: true,
       functionType: FunctionType.SECRET,
       isInternal: false,
       parameters: [
@@ -76,6 +79,7 @@ describe('abi/encoder', () => {
   it.each(['AztecAddress', 'EthAddress'])('accepts address instance for %s structs', (structType: string) => {
     const abi: FunctionAbi = {
       name: 'constructor',
+      isInitializer: true,
       functionType: FunctionType.SECRET,
       isInternal: false,
       parameters: [
@@ -110,6 +114,7 @@ describe('abi/encoder', () => {
   it('accepts a field for a wrapped field', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
+      isInitializer: true,
       functionType: FunctionType.SECRET,
       isInternal: false,
       parameters: [
@@ -140,6 +145,7 @@ describe('abi/encoder', () => {
   it('throws when passing string argument as field', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
+      isInitializer: true,
       functionType: FunctionType.SECRET,
       isInternal: false,
       parameters: [
@@ -155,12 +161,13 @@ describe('abi/encoder', () => {
     };
     const args = ['garbage'];
 
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrowError('Invalid argument "garbage" of type field');
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrow('Invalid argument "garbage" of type field');
   });
 
   it('throws when passing string argument as integer', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
+      isInitializer: true,
       functionType: FunctionType.SECRET,
       isInternal: false,
       parameters: [
@@ -177,7 +184,7 @@ describe('abi/encoder', () => {
       returnTypes: [],
     };
     const args = ['garbage'];
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrowError(
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrow(
       `Type 'string' with value 'garbage' passed to BaseField ctor.`,
     );
   });
@@ -185,6 +192,7 @@ describe('abi/encoder', () => {
   it('throws when passing object argument as field', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
+      isInitializer: true,
       functionType: FunctionType.SECRET,
       isInternal: false,
       parameters: [
@@ -204,8 +212,6 @@ describe('abi/encoder', () => {
       },
     ];
 
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrowError(
-      'Argument for owner cannot be serialized to a field',
-    );
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrow('Argument for owner cannot be serialized to a field');
   });
 });

@@ -1,28 +1,22 @@
 import {
   AuthWitness,
   AztecNode,
-  ContractDao,
-  ContractData,
-  DeployedContract,
-  ExtendedContractData,
   ExtendedNote,
   FunctionCall,
   GetUnencryptedLogsResponse,
   KeyStore,
   L2Block,
-  L2Tx,
   LogFilter,
   MerkleTreeId,
   NoteFilter,
   PXE,
   SimulationError,
   Tx,
+  TxEffect,
   TxExecutionRequest,
   TxHash,
   TxL2Logs,
   TxReceipt,
-  TxStatus,
-  getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
@@ -37,13 +31,11 @@ import {
   PartialAddress,
   PrivateKernelTailCircuitPublicInputs,
   PublicCallRequest,
-  computeArtifactHash,
   computeContractClassId,
-  computeSaltedInitializationHash,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { DecodedReturn, encodeArguments } from '@aztec/foundation/abi';
+import { ContractArtifact, DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
@@ -155,6 +147,10 @@ export class PXEService implements PXE {
     return this.db.addAuthWitness(witness.requestHash, witness.witness);
   }
 
+  public getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
+    return this.db.getAuthWitness(messageHash);
+  }
+
   public addCapsule(capsule: Fr[]) {
     return this.db.addCapsule(capsule);
   }
@@ -221,36 +217,46 @@ export class PXEService implements PXE {
     return Promise.resolve(recipient);
   }
 
-  public async addContracts(contracts: DeployedContract[]) {
-    const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.instance));
-    await Promise.all(contractDaos.map(c => this.db.addContract(c)));
-    await this.addArtifactsAndInstancesFromDeployedContracts(contracts);
-    for (const contract of contractDaos) {
-      const instance = contract.instance;
-      const contractAztecAddress = instance.address;
-      const hasPortal = instance.portalContractAddress && !instance.portalContractAddress.isZero();
-      const portalInfo = hasPortal ? ` with portal ${instance.portalContractAddress.toChecksumString()}` : '';
-      this.log.info(`Added contract ${contract.name} at ${contractAztecAddress}${portalInfo}`);
-      await this.synchronizer.reprocessDeferredNotesForContract(contractAztecAddress);
-    }
+  public async registerContractClass(artifact: ContractArtifact): Promise<void> {
+    const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+    await this.db.addContractArtifact(contractClassId, artifact);
+    this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
 
-  private async addArtifactsAndInstancesFromDeployedContracts(contracts: DeployedContract[]) {
-    for (const contract of contracts) {
-      const artifact = contract.artifact;
-      const artifactHash = computeArtifactHash(artifact);
-      const contractClassId = computeContractClassId(getContractClassFromArtifact({ ...artifact, artifactHash }));
+  public async registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }) {
+    const { instance } = contract;
+    let { artifact } = contract;
+
+    if (artifact) {
+      // If the user provides an artifact, validate it against the expected class id and register it
+      const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+      if (!contractClassId.equals(instance.contractClassId)) {
+        throw new Error(
+          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
+        );
+      }
       await this.db.addContractArtifact(contractClassId, artifact);
-      await this.db.addContractInstance(contract.instance);
+    } else {
+      // Otherwise, make sure there is an artifact already registered for that class id
+      artifact = await this.db.getContractArtifact(instance.contractClassId);
+      if (!artifact) {
+        throw new Error(
+          `Missing contract artifact for class id ${instance.contractClassId} for contract ${instance.address}`,
+        );
+      }
     }
+
+    this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}`);
+    await this.db.addContractInstance(instance);
+    await this.synchronizer.reprocessDeferredNotesForContract(instance.address);
   }
 
-  public async getContracts(): Promise<AztecAddress[]> {
-    return (await this.db.getContracts()).map(c => c.instance.address);
+  public getContracts(): Promise<AztecAddress[]> {
+    return this.db.getContractsAddresses();
   }
 
   public async getPublicStorageAt(contract: AztecAddress, slot: Fr) {
-    if ((await this.getContractData(contract)) === undefined) {
+    if (!(await this.getContractInstance(contract))) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
     return await this.node.getPublicStorageAt(contract, slot);
@@ -334,16 +340,17 @@ export class PXEService implements PXE {
    * @param note - The note to find the nonces for.
    * @returns The nonces of the note.
    * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
+   * TODO(#4956): Un-expose this
    */
-  private async getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
-    const tx = await this.node.getTx(note.txHash);
+  public async getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
+    const tx = await this.node.getTxEffect(note.txHash);
     if (!tx) {
       throw new Error(`Unknown tx: ${note.txHash}`);
     }
 
     const nonces: Fr[] = [];
-    const firstNullifier = tx.newNullifiers[0];
-    const hashes = tx.newNoteHashes;
+    const firstNullifier = tx.nullifiers[0];
+    const hashes = tx.noteHashes;
     for (let i = 0; i < hashes.length; ++i) {
       const hash = hashes[i];
       if (hash.equals(Fr.ZERO)) {
@@ -384,19 +391,11 @@ export class PXEService implements PXE {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
     }
-    if (txRequest.functionData.isInternal === undefined) {
-      throw new Error(`Unspecified internal are not allowed`);
-    }
 
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
-      // We get the contract address from origin, since contract deployments are signalled as origin from their own address
-      // TODO: Is this ok? Should it be changed to be from ZERO?
-      const deployedContractAddress = txRequest.txContext.isContractDeploymentTx ? txRequest.origin : undefined;
-      const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
-
       const timer = new Timer();
-      const tx = await this.#simulateAndProve(txRequest, newContract);
+      const tx = await this.#simulateAndProve(txRequest);
       this.log(`Processed private part of ${tx.getTxHash()}`, {
         eventName: 'tx-pxe-processing',
         duration: timer.ms(),
@@ -413,7 +412,7 @@ export class PXEService implements PXE {
 
   public async sendTx(tx: Tx): Promise<TxHash> {
     const txHash = tx.getTxHash();
-    if (await this.node.getTx(txHash)) {
+    if (await this.node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
     this.log.info(`Sending transaction ${txHash}`);
@@ -438,39 +437,16 @@ export class PXEService implements PXE {
     });
   }
 
-  public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    let txReceipt = new TxReceipt(txHash, TxStatus.DROPPED, 'Tx dropped by P2P node.');
-
-    // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
-    // for mined and then for pending there could be a race condition where the tx is mined between the two checks
-    // and we would incorrectly return a TxReceipt with status DROPPED
-    const pendingTx = await this.node.getPendingTxByHash(txHash);
-    if (pendingTx) {
-      txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
-    }
-
-    const settledTx = await this.node.getTx(txHash);
-    if (settledTx) {
-      txReceipt = new TxReceipt(txHash, TxStatus.MINED, '', settledTx.blockHash.toBuffer(), settledTx.blockNumber);
-    }
-
-    return txReceipt;
+  public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+    return this.node.getTxReceipt(txHash);
   }
 
-  public async getTx(txHash: TxHash): Promise<L2Tx | undefined> {
-    return await this.node.getTx(txHash);
+  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
+    return this.node.getTxEffect(txHash);
   }
 
   async getBlockNumber(): Promise<number> {
     return await this.node.getBlockNumber();
-  }
-
-  public async getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
-    return await this.node.getExtendedContractData(contractAddress);
-  }
-
-  public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return await this.node.getContractData(contractAddress);
   }
 
   /**
@@ -629,10 +605,9 @@ export class PXEService implements PXE {
    *
    * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param signature - The ECDSA signature for the transaction request.
-   * @param newContract - Optional. The address of a new contract to be included in the transaction object.
    * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
    */
-  async #simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
+  async #simulateAndProve(txExecutionRequest: TxExecutionRequest) {
     // TODO - Pause syncing while simulating.
 
     // Get values that allow us to reconstruct the block hash
@@ -650,21 +625,11 @@ export class PXEService implements PXE {
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
 
-    const extendedContractData = newContract
-      ? new ExtendedContractData(
-          new ContractData(newContract.instance.address, newContract.instance.portalContractAddress),
-          getNewContractPublicFunctions(newContract),
-          getContractClassFromArtifact(newContract).id,
-          computeSaltedInitializationHash(newContract.instance),
-          newContract.instance.publicKeysHash,
-        )
-      : ExtendedContractData.empty();
-
     // HACK(#1639): Manually patches the ordering of the public call stack
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
-    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions, [extendedContractData]);
+    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
   }
 
   /**
@@ -690,9 +655,13 @@ export class PXEService implements PXE {
         if (contract) {
           err.enrichWithContractName(parsedContractAddress, contract.name);
           selectors.forEach(selector => {
-            const functionArtifact = contract.functions.find(f => f.selector.toString() === selector);
+            const functionArtifact = contract.functions.find(f => FunctionSelector.fromString(selector).equals(f));
             if (functionArtifact) {
-              err.enrichWithFunctionName(parsedContractAddress, functionArtifact.selector, functionArtifact.name);
+              err.enrichWithFunctionName(
+                parsedContractAddress,
+                FunctionSelector.fromNameAndParameters(functionArtifact),
+                functionArtifact.name,
+              );
             }
           });
         }
@@ -781,5 +750,9 @@ export class PXEService implements PXE {
 
   public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
     return !!(await this.node.getContractClass(id));
+  }
+
+  public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
+    return !!(await this.node.getContract(address));
   }
 }

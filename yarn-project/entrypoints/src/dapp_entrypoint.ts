@@ -1,8 +1,9 @@
-import { AuthWitnessProvider, EntrypointInterface } from '@aztec/aztec.js/account';
+import { computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/aztec.js';
+import { AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { EntrypointInterface } from '@aztec/aztec.js/entrypoint';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, Fr, FunctionData, GeneratorIndex, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
-import { pedersenHash } from '@aztec/foundation/crypto';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
 import { buildDappPayload } from './entrypoint_payload.js';
@@ -30,17 +31,16 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     const entrypointPackedArgs = PackedArguments.fromArgs(encodeArguments(abi, [payload, this.userAddress]));
 
     const functionData = FunctionData.fromAbi(abi);
-    const hash = pedersenHash(
-      [
-        Fr.ZERO.toBuffer(),
-        this.dappEntrypointAddress.toBuffer(),
-        functionData.selector.toBuffer(),
-        entrypointPackedArgs.hash.toBuffer(),
-      ],
-      GeneratorIndex.SIGNATURE_PAYLOAD,
+
+    const innerHash = computeInnerAuthWitHash([Fr.ZERO, functionData.selector.toField(), entrypointPackedArgs.hash]);
+    const outerHash = computeOuterAuthWitHash(
+      this.dappEntrypointAddress,
+      new Fr(this.chainId),
+      new Fr(this.version),
+      innerHash,
     );
 
-    const authWitness = await this.userAuthWitnessProvider.createAuthWitness(hash);
+    const authWitness = await this.userAuthWitnessProvider.createAuthWit(outerHash);
 
     const txRequest = TxExecutionRequest.from({
       argsHash: entrypointPackedArgs.hash,
@@ -57,6 +57,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
   private getEntrypointAbi() {
     return {
       name: 'entrypoint',
+      isInitializer: false,
       functionType: 'secret',
       isInternal: false,
       parameters: [

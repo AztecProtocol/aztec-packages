@@ -17,8 +17,6 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
         UltraCircuitBuilder_<UltraHonkArith<FF>>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
-    size_t num_ecc_op_gates = 0; // number of ecc op "gates" (rows); these are placed at the start of the circuit
-
     // Stores record of ecc operations and performs corresponding native operations internally
     std::shared_ptr<ECCOpQueue> op_queue;
 
@@ -42,6 +40,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     void populate_ecc_op_wires(const ecc_op_tuple& in);
     ecc_op_tuple decompose_ecc_operands(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
     void set_goblin_ecc_op_code_constant_variables();
+    void create_calldata_read_gate(const databus_lookup_gate_<FF>& in);
 
   public:
     GoblinUltraCircuitBuilder_(const size_t size_hint = 0,
@@ -72,7 +71,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
      */
     GoblinUltraCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
                                auto& witness_values,
-                               std::vector<uint32_t>& public_inputs,
+                               const std::vector<uint32_t>& public_inputs,
                                size_t varnum)
         : UltraCircuitBuilder_<UltraHonkArith<FF>>(/*size_hint=*/0, witness_values, public_inputs, varnum)
         , op_queue(op_queue_in)
@@ -99,7 +98,8 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     size_t get_num_gates() const override
     {
         auto num_ultra_gates = UltraCircuitBuilder_<UltraHonkArith<FF>>::get_num_gates();
-        return num_ultra_gates + num_ecc_op_gates;
+        auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
+        return num_ultra_gates + num_goblin_ecc_op_gates;
     }
 
     /**x
@@ -115,11 +115,12 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         size_t nnfcount = 0;
         UltraCircuitBuilder_<UltraHonkArith<FF>>::get_num_gates_split_into_components(
             count, rangecount, romcount, ramcount, nnfcount);
+        auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
 
-        size_t total = count + romcount + ramcount + rangecount + num_ecc_op_gates;
+        size_t total = count + romcount + ramcount + rangecount + num_goblin_ecc_op_gates;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
                   << ", range " << rangecount << ", non native field gates " << nnfcount << ", goblin ecc op gates "
-                  << num_ecc_op_gates << "), pubinp = " << this->public_inputs.size() << std::endl;
+                  << num_goblin_ecc_op_gates << "), pubinp = " << this->public_inputs.size() << std::endl;
     }
 
     /**
@@ -136,42 +137,10 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         return index;
     }
 
-    void create_calldata_lookup_gate(const databus_lookup_gate_<FF>& in);
+    uint32_t read_calldata(const uint32_t& read_idx_witness_idx);
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
-    void create_poseidon2_end_gate(const poseidon2_end_gate_<FF>& in);
-
-    FF compute_poseidon2_external_identity(FF q_poseidon2_external_value,
-                                           FF q_1_value,
-                                           FF q_2_value,
-                                           FF q_3_value,
-                                           FF q_4_value,
-                                           FF w_1_value,
-                                           FF w_2_value,
-                                           FF w_3_value,
-                                           FF w_4_value,
-                                           FF w_1_shifted_value,
-                                           FF w_2_shifted_value,
-                                           FF w_3_shifted_value,
-                                           FF w_4_shifted_value,
-                                           FF alpha_base,
-                                           FF alpha) const;
-
-    FF compute_poseidon2_internal_identity(FF q_poseidon2_internal_value,
-                                           FF q_1_value,
-                                           FF w_1_value,
-                                           FF w_2_value,
-                                           FF w_3_value,
-                                           FF w_4_value,
-                                           FF w_1_shifted_value,
-                                           FF w_2_shifted_value,
-                                           FF w_3_shifted_value,
-                                           FF w_4_shifted_value,
-                                           FF alpha_base,
-                                           FF alpha) const;
-
-    bool check_circuit();
 };
 using GoblinUltraCircuitBuilder = GoblinUltraCircuitBuilder_<bb::fr>;
 } // namespace bb

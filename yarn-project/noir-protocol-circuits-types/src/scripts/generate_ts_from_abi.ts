@@ -198,12 +198,15 @@ function generateTsInterface(abiObj: NoirFunctionAbi): string {
 }
 
 const circuits = [
+  'parity_base',
+  'parity_root',
   'private_kernel_init',
   'private_kernel_inner',
   'private_kernel_tail',
   'public_kernel_setup',
   'public_kernel_app_logic',
   'public_kernel_teardown',
+  'public_kernel_tail',
   'rollup_base',
   'rollup_merge',
   'rollup_root',

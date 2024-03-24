@@ -1,28 +1,24 @@
 /// All AVM opcodes
 /// Keep updated with TS and yellow paper!
-#[derive(Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum AvmOpcode {
     // Compute
-    // Compute - Arithmetic
     ADD,
     SUB,
     MUL,
     DIV,
-    // Compute - Comparators
+    FDIV,
     EQ,
     LT,
     LTE,
-    // Compute - Bitwise
     AND,
     OR,
     XOR,
     NOT,
     SHL,
     SHR,
-    // Compute - Type Conversions
     CAST,
-
-    // Execution Environment
+    // Execution environment
     ADDRESS,
     STORAGEADDRESS,
     ORIGIN,
@@ -32,7 +28,6 @@ pub enum AvmOpcode {
     FEEPERL2GAS,
     FEEPERDAGAS,
     CONTRACTCALLDEPTH,
-    // Execution Environment - Globals
     CHAINID,
     VERSION,
     BLOCKNUMBER,
@@ -41,50 +36,42 @@ pub enum AvmOpcode {
     BLOCKL1GASLIMIT,
     BLOCKL2GASLIMIT,
     BLOCKDAGASLIMIT,
-    // Execution Environment - Calldata
     CALLDATACOPY,
-
-    // Machine State
-    // Machine State - Gas
+    // Gas
     L1GASLEFT,
     L2GASLEFT,
     DAGASLEFT,
-    // Machine State - Internal Control Flow
+    // Control flow
     JUMP,
     JUMPI,
     INTERNALCALL,
     INTERNALRETURN,
-    // Machine State - Memory
+    // Memory
     SET,
     MOV,
     CMOV,
-
-    // World State
-    SLOAD,           // Public Storage
-    SSTORE,          // Public Storage
-    NOTEHASHEXISTS,  // Notes & Nullifiers
-    EMITNOTEHASH,    // Notes & Nullifiers
-    NULLIFIEREXISTS, // Notes & Nullifiers
-    EMITNULLIFIER,   // Notes & Nullifiers
-    READL1TOL2MSG,   // Messages
-    HEADERMEMBER,    // Archive tree & Headers
-
-    // Accrued Substate
+    // World state
+    SLOAD,
+    SSTORE,
+    NOTEHASHEXISTS,
+    EMITNOTEHASH,
+    NULLIFIEREXISTS,
+    EMITNULLIFIER,
+    L1TOL2MSGEXISTS,
+    HEADERMEMBER,
     EMITUNENCRYPTEDLOG,
     SENDL2TOL1MSG,
-
-    // Control Flow - Contract Calls
+    // External calls
     CALL,
     STATICCALL,
     DELEGATECALL,
     RETURN,
     REVERT,
-
     // Gadgets
     KECCAK,
     POSEIDON,
-    SHA256,
-    PEDERSEN,
+    SHA256,   // temp - may be removed, but alot of contracts rely on it
+    PEDERSEN, // temp - may be removed, but alot of contracts rely on it
 }
 
 impl AvmOpcode {
@@ -96,6 +83,7 @@ impl AvmOpcode {
             AvmOpcode::SUB => "SUB",
             AvmOpcode::MUL => "MUL",
             AvmOpcode::DIV => "DIV",
+            AvmOpcode::FDIV => "FDIV",
             // Compute - Comparators
             AvmOpcode::EQ => "EQ",
             AvmOpcode::LT => "LT",
@@ -154,7 +142,7 @@ impl AvmOpcode {
             AvmOpcode::EMITNOTEHASH => "EMITNOTEHASH", // Notes & Nullifiers
             AvmOpcode::NULLIFIEREXISTS => "NULLIFIEREXISTS", // Notes & Nullifiers
             AvmOpcode::EMITNULLIFIER => "EMITNULLIFIER", // Notes & Nullifiers
-            AvmOpcode::READL1TOL2MSG => "READL1TOL2MSG", // Messages
+            AvmOpcode::L1TOL2MSGEXISTS => "L1TOL2MSGEXISTS", // Messages
             AvmOpcode::HEADERMEMBER => "HEADERMEMBER", // Archive tree & Headers
 
             // Accrued Substate

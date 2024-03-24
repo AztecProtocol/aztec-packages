@@ -14,6 +14,8 @@ import { Tuple } from '@aztec/foundation/serialize';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
 
+// TODO: Block number should not be "latest".
+// It should be fixed at the time the proof is being simulated. I.e., it should be the same as the value defined in the constant data.
 /**
  * A data oracle that provides information needed for simulating a transaction.
  */
@@ -48,6 +50,10 @@ export class KernelOracle implements ProvingDataOracle {
       leafIndex,
       path.toFields() as Tuple<Fr, typeof NOTE_HASH_TREE_HEIGHT>,
     );
+  }
+
+  getNullifierMembershipWitness(nullifier: Fr) {
+    return this.node.getNullifierMembershipWitness('latest', nullifier);
   }
 
   async getNoteHashTreeRoot(): Promise<Fr> {

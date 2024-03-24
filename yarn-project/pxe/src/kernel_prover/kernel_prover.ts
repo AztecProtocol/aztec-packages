@@ -2,25 +2,20 @@ import {
   AztecAddress,
   CallRequest,
   Fr,
-  GrumpkinScalar,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  MAX_READ_REQUESTS_PER_CALL,
-  MAX_READ_REQUESTS_PER_TX,
-  NullifierKeyValidationRequestContext,
+  NoteHashReadRequestMembershipWitness,
   PrivateCallData,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelInnerCircuitPublicInputs,
   PrivateKernelInnerData,
   PrivateKernelTailCircuitPrivateInputs,
-  ReadRequestMembershipWitness,
   SideEffect,
   SideEffectLinkedToNoteHash,
-  SideEffectType,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -29,10 +24,11 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
+import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
 
+import { HintsBuilder } from './hints_builder.js';
 import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
 
@@ -75,8 +71,11 @@ export interface KernelProverOutput extends ProofOutputFinal {
  */
 export class KernelProver {
   private log = createDebugLogger('aztec:kernel-prover');
+  private hintsBuilder: HintsBuilder;
 
-  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {}
+  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {
+    this.hintsBuilder = new HintsBuilder(oracle);
+  }
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -110,8 +109,8 @@ export class KernelProver {
 
       // Start with the partially filled in read request witnesses from the simulator
       // and fill the non-transient ones in with sibling paths via oracle.
-      const readRequestMembershipWitnesses = currentExecution.readRequestPartialWitnesses;
-      for (let rr = 0; rr < readRequestMembershipWitnesses.length; rr++) {
+      const noteHashReadRequestMembershipWitnesses = currentExecution.noteHashReadRequestPartialWitnesses;
+      for (let rr = 0; rr < noteHashReadRequestMembershipWitnesses.length; rr++) {
         // Pretty sure this check was forever broken. I made some changes to Fr and this started triggering.
         // The conditional makes no sense to me anyway.
         // if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.ZERO) {
@@ -119,7 +118,7 @@ export class KernelProver {
         //     'Number of read requests output from Noir circuit does not match number of read request commitment indices output from simulator.',
         //   );
         // }
-        const rrWitness = readRequestMembershipWitnesses[rr];
+        const rrWitness = noteHashReadRequestMembershipWitnesses[rr];
         if (!rrWitness.isTransient) {
           // Non-transient reads must contain full membership witness with sibling path from commitment to root.
           // Get regular membership witness to fill in sibling path in the read request witness.
@@ -129,17 +128,17 @@ export class KernelProver {
       }
 
       // fill in witnesses for remaining/empty read requests
-      readRequestMembershipWitnesses.push(
-        ...Array(MAX_READ_REQUESTS_PER_CALL - readRequestMembershipWitnesses.length)
+      noteHashReadRequestMembershipWitnesses.push(
+        ...Array(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL - noteHashReadRequestMembershipWitnesses.length)
           .fill(0)
-          .map(() => ReadRequestMembershipWitness.empty(BigInt(0))),
+          .map(() => NoteHashReadRequestMembershipWitness.empty(BigInt(0))),
       );
 
       const privateCallData = await this.createPrivateCallData(
         currentExecution,
         privateCallRequests,
         publicCallRequests,
-        readRequestMembershipWitnesses,
+        noteHashReadRequestMembershipWitnesses,
       );
 
       if (firstIteration) {
@@ -175,25 +174,33 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const [sortedCommitments, sortedCommitmentsIndexes] = this.sortSideEffects<
+    const [sortedNoteHashes, sortedNoteHashesIndexes] = this.hintsBuilder.sortSideEffects<
       SideEffect,
       typeof MAX_NEW_NOTE_HASHES_PER_TX
     >(output.publicInputs.end.newNoteHashes);
 
-    const [sortedNullifiers, sortedNullifiersIndexes] = this.sortSideEffects<
+    const [sortedNullifiers, sortedNullifiersIndexes] = this.hintsBuilder.sortSideEffects<
       SideEffectLinkedToNoteHash,
       typeof MAX_NEW_NULLIFIERS_PER_TX
     >(output.publicInputs.end.newNullifiers);
 
-    const readCommitmentHints = this.getReadRequestHints(output.publicInputs.end.readRequests, sortedCommitments);
-
-    const nullifierCommitmentHints = this.getNullifierHints(
-      mapTuple(sortedNullifiers, n => n.noteHash),
-      sortedCommitments,
+    const readNoteHashHints = this.hintsBuilder.getNoteHashReadRequestHints(
+      output.publicInputs.validationRequests.noteHashReadRequests,
+      sortedNoteHashes,
     );
 
-    const masterNullifierSecretKeys = await this.getMasterNullifierSecretKeys(
-      output.publicInputs.end.nullifierKeyValidationRequests,
+    const nullifierReadRequestHints = await this.hintsBuilder.getNullifierReadRequestHints(
+      output.publicInputs.validationRequests.nullifierReadRequests,
+      output.publicInputs.end.newNullifiers,
+    );
+
+    const nullifierNoteHashHints = this.hintsBuilder.getNullifierHints(
+      mapTuple(sortedNullifiers, n => n.noteHash),
+      sortedNoteHashes,
+    );
+
+    const masterNullifierSecretKeys = await this.hintsBuilder.getMasterNullifierSecretKeys(
+      output.publicInputs.validationRequests.nullifierKeyValidationRequests,
     );
 
     this.log.debug(
@@ -202,12 +209,13 @@ export class KernelProver {
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
       previousKernelData,
-      sortedCommitments,
-      sortedCommitmentsIndexes,
-      readCommitmentHints,
+      sortedNoteHashes,
+      sortedNoteHashesIndexes,
+      readNoteHashHints,
       sortedNullifiers,
       sortedNullifiersIndexes,
-      nullifierCommitmentHints,
+      nullifierReadRequestHints,
+      nullifierNoteHashHints,
       masterNullifierSecretKeys,
     );
     pushTestData('private-kernel-inputs-ordering', privateInputs);
@@ -220,32 +228,11 @@ export class KernelProver {
     return { ...outputFinal, outputNotes };
   }
 
-  private sortSideEffects<T extends SideEffectType, K extends number>(
-    sideEffects: Tuple<T, K>,
-  ): [Tuple<T, K>, Tuple<number, K>] {
-    const sorted = sideEffects
-      .map((sideEffect, index) => ({ sideEffect, index }))
-      .sort((a, b) => {
-        // Empty ones go to the right
-        if (a.sideEffect.isEmpty()) {
-          return 1;
-        }
-        return Number(a.sideEffect.counter.toBigInt() - b.sideEffect.counter.toBigInt());
-      });
-
-    const originalToSorted = sorted.map(() => 0);
-    sorted.forEach(({ index }, i) => {
-      originalToSorted[index] = i;
-    });
-
-    return [sorted.map(({ sideEffect }) => sideEffect) as Tuple<T, K>, originalToSorted as Tuple<number, K>];
-  }
-
   private async createPrivateCallData(
     { callStackItem, vk }: ExecutionResult,
     privateCallRequests: CallRequest[],
     publicCallRequests: CallRequest[],
-    readRequestMembershipWitnesses: ReadRequestMembershipWitness[],
+    noteHashReadRequestMembershipWitnesses: NoteHashReadRequestMembershipWitness[],
   ) {
     const { contractAddress, functionData, publicInputs } = callStackItem;
     const { portalContractAddress } = publicInputs.callContext;
@@ -286,7 +273,11 @@ export class KernelProver {
       contractClassPublicBytecodeCommitment,
       saltedInitializationHash,
       functionLeafMembershipWitness,
-      readRequestMembershipWitnesses: makeTuple(MAX_READ_REQUESTS_PER_CALL, i => readRequestMembershipWitnesses[i], 0),
+      noteHashReadRequestMembershipWitnesses: makeTuple(
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+        i => noteHashReadRequestMembershipWitnesses[i],
+        0,
+      ),
       portalContractAddress: portalContractAddress.toField(),
       acirHash,
     });
@@ -314,90 +305,5 @@ export class KernelProver {
       data,
       commitment: newNoteHashes[i],
     }));
-  }
-
-  /**
-   * Performs the matching between an array of read request and an array of commitments. This produces
-   * hints for the private kernel ordering circuit to efficiently match a read request with the corresponding
-   * commitment. Several read requests might be pointing to the same commitment value. It is therefore valid
-   * to return more than one hint with the same index (contrary to getNullifierHints).
-   *
-   * @param readRequests - The array of read requests.
-   * @param noteHashes - The array of commitments.
-   * @returns An array of hints where each element is the index of the commitment in commitments array
-   *  corresponding to the read request. In other words we have readRequests[i] == commitments[hints[i]].
-   */
-  private getReadRequestHints(
-    readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
-    noteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
-  ): Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX> {
-    const hints = makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero);
-    for (let i = 0; i < MAX_READ_REQUESTS_PER_TX && !readRequests[i].isEmpty(); i++) {
-      const equalToRR = (cmt: SideEffect) => cmt.value.equals(readRequests[i].value);
-      const result = noteHashes.findIndex(equalToRR);
-      if (result == -1) {
-        throw new Error(
-          `The read request at index ${i} ${readRequests[i].toString()} does not match to any commitment.`,
-        );
-      } else {
-        hints[i] = new Fr(result);
-      }
-    }
-    return hints;
-  }
-
-  /**
-   * Performs the matching between an array of nullified commitments and an array of commitments. This produces
-   * hints for the private kernel ordering circuit to efficiently match a nullifier with the corresponding
-   * commitment. Note that the same commitment value might appear more than once in the commitments
-   * (resp. nullified commitments) array. It is crucial in this case that each hint points to a different index
-   * of the nullified commitments array. Otherwise, the private kernel will fail to validate.
-   *
-   * @param nullifiedNoteHashes - The array of nullified note hashes.
-   * @param noteHashes - The array of note hasshes.
-   * @returns An array of hints where each element is the index of the commitment in commitments array
-   *  corresponding to the nullified commitments. In other words we have nullifiedCommitments[i] == commitments[hints[i]].
-   */
-  private getNullifierHints(
-    nullifiedNoteHashes: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    noteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
-  ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
-    const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
-    const alreadyUsed = new Set<number>();
-    for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_TX; i++) {
-      if (!nullifiedNoteHashes[i].isZero()) {
-        const equalToCommitment = (cmt: SideEffect, index: number) =>
-          cmt.value.equals(nullifiedNoteHashes[i]) && !alreadyUsed.has(index);
-        const result = noteHashes.findIndex(equalToCommitment);
-        alreadyUsed.add(result);
-        if (result == -1) {
-          throw new Error(
-            `The nullified commitment at index ${i} with value ${nullifiedNoteHashes[
-              i
-            ].toString()} does not match to any commitment.`,
-          );
-        } else {
-          hints[i] = new Fr(result);
-        }
-      }
-    }
-    return hints;
-  }
-
-  private async getMasterNullifierSecretKeys(
-    nullifierKeyValidationRequests: Tuple<
-      NullifierKeyValidationRequestContext,
-      typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
-    >,
-  ) {
-    const keys = makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);
-    for (let i = 0; i < nullifierKeyValidationRequests.length; ++i) {
-      const request = nullifierKeyValidationRequests[i];
-      if (request.isEmpty()) {
-        break;
-      }
-      keys[i] = await this.oracle.getMasterNullifierSecretKey(request.publicKey);
-    }
-    return keys;
   }
 }

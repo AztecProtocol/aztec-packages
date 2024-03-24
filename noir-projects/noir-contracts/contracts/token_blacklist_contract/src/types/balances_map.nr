@@ -1,11 +1,7 @@
-use dep::std::option::Option;
+use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, NoteGetterOptions, NoteViewerOptions, PrivateSet, Map};
 use dep::aztec::{
-    context::Context, protocol_types::{address::AztecAddress, constants::MAX_READ_REQUESTS_PER_CALL},
-    state_vars::{PrivateSet, Map},
-    note::{
-    note_getter::view_notes, note_getter_options::{NoteGetterOptions, SortOrder},
-    note_viewer_options::NoteViewerOptions, note_header::NoteHeader, note_interface::NoteInterface
-}
+    context::Context, protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    note::{note_getter::view_notes, note_getter_options::SortOrder}
 };
 use crate::types::token_note::{TokenNote, OwnedNote};
 
@@ -25,7 +21,10 @@ impl<T> BalancesMap<T> {
         }
     }
 
-    unconstrained pub fn balance_of<T_SERIALIZED_LEN>(self: Self, owner: AztecAddress) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
+    unconstrained pub fn balance_of<T_SERIALIZED_LEN>(
+        self: Self,
+        owner: AztecAddress
+    ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
         self.balance_of_with_offset(owner, 0)
     }
 
@@ -34,7 +33,6 @@ impl<T> BalancesMap<T> {
         owner: AztecAddress,
         offset: u32
     ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
-        // Same as SafeU120::new(0), but fewer constraints because no check. 
         let mut balance = U128::from_integer(0);
         // docs:start:view_notes
         let options = NoteViewerOptions::new().set_offset(offset);
@@ -102,10 +100,10 @@ impl<T> BalancesMap<T> {
 }
 
 pub fn filter_notes_min_sum<T, T_SERIALIZED_LEN>(
-    notes: [Option<T>; MAX_READ_REQUESTS_PER_CALL],
+    notes: [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: U128
-) -> [Option<T>; MAX_READ_REQUESTS_PER_CALL] where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
-    let mut selected = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
+) -> [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
+    let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = U128::from_integer(0);
     for i in 0..notes.len() {
         if notes[i].is_some() & sum < min_sum {

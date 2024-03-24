@@ -2,10 +2,7 @@ mod util;
 mod auth_oracle;
 
 contract SchnorrSingleKeyAccount {
-    use dep::aztec::{
-        context::{PrivateContext},
-        protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector}
-    };
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext};
 
     use dep::authwit::{entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions};
 
@@ -13,9 +10,6 @@ contract SchnorrSingleKeyAccount {
     use dep::aztec::oracle::debug_log::debug_log_format;
 
     global ACCOUNT_ACTIONS_STORAGE_SLOT = 1;
-
-    #[aztec(private)]
-    fn constructor() {}
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
@@ -37,12 +31,14 @@ contract SchnorrSingleKeyAccount {
     }
 
     #[aztec(private)]
-    internal fn cancel_authwit(outer_hash: Field) {
+    #[aztec(internal)]
+    fn cancel_authwit(outer_hash: Field) {
         context.push_new_nullifier(outer_hash, 0);
     }
 
     #[aztec(public)]
-    internal fn approve_public_authwit(outer_hash: Field) {
+    #[aztec(internal)]
+    fn approve_public_authwit(outer_hash: Field) {
         let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.approve_public_authwit(outer_hash)
     }

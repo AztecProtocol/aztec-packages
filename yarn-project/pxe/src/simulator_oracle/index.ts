@@ -16,7 +16,7 @@ import {
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
+import { FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { DBOracle, KeyPair, MessageLoadOracleInputs } from '@aztec/simulator';
 import { ContractInstance } from '@aztec/types/contracts';
@@ -111,16 +111,9 @@ export class SimulatorOracle implements DBOracle {
     contractAddress: AztecAddress,
     functionName: string,
   ): Promise<FunctionArtifactWithDebugMetadata | undefined> {
-    const artifact = await this.contractDataOracle.getFunctionArtifactByName(contractAddress, functionName);
-    if (!artifact) {
-      return;
-    }
-
-    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, artifact.selector);
-    return {
-      ...artifact,
-      debug,
-    };
+    const instance = await this.contractDataOracle.getContractInstance(contractAddress);
+    const artifact = await this.contractDataOracle.getContractArtifact(instance.contractClassId);
+    return artifact && getFunctionArtifactWithDebugMetadata(artifact, functionName);
   }
 
   async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
@@ -128,19 +121,17 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Retrieves the L1ToL2Message associated with a specific message key
-   * Throws an error if the message key is not found
-   *
-   * @param msgKey - The key of the message to be retrieved
-   * @returns A promise that resolves to the message data, a sibling path and the
-   *          index of the message in the l1ToL2MessageTree
+   * Fetches the a message from the db, given its key.
+   * @param messageHash - Hash of the message.
+   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    const messageAndIndex = await this.aztecNode.getL1ToL2MessageAndIndex(msgKey);
-    const message = messageAndIndex.message;
-    const index = messageAndIndex.index;
-    const siblingPath = await this.aztecNode.getL1ToL2MessageSiblingPath('latest', index);
-    return new MessageLoadOracleInputs(message, index, siblingPath);
+  async getL1ToL2MembershipWitness(messageHash: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+    const response = await this.aztecNode.getL1ToL2MessageMembershipWitness('latest', messageHash);
+    if (!response) {
+      throw new Error(`No L1 to L2 message found for message hash ${messageHash.toString()}`);
+    }
+    const [index, siblingPath] = response;
+    return new MessageLoadOracleInputs(index, siblingPath);
   }
 
   /**
@@ -162,8 +153,6 @@ export class SimulatorOracle implements DBOracle {
 
   public async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
     switch (treeId) {
-      case MerkleTreeId.CONTRACT_TREE:
-        return (await this.aztecNode.getContractSiblingPath(blockNumber, leafIndex)).toFields();
       case MerkleTreeId.NULLIFIER_TREE:
         return (await this.aztecNode.getNullifierSiblingPath(blockNumber, leafIndex)).toFields();
       case MerkleTreeId.NOTE_HASH_TREE:
@@ -175,6 +164,10 @@ export class SimulatorOracle implements DBOracle {
       default:
         throw new Error('Not implemented');
     }
+  }
+
+  public async getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr) {
+    return this.getNullifierMembershipWitness(await this.getBlockNumber(), nullifier);
   }
 
   public getNullifierMembershipWitness(

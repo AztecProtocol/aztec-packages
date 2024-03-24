@@ -102,7 +102,7 @@ Add this below the imports. It declares the storage variables for our contract. 
 
 Now we’ve got a mechanism for storing our private state, we can start using it to ensure the privacy of balances.
 
-Let’s create a `constructor` method to run on deployment that assigns an initial supply of tokens to a specified owner. In the constructor we created in the first step, write this:
+Let’s create a constructor method to run on deployment that assigns an initial supply of tokens to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[aztec(initializer)]` decorator that specifies that this function behaves like a constructor. Write this:
 
 #include_code constructor /noir-projects/noir-contracts/contracts/counter_contract/src/main.nr rust
 
@@ -186,24 +186,39 @@ Use one of these `address`es as the `owner`. You can either copy it or export.
 To deploy the counter contract, [ensure the sandbox is running](../sandbox/references/sandbox-reference.md) and run this in the root of your Noir project:
 
 ```bash
-aztec-cli deploy contracts/counter/target/counter-Counter.json --args 100 0x2fd4503a9b855a852272945df53d7173297c1469cceda31048b85118364b09a3
+aztec-cli deploy contracts/counter/target/counter-Counter.json --args 100 0x0a0ab6320e2981cc543fedb9ad0f524c0a750397ca3372508d14af5b3c3c7cf0 --private-key 0x2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281
 ```
 
 You can also test the functions by applying what you learned in the [quickstart](./quickstart.md).
 
 Congratulations, you have now written, compiled, and deployed your first Aztec.nr smart contract!
 
+Deploying your contract via the CLI will not register the deployed contract with the [PXE](../../learn/concepts/pxe/main.md). To do so, use `aztec-cli add-contract`.
+
+```bash
+aztec-cli add-contract --contract-artifact contracts/counter/target/counter-Counter.json --contract-address <contract-address>
+```
+
+:::note
+
+You can also deploy contracts using Aztec.js. See [the next page](./aztecjs-getting-started.md) for details.
+
+:::
+
 ## Install Noir LSP (recommended)
 
 Install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) to get syntax highlighting, syntax error detection and go-to definitions for your Aztec contracts.
 
-Once the extension is installed, go to your VSCode settings, search for "noir" and update the `Noir: Nargo Path` field to point to your `aztec-nargo` executable.
+Once the extension is installed, check your nargo binary by hovering over `Nargo` in the status bar on the bottom right of the application window. Click to choose the path to `aztec-nargo` (or regular `nargo`, if you have that installed).
 
 You can print the path of your `aztec-nargo` executable by running:
 
 ```bash
 which aztec-nargo
 ```
+
+To specify a custom nargo executable, go to the VSCode settings and search for "noir", or click extension settings on the `noir-lang` LSP plugin.
+Update the `Noir: Nargo Path` field to point to your desired `aztec-nargo` executable.
 
 ## What's next?
 

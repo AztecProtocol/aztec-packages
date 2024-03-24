@@ -4,6 +4,7 @@ import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
+  BaseParityInputs,
   BaseRollupInputs,
   CallContext,
   CallRequest,
@@ -12,7 +13,6 @@ import {
   CombinedConstantData,
   ConstantRollupData,
   ContentCommitment,
-  ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   EthAddress,
@@ -25,36 +25,41 @@ import {
   GrumpkinScalar,
   Header,
   L2ToL1Message,
-  MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX,
   MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_READ_REQUESTS_PER_TX,
   MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
   MAX_REVERTIBLE_NULLIFIERS_PER_TX,
   MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
   MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MaxBlockNumber,
   MembershipWitness,
   MergeRollupInputs,
   NULLIFIER_TREE_HEIGHT,
-  NUM_FIELDS_PER_SHA256,
-  NewContractData,
+  NUM_BYTES_PER_SHA256,
+  NonMembershipHint,
+  NoteHashReadRequestMembershipWitness,
   NullifierKeyValidationRequest,
   NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
+  NullifierNonExistentReadRequestHints,
+  NullifierReadRequestHints,
   PUBLIC_DATA_TREE_HEIGHT,
+  ParityPublicInputs,
   PartialStateReference,
+  PendingReadHint,
   Point,
   PreviousRollupData,
   PrivateAccumulatedNonRevertibleData,
@@ -80,36 +85,49 @@ import {
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
-  ReadRequestMembershipWitness,
+  PublicKernelTailCircuitPrivateInputs,
+  ReadRequest,
+  ReadRequestContext,
+  ReadRequestStatus,
+  RevertCode,
+  RollupKernelCircuitPublicInputs,
+  RollupKernelData,
+  RollupValidationRequests,
+  RootParityInput,
+  RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
+  SettledReadHint,
   SideEffect,
   SideEffectLinkedToNoteHash,
   StateDiffHints,
   StateReference,
   TxContext,
   TxRequest,
+  ValidationRequests,
 } from '@aztec/circuits.js';
-import { Tuple, from2Fields, mapTuple, to2Fields } from '@aztec/foundation/serialize';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
 
+import { BaseParityInputs as BaseParityInputsNoir } from './types/parity_base_types.js';
+import { RootParityInputs as RootParityInputsNoir } from './types/parity_root_types.js';
 import {
   CallContext as CallContextNoir,
   CallRequest as CallRequestNoir,
   CallerContext as CallerContextNoir,
   CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
-  ContractDeploymentData as ContractDeploymentDataNoir,
   FunctionData as FunctionDataNoir,
   FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
   FunctionSelector as FunctionSelectorNoir,
   GrumpkinPrivateKey as GrumpkinPrivateKeyNoir,
   L2ToL1Message as L2ToL1MessageNoir,
-  NewContractData as NewContractDataNoir,
+  MaxBlockNumber as MaxBlockNumberNoir,
   AztecAddress as NoirAztecAddress,
-  ContractClassId as NoirContractClassId,
   EthAddress as NoirEthAddress,
   Field as NoirField,
   GrumpkinPoint as NoirPoint,
+  NoteHashReadRequestMembershipWitness as NoteHashReadRequestMembershipWitnessNoir,
   NullifierKeyValidationRequestContext as NullifierKeyValidationRequestContextNoir,
   NullifierKeyValidationRequest as NullifierKeyValidationRequestNoir,
   PrivateCallData as PrivateCallDataNoir,
@@ -118,11 +136,14 @@ import {
   PrivateKernelInitCircuitPrivateInputs as PrivateKernelInitCircuitPrivateInputsNoir,
   PublicDataRead as PublicDataReadNoir,
   PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
-  ReadRequestMembershipWitness as ReadRequestMembershipWitnessNoir,
+  ReadRequestContext as ReadRequestContextNoir,
+  ReadRequest as ReadRequestNoir,
+  RollupValidationRequests as RollupValidationRequestsNoir,
   SideEffectLinkedToNoteHash as SideEffectLinkedToNoteHashNoir,
   SideEffect as SideEffectNoir,
   TxContext as TxContextNoir,
   TxRequest as TxRequestNoir,
+  ValidationRequests as ValidationRequestsNoir,
 } from './types/private_kernel_init_types.js';
 import {
   PrivateKernelInnerCircuitPrivateInputs as PrivateKernelInnerCircuitPrivateInputsNoir,
@@ -130,10 +151,14 @@ import {
   PrivateKernelInnerData as PrivateKernelInnerDataNoir,
 } from './types/private_kernel_inner_types.js';
 import {
+  NullifierReadRequestHints as NullifierReadRequestHintsNoir,
+  NullifierSettledReadHint as NullifierSettledReadHintNoir,
+  PendingReadHint as PendingReadHintNoir,
   PrivateAccumulatedNonRevertibleData as PrivateAccumulatedNonRevertibleDataNoir,
   PrivateAccumulatedRevertibleData as PrivateAccumulatedRevertibleDataNoir,
   PrivateKernelTailCircuitPrivateInputs as PrivateKernelTailCircuitPrivateInputsNoir,
   PrivateKernelTailCircuitPublicInputs as PrivateKernelTailCircuitPublicInputsNoir,
+  ReadRequestStatus as ReadRequestStatusNoir,
 } from './types/private_kernel_tail_types.js';
 import {
   PublicAccumulatedNonRevertibleData as PublicAccumulatedNonRevertibleDataNoir,
@@ -150,6 +175,11 @@ import {
   StorageUpdateRequest as StorageUpdateRequestNoir,
 } from './types/public_kernel_setup_types.js';
 import {
+  NullifierNonExistentReadRequestHints as NullifierNonExistentReadRequestHintsNoir,
+  NullifierNonMembershipHint as NullifierNonMembershipHintNoir,
+  PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir,
+} from './types/public_kernel_tail_types.js';
+import {
   ArchiveRootMembershipWitness as ArchiveRootMembershipWitnessNoir,
   BaseRollupInputs as BaseRollupInputsNoir,
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
@@ -157,6 +187,8 @@ import {
   PublicDataMembershipWitness as PublicDataMembershipWitnessNoir,
   PublicDataTreeLeaf as PublicDataTreeLeafNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
+  RollupKernelCircuitPublicInputs as RollupKernelCircuitPublicInputsNoir,
+  RollupKernelData as RollupKernelDataNoir,
   StateDiffHints as StateDiffHintsNoir,
 } from './types/rollup_base_types.js';
 import { MergeRollupInputs as MergeRollupInputsNoir } from './types/rollup_merge_types.js';
@@ -166,11 +198,12 @@ import {
   ConstantRollupData as ConstantRollupDataNoir,
   ContentCommitment as ContentCommitmentNoir,
   Field,
-  FixedLengthArray,
   GlobalVariables as GlobalVariablesNoir,
   Header as HeaderNoir,
+  ParityPublicInputs as ParityPublicInputsNoir,
   PartialStateReference as PartialStateReferenceNoir,
   PreviousRollupData as PreviousRollupDataNoir,
+  RootParityInput as RootParityInputNoir,
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
   StateReference as StateReferenceNoir,
@@ -301,46 +334,6 @@ export function mapEthAddressFromNoir(address: NoirEthAddress): EthAddress {
   return EthAddress.fromField(mapFieldFromNoir(address.inner));
 }
 
-/** Maps a field to a contract class id in Noir. */
-export function mapContractClassIdToNoir(contractClassId: Fr): NoirContractClassId {
-  return { inner: mapFieldToNoir(contractClassId) };
-}
-
-/** Maps a noir contract class id to typescript. */
-export function mapContractClassIdFromNoir(contractClassId: NoirContractClassId): Fr {
-  return mapFieldFromNoir(contractClassId.inner);
-}
-
-/**
- * Maps a contract deployment data to a noir contract deployment data.
- * @param data - The data.
- * @returns The noir contract deployment data.
- */
-export function mapContractDeploymentDataToNoir(data: ContractDeploymentData): ContractDeploymentDataNoir {
-  return {
-    public_key: mapPointToNoir(data.publicKey),
-    initialization_hash: mapFieldToNoir(data.initializationHash),
-    contract_class_id: mapContractClassIdToNoir(data.contractClassId),
-    contract_address_salt: mapFieldToNoir(data.contractAddressSalt),
-    portal_contract_address: mapEthAddressToNoir(data.portalContractAddress),
-  };
-}
-
-/**
- * Maps a noir contract deployment data to a contract deployment data.
- * @param data - The noir data.
- * @returns The contract deployment data.
- */
-export function mapContractDeploymentDataFromNoir(data: ContractDeploymentDataNoir): ContractDeploymentData {
-  return new ContractDeploymentData(
-    mapPointFromNoir(data.public_key),
-    mapFieldFromNoir(data.initialization_hash),
-    mapContractClassIdFromNoir(data.contract_class_id),
-    mapFieldFromNoir(data.contract_address_salt),
-    mapEthAddressFromNoir(data.portal_contract_address),
-  );
-}
-
 /**
  * Maps a tx context to a noir tx context.
  * @param txContext - The tx context.
@@ -350,8 +343,6 @@ export function mapTxContextToNoir(txContext: TxContext): TxContextNoir {
   return {
     is_fee_payment_tx: txContext.isFeePaymentTx,
     is_rebate_payment_tx: txContext.isRebatePaymentTx,
-    is_contract_deployment_tx: txContext.isContractDeploymentTx,
-    contract_deployment_data: mapContractDeploymentDataToNoir(txContext.contractDeploymentData),
     chain_id: mapFieldToNoir(txContext.chainId),
     version: mapFieldToNoir(txContext.version),
   };
@@ -366,8 +357,6 @@ export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
   return new TxContext(
     txContext.is_fee_payment_tx,
     txContext.is_rebate_payment_tx,
-    txContext.is_contract_deployment_tx,
-    mapContractDeploymentDataFromNoir(txContext.contract_deployment_data),
     mapFieldFromNoir(txContext.chain_id),
     mapFieldFromNoir(txContext.version),
   );
@@ -401,9 +390,7 @@ export function mapFunctionSelectorFromNoir(functionSelector: FunctionSelectorNo
 export function mapFunctionDataToNoir(functionData: FunctionData): FunctionDataNoir {
   return {
     selector: mapFunctionSelectorToNoir(functionData.selector),
-    is_internal: functionData.isInternal,
     is_private: functionData.isPrivate,
-    is_constructor: functionData.isConstructor,
   };
 }
 
@@ -413,12 +400,7 @@ export function mapFunctionDataToNoir(functionData: FunctionData): FunctionDataN
  * @returns The function data.
  */
 export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): FunctionData {
-  return new FunctionData(
-    mapFunctionSelectorFromNoir(functionData.selector),
-    functionData.is_internal,
-    functionData.is_private,
-    functionData.is_constructor,
-  );
+  return new FunctionData(mapFunctionSelectorFromNoir(functionData.selector), functionData.is_private);
 }
 
 /**
@@ -448,8 +430,7 @@ export function mapCallContextFromNoir(callContext: CallContextNoir): CallContex
     mapFunctionSelectorFromNoir(callContext.function_selector),
     callContext.is_delegate_call,
     callContext.is_static_call,
-    callContext.is_contract_deployment,
-    mapNumberFromNoir(callContext.start_side_effect_counter),
+    mapNumberFromNoir(callContext.side_effect_counter),
   );
 }
 
@@ -466,8 +447,7 @@ export function mapCallContextToNoir(callContext: CallContext): CallContextNoir 
     function_selector: mapFunctionSelectorToNoir(callContext.functionSelector),
     is_delegate_call: callContext.isDelegateCall,
     is_static_call: callContext.isStaticCall,
-    is_contract_deployment: callContext.isContractDeployment,
-    start_side_effect_counter: mapNumberToNoir(callContext.startSideEffectCounter),
+    side_effect_counter: mapNumberToNoir(callContext.sideEffectCounter),
   };
 }
 
@@ -564,7 +544,7 @@ export function mapSideEffectLinkedToNoir(
 /**
  * Maps a noir side effect to aSideEffect.
  * @param sideEffect - The noir side effect.
- * @returns The TS sideeffect.
+ * @returns The TS side effect.
  */
 export function mapSideEffectLinkedFromNoir(
   sideEffectLinked: SideEffectLinkedToNoteHashNoir,
@@ -573,6 +553,53 @@ export function mapSideEffectLinkedFromNoir(
     mapFieldFromNoir(sideEffectLinked.value),
     mapFieldFromNoir(sideEffectLinked.note_hash),
     mapFieldFromNoir(sideEffectLinked.counter),
+  );
+}
+
+/**
+ * Maps a ReadRequest to a noir ReadRequest.
+ * @param readRequest - The read request.
+ * @returns The noir ReadRequest.
+ */
+export function mapReadRequestToNoir(readRequest: ReadRequest): ReadRequestNoir {
+  return {
+    value: mapFieldToNoir(readRequest.value),
+    counter: mapNumberToNoir(readRequest.counter),
+  };
+}
+
+/**
+ * Maps a noir ReadRequest to ReadRequest.
+ * @param readRequest - The noir ReadRequest.
+ * @returns The TS ReadRequest.
+ */
+export function mapReadRequestFromNoir(readRequest: ReadRequestNoir): ReadRequest {
+  return new ReadRequest(mapFieldFromNoir(readRequest.value), mapNumberFromNoir(readRequest.counter));
+}
+
+/**
+ * Maps a ReadRequestContext to a noir ReadRequestContext.
+ * @param readRequestContext - The read request context.
+ * @returns The noir ReadRequestContext.
+ */
+export function mapReadRequestContextToNoir(readRequestContext: ReadRequestContext): ReadRequestContextNoir {
+  return {
+    value: mapFieldToNoir(readRequestContext.value),
+    counter: mapNumberToNoir(readRequestContext.counter),
+    contract_address: mapAztecAddressToNoir(readRequestContext.contractAddress),
+  };
+}
+
+/**
+ * Maps a noir ReadRequest to ReadRequest.
+ * @param readRequest - The noir ReadRequest.
+ * @returns The TS ReadRequest.
+ */
+export function mapReadRequestContextFromNoir(readRequestContext: ReadRequestContextNoir): ReadRequestContext {
+  return new ReadRequestContext(
+    mapFieldFromNoir(readRequestContext.value),
+    mapNumberFromNoir(readRequestContext.counter),
+    mapAztecAddressFromNoir(readRequestContext.contract_address),
   );
 }
 
@@ -655,10 +682,12 @@ export function mapPrivateCircuitPublicInputsToNoir(
   privateCircuitPublicInputs: PrivateCircuitPublicInputs,
 ): PrivateCircuitPublicInputsNoir {
   return {
+    max_block_number: mapMaxBlockNumberToNoir(privateCircuitPublicInputs.maxBlockNumber),
     call_context: mapCallContextToNoir(privateCircuitPublicInputs.callContext),
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
     return_values: mapTuple(privateCircuitPublicInputs.returnValues, mapFieldToNoir),
-    read_requests: mapTuple(privateCircuitPublicInputs.readRequests, mapSideEffectToNoir),
+    note_hash_read_requests: mapTuple(privateCircuitPublicInputs.noteHashReadRequests, mapSideEffectToNoir),
+    nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapReadRequestToNoir),
     nullifier_key_validation_requests: mapTuple(
       privateCircuitPublicInputs.nullifierKeyValidationRequests,
       mapNullifierKeyValidationRequestToNoir,
@@ -668,13 +697,13 @@ export function mapPrivateCircuitPublicInputsToNoir(
     private_call_stack_hashes: mapTuple(privateCircuitPublicInputs.privateCallStackHashes, mapFieldToNoir),
     public_call_stack_hashes: mapTuple(privateCircuitPublicInputs.publicCallStackHashes, mapFieldToNoir),
     new_l2_to_l1_msgs: mapTuple(privateCircuitPublicInputs.newL2ToL1Msgs, mapL2ToL1MessageToNoir),
+    start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
-    encrypted_logs_hash: mapTuple(privateCircuitPublicInputs.encryptedLogsHash, mapFieldToNoir),
-    unencrypted_logs_hash: mapTuple(privateCircuitPublicInputs.unencryptedLogsHash, mapFieldToNoir),
+    encrypted_logs_hash: mapFieldToNoir(privateCircuitPublicInputs.encryptedLogsHash),
+    unencrypted_logs_hash: mapFieldToNoir(privateCircuitPublicInputs.unencryptedLogsHash),
     encrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.unencryptedLogPreimagesLength),
     historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
-    contract_deployment_data: mapContractDeploymentDataToNoir(privateCircuitPublicInputs.contractDeploymentData),
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
@@ -710,17 +739,17 @@ function mapFunctionLeafMembershipWitnessToNoir(
 
 /**
  * Maps a read request membership witness to a noir read request membership witness.
- * @param readRequestMembershipWitness - The read request membership witness.
+ * @param noteHashReadRequestMembershipWitness - The read request membership witness.
  * @returns The noir read request membership witness.
  */
-export function mapReadRequestMembershipWitnessToNoir(
-  readRequestMembershipWitness: ReadRequestMembershipWitness,
-): ReadRequestMembershipWitnessNoir {
+export function mapNoteHashReadRequestMembershipWitnessToNoir(
+  noteHashReadRequestMembershipWitness: NoteHashReadRequestMembershipWitness,
+): NoteHashReadRequestMembershipWitnessNoir {
   return {
-    leaf_index: mapFieldToNoir(readRequestMembershipWitness.leafIndex),
-    sibling_path: mapTuple(readRequestMembershipWitness.siblingPath, mapFieldToNoir),
-    is_transient: readRequestMembershipWitness.isTransient,
-    hint_to_note_hash: mapFieldToNoir(readRequestMembershipWitness.hintToNoteHash),
+    leaf_index: mapFieldToNoir(noteHashReadRequestMembershipWitness.leafIndex),
+    sibling_path: mapTuple(noteHashReadRequestMembershipWitness.siblingPath, mapFieldToNoir),
+    is_transient: noteHashReadRequestMembershipWitness.isTransient,
+    hint_to_note_hash: mapFieldToNoir(noteHashReadRequestMembershipWitness.hintToNoteHash),
   };
 }
 
@@ -739,9 +768,9 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
     function_leaf_membership_witness: mapFunctionLeafMembershipWitnessToNoir(
       privateCallData.functionLeafMembershipWitness,
     ),
-    read_request_membership_witnesses: mapTuple(
-      privateCallData.readRequestMembershipWitnesses,
-      mapReadRequestMembershipWitnessToNoir,
+    note_hash_read_request_membership_witnesses: mapTuple(
+      privateCallData.noteHashReadRequestMembershipWitnesses,
+      mapNoteHashReadRequestMembershipWitnessToNoir,
     ),
     contract_class_artifact_hash: mapFieldToNoir(privateCallData.contractClassArtifactHash),
     contract_class_public_bytecode_commitment: mapFieldToNoir(privateCallData.contractClassPublicBytecodeCommitment),
@@ -751,6 +780,14 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
     portal_contract_address: mapEthAddressToNoir(EthAddress.fromField(privateCallData.portalContractAddress)),
     acir_hash: mapFieldToNoir(privateCallData.acirHash),
   };
+}
+
+export function mapRevertCodeFromNoir(revertCode: NoirField): RevertCode {
+  return RevertCode.fromField(mapFieldFromNoir(revertCode));
+}
+
+export function mapRevertCodeToNoir(revertCode: RevertCode): NoirField {
+  return mapFieldToNoir(revertCode.toField());
 }
 
 /**
@@ -773,46 +810,20 @@ export function mapTupleFromNoir<T, N extends number, M>(
 
 /**
  * Maps a SHA256 hash from noir to the parsed type.
- * @param hash - The hash as it is represented in Noir (2 fields).
- * @returns The hash represented as a 32 bytes long buffer.
+ * @param hash - The hash as it is represented in Noir (1 fields).
+ * @returns The hash represented as a 31 bytes long buffer.
  */
-export function mapSha256HashFromNoir(hash: FixedLengthArray<Field, 2>): Buffer {
-  return from2Fields(mapFieldFromNoir(hash[0]), mapFieldFromNoir(hash[1]));
+export function mapSha256HashFromNoir(hash: Field): Buffer {
+  return toBufferBE(mapFieldFromNoir(hash).toBigInt(), NUM_BYTES_PER_SHA256);
 }
 
 /**
  * Maps a sha256 to the representation used in noir.
  * @param hash - The hash represented as a 32 bytes long buffer.
- * @returns The hash as it is represented in Noir (2 fields).
+ * @returns The hash as it is represented in Noir (1 field, truncated).
  */
-export function mapSha256HashToNoir(hash: Buffer): FixedLengthArray<Field, 2> {
-  return to2Fields(hash).map(mapFieldToNoir) as FixedLengthArray<Field, 2>;
-}
-
-/**
- * Maps new contract data from noir to the parsed type.
- * @param newContractData - The noir new contract data.
- * @returns The parsed new contract data.
- */
-export function mapNewContractDataFromNoir(newContractData: NewContractDataNoir): NewContractData {
-  return new NewContractData(
-    mapAztecAddressFromNoir(newContractData.contract_address),
-    mapEthAddressFromNoir(newContractData.portal_contract_address),
-    mapContractClassIdFromNoir(newContractData.contract_class_id),
-  );
-}
-
-/**
- * Maps new contract data to noir new contract data.
- * @param newContractData - The new contract data.
- * @returns The noir new contract data.
- */
-export function mapNewContractDataToNoir(newContractData: NewContractData): NewContractDataNoir {
-  return {
-    contract_address: mapAztecAddressToNoir(newContractData.contractAddress),
-    portal_contract_address: mapEthAddressToNoir(newContractData.portalContractAddress),
-    contract_class_id: mapContractClassIdToNoir(newContractData.contractClassId),
-  };
+export function mapSha256HashToNoir(hash: Buffer): Field {
+  return mapFieldToNoir(toTruncField(hash));
 }
 
 /**
@@ -864,6 +875,125 @@ export function mapPublicDataReadToNoir(publicDataRead: PublicDataRead): PublicD
   };
 }
 
+function mapReadRequestStatusToNoir(readRequestStatus: ReadRequestStatus): ReadRequestStatusNoir {
+  return {
+    state: mapNumberToNoir(readRequestStatus.state),
+    hint_index: mapNumberToNoir(readRequestStatus.hintIndex),
+  };
+}
+
+function mapPendingReadHintToNoir(hint: PendingReadHint): PendingReadHintNoir {
+  return {
+    read_request_index: mapNumberToNoir(hint.readRequestIndex),
+    pending_value_index: mapNumberToNoir(hint.pendingValueIndex),
+  };
+}
+
+function mapNullifierSettledReadHintToNoir(
+  hint: SettledReadHint<typeof NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage>,
+): NullifierSettledReadHintNoir {
+  return {
+    read_request_index: mapNumberToNoir(hint.readRequestIndex),
+    membership_witness: mapNullifierMembershipWitnessToNoir(hint.membershipWitness),
+    leaf_preimage: mapNullifierLeafPreimageToNoir(hint.leafPreimage),
+  };
+}
+
+function mapNullifierReadRequestHintsToNoir(hints: NullifierReadRequestHints): NullifierReadRequestHintsNoir {
+  return {
+    read_request_statuses: mapTuple(hints.readRequestStatuses, mapReadRequestStatusToNoir),
+    pending_read_hints: mapTuple(hints.pendingReadHints, mapPendingReadHintToNoir),
+    settled_read_hints: mapTuple(hints.settledReadHints, mapNullifierSettledReadHintToNoir),
+  };
+}
+
+function mapNullifierNonMembershipHintToNoir(
+  hint: NonMembershipHint<typeof NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage>,
+): NullifierNonMembershipHintNoir {
+  return {
+    low_leaf_preimage: mapNullifierLeafPreimageToNoir(hint.leafPreimage),
+    membership_witness: mapNullifierMembershipWitnessToNoir(hint.membershipWitness),
+  };
+}
+
+function mapNullifierNonExistentReadRequestHintsToNoir(
+  hints: NullifierNonExistentReadRequestHints,
+): NullifierNonExistentReadRequestHintsNoir {
+  return {
+    non_membership_hints: mapTuple(hints.nonMembershipHints, mapNullifierNonMembershipHintToNoir),
+    sorted_pending_values: mapTuple(hints.sortedPendingValues, mapSideEffectLinkedToNoir),
+    sorted_pending_value_index_hints: mapTuple(hints.sortedPendingValueHints, mapNumberToNoir),
+    next_pending_value_indices: mapTuple(hints.nextPendingValueIndices, mapNumberToNoir),
+  };
+}
+
+function mapValidationRequestsToNoir(requests: ValidationRequests): ValidationRequestsNoir {
+  return {
+    for_rollup: mapRollupValidationRequestsToNoir(requests.forRollup),
+    note_hash_read_requests: mapTuple(requests.noteHashReadRequests, mapSideEffectToNoir),
+    nullifier_read_requests: mapTuple(requests.nullifierReadRequests, mapReadRequestContextToNoir),
+    nullifier_non_existent_read_requests: mapTuple(
+      requests.nullifierNonExistentReadRequests,
+      mapReadRequestContextToNoir,
+    ),
+    nullifier_key_validation_requests: mapTuple(
+      requests.nullifierKeyValidationRequests,
+      mapNullifierKeyValidationRequestContextToNoir,
+    ),
+    public_data_reads: mapTuple(requests.publicDataReads, mapPublicDataReadToNoir),
+  };
+}
+
+function mapValidationRequestsFromNoir(requests: ValidationRequestsNoir): ValidationRequests {
+  return new ValidationRequests(
+    mapRollupValidationRequestsFromNoir(requests.for_rollup),
+    mapTupleFromNoir(requests.note_hash_read_requests, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
+    mapTupleFromNoir(
+      requests.nullifier_read_requests,
+      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+      mapReadRequestContextFromNoir,
+    ),
+    mapTupleFromNoir(
+      requests.nullifier_non_existent_read_requests,
+      MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
+      mapReadRequestContextFromNoir,
+    ),
+    mapTupleFromNoir(
+      requests.nullifier_key_validation_requests,
+      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+      mapNullifierKeyValidationRequestContextFromNoir,
+    ),
+    mapTupleFromNoir(requests.public_data_reads, MAX_PUBLIC_DATA_READS_PER_TX, mapPublicDataReadFromNoir),
+  );
+}
+
+export function mapRollupValidationRequestsToNoir(
+  rollupValidationRequests: RollupValidationRequests,
+): RollupValidationRequestsNoir {
+  return {
+    max_block_number: mapMaxBlockNumberToNoir(rollupValidationRequests.maxBlockNumber),
+  };
+}
+
+export function mapRollupValidationRequestsFromNoir(
+  rollupValidationRequests: RollupValidationRequestsNoir,
+): RollupValidationRequests {
+  return new RollupValidationRequests(mapMaxBlockNumberFromNoir(rollupValidationRequests.max_block_number));
+}
+
+export function mapMaxBlockNumberToNoir(maxBlockNumber: MaxBlockNumber): MaxBlockNumberNoir {
+  return {
+    _opt: {
+      _is_some: maxBlockNumber.isSome,
+      _value: mapFieldToNoir(maxBlockNumber.value),
+    },
+  };
+}
+
+export function mapMaxBlockNumberFromNoir(maxBlockNumber: MaxBlockNumberNoir): MaxBlockNumber {
+  return new MaxBlockNumber(maxBlockNumber._opt._is_some, mapFieldFromNoir(maxBlockNumber._opt._value));
+}
+
 /**
  * Maps combined accumulated data from noir to the parsed type.
  * @param combinedAccumulatedData - The noir combined accumulated data.
@@ -873,12 +1003,7 @@ export function mapCombinedAccumulatedDataFromNoir(
   combinedAccumulatedData: CombinedAccumulatedDataNoir,
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
-    mapTupleFromNoir(combinedAccumulatedData.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
-    mapTupleFromNoir(
-      combinedAccumulatedData.nullifier_key_validation_requests,
-      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-      mapNullifierKeyValidationRequestContextFromNoir,
-    ),
+    mapRevertCodeFromNoir(combinedAccumulatedData.revert_code),
     mapTupleFromNoir(combinedAccumulatedData.new_note_hashes, MAX_NEW_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -892,20 +1017,14 @@ export function mapCombinedAccumulatedDataFromNoir(
       mapCallRequestFromNoir,
     ),
     mapTupleFromNoir(combinedAccumulatedData.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.encrypted_logs_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.unencrypted_logs_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
+    mapFieldFromNoir(combinedAccumulatedData.encrypted_logs_hash),
+    mapFieldFromNoir(combinedAccumulatedData.unencrypted_logs_hash),
     mapFieldFromNoir(combinedAccumulatedData.encrypted_log_preimages_length),
     mapFieldFromNoir(combinedAccumulatedData.unencrypted_log_preimages_length),
-    mapTupleFromNoir(combinedAccumulatedData.new_contracts, MAX_NEW_CONTRACTS_PER_TX, mapNewContractDataFromNoir),
     mapTupleFromNoir(
       combinedAccumulatedData.public_data_update_requests,
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       mapPublicDataUpdateRequestFromNoir,
-    ),
-    mapTupleFromNoir(
-      combinedAccumulatedData.public_data_reads,
-      MAX_PUBLIC_DATA_READS_PER_TX,
-      mapPublicDataReadFromNoir,
     ),
   );
 }
@@ -936,11 +1055,10 @@ export function mapFinalAccumulatedDataFromNoir(
       mapCallRequestFromNoir,
     ),
     mapTupleFromNoir(finalAccumulatedData.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(finalAccumulatedData.encrypted_logs_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
-    mapTupleFromNoir(finalAccumulatedData.unencrypted_logs_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
+    mapFieldFromNoir(finalAccumulatedData.encrypted_logs_hash),
+    mapFieldFromNoir(finalAccumulatedData.unencrypted_logs_hash),
     mapFieldFromNoir(finalAccumulatedData.encrypted_log_preimages_length),
     mapFieldFromNoir(finalAccumulatedData.unencrypted_log_preimages_length),
-    mapTupleFromNoir(finalAccumulatedData.new_contracts, MAX_NEW_CONTRACTS_PER_TX, mapNewContractDataFromNoir),
   );
 }
 
@@ -953,6 +1071,7 @@ export function mapAccumulatedNonRevertibleDataFromNoir(
   accumulatedMetaData: PrivateAccumulatedNonRevertibleDataNoir,
 ): PrivateAccumulatedNonRevertibleData {
   return new PrivateAccumulatedNonRevertibleData(
+    mapRevertCodeFromNoir(accumulatedMetaData.revert_code),
     mapTupleFromNoir(accumulatedMetaData.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(
       accumulatedMetaData.new_nullifiers,
@@ -976,6 +1095,7 @@ export function mapAccumulatedNonRevertibleDataToNoir(
   accumulatedMetaData: PrivateAccumulatedNonRevertibleData,
 ): PrivateAccumulatedNonRevertibleDataNoir {
   return {
+    revert_code: mapRevertCodeToNoir(accumulatedMetaData.revertCode),
     new_note_hashes: mapTuple(accumulatedMetaData.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(accumulatedMetaData.newNullifiers, mapSideEffectLinkedToNoir),
     public_call_stack: mapTuple(accumulatedMetaData.publicCallStack, mapCallRequestToNoir),
@@ -991,11 +1111,10 @@ export function mapPrivateAccumulatedRevertibleDataToNoir(
     private_call_stack: mapTuple(data.privateCallStack, mapCallRequestToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
     new_l2_to_l1_msgs: mapTuple(data.newL2ToL1Msgs, mapFieldToNoir),
-    encrypted_logs_hash: mapTuple(data.encryptedLogsHash, mapFieldToNoir),
-    unencrypted_logs_hash: mapTuple(data.unencryptedLogsHash, mapFieldToNoir),
+    encrypted_logs_hash: mapFieldToNoir(data.encryptedLogsHash),
+    unencrypted_logs_hash: mapFieldToNoir(data.unencryptedLogsHash),
     encrypted_log_preimages_length: mapFieldToNoir(data.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(data.unencryptedLogPreimagesLength),
-    new_contracts: mapTuple(data.newContracts, mapNewContractDataToNoir),
   };
 }
 
@@ -1008,26 +1127,20 @@ export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
-    read_requests: mapTuple(combinedAccumulatedData.readRequests, mapSideEffectToNoir),
-    nullifier_key_validation_requests: mapTuple(
-      combinedAccumulatedData.nullifierKeyValidationRequests,
-      mapNullifierKeyValidationRequestContextToNoir,
-    ),
+    revert_code: mapRevertCodeToNoir(combinedAccumulatedData.revertCode),
     new_note_hashes: mapTuple(combinedAccumulatedData.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapSideEffectLinkedToNoir),
     private_call_stack: mapTuple(combinedAccumulatedData.privateCallStack, mapCallRequestToNoir),
     public_call_stack: mapTuple(combinedAccumulatedData.publicCallStack, mapCallRequestToNoir),
     new_l2_to_l1_msgs: mapTuple(combinedAccumulatedData.newL2ToL1Msgs, mapFieldToNoir),
-    encrypted_logs_hash: mapTuple(combinedAccumulatedData.encryptedLogsHash, mapFieldToNoir),
-    unencrypted_logs_hash: mapTuple(combinedAccumulatedData.unencryptedLogsHash, mapFieldToNoir),
+    encrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.encryptedLogsHash),
+    unencrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.unencryptedLogsHash),
     encrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.unencryptedLogPreimagesLength),
-    new_contracts: mapTuple(combinedAccumulatedData.newContracts, mapNewContractDataToNoir),
     public_data_update_requests: mapTuple(
       combinedAccumulatedData.publicDataUpdateRequests,
       mapPublicDataUpdateRequestToNoir,
     ),
-    public_data_reads: mapTuple(combinedAccumulatedData.publicDataReads, mapPublicDataReadToNoir),
   };
 }
 
@@ -1075,6 +1188,8 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
   return {
     aggregation_object: {},
     constants: mapCombinedConstantDataToNoir(inputs.constants),
+    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
+    validation_requests: mapValidationRequestsToNoir(inputs.validationRequests),
     end: mapPublicAccumulatedRevertibleDataToNoir(inputs.end),
     end_non_revertible: mapPublicAccumulatedNonRevertibleDataToNoir(inputs.endNonRevertibleData),
     needs_setup: inputs.needsSetup,
@@ -1083,27 +1198,31 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
   };
 }
 
+export function mapRollupKernelCircuitPublicInputsToNoir(
+  inputs: RollupKernelCircuitPublicInputs,
+): RollupKernelCircuitPublicInputsNoir {
+  return {
+    aggregation_object: {},
+    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
+    constants: mapCombinedConstantDataToNoir(inputs.constants),
+    end: mapCombinedAccumulatedDataToNoir(inputs.end),
+  };
+}
+
 export function mapPublicAccumulatedRevertibleDataToNoir(
   data: PublicAccumulatedRevertibleData,
 ): PublicAccumulatedRevertibleDataNoir {
   return {
-    read_requests: mapTuple(data.readRequests, mapSideEffectToNoir),
-    nullifier_key_validation_requests: mapTuple(
-      data.nullifierKeyValidationRequests,
-      mapNullifierKeyValidationRequestContextToNoir,
-    ),
     new_note_hashes: mapTuple(data.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(data.newNullifiers, mapSideEffectLinkedToNoir),
     private_call_stack: mapTuple(data.privateCallStack, mapCallRequestToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
     new_l2_to_l1_msgs: mapTuple(data.newL2ToL1Msgs, mapFieldToNoir),
-    encrypted_logs_hash: mapTuple(data.encryptedLogsHash, mapFieldToNoir),
-    unencrypted_logs_hash: mapTuple(data.unencryptedLogsHash, mapFieldToNoir),
+    encrypted_logs_hash: mapFieldToNoir(data.encryptedLogsHash),
+    unencrypted_logs_hash: mapFieldToNoir(data.unencryptedLogsHash),
     encrypted_log_preimages_length: mapFieldToNoir(data.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(data.unencryptedLogPreimagesLength),
-    new_contracts: mapTuple(data.newContracts, mapNewContractDataToNoir),
     public_data_update_requests: mapTuple(data.publicDataUpdateRequests, mapPublicDataUpdateRequestToNoir),
-    public_data_reads: mapTuple(data.publicDataReads, mapPublicDataReadToNoir),
   };
 }
 
@@ -1111,10 +1230,10 @@ export function mapPublicAccumulatedNonRevertibleDataToNoir(
   data: PublicAccumulatedNonRevertibleData,
 ): PublicAccumulatedNonRevertibleDataNoir {
   return {
+    revert_code: mapRevertCodeToNoir(data.revertCode),
     new_note_hashes: mapTuple(data.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(data.newNullifiers, mapSideEffectLinkedToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
-    public_data_reads: mapTuple(data.publicDataReads, mapPublicDataReadToNoir),
     public_data_update_requests: mapTuple(data.publicDataUpdateRequests, mapPublicDataUpdateRequestToNoir),
   };
 }
@@ -1134,12 +1253,23 @@ export function mapPublicKernelDataToNoir(publicKernelData: PublicKernelData): P
   };
 }
 
+export function mapRollupKernelDataToNoir(rollupKernelData: RollupKernelData): RollupKernelDataNoir {
+  return {
+    public_inputs: mapRollupKernelCircuitPublicInputsToNoir(rollupKernelData.publicInputs),
+    proof: {},
+    vk: {},
+    vk_index: mapFieldToNoir(new Fr(rollupKernelData.vkIndex)),
+    vk_path: mapTuple(rollupKernelData.vkPath, mapFieldToNoir),
+  };
+}
+
 export function mapPrivateKernelInnerCircuitPublicInputsFromNoir(
   inputs: PrivateKernelInnerCircuitPublicInputsNoir,
 ): PrivateKernelInnerCircuitPublicInputs {
   return new PrivateKernelInnerCircuitPublicInputs(
     AggregationObject.makeFake(),
     mapFieldFromNoir(inputs.min_revertible_side_effect_counter),
+    mapValidationRequestsFromNoir(inputs.validation_requests),
     mapCombinedAccumulatedDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
     inputs.is_private,
@@ -1152,6 +1282,7 @@ export function mapPrivateKernelInnerCircuitPublicInputsToNoir(
   return {
     aggregation_object: {},
     constants: mapCombinedConstantDataToNoir(inputs.constants),
+    validation_requests: mapValidationRequestsToNoir(inputs.validationRequests),
     end: mapCombinedAccumulatedDataToNoir(inputs.end),
     min_revertible_side_effect_counter: mapFieldToNoir(inputs.minRevertibleSideEffectCounter),
     is_private: inputs.isPrivate,
@@ -1189,11 +1320,10 @@ export function mapFinalAccumulatedDataToNoir(
     private_call_stack: mapTuple(finalAccumulatedData.privateCallStack, mapCallRequestToNoir),
     public_call_stack: mapTuple(finalAccumulatedData.publicCallStack, mapCallRequestToNoir),
     new_l2_to_l1_msgs: mapTuple(finalAccumulatedData.newL2ToL1Msgs, mapFieldToNoir),
-    encrypted_logs_hash: mapTuple(finalAccumulatedData.encryptedLogsHash, mapFieldToNoir),
-    unencrypted_logs_hash: mapTuple(finalAccumulatedData.unencryptedLogsHash, mapFieldToNoir),
+    encrypted_logs_hash: mapFieldToNoir(finalAccumulatedData.encryptedLogsHash),
+    unencrypted_logs_hash: mapFieldToNoir(finalAccumulatedData.unencryptedLogsHash),
     encrypted_log_preimages_length: mapFieldToNoir(finalAccumulatedData.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(finalAccumulatedData.unencryptedLogPreimagesLength),
-    new_contracts: mapTuple(finalAccumulatedData.newContracts, mapNewContractDataToNoir),
   };
 }
 
@@ -1202,6 +1332,7 @@ export function mapPrivateKernelTailCircuitPublicInputsFromNoir(
 ): PrivateKernelTailCircuitPublicInputs {
   return new PrivateKernelTailCircuitPublicInputs(
     AggregationObject.makeFake(),
+    mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapAccumulatedNonRevertibleDataFromNoir(inputs.end_non_revertible),
     mapFinalAccumulatedDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
@@ -1216,6 +1347,7 @@ export function mapPrivateKernelTailCircuitPublicInputsToNoir(
 ): PrivateKernelTailCircuitPublicInputsNoir {
   return {
     aggregation_object: {},
+    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     end: mapFinalAccumulatedDataToNoir(inputs.end),
     end_non_revertible: mapAccumulatedNonRevertibleDataToNoir(inputs.endNonRevertibleData),
@@ -1254,6 +1386,7 @@ export function mapPrivateKernelTailCircuitPrivateInputsToNoir(
     read_commitment_hints: mapTuple(inputs.readCommitmentHints, mapFieldToNoir),
     sorted_new_nullifiers: mapTuple(inputs.sortedNewNullifiers, mapSideEffectLinkedToNoir),
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, mapNumberToNoir),
+    nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
     nullifier_commitment_hints: mapTuple(inputs.nullifierCommitmentHints, mapFieldToNoir),
     master_nullifier_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),
   };
@@ -1268,11 +1401,25 @@ export function mapPublicKernelCircuitPrivateInputsToNoir(
   };
 }
 
+export function mapPublicKernelTailCircuitPrivateInputsToNoir(
+  inputs: PublicKernelTailCircuitPrivateInputs,
+): PublicKernelTailCircuitPrivateInputsNoir {
+  return {
+    previous_kernel: mapPublicKernelDataToNoir(inputs.previousKernel),
+    nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
+    nullifier_non_existent_read_request_hints: mapNullifierNonExistentReadRequestHintsToNoir(
+      inputs.nullifierNonExistentReadRequestHints,
+    ),
+  };
+}
+
 export function mapPublicKernelCircuitPublicInputsFromNoir(
   inputs: PublicKernelCircuitPublicInputsNoir,
 ): PublicKernelCircuitPublicInputs {
   return new PublicKernelCircuitPublicInputs(
     AggregationObject.makeFake(),
+    mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
+    mapValidationRequestsFromNoir(inputs.validation_requests),
     mapPublicAccumulatedNonRevertibleDataFromNoir(inputs.end_non_revertible),
     mapPublicAccumulatedRevertibleDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
@@ -1286,6 +1433,7 @@ export function mapPublicAccumulatedNonRevertibleDataFromNoir(
   data: PublicAccumulatedNonRevertibleDataNoir,
 ): PublicAccumulatedNonRevertibleData {
   return new PublicAccumulatedNonRevertibleData(
+    mapRevertCodeFromNoir(data.revert_code),
     mapTupleFromNoir(data.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(data.new_nullifiers, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(
@@ -1298,7 +1446,6 @@ export function mapPublicAccumulatedNonRevertibleDataFromNoir(
       MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       mapPublicDataUpdateRequestFromNoir,
     ),
-    mapTupleFromNoir(data.public_data_reads, MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, mapPublicDataReadFromNoir),
   );
 }
 
@@ -1306,28 +1453,20 @@ export function mapPublicAccumulatedRevertibleDataFromNoir(
   data: PublicAccumulatedRevertibleDataNoir,
 ): PublicAccumulatedRevertibleData {
   return new PublicAccumulatedRevertibleData(
-    mapTupleFromNoir(data.read_requests, MAX_READ_REQUESTS_PER_TX, mapSideEffectFromNoir),
-    mapTupleFromNoir(
-      data.nullifier_key_validation_requests,
-      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-      mapNullifierKeyValidationRequestContextFromNoir,
-    ),
     mapTupleFromNoir(data.new_note_hashes, MAX_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(data.new_nullifiers, MAX_REVERTIBLE_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
     mapTupleFromNoir(data.private_call_stack, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, mapCallRequestFromNoir),
     mapTupleFromNoir(data.public_call_stack, MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, mapCallRequestFromNoir),
     mapTupleFromNoir(data.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(data.encrypted_logs_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
-    mapTupleFromNoir(data.unencrypted_logs_hash, NUM_FIELDS_PER_SHA256, mapFieldFromNoir),
+    mapFieldFromNoir(data.encrypted_logs_hash),
+    mapFieldFromNoir(data.unencrypted_logs_hash),
     mapFieldFromNoir(data.encrypted_log_preimages_length),
     mapFieldFromNoir(data.unencrypted_log_preimages_length),
-    mapTupleFromNoir(data.new_contracts, MAX_NEW_CONTRACTS_PER_TX, mapNewContractDataFromNoir),
     mapTupleFromNoir(
       data.public_data_update_requests,
       MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       mapPublicDataUpdateRequestFromNoir,
     ),
-    mapTupleFromNoir(data.public_data_reads, MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, mapPublicDataReadFromNoir),
   );
 }
 
@@ -1415,6 +1554,8 @@ export function mapPublicCircuitPublicInputsToNoir(
     call_context: mapCallContextToNoir(publicInputs.callContext),
     args_hash: mapFieldToNoir(publicInputs.argsHash),
     return_values: mapTuple(publicInputs.returnValues, mapFieldToNoir),
+    nullifier_read_requests: mapTuple(publicInputs.nullifierReadRequests, mapReadRequestToNoir),
+    nullifier_non_existent_read_requests: mapTuple(publicInputs.nullifierNonExistentReadRequests, mapReadRequestToNoir),
     contract_storage_update_requests: mapTuple(
       publicInputs.contractStorageUpdateRequests,
       mapStorageUpdateRequestToNoir,
@@ -1424,11 +1565,14 @@ export function mapPublicCircuitPublicInputsToNoir(
     new_note_hashes: mapTuple(publicInputs.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(publicInputs.newNullifiers, mapSideEffectLinkedToNoir),
     new_l2_to_l1_msgs: mapTuple(publicInputs.newL2ToL1Msgs, mapL2ToL1MessageToNoir),
-    unencrypted_logs_hash: mapTuple(publicInputs.unencryptedLogsHash, mapFieldToNoir),
+    start_side_effect_counter: mapFieldToNoir(publicInputs.startSideEffectCounter),
+    end_side_effect_counter: mapFieldToNoir(publicInputs.endSideEffectCounter),
+    unencrypted_logs_hash: mapFieldToNoir(publicInputs.unencryptedLogsHash),
     unencrypted_log_preimages_length: mapFieldToNoir(publicInputs.unencryptedLogPreimagesLength),
     historical_header: mapHeaderToNoir(publicInputs.historicalHeader),
 
     prover_address: mapAztecAddressToNoir(publicInputs.proverAddress),
+    revert_code: mapRevertCodeToNoir(publicInputs.revertCode),
   };
 }
 /**
@@ -1462,7 +1606,8 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
     constants: mapConstantRollupDataToNoir(baseOrMergeRollupPublicInputs.constants),
     start: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.start),
     end: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.end),
-    calldata_hash: mapTuple(baseOrMergeRollupPublicInputs.calldataHash, mapFieldToNoir),
+    txs_effects_hash: mapFieldToNoir(baseOrMergeRollupPublicInputs.txsEffectsHash),
+    out_hash: mapFieldToNoir(baseOrMergeRollupPublicInputs.outHash),
   };
 }
 
@@ -1509,7 +1654,8 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
     mapConstantRollupDataFromNoir(baseOrMergeRollupPublicInputs.constants),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.end),
-    mapTupleFromNoir(baseOrMergeRollupPublicInputs.calldata_hash, 2, mapFieldFromNoir),
+    mapFieldFromNoir(baseOrMergeRollupPublicInputs.txs_effects_hash),
+    mapFieldFromNoir(baseOrMergeRollupPublicInputs.out_hash),
   );
 }
 
@@ -1565,6 +1711,7 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
 export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): RootRollupInputsNoir {
   return {
     previous_rollup_data: mapTuple(rootRollupInputs.previousRollupData, mapPreviousRollupDataToNoir),
+    l1_to_l2_roots: mapRootParityInputToNoir(rootRollupInputs.l1ToL2Roots),
     new_l1_to_l2_messages: mapTuple(rootRollupInputs.newL1ToL2Messages, mapFieldToNoir),
     new_l1_to_l2_message_tree_root_sibling_path: mapTuple(
       rootRollupInputs.newL1ToL2MessageTreeRootSiblingPath,
@@ -1575,6 +1722,21 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
     ),
     start_archive_snapshot: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.startArchiveSnapshot),
     new_archive_sibling_path: mapTuple(rootRollupInputs.newArchiveSiblingPath, mapFieldToNoir),
+  };
+}
+
+export function mapRootParityInputToNoir(rootParityInput: RootParityInput): RootParityInputNoir {
+  return {
+    proof: {},
+    public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
+  };
+}
+
+export function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): ParityPublicInputsNoir {
+  return {
+    aggregation_object: {},
+    sha_root: mapFieldToNoir(parityPublicInputs.shaRoot),
+    converted_root: mapFieldToNoir(parityPublicInputs.convertedRoot),
   };
 }
 
@@ -1590,7 +1752,19 @@ export function mapRootRollupPublicInputsFromNoir(
     AggregationObject.makeFake(),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.archive),
     mapHeaderFromNoir(rootRollupPublicInputs.header),
-    mapTupleFromNoir(rootRollupPublicInputs.l1_to_l2_messages_hash, 2, mapFieldFromNoir),
+  );
+}
+
+/**
+ * Maps a parity public inputs from noir.
+ * @param parityPublicInputs - The noir parity public inputs.
+ * @returns The circuits.js parity public inputs.
+ */
+export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicInputsNoir): ParityPublicInputs {
+  return new ParityPublicInputs(
+    AggregationObject.makeFake(),
+    mapFieldFromNoir(parityPublicInputs.sha_root),
+    mapFieldFromNoir(parityPublicInputs.converted_root),
   );
 }
 
@@ -1629,7 +1803,7 @@ export function mapHeaderFromNoir(header: HeaderNoir): Header {
 export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
   return {
     tx_tree_height: mapFieldToNoir(contentCommitment.txTreeHeight),
-    txs_hash: mapSha256HashToNoir(contentCommitment.txsHash),
+    txs_effects_hash: mapSha256HashToNoir(contentCommitment.txsEffectsHash),
     in_hash: mapSha256HashToNoir(contentCommitment.inHash),
     out_hash: mapSha256HashToNoir(contentCommitment.outHash),
   };
@@ -1642,7 +1816,7 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
 export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
   return new ContentCommitment(
     mapFieldFromNoir(contentCommitment.tx_tree_height),
-    mapSha256HashFromNoir(contentCommitment.txs_hash),
+    mapSha256HashFromNoir(contentCommitment.txs_effects_hash),
     mapSha256HashFromNoir(contentCommitment.in_hash),
     mapSha256HashFromNoir(contentCommitment.out_hash),
   );
@@ -1683,7 +1857,6 @@ export function mapPartialStateReferenceFromNoir(
   return new PartialStateReference(
     mapAppendOnlyTreeSnapshotFromNoir(partialStateReference.note_hash_tree),
     mapAppendOnlyTreeSnapshotFromNoir(partialStateReference.nullifier_tree),
-    mapAppendOnlyTreeSnapshotFromNoir(partialStateReference.contract_tree),
     mapAppendOnlyTreeSnapshotFromNoir(partialStateReference.public_data_tree),
   );
 }
@@ -1787,7 +1960,6 @@ export function mapPartialStateReferenceToNoir(
   return {
     note_hash_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.noteHashTree),
     nullifier_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.nullifierTree),
-    contract_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.contractTree),
     public_data_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.publicDataTree),
   };
 }
@@ -1808,8 +1980,29 @@ export function mapStateDiffHintsToNoir(hints: StateDiffHints): StateDiffHintsNo
     sorted_nullifier_indexes: mapTuple(hints.sortedNullifierIndexes, (index: number) => mapNumberToNoir(index)),
     note_hash_subtree_sibling_path: mapTuple(hints.noteHashSubtreeSiblingPath, mapFieldToNoir),
     nullifier_subtree_sibling_path: mapTuple(hints.nullifierSubtreeSiblingPath, mapFieldToNoir),
-    contract_subtree_sibling_path: mapTuple(hints.contractSubtreeSiblingPath, mapFieldToNoir),
     public_data_sibling_path: mapTuple(hints.publicDataSiblingPath, mapFieldToNoir),
+  };
+}
+
+/**
+ * Maps base parity inputs to noir.
+ * @param inputs - The circuits.js base parity inputs.
+ * @returns The noir base parity inputs.
+ */
+export function mapBaseParityInputsToNoir(inputs: BaseParityInputs): BaseParityInputsNoir {
+  return {
+    msgs: mapTuple(inputs.msgs, mapFieldToNoir),
+  };
+}
+
+/**
+ * Maps root parity inputs to noir.
+ * @param inputs - The circuits.js root parity inputs.
+ * @returns The noir root parity inputs.
+ */
+export function mapRootParityInputsToNoir(inputs: RootParityInputs): RootParityInputsNoir {
+  return {
+    children: mapTuple(inputs.children, mapRootParityInputToNoir),
   };
 }
 
@@ -1820,7 +2013,7 @@ export function mapStateDiffHintsToNoir(hints: StateDiffHints): StateDiffHintsNo
  */
 export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupInputsNoir {
   return {
-    kernel_data: mapPublicKernelDataToNoir(inputs.kernelData),
+    kernel_data: mapRollupKernelDataToNoir(inputs.kernelData),
     start: mapPartialStateReferenceToNoir(inputs.start),
     state_diff_hints: mapStateDiffHintsToNoir(inputs.stateDiffHints),
 

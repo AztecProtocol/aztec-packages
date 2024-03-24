@@ -58,11 +58,12 @@ export function getConfigEnvVars(): ArchiverConfig {
     ARCHIVER_VIEM_POLLING_INTERVAL_MS,
     AVAILABILITY_ORACLE_CONTRACT_ADDRESS,
     ROLLUP_CONTRACT_ADDRESS,
-    CONTRACT_DEPLOYMENT_EMITTER_ADDRESS,
     API_KEY,
     INBOX_CONTRACT_ADDRESS,
     OUTBOX_CONTRACT_ADDRESS,
     REGISTRY_CONTRACT_ADDRESS,
+    GAS_TOKEN_CONTRACT_ADDRESS,
+    GAS_PORTAL_CONTRACT_ADDRESS,
     DATA_DIRECTORY,
   } = process.env;
   // Populate the relevant addresses for use by the archiver.
@@ -74,8 +75,9 @@ export function getConfigEnvVars(): ArchiverConfig {
     registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
     inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
     outboxAddress: OUTBOX_CONTRACT_ADDRESS ? EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    contractDeploymentEmitterAddress: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
-      ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
+    gasTokenAddress: GAS_TOKEN_CONTRACT_ADDRESS ? EthAddress.fromString(GAS_TOKEN_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    gasPortalAddress: GAS_PORTAL_CONTRACT_ADDRESS
+      ? EthAddress.fromString(GAS_PORTAL_CONTRACT_ADDRESS)
       : EthAddress.ZERO,
   };
   return {

@@ -1,8 +1,6 @@
-import { sha256 } from '@aztec/foundation/crypto';
-import { Point } from '@aztec/foundation/fields';
-import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
-
-import { randomBytes } from 'crypto';
+import { randomBytes, sha256 } from '@aztec/foundation/crypto';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { BufferReader, prefixBufferWithLength, truncateAndPad } from '@aztec/foundation/serialize';
 
 import { LogType } from './log_type.js';
 import { UnencryptedL2Log } from './unencrypted_l2_log.js';
@@ -46,7 +44,7 @@ export class FunctionL2Logs {
   public hash(): Buffer {
     // Remove first 4 bytes that are occupied by length which is not part of the preimage in contracts and L2Blocks
     const preimage = this.toBuffer().subarray(4);
-    return sha256(preimage);
+    return truncateAndPad(sha256(preimage));
   }
 
   /**
@@ -77,7 +75,7 @@ export class FunctionL2Logs {
       if (logType === LogType.ENCRYPTED) {
         const randomEphPubKey = Point.random();
         const randomLogContent = randomBytes(144 - Point.SIZE_IN_BYTES);
-        logs.push(Buffer.concat([randomLogContent, randomEphPubKey.toBuffer()]));
+        logs.push(Buffer.concat([Fr.random().toBuffer(), randomLogContent, randomEphPubKey.toBuffer()]));
       } else {
         logs.push(UnencryptedL2Log.random().toBuffer());
       }

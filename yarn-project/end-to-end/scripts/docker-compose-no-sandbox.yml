@@ -1,13 +1,13 @@
 version: '3'
 services:
   fork:
-    image: ghcr.io/foundry-rs/foundry:nightly-a44aa13cfc23491ba32aaedc093e9488c1a6db43
+    image: ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916
     entrypoint: >
       sh -c '
       if [ -n "$FORK_BLOCK_NUMBER" ] && [ -n "$FORK_URL" ]; then
-        exec anvil -p 8545 --host 0.0.0.0 --chain-id 31337 --fork-url "$FORK_URL" --fork-block-number "$FORK_BLOCK_NUMBER"
+        exec anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337 --fork-url "$FORK_URL" --fork-block-number "$FORK_BLOCK_NUMBER"
       else
-        exec anvil -p 8545 --host 0.0.0.0 --chain-id 31337
+        exec anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337
       fi'
     ports:
       - '8545:8545'

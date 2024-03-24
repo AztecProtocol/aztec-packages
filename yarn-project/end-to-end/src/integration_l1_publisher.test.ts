@@ -1,15 +1,13 @@
+import { ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecAddress, Body, Fr, GlobalVariables, L2Actor, L2Block, createDebugLogger, mockTx } from '@aztec/aztec.js';
+// eslint-disable-next-line no-restricted-imports
 import {
-  AztecAddress,
-  Body,
-  Fr,
-  GlobalVariables,
-  L2Actor,
-  L2Block,
-  createDebugLogger,
-  mockTx,
-  to2Fields,
-} from '@aztec/aztec.js';
+  ProcessedTx,
+  ProvingSuccess,
+  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
+  makeProcessedTx,
+} from '@aztec/circuit-types';
 import {
   EthAddress,
   Header,
@@ -23,38 +21,29 @@ import {
   PublicKernelCircuitPublicInputs,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
-import {
-  fr,
-  makeNewContractData,
-  makeNewSideEffect,
-  makeNewSideEffectLinkedToNoteHash,
-  makeProof,
-} from '@aztec/circuits.js/testing';
-import { createEthereumChain } from '@aztec/ethereum';
+import { fr, makeNewSideEffect, makeNewSideEffectLinkedToNoteHash, makeProof } from '@aztec/circuits.js/testing';
+import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import {
-  EmptyRollupProver,
-  L1Publisher,
-  RealRollupCircuitSimulator,
-  SoloBlockBuilder,
-  getL1Publisher,
-  getVerificationKeys,
-  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
-  makeProcessedTx,
-} from '@aztec/sequencer-client';
-import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
+import { TxProver } from '@aztec/prover-client';
+import { L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
+import { WASMSimulator } from '@aztec/simulator';
+import { MerkleTrees, ServerWorldStateSynchronizer, WorldStateConfig } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import * as fs from 'fs';
+import { MockProxy, mock } from 'jest-mock-extended';
 import {
+  Account,
   Address,
   Chain,
   GetContractReturnType,
   HttpTransport,
   PublicClient,
   WalletClient,
+  decodeEventLog,
   encodeFunctionData,
   getAbiItem,
   getAddress,
@@ -76,25 +65,28 @@ const numberOfConsecutiveBlocks = 2;
 
 describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
+  let walletClient: WalletClient<HttpTransport, Chain, Account>;
+  let l1ContractAddresses: L1ContractAddresses;
   let deployerAccount: PrivateKeyAccount;
 
-  let availabilityOracleAddress: Address;
   let rollupAddress: Address;
   let inboxAddress: Address;
   let outboxAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
-  let inbox: GetContractReturnType<typeof InboxAbi, WalletClient<HttpTransport, Chain>>;
+  let inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
   let l2Proof: Buffer;
 
-  let builder: SoloBlockBuilder;
-  let builderDb: MerkleTreeOperations;
+  let builder: TxProver;
+  let builderDb: MerkleTrees;
 
   // The header of the last block
   let prevHeader: Header;
+
+  let blockSource: MockProxy<ArchiveSource>;
 
   const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
 
@@ -102,18 +94,16 @@ describe('L1Publisher integration', () => {
   let feeRecipient: AztecAddress;
 
   // To overwrite the test data, set this to true and run the tests.
-  const OVERWRITE_TEST_DATA = false;
+  const OVERWRITE_TEST_DATA = !!process.env.OVERWRITE_TEST_DATA;
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
-    const {
-      l1ContractAddresses,
-      walletClient,
-      publicClient: publicClient_,
-    } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger);
-    publicClient = publicClient_;
+    ({ l1ContractAddresses, publicClient, walletClient } = await setupL1Contracts(
+      config.rpcUrl,
+      deployerAccount,
+      logger,
+    ));
 
-    availabilityOracleAddress = getAddress(l1ContractAddresses.availabilityOracleAddress.toString());
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
@@ -135,12 +125,16 @@ describe('L1Publisher integration', () => {
       client: publicClient,
     });
 
-    builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
-    const vks = getVerificationKeys();
-    const simulator = new RealRollupCircuitSimulator();
-    const prover = new EmptyRollupProver();
-    builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
-
+    const tmpStore = openTmpStore();
+    builderDb = await MerkleTrees.new(tmpStore);
+    blockSource = mock<ArchiveSource>();
+    blockSource.getBlocks.mockResolvedValue([]);
+    const worldStateConfig: WorldStateConfig = {
+      worldStateBlockCheckIntervalMS: 10000,
+      l2QueueSize: 10,
+    };
+    const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
+    builder = await TxProver.new({}, worldStateSynchronizer, new WASMSimulator());
     l2Proof = Buffer.alloc(0);
 
     publisher = getL1Publisher({
@@ -155,7 +149,7 @@ describe('L1Publisher integration', () => {
     coinbase = config.coinbase || EthAddress.random();
     feeRecipient = config.feeRecipient || AztecAddress.random();
 
-    prevHeader = await builderDb.buildInitialHeader();
+    prevHeader = await builderDb.buildInitialHeader(false);
   }, 100_000);
 
   const makeEmptyProcessedTx = () => {
@@ -186,9 +180,8 @@ describe('L1Publisher integration', () => {
     processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] =
       SideEffectLinkedToNoteHash.empty();
     processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
-    processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
-    processedTx.data.end.encryptedLogsHash = to2Fields(processedTx.encryptedLogs.hash());
-    processedTx.data.end.unencryptedLogsHash = to2Fields(processedTx.unencryptedLogs.hash());
+    processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
+    processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
     return processedTx;
   };
@@ -196,40 +189,32 @@ describe('L1Publisher integration', () => {
   const sendToL2 = async (content: Fr, recipientAddress: AztecAddress) => {
     // @todo @LHerskind version hardcoded here (update to bigint or field)
     const recipient = new L2Actor(recipientAddress, 1);
-    // Note: using max deadline
-    const deadline = 2 ** 32 - 1;
     // getting the 32 byte hex string representation of the content
     const contentString = content.toString();
     // Using the 0 value for the secretHash.
     const emptySecretHash = Fr.ZERO.toString();
 
-    await inbox.write.sendL2Message(
-      [
-        { actor: recipient.recipient.toString(), version: BigInt(recipient.version) },
-        deadline,
-        contentString,
-        emptySecretHash,
-      ],
+    const txHash = await inbox.write.sendL2Message(
+      [{ actor: recipient.recipient.toString(), version: BigInt(recipient.version) }, contentString, emptySecretHash],
       {} as any,
     );
 
-    const entry = await inbox.read.computeEntryKey([
-      {
-        sender: {
-          actor: deployerAccount.address,
-          chainId: BigInt(publicClient.chain.id),
-        },
-        recipient: {
-          actor: recipientAddress.toString(),
-          version: 1n,
-        },
-        content: contentString,
-        secretHash: emptySecretHash,
-        deadline,
-        fee: 0n,
-      },
-    ]);
-    return Fr.fromString(entry);
+    const txReceipt = await publicClient.waitForTransactionReceipt({
+      hash: txHash,
+    });
+
+    // Exactly 1 event should be emitted in the transaction
+    expect(txReceipt.logs.length).toBe(1);
+
+    // We decode the event log before checking it
+    const txLog = txReceipt.logs[0];
+    const topics = decodeEventLog({
+      abi: InboxAbi,
+      data: txLog.data,
+      topics: txLog.topics,
+    });
+
+    return Fr.fromString(topics.args.hash);
   };
 
   /**
@@ -239,7 +224,6 @@ describe('L1Publisher integration', () => {
   const writeJson = (
     fileName: string,
     block: L2Block,
-    l1ToL2Messages: Fr[],
     l1ToL2Content: Fr[],
     recipientAddress: AztecAddress,
     deployerAddress: `0x${string}`,
@@ -257,9 +241,8 @@ describe('L1Publisher integration', () => {
         sender: deployerAddress,
       },
       messages: {
-        l1ToL2Messages: l1ToL2Messages.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
         l2ToL1Messages: block.body.txEffects
-          .flatMap(txEffect => txEffect.newL2ToL1Msgs)
+          .flatMap(txEffect => txEffect.l2ToL1Msgs)
           .map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
       },
       block: {
@@ -267,13 +250,13 @@ describe('L1Publisher integration', () => {
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
         body: `0x${block.body.toBuffer().toString('hex')}`,
-        calldataHash: `0x${block.body.getCalldataHash().toString('hex').padStart(64, '0')}`,
+        txsEffectsHash: `0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
           contentCommitment: {
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
             txTreeHeight: Number(block.header.contentCommitment.txTreeHeight.toBigInt()),
-            txsHash: `0x${block.header.contentCommitment.txsHash.toString('hex').padStart(64, '0')}`,
+            txsEffectsHash: `0x${block.header.contentCommitment.txsEffectsHash.toString('hex').padStart(64, '0')}`,
           },
           globalVariables: {
             blockNumber: block.number,
@@ -293,10 +276,6 @@ describe('L1Publisher integration', () => {
               root: `0x${block.header.state.l1ToL2MessageTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
             },
             partialStateReference: {
-              contractTree: {
-                nextAvailableLeafIndex: block.header.state.partial.contractTree.nextAvailableLeafIndex,
-                root: `0x${block.header.state.partial.contractTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
-              },
               noteHashTree: {
                 nextAvailableLeafIndex: block.header.state.partial.noteHashTree.nextAvailableLeafIndex,
                 root: `0x${block.header.state.partial.noteHashTree.root.toBuffer().toString('hex').padStart(64, '0')}`,
@@ -316,7 +295,6 @@ describe('L1Publisher integration', () => {
           },
         },
         header: `0x${block.header.toBuffer().toString('hex')}`,
-        l1ToL2MessagesHash: `0x${block.getL1ToL2MessagesHash().toString('hex').padStart(64, '0')}`,
         publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
       },
     };
@@ -325,28 +303,40 @@ describe('L1Publisher integration', () => {
     fs.writeFileSync(path, output, 'utf8');
   };
 
+  const buildBlock = async (
+    globalVariables: GlobalVariables,
+    txs: ProcessedTx[],
+    l1ToL2Messages: Fr[],
+    emptyTx: ProcessedTx,
+  ) => {
+    const blockTicket = await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages, emptyTx);
+    for (const tx of txs) {
+      await builder.addNewTx(tx);
+    }
+    return blockTicket;
+  };
+
   it('Block body is correctly published to AvailabilityOracle', async () => {
     const body = Body.random();
     // `sendPublishTx` function is private so I am hacking around TS here. I think it's ok for test purposes.
     const txHash = await (publisher as any).sendPublishTx(body.toBuffer());
-
-    // We verify that the body was successfully published by fetching TxsPublished events from the AvailabilityOracle
-    // and checking if the txsHash in the event is as expected
-    const events = await publicClient.getLogs({
-      address: availabilityOracleAddress,
-      event: getAbiItem({
-        abi: AvailabilityOracleAbi,
-        name: 'TxsPublished',
-      }),
-      fromBlock: 0n,
+    const txReceipt = await publicClient.waitForTransactionReceipt({
+      hash: txHash,
     });
 
-    // We get the event just for the relevant transaction
-    const txEvents = events.filter(event => event.transactionHash === txHash);
+    // Exactly 1 event should be emitted in the transaction
+    expect(txReceipt.logs.length).toBe(1);
 
-    // We check that exactly 1 TxsPublished event was emitted and txsHash is as expected
-    expect(txEvents.length).toBe(1);
-    expect(txEvents[0].args.txsHash).toEqual(`0x${body.getCalldataHash().toString('hex')}`);
+    // We decode the event log before checking it
+    const txLog = txReceipt.logs[0];
+    const topics = decodeEventLog({
+      abi: AvailabilityOracleAbi,
+      data: txLog.data,
+      topics: txLog.topics,
+    });
+    // Sol gives bytes32 txsHash, so we pad the ts bytes31 version
+    // We check that the txsHash in the TxsPublished event is as expected
+    expect(topics.args.txsEffectsHash).toEqual(`0x${body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`);
   });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
@@ -359,34 +349,17 @@ describe('L1Publisher integration', () => {
       '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
     );
 
+    let currentL1ToL2Messages: Fr[] = [];
+    let nextL1ToL2Messages: Fr[] = [];
+
+    // We store which tree is about to be consumed so that we can later check the value advanced
+    let toConsume = await inbox.read.toConsume();
+
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
       const l1ToL2Content = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 128 * i + 1 + 0x400).map(fr);
-      const l1ToL2Messages: Fr[] = [];
 
       for (let j = 0; j < l1ToL2Content.length; j++) {
-        l1ToL2Messages.push(await sendToL2(l1ToL2Content[j], recipientAddress));
-      }
-
-      // check logs
-      const inboxLogs = await publicClient.getLogs({
-        address: inboxAddress,
-        event: getAbiItem({
-          abi: InboxAbi,
-          name: 'MessageAdded',
-        }),
-        fromBlock: blockNumber + 1n,
-      });
-      expect(inboxLogs).toHaveLength(l1ToL2Messages.length * (i + 1));
-      for (let j = 0; j < NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP; j++) {
-        const event = inboxLogs[j + i * NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP].args;
-        expect(event.content).toEqual(l1ToL2Content[j].toString());
-        expect(event.deadline).toEqual(2 ** 32 - 1);
-        expect(event.entryKey).toEqual(l1ToL2Messages[j].toString());
-        expect(event.fee).toEqual(0n);
-        expect(event.recipient).toEqual(recipientAddress.toString());
-        expect(event.recipientVersion).toEqual(1n);
-        expect(event.senderChainId).toEqual(BigInt(publicClient.chain.id));
-        expect(event.sender).toEqual(deployerAccount.address);
+        nextL1ToL2Messages.push(await sendToL2(l1ToL2Content[j], recipientAddress));
       }
 
       // Ensure that each transaction has unique (non-intersecting nullifier values)
@@ -406,25 +379,19 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
+      const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages, makeEmptyProcessedTx());
+      const result = await ticket.provingPromise;
+      const block = (result as ProvingSuccess).block;
       prevHeader = block.header;
 
-      // check that values are in the inbox
-      for (let j = 0; j < l1ToL2Messages.length; j++) {
-        if (l1ToL2Messages[j].isZero()) {
-          continue;
-        }
-        expect(await inbox.read.contains([l1ToL2Messages[j].toString()])).toBeTruthy();
-      }
+      const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-      const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs);
+      const [emptyRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
 
-      // check that values are not in the outbox
-      for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
-        expect(await outbox.read.contains([newL2ToL1MsgsArray[j].toString()])).toBeFalsy();
-      }
+      // Check that we have not yet written a root to this blocknumber
+      expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-      writeJson(`mixed_block_${i}`, block, l1ToL2Messages, l1ToL2Content, recipientAddress, deployerAccount.address);
+      writeJson(`mixed_block_${i}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
       await publisher.processL2Block(block);
 
@@ -449,24 +416,31 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${block.body.toBuffer().toString('hex')}`,
           `0x${l2Proof.toString('hex')}`,
         ],
       });
       expect(ethTx.input).toEqual(expectedData);
 
-      // check that values have been consumed from the inbox
-      for (let j = 0; j < l1ToL2Messages.length; j++) {
-        if (l1ToL2Messages[j].isZero()) {
-          continue;
-        }
-        expect(await inbox.read.contains([l1ToL2Messages[j].toString()])).toBeFalsy();
-      }
+      // Check a tree have been consumed from the inbox
+      const newToConsume = await inbox.read.toConsume();
+      expect(newToConsume).toEqual(toConsume + 1n);
+      toConsume = newToConsume;
+
+      const treeHeight = Math.ceil(Math.log2(newL2ToL1MsgsArray.length));
+
+      const tree = new StandardTree(openTmpStore(true), new SHA256Trunc(), 'temp_outhash_sibling_path', treeHeight);
+      await tree.appendLeaves(newL2ToL1MsgsArray.map(l2ToL1Msg => l2ToL1Msg.toBuffer()));
+
+      const expectedRoot = tree.getRoot(true);
+      const [actualRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
 
       // check that values are inserted into the outbox
-      for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
-        expect(await outbox.read.contains([newL2ToL1MsgsArray[j].toString()])).toBeTruthy();
-      }
+      expect(`0x${expectedRoot.toString('hex')}`).toEqual(actualRoot);
+
+      // There is a 1 block lag between before messages get consumed from the inbox
+      currentL1ToL2Messages = nextL1ToL2Messages;
+      // We wipe the messages from previous iteration
+      nextL1ToL2Messages = [];
     }
   }, 360_000);
 
@@ -488,10 +462,12 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
+      const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages, makeEmptyProcessedTx());
+      const result = await blockTicket.provingPromise;
+      const block = (result as ProvingSuccess).block;
       prevHeader = block.header;
 
-      writeJson(`empty_block_${i}`, block, l1ToL2Messages, [], AztecAddress.ZERO, deployerAccount.address);
+      writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
       await publisher.processL2Block(block);
 
@@ -516,7 +492,6 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${block.body.toBuffer().toString('hex')}`,
           `0x${l2Proof.toString('hex')}`,
         ],
       });

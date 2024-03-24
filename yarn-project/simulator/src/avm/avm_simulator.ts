@@ -9,16 +9,39 @@ import type { Instruction } from './opcodes/index.js';
 import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
 
 export class AvmSimulator {
-  private log: DebugLogger = createDebugLogger('aztec:avm_simulator');
+  private log: DebugLogger;
 
-  constructor(private context: AvmContext) {}
+  constructor(private context: AvmContext) {
+    this.log = createDebugLogger(
+      `aztec:avm_simulator:core(f:${context.environment.temporaryFunctionSelector.toString()})`,
+    );
+  }
 
   /**
    * Fetch the bytecode and execute it in the current context.
    */
   public async execute(): Promise<AvmContractCallResults> {
-    const instructions = await this.fetchAndDecodeBytecode();
-    return this.executeInstructions(instructions);
+    const selector = this.context.environment.temporaryFunctionSelector;
+    const bytecode = await this.context.persistableState.hostStorage.contractsDb.getBytecode(
+      this.context.environment.address,
+      selector,
+    );
+
+    // This assumes that we will not be able to send messages to accounts without code
+    // Pending classes and instances impl details
+    if (!bytecode) {
+      throw new NoBytecodeForContractError(this.context.environment.address);
+    }
+
+    return await this.executeBytecode(bytecode);
+  }
+
+  /**
+   * Executes the provided bytecode in the current context.
+   * This method is useful for testing and debugging.
+   */
+  public async executeBytecode(bytecode: Buffer): Promise<AvmContractCallResults> {
+    return await this.executeInstructions(decodeFromBytecode(bytecode));
   }
 
   /**
@@ -33,9 +56,12 @@ export class AvmSimulator {
       // continuing until the machine state signifies a halt
       while (!this.context.machineState.halted) {
         const instruction = instructions[this.context.machineState.pc];
-        assert(!!instruction); // This should never happen
+        assert(
+          !!instruction,
+          'AVM attempted to execute non-existent instruction. This should never happen (invalid bytecode or AVM simulator bug)!',
+        );
 
-        this.log(`Executing PC=${this.context.machineState.pc}: ${instruction.toString()}`);
+        this.log.debug(`@${this.context.machineState.pc} ${instruction.toString()}`);
         // Execute the instruction.
         // Normal returns and reverts will return normally here.
         // "Exceptional halts" will throw.
@@ -64,26 +90,5 @@ export class AvmSimulator {
       this.log(`Context execution results: ${results.toString()}`);
       return results;
     }
-  }
-
-  /**
-   * Fetch contract bytecode from world state and decode into executable instructions.
-   */
-  private async fetchAndDecodeBytecode(): Promise<Instruction[]> {
-    // NOTE: the following is mocked as getPublicBytecode does not exist yet
-
-    const selector = this.context.environment.temporaryFunctionSelector;
-    const bytecode = await this.context.persistableState.hostStorage.contractsDb.getBytecode(
-      this.context.environment.address,
-      selector,
-    );
-
-    // This assumes that we will not be able to send messages to accounts without code
-    // Pending classes and instances impl details
-    if (!bytecode) {
-      throw new NoBytecodeForContractError(this.context.environment.address);
-    }
-
-    return decodeFromBytecode(bytecode);
   }
 }

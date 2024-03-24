@@ -1,5 +1,6 @@
-import { AztecNode, INITIAL_L2_BLOCK_NUM, L2Tx, PXE, mockTx } from '@aztec/circuit-types';
+import { AztecNode, PXE, TxEffect, mockTx } from '@aztec/circuit-types';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { L1ContractAddresses } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestKeyStore } from '@aztec/key-store';
@@ -30,7 +31,8 @@ function createPXEService(): Promise<PXE> {
     registryAddress: EthAddress.random(),
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
-    contractDeploymentEmitterAddress: EthAddress.random(),
+    gasTokenAddress: EthAddress.random(),
+    gasPortalAddress: EthAddress.random(),
   };
   node.getL1ContractAddresses.mockResolvedValue(mockedContracts);
 
@@ -54,12 +56,12 @@ describe('PXEService', () => {
   });
 
   it('throws when submitting a tx with a nullifier of already settled tx', async () => {
-    const settledTx = L2Tx.random();
+    const settledTx = TxEffect.random();
     const duplicateTx = mockTx();
 
-    node.getTx.mockResolvedValue(settledTx);
+    node.getTxEffect.mockResolvedValue(settledTx);
 
     const pxe = new PXEService(keyStore, node, db, config);
-    await expect(pxe.sendTx(duplicateTx)).rejects.toThrowError(/A settled tx with equal hash/);
+    await expect(pxe.sendTx(duplicateTx)).rejects.toThrow(/A settled tx with equal hash/);
   });
 });

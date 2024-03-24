@@ -3,11 +3,9 @@ import {
   AppendOnlyTreeSnapshot,
   CallContext,
   CompleteAddress,
-  ContractDeploymentData,
   FunctionData,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_NEW_NOTE_HASHES_PER_CALL,
   NOTE_HASH_TREE_HEIGHT,
   PartialStateReference,
   PublicCallRequest,
@@ -16,16 +14,12 @@ import {
   computeNullifierSecretKey,
   computeSiloedNullifierSecretKey,
   derivePublicKey,
+  getContractInstanceFromDeployParams,
   nonEmptySideEffects,
   sideEffectArrayToValueArray,
 } from '@aztec/circuits.js';
-import {
-  computeCommitmentNonce,
-  computeMessageSecretHash,
-  computeVarArgsHash,
-  siloNoteHash,
-} from '@aztec/circuits.js/hash';
-import { makeContractDeploymentData, makeHeader } from '@aztec/circuits.js/testing';
+import { computeCommitmentNonce, computeMessageSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { makeHeader } from '@aztec/circuits.js/testing';
 import {
   FunctionArtifact,
   FunctionSelector,
@@ -36,7 +30,7 @@ import {
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { pedersenHash, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -47,15 +41,14 @@ import {
   ChildContractArtifact,
   ImportTestContractArtifact,
   ParentContractArtifact,
-  PendingCommitmentsContractArtifact,
+  PendingNoteHashesContractArtifact,
   StatefulTestContractArtifact,
   TestContractArtifact,
-  TokenContractArtifact,
 } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
-import { getFunctionSelector } from 'viem';
+import { toFunctionSelector } from 'viem';
 
 import { KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
@@ -92,12 +85,10 @@ describe('Private Execution test suite', () => {
 
   let trees: { [name: keyof typeof treeHeights]: AppendOnlyTree } = {};
   const txContextFields: FieldsOf<TxContext> = {
-    isContractDeploymentTx: false,
     isFeePaymentTx: false,
     isRebatePaymentTx: false,
     chainId: new Fr(10),
     version: new Fr(20),
-    contractDeploymentData: ContractDeploymentData.empty(),
   };
 
   const runSimulator = ({
@@ -126,13 +117,7 @@ describe('Private Execution test suite', () => {
       authWitnesses: [],
     });
 
-    return acirSimulator.run(
-      txRequest,
-      artifact,
-      functionData.isConstructor ? AztecAddress.ZERO : contractAddress,
-      portalContractAddress,
-      msgSender,
-    );
+    return acirSimulator.run(txRequest, artifact, contractAddress, portalContractAddress, msgSender);
   };
 
   const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {
@@ -151,16 +136,15 @@ describe('Private Execution test suite', () => {
     // Create a new snapshot.
     const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
 
-    if (name === 'noteHash') {
+    if (name === 'noteHash' || name === 'l1ToL2Messages') {
       header = new Header(
         header.lastArchive,
         header.contentCommitment,
         new StateReference(
-          header.state.l1ToL2MessageTree,
+          name === 'l1ToL2Messages' ? newSnap : header.state.l1ToL2MessageTree,
           new PartialStateReference(
-            newSnap,
+            name === 'noteHash' ? newSnap : header.state.partial.noteHashTree,
             header.state.partial.nullifierTree,
-            header.state.partial.contractTree,
             header.state.partial.publicDataTree,
           ),
         ),
@@ -225,18 +209,7 @@ describe('Private Execution test suite', () => {
     acirSimulator = new AcirSimulator(oracle, node);
   });
 
-  describe('empty constructor', () => {
-    it('should run the empty constructor', async () => {
-      const artifact = getFunctionArtifact(TestContractArtifact, 'constructor');
-      const contractDeploymentData = makeContractDeploymentData(100);
-      const txContext = { isContractDeploymentTx: true, contractDeploymentData };
-      const result = await runSimulator({ artifact, txContext });
-
-      const emptyCommitments = new Array(MAX_NEW_NOTE_HASHES_PER_CALL).fill(Fr.ZERO);
-      expect(sideEffectArrayToValueArray(result.callStackItem.publicInputs.newNoteHashes)).toEqual(emptyCommitments);
-      expect(result.callStackItem.publicInputs.contractDeploymentData).toEqual(contractDeploymentData);
-    });
-
+  describe('no constructor', () => {
     it('emits a field as an unencrypted log', async () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'emit_msg_sender');
       const result = await runSimulator({ artifact, msgSender: owner });
@@ -272,7 +245,7 @@ describe('Private Execution test suite', () => {
       // noteHashes. A TX's real first nullifier (generated by the initial kernel) and a noteHash's
       // array index at the output of the final kernel/ordering circuit are used to derive nonce via:
       // `hash(firstNullifier, noteHashIndex)`
-      const noteHashIndex = Math.floor(Math.random()); // mock index in TX's final newNoteHashes array
+      const noteHashIndex = randomInt(1); // mock index in TX's final newNoteHashes array
       const nonce = computeCommitmentNonce(mockFirstNullifier, noteHashIndex);
       const note = new Note([new Fr(amount), owner.toField(), Fr.random()]);
       const innerNoteHash = hashFields(note.items);
@@ -311,8 +284,11 @@ describe('Private Execution test suite', () => {
     });
 
     it('should have a constructor with arguments that inserts notes', async () => {
+      const initArgs = [owner, 140];
+      const instance = getContractInstanceFromDeployParams(StatefulTestContractArtifact, { constructorArgs: initArgs });
+      oracle.getContractInstance.mockResolvedValue(instance);
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'constructor');
-      const topLevelResult = await runSimulator({ args: [owner, 140], artifact });
+      const topLevelResult = await runSimulator({ args: initArgs, artifact, contractAddress: instance.address });
       const result = topLevelResult.nestedExecutions[0];
 
       expect(result.newNotes).toHaveLength(1);
@@ -337,7 +313,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should run the create_note function', async () => {
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_note');
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'create_note_no_init_check');
 
       const result = await runSimulator({ args: [owner, 140], artifact });
 
@@ -364,7 +340,7 @@ describe('Private Execution test suite', () => {
 
     it('should run the destroy_and_create function', async () => {
       const amountToTransfer = 100n;
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create');
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner);
       const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient);
@@ -411,8 +387,7 @@ describe('Private Execution test suite', () => {
       expect(changeNote.note.items[0]).toEqual(new Fr(40n));
 
       const readRequests = sideEffectArrayToValueArray(
-        // We remove the first element which is the read request for the initialization commitment
-        nonEmptySideEffects(result.callStackItem.publicInputs.readRequests.slice(1)),
+        nonEmptySideEffects(result.callStackItem.publicInputs.noteHashReadRequests),
       );
 
       expect(readRequests).toHaveLength(consumedNotes.length);
@@ -422,7 +397,7 @@ describe('Private Execution test suite', () => {
     it('should be able to destroy_and_create with dummy notes', async () => {
       const amountToTransfer = 100n;
       const balance = 160n;
-      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create');
+      const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner);
       const noteTypeId = new Fr(869710811710178111116101n); // ValueNote
@@ -463,7 +438,7 @@ describe('Private Execution test suite', () => {
 
     it('parent should call child', async () => {
       const childArtifact = getFunctionArtifact(ChildContractArtifact, 'value');
-      const parentArtifact = getFunctionArtifact(ParentContractArtifact, 'entryPoint');
+      const parentArtifact = getFunctionArtifact(ParentContractArtifact, 'entry_point');
       const parentAddress = AztecAddress.random();
       const childAddress = AztecAddress.random();
       const childSelector = FunctionSelector.fromNameAndParameters(childArtifact.name, childArtifact.parameters);
@@ -550,7 +525,6 @@ describe('Private Execution test suite', () => {
 
     describe('L1 to L2', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'consume_mint_private_message');
-      const canceller = EthAddress.random();
       let bridgedAmount = 100n;
 
       const secretHashForRedeemingNotes = new Fr(2n);
@@ -558,7 +532,6 @@ describe('Private Execution test suite', () => {
 
       let crossChainMsgRecipient: AztecAddress | undefined;
       let crossChainMsgSender: EthAddress | undefined;
-      let messageKey: Fr | undefined;
 
       let preimage: L1ToL2Message;
 
@@ -570,41 +543,33 @@ describe('Private Execution test suite', () => {
 
         crossChainMsgRecipient = undefined;
         crossChainMsgSender = undefined;
-        messageKey = undefined;
       });
 
       const computePreimage = () =>
         buildL1ToL2Message(
-          getFunctionSelector('mint_private(bytes32,uint256,address)').substring(2),
-          [secretHashForRedeemingNotes, new Fr(bridgedAmount), canceller.toField()],
+          toFunctionSelector('mint_private(bytes32,uint256)').substring(2),
+          [secretHashForRedeemingNotes, new Fr(bridgedAmount)],
           crossChainMsgRecipient ?? contractAddress,
           secretForL1ToL2MessageConsumption,
         );
 
       const computeArgs = () =>
-        encodeArguments(artifact, [
-          secretHashForRedeemingNotes,
-          bridgedAmount,
-          canceller.toField(),
-          messageKey ?? preimage.hash(),
-          secretForL1ToL2MessageConsumption,
-        ]);
+        encodeArguments(artifact, [secretHashForRedeemingNotes, bridgedAmount, secretForL1ToL2MessageConsumption]);
 
-      const mockOracles = async () => {
-        const tree = await insertLeaves([messageKey ?? preimage.hash()], 'l1ToL2Messages');
-        oracle.getL1ToL2Message.mockImplementation(async () => {
-          return Promise.resolve(new MessageLoadOracleInputs(preimage, 0n, await tree.getSiblingPath(0n, false)));
+      const mockOracles = async (updateHeader = true) => {
+        const tree = await insertLeaves([preimage.hash()], 'l1ToL2Messages');
+        oracle.getL1ToL2MembershipWitness.mockImplementation(async () => {
+          return Promise.resolve(new MessageLoadOracleInputs(0n, await tree.getSiblingPath(0n, true)));
         });
+        if (updateHeader) {
+          oracle.getHeader.mockResolvedValue(header);
+        }
       };
 
       it('Should be able to consume a dummy cross chain message', async () => {
         preimage = computePreimage();
-
         args = computeArgs();
-
         await mockOracles();
-        // Update state
-        oracle.getHeader.mockResolvedValue(header);
 
         const result = await runSimulator({
           contractAddress,
@@ -622,34 +587,13 @@ describe('Private Execution test suite', () => {
         expect(newNullifiers).toHaveLength(1);
       });
 
-      it('Message not matching requested key', async () => {
-        messageKey = Fr.random();
-
-        preimage = computePreimage();
-
-        args = computeArgs();
-
-        await mockOracles();
-        // Update state
-        oracle.getHeader.mockResolvedValue(header);
-
-        await expect(
-          runSimulator({
-            contractAddress,
-            artifact,
-            args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
-          }),
-        ).rejects.toThrowError('Message not matching requested key');
-      });
-
       it('Invalid membership proof', async () => {
         preimage = computePreimage();
 
         args = computeArgs();
 
-        await mockOracles();
+        // Don't update the header so the message is not in state
+        await mockOracles(false);
 
         await expect(
           runSimulator({
@@ -659,7 +603,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Message not in state');
+        ).rejects.toThrow('Message not in state');
       });
 
       it('Invalid recipient', async () => {
@@ -681,7 +625,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Invalid recipient');
+        ).rejects.toThrow('Message not in state');
       });
 
       it('Invalid sender', async () => {
@@ -702,7 +646,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Invalid sender');
+        ).rejects.toThrow('Message not in state');
       });
 
       it('Invalid chainid', async () => {
@@ -722,7 +666,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(2n) },
           }),
-        ).rejects.toThrowError('Invalid Chainid');
+        ).rejects.toThrow('Message not in state');
       });
 
       it('Invalid version', async () => {
@@ -742,7 +686,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(2n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Invalid Version');
+        ).rejects.toThrow('Message not in state');
       });
 
       it('Invalid content', async () => {
@@ -763,7 +707,7 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Invalid Content');
+        ).rejects.toThrow('Message not in state');
       });
 
       it('Invalid Secret', async () => {
@@ -784,21 +728,16 @@ describe('Private Execution test suite', () => {
             portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
-        ).rejects.toThrowError('Invalid message secret');
+        ).rejects.toThrow('Message not in state');
       });
     });
 
     it('Should be able to consume a dummy public to private message', async () => {
-      const amount = 100n;
-      const artifact = getFunctionArtifact(TokenContractArtifact, 'redeem_shield');
-
+      const artifact = getFunctionArtifact(TestContractArtifact, 'consume_note_from_secret');
       const secret = new Fr(1n);
       const secretHash = computeMessageSecretHash(secret);
-      const note = new Note([new Fr(amount), secretHash]);
-      const noteHash = hashFields(note.items);
+      const note = new Note([secretHash]);
       const storageSlot = new Fr(5);
-      const innerNoteHash = hashFields([storageSlot, noteHash]);
-      const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
       oracle.getNotes.mockResolvedValue([
         {
           contractAddress,
@@ -811,10 +750,7 @@ describe('Private Execution test suite', () => {
         },
       ]);
 
-      const result = await runSimulator({
-        artifact,
-        args: [recipient, amount, secret],
-      });
+      const result = await runSimulator({ artifact, args: [secret] });
 
       // Check a nullifier has been inserted.
       const newNullifiers = sideEffectArrayToValueArray(
@@ -825,18 +761,18 @@ describe('Private Execution test suite', () => {
 
       // Check the commitment read request was created successfully.
       const readRequests = sideEffectArrayToValueArray(
-        nonEmptySideEffects(result.callStackItem.publicInputs.readRequests),
+        nonEmptySideEffects(result.callStackItem.publicInputs.noteHashReadRequests),
       );
 
       expect(readRequests).toHaveLength(1);
-      expect(readRequests[0]).toEqual(siloedNoteHash);
     });
   });
 
   describe('enqueued calls', () => {
     it.each([false, true])('parent should enqueue call to child (internal %p)', async isInternal => {
-      const parentArtifact = getFunctionArtifact(ParentContractArtifact, 'enqueueCallToChild');
-      const childContractArtifact = ParentContractArtifact.functions[0];
+      const parentArtifact = getFunctionArtifact(ParentContractArtifact, 'enqueue_call_to_child');
+      const childContractArtifact = ChildContractArtifact.functions.find(fn => fn.name === 'pub_set_value')!;
+      expect(childContractArtifact).toBeDefined();
       const childAddress = AztecAddress.random();
       const childPortalContractAddress = EthAddress.random();
       const childSelector = FunctionSelector.fromNameAndParameters(
@@ -858,7 +794,6 @@ describe('Private Execution test suite', () => {
 
       // Alter function data to match the manipulated oracle
       const functionData = FunctionData.fromAbi(childContractArtifact);
-      functionData.isInternal = isInternal;
 
       const publicCallRequest = PublicCallRequest.from({
         contractAddress: childAddress,
@@ -869,20 +804,18 @@ describe('Private Execution test suite', () => {
           storageContractAddress: childAddress,
           portalContractAddress: childPortalContractAddress,
           functionSelector: childSelector,
-          isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: 1,
+          sideEffectCounter: 1,
         }),
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
           storageContractAddress: parentAddress,
           portalContractAddress: EthAddress.ZERO,
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
-          isContractDeployment: false,
           isDelegateCall: false,
           isStaticCall: false,
-          startSideEffectCounter: 1,
+          sideEffectCounter: 1,
         }),
       });
 
@@ -906,10 +839,10 @@ describe('Private Execution test suite', () => {
 
     beforeEach(() => {
       oracle.getFunctionArtifact.mockImplementation((_, selector) =>
-        Promise.resolve(getFunctionArtifactWithSelector(PendingCommitmentsContractArtifact, selector)),
+        Promise.resolve(getFunctionArtifactWithSelector(PendingNoteHashesContractArtifact, selector)),
       );
       oracle.getFunctionArtifactByName.mockImplementation((_, functionName: string) =>
-        Promise.resolve(getFunctionArtifact(PendingCommitmentsContractArtifact, functionName)),
+        Promise.resolve(getFunctionArtifact(PendingNoteHashesContractArtifact, functionName)),
       );
     });
 
@@ -919,10 +852,7 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const artifact = getFunctionArtifact(
-        PendingCommitmentsContractArtifact,
-        'test_insert_then_get_then_nullify_flat',
-      );
+      const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_insert_then_get_then_nullify_flat');
 
       const args = [amountToTransfer, owner];
       const result = await runSimulator({
@@ -955,7 +885,7 @@ describe('Private Execution test suite', () => {
       expect(noteHash).toEqual(innerNoteHash);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
-      const readRequest = sideEffectArrayToValueArray(result.callStackItem.publicInputs.readRequests)[0];
+      const readRequest = sideEffectArrayToValueArray(result.callStackItem.publicInputs.noteHashReadRequests)[0];
       expect(readRequest).toEqual(innerNoteHash);
 
       const gotNoteValue = result.callStackItem.publicInputs.returnValues[0].value;
@@ -981,34 +911,22 @@ describe('Private Execution test suite', () => {
 
       const contractAddress = AztecAddress.random();
       const artifact = getFunctionArtifact(
-        PendingCommitmentsContractArtifact,
+        PendingNoteHashesContractArtifact,
         'test_insert_then_get_then_nullify_all_in_nested_calls',
       );
-      const insertArtifact = getFunctionArtifact(PendingCommitmentsContractArtifact, 'insert_note');
+      const insertArtifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'insert_note');
 
-      const getThenNullifyArtifact = getFunctionArtifact(PendingCommitmentsContractArtifact, 'get_then_nullify_note');
-
-      const getZeroArtifact = getFunctionArtifact(PendingCommitmentsContractArtifact, 'get_note_zero_balance');
+      const getThenNullifyArtifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'get_then_nullify_note');
 
       const insertFnSelector = FunctionSelector.fromNameAndParameters(insertArtifact.name, insertArtifact.parameters);
       const getThenNullifyFnSelector = FunctionSelector.fromNameAndParameters(
         getThenNullifyArtifact.name,
         getThenNullifyArtifact.parameters,
       );
-      const getZeroFnSelector = FunctionSelector.fromNameAndParameters(
-        getZeroArtifact.name,
-        getZeroArtifact.parameters,
-      );
 
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
-      const args = [
-        amountToTransfer,
-        owner,
-        insertFnSelector.toField(),
-        getThenNullifyFnSelector.toField(),
-        getZeroFnSelector.toField(),
-      ];
+      const args = [amountToTransfer, owner, insertFnSelector.toField(), getThenNullifyFnSelector.toField()];
       const result = await runSimulator({
         args: args,
         artifact: artifact,
@@ -1017,7 +935,6 @@ describe('Private Execution test suite', () => {
 
       const execInsert = result.nestedExecutions[0];
       const execGetThenNullify = result.nestedExecutions[1];
-      const getNotesAfterNullify = result.nestedExecutions[2];
 
       const storageSlot = computeSlotForMapping(new Fr(1n), owner);
       const noteTypeId = new Fr(869710811710178111116101n); // ValueNote
@@ -1044,7 +961,7 @@ describe('Private Execution test suite', () => {
       expect(noteHash).toEqual(innerNoteHash);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
-      const readRequest = execGetThenNullify.callStackItem.publicInputs.readRequests[0];
+      const readRequest = execGetThenNullify.callStackItem.publicInputs.noteHashReadRequests[0];
       expect(readRequest.value).toEqual(innerNoteHash);
 
       const gotNoteValue = execGetThenNullify.callStackItem.publicInputs.returnValues[0].value;
@@ -1061,10 +978,6 @@ describe('Private Execution test suite', () => {
         siloedNullifierSecretKey.high,
       ]);
       expect(nullifier.value).toEqual(expectedNullifier);
-
-      // check that the last get_notes call return no note
-      const afterNullifyingNoteValue = getNotesAfterNullify.callStackItem.publicInputs.returnValues[0].value;
-      expect(afterNullifyingNoteValue).toEqual(0n);
     });
 
     it('cant read a commitment that is inserted later in same call', async () => {
@@ -1074,51 +987,16 @@ describe('Private Execution test suite', () => {
 
       const contractAddress = AztecAddress.random();
 
-      const artifact = getFunctionArtifact(PendingCommitmentsContractArtifact, 'test_bad_get_then_insert_flat');
+      const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_bad_get_then_insert_flat');
 
       const args = [amountToTransfer, owner];
-      const result = await runSimulator({
-        args: args,
-        artifact: artifact,
-        contractAddress,
-      });
-
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner);
-      const noteTypeId = new Fr(869710811710178111116101n); // ValueNote
-
-      expect(result.newNotes).toHaveLength(1);
-      const noteAndSlot = result.newNotes[0];
-      expect(noteAndSlot.storageSlot).toEqual(storageSlot);
-      expect(noteAndSlot.noteTypeId).toEqual(noteTypeId);
-
-      expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
-
-      const newNoteHashes = sideEffectArrayToValueArray(
-        nonEmptySideEffects(result.callStackItem.publicInputs.newNoteHashes),
-      );
-      expect(newNoteHashes).toHaveLength(1);
-
-      const noteHash = newNoteHashes[0];
-      expect(noteHash).toEqual(
-        await acirSimulator.computeInnerNoteHash(
+      await expect(
+        runSimulator({
+          args: args,
+          artifact: artifact,
           contractAddress,
-          storageSlot,
-          noteAndSlot.noteTypeId,
-          noteAndSlot.note,
-        ),
-      );
-
-      // read requests should be empty
-      const readRequest = result.callStackItem.publicInputs.readRequests[0].value;
-      expect(readRequest).toEqual(Fr.ZERO);
-
-      // should get note value 0 because it actually gets a fake note since the real one hasn't been inserted yet!
-      const gotNoteValue = result.callStackItem.publicInputs.returnValues[0];
-      expect(gotNoteValue).toEqual(Fr.ZERO);
-
-      // there should be no nullifiers
-      const nullifier = result.callStackItem.publicInputs.newNullifiers[0].value;
-      expect(nullifier).toEqual(Fr.ZERO);
+        }),
+      ).rejects.toThrow(`Assertion failed: Cannot return zero notes`);
     });
   });
 
@@ -1136,6 +1014,17 @@ describe('Private Execution test suite', () => {
       oracle.getCompleteAddress.mockResolvedValue(completeAddress);
       const result = await runSimulator({ artifact, args });
       expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value]);
+    });
+  });
+
+  describe('Get notes', () => {
+    it('fails if returning no notes', async () => {
+      const artifact = getFunctionArtifact(TestContractArtifact, 'call_get_notes');
+
+      const args = [2n, true];
+      oracle.getNotes.mockResolvedValue([]);
+
+      await expect(runSimulator({ artifact, args })).rejects.toThrow(`Assertion failed: Cannot return zero notes`);
     });
   });
 
@@ -1206,7 +1095,7 @@ describe('Private Execution test suite', () => {
       const unexpectedChainId = Fr.random();
       await expect(
         runSimulator({ artifact, msgSender: owner, args, txContext: { chainId: unexpectedChainId, version } }),
-      ).rejects.toThrowError('Invalid chain id');
+      ).rejects.toThrow('Invalid chain id');
     });
 
     it('Throws when version is incorrectly set', async () => {
@@ -1214,7 +1103,7 @@ describe('Private Execution test suite', () => {
       const unexpectedVersion = Fr.random();
       await expect(
         runSimulator({ artifact, msgSender: owner, args, txContext: { chainId, version: unexpectedVersion } }),
-      ).rejects.toThrowError('Invalid version');
+      ).rejects.toThrow('Invalid version');
     });
   });
 
@@ -1241,7 +1130,7 @@ describe('Private Execution test suite', () => {
       const unexpectedHeaderHash = Fr.random();
       const args = [unexpectedHeaderHash];
 
-      await expect(runSimulator({ artifact, msgSender: owner, args })).rejects.toThrowError('Invalid header hash');
+      await expect(runSimulator({ artifact, msgSender: owner, args })).rejects.toThrow('Invalid header hash');
     });
   });
 });

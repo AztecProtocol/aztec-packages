@@ -1,14 +1,16 @@
-import { INITIAL_L2_BLOCK_NUM, L2Block, L2Tx, TxHash } from '@aztec/circuit-types';
-import { AztecAddress } from '@aztec/circuits.js';
+import { L2Block, TxEffect, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore, AztecMap, Range } from '@aztec/kv-store';
+import { AztecKVStore, AztecMap, AztecSingleton, Range } from '@aztec/kv-store';
+
+import { DataRetrieval } from '../data_retrieval.js';
+import { BlockBodyStore } from './block_body_store.js';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
-type BlockContext = {
-  blockNumber: number;
-  l1BlockNumber: bigint;
-  block: Buffer;
+type BlockStorage = {
+  header: Buffer;
+  archive: Buffer;
 };
 
 /**
@@ -16,7 +18,9 @@ type BlockContext = {
  */
 export class BlockStore {
   /** Map block number to block data */
-  #blocks: AztecMap<number, BlockContext>;
+  #blocks: AztecMap<number, BlockStorage>;
+  /** Stores L1 block number in which the last processed L2 block was included */
+  #lastSynchedL1Block: AztecSingleton<bigint>;
 
   /** Index mapping transaction hash (as a string) to its location in a block */
   #txIndex: AztecMap<string, BlockIndexValue>;
@@ -26,42 +30,36 @@ export class BlockStore {
 
   #log = createDebugLogger('aztec:archiver:block_store');
 
-  constructor(private db: AztecKVStore) {
-    this.#blocks = db.openMap('archiver_blocks');
+  #blockBodyStore: BlockBodyStore;
 
+  constructor(private db: AztecKVStore, blockBodyStore: BlockBodyStore) {
+    this.#blockBodyStore = blockBodyStore;
+
+    this.#blocks = db.openMap('archiver_blocks');
     this.#txIndex = db.openMap('archiver_tx_index');
     this.#contractIndex = db.openMap('archiver_contract_index');
+    this.#lastSynchedL1Block = db.openSingleton('archiver_last_synched_l1_block');
   }
 
   /**
    * Append new blocks to the store's list.
-   * @param blocks - The L2 blocks to be added to the store.
+   * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: L2Block[]): Promise<boolean> {
+  addBlocks(blocks: DataRetrieval<L2Block>): Promise<boolean> {
     return this.db.transaction(() => {
-      for (const block of blocks) {
+      for (const block of blocks.retrievedData) {
         void this.#blocks.set(block.number, {
-          blockNumber: block.number,
-          block: block.toBuffer(),
-          l1BlockNumber: block.getL1BlockNumber(),
+          header: block.header.toBuffer(),
+          archive: block.archive.toBuffer(),
         });
 
-        for (const [i, tx] of block.getTxs().entries()) {
-          if (tx.txHash.isZero()) {
-            continue;
-          }
+        block.getTxs().forEach((tx, i) => {
           void this.#txIndex.set(tx.txHash.toString(), [block.number, i]);
-        }
-
-        for (const [i, contractData] of block.body.txEffects.flatMap(txEffect => txEffect.contractData).entries()) {
-          if (contractData.contractAddress.isZero()) {
-            continue;
-          }
-
-          void this.#contractIndex.set(contractData.contractAddress.toString(), [block.number, i]);
-        }
+        });
       }
+
+      void this.#lastSynchedL1Block.set(blocks.lastProcessedL1BlockNumber);
 
       return true;
     });
@@ -71,35 +69,51 @@ export class BlockStore {
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param start - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
-   * @returns The requested L2 blocks, without logs attached
+   * @returns The requested L2 blocks
    */
   *getBlocks(start: number, limit: number): IterableIterator<L2Block> {
-    for (const blockCtx of this.#blocks.values(this.#computeBlockRange(start, limit))) {
-      yield L2Block.fromBuffer(blockCtx.block);
+    for (const blockStorage of this.#blocks.values(this.#computeBlockRange(start, limit))) {
+      yield this.getBlockFromBlockStorage(blockStorage);
     }
   }
 
   /**
    * Gets an L2 block.
    * @param blockNumber - The number of the block to return.
-   * @returns The requested L2 block, without logs attached
+   * @returns The requested L2 block.
    */
   getBlock(blockNumber: number): L2Block | undefined {
-    const blockCtx = this.#blocks.get(blockNumber);
-    if (!blockCtx || !blockCtx.block) {
+    const blockStorage = this.#blocks.get(blockNumber);
+    if (!blockStorage || !blockStorage.header) {
       return undefined;
     }
 
-    return L2Block.fromBuffer(blockCtx.block);
+    return this.getBlockFromBlockStorage(blockStorage);
+  }
+
+  private getBlockFromBlockStorage(blockStorage: BlockStorage) {
+    const header = Header.fromBuffer(blockStorage.header);
+    const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
+    const body = this.#blockBodyStore.getBlockBody(header.contentCommitment.txsEffectsHash);
+
+    if (body === undefined) {
+      throw new Error('Body is not able to be retrieved from BodyStore');
+    }
+
+    return L2Block.fromFields({
+      header,
+      archive,
+      body,
+    });
   }
 
   /**
-   * Gets an l2 tx.
-   * @param txHash - The txHash of the l2 tx.
-   * @returns The requested L2 tx.
+   * Gets a tx effect.
+   * @param txHash - The txHash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect (or undefined if not found).
    */
-  getL2Tx(txHash: TxHash): L2Tx | undefined {
-    const [blockNumber, txIndex] = this.getL2TxLocation(txHash) ?? [];
+  getTxEffect(txHash: TxHash): TxEffect | undefined {
+    const [blockNumber, txIndex] = this.getTxLocation(txHash) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return undefined;
     }
@@ -109,11 +123,34 @@ export class BlockStore {
   }
 
   /**
-   * Looks up which block included the requested L2 tx.
-   * @param txHash - The txHash of the l2 tx.
+   * Gets a receipt of a settled tx.
+   * @param txHash - The hash of a tx we try to get the receipt for.
+   * @returns The requested tx receipt (or undefined if not found).
+   */
+  getSettledTxReceipt(txHash: TxHash): TxReceipt | undefined {
+    const [blockNumber, txIndex] = this.getTxLocation(txHash) ?? [];
+    if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
+      return undefined;
+    }
+
+    const block = this.getBlock(blockNumber)!;
+    const tx = block.getTx(txIndex);
+
+    return new TxReceipt(
+      txHash,
+      tx.revertCode.isOK() ? TxStatus.MINED : TxStatus.REVERTED,
+      '',
+      block.hash().toBuffer(),
+      block.number,
+    );
+  }
+
+  /**
+   * Looks up which block included the requested tx effect.
+   * @param txHash - The txHash of the tx.
    * @returns The block number and index of the tx.
    */
-  getL2TxLocation(txHash: TxHash): [blockNumber: number, txIndex: number] | undefined {
+  getTxLocation(txHash: TxHash): [blockNumber: number, txIndex: number] | undefined {
     return this.#txIndex.get(txHash.toString());
   }
 
@@ -130,7 +167,7 @@ export class BlockStore {
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
-  getBlockNumber(): number {
+  getSynchedL2BlockNumber(): number {
     const [lastBlockNumber] = this.#blocks.keys({ reverse: true, limit: 1 });
     return typeof lastBlockNumber === 'number' ? lastBlockNumber : INITIAL_L2_BLOCK_NUM - 1;
   }
@@ -139,13 +176,8 @@ export class BlockStore {
    * Gets the most recent L1 block processed.
    * @returns The L1 block that published the latest L2 block
    */
-  getL1BlockNumber(): bigint {
-    const [lastBlock] = this.#blocks.values({ reverse: true, limit: 1 });
-    if (!lastBlock) {
-      return 0n;
-    } else {
-      return lastBlock.l1BlockNumber;
-    }
+  getSynchedL1BlockNumber(): bigint {
+    return this.#lastSynchedL1Block.get() ?? 0n;
   }
 
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {

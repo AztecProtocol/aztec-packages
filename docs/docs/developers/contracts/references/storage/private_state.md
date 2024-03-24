@@ -36,9 +36,9 @@ A note should implement the following traits:
 
 #include_code note_interface /noir-projects/aztec-nr/aztec/src/note/note_interface.nr rust
 
-#include_code serialize /noir-projects/noir-protocol-circuits/src/crates/types/src/traits.nr rust
+#include_code serialize /noir-projects/noir-protocol-circuits/crates/types/src/traits.nr rust
 
-#include_code deserialize /noir-projects/noir-protocol-circuits/src/crates/types/src/traits.nr rust
+#include_code deserialize /noir-projects/noir-protocol-circuits/crates/types/src/traits.nr rust
 
 The interplay between a private state variable and its notes can be confusing. Here's a summary to aid intuition:
 
@@ -91,7 +91,7 @@ When this function is called, a nullifier of the storage slot is created, preven
 :::danger Privacy-Leak
 Beware that because this nullifier is created only from the storage slot without randomness it leaks privacy. This means that it is possible for an external observer to determine when the note is nullified.
 
-For example, if the storage slot depends on the an address then it is possible to link the nullifier to the address. If the singleton is part of a `map` with an `AztecAddress` as the key then the nullifier will be linked to the address.
+For example, if the storage slot depends on the an address then it is possible to link the nullifier to the address. If the PrivateMutable is part of a `map` with an `AztecAddress` as the key then the nullifier will be linked to the address.
 :::
 
 Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `PrivateMutable`, `PrivateImmutable` or `PrivateSet`) does not have a default initial value. The `initialize` method (or `insert`, in the case of a `PrivateSet`) must be called.
@@ -149,7 +149,7 @@ When this function is invoked, it creates a nullifier for the storage slot, ensu
 :::danger Privacy-Leak
 Beware that because this nullifier is created only from the storage slot without randomness it leaks privacy. This means that it is possible for an external observer to determine when the note is nullified.
 
-For example, if the storage slot depends on the an address then it is possible to link the nullifier to the address. If the singleton is part of a `map` with an `AztecAddress` as the key then the nullifier will be linked to the address.
+For example, if the storage slot depends on the an address then it is possible to link the nullifier to the address. If the PrivateImmutable is part of a `map` with an `AztecAddress` as the key then the nullifier will be linked to the address.
 :::
 
 Set the value of an PrivateImmutable by calling the `initialize` method:
@@ -226,7 +226,7 @@ An example of how to use this operation is visible in the `easy_private_state`:
 
 This function returns the notes the account has access to.
 
-The kernel circuits are constrained to a maximum number of notes this function can return at a time. Check [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/src/crates/types/src/constants.nr) and look for `MAX_READ_REQUESTS_PER_CALL` for the up-to-date number.
+The kernel circuits are constrained to a maximum number of notes this function can return at a time. Check [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr) and look for `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` for the up-to-date number.
 
 Because of this limit, we should always consider using the second argument `NoteGetterOptions` to limit the number of notes we need to read and constrain in our programs. This is quite important as every extra call increases the time used to prove the program and we don't want to spend more time than necessary.
 
@@ -240,7 +240,7 @@ Functionally similar to [`get_notes`](#get_notes), but executed unconstrained an
 
 #include_code view_notes /noir-projects/aztec-nr/value-note/src/balance_utils.nr rust
 
-There's also a limit on the maximum number of notes that can be returned in one go. To find the current limit, refer to [this file](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/src/crates/types/src/constants.nr) and look for `MAX_NOTES_PER_PAGE`.
+There's also a limit on the maximum number of notes that can be returned in one go. To find the current limit, refer to [this file](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr) and look for `MAX_NOTES_PER_PAGE`.
 
 The key distinction is that this method is unconstrained. It does not perform a check to verify if the notes actually exist, which is something the [`get_notes`](#get_notes) method does under the hood. Therefore, it should only be used in an unconstrained contract function.
 
@@ -254,11 +254,11 @@ You can view the implementation [here](https://github.com/AztecProtocol/aztec-pa
 
 ### `selects: BoundedVec<Option<Select>, N>`
 
-`selects` is a collection of filtering criteria, specified by `Select { field_index: u8, value: Field, comparator: u3 }` structs. It instructs the data oracle to find notes whose (`field_index`)th field matches the provided `value`, according to the `comparator`.
+`selects` is a collection of filtering criteria, specified by `Select { property_selector: PropertySelector, value: Field, comparator: u3 }` structs. It instructs the data oracle to find notes whose serialized field (as specified by the PropertySelector) matches the provided `value`, according to the `comparator`. The PropertySelector is in turn specified as having an `index` (nth position of the selected field in the serialized note), an `offset` (byte offset inside the selected serialized field) and `length` (bytes to read of the field from the offset)
 
 ### `sorts: BoundedVec<Option<Sort>, N>`
 
-`sorts` is a set of sorting instructions defined by `Sort { field_index: u8, order: u2 }` structs. This directs the data oracle to sort the matching notes based on the value of the specified field index and in the indicated order. The value of order is **1** for _DESCENDING_ and **2** for _ASCENDING_.
+`sorts` is a set of sorting instructions defined by `Sort { property_selector: PropertySelector, order: u2 }` structs. This directs the data oracle to sort the matching notes based on the value of the specified PropertySelector and in the indicated order. The value of order is **1** for _DESCENDING_ and **2** for _ASCENDING_.
 
 ### `limit: u32`
 
@@ -268,7 +268,7 @@ When the `limit` is set to a non-zero value, the data oracle will return a maxim
 
 This setting enables us to skip the first `offset` notes. It's particularly useful for pagination.
 
-### `filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL]`
+### `filter: fn ([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]`
 
 Developers have the option to provide a custom filter. This allows specific logic to be applied to notes that meet the criteria outlined above. The filter takes the notes returned from the oracle and `filter_args` as its parameters.
 
@@ -292,7 +292,7 @@ This function initializes a `NoteGetterOptions` that simply returns the maximum 
 
 ### `fn with_filter(filter, filter_args) -> NoteGetterOptions<Note, N, FILTER_ARGS>`
 
-This function initializes a `NoteGetterOptions` with a [`filter`](#filter-fn-optionnote-max_read_requests_per_call-filter_args---optionnote-max_read_requests_per_call) and [`filter_args`](#filter_args-filter_args).
+This function initializes a `NoteGetterOptions` with a [`filter`](#filter-fn-optionnote-max_note_hash_read_requests_per_call-filter_args---optionnote-max_note_hash_read_requests_per_call) and [`filter_args`](#filter_args-filter_args).
 
 ### `.select`
 
@@ -346,7 +346,7 @@ We can use it as a filter to further reduce the number of the final notes:
 
 One thing to remember is, `filter` will be applied on the notes after they are picked from the database, so it is more efficient to use select with comparators where possible. Another side effect of this is that it's possible that the actual notes we end up getting are fewer than the limit.
 
-The limit is `MAX_READ_REQUESTS_PER_CALL` by default. But we can set it to any value **smaller** than that:
+The limit is `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` by default. But we can set it to any value **smaller** than that:
 
 #include_code state_vars-NoteGetterOptionsPickOne /noir-projects/noir-contracts/contracts/docs_example_contract/src/options.nr rust
 
