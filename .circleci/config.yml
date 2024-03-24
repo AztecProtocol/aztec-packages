@@ -1529,7 +1529,7 @@ workflows:
             - boxes-vanilla
             - boxes-react
             - cli-docs-sandbox
-            # - e2e-docs-examples
+            # - e2e-docs-examples # TODO failing
             - guides-writing-an-account-contract
             - guides-dapp-testing
             - guides-sample-dapp
