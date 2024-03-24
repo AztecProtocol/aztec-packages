@@ -290,7 +290,8 @@ template <class T> constexpr bool field<T>::operator!=(const field& other) const
 template <class T> constexpr field<T> field<T>::to_montgomery_form() const noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::to_montgomery_form");
-    constexpr field r_squared{ T::r_squared_0, T::r_squared_1, T::r_squared_2, T::r_squared_3 };
+    constexpr field r_squared =
+        field{ r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3] };
 
     field result = *this;
     // TODO(@zac-williamson): are these reductions needed?
@@ -315,7 +316,9 @@ template <class T> constexpr field<T> field<T>::from_montgomery_form() const noe
 template <class T> constexpr void field<T>::self_to_montgomery_form() noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_to_montgomery_form");
-    constexpr field r_squared{ T::r_squared_0, T::r_squared_1, T::r_squared_2, T::r_squared_3 };
+    constexpr field r_squared =
+        field{ r_squared_uint.data[0], r_squared_uint.data[1], r_squared_uint.data[2], r_squared_uint.data[3] };
+
     self_reduce_once();
     self_reduce_once();
     self_reduce_once();

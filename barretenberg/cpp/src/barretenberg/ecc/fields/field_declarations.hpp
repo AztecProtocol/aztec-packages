@@ -159,14 +159,27 @@ template <class Params_> struct alignas(32) field {
 
     static constexpr uint256_t modulus =
         uint256_t{ Params::modulus_0, Params::modulus_1, Params::modulus_2, Params::modulus_3 };
-
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
+    static constexpr uint256_t r_squared_uint{
+        Params_::r_squared_0, Params_::r_squared_1, Params_::r_squared_2, Params_::r_squared_3
+    };
+#else
+    static constexpr uint256_t R = ((uint512_t(1) << (29 * 9)) % uint512_t(modulus)).lo;
+    static constexpr uint256_t r_squared_uint = (uint512_t(R) * uint512_t(R) % uint512_t(modulus)).lo;
+#endif
     static constexpr field cube_root_of_unity()
     {
         // endomorphism i.e. lambda * [P] = (beta * x, y)
         if constexpr (Params::cube_root_0 != 0) {
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
             constexpr field result{
                 Params::cube_root_0, Params::cube_root_1, Params::cube_root_2, Params::cube_root_3
             };
+#else
+            constexpr field result =
+                field{ Params::cube_root_0, Params::cube_root_1, Params::cube_root_2, Params::cube_root_3 } *
+                field((uint256_t(1) << ((29 * 9) - 256)));
+#endif
             return result;
         } else {
             constexpr field two_inv = field(2).invert();

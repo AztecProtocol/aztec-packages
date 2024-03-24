@@ -1,4 +1,5 @@
 #!/bin/env python3
+import math
 """
 Strategy:
 1. Reimplement multiplication for 9 limbs programmatically
@@ -69,6 +70,51 @@ def grade_school_product(left_argument_prefix,right_argument_prefix,intermediate
             accumulation_actions.append(f"{intermediate_result_prefix}_{i+j} += {left_argument_prefix}[{i}] * {right_argument_prefix}[{j}];")
     return '\n'.join(accumulation_actions)
 
+def one_level_karatsuba_product(left_argument_prefix,right_argument_prefix,intermediate_result_prefix, num_limbs):
+    accumulation_actions=[]
+    accumulation_actions.append("uint64_t karatsuba_low;")
+    accumulation_actions.append("uint64_t karatsuba_high;")
+    accumulation_actions.append("uint64_t left_sum;")
+    for i in range(num_limbs//2):
+        accumulation_actions.append(f"uint64_t right_sum_{i};")
+    for i in range(num_limbs//2):
+        accumulation_actions.append(f"left_sum = ({left_argument_prefix}[{i*2}] + {left_argument_prefix}[{i*2+1}]);")
+        for j in range (num_limbs//2):
+            if (i==0):
+                accumulation_actions.append(f"right_sum_{j} = ({right_argument_prefix}[{j*2}] + {right_argument_prefix}[{j*2+1}]);")
+            accumulation_actions.append(f"karatsuba_low = {left_argument_prefix}[{i*2}] * {right_argument_prefix}[{j*2}];")
+            accumulation_actions.append(f"karatsuba_high = {left_argument_prefix}[{i*2+1}] * {right_argument_prefix}[{j*2+1}];")
+            accumulation_actions.append(f"{intermediate_result_prefix}_{(i+j)*2} += karatsuba_low;")
+            accumulation_actions.append(f"{intermediate_result_prefix}_{(i+j)*2 + 1} += left_sum * right_sum_{j} - karatsuba_low - karatsuba_high;")
+            accumulation_actions.append(f"{intermediate_result_prefix}_{(i+j+1)*2} += karatsuba_high;")
+    if num_limbs%2!=0:
+        for i in range (num_limbs):
+            if i!=(num_limbs-1):
+                accumulation_actions.append(f"{intermediate_result_prefix}_{i+num_limbs-1} += {left_argument_prefix}[{i}] * {right_argument_prefix}[{num_limbs-1}];")
+                accumulation_actions.append(f"{intermediate_result_prefix}_{i+num_limbs-1} += {left_argument_prefix}[{num_limbs-1}] * {right_argument_prefix}[{i}];")
+            else:
+                accumulation_actions.append(f"{intermediate_result_prefix}_{i+num_limbs-1} += {left_argument_prefix}[{num_limbs-1}] * {right_argument_prefix}[{num_limbs-1}];")
+
+    return '\n'.join(accumulation_actions)
+
+def grade_school_sqr(left_argument_prefix,intermediate_result_prefix, num_limbs):
+    accumulation_actions=[]
+    accumulation_actions.append("uint64_t acc;")
+    for r in range (num_limbs*2 - 1):
+        if r!=0 and r!=(num_limbs-1)*2:
+            accumulation_actions.append("acc = 0;")
+        for i in range(0,(r+2)//2):
+            if (r-i>=num_limbs):
+                continue
+            if (i==(r-i)):
+                accumulation_actions.append(f"{intermediate_result_prefix}_{r} += {left_argument_prefix}[{i}] * {left_argument_prefix}[{i}];")
+            else:
+                accumulation_actions.append(f"acc += {left_argument_prefix}[{i}] * {left_argument_prefix}[{r-i}];")
+        if r!=0 and r!=(num_limbs-1)*2:
+            accumulation_actions.append(f"{intermediate_result_prefix}_{r} += (acc<<1);")
+
+    return '\n'.join(accumulation_actions)
+
 def reduce_one_limb(result_prefix,modulus_prefix,start_index,num_limb_bits,num_limbs, first_call=False):
     actions=[]
     if (first_call):
@@ -109,26 +155,68 @@ def accumulate_into_result(limb_name_array, num_original_limbs, num_original_bit
     return "return {\n"+',\n'.join([' | '.join(new_limbs[i]) for i in range(num_new_limbs)])+ " };"
 
         
-        
-
-
-if __name__=="__main__":
-    original_limb_size=64
-    new_limb_size=29
-    num_original_limbs=4
-    num_new_limbs=9
-    wasm_modulus_initialization="constexpr "+convert_a_limbs_into_b_limbs("modulus.data","wasm_modulus",original_limb_size,new_limb_size,num_original_limbs)
-    left_initialization=convert_a_limbs_into_b_limbs("data","left",original_limb_size,new_limb_size,num_original_limbs)
-    right_initialization=convert_a_limbs_into_b_limbs("other.data","right",original_limb_size,new_limb_size,num_original_limbs)
+def print_regular_multiplication(original_bits,new_bits,original_limbs,new_limbs):        
+    wasm_modulus_initialization="constexpr "+convert_a_limbs_into_b_limbs("modulus.data","wasm_modulus",original_bits,new_bits,original_limbs)
+    left_initialization=convert_a_limbs_into_b_limbs("data","left",original_bits,new_bits,original_limbs)
+    right_initialization=convert_a_limbs_into_b_limbs("other.data","right",original_bits,new_bits,original_limbs)
     print (wasm_modulus_initialization.replace("=",''))
     print (left_initialization)
     print (right_initialization)
-    print (initialize_mask(new_limb_size))
-    print (initialize_r_inv(new_limb_size))
-    print (initialize_variables_for_grade_school_multiplication("temp",num_new_limbs))
-    print (grade_school_product("left","right","temp",num_new_limbs))
-    for i in range(num_new_limbs):
-        print(reduce_one_limb("temp","wasm_modulus",i,new_limb_size,num_new_limbs,i==0))
-    print (reduce_relaxed("temp",new_limb_size,num_new_limbs))
-    print(accumulate_into_result([f"temp_{num_new_limbs+i}" for i in range(num_new_limbs)],num_new_limbs,new_limb_size,num_original_limbs,original_limb_size,254))
+    print (initialize_mask(new_bits))
+    print (initialize_r_inv(new_bits))
+    print (initialize_variables_for_grade_school_multiplication("temp",new_limbs))
+    print (grade_school_product("left","right","temp",new_limbs))
+    for i in range(new_limbs):
+        print(reduce_one_limb("temp","wasm_modulus",i,new_bits,new_limbs,i==0))
+    print (reduce_relaxed("temp",new_bits,new_limbs))
+    print(accumulate_into_result([f"temp_{new_limbs+i}" for i in range(new_limbs)],new_limbs,new_bits,original_limbs,original_bits,254))
 
+
+def print_regular_sqr(original_bits,new_bits,original_limbs,new_limbs):        
+    wasm_modulus_initialization="constexpr "+convert_a_limbs_into_b_limbs("modulus.data","wasm_modulus",original_bits,new_bits,original_limbs)
+    left_initialization=convert_a_limbs_into_b_limbs("data","left",original_bits,new_bits,original_limbs)
+    print (wasm_modulus_initialization.replace("=",''))
+    print (left_initialization)
+    print (initialize_mask(new_bits))
+    print (initialize_r_inv(new_bits))
+    print (initialize_variables_for_grade_school_multiplication("temp",new_limbs))
+    print (grade_school_sqr("left","temp",new_limbs))
+    for i in range(new_limbs):
+        print(reduce_one_limb("temp","wasm_modulus",i,new_bits,new_limbs,i==0))
+    print (reduce_relaxed("temp",new_bits,new_limbs))
+    print(accumulate_into_result([f"temp_{new_limbs+i}" for i in range(new_limbs)],new_limbs,new_bits,original_limbs,original_bits,254))
+
+
+def print_karatsuba_multiplication(original_bits,new_bits,original_limbs,new_limbs):        
+    wasm_modulus_initialization="constexpr "+convert_a_limbs_into_b_limbs("modulus.data","wasm_modulus",original_bits,new_bits,original_limbs)
+    left_initialization=convert_a_limbs_into_b_limbs("data","left",original_bits,new_bits,original_limbs)
+    right_initialization=convert_a_limbs_into_b_limbs("other.data","right",original_bits,new_bits,original_limbs)
+    print (wasm_modulus_initialization.replace("=",''))
+    print (left_initialization)
+    print (right_initialization)
+    print (initialize_mask(new_bits))
+    print (initialize_r_inv(new_bits))
+    print (initialize_variables_for_grade_school_multiplication("temp",new_limbs))
+    print (one_level_karatsuba_product("left","right","temp",new_limbs))
+    for i in range(new_limbs):
+        print(reduce_one_limb("temp","wasm_modulus",i,new_bits,new_limbs,i==0))
+    print (reduce_relaxed("temp",new_bits,new_limbs))
+    print(accumulate_into_result([f"temp_{new_limbs+i}" for i in range(new_limbs)],new_limbs,new_bits,original_limbs,original_bits,254))
+
+import sys
+if __name__=="__main__":
+    original_bits=64
+    new_bits=29
+    original_limbs=4
+    new_limbs=9
+    if sys.argv[1]=="--mult":
+        print_regular_multiplication(original_bits,new_bits,original_limbs,new_limbs)
+    elif sys.argv[1]=="--sqr":
+        print_regular_sqr(original_bits,new_bits,original_limbs,new_limbs)
+    elif sys.argv[1]=="--karatsuba-mult":
+        print_karatsuba_multiplication(original_bits,new_bits,original_limbs,new_limbs)
+
+
+
+
+    

@@ -336,81 +336,283 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     r3 += (modulus.data[3] & borrow) + carry;
     return { r0, r1, r2, r3 };
 #else
-    uint64_t c = 0;
-    uint64_t t0 = 0;
-    uint64_t t1 = 0;
-    uint64_t t2 = 0;
-    uint64_t t3 = 0;
-    uint64_t t4 = 0;
-    uint64_t t5 = 0;
-    uint64_t t6 = 0;
-    uint64_t t7 = 0;
-    uint64_t t8 = 0;
-    uint64_t t9 = 0;
-    uint64_t k = 0;
 
-    constexpr uint64_t wasm_modulus[8]{
-        modulus.data[0] & 0xffffffffULL, modulus.data[0] >> 32ULL,        modulus.data[1] & 0xffffffffULL,
-        modulus.data[1] >> 32ULL,        modulus.data[2] & 0xffffffffULL, modulus.data[2] >> 32ULL,
-        modulus.data[3] & 0xffffffffULL, modulus.data[3] >> 32ULL,
-    };
-    constexpr uint64_t wasm_rinv = T::r_inv & 0xffffffffULL;
+    constexpr uint64_t wasm_modulus[9]{ modulus.data[0] & 0x1fffffff,
+                                        (modulus.data[0] >> 29) & 0x1fffffff,
+                                        ((modulus.data[0] >> 58) & 0x3f) | ((modulus.data[1] & 0x7fffff) << 6),
+                                        (modulus.data[1] >> 23) & 0x1fffffff,
+                                        ((modulus.data[1] >> 52) & 0xfff) | ((modulus.data[2] & 0x1ffff) << 12),
+                                        (modulus.data[2] >> 17) & 0x1fffffff,
+                                        ((modulus.data[2] >> 46) & 0x3ffff) | ((modulus.data[3] & 0x7ff) << 18),
+                                        (modulus.data[3] >> 11) & 0x1fffffff,
+                                        (modulus.data[3] >> 40) & 0x1fffffff };
+    uint64_t left[9] = { data[0] & 0x1fffffff,
+                         (data[0] >> 29) & 0x1fffffff,
+                         ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
+                         (data[1] >> 23) & 0x1fffffff,
+                         ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
+                         (data[2] >> 17) & 0x1fffffff,
+                         ((data[2] >> 46) & 0x3ffff) | ((data[3] & 0x7ff) << 18),
+                         (data[3] >> 11) & 0x1fffffff,
+                         (data[3] >> 40) & 0x1fffffff };
+    uint64_t right[9] = { other.data[0] & 0x1fffffff,
+                          (other.data[0] >> 29) & 0x1fffffff,
+                          ((other.data[0] >> 58) & 0x3f) | ((other.data[1] & 0x7fffff) << 6),
+                          (other.data[1] >> 23) & 0x1fffffff,
+                          ((other.data[1] >> 52) & 0xfff) | ((other.data[2] & 0x1ffff) << 12),
+                          (other.data[2] >> 17) & 0x1fffffff,
+                          ((other.data[2] >> 46) & 0x3ffff) | ((other.data[3] & 0x7ff) << 18),
+                          (other.data[3] >> 11) & 0x1fffffff,
+                          (other.data[3] >> 40) & 0x1fffffff };
+    constexpr uint64_t mask = 0x1fffffff;
+    constexpr uint64_t r_inv = T::r_inv & mask;
+    uint64_t temp_0 = 0;
+    uint64_t temp_1 = 0;
+    uint64_t temp_2 = 0;
+    uint64_t temp_3 = 0;
+    uint64_t temp_4 = 0;
+    uint64_t temp_5 = 0;
+    uint64_t temp_6 = 0;
+    uint64_t temp_7 = 0;
+    uint64_t temp_8 = 0;
+    uint64_t temp_9 = 0;
+    uint64_t temp_10 = 0;
+    uint64_t temp_11 = 0;
+    uint64_t temp_12 = 0;
+    uint64_t temp_13 = 0;
+    uint64_t temp_14 = 0;
+    uint64_t temp_15 = 0;
+    uint64_t temp_16 = 0;
+    uint64_t temp_17 = 0;
+    temp_0 += left[0] * right[0];
+    temp_1 += left[0] * right[1];
+    temp_2 += left[0] * right[2];
+    temp_3 += left[0] * right[3];
+    temp_4 += left[0] * right[4];
+    temp_5 += left[0] * right[5];
+    temp_6 += left[0] * right[6];
+    temp_7 += left[0] * right[7];
+    temp_8 += left[0] * right[8];
+    temp_1 += left[1] * right[0];
+    temp_2 += left[1] * right[1];
+    temp_3 += left[1] * right[2];
+    temp_4 += left[1] * right[3];
+    temp_5 += left[1] * right[4];
+    temp_6 += left[1] * right[5];
+    temp_7 += left[1] * right[6];
+    temp_8 += left[1] * right[7];
+    temp_9 += left[1] * right[8];
+    temp_2 += left[2] * right[0];
+    temp_3 += left[2] * right[1];
+    temp_4 += left[2] * right[2];
+    temp_5 += left[2] * right[3];
+    temp_6 += left[2] * right[4];
+    temp_7 += left[2] * right[5];
+    temp_8 += left[2] * right[6];
+    temp_9 += left[2] * right[7];
+    temp_10 += left[2] * right[8];
+    temp_3 += left[3] * right[0];
+    temp_4 += left[3] * right[1];
+    temp_5 += left[3] * right[2];
+    temp_6 += left[3] * right[3];
+    temp_7 += left[3] * right[4];
+    temp_8 += left[3] * right[5];
+    temp_9 += left[3] * right[6];
+    temp_10 += left[3] * right[7];
+    temp_11 += left[3] * right[8];
+    temp_4 += left[4] * right[0];
+    temp_5 += left[4] * right[1];
+    temp_6 += left[4] * right[2];
+    temp_7 += left[4] * right[3];
+    temp_8 += left[4] * right[4];
+    temp_9 += left[4] * right[5];
+    temp_10 += left[4] * right[6];
+    temp_11 += left[4] * right[7];
+    temp_12 += left[4] * right[8];
+    temp_5 += left[5] * right[0];
+    temp_6 += left[5] * right[1];
+    temp_7 += left[5] * right[2];
+    temp_8 += left[5] * right[3];
+    temp_9 += left[5] * right[4];
+    temp_10 += left[5] * right[5];
+    temp_11 += left[5] * right[6];
+    temp_12 += left[5] * right[7];
+    temp_13 += left[5] * right[8];
+    temp_6 += left[6] * right[0];
+    temp_7 += left[6] * right[1];
+    temp_8 += left[6] * right[2];
+    temp_9 += left[6] * right[3];
+    temp_10 += left[6] * right[4];
+    temp_11 += left[6] * right[5];
+    temp_12 += left[6] * right[6];
+    temp_13 += left[6] * right[7];
+    temp_14 += left[6] * right[8];
+    temp_7 += left[7] * right[0];
+    temp_8 += left[7] * right[1];
+    temp_9 += left[7] * right[2];
+    temp_10 += left[7] * right[3];
+    temp_11 += left[7] * right[4];
+    temp_12 += left[7] * right[5];
+    temp_13 += left[7] * right[6];
+    temp_14 += left[7] * right[7];
+    temp_15 += left[7] * right[8];
+    temp_8 += left[8] * right[0];
+    temp_9 += left[8] * right[1];
+    temp_10 += left[8] * right[2];
+    temp_11 += left[8] * right[3];
+    temp_12 += left[8] * right[4];
+    temp_13 += left[8] * right[5];
+    temp_14 += left[8] * right[6];
+    temp_15 += left[8] * right[7];
+    temp_16 += left[8] * right[8];
+    uint64_t k;
+    k = (temp_0 * r_inv) & mask;
+    temp_0 += k * wasm_modulus[0];
+    temp_1 += k * wasm_modulus[1] + (temp_0 >> 29);
+    temp_2 += k * wasm_modulus[2];
+    temp_3 += k * wasm_modulus[3];
+    temp_4 += k * wasm_modulus[4];
+    temp_5 += k * wasm_modulus[5];
+    temp_6 += k * wasm_modulus[6];
+    temp_7 += k * wasm_modulus[7];
+    temp_8 += k * wasm_modulus[8];
+    k = (temp_1 * r_inv) & mask;
+    temp_1 += k * wasm_modulus[0];
+    temp_2 += k * wasm_modulus[1] + (temp_1 >> 29);
+    temp_3 += k * wasm_modulus[2];
+    temp_4 += k * wasm_modulus[3];
+    temp_5 += k * wasm_modulus[4];
+    temp_6 += k * wasm_modulus[5];
+    temp_7 += k * wasm_modulus[6];
+    temp_8 += k * wasm_modulus[7];
+    temp_9 += k * wasm_modulus[8];
+    k = (temp_2 * r_inv) & mask;
+    temp_2 += k * wasm_modulus[0];
+    temp_3 += k * wasm_modulus[1] + (temp_2 >> 29);
+    temp_4 += k * wasm_modulus[2];
+    temp_5 += k * wasm_modulus[3];
+    temp_6 += k * wasm_modulus[4];
+    temp_7 += k * wasm_modulus[5];
+    temp_8 += k * wasm_modulus[6];
+    temp_9 += k * wasm_modulus[7];
+    temp_10 += k * wasm_modulus[8];
+    k = (temp_3 * r_inv) & mask;
+    temp_3 += k * wasm_modulus[0];
+    temp_4 += k * wasm_modulus[1] + (temp_3 >> 29);
+    temp_5 += k * wasm_modulus[2];
+    temp_6 += k * wasm_modulus[3];
+    temp_7 += k * wasm_modulus[4];
+    temp_8 += k * wasm_modulus[5];
+    temp_9 += k * wasm_modulus[6];
+    temp_10 += k * wasm_modulus[7];
+    temp_11 += k * wasm_modulus[8];
+    k = (temp_4 * r_inv) & mask;
+    temp_4 += k * wasm_modulus[0];
+    temp_5 += k * wasm_modulus[1] + (temp_4 >> 29);
+    temp_6 += k * wasm_modulus[2];
+    temp_7 += k * wasm_modulus[3];
+    temp_8 += k * wasm_modulus[4];
+    temp_9 += k * wasm_modulus[5];
+    temp_10 += k * wasm_modulus[6];
+    temp_11 += k * wasm_modulus[7];
+    temp_12 += k * wasm_modulus[8];
+    k = (temp_5 * r_inv) & mask;
+    temp_5 += k * wasm_modulus[0];
+    temp_6 += k * wasm_modulus[1] + (temp_5 >> 29);
+    temp_7 += k * wasm_modulus[2];
+    temp_8 += k * wasm_modulus[3];
+    temp_9 += k * wasm_modulus[4];
+    temp_10 += k * wasm_modulus[5];
+    temp_11 += k * wasm_modulus[6];
+    temp_12 += k * wasm_modulus[7];
+    temp_13 += k * wasm_modulus[8];
+    k = (temp_6 * r_inv) & mask;
+    temp_6 += k * wasm_modulus[0];
+    temp_7 += k * wasm_modulus[1] + (temp_6 >> 29);
+    temp_8 += k * wasm_modulus[2];
+    temp_9 += k * wasm_modulus[3];
+    temp_10 += k * wasm_modulus[4];
+    temp_11 += k * wasm_modulus[5];
+    temp_12 += k * wasm_modulus[6];
+    temp_13 += k * wasm_modulus[7];
+    temp_14 += k * wasm_modulus[8];
+    k = (temp_7 * r_inv) & mask;
+    temp_7 += k * wasm_modulus[0];
+    temp_8 += k * wasm_modulus[1] + (temp_7 >> 29);
+    temp_9 += k * wasm_modulus[2];
+    temp_10 += k * wasm_modulus[3];
+    temp_11 += k * wasm_modulus[4];
+    temp_12 += k * wasm_modulus[5];
+    temp_13 += k * wasm_modulus[6];
+    temp_14 += k * wasm_modulus[7];
+    temp_15 += k * wasm_modulus[8];
+    k = (temp_8 * r_inv) & mask;
+    temp_8 += k * wasm_modulus[0];
+    temp_9 += k * wasm_modulus[1] + (temp_8 >> 29);
+    temp_10 += k * wasm_modulus[2];
+    temp_11 += k * wasm_modulus[3];
+    temp_12 += k * wasm_modulus[4];
+    temp_13 += k * wasm_modulus[5];
+    temp_14 += k * wasm_modulus[6];
+    temp_15 += k * wasm_modulus[7];
+    temp_16 += k * wasm_modulus[8];
+    temp_10 += temp_9 >> 29;
+    temp_9 &= mask;
+    temp_11 += temp_10 >> 29;
+    temp_10 &= mask;
+    temp_12 += temp_11 >> 29;
+    temp_11 &= mask;
+    temp_13 += temp_12 >> 29;
+    temp_12 &= mask;
+    temp_14 += temp_13 >> 29;
+    temp_13 &= mask;
+    temp_15 += temp_14 >> 29;
+    temp_14 &= mask;
+    temp_16 += temp_15 >> 29;
+    temp_15 &= mask;
+    temp_17 += temp_16 >> 29;
+    temp_16 &= mask;
 
-    const uint64_t left[8]{
-        data[0] & 0xffffffffULL, data[0] >> 32, data[1] & 0xffffffffULL, data[1] >> 32,
-        data[2] & 0xffffffffULL, data[2] >> 32, data[3] & 0xffffffffULL, data[3] >> 32,
-    };
-    const uint64_t right[8]{
-        other.data[0] & 0xffffffffULL, other.data[0] >> 32, other.data[1] & 0xffffffffULL, other.data[1] >> 32,
-        other.data[2] & 0xffffffffULL, other.data[2] >> 32, other.data[3] & 0xffffffffULL, other.data[3] >> 32,
-    };
+    uint64_t r_temp_0;
+    uint64_t r_temp_1;
+    uint64_t r_temp_2;
+    uint64_t r_temp_3;
+    uint64_t r_temp_4;
+    uint64_t r_temp_5;
+    uint64_t r_temp_6;
+    uint64_t r_temp_7;
+    uint64_t r_temp_8;
+    r_temp_0 = temp_9 - wasm_modulus[0];
+    r_temp_1 = temp_10 - wasm_modulus[1] - ((r_temp_0) >> 63);
+    r_temp_2 = temp_11 - wasm_modulus[2] - ((r_temp_1) >> 63);
+    r_temp_3 = temp_12 - wasm_modulus[3] - ((r_temp_2) >> 63);
+    r_temp_4 = temp_13 - wasm_modulus[4] - ((r_temp_3) >> 63);
+    r_temp_5 = temp_14 - wasm_modulus[5] - ((r_temp_4) >> 63);
+    r_temp_6 = temp_15 - wasm_modulus[6] - ((r_temp_5) >> 63);
+    r_temp_7 = temp_16 - wasm_modulus[7] - ((r_temp_6) >> 63);
+    r_temp_8 = temp_17 - wasm_modulus[8] - ((r_temp_7) >> 63);
+    uint64_t new_mask = 0 - (r_temp_8 >> 63);
+    uint64_t inverse_mask = (~new_mask) & mask;
+    temp_9 = (temp_9 & new_mask) | (r_temp_0 & inverse_mask);
+    temp_10 = (temp_10 & new_mask) | (r_temp_1 & inverse_mask);
+    temp_11 = (temp_11 & new_mask) | (r_temp_2 & inverse_mask);
+    temp_12 = (temp_12 & new_mask) | (r_temp_3 & inverse_mask);
+    temp_13 = (temp_13 & new_mask) | (r_temp_4 & inverse_mask);
+    temp_14 = (temp_14 & new_mask) | (r_temp_5 & inverse_mask);
+    temp_15 = (temp_15 & new_mask) | (r_temp_6 & inverse_mask);
+    temp_16 = (temp_16 & new_mask) | (r_temp_7 & inverse_mask);
+    temp_17 = (temp_17 & new_mask) | (r_temp_8 & inverse_mask);
 
-    for (size_t i = 0; i < 8; ++i) {
-        c = 0;
-        mac(t0, left[i], right[0], c, t0, c);
-        mac(t1, left[i], right[1], c, t1, c);
-        mac(t2, left[i], right[2], c, t2, c);
-        mac(t3, left[i], right[3], c, t3, c);
-        mac(t4, left[i], right[4], c, t4, c);
-        mac(t5, left[i], right[5], c, t5, c);
-        mac(t6, left[i], right[6], c, t6, c);
-        mac(t7, left[i], right[7], c, t7, c);
-        uint64_t end_mul = t8 + c;
-        t8 = end_mul & 0xffffffffU;
-        t9 = end_mul >> 32;
+    // if (!std::is_constant_evaluated()) {
+    //     info("Temp_17: ", temp_17);
+    //     info("Modulus_8: ", wasm_modulus[8]);
+    //     info("r_temp_8: ", r_temp_8);
+    // }
+    return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
+             (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
+             (temp_13 >> 12) | (temp_14 << 17) | (temp_15 << 46),
+             (temp_15 >> 18) | (temp_16 << 11) | (temp_17 << 40) };
 
-        c = 0;
-        k = (t0 * wasm_rinv) & 0xffffffffU;
-        c = mac_discard_lo(t0, k, wasm_modulus[0]);
-        mac(t1, k, wasm_modulus[1], c, t0, c);
-        mac(t2, k, wasm_modulus[2], c, t1, c);
-        mac(t3, k, wasm_modulus[3], c, t2, c);
-        mac(t4, k, wasm_modulus[4], c, t3, c);
-        mac(t5, k, wasm_modulus[5], c, t4, c);
-        mac(t6, k, wasm_modulus[6], c, t5, c);
-        mac(t7, k, wasm_modulus[7], c, t6, c);
-        uint64_t end_reduce = c + t8;
-        t7 = end_reduce & 0xffffffffU;
-        c = end_reduce >> 32;
-        t8 = t9 + c;
-    }
-    uint64_t v0 = t0 + (t1 << 32);
-    uint64_t v1 = t2 + (t3 << 32);
-    uint64_t v2 = t4 + (t5 << 32);
-    uint64_t v3 = t6 + (t7 << 32);
-    uint64_t v4 = t8;
-    uint64_t borrow = 0;
-    uint64_t r0 = sbb(v0, modulus.data[0], borrow, borrow);
-    uint64_t r1 = sbb(v1, modulus.data[1], borrow, borrow);
-    uint64_t r2 = sbb(v2, modulus.data[2], borrow, borrow);
-    uint64_t r3 = sbb(v3, modulus.data[3], borrow, borrow);
-    borrow = borrow ^ (0ULL - v4);
-    r0 += (modulus.data[0] & borrow);
-    uint64_t carry = r0 < (modulus.data[0] & borrow);
-    r1 = addc(r1, modulus.data[1] & borrow, carry, carry);
-    r2 = addc(r2, modulus.data[2] & borrow, carry, carry);
-    r3 += (modulus.data[3] & borrow) + carry;
-    return { r0, r1, r2, r3 };
 #endif
 }
 
@@ -466,178 +668,278 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     t3 = c + a;
     return { t0, t1, t2, t3 };
 #else
-    constexpr uint64_t wasm_modulus[8]{
-        modulus.data[0] & 0xffffffffULL, modulus.data[0] >> 32ULL,        modulus.data[1] & 0xffffffffULL,
-        modulus.data[1] >> 32ULL,        modulus.data[2] & 0xffffffffULL, modulus.data[2] >> 32ULL,
-        modulus.data[3] & 0xffffffffULL, modulus.data[3] >> 32ULL,
-    };
-    constexpr uint64_t wasm_rinv = T::r_inv & 0xffffffffULL;
+    constexpr uint64_t wasm_modulus[9]{ modulus.data[0] & 0x1fffffff,
+                                        (modulus.data[0] >> 29) & 0x1fffffff,
+                                        ((modulus.data[0] >> 58) & 0x3f) | ((modulus.data[1] & 0x7fffff) << 6),
+                                        (modulus.data[1] >> 23) & 0x1fffffff,
+                                        ((modulus.data[1] >> 52) & 0xfff) | ((modulus.data[2] & 0x1ffff) << 12),
+                                        (modulus.data[2] >> 17) & 0x1fffffff,
+                                        ((modulus.data[2] >> 46) & 0x3ffff) | ((modulus.data[3] & 0x7ff) << 18),
+                                        (modulus.data[3] >> 11) & 0x1fffffff,
+                                        (modulus.data[3] >> 40) & 0x1fffffff };
+    uint64_t left[9] = { data[0] & 0x1fffffff,
+                         (data[0] >> 29) & 0x1fffffff,
+                         ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
+                         (data[1] >> 23) & 0x1fffffff,
+                         ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
+                         (data[2] >> 17) & 0x1fffffff,
+                         ((data[2] >> 46) & 0x3ffff) | ((data[3] & 0x7ff) << 18),
+                         (data[3] >> 11) & 0x1fffffff,
+                         (data[3] >> 40) & 0x1fffffff };
+    uint64_t right[9] = { other.data[0] & 0x1fffffff,
+                          (other.data[0] >> 29) & 0x1fffffff,
+                          ((other.data[0] >> 58) & 0x3f) | ((other.data[1] & 0x7fffff) << 6),
+                          (other.data[1] >> 23) & 0x1fffffff,
+                          ((other.data[1] >> 52) & 0xfff) | ((other.data[2] & 0x1ffff) << 12),
+                          (other.data[2] >> 17) & 0x1fffffff,
+                          ((other.data[2] >> 46) & 0x3ffff) | ((other.data[3] & 0x7ff) << 18),
+                          (other.data[3] >> 11) & 0x1fffffff,
+                          (other.data[3] >> 40) & 0x1fffffff };
+    constexpr uint64_t mask = 0x1fffffff;
+    constexpr uint64_t r_inv = T::r_inv & mask;
+    uint64_t temp_0 = 0;
+    uint64_t temp_1 = 0;
+    uint64_t temp_2 = 0;
+    uint64_t temp_3 = 0;
+    uint64_t temp_4 = 0;
+    uint64_t temp_5 = 0;
+    uint64_t temp_6 = 0;
+    uint64_t temp_7 = 0;
+    uint64_t temp_8 = 0;
+    uint64_t temp_9 = 0;
+    uint64_t temp_10 = 0;
+    uint64_t temp_11 = 0;
+    uint64_t temp_12 = 0;
+    uint64_t temp_13 = 0;
+    uint64_t temp_14 = 0;
+    uint64_t temp_15 = 0;
+    uint64_t temp_16 = 0;
+    uint64_t temp_17 = 0;
+    uint64_t karatsuba_low;
+    uint64_t karatsuba_high;
+    uint64_t left_sum;
+    uint64_t right_sum_0;
+    uint64_t right_sum_1;
+    uint64_t right_sum_2;
+    uint64_t right_sum_3;
+    left_sum = (left[0] + left[1]);
+    right_sum_0 = (right[0] + right[1]);
+    karatsuba_low = left[0] * right[0];
+    karatsuba_high = left[1] * right[1];
+    temp_0 += karatsuba_low;
+    temp_1 += left_sum * right_sum_0 - karatsuba_low - karatsuba_high;
+    temp_2 += karatsuba_high;
+    right_sum_1 = (right[2] + right[3]);
+    karatsuba_low = left[0] * right[2];
+    karatsuba_high = left[1] * right[3];
+    temp_2 += karatsuba_low;
+    temp_3 += left_sum * right_sum_1 - karatsuba_low - karatsuba_high;
+    temp_4 += karatsuba_high;
+    right_sum_2 = (right[4] + right[5]);
+    karatsuba_low = left[0] * right[4];
+    karatsuba_high = left[1] * right[5];
+    temp_4 += karatsuba_low;
+    temp_5 += left_sum * right_sum_2 - karatsuba_low - karatsuba_high;
+    temp_6 += karatsuba_high;
+    right_sum_3 = (right[6] + right[7]);
+    karatsuba_low = left[0] * right[6];
+    karatsuba_high = left[1] * right[7];
+    temp_6 += karatsuba_low;
+    temp_7 += left_sum * right_sum_3 - karatsuba_low - karatsuba_high;
+    temp_8 += karatsuba_high;
+    left_sum = (left[2] + left[3]);
+    karatsuba_low = left[2] * right[0];
+    karatsuba_high = left[3] * right[1];
+    temp_2 += karatsuba_low;
+    temp_3 += left_sum * right_sum_0 - karatsuba_low - karatsuba_high;
+    temp_4 += karatsuba_high;
+    karatsuba_low = left[2] * right[2];
+    karatsuba_high = left[3] * right[3];
+    temp_4 += karatsuba_low;
+    temp_5 += left_sum * right_sum_1 - karatsuba_low - karatsuba_high;
+    temp_6 += karatsuba_high;
+    karatsuba_low = left[2] * right[4];
+    karatsuba_high = left[3] * right[5];
+    temp_6 += karatsuba_low;
+    temp_7 += left_sum * right_sum_2 - karatsuba_low - karatsuba_high;
+    temp_8 += karatsuba_high;
+    karatsuba_low = left[2] * right[6];
+    karatsuba_high = left[3] * right[7];
+    temp_8 += karatsuba_low;
+    temp_9 += left_sum * right_sum_3 - karatsuba_low - karatsuba_high;
+    temp_10 += karatsuba_high;
+    left_sum = (left[4] + left[5]);
+    karatsuba_low = left[4] * right[0];
+    karatsuba_high = left[5] * right[1];
+    temp_4 += karatsuba_low;
+    temp_5 += left_sum * right_sum_0 - karatsuba_low - karatsuba_high;
+    temp_6 += karatsuba_high;
+    karatsuba_low = left[4] * right[2];
+    karatsuba_high = left[5] * right[3];
+    temp_6 += karatsuba_low;
+    temp_7 += left_sum * right_sum_1 - karatsuba_low - karatsuba_high;
+    temp_8 += karatsuba_high;
+    karatsuba_low = left[4] * right[4];
+    karatsuba_high = left[5] * right[5];
+    temp_8 += karatsuba_low;
+    temp_9 += left_sum * right_sum_2 - karatsuba_low - karatsuba_high;
+    temp_10 += karatsuba_high;
+    karatsuba_low = left[4] * right[6];
+    karatsuba_high = left[5] * right[7];
+    temp_10 += karatsuba_low;
+    temp_11 += left_sum * right_sum_3 - karatsuba_low - karatsuba_high;
+    temp_12 += karatsuba_high;
+    left_sum = (left[6] + left[7]);
+    karatsuba_low = left[6] * right[0];
+    karatsuba_high = left[7] * right[1];
+    temp_6 += karatsuba_low;
+    temp_7 += left_sum * right_sum_0 - karatsuba_low - karatsuba_high;
+    temp_8 += left[0] * right[8];
+    temp_8 += left[8] * right[0];
+    temp_8 += karatsuba_high;
+    karatsuba_low = left[6] * right[2];
+    karatsuba_high = left[7] * right[3];
+    temp_8 += karatsuba_low;
+    temp_9 += left[1] * right[8];
+    temp_9 += left[8] * right[1];
+    temp_9 += left_sum * right_sum_1 - karatsuba_low - karatsuba_high;
+    temp_10 += left[2] * right[8];
+    temp_10 += left[8] * right[2];
+    temp_10 += karatsuba_high;
+    karatsuba_low = left[6] * right[4];
+    karatsuba_high = left[7] * right[5];
+    temp_10 += karatsuba_low;
+    temp_11 += left[3] * right[8];
+    temp_11 += left[8] * right[3];
+    temp_11 += left_sum * right_sum_2 - karatsuba_low - karatsuba_high;
+    temp_12 += left[4] * right[8];
+    temp_12 += left[8] * right[4];
+    temp_12 += karatsuba_high;
+    karatsuba_low = left[6] * right[6];
+    karatsuba_high = left[7] * right[7];
+    temp_12 += karatsuba_low;
+    temp_13 += left[5] * right[8];
+    temp_13 += left[8] * right[5];
+    temp_13 += left_sum * right_sum_3 - karatsuba_low - karatsuba_high;
+    temp_14 += karatsuba_high;
 
-    const uint64_t left[8]{
-        data[0] & 0xffffffffULL, data[0] >> 32, data[1] & 0xffffffffULL, data[1] >> 32,
-        data[2] & 0xffffffffULL, data[2] >> 32, data[3] & 0xffffffffULL, data[3] >> 32,
-    };
-    const uint64_t right[8]{
-        other.data[0] & 0xffffffffULL, other.data[0] >> 32, other.data[1] & 0xffffffffULL, other.data[1] >> 32,
-        other.data[2] & 0xffffffffULL, other.data[2] >> 32, other.data[3] & 0xffffffffULL, other.data[3] >> 32,
-    };
+    temp_14 += left[6] * right[8];
 
-    auto [t0, c] = mul_wide(left[0], right[0]);
-    uint64_t k = (t0 * wasm_rinv) & 0xffffffffULL;
-    uint64_t a = mac_discard_lo(t0, k, wasm_modulus[0]);
-
-    uint64_t t1 = mac_mini(a, left[0], right[1], a);
-    mac(t1, k, wasm_modulus[1], c, t0, c);
-    uint64_t t2 = mac_mini(a, left[0], right[2], a);
-    mac(t2, k, wasm_modulus[2], c, t1, c);
-    uint64_t t3 = mac_mini(a, left[0], right[3], a);
-    mac(t3, k, wasm_modulus[3], c, t2, c);
-    uint64_t t4 = mac_mini(a, left[0], right[4], a);
-    mac(t4, k, wasm_modulus[4], c, t3, c);
-    uint64_t t5 = mac_mini(a, left[0], right[5], a);
-    mac(t5, k, wasm_modulus[5], c, t4, c);
-    uint64_t t6 = mac_mini(a, left[0], right[6], a);
-    mac(t6, k, wasm_modulus[6], c, t5, c);
-    uint64_t t7 = mac_mini(a, left[0], right[7], a);
-    mac(t7, k, wasm_modulus[7], c, t6, c);
-    t7 = c + a;
-
-    for (size_t i = 1; i < 8; ++i) {
-        mac_mini(t0, left[i], right[0], t0, a);
-        k = (t0 * wasm_rinv) & 0xffffffffULL;
-        c = mac_discard_lo(t0, k, wasm_modulus[0]);
-        mac(t1, left[i], right[1], a, t1, a);
-        mac(t1, k, wasm_modulus[1], c, t0, c);
-        mac(t2, left[i], right[2], a, t2, a);
-        mac(t2, k, wasm_modulus[2], c, t1, c);
-        mac(t3, left[i], right[3], a, t3, a);
-        mac(t3, k, wasm_modulus[3], c, t2, c);
-        mac(t4, left[i], right[4], a, t4, a);
-        mac(t4, k, wasm_modulus[4], c, t3, c);
-        mac(t5, left[i], right[5], a, t5, a);
-        mac(t5, k, wasm_modulus[5], c, t4, c);
-        mac(t6, left[i], right[6], a, t6, a);
-        mac(t6, k, wasm_modulus[6], c, t5, c);
-        mac(t7, left[i], right[7], a, t7, a);
-        mac(t7, k, wasm_modulus[7], c, t6, c);
-        t7 = c + a;
-    }
-
-    // mac_mini(t0, left[2], right[0], t0, a);
-    // k = (t0 * wasm_rinv) & 0xffffffffULL;
-    // c = mac_discard_lo(t0, k, wasm_modulus[0]);
-    // mac(t1, left[2], right[1], a, t1, a);
-    // mac(t1, k, wasm_modulus[1], c, t0, c);
-    // mac(t2, left[2], right[2], a, t2, a);
-    // mac(t2, k, wasm_modulus[2], c, t1, c);
-    // mac(t3, left[2], right[3], a, t3, a);
-    // mac(t3, k, wasm_modulus[3], c, t2, c);
-    // mac(t4, left[2], right[4], a, t4, a);
-    // mac(t4, k, wasm_modulus[4], c, t3, c);
-    // mac(t5, left[2], right[5], a, t5, a);
-    // mac(t5, k, wasm_modulus[5], c, t4, c);
-    // mac(t6, left[2], right[6], a, t6, a);
-    // mac(t6, k, wasm_modulus[6], c, t5, c);
-    // mac(t7, left[2], right[7], a, t7, a);
-    // mac(t7, k, wasm_modulus[7], c, t6, c);
-    // t7 = c + a;
-
-    // mac_mini(t0, left[3], right[0], t0, a);
-    // k = (t0 * wasm_rinv) & 0xffffffffULL;
-    // c = mac_discard_lo(t0, k, wasm_modulus[0]);
-    // mac(t1, left[3], right[1], a, t1, a);
-    // mac(t1, k, wasm_modulus[1], c, t0, c);
-    // mac(t2, left[3], right[2], a, t2, a);
-    // mac(t2, k, wasm_modulus[2], c, t1, c);
-    // mac(t3, left[3], right[3], a, t3, a);
-    // mac(t3, k, wasm_modulus[3], c, t2, c);
-    // mac(t4, left[3], right[4], a, t4, a);
-    // mac(t4, k, wasm_modulus[4], c, t3, c);
-    // mac(t5, left[3], right[5], a, t5, a);
-    // mac(t5, k, wasm_modulus[5], c, t4, c);
-    // mac(t6, left[3], right[6], a, t6, a);
-    // mac(t6, k, wasm_modulus[6], c, t5, c);
-    // mac(t7, left[3], right[7], a, t7, a);
-    // mac(t7, k, wasm_modulus[7], c, t6, c);
-    // t7 = c + a;
-
-    // mac_mini(t0, left[4], right[0], t0, a);
-    // k = (t0 * wasm_rinv) & 0xffffffffULL;
-    // c = mac_discard_lo(t0, k, wasm_modulus[0]);
-    // mac(t1, left[4], right[1], a, t1, a);
-    // mac(t1, k, wasm_modulus[1], c, t0, c);
-    // mac(t2, left[4], right[2], a, t2, a);
-    // mac(t2, k, wasm_modulus[2], c, t1, c);
-    // mac(t3, left[4], right[3], a, t3, a);
-    // mac(t3, k, wasm_modulus[3], c, t2, c);
-    // mac(t4, left[4], right[4], a, t4, a);
-    // mac(t4, k, wasm_modulus[4], c, t3, c);
-    // mac(t5, left[4], right[5], a, t5, a);
-    // mac(t5, k, wasm_modulus[5], c, t4, c);
-    // mac(t6, left[4], right[6], a, t6, a);
-    // mac(t6, k, wasm_modulus[6], c, t5, c);
-    // mac(t7, left[4], right[7], a, t7, a);
-    // mac(t7, k, wasm_modulus[7], c, t6, c);
-    // t7 = c + a;
-
-    // mac_mini(t0, left[5], right[0], t0, a);
-    // k = (t0 * wasm_rinv) & 0xffffffffULL;
-    // c = mac_discard_lo(t0, k, wasm_modulus[0]);
-    // mac(t1, left[5], right[1], a, t1, a);
-    // mac(t1, k, wasm_modulus[1], c, t0, c);
-    // mac(t2, left[5], right[2], a, t2, a);
-    // mac(t2, k, wasm_modulus[2], c, t1, c);
-    // mac(t3, left[5], right[3], a, t3, a);
-    // mac(t3, k, wasm_modulus[3], c, t2, c);
-    // mac(t4, left[5], right[4], a, t4, a);
-    // mac(t4, k, wasm_modulus[4], c, t3, c);
-    // mac(t5, left[5], right[5], a, t5, a);
-    // mac(t5, k, wasm_modulus[5], c, t4, c);
-    // mac(t6, left[5], right[6], a, t6, a);
-    // mac(t6, k, wasm_modulus[6], c, t5, c);
-    // mac(t7, left[5], right[7], a, t7, a);
-    // mac(t7, k, wasm_modulus[7], c, t6, c);
-    // t7 = c + a;
-
-    // mac_mini(t0, left[6], right[0], t0, a);
-    // k = (t0 * wasm_rinv) & 0xffffffffULL;
-    // c = mac_discard_lo(t0, k, wasm_modulus[0]);
-    // mac(t1, left[6], right[1], a, t1, a);
-    // mac(t1, k, wasm_modulus[1], c, t0, c);
-    // mac(t2, left[6], right[2], a, t2, a);
-    // mac(t2, k, wasm_modulus[2], c, t1, c);
-    // mac(t3, left[6], right[3], a, t3, a);
-    // mac(t3, k, wasm_modulus[3], c, t2, c);
-    // mac(t4, left[6], right[4], a, t4, a);
-    // mac(t4, k, wasm_modulus[4], c, t3, c);
-    // mac(t5, left[6], right[5], a, t5, a);
-    // mac(t5, k, wasm_modulus[5], c, t4, c);
-    // mac(t6, left[6], right[6], a, t6, a);
-    // mac(t6, k, wasm_modulus[6], c, t5, c);
-    // mac(t7, left[6], right[7], a, t7, a);
-    // mac(t7, k, wasm_modulus[7], c, t6, c);
-    // t7 = c + a;
-
-    // mac_mini(t0, left[7], right[0], t0, a);
-    // k = (t0 * wasm_rinv) & 0xffffffffULL;
-    // c = mac_discard_lo(t0, k, wasm_modulus[0]);
-    // mac(t1, left[7], right[1], a, t1, a);
-    // mac(t1, k, wasm_modulus[1], c, t0, c);
-    // mac(t2, left[7], right[2], a, t2, a);
-    // mac(t2, k, wasm_modulus[2], c, t1, c);
-    // mac(t3, left[7], right[3], a, t3, a);
-    // mac(t3, k, wasm_modulus[3], c, t2, c);
-    // mac(t4, left[7], right[4], a, t4, a);
-    // mac(t4, k, wasm_modulus[4], c, t3, c);
-    // mac(t5, left[7], right[5], a, t5, a);
-    // mac(t5, k, wasm_modulus[5], c, t4, c);
-    // mac(t6, left[7], right[6], a, t6, a);
-    // mac(t6, k, wasm_modulus[6], c, t5, c);
-    // mac(t7, left[7], right[7], a, t7, a);
-    // mac(t7, k, wasm_modulus[7], c, t6, c);
-    // t7 = c + a;
-
-    return { t0 + (t1 << 32), t2 + (t3 << 32), t4 + (t5 << 32), t6 + (t7 << 32) };
+    temp_14 += left[8] * right[6];
+    temp_15 += left[7] * right[8];
+    temp_15 += left[8] * right[7];
+    temp_16 += left[8] * right[8];
+    uint64_t k;
+    k = (temp_0 * r_inv) & mask;
+    temp_0 += k * wasm_modulus[0];
+    temp_1 += k * wasm_modulus[1] + (temp_0 >> 29);
+    temp_2 += k * wasm_modulus[2];
+    temp_3 += k * wasm_modulus[3];
+    temp_4 += k * wasm_modulus[4];
+    temp_5 += k * wasm_modulus[5];
+    temp_6 += k * wasm_modulus[6];
+    temp_7 += k * wasm_modulus[7];
+    temp_8 += k * wasm_modulus[8];
+    k = (temp_1 * r_inv) & mask;
+    temp_1 += k * wasm_modulus[0];
+    temp_2 += k * wasm_modulus[1] + (temp_1 >> 29);
+    temp_3 += k * wasm_modulus[2];
+    temp_4 += k * wasm_modulus[3];
+    temp_5 += k * wasm_modulus[4];
+    temp_6 += k * wasm_modulus[5];
+    temp_7 += k * wasm_modulus[6];
+    temp_8 += k * wasm_modulus[7];
+    temp_9 += k * wasm_modulus[8];
+    k = (temp_2 * r_inv) & mask;
+    temp_2 += k * wasm_modulus[0];
+    temp_3 += k * wasm_modulus[1] + (temp_2 >> 29);
+    temp_4 += k * wasm_modulus[2];
+    temp_5 += k * wasm_modulus[3];
+    temp_6 += k * wasm_modulus[4];
+    temp_7 += k * wasm_modulus[5];
+    temp_8 += k * wasm_modulus[6];
+    temp_9 += k * wasm_modulus[7];
+    temp_10 += k * wasm_modulus[8];
+    k = (temp_3 * r_inv) & mask;
+    temp_3 += k * wasm_modulus[0];
+    temp_4 += k * wasm_modulus[1] + (temp_3 >> 29);
+    temp_5 += k * wasm_modulus[2];
+    temp_6 += k * wasm_modulus[3];
+    temp_7 += k * wasm_modulus[4];
+    temp_8 += k * wasm_modulus[5];
+    temp_9 += k * wasm_modulus[6];
+    temp_10 += k * wasm_modulus[7];
+    temp_11 += k * wasm_modulus[8];
+    k = (temp_4 * r_inv) & mask;
+    temp_4 += k * wasm_modulus[0];
+    temp_5 += k * wasm_modulus[1] + (temp_4 >> 29);
+    temp_6 += k * wasm_modulus[2];
+    temp_7 += k * wasm_modulus[3];
+    temp_8 += k * wasm_modulus[4];
+    temp_9 += k * wasm_modulus[5];
+    temp_10 += k * wasm_modulus[6];
+    temp_11 += k * wasm_modulus[7];
+    temp_12 += k * wasm_modulus[8];
+    k = (temp_5 * r_inv) & mask;
+    temp_5 += k * wasm_modulus[0];
+    temp_6 += k * wasm_modulus[1] + (temp_5 >> 29);
+    temp_7 += k * wasm_modulus[2];
+    temp_8 += k * wasm_modulus[3];
+    temp_9 += k * wasm_modulus[4];
+    temp_10 += k * wasm_modulus[5];
+    temp_11 += k * wasm_modulus[6];
+    temp_12 += k * wasm_modulus[7];
+    temp_13 += k * wasm_modulus[8];
+    k = (temp_6 * r_inv) & mask;
+    temp_6 += k * wasm_modulus[0];
+    temp_7 += k * wasm_modulus[1] + (temp_6 >> 29);
+    temp_8 += k * wasm_modulus[2];
+    temp_9 += k * wasm_modulus[3];
+    temp_10 += k * wasm_modulus[4];
+    temp_11 += k * wasm_modulus[5];
+    temp_12 += k * wasm_modulus[6];
+    temp_13 += k * wasm_modulus[7];
+    temp_14 += k * wasm_modulus[8];
+    k = (temp_7 * r_inv) & mask;
+    temp_7 += k * wasm_modulus[0];
+    temp_8 += k * wasm_modulus[1] + (temp_7 >> 29);
+    temp_9 += k * wasm_modulus[2];
+    temp_10 += k * wasm_modulus[3];
+    temp_11 += k * wasm_modulus[4];
+    temp_12 += k * wasm_modulus[5];
+    temp_13 += k * wasm_modulus[6];
+    temp_14 += k * wasm_modulus[7];
+    temp_15 += k * wasm_modulus[8];
+    k = (temp_8 * r_inv) & mask;
+    temp_8 += k * wasm_modulus[0];
+    temp_9 += k * wasm_modulus[1] + (temp_8 >> 29);
+    temp_10 += k * wasm_modulus[2];
+    temp_11 += k * wasm_modulus[3];
+    temp_12 += k * wasm_modulus[4];
+    temp_13 += k * wasm_modulus[5];
+    temp_14 += k * wasm_modulus[6];
+    temp_15 += k * wasm_modulus[7];
+    temp_16 += k * wasm_modulus[8];
+    temp_10 += temp_9 >> 29;
+    temp_9 &= mask;
+    temp_11 += temp_10 >> 29;
+    temp_10 &= mask;
+    temp_12 += temp_11 >> 29;
+    temp_11 &= mask;
+    temp_13 += temp_12 >> 29;
+    temp_12 &= mask;
+    temp_14 += temp_13 >> 29;
+    temp_13 &= mask;
+    temp_15 += temp_14 >> 29;
+    temp_14 &= mask;
+    temp_16 += temp_15 >> 29;
+    temp_15 &= mask;
+    temp_17 += temp_16 >> 29;
+    temp_16 &= mask;
+    return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
+             (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
+             (temp_13 >> 12) | (temp_14 << 17) | (temp_15 << 46),
+             (temp_15 >> 18) | (temp_16 << 11) | (temp_17 << 40) };
 #endif
 }
 
@@ -697,7 +999,232 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
 #else
     // We use ‘montgomery_mul' instead of 'square_accumulate'. The number of additions and comparisons in
     // 'square_accumulate' makes it slower in this particular case.
-    return montgomery_mul(*this);
+    // return montgomery_mul(*this);
+    constexpr uint64_t wasm_modulus[9]{ modulus.data[0] & 0x1fffffff,
+                                        (modulus.data[0] >> 29) & 0x1fffffff,
+                                        ((modulus.data[0] >> 58) & 0x3f) | ((modulus.data[1] & 0x7fffff) << 6),
+                                        (modulus.data[1] >> 23) & 0x1fffffff,
+                                        ((modulus.data[1] >> 52) & 0xfff) | ((modulus.data[2] & 0x1ffff) << 12),
+                                        (modulus.data[2] >> 17) & 0x1fffffff,
+                                        ((modulus.data[2] >> 46) & 0x3ffff) | ((modulus.data[3] & 0x7ff) << 18),
+                                        (modulus.data[3] >> 11) & 0x1fffffff,
+                                        (modulus.data[3] >> 40) & 0x1fffffff };
+    uint64_t left[9] = { data[0] & 0x1fffffff,
+                         (data[0] >> 29) & 0x1fffffff,
+                         ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
+                         (data[1] >> 23) & 0x1fffffff,
+                         ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
+                         (data[2] >> 17) & 0x1fffffff,
+                         ((data[2] >> 46) & 0x3ffff) | ((data[3] & 0x7ff) << 18),
+                         (data[3] >> 11) & 0x1fffffff,
+                         (data[3] >> 40) & 0x1fffffff };
+    constexpr uint64_t mask = 0x1fffffff;
+    constexpr uint64_t r_inv = T::r_inv & mask;
+    uint64_t temp_0 = 0;
+    uint64_t temp_1 = 0;
+    uint64_t temp_2 = 0;
+    uint64_t temp_3 = 0;
+    uint64_t temp_4 = 0;
+    uint64_t temp_5 = 0;
+    uint64_t temp_6 = 0;
+    uint64_t temp_7 = 0;
+    uint64_t temp_8 = 0;
+    uint64_t temp_9 = 0;
+    uint64_t temp_10 = 0;
+    uint64_t temp_11 = 0;
+    uint64_t temp_12 = 0;
+    uint64_t temp_13 = 0;
+    uint64_t temp_14 = 0;
+    uint64_t temp_15 = 0;
+    uint64_t temp_16 = 0;
+    uint64_t temp_17 = 0;
+    uint64_t acc;
+    temp_0 += left[0] * left[0];
+    acc = 0;
+    acc += left[0] * left[1];
+    temp_1 += (acc << 1);
+    acc = 0;
+    acc += left[0] * left[2];
+    temp_2 += left[1] * left[1];
+    temp_2 += (acc << 1);
+    acc = 0;
+    acc += left[0] * left[3];
+    acc += left[1] * left[2];
+    temp_3 += (acc << 1);
+    acc = 0;
+    acc += left[0] * left[4];
+    acc += left[1] * left[3];
+    temp_4 += left[2] * left[2];
+    temp_4 += (acc << 1);
+    acc = 0;
+    acc += left[0] * left[5];
+    acc += left[1] * left[4];
+    acc += left[2] * left[3];
+    temp_5 += (acc << 1);
+    acc = 0;
+    acc += left[0] * left[6];
+    acc += left[1] * left[5];
+    acc += left[2] * left[4];
+    temp_6 += left[3] * left[3];
+    temp_6 += (acc << 1);
+    acc = 0;
+    acc += left[0] * left[7];
+    acc += left[1] * left[6];
+    acc += left[2] * left[5];
+    acc += left[3] * left[4];
+    temp_7 += (acc << 1);
+    acc = 0;
+    acc += left[0] * left[8];
+    acc += left[1] * left[7];
+    acc += left[2] * left[6];
+    acc += left[3] * left[5];
+    temp_8 += left[4] * left[4];
+    temp_8 += (acc << 1);
+    acc = 0;
+    acc += left[1] * left[8];
+    acc += left[2] * left[7];
+    acc += left[3] * left[6];
+    acc += left[4] * left[5];
+    temp_9 += (acc << 1);
+    acc = 0;
+    acc += left[2] * left[8];
+    acc += left[3] * left[7];
+    acc += left[4] * left[6];
+    temp_10 += left[5] * left[5];
+    temp_10 += (acc << 1);
+    acc = 0;
+    acc += left[3] * left[8];
+    acc += left[4] * left[7];
+    acc += left[5] * left[6];
+    temp_11 += (acc << 1);
+    acc = 0;
+    acc += left[4] * left[8];
+    acc += left[5] * left[7];
+    temp_12 += left[6] * left[6];
+    temp_12 += (acc << 1);
+    acc = 0;
+    acc += left[5] * left[8];
+    acc += left[6] * left[7];
+    temp_13 += (acc << 1);
+    acc = 0;
+    acc += left[6] * left[8];
+    temp_14 += left[7] * left[7];
+    temp_14 += (acc << 1);
+    acc = 0;
+    acc += left[7] * left[8];
+    temp_15 += (acc << 1);
+    temp_16 += left[8] * left[8];
+    uint64_t k;
+    k = (temp_0 * r_inv) & mask;
+    temp_0 += k * wasm_modulus[0];
+    temp_1 += k * wasm_modulus[1] + (temp_0 >> 29);
+    temp_2 += k * wasm_modulus[2];
+    temp_3 += k * wasm_modulus[3];
+    temp_4 += k * wasm_modulus[4];
+    temp_5 += k * wasm_modulus[5];
+    temp_6 += k * wasm_modulus[6];
+    temp_7 += k * wasm_modulus[7];
+    temp_8 += k * wasm_modulus[8];
+    k = (temp_1 * r_inv) & mask;
+    temp_1 += k * wasm_modulus[0];
+    temp_2 += k * wasm_modulus[1] + (temp_1 >> 29);
+    temp_3 += k * wasm_modulus[2];
+    temp_4 += k * wasm_modulus[3];
+    temp_5 += k * wasm_modulus[4];
+    temp_6 += k * wasm_modulus[5];
+    temp_7 += k * wasm_modulus[6];
+    temp_8 += k * wasm_modulus[7];
+    temp_9 += k * wasm_modulus[8];
+    k = (temp_2 * r_inv) & mask;
+    temp_2 += k * wasm_modulus[0];
+    temp_3 += k * wasm_modulus[1] + (temp_2 >> 29);
+    temp_4 += k * wasm_modulus[2];
+    temp_5 += k * wasm_modulus[3];
+    temp_6 += k * wasm_modulus[4];
+    temp_7 += k * wasm_modulus[5];
+    temp_8 += k * wasm_modulus[6];
+    temp_9 += k * wasm_modulus[7];
+    temp_10 += k * wasm_modulus[8];
+    k = (temp_3 * r_inv) & mask;
+    temp_3 += k * wasm_modulus[0];
+    temp_4 += k * wasm_modulus[1] + (temp_3 >> 29);
+    temp_5 += k * wasm_modulus[2];
+    temp_6 += k * wasm_modulus[3];
+    temp_7 += k * wasm_modulus[4];
+    temp_8 += k * wasm_modulus[5];
+    temp_9 += k * wasm_modulus[6];
+    temp_10 += k * wasm_modulus[7];
+    temp_11 += k * wasm_modulus[8];
+    k = (temp_4 * r_inv) & mask;
+    temp_4 += k * wasm_modulus[0];
+    temp_5 += k * wasm_modulus[1] + (temp_4 >> 29);
+    temp_6 += k * wasm_modulus[2];
+    temp_7 += k * wasm_modulus[3];
+    temp_8 += k * wasm_modulus[4];
+    temp_9 += k * wasm_modulus[5];
+    temp_10 += k * wasm_modulus[6];
+    temp_11 += k * wasm_modulus[7];
+    temp_12 += k * wasm_modulus[8];
+    k = (temp_5 * r_inv) & mask;
+    temp_5 += k * wasm_modulus[0];
+    temp_6 += k * wasm_modulus[1] + (temp_5 >> 29);
+    temp_7 += k * wasm_modulus[2];
+    temp_8 += k * wasm_modulus[3];
+    temp_9 += k * wasm_modulus[4];
+    temp_10 += k * wasm_modulus[5];
+    temp_11 += k * wasm_modulus[6];
+    temp_12 += k * wasm_modulus[7];
+    temp_13 += k * wasm_modulus[8];
+    k = (temp_6 * r_inv) & mask;
+    temp_6 += k * wasm_modulus[0];
+    temp_7 += k * wasm_modulus[1] + (temp_6 >> 29);
+    temp_8 += k * wasm_modulus[2];
+    temp_9 += k * wasm_modulus[3];
+    temp_10 += k * wasm_modulus[4];
+    temp_11 += k * wasm_modulus[5];
+    temp_12 += k * wasm_modulus[6];
+    temp_13 += k * wasm_modulus[7];
+    temp_14 += k * wasm_modulus[8];
+    k = (temp_7 * r_inv) & mask;
+    temp_7 += k * wasm_modulus[0];
+    temp_8 += k * wasm_modulus[1] + (temp_7 >> 29);
+    temp_9 += k * wasm_modulus[2];
+    temp_10 += k * wasm_modulus[3];
+    temp_11 += k * wasm_modulus[4];
+    temp_12 += k * wasm_modulus[5];
+    temp_13 += k * wasm_modulus[6];
+    temp_14 += k * wasm_modulus[7];
+    temp_15 += k * wasm_modulus[8];
+    k = (temp_8 * r_inv) & mask;
+    temp_8 += k * wasm_modulus[0];
+    temp_9 += k * wasm_modulus[1] + (temp_8 >> 29);
+    temp_10 += k * wasm_modulus[2];
+    temp_11 += k * wasm_modulus[3];
+    temp_12 += k * wasm_modulus[4];
+    temp_13 += k * wasm_modulus[5];
+    temp_14 += k * wasm_modulus[6];
+    temp_15 += k * wasm_modulus[7];
+    temp_16 += k * wasm_modulus[8];
+    temp_10 += temp_9 >> 29;
+    temp_9 &= mask;
+    temp_11 += temp_10 >> 29;
+    temp_10 &= mask;
+    temp_12 += temp_11 >> 29;
+    temp_11 &= mask;
+    temp_13 += temp_12 >> 29;
+    temp_12 &= mask;
+    temp_14 += temp_13 >> 29;
+    temp_13 &= mask;
+    temp_15 += temp_14 >> 29;
+    temp_14 &= mask;
+    temp_16 += temp_15 >> 29;
+    temp_15 &= mask;
+    temp_17 += temp_16 >> 29;
+    temp_16 &= mask;
+    return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
+             (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
+             (temp_13 >> 12) | (temp_14 << 17) | (temp_15 << 46),
+             (temp_15 >> 18) | (temp_16 << 11) | (temp_17 << 40) };
 #endif
 }
 
