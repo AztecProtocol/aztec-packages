@@ -129,6 +129,13 @@ jobs:
         working-directory: ./scripts
         run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }} ${{ github.actor }}
 
+      - name: Pull E2E Images
+        working-directory: ./barretenberg/cpp/
+        if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
+        run: |
+          docker pull aztecprotocol/aztec-cache:$(git rev-parse HEAD)
+          docker pull aztecprotocol/end-to-end-cache:$(git rev-parse HEAD)
+
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
@@ -164,8 +171,6 @@ jobs:
         working-directory: ./barretenberg/cpp/
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
         run: |
-          docker pull aztecprotocol/aztec-cache:$(git rev-parse HEAD)
-          docker pull aztecprotocol/end-to-end-cache:$(git rev-parse HEAD)
           earthly-cloud build ${{ matrix.environment }} --no-output +test
 
   # All benchmarks, purposefully ran sequential on a machine
