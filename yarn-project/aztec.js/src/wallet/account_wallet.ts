@@ -2,8 +2,9 @@ import { AuthWitness, FunctionCall, PXE, TxExecutionRequest } from '@aztec/circu
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { ABIParameterVisibility, FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 
-import { AccountInterface, FeeOptions } from '../account/interface.js';
+import { AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { FeeOptions } from '../entrypoint/entrypoint.js';
 import { computeAuthWitMessageHash } from '../utils/authwit.js';
 import { BaseWallet } from './base_wallet.js';
 
@@ -17,6 +18,14 @@ export class AccountWallet extends BaseWallet {
 
   createTxExecutionRequest(execs: FunctionCall[], fee?: FeeOptions): Promise<TxExecutionRequest> {
     return this.account.createTxExecutionRequest(execs, fee);
+  }
+
+  getChainId(): Fr {
+    return this.account.getChainId();
+  }
+
+  getVersion(): Fr {
+    return this.account.getVersion();
   }
 
   /**
@@ -35,38 +44,16 @@ export class AccountWallet extends BaseWallet {
           caller: AztecAddress;
           /** The action to approve */
           action: ContractFunctionInteraction | FunctionCall;
+          /** The chain id to approve */
+          chainId?: Fr;
+          /** The version to approve  */
+          version?: Fr;
         },
   ): Promise<AuthWitness> {
     const messageHash = this.getMessageHash(messageHashOrIntent);
     const witness = await this.account.createAuthWit(messageHash);
     await this.pxe.addAuthWitness(witness);
     return witness;
-  }
-
-  /**
-   * Returns the message hash for the given message or authwit input.
-   * @param messageHashOrIntent - The message hash or the caller and action to authorize
-   * @returns The message hash
-   */
-  private getMessageHash(
-    messageHashOrIntent:
-      | Fr
-      | Buffer
-      | {
-          /** The caller to approve  */
-          caller: AztecAddress;
-          /** The action to approve */
-          action: ContractFunctionInteraction | FunctionCall;
-        },
-  ): Fr {
-    if (Buffer.isBuffer(messageHashOrIntent)) {
-      return Fr.fromBuffer(messageHashOrIntent);
-    } else if (messageHashOrIntent instanceof Fr) {
-      return messageHashOrIntent;
-    } else if (messageHashOrIntent.action instanceof ContractFunctionInteraction) {
-      return computeAuthWitMessageHash(messageHashOrIntent.caller, messageHashOrIntent.action.request());
-    }
-    return computeAuthWitMessageHash(messageHashOrIntent.caller, messageHashOrIntent.action);
   }
 
   /**
@@ -85,6 +72,10 @@ export class AccountWallet extends BaseWallet {
           caller: AztecAddress;
           /** The action to approve */
           action: ContractFunctionInteraction | FunctionCall;
+          /** The chain id to approve */
+          chainId?: Fr;
+          /** The version to approve  */
+          version?: Fr;
         },
     authorized: boolean,
   ): ContractFunctionInteraction {
@@ -94,6 +85,84 @@ export class AccountWallet extends BaseWallet {
     } else {
       return this.cancelAuthWit(message);
     }
+  }
+
+  /**
+   * Returns the message hash for the given message or authwit input.
+   * @param messageHashOrIntent - The message hash or the caller and action to authorize
+   * @returns The message hash
+   */
+  private getMessageHash(
+    messageHashOrIntent:
+      | Fr
+      | Buffer
+      | {
+          /** The caller to approve  */
+          caller: AztecAddress;
+          /** The action to approve */
+          action: ContractFunctionInteraction | FunctionCall;
+          /** The chain id to approve */
+          chainId?: Fr;
+          /** The version to approve  */
+          version?: Fr;
+        },
+  ): Fr {
+    if (Buffer.isBuffer(messageHashOrIntent)) {
+      return Fr.fromBuffer(messageHashOrIntent);
+    } else if (messageHashOrIntent instanceof Fr) {
+      return messageHashOrIntent;
+    } else {
+      return computeAuthWitMessageHash(
+        messageHashOrIntent.caller,
+        messageHashOrIntent.chainId || this.getChainId(),
+        messageHashOrIntent.version || this.getVersion(),
+        messageHashOrIntent.action instanceof ContractFunctionInteraction
+          ? messageHashOrIntent.action.request()
+          : messageHashOrIntent.action,
+      );
+    }
+  }
+
+  /**
+   * Lookup the validity of an authwit in private and public contexts.
+   * If the authwit have been consumed already (nullifier spent), will return false in both contexts.
+   * @param target - The target contract address
+   * @param messageHashOrIntent - The message hash or the caller and action to authorize/revoke
+   * @returns - A struct containing the validity of the authwit in private and public contexts.
+   */
+  async lookupValidity(
+    target: AztecAddress,
+    messageHashOrIntent:
+      | Fr
+      | Buffer
+      | {
+          /** The caller to approve  */
+          caller: AztecAddress;
+          /** The action to approve */
+          action: ContractFunctionInteraction | FunctionCall;
+          /** The chain id to approve */
+          chainId?: Fr;
+          /** The version to approve  */
+          version?: Fr;
+        },
+  ): Promise<{
+    /** boolean flag indicating if the authwit is valid in private context */
+    isValidInPrivate: boolean;
+    /** boolean flag indicating if the authwit is valid in public context */
+    isValidInPublic: boolean;
+  }> {
+    const messageHash = this.getMessageHash(messageHashOrIntent);
+    const witness = await this.getAuthWitness(messageHash);
+    const blockNumber = await this.getBlockNumber();
+    const interaction = new ContractFunctionInteraction(this, target, this.getLookupValidityAbi(), [
+      target,
+      blockNumber,
+      witness != undefined,
+      messageHash,
+    ]);
+
+    const [isValidInPrivate, isValidInPublic] = await interaction.view();
+    return { isValidInPrivate, isValidInPublic };
   }
 
   /**
@@ -110,6 +179,10 @@ export class AccountWallet extends BaseWallet {
           caller: AztecAddress;
           /** The action to approve */
           action: ContractFunctionInteraction | FunctionCall;
+          /** The chain id to approve */
+          chainId?: Fr;
+          /** The version to approve  */
+          version?: Fr;
         },
   ): ContractFunctionInteraction {
     const message = this.getMessageHash(messageHashOrIntent);
@@ -158,6 +231,38 @@ export class AccountWallet extends BaseWallet {
         },
       ],
       returnTypes: [],
+    };
+  }
+
+  private getLookupValidityAbi(): FunctionAbi {
+    return {
+      name: 'lookup_validity',
+      isInitializer: false,
+      functionType: FunctionType.UNCONSTRAINED,
+      isInternal: false,
+      parameters: [
+        {
+          name: 'myself',
+          type: {
+            kind: 'struct',
+            path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
+            fields: [{ name: 'inner', type: { kind: 'field' } }],
+          },
+          visibility: 'private' as ABIParameterVisibility,
+        },
+        {
+          name: 'block_number',
+          type: { kind: 'integer', sign: 'unsigned', width: 32 },
+          visibility: 'private' as ABIParameterVisibility,
+        },
+        {
+          name: 'check_private',
+          type: { kind: 'boolean' },
+          visibility: 'private' as ABIParameterVisibility,
+        },
+        { name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
+      ],
+      returnTypes: [{ kind: 'array', length: 2, type: { kind: 'boolean' } }],
     };
   }
 }

@@ -3,6 +3,7 @@
 pragma solidity >=0.8.18;
 
 import {Errors} from "../libraries/Errors.sol";
+import {Hash} from "../libraries/Hash.sol";
 
 /**
  * @title Merkle Library
@@ -40,14 +41,14 @@ library MerkleLib {
       bool isRight = (indexAtHeight & 1) == 1;
 
       subtreeRoot = isRight
-        ? sha256(bytes.concat(_path[height], subtreeRoot))
-        : sha256(bytes.concat(subtreeRoot, _path[height]));
+        ? Hash.sha256ToField(bytes.concat(_path[height], subtreeRoot))
+        : Hash.sha256ToField(bytes.concat(subtreeRoot, _path[height]));
       /// @notice - We divide by two here to get the index of the parent of the current subtreeRoot in its own layer
       indexAtHeight >>= 1;
     }
 
     if (subtreeRoot != _expectedRoot) {
-      revert Errors.MerkleLib__InvalidRoot(_expectedRoot, subtreeRoot);
+      revert Errors.MerkleLib__InvalidRoot(_expectedRoot, subtreeRoot, _leaf, _index);
     }
   }
 }

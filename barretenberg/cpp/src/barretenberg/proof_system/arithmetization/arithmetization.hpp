@@ -24,7 +24,7 @@ namespace bb {
  *
  * struct Component {
  *     using Arithmetic = component::Arithmetic3Wires;
- *     using RangeConstraints = component::Base4Accumulators or component::GenPerm or...
+ *     using RangeConstraints = component::Base4Accumulators or component::DeltaRangeConstraint or...
  *     using LookupTables = component::Plookup4Wire or component::CQ8Wire or...
  *     ...
  * };
@@ -48,7 +48,8 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 
     Wires wires; // vectors of indices into a witness variables array
     Selectors selectors;
-    bool has_ram_rom = false; // does the block contain RAM/ROM gates
+    bool has_ram_rom = false;   // does the block contain RAM/ROM gates
+    bool is_pub_inputs = false; // is this the public inputs block
 
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
@@ -142,7 +143,7 @@ template <typename FF_> class UltraArith {
         auto& q_3() { return this->selectors[4]; };
         auto& q_4() { return this->selectors[5]; };
         auto& q_arith() { return this->selectors[6]; };
-        auto& q_sort() { return this->selectors[7]; };
+        auto& q_delta_range() { return this->selectors[7]; };
         auto& q_elliptic() { return this->selectors[8]; };
         auto& q_aux() { return this->selectors[9]; };
         auto& q_lookup_type() { return this->selectors[10]; };
@@ -156,7 +157,11 @@ template <typename FF_> class UltraArith {
         UltraTraceBlock aux;
         UltraTraceBlock lookup;
 
-        TraceBlocks() { aux.has_ram_rom = true; }
+        TraceBlocks()
+        {
+            aux.has_ram_rom = true;
+            pub_inputs.is_pub_inputs = true;
+        }
 
         auto get() { return RefArray{ pub_inputs, arithmetic, delta_range, elliptic, aux, lookup }; }
 
@@ -215,7 +220,7 @@ template <typename FF_> class UltraHonkArith {
         auto& q_3() { return this->selectors[4]; };
         auto& q_4() { return this->selectors[5]; };
         auto& q_arith() { return this->selectors[6]; };
-        auto& q_sort() { return this->selectors[7]; };
+        auto& q_delta_range() { return this->selectors[7]; };
         auto& q_elliptic() { return this->selectors[8]; };
         auto& q_aux() { return this->selectors[9]; };
         auto& q_lookup_type() { return this->selectors[10]; };
@@ -254,7 +259,8 @@ template <typename FF_> class UltraHonkArith {
         UltraHonkTraceBlock ecc_op;
         UltraHonkTraceBlock pub_inputs;
         UltraHonkTraceBlock arithmetic;
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/919): Change: GenPermSort --> DeltaRangeConstraint
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/919): Change: DeltaRangeConstraint -->
+        // DeltaRangeConstraint
         UltraHonkTraceBlock delta_range;
         UltraHonkTraceBlock elliptic;
         UltraHonkTraceBlock aux;
@@ -263,7 +269,11 @@ template <typename FF_> class UltraHonkArith {
         UltraHonkTraceBlock poseidon_external;
         UltraHonkTraceBlock poseidon_internal;
 
-        TraceBlocks() { aux.has_ram_rom = true; }
+        TraceBlocks()
+        {
+            aux.has_ram_rom = true;
+            pub_inputs.is_pub_inputs = true;
+        }
 
         auto get()
         {

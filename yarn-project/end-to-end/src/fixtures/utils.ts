@@ -17,6 +17,7 @@ import {
   LogType,
   PXE,
   SentTx,
+  SignerlessWallet,
   Wallet,
   createAztecNodeClient,
   createDebugLogger,
@@ -27,6 +28,8 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multi-call';
+import { randomBytes } from '@aztec/foundation/crypto';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
@@ -88,10 +91,15 @@ const getACVMConfig = async (logger: DebugLogger) => {
       ? ACVM_BINARY_PATH
       : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../noir/', NOIR_RELEASE_DIR)}/acvm`;
     await fs.access(expectedAcvmPath, fs.constants.R_OK);
-    const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${TEMP_DIR}/acvm`;
+    const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
+    const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
     logger(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
-    return { acvmWorkingDirectory, expectedAcvmPath };
+    return {
+      acvmWorkingDirectory,
+      expectedAcvmPath,
+      directoryToCleanup: ACVM_WORKING_DIRECTORY ? undefined : tempWorkingDirectory,
+    };
   } catch (err) {
     logger(`Native ACVM not available, error: ${err}`);
     return undefined;
@@ -258,7 +266,7 @@ async function setupWithRemoteEnvironment(
   if (['1', 'true'].includes(ENABLE_GAS)) {
     // this contract might already have been deployed
     // the following function is idempotent
-    await deployCanonicalGasToken(wallets[0]);
+    await deployCanonicalGasToken(new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint()));
   }
 
   return {
@@ -364,9 +372,7 @@ export async function setup(
   const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
 
   if (['1', 'true'].includes(ENABLE_GAS)) {
-    // this should be a neutral wallet, but the SignerlessWallet only accepts a single function call
-    // and this needs two: one to register the class and another to deploy the instance
-    await deployCanonicalGasToken(wallets[0]);
+    await deployCanonicalGasToken(new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint()));
   }
 
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
@@ -377,6 +383,12 @@ export async function setup(
     }
     if (pxe instanceof PXEService) {
       await pxe?.stop();
+    }
+
+    if (acvmConfig?.directoryToCleanup) {
+      // remove the temp directory created for the acvm
+      logger(`Cleaning up ACVM temp directory ${acvmConfig.directoryToCleanup}`);
+      await fs.rm(acvmConfig.directoryToCleanup, { recursive: true, force: true });
     }
   };
 

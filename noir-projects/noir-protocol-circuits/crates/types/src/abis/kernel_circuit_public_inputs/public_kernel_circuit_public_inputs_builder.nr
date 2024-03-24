@@ -13,7 +13,6 @@ struct PublicKernelCircuitPublicInputsBuilder {
     end_non_revertible: AccumulatedNonRevertibleDataBuilder,
     end: AccumulatedRevertibleDataBuilder,
     constants: CombinedConstantData,
-    reverted: bool,
 }
 
 impl PublicKernelCircuitPublicInputsBuilder {
@@ -22,14 +21,17 @@ impl PublicKernelCircuitPublicInputsBuilder {
         let end = self.end.to_public();
         PublicKernelCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
+            // Note that we're including both the validation_requests AND the rollup_validation requests, because this
+            // struct is used as an input for both the public kernel and base rollup circuits. In the near future the
+            // base rollup will only receive rollup_validation_requests, and the public kernel only validation_requests.
             validation_requests: self.validation_requests.finish(),
+            rollup_validation_requests: self.validation_requests.to_rollup(),
             end_non_revertible,
             end,
             constants: self.constants,
             needs_setup: end_non_revertible.needs_setup(),
             needs_app_logic: end.needs_app_logic(),
-            needs_teardown: end_non_revertible.needs_teardown(),
-            reverted: self.reverted
+            needs_teardown: end_non_revertible.needs_teardown()
         }
     }
 }

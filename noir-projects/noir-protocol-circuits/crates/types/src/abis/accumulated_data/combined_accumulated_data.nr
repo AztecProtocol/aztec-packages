@@ -12,7 +12,7 @@ use crate::{
 use crate::constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NUM_FIELDS_PER_SHA256
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
 };
 
 use dep::std::unsafe;
@@ -21,6 +21,8 @@ use crate::traits::is_empty;
 use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
 struct CombinedAccumulatedData {
+    revert_code: u8,
+
     new_note_hashes: [SideEffect; MAX_NEW_NOTE_HASHES_PER_TX],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
 
@@ -28,8 +30,8 @@ struct CombinedAccumulatedData {
     public_call_stack: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
     new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
 
-    encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
-    unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+    encrypted_logs_hash: Field,
+    unencrypted_logs_hash: Field,
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
@@ -50,6 +52,7 @@ impl CombinedAccumulatedData {
         revertible: PublicAccumulatedRevertibleData
     ) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
+            revert_code: non_revertible.revert_code,
             new_note_hashes: array_concat(non_revertible.new_note_hashes, revertible.new_note_hashes),
             new_nullifiers: array_concat(non_revertible.new_nullifiers, revertible.new_nullifiers),
             private_call_stack: revertible.private_call_stack,

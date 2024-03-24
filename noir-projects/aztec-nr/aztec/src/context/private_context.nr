@@ -11,7 +11,7 @@ use crate::{
 use dep::protocol_types::{
     abis::{
     call_context::CallContext, function_data::FunctionData, function_selector::FunctionSelector,
-    nullifier_key_validation_request::NullifierKeyValidationRequest,
+    max_block_number::MaxBlockNumber, nullifier_key_validation_request::NullifierKeyValidationRequest,
     private_call_stack_item::PrivateCallStackItem,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem,
@@ -23,8 +23,8 @@ use dep::protocol_types::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
-    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256, RETURN_VALUES_LENGTH
+    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
+    MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, RETURN_VALUES_LENGTH
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     grumpkin_private_key::GrumpkinPrivateKey, hash::hash_args, header::Header,
@@ -44,6 +44,8 @@ struct PrivateContext {
 
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
+
+    max_block_number: MaxBlockNumber,
 
     note_hash_read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
@@ -128,6 +130,7 @@ impl PrivateContext {
             min_revertible_side_effect_counter,
             args_hash,
             return_values: BoundedVec::new(),
+            max_block_number: MaxBlockNumber::default(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_key_validation_requests: BoundedVec::new(),
@@ -152,8 +155,8 @@ impl PrivateContext {
 
     pub fn finish(self) -> PrivateCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-        let encrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
-        let unencrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
+        let encrypted_logs_hash = 0;
+        let unencrypted_logs_hash = 0;
         let encrypted_log_preimages_length = 0;
         let unencrypted_log_preimages_length = 0;
 
@@ -162,6 +165,7 @@ impl PrivateContext {
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
+            max_block_number: self.max_block_number,
             note_hash_read_requests: self.note_hash_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
             nullifier_key_validation_requests: self.nullifier_key_validation_requests.storage,
@@ -185,6 +189,12 @@ impl PrivateContext {
 
     pub fn capture_min_revertible_side_effect_counter(&mut self) {
         self.min_revertible_side_effect_counter = self.side_effect_counter;
+    }
+
+    // docs:start:max-block-number
+    pub fn request_max_block_number(&mut self, max_block_number: u32) {
+        // docs:end:max-block-number
+        self.max_block_number = MaxBlockNumber::min_with_u32(self.max_block_number, max_block_number);
     }
 
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
@@ -460,11 +470,11 @@ impl PrivateContext {
                 new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 start_side_effect_counter: 0,
                 end_side_effect_counter: 0,
-                unencrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
+                unencrypted_logs_hash: 0,
                 unencrypted_log_preimages_length: 0,
                 historical_header: Header::empty(),
                 prover_address: AztecAddress::zero(),
-                reverted: false
+                revert_code: 0
             },
             is_execution_request: true
         };

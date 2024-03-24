@@ -10,6 +10,7 @@ import {
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxHash,
+  TxStatus,
   Wallet,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
@@ -162,7 +163,7 @@ describe('e2e_fees', () => {
     );
 
     // if we skip simulation, it includes the failed TX
-    await bananaCoin.methods
+    const txReceipt = await bananaCoin.methods
       .transfer_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
       .send({
         skipPublicSimulation: true,
@@ -172,6 +173,7 @@ describe('e2e_fees', () => {
         },
       })
       .wait();
+    expect(txReceipt.status).toBe(TxStatus.REVERTED);
 
     // and thus we paid the fee
     await expectMapping(
@@ -685,14 +687,19 @@ describe('e2e_fees', () => {
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
   getFunctionCalls(maxFee: Fr): Promise<FunctionCall[]> {
     const nonce = Fr.random();
-    const messageHash = computeAuthWitMessageHash(this.paymentContract, {
-      args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
-      functionData: new FunctionData(
-        FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-        false,
-      ),
-      to: this.asset,
-    });
+    const messageHash = computeAuthWitMessageHash(
+      this.paymentContract,
+      this.wallet.getChainId(),
+      this.wallet.getVersion(),
+      {
+        args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
+        functionData: new FunctionData(
+          FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
+          false,
+        ),
+        to: this.asset,
+      },
+    );
 
     const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
 
@@ -714,14 +721,19 @@ class BuggedTeardownFeePaymentMethod extends PublicFeePaymentMethod {
   async getFunctionCalls(maxFee: Fr): Promise<FunctionCall[]> {
     // authorize the FPC to take the max fee from Alice
     const nonce = Fr.random();
-    const messageHash1 = computeAuthWitMessageHash(this.paymentContract, {
-      args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
-      functionData: new FunctionData(
-        FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-        false,
-      ),
-      to: this.asset,
-    });
+    const messageHash1 = computeAuthWitMessageHash(
+      this.paymentContract,
+      this.wallet.getChainId(),
+      this.wallet.getVersion(),
+      {
+        args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
+        functionData: new FunctionData(
+          FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
+          false,
+        ),
+        to: this.asset,
+      },
+    );
 
     // authorize the FPC to take the maxFee
     // do this first because we only get 2 feepayload calls
