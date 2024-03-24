@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -eux -o pipefail
+set -eu -o pipefail
 
 RUNNER_TYPE=$1
 ARCH=$2
@@ -47,4 +47,4 @@ if ! earthly $EARTHLY_FLAGS $@ 2>&1 | tee .output.txt >&2 ; then
     # otherwise, propagate error
     exit 1
   fi
-fi 
+fi
