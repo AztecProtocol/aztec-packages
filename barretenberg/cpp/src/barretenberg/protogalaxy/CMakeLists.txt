@@ -1,1 +1,1 @@
-barretenberg_module(protogalaxy ultra_honk relations sumcheck)
+barretenberg_module(protogalaxy ultra_honk)
