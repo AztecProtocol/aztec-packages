@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# This script uses Earthly cloud satellites based on a runner type and hash.
+# This script uses Earthly cloud satellites based on a runner type and hash of the GITHUB_ACTOR environment variable.
 # ARM or x86 can be specified.
 # Usage: earthly-cloud <runner type> <architecture> [options]
 # Arguments:
