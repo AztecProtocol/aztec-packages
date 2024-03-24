@@ -1,28 +1,19 @@
-import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AggregationObject } from '../aggregation_object.js';
-import { ValidationRequests } from '../validation_requests.js';
 import { CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
 /**
- * Public inputs to the inner private kernel circuit
+ * Outputs from the public kernel circuits.
+ * All Public kernels use this shape for outputs.
  */
-export class PrivateKernelInnerCircuitPublicInputs {
+export class KernelCircuitPublicInputs {
   constructor(
     /**
      * Aggregated proof of all the previous kernel iterations.
      */
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
-    /**
-     * The side effect counter that non-revertible side effects are all beneath.
-     */
-    public minRevertibleSideEffectCounter: Fr,
-    /**
-     * Validation requests accumulated from public functions.
-     */
-    public validationRequests: ValidationRequests,
     /**
      * Data accumulated from both public and private circuits.
      */
@@ -32,33 +23,28 @@ export class PrivateKernelInnerCircuitPublicInputs {
      */
     public constants: CombinedConstantData,
     /**
-     * Indicates whether the input is for a private or public kernel.
+     * Indicates whether execution of the public circuit reverted.
      */
-    public isPrivate: boolean,
+    public reverted: boolean,
   ) {}
 
+  getNonEmptyNullifiers() {
+    return this.end.newNullifiers.filter(n => !n.isEmpty());
+  }
+
   toBuffer() {
-    return serializeToBuffer(
-      this.aggregationObject,
-      this.minRevertibleSideEffectCounter,
-      this.validationRequests,
-      this.end,
-      this.constants,
-      this.isPrivate,
-    );
+    return serializeToBuffer(this.aggregationObject, this.end, this.constants, this.reverted);
   }
 
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer or reader to read from.
-   * @returns A new instance of PrivateKernelInnerCircuitPublicInputs.
+   * @returns A new instance of KernelCircuitPublicInputs.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelInnerCircuitPublicInputs {
+  static fromBuffer(buffer: Buffer | BufferReader): KernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
-    return new PrivateKernelInnerCircuitPublicInputs(
+    return new KernelCircuitPublicInputs(
       reader.readObject(AggregationObject),
-      reader.readObject(Fr),
-      reader.readObject(ValidationRequests),
       reader.readObject(CombinedAccumulatedData),
       reader.readObject(CombinedConstantData),
       reader.readBoolean(),
@@ -66,13 +52,11 @@ export class PrivateKernelInnerCircuitPublicInputs {
   }
 
   static empty() {
-    return new PrivateKernelInnerCircuitPublicInputs(
+    return new KernelCircuitPublicInputs(
       AggregationObject.makeFake(),
-      Fr.zero(),
-      ValidationRequests.empty(),
       CombinedAccumulatedData.empty(),
       CombinedConstantData.empty(),
-      true,
+      false,
     );
   }
 }

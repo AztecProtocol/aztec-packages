@@ -12,24 +12,16 @@ import {
   FunctionData,
   FunctionSelector,
   G1AffineElement,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-  MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX,
-  MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
-  MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
-  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   Point,
-  PrivateAccumulatedNonRevertibleData,
-  PrivateAccumulatedRevertibleData,
   PrivateKernelTailCircuitPublicInputs,
   PublicCallRequest,
   SideEffect,
   SideEffectLinkedToNoteHash,
   TxContext,
+  ValidationRequests,
 } from '@aztec/circuits.js';
-import { makeHalfFullTuple, makeTuple, range } from '@aztec/foundation/array';
+import { makePublicAccumulatedData } from '@aztec/circuits.js/testing';
+import { makeTuple, range } from '@aztec/foundation/array';
 
 import { makeHeader } from './l2_block_code_to_purge.js';
 
@@ -41,12 +33,11 @@ import { makeHeader } from './l2_block_code_to_purge.js';
 export function makePrivateKernelTailCircuitPublicInputs(seed = 1, full = true): PrivateKernelTailCircuitPublicInputs {
   return new PrivateKernelTailCircuitPublicInputs(
     makeAggregationObject(seed),
-    makeAccumulatedNonRevertibleData(seed + 0x100, full),
-    makeFinalAccumulatedData(seed + 0x200, full),
+    ValidationRequests.empty(),
+    makePublicAccumulatedData(seed + 0x100, full),
+    makePublicAccumulatedData(seed + 0x200, full),
     makeConstantData(seed + 0x300),
-    true,
-    true,
-    true,
+    false,
   );
 }
 
@@ -70,21 +61,6 @@ export function makeAggregationObject(seed = 1): AggregationObject {
     new G1AffineElement(new Fq(BigInt(seed + 0x100)), new Fq(BigInt(seed + 0x101))),
     makeTuple(4, fr, seed + 2),
     range(6, seed + 6),
-  );
-}
-
-/**
- * Creates arbitrary accumulated data for a Tx's non-revertible side effects.
- * @param seed - The seed to use for generating the data.
- * @returns An instance of AccumulatedNonRevertibleData.
- */
-export function makeAccumulatedNonRevertibleData(seed = 1, full = false): PrivateAccumulatedNonRevertibleData {
-  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
-
-  return new PrivateAccumulatedNonRevertibleData(
-    tupleGenerator(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x101),
-    tupleGenerator(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x201),
-    tupleGenerator(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x501),
   );
 }
 
@@ -126,27 +102,6 @@ export function makeAztecAddress(seed = 1): AztecAddress {
  */
 export function makeCallerContext(seed = 1): CallerContext {
   return new CallerContext(makeAztecAddress(seed), makeAztecAddress(seed + 0x1));
-}
-
-/**
- * Creates arbitrary final accumulated data.
- * @param seed - The seed to use for generating the final accumulated data.
- * @returns A final accumulated data.
- */
-export function makeFinalAccumulatedData(seed = 1, full = false): PrivateAccumulatedRevertibleData {
-  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
-
-  return new PrivateAccumulatedRevertibleData(
-    tupleGenerator(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x100),
-    tupleGenerator(MAX_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
-    tupleGenerator(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
-    tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
-    tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
-    fr(seed + 0x900), // encrypted_log_preimages_length
-    fr(seed + 0xa00), // unencrypted_log_preimages_length
-  );
 }
 
 /**

@@ -6,17 +6,17 @@ import { VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { Proof, makeEmptyProof } from '../proof.js';
 import { UInt32 } from '../shared.js';
 import { VerificationKey } from '../verification_key.js';
-import { PrivateKernelTailCircuitPublicInputs } from './private_kernel_tail_circuit_public_inputs.js';
+import { PrivateKernelCircuitPublicInputs } from './private_kernel_circuit_public_inputs.js';
 
 /**
- * Data of the private kernel tail.
+ * Data of the previous kernel iteration in the chain of kernels.
  */
-export class PrivateKernelTailData {
+export class PrivateKernelData {
   constructor(
     /**
-     * Outputs of the private kernel tail.
+     * Public inputs of the previous kernel.
      */
-    public publicInputs: PrivateKernelTailCircuitPublicInputs,
+    public publicInputs: PrivateKernelCircuitPublicInputs,
     /**
      * Proof of the previous kernel.
      */
@@ -35,10 +35,18 @@ export class PrivateKernelTailData {
     public vkPath: Tuple<Fr, typeof VK_TREE_HEIGHT>,
   ) {}
 
-  static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailData {
+  /**
+   * Serialize this as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer() {
+    return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkPath);
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelData {
     const reader = BufferReader.asReader(buffer);
     return new this(
-      reader.readObject(PrivateKernelTailCircuitPublicInputs),
+      reader.readObject(PrivateKernelCircuitPublicInputs),
       reader.readObject(Proof),
       reader.readObject(VerificationKey),
       reader.readNumber(),
@@ -46,21 +54,13 @@ export class PrivateKernelTailData {
     );
   }
 
-  static empty(): PrivateKernelTailData {
-    return new this(
-      PrivateKernelTailCircuitPublicInputs.empty(),
+  static empty(): PrivateKernelData {
+    return new PrivateKernelData(
+      PrivateKernelCircuitPublicInputs.empty(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,
       makeTuple(VK_TREE_HEIGHT, Fr.zero),
     );
-  }
-
-  /**
-   * Serialize this as a buffer.
-   * @returns The buffer.
-   */
-  toBuffer() {
-    return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkPath);
   }
 }

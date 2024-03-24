@@ -2,10 +2,8 @@ import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   Fr,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
   ReadRequestContext,
@@ -22,8 +20,8 @@ export class HintsBuilder {
 
   getNullifierReadRequestHints(
     nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    nullifiersNonRevertible: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX>,
-    nullifiersRevertible: Tuple<SideEffectLinkedToNoteHash, typeof MAX_REVERTIBLE_NULLIFIERS_PER_TX>,
+    nullifiersNonRevertible: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    nullifiersRevertible: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {
     return buildNullifierReadRequestHints(
       this,
@@ -34,8 +32,8 @@ export class HintsBuilder {
 
   getNullifierNonExistentReadRequestHints(
     nullifierNonExistentReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
-    nullifiersNonRevertible: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX>,
-    nullifiersRevertible: Tuple<SideEffectLinkedToNoteHash, typeof MAX_REVERTIBLE_NULLIFIERS_PER_TX>,
+    nullifiersNonRevertible: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    nullifiersRevertible: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {
     const pendingNullifiers = concatAccumulatedData(
       MAX_NEW_NULLIFIERS_PER_TX,
@@ -82,5 +80,35 @@ export class HintsBuilder {
     }
 
     return { membershipWitness, leafPreimage };
+  }
+
+  async getPublicDataReadsInfo(tx: ProcessedTx) {
+    const newPublicDataReadsWitnesses: Tuple<
+      MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
+      typeof MAX_PUBLIC_DATA_READS_PER_TX
+    > = makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT, 0n));
+
+    const newPublicDataReadsPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX> =
+      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => PublicDataTreeLeafPreimage.empty());
+
+    for (const i in tx.data.validationRequests.publicDataReads) {
+      const leafSlot = tx.data.validationRequests.publicDataReads[i].leafSlot.value;
+      const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
+      if (!lowLeafResult) {
+        throw new Error(`Public data tree should have one initial leaf`);
+      }
+      const preimage = await this.db.getLeafPreimage(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
+      const path = await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
+      newPublicDataReadsWitnesses[i] = new MembershipWitness(
+        PUBLIC_DATA_TREE_HEIGHT,
+        BigInt(lowLeafResult.index),
+        path.toTuple<typeof PUBLIC_DATA_TREE_HEIGHT>(),
+      );
+      newPublicDataReadsPreimages[i] = preimage! as PublicDataTreeLeafPreimage;
+    }
+    return {
+      newPublicDataReadsWitnesses,
+      newPublicDataReadsPreimages,
+    };
   }
 }

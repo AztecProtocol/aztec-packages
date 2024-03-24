@@ -1,14 +1,7 @@
-import {
-  AztecAddress,
-  CallRequest,
-  Fr,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  Proof,
-} from '@aztec/circuits.js';
+import { AztecAddress, CallRequest, Fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Proof } from '@aztec/circuits.js';
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
-import { times } from '@aztec/foundation/collection';
+import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Tuple } from '@aztec/foundation/serialize';
 import { ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
@@ -38,16 +31,16 @@ export const mockTx = (seed = 1, logs = true) => {
     times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
   );
 
-  tx.data.endNonRevertibleData.publicCallStack = [
-    tx.enqueuedPublicFunctionCalls[1].toCallRequest(),
-    tx.enqueuedPublicFunctionCalls[0].toCallRequest(),
+  tx.data.endNonRevertibleData.publicCallStack = padArrayEnd(
+    [tx.enqueuedPublicFunctionCalls[1].toCallRequest(), tx.enqueuedPublicFunctionCalls[0].toCallRequest()],
     CallRequest.empty(),
-  ];
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  );
 
   tx.data.end.publicCallStack = makeTuple(
-    MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     i => tx.enqueuedPublicFunctionCalls[i + 2]?.toCallRequest() ?? CallRequest.empty(),
-  ).reverse() as Tuple<CallRequest, typeof MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>;
+  ).reverse() as Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>;
 
   return tx;
 };

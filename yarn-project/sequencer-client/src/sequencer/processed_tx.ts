@@ -2,6 +2,7 @@ import { PublicDataWrite, SimulationError, Tx, TxEffect, TxHash, TxL2Logs } from
 import {
   Fr,
   Header,
+  KernelCircuitPublicInputs,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -22,9 +23,9 @@ import { Tuple, fromFieldsTuple } from '@aztec/foundation/serialize';
  */
 export type ProcessedTx = Pick<Tx, 'proof' | 'encryptedLogs' | 'unencryptedLogs'> & {
   /**
-   * Output of the public kernel circuit for this tx.
+   * Output of the private tail or public tail kernel circuit for this tx.
    */
-  data: PublicKernelCircuitPublicInputs;
+  data: KernelCircuitPublicInputs;
   /**
    * Hash of the transaction.
    */
@@ -134,15 +135,14 @@ export function getPreviousOutputAndProof(
  */
 export function makeProcessedTx(
   tx: Tx,
-  kernelOutput?: PublicKernelCircuitPublicInputs,
-  proof?: Proof,
+  kernelOutput: KernelCircuitPublicInputs,
+  proof: Proof,
   revertReason?: SimulationError,
 ): ProcessedTx {
-  const { publicKernelPublicInput, previousProof } = getPreviousOutputAndProof(tx, kernelOutput, proof);
   return {
     hash: tx.getTxHash(),
-    data: publicKernelPublicInput,
-    proof: previousProof,
+    data: kernelOutput,
+    proof,
     encryptedLogs: revertReason ? new TxL2Logs([]) : tx.encryptedLogs,
     unencryptedLogs: revertReason ? new TxL2Logs([]) : tx.unencryptedLogs,
     isEmpty: false,
@@ -155,7 +155,7 @@ export function makeProcessedTx(
  * @returns A processed empty tx.
  */
 export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): ProcessedTx {
-  const emptyKernelOutput = PublicKernelCircuitPublicInputs.empty();
+  const emptyKernelOutput = KernelCircuitPublicInputs.empty();
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
@@ -175,13 +175,13 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
 
 export function toTxEffect(tx: ProcessedTx): TxEffect {
   return new TxEffect(
-    tx.data.combinedData.newNoteHashes.map((c: SideEffect) => c.value) as Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
-    tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value) as Tuple<
+    tx.data.end.newNoteHashes.map((c: SideEffect) => c.value) as Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    tx.data.end.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value) as Tuple<
       Fr,
       typeof MAX_NEW_NULLIFIERS_PER_TX
     >,
-    tx.data.combinedData.newL2ToL1Msgs,
-    tx.data.combinedData.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)) as Tuple<
+    tx.data.end.newL2ToL1Msgs,
+    tx.data.end.publicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)) as Tuple<
       PublicDataWrite,
       typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     >,
@@ -192,14 +192,14 @@ export function toTxEffect(tx: ProcessedTx): TxEffect {
 
 function validateProcessedTxLogs(tx: ProcessedTx): void {
   const unencryptedLogs = tx.unencryptedLogs || new TxL2Logs([]);
-  const kernelUnencryptedLogsHash = fromFieldsTuple(tx.data.combinedData.unencryptedLogsHash);
+  const kernelUnencryptedLogsHash = fromFieldsTuple(tx.data.end.unencryptedLogsHash);
   if (!unencryptedLogs.hash().equals(kernelUnencryptedLogsHash)) {
     throw new Error(
       `Unencrypted logs hash mismatch. Expected ${unencryptedLogs
         .hash()
         .toString('hex')}, got ${kernelUnencryptedLogsHash.toString('hex')}.
              Processed: ${JSON.stringify(unencryptedLogs.toJSON())}
-             Kernel Length: ${tx.data.combinedData.unencryptedLogPreimagesLength}`,
+             Kernel Length: ${tx.data.end.unencryptedLogPreimagesLength}`,
     );
   }
 }

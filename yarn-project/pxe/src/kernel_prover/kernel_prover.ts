@@ -9,10 +9,10 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   NoteHashReadRequestMembershipWitness,
   PrivateCallData,
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelData,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
-  PrivateKernelInnerCircuitPublicInputs,
-  PrivateKernelInnerData,
   PrivateKernelTailCircuitPrivateInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
@@ -94,7 +94,7 @@ export class KernelProver {
     let previousVerificationKey = VerificationKey.makeFake();
 
     let output: ProofOutput = {
-      publicInputs: PrivateKernelInnerCircuitPublicInputs.empty(),
+      publicInputs: PrivateKernelCircuitPublicInputs.empty(),
       proof: makeEmptyProof(),
     };
 
@@ -147,7 +147,7 @@ export class KernelProver {
         output = await this.proofCreator.createProofInit(proofInput);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
-        const previousKernelData = new PrivateKernelInnerData(
+        const previousKernelData = new PrivateKernelData(
           output.publicInputs,
           output.proof,
           previousVerificationKey,
@@ -166,7 +166,7 @@ export class KernelProver {
     }
 
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
-    const previousKernelData = new PrivateKernelInnerData(
+    const previousKernelData = new PrivateKernelData(
       output.publicInputs,
       output.proof,
       previousVerificationKey,

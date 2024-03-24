@@ -24,6 +24,7 @@ import {
   GrumpkinPrivateKey,
   GrumpkinScalar,
   Header,
+  KernelCircuitPublicInputs,
   L2ToL1Message,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
@@ -66,10 +67,10 @@ import {
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelData,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
-  PrivateKernelInnerCircuitPublicInputs,
-  PrivateKernelInnerData,
   PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
   PublicAccumulatedNonRevertibleData,
@@ -88,7 +89,6 @@ import {
   ReadRequest,
   ReadRequestContext,
   ReadRequestStatus,
-  RollupKernelCircuitPublicInputs,
   RollupKernelData,
   RootParityInput,
   RootParityInputs,
@@ -1159,7 +1159,7 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
 }
 
 export function mapRollupKernelCircuitPublicInputsToNoir(
-  inputs: RollupKernelCircuitPublicInputs,
+  inputs: KernelCircuitPublicInputs,
 ): RollupKernelCircuitPublicInputsNoir {
   return {
     aggregation_object: {},
@@ -1223,8 +1223,8 @@ export function mapRollupKernelDataToNoir(rollupKernelData: RollupKernelData): R
 
 export function mapPrivateKernelInnerCircuitPublicInputsFromNoir(
   inputs: PrivateKernelInnerCircuitPublicInputsNoir,
-): PrivateKernelInnerCircuitPublicInputs {
-  return new PrivateKernelInnerCircuitPublicInputs(
+): PrivateKernelCircuitPublicInputs {
+  return new PrivateKernelCircuitPublicInputs(
     AggregationObject.makeFake(),
     mapFieldFromNoir(inputs.min_revertible_side_effect_counter),
     mapValidationRequestsFromNoir(inputs.validation_requests),
@@ -1235,7 +1235,7 @@ export function mapPrivateKernelInnerCircuitPublicInputsFromNoir(
 }
 
 export function mapPrivateKernelInnerCircuitPublicInputsToNoir(
-  inputs: PrivateKernelInnerCircuitPublicInputs,
+  inputs: PrivateKernelCircuitPublicInputs,
 ): PrivateKernelInnerCircuitPublicInputsNoir {
   return {
     aggregation_object: {},
@@ -1252,9 +1252,7 @@ export function mapPrivateKernelInnerCircuitPublicInputsToNoir(
  * @param privateKernelInnerData - The private kernel inner data.
  * @returns The noir private kernel inner data.
  */
-export function mapPrivateKernelInnerDataToNoir(
-  privateKernelInnerData: PrivateKernelInnerData,
-): PrivateKernelInnerDataNoir {
+export function mapPrivateKernelInnerDataToNoir(privateKernelInnerData: PrivateKernelData): PrivateKernelInnerDataNoir {
   return {
     public_inputs: mapPrivateKernelInnerCircuitPublicInputsToNoir(privateKernelInnerData.publicInputs),
     proof: {},

@@ -3,8 +3,7 @@ import {
   CallRequest,
   GlobalVariables,
   Header,
-  MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   Proof,
   makeEmptyProof,
 } from '@aztec/circuits.js';
@@ -67,11 +66,8 @@ describe('setup_phase_manager', () => {
 
   it('does not extract non-revertible calls when none exist', function () {
     const tx = mockTx();
-    tx.data.end.publicCallStack = makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
-    tx.data.endNonRevertibleData.publicCallStack = makeTuple(
-      MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-      CallRequest.empty,
-    );
+    tx.data.end.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
+    tx.data.endNonRevertibleData.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
     const enqueuedNonRevertibleCalls = phaseManager.extractEnqueuedPublicCalls(tx);
 
     expect(enqueuedNonRevertibleCalls).toEqual([]);

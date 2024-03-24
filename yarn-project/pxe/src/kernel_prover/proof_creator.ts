@@ -1,9 +1,9 @@
 import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   PrivateCircuitPublicInputs,
+  PrivateKernelCircuitPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
-  PrivateKernelInnerCircuitPublicInputs,
   PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
@@ -23,7 +23,7 @@ export interface ProofOutput {
   /**
    * The public inputs required for the proof generation process.
    */
-  publicInputs: PrivateKernelInnerCircuitPublicInputs;
+  publicInputs: PrivateKernelCircuitPublicInputs;
   /**
    * The zk-SNARK proof for the kernel execution.
    */

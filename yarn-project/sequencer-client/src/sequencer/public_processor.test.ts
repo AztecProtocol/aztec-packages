@@ -19,9 +19,8 @@ import {
   FunctionData,
   GlobalVariables,
   Header,
-  MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
@@ -104,12 +103,9 @@ describe('public_processor', () => {
       const seed = 1;
       const includeLogs = false;
       const tx = mockTx(seed, includeLogs);
-      tx.data.end.publicCallStack = makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
+      tx.data.end.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
       tx.data.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
-      tx.data.endNonRevertibleData.publicCallStack = makeTuple(
-        MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-        CallRequest.empty,
-      );
+      tx.data.endNonRevertibleData.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
       tx.data.needsSetup = false;
       tx.data.needsAppLogic = false;
       tx.data.needsTeardown = false;
@@ -203,12 +199,12 @@ describe('public_processor', () => {
       kernelOutput.end.publicCallStack = padArrayEnd(
         callRequests,
         CallRequest.empty(),
-        MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
       kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
       kernelOutput.endNonRevertibleData.publicCallStack = makeTuple(
-        MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
       kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
@@ -247,11 +243,11 @@ describe('public_processor', () => {
       kernelOutput.end.publicCallStack = padArrayEnd(
         [callStackItem],
         CallRequest.empty(),
-        MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
       kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
       kernelOutput.endNonRevertibleData.publicCallStack = makeTuple(
-        MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
       kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
@@ -853,13 +849,13 @@ function addKernelPublicCallStack(
     // and callRequests is in the order of the calls
     [calls.teardownCall.toCallRequest(), ...calls.setupCalls.map(c => c.toCallRequest())],
     CallRequest.empty(),
-    MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   );
 
   kernelOutput.end.publicCallStack = padArrayEnd(
     calls.appLogicCalls.map(c => c.toCallRequest()),
     CallRequest.empty(),
-    MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   );
   kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 }

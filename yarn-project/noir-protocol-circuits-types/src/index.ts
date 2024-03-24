@@ -4,9 +4,9 @@ import {
   BaseRollupInputs,
   MergeRollupInputs,
   ParityPublicInputs,
+  PrivateKernelCircuitPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
-  PrivateKernelInnerCircuitPublicInputs,
   PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
   PublicKernelCircuitPrivateInputs,
@@ -121,7 +121,7 @@ const getSolver = (): Promise<WasmBlackBoxFunctionSolver> => {
  */
 export async function executeInit(
   privateKernelInitCircuitPrivateInputs: PrivateKernelInitCircuitPrivateInputs,
-): Promise<PrivateKernelInnerCircuitPublicInputs> {
+): Promise<PrivateKernelCircuitPublicInputs> {
   const params: InitInputType = {
     input: mapPrivateKernelInitCircuitPrivateInputsToNoir(privateKernelInitCircuitPrivateInputs),
   };
@@ -138,7 +138,7 @@ export async function executeInit(
  */
 export async function executeInner(
   privateKernelInnerCircuitPrivateInputs: PrivateKernelInnerCircuitPrivateInputs,
-): Promise<PrivateKernelInnerCircuitPublicInputs> {
+): Promise<PrivateKernelCircuitPublicInputs> {
   const params: InnerInputType = {
     input: mapPrivateKernelInnerCircuitPrivateInputsToNoir(privateKernelInnerCircuitPrivateInputs),
   };

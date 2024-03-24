@@ -39,10 +39,6 @@ import {
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX,
-  MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
-  MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
@@ -59,10 +55,6 @@ import {
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
-  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
@@ -83,17 +75,15 @@ import {
   PartialStateReference,
   Point,
   PreviousRollupData,
-  PrivateAccumulatedNonRevertibleData,
-  PrivateAccumulatedRevertibleData,
+  PrivateAccumulatedData,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  PrivateKernelInnerCircuitPublicInputs,
-  PrivateKernelInnerData,
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelData,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
-  PublicAccumulatedNonRevertibleData,
-  PublicAccumulatedRevertibleData,
+  PublicAccumulatedData,
   PublicCallData,
   PublicCallRequest,
   PublicCallStackItem,
@@ -129,9 +119,9 @@ import {
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
+import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
 import { PrivateKernelInitCircuitPrivateInputs } from '../structs/kernel/private_kernel_init_circuit_private_inputs.js';
 import { PrivateKernelInnerCircuitPrivateInputs } from '../structs/kernel/private_kernel_inner_circuit_private_inputs.js';
-import { RollupKernelCircuitPublicInputs } from '../structs/kernel/rollup_kernel_circuit_public_inputs.js';
 import { RollupKernelData } from '../structs/kernel/rollup_kernel_data.js';
 import { ValidationRequests } from '../structs/validation_requests.js';
 
@@ -284,8 +274,6 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
   return new CombinedAccumulatedData(
     tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x120),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
     tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
@@ -300,67 +288,40 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
  * @param seed - The seed to use for generating the accumulated data.
  * @returns An accumulated data.
  */
-export function makeCombinedAccumulatedRevertibleData(seed = 1, full = false): PublicAccumulatedRevertibleData {
+export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumulatedData {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
-  return new PublicAccumulatedRevertibleData(
-    tupleGenerator(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x120),
-    tupleGenerator(MAX_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
-    tupleGenerator(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
+  return new PublicAccumulatedData(
+    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x120),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
     tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
-    tupleGenerator(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xd00),
+    tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xd00),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
   );
 }
 
 /**
- * Creates arbitrary final accumulated data.
- * @param seed - The seed to use for generating the final accumulated data.
- * @returns A final accumulated data.
+ * Creates arbitrary accumulated data.
+ * @param seed - The seed to use for generating the accumulated data.
+ * @returns An accumulated data.
  */
-export function makeFinalAccumulatedData(seed = 1, full = false): PrivateAccumulatedRevertibleData {
+export function makePrivateAccumulatedData(seed = 1, full = false) {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
-  return new PrivateAccumulatedRevertibleData(
-    tupleGenerator(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x100),
-    tupleGenerator(MAX_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
-    tupleGenerator(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
+  return new PrivateAccumulatedData(
+    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x120),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
     tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
-  );
-}
-
-/**
- * Creates arbitrary accumulated data for a Tx's non-revertible side effects.
- * @param seed - The seed to use for generating the data.
- * @returns An instance of AccumulatedNonRevertibleData.
- */
-export function makeAccumulatedNonRevertibleData(seed = 1, full = false): PrivateAccumulatedNonRevertibleData {
-  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
-
-  return new PrivateAccumulatedNonRevertibleData(
-    tupleGenerator(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x101),
-    tupleGenerator(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x201),
-    tupleGenerator(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x501),
-  );
-}
-
-export function makeCombinedAccumulatedNonRevertibleData(seed = 1, full = false): PublicAccumulatedNonRevertibleData {
-  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
-
-  return new PublicAccumulatedNonRevertibleData(
-    tupleGenerator(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x101),
-    tupleGenerator(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x201),
-    tupleGenerator(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x501),
-    tupleGenerator(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0x601),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
   );
 }
 
@@ -443,47 +404,25 @@ export function makePublicKernelCircuitPublicInputs(
   return new PublicKernelCircuitPublicInputs(
     makeAggregationObject(seed),
     makeValidationRequests(seed),
-    makeCombinedAccumulatedNonRevertibleData(seed, fullAccumulatedData),
-    makeCombinedAccumulatedRevertibleData(seed, fullAccumulatedData),
+    makePublicAccumulatedData(seed, fullAccumulatedData),
+    makePublicAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
-    true,
-    true,
-    true,
     false,
   );
 }
 
 /**
- * Creates arbitrary public kernel circuit public inputs.
- * @param seed - The seed to use for generating the kernel circuit public inputs.
- * @returns Public kernel circuit public inputs.
- */
-export function makeRollupKernelCircuitPublicInputs(
-  seed = 1,
-  fullAccumulatedData = true,
-): RollupKernelCircuitPublicInputs {
-  return new RollupKernelCircuitPublicInputs(
-    makeAggregationObject(seed),
-    makeCombinedAccumulatedData(seed, fullAccumulatedData),
-    makeConstantData(seed + 0x100),
-  );
-}
-/**
  * Creates arbitrary private kernel inner circuit public inputs.
  * @param seed - The seed to use for generating the kernel circuit public inputs.
  * @returns Private kernel circuit public inputs.
  */
-export function makePrivateKernelInnerCircuitPublicInputs(
-  seed = 1,
-  full = true,
-): PrivateKernelInnerCircuitPublicInputs {
-  return new PrivateKernelInnerCircuitPublicInputs(
+export function makePrivateKernelCircuitPublicInputs(seed = 1, full = true): PrivateKernelCircuitPublicInputs {
+  return new PrivateKernelCircuitPublicInputs(
     makeAggregationObject(seed),
     fr(seed + 0x100),
     makeValidationRequests(seed),
-    makeCombinedAccumulatedData(seed, full),
+    makePrivateAccumulatedData(seed, full),
     makeConstantData(seed + 0x100),
-    true,
   );
 }
 
@@ -495,12 +434,25 @@ export function makePrivateKernelInnerCircuitPublicInputs(
 export function makePrivateKernelTailCircuitPublicInputs(seed = 1, full = true): PrivateKernelTailCircuitPublicInputs {
   return new PrivateKernelTailCircuitPublicInputs(
     makeAggregationObject(seed),
-    makeAccumulatedNonRevertibleData(seed + 0x100, full),
-    makeFinalAccumulatedData(seed + 0x200, full),
+    ValidationRequests.empty(),
+    makePublicAccumulatedData(seed + 0x100, full),
+    makePublicAccumulatedData(seed + 0x200, full),
     makeConstantData(seed + 0x300),
-    true,
-    true,
-    true,
+    false,
+  );
+}
+
+/**
+ * Creates arbitrary public kernel circuit public inputs.
+ * @param seed - The seed to use for generating the kernel circuit public inputs.
+ * @returns Public kernel circuit public inputs.
+ */
+export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
+  return new KernelCircuitPublicInputs(
+    makeAggregationObject(seed),
+    makeCombinedAccumulatedData(seed, fullAccumulatedData),
+    makeConstantData(seed + 0x100),
+    false,
   );
 }
 
@@ -634,9 +586,9 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
  * @param kernelPublicInputs - The public kernel public inputs to use for generating the public kernel data.
  * @returns A previous kernel data.
  */
-export function makeRollupKernelData(seed = 1, kernelPublicInputs?: RollupKernelCircuitPublicInputs): RollupKernelData {
+export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): RollupKernelData {
   return new RollupKernelData(
-    kernelPublicInputs ?? makeRollupKernelCircuitPublicInputs(seed, true),
+    kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
     new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
     0x42,
@@ -650,12 +602,9 @@ export function makeRollupKernelData(seed = 1, kernelPublicInputs?: RollupKernel
  * @param inputs - The kernel public inputs to use for generating the private kernel inner data.
  * @returns A previous kernel data.
  */
-export function makePrivateKernelInnerData(
-  seed = 1,
-  inputs?: PrivateKernelInnerCircuitPublicInputs,
-): PrivateKernelInnerData {
-  return new PrivateKernelInnerData(
-    inputs ?? makePrivateKernelInnerCircuitPublicInputs(seed, true),
+export function makePrivateKernelInnerData(seed = 1, inputs?: PrivateKernelCircuitPublicInputs): PrivateKernelData {
+  return new PrivateKernelData(
+    inputs ?? makePrivateKernelCircuitPublicInputs(seed, true),
     new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
     0x42,

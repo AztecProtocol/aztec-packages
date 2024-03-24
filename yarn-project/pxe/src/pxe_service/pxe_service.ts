@@ -30,8 +30,7 @@ import {
   CompleteAddress,
   FunctionData,
   GrumpkinPrivateKey,
-  MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
   PrivateKernelTailCircuitPublicInputs,
   PublicCallRequest,
@@ -699,7 +698,7 @@ export class PXEService implements PXE {
     publicInputs.end.publicCallStack = padArrayEnd(
       enqueuedRevertiblePublicCallStackItems,
       CallRequest.empty(),
-      MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
 
     // Do the same for non-revertible
@@ -726,7 +725,7 @@ export class PXEService implements PXE {
     publicInputs.endNonRevertibleData.publicCallStack = padArrayEnd(
       enqueuedNonRevertiblePublicCallStackItems,
       CallRequest.empty(),
-      MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
   }
 

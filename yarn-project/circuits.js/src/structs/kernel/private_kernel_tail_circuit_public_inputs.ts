@@ -1,70 +1,47 @@
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader } from '@aztec/foundation/serialize';
 
+import { MAX_NEW_NULLIFIERS_PER_TX } from '../../constants.gen.js';
+import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
 import { AggregationObject } from '../aggregation_object.js';
-import { PrivateAccumulatedNonRevertibleData, PrivateAccumulatedRevertibleData } from './combined_accumulated_data.js';
+import { ValidationRequests } from '../validation_requests.js';
 import { CombinedConstantData } from './combined_constant_data.js';
+import { KernelCircuitPublicInputs } from './kernel_circuit_public_inputs.js';
+import { PublicAccumulatedData } from './public_accumulated_data.js';
+import { PublicKernelCircuitPublicInputs } from './public_kernel_circuit_public_inputs.js';
 
 /**
- * Output from to the private kernel circuit - tail call.
+ * Private tail kernel can output Outputs from the public kernel circuits.
+ * All Public kernels use this shape for outputs.
  */
-export class PrivateKernelTailCircuitPublicInputs {
-  constructor(
-    /**
-     * Aggregated proof of all the previous kernel iterations.
-     */
-    public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
-    /**
-     * Accumulated side effects that are not revertible.
-     */
-    public endNonRevertibleData: PrivateAccumulatedNonRevertibleData,
-    /**
-     * Data accumulated from both public and private circuits.
-     */
-    public end: PrivateAccumulatedRevertibleData,
-    /**
-     * Data which is not modified by the circuits.
-     */
-    public constants: CombinedConstantData,
-    /**
-     * Indicates whether the setup kernel is needed.
-     */
-    public needsSetup: boolean,
-    /**
-     * Indicates whether the app logic kernel is needed.
-     */
-    public needsAppLogic: boolean,
-    /**
-     * Indicates whether the teardown kernel is needed.
-     */
-    public needsTeardown: boolean,
-  ) {}
-
-  toBuffer() {
-    return serializeToBuffer(
-      this.aggregationObject,
-      this.endNonRevertibleData,
-      this.end,
-      this.constants,
-      this.needsSetup,
-      this.needsAppLogic,
-      this.needsTeardown,
+export class PrivateKernelTailCircuitPublicInputs extends PublicKernelCircuitPublicInputs {
+  numberOfPublicCallRequests() {
+    return (
+      countAccumulatedItems(this.endNonRevertibleData.publicCallStack) + countAccumulatedItems(this.end.publicCallStack)
     );
   }
 
-  /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer or reader to read from.
-   * @returns A new instance of PrivateKernelTailCircuitPublicInputs.
-   */
+  static fromKernelCircuitPublicInputs() {}
+
+  toKernelCircuitPublicInputs() {
+    return new KernelCircuitPublicInputs(this.aggregationObject, this.end, this.constants, this.reverted);
+  }
+
+  getNonEmptyNullifiers() {
+    return mergeAccumulatedData(
+      MAX_NEW_NULLIFIERS_PER_TX,
+      this.endNonRevertibleData.newNullifiers,
+      this.end.newNullifiers,
+    ).filter(n => !n.isEmpty());
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelTailCircuitPublicInputs(
       reader.readObject(AggregationObject),
-      reader.readObject(PrivateAccumulatedNonRevertibleData),
-      reader.readObject(PrivateAccumulatedRevertibleData),
+      reader.readObject(ValidationRequests),
+      reader.readObject(PublicAccumulatedData),
+      reader.readObject(PublicAccumulatedData),
       reader.readObject(CombinedConstantData),
-      reader.readBoolean(),
-      reader.readBoolean(),
       reader.readBoolean(),
     );
   }
@@ -72,12 +49,11 @@ export class PrivateKernelTailCircuitPublicInputs {
   static empty() {
     return new PrivateKernelTailCircuitPublicInputs(
       AggregationObject.makeFake(),
-      PrivateAccumulatedNonRevertibleData.empty(),
-      PrivateAccumulatedRevertibleData.empty(),
+      ValidationRequests.empty(),
+      PublicAccumulatedData.empty(),
+      PublicAccumulatedData.empty(),
       CombinedConstantData.empty(),
-      true,
-      true,
-      true,
+      false,
     );
   }
 }

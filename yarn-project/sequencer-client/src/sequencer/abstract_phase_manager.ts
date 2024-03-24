@@ -11,14 +11,13 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
-  MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
@@ -450,13 +449,13 @@ function removeRedundantPublicDataWrites(publicInputs: PublicKernelCircuitPublic
   publicInputs.end.publicDataUpdateRequests = padArrayEnd(
     patch(publicInputs.end.publicDataUpdateRequests),
     PublicDataUpdateRequest.empty(),
-    MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
 
   publicInputs.endNonRevertibleData.publicDataUpdateRequests = padArrayEnd(
     patch(publicInputs.endNonRevertibleData.publicDataUpdateRequests),
     PublicDataUpdateRequest.empty(),
-    MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
 }
 
@@ -533,8 +532,6 @@ function patchPublicStorageActionOrdering(
       ...simPublicDataUpdateRequests,
     ],
     PublicDataUpdateRequest.empty(),
-    PhaseIsRevertible[phase]
-      ? MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-      : MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
 }

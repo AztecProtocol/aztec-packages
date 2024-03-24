@@ -4,7 +4,6 @@ import { FieldsOf } from '@aztec/foundation/types';
 
 import {
   ARCHIVE_HEIGHT,
-  MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../constants.gen.js';
@@ -121,19 +120,6 @@ export class BaseRollupInputs {
     >,
 
     /**
-     * Preimages of leaves which are to be read by the public data reads.
-     */
-    public publicDataReadsPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
-    /**
-     * Sibling paths of leaves which are to be read by the public data reads.
-     * Each item in the array is the sibling path that corresponds to a read request.
-     */
-    public publicDataReadsMembershipWitnesses: Tuple<
-      MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
-      typeof MAX_PUBLIC_DATA_READS_PER_TX
-    >,
-
-    /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
     public archiveRootMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
@@ -156,8 +142,6 @@ export class BaseRollupInputs {
       fields.sortedPublicDataWritesIndexes,
       fields.lowPublicDataWritesPreimages,
       fields.lowPublicDataWritesMembershipWitnesses,
-      fields.publicDataReadsPreimages,
-      fields.publicDataReadsMembershipWitnesses,
       fields.archiveRootMembershipWitness,
       fields.constants,
     ] as const;

@@ -6,7 +6,7 @@ import { VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { Proof, makeEmptyProof } from '../proof.js';
 import { UInt32 } from '../shared.js';
 import { VerificationKey } from '../verification_key.js';
-import { RollupKernelCircuitPublicInputs } from './rollup_kernel_circuit_public_inputs.js';
+import { KernelCircuitPublicInputs } from './kernel_circuit_public_inputs.js';
 
 /**
  * Data of the previous public kernel iteration in the chain of kernels.
@@ -16,7 +16,7 @@ export class RollupKernelData {
     /**
      * Public inputs of the previous kernel.
      */
-    public publicInputs: RollupKernelCircuitPublicInputs,
+    public publicInputs: KernelCircuitPublicInputs,
     /**
      * Proof of the previous kernel.
      */
@@ -38,7 +38,7 @@ export class RollupKernelData {
   static fromBuffer(buffer: Buffer | BufferReader): RollupKernelData {
     const reader = BufferReader.asReader(buffer);
     return new this(
-      reader.readObject(RollupKernelCircuitPublicInputs),
+      reader.readObject(KernelCircuitPublicInputs),
       reader.readObject(Proof),
       reader.readObject(VerificationKey),
       reader.readNumber(),
@@ -48,7 +48,7 @@ export class RollupKernelData {
 
   static empty(): RollupKernelData {
     return new this(
-      RollupKernelCircuitPublicInputs.empty(),
+      KernelCircuitPublicInputs.empty(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,

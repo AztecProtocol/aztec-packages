@@ -3,10 +3,8 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   PublicCallRequest,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
+  countAccumulatedItems,
 } from '@aztec/circuits.js';
-import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { GetUnencryptedLogsResponse } from '../logs/get_unencrypted_logs_response.js';
@@ -52,14 +50,17 @@ export class Tx {
       );
     }
 
-    const kernelPublicCallStackSize =
-      data?.end.publicCallStack && arrayNonEmptyLength(data.end.publicCallStack, item => item.isEmpty());
-    if (kernelPublicCallStackSize && kernelPublicCallStackSize > (enqueuedPublicFunctionCalls?.length ?? 0)) {
+    const kernelPublicCallStackSize = data.numberOfPublicCallRequests();
+    if (kernelPublicCallStackSize !== enqueuedPublicFunctionCalls.length) {
       throw new Error(
-        `Missing preimages for enqueued public function calls in kernel circuit public inputs (expected
-          ${kernelPublicCallStackSize}, got ${enqueuedPublicFunctionCalls?.length})`,
+        `Mismatch preimages for enqueued public function calls in kernel circuit public inputs (expected
+          ${kernelPublicCallStackSize}, got ${enqueuedPublicFunctionCalls.length})`,
       );
     }
+  }
+
+  hasPublicCalls() {
+    return this.data.numberOfPublicCallRequests() > 0;
   }
 
   /**
@@ -138,7 +139,7 @@ export class Tx {
    */
   getTxHash(): TxHash {
     // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-    const firstNullifier = this.data?.endNonRevertibleData.newNullifiers[0];
+    const firstNullifier = this.data.endNonRevertibleData.newNullifiers[0];
     if (!firstNullifier || firstNullifier.isEmpty()) {
       throw new Error(`Cannot get tx hash since first nullifier is missing`);
     }
@@ -155,12 +156,12 @@ export class Tx {
       unencryptedLogSize: this.unencryptedLogs.getSerializedLength(),
 
       newCommitmentCount:
-        arrayNonEmptyLength(this.data!.endNonRevertibleData.newNoteHashes, SideEffect.isEmpty) +
-        arrayNonEmptyLength(this.data!.end.newNoteHashes, SideEffect.isEmpty),
+        countAccumulatedItems(this.data.endNonRevertibleData.newNoteHashes) +
+        countAccumulatedItems(this.data.end.newNoteHashes),
 
       newNullifierCount:
-        arrayNonEmptyLength(this.data!.endNonRevertibleData.newNullifiers, SideEffectLinkedToNoteHash.isEmpty) +
-        arrayNonEmptyLength(this.data!.end.newNullifiers, SideEffectLinkedToNoteHash.isEmpty),
+        countAccumulatedItems(this.data.endNonRevertibleData.newNullifiers) +
+        countAccumulatedItems(this.data.end.newNullifiers),
 
       proofSize: this.proof.buffer.length,
       size: this.toBuffer().length,

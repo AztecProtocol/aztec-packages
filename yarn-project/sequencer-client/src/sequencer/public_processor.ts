@@ -94,62 +94,22 @@ export class PublicProcessor {
     const failed: FailedTx[] = [];
 
     for (const tx of txs) {
-      let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(
-        tx,
-        this.db,
-        this.publicExecutor,
-        this.publicKernel,
-        this.publicProver,
-        this.globalVariables,
-        this.historicalHeader,
-        this.publicContractsDB,
-        this.publicStateDB,
-      );
-      this.log(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
-      let { publicKernelPublicInput, previousProof: proof } = getPreviousOutputAndProof(tx, undefined, undefined);
-      let revertReason: SimulationError | undefined;
-      const timer = new Timer();
-      try {
-        while (phase) {
-          const output = await phase.handle(tx, publicKernelPublicInput, proof);
-          publicKernelPublicInput = output.publicKernelOutput;
-          proof = output.publicKernelProof;
-          revertReason ??= output.revertReason;
-          phase = PhaseManagerFactory.phaseFromOutput(
-            publicKernelPublicInput,
-            phase,
-            this.db,
-            this.publicExecutor,
-            this.publicKernel,
-            this.publicProver,
-            this.globalVariables,
-            this.historicalHeader,
-            this.publicContractsDB,
-            this.publicStateDB,
-          );
+      if (!tx.hasPublicCalls()) {
+        const processedTx = makeProcessedTx(tx, publicKernelPublicInput, tx.proof);
+        result.push(processedTx);
+      } else {
+        try {
+          const processedTx = await this.processTxWithPublicCalls(tx);
+          result.push(processedTx);
+        } catch (err: any) {
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage}`);
+
+          failed.push({
+            tx,
+            error: err instanceof Error ? err : new Error(errorMessage),
+          });
         }
-
-        const processedTransaction = makeProcessedTx(tx, publicKernelPublicInput, proof, revertReason);
-        validateProcessedTx(processedTransaction);
-
-        result.push(processedTransaction);
-
-        this.log(`Processed public part of ${tx.data.endNonRevertibleData.newNullifiers[0].value}`, {
-          eventName: 'tx-sequencer-processing',
-          duration: timer.ms(),
-          publicDataUpdateRequests:
-            processedTransaction.data.combinedData.publicDataUpdateRequests.filter(x => !x.leafSlot.isZero()).length ??
-            0,
-          ...tx.getStats(),
-        } satisfies TxSequencerProcessingStats);
-      } catch (err: any) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage}`);
-
-        failed.push({
-          tx,
-          error: err instanceof Error ? err : new Error(errorMessage),
-        });
       }
     }
 
@@ -163,5 +123,54 @@ export class PublicProcessor {
   public makeEmptyProcessedTx(): ProcessedTx {
     const { chainId, version } = this.globalVariables;
     return makeEmptyProcessedTx(this.historicalHeader, chainId, version);
+  }
+
+  private async processTxWithPublicCalls(tx: Tx) {
+    let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(
+      tx,
+      this.db,
+      this.publicExecutor,
+      this.publicKernel,
+      this.publicProver,
+      this.globalVariables,
+      this.historicalHeader,
+      this.publicContractsDB,
+      this.publicStateDB,
+    );
+    this.log(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
+    let { publicKernelPublicInput, previousProof: proof } = getPreviousOutputAndProof(tx, undefined, undefined);
+    let revertReason: SimulationError | undefined;
+    const timer = new Timer();
+    while (phase) {
+      const output = await phase.handle(tx, publicKernelPublicInput, proof);
+      publicKernelPublicInput = output.publicKernelOutput;
+      proof = output.publicKernelProof;
+      revertReason ??= output.revertReason;
+      phase = PhaseManagerFactory.phaseFromOutput(
+        publicKernelPublicInput,
+        phase,
+        this.db,
+        this.publicExecutor,
+        this.publicKernel,
+        this.publicProver,
+        this.globalVariables,
+        this.historicalHeader,
+        this.publicContractsDB,
+        this.publicStateDB,
+      );
+    }
+
+    const processedTx = makeProcessedTx(tx, publicKernelPublicInput, proof, revertReason);
+    validateProcessedTx(processedTx);
+
+    this.log(`Processed public part of ${tx.data.endNonRevertibleData.newNullifiers[0].value}`, {
+      eventName: 'tx-sequencer-processing',
+      duration: timer.ms(),
+      publicDataUpdateRequests:
+        processedTx.data.end.publicDataUpdateRequests.filter(x => !x.leafSlot.isZero()).length ?? 0,
+      ...tx.getStats(),
+    } satisfies TxSequencerProcessingStats);
+
+    return processedTx;
   }
 }

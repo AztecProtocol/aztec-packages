@@ -5,12 +5,11 @@ import {
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-  MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
   MembershipWitness,
   NoteHashReadRequestMembershipWitness,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  PrivateKernelInnerCircuitPublicInputs,
+  PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
   SideEffect,
   TxRequest,
@@ -82,7 +81,7 @@ describe('Kernel Prover', () => {
   };
 
   const createProofOutput = (newNoteIndices: number[]) => {
-    const publicInputs = PrivateKernelInnerCircuitPublicInputs.empty();
+    const publicInputs = PrivateKernelCircuitPublicInputs.empty();
     const commitments = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, () => SideEffect.empty());
     for (let i = 0; i < newNoteIndices.length; i++) {
       commitments[i] = new SideEffect(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO);
@@ -97,7 +96,7 @@ describe('Kernel Prover', () => {
 
   const createProofOutputFinal = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelTailCircuitPublicInputs.empty();
-    const commitments = makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, () => SideEffect.empty());
+    const commitments = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, () => SideEffect.empty());
     for (let i = 0; i < newNoteIndices.length; i++) {
       commitments[i] = new SideEffect(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO);
     }
