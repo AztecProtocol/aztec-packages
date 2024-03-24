@@ -14,6 +14,9 @@ if [ $# -lt 2 ]; then
     echo "Usage: $0 <runner type> <architecture> [options]"
     exit 1
 fi
+
+RUNNER_TYPE=$1
+ARCH=$2
 shift 2
 
 if [ "$ARCH" == "arm" ]; then
