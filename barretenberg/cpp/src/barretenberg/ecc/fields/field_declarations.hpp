@@ -164,8 +164,9 @@ template <class Params_> struct alignas(32) field {
         Params_::r_squared_0, Params_::r_squared_1, Params_::r_squared_2, Params_::r_squared_3
     };
 #else
-    static constexpr uint256_t R = ((uint512_t(1) << (29 * 9)) % uint512_t(modulus)).lo;
-    static constexpr uint256_t r_squared_uint = (uint512_t(R) * uint512_t(R) % uint512_t(modulus)).lo;
+    static constexpr uint256_t r_squared_uint{
+        Params_::r_squared_wasm_0, Params_::r_squared_wasm_1, Params_::r_squared_wasm_2, Params_::r_squared_wasm_3
+    };
 #endif
     static constexpr field cube_root_of_unity()
     {
@@ -176,9 +177,9 @@ template <class Params_> struct alignas(32) field {
                 Params::cube_root_0, Params::cube_root_1, Params::cube_root_2, Params::cube_root_3
             };
 #else
-            constexpr field result =
-                field{ Params::cube_root_0, Params::cube_root_1, Params::cube_root_2, Params::cube_root_3 } *
-                field((uint256_t(1) << ((29 * 9) - 256)));
+            constexpr field result{
+                Params::cube_root_wasm_0, Params::cube_root_wasm_1, Params::cube_root_wasm_2, Params::cube_root_wasm_3
+            };
 #endif
             return result;
         } else {
@@ -195,35 +196,65 @@ template <class Params_> struct alignas(32) field {
 
     static constexpr field external_coset_generator()
     {
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
         const field result{
             Params::coset_generators_0[7],
             Params::coset_generators_1[7],
             Params::coset_generators_2[7],
             Params::coset_generators_3[7],
         };
+#else
+        const field result{
+            Params::coset_generators_wasm_0[7],
+            Params::coset_generators_wasm_1[7],
+            Params::coset_generators_wasm_2[7],
+            Params::coset_generators_wasm_3[7],
+        };
+#endif
+
         return result;
     }
 
     static constexpr field tag_coset_generator()
     {
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
         const field result{
             Params::coset_generators_0[6],
             Params::coset_generators_1[6],
             Params::coset_generators_2[6],
             Params::coset_generators_3[6],
         };
+#else
+        const field result{
+            Params::coset_generators_wasm_0[6],
+            Params::coset_generators_wasm_1[6],
+            Params::coset_generators_wasm_2[6],
+            Params::coset_generators_wasm_3[6],
+        };
+#endif
+
         return result;
     }
 
     static constexpr field coset_generator(const size_t idx)
     {
         ASSERT(idx < 7);
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
         const field result{
             Params::coset_generators_0[idx],
             Params::coset_generators_1[idx],
             Params::coset_generators_2[idx],
             Params::coset_generators_3[idx],
         };
+#else
+        const field result{
+            Params::coset_generators_wasm_0[idx],
+            Params::coset_generators_wasm_1[idx],
+            Params::coset_generators_wasm_2[idx],
+            Params::coset_generators_wasm_3[idx],
+        };
+#endif
+
         return result;
     }
 
