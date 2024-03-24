@@ -1,1 +1,1 @@
-barretenberg_module(sumcheck stdlib_circuit_builders plonk_honk_shared srs transcript)
+barretenberg_module(sumcheck stdlib_circuit_builders transcript)
