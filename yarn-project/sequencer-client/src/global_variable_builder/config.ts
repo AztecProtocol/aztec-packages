@@ -1,4 +1,5 @@
-import { L1ContractAddresses } from '@aztec/ethereum';
+import { L1ContractAddresses, l1ContractAddresses } from '@aztec/ethereum';
+import { z } from '@aztec/foundation/zod';
 
 /**
  * Configuration of the L1GlobalReader.
@@ -18,3 +19,9 @@ export interface GlobalReaderConfig {
    */
   l1Contracts: L1ContractAddresses;
 }
+
+export const globalReaderConfig = z.object({
+  rpcUrl: z.string().url().optional().default('http://127.0.0.1:8545'),
+  apiKey: z.string().optional(),
+  l1Contracts: l1ContractAddresses,
+});

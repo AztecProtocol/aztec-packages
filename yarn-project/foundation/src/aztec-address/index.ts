@@ -53,4 +53,28 @@ export class AztecAddress extends Fr {
   static random() {
     return new AztecAddress(super.random().toBuffer());
   }
+
+  static isAddress(address: string): boolean {
+    if (/^(0x)?[0-9a-f]{64}$/i.test(address)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  static isAztecAddress(value: any): value is AztecAddress {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    if (value instanceof AztecAddress) {
+      return true;
+    }
+
+    if ('buffer' in value && Buffer.isBuffer(value.buffer) && value.buffer.length === AztecAddress.SIZE_IN_BYTES) {
+      return true;
+    }
+
+    return false;
+  }
 }

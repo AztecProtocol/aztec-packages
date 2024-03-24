@@ -10,6 +10,7 @@ import {
   makeEmptyProcessedTx,
   makeProcessedTx,
   mockTx,
+  sequencerConfig,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -104,9 +105,9 @@ describe('sequencer', () => {
       l1ToL2MessageSource,
       publicProcessorFactory,
       new TxValidatorFactory(merkleTreeOps, contractSource, EthAddress.random()),
-      {
+      sequencerConfig.parse({
         allowedFeePaymentContractClasses: [fpcClassId],
-      },
+      }),
     );
   });
 

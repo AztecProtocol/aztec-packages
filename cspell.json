@@ -201,6 +201,7 @@
     "SSTORE",
     "staticcall",
     "stdlib",
+    "stringly",
     "struct",
     "structs",
     "subarrays",
