@@ -144,7 +144,8 @@ test:
 
 # Functions
 RUN_CMAKE:
-    # Runs cmake build and leaves binary artifacts at 'bin'
+    # Runs cmake build and leaves binary artifacts at 'bin'. Uses a mounted cache
+    # for incremental rebuilds.
     FUNCTION
     ARG configure # cmake configure flags
     ARG build # cmake build flags
