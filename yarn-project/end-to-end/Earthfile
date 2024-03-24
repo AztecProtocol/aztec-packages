@@ -44,9 +44,9 @@ E2E_TEST:
   ARG compose_file=./scripts/docker-compose.yml
   ARG avm_enabled=""
   ARG enable_gas=""
-  ARG E2E_REMOTE=false
+  ARG e2e_remote=false
   LOCALLY
-  IF [ $E2E_REMOTE = true ]
+  IF [ $e2e_remote = true ]
     DO +E2E_TEST_REMOTE --test=$test --compose_file=$compose_file --avm_enabled=$avm_enabled --enable_gas=$enable_gas
   ELSE
     DO +E2E_TEST_LOCAL --test=$test --compose_file=$compose_file --avm_enabled=$avm_enabled --enable_gas=$enable_gas
