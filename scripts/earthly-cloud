@@ -25,6 +25,16 @@ elif [ "$RUNNER_TYPE" == "bench" ] ; then
   # MAX_PARALLELISM=1
 fi
 
+# Flag to determine if -i is present
+INTERACTIVE=false
+# Check for -i flag in the arguments
+for arg in "$@"; do
+    if [ "$arg" == "-i" ] || [ "$arg" == "--interactive" ]; then
+        INTERACTIVE=true
+        break
+    fi
+done
+
 # we hash our GITHUB_ACTOR to pick from 1 to NUMBER_RUNNERS (inclusive) as RUNNER_ID
 # this means everyone gets assigned to runners based on their user group
 NAME_HASH=$(cksum <<< "$GITHUB_ACTOR" | cut -f 1 -d ' ')
@@ -33,8 +43,11 @@ RUNNER=$RUNNER_TYPE-$RUNNER_ID-$ARCH
 earthly sat --org aztec launch --size $SIZE --platform $PLATFORM $RUNNER || true
 # --remote-cache=aztecprotocol/cache:bb-native-tests 
 EARTHLY_FLAGS="-P --no-output --org aztec --sat $RUNNER"
-# capture output to handle earthly edge casesA
-if ! earthly $EARTHLY_FLAGS $@ 2>&1 | tee .output.txt >&2 ; then 
+# capture output to handle earthly edge cases
+if $INTERACTIVE ; then
+  # don't play nice with tee if interactive
+  earthly $EARTHLY_FLAGS $@
+elif ! earthly $EARTHLY_FLAGS $@ 2>&1 | tee .output.txt >&2 ; then
   # we got a failure, handle retries
   # TODO potentially handle other intermittent errors here
   if grep 'failed to get edge: inconsistent graph state' .output.txt >/dev/null ; then
