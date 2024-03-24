@@ -67,7 +67,7 @@ source:
 
 preset-release-assert-all:
     FROM +source
-    DO +RUN_CMAKE --configure="--preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert" --build=""
+    RUN cmake --preset clang16-assert -Bbuild && cmake --build build && cp -r build/bin .
     SAVE ARTIFACT bin
 
 preset-release:
