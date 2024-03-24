@@ -135,8 +135,8 @@ jobs:
         run: |
           docker pull aztecprotocol/aztec-cache:$(git rev-parse HEAD)
           docker pull aztecprotocol/end-to-end-cache:$(git rev-parse HEAD)
-          docker tag aztecprotocol/aztec-cache:$(git rev-parse HEAD) aztecprotocol/aztec-cache:latest
-          docker tag aztecprotocol/end-to-end-cache:$(git rev-parse HEAD) aztecprotocol/end-to-end-cache:latest
+          docker tag aztecprotocol/aztec-cache:$(git rev-parse HEAD) aztecprotocol/aztec:latest
+          docker tag aztecprotocol/end-to-end-cache:$(git rev-parse HEAD) aztecprotocol/end-to-end:latest
 
       - name: Test
         working-directory: ./yarn-project/end-to-end/

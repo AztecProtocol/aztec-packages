@@ -13,7 +13,7 @@ services:
       - '8545'
 
   sandbox:
-    image: aztecprotocol/aztec-cache:latest
+    image: aztecprotocol/aztec:latest
     environment:
       DEBUG: 'aztec:*'
       DEBUG_COLORS: 1
@@ -31,7 +31,7 @@ services:
       - '8080'
 
   end-to-end:
-    image: aztecprotocol/end-to-end-cache:latest
+    image: aztecprotocol/end-to-end:latest
     environment:
       BENCHMARK: 'true'
       DEBUG: ${DEBUG:-aztec:*}
