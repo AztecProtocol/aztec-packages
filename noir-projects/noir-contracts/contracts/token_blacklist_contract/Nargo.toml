@@ -1,0 +1,10 @@
+[package]
+name = "token_blacklist_contract"
+authors = [""]
+compiler_version = ">=0.18.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../aztec-nr/aztec" }
+field_note = { path = "../../../aztec-nr/field-note" }
+authwit = { path = "../../../aztec-nr/authwit" }

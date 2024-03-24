@@ -2,12 +2,21 @@ import { GlobalVariables, Header, PublicCircuitPublicInputs } from '@aztec/circu
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { Oracle, acvm, extractCallStack, extractReturnWitness } from '../acvm/index.js';
+import { AvmContext } from '../avm/avm_context.js';
+import { AvmMachineState } from '../avm/avm_machine_state.js';
+import { AvmSimulator } from '../avm/avm_simulator.js';
+import { HostStorage } from '../avm/journal/host_storage.js';
+import { AvmPersistableStateManager } from '../avm/journal/index.js';
+import {
+  temporaryConvertAvmResults,
+  temporaryCreateAvmExecutionEnvironment,
+} from '../avm/temporary_executor_migration.js';
 import { ExecutionError, createSimulationError } from '../common/errors.js';
 import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { AcirSimulator } from '../index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
-import { PublicExecution, PublicExecutionResult } from './execution.js';
+import { PublicExecution, PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
 
 /**
@@ -43,12 +52,12 @@ export async function executePublicFunction(
   const {
     returnValues,
     newL2ToL1Msgs,
-    newCommitments: newCommitmentsPadded,
+    newNoteHashes: newNoteHashesPadded,
     newNullifiers: newNullifiersPadded,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
 
-  const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isZero());
-  const newCommitments = newCommitmentsPadded.filter(v => !v.isEmpty());
+  const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isEmpty());
+  const newNoteHashes = newNoteHashesPadded.filter(v => !v.isEmpty());
   const newNullifiers = newNullifiersPadded.filter(v => !v.isEmpty());
 
   const { contractStorageReads, contractStorageUpdateRequests } = context.getStorageActionData();
@@ -63,7 +72,7 @@ export async function executePublicFunction(
 
   return {
     execution,
-    newCommitments,
+    newNoteHashes,
     newL2ToL1Messages,
     newNullifiers,
     contractStorageReads,
@@ -115,10 +124,49 @@ export class PublicExecutor {
       this.commitmentsDb,
     );
 
+    let executionResult;
+
     try {
-      return await executePublicFunction(context, acir);
+      executionResult = await executePublicFunction(context, acir);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during public execution'));
     }
+
+    if (executionResult.execution.callContext.isStaticCall) {
+      checkValidStaticCall(
+        executionResult.newNoteHashes,
+        executionResult.newNullifiers,
+        executionResult.contractStorageUpdateRequests,
+        executionResult.newL2ToL1Messages,
+        executionResult.unencryptedLogs,
+      );
+    }
+
+    return executionResult;
+  }
+
+  /**
+   * Executes a public execution request in the avm.
+   * @param execution - The execution to run.
+   * @param globalVariables - The global variables to use.
+   * @returns The result of the run plus all nested runs.
+   */
+  public async simulateAvm(
+    execution: PublicExecution,
+    globalVariables: GlobalVariables,
+  ): Promise<PublicExecutionResult> {
+    // Temporary code to construct the AVM context
+    // These data structures will permiate across the simulator when the public executor is phased out
+    const hostStorage = new HostStorage(this.stateDb, this.contractsDb, this.commitmentsDb);
+    const worldStateJournal = new AvmPersistableStateManager(hostStorage);
+    const executionEnv = temporaryCreateAvmExecutionEnvironment(execution, globalVariables);
+    const machineState = new AvmMachineState(0, 0, 0);
+
+    const context = new AvmContext(worldStateJournal, executionEnv, machineState);
+    const simulator = new AvmSimulator(context);
+
+    const result = await simulator.execute();
+    const newWorldState = context.persistableState.flush();
+    return temporaryConvertAvmResults(execution, newWorldState, result);
   }
 }

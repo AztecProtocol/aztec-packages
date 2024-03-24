@@ -105,8 +105,6 @@ export type L1ProcessArgs = {
   header: Buffer;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
-  /** Transactions hash. */
-  txsHash: Buffer;
   /** L2 block body. */
   body: Buffer;
   /** Root rollup proof of the L2 block. */
@@ -154,7 +152,7 @@ export class L1Publisher implements L2BlockReceiver {
       return false;
     }
 
-    const encodedBody = block.bodyToBuffer();
+    const encodedBody = block.body.toBuffer();
 
     // Publish block transaction effects
     while (!this.interrupted) {
@@ -193,7 +191,6 @@ export class L1Publisher implements L2BlockReceiver {
     const processTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
-      txsHash: block.getCalldataHash(),
       body: encodedBody,
       proof: Buffer.alloc(0),
     };

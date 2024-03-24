@@ -6,12 +6,13 @@ import {
   ContractStorageUpdateRequest,
   Fr,
   FunctionData,
+  L2ToL1Message,
   PublicDataRead,
   PublicDataUpdateRequest,
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/hash';
 
 /**
  * The public function execution result.
@@ -21,10 +22,10 @@ export interface PublicExecutionResult {
   execution: PublicExecution;
   /** The return values of the function. */
   returnValues: Fr[];
-  /** The new commitments to be inserted into the commitments tree. */
-  newCommitments: SideEffect[];
+  /** The new note hashes to be inserted into the note hashes tree. */
+  newNoteHashes: SideEffect[];
   /** The new l2 to l1 messages generated in this call. */
-  newL2ToL1Messages: Fr[];
+  newL2ToL1Messages: L2ToL1Message[];
   /** The new nullifiers to be inserted into the nullifier tree. */
   newNullifiers: SideEffectLinkedToNoteHash[];
   /** The contract storage reads performed by the function. */
@@ -73,7 +74,7 @@ export function isPublicExecutionResult(
  */
 export function collectPublicDataReads(execResult: PublicExecutionResult): PublicDataRead[] {
   // HACK(#1622): part of temporary hack - may be able to remove this function after public state ordering is fixed
-  const contractAddress = execResult.execution.contractAddress;
+  const contractAddress = execResult.execution.callContext.storageContractAddress;
 
   const thisExecPublicDataReads = execResult.contractStorageReads.map(read =>
     contractStorageReadToPublicDataRead(read, contractAddress),
@@ -93,7 +94,7 @@ export function collectPublicDataReads(execResult: PublicExecutionResult): Publi
  */
 export function collectPublicDataUpdateRequests(execResult: PublicExecutionResult): PublicDataUpdateRequest[] {
   // HACK(#1622): part of temporary hack - may be able to remove this function after public state ordering is fixed
-  const contractAddress = execResult.execution.contractAddress;
+  const contractAddress = execResult.execution.callContext.storageContractAddress;
 
   const thisExecPublicDataUpdateRequests = execResult.contractStorageUpdateRequests.map(update =>
     contractStorageUpdateRequestToPublicDataUpdateRequest(update, contractAddress),
@@ -131,8 +132,30 @@ function contractStorageUpdateRequestToPublicDataUpdateRequest(
 ): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(
     computePublicDataTreeLeafSlot(contractAddress, update.storageSlot),
-    computePublicDataTreeValue(update.oldValue),
     computePublicDataTreeValue(update.newValue),
     update.sideEffectCounter!,
   );
+}
+
+/**
+ * Checks whether the child execution result is valid for a static call (no state modifications).
+ * @param executionResult - The execution result of a public function
+ */
+
+export function checkValidStaticCall(
+  newNoteHashes: SideEffect[],
+  newNullifiers: SideEffectLinkedToNoteHash[],
+  contractStorageUpdateRequests: ContractStorageUpdateRequest[],
+  newL2ToL1Messages: L2ToL1Message[],
+  unencryptedLogs: FunctionL2Logs,
+) {
+  if (
+    contractStorageUpdateRequests.length > 0 ||
+    newNoteHashes.length > 0 ||
+    newNullifiers.length > 0 ||
+    newL2ToL1Messages.length > 0 ||
+    unencryptedLogs.logs.length > 0
+  ) {
+    throw new Error('Static call cannot update the state, emit L2->L1 messages or generate logs');
+  }
 }

@@ -8,7 +8,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { TypedOracle, toACVMWitness } from '../acvm/index.js';
 import { PackedArgsCache, SideEffectCounter } from '../common/index.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
-import { PublicExecution, PublicExecutionResult } from './execution.js';
+import { PublicExecution, PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { executePublicFunction } from './executor.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
 
@@ -35,7 +35,7 @@ export class PublicExecutionContext extends TypedOracle {
     private log = createDebugLogger('aztec:simulator:public_execution_context'),
   ) {
     super();
-    this.storageActions = new ContractStorageActionsCollector(stateDb, execution.contractAddress);
+    this.storageActions = new ContractStorageActionsCollector(stateDb, execution.callContext.storageContractAddress);
   }
 
   /**
@@ -141,8 +141,8 @@ export class PublicExecutionContext extends TypedOracle {
       const storageSlot = new Fr(startStorageSlot.value + BigInt(i));
       const newValue = values[i];
       const sideEffectCounter = this.sideEffectCounter.count();
-      await this.storageActions.write(storageSlot, newValue, sideEffectCounter);
-      await this.stateDb.storageWrite(this.execution.contractAddress, storageSlot, newValue);
+      this.storageActions.write(storageSlot, newValue, sideEffectCounter);
+      await this.stateDb.storageWrite(this.execution.callContext.storageContractAddress, storageSlot, newValue);
       this.log(`Oracle storage write: slot=${storageSlot.toString()} value=${newValue.toString()}`);
       newValues.push(newValue);
     }
@@ -160,6 +160,8 @@ export class PublicExecutionContext extends TypedOracle {
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
   ) {
     const args = this.packedArgsCache.unpack(argsHash);
     this.log(`Public function call: addr=${targetContractAddress} selector=${functionSelector} args=${args.join(',')}`);
@@ -178,13 +180,13 @@ export class PublicExecutionContext extends TypedOracle {
     const functionData = new FunctionData(functionSelector, isInternal, false, false);
 
     const callContext = CallContext.from({
-      msgSender: this.execution.contractAddress,
+      msgSender: isDelegateCall ? this.execution.callContext.msgSender : this.execution.contractAddress,
+      storageContractAddress: isDelegateCall ? this.execution.contractAddress : targetContractAddress,
       portalContractAddress: portalAddress,
-      storageContractAddress: targetContractAddress,
       functionSelector,
       isContractDeployment: false,
-      isDelegateCall: false,
-      isStaticCall: false,
+      isDelegateCall,
+      isStaticCall,
       startSideEffectCounter: 0, // TODO use counters in public execution
     });
 
@@ -208,6 +210,16 @@ export class PublicExecutionContext extends TypedOracle {
     );
 
     const childExecutionResult = await executePublicFunction(context, acir);
+
+    if (isStaticCall) {
+      checkValidStaticCall(
+        childExecutionResult.newNoteHashes,
+        childExecutionResult.newNullifiers,
+        childExecutionResult.contractStorageUpdateRequests,
+        childExecutionResult.newL2ToL1Messages,
+        childExecutionResult.unencryptedLogs,
+      );
+    }
 
     this.nestedExecutions.push(childExecutionResult);
     this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);

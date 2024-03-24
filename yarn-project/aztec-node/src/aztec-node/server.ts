@@ -36,7 +36,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/abis';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -87,7 +87,8 @@ export class AztecNodeService implements AztecNode {
       `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
       `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
       `Outbox: ${config.l1Contracts.outboxAddress.toString()}\n` +
-      `Contract Emitter: ${config.l1Contracts.contractDeploymentEmitterAddress.toString()}`;
+      `Contract Emitter: ${config.l1Contracts.contractDeploymentEmitterAddress.toString()}\n` +
+      `Availability Oracle: ${config.l1Contracts.availabilityOracleAddress.toString()}`;
     this.log(message);
   }
 
@@ -280,7 +281,7 @@ export class AztecNodeService implements AztecNode {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
-    this.log.info(`Received tx ${await tx.getTxHash()}`);
+    this.log.info(`Received tx ${tx.getTxHash()}`);
     await this.p2pClient!.sendTx(tx);
   }
 
@@ -560,7 +561,7 @@ export class AztecNodeService implements AztecNode {
    * @param tx - The transaction to simulate.
    **/
   public async simulatePublicCalls(tx: Tx) {
-    this.log.info(`Simulating tx ${await tx.getTxHash()}`);
+    this.log.info(`Simulating tx ${tx.getTxHash()}`);
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
@@ -589,7 +590,7 @@ export class AztecNodeService implements AztecNode {
     if (failedTxs.length) {
       throw failedTxs[0].error;
     }
-    this.log.info(`Simulated tx ${await tx.getTxHash()} succeeds`);
+    this.log.info(`Simulated tx ${tx.getTxHash()} succeeds`);
   }
 
   public setConfig(config: Partial<SequencerConfig>): Promise<void> {

@@ -1,10 +1,11 @@
 import { ExtendedContractData, Tx, TxHash, TxL2Logs } from '@aztec/circuit-types';
 import {
-  CombinedAccumulatedData,
   Fr,
   Header,
   Proof,
-  PublicKernelPublicInputs,
+  PublicAccumulatedNonRevertibleData,
+  PublicAccumulatedRevertibleData,
+  PublicKernelCircuitPublicInputs,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 
@@ -16,7 +17,7 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'encryptedLogs' | 'unencryptedLogs'
   /**
    * Output of the public kernel circuit for this tx.
    */
-  data: PublicKernelPublicInputs;
+  data: PublicKernelCircuitPublicInputs;
   /**
    * Hash of the transaction.
    */
@@ -47,20 +48,19 @@ export type FailedTx = {
  * @param kernelOutput - Output of the kernel circuit simulation for this tx.
  * @param proof - Proof of the kernel circuit for this tx.
  */
-export async function makeProcessedTx(
-  tx: Tx,
-  kernelOutput?: PublicKernelPublicInputs,
-  proof?: Proof,
-): Promise<ProcessedTx> {
+export function makeProcessedTx(tx: Tx, kernelOutput?: PublicKernelCircuitPublicInputs, proof?: Proof): ProcessedTx {
   return {
-    hash: await tx.getTxHash(),
+    hash: tx.getTxHash(),
     data:
       kernelOutput ??
-      new PublicKernelPublicInputs(
+      new PublicKernelCircuitPublicInputs(
         tx.data.aggregationObject,
-        tx.data.metaHwm,
-        CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
+        PublicAccumulatedNonRevertibleData.fromPrivateAccumulatedNonRevertibleData(tx.data.endNonRevertibleData),
+        PublicAccumulatedRevertibleData.fromPrivateAccumulatedRevertibleData(tx.data.end),
         tx.data.constants,
+        tx.data.needsSetup,
+        tx.data.needsAppLogic,
+        tx.data.needsTeardown,
       ),
     proof: proof ?? tx.proof,
     encryptedLogs: tx.encryptedLogs,
@@ -74,15 +74,15 @@ export async function makeProcessedTx(
  * Makes an empty tx from an empty kernel circuit public inputs.
  * @returns A processed empty tx.
  */
-export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): Promise<ProcessedTx> {
-  const emptyKernelOutput = PublicKernelPublicInputs.empty();
+export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): ProcessedTx {
+  const emptyKernelOutput = PublicKernelCircuitPublicInputs.empty();
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
   const emptyProof = makeEmptyProof();
 
   const hash = new TxHash(Fr.ZERO.toBuffer());
-  return Promise.resolve({
+  return {
     hash,
     encryptedLogs: new TxL2Logs([]),
     unencryptedLogs: new TxL2Logs([]),
@@ -90,5 +90,5 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
     proof: emptyProof,
     newContracts: [ExtendedContractData.empty()],
     isEmpty: true,
-  });
+  };
 }

@@ -16,13 +16,16 @@
       "path": "../foundation"
     },
     {
+      "path": "../types"
+    },
+    {
       "path": "../kv-store"
     },
     {
       "path": "../merkle-tree"
     },
     {
-      "path": "../noir-contracts"
+      "path": "../noir-contracts.js"
     }
   ],
   "include": ["src"]

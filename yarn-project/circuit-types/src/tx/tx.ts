@@ -1,4 +1,11 @@
-import { MAX_NEW_CONTRACTS_PER_TX, PrivateKernelPublicInputsFinal, Proof, PublicCallRequest } from '@aztec/circuits.js';
+import {
+  MAX_NEW_CONTRACTS_PER_TX,
+  PrivateKernelTailCircuitPublicInputs,
+  Proof,
+  PublicCallRequest,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
+} from '@aztec/circuits.js';
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -17,7 +24,7 @@ export class Tx {
     /**
      * Output of the private kernel circuit for this tx.
      */
-    public readonly data: PrivateKernelPublicInputsFinal,
+    public readonly data: PrivateKernelTailCircuitPublicInputs,
     /**
      * Proof from the private kernel circuit.
      */
@@ -70,7 +77,7 @@ export class Tx {
   static fromBuffer(buffer: Buffer | BufferReader): Tx {
     const reader = BufferReader.asReader(buffer);
     return new Tx(
-      reader.readObject(PrivateKernelPublicInputsFinal),
+      reader.readObject(PrivateKernelTailCircuitPublicInputs),
       reader.readObject(Proof),
       reader.readObject(TxL2Logs),
       reader.readObject(TxL2Logs),
@@ -116,8 +123,8 @@ export class Tx {
    * @param logsSource - An instance of `L2LogsSource` which can be used to obtain the logs.
    * @returns The requested logs.
    */
-  public async getUnencryptedLogs(logsSource: L2LogsSource): Promise<GetUnencryptedLogsResponse> {
-    return logsSource.getUnencryptedLogs({ txHash: await this.getTxHash() });
+  public getUnencryptedLogs(logsSource: L2LogsSource): Promise<GetUnencryptedLogsResponse> {
+    return logsSource.getUnencryptedLogs({ txHash: this.getTxHash() });
   }
 
   /**
@@ -126,7 +133,7 @@ export class Tx {
    * @returns A Tx class object.
    */
   public static fromJSON(obj: any) {
-    const publicInputs = PrivateKernelPublicInputsFinal.fromBuffer(Buffer.from(obj.data, 'hex'));
+    const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.data, 'hex'));
     const encryptedLogs = TxL2Logs.fromBuffer(Buffer.from(obj.encryptedLogs, 'hex'));
     const unencryptedLogs = TxL2Logs.fromBuffer(Buffer.from(obj.unencryptedLogs, 'hex'));
     const proof = Buffer.from(obj.proof, 'hex');
@@ -148,27 +155,34 @@ export class Tx {
    * Construct & return transaction hash.
    * @returns The transaction's hash.
    */
-  getTxHash(): Promise<TxHash> {
+  getTxHash(): TxHash {
     // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-    const firstNullifier = this.data?.end.newNullifiers[0];
-    if (!firstNullifier) {
+    const firstNullifier = this.data?.endNonRevertibleData.newNullifiers[0];
+    if (!firstNullifier || firstNullifier.isEmpty()) {
       throw new Error(`Cannot get tx hash since first nullifier is missing`);
     }
-    return Promise.resolve(new TxHash(firstNullifier.value.toBuffer()));
+    return new TxHash(firstNullifier.value.toBuffer());
   }
 
   /** Returns stats about this tx. */
   getStats(): TxStats {
     return {
-      txHash: this.data!.end.newNullifiers[0].toString(),
+      txHash: this.getTxHash().toString(),
       encryptedLogCount: this.encryptedLogs.getTotalLogCount(),
       unencryptedLogCount: this.unencryptedLogs.getTotalLogCount(),
       encryptedLogSize: this.encryptedLogs.getSerializedLength(),
       unencryptedLogSize: this.unencryptedLogs.getSerializedLength(),
-      newContractCount: this.newContracts.filter(c => !c.isEmpty()).length,
+      newContractCount: arrayNonEmptyLength(this.newContracts, ExtendedContractData.isEmpty),
       newContractDataSize: this.newContracts.map(c => c.toBuffer().length).reduce((a, b) => a + b, 0),
-      newCommitmentCount: this.data!.end.newCommitments.filter(c => !c.isEmpty()).length,
-      newNullifierCount: this.data!.end.newNullifiers.filter(c => !c.isEmpty()).length,
+
+      newCommitmentCount:
+        arrayNonEmptyLength(this.data!.endNonRevertibleData.newNoteHashes, SideEffect.isEmpty) +
+        arrayNonEmptyLength(this.data!.end.newNoteHashes, SideEffect.isEmpty),
+
+      newNullifierCount:
+        arrayNonEmptyLength(this.data!.endNonRevertibleData.newNullifiers, SideEffectLinkedToNoteHash.isEmpty) +
+        arrayNonEmptyLength(this.data!.end.newNullifiers, SideEffectLinkedToNoteHash.isEmpty),
+
       proofSize: this.proof.buffer.length,
       size: this.toBuffer().length,
     };
@@ -179,9 +193,9 @@ export class Tx {
    * @param tx - Tx-like object.
    * @returns - The hash.
    */
-  static getHash(tx: Tx | HasHash): Promise<TxHash> {
+  static getHash(tx: Tx | HasHash): TxHash {
     const hasHash = (tx: Tx | HasHash): tx is HasHash => (tx as HasHash).hash !== undefined;
-    return Promise.resolve(hasHash(tx) ? tx.hash : tx.getTxHash());
+    return hasHash(tx) ? tx.hash : tx.getTxHash();
   }
 
   /**
@@ -189,8 +203,8 @@ export class Tx {
    * @param txs - The txs to get the hashes from.
    * @returns The corresponding array of hashes.
    */
-  static async getHashes(txs: (Tx | HasHash)[]): Promise<TxHash[]> {
-    return await Promise.all(txs.map(tx => Tx.getHash(tx)));
+  static getHashes(txs: (Tx | HasHash)[]): TxHash[] {
+    return txs.map(tx => Tx.getHash(tx));
   }
 
   /**
@@ -199,7 +213,7 @@ export class Tx {
    * @returns The cloned transaction.
    */
   static clone(tx: Tx): Tx {
-    const publicInputs = PrivateKernelPublicInputsFinal.fromBuffer(tx.data.toBuffer());
+    const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(tx.data.toBuffer());
     const proof = Proof.fromBuffer(tx.proof.toBuffer());
     const encryptedLogs = TxL2Logs.fromBuffer(tx.encryptedLogs.toBuffer());
     const unencryptedLogs = TxL2Logs.fromBuffer(tx.unencryptedLogs.toBuffer());

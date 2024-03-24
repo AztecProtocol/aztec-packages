@@ -13,20 +13,18 @@ namespace bb {
  * Create an addition gate.
  *
  * @param in An add_triple containing the indexes of variables to be placed into the
- * wires w_l, w_r, w_o and addition coefficients to be placed into q_1, q_2, q_3, q_c().
+ * wires w_l, w_r, w_o and addition coefficients to be placed into q_1, q_2, q_3, q_c.
  */
 template <typename FF> void StandardCircuitBuilder_<FF>::create_add_gate(const add_triple_<FF>& in)
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    w_l().emplace_back(in.a);
-    w_r().emplace_back(in.b);
-    w_o().emplace_back(in.c);
-    q_m().emplace_back(FF::zero());
-    q_1().emplace_back(in.a_scaling);
-    q_2().emplace_back(in.b_scaling);
-    q_3().emplace_back(in.c_scaling);
-    q_c().emplace_back(in.const_scaling);
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c);
+    blocks.arithmetic.q_m().emplace_back(FF::zero());
+    blocks.arithmetic.q_1().emplace_back(in.a_scaling);
+    blocks.arithmetic.q_2().emplace_back(in.b_scaling);
+    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
+    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
 
     ++this->num_gates;
 }
@@ -70,25 +68,21 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_balanced_add_gat
     FF temp = t0 + t1;
     uint32_t temp_idx = this->add_variable(temp);
 
-    w_l().emplace_back(in.a);
-    w_r().emplace_back(in.b);
-    w_o().emplace_back(temp_idx);
-    q_m().emplace_back(FF::zero());
-    q_1().emplace_back(in.a_scaling);
-    q_2().emplace_back(in.b_scaling);
-    q_3().emplace_back(FF::neg_one());
-    q_c().emplace_back(FF::zero());
+    blocks.arithmetic.populate_wires(in.a, in.b, temp_idx);
+    blocks.arithmetic.q_m().emplace_back(FF::zero());
+    blocks.arithmetic.q_1().emplace_back(in.a_scaling);
+    blocks.arithmetic.q_2().emplace_back(in.b_scaling);
+    blocks.arithmetic.q_3().emplace_back(FF::neg_one());
+    blocks.arithmetic.q_c().emplace_back(FF::zero());
 
     ++this->num_gates;
 
-    w_l().emplace_back(temp_idx);
-    w_r().emplace_back(in.c);
-    w_o().emplace_back(in.d);
-    q_m().emplace_back(FF::zero());
-    q_1().emplace_back(FF::one());
-    q_2().emplace_back(in.c_scaling);
-    q_3().emplace_back(in.d_scaling);
-    q_c().emplace_back(in.const_scaling);
+    blocks.arithmetic.populate_wires(temp_idx, in.c, in.d);
+    blocks.arithmetic.q_m().emplace_back(FF::zero());
+    blocks.arithmetic.q_1().emplace_back(FF::one());
+    blocks.arithmetic.q_2().emplace_back(in.c_scaling);
+    blocks.arithmetic.q_3().emplace_back(in.d_scaling);
+    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
 
     ++this->num_gates;
 
@@ -96,26 +90,22 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_balanced_add_gat
     // i.e. in.d * (in.d - 1) * (in.d - 2) = 0
     FF temp_2 = this->get_variable(in.d).sqr() - this->get_variable(in.d);
     uint32_t temp_2_idx = this->add_variable(temp_2);
-    w_l().emplace_back(in.d);
-    w_r().emplace_back(in.d);
-    w_o().emplace_back(temp_2_idx);
-    q_m().emplace_back(FF::one());
-    q_1().emplace_back(FF::neg_one());
-    q_2().emplace_back(FF::zero());
-    q_3().emplace_back(FF::neg_one());
-    q_c().emplace_back(FF::zero());
+    blocks.arithmetic.populate_wires(in.d, in.d, temp_2_idx);
+    blocks.arithmetic.q_m().emplace_back(FF::one());
+    blocks.arithmetic.q_1().emplace_back(FF::neg_one());
+    blocks.arithmetic.q_2().emplace_back(FF::zero());
+    blocks.arithmetic.q_3().emplace_back(FF::neg_one());
+    blocks.arithmetic.q_c().emplace_back(FF::zero());
 
     ++this->num_gates;
 
     constexpr FF neg_two = -FF(2);
-    w_l().emplace_back(temp_2_idx);
-    w_r().emplace_back(in.d);
-    w_o().emplace_back(this->zero_idx);
-    q_m().emplace_back(FF::one());
-    q_1().emplace_back(neg_two);
-    q_2().emplace_back(FF::zero());
-    q_3().emplace_back(FF::zero());
-    q_c().emplace_back(FF::zero());
+    blocks.arithmetic.populate_wires(temp_2_idx, in.d, this->zero_idx);
+    blocks.arithmetic.q_m().emplace_back(FF::one());
+    blocks.arithmetic.q_1().emplace_back(neg_two);
+    blocks.arithmetic.q_2().emplace_back(FF::zero());
+    blocks.arithmetic.q_3().emplace_back(FF::zero());
+    blocks.arithmetic.q_c().emplace_back(FF::zero());
 
     ++this->num_gates;
 }
@@ -179,20 +169,18 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_big_mul_gate(con
  * Create a multiplication gate.
  *
  * @param in A mul_tripple containing the indexes of variables to be placed into the
- * wires w_l, w_r, w_o and scaling coefficients to be placed into q_m, q_3, q_c().
+ * wires w_l, w_r, w_o and scaling coefficients to be placed into q_m, q_3, blocks.arithmetic.q_c().
  */
 template <typename FF> void StandardCircuitBuilder_<FF>::create_mul_gate(const mul_triple_<FF>& in)
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    w_l().emplace_back(in.a);
-    w_r().emplace_back(in.b);
-    w_o().emplace_back(in.c);
-    q_m().emplace_back(in.mul_scaling);
-    q_1().emplace_back(FF::zero());
-    q_2().emplace_back(FF::zero());
-    q_3().emplace_back(in.c_scaling);
-    q_c().emplace_back(in.const_scaling);
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c);
+    blocks.arithmetic.q_m().emplace_back(in.mul_scaling);
+    blocks.arithmetic.q_1().emplace_back(FF::zero());
+    blocks.arithmetic.q_2().emplace_back(FF::zero());
+    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
+    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
 
     ++this->num_gates;
 }
@@ -207,15 +195,12 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_bool_gate(const 
 {
     this->assert_valid_variables({ variable_index });
 
-    w_l().emplace_back(variable_index);
-    w_r().emplace_back(variable_index);
-    w_o().emplace_back(variable_index);
-
-    q_m().emplace_back(FF::one());
-    q_1().emplace_back(FF::zero());
-    q_2().emplace_back(FF::zero());
-    q_3().emplace_back(FF::neg_one());
-    q_c().emplace_back(FF::zero());
+    blocks.arithmetic.populate_wires(variable_index, variable_index, variable_index);
+    blocks.arithmetic.q_m().emplace_back(FF::one());
+    blocks.arithmetic.q_1().emplace_back(FF::zero());
+    blocks.arithmetic.q_2().emplace_back(FF::zero());
+    blocks.arithmetic.q_3().emplace_back(FF::neg_one());
+    blocks.arithmetic.q_c().emplace_back(FF::zero());
 
     ++this->num_gates;
 }
@@ -229,14 +214,12 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_poly_gate(const 
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    w_l().emplace_back(in.a);
-    w_r().emplace_back(in.b);
-    w_o().emplace_back(in.c);
-    q_m().emplace_back(in.q_m);
-    q_1().emplace_back(in.q_l);
-    q_2().emplace_back(in.q_r);
-    q_3().emplace_back(in.q_o);
-    q_c().emplace_back(in.q_c);
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c);
+    blocks.arithmetic.q_m().emplace_back(in.q_m);
+    blocks.arithmetic.q_1().emplace_back(in.q_l);
+    blocks.arithmetic.q_2().emplace_back(in.q_r);
+    blocks.arithmetic.q_3().emplace_back(in.q_o);
+    blocks.arithmetic.q_c().emplace_back(in.q_c);
 
     ++this->num_gates;
 }
@@ -301,6 +284,15 @@ std::vector<uint32_t> StandardCircuitBuilder_<FF>::decompose_into_base4_accumula
     return accumulators;
 }
 
+/**
+ * @brief Create an AND or an XOR constraint
+ *
+ * @param a The first argument variable index
+ * @param b The second argument variable index
+ * @param num_bits The width of arguments. Has to be even
+ * @param is_xor_gate If true, create an xor gate, otherwise an and gate
+ * @return accumulator_triple_<FF> Accumulated witnesses (steps) for input arguments and output
+ */
 template <typename FF>
 accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(const uint32_t a,
                                                                              const uint32_t b,
@@ -311,9 +303,14 @@ accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(con
 
     accumulator_triple_<FF> accumulators;
 
+    // Get the values of inputs
     const uint256_t left_witness_value(this->get_variable(a));
     const uint256_t right_witness_value(this->get_variable(b));
 
+    ASSERT(left_witness_value < (uint256_t(1) << num_bits));
+    ASSERT(right_witness_value < (uint256_t(1) << num_bits));
+
+    // We are starting accumulation with zeros
     FF left_accumulator = FF::zero();
     FF right_accumulator = FF::zero();
     FF out_accumulator = FF::zero();
@@ -323,23 +320,34 @@ accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(con
     uint32_t out_accumulator_idx = this->zero_idx;
     constexpr FF four = FF(4);
     constexpr FF neg_two = -FF(2);
+    constexpr FF two = FF(2);
+
+    // Num bits is expected to be even
+    ASSERT(num_bits % 2 == 0);
+
+    // Accumulate the bits in quads starting from the high ones
     for (size_t i = num_bits - 1; i < num_bits; i -= 2) {
+        // Get bit values of arguments
         bool left_hi_val = left_witness_value.get_bit(i);
         bool left_lo_val = left_witness_value.get_bit(i - 1);
         bool right_hi_val = right_witness_value.get_bit((i));
         bool right_lo_val = right_witness_value.get_bit(i - 1);
 
+        // Convert to wintesses
         uint32_t left_hi_idx = this->add_variable(left_hi_val ? FF::one() : FF::zero());
         uint32_t left_lo_idx = this->add_variable(left_lo_val ? FF::one() : FF::zero());
         uint32_t right_hi_idx = this->add_variable(right_hi_val ? FF::one() : FF::zero());
         uint32_t right_lo_idx = this->add_variable(right_lo_val ? FF::one() : FF::zero());
 
+        // Compute resulting bits
         bool out_hi_val = is_xor_gate ? left_hi_val ^ right_hi_val : left_hi_val & right_hi_val;
         bool out_lo_val = is_xor_gate ? left_lo_val ^ right_lo_val : left_lo_val & right_lo_val;
 
+        // Convert to witnesses
         uint32_t out_hi_idx = this->add_variable(out_hi_val ? FF::one() : FF::zero());
         uint32_t out_lo_idx = this->add_variable(out_lo_val ? FF::one() : FF::zero());
 
+        // Constrain all individual bit witnesses to be boolean
         create_bool_gate(left_hi_idx);
         create_bool_gate(right_hi_idx);
         create_bool_gate(out_hi_idx);
@@ -348,6 +356,7 @@ accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(con
         create_bool_gate(right_lo_idx);
         create_bool_gate(out_lo_idx);
 
+        // Create 2 individual xor or and gates
         // a & b = ab
         // a ^ b = a + b - 2ab
         create_poly_gate({ left_hi_idx,
@@ -368,21 +377,36 @@ accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(con
                            FF::neg_one(),
                            FF::zero() });
 
+        // Reconstruct the value of the left quad and add as witness
         FF left_quad =
             this->get_variable(left_lo_idx) + this->get_variable(left_hi_idx) + this->get_variable(left_hi_idx);
+        uint32_t left_quad_idx = this->add_variable(left_quad);
+
+        // Connect the left bits to the left quad
+        create_add_gate({ left_hi_idx, left_lo_idx, left_quad_idx, two, FF::one(), FF::neg_one(), FF::zero() });
+
+        // Reconstruct the value of the right quad and add as witness
         FF right_quad =
             this->get_variable(right_lo_idx) + this->get_variable(right_hi_idx) + this->get_variable(right_hi_idx);
-        FF out_quad = this->get_variable(out_lo_idx) + this->get_variable(out_hi_idx) + this->get_variable(out_hi_idx);
-
-        uint32_t left_quad_idx = this->add_variable(left_quad);
         uint32_t right_quad_idx = this->add_variable(right_quad);
+
+        // Connect the left bits to the left quad
+        create_add_gate({ right_hi_idx, right_lo_idx, right_quad_idx, two, FF::one(), FF::neg_one(), FF::zero() });
+
+        // Reconstruct the value of the output quad and add as witness
+        FF out_quad = this->get_variable(out_lo_idx) + this->get_variable(out_hi_idx) + this->get_variable(out_hi_idx);
         uint32_t out_quad_idx = this->add_variable(out_quad);
 
+        // Connect the out bits to the out quad
+        create_add_gate({ out_hi_idx, out_lo_idx, out_quad_idx, two, FF::one(), FF::neg_one(), FF::zero() });
+
+        // Compute the value of the left accumulator and add as witness
         FF new_left_accumulator = left_accumulator + left_accumulator;
         new_left_accumulator = new_left_accumulator + new_left_accumulator;
         new_left_accumulator = new_left_accumulator + left_quad;
         uint32_t new_left_accumulator_idx = this->add_variable(new_left_accumulator);
 
+        // Connect the left quad, previous accumulator and current accumulator
         create_add_gate({ left_accumulator_idx,
                           left_quad_idx,
                           new_left_accumulator_idx,
@@ -391,11 +415,13 @@ accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(con
                           FF::neg_one(),
                           FF::zero() });
 
+        // Compute the value of the right accumulator and add as witness
         FF new_right_accumulator = right_accumulator + right_accumulator;
         new_right_accumulator = new_right_accumulator + new_right_accumulator;
         new_right_accumulator = new_right_accumulator + right_quad;
         uint32_t new_right_accumulator_idx = this->add_variable(new_right_accumulator);
 
+        // Connect the right quad, previous accumulator and current accumulator
         create_add_gate({ right_accumulator_idx,
                           right_quad_idx,
                           new_right_accumulator_idx,
@@ -404,11 +430,13 @@ accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(con
                           FF::neg_one(),
                           FF::zero() });
 
+        // Compute the value of the out accumulator and add as witness
         FF new_out_accumulator = out_accumulator + out_accumulator;
         new_out_accumulator = new_out_accumulator + new_out_accumulator;
         new_out_accumulator = new_out_accumulator + out_quad;
         uint32_t new_out_accumulator_idx = this->add_variable(new_out_accumulator);
 
+        // Connect the out quad, previous accumulator and current accumulator
         create_add_gate(
             { out_accumulator_idx, out_quad_idx, new_out_accumulator_idx, four, FF::one(), FF::neg_one(), FF::zero() });
 
@@ -416,6 +444,7 @@ accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(con
         accumulators.right.emplace_back(new_right_accumulator_idx);
         accumulators.out.emplace_back(new_out_accumulator_idx);
 
+        // Update current accumulators
         left_accumulator = new_left_accumulator;
         left_accumulator_idx = new_left_accumulator_idx;
 
@@ -425,6 +454,9 @@ accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(con
         out_accumulator = new_out_accumulator;
         out_accumulator_idx = new_out_accumulator_idx;
     }
+    // Connect the accumulators to inputs
+    this->assert_equal(accumulators.left.back(), a);
+    this->assert_equal(accumulators.right.back(), b);
     return accumulators;
 }
 
@@ -433,14 +465,12 @@ void StandardCircuitBuilder_<FF>::fix_witness(const uint32_t witness_index, cons
 {
     this->assert_valid_variables({ witness_index });
 
-    w_l().emplace_back(witness_index);
-    w_r().emplace_back(this->zero_idx);
-    w_o().emplace_back(this->zero_idx);
-    q_m().emplace_back(FF::zero());
-    q_1().emplace_back(FF::one());
-    q_2().emplace_back(FF::zero());
-    q_3().emplace_back(FF::zero());
-    q_c().emplace_back(-witness_value);
+    blocks.arithmetic.populate_wires(witness_index, this->zero_idx, this->zero_idx);
+    blocks.arithmetic.q_m().emplace_back(FF::zero());
+    blocks.arithmetic.q_1().emplace_back(FF::one());
+    blocks.arithmetic.q_2().emplace_back(FF::zero());
+    blocks.arithmetic.q_3().emplace_back(FF::zero());
+    blocks.arithmetic.q_c().emplace_back(-witness_value);
     ++this->num_gates;
 }
 
@@ -497,10 +527,12 @@ template <typename FF> bool StandardCircuitBuilder_<FF>::check_circuit()
     for (size_t i = 0; i < this->num_gates; i++) {
 
         gate_sum = FF::zero();
-        left = this->get_variable(w_l()[i]);
-        right = this->get_variable(w_r()[i]);
-        output = this->get_variable(w_o()[i]);
-        gate_sum = q_m()[i] * left * right + q_1()[i] * left + q_2()[i] * right + q_3()[i] * output + q_c()[i];
+        left = this->get_variable(blocks.arithmetic.w_l()[i]);
+        right = this->get_variable(blocks.arithmetic.w_r()[i]);
+        output = this->get_variable(blocks.arithmetic.w_o()[i]);
+        gate_sum = blocks.arithmetic.q_m()[i] * left * right + blocks.arithmetic.q_1()[i] * left +
+                   blocks.arithmetic.q_2()[i] * right + blocks.arithmetic.q_3()[i] * output +
+                   blocks.arithmetic.q_c()[i];
         if (!gate_sum.is_zero()) {
             info("gate number", i);
             return false;
@@ -541,11 +573,15 @@ template <typename FF> msgpack::sbuffer StandardCircuitBuilder_<FF>::export_circ
     }
 
     for (size_t i = 0; i < this->num_gates; i++) {
-        std::vector<FF> tmp_sel = { q_m()[i], q_1()[i], q_2()[i], q_3()[i], q_c()[i] };
+        std::vector<FF> tmp_sel = { blocks.arithmetic.q_m()[i],
+                                    blocks.arithmetic.q_1()[i],
+                                    blocks.arithmetic.q_2()[i],
+                                    blocks.arithmetic.q_3()[i],
+                                    blocks.arithmetic.q_c()[i] };
         std::vector<uint32_t> tmp_w = {
-            this->real_variable_index[w_l()[i]],
-            this->real_variable_index[w_r()[i]],
-            this->real_variable_index[w_o()[i]],
+            this->real_variable_index[blocks.arithmetic.w_l()[i]],
+            this->real_variable_index[blocks.arithmetic.w_r()[i]],
+            this->real_variable_index[blocks.arithmetic.w_o()[i]],
         };
         cir.selectors.push_back(tmp_sel);
         cir.wires.push_back(tmp_w);

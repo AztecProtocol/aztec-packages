@@ -2,11 +2,6 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-
-import {DecoderTest} from "./decoders/Decoder.t.sol";
-import {DecoderHelper} from "./decoders/helpers/DecoderHelper.sol";
-
 import {DecoderBase} from "./decoders/Base.sol";
 
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
@@ -23,7 +18,6 @@ import {AvailabilityOracle} from "../src/core/availability_oracle/AvailabilityOr
  * Main use of these test is shorter cycles when updating the decoder contract.
  */
 contract RollupTest is DecoderBase {
-  DecoderHelper internal helper;
   Registry internal registry;
   Inbox internal inbox;
   Outbox internal outbox;
@@ -31,8 +25,6 @@ contract RollupTest is DecoderBase {
   AvailabilityOracle internal availabilityOracle;
 
   function setUp() public virtual {
-    helper = new DecoderHelper();
-
     registry = new Registry();
     inbox = new Inbox(address(registry));
     outbox = new Outbox(address(registry));
@@ -67,13 +59,13 @@ contract RollupTest is DecoderBase {
     bytes memory body = data.body;
 
     assembly {
-      mstore(add(header, add(0x20, 0x00f8)), 0x420)
+      mstore(add(header, add(0x20, 0x0158)), 0x420)
     }
 
-    bytes32 txsHash = availabilityOracle.publish(body);
+    availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidChainId.selector, 0x420, 31337));
-    rollup.process(header, archive, txsHash, body, bytes(""));
+    rollup.process(header, archive, body, bytes(""));
   }
 
   function testRevertInvalidVersion() public {
@@ -83,13 +75,13 @@ contract RollupTest is DecoderBase {
     bytes memory body = data.body;
 
     assembly {
-      mstore(add(header, add(0x20, 0x0118)), 0x420)
+      mstore(add(header, add(0x20, 0x0178)), 0x420)
     }
 
-    bytes32 txsHash = availabilityOracle.publish(body);
+    availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 0x420, 1));
-    rollup.process(header, archive, txsHash, body, bytes(""));
+    rollup.process(header, archive, body, bytes(""));
   }
 
   function testRevertTimestampInFuture() public {
@@ -100,13 +92,13 @@ contract RollupTest is DecoderBase {
 
     uint256 ts = block.timestamp + 1;
     assembly {
-      mstore(add(header, add(0x20, 0x0158)), ts)
+      mstore(add(header, add(0x20, 0x01b8)), ts)
     }
 
-    bytes32 txsHash = availabilityOracle.publish(body);
+    availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__TimestampInFuture.selector));
-    rollup.process(header, archive, txsHash, body, bytes(""));
+    rollup.process(header, archive, body, bytes(""));
   }
 
   function testRevertTimestampTooOld() public {
@@ -118,10 +110,10 @@ contract RollupTest is DecoderBase {
     // Overwrite in the rollup contract
     vm.store(address(rollup), bytes32(uint256(1)), bytes32(uint256(block.timestamp)));
 
-    bytes32 txsHash = availabilityOracle.publish(body);
+    availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__TimestampTooOld.selector));
-    rollup.process(header, archive, txsHash, body, bytes(""));
+    rollup.process(header, archive, body, bytes(""));
   }
 
   function _testBlock(string memory name) public {
@@ -142,10 +134,10 @@ contract RollupTest is DecoderBase {
       assertTrue(inbox.contains(full.messages.l1ToL2Messages[i]), "msg not in inbox");
     }
 
-    bytes32 txsHash = availabilityOracle.publish(body);
+    availabilityOracle.publish(body);
 
     vm.record();
-    rollup.process(header, archive, txsHash, body, bytes(""));
+    rollup.process(header, archive, body, bytes(""));
 
     (, bytes32[] memory inboxWrites) = vm.accesses(address(inbox));
     (, bytes32[] memory outboxWrites) = vm.accesses(address(outbox));

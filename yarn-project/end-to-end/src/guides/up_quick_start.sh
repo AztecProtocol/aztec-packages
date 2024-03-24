@@ -11,7 +11,7 @@ ALICE_PRIVATE_KEY="0x2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf08
 # docs:end:declare-accounts
 
 # docs:start:deploy
-CONTRACT=$(aztec-cli deploy TokenContractArtifact --salt 0 --args $ALICE "TokenName" "TKN" 18 --json | jq -r '.address')
+CONTRACT=$(aztec-cli deploy TokenContractArtifact --private-key $ALICE_PRIVATE_KEY --salt 0 --args $ALICE "TokenName" "TKN" 18 --json | jq -r '.address')
 echo "Deployed contract at $CONTRACT"
 aztec-cli check-deploy --contract-address $CONTRACT
 # docs:end:deploy
@@ -29,7 +29,7 @@ MINT_PRIVATE_OUTPUT=$(aztec-cli send mint_private \
 MINT_PRIVATE_TX_HASH=$(echo "$MINT_PRIVATE_OUTPUT" | grep "Transaction hash:" | awk '{print $NF}')
 
 aztec-cli add-note \
-  $ALICE $CONTRACT 5 $MINT_PRIVATE_TX_HASH \
+  $ALICE $CONTRACT 5 84114971101151129711410111011678111116101 $MINT_PRIVATE_TX_HASH \
   --note 1000 $SECRET_HASH
 
 aztec-cli send redeem_shield \

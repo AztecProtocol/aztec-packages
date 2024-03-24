@@ -77,8 +77,8 @@ std::shared_ptr<bb::plonk::verification_key> AcirComposer::init_verification_key
 
 void AcirComposer::load_verification_key(bb::plonk::verification_key_data&& data)
 {
-    verification_key_ =
-        std::make_shared<bb::plonk::verification_key>(std::move(data), srs::get_crs_factory()->get_verifier_crs());
+    verification_key_ = std::make_shared<bb::plonk::verification_key>(std::move(data),
+                                                                      srs::get_bn254_crs_factory()->get_verifier_crs());
 }
 
 bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof)
@@ -123,10 +123,10 @@ std::string AcirComposer::get_solidity_verifier()
 std::vector<bb::fr> AcirComposer::serialize_proof_into_fields(std::vector<uint8_t> const& proof,
                                                               size_t num_inner_public_inputs)
 {
-    transcript::StandardTranscript transcript(proof,
-                                              acir_format::Composer::create_manifest(num_inner_public_inputs),
-                                              transcript::HashType::PedersenBlake3s,
-                                              16);
+    plonk::transcript::StandardTranscript transcript(proof,
+                                                     acir_format::Composer::create_manifest(num_inner_public_inputs),
+                                                     plonk::transcript::HashType::PedersenBlake3s,
+                                                     16);
 
     return acir_format::export_transcript_in_recursion_format(transcript);
 }

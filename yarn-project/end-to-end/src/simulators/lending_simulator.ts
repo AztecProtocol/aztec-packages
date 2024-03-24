@@ -1,7 +1,7 @@
 // Convenience struct to hold an account's address and secret that can easily be passed around.
 import { AztecAddress, CheatCodes, Fr } from '@aztec/aztec.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { LendingContract } from '@aztec/noir-contracts/Lending';
+import { LendingContract } from '@aztec/noir-contracts.js/Lending';
 
 import { TokenSimulator } from './token_simulator.js';
 
@@ -24,7 +24,7 @@ export class LendingAccount {
    * @returns Key in public space
    */
   public key() {
-    return Fr.fromBuffer(pedersenHash([this.address, this.secret].map(f => f.toBuffer())));
+    return pedersenHash([this.address, this.secret].map(f => f.toBuffer()));
   }
 }
 
@@ -166,7 +166,10 @@ export class LendingSimulator {
     expect(this.borrowed).toEqual(this.stableCoin.totalSupply - this.mintedOutside);
 
     const asset = await this.lendingContract.methods.get_asset(0).view();
-    expect(asset['interest_accumulator']).toEqual(this.accumulator);
+
+    const interestAccumulator = asset['interest_accumulator'];
+    const interestAccumulatorBigint = BigInt(interestAccumulator.lo + interestAccumulator.hi * 2n ** 64n);
+    expect(interestAccumulatorBigint).toEqual(this.accumulator);
     expect(asset['last_updated_ts']).toEqual(BigInt(this.time));
 
     for (const key of [this.account.address, this.account.key()]) {

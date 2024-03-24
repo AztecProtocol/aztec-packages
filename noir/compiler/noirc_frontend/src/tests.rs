@@ -956,7 +956,7 @@ mod test {
     #[test]
     fn resolve_for_expr() {
         let src = r#"
-            fn main(x : Field) {
+            fn main(x : u64) {
                 for i in 1..20 {
                     let _z = x + i;
                 };
@@ -1128,9 +1128,9 @@ mod test {
     }
 
     fn check_rewrite(src: &str, expected: &str) {
-        let (_program, context, _errors) = get_program(src);
+        let (_program, mut context, _errors) = get_program(src);
         let main_func_id = context.def_interner.find_function("main").unwrap();
-        let program = monomorphize(main_func_id, &context.def_interner);
+        let program = monomorphize(main_func_id, &mut context.def_interner).unwrap();
         assert!(format!("{}", program) == expected);
     }
 
@@ -1163,5 +1163,47 @@ fn lambda$f1(mut env$l1: (Field)) -> Field {
 }
 "#;
         check_rewrite(src, expected_rewrite);
+    }
+
+    #[test]
+    fn deny_cyclic_structs() {
+        let src = r#"
+            struct Foo { bar: Bar }
+            struct Bar { foo: Foo }
+            fn main() {}
+        "#;
+        assert_eq!(get_program_errors(src).len(), 1);
+    }
+
+    #[test]
+    fn deny_cyclic_globals() {
+        let src = r#"
+            global A = B;
+            global B = A;
+            fn main() {}
+        "#;
+        assert_eq!(get_program_errors(src).len(), 1);
+    }
+
+    #[test]
+    fn deny_cyclic_type_aliases() {
+        let src = r#"
+            type A = B;
+            type B = A;
+            fn main() {}
+        "#;
+        assert_eq!(get_program_errors(src).len(), 1);
+    }
+
+    #[test]
+    fn ensure_nested_type_aliases_type_check() {
+        let src = r#"
+            type A = B;
+            type B = u8;
+            fn main() {
+                let _a: A = 0 as u16;
+            }
+        "#;
+        assert_eq!(get_program_errors(src).len(), 1);
     }
 }

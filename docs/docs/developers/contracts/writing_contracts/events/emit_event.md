@@ -67,13 +67,13 @@ In the future we will allow emitting arbitrary information.
 
 To emit encrypted logs first import the `emit_encrypted_log` utility function which wraps an [oracle](../oracles/main.md):
 
-#include_code encrypted_import /yarn-project/aztec-nr/address-note/src/address_note.nr rust
+#include_code encrypted_import /noir-projects/aztec-nr/address-note/src/address_note.nr rust
 
 ### Call emit_encrypted_log
 
 After importing, you can call the function:
 
-#include_code encrypted /yarn-project/aztec-nr/address-note/src/address_note.nr rust
+#include_code encrypted /noir-projects/aztec-nr/address-note/src/address_note.nr rust
 
 ### Successfully process the encrypted event
 
@@ -83,16 +83,7 @@ If the decryption is successful, the PXE will store the decrypted note inside a 
 If the decryption fails, the specific log will be discarded.
 
 For the PXE to successfully process the decrypted note we need to compute the note's 'note hash' and 'nullifier'.
-Aztec.nr enables smart contract developers to design custom notes, meaning developers can also customize how a note's note hash and nullifier should be computed. Because of this customizability, and because there will be a potentially-unlimited number of smart contracts deployed to Aztec, an PXE needs to be 'taught' how to compute the custom note hashes and nullifiers for a particular contract. Therefore, developers will need to implement a `compute_note_hash_and_nullifier` function inside their contracts.
-
-:::danger
-If your contract works with storage (has Storage struct defined), you **MUST** include a `compute_note_hash_and_nullifier` function to allow PXE to process encrypted events.
-:::
-
-Every time a new note is successfully decrypted, the PXE will expect the existence of a `compute_note_hash_and_nullifier` function, which must teach it how to correctly process the new note.
-
-#include_code compute_note_hash_and_nullifier /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
-
+Aztec.nr enables smart contract developers to design custom notes, meaning developers can also customize how a note's note hash and nullifier should be computed. Because of this customizability, and because there will be a potentially-unlimited number of smart contracts deployed to Aztec, an PXE needs to be 'taught' how to compute the custom note hashes and nullifiers for a particular contract. This is done by a function called `compute_note_hash_and_nullifier`, which is automatically injected into every contract when compiled.
 
 ## Unencrypted Events
 
@@ -100,21 +91,22 @@ Unencrypted events are events which can be read by anyone.
 They can be emitted by both public and private functions.
 
 :::danger
+
 - Emitting unencrypted events from private function is a significant privacy leak and it should be considered by the developer whether it is acceptable.
 - Unencrypted events are currently **NOT** linked to the contract emitting them, so it is practically a [`debug_log`](../oracles/main.md#a-few-useful-inbuilt-oracles).
-:::
+  :::
 
 ### Import library
 
 To emit unencrypted logs first import the `emit_unencrypted_log` utility function inside your contract:
 
-#include_code unencrypted_import /yarn-project/noir-contracts/contracts/test_contract/src/main.nr rust
+#include_code unencrypted_import /noir-projects/noir-contracts/contracts/test_contract/src/main.nr rust
 
 ### Call emit_unencrypted_log
 
 After importing, you can call the function:
 
-#include_code emit_unencrypted /yarn-project/noir-contracts/contracts/test_contract/src/main.nr rust
+#include_code emit_unencrypted /noir-projects/noir-contracts/contracts/test_contract/src/main.nr rust
 
 ### Querying the unencrypted event
 
@@ -149,7 +141,7 @@ In the Sandbox, an encrypted note has a fixed overhead of 4 field elements (to b
 
 A `ValueNote`, for example, currently uses 3 fields elements (plus the fixed overhead of 4). That's roughly `7 * 32 = 224` bytes of information.
 
-#include_code value-note-def /yarn-project/aztec-nr/value-note/src/value_note.nr
+#include_code value-note-def /noir-projects/aztec-nr/value-note/src/value_note.nr
 
 - There are plans to compress encrypted note data further.
 - There are plans to adopt EIP-4844 blobs to reduce the cost of data submission further.

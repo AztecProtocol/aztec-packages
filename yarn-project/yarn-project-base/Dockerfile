@@ -42,28 +42,15 @@
 #      RUN yarn workspaces focus --production && yarn cache clean && rm -rf ../**/src
 #  - Create final slim image by copying needed dirs into a fresh image.
 #
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/bb.js as bb.js
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir as noir
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-packages as noir-packages
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/boxes-files as boxes-files
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/avm-transpiler as transpiler
+FROM aztecprotocol/bb.js as bb.js
+FROM aztecprotocol/noir-packages as noir-packages
 
 FROM node:18.19.0
 RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
 
-# Copy L1 contracts.
-COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
-# Copy in bb.js
+# Copy in portalled packages.
 COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
-# Copy in nargo
-COPY --from=noir /usr/src/noir/target/release/nargo /usr/src/noir/target/release/nargo
-# Copy in noir packages
 COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
-# Copy in boxes
-COPY --from=boxes-files /usr/src/boxes /usr/src/boxes
-# Copy in transpiler
-COPY --from=transpiler /usr/src/avm-transpiler/target/release/avm-transpiler /usr/src/avm-transpiler/target/release/avm-transpiler
 
 # We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
 # walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
@@ -79,23 +66,17 @@ COPY . .
 
 # List all included files and hash for debugging.
 RUN echo "Context files: " && find . -type f | sort && \
-    echo -n "Context hash: " && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum
+  echo -n "Context hash: " && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum
 
 # Install packages and rebuild the global cache with hard links.
 # TODO: Puppeteer is adding ~300MB to this image due to chrome download (part of e2e).
 #       Switch to using puppeteer-core then it won't download chrome. For now just erase.
 RUN yarn --immutable && rm -rf /root/.cache/puppeteer && /bin/bash -c '\
-      rm -rf /root/.yarn/berry/cache/* && \
-      cd .yarn/cache && \
-      for F in *; do \
-        [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
-      done'
-
-# If everything's worked properly, we should no longer need access to the network.
-RUN echo "enableNetwork: false" >> .yarnrc.yml
+  rm -rf /root/.yarn/berry/cache/* && \
+  cd .yarn/cache && \
+  for F in *; do \
+  [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
+  done'
 
 # Check package.json inheritance and tsconfig project references.
 RUN yarn prepare:check
-
-# Generate L1 contract TypeScript artifacts.
-RUN cd l1-artifacts && ./scripts/generate-artifacts.sh && rm -rf /usr/src/l1-contracts

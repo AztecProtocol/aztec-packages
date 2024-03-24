@@ -1,3 +1,4 @@
+import { Keccak, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
 import {
   Add,
   Address,
@@ -25,6 +26,7 @@ import {
   Mov,
   Mul,
   Not,
+  NullifierExists,
   Or,
   Origin,
   Portal,
@@ -80,25 +82,25 @@ const INSTRUCTION_SET = () =>
     [FeePerL1Gas.opcode, FeePerL1Gas],
     [FeePerL2Gas.opcode, FeePerL2Gas],
     [FeePerDAGas.opcode, FeePerDAGas],
-    // [Contractcalldepth.opcode, Contractcalldepth],
+    //[Contractcalldepth.opcode, Contractcalldepth],
     // Execution Environment - Globals
     [ChainId.opcode, ChainId],
     [Version.opcode, Version],
     [BlockNumber.opcode, BlockNumber],
     [Timestamp.opcode, Timestamp],
-    // [Coinbase.opcode, Coinbase],
-    // [Blockl1gaslimit.opcode, Blockl1gaslimit],
-    // [Blockl2gaslimit.opcode, Blockl2gaslimit],
-    // [Blockdagaslimit.opcode, Blockdagaslimit],
-    // // Execution Environment - Calldata
+    //[Coinbase.opcode, Coinbase],
+    //[Blockl1gaslimit.opcode, Blockl1gaslimit],
+    //[Blockl2gaslimit.opcode, Blockl2gaslimit],
+    //[Blockdagaslimit.opcode, Blockdagaslimit],
+    // Execution Environment - Calldata
     [CalldataCopy.opcode, CalldataCopy],
 
-    // //// Machine State
-    // // Machine State - Gas
-    // //[L1gasleft.opcode, L1gasleft],
-    // //[L2gasleft.opcode, L2gasleft],
-    // //[Dagasleft.opcode, Dagasleft],
-    // //// Machine State - Internal Control Flow
+    // Machine State
+    // Machine State - Gas
+    //[L1gasleft.opcode, L1gasleft],
+    //[L2gasleft.opcode, L2gasleft],
+    //[Dagasleft.opcode, Dagasleft],
+    // Machine State - Internal Control Flow
     [Jump.opcode, Jump],
     [JumpI.opcode, JumpI],
     [InternalCall.opcode, InternalCall],
@@ -107,27 +109,32 @@ const INSTRUCTION_SET = () =>
     [Mov.opcode, Mov],
     [CMov.opcode, CMov],
 
-    // //// World State
-    // //[Blockheaderbynumber.opcode, Blockheaderbynumber],
+    // World State
     [SLoad.opcode, SLoad], // Public Storage
     [SStore.opcode, SStore], // Public Storage
-    // //[Readl1tol2msg.opcode, Readl1tol2msg], // Messages
-    [SendL2ToL1Message.opcode, SendL2ToL1Message], // Messages
+    //[NoteHashExists.opcode, NoteHashExists], // Notes & Nullifiers
     [EmitNoteHash.opcode, EmitNoteHash], // Notes & Nullifiers
+    [NullifierExists.opcode, NullifierExists], // Notes & Nullifiers
     [EmitNullifier.opcode, EmitNullifier], // Notes & Nullifiers
+    //[Readl1tol2msg.opcode, Readl1tol2msg], // Messages
+    //[HeaderMember.opcode, HeaderMember], // Header
 
-    // //// Accrued Substate
+    // Accrued Substate
     [EmitUnencryptedLog.opcode, EmitUnencryptedLog],
+    [SendL2ToL1Message.opcode, SendL2ToL1Message],
 
-    // //// Control Flow - Contract Calls
+    // Control Flow - Contract Calls
     [Call.opcode, Call],
     [StaticCall.opcode, StaticCall],
+    //[DelegateCall.opcode, DelegateCall],
     [Return.opcode, Return],
     [Revert.opcode, Revert],
 
     // //// Gadgets
-    // //[Keccak.opcode, Keccak],
-    // //[Poseidon.opcode, Poseidon],
+    [Keccak.opcode, Keccak],
+    [Poseidon2.opcode, Poseidon2],
+    [Sha256.opcode, Sha256],
+    [Pedersen.opcode, Pedersen],
   ]);
 
 interface Serializable {

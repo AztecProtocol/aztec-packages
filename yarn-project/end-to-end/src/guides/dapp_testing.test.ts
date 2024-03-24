@@ -10,8 +10,10 @@ import {
   createPXEClient,
   waitForPXE,
 } from '@aztec/aztec.js';
-import { TestContract } from '@aztec/noir-contracts/Test';
-import { TokenContract } from '@aztec/noir-contracts/Token';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
+
+import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
@@ -48,8 +50,17 @@ describe('guides/dapp/testing', () => {
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
+        const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
         const note = new Note([new Fr(mintAmount), secretHash]);
-        const extendedNote = new ExtendedNote(note, recipientAddress, token.address, storageSlot, receipt.txHash);
+        const extendedNote = new ExtendedNote(
+          note,
+          recipientAddress,
+          token.address,
+          storageSlot,
+          noteTypeId,
+          receipt.txHash,
+        );
         await pxe.addNote(extendedNote);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
@@ -83,8 +94,17 @@ describe('guides/dapp/testing', () => {
         const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
         const storageSlot = new Fr(5);
+        const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
         const note = new Note([new Fr(mintAmount), secretHash]);
-        const extendedNote = new ExtendedNote(note, recipientAddress, token.address, storageSlot, receipt.txHash);
+        const extendedNote = new ExtendedNote(
+          note,
+          recipientAddress,
+          token.address,
+          storageSlot,
+          noteTypeId,
+          receipt.txHash,
+        );
         await pxe.addNote(extendedNote);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
@@ -139,8 +159,17 @@ describe('guides/dapp/testing', () => {
         const receipt = await token.methods.mint_private(100n, secretHash).send().wait();
 
         const storageSlot = new Fr(5);
+        const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
         const note = new Note([new Fr(mintAmount), secretHash]);
-        const extendedNote = new ExtendedNote(note, ownerAddress, token.address, storageSlot, receipt.txHash);
+        const extendedNote = new ExtendedNote(
+          note,
+          ownerAddress,
+          token.address,
+          storageSlot,
+          noteTypeId,
+          receipt.txHash,
+        );
         await pxe.addNote(extendedNote);
 
         await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
@@ -217,7 +246,7 @@ describe('guides/dapp/testing', () => {
       it('asserts a simulation for a public function call fails', async () => {
         // docs:start:local-pub-fails
         const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
-        await expect(call.simulate()).rejects.toThrowError(/Underflow/);
+        await expect(call.simulate()).rejects.toThrowError(U128_UNDERFLOW_ERROR);
         // docs:end:local-pub-fails
       }, 30_000);
 

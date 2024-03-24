@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "acir"
-version = "0.39.0"
+version = "0.40.0"
 dependencies = [
  "acir_field",
  "base64 0.21.7",
@@ -17,7 +17,7 @@ dependencies = [
 
 [[package]]
 name = "acir_field"
-version = "0.39.0"
+version = "0.40.0"
 dependencies = [
  "ark-bn254",
  "ark-ff",
@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "acvm"
-version = "0.39.0"
+version = "0.40.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -43,7 +43,7 @@ dependencies = [
 
 [[package]]
 name = "acvm_blackbox_solver"
-version = "0.39.0"
+version = "0.40.0"
 dependencies = [
  "acir",
  "blake2",
@@ -159,10 +159,7 @@ dependencies = [
 
 [[package]]
 name = "arena"
-version = "0.23.0"
-dependencies = [
- "generational-arena",
-]
+version = "0.24.0"
 
 [[package]]
 name = "ark-bn254"
@@ -315,10 +312,11 @@ dependencies = [
 
 [[package]]
 name = "aztec_macros"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "convert_case",
  "iter-extended",
+ "noirc_errors",
  "noirc_frontend",
 ]
 
@@ -397,7 +395,7 @@ dependencies = [
 
 [[package]]
 name = "brillig"
-version = "0.39.0"
+version = "0.40.0"
 dependencies = [
  "acir_field",
  "serde",
@@ -405,7 +403,7 @@ dependencies = [
 
 [[package]]
 name = "brillig_vm"
-version = "0.39.0"
+version = "0.40.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -761,6 +759,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fixedbitset"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ce7134b9999ecaf8bcd65542e436736ef32ddca1b3e06094cb6ec5755203b80"
+
+[[package]]
 name = "flate2"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -772,7 +776,7 @@ dependencies = [
 
 [[package]]
 name = "fm"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "codespan-reporting",
  "serde",
@@ -791,15 +795,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
 dependencies = [
  "byteorder",
-]
-
-[[package]]
-name = "generational-arena"
-version = "0.2.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "877e94aff08e743b651baaea359664321055749b398adff8740a7399af7796e7"
-dependencies = [
- "cfg-if",
 ]
 
 [[package]]
@@ -959,7 +954,7 @@ dependencies = [
 
 [[package]]
 name = "iter-extended"
-version = "0.23.0"
+version = "0.24.0"
 
 [[package]]
 name = "itertools"
@@ -1058,7 +1053,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_abi"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "acvm",
  "iter-extended",
@@ -1073,7 +1068,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_driver"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "acvm",
  "aztec_macros",
@@ -1086,14 +1081,16 @@ dependencies = [
  "noirc_errors",
  "noirc_evaluator",
  "noirc_frontend",
+ "noirc_macros",
  "rust-embed",
  "serde",
+ "thiserror",
  "tracing",
 ]
 
 [[package]]
 name = "noirc_errors"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "acvm",
  "base64 0.21.7",
@@ -1102,6 +1099,7 @@ dependencies = [
  "codespan-reporting",
  "flate2",
  "fm",
+ "noirc_printable_type",
  "serde",
  "serde_json",
  "serde_with",
@@ -1110,7 +1108,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_evaluator"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "acvm",
  "fxhash",
@@ -1126,7 +1124,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_frontend"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "acvm",
  "arena",
@@ -1135,6 +1133,7 @@ dependencies = [
  "iter-extended",
  "noirc_errors",
  "noirc_printable_type",
+ "petgraph",
  "regex",
  "rustc-hash",
  "serde",
@@ -1146,8 +1145,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "noirc_macros"
+version = "0.24.0"
+dependencies = [
+ "iter-extended",
+ "noirc_frontend",
+]
+
+[[package]]
 name = "noirc_printable_type"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "acvm",
  "iter-extended",
@@ -1210,6 +1217,16 @@ name = "paste"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
+
+[[package]]
+name = "petgraph"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1d3afd2628e69da2be385eb6f2fd57c8ac7977ceeff6dc166ff1657b0e386a9"
+dependencies = [
+ "fixedbitset",
+ "indexmap 2.2.1",
+]
 
 [[package]]
 name = "pin-project-lite"

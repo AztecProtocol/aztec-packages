@@ -1,6 +1,7 @@
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AztecAddress,
+  Body,
   Fr,
   GlobalVariables,
   L2Actor,
@@ -12,13 +13,14 @@ import {
 import {
   EthAddress,
   Header,
-  KernelCircuitPublicInputs,
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
+  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+  MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
+  PublicKernelCircuitPublicInputs,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import {
@@ -27,11 +29,11 @@ import {
   makeNewSideEffect,
   makeNewSideEffectLinkedToNoteHash,
   makeProof,
-} from '@aztec/circuits.js/factories';
+} from '@aztec/circuits.js/testing';
 import { createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
   L1Publisher,
@@ -76,16 +78,13 @@ describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
   let deployerAccount: PrivateKeyAccount;
 
+  let availabilityOracleAddress: Address;
   let rollupAddress: Address;
   let inboxAddress: Address;
   let outboxAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
-  let inbox: GetContractReturnType<
-    typeof InboxAbi,
-    PublicClient<HttpTransport, Chain>,
-    WalletClient<HttpTransport, Chain>
-  >;
+  let inbox: GetContractReturnType<typeof InboxAbi, WalletClient<HttpTransport, Chain>>;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
@@ -114,6 +113,7 @@ describe('L1Publisher integration', () => {
     } = await setupL1Contracts(config.rpcUrl, deployerAccount, logger);
     publicClient = publicClient_;
 
+    availabilityOracleAddress = getAddress(l1ContractAddresses.availabilityOracleAddress.toString());
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
@@ -122,18 +122,17 @@ describe('L1Publisher integration', () => {
     rollup = getContract({
       address: rollupAddress,
       abi: RollupAbi,
-      publicClient,
+      client: publicClient,
     });
     inbox = getContract({
       address: inboxAddress,
       abi: InboxAbi,
-      publicClient,
-      walletClient,
+      client: walletClient,
     });
     outbox = getContract({
       address: outboxAddress,
       abi: OutboxAbi,
-      publicClient,
+      client: publicClient,
     });
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
@@ -159,28 +158,28 @@ describe('L1Publisher integration', () => {
     prevHeader = await builderDb.buildInitialHeader();
   }, 100_000);
 
-  const makeEmptyProcessedTx = async () => {
-    const tx = await makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
+  const makeEmptyProcessedTx = () => {
+    const tx = makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
     return tx;
   };
 
-  const makeBloatedProcessedTx = async (seed = 0x1) => {
+  const makeBloatedProcessedTx = (seed = 0x1) => {
     const tx = mockTx(seed);
-    const kernelOutput = KernelCircuitPublicInputs.empty();
+    const kernelOutput = PublicKernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
     kernelOutput.constants.historicalHeader = prevHeader;
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
+      MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
       seed + 0x500,
     );
 
-    const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
+    const processedTx = makeProcessedTx(tx, kernelOutput, makeProof());
 
-    processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, makeNewSideEffect, seed + 0x100);
+    processedTx.data.end.newNoteHashes = makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, makeNewSideEffect, seed + 0x100);
     processedTx.data.end.newNullifiers = makeTuple(
-      MAX_NEW_NULLIFIERS_PER_TX,
+      MAX_REVERTIBLE_NULLIFIERS_PER_TX,
       makeNewSideEffectLinkedToNoteHash,
       seed + 0x200,
     );
@@ -188,8 +187,8 @@ describe('L1Publisher integration', () => {
       SideEffectLinkedToNoteHash.empty();
     processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
     processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
-    processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
-    processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
+    processedTx.data.end.encryptedLogsHash = to2Fields(processedTx.encryptedLogs.hash());
+    processedTx.data.end.unencryptedLogsHash = to2Fields(processedTx.unencryptedLogs.hash());
 
     return processedTx;
   };
@@ -259,16 +258,23 @@ describe('L1Publisher integration', () => {
       },
       messages: {
         l1ToL2Messages: l1ToL2Messages.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
-        l2ToL1Messages: block.newL2ToL1Msgs.map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
+        l2ToL1Messages: block.body.txEffects
+          .flatMap(txEffect => txEffect.newL2ToL1Msgs)
+          .map(m => `0x${m.toBuffer().toString('hex').padStart(64, '0')}`),
       },
       block: {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
-        body: `0x${block.bodyToBuffer().toString('hex')}`,
-        calldataHash: `0x${block.getCalldataHash().toString('hex').padStart(64, '0')}`,
+        body: `0x${block.body.toBuffer().toString('hex')}`,
+        calldataHash: `0x${block.body.getCalldataHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
-          bodyHash: `0x${block.header.bodyHash.toString('hex').padStart(64, '0')}`,
+          contentCommitment: {
+            inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
+            outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
+            txTreeHeight: Number(block.header.contentCommitment.txTreeHeight.toBigInt()),
+            txsHash: `0x${block.header.contentCommitment.txsHash.toString('hex').padStart(64, '0')}`,
+          },
           globalVariables: {
             blockNumber: block.number,
             chainId: Number(block.header.globalVariables.chainId.toBigInt()),
@@ -319,6 +325,30 @@ describe('L1Publisher integration', () => {
     fs.writeFileSync(path, output, 'utf8');
   };
 
+  it('Block body is correctly published to AvailabilityOracle', async () => {
+    const body = Body.random();
+    // `sendPublishTx` function is private so I am hacking around TS here. I think it's ok for test purposes.
+    const txHash = await (publisher as any).sendPublishTx(body.toBuffer());
+
+    // We verify that the body was successfully published by fetching TxsPublished events from the AvailabilityOracle
+    // and checking if the txsHash in the event is as expected
+    const events = await publicClient.getLogs({
+      address: availabilityOracleAddress,
+      event: getAbiItem({
+        abi: AvailabilityOracleAbi,
+        name: 'TxsPublished',
+      }),
+      fromBlock: 0n,
+    });
+
+    // We get the event just for the relevant transaction
+    const txEvents = events.filter(event => event.transactionHash === txHash);
+
+    // We check that exactly 1 TxsPublished event was emitted and txsHash is as expected
+    expect(txEvents.length).toBe(1);
+    expect(txEvents[0].args.txsHash).toEqual(`0x${body.getCalldataHash().toString('hex')}`);
+  });
+
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
     expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
@@ -362,10 +392,10 @@ describe('L1Publisher integration', () => {
       // Ensure that each transaction has unique (non-intersecting nullifier values)
       const totalNullifiersPerBlock = 4 * MAX_NEW_NULLIFIERS_PER_TX;
       const txs = [
-        await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NEW_NULLIFIERS_PER_TX),
-        await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NEW_NULLIFIERS_PER_TX),
-        await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NEW_NULLIFIERS_PER_TX),
-        await makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NEW_NULLIFIERS_PER_TX),
       ];
 
       const globalVariables = new GlobalVariables(
@@ -387,9 +417,11 @@ describe('L1Publisher integration', () => {
         expect(await inbox.read.contains([l1ToL2Messages[j].toString()])).toBeTruthy();
       }
 
+      const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.newL2ToL1Msgs);
+
       // check that values are not in the outbox
-      for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
-        expect(await outbox.read.contains([block.newL2ToL1Msgs[j].toString()])).toBeFalsy();
+      for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
+        expect(await outbox.read.contains([newL2ToL1MsgsArray[j].toString()])).toBeFalsy();
       }
 
       writeJson(`mixed_block_${i}`, block, l1ToL2Messages, l1ToL2Content, recipientAddress, deployerAccount.address);
@@ -417,8 +449,7 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${block.getCalldataHash().toString('hex')}`,
-          `0x${block.bodyToBuffer().toString('hex')}`,
+          `0x${block.body.toBuffer().toString('hex')}`,
           `0x${l2Proof.toString('hex')}`,
         ],
       });
@@ -431,9 +462,10 @@ describe('L1Publisher integration', () => {
         }
         expect(await inbox.read.contains([l1ToL2Messages[j].toString()])).toBeFalsy();
       }
+
       // check that values are inserted into the outbox
-      for (let j = 0; j < block.newL2ToL1Msgs.length; j++) {
-        expect(await outbox.read.contains([block.newL2ToL1Msgs[j].toString()])).toBeTruthy();
+      for (let j = 0; j < newL2ToL1MsgsArray.length; j++) {
+        expect(await outbox.read.contains([newL2ToL1MsgsArray[j].toString()])).toBeTruthy();
       }
     }
   }, 360_000);
@@ -446,12 +478,7 @@ describe('L1Publisher integration', () => {
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
-      const txs = [
-        await makeEmptyProcessedTx(),
-        await makeEmptyProcessedTx(),
-        await makeEmptyProcessedTx(),
-        await makeEmptyProcessedTx(),
-      ];
+      const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx(), makeEmptyProcessedTx(), makeEmptyProcessedTx()];
 
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
@@ -489,8 +516,7 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x${block.getCalldataHash().toString('hex')}`,
-          `0x${block.bodyToBuffer().toString('hex')}`,
+          `0x${block.body.toBuffer().toString('hex')}`,
           `0x${l2Proof.toString('hex')}`,
         ],
       });

@@ -2,14 +2,15 @@ import { FunctionL2Logs, Note } from '@aztec/circuit-types';
 import {
   FunctionData,
   FunctionSelector,
-  KernelCircuitPublicInputs,
-  KernelCircuitPublicInputsFinal,
-  MAX_NEW_COMMITMENTS_PER_CALL,
-  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_READ_REQUESTS_PER_CALL,
+  MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
   MembershipWitness,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
+  PrivateKernelInnerCircuitPublicInputs,
+  PrivateKernelTailCircuitPublicInputs,
   ReadRequestMembershipWitness,
   SideEffect,
   TxRequest,
@@ -17,7 +18,7 @@ import {
   VerificationKey,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { makeTxRequest } from '@aztec/circuits.js/factories';
+import { makeTxRequest } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -41,6 +42,7 @@ describe('Kernel Prover', () => {
     .map(() => ({
       note: new Note([Fr.random(), Fr.random(), Fr.random()]),
       storageSlot: Fr.random(),
+      noteTypeId: Fr.random(),
       owner: { x: Fr.random(), y: Fr.random() },
     }));
 
@@ -50,8 +52,8 @@ describe('Kernel Prover', () => {
 
   const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): ExecutionResult => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
-    publicInputs.newCommitments = makeTuple(
-      MAX_NEW_COMMITMENTS_PER_CALL,
+    publicInputs.newNoteHashes = makeTuple(
+      MAX_NEW_NOTE_HASHES_PER_CALL,
       i =>
         i < newNoteIndices.length
           ? new SideEffect(generateFakeCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO)
@@ -80,13 +82,13 @@ describe('Kernel Prover', () => {
   };
 
   const createProofOutput = (newNoteIndices: number[]) => {
-    const publicInputs = KernelCircuitPublicInputs.empty();
-    const commitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, () => SideEffect.empty());
+    const publicInputs = PrivateKernelInnerCircuitPublicInputs.empty();
+    const commitments = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, () => SideEffect.empty());
     for (let i = 0; i < newNoteIndices.length; i++) {
       commitments[i] = new SideEffect(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO);
     }
 
-    publicInputs.end.newCommitments = commitments;
+    publicInputs.end.newNoteHashes = commitments;
     return {
       publicInputs,
       proof: makeEmptyProof(),
@@ -94,13 +96,13 @@ describe('Kernel Prover', () => {
   };
 
   const createProofOutputFinal = (newNoteIndices: number[]) => {
-    const publicInputs = KernelCircuitPublicInputsFinal.empty();
-    const commitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, () => SideEffect.empty());
+    const publicInputs = PrivateKernelTailCircuitPublicInputs.empty();
+    const commitments = makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, () => SideEffect.empty());
     for (let i = 0; i < newNoteIndices.length; i++) {
       commitments[i] = new SideEffect(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO);
     }
 
-    publicInputs.end.newCommitments = commitments;
+    publicInputs.end.newNoteHashes = commitments;
     return {
       publicInputs,
       proof: makeEmptyProof(),
@@ -151,11 +153,11 @@ describe('Kernel Prover', () => {
 
     proofCreator = mock<ProofCreator>();
     proofCreator.getSiloedCommitments.mockImplementation(publicInputs =>
-      Promise.resolve(publicInputs.newCommitments.map(com => createFakeSiloedCommitment(com.value))),
+      Promise.resolve(publicInputs.newNoteHashes.map(com => createFakeSiloedCommitment(com.value))),
     );
     proofCreator.createProofInit.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofInner.mockResolvedValue(createProofOutput([]));
-    proofCreator.createProofOrdering.mockResolvedValue(createProofOutputFinal([]));
+    proofCreator.createProofTail.mockResolvedValue(createProofOutputFinal([]));
 
     prover = new KernelProver(oracle, proofCreator);
   });
@@ -197,7 +199,7 @@ describe('Kernel Prover', () => {
     proofCreator.createProofInit.mockResolvedValueOnce(createProofOutput([1, 2, 3]));
     proofCreator.createProofInner.mockResolvedValueOnce(createProofOutput([1, 3, 4]));
     proofCreator.createProofInner.mockResolvedValueOnce(createProofOutput([1, 3, 5, 6]));
-    proofCreator.createProofOrdering.mockResolvedValueOnce(createProofOutputFinal([1, 3, 5, 6]));
+    proofCreator.createProofTail.mockResolvedValueOnce(createProofOutputFinal([1, 3, 5, 6]));
 
     const executionResult = {
       ...resultA,

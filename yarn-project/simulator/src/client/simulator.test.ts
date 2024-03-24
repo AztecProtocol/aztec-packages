@@ -1,11 +1,11 @@
 import { AztecNode, Note } from '@aztec/circuit-types';
 import { CompleteAddress } from '@aztec/circuits.js';
-import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
+import { computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
 import { ABIParameterVisibility, FunctionArtifactWithDebugMetadata, getFunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 
@@ -23,7 +23,7 @@ describe('Simulator', () => {
   const ownerNullifierSecretKey = GrumpkinScalar.random();
   const ownerNullifierPublicKey = Point.random();
 
-  const hashFields = (data: Fr[]) => Fr.fromBuffer(pedersenHash(data.map(f => f.toBuffer())));
+  const hashFields = (data: Fr[]) => pedersenHash(data.map(f => f.toBuffer()));
 
   beforeEach(() => {
     oracle = mock<DBOracle>();
@@ -42,6 +42,7 @@ describe('Simulator', () => {
     const contractAddress = AztecAddress.random();
     const nonce = Fr.random();
     const storageSlot = Fr.random();
+    const noteTypeId = new Fr(8411110710111078111116101n); // TokenNote
 
     const createNote = (amount = 123n) => new Note([new Fr(amount), owner.toField(), Fr.random()]);
 
@@ -49,9 +50,9 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
 
       const note = createNote();
-      const valueNoteHash = hashFields(note.items);
-      const innerNoteHash = hashFields([storageSlot, valueNoteHash]);
-      const siloedNoteHash = siloCommitment(contractAddress, innerNoteHash);
+      const tokenNoteHash = hashFields(note.items);
+      const innerNoteHash = hashFields([storageSlot, tokenNoteHash]);
+      const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(nonce, siloedNoteHash);
       const innerNullifier = hashFields([
         uniqueSiloedNoteHash,
@@ -59,7 +60,7 @@ describe('Simulator', () => {
         ownerNullifierSecretKey.high,
       ]);
 
-      const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, note);
+      const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note);
 
       expect(result).toEqual({
         innerNoteHash,
@@ -74,8 +75,26 @@ describe('Simulator', () => {
 
       const note = createNote();
       await expect(
-        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, note),
+        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
       ).rejects.toThrowError(/Mandatory implementation of "compute_note_hash_and_nullifier" missing/);
+    });
+
+    it('throw if "compute_note_hash_and_nullifier" has the wrong number of parameters', async () => {
+      const note = createNote();
+
+      const modifiedArtifact: FunctionArtifactWithDebugMetadata = {
+        ...artifact,
+        parameters: artifact.parameters.slice(1),
+      };
+      oracle.getFunctionArtifactByName.mockResolvedValue(modifiedArtifact);
+
+      await expect(
+        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
+      ).rejects.toThrowError(
+        new RegExp(
+          `Expected 5 parameters in mandatory implementation of "compute_note_hash_and_nullifier", but found 4 in noir contract ${contractAddress}.`,
+        ),
+      );
     });
 
     it('throw if a note has more fields than "compute_note_hash_and_nullifier" can process', async () => {
@@ -102,7 +121,7 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(modifiedArtifact);
 
       await expect(
-        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, note),
+        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
       ).rejects.toThrowError(
         new RegExp(`"compute_note_hash_and_nullifier" can only handle a maximum of ${wrongPreimageLength} fields`),
       );

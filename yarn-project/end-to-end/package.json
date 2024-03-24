@@ -15,14 +15,6 @@
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
     "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.integration.config.json"
   },
-  "jest": {
-    "preset": "ts-jest/presets/default-esm",
-    "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.m?js$": "$1"
-    },
-    "testRegex": "./src/.*\\.test\\.(ts|mjs)$",
-    "rootDir": "./src"
-  },
   "dependencies": {
     "@aztec/accounts": "workspace:^",
     "@aztec/archiver": "workspace:^",
@@ -31,13 +23,15 @@
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/cli": "workspace:^",
+    "@aztec/entrypoints": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
-    "@aztec/noir-contracts": "workspace:^",
+    "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/p2p": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/pxe": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/types": "workspace:^",
@@ -63,7 +57,7 @@
     "lodash.every": "^4.6.0",
     "memdown": "^6.1.1",
     "process": "^0.11.10",
-    "puppeteer": "^21.3.4",
+    "puppeteer": "^22.2",
     "resolve-typescript-plugin": "^2.0.1",
     "stream-browserify": "^3.0.0",
     "string-argv": "^0.3.2",
@@ -74,7 +68,7 @@
     "tty-browserify": "^0.0.1",
     "typescript": "^5.0.4",
     "util": "^0.12.5",
-    "viem": "^1.2.5",
+    "viem": "^2.7.15",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4",
     "winston": "^3.10.0"

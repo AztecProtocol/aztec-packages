@@ -5,15 +5,16 @@ namespace bb {
 template <typename Flavor>
 MergeVerifier_<Flavor>::MergeVerifier_()
     : transcript(std::make_shared<Transcript>())
-    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, bb::srs::get_crs_factory())){};
+    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>(0, bb::srs::get_bn254_crs_factory())){};
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_i^(j), j = 1,2,3,4.
  * @details Let T_i^(j) be the jth column of the aggregate op queue after incorporating the contribution from the
  * present circuit. T_{i-1}^(j) corresponds to the aggregate op queue at the previous stage and $t_i^(j)$ represents
  * the contribution from the present circuit only. For each j, we have the relationship T_i = T_{i-1} + right_shift(t_i,
- * M_{i-1}), where the shift magnitude M_{i-1} is the length of T_{i-1}. This protocol verfies that the aggregate op
- * queue has been constructed correctly via a simple Schwartz-Zippel check. Evaluations are checked via batched KZG.
+ * M_{i-1}), where the shift magnitude M_{i-1} is the honest length of T_{i-1}. This protocol verfies, assuming the
+ * length of T_{i-1} is at most M_{i-1}, that the aggregate op queue has been constructed correctly via a simple
+ * Schwartz-Zippel check. Evaluations are checked via batched KZG.
  *
  * @tparam Flavor
  * @return HonkProof&

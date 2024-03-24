@@ -176,7 +176,7 @@ You can find the cheat code reference [here](../../sandbox/references/cheat_code
 
 ## Contracts
 
-We have shipped a number of example contracts in the `@aztec/noir-contracts` [npm package](https://www.npmjs.com/package/@aztec/noir-contracts). This is included with the cli by default so you are able to use these contracts to test with. To get a list of the names of the contracts run:
+We have shipped a number of example contracts in the `@aztec/noir-contracts.js` [npm package](https://www.npmjs.com/package/@aztec/noir-contracts.js). This is included with the cli by default so you are able to use these contracts to test with. To get a list of the names of the contracts run:
 
 ```bash title="example-contracts" showLineNumbers
 % aztec-cli example-contracts
@@ -209,10 +209,4 @@ UniswapContractArtifact
 
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master//yarn-project/end-to-end/src/cli_docs_sandbox.test.ts#L95-L118" target="_blank" rel="noopener noreferrer">Source code: /yarn-project/end-to-end/src/cli_docs_sandbox.test.ts#L95-L118</a></sub></sup>
 
-You can see all of our example contracts in the monorepo [here](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-contracts/contracts).
-
-## Boxes
-
-The sandbox is shipped with full-stack Aztec project templates, with example Aztec.nr contracts, testing scripts, and web interfaces.
-
-You can read more information about how to use boxes [here](../guides/blank_box.md).
+You can see all of our example contracts in the monorepo [here](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts).

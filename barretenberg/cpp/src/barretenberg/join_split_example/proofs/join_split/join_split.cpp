@@ -7,7 +7,7 @@
 namespace bb::join_split_example::proofs::join_split {
 
 using namespace bb::plonk;
-using namespace bb::stdlib::merkle_tree;
+using namespace bb::crypto::merkle_tree;
 
 static std::shared_ptr<plonk::proving_key> proving_key;
 static std::shared_ptr<plonk::verification_key> verification_key;
@@ -47,7 +47,7 @@ void init_verification_key()
     }
 
     verification_key =
-        bb::plonk::compute_verification_key_common(proving_key, srs::get_crs_factory()->get_verifier_crs());
+        bb::plonk::compute_verification_key_common(proving_key, srs::get_bn254_crs_factory()->get_verifier_crs());
 }
 
 Prover new_join_split_prover(join_split_tx const& tx, bool mock)
@@ -62,7 +62,7 @@ Prover new_join_split_prover(join_split_tx const& tx, bool mock)
 
     info("public inputs: ", builder.public_inputs.size());
 
-    Composer composer(proving_key, nullptr);
+    Composer composer;
     if (!mock) {
         info("composer gates: ", builder.get_num_gates());
         return composer.create_prover(builder);

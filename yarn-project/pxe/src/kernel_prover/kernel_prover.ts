@@ -3,7 +3,7 @@ import {
   CallRequest,
   Fr,
   GrumpkinScalar,
-  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
@@ -11,12 +11,12 @@ import {
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
   NullifierKeyValidationRequestContext,
-  PreviousKernelData,
   PrivateCallData,
-  PrivateKernelInputsInit,
-  PrivateKernelInputsInner,
-  PrivateKernelInputsOrdering,
-  PrivateKernelPublicInputs,
+  PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPublicInputs,
+  PrivateKernelInnerData,
+  PrivateKernelTailCircuitPrivateInputs,
   ReadRequestMembershipWitness,
   SideEffect,
   SideEffectLinkedToNoteHash,
@@ -28,6 +28,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
@@ -73,6 +74,8 @@ export interface KernelProverOutput extends ProofOutputFinal {
  * constructs private call data based on the execution results.
  */
 export class KernelProver {
+  private log = createDebugLogger('aztec:kernel-prover');
+
   constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {}
 
   /**
@@ -92,7 +95,7 @@ export class KernelProver {
     let previousVerificationKey = VerificationKey.makeFake();
 
     let output: ProofOutput = {
-      publicInputs: PrivateKernelPublicInputs.empty(),
+      publicInputs: PrivateKernelInnerCircuitPublicInputs.empty(),
       proof: makeEmptyProof(),
     };
 
@@ -100,7 +103,9 @@ export class KernelProver {
       const currentExecution = executionStack.pop()!;
       executionStack.push(...currentExecution.nestedExecutions);
 
-      const privateCallRequests = currentExecution.nestedExecutions.map(result => result.callStackItem.toCallRequest());
+      const privateCallRequests = currentExecution.nestedExecutions.map(result =>
+        result.callStackItem.toCallRequest(currentExecution.callStackItem.publicInputs.callContext),
+      );
       const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
 
       // Start with the partially filled in read request witnesses from the simulator
@@ -138,19 +143,19 @@ export class KernelProver {
       );
 
       if (firstIteration) {
-        const proofInput = new PrivateKernelInputsInit(txRequest, privateCallData);
+        const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, privateCallData);
         pushTestData('private-kernel-inputs-init', proofInput);
         output = await this.proofCreator.createProofInit(proofInput);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
-        const previousKernelData = new PreviousKernelData(
+        const previousKernelData = new PrivateKernelInnerData(
           output.publicInputs,
           output.proof,
           previousVerificationKey,
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
-        const proofInput = new PrivateKernelInputsInner(previousKernelData, privateCallData);
+        const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
         pushTestData('private-kernel-inputs-inner', proofInput);
         output = await this.proofCreator.createProofInner(proofInput);
       }
@@ -162,7 +167,7 @@ export class KernelProver {
     }
 
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
-    const previousKernelData = new PreviousKernelData(
+    const previousKernelData = new PrivateKernelInnerData(
       output.publicInputs,
       output.proof,
       previousVerificationKey,
@@ -172,8 +177,8 @@ export class KernelProver {
 
     const [sortedCommitments, sortedCommitmentsIndexes] = this.sortSideEffects<
       SideEffect,
-      typeof MAX_NEW_COMMITMENTS_PER_TX
-    >(output.publicInputs.end.newCommitments);
+      typeof MAX_NEW_NOTE_HASHES_PER_TX
+    >(output.publicInputs.end.newNoteHashes);
 
     const [sortedNullifiers, sortedNullifiersIndexes] = this.sortSideEffects<
       SideEffectLinkedToNoteHash,
@@ -191,7 +196,11 @@ export class KernelProver {
       output.publicInputs.end.nullifierKeyValidationRequests,
     );
 
-    const privateInputs = new PrivateKernelInputsOrdering(
+    this.log.debug(
+      `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
+    );
+
+    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
       previousKernelData,
       sortedCommitments,
       sortedCommitmentsIndexes,
@@ -202,10 +211,10 @@ export class KernelProver {
       masterNullifierSecretKeys,
     );
     pushTestData('private-kernel-inputs-ordering', privateInputs);
-    const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
+    const outputFinal = await this.proofCreator.createProofTail(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
-    const finalNewCommitments = outputFinal.publicInputs.end.newCommitments;
+    const finalNewCommitments = outputFinal.publicInputs.end.newNoteHashes;
     const outputNotes = finalNewCommitments.map(c => newNotes[c.value.toString()]).filter(c => !!c);
 
     return { ...outputFinal, outputNotes };
@@ -299,35 +308,36 @@ export class KernelProver {
     } = executionResult;
     const contractAddress = publicInputs.callContext.storageContractAddress;
     // Assuming that for each new commitment there's an output note added to the execution result.
-    const newCommitments = await this.proofCreator.getSiloedCommitments(publicInputs);
+    const newNoteHashes = await this.proofCreator.getSiloedCommitments(publicInputs);
     return newNotes.map((data, i) => ({
       contractAddress,
       data,
-      commitment: newCommitments[i],
+      commitment: newNoteHashes[i],
     }));
   }
 
   /**
    * Performs the matching between an array of read request and an array of commitments. This produces
    * hints for the private kernel ordering circuit to efficiently match a read request with the corresponding
-   * commitment.
+   * commitment. Several read requests might be pointing to the same commitment value. It is therefore valid
+   * to return more than one hint with the same index (contrary to getNullifierHints).
    *
    * @param readRequests - The array of read requests.
-   * @param commitments - The array of commitments.
+   * @param noteHashes - The array of commitments.
    * @returns An array of hints where each element is the index of the commitment in commitments array
    *  corresponding to the read request. In other words we have readRequests[i] == commitments[hints[i]].
    */
   private getReadRequestHints(
     readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
-    commitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    noteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   ): Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX> {
     const hints = makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero);
     for (let i = 0; i < MAX_READ_REQUESTS_PER_TX && !readRequests[i].isEmpty(); i++) {
       const equalToRR = (cmt: SideEffect) => cmt.value.equals(readRequests[i].value);
-      const result = commitments.findIndex(equalToRR);
+      const result = noteHashes.findIndex(equalToRR);
       if (result == -1) {
         throw new Error(
-          `The read request at index ${i} with value ${readRequests[i].toString()} does not match to any commitment.`,
+          `The read request at index ${i} ${readRequests[i].toString()} does not match to any commitment.`,
         );
       } else {
         hints[i] = new Fr(result);
@@ -337,27 +347,32 @@ export class KernelProver {
   }
 
   /**
-   *  Performs the matching between an array of nullified commitments and an array of commitments. This produces
+   * Performs the matching between an array of nullified commitments and an array of commitments. This produces
    * hints for the private kernel ordering circuit to efficiently match a nullifier with the corresponding
-   * commitment.
+   * commitment. Note that the same commitment value might appear more than once in the commitments
+   * (resp. nullified commitments) array. It is crucial in this case that each hint points to a different index
+   * of the nullified commitments array. Otherwise, the private kernel will fail to validate.
    *
-   * @param nullifiedCommitments - The array of nullified commitments.
-   * @param commitments - The array of commitments.
+   * @param nullifiedNoteHashes - The array of nullified note hashes.
+   * @param noteHashes - The array of note hasshes.
    * @returns An array of hints where each element is the index of the commitment in commitments array
    *  corresponding to the nullified commitments. In other words we have nullifiedCommitments[i] == commitments[hints[i]].
    */
   private getNullifierHints(
-    nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    commitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    nullifiedNoteHashes: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    noteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
     const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
+    const alreadyUsed = new Set<number>();
     for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_TX; i++) {
-      if (!nullifiedCommitments[i].isZero()) {
-        const equalToCommitment = (cmt: SideEffect) => cmt.value.equals(nullifiedCommitments[i]);
-        const result = commitments.findIndex(equalToCommitment);
+      if (!nullifiedNoteHashes[i].isZero()) {
+        const equalToCommitment = (cmt: SideEffect, index: number) =>
+          cmt.value.equals(nullifiedNoteHashes[i]) && !alreadyUsed.has(index);
+        const result = noteHashes.findIndex(equalToCommitment);
+        alreadyUsed.add(result);
         if (result == -1) {
           throw new Error(
-            `The nullified commitment at index ${i} with value ${nullifiedCommitments[
+            `The nullified commitment at index ${i} with value ${nullifiedNoteHashes[
               i
             ].toString()} does not match to any commitment.`,
           );

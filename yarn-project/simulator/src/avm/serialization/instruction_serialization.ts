@@ -3,7 +3,7 @@ import { strict as assert } from 'assert';
 import { BufferCursor } from './buffer_cursor.js';
 
 /**
- * All AVM opcodes. (Keep in sync with cpp counterpart code AvmMini_opcode.hpp).
+ * All AVM opcodes. (Keep in sync with cpp counterpart code avm_opcode.hpp).
  * Source: https://yp-aztec.netlify.app/docs/public-vm/instruction-set
  */
 export enum Opcode {
@@ -49,26 +49,31 @@ export enum Opcode {
   SET,
   MOV,
   CMOV,
-  BLOCKHEADERBYNUMBER,
-  SLOAD, // Public Storage
-  SSTORE, // Public Storage
-  READL1TOL2MSG, // Messages
-  SENDL2TOL1MSG, // Messages
-  EMITNOTEHASH, // Notes & Nullifiers
-  EMITNULLIFIER, // Notes & Nullifiers
+  SLOAD,
+  SSTORE,
+  NOTEHASHEXISTS,
+  EMITNOTEHASH,
+  NULLIFIEREXISTS,
+  EMITNULLIFIER,
+  READL1TOL2MSG,
+  HEADERMEMBER,
   EMITUNENCRYPTEDLOG,
+  SENDL2TOL1MSG,
   CALL,
   STATICCALL,
+  DELEGATECALL,
   RETURN,
   REVERT,
   KECCAK,
   POSEIDON,
   // Add new opcodes before this
+  SHA256, // temp - may be removed, but alot of contracts rely on it
+  PEDERSEN, // temp - may be removed, but alot of contracts rely on it
   TOTAL_OPCODES_NUMBER,
 }
 
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.
-// See vm/avm_trace/AvmMini_deserialization.cpp)
+// See vm/avm_trace/avm_deserialization.cpp)
 // Note that cpp code introduced an additional enum value TAG to express the instruction tag. In TS,
 // this one is parsed as UINT8.
 export enum OperandType {

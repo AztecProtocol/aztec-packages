@@ -11,12 +11,10 @@ namespace bb {
  * @tparam a type of UltraFlavor
  * */
 template <IsUltraFlavor Flavor>
-UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst,
-                                   const std::shared_ptr<CommitmentKey>& commitment_key,
-                                   const std::shared_ptr<Transcript>& transcript)
+UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const std::shared_ptr<Transcript>& transcript)
     : instance(std::move(inst))
     , transcript(transcript)
-    , commitment_key(commitment_key)
+    , commitment_key(instance->proving_key->commitment_key)
 {
     instance->initialize_prover_polynomials();
 }
@@ -96,7 +94,7 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_sorted_list_a
     instance->compute_sorted_accumulator_polynomials(eta, eta_two, eta_three);
 
     auto& witness_commitments = instance->witness_commitments;
-    // Commit to the sorted withness-table accumulator and the finalized (i.e. with memory records) fourth wire
+    // Commit to the sorted witness-table accumulator and the finalized (i.e. with memory records) fourth wire
     // polynomial
     witness_commitments.sorted_accum = commitment_key->commit(instance->prover_polynomials.sorted_accum);
     witness_commitments.w_4 = commitment_key->commit(instance->prover_polynomials.w_4);

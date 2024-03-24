@@ -2,6 +2,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
+import { CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH } from '../constants.gen.js';
+
 /**
  * Contract storage update request for a slot on a specific contract.
  *
@@ -15,10 +17,6 @@ export class ContractStorageUpdateRequest {
      */
     public readonly storageSlot: Fr,
     /**
-     * Old value of the storage slot.
-     */
-    public readonly oldValue: Fr,
-    /**
      * New value of the storage slot.
      */
     public readonly newValue: Fr,
@@ -29,12 +27,12 @@ export class ContractStorageUpdateRequest {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.storageSlot, this.oldValue, this.newValue);
+    return serializeToBuffer(this.storageSlot, this.newValue);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ContractStorageUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader), Fr.fromBuffer(reader));
+    return new ContractStorageUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
   /**
@@ -52,32 +50,37 @@ export class ContractStorageUpdateRequest {
    * @returns The array.
    */
   static getFields(fields: FieldsOf<ContractStorageUpdateRequest>) {
-    return [fields.storageSlot, fields.oldValue, fields.newValue, fields.sideEffectCounter] as const;
+    return [fields.storageSlot, fields.newValue, fields.sideEffectCounter] as const;
   }
 
   static empty() {
-    return new ContractStorageUpdateRequest(Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new ContractStorageUpdateRequest(Fr.ZERO, Fr.ZERO);
   }
 
   isEmpty() {
-    return this.storageSlot.isZero() && this.oldValue.isZero() && this.newValue.isZero();
+    return this.storageSlot.isZero() && this.newValue.isZero();
   }
 
   toFriendlyJSON() {
-    return `Slot=${this.storageSlot.toFriendlyJSON()}: ${this.oldValue.toFriendlyJSON()} => ${this.newValue.toFriendlyJSON()}`;
+    return `Slot=${this.storageSlot.toFriendlyJSON()}: ${this.newValue.toFriendlyJSON()}`;
   }
 
   toFields(): Fr[] {
-    return [this.storageSlot, this.oldValue, this.newValue];
+    const fields = [this.storageSlot, this.newValue];
+    if (fields.length !== CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for ContractStorageUpdateRequest. Expected ${CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   static fromFields(fields: Fr[] | FieldReader): ContractStorageUpdateRequest {
     const reader = FieldReader.asReader(fields);
 
     const storageSlot = reader.readField();
-    const oldValue = reader.readField();
     const newValue = reader.readField();
 
-    return new ContractStorageUpdateRequest(storageSlot, oldValue, newValue);
+    return new ContractStorageUpdateRequest(storageSlot, newValue);
   }
 }

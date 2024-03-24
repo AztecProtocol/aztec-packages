@@ -9,7 +9,8 @@ export const randomDeferredNoteDao = ({
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
-  newCommitments = [Fr.random(), Fr.random()],
+  noteTypeId = Fr.random(),
+  newNoteHashes = [Fr.random(), Fr.random()],
   dataStartIndexForTx = Math.floor(Math.random() * 100),
 }: Partial<DeferredNoteDao> = {}) => {
   return new DeferredNoteDao(
@@ -17,8 +18,9 @@ export const randomDeferredNoteDao = ({
     note,
     contractAddress,
     storageSlot,
+    noteTypeId,
     txHash,
-    newCommitments,
+    newNoteHashes,
     dataStartIndexForTx,
   );
 };

@@ -41,6 +41,6 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     return pairing_points;
 }
 
-// template class DeciderRecursiveVerifier_<bb::UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+template class DeciderRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;
 template class DeciderRecursiveVerifier_<bb::GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

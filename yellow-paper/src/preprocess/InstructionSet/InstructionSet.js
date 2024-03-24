@@ -1,16 +1,32 @@
 const {instructionSize} = require('./InstructionSize');
 
 const TOPICS_IN_TABLE = [
-    "Name", "Summary", "Bit-size", "Expression",
+    "Name", "Summary", "Expression",
 ];
 const TOPICS_IN_SECTIONS = [
-    "Name", "Summary", "Category", "Flags", "Args", "Expression", "Details", "Tag checks", "Tag updates", "Bit-size",
+    "Name", "Summary", "Category", "Flags", "Args", "Expression", "Details", "World State access tracing", "Additional AVM circuit checks", "Triggers downstream circuit operations", "Tag checks", "Tag updates", "Bit-size",
 ];
 
-const IN_TAG_DESCRIPTION = "The [tag/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with.";
+const IN_TAG_DESCRIPTION = "The [tag/size](./memory-model#tags-and-tagged-memory) to check inputs against and tag the destination with.";
 const IN_TAG_DESCRIPTION_NO_FIELD = IN_TAG_DESCRIPTION + " `field` type is NOT supported for this instruction.";
-const DST_TAG_DESCRIPTION = "The [tag/size](./state-model#tags-and-tagged-memory) to tag the destination with but not to check inputs against.";
+const DST_TAG_DESCRIPTION = "The [tag/size](./memory-model#tags-and-tagged-memory) to tag the destination with but not to check inputs against.";
 const INDIRECT_FLAG_DESCRIPTION = "Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.";
+
+const CALL_INSTRUCTION_ARGS = [
+    {"name": "gasOffset", "description": "offset to three words containing `{l1GasLeft, l2GasLeft, daGasLeft}`: amount of gas to provide to the callee"},
+    {"name": "addrOffset", "description": "address of the contract to call"},
+    {"name": "argsOffset", "description": "memory offset to args (will become the callee's calldata)"},
+    {"name": "argsSize", "description": "number of words to pass via callee's calldata", "mode": "immediate", "type": "u32"},
+    {"name": "retOffset", "description": "destination memory offset specifying where to store the data returned from the callee"},
+    {"name": "retSize", "description": "number of words to copy from data returned by callee", "mode": "immediate", "type": "u32"},
+    {"name": "successOffset", "description": "destination memory offset specifying where to store the call's success (0: failure, 1: success)", "type": "u8"},
+];
+const CALL_INSTRUCTION_DETAILS = `
+    ["Nested contract calls"](./nested-calls) provides a full explanation of this
+    instruction along with the shorthand used in the expression above.
+    The explanation includes details on charging gas for nested calls,
+    nested context derivation, world state tracing, and updating the parent context
+    after the nested call halts.`;
 
 const INSTRUCTION_SET_RAW = [
     {
@@ -273,7 +289,7 @@ const INSTRUCTION_SET_RAW = [
         ],
         "Expression": "`M[dstOffset] = cast<dstTag>(M[aOffset])`",
         "Summary": "Type cast",
-        "Details": "Cast a word in memory based on the `dstTag` specified in the bytecode. Truncates (`M[dstOffset] = M[aOffset] mod 2^dstsize`) when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](./state-model#cast-and-tag-conversions) for more details.",
+        "Details": "Cast a word in memory based on the `dstTag` specified in the bytecode. Truncates (`M[dstOffset] = M[aOffset] mod 2^dstsize`) when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](./memory-model#cast-and-tag-conversions) for more details.",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = dstTag`",
     },
@@ -681,7 +697,7 @@ context.machineState.pc = loc
         "Category": "Machine State - Memory",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-            {"name": "inTag", "description": "The [type/size](./state-model#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for SET."},
+            {"name": "inTag", "description": "The [type/size](./memory-model#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for SET."},
         ],
         "Args": [
             {"name": "const", "description": "an N-bit constant value from the bytecode to store in memory (any type except `field`)", "mode": "immediate"},
@@ -730,23 +746,6 @@ context.machineState.pc = loc
         "Tag updates": "`T[dstOffset] = M[condOffset] > 0 ? T[aOffset] : T[bOffset]`",
     },
     {
-        "id": "blockheaderbynum",
-        "Name": "`BLOCKHEADERBYNUM`",
-        "Category": "World State",
-        "Flags": [
-            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-        ],
-        "Args": [
-            {"name": "blockNumOffset", "description": "memory offset of the block number input"},
-            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result's 0th word"},
-        ],
-        "Expression": "`M[dstOffset:dstOffset+BLOCK_HEADER_LENGTH] = context.worldState.blockHeader[M[blockNumOffset]]`",
-        "Summary": "Get the block header as of the specified block number",
-        "Details": "",
-        "Tag checks": "",
-        "Tag updates": "`T[dstOffset:dstOffset+BLOCK_HEADER_LENGTh] = field`",
-    },
-    {
         "id": "sload",
         "Name": "`SLOAD`",
         "Category": "World State - Public Storage",
@@ -757,9 +756,32 @@ context.machineState.pc = loc
             {"name": "slotOffset", "description": "memory offset of the storage slot to load from"},
             {"name": "dstOffset", "description": "memory offset specifying where to store operation's result"},
         ],
-        "Expression": "`M[dstOffset] = context.worldState.publicStorage[context.environment.storageAddress, M[slotOffset]]`",
-        "Summary": "Load a word from storage",
-        "Details": "Load a word from this contract's persistent public storage into memory.",
+        "Expression": `
+M[dstOffset] = S[M[slotOffset]]
+`,
+        "Summary": "Load a word from this contract's persistent public storage. Zero is loaded for unwritten slots.",
+        "Details": `
+// Expression is shorthand for
+leafIndex = hash(context.environment.storageAddress, M[slotOffset])
+exists = context.worldState.publicStorage.has(leafIndex) // exists == previously-written
+if exists:
+    value = context.worldState.publicStorage.get(leafIndex: leafIndex)
+else:
+    value = 0
+M[dstOffset] = value
+`,
+        "World State access tracing": `
+context.worldStateAccessTrace.publicStorageReads.append(
+    TracedStorageRead {
+        callPointer: context.environment.callPointer,
+        slot: M[slotOffset],
+        exists: exists, // defined above
+        value: value, // defined above
+        counter: ++context.worldStateAccessTrace.accessCounter,
+    }
+)
+`,
+        "Triggers downstream circuit operations": "Storage slot siloing (hash with contract address), public data tree membership check",
         "Tag checks": "",
         "Tag updates": "`T[dstOffset] = field`",
     },
@@ -774,9 +796,153 @@ context.machineState.pc = loc
             {"name": "srcOffset", "description": "memory offset of the word to store"},
             {"name": "slotOffset", "description": "memory offset containing the storage slot to store to"},
         ],
-        "Expression": "`context.worldState.publicStorage[context.environment.storageAddress, M[slotOffset]] = M[srcOffset]`",
-        "Summary": "Write a word to storage",
-        "Details": "Store a word from memory into this contract's persistent public storage.",
+        "Expression": `
+S[M[slotOffset]] = M[srcOffset]
+`,
+        "Summary": "Write a word to this contract's persistent public storage",
+        "Details": `
+// Expression is shorthand for
+context.worldState.publicStorage.set({
+    leafIndex: hash(context.environment.storageAddress, M[slotOffset]),
+    leaf: M[srcOffset],
+})
+`,
+        "World State access tracing": `
+context.worldStateAccessTrace.publicStorageWrites.append(
+    TracedStorageWrite {
+        callPointer: context.environment.callPointer,
+        slot: M[slotOffset],
+        value: M[srcOffset],
+        counter: ++context.worldStateAccessTrace.accessCounter,
+    }
+)
+`,
+        "Triggers downstream circuit operations": "Storage slot siloing (hash with contract address), public data tree update",
+        "Tag checks": "",
+        "Tag updates": "",
+    },
+    {
+        "id": "notehashexists",
+        "Name": "`NOTEHASHEXISTS`",
+        "Category": "World State - Notes & Nullifiers",
+        "Flags": [
+            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
+        ],
+        "Args": [
+            {"name": "noteHashOffset", "description": "memory offset of the note hash"},
+            {"name": "leafIndexOffset", "description": "memory offset of the leaf index"},
+            {"name": "existsOffset", "description": "memory offset specifying where to store operation's result (whether the note hash leaf exists)"},
+        ],
+        "Expression": `
+exists = context.worldState.noteHashes.has({
+    leafIndex: M[leafIndexOffset]
+    leaf: hash(context.environment.storageAddress, M[noteHashOffset]),
+})
+M[existsOffset] = exists
+`,
+        "Summary": "Check whether a note hash exists in the note hash tree (as of the start of the current block)",
+        "World State access tracing": `
+context.worldStateAccessTrace.noteHashChecks.append(
+    TracedNoteHashCheck {
+        callPointer: context.environment.callPointer,
+        leafIndex: M[leafIndexOffset]
+        noteHash: M[noteHashOffset],
+        exists: exists, // defined above
+        counter: ++context.worldStateAccessTrace.accessCounter,
+    }
+)
+`,
+        "Triggers downstream circuit operations": "Note hash siloing (hash with storage contract address), note hash tree membership check",
+        "Tag checks": "",
+        "Tag updates": "`T[existsOffset] = u8`",
+    },
+    {
+        "id": "emitnotehash",
+        "Name": "`EMITNOTEHASH`",
+        "Category": "World State - Notes & Nullifiers",
+        "Flags": [
+            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
+        ],
+        "Args": [
+            {"name": "noteHashOffset", "description": "memory offset of the note hash"},
+        ],
+        "Expression": `
+context.worldState.noteHashes.append(
+    hash(context.environment.storageAddress, M[noteHashOffset])
+)
+`,
+        "Summary": "Emit a new note hash to be inserted into the note hash tree",
+        "World State access tracing": `
+context.worldStateAccessTrace.newNoteHashes.append(
+    TracedNoteHash {
+        callPointer: context.environment.callPointer,
+        value: M[noteHashOffset], // unsiloed note hash
+        counter: ++context.worldStateAccessTrace.accessCounter,
+    }
+)
+`,
+        "Triggers downstream circuit operations": "Note hash siloing (hash with contract address), note hash tree insertion.",
+        "Tag checks": "",
+        "Tag updates": "",
+    },
+    {
+        "id": "nullifierexists",
+        "Name": "`NULLIFIEREXISTS`",
+        "Category": "World State - Notes & Nullifiers",
+        "Flags": [
+            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
+        ],
+        "Args": [
+            {"name": "nullifierOffset", "description": "memory offset of the unsiloed nullifier"},
+            {"name": "existsOffset", "description": "memory offset specifying where to store operation's result (whether the nullifier exists)"},
+        ],
+        "Expression": `
+exists = context.worldState.nullifiers.has(
+    hash(context.environment.storageAddress, M[nullifierOffset])
+)
+M[existsOffset] = exists
+`,
+        "Summary": "Check whether a nullifier exists in the nullifier tree (including nullifiers from earlier in the current transaction or from earlier in the current block)",
+        "World State access tracing": `
+context.worldStateAccessTrace.nullifierChecks.append(
+    TracedNullifierCheck {
+        callPointer: context.environment.callPointer,
+        nullifier: M[nullifierOffset],
+        exists: exists, // defined above
+        counter: ++context.worldStateAccessTrace.accessCounter,
+    }
+)
+`,
+        "Triggers downstream circuit operations": "Nullifier siloing (hash with storage contract address), nullifier tree membership check",
+        "Tag checks": "",
+        "Tag updates": "`T[existsOffset] = u8`",
+    },
+    {
+        "id": "emitnullifier",
+        "Name": "`EMITNULLIFIER`",
+        "Category": "World State - Notes & Nullifiers",
+        "Flags": [
+            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
+        ],
+        "Args": [
+            {"name": "nullifierOffset", "description": "memory offset of nullifier"},
+        ],
+        "Expression": `
+context.worldState.nullifiers.append(
+    hash(context.environment.storageAddress, M[nullifierOffset])
+)
+`,
+        "Summary": "Emit a new nullifier to be inserted into the nullifier tree",
+        "World State access tracing": `
+context.worldStateAccessTrace.newNullifiers.append(
+    TracedNullifier {
+        callPointer: context.environment.callPointer,
+        value: M[nullifierOffset], // unsiloed nullifier
+        counter: ++context.worldStateAccessTrace.accessCounter,
+    }
+)
+`,
+        "Triggers downstream circuit operations": "Nullifier siloing (hash with contract address), nullifier tree non-membership-check and insertion.",
         "Tag checks": "",
         "Tag updates": "",
     },
@@ -789,63 +955,79 @@ context.machineState.pc = loc
         ],
         "Args": [
             {"name": "msgKeyOffset", "description": "memory offset of the message's key"},
+            {"name": "msgLeafIndex", "description": "memory offset of the message's leaf index in the L1-to-L2 message tree"},
+            {"name": "existsOffset", "description": "memory offset specifying where to store operation's result (whether the message exists in the L1-to-L2 message tree)"},
             {"name": "dstOffset", "description": "memory offset to place the 0th word of the message content"},
             {"name": "msgSize", "description": "number of words in the message", "mode": "immediate", "type": "u32"},
         ],
-        "Expression": "`M[dstOffset:dstOffset+msgSize] = context.worldState.l1ToL2Messages(M[msgKeyOffset])`",
-        "Summary": "Reads an L1-to-L2 message",
-        "Details": "",
+        "Expression": `
+exists = context.worldState.l1ToL2Messages.has({
+    leafIndex: M[msgLeafIndex], leaf: M[msgKeyOffset]
+})
+M[existsOffset] = exists
+if exists:
+    M[dstOffset:dstOffset+msgSize] = context.worldState.l1ToL2Messages.get({
+        leafIndex: M[msgLeafIndex], leaf: M[msgKeyOffset]
+    })
+`,
+        "Summary": "Check if a message exists in the L1-to-L2 message tree and reads it if so",
+        "World State access tracing": `
+context.worldStateAccessTrace.l1ToL2MessagesReads.append(
+    ReadL1ToL2Message {
+        callPointer: context.environment.callPointer,
+        portal: context.environment.portal,
+        leafIndex: M[msgLeafIndex],
+        msgKey: M[msgKeyOffset],
+        exists: exists, // defined above
+    }
+)
+`,
+        "Additional AVM circuit checks": "`msgKey == sha256_to_field(msg)`",
+        "Triggers downstream circuit operations": "L1-to-L2 message tree membership check",
         "Tag checks": "",
-        "Tag updates": "`T[dstOffset:dstOffset+msgSize] = field`",
+        "Tag updates": `
+T[existsOffset] = u8,
+T[dstOffset:dstOffset+msgSize] = field
+`,
     },
     {
-        "id": "sendl2tol1msg",
-        "Name": "`SENDL2TOL1MSG`",
-        "Category": "World State - Messaging",
+        "id": "headermember",
+        "Name": "`HEADERMEMBER`",
+        "Category": "World State - Archive Tree & Headers",
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
         "Args": [
-            {"name": "msgOffset", "description": "memory offset of the message content"},
-            {"name": "msgSize", "description": "number of words in the message", "mode": "immediate", "type": "u32"},
+            {"name": "blockIndexOffset", "description": "memory offset of the block index (same as archive tree leaf index) of the header to access"},
+            {"name": "memberIndexOffset", "description": "memory offset of the index of the member to retrieve from the header of the specified block"},
+            {"name": "existsOffset", "description": "memory offset specifying where to store operation's result (whether the leaf exists in the archive tree)"},
+            {"name": "dstOffset", "description": "memory offset specifying where to store operation's result (the retrieved header member)"},
         ],
-        "Expression": "`context.worldState.l2ToL1Messages.append(M[msgOffset:msgOffset+msgSize])`",
-        "Summary": "Send an L2-to-L1 message",
-        "Details": "",
+        "Expression": `
+exists = context.worldState.header.has({
+    leafIndex: M[blockIndexOffset], leaf: M[msgKeyOffset]
+})
+M[existsOffset] = exists
+if exists:
+    header = context.worldState.headers.get(M[blockIndexOffset])
+    M[dstOffset] = header[M[memberIndexOffset]] // member
+`,
+        "Summary": "Check if a header exists in the [archive tree](../state/archive) and retrieve the specified member if so",
+        "World State access tracing": `
+context.worldStateAccessTrace.archiveChecks.append(
+    TracedArchiveLeafCheck {
+        leafIndex: M[blockIndexOffset], // leafIndex == blockIndex
+        leaf: exists ? hash(header) : 0, // "exists" defined above
+    }
+)
+`,
+        "Additional AVM circuit checks": "Hashes entire header to archive leaf for tracing. Aggregates header accesses and so that a header need only be hashed once.",
+        "Triggers downstream circuit operations": "Archive tree membership check",
         "Tag checks": "",
-        "Tag updates": "",
-    },
-    {
-        "id": "emitnotehash",
-        "Name": "`EMITNOTEHASH`",
-        "Category": "World State - Notes & Nullifiers",
-        "Flags": [
-            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-        ],
-        "Args": [
-            {"name": "noteHashOffset", "description": "memory offset of the note hash"},
-        ],
-        "Expression": "`context.worldState.newHashes.append(M[noteHashOffset])`",
-        "Summary": "Emit a new note hash to be inserted into the notes tree",
-        "Details": "",
-        "Tag checks": "",
-        "Tag updates": "",
-    },
-    {
-        "id": "emitnullifier",
-        "Name": "`EMITNULLIFIER`",
-        "Category": "World State - Notes & Nullifiers",
-        "Flags": [
-            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
-        ],
-        "Args": [
-            {"name": "nullifierOffset", "description": "memory offset of nullifier"},
-        ],
-        "Expression": "`context.worldState.nullifiers.append(M[nullifierOffset])`",
-        "Summary": "Emit a new nullifier to be inserted into the nullifier tree",
-        "Details": "",
-        "Tag checks": "",
-        "Tag updates": "",
+        "Tag updates": `
+T[existsOffset] = u8
+T[dstOffset] = field
+`,
     },
     {
         "id": "emitunencryptedlog",
@@ -858,9 +1040,39 @@ context.machineState.pc = loc
             {"name": "logOffset", "description": "memory offset of the data to log"},
             {"name": "logSize", "description": "number of words to log", "mode": "immediate", "type": "u32"},
         ],
-        "Expression": "`context.accruedSubstate.unencryptedLogs.append(M[logOffset:logOffset+logSize])`",
+        "Expression": `
+context.accruedSubstate.unencryptedLogs.append(
+    UnencryptedLog {
+        address: context.environment.address,
+        log: M[logOffset:logOffset+logSize],
+    }
+)
+`,
         "Summary": "Emit an unencrypted log",
-        "Details": "",
+        "Tag checks": "",
+        "Tag updates": "",
+    },
+    {
+        "id": "sendl2tol1msg",
+        "Name": "`SENDL2TOL1MSG`",
+        "Category": "Accrued Substate - Messaging",
+        "Flags": [
+            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
+        ],
+        "Args": [
+            {"name": "msgOffset", "description": "memory offset of the message content"},
+            {"name": "msgSize", "description": "number of words in the message", "mode": "immediate", "type": "u32"},
+        ],
+        "Expression": `
+context.accruedSubstate.sentL2ToL1Messages.append(
+    SentL2ToL1Message {
+        address: context.environment.address,
+        portal: context.environment.portal,
+        message: M[msgOffset:msgOffset+msgSize]
+    }
+)
+`,
+        "Summary": "Send an L2-to-L1 message",
         "Tag checks": "",
         "Tag updates": "",
     },
@@ -871,26 +1083,24 @@ context.machineState.pc = loc
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "Args": [
-            {"name": "gasOffset", "description": "offset to three words containing `{l1GasLeft, l2GasLeft, daGasLeft}`: amount of gas to provide to the callee"},
-            {"name": "addrOffset", "description": "address of the contract to call"},
-            {"name": "argsOffset", "description": "memory offset to args (will become the callee's calldata)"},
-            {"name": "argsSize", "description": "number of words to pass via callee's calldata", "mode": "immediate", "type": "u32"},
-            {"name": "retOffset", "description": "destination memory offset specifying where to store the data returned from the callee"},
-            {"name": "retSize", "description": "number of words to copy from data returned by callee", "mode": "immediate", "type": "u32"},
-            {"name": "successOffset", "description": "destination memory offset specifying where to store the call's success (0: failure, 1: success)", "type": "u8"},
-        ],
+        "Args": CALL_INSTRUCTION_ARGS,
         "Expression":`
-M[successOffset] = call(
-    M[gasOffset], M[gasOffset+1], M[gasOffset+2],
-    M[addrOffset],
-    M[argsOffset], M[argsSize],
-    M[retOffset], M[retSize])
+// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
+chargeGas(context,
+          l1GasCost=M[instr.args.gasOffset],
+          l2GasCost=M[instr.args.gasOffset+1],
+          daGasCost=M[instr.args.gasOffset+2])
+traceNestedCall(context, instr.args.addrOffset)
+nestedContext = deriveContext(context, instr.args, isStaticCall=false, isDelegateCall=false)
+execute(nestedContext)
+updateContextAfterNestedCall(context, instr.args, nestedContext)
 `,
         "Summary": "Call into another contract",
-        "Details": `Creates a new (nested) execution context and triggers execution within it until the nested context halts.
-                    Then resumes execution in the current/calling context. A non-existent contract or one with no code will return success.
-                    See [\"Nested contract calls\"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.`,
+        "Details": `Creates a new (nested) execution context and triggers execution within that context.
+                    Execution proceeds in the nested context until it reaches a halt at which point
+                    execution resumes in the current/calling context.
+                    A non-existent contract or one with no code will return success. `
+                   + CALL_INSTRUCTION_DETAILS,
         "Tag checks": "`T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`",
         "Tag updates": `
 T[successOffset] = u8
@@ -904,24 +1114,50 @@ T[retOffset:retOffset+retSize] = field
         "Flags": [
             {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
         ],
-        "Args": [
-            {"name": "gasOffset", "description": "offset to three words containing `{l1GasLeft, l2GasLeft, daGasLeft}`: amount of gas to provide to the callee"},
-            {"name": "addrOffset", "description": "address of the contract to call"},
-            {"name": "argsOffset", "description": "memory offset to args (will become the callee's calldata)"},
-            {"name": "argsSize", "description": "number of words to pass via callee's calldata", "mode": "immediate", "type": "u32"},
-            {"name": "retOffset", "description": "destination memory offset specifying where to store the data returned from the callee"},
-            {"name": "retSize", "description": "number of words to copy from data returned by callee", "mode": "immediate", "type": "u32"},
-            {"name": "successOffset", "description": "destination memory offset specifying where to store the call's success (0: failure, 1: success)", "type": "u8"},
-        ],
+        "Args": CALL_INSTRUCTION_ARGS,
         "Expression": `
-M[successOffset] = staticcall(
-    M[gasOffset], M[gasOffset+1], M[gasOffset+2],
-    M[addrOffset],
-    M[argsOffset], M[argsSize],
-    M[retOffset], M[retSize])
+// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
+chargeGas(context,
+          l1GasCost=M[instr.args.gasOffset],
+          l2GasCost=M[instr.args.gasOffset+1],
+          daGasCost=M[instr.args.gasOffset+2])
+traceNestedCall(context, instr.args.addrOffset)
+nestedContext = deriveContext(context, instr.args, isStaticCall=true, isDelegateCall=false)
+execute(nestedContext)
+updateContextAfterNestedCall(context, instr.args, nestedContext)
 `,
         "Summary": "Call into another contract, disallowing World State and Accrued Substate modifications",
-        "Details": "Same as `CALL`, but disallows World State and Accrued Substate modifications. See [\"Nested contract calls\"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.",
+        "Details": `Same as \`CALL\`, but disallows World State and Accrued Substate modifications. `
+                   + CALL_INSTRUCTION_DETAILS,
+        "Tag checks": "`T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`",
+        "Tag updates": `
+T[successOffset] = u8
+T[retOffset:retOffset+retSize] = field
+`,
+    },
+    {
+        "id": "delegatecall",
+        "Name": "`DELEGATECALL`",
+        "Category": "Control Flow - Contract Calls",
+        "Flags": [
+            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
+        ],
+        "Args": CALL_INSTRUCTION_ARGS,
+        "Expression": `
+// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
+chargeGas(context,
+          l1GasCost=M[instr.args.gasOffset],
+          l2GasCost=M[instr.args.gasOffset+1],
+          daGasCost=M[instr.args.gasOffset+2])
+traceNestedCall(context, instr.args.addrOffset)
+nestedContext = deriveContext(context, instr.args, isStaticCall=false, isDelegateCall=true)
+execute(nestedContext)
+updateContextAfterNestedCall(context, instr.args, nestedContext)
+`,
+        "Summary": "Call into another contract, but keep the caller's `sender` and `storageAddress`",
+        "Details": `Same as \`CALL\`, but \`sender\` and \`storageAddress\` remains
+                    the same in the nested call as they were in the caller. `
+                   + CALL_INSTRUCTION_DETAILS,
         "Tag checks": "`T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`",
         "Tag updates": `
 T[successOffset] = u8
@@ -944,7 +1180,7 @@ context.contractCallResults.output = M[retOffset:retOffset+retSize]
 halt
 `,
         "Summary": "Halt execution within this context (without revert), optionally returning some data",
-        "Details": "Return control flow to the calling context/contract. Caller will accept World State and Accrued Substate modifications. See [\"Halting\"](./avm#halting) to learn more. See [\"Nested contract calls\"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.",
+        "Details": "Return control flow to the calling context/contract. Caller will accept World State and Accrued Substate modifications. See [\"Halting\"](./execution#halting) to learn more. See [\"Nested contract calls\"](./nested-calls) to see how the caller updates its context after the nested call halts.",
         "Tag checks": "",
         "Tag updates": "",
     },
@@ -965,7 +1201,7 @@ context.contractCallResults.reverted = true
 halt
 `,
         "Summary": "Halt execution within this context as `reverted`, optionally returning some data",
-        "Details": "Return control flow to the calling context/contract. Caller will reject World State and Accrued Substate modifications. See [\"Halting\"](./avm#halting) to learn more. See [\"Nested contract calls\"](./avm#nested-contract-calls) to see how the caller updates its context after the nested call halts.",
+        "Details": "Return control flow to the calling context/contract. Caller will reject World State and Accrued Substate modifications. See [\"Halting\"](./execution#halting) to learn more. See [\"Nested contract calls\"](./nested-calls) to see how the caller updates its context after the nested call halts.",
         "Tag checks": "",
         "Tag updates": "",
     },

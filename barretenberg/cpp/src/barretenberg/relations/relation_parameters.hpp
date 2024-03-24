@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/common/ref_vector.hpp"
+#include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <array>
 
@@ -41,10 +41,7 @@ template <typename T> struct RelationParameters {
                                    { T(0), T(0), T(0), T(0), T(0) } } };
 
     static constexpr int NUM_TO_FOLD = 5;
-    RefVector<T> get_to_fold()
-    {
-        return { eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta };
-    }
+    auto get_to_fold() { return RefArray{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta }; }
 
     static RelationParameters get_random()
     {

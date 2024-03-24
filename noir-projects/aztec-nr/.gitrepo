@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = https://github.com/AztecProtocol/aztec-nr
+	branch = master
+	commit = a26b4104f3b7be1d44bac012d527c474af7fc97a
+	method = merge
+	cmdver = 0.4.6
+	parent = b582dd30adcc11277c98b069bb8e9bef9d0bd766

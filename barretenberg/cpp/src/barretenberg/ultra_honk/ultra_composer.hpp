@@ -11,8 +11,9 @@
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb {
-template <IsUltraFlavor Flavor> class UltraComposer_ {
+template <IsUltraFlavor Flavor_> class UltraComposer_ {
   public:
+    using Flavor = Flavor_;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -39,7 +40,7 @@ template <IsUltraFlavor Flavor> class UltraComposer_ {
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    UltraComposer_() { crs_factory_ = bb::srs::get_crs_factory(); }
+    UltraComposer_() { crs_factory_ = bb::srs::get_bn254_crs_factory(); }
 
     explicit UltraComposer_(std::shared_ptr<CRSFactory> crs_factory)
         : crs_factory_(std::move(crs_factory))
@@ -91,7 +92,7 @@ template <IsUltraFlavor Flavor> class UltraComposer_ {
     ProtoGalaxyProver_<ProverInstances> create_folding_prover(
         const std::vector<std::shared_ptr<ProverInstance>>& instances)
     {
-        ProtoGalaxyProver_<ProverInstances> output_state(instances, commitment_key);
+        ProtoGalaxyProver_<ProverInstances> output_state(instances);
 
         return output_state;
     };
@@ -103,13 +104,6 @@ template <IsUltraFlavor Flavor> class UltraComposer_ {
 
         return output_state;
     };
-
-    /**
-     * @brief Compute the verification key of an Instance, produced from a finalised circuit.
-     *
-     * @param inst
-     */
-    std::shared_ptr<typename Flavor::VerificationKey> compute_verification_key(const std::shared_ptr<ProverInstance>&);
 };
 
 // TODO(#532): this pattern is weird; is this not instantiating the templates?

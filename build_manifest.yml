@@ -37,6 +37,12 @@ noir-packages:
     - ^noir/tooling/noirc_abi
     - ^noir/tooling/noirc_abi_wasm
 
+noir-projects:
+  buildDir: noir-projects
+  dependencies:
+    - noir
+    - avm-transpiler
+
 noir-compile-acir-tests:
   buildDir: noir/test_programs
   # Awkward. Maybe change dockerfile paths to be absolute.
@@ -127,22 +133,22 @@ yarn-project-base:
   rebuildPatterns:
     - ^yarn-project/yarn-project-base/
     - ^yarn-project/yarn.lock
+    - ^yarn-project/.*/package.json$
   dependencies:
-    - l1-contracts
     - bb.js
-    - noir
     - noir-packages
-    - boxes-files
-    - avm-transpiler
 
 yarn-project:
   buildDir: yarn-project
   rebuildPatterns:
-    - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml)$
+    - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml|snap)$
     - ^yarn-project/Dockerfile$
     - ^yarn-project/cli/aztec-cli
   dependencies:
     - yarn-project-base
+    - l1-contracts
+    - boxes-files
+    - noir-projects
 
 yarn-project-prod:
   buildDir: yarn-project
@@ -178,6 +184,7 @@ boxes:
   dependencies:
     - aztec
     - noir
+    - noir-projects
   runDependencies:
     - aztec
 
@@ -198,13 +205,14 @@ docs:
   dockerfile: docs/Dockerfile
   rebuildPatterns:
     - ^docs/
-    - ^.*.cpp$
-    - ^.*.hpp$
-    - ^.*.ts$
-    - ^.release-please-manifest.json$
-    - ^.*.nr$
+    - ^.*\.cpp$
+    - ^.*\.hpp$
+    - ^.*\.ts$
+    - ^.release-please-manifest\.json$
+    - ^.*\.nr$
   dependencies:
     - yarn-project
+    - noir-projects
 
 yellow-paper:
   buildDir: yellow-paper

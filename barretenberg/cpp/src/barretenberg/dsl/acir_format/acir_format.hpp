@@ -12,6 +12,7 @@
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
 #include "pedersen.hpp"
+#include "poseidon2_constraint.hpp"
 #include "range_constraint.hpp"
 #include "recursion_constraint.hpp"
 #include "schnorr_verify.hpp"
@@ -34,6 +35,7 @@ struct AcirFormat {
     std::vector<LogicConstraint> logic_constraints;
     std::vector<RangeConstraint> range_constraints;
     std::vector<Sha256Constraint> sha256_constraints;
+    std::vector<Sha256Compression> sha256_compression;
     std::vector<SchnorrConstraint> schnorr_constraints;
     std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
     std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
@@ -44,6 +46,7 @@ struct AcirFormat {
     std::vector<Keccakf1600> keccak_permutations;
     std::vector<PedersenConstraint> pedersen_constraints;
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
+    std::vector<Poseidon2Constraint> poseidon2_constraints;
     std::vector<FixedBaseScalarMul> fixed_base_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
@@ -65,6 +68,7 @@ struct AcirFormat {
                    logic_constraints,
                    range_constraints,
                    sha256_constraints,
+                   sha256_compression,
                    schnorr_constraints,
                    ecdsa_k1_constraints,
                    ecdsa_r1_constraints,
@@ -75,6 +79,7 @@ struct AcirFormat {
                    keccak_permutations,
                    pedersen_constraints,
                    pedersen_hash_constraints,
+                   poseidon2_constraints,
                    fixed_base_scalar_mul_constraints,
                    ec_add_constraints,
                    recursion_constraints,

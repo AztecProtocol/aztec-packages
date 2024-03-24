@@ -167,6 +167,16 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
         self.memory.write(MemoryAddress(ptr), value);
     }
 
+    /// Returns the VM's current call stack, including the actual program
+    /// counter in the last position of the returned vector.
+    pub fn get_call_stack(&self) -> Vec<usize> {
+        self.call_stack
+            .iter()
+            .map(|program_counter| program_counter.to_usize())
+            .chain(std::iter::once(self.program_counter))
+            .collect()
+    }
+
     /// Process a single opcode and modify the program counter.
     pub fn process_opcode(&mut self) -> VMStatus {
         let opcode = &self.bytecode[self.program_counter];
@@ -557,6 +567,13 @@ impl BlackBoxFunctionSolver for DummyBlackBoxSolver {
         _input2_y: &FieldElement,
     ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
         Ok((5_u128.into(), 6_u128.into()))
+    }
+    fn poseidon2_permutation(
+        &self,
+        _input: &[FieldElement],
+        len: u32,
+    ) -> Result<Vec<FieldElement>, BlackBoxResolutionError> {
+        Ok(vec![0_u128.into(); len as usize])
     }
 }
 

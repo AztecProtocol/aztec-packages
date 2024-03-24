@@ -38,7 +38,7 @@ Help shape and define:
 - The initial `msg_sender` is 0, which can be problematic for some contracts, see [function visibility](../contracts/writing_contracts/functions/visibility.md).
 - Unencrypted logs don't link to the contract that emitted it, so essentially just a `debug_log`` that you can match values against.
 - A note that is created and nullified in the same transaction will still emit an encrypted log.
-- A limited amount of new commitments, nullifiers and calls that are supported by a transaction, see [circuit limitations](#circuit-limitations).
+- A limited amount of new note hashes, nullifiers and calls that are supported by a transaction, see [circuit limitations](#circuit-limitations).
 
 ## Limitations
 
@@ -189,7 +189,7 @@ Due to the rigidity of zk-SNARK circuits, there are upper bounds on the amount o
 
 Here are the current constants:
 
-#include_code constants /yarn-project/noir-protocol-circuits/src/crates/types/src/constants.nr rust
+#include_code constants /noir-projects/noir-protocol-circuits/src/crates/types/src/constants.nr rust
 
 #### What are the consequences?
 

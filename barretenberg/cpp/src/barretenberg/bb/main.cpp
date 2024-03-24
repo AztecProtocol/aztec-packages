@@ -3,7 +3,7 @@
 #include "barretenberg/dsl/types.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
-#include "barretenberg/vm/avm_trace/AvmMini_execution.hpp"
+#include "barretenberg/vm/avm_trace/avm_execution.hpp"
 #include "config.hpp"
 #include "get_bn254_crs.hpp"
 #include "get_bytecode.hpp"
@@ -150,7 +150,7 @@ bool accumulateAndVerifyGoblin(const std::string& bytecodePath, const std::strin
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
     // to max circuit size present in acir tests suite.
-    size_t hardcoded_bn254_dyadic_size_hack = 1 << 18;
+    size_t hardcoded_bn254_dyadic_size_hack = 1 << 19;
     init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
     size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
     init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
@@ -189,7 +189,7 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath, const std::string& wi
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
     // to max circuit size present in acir tests suite.
-    size_t hardcoded_bn254_dyadic_size_hack = 1 << 18;
+    size_t hardcoded_bn254_dyadic_size_hack = 1 << 19;
     init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
     size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
     init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);

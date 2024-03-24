@@ -70,13 +70,13 @@ As part of `AuthWit` we are assuming that the `on_behalf_of` implements the priv
 
 ```rust
 #[aztec(private)]
-fn is_valid(message_hash: Field) -> Field;
+fn spend_private_authwit(inner_hash: Field) -> Field;
 
 #[aztec(public)]
-fn is_valid_public(message_hash: Field) -> Field;
+fn spend_public_authwit(inner_hash: Field) -> Field;
 ```
 
-Both return the value `0xe86ab4ff` (`is_valid` selector) for a successful authentication, and `0x00000000` for a failed authentication. You might be wondering why we are expecting the return value to be a selector instead of a boolean. This is mainly to account for a case of selector collisions where the same selector is used for different functions, and we don't want an account to mistakenly allow a different function to be called on its behalf - it is hard to return the selector by mistake, but you might have other functions returning a bool.
+Both return the value `0xabf64ad4` (`IS_VALID` selector) for a successful authentication, and `0x00000000` for a failed authentication. You might be wondering why we are expecting the return value to be a selector instead of a boolean. This is mainly to account for a case of selector collisions where the same selector is used for different functions, and we don't want an account to mistakenly allow a different function to be called on its behalf - it is hard to return the selector by mistake, but you might have other functions returning a bool.
 
 ## The `AuthWit` library.
 
@@ -88,7 +88,7 @@ For our purposes here (not building a wallet), the most important part of the li
 
 ### General utilities
 
-The primary general utility is the `compute_authwit_message_hash` function which computes the action hash from its components. This is useful for when you need to generate a hash that is not for the current call, such as when you want to update a public approval state value that is later used for [authentication in public](#updating-approval-state-in-noir). You can view the implementation of this function [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec-nr/authwit/src/auth.nr).
+The primary general utility is the `compute_authwit_message_hash` function which computes the action hash from its components. This is useful for when you need to generate a hash that is not for the current call, such as when you want to update a public approval state value that is later used for [authentication in public](#updating-approval-state-in-noir). You can view the implementation of this function [here](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/authwit/src/auth.nr).
 
 #### TypeScript utilities
 
@@ -102,15 +102,14 @@ As you can see above, this function takes a `caller` and a `request`. The `reque
 
 For private calls where we allow execution on behalf of others, we generally want to check if the current call is authenticated by `on_behalf_of`. To easily do so, we can use the `assert_current_call_valid_authwit` which fetches information from the current context without us needing to provide much beyond the `on_behalf_of`.
 
-This function computes the message hash, and then forwards the call to the more generic `assert_valid_authwit`. This validating function will then:
-
-- make a call to `on_behalf_of` to validate that the call is authenticated
-- emit a nullifier for the action to prevent replay attacks
-- throw if the action is not authenticated by `on_behalf_of`
+This function will then make a to `on_behalf_of` to execute the `spend_private_authwit` function which validates that the call is authenticated. 
+The `on_behalf_of` should assert that we are indeed authenticated and then emit a nullifier when we are spending the authwit to prevent replay attacks.
+If the return value is not as expected, we throw an error. 
+This is to cover the case where the `on_behalf_of` might implemented some function with the same selector as the `spend_private_authwit` that could be used to authenticate unintentionally.
 
 #### Example
 
-#include_code assert_current_call_valid_authwit /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code assert_current_call_valid_authwit /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ### Utilities for public calls
 
@@ -118,7 +117,7 @@ Very similar to the above, we have variations that work in the public domain. Th
 
 #### Example
 
-#include_code assert_current_call_valid_authwit_public /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code assert_current_call_valid_authwit_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ## Usage
 
@@ -130,13 +129,13 @@ To add it to your project, add the `authwit` library to your `Nargo.toml` file.
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
-authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/authwit"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
+authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/authwit"}
 ```
 
 Then you will be able to import it into your contracts as follows.
 
-#include_code import_authwit /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code import_authwit /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ### Private Functions
 
@@ -144,7 +143,7 @@ Then you will be able to import it into your contracts as follows.
 
 Based on the diagram earlier on this page let's take a look at how we can implement the `transfer` function such that it checks if the tokens are to be transferred `from` the caller or needs to be authenticated with an authentication witness.
 
-#include_code transfer /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 The first thing we see in the snippet above, is that if `from` is not the call we are calling the `assert_current_call_valid_authwit` function from [earlier](#private-functions). If the call is not throwing, we are all good and can continue with the transfer.
 
@@ -162,7 +161,7 @@ With private functions covered, how can we use this in a public function? Well, 
 
 #### Checking if the current call is authenticated
 
-#include_code transfer_public /yarn-project/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 #### Authenticating an action in TypeScript
 
@@ -176,15 +175,15 @@ In the snippet below, this is done as a separate contract call, but can also be 
 
 We have cases where we need a non-wallet contract to approve an action to be executed by another contract. One of the cases could be when making more complex defi where funds are passed along. When doing so, we need the intermediate contracts to support approving of actions on their behalf.
 
-To support this, we must implement the `is_valid_public` function as seen in the snippet below.
+To support this, we must implement the `spend_public_authwit` function as seen in the snippet below.
 
-#include_code authwit_uniswap_get /yarn-project/noir-contracts/contracts/uniswap_contract/src/main.nr rust
+#include_code authwit_uniswap_get /noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
 
 It also needs a way to update those storage values. Since we want the updates to be trustless, we can compute the action based on the function inputs, and then have the contract compute the key at which it must add a `true` to approve the action.
 
 An example of this would be our Uniswap example which performs a cross chain swap on L1. In here, we both do private and public auth witnesses, where the public is set by the uniswap L2 contract itself. In the below snippet, you can see that we compute the action hash, and then update an `approved_action` mapping with the hash as key and `true` as value. When we then call the `token_bridge` to execute afterwards, it reads this value, burns the tokens, and consumes the authentication.
 
-#include_code authwit_uniswap_set /yarn-project/noir-contracts/contracts/uniswap_contract/src/main.nr rust
+#include_code authwit_uniswap_set /noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
 
 Outlining more of the `swap` flow: this simplified diagram shows how it will look for contracts that are not wallets but also need to support authentication witnesses.
 

@@ -42,7 +42,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-compiler": "workspace:^",
-    "@aztec/noir-contracts": "workspace:^",
+    "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/types": "workspace:^",
     "@iarna/toml": "^2.2.5",
     "@libp2p/peer-id-factory": "^3.0.4",
@@ -53,7 +53,7 @@
     "semver": "^7.5.4",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
-    "viem": "^1.2.5"
+    "viem": "^2.7.15"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

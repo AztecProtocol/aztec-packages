@@ -11,11 +11,12 @@ import {
 } from '@aztec/aztec.js';
 import { deployL1Contract } from '@aztec/ethereum';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
-import { UniswapContract } from '@aztec/noir-contracts/Uniswap';
+import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 
 import { jest } from '@jest/globals';
 import { Chain, HttpTransport, PublicClient, getContract, parseEther } from 'viem';
 
+import { publicDeployAccounts } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 
 // PSA: This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
@@ -96,6 +97,8 @@ export const uniswapL1L2TestSuite = (
       sponsorAddress = sponsorWallet.getAddress();
       ownerEthAddress = EthAddress.fromString((await walletClient.getAddresses())[0]);
 
+      await publicDeployAccounts(ownerWallet, [ownerAddress, sponsorAddress]);
+
       logger('Deploying DAI Portal, initializing and deploying l2 contract...');
       daiCrossChainHarness = await CrossChainTestHarness.new(
         pxe,
@@ -126,8 +129,7 @@ export const uniswapL1L2TestSuite = (
       uniswapPortal = getContract({
         address: uniswapPortalAddress.toString(),
         abi: UniswapPortalAbi,
-        walletClient,
-        publicClient,
+        client: walletClient,
       });
       // deploy l2 uniswap contract and attach to portal
       uniswapL2Contract = await UniswapContract.deploy(ownerWallet)
@@ -206,7 +208,7 @@ export const uniswapL1L2TestSuite = (
           .unshield(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHUnshieldApproval)
           .request(),
       );
-      await ownerWallet.createAuthWitness(Fr.fromBuffer(unshieldToUniswapMessageHash));
+      await ownerWallet.createAuthWitness(unshieldToUniswapMessageHash);
 
       // 4. Swap on L1 - sends L2 to L1 message to withdraw WETH to L1 and another message to swap assets.
       logger('Withdrawing weth to L1 and sending message to swap to dai');
@@ -475,7 +477,7 @@ export const uniswapL1L2TestSuite = (
             ownerEthAddress,
           )
           .simulate(),
-      ).rejects.toThrowError(`Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`);
+      ).rejects.toThrowError(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
     });
 
     it("can't swap if user passes a token different to what the bridge tracks", async () => {
@@ -494,7 +496,7 @@ export const uniswapL1L2TestSuite = (
           .unshield(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHUnshieldApproval)
           .request(),
       );
-      await ownerWallet.createAuthWitness(Fr.fromBuffer(unshieldToUniswapMessageHash));
+      await ownerWallet.createAuthWitness(unshieldToUniswapMessageHash);
 
       // 3. Swap but send the wrong token address
       logger('Swap but send the wrong token address');
@@ -589,7 +591,7 @@ export const uniswapL1L2TestSuite = (
 
       // Swap!
       await expect(action.simulate()).rejects.toThrowError(
-        "Assertion failed: Message not authorized by account 'result == IS_VALID_SELECTOR'",
+        "Assertion failed: Message not authorized by account 'is_valid == true'",
       );
     });
 
@@ -623,7 +625,7 @@ export const uniswapL1L2TestSuite = (
             Fr.ZERO,
           )
           .simulate(),
-      ).rejects.toThrowError(`Assertion failed: Message not authorized by account 'result == IS_VALID_SELECTOR'`);
+      ).rejects.toThrowError(`Assertion failed: Message not authorized by account 'is_valid == true'`);
     });
 
     // tests when trying to mix private and public flows:
@@ -644,7 +646,7 @@ export const uniswapL1L2TestSuite = (
           .unshield(ownerAddress, uniswapL2Contract.address, wethAmountToBridge, nonceForWETHUnshieldApproval)
           .request(),
       );
-      await ownerWallet.createAuthWitness(Fr.fromBuffer(unshieldToUniswapMessageHash));
+      await ownerWallet.createAuthWitness(unshieldToUniswapMessageHash);
       const wethL2BalanceBeforeSwap = await wethCrossChainHarness.getL2PrivateBalanceOf(ownerAddress);
 
       // Swap

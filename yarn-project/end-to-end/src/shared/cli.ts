@@ -60,6 +60,7 @@ export const cliTestSuite = (
       if (addRpcUrl) {
         args.push('--rpc-url', rpcURL);
       }
+      debug(`Running command ${args.join(' ')}`);
       const res = cli.parseAsync(args);
       resetCli();
       return res;
@@ -120,7 +121,7 @@ export const cliTestSuite = (
 
     it.each([
       ['an example Token contract', 'TokenContractArtifact', '0'],
-      ['a Nargo artifact', '../noir-contracts/target/token_contract-Token.json', '1'],
+      ['a Nargo artifact', '../noir-contracts.js/artifacts/token_contract-Token.json', '1'],
     ])(
       'deploys %s & sends transactions',
       async (_, artifact, salt) => {
@@ -135,7 +136,9 @@ export const cliTestSuite = (
         const ownerAddress = AztecAddress.fromString(foundAddress!);
 
         debug('Deploy Token Contract using created account.');
-        await run(`deploy ${artifact} --salt ${salt} --args ${ownerAddress} 'TokenName' 'TKN' 18`);
+        await run(
+          `deploy ${artifact} --private-key ${privKey} --salt ${salt} --args ${ownerAddress} 'TokenName' 'TKN' 18`,
+        );
         const loggedAddress = findInLogs(/Contract\sdeployed\sat\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
         expect(loggedAddress).toBeDefined();
         contractAddress = AztecAddress.fromString(loggedAddress!);
@@ -160,7 +163,7 @@ export const cliTestSuite = (
         const txHashes = findMultipleInLogs(/Transaction Hash: ([0-9a-f]{64})/i);
         const mintPrivateTxHash = txHashes[txHashes.length - 1][1];
         await run(
-          `add-note ${ownerAddress} ${contractAddress} 5 ${mintPrivateTxHash} --note ${INITIAL_BALANCE} ${secretHash}`,
+          `add-note ${ownerAddress} ${contractAddress} 5 84114971101151129711410111011678111116101 ${mintPrivateTxHash} --note ${INITIAL_BALANCE} ${secretHash}`,
         );
 
         debug('Redeem tokens.');

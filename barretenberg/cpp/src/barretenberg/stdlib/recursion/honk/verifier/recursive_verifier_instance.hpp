@@ -4,6 +4,10 @@
 #include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 
 namespace bb::stdlib::recursion::honk {
+
+/**
+ * @brief The stdlib counterpart of VerifierInstance, used in recursive folding verification.
+ */
 template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
   public:
     using FF = typename Flavor::FF;
@@ -54,8 +58,9 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
 
         size_t public_input_idx = 0;
         public_inputs = std::vector<FF>(public_input_size);
-        for (auto public_input : instance->public_inputs) {
+        for (auto& public_input : instance->public_inputs) {
             public_inputs[public_input_idx] = FF::from_witness(builder, public_input);
+            public_input_idx++;
         }
         verification_key = std::make_shared<VerificationKey>(instance_size, public_input_size);
         auto other_vks = instance->verification_key->get_all();
@@ -93,6 +98,13 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
             FF::from_witness(builder, instance->relation_parameters.lookup_grand_product_delta);
     }
 
+    /**
+     * @brief Return the underlying native VerifierInstance.
+     *
+     * @details In the context of client IVC, we will have several iterations of recursive folding verification. The
+     * RecursiveVerifierInstance is tied to the builder in whose context it was created so in order to preserve the
+     * accumulator values between several iterations we need to retrieve the native VerifierInstance values.
+     */
     VerifierInstance get_value()
     {
         VerifierInstance inst;
@@ -102,37 +114,31 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
         inst.instance_size = instance_size;
         inst.is_accumulator = is_accumulator;
 
-        size_t public_input_idx = 0;
         inst.public_inputs = std::vector<NativeFF>(public_input_size);
-        for (auto public_input : public_inputs) {
-            inst.public_inputs[public_input_idx] = public_input.get_value();
-        }
-        inst.verification_key = std::make_shared<NativeVerificationKey>(instance_size, public_input_size);
-        size_t vk_idx = 0;
-        for (auto& vk : verification_key->get_all()) {
-            inst.verification_key->get_all()[vk_idx] = vk.get_value();
-            vk_idx++;
-        }
-        for (size_t alpha_idx = 0; alpha_idx < alphas.size(); alpha_idx++) {
-            inst.alphas[alpha_idx] = alphas[alpha_idx].get_value();
+        for (auto [public_input, inst_public_input] : zip_view(public_inputs, inst.public_inputs)) {
+            inst_public_input = public_input.get_value();
         }
 
-        size_t comm_idx = 0;
-        for (auto& comm : witness_commitments.get_all()) {
-            inst.witness_commitments.get_all()[comm_idx] = comm.get_value();
-            comm_idx++;
+        inst.verification_key = std::make_shared<NativeVerificationKey>(instance_size, public_input_size);
+        for (auto [vk, inst_vk] : zip_view(verification_key->get_all(), inst.verification_key->get_all())) {
+            inst_vk = vk.get_value();
+        }
+
+        for (auto [alpha, inst_alpha] : zip_view(alphas, inst.alphas)) {
+            inst_alpha = alpha.get_value();
+        }
+
+        for (auto [comm, inst_comm] : zip_view(witness_commitments.get_all(), inst.witness_commitments.get_all())) {
+            inst_comm = comm.get_value();
         }
         inst.target_sum = target_sum.get_value();
 
-        size_t challenge_idx = 0;
         inst.gate_challenges = std::vector<NativeFF>(gate_challenges.size());
-        for (auto& challenge : inst.gate_challenges) {
-            challenge = gate_challenges[challenge_idx].get_value();
-            challenge_idx++;
+        for (auto [challenge, inst_challenge] : zip_view(gate_challenges, inst.gate_challenges)) {
+            inst_challenge = challenge.get_value();
         }
+
         inst.relation_parameters.eta = relation_parameters.eta.get_value();
-        inst.relation_parameters.eta_two = relation_parameters.eta_two.get_value();
-        inst.relation_parameters.eta_three = relation_parameters.eta_three.get_value();
         inst.relation_parameters.beta = relation_parameters.beta.get_value();
         inst.relation_parameters.gamma = relation_parameters.gamma.get_value();
         inst.relation_parameters.public_input_delta = relation_parameters.public_input_delta.get_value();

@@ -34,9 +34,8 @@ std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> v
 void prove_and_verify(auto& circuit_builder, auto& composer, bool expected_result)
 {
     auto instance = composer.create_prover_instance(circuit_builder);
-    auto verification_key = composer.compute_verification_key(instance);
     auto prover = composer.create_prover(instance);
-    auto verifier = composer.create_verifier(verification_key);
+    auto verifier = composer.create_verifier(instance->verification_key);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
     EXPECT_EQ(verified, expected_result);
@@ -138,7 +137,7 @@ TEST_F(UltraHonkComposerTests, XorConstraint)
     circuit_builder.create_gates_from_plookup_accumulators(
         plookup::MultiTableId::UINT32_XOR, lookup_accumulators, left_witness_index, right_witness_index);
 
-    auto composer = UltraComposer(bb::srs::get_crs_factory());
+    auto composer = UltraComposer(bb::srs::get_bn254_crs_factory());
     prove_and_verify(circuit_builder, composer, /*expected_result=*/true);
 }
 
@@ -200,9 +199,8 @@ TEST_F(UltraHonkComposerTests, create_gates_from_plookup_accumulators)
     }
     auto composer = UltraComposer();
     auto instance = composer.create_prover_instance(circuit_builder);
-    auto verification_key = composer.compute_verification_key(instance);
     auto prover = composer.create_prover(instance);
-    auto verifier = composer.create_verifier(verification_key);
+    auto verifier = composer.create_verifier(instance->verification_key);
     auto proof = prover.construct_proof();
 
     bool result = verifier.verify_proof(proof);

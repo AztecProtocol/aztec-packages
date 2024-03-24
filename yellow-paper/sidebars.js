@@ -116,7 +116,7 @@ const sidebars = {
       type: "category",
       link: { type: "doc", id: "l1-smart-contracts/index" },
       items: [
-        "l1-smart-contracts/proposal",
+        "l1-smart-contracts/frontier",
       ],
     },
     {
@@ -131,14 +131,19 @@ const sidebars = {
       items: [],
     },
     {
+      label: "Pre-compiled Contracts",
+      type: "category",
+      link: { type: "doc", id: "pre-compiled-contracts/index" },
+      items: [
+        "pre-compiled-contracts/registry",
+      ],
+    },
+    {
       label: "Private Message Delivery",
       type: "category",
       link: { type: "doc", id: "private-message-delivery/index" },
       items: [
         "private-message-delivery/private-msg-delivery", // renamed to avoid routing problems
-        "private-message-delivery/note-discovery",
-        "private-message-delivery/encryption-and-decryption",
-        "private-message-delivery/registry",
         "private-message-delivery/send-note-guidelines",
       ],
     },
@@ -146,13 +151,17 @@ const sidebars = {
       label: "Gas & Fees",
       type: "category",
       link: { type: "doc", id: "gas-and-fees/index" },
-      items: [],
+      items: [
+        "gas-and-fees/fee-payments-and-metering",
+        "gas-and-fees/fee-schedule",
+      ],
     },
     {
       label: "Decentralization",
       type: "category",
       link: { type: "doc", id: "decentralization/governance" },
       items: [
+        "decentralization/actors",
         "decentralization/governance",
         "decentralization/block-production",
         "decentralization/p2p-network",
@@ -185,17 +194,29 @@ const sidebars = {
       ],
     },
     {
-      label: "Public VM",
+      label: "Aztec (Public) VM",
       type: "category",
-      link: { type: "doc", id: "public-vm/avm" },
+      link: { type: "doc", id: "public-vm/index" },
       items: [
-        "public-vm/avm",
-        "public-vm/state-model",
+        "public-vm/intro",
+        "public-vm/state",
+        "public-vm/memory-model",
+        "public-vm/context",
+        "public-vm/execution",
+        "public-vm/nested-calls",
         "public-vm/instruction-set",
-        "public-vm/avm-circuit",
-        "public-vm/control-flow",
-        "public-vm/alu",
-        "public-vm/bytecode-validation-circuit",
+        {
+          label: "AVM Circuit",
+          type: "category",
+          link: { type: "doc", id: "public-vm/circuit-index" },
+          items: [
+            "public-vm/avm-circuit",
+            "public-vm/control-flow",
+            "public-vm/alu",
+            "public-vm/bytecode-validation-circuit",
+          ],
+        },
+        "public-vm/type-structs",
       ],
     },
   ],

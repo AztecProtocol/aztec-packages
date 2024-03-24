@@ -1,6 +1,6 @@
 import { L1NotePayload, TxHash } from '@aztec/circuit-types';
 import { Fr, PublicKey } from '@aztec/circuits.js';
-import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
+import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { AcirSimulator } from '@aztec/simulator';
 
 import { NoteDao } from '../database/note_dao.js';
@@ -14,7 +14,7 @@ import { NoteDao } from '../database/note_dao.js';
  * @param publicKey - The public counterpart to the private key to be used in note decryption.
  * @param payload - An instance of l1NotePayload.
  * @param txHash - The hash of the transaction that created the note. Equivalent to the first nullifier of the transaction.
- * @param newCommitments - New commitments in this transaction, one of which belongs to this note.
+ * @param newNoteHashes - New note hashes in this transaction, one of which belongs to this note.
  * @param dataStartIndexForTx - The next available leaf index for the note hash tree for this transaction.
  * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same l1NotePayload, we need to find a different index for each replicate.
  * @param simulator - An instance of AcirSimulator.
@@ -25,13 +25,13 @@ export async function produceNoteDao(
   publicKey: PublicKey,
   payload: L1NotePayload,
   txHash: TxHash,
-  newCommitments: Fr[],
+  newNoteHashes: Fr[],
   dataStartIndexForTx: number,
   excludedIndices: Set<number>,
 ): Promise<NoteDao> {
   const { commitmentIndex, nonce, innerNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
     simulator,
-    newCommitments,
+    newNoteHashes,
     txHash,
     payload,
     excludedIndices,
@@ -42,6 +42,7 @@ export async function produceNoteDao(
     payload.note,
     payload.contractAddress,
     payload.storageSlot,
+    payload.noteTypeId,
     txHash,
     nonce,
     innerNoteHash,
@@ -70,7 +71,7 @@ async function findNoteIndexAndNullifier(
   simulator: AcirSimulator,
   commitments: Fr[],
   txHash: TxHash,
-  { contractAddress, storageSlot, note }: L1NotePayload,
+  { contractAddress, storageSlot, noteTypeId, note }: L1NotePayload,
   excludedIndices: Set<number>,
 ) {
   let commitmentIndex = 0;
@@ -93,7 +94,7 @@ async function findNoteIndexAndNullifier(
 
     const expectedNonce = computeCommitmentNonce(firstNullifier, commitmentIndex);
     ({ innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier } =
-      await simulator.computeNoteHashAndNullifier(contractAddress, expectedNonce, storageSlot, note));
+      await simulator.computeNoteHashAndNullifier(contractAddress, expectedNonce, storageSlot, noteTypeId, note));
     if (commitment.equals(uniqueSiloedNoteHash)) {
       nonce = expectedNonce;
       break;

@@ -1,12 +1,15 @@
 import {
   AztecAddress,
+  CallRequest,
   Fr,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   Proof,
 } from '@aztec/circuits.js';
-import { makePrivateKernelPublicInputsFinal, makePublicCallRequest } from '@aztec/circuits.js/factories';
+import { makePrivateKernelTailCircuitPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/testing';
 import { ContractArtifact } from '@aztec/foundation/abi';
+import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Tuple } from '@aztec/foundation/serialize';
@@ -29,8 +32,8 @@ export function makeEmptyLogs(): TxL2Logs {
 export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
 
 export const mockTx = (seed = 1) => {
-  return new Tx(
-    makePrivateKernelPublicInputsFinal(seed),
+  const tx = new Tx(
+    makePrivateKernelTailCircuitPublicInputs(seed),
     new Proof(Buffer.alloc(0)),
     TxL2Logs.random(8, 3), // 8 priv function invocations creating 3 encrypted logs each
     TxL2Logs.random(11, 2), // 8 priv + 3 pub function invocations creating 2 unencrypted logs each
@@ -40,6 +43,19 @@ export const mockTx = (seed = 1) => {
       typeof MAX_NEW_CONTRACTS_PER_TX
     >,
   );
+
+  tx.data.endNonRevertibleData.publicCallStack = [
+    tx.enqueuedPublicFunctionCalls[1].toCallRequest(),
+    tx.enqueuedPublicFunctionCalls[0].toCallRequest(),
+    CallRequest.empty(),
+  ];
+
+  tx.data.end.publicCallStack = makeTuple(
+    MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    i => tx.enqueuedPublicFunctionCalls[i + 2]?.toCallRequest() ?? CallRequest.empty(),
+  ).reverse() as Tuple<CallRequest, typeof MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>;
+
+  return tx;
 };
 
 export const randomContractArtifact = (): ContractArtifact => ({
@@ -63,6 +79,7 @@ export const randomExtendedNote = ({
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
+  noteTypeId = Fr.random(),
 }: Partial<ExtendedNote> = {}) => {
-  return new ExtendedNote(note, owner, contractAddress, storageSlot, txHash);
+  return new ExtendedNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
 };

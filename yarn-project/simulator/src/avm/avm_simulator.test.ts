@@ -1,7 +1,8 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts';
+import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
@@ -11,7 +12,7 @@ import { initContext, initExecutionEnvironment, initGlobalVariables } from './fi
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 
-describe('avm', () => {
+describe('AVM simulator', () => {
   it('Should execute bytecode that performs basic addition', async () => {
     const calldata: Fr[] = [new Fr(1), new Fr(2)];
 
@@ -23,7 +24,9 @@ describe('avm', () => {
     ]);
 
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-    jest.spyOn(context.worldState.hostStorage.contractsDb, 'getBytecode').mockReturnValue(Promise.resolve(bytecode));
+    jest
+      .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+      .mockReturnValue(Promise.resolve(bytecode));
 
     const results = await new AvmSimulator(context).execute();
 
@@ -34,8 +37,7 @@ describe('avm', () => {
     expect(returnData).toEqual([new Fr(3)]);
   });
 
-  describe('testing transpiled Noir contracts', () => {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/4361): sync wire format w/transpiler.
+  describe('Transpiled Noir contracts', () => {
     it('Should execute contract function that performs addition', async () => {
       const calldata: Fr[] = [new Fr(1), new Fr(2)];
 
@@ -46,15 +48,103 @@ describe('avm', () => {
       const bytecode = Buffer.from(addArtifact.bytecode, 'base64');
 
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      jest.spyOn(context.worldState.hostStorage.contractsDb, 'getBytecode').mockReturnValue(Promise.resolve(bytecode));
+      jest
+        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+        .mockReturnValue(Promise.resolve(bytecode));
 
       const results = await new AvmSimulator(context).execute();
 
       expect(results.reverted).toBe(false);
 
       const returnData = results.output;
-      expect(returnData.length).toBe(1);
       expect(returnData).toEqual([new Fr(3)]);
+    });
+
+    describe.each([
+      ['avm_setOpcodeUint8', 8n],
+      // ['avm_setOpcodeUint16', 60000n],
+      ['avm_setOpcodeUint32', 1n << 30n],
+      ['avm_setOpcodeUint64', 1n << 60n],
+      // ['avm_setOpcodeUint128', 1n << 120n],
+      ['avm_setOpcodeSmallField', 200n],
+    ])('Should execute contract SET functions', (name: string, res: bigint) => {
+      it(`Should execute contract function '${name}'`, async () => {
+        // Decode bytecode into instructions
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === name)!;
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext();
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        const results = await new AvmSimulator(context).execute();
+
+        expect(results.reverted).toBe(false);
+
+        const returnData = results.output;
+        expect(returnData).toEqual([new Fr(res)]);
+      });
+    });
+
+    describe.each([
+      ['avm_sha256_hash', sha256],
+      ['avm_keccak_hash', keccak],
+    ])('Hashes with 2 fields returned in noir contracts', (name: string, hashFunction: (data: Buffer) => Buffer) => {
+      it(`Should execute contract function that performs ${name} hash`, async () => {
+        const calldata = [new Fr(1), new Fr(2), new Fr(3)];
+        const hash = hashFunction(Buffer.concat(calldata.map(f => f.toBuffer())));
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === name)!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        const results = await new AvmSimulator(context).execute();
+
+        expect(results.reverted).toBe(false);
+
+        const returnData = results.output;
+        const reconstructedHash = Buffer.concat([
+          returnData[0].toBuffer().subarray(16, 32),
+          returnData[1].toBuffer().subarray(16, 32),
+        ]);
+        expect(reconstructedHash).toEqual(hash);
+      });
+    });
+
+    describe.each([
+      ['avm_poseidon_hash', poseidonHash],
+      ['avm_pedersen_hash', pedersenHash],
+    ])('Hashes with field returned in noir contracts', (name: string, hashFunction: (data: Buffer[]) => Fr) => {
+      it(`Should execute contract function that performs ${name} hash`, async () => {
+        const calldata = [new Fr(1), new Fr(2), new Fr(3)];
+        const hash = hashFunction(calldata.map(f => f.toBuffer()));
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === name)!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        const results = await new AvmSimulator(context).execute();
+
+        expect(results.reverted).toBe(false);
+
+        const returnData = results.output;
+        expect(returnData).toEqual([new Fr(hash)]);
+      });
     });
 
     describe('Test env getters from noir contract', () => {
@@ -74,7 +164,7 @@ describe('avm', () => {
         // Decode bytecode into instructions
         const bytecode = Buffer.from(getterArtifact.bytecode, 'base64');
         jest
-          .spyOn(context.worldState.hostStorage.contractsDb, 'getBytecode')
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
           .mockReturnValue(Promise.resolve(bytecode));
         // Execute
 
@@ -83,7 +173,6 @@ describe('avm', () => {
         expect(results.reverted).toBe(false);
 
         const returnData = results.output;
-        expect(returnData.length).toBe(1);
         expect(returnData).toEqual([value.toField()]);
       };
 
@@ -145,6 +234,153 @@ describe('avm', () => {
       it('timestamp', async () => {
         const timestamp = new Fr(1);
         await testEnvGetter('timestamp', timestamp, 'avm_getTimestamp', /*globalVar=*/ true);
+      });
+    });
+
+    describe('Test tree access functions from noir contract', () => {
+      it(`Should execute contract function to emit note hash (should be traced)`, async () => {
+        const utxo = new Fr(42);
+        const calldata = [utxo];
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_new_note_hash')!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        const results = await new AvmSimulator(context).execute();
+
+        expect(results.reverted).toBe(false);
+
+        expect(context.persistableState.flush().newNoteHashes).toEqual([utxo]);
+      });
+      it(`Should execute contract function to emit nullifier (should be traced)`, async () => {
+        const utxo = new Fr(42);
+        const calldata = [utxo];
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_new_nullifier')!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        const results = await new AvmSimulator(context).execute();
+
+        expect(results.reverted).toBe(false);
+
+        expect(context.persistableState.flush().newNullifiers).toEqual([utxo]);
+      });
+      it(`Should execute contract function that checks if a nullifier existence (it does not)`, async () => {
+        const utxo = new Fr(42);
+        const calldata = [utxo];
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_check_nullifier_exists')!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        await new AvmSimulator(context).execute();
+        const results = await new AvmSimulator(context).execute();
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([/*exists=false*/ new Fr(0)]);
+
+        // Nullifier existence check should be in trace
+        const sideEffects = context.persistableState.flush();
+        expect(sideEffects.nullifierChecks.length).toEqual(1);
+        expect(sideEffects.nullifierChecks[0].exists).toEqual(false);
+      });
+      it(`Should execute contract function that checks if a nullifier existence (it does)`, async () => {
+        const utxo = new Fr(42);
+        const calldata = [utxo];
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_check_nullifier_exists')!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        // nullifier exists!
+        jest
+          .spyOn(context.persistableState.hostStorage.commitmentsDb, 'getNullifierIndex')
+          .mockReturnValue(Promise.resolve(BigInt(42)));
+
+        await new AvmSimulator(context).execute();
+        const results = await new AvmSimulator(context).execute();
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([/*exists=true*/ new Fr(1)]);
+
+        // Nullifier existence check should be in trace
+        const sideEffects = context.persistableState.flush();
+        expect(sideEffects.nullifierChecks.length).toEqual(1);
+        expect(sideEffects.nullifierChecks[0].exists).toEqual(true);
+      });
+      it(`Should execute contract function that checks emits a nullifier and checks its existence`, async () => {
+        const utxo = new Fr(42);
+        const calldata = [utxo];
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_emit_nullifier_and_check')!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        await new AvmSimulator(context).execute();
+        const results = await new AvmSimulator(context).execute();
+        expect(results.reverted).toBe(false);
+
+        // Nullifier existence check should be in trace
+        const sideEffects = context.persistableState.flush();
+        expect(sideEffects.newNullifiers).toEqual([utxo]);
+        expect(sideEffects.nullifierChecks.length).toEqual(1);
+        expect(sideEffects.nullifierChecks[0].exists).toEqual(true);
+      });
+      it(`Should execute contract function that emits same nullifier twice (should fail)`, async () => {
+        const utxo = new Fr(42);
+        const calldata = [utxo];
+
+        // Get contract function artifact
+        const artifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_nullifier_collision')!;
+
+        // Decode bytecode into instructions
+        const bytecode = Buffer.from(artifact.bytecode, 'base64');
+
+        const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+        jest
+          .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+          .mockReturnValue(Promise.resolve(bytecode));
+
+        await new AvmSimulator(context).execute();
+        const results = await new AvmSimulator(context).execute();
+        expect(results.reverted).toBe(true);
+
+        // Only the first nullifier should be in the trace, second one failed to add
+        expect(context.persistableState.flush().newNullifiers).toEqual([utxo]);
       });
     });
   });

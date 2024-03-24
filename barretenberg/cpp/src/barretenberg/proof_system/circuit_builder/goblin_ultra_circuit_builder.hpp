@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
+#include "barretenberg/proof_system/execution_trace/execution_trace.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "ultra_circuit_builder.hpp"
 
@@ -9,6 +10,8 @@ using namespace bb;
 
 template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<UltraHonkArith<FF>> {
   public:
+    using Arithmetization = UltraHonkArith<FF>;
+
     static constexpr std::string_view NAME_STRING = "GoblinUltraArithmetization";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
@@ -24,30 +27,6 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     uint32_t add_accum_op_idx;
     uint32_t mul_accum_op_idx;
     uint32_t equality_op_idx;
-
-    using WireVector = std::vector<uint32_t, ContainerSlabAllocator<uint32_t>>;
-    using SelectorVector = std::vector<FF, ContainerSlabAllocator<FF>>;
-
-    // Wires storing ecc op queue data; values are indices into the variables array
-    std::array<WireVector, UltraHonkArith<FF>::NUM_WIRES> ecc_op_wires;
-
-    WireVector& ecc_op_wire_1() { return std::get<0>(ecc_op_wires); };
-    WireVector& ecc_op_wire_2() { return std::get<1>(ecc_op_wires); };
-    WireVector& ecc_op_wire_3() { return std::get<2>(ecc_op_wires); };
-    WireVector& ecc_op_wire_4() { return std::get<3>(ecc_op_wires); };
-
-    const WireVector& ecc_op_wire_1() const { return std::get<0>(ecc_op_wires); };
-    const WireVector& ecc_op_wire_2() const { return std::get<1>(ecc_op_wires); };
-    const WireVector& ecc_op_wire_3() const { return std::get<2>(ecc_op_wires); };
-    const WireVector& ecc_op_wire_4() const { return std::get<3>(ecc_op_wires); };
-
-    SelectorVector& q_busread() { return this->selectors.q_busread(); };
-    SelectorVector& q_poseidon2_external() { return this->selectors.q_poseidon2_external(); };
-    SelectorVector& q_poseidon2_internal() { return this->selectors.q_poseidon2_internal(); };
-
-    const SelectorVector& q_busread() const { return this->selectors.q_busread(); };
-    const SelectorVector& q_poseidon2_external() const { return this->selectors.q_poseidon2_external(); };
-    const SelectorVector& q_poseidon2_internal() const { return this->selectors.q_poseidon2_internal(); };
 
     // DataBus call/return data arrays
     std::vector<uint32_t> public_calldata;

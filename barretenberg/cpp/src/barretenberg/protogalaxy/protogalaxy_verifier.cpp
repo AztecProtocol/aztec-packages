@@ -88,22 +88,10 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
     auto index = 0;
     auto inst = instances[0];
     auto domain_separator = std::to_string(index);
-    // auto is_accumulator = transcript->template receive_from_prover<bool>(domain_separator + "is_accumulator");
     if (!inst->is_accumulator) {
-        // receive_accumulator(inst, domain_separator);
-        // } else {
-        // This is the first round of folding and we need to generate some gate challenges.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/740): implement option 2 to make this more
-        // efficient by avoiding the computation of the perturbator
         receive_and_finalise_instance(inst, domain_separator);
         inst->target_sum = 0;
-        auto beta = transcript->template get_challenge<FF>(domain_separator + "_initial_gate_challenge");
-        std::vector<FF> gate_challenges(inst->log_instance_size);
-        gate_challenges[0] = beta;
-        for (size_t i = 1; i < inst->log_instance_size; i++) {
-            gate_challenges[i] = gate_challenges[i - 1].sqr();
-        }
-        inst->gate_challenges = gate_challenges;
+        inst->gate_challenges = std::vector<FF>(inst->log_instance_size, 0);
     }
     index++;
 
@@ -124,9 +112,12 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     auto accumulator = get_accumulator();
     auto deltas = compute_round_challenge_pows(accumulator->log_instance_size, delta);
 
-    std::vector<FF> perturbator_coeffs(accumulator->log_instance_size + 1);
-    for (size_t idx = 1; idx <= accumulator->log_instance_size; idx++) {
-        perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
+    std::vector<FF> perturbator_coeffs(accumulator->log_instance_size + 1, 0);
+    if (accumulator->is_accumulator) {
+        for (size_t idx = 1; idx <= accumulator->log_instance_size; idx++) {
+            perturbator_coeffs[idx] =
+                transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
+        }
     }
 
     perturbator_coeffs[0] = accumulator->target_sum;
@@ -152,19 +143,18 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     next_accumulator->instance_size = accumulator->instance_size;
     next_accumulator->log_instance_size = accumulator->log_instance_size;
     next_accumulator->is_accumulator = true;
-    // Compute next folding parameters and verify against the ones received from the prover
+    // Compute next folding parameters
     next_accumulator->target_sum =
         perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
     next_accumulator->gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
+<<<<<<< HEAD
     // Compute ϕ and verify against the data received from the prover
     auto& acc_witness_commitments = next_accumulator->witness_commitments;
     auto witness_labels = commitment_labels.get_witness();
-    size_t comm_idx = 0;
     for (auto& comm : acc_witness_commitments.get_all()) {
         comm = Commitment::infinity();
-        size_t inst = 0;
         for (auto& instance : instances) {
             comm = comm + instance->witness_commitments.get_all()[comm_idx] * lagranges[inst];
             inst++;
@@ -213,7 +203,10 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
 
     next_accumulator->verification_key =
         std::make_shared<VerificationKey>(instances[0]->instance_size, instances[0]->public_input_size);
+<<<<<<< HEAD
     auto vk_labels = commitment_labels.get_precomputed();
+=======
+>>>>>>> c1709b3
     size_t vk_idx = 0;
     for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
         size_t inst = 0;

@@ -6,17 +6,18 @@ import {
   GlobalVariables,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
+  L2ToL1Message,
 } from '@aztec/circuits.js';
-import { makeHeader } from '@aztec/circuits.js/factories';
+import { makeHeader } from '@aztec/circuits.js/testing';
 import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ChildContractArtifact } from '@aztec/noir-contracts/Child';
-import { ParentContractArtifact } from '@aztec/noir-contracts/Parent';
-import { TestContractArtifact } from '@aztec/noir-contracts/Test';
-import { TokenContractArtifact } from '@aztec/noir-contracts/Token';
+import { ChildContractArtifact } from '@aztec/noir-contracts.js/Child';
+import { ParentContractArtifact } from '@aztec/noir-contracts.js/Parent';
+import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
@@ -100,13 +101,11 @@ describe('ACIR public execution simulator', () => {
         expect(result.contractStorageUpdateRequests).toEqual([
           {
             storageSlot: recipientBalanceStorageSlot,
-            oldValue: previousBalance,
             newValue: expectedBalance,
             sideEffectCounter: 3,
           },
           {
             storageSlot: totalSupplyStorageSlot,
-            oldValue: previousTotalSupply,
             newValue: expectedTotalSupply,
             sideEffectCounter: 4,
           },
@@ -189,13 +188,11 @@ describe('ACIR public execution simulator', () => {
         expect(result.contractStorageUpdateRequests).toEqual([
           {
             storageSlot: senderStorageSlot,
-            oldValue: senderBalance,
             newValue: expectedSenderBalance,
             sideEffectCounter: 1, // 1 read (sender balance)
           },
           {
             storageSlot: recipientStorageSlot,
-            oldValue: recipientBalance,
             newValue: expectedRecipientBalance,
             sideEffectCounter: 3, // 1 read (sender balance), 1 write (new sender balance), 1 read (recipient balance)
           },
@@ -210,7 +207,7 @@ describe('ACIR public execution simulator', () => {
         mockStore(senderBalance, recipientBalance);
 
         await expect(executor.simulate(execution, GlobalVariables.empty())).rejects.toThrowError(
-          'Assertion failed: Underflow',
+          'Assertion failed: attempt to subtract with underflow',
         );
       });
     });
@@ -305,7 +302,7 @@ describe('ACIR public execution simulator', () => {
       params = [amount, new Fr(1)];
     });
 
-    it('Should be able to create a commitment from the public context', async () => {
+    it('Should be able to create a note hash from the public context', async () => {
       const shieldArtifact = TokenContractArtifact.functions.find(f => f.name === 'shield')!;
       const msgSender = AztecAddress.random();
       const secretHash = Fr.random();
@@ -330,13 +327,13 @@ describe('ACIR public execution simulator', () => {
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await executor.simulate(execution, GlobalVariables.empty());
 
-      // Assert the commitment was created
-      expect(result.newCommitments.length).toEqual(1);
+      // Assert the note hash was created
+      expect(result.newNoteHashes.length).toEqual(1);
 
       const expectedNoteHash = pedersenHash([amount.toBuffer(), secretHash.toBuffer()]);
       const storageSlot = new Fr(5); // for pending_shields
-      const expectedInnerNoteHash = pedersenHash([storageSlot.toBuffer(), expectedNoteHash]);
-      expect(result.newCommitments[0].value.toBuffer()).toEqual(expectedInnerNoteHash);
+      const expectedInnerNoteHash = pedersenHash([storageSlot, expectedNoteHash].map(f => f.toBuffer()));
+      expect(result.newNoteHashes[0].value).toEqual(expectedInnerNoteHash);
     });
 
     it('Should be able to create a L2 to L1 message from the public context', async () => {
@@ -345,10 +342,12 @@ describe('ACIR public execution simulator', () => {
       )!;
       const args = encodeArguments(createL2ToL1MessagePublicArtifact, params);
 
+      const portalContractAddress = EthAddress.random();
+
       const callContext = CallContext.from({
         msgSender: AztecAddress.random(),
         storageContractAddress: contractAddress,
-        portalContractAddress: EthAddress.random(),
+        portalContractAddress,
         functionSelector: FunctionSelector.empty(),
         isContractDeployment: false,
         isDelegateCall: false,
@@ -364,8 +363,9 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenHash(params.map(a => a.toBuffer()));
-      expect(result.newL2ToL1Messages[0].toBuffer()).toEqual(expectedNewMessageValue);
+      const expectedNewMessage = new L2ToL1Message(portalContractAddress, pedersenHash(params.map(a => a.toBuffer())));
+
+      expect(result.newL2ToL1Messages[0]).toEqual(expectedNewMessage);
     });
 
     it('Should be able to create a nullifier from the public context', async () => {
@@ -395,7 +395,7 @@ describe('ACIR public execution simulator', () => {
       expect(result.newNullifiers.length).toEqual(1);
 
       const expectedNewMessageValue = pedersenHash(params.map(a => a.toBuffer()));
-      expect(result.newNullifiers[0].value.toBuffer()).toEqual(expectedNewMessageValue);
+      expect(result.newNullifiers[0].value).toEqual(expectedNewMessageValue);
     });
 
     describe('L1 to L2 messages', () => {
@@ -475,7 +475,7 @@ describe('ACIR public execution simulator', () => {
 
         let root = messageKey ?? preimage.hash();
         for (const sibling of siblingPathBuffers) {
-          root = Fr.fromBuffer(pedersenHash([root.toBuffer(), sibling]));
+          root = pedersenHash([root.toBuffer(), sibling]);
         }
         commitmentsDb.getL1ToL2Message.mockImplementation(() => {
           return Promise.resolve(new MessageLoadOracleInputs(preimage, 0n, siblingPath));

@@ -97,29 +97,33 @@ class PrecomputedEntitiesBase {
  * @tparam FF The scalar field on which we will encode our polynomial data. When instantiating, this may be extractable
  * from the other template paramter.
  */
-template <typename PrecomputedPolynomials, typename WitnessPolynomials>
+template <typename PrecomputedPolynomials, typename WitnessPolynomials, typename CommitmentKey_>
 class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
   public:
     using Polynomial = typename PrecomputedPolynomials::DataType;
     using FF = typename Polynomial::FF;
 
+    size_t circuit_size;
     bool contains_recursive_proof;
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bb::EvaluationDomain<FF> evaluation_domain;
+    std::shared_ptr<CommitmentKey_> commitment_key;
 
     std::vector<std::string> get_labels() const
     {
         return concatenate(PrecomputedPolynomials::get_labels(), WitnessPolynomials::get_labels());
     }
     // This order matters! must match get_unshifted in entity classes
-    RefVector<Polynomial> get_all() { return concatenate(get_precomputed_polynomials(), get_witness_polynomials()); }
-    RefVector<Polynomial> get_witness_polynomials() { return WitnessPolynomials::get_all(); }
-    RefVector<Polynomial> get_precomputed_polynomials() { return PrecomputedPolynomials::get_all(); }
+    auto get_all() { return concatenate(get_precomputed_polynomials(), get_witness_polynomials()); }
+    auto get_witness_polynomials() { return WitnessPolynomials::get_all(); }
+    auto get_precomputed_polynomials() { return PrecomputedPolynomials::get_all(); }
+    auto get_selectors() { return PrecomputedPolynomials::get_selectors(); }
     ProvingKey_() = default;
     ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
+        this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size + 1);
         this->evaluation_domain = bb::EvaluationDomain<FF>(circuit_size, circuit_size);
-        PrecomputedPolynomials::circuit_size = circuit_size;
+        this->circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
         // Allocate memory for precomputed polynomials
@@ -147,6 +151,16 @@ template <typename PrecomputedCommitments> class VerificationKey_ : public Preco
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
     };
+    template <typename ProvingKeyPtr> VerificationKey_(const ProvingKeyPtr& proving_key)
+    {
+        this->circuit_size = proving_key->circuit_size;
+        this->log_circuit_size = numeric::get_msb(this->circuit_size);
+        this->num_public_inputs = proving_key->num_public_inputs;
+
+        for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
+            commitment = proving_key->commitment_key->commit(polynomial);
+        }
+    }
 };
 
 // Because of how Gemini is written, is importat to put the polynomials out in this order.
@@ -284,6 +298,9 @@ namespace bb {
 
 template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
+
+template <typename T>
+concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra>;
 
 template <typename T> 
 concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, GoblinUltraFlavor>;
