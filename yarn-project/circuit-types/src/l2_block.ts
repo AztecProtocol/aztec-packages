@@ -1,6 +1,6 @@
 import { Body, TxEffect, TxHash } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header, STRING_ENCODING } from '@aztec/circuits.js';
-import { sha256 } from '@aztec/foundation/crypto';
+import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -10,8 +10,6 @@ import { makeAppendOnlyTreeSnapshot, makeHeader } from './l2_block_code_to_purge
  * The data that makes up the rollup proof, with encoder decoder functions.
  */
 export class L2Block {
-  #l1BlockNumber?: bigint;
-
   constructor(
     /** Snapshot of archive tree after the block is applied. */
     public archive: AppendOnlyTreeSnapshot,
@@ -19,30 +17,22 @@ export class L2Block {
     public header: Header,
     /** L2 block body. */
     public body: Body,
-    /** Associated L1 block num */
-    l1BlockNumber?: bigint,
-  ) {
-    this.#l1BlockNumber = l1BlockNumber;
-  }
+  ) {}
 
   /**
    * Constructs a new instance from named fields.
    * @param fields - Fields to pass to the constructor.
    * @param blockHash - Hash of the block.
-   * @param l1BlockNumber - The block number of the L1 block that contains this L2 block.
    * @returns A new instance.
    */
-  static fromFields(
-    fields: {
-      /** Snapshot of archive tree after the block is applied. */
-      archive: AppendOnlyTreeSnapshot;
-      /** L2 block header. */
-      header: Header;
-      body: Body;
-    },
-    l1BlockNumber?: bigint,
-  ) {
-    return new this(fields.archive, fields.header, fields.body, l1BlockNumber);
+  static fromFields(fields: {
+    /** Snapshot of archive tree after the block is applied. */
+    archive: AppendOnlyTreeSnapshot;
+    /** L2 block header. */
+    header: Header;
+    body: Body;
+  }) {
+    return new this(fields.archive, fields.header, fields.body);
   }
 
   /**
@@ -117,38 +107,27 @@ export class L2Block {
 
     const txsEffectsHash = body.getTxsEffectsHash();
 
-    return L2Block.fromFields(
-      {
-        archive: makeAppendOnlyTreeSnapshot(1),
-        header: makeHeader(0, l2BlockNum, txsEffectsHash, inHash),
-        body,
-      },
-      // just for testing purposes, each random L2 block got emitted in the equivalent L1 block
-      BigInt(l2BlockNum),
-    );
+    return L2Block.fromFields({
+      archive: makeAppendOnlyTreeSnapshot(1),
+      header: makeHeader(0, l2BlockNum, txsEffectsHash, inHash),
+      body,
+    });
+  }
+
+  /**
+   * Creates an L2 block containing empty data.
+   * @returns The L2 block.
+   */
+  static empty(): L2Block {
+    return L2Block.fromFields({
+      archive: AppendOnlyTreeSnapshot.zero(),
+      header: Header.empty(),
+      body: Body.empty(),
+    });
   }
 
   get number(): number {
     return Number(this.header.globalVariables.blockNumber.toBigInt());
-  }
-
-  /**
-   * Gets the L1 block number that included this block
-   */
-  public getL1BlockNumber(): bigint {
-    if (typeof this.#l1BlockNumber === 'undefined') {
-      throw new Error('L1 block number has to be attached before calling "getL1BlockNumber"');
-    }
-
-    return this.#l1BlockNumber;
-  }
-
-  /**
-   * Sets the L1 block number that included this block
-   * @param l1BlockNumber - The block number of the L1 block that contains this L2 block.
-   */
-  public setL1BlockNumber(l1BlockNumber: bigint) {
-    this.#l1BlockNumber = l1BlockNumber;
   }
 
   /**
@@ -181,7 +160,7 @@ export class L2Block {
       this.body.getTxsEffectsHash(),
     );
 
-    return Fr.fromBufferReduce(sha256(buf));
+    return sha256ToField(buf);
   }
 
   /**

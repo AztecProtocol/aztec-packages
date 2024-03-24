@@ -12,7 +12,12 @@ import {
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import {
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/types/contracts';
 
 import { DataRetrieval } from './data_retrieval.js';
 
@@ -20,10 +25,10 @@ import { DataRetrieval } from './data_retrieval.js';
  * Represents the latest L1 block processed by the archiver for various objects in L2.
  */
 export type ArchiverL1SynchPoint = {
-  /** The last L1 block that added a new L2 block.  */
-  blocks: bigint;
-  /** The last L1 block that added L1 -> L2 messages from the Inbox. */
-  messages: bigint;
+  /** Number of the last L1 block that added a new L2 block.  */
+  blocksSynchedTo: bigint;
+  /** Number of the last L1 block that added L1 -> L2 messages from the Inbox. */
+  messagesSynchedTo: bigint;
 };
 
 /**
@@ -134,7 +139,7 @@ export interface ArchiverDataStore {
   /**
    * Gets the synch point of the archiver
    */
-  getSynchedL1BlockNumbers(): Promise<ArchiverL1SynchPoint>;
+  getSynchPoint(): Promise<ArchiverL1SynchPoint>;
 
   /**
    * Add new contract classes from an L2 block to the store's list.
@@ -157,6 +162,15 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
+
+  /**
+   * Adds private functions to a contract class.
+   */
+  addFunctions(
+    contractClassId: Fr,
+    privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
+    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+  ): Promise<boolean>;
 
   /**
    * Returns a contract instance given its address, or undefined if not exists.
