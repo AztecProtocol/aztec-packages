@@ -112,6 +112,7 @@ end-to-end-minimal:
     WORKDIR /build/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
 
+# test
 build-end-to-end:
     ARG EARTHLY_GIT_HASH
     FROM +end-to-end-minimal
