@@ -60,7 +60,8 @@ if $INTERACTIVE ; then
   # don't play nice with tee if interactive
   earthly $EARTHLY_FLAGS $@
 elif ! earthly $EARTHLY_FLAGS $@ 2>&1 | tee .output.txt >&2 ; then
-  # we got a failure, handle retries
+  # we try earthly once, capturing output
+  # if we get one of our (unfortunate) known failures, handle retries
   # TODO potentially handle other intermittent errors here
   if grep 'failed to get edge: inconsistent graph state' .output.txt >/dev/null ; then
     # TODO when earthly is overloaded we sometimes get 
