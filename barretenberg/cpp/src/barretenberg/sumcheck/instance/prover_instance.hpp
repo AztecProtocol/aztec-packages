@@ -33,8 +33,6 @@ template <class Flavor> class ProverInstance_ {
     std::shared_ptr<ProvingKey> proving_key;
     ProverPolynomials prover_polynomials;
 
-    std::array<Polynomial, 4> sorted_polynomials;
-
     RelationSeparator alphas;
     bb::RelationParameters<FF> relation_parameters;
 
@@ -73,15 +71,10 @@ template <class Flavor> class ProverInstance_ {
 
         construct_table_polynomials(circuit, dyadic_circuit_size);
 
-        sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
+        proving_key->sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
 
         std::span<FF> public_wires_source = proving_key->w_r;
 
-        // Determine public input offsets in the circuit relative to the 0th index for Ultra flavors
-        proving_key->pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
-        if constexpr (IsGoblinFlavor<Flavor>) {
-            proving_key->pub_inputs_offset += proving_key->num_ecc_op_gates;
-        }
         // Construct the public inputs array
         for (size_t i = 0; i < proving_key->num_public_inputs; ++i) {
             size_t idx = i + proving_key->pub_inputs_offset;
@@ -92,19 +85,8 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_() = default;
     ~ProverInstance_() = default;
 
-    void initialize_prover_polynomials();
-
-    void compute_sorted_accumulator_polynomials(FF);
-
-    void compute_sorted_list_accumulator(FF);
-
-    void compute_logderivative_inverse(FF, FF)
-        requires IsGoblinFlavor<Flavor>;
-
     void compute_databus_id()
         requires IsGoblinFlavor<Flavor>;
-
-    void compute_grand_product_polynomials(FF, FF);
 
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
@@ -117,8 +99,6 @@ template <class Flavor> class ProverInstance_ {
         requires IsGoblinFlavor<Flavor>;
 
     void construct_table_polynomials(Circuit&, size_t);
-
-    void add_plookup_memory_records_to_wire_4(FF);
 };
 
 } // namespace bb
