@@ -361,7 +361,7 @@ describe('e2e_public_cross_chain_messaging', () => {
 
       await crossChainTestHarness.makeMessageConsumable(msgHash);
 
-      // Finally, e consume the L1 -> L2 message using the test contract either from private or public
+      // Finally, we consume the L1 -> L2 message using the test contract either from private or public
       if (isPrivate) {
         await testContract.methods
           .consume_message_from_arbitrary_sender_private(message.content, secret, message.sender.sender)
