@@ -124,7 +124,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * Returns the first index containing a leaf value after `startIndex`.
    * @param treeId - The tree for which the index should be returned.
    * @param value - The value to search for in the tree.
-   * @param startIndex - The index to start searching from (used when skipping nullified messages in oracle in PXE)
+   * @param startIndex - The index to start searching from (used when skipping nullified messages)
    */
   findLeafIndexAfter(treeId: MerkleTreeId, value: Buffer, startIndex: bigint): Promise<bigint | undefined> {
     return this.trees.findLeafIndexAfter(treeId, value, startIndex, this.includeUncommitted);

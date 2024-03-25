@@ -157,7 +157,8 @@ export class AvmPersistableStateManager {
     let exists = false;
     try {
       // The following 2 values are used to compute a message nullifier. Given that here we do not care about getting
-      // non-nullified messages we can just pass in an invalid value and the nullifier check will be ignored.
+      // non-nullified messages we can just pass in random values and the nullifier check will effectively be ignored
+      // (no nullifier will be found).
       const ignoredContractAddress = AztecAddress.random();
       const ignoredSecret = Fr.random();
       const gotMessage = await this.hostStorage.commitmentsDb.getL1ToL2MembershipWitness(

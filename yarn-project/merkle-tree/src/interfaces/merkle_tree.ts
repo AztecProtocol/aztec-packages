@@ -61,7 +61,7 @@ export interface MerkleTree extends SiblingPathSource {
   /**
    * Returns the first index containing a leaf value after `startIndex`.
    * @param leaf - The leaf value to look for.
-   * @param startIndex - The index to start searching from (used when skipping nullified messages in oracle in PXE)
+   * @param startIndex - The index to start searching from (used when skipping nullified messages)
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */

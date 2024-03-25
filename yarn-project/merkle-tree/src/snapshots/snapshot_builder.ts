@@ -60,7 +60,7 @@ export interface TreeSnapshot {
   /**
    * Returns the first index containing a leaf value after `startIndex`.
    * @param leaf - The leaf value to look for.
-   * @param startIndex - The index to start searching from (used when skipping nullified messages in oracle in PXE)
+   * @param startIndex - The index to start searching from (used when skipping nullified messages)
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
   findLeafIndexAfter(leaf: Buffer, startIndex: bigint): bigint | undefined;
