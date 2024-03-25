@@ -7,39 +7,43 @@
 namespace bb::Avm_vm {
 
 template <typename FF> struct Avm_binaryRow {
-    FF avm_binary_acc_ic_shift{};
-    FF avm_binary_acc_ib{};
-    FF avm_binary_bin_sel{};
-    FF avm_binary_acc_ib_shift{};
-    FF avm_binary_op_id{};
-    FF avm_binary_bin_ic_bytes{};
     FF avm_binary_acc_ic{};
+    FF avm_binary_acc_ib_shift{};
     FF avm_binary_acc_ia{};
-    FF avm_binary_mem_tag_ctr{};
+    FF avm_binary_acc_ia_shift{};
+    FF avm_binary_acc_ib{};
+    FF avm_binary_op_id{};
     FF avm_binary_bin_ib_bytes{};
     FF avm_binary_op_id_shift{};
-    FF avm_binary_acc_ia_shift{};
     FF avm_binary_bin_ia_bytes{};
     FF avm_binary_mem_tag_ctr_shift{};
+    FF avm_binary_bin_ic_bytes{};
+    FF avm_binary_acc_ic_shift{};
+    FF avm_binary_mem_tag_ctr_inv{};
+    FF avm_binary_mem_tag_ctr{};
+    FF avm_binary_bin_sel{};
 };
 
 inline std::string get_relation_label_avm_binary(int index)
 {
     switch (index) {
+    case 8:
+        return "ACC_REL_C";
+
     case 2:
         return "MEM_TAG_REL";
 
-    case 8:
-        return "ACC_REL_C";
+    case 3:
+        return "BIN_SEL_CTR_REL";
+
+    case 1:
+        return "OP_ID_REL";
 
     case 6:
         return "ACC_REL_A";
 
     case 7:
         return "ACC_REL_B";
-
-    case 1:
-        return "OP_ID_REL";
     }
     return std::to_string(index);
 }
@@ -49,7 +53,7 @@ template <typename FF_> class avm_binaryImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS{
-        3, 3, 3, 3, 3, 3, 4, 4, 4,
+        3, 3, 3, 4, 3, 3, 4, 4, 4,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -87,7 +91,10 @@ template <typename FF_> class avm_binaryImpl {
         {
             Avm_DECLARE_VIEWS(3);
 
-            auto tmp = ((-avm_binary_bin_sel + FF(1)) * avm_binary_mem_tag_ctr);
+            auto tmp =
+                ((avm_binary_mem_tag_ctr * (((-avm_binary_bin_sel + FF(1)) * (-avm_binary_mem_tag_ctr_inv + FF(1))) +
+                                            avm_binary_mem_tag_ctr_inv)) -
+                 avm_binary_bin_sel);
             tmp *= scaling_factor;
             std::get<3>(evals) += tmp;
         }

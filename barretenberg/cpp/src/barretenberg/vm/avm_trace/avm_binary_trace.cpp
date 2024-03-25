@@ -78,7 +78,7 @@ void AvmBinaryTraceBuilder::entry_builder(
             .op_id = op_id,
             .in_tag = static_cast<uint8_t>(instr_tag),
             .mem_tag_ctr = static_cast<uint8_t>(num_bytes - i),
-            .mem_tag_ctr_inv = i == num_bytes ? FF(1) : FF(num_bytes - i).invert(),
+            .mem_tag_ctr_inv = i == num_bytes ? FF(0) : FF(num_bytes - i).invert(),
             .start = i == 0,
             .acc_ia = FF(uint256_t::from_uint128(acc_ia)),
             .acc_ib = FF(uint256_t::from_uint128(acc_ib)),
@@ -87,8 +87,11 @@ void AvmBinaryTraceBuilder::entry_builder(
             .bin_ib_bytes = b_bytes[i],
             .bin_ic_bytes = c_bytes[i],
         });
-        auto lookup_index = static_cast<uint32_t>((op_id << 16) + (a_bytes[i] << 8) + b_bytes[i]);
-        byte_operation_counter[lookup_index]++;
+        // We only perform a lookup when bin_sel = 1, i.e. when we still have bytes to process
+        if (i != num_bytes) {
+            auto lookup_index = static_cast<uint32_t>((op_id << 16) + (a_bytes[i] << 8) + b_bytes[i]);
+            byte_operation_counter[lookup_index]++;
+        }
         acc_ia = (acc_ia - a_bytes[i]) / 256;
         acc_ib = (acc_ib - b_bytes[i]) / 256;
         acc_ic = (acc_ic - c_bytes[i]) / 256;

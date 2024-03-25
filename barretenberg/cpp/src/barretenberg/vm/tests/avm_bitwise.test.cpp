@@ -169,6 +169,7 @@ enum BIT_FAILURES {
     InconsistentOpId,
     ByteLookupError,
     ByteLengthError,
+    IncorrectBinSelector,
 };
 std::vector<Row> gen_mutated_trace_bit(std::vector<Row> trace,
                                        std::function<bool(Row)>&& select_row,
@@ -227,19 +228,25 @@ std::vector<Row> gen_mutated_trace_bit(std::vector<Row> trace,
         for (size_t i = first_index; i <= last_index; i++) {
             FF ctr = trace.at(i).avm_binary_mem_tag_ctr;
             if (ctr == FF::one()) {
-                // If the tag is currently 1, it will be set to 0 which means we need to set bin_sel to 1.
-                trace.at(i).avm_binary_bin_sel = FF(1);
-                trace.at(i).avm_binary_mem_tag_ctr = trace.at(i).avm_binary_mem_tag_ctr - 1;
+                // If the tag is currently 1, it will be set to 0 which means we need to set bin_sel to 0.
+                trace.at(i).avm_binary_bin_sel = FF(0);
+                trace.at(i).avm_binary_mem_tag_ctr = FF(0);
+                trace.at(i).avm_binary_mem_tag_ctr_inv = FF(0);
             } else if (ctr == FF::zero()) {
                 // Leave as zero instead of underflowing
-                trace.at(i).avm_binary_mem_tag_ctr = 0;
+                trace.at(i).avm_binary_mem_tag_ctr = FF(0);
             } else {
-                // Just decrement the mem_tag_ctr
-                trace.at(i).avm_binary_mem_tag_ctr = trace.at(i).avm_binary_mem_tag_ctr - 1;
+                // Replace the values with the next row's values
+                trace.at(i).avm_binary_mem_tag_ctr = trace.at(i + 1).avm_binary_mem_tag_ctr;
+                trace.at(i).avm_binary_mem_tag_ctr_inv = trace.at(i + 1).avm_binary_mem_tag_ctr_inv;
+                trace.at(i).avm_binary_bin_sel = trace.at(i + 1).avm_binary_bin_sel;
             }
         }
         break;
     }
+    case IncorrectBinSelector:
+        binary_row->avm_binary_bin_sel = FF(0);
+        break;
     }
     return trace;
 }
@@ -449,7 +456,8 @@ std::vector<std::tuple<std::string, BIT_FAILURES>> bit_failures = {
     { "MEM_TAG_REL", BIT_FAILURES::MemTagCtr },
     { "LOOKUP_BYTE_LENGTHS", BIT_FAILURES::ByteLengthError },
     { "LOOKUP_BYTE_OPERATIONS", BIT_FAILURES::ByteLookupError },
-    { "OP_ID_REL", BIT_FAILURES::InconsistentOpId }
+    { "OP_ID_REL", BIT_FAILURES::InconsistentOpId },
+    { "BIN_SEL_CTR_REL", BIT_FAILURES::IncorrectBinSelector },
 };
 // For the negative test the output is set to be incorrect so that we can test the byte lookups.
 // Picking "simple" inputs such as zero also makes it easier when check the byte length lookups as we dont

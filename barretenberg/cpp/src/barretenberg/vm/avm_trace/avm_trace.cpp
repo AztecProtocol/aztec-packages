@@ -1236,7 +1236,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
         auto const& src = bin_trace.at(i);
         auto& dest = main_trace.at(i);
         dest.avm_binary_bin_clk = src.binary_clk;
-        dest.avm_binary_bin_sel = src.bin_sel;
+        dest.avm_binary_bin_sel = static_cast<uint8_t>(src.bin_sel);
         dest.avm_binary_acc_ia = src.acc_ia;
         dest.avm_binary_acc_ib = src.acc_ib;
         dest.avm_binary_acc_ic = src.acc_ic;
