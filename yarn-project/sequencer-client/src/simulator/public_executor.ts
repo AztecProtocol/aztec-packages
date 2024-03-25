@@ -244,7 +244,7 @@ export class WorldStateDB implements CommitmentsDB {
         throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
       }
 
-      const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, startIndex);
+      const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, messageIndex);
       nullifierIndex = await this.getNullifierIndex(messageNullifier);
 
       startIndex = messageIndex + 1n;
