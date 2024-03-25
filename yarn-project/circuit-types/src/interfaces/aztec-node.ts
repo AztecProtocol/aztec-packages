@@ -7,6 +7,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
+import { DecodedReturn, ProcessReturnValues } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -276,7 +277,7 @@ export interface AztecNode {
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(tx: Tx): Promise<void>;
+  simulatePublicCalls(tx: Tx): Promise<ProcessReturnValues[]>;
 
   /**
    * Updates the configuration of this node.

@@ -37,7 +37,13 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { ContractArtifact, DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import {
+  ContractArtifact,
+  DecodedReturn,
+  FunctionSelector,
+  ProcessReturnValues,
+  encodeArguments,
+} from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
@@ -420,10 +426,8 @@ export class PXEService implements PXE {
       const simulatePublic = msgSender === undefined;
       const vue = await this.#simulateCall(txRequest, msgSender);
       if (simulatePublic) {
-        await this.#simulatePublicCalls(vue.tx);
-        // console.log(returns);
-        /*const t = returns[0];
-        vue.rv = t && t[0];*/
+        // Only one transaction, so we can take index 0.
+        vue.publicReturnValues = (await this.#simulatePublicCalls(vue.tx))[0];
       }
       return vue;
     });
@@ -464,8 +468,8 @@ export class PXEService implements PXE {
       `Needs setup: ${publicInputs.needsSetup}, needs app logic: ${publicInputs.needsAppLogic}, needs teardown: ${publicInputs.needsTeardown}`,
     );
 
-    const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
-    const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
+    const encryptedLogs = new EncryptedTxL2Logs(collectEncryptedLogs(executionResult));
+    const unencryptedLogs = new UnencryptedTxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
 
     // HACK(#1639): Manually patches the ordering of the public call stack
@@ -474,7 +478,10 @@ export class PXEService implements PXE {
 
     const tx = new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
 
-    return new Vue(tx, executionResult.returnValues);
+    // TODO - Consider whether it would be possible to abuse this to make a multicall
+    const privateReturn: ProcessReturnValues = [executionResult.returnValues];
+
+    return new Vue(tx, privateReturn);
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
@@ -641,7 +648,7 @@ export class PXEService implements PXE {
    */
   async #simulatePublicCalls(tx: Tx) {
     try {
-      await this.node.simulatePublicCalls(tx);
+      return await this.node.simulatePublicCalls(tx);
     } catch (err) {
       // Try to fill in the noir call stack since the PXE may have access to the debug metadata
       if (err instanceof SimulationError) {

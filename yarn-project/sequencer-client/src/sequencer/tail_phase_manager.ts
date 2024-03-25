@@ -37,6 +37,6 @@ export class TailPhaseManager extends AbstractPhaseManager {
     // commit the state updates from this transaction
     await this.publicStateDB.commit();
 
-    return { publicKernelOutput, publicKernelProof, revertReason: undefined };
+    return { publicKernelOutput, publicKernelProof, revertReason: undefined, returnValues: undefined};
   }
 }

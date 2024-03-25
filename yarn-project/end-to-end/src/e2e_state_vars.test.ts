@@ -1,51 +1,31 @@
-import { DebugLogger, FunctionSelector, Wallet } from '@aztec/aztec.js';
-import { decodeFunctionSignature } from '@aztec/foundation/abi';
+import { Wallet } from '@aztec/aztec.js';
 import { DocsExampleContract } from '@aztec/noir-contracts.js';
+
+import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
+const TIMEOUT = 100_000;
+
 describe('e2e_state_vars', () => {
+  jest.setTimeout(TIMEOUT);
+
   let wallet: Wallet;
 
   let teardown: () => Promise<void>;
   let contract: DocsExampleContract;
-  let logger: DebugLogger;
 
   const POINTS = 1n;
   const RANDOMNESS = 2n;
 
   beforeAll(async () => {
-    ({ teardown, wallet, logger } = await setup());
+    ({ teardown, wallet } = await setup());
     contract = await DocsExampleContract.deploy(wallet).send().deployed();
-  }, 25_000);
+  }, 30_000);
 
   afterAll(() => teardown());
 
   describe('SharedImmutable', () => {
-    it.only('private read of uninitialized SharedImmutable', async () => {
-      await contract.methods.initialize_shared_immutable(1).send().wait();
-      const returnsConstrained = await contract.methods.get_shared_immutable_constrained_private().viewConstrained();
-      const returnsUnconstrained = await contract.methods.get_shared_immutable().view();
-
-      console.log(`Return values from private constrained:`, returnsConstrained);
-      console.log(`Return values from unconstrained:`, returnsUnconstrained);
-
-      console.log(await contract.methods.get_message_sender().viewConstrained());
-
-      console.log(await contract.methods.multicall().viewConstrained());
-    });
-
-    it('public read of uninitialized SharedImmutable', async () => {
-      DocsExampleContract.artifact.functions.forEach(fn => {
-        const sig = decodeFunctionSignature(fn.name, fn.parameters);
-        logger(`Function ${sig} and the selector: ${FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)}`);
-      });
-
-      // await contract.methods.initialize_shared_immutable(1).send().wait();
-      // console.log(await contract.methods.get_shared_immutable_constrained().viewConstrained());
-      console.log(await contract.methods.get_message_sender_public().viewConstrained());
-    });
-
     it('private read of uninitialized SharedImmutable', async () => {
       const s = await contract.methods.get_shared_immutable().view();
 
@@ -53,12 +33,35 @@ describe('e2e_state_vars', () => {
       await contract.methods.match_shared_immutable(s.account, s.points).send().wait();
     });
 
-    it('private read of initialized SharedImmutable', async () => {
+    it('private read of SharedImmutable', async () => {
       await contract.methods.initialize_shared_immutable(1).send().wait();
-      const s = await contract.methods.get_shared_immutable().view();
 
-      await contract.methods.match_shared_immutable(s.account, s.points).send().wait();
-    }, 200_000);
+      const a = await contract.methods.get_shared_immutable_constrained_private().viewConstrained();
+      const b = await contract.methods.get_shared_immutable_constrained_private_indirect().viewConstrained();
+      const c = await contract.methods.get_shared_immutable().view();
+
+      expect((a as any)[0]).toEqual((c as any)['account'].toBigInt());
+      expect((a as any)[1]).toEqual((c as any)['points']);
+      expect((b as any)[0]).toEqual((c as any)['account'].toBigInt());
+      expect((b as any)[1]).toEqual((c as any)['points']);
+
+      expect(a).toEqual(b);
+      await contract.methods.match_shared_immutable(c.account, c.points).send().wait();
+    });
+
+    it('public read of SharedImmutable', async () => {
+      const a = await contract.methods.get_shared_immutable_constrained().viewConstrained();
+      const b = await contract.methods.get_shared_immutable_constrained_indirect().viewConstrained();
+      const c = await contract.methods.get_shared_immutable().view();
+
+      expect((a as any)[0]).toEqual((c as any)['account'].toBigInt());
+      expect((a as any)[1]).toEqual((c as any)['points']);
+      expect((b as any)[0]).toEqual((c as any)['account'].toBigInt());
+      expect((b as any)[1]).toEqual((c as any)['points']);
+
+      expect(a).toEqual(b);
+      await contract.methods.match_shared_immutable(c.account, c.points).send().wait();
+    });
 
     it('initializing SharedImmutable the second time should fail', async () => {
       // Jest executes the tests sequentially and the first call to initialize_shared_immutable was executed

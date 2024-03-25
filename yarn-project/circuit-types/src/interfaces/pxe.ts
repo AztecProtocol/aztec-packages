@@ -1,5 +1,5 @@
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
-import { ContractArtifact, DecodedReturn } from '@aztec/foundation/abi';
+import { ContractArtifact, ProcessReturnValues } from '@aztec/foundation/abi';
 import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
@@ -14,7 +14,11 @@ import { TxExecutionRequest } from '../tx_execution_request.js';
 import { SyncStatus } from './sync-status.js';
 
 export class Vue {
-  constructor(public tx: Tx, public rv?: DecodedReturn) {}
+  constructor(
+    public tx: Tx,
+    public privateReturnValues?: ProcessReturnValues,
+    public publicReturnValues?: ProcessReturnValues,
+  ) {}
 }
 
 // docs:start:pxe-interface

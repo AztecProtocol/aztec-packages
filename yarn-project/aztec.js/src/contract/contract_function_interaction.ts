@@ -86,21 +86,13 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @returns The result of the view transaction as returned by the contract function.
    */
   public async viewConstrained(options: ViewMethodOptions = {}) {
-    // We need to create the request, but we need to change the entry-point slightly I think :thinking:
-
     const packedArgs = PackedArguments.fromArgs(encodeArguments(this.functionDao, this.args));
 
-    // I have forgotten what the hell origin is.
-
-    const nodeInfo = await this.wallet.getNodeInfo();
-
-    // We need to figure something better around for doing the simulation to have a origin and a to that is different
-    // such that we can actually replace the "msg_sender" etc
-
-    // Depending on public or not we need to do some changes.
     const a = FunctionData.fromAbi(this.functionDao);
 
     if (a.isPrivate) {
+      const nodeInfo = await this.wallet.getNodeInfo();
+
       const txRequest = TxExecutionRequest.from({
         argsHash: packedArgs.hash,
         origin: this.contractAddress,
@@ -111,11 +103,11 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       });
 
       const vue = await this.pxe.simulateCall(txRequest, options.from ?? this.wallet.getAddress());
-      return vue.rv;
+      return vue.privateReturnValues && vue.privateReturnValues[0];
     } else {
       await this.create();
       const vue = await this.pxe.simulateCall(this.txRequest!);
-      return vue.rv;
+      return vue.publicReturnValues && vue.publicReturnValues[0];
     }
   }
 }
