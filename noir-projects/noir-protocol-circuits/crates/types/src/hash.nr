@@ -231,7 +231,7 @@ fn compute_var_args_hash() {
         input.push(i as Field);
     }
     let hash = hash_args(input);
-    assert(hash == 0x371960dd84ed3445ab099ac4c1af5ba90e0c713b593e0ca52ee532087c7f097);
+    assert(hash == 0x05a1023fef839ac88731f49ae983e172c1b600a3c8f3393ad0ac25d819ac0f0f);
 }
 
 #[test]
