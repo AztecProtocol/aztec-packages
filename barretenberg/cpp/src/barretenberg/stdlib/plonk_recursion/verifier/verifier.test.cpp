@@ -366,7 +366,13 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         create_inner_circuit(builder, inputs);
 
-        bool result = CircuitChecker::check(builder);
+        InnerComposer inner_composer;
+
+        auto prover = inner_composer.create_prover(builder);
+        auto verifier = inner_composer.create_verifier(builder);
+        auto proof = prover.construct_proof();
+        auto result = verifier.verify_proof(proof);
+
         EXPECT_EQ(result, true);
     }
 
