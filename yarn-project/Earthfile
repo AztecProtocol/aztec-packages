@@ -74,29 +74,10 @@ end-to-end:
     FROM +source
     # compilation artifacts for end-to-end
     # TODO encapsulate in bash script for cleanliness
-    ARG EARTHLY_CI
-    IF $EARTHLY_CI # Don't cache CI builds.
-        RUN ./bootstrap.sh && \
-            yarn workspace @aztec/end-to-end run build:web && \
-            yarn workspaces focus @aztec/end-to-end --production \
-            && yarn cache clean
-    ELSE
-        ENV YARN_CACHE_FOLDER /yarn_cache
-        # TODO copy to other targets
-        # Use a mount for incremental builds locally.
-        # We cache NPM installs, typescript metadata and dest folders.
-        # TODO(AD): find safe way to cache noir contracts
-        RUN   --mount type=cache,target=/node_cache \
-              --mount type=cache,target=/yarn_cache \
-            mkdir -p /node_cache/node_modules && mv /node_cache/node_modules . && \
-            cp -r /node_cache/* . >/dev/null || echo "fresh build" && \
-            ./bootstrap.sh && \
-            yarn workspace @aztec/end-to-end run build:web && \
-            yarn workspaces focus @aztec/end-to-end --production && \
-            cp -r node_modules /node_cache/node_modules && \
-            cp -r --parents */dest /node_cache && \
-            find . -name '*.tsbuildinfo' -exec cp --parents {} /node_cache \;
-    END
+    RUN ./bootstrap.sh && \
+        yarn workspace @aztec/end-to-end run build:web && \
+        yarn workspaces focus @aztec/end-to-end --production \
+        && yarn cache clean
     # Build web bundle for browser tests
     RUN yarn workspace @aztec/end-to-end run build:web
     RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
