@@ -1,8 +1,12 @@
-import { EncryptedFunctionL2Logs, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
+import {
+  EncryptedFunctionL2Logs,
+  EncryptedL2Log,
+  UnencryptedFunctionL2Logs,
+  UnencryptedL2Log,
+} from '@aztec/circuit-types';
 import { AztecAddress, PrivateCallStackItem } from '@aztec/circuits.js';
 import { EventSelector } from '@aztec/foundation/abi';
 
-import { EncryptedL2Log } from '../../../circuit-types/src/logs/encrypted_l2_log.js';
 import { ExecutionResult, collectEncryptedLogs, collectUnencryptedLogs } from './execution_result.js';
 
 function emptyExecutionResult(): ExecutionResult {

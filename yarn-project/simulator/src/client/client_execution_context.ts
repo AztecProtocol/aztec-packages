@@ -2,6 +2,7 @@ import {
   AuthWitness,
   AztecNode,
   EncryptedFunctionL2Logs,
+  EncryptedL2Log,
   L1NotePayload,
   Note,
   NoteStatus,
@@ -26,7 +27,6 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { EncryptedL2Log } from '../../../circuit-types/src/logs/encrypted_l2_log.js';
 import { NoteData, toACVMWitness } from '../acvm/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { DBOracle } from './db_oracle.js';

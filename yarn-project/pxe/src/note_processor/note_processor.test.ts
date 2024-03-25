@@ -2,6 +2,7 @@ import {
   AztecNode,
   EncryptedFunctionL2Logs,
   EncryptedL2BlockL2Logs,
+  EncryptedL2Log,
   EncryptedTxL2Logs,
   KeyPair,
   KeyStore,
@@ -22,7 +23,6 @@ import { AcirSimulator } from '@aztec/simulator';
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { EncryptedL2Log } from '../../../circuit-types/src/logs/encrypted_l2_log.js';
 import { PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { NoteDao } from '../database/note_dao.js';
