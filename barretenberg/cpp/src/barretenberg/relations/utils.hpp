@@ -71,9 +71,8 @@ template <typename Flavor> class RelationUtils {
      * scaled)
      * @param current_scalar power of the challenge
      */
-    static void scale_univariates(auto& tuple,
-                                  const RelationSeparator& challenges,
-                                  FF& current_scalar) requires bb::IsFoldingFlavor<Flavor>
+    static void scale_univariates(auto& tuple, const RelationSeparator& challenges, FF& current_scalar)
+        requires bb::IsFoldingFlavor<Flavor>
     {
         size_t idx = 0;
         std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
@@ -92,9 +91,8 @@ template <typename Flavor> class RelationUtils {
      * @param challenge
      * @param current_scalar power of the challenge
      */
-    static void scale_univariates(auto& tuple,
-                                  const RelationSeparator& challenge,
-                                  FF& current_scalar) requires(!bb::IsFoldingFlavor<Flavor>)
+    static void scale_univariates(auto& tuple, const RelationSeparator& challenge, FF& current_scalar)
+        requires(!bb::IsFoldingFlavor<Flavor>)
     {
         auto scale_by_consecutive_powers_of_challenge = [&]<size_t, size_t>(auto& element) {
             element *= current_scalar;
@@ -194,7 +192,8 @@ template <typename Flavor> class RelationUtils {
     static void scale_and_batch_elements(auto& tuple,
                                          const RelationSeparator& challenges,
                                          FF current_scalar,
-                                         FF& result) requires bb::IsFoldingFlavor<Flavor>
+                                         FF& result)
+        requires bb::IsFoldingFlavor<Flavor>
     {
         size_t idx = 0;
         std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
@@ -227,7 +226,8 @@ template <typename Flavor> class RelationUtils {
                                          const RelationSeparator& challenges,
                                          FF current_scalar,
                                          FF& result,
-                                         FF& linearly_dependent_contribution) requires bb::IsFoldingFlavor<Flavor>
+                                         FF& linearly_dependent_contribution)
+        requires bb::IsFoldingFlavor<Flavor>
     {
         size_t idx = 0;
         std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
@@ -253,10 +253,8 @@ template <typename Flavor> class RelationUtils {
      * @brief Scale elements by consecutive powers of a given challenge then sum the result
      * @param result Batched result
      */
-    static void scale_and_batch_elements(auto& tuple,
-                                         const RelationSeparator& challenge,
-                                         FF current_scalar,
-                                         FF& result) requires(!bb::IsFoldingFlavor<Flavor>)
+    static void scale_and_batch_elements(auto& tuple, const RelationSeparator& challenge, FF current_scalar, FF& result)
+        requires(!bb::IsFoldingFlavor<Flavor>)
     {
         auto scale_by_challenge_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {

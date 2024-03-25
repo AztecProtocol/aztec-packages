@@ -173,7 +173,8 @@ template <typename Composer> void cycle_group<Composer>::validate_is_on_curve() 
  * @return cycle_group<Composer>
  */
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::dbl() const requires IsNotUltraArithmetic<Composer>
+cycle_group<Composer> cycle_group<Composer>::dbl() const
+    requires IsNotUltraArithmetic<Composer>
 {
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y);
     auto lambda = (x * x * 3) / (modified_y + modified_y);
@@ -189,7 +190,8 @@ cycle_group<Composer> cycle_group<Composer>::dbl() const requires IsNotUltraArit
  * @return cycle_group<Composer>
  */
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::dbl() const requires IsUltraArithmetic<Composer>
+cycle_group<Composer> cycle_group<Composer>::dbl() const
+    requires IsUltraArithmetic<Composer>
 {
     // ensure we use a value of y that is not zero. (only happens if point at infinity)
     // this costs 0 gates if `is_infinity` is a circuit constant
@@ -231,8 +233,8 @@ cycle_group<Composer> cycle_group<Composer>::dbl() const requires IsUltraArithme
  * @return cycle_group<Composer>
  */
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group& other) const requires
-    IsNotUltraArithmetic<Composer>
+cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group& other) const
+    requires IsNotUltraArithmetic<Composer>
 {
     auto x_diff = other.x - x;
     auto y_diff = other.y - y;
@@ -256,8 +258,8 @@ cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group
  * @return cycle_group<Composer>
  */
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group& other) const requires
-    IsUltraArithmetic<Composer>
+cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group& other) const
+    requires IsUltraArithmetic<Composer>
 {
     auto context = get_context(other);
 
@@ -1003,7 +1005,8 @@ template <typename Composer>
 typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>::_fixed_base_batch_mul_internal(
     const std::span<cycle_scalar> scalars,
     const std::span<AffineElement> base_points,
-    const std::span<AffineElement const> /*unused*/) requires IsUltraArithmetic<Composer>
+    const std::span<AffineElement const> /*unused*/)
+    requires IsUltraArithmetic<Composer>
 {
     ASSERT(scalars.size() == base_points.size());
 
@@ -1075,7 +1078,8 @@ template <typename Composer>
 typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>::_fixed_base_batch_mul_internal(
     const std::span<cycle_scalar> scalars,
     const std::span<AffineElement> base_points,
-    const std::span<AffineElement const> offset_generators) requires IsNotUltraArithmetic<Composer>
+    const std::span<AffineElement const> offset_generators)
+    requires IsNotUltraArithmetic<Composer>
 
 {
     ASSERT(scalars.size() == base_points.size());

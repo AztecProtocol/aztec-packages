@@ -180,10 +180,14 @@ template <typename Composer> class cycle_group {
     bool_t is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_t& is_infinity) { _is_infinity = is_infinity; }
     void validate_is_on_curve() const;
-    cycle_group dbl() const requires IsUltraArithmetic<Composer>;
-    cycle_group dbl() const requires IsNotUltraArithmetic<Composer>;
-    cycle_group unconditional_add(const cycle_group& other) const requires IsUltraArithmetic<Composer>;
-    cycle_group unconditional_add(const cycle_group& other) const requires IsNotUltraArithmetic<Composer>;
+    cycle_group dbl() const
+        requires IsUltraArithmetic<Composer>;
+    cycle_group dbl() const
+        requires IsNotUltraArithmetic<Composer>;
+    cycle_group unconditional_add(const cycle_group& other) const
+        requires IsUltraArithmetic<Composer>;
+    cycle_group unconditional_add(const cycle_group& other) const
+        requires IsNotUltraArithmetic<Composer>;
     cycle_group unconditional_subtract(const cycle_group& other) const;
     cycle_group checked_unconditional_add(const cycle_group& other) const;
     cycle_group checked_unconditional_subtract(const cycle_group& other) const;
@@ -214,14 +218,14 @@ template <typename Composer> class cycle_group {
                                                                        std::span<AffineElement const> offset_generators,
                                                                        bool unconditional_add);
 
-    static batch_mul_internal_output _fixed_base_batch_mul_internal(
-        std::span<cycle_scalar> scalars,
-        std::span<AffineElement> base_points,
-        std::span<AffineElement const> offset_generators) requires IsUltraArithmetic<Composer>;
-    static batch_mul_internal_output _fixed_base_batch_mul_internal(
-        std::span<cycle_scalar> scalars,
-        std::span<AffineElement> base_points,
-        std::span<AffineElement const> offset_generators) requires IsNotUltraArithmetic<Composer>;
+    static batch_mul_internal_output _fixed_base_batch_mul_internal(std::span<cycle_scalar> scalars,
+                                                                    std::span<AffineElement> base_points,
+                                                                    std::span<AffineElement const> offset_generators)
+        requires IsUltraArithmetic<Composer>;
+    static batch_mul_internal_output _fixed_base_batch_mul_internal(std::span<cycle_scalar> scalars,
+                                                                    std::span<AffineElement> base_points,
+                                                                    std::span<AffineElement const> offset_generators)
+        requires IsNotUltraArithmetic<Composer>;
 };
 
 template <typename ComposerContext>
