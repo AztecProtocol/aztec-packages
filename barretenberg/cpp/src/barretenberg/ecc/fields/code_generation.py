@@ -97,6 +97,48 @@ def one_level_karatsuba_product(left_argument_prefix,right_argument_prefix,inter
 
     return '\n'.join(accumulation_actions)
 
+def one_level_cook_product(left_argument_prefix,right_argument_prefix,intermediate_result_prefix, num_limbs):
+    assert(num_limbs%3==0)
+    accumulation_actions=[]
+    accumulation_actions.append(f"constexpr uint64_t inv_3 = 0x{pow(3,-1,1<<64):016x}UL;")
+    for i in range(num_limbs//3):
+        for j in range(5):
+            accumulation_actions.append(f"uint64_t cook_left_group_{i}_p_{j};")
+            accumulation_actions.append(f"uint64_t cook_right_group_{i}_p_{j};")
+        accumulation_actions.append(f"cook_left_group_{i}_p_4 = {left_argument_prefix}[{i*3}] + {left_argument_prefix}[{i*3+2}];")
+        accumulation_actions.append(f"cook_left_group_{i}_p_0 = {left_argument_prefix}[{i*3}];")
+        accumulation_actions.append(f"cook_left_group_{i}_p_1 = cook_left_group_{i}_p_4 + {left_argument_prefix}[{i*3}+1];")
+        accumulation_actions.append(f"cook_left_group_{i}_p_2 = cook_left_group_{i}_p_4 - {left_argument_prefix}[{i*3}+1];")
+        accumulation_actions.append(f"cook_left_group_{i}_p_3 = ((cook_left_group_{i}_p_2 + {left_argument_prefix}[{i*3}+2]) << 1) - {left_argument_prefix}[{i*3}];")
+        accumulation_actions.append(f"cook_left_group_{i}_p_4 = {left_argument_prefix}[{i*3+2}];")
+        accumulation_actions.append(f"cook_right_group_{i}_p_4 = {right_argument_prefix}[{i*3}] + {right_argument_prefix}[{i*3+2}];")
+        accumulation_actions.append(f"cook_right_group_{i}_p_0 = {right_argument_prefix}[{i*3}];")
+        accumulation_actions.append(f"cook_right_group_{i}_p_1 = cook_right_group_{i}_p_4 + {right_argument_prefix}[{i*3}+1];")
+        accumulation_actions.append(f"cook_right_group_{i}_p_2 = cook_right_group_{i}_p_4 - {right_argument_prefix}[{i*3}+1];")
+        accumulation_actions.append(f"cook_right_group_{i}_p_3 = ((cook_right_group_{i}_p_2 + {right_argument_prefix}[{i*3}+2]) << 1) - {right_argument_prefix}[{i*3}];")
+        accumulation_actions.append(f"cook_right_group_{i}_p_4 = {right_argument_prefix}[{i*3+2}];")
+    
+    for i in range(5):
+        accumulation_actions.append(f"uint64_t cook_result_{i};")
+    for i in range(3):
+        for j in range(3):
+            for k in range(5):
+                accumulation_actions.append(f"cook_result_{k} = cook_left_group_{i}_p_{k} * cook_right_group_{j}_p_{k};")
+            accumulation_actions.append(f"cook_result_3 =  (cook_result_3 - cook_result_1) * inv_3;")
+            accumulation_actions.append(f"cook_result_1 =  (cook_result_1 - cook_result_2) >> 1;")
+            accumulation_actions.append(f"cook_result_2 =  cook_result_2 - cook_result_0;")
+            accumulation_actions.append(f"cook_result_3 =  ((cook_result_2 - cook_result_3) >> 1) + (cook_result_4<<1);")
+            accumulation_actions.append(f"cook_result_2 = cook_result_2 + cook_result_1 - cook_result_4;")
+            accumulation_actions.append(f"cook_result_1 = cook_result_1 - cook_result_3;")
+            accumulation_actions.append(f"{intermediate_result_prefix}_{(i+j)*3} += cook_result_0;")
+            accumulation_actions.append(f"{intermediate_result_prefix}_{(i+j)*3 + 1} += cook_result_1;")
+            accumulation_actions.append(f"{intermediate_result_prefix}_{(i+j)*3 + 2} += cook_result_2;")
+            accumulation_actions.append(f"{intermediate_result_prefix}_{(i+j)*3 + 3} += cook_result_3;")
+            accumulation_actions.append(f"{intermediate_result_prefix}_{(i+j)*3 + 4} += cook_result_4;")
+            
+
+    return '\n'.join(accumulation_actions)
+
 def grade_school_sqr(left_argument_prefix,intermediate_result_prefix, num_limbs):
     accumulation_actions=[]
     accumulation_actions.append("uint64_t acc;")
@@ -203,6 +245,22 @@ def print_karatsuba_multiplication(original_bits,new_bits,original_limbs,new_lim
     print (reduce_relaxed("temp",new_bits,new_limbs))
     print(accumulate_into_result([f"temp_{new_limbs+i}" for i in range(new_limbs)],new_limbs,new_bits,original_limbs,original_bits,254))
 
+def print_cook_multiplication(original_bits,new_bits,original_limbs,new_limbs):        
+    wasm_modulus_initialization="constexpr "+convert_a_limbs_into_b_limbs("modulus.data","wasm_modulus",original_bits,new_bits,original_limbs)
+    left_initialization=convert_a_limbs_into_b_limbs("data","left",original_bits,new_bits,original_limbs)
+    right_initialization=convert_a_limbs_into_b_limbs("other.data","right",original_bits,new_bits,original_limbs)
+    print (wasm_modulus_initialization.replace("=",''))
+    print (left_initialization)
+    print (right_initialization)
+    print (initialize_mask(new_bits))
+    print (initialize_r_inv(new_bits))
+    print (initialize_variables_for_grade_school_multiplication("temp",new_limbs))
+    print (one_level_cook_product("left","right","temp",new_limbs))
+    for i in range(new_limbs):
+        print(reduce_one_limb("temp","wasm_modulus",i,new_bits,new_limbs,i==0))
+    print (reduce_relaxed("temp",new_bits,new_limbs))
+    print(accumulate_into_result([f"temp_{new_limbs+i}" for i in range(new_limbs)],new_limbs,new_bits,original_limbs,original_bits,254))
+
 import sys
 if __name__=="__main__":
     original_bits=64
@@ -215,8 +273,6 @@ if __name__=="__main__":
         print_regular_sqr(original_bits,new_bits,original_limbs,new_limbs)
     elif sys.argv[1]=="--karatsuba-mult":
         print_karatsuba_multiplication(original_bits,new_bits,original_limbs,new_limbs)
+    elif sys.argv[1]=="--cook-mult":
+        print_cook_multiplication(original_bits,new_bits,original_limbs,new_limbs)
 
-
-
-
-    
