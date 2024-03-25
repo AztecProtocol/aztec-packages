@@ -163,7 +163,7 @@ cli-docs-sandbox:
 
 e2e-docs-examples:
   ARG e2e_remote=false
-  DO +E2E_TEST --test=docs_examples --avm_enabled=true --e2e_remote=$e2e_remote
+  DO +E2E_TEST --test=docs_examples --e2e_remote=$e2e_remote
 
 # all:
 #   for stability, instead of an 'all' target in Earthly, use `make all`

@@ -8,7 +8,6 @@ import { Contract } from '@aztec/aztec.js';
 // docs:start:import_token_contract
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
-
 // docs:end:import_token_contract
 
 describe('doc tests', () => {
