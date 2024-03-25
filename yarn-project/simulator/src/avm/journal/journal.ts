@@ -156,7 +156,7 @@ export class AvmPersistableStateManager {
   public async checkL1ToL2MessageExists(msgHash: Fr, msgLeafIndex: Fr): Promise<boolean> {
     let exists = false;
     try {
-      // This following 2 values are used to compute a message nullifier. Given that here we do not care about getting
+      // The following 2 values are used to compute a message nullifier. Given that here we do not care about getting
       // non-nullified messages we can just pass in an invalid value and the nullifier check will be ignored.
       const ignoredContractAddress = AztecAddress.random();
       const ignoredSecret = Fr.random();

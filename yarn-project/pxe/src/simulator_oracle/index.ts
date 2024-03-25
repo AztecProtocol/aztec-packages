@@ -136,12 +136,13 @@ export class SimulatorOracle implements DBOracle {
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     let nullifierIndex: bigint | undefined;
     let messageIndex = 0n;
+    let startIndex = 0n;
     let siblingPath: SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>;
 
     // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> we need to check
     // for nullifiers because messages can have duplicates.
     do {
-      const response = await this.aztecNode.getL1ToL2MessageMembershipWitness('latest', messageHash, messageIndex);
+      const response = await this.aztecNode.getL1ToL2MessageMembershipWitness('latest', messageHash, startIndex);
       if (!response) {
         throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
       }
@@ -149,6 +150,8 @@ export class SimulatorOracle implements DBOracle {
 
       const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, messageIndex);
       nullifierIndex = await this.getNullifierIndex(messageNullifier);
+
+      startIndex = messageIndex + 1n;
     } while (nullifierIndex !== undefined);
 
     // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs

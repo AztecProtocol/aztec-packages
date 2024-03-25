@@ -230,6 +230,7 @@ export class WorldStateDB implements CommitmentsDB {
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     let nullifierIndex: bigint | undefined;
     let messageIndex: bigint | undefined;
+    let startIndex = 0n;
 
     // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> we need to check
     // for nullifiers because messages can have duplicates.
@@ -239,8 +240,10 @@ export class WorldStateDB implements CommitmentsDB {
         throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
       }
 
-      const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, messageIndex);
+      const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, startIndex);
       nullifierIndex = await this.getNullifierIndex(messageNullifier);
+
+      startIndex = messageIndex + 1n;
     } while (nullifierIndex !== undefined);
 
     const siblingPath = await this.db.getSiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
