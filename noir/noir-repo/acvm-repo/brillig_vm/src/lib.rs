@@ -254,91 +254,14 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                     return self.wait_for_foreign_call(function.clone(), resolved_inputs);
                 }
 
-                let values = &self.foreign_call_results[self.foreign_call_counter].values;
+                let write_result = self.write_foreign_call_result(
+                    destinations,
+                    destination_value_types,
+                    self.foreign_call_counter,
+                );
 
-                let mut invalid_foreign_call_result = false;
-                for ((destination, value_type), output) in
-                    destinations.iter().zip(destination_value_types).zip(values)
-                {
-                    match (destination, value_type) {
-                        (ValueOrArray::MemoryAddress(value_index), HeapValueType::Simple(bit_size)) => {
-                            match output {
-                                ForeignCallParam::Single(value) => {
-                                    self.memory.write(*value_index, MemoryValue::new(*value, *bit_size));
-                                }
-                                _ => unreachable!(
-                                    "Function result size does not match brillig bytecode. Expected 1 result but got {output:?}"
-                                ),
-                            }
-                        }
-                        (
-                            ValueOrArray::HeapArray(HeapArray { pointer: pointer_index, size }),
-                            HeapValueType::Array { value_types, size: type_size },
-                        ) if size == type_size => {
-                            if HeapValueType::all_simple(value_types) {
-                                let bit_sizes_iterator = value_types.iter().map(|typ| match typ {
-                                    HeapValueType::Simple(bit_size) => *bit_size,
-                                    _ => unreachable!("Expected simple value type"),
-                                }).cycle();
-                                match output {
-                                    ForeignCallParam::Array(values) => {
-                                        if values.len() != *size {
-                                            invalid_foreign_call_result = true;
-                                            break;
-                                        }
-                                        // Convert the destination pointer to a usize
-                                        let destination = self.memory.read_ref(*pointer_index);
-                                        // Write to our destination memory
-                                        let values: Vec<_> = values.iter().zip(bit_sizes_iterator).map(|(value, bit_size)| MemoryValue::new(*value, bit_size)).collect();
-                                        self.memory.write_slice(destination, &values);
-                                    }
-                                    _ => {
-                                        unreachable!("Function result size does not match brillig bytecode size")
-                                    }
-                                }
-                            } else {
-                                unimplemented!("deflattening heap arrays from foreign calls");
-                            }
-                        }
-                        (
-                            ValueOrArray::HeapVector(HeapVector {pointer: pointer_index, size: size_index }),
-                            HeapValueType::Vector { value_types },
-                        ) => {
-                            if HeapValueType::all_simple(value_types) {
-                                let bit_sizes_iterator = value_types.iter().map(|typ| match typ {
-                                    HeapValueType::Simple(bit_size) => *bit_size,
-                                    _ => unreachable!("Expected simple value type"),
-                                }).cycle();
-                                match output {
-                                    ForeignCallParam::Array(values) => {
-                                        // Set our size in the size address
-                                        self.memory.write(*size_index, values.len().into());
-                                        // Convert the destination pointer to a usize
-                                        let destination = self.memory.read_ref(*pointer_index);
-                                        // Write to our destination memory
-                                        let values: Vec<_> = values.iter().zip(bit_sizes_iterator).map(|(value, bit_size)| MemoryValue::new(*value, bit_size)).collect();
-                                        self.memory.write_slice(destination, &values);
-                                    }
-                                    _ => {
-                                        unreachable!("Function result size does not match brillig bytecode size")
-                                    }
-                                }
-                            } else {
-                                unimplemented!("deflattening heap vectors from foreign calls");
-                            }
-                        }
-                        _ => {
-                            unreachable!("Unexpected value type {value_type:?} for destination {destination:?}");
-                        }
-                    }
-                }
-
-                // These checks must come after resolving the foreign call outputs as `fail` uses a mutable reference
-                if destinations.len() != values.len() {
-                    self.fail(format!("{} output values were provided as a foreign call result for {} destination slots", values.len(), destinations.len()));
-                }
-                if invalid_foreign_call_result {
-                    self.fail("Function result size does not match brillig bytecode".to_owned());
+                if let Err(e) = write_result {
+                    return self.fail(e);
                 }
 
                 self.foreign_call_counter += 1;
@@ -505,6 +428,124 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                 })
                 .collect::<Vec<_>>()
         }
+    }
+
+    fn write_foreign_call_result(
+        &mut self,
+        destinations: &[ValueOrArray],
+        destination_value_types: &[HeapValueType],
+        foreign_call_index: usize,
+    ) -> Result<(), String> {
+        let values = &self.foreign_call_results[foreign_call_index].values;
+
+        if destinations.len() != values.len() {
+            return Err(format!(
+                "{} output values were provided as a foreign call result for {} destination slots",
+                values.len(),
+                destinations.len()
+            ));
+        }
+
+        for ((destination, value_type), output) in
+            destinations.iter().zip(destination_value_types).zip(values)
+        {
+            match (destination, value_type) {
+                (ValueOrArray::MemoryAddress(value_index), HeapValueType::Simple(bit_size)) => {
+                    match output {
+                        ForeignCallParam::Single(value) => {
+                            let memory_value = MemoryValue::new_checked(*value, *bit_size);
+                            if let Some(memory_value) = memory_value {
+                                self.memory.write(*value_index, memory_value);
+                            } else {
+                                return Err(format!(
+                                    "Foreign call result value {} does not fit in bit size {}",
+                                    value,
+                                    bit_size
+                                ));
+                            }
+                        }
+                        _ => return Err(format!(
+                            "Function result size does not match brillig bytecode. Expected 1 result but got {output:?}")
+                        ),
+                    }
+                }
+                (
+                    ValueOrArray::HeapArray(HeapArray { pointer: pointer_index, size }),
+                    HeapValueType::Array { value_types, size: type_size },
+                ) if size == type_size => {
+                    if HeapValueType::all_simple(value_types) {
+                        let bit_sizes_iterator = value_types.iter().map(|typ| match typ {
+                            HeapValueType::Simple(bit_size) => *bit_size,
+                            _ => unreachable!("Expected simple value type"),
+                        }).cycle();
+                        match output {
+                            ForeignCallParam::Array(values) => {
+                                if values.len() != *size {
+                                    return Err("Foreign call result array doesn't match expected size".to_string());
+                                }
+                                // Convert the destination pointer to a usize
+                                let destination = self.memory.read_ref(*pointer_index);
+                                // Write to our destination memory
+                                let memory_values: Option<Vec<_>> = values.iter().zip(bit_sizes_iterator).map(
+                                    |(value, bit_size)| MemoryValue::new_checked(*value, bit_size)).collect();
+                                if let Some(memory_values) = memory_values {
+                                    self.memory.write_slice(destination, &memory_values);
+                                } else {
+                                    return Err(format!(
+                                        "Foreign call result values {:?} do not match expected bit sizes",
+                                        values,
+                                    ));
+                                }
+                            }
+                            _ => {
+                                return Err("Function result size does not match brillig bytecode size".to_string());
+                            }
+                        }
+                    } else {
+                        unimplemented!("deflattening heap arrays from foreign calls");
+                    }
+                }
+                (
+                    ValueOrArray::HeapVector(HeapVector {pointer: pointer_index, size: size_index }),
+                    HeapValueType::Vector { value_types },
+                ) => {
+                    if HeapValueType::all_simple(value_types) {
+                        let bit_sizes_iterator = value_types.iter().map(|typ| match typ {
+                            HeapValueType::Simple(bit_size) => *bit_size,
+                            _ => unreachable!("Expected simple value type"),
+                        }).cycle();
+                        match output {
+                            ForeignCallParam::Array(values) => {
+                                // Set our size in the size address
+                                self.memory.write(*size_index, values.len().into());
+                                // Convert the destination pointer to a usize
+                                let destination = self.memory.read_ref(*pointer_index);
+                                // Write to our destination memory
+                                let memory_values: Option<Vec<_>> = values.iter().zip(bit_sizes_iterator).map(|(value, bit_size)| MemoryValue::new_checked(*value, bit_size)).collect();
+                                if let Some(memory_values) = memory_values {
+                                    self.memory.write_slice(destination, &memory_values);
+                                }else{
+                                    return Err(format!(
+                                        "Foreign call result values {:?} do not match expected bit sizes",
+                                        values,
+                                    ));
+                                }
+                            }
+                            _ => {
+                                return Err("Function result size does not match brillig bytecode size".to_string());
+                            }
+                        }
+                    } else {
+                        unimplemented!("deflattening heap vectors from foreign calls");
+                    }
+                }
+                _ => {
+                    return Err(format!("Unexpected value type {value_type:?} for destination {destination:?}"));
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Process a binary operation.
