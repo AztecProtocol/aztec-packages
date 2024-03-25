@@ -1,5 +1,5 @@
-import { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, FunctionData } from '@aztec/circuits.js';
+import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
+import { AztecAddress, FunctionData, TxContext } from '@aztec/circuits.js';
 import { FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 
 import { Wallet } from '../account/wallet.js';
@@ -76,5 +76,46 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
     const { from } = options;
     return this.wallet.viewTx(this.functionDao.name, this.args, this.contractAddress, from);
+  }
+
+  /**
+   * Execute a view (read-only) transaction on an unconstrained function.
+   * This method is used to call functions that do not modify the contract state and only return data.
+   * Throws an error if called on a non-unconstrained function.
+   * @param options - An optional object containing additional configuration for the transaction.
+   * @returns The result of the view transaction as returned by the contract function.
+   */
+  public async viewConstrained(options: ViewMethodOptions = {}) {
+    // We need to create the request, but we need to change the entry-point slightly I think :thinking:
+
+    const packedArgs = PackedArguments.fromArgs(encodeArguments(this.functionDao, this.args));
+
+    // I have forgotten what the hell origin is.
+
+    const nodeInfo = await this.wallet.getNodeInfo();
+
+    // We need to figure something better around for doing the simulation to have a origin and a to that is different
+    // such that we can actually replace the "msg_sender" etc
+
+    // Depending on public or not we need to do some changes.
+    const a = FunctionData.fromAbi(this.functionDao);
+
+    if (a.isPrivate) {
+      const txRequest = TxExecutionRequest.from({
+        argsHash: packedArgs.hash,
+        origin: this.contractAddress,
+        functionData: FunctionData.fromAbi(this.functionDao),
+        txContext: TxContext.empty(nodeInfo.chainId, nodeInfo.protocolVersion),
+        packedArguments: [packedArgs],
+        authWitnesses: [],
+      });
+
+      const vue = await this.pxe.simulateCall(txRequest, options.from ?? this.wallet.getAddress());
+      return vue.rv;
+    } else {
+      await this.create();
+      const vue = await this.pxe.simulateCall(this.txRequest!);
+      return vue.rv;
+    }
   }
 }
