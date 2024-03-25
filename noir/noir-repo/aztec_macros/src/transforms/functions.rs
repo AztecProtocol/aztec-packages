@@ -157,7 +157,7 @@ fn create_inputs(ty: &str) -> Param {
     let type_path = chained_dep!("aztec", "context", "inputs", &path_snippet, ty);
 
     let context_type = make_type(UnresolvedTypeData::Named(type_path, vec![], true));
-    let visibility = Visibility::Private;
+    let visibility = Visibility::Public;
 
     Param { pattern: context_pattern, typ: context_type, visibility, span: Span::default() }
 }
