@@ -71,7 +71,8 @@ contract HonkVerifier is IVerifier {
     /// 4. Implement the zero morph verifier
 
     // TODO: increase this number accordingly
-    uint256 internal constant NUMBER_OF_SUBRELATIONS = 17;
+    uint256 internal constant NUMBER_OF_SUBRELATIONS = 18;
+    uint256 internal constant NUMBER_OF_ALPHAS = 17;
     uint256 internal constant BATCHED_RELATION_PARTIAL_LENGTH = 7;
     uint256 internal constant NUMBER_OF_ENTITIES = 43;
     Fr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = Fr.wrap(17); // -(-17) 
@@ -88,7 +89,7 @@ contract HonkVerifier is IVerifier {
 
     struct TranscriptParameters {
         // Relation Challenges
-        Fr[NUMBER_OF_SUBRELATIONS] alphas;
+        Fr[NUMBER_OF_ALPHAS] alphas;
         Fr[LOG_N] gateChallenges;
         Fr[LOG_N] sumCheckUChallenges;
 
@@ -341,7 +342,7 @@ contract HonkVerifier is IVerifier {
         // WORKTODO: there are more items pushed to the sumcheck challenges 1
         tp.alphas = generateAlphaChallenges(tp.gamma, proof);
 
-        tp.gateChallenges = generateGateChallenges(tp.alphas[NUMBER_OF_SUBRELATIONS - 1]);
+        tp.gateChallenges = generateGateChallenges(tp.alphas[NUMBER_OF_ALPHAS - 1]);
 
         tp.sumCheckUChallenges = generateSumcheckChallenges(proof, tp.gateChallenges[LOG_N - 1]);
         tp.rho = generateRhoChallenge(proof, tp.sumCheckUChallenges[LOG_N - 1]);
@@ -415,9 +416,9 @@ contract HonkVerifier is IVerifier {
     // Alpha challenges non-linearise the gate contributions
     function generateAlphaChallenges(Fr previousChallenge, HonkTypes.Proof memory proof) 
         internal view
-        returns (Fr[NUMBER_OF_SUBRELATIONS] memory)
+        returns (Fr[NUMBER_OF_ALPHAS] memory)
     {
-        Fr[NUMBER_OF_SUBRELATIONS] memory alphas;
+        Fr[NUMBER_OF_ALPHAS] memory alphas;
 
         // Generate the original sumcheck alpha 0 by hashing zPerm and zLookup
         // TODO(md): 5 post correct proof size fix
@@ -437,7 +438,7 @@ contract HonkVerifier is IVerifier {
         logFr("alpha0", alphas[0]);
 
         Fr prevChallenge = alphas[0];
-        for (uint256 i = 1; i < NUMBER_OF_SUBRELATIONS; i++) {
+        for (uint256 i = 1; i < NUMBER_OF_ALPHAS; i++) {
             prevChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(prevChallenge))));
             alphas[i] = prevChallenge;
             logFr("alpha", alphas[i]);
@@ -610,11 +611,14 @@ contract HonkVerifier is IVerifier {
         }
 
         // Last round 
+        Fr grandHonkRelationSum = accumulateRelationEvaluations(proof, tp, powPartialEvaluation);
 
-        accumulateRelationEvaluations(proof, tp, powPartialEvaluation);
+        logFr("grand sum", grandHonkRelationSum);
+        logFr("roundTarget", roundTarget);
+        // TODO: Impl comparison
+        verified = (Fr.unwrap(grandHonkRelationSum) == Fr.unwrap(roundTarget));
 
-        
-
+        console.log("verified", verified);
 
         
         return verified;
@@ -718,13 +722,22 @@ contract HonkVerifier is IVerifier {
         // TODO: will need to check shifts?
         Fr[NUMBER_OF_SUBRELATIONS] memory evaluations;
 
+        // Accumulate all 6 custom gates - each with varying number of subrelations 
+        // TODO: annotate how many subrealtions each has
         accumulateArithmeticRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulatePermutationRelation(purportedEvaluations, tp, evaluations, powPartialEval);
         accumulateLookupRelation(purportedEvaluations, tp, evaluations, powPartialEval);
         accumulateGenPermRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulateEllipticRelation(purportedEvaluations, evaluations, powPartialEval);
+        accumulateAuxillaryRelation(purportedEvaluations, tp, evaluations, powPartialEval);
 
+        // Apply alpha challenges to challenge evaluations
+        // Returns grand honk realtion evaluation
+        return scaleAndBatchSubrelations(evaluations, tp.alphas);
+}
 
+    function wire(Fr[NUMBER_OF_ENTITIES] memory p, WIRE _wire) internal pure returns (Fr) {
+        return p[uint256(_wire)];
     }
 
     // Relations can go in their own files and be nice and readable
@@ -734,13 +747,13 @@ contract HonkVerifier is IVerifier {
         // Relation 0
         // WIRES
         
-        Fr q_arith = p[uint(WIRE.Q_ARITH)];
+        Fr q_arith = wire(p,WIRE.Q_ARITH);
         {
             Fr neg_half = Fr.wrap(0) - (FrLib.invert(Fr.wrap(2)));
 
-            Fr accum = (q_arith - Fr.wrap(3)) * (p[uint(WIRE.Q_M)] * p[uint(WIRE.W_R)] * p[uint(WIRE.W_L)]) * neg_half;
-            accum = accum + (p[uint(WIRE.Q_L)] * p[uint(WIRE.W_L)]) + (p[uint(WIRE.Q_R)] * p[uint(WIRE.W_R)]) + (p[uint(WIRE.Q_O)] * p[uint(WIRE.W_O)]) + (p[uint(WIRE.Q_4)] * p[uint(WIRE.W_4)]) + p[uint(WIRE.Q_C)];
-            accum = accum + (q_arith - Fr.wrap(1)) * p[uint(WIRE.W_4_SHIFT)];
+            Fr accum = (q_arith - Fr.wrap(3)) * (wire(p,WIRE.Q_M) * wire(p,WIRE.W_R) * wire(p,WIRE.W_L)) * neg_half;
+            accum = accum + (wire(p,WIRE.Q_L) * wire(p,WIRE.W_L)) + (wire(p,WIRE.Q_R) * wire(p,WIRE.W_R)) + (wire(p,WIRE.Q_O) * wire(p,WIRE.W_O)) + (wire(p,WIRE.Q_4) * wire(p,WIRE.W_4)) + wire(p,WIRE.Q_C);
+            accum = accum + (q_arith - Fr.wrap(1)) * wire(p,WIRE.W_4_SHIFT);
             accum = accum * q_arith;
             accum = accum * powPartialEval;
             evals[0] = accum;
@@ -752,7 +765,7 @@ contract HonkVerifier is IVerifier {
         // Relation 1
         {
 
-            Fr accum = p[uint(WIRE.W_L)] + p[uint(WIRE.W_4)] - p[uint(WIRE.W_L_SHIFT)] + p[uint(WIRE.Q_M)];
+            Fr accum = wire(p,WIRE.W_L) + wire(p,WIRE.W_4) - wire(p,WIRE.W_L_SHIFT) + wire(p,WIRE.Q_M);
             accum = accum * (q_arith - Fr.wrap(2));
             accum = accum * (q_arith - Fr.wrap(1));
             accum = accum * q_arith;
@@ -768,19 +781,19 @@ contract HonkVerifier is IVerifier {
         Fr grand_product_denominator;
 
         {
-            Fr num = p[uint(WIRE.W_L)] + p[uint(WIRE.ID_1)] * tp.beta + tp.gamma;
-            num = num * (p[uint(WIRE.W_R)] + p[uint(WIRE.ID_2)] * tp.beta + tp.gamma);
-            num = num * (p[uint(WIRE.W_O)] + p[uint(WIRE.ID_3)] * tp.beta + tp.gamma);
-            num = num * (p[uint(WIRE.W_4)] + p[uint(WIRE.ID_4)] * tp.beta + tp.gamma);
+            Fr num = wire(p,WIRE.W_L) + wire(p,WIRE.ID_1) * tp.beta + tp.gamma;
+            num = num * (wire(p,WIRE.W_R) + wire(p,WIRE.ID_2) * tp.beta + tp.gamma);
+            num = num * (wire(p,WIRE.W_O) + wire(p,WIRE.ID_3) * tp.beta + tp.gamma);
+            num = num * (wire(p,WIRE.W_4) + wire(p,WIRE.ID_4) * tp.beta + tp.gamma);
 
             grand_product_numerator = num;
             logFr("numerator", grand_product_numerator);
         }
         {
-            Fr den = p[uint(WIRE.W_L)] + p[uint(WIRE.SIGMA_1)] * tp.beta + tp.gamma;
-            den  = den * (p[uint(WIRE.W_R)] + p[uint(WIRE.SIGMA_2)] * tp.beta + tp.gamma);
-            den  = den * (p[uint(WIRE.W_O)] + p[uint(WIRE.SIGMA_3)] * tp.beta + tp.gamma);
-            den  = den * (p[uint(WIRE.W_4)] + p[uint(WIRE.SIGMA_4)] * tp.beta + tp.gamma);
+            Fr den = wire(p,WIRE.W_L) + wire(p,WIRE.SIGMA_1) * tp.beta + tp.gamma;
+            den  = den * (wire(p,WIRE.W_R) + wire(p,WIRE.SIGMA_2) * tp.beta + tp.gamma);
+            den  = den * (wire(p,WIRE.W_O) + wire(p,WIRE.SIGMA_3) * tp.beta + tp.gamma);
+            den  = den * (wire(p,WIRE.W_4) + wire(p,WIRE.SIGMA_4) * tp.beta + tp.gamma);
 
             grand_product_denominator = den;
             logFr("denominator", grand_product_denominator);
@@ -788,9 +801,9 @@ contract HonkVerifier is IVerifier {
 
         // Contribution 2
         {
-            Fr acc = (p[uint(WIRE.Z_PERM)] + p[uint(WIRE.LAGRANGE_FIRST)]) * grand_product_numerator; 
+            Fr acc = (wire(p,WIRE.Z_PERM) + wire(p,WIRE.LAGRANGE_FIRST)) * grand_product_numerator; 
 
-            acc = acc - ((p[uint(WIRE.Z_PERM_SHIFT)] + (p[uint(WIRE.LAGRANGE_LAST)] * tp.publicInputsDelta)) *  grand_product_denominator);
+            acc = acc - ((wire(p,WIRE.Z_PERM_SHIFT) + (wire(p,WIRE.LAGRANGE_LAST) * tp.publicInputsDelta)) *  grand_product_denominator);
             acc = acc * powPartialEval;
             evals[2] = acc;
             logFr("perm rel 0: ", acc);
@@ -798,7 +811,7 @@ contract HonkVerifier is IVerifier {
 
         // Contribution 3
         {
-            Fr acc = (p[uint(WIRE.LAGRANGE_LAST)] * p[uint(WIRE.Z_PERM_SHIFT)]) * powPartialEval;
+            Fr acc = (wire(p,WIRE.LAGRANGE_LAST) * wire(p,WIRE.Z_PERM_SHIFT)) * powPartialEval;
             evals[3] = acc;
             logFr("perm rel 1: ", acc);
         }
@@ -830,22 +843,22 @@ contract HonkVerifier is IVerifier {
 
         {
             {
-                // (p[uint(WIRE.W_L)] + q_2*p[uint(WIRE.W_1_SHIFT)]) + η(p[uint(WIRE.W_R)] + q_m*p[uint(WIRE.W_2_SHIFT)]) + η²(p[uint(WIRE.W_O)] + q_c*p[uint(WIRE.W_3_SHIFT)]) + η³q_index.
+                // (wire(p,WIRE.W_L)] + q_2*wire(p,WIRE.W_1_SHIFT)]) + η(wire(p,WIRE.W_R)] + q_m*wire(p,WIRE.W_2_SHIFT)]) + η²(wire(p,WIRE.W_O)] + q_c*wire(p,WIRE.W_3_SHIFT)]) + η³q_index.
                 // deg 2 or 4
-                Fr wire_accum = (p[uint(WIRE.W_L)] + p[uint(WIRE.Q_R)] * p[uint(WIRE.W_L_SHIFT)]);
-                wire_accum = wire_accum + (p[uint(WIRE.W_R)] + p[uint(WIRE.Q_M)] * p[uint(WIRE.W_R_SHIFT)]) * tp.eta;
+                Fr wire_accum = (wire(p,WIRE.W_L) + wire(p,WIRE.Q_R) * wire(p,WIRE.W_L_SHIFT));
+                wire_accum = wire_accum + (wire(p,WIRE.W_R) + wire(p,WIRE.Q_M) * wire(p,WIRE.W_R_SHIFT)) * tp.eta;
                 wire_accum = wire_accum +
-                          (p[uint(WIRE.W_O)] + p[uint(WIRE.Q_C)] * p[uint(WIRE.W_O_SHIFT)]) * lp.eta_sqr;
-                wire_accum = wire_accum + p[uint(WIRE.Q_O)] * lp.eta_cube;
+                          (wire(p,WIRE.W_O) + wire(p,WIRE.Q_C) * wire(p,WIRE.W_O_SHIFT)) * lp.eta_sqr;
+                wire_accum = wire_accum + wire(p,WIRE.Q_O) * lp.eta_cube;
                 lp.wire_accum = wire_accum;
             }
 
             // t_1 + ηt_2 + η²t_3 + η³t_4
             // deg 1 or 4
             {
-                Fr table_accum = p[uint(WIRE.TABLE_1)] + p[uint(WIRE.TABLE_2)] * tp.eta;
-                table_accum = table_accum + p[uint(WIRE.TABLE_3)] * lp.eta_sqr;
-                table_accum = table_accum + p[uint(WIRE.TABLE_4)] * lp.eta_cube;
+                Fr table_accum = wire(p,WIRE.TABLE_1) + wire(p,WIRE.TABLE_2) * tp.eta;
+                table_accum = table_accum + wire(p,WIRE.TABLE_3) * lp.eta_sqr;
+                table_accum = table_accum + wire(p,WIRE.TABLE_4) * lp.eta_cube;
                 logFr("table_accum", table_accum);
 
                 lp.table_accum = table_accum;
@@ -855,12 +868,12 @@ contract HonkVerifier is IVerifier {
             // deg 4
             {
                 lp.table_accum_shift =
-                    p[uint(WIRE.TABLE_1_SHIFT)] + p[uint(WIRE.TABLE_2_SHIFT)] * tp.eta + p[uint(WIRE.TABLE_3_SHIFT)] * lp.eta_sqr + p[uint(WIRE.TABLE_4_SHIFT)] * lp.eta_cube;
+                    wire(p,WIRE.TABLE_1_SHIFT) + wire(p,WIRE.TABLE_2_SHIFT) * tp.eta + wire(p,WIRE.TABLE_3_SHIFT) * lp.eta_sqr + wire(p,WIRE.TABLE_4_SHIFT) * lp.eta_cube;
                 
          }
 
             {
-                Fr acc = (p[uint(WIRE.Q_LOOKUP)] * lp.wire_accum + tp.gamma);                          // deg 2 or 4
+                Fr acc = (wire(p,WIRE.Q_LOOKUP) * lp.wire_accum + tp.gamma);                          // deg 2 or 4
                 acc = acc * (lp.table_accum + lp.table_accum_shift * tp.beta + lp.gamma_by_one_plus_beta);  // 1 or 5
                 acc = acc * lp.one_plus_beta;                                                             // deg 1
                 grand_product_numerator = acc;                                            // deg 4 or 10
@@ -868,25 +881,25 @@ contract HonkVerifier is IVerifier {
             }
         }
         {
-            Fr acc = (p[uint(WIRE.SORTED_ACCUM)] + p[uint(WIRE.SORTED_ACCUM_SHIFT)] * tp.beta + lp.gamma_by_one_plus_beta);
+            Fr acc = (wire(p,WIRE.SORTED_ACCUM) + wire(p,WIRE.SORTED_ACCUM_SHIFT) * tp.beta + lp.gamma_by_one_plus_beta);
             grand_product_denominator = acc;
             logFr("grand product denominator", grand_product_denominator);
         }
 
-        // Contribution 3
+        // Contribution 4
         {
             logFr("l gpd:", tp.lookupGrandProductDelta);
 
-            Fr acc = grand_product_numerator * (p[uint(WIRE.Z_LOOKUP)] + p[uint(WIRE.LAGRANGE_FIRST)]) - grand_product_denominator * (p[uint(WIRE.Z_LOOKUP_SHIFT)] + p[uint(WIRE.LAGRANGE_LAST)] * tp.lookupGrandProductDelta);
+            Fr acc = grand_product_numerator * (wire(p,WIRE.Z_LOOKUP) + wire(p,WIRE.LAGRANGE_FIRST)) - grand_product_denominator * (wire(p,WIRE.Z_LOOKUP_SHIFT) + wire(p,WIRE.LAGRANGE_LAST) * tp.lookupGrandProductDelta);
             acc = acc * powPartialEval;
-            evals[3] = acc;
+            evals[4] = acc;
             logFr("lookup cont 0", acc);
         }
 
-        // Contribution 4
+        // Contribution 5
         {
-            Fr acc = p[uint(WIRE.LAGRANGE_LAST)] * p[uint(WIRE.Z_LOOKUP_SHIFT)] * powPartialEval;
-            evals[4] = acc;
+            Fr acc = wire(p,WIRE.LAGRANGE_LAST) * wire(p,WIRE.Z_LOOKUP_SHIFT) * powPartialEval;
+            evals[5] = acc;
             logFr("lookup cont 1", acc);
         }
     }
@@ -897,63 +910,64 @@ contract HonkVerifier is IVerifier {
         Fr minus_three = Fr.wrap(0) - Fr.wrap(3);
 
         // Compute wire differences
-        Fr delta_1 = p[uint(WIRE.W_R)] - p[uint(WIRE.W_L)];
-        Fr delta_2 = p[uint(WIRE.W_O)] - p[uint(WIRE.W_R)];
-        Fr delta_3 = p[uint(WIRE.W_4)] - p[uint(WIRE.W_O)];
-        Fr delta_4 = p[uint(WIRE.W_L_SHIFT)] - p[uint(WIRE.W_4)];
+        Fr delta_1 = wire(p,WIRE.W_R) - wire(p,WIRE.W_L);
+        Fr delta_2 = wire(p,WIRE.W_O) - wire(p,WIRE.W_R);
+        Fr delta_3 = wire(p,WIRE.W_4) - wire(p,WIRE.W_O);
+        Fr delta_4 = wire(p,WIRE.W_L_SHIFT) - wire(p,WIRE.W_4);
 
-        // Contribution 5
+        // Contribution 6
         {
         Fr acc = delta_1;
         acc = acc * (delta_1 + minus_one);
         acc = acc * (delta_1 + minus_two);
         acc = acc * (delta_1 + minus_three);
-        acc = acc * p[uint(WIRE.Q_SORT)];
+        acc = acc * wire(p,WIRE.Q_SORT);
         acc = acc * powPartialEval;
-        evals[5] = acc;
+        evals[6] = acc;
         logFr("gen perm 1: ", acc);
 
         }
 
-        // Contribution 6
+        // Contribution 7
         {
         Fr acc = delta_2;
         acc = acc * (delta_2 + minus_one);
         acc = acc * (delta_2 + minus_two);
         acc = acc * (delta_2 + minus_three);
-        acc = acc * p[uint(WIRE.Q_SORT)];
+        acc = acc * wire(p,WIRE.Q_SORT);
         acc = acc * powPartialEval;
-        evals[6] = acc;
+        evals[7] = acc;
         logFr("gen perm 2: ", acc);
         }
 
-        // Contribution 7
+        // Contribution 8
         {
         Fr acc = delta_3;
         acc = acc * (delta_3 + minus_one);
         acc = acc * (delta_3 + minus_two);
         acc = acc * (delta_3 + minus_three);
-        acc = acc * p[uint(WIRE.Q_SORT)];
+        acc = acc * wire(p,WIRE.Q_SORT);
         acc = acc * powPartialEval;
-        evals[7] = acc;
+        evals[8] = acc;
         logFr("gen perm 3: ", acc);
         }
 
-        // Contribution 8
+        // Contribution 9
         {
         Fr acc = delta_4;
         acc = acc * (delta_4 + minus_one);
         acc = acc * (delta_4 + minus_two);
         acc = acc * (delta_4 + minus_three);
-        acc = acc * p[uint(WIRE.Q_SORT)];
+        acc = acc * wire(p,WIRE.Q_SORT);
         acc = acc * powPartialEval;
-        evals[8] = acc;
+        evals[9] = acc;
         logFr("gen perm 4: ", acc);
         }
 
     }
 
     struct EllipticParams {
+        // Points
         Fr x_1;
         Fr y_1;
         Fr x_2;
@@ -961,22 +975,24 @@ contract HonkVerifier is IVerifier {
         Fr y_3;
         Fr x_3;
 
+        // push accumulators into memory
+        Fr x_double_identity;
     }
 
     function accumulateEllipticRelation(Fr[NUMBER_OF_ENTITIES] memory p, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr powPartialEval) internal view {
         EllipticParams memory ep;
-        ep.x_1 = p[uint(WIRE.W_R)];
-        ep.y_1 = p[uint(WIRE.W_O)];
+        ep.x_1 = wire(p,WIRE.W_R);
+        ep.y_1 = wire(p,WIRE.W_O);
         
-        ep.x_2 = p[uint(WIRE.W_L_SHIFT)];
-        ep.y_2 = p[uint(WIRE.W_4_SHIFT)];
-        ep.y_3 = p[uint(WIRE.W_O_SHIFT)];
-        ep.x_3 = p[uint(WIRE.W_R_SHIFT)];
+        ep.x_2 = wire(p,WIRE.W_L_SHIFT);
+        ep.y_2 = wire(p,WIRE.W_4_SHIFT);
+        ep.y_3 = wire(p,WIRE.W_O_SHIFT);
+        ep.x_3 = wire(p,WIRE.W_R_SHIFT);
 
-        Fr q_sign = p[uint(WIRE.Q_L)];
-        Fr q_is_double = p[uint(WIRE.Q_M)];
+        Fr q_sign = wire(p,WIRE.Q_L);
+        Fr q_is_double = wire(p,WIRE.Q_M);
 
-        // Contribution 9 point addition, x-coordinate check
+        // Contribution 10 point addition, x-coordinate check
         // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
         Fr x_diff = (ep.x_2 - ep.x_1);
         Fr y1_sqr = (ep.y_1 * ep.y_1);
@@ -990,19 +1006,19 @@ contract HonkVerifier is IVerifier {
             x_add_identity = x_add_identity * x_diff * x_diff;
             x_add_identity = x_add_identity - y2_sqr - y1_sqr + y1y2 + y1y2;
 
-            evals[9] = x_add_identity * partialEval * p[uint(WIRE.Q_ELLIPTIC)] * (Fr.wrap(1) - q_is_double);
+            evals[10] = x_add_identity * partialEval * wire(p,WIRE.Q_ELLIPTIC) * (Fr.wrap(1) - q_is_double);
         }
 
-        // Contribution 10 point addition, x-coordinate check
+        // Contribution 11 point addition, x-coordinate check
         // q_elliptic * (q_sign * y1 + y3)(x2 - x1) + (x3 - x1)(y2 - q_sign * y1) = 0
         {
             Fr y1_plus_y3 = ep.y_1 + ep.y_3;
             Fr y_diff = ep.y_2 * q_sign - ep.y_1;
             Fr y_add_identity = y1_plus_y3 * x_diff + (ep.x_3 - ep.x_1) * y_diff;
-            evals[10] = y_add_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * (Fr.wrap(1) - q_is_double);
+            evals[11] = y_add_identity * powPartialEval * wire(p,WIRE.Q_ELLIPTIC) * (Fr.wrap(1) - q_is_double);
         }
 
-        // Contribution 11 point doubling, x-coordinate check
+        // Contribution 10 point doubling, x-coordinate check
         // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
         // N.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
         {
@@ -1010,26 +1026,345 @@ contract HonkVerifier is IVerifier {
             Fr y1_sqr_mul_4 = y1_sqr + y1_sqr;
             y1_sqr_mul_4 = y1_sqr_mul_4 + y1_sqr_mul_4;
             Fr x1_pow_4_mul_9 = x_pow_4 * Fr.wrap(9);
-            Fr x_double_identity = (ep.x_3 + ep.x_1 + ep.x_1) * y1_sqr_mul_4 - x1_pow_4_mul_9;
+
+            // NOTE: pushed into memory (stack >:'( )
+            ep.x_double_identity = (ep.x_3 + ep.x_1 + ep.x_1) * y1_sqr_mul_4 - x1_pow_4_mul_9;
             
-            Fr acc = x_double_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * q_is_double;
-            evals[9] = evals[9] + acc;
-            logFr("middle 0", evals[9]);
+            Fr acc = ep.x_double_identity * powPartialEval * wire(p,WIRE.Q_ELLIPTIC) * q_is_double;
+            evals[10] = evals[10] + acc;
+            logFr("middle 0", evals[10]);
         }
 
-        // Contribution 12 point doubling, y-coordinate check
+        // Contribution 11 point doubling, y-coordinate check
         // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
         {
             Fr x1_sqr_mul_3 = (ep.x_1 + ep.x_1 + ep.x_1) * ep.x_1;
             Fr y_double_identity = x1_sqr_mul_3 * (ep.x_1 - ep.x_3) - (ep.y_1 + ep.y_1) * (ep.y_1 + ep.y_3);
-            evals[10] = evals[10] + y_double_identity * powPartialEval * p[uint(WIRE.Q_ELLIPTIC)] * q_is_double;
-            logFr("middle 1", evals[10]);
+            evals[11] = evals[11] + y_double_identity * powPartialEval * wire(p,WIRE.Q_ELLIPTIC) * q_is_double;
+            logFr("middle 1", evals[11]);
         }
+    }
+
+    // Constants for proving the auxiliary relation
+    Fr constant LIMB_SIZE = Fr.wrap(uint256(1) << 68);
+    Fr constant SUBLIMB_SHIFT = Fr.wrap(uint256(1) << 14);
+    Fr constant MINUS_ONE = Fr.wrap(P - 1);
+
+    struct AuxParams {
+        // To get around stack
+        Fr limb_subproduct;
+
+        Fr non_native_field_gate_1;
+        Fr non_native_field_gate_2;
+        Fr non_native_field_gate_3;
+
+        Fr limb_accumulator_1;
+        Fr limb_accumulator_2;
+
+
+        Fr memory_record_check;
+        Fr partial_record_check;
+
+        Fr next_gate_access_type;
+
+        Fr record_delta;
+        Fr index_delta;
+
+        Fr adjacent_values_match_if_adjacent_indices_match;
+        Fr adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation;
+
+        Fr access_check;
+
+        Fr next_gate_access_type_is_boolean;
+
+        Fr ROM_consistency_check_identity;
+        Fr RAM_consistency_check_identity;
+
+        Fr timestamp_delta;
+        Fr RAM_timestamp_check_identity;
+
+        Fr memory_identity;
+
+        Fr index_is_monotonically_increasing;
+
+        Fr auxiliary_identity;
+
+    }
+
+    function accumulateAuxillaryRelation(Fr[NUMBER_OF_ENTITIES] memory p, TranscriptParameters memory tp, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr powPartialEval) internal pure {
+        
+        AuxParams memory ap;
+
+        /**
+         * Contribution 12
+         * Non native field arithmetic gate 2
+         * deg 4
+         *
+         *             _                                                                               _
+         *            /   _                   _                               _       14                \
+         * q_2 . q_4 |   (w_1 . w_2) + (w_1 . w_2) + (w_1 . w_4 + w_2 . w_3 - w_3) . 2    - w_3 - w_4   |
+         *            \_                                                                               _/
+         *
+         **/
+        // TODO: make these less lined up
+        ap.limb_subproduct = wire(p, WIRE.W_L) * wire(p, WIRE.W_R_SHIFT) + wire(p, WIRE.W_L_SHIFT) * wire(p, WIRE.W_R);
+        ap.non_native_field_gate_2 = (wire(p, WIRE.W_L) * wire(p, WIRE.W_4) + wire(p, WIRE.W_R) * wire(p, WIRE.W_O) - wire(p, WIRE.W_O_SHIFT));
+        ap.non_native_field_gate_2 = ap.non_native_field_gate_2 * LIMB_SIZE;
+        ap.non_native_field_gate_2 = ap.non_native_field_gate_2 - wire(p, WIRE.W_4_SHIFT);
+        ap.non_native_field_gate_2 = ap.non_native_field_gate_2 + ap.limb_subproduct;
+        ap.non_native_field_gate_2 = ap.non_native_field_gate_2 * wire(p, WIRE.Q_4);
+
+        ap.limb_subproduct = ap.limb_subproduct * LIMB_SIZE;
+        ap.limb_subproduct = ap.limb_subproduct + (wire(p, WIRE.W_L_SHIFT) * wire(p, WIRE.W_R_SHIFT));
+        ap.non_native_field_gate_1 = ap.limb_subproduct;
+        ap.non_native_field_gate_1 = ap.non_native_field_gate_1 - (wire(p, WIRE.W_O) + wire(p, WIRE.W_4));
+        ap.non_native_field_gate_1 = ap.non_native_field_gate_1 *  wire(p, WIRE.Q_O);
+
+        ap.non_native_field_gate_3 = ap.limb_subproduct;
+        ap.non_native_field_gate_3 = ap.non_native_field_gate_3 + wire(p, WIRE.W_4);
+        ap.non_native_field_gate_3 = ap.non_native_field_gate_3 - (wire(p, WIRE.W_O_SHIFT) + wire(p, WIRE.W_4_SHIFT));
+        ap.non_native_field_gate_3 = ap.non_native_field_gate_3 * wire(p, WIRE.Q_M);
+
+        logFr("non_native_field_gate_1",ap.non_native_field_gate_1 );
+        logFr("non_native_field_gate_2",ap.non_native_field_gate_2 );
+        logFr("non_native_field_gate_3",ap.non_native_field_gate_3 );
+
+        Fr non_native_field_identity = ap.non_native_field_gate_1 + ap.non_native_field_gate_2 + ap.non_native_field_gate_3;
+        non_native_field_identity = non_native_field_identity * wire(p, WIRE.Q_R);
+
+        // ((((w2' * 2^14 + w1') * 2^14 + w3) * 2^14 + w2) * 2^14 + w1 - w4) * qm
+        // deg 2
+        ap.limb_accumulator_1 = wire(p, WIRE.W_R_SHIFT) * SUBLIMB_SHIFT;
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 + wire(p, WIRE.W_L_SHIFT);
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 * SUBLIMB_SHIFT;
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 + wire(p, WIRE.W_O);
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 * SUBLIMB_SHIFT;
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 + wire(p, WIRE.W_R);
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 * SUBLIMB_SHIFT;
+        ap.limb_accumulator_1 =  ap.limb_accumulator_1 + wire(p, WIRE.W_L);
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 - wire(p, WIRE.W_4);
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 * wire(p, WIRE.Q_4);
+
+        // ((((w3' * 2^14 + w2') * 2^14 + w1') * 2^14 + w4) * 2^14 + w3 - w4') * qm
+        // deg 2
+        ap.limb_accumulator_2 = wire(p, WIRE.W_O_SHIFT) * SUBLIMB_SHIFT;
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 + wire(p, WIRE.W_R_SHIFT);
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 * SUBLIMB_SHIFT;
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 + wire(p, WIRE.W_L_SHIFT);
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 * SUBLIMB_SHIFT;
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 + wire(p, WIRE.W_4);
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 * SUBLIMB_SHIFT;
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 + wire(p, WIRE.W_O);
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 - wire(p, WIRE.W_4_SHIFT);
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 * wire(p, WIRE.Q_M);
+
+        Fr limb_accumulator_identity = ap.limb_accumulator_1 + ap.limb_accumulator_2;
+        limb_accumulator_identity = limb_accumulator_identity * wire(p, WIRE.Q_O); //  deg 3
+
+        /**
+         * MEMORY
+         *
+         * A RAM memory record contains a tuple of the following fields:
+         *  * i: `index` of memory cell being accessed
+         *  * t: `timestamp` of memory cell being accessed (used for RAM, set to 0 for ROM)
+         *  * v: `value` of memory cell being accessed
+         *  * a: `access` type of record. read: 0 = read, 1 = write
+         *  * r: `record` of memory cell. record = access + index * eta + timestamp * eta^2 + value * eta^3
+         *
+         * A ROM memory record contains a tuple of the following fields:
+         *  * i: `index` of memory cell being accessed
+         *  * v: `value1` of memory cell being accessed (ROM tables can store up to 2 values per index)
+         *  * v2:`value2` of memory cell being accessed (ROM tables can store up to 2 values per index)
+         *  * r: `record` of memory cell. record = index * eta + value2 * eta^2 + value1 * eta^3
+         *
+         *  When performing a read/write access, the values of i, t, v, v2, a, r are stored in the following wires +
+         * selectors, depending on whether the gate is a RAM read/write or a ROM read
+         *
+         *  | gate type | i  | v2/t  |  v | a  | r  |
+         *  | --------- | -- | ----- | -- | -- | -- |
+         *  | ROM       | w1 | w2    | w3 | -- | w4 |
+         *  | RAM       | w1 | w2    | w3 | qc | w4 |
+         *
+         * (for accesses where `index` is a circuit constant, it is assumed the circuit will apply a copy constraint on
+         * `w2` to fix its value)
+         *
+         **/
+
+        /**
+         * Memory Record Check
+         * Partial degree: 1
+         * Total degree: 4
+         *
+         * A ROM/ROM access gate can be evaluated with the identity:
+         *
+         * qc + w1 \eta + w2 \eta^2 + w3 \eta^3 - w4 = 0
+         *
+         * For ROM gates, qc = 0
+         */
+        ap.memory_record_check = wire(p, WIRE.W_O) * tp.eta;
+        ap.memory_record_check = ap.memory_record_check + wire(p, WIRE.W_R);
+        ap.memory_record_check = ap.memory_record_check * tp.eta;
+        ap.memory_record_check = ap.memory_record_check + wire(p, WIRE.W_L);
+        ap.memory_record_check = ap.memory_record_check * tp.eta;
+        ap.memory_record_check = ap.memory_record_check + wire(p, WIRE.Q_C);
+        ap.partial_record_check = ap.memory_record_check; // used in RAM consistency check; deg 1 or 4
+        ap.memory_record_check = ap.memory_record_check - wire(p, WIRE.W_4);
+
+        /**
+         * Contribution 13 & 14
+         * ROM Consistency Check
+         * Partial degree: 1
+         * Total degree: 4
+         *
+         * For every ROM read, a set equivalence check is applied between the record witnesses, and a second set of
+         * records that are sorted.
+         *
+         * We apply the following checks for the sorted records:
+         *
+         * 1. w1, w2, w3 correctly map to 'index', 'v1, 'v2' for a given record value at w4
+         * 2. index values for adjacent records are monotonically increasing
+         * 3. if, at gate i, index_i == index_{i + 1}, then value1_i == value1_{i + 1} and value2_i == value2_{i + 1}
+         *
+         */
+        ap.index_delta = wire(p, WIRE.W_L_SHIFT) - wire(p, WIRE.W_L);
+        ap.record_delta = wire(p, WIRE.W_4_SHIFT) - wire(p, WIRE.W_4);
+
+        ap.index_is_monotonically_increasing = ap.index_delta * ap.index_delta - ap.index_delta; // deg 2
+
+        ap.adjacent_values_match_if_adjacent_indices_match = (ap.index_delta * MINUS_ONE + Fr.wrap(1)) * ap.record_delta; // deg 2
+
+        evals[13] =
+            ap.adjacent_values_match_if_adjacent_indices_match * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R)) * (wire(p, WIRE.Q_AUX) * powPartialEval); // deg 5
+        evals[14] =
+            ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R)) * (wire(p, WIRE.Q_AUX) * powPartialEval); // deg 5
+        
+        ap.ROM_consistency_check_identity = ap.memory_record_check * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R));        // deg 3 or 7
+
+
+        /**
+         * Contributions 15,16,17
+         * RAM Consistency Check
+         *
+         * The 'access' type of the record is extracted with the expression `w_4 - ap.partial_record_check`
+         * (i.e. for an honest Prover `w1 * eta + w2 * eta^2 + w3 * eta^3 - w4 = access`.
+         * This is validated by requiring `access` to be boolean
+         *
+         * For two adjacent entries in the sorted list if _both_
+         *  A) index values match
+         *  B) adjacent access value is 0 (i.e. next gate is a READ)
+         * then
+         *  C) both values must match.
+         * The gate boolean check is
+         * (A && B) => C  === !(A && B) || C ===  !A || !B || C
+         *
+         * N.B. it is the responsibility of the circuit writer to ensure that every RAM cell is initialized
+         * with a WRITE operation.
+         */
+        Fr access_type = (wire(p, WIRE.W_4) - ap.partial_record_check);             // will be 0 or 1 for honest Prover; deg 1 or 4
+        ap.access_check = access_type * access_type - access_type; // check value is 0 or 1; deg 2 or 8
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/757): If we sorted in
+        // reverse order we could re-use `ap.partial_record_check`  1 -  ((w3' * eta + w2') * eta + w1') * eta
+        // deg 1 or 4
+        ap.next_gate_access_type = wire(p, WIRE.W_O_SHIFT) * tp.eta;
+        ap.next_gate_access_type = ap.next_gate_access_type + wire(p, WIRE.W_R_SHIFT);
+        ap.next_gate_access_type = ap.next_gate_access_type * tp.eta;
+        ap.next_gate_access_type = ap.next_gate_access_type + wire(p, WIRE.W_L_SHIFT);
+        ap.next_gate_access_type = ap.next_gate_access_type * tp.eta;
+        ap.next_gate_access_type = wire(p, WIRE.W_4_SHIFT) - ap.next_gate_access_type;
+
+        Fr value_delta = wire(p, WIRE.W_O_SHIFT) - wire(p, WIRE.W_O);
+        ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation =
+            (ap.index_delta * MINUS_ONE + Fr.wrap(1)) * value_delta * (ap.next_gate_access_type * MINUS_ONE + Fr.wrap(1)); // deg 3 or 6
+
+        // We can't apply the RAM consistency check identity on the final entry in the sorted list (the wires in the
+        // next gate would make the identity fail).  We need to validate that its 'access type' bool is correct. Can't
+        // do  with an arithmetic gate because of the  `eta` factors. We need to check that the *next* gate's access
+        // type is  correct, to cover this edge case
+        // deg 2 or 4
+        ap.next_gate_access_type_is_boolean = ap.next_gate_access_type * ap.next_gate_access_type - ap.next_gate_access_type;
+
+        // Putting it all together...
+        evals[15] =
+            ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation * (wire(p, WIRE.Q_ARITH)) *
+            (wire(p, WIRE.Q_AUX) * powPartialEval); // deg 5 or 8
+        evals[16] = ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_AUX) * powPartialEval); // deg 4
+        evals[17] =
+            ap.next_gate_access_type_is_boolean * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_AUX) * powPartialEval); // deg 4 or 6
+
+        ap.RAM_consistency_check_identity = ap.access_check * (wire(p, WIRE.Q_ARITH));              // deg 3 or 9
+
+        /**
+         * RAM Timestamp Consistency Check
+         *
+         * | w1 | w2 | w3 | w4 |
+         * | index | timestamp | timestamp_check | -- |
+         *
+         * Let delta_index = index_{i + 1} - index_{i}
+         *
+         * Iff delta_index == 0, timestamp_check = timestamp_{i + 1} - timestamp_i
+         * Else timestamp_check = 0
+         */
+        ap.timestamp_delta = wire(p, WIRE.W_R_SHIFT) - wire(p, WIRE.W_R);
+        ap.RAM_timestamp_check_identity = (ap.index_delta * MINUS_ONE + Fr.wrap(1)) * ap.timestamp_delta - wire(p, WIRE.W_O); // deg 3
+
+        /**
+         * Complete Contribution 12
+         * The complete RAM/ROM memory identity
+         * Partial degree:
+         */
+        ap.memory_identity = ap.ROM_consistency_check_identity;         // deg 3 or 6
+        ap.memory_identity = ap.memory_identity +  ap.RAM_timestamp_check_identity * (wire(p, WIRE.Q_4) * wire(p, WIRE.Q_L)); // deg 4
+        ap.memory_identity = ap.memory_identity + ap.memory_record_check * (wire(p, WIRE.Q_M) * wire(p, WIRE.Q_L));          // deg 3 or 6
+        ap.memory_identity = ap.memory_identity + ap.RAM_consistency_check_identity;             // deg 3 or 9
+
+        // (deg 3 or 9) + (deg 4) + (deg 3)
+        ap.auxiliary_identity = ap.memory_identity + non_native_field_identity + limb_accumulator_identity;
+        ap.auxiliary_identity = ap.auxiliary_identity * (wire(p, WIRE.Q_AUX) * powPartialEval); // deg 4 or 10
+        evals[12] = ap.auxiliary_identity;
+
+        logFr("mem identity ", ap.memory_identity);
+        logFr("non native ident ", non_native_field_identity);
+        logFr("limb accum ident ", limb_accumulator_identity);
+
+
+        logFr("aux 0", evals[12]);
+        logFr("aux 1", evals[13]);
+        logFr("aux 2", evals[14]);
+        logFr("aux 3", evals[15]);
+        logFr("aux 4", evals[16]);
+        logFr("aux 5", evals[17]);
     }
 
 
     // TODO: convert each of the 4 limb commitments into single limb for accumulation
 
+    function scaleAndBatchSubrelations(Fr[NUMBER_OF_SUBRELATIONS] memory evaluations, Fr[NUMBER_OF_ALPHAS] memory subrelationChallenges ) internal view returns (Fr) {
+        Fr accumulator = Fr.wrap(0) ;
+
+        for (uint256 i; i< NUMBER_OF_ALPHAS; ++i) {
+            logFr("evaluations" , i, evaluations[i]);
+        }
+
+        // tmp output challenges
+        for (uint256 i; i< NUMBER_OF_ALPHAS; ++i) {
+            logFr("subrel challenge" , i, subrelationChallenges[i]);
+        }
+
+        accumulator = accumulator + evaluations[0];
+
+        logFr("first contribution", accumulator );
+        for (uint256 i = 1; i< NUMBER_OF_SUBRELATIONS; ++i ) {
+            console.log(" ");
+
+            logFr("eval", evaluations[i]);
+            logFr("chal", subrelationChallenges[i -1]);
+            logFr("contribution", evaluations[i] * subrelationChallenges[i-1]);
+            accumulator = accumulator + evaluations[i] * subrelationChallenges[i - 1];
+            logFr("accumulation", accumulator);
+        }
+        return accumulator;
+    }
 
 
     // function verifyZeroMorph() {}
