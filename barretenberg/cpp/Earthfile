@@ -86,7 +86,7 @@ preset-wasm:
     # wasi-sdk
     COPY +get-wasi-sdk/wasi-sdk src/wasi-sdk
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
-    RUN ./src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
+    RUN ../src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
     SAVE ARTIFACT bin
     SAVE IMAGE --cache-hint
 
@@ -137,7 +137,7 @@ build: # default target
 test:
     BUILD +test-clang-format
     FROM +preset-release-assert-all
-    COPY --dir ./srs_db/+build/. srs_db
+    COPY --dir ./srs_db/+build/. ../srs_db
     RUN GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
 
 # Functions
