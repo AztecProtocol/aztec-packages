@@ -95,7 +95,7 @@ describe('guides/writing_an_account_contract', () => {
     const tokenWithWrongWallet = token.withWallet(wrongWallet);
 
     try {
-      await tokenWithWrongWallet.methods.mint_private(200, secretHash).simulate();
+      await tokenWithWrongWallet.methods.mint_private(200, secretHash).prove();
     } catch (err) {
       logger(`Failed to send tx: ${err}`);
     }

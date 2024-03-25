@@ -36,8 +36,8 @@ describe('e2e_state_vars', () => {
     it('private read of SharedImmutable', async () => {
       await contract.methods.initialize_shared_immutable(1).send().wait();
 
-      const a = await contract.methods.get_shared_immutable_constrained_private().viewConstrained();
-      const b = await contract.methods.get_shared_immutable_constrained_private_indirect().viewConstrained();
+      const a = await contract.methods.get_shared_immutable_constrained_private().view();
+      const b = await contract.methods.get_shared_immutable_constrained_private_indirect().view();
       const c = await contract.methods.get_shared_immutable().view();
 
       expect((a as any)[0]).toEqual((c as any)['account'].toBigInt());
@@ -50,8 +50,8 @@ describe('e2e_state_vars', () => {
     });
 
     it('public read of SharedImmutable', async () => {
-      const a = await contract.methods.get_shared_immutable_constrained().viewConstrained();
-      const b = await contract.methods.get_shared_immutable_constrained_indirect().viewConstrained();
+      const a = await contract.methods.get_shared_immutable_constrained().view();
+      const b = await contract.methods.get_shared_immutable_constrained_indirect().view();
       const c = await contract.methods.get_shared_immutable().view();
 
       expect((a as any)[0]).toEqual((c as any)['account'].toBigInt());

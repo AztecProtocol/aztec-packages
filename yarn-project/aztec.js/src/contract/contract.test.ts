@@ -1,7 +1,7 @@
 import { Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
-import { ABIParameterVisibility, ContractArtifact, FunctionType } from '@aztec/foundation/abi';
+import { ABIParameterVisibility, ContractArtifact, DecodedReturn, FunctionType } from '@aztec/foundation/abi';
 import { NodeInfo } from '@aztec/types/interfaces';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -113,10 +113,10 @@ describe('Contract Class', () => {
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.getContractInstance.mockResolvedValue(contractInstance);
     wallet.sendTx.mockResolvedValue(mockTxHash);
-    wallet.viewTx.mockResolvedValue(mockViewResultValue);
+    wallet.viewTx.mockResolvedValue(mockViewResultValue as any as DecodedReturn);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
-    wallet.simulateTx.mockResolvedValue(mockTx);
+    wallet.proveTx.mockResolvedValue(mockTx);
     wallet.getRegisteredAccounts.mockResolvedValue([account]);
   });
 

@@ -132,7 +132,7 @@ describe('e2e_deploy_contract', () => {
         const firstOpts = { skipPublicSimulation: true, skipClassRegistration: true, skipInstanceDeploy: true };
         const secondOpts = { skipPublicSimulation: true };
 
-        await Promise.all([goodDeploy.simulate(firstOpts), badDeploy.simulate(secondOpts)]);
+        await Promise.all([goodDeploy.prove(firstOpts), badDeploy.prove(secondOpts)]);
         const [goodTx, badTx] = [goodDeploy.send(firstOpts), badDeploy.send(secondOpts)];
         const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([
           goodTx.wait(),
@@ -256,7 +256,7 @@ describe('e2e_deploy_contract', () => {
     it('refuses to initialize a contract with incorrect args', async () => {
       const owner = await registerRandomAccount(pxe);
       const contract = await registerContract(wallet, StatefulTestContract, { initArgs: [owner, 42] });
-      await expect(contract.methods.constructor(owner, 43).simulate()).rejects.toThrow(
+      await expect(contract.methods.constructor(owner, 43).prove()).rejects.toThrow(
         /Initialization hash does not match/,
       );
     });
@@ -264,7 +264,7 @@ describe('e2e_deploy_contract', () => {
     it('refuses to initialize an instance from a different deployer', async () => {
       const owner = await registerRandomAccount(pxe);
       const contract = await registerContract(wallet, StatefulTestContract, { initArgs: [owner, 42], deployer: owner });
-      await expect(contract.methods.constructor(owner, 42).simulate()).rejects.toThrow(
+      await expect(contract.methods.constructor(owner, 42).prove()).rejects.toThrow(
         /Initializer address is not the contract deployer/i,
       );
     });
@@ -407,7 +407,7 @@ describe('e2e_deploy_contract', () => {
           }, 30_000);
 
           it('refuses to initialize the instance with wrong args via a private function', async () => {
-            await expect(contract.methods.constructor(AztecAddress.random(), 43).simulate()).rejects.toThrow(
+            await expect(contract.methods.constructor(AztecAddress.random(), 43).prove()).rejects.toThrow(
               /initialization hash does not match/i,
             );
           }, 30_000);
@@ -570,7 +570,7 @@ describe('e2e_deploy_contract', () => {
     it('refuses to deploy a contract with no constructor and no public deployment', async () => {
       logger.debug(`Deploying contract with no constructor and skipping public deploy`);
       const opts = { skipPublicDeployment: true, skipClassRegistration: true };
-      await expect(TestContract.deploy(wallet).simulate(opts)).rejects.toThrow(/no function calls needed/i);
+      await expect(TestContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
     });
 
     it.skip('publicly deploys and calls a public function in the same batched call', async () => {

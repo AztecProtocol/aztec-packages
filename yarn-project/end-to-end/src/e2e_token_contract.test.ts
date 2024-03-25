@@ -112,7 +112,7 @@ describe('e2e_token_contract', () => {
         expect(t).toBe(TOKEN_NAME);
 
         await reader.methods[method](asset.address, TOKEN_NAME).send().wait();
-        await expect(reader.methods[method](asset.address, 'WRONG_NAME').simulate()).rejects.toThrow(errorMessage);
+        await expect(reader.methods[method](asset.address, 'WRONG_NAME').prove()).rejects.toThrow(errorMessage);
       });
     });
 
@@ -123,7 +123,7 @@ describe('e2e_token_contract', () => {
 
         await reader.methods.check_symbol_private(asset.address, TOKEN_SYMBOL).send().wait();
 
-        await expect(reader.methods.check_symbol_private(asset.address, 'WRONG_SYMBOL').simulate()).rejects.toThrow(
+        await expect(reader.methods.check_symbol_private(asset.address, 'WRONG_SYMBOL').prove()).rejects.toThrow(
           "Cannot satisfy constraint 'symbol.is_eq(_what)'",
         );
       });
@@ -133,7 +133,7 @@ describe('e2e_token_contract', () => {
 
         await reader.methods.check_symbol_public(asset.address, TOKEN_SYMBOL).send().wait();
 
-        await expect(reader.methods.check_symbol_public(asset.address, 'WRONG_SYMBOL').simulate()).rejects.toThrow(
+        await expect(reader.methods.check_symbol_public(asset.address, 'WRONG_SYMBOL').prove()).rejects.toThrow(
           "Failed to solve brillig function, reason: explicit trap hit in brillig 'symbol.is_eq(_what)'",
         );
       });
@@ -146,7 +146,7 @@ describe('e2e_token_contract', () => {
 
         await reader.methods.check_decimals_private(asset.address, TOKEN_DECIMALS).send().wait();
 
-        await expect(reader.methods.check_decimals_private(asset.address, 99).simulate()).rejects.toThrow(
+        await expect(reader.methods.check_decimals_private(asset.address, 99).prove()).rejects.toThrow(
           "Cannot satisfy constraint 'ret[0] as u8 == what'",
         );
       });
@@ -157,7 +157,7 @@ describe('e2e_token_contract', () => {
 
         await reader.methods.check_decimals_public(asset.address, TOKEN_DECIMALS).send().wait();
 
-        await expect(reader.methods.check_decimals_public(asset.address, 99).simulate()).rejects.toThrow(
+        await expect(reader.methods.check_decimals_public(asset.address, 99).prove()).rejects.toThrow(
           "Failed to solve brillig function, reason: explicit trap hit in brillig 'ret[0] as u8 == what'",
         );
       });
@@ -182,12 +182,12 @@ describe('e2e_token_contract', () => {
 
     describe('failure cases', () => {
       it('Set admin (not admin)', async () => {
-        await expect(asset.methods.set_admin(accounts[0].address).simulate()).rejects.toThrow(
+        await expect(asset.methods.set_admin(accounts[0].address).prove()).rejects.toThrow(
           'Assertion failed: caller is not admin',
         );
       });
       it('Revoke minter not as admin', async () => {
-        await expect(asset.methods.set_minter(accounts[0].address, false).simulate()).rejects.toThrow(
+        await expect(asset.methods.set_minter(accounts[0].address, false).prove()).rejects.toThrow(
           'Assertion failed: caller is not admin',
         );
       });
@@ -211,27 +211,27 @@ describe('e2e_token_contract', () => {
         it('as non-minter', async () => {
           const amount = 10000n;
           await expect(
-            asset.withWallet(wallets[1]).methods.mint_public(accounts[0].address, amount).simulate(),
+            asset.withWallet(wallets[1]).methods.mint_public(accounts[0].address, amount).prove(),
           ).rejects.toThrow('Assertion failed: caller is not minter');
         });
 
         it('mint >u128 tokens to overflow', async () => {
           const amount = 2n ** 128n; // U128::max() + 1;
-          await expect(asset.methods.mint_public(accounts[0].address, amount).simulate()).rejects.toThrow(
+          await expect(asset.methods.mint_public(accounts[0].address, amount).prove()).rejects.toThrow(
             BITSIZE_TOO_BIG_ERROR,
           );
         });
 
         it('mint <u128 but recipient balance >u128', async () => {
           const amount = 2n ** 128n - tokenSim.balanceOfPublic(accounts[0].address);
-          await expect(asset.methods.mint_public(accounts[0].address, amount).simulate()).rejects.toThrow(
+          await expect(asset.methods.mint_public(accounts[0].address, amount).prove()).rejects.toThrow(
             U128_OVERFLOW_ERROR,
           );
         });
 
         it('mint <u128 but such that total supply >u128', async () => {
           const amount = 2n ** 128n - tokenSim.balanceOfPublic(accounts[0].address);
-          await expect(asset.methods.mint_public(accounts[1].address, amount).simulate()).rejects.toThrow(
+          await expect(asset.methods.mint_public(accounts[1].address, amount).prove()).rejects.toThrow(
             U128_OVERFLOW_ERROR,
           );
         });
@@ -274,20 +274,20 @@ describe('e2e_token_contract', () => {
           await expect(addPendingShieldNoteToPXE(0, amount, secretHash, txHash)).rejects.toThrow(
             'The note has been destroyed.',
           );
-          await expect(asset.methods.redeem_shield(accounts[0].address, amount, secret).simulate()).rejects.toThrow(
+          await expect(asset.methods.redeem_shield(accounts[0].address, amount, secret).prove()).rejects.toThrow(
             `Assertion failed: Cannot return zero notes`,
           );
         });
 
         it('mint_private as non-minter', async () => {
           await expect(
-            asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).simulate(),
+            asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).prove(),
           ).rejects.toThrow('Assertion failed: caller is not minter');
         });
 
         it('mint >u128 tokens to overflow', async () => {
           const amount = 2n ** 128n; // U128::max() + 1;
-          await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrow(
+          await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(
             BITSIZE_TOO_BIG_ERROR,
           );
         });
@@ -295,12 +295,12 @@ describe('e2e_token_contract', () => {
         it('mint <u128 but recipient balance >u128', async () => {
           const amount = 2n ** 128n - tokenSim.balanceOfPrivate(accounts[0].address);
           expect(amount).toBeLessThan(2n ** 128n);
-          await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrow(U128_OVERFLOW_ERROR);
+          await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(U128_OVERFLOW_ERROR);
         });
 
         it('mint <u128 but such that total supply >u128', async () => {
           const amount = 2n ** 128n - tokenSim.totalSupply;
-          await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrow(U128_OVERFLOW_ERROR);
+          await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(U128_OVERFLOW_ERROR);
         });
       });
     });
@@ -359,7 +359,7 @@ describe('e2e_token_contract', () => {
           const amount = balance0 + 1n;
           const nonce = 0;
           await expect(
-            asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
+            asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce).prove(),
           ).rejects.toThrow(U128_UNDERFLOW_ERROR);
         });
 
@@ -368,7 +368,7 @@ describe('e2e_token_contract', () => {
           const amount = balance0 - 1n;
           const nonce = 1;
           await expect(
-            asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
+            asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce).prove(),
           ).rejects.toThrow('Assertion failed: invalid nonce');
         });
 
@@ -380,7 +380,7 @@ describe('e2e_token_contract', () => {
             asset
               .withWallet(wallets[1])
               .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
-              .simulate(),
+              .prove(),
           ).rejects.toThrow('Assertion failed: Message not authorized by account');
         });
 
@@ -413,7 +413,7 @@ describe('e2e_token_contract', () => {
           });
 
           // Perform the transfer
-          await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+          await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
           expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
@@ -434,7 +434,7 @@ describe('e2e_token_contract', () => {
           await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
 
           // Perform the transfer
-          await expect(action.simulate()).rejects.toThrow('Assertion failed: Message not authorized by account');
+          await expect(action.prove()).rejects.toThrow('Assertion failed: Message not authorized by account');
 
           expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
@@ -454,7 +454,7 @@ describe('e2e_token_contract', () => {
           await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
 
           // Perform the transfer
-          await expect(action.simulate()).rejects.toThrow('Assertion failed: Message not authorized by account');
+          await expect(action.prove()).rejects.toThrow('Assertion failed: Message not authorized by account');
 
           expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
@@ -611,7 +611,7 @@ describe('e2e_token_contract', () => {
           const amount = balance0 + 1n;
           expect(amount).toBeGreaterThan(0n);
           await expect(
-            asset.methods.transfer(accounts[0].address, accounts[1].address, amount, 0).simulate(),
+            asset.methods.transfer(accounts[0].address, accounts[1].address, amount, 0).prove(),
           ).rejects.toThrow('Assertion failed: Balance too low');
         });
 
@@ -620,7 +620,7 @@ describe('e2e_token_contract', () => {
           const amount = balance0 - 1n;
           expect(amount).toBeGreaterThan(0n);
           await expect(
-            asset.methods.transfer(accounts[0].address, accounts[1].address, amount, 1).simulate(),
+            asset.methods.transfer(accounts[0].address, accounts[1].address, amount, 1).prove(),
           ).rejects.toThrow('Assertion failed: invalid nonce');
         });
 
@@ -643,7 +643,7 @@ describe('e2e_token_contract', () => {
           await wallets[1].addAuthWitness(witness);
 
           // Perform the transfer
-          await expect(action.simulate()).rejects.toThrow('Assertion failed: Balance too low');
+          await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
           expect(await asset.methods.balance_of_private(accounts[0].address).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_private(accounts[1].address).view()).toEqual(balance1);
         });
@@ -672,7 +672,7 @@ describe('e2e_token_contract', () => {
             action.request(),
           );
 
-          await expect(action.simulate()).rejects.toThrow(
+          await expect(action.prove()).rejects.toThrow(
             `Unknown auth witness for message hash ${messageHash.toString()}`,
           );
         });
@@ -697,7 +697,7 @@ describe('e2e_token_contract', () => {
           const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
           await wallets[2].addAuthWitness(witness);
 
-          await expect(action.simulate()).rejects.toThrow(
+          await expect(action.prove()).rejects.toThrow(
             `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
           );
           expect(await asset.methods.balance_of_private(accounts[0].address).view()).toEqual(balance0);
@@ -827,7 +827,7 @@ describe('e2e_token_contract', () => {
         const amount = balancePub + 1n;
         expect(amount).toBeGreaterThan(0n);
 
-        await expect(asset.methods.shield(accounts[0].address, amount, secretHash, 0).simulate()).rejects.toThrow(
+        await expect(asset.methods.shield(accounts[0].address, amount, secretHash, 0).prove()).rejects.toThrow(
           U128_UNDERFLOW_ERROR,
         );
       });
@@ -837,7 +837,7 @@ describe('e2e_token_contract', () => {
         const amount = balancePub + 1n;
         expect(amount).toBeGreaterThan(0n);
 
-        await expect(asset.methods.shield(accounts[0].address, amount, secretHash, 1).simulate()).rejects.toThrow(
+        await expect(asset.methods.shield(accounts[0].address, amount, secretHash, 1).prove()).rejects.toThrow(
           'Assertion failed: invalid nonce',
         );
       });
@@ -852,7 +852,7 @@ describe('e2e_token_contract', () => {
         const action = asset.withWallet(wallets[1]).methods.shield(accounts[0].address, amount, secretHash, nonce);
         await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
 
-        await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+        await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
       });
 
       it('on behalf of other (wrong designated caller)', async () => {
@@ -865,7 +865,7 @@ describe('e2e_token_contract', () => {
         const action = asset.withWallet(wallets[2]).methods.shield(accounts[0].address, amount, secretHash, nonce);
         await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
 
-        await expect(action.simulate()).rejects.toThrow('Assertion failed: Message not authorized by account');
+        await expect(action.prove()).rejects.toThrow('Assertion failed: Message not authorized by account');
       });
 
       it('on behalf of other (without approval)', async () => {
@@ -875,7 +875,7 @@ describe('e2e_token_contract', () => {
         expect(amount).toBeGreaterThan(0n);
 
         await expect(
-          asset.withWallet(wallets[1]).methods.shield(accounts[0].address, amount, secretHash, nonce).simulate(),
+          asset.withWallet(wallets[1]).methods.shield(accounts[0].address, amount, secretHash, nonce).prove(),
         ).rejects.toThrow(`Assertion failed: Message not authorized by account`);
       });
     });
@@ -926,7 +926,7 @@ describe('e2e_token_contract', () => {
         expect(amount).toBeGreaterThan(0n);
 
         await expect(
-          asset.methods.unshield(accounts[0].address, accounts[0].address, amount, 0).simulate(),
+          asset.methods.unshield(accounts[0].address, accounts[0].address, amount, 0).prove(),
         ).rejects.toThrow('Assertion failed: Balance too low');
       });
 
@@ -936,7 +936,7 @@ describe('e2e_token_contract', () => {
         expect(amount).toBeGreaterThan(0n);
 
         await expect(
-          asset.methods.unshield(accounts[0].address, accounts[0].address, amount, 1).simulate(),
+          asset.methods.unshield(accounts[0].address, accounts[0].address, amount, 1).prove(),
         ).rejects.toThrow('Assertion failed: invalid nonce');
       });
 
@@ -956,7 +956,7 @@ describe('e2e_token_contract', () => {
         const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
         await wallets[1].addAuthWitness(witness);
 
-        await expect(action.simulate()).rejects.toThrow('Assertion failed: Balance too low');
+        await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
       });
 
       it('on behalf of other (invalid designated caller)', async () => {
@@ -981,7 +981,7 @@ describe('e2e_token_contract', () => {
         const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
         await wallets[2].addAuthWitness(witness);
 
-        await expect(action.simulate()).rejects.toThrow(
+        await expect(action.prove()).rejects.toThrow(
           `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
         );
       });
@@ -1023,7 +1023,7 @@ describe('e2e_token_contract', () => {
           const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
           const amount = balance0 + 1n;
           const nonce = 0;
-          await expect(asset.methods.burn_public(accounts[0].address, amount, nonce).simulate()).rejects.toThrow(
+          await expect(asset.methods.burn_public(accounts[0].address, amount, nonce).prove()).rejects.toThrow(
             U128_UNDERFLOW_ERROR,
           );
         });
@@ -1033,7 +1033,7 @@ describe('e2e_token_contract', () => {
           const amount = balance0 - 1n;
           expect(amount).toBeGreaterThan(0n);
           const nonce = 1;
-          await expect(asset.methods.burn_public(accounts[0].address, amount, nonce).simulate()).rejects.toThrow(
+          await expect(asset.methods.burn_public(accounts[0].address, amount, nonce).prove()).rejects.toThrow(
             'Assertion failed: invalid nonce',
           );
         });
@@ -1043,7 +1043,7 @@ describe('e2e_token_contract', () => {
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           await expect(
-            asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).simulate(),
+            asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).prove(),
           ).rejects.toThrow('Assertion failed: Message not authorized by account');
         });
 
@@ -1057,7 +1057,7 @@ describe('e2e_token_contract', () => {
           const action = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce);
           await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
 
-          await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+          await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
         });
 
         it('burn on behalf of other, wrong designated caller', async () => {
@@ -1071,7 +1071,7 @@ describe('e2e_token_contract', () => {
           await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
 
           await expect(
-            asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).simulate(),
+            asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).prove(),
           ).rejects.toThrow('Assertion failed: Message not authorized by account');
         });
       });
@@ -1113,7 +1113,7 @@ describe('e2e_token_contract', () => {
           const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
           const amount = balance0 + 1n;
           expect(amount).toBeGreaterThan(0n);
-          await expect(asset.methods.burn(accounts[0].address, amount, 0).simulate()).rejects.toThrow(
+          await expect(asset.methods.burn(accounts[0].address, amount, 0).prove()).rejects.toThrow(
             'Assertion failed: Balance too low',
           );
         });
@@ -1122,7 +1122,7 @@ describe('e2e_token_contract', () => {
           const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
           const amount = balance0 - 1n;
           expect(amount).toBeGreaterThan(0n);
-          await expect(asset.methods.burn(accounts[0].address, amount, 1).simulate()).rejects.toThrow(
+          await expect(asset.methods.burn(accounts[0].address, amount, 1).prove()).rejects.toThrow(
             'Assertion failed: invalid nonce',
           );
         });
@@ -1141,7 +1141,7 @@ describe('e2e_token_contract', () => {
           const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
           await wallets[1].addAuthWitness(witness);
 
-          await expect(action.simulate()).rejects.toThrow('Assertion failed: Balance too low');
+          await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
         });
 
         it('burn on behalf of other without approval', async () => {
@@ -1159,7 +1159,7 @@ describe('e2e_token_contract', () => {
             action.request(),
           );
 
-          await expect(action.simulate()).rejects.toThrow(
+          await expect(action.prove()).rejects.toThrow(
             `Unknown auth witness for message hash ${messageHash.toString()}`,
           );
         });
@@ -1182,7 +1182,7 @@ describe('e2e_token_contract', () => {
           const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
           await wallets[2].addAuthWitness(witness);
 
-          await expect(action.simulate()).rejects.toThrow(
+          await expect(action.prove()).rejects.toThrow(
             `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
           );
         });

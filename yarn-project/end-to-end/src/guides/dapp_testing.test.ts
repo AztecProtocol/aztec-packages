@@ -220,7 +220,7 @@ describe('guides/dapp/testing', () => {
       it('asserts a local transaction simulation fails by calling simulate', async () => {
         // docs:start:local-tx-fails
         const call = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 200n, 0);
-        await expect(call.simulate()).rejects.toThrow(/Balance too low/);
+        await expect(call.prove()).rejects.toThrow(/Balance too low/);
         // docs:end:local-tx-fails
       }, 30_000);
 
@@ -236,8 +236,8 @@ describe('guides/dapp/testing', () => {
         const call1 = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 80n, 0);
         const call2 = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 50n, 0);
 
-        await call1.simulate();
-        await call2.simulate();
+        await call1.prove();
+        await call2.prove();
 
         await call1.send().wait();
         await expect(call2.send().wait()).rejects.toThrow(/dropped/);
@@ -247,7 +247,7 @@ describe('guides/dapp/testing', () => {
       it('asserts a simulation for a public function call fails', async () => {
         // docs:start:local-pub-fails
         const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
-        await expect(call.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+        await expect(call.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
         // docs:end:local-pub-fails
       }, 30_000);
 

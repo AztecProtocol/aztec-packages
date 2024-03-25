@@ -165,8 +165,8 @@ describe('e2e_public_cross_chain_messaging', () => {
 
     // user2 tries to consume this message and minting to itself -> should fail since the message is intended to be consumed only by owner.
     await expect(
-      l2Bridge.withWallet(user2Wallet).methods.claim_public(user2Wallet.getAddress(), bridgeAmount, secret).simulate(),
-    ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
+      l2Bridge.withWallet(user2Wallet).methods.claim_public(user2Wallet.getAddress(), bridgeAmount, secret).prove(),
+    ).rejects.toThrow(`Message ${wrongMessage.hash().toString()} not found`);
 
     // user2 consumes owner's L1-> L2 message on bridge contract and mints public tokens on L2
     logger("user2 consumes owner's message on L2 Publicly");
@@ -187,7 +187,7 @@ describe('e2e_public_cross_chain_messaging', () => {
       l2Bridge
         .withWallet(user1Wallet)
         .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-        .simulate(),
+        .prove(),
     ).rejects.toThrow('Assertion failed: Message not authorized by account');
   }, 60_000);
 
@@ -215,8 +215,8 @@ describe('e2e_public_cross_chain_messaging', () => {
     );
 
     await expect(
-      l2Bridge.withWallet(user2Wallet).methods.claim_private(secretHash, bridgeAmount, secret).simulate(),
-    ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
+      l2Bridge.withWallet(user2Wallet).methods.claim_private(secretHash, bridgeAmount, secret).prove(),
+    ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 60_000);
 
   // Note: We register one portal address when deploying contract but that address is no-longer the only address
