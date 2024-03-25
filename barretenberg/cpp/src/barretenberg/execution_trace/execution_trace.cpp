@@ -52,9 +52,8 @@ void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(
 
 template <class Flavor>
 void ExecutionTrace_<Flavor>::add_memory_records_to_proving_key(
-    TraceData& trace_data,
-    Builder& builder,
-    const std::shared_ptr<typename Flavor::ProvingKey>& proving_key) requires IsUltraPlonkOrHonk<Flavor>
+    TraceData& trace_data, Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
+    requires IsUltraPlonkOrHonk<Flavor>
 {
     ASSERT(proving_key->memory_read_records.empty() && proving_key->memory_write_records.empty());
 
@@ -137,7 +136,8 @@ template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_blo
 
 template <class Flavor>
 void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(
-    Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key) requires IsGoblinFlavor<Flavor>
+    Builder& builder, const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
+    requires IsGoblinFlavor<Flavor>
 {
     // Initialize the ecc op wire polynomials to zero on the whole domain
     std::array<Polynomial, NUM_WIRES> op_wire_polynomials;
