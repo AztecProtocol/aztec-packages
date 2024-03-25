@@ -127,6 +127,9 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
         combined_relation_parameters.lookup_grand_product_delta.evaluate(challenge),
     };
     next_accumulator->relation_parameters = folded_relation_parameters;
+    // Derive the prover polynomials from the proving key polynomials since we only fold the unshifted polynomials. This
+    // is extremely cheap since we only call .share() and .shifted() polynomial functions. We need the folded prover
+    // polynomials for the decider.
     next_accumulator->prover_polynomials = ProverPolynomials(next_accumulator->proving_key);
     return next_accumulator;
 }
