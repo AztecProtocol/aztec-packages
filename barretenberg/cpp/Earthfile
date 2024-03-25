@@ -138,8 +138,6 @@ test:
     BUILD +test-clang-format
     FROM +preset-release-assert-all
     COPY --dir ./srs_db/+build/. srs_db
-    # Fiddly bit: we need to reconstruct the paths that CMake built with
-    RUN mkdir -p build && mv bin CMakeCache.txt CMakeFiles build && cd build
     RUN GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
 
 # Functions
@@ -155,7 +153,11 @@ RUN_CMAKE:
     RUN --mount type=cache,id="$configure-build",target=/build/build \
         (cmake $configure -Bbuild || (rm -f build/CMakeCache.txt && cmake $configure -Bbuild)) && \
         cmake --build build $build && \
-        cp -r build/CMakeCache.txt build/CMakeFiles build/bin .
+        cp -r build build-tmp
+    # move the temporary build folder back
+    # this is because the cached build goes away 
+    RUN mv build-tmp build
+    WORKDIR /build/build
 
 BENCH_RELEASE:
     FUNCTION
