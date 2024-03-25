@@ -439,10 +439,12 @@ describe('e2e_deploy_contract', () => {
           }, 60_000);
 
           it('refuses to initialize the instance with wrong args via a public function', async () => {
-            // TODO(@spalladino): This tx is mined but reverts, we need to check revert flag once it's available
-            // Meanwhile, we check that its side effects did not come through as a means to assert it reverted
             const whom = AztecAddress.random();
-            await contract.methods.public_constructor(whom, 43).send({ skipPublicSimulation: true }).wait();
+            const receipt = await contract.methods
+              .public_constructor(whom, 43)
+              .send({ skipPublicSimulation: true })
+              .wait({ dontThrowOnRevert: true });
+            expect(receipt.status).toEqual(TxStatus.REVERTED);
             expect(await contract.methods.get_public_value(whom).view()).toEqual(0n);
           }, 30_000);
 
