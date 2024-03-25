@@ -51,6 +51,24 @@ export class UnencryptedL2Log {
     return `UnencryptedL2Log(contractAddress: ${this.contractAddress.toString()}, selector: ${this.selector.toString()}, data: ${payload})`;
   }
 
+  /** Returns a JSON-friendly representation of the log. */
+  public toJSON(): object {
+    return {
+      contractAddress: this.contractAddress.toString(),
+      selector: this.selector.toString(),
+      data: this.data.toString('hex'),
+    };
+  }
+
+  /** Converts a plain JSON object into an instance. */
+  public static fromJSON(obj: any) {
+    return new UnencryptedL2Log(
+      AztecAddress.fromString(obj.contractAddress),
+      EventSelector.fromString(obj.selector),
+      Buffer.from(obj.data, 'hex'),
+    );
+  }
+
   /**
    * Deserializes log from a buffer.
    * @param buffer - The buffer or buffer reader containing the log.
