@@ -15,6 +15,14 @@ pub enum MemoryTypeError {
 }
 
 impl MemoryValue {
+    pub fn new(value: FieldElement, bit_size: u32) -> Self {
+        MemoryValue { value, bit_size }
+    }
+
+    pub fn new_field(value: FieldElement) -> Self {
+        MemoryValue { value, bit_size: FieldElement::max_num_bits() }
+    }
+
     pub fn to_usize(&self) -> usize {
         assert!(self.bit_size == MEMORY_ADDRESSING_BIT_SIZE, "value is not typed as brillig usize");
         usize::try_from(self.value.try_to_u64().expect("value does not fit into u64"))
@@ -41,16 +49,6 @@ impl std::fmt::Display for MemoryValue {
             _ => format!("u{}", self.bit_size),
         };
         f.write_str(format!("{}: {}", self.value, typ).as_str())
-    }
-}
-
-impl MemoryValue {
-    pub fn new(value: FieldElement, bit_size: u32) -> Self {
-        MemoryValue { value, bit_size }
-    }
-
-    pub fn new_field(value: FieldElement) -> Self {
-        MemoryValue { value, bit_size: FieldElement::max_num_bits() }
     }
 }
 
