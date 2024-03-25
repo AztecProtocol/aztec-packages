@@ -275,7 +275,7 @@ describe('e2e_token_contract', () => {
             'The note has been destroyed.',
           );
           await expect(asset.methods.redeem_shield(accounts[0].address, amount, secret).simulate()).rejects.toThrow(
-            'Can only remove a note that has been read from the set.',
+            `Assertion failed: Cannot return zero notes`,
           );
         });
 
@@ -395,8 +395,22 @@ describe('e2e_token_contract', () => {
             .withWallet(wallets[1])
             .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
 
+          expect(
+            await wallets[0].lookupValidity(wallets[0].getAddress(), { caller: accounts[1].address, action }),
+          ).toEqual({
+            isValidInPrivate: false,
+            isValidInPublic: false,
+          });
+
           // We need to compute the message we want to sign and add it to the wallet as approved
           await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+
+          expect(
+            await wallets[0].lookupValidity(wallets[0].getAddress(), { caller: accounts[1].address, action }),
+          ).toEqual({
+            isValidInPrivate: false,
+            isValidInPublic: true,
+          });
 
           // Perform the transfer
           await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
@@ -499,7 +513,12 @@ describe('e2e_token_contract', () => {
           const action = asset
             .withWallet(wallets[1])
             .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
-          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+          const messageHash = computeAuthWitMessageHash(
+            accounts[1].address,
+            wallets[0].getChainId(),
+            wallets[0].getVersion(),
+            action.request(),
+          );
 
           await wallets[0].setPublicAuthWit(messageHash, true).send().wait();
 
@@ -560,13 +579,18 @@ describe('e2e_token_contract', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         // docs:start:authwit_transfer_example
-        // docs:start:authwit_computeAuthWitMessageHash
         const action = asset
           .withWallet(wallets[1])
           .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
 
         const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
         await wallets[1].addAuthWitness(witness);
+        expect(
+          await wallets[0].lookupValidity(wallets[0].getAddress(), { caller: accounts[1].address, action }),
+        ).toEqual({
+          isValidInPrivate: true,
+          isValidInPublic: false,
+        });
         // docs:end:authwit_transfer_example
 
         // Perform the transfer
@@ -641,7 +665,12 @@ describe('e2e_token_contract', () => {
           const action = asset
             .withWallet(wallets[1])
             .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
-          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+          const messageHash = computeAuthWitMessageHash(
+            accounts[1].address,
+            wallets[0].getChainId(),
+            wallets[0].getVersion(),
+            action.request(),
+          );
 
           await expect(action.simulate()).rejects.toThrow(
             `Unknown auth witness for message hash ${messageHash.toString()}`,
@@ -658,7 +687,12 @@ describe('e2e_token_contract', () => {
           const action = asset
             .withWallet(wallets[2])
             .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
-          const expectedMessageHash = computeAuthWitMessageHash(accounts[2].address, action.request());
+          const expectedMessageHash = computeAuthWitMessageHash(
+            accounts[2].address,
+            wallets[0].getChainId(),
+            wallets[0].getVersion(),
+            action.request(),
+          );
 
           const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
           await wallets[2].addAuthWitness(witness);
@@ -935,7 +969,12 @@ describe('e2e_token_contract', () => {
         const action = asset
           .withWallet(wallets[2])
           .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce);
-        const expectedMessageHash = computeAuthWitMessageHash(accounts[2].address, action.request());
+        const expectedMessageHash = computeAuthWitMessageHash(
+          accounts[2].address,
+          wallets[0].getChainId(),
+          wallets[0].getVersion(),
+          action.request(),
+        );
 
         // Both wallets are connected to same node and PXE so we could just insert directly
         // But doing it in two actions to show the flow.
@@ -1113,7 +1152,12 @@ describe('e2e_token_contract', () => {
 
           // We need to compute the message we want to sign and add it to the wallet as approved
           const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
-          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+          const messageHash = computeAuthWitMessageHash(
+            accounts[1].address,
+            wallets[0].getChainId(),
+            wallets[0].getVersion(),
+            action.request(),
+          );
 
           await expect(action.simulate()).rejects.toThrow(
             `Unknown auth witness for message hash ${messageHash.toString()}`,
@@ -1128,7 +1172,12 @@ describe('e2e_token_contract', () => {
 
           // We need to compute the message we want to sign and add it to the wallet as approved
           const action = asset.withWallet(wallets[2]).methods.burn(accounts[0].address, amount, nonce);
-          const expectedMessageHash = computeAuthWitMessageHash(accounts[2].address, action.request());
+          const expectedMessageHash = computeAuthWitMessageHash(
+            accounts[2].address,
+            wallets[0].getChainId(),
+            wallets[0].getVersion(),
+            action.request(),
+          );
 
           const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
           await wallets[2].addAuthWitness(witness);

@@ -19,9 +19,9 @@ import { ContractArtifact } from '@aztec/foundation/abi';
 import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
-import { FeeOptions } from '../account/interface.js';
 import { Wallet } from '../account/wallet.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { FeeOptions } from '../entrypoint/entrypoint.js';
 
 /**
  * A base class for Wallet implementations
@@ -30,6 +30,10 @@ export abstract class BaseWallet implements Wallet {
   constructor(protected readonly pxe: PXE) {}
 
   abstract getCompleteAddress(): CompleteAddress;
+
+  abstract getChainId(): Fr;
+
+  abstract getVersion(): Fr;
 
   abstract createTxExecutionRequest(execs: FunctionCall[], fee?: FeeOptions): Promise<TxExecutionRequest>;
 
@@ -42,6 +46,10 @@ export abstract class BaseWallet implements Wallet {
           caller: AztecAddress;
           /** The action to approve */
           action: ContractFunctionInteraction | FunctionCall;
+          /** The chain id to approve */
+          chainId?: Fr;
+          /** The version to approve  */
+          version?: Fr;
         },
   ): Promise<AuthWitness>;
 
@@ -138,6 +146,9 @@ export abstract class BaseWallet implements Wallet {
   }
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);
+  }
+  getAuthWitness(messageHash: Fr) {
+    return this.pxe.getAuthWitness(messageHash);
   }
   isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
     return this.pxe.isContractClassPubliclyRegistered(id);

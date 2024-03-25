@@ -34,14 +34,17 @@ import {
   PublicKernelTailCircuitPrivateInputs,
   RETURN_VALUES_LENGTH,
   ReadRequest,
+  RevertCode,
   SideEffect,
   SideEffectLinkedToNoteHash,
   VK_TREE_HEIGHT,
+  VerificationKey,
+  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { Tuple, to2Fields } from '@aztec/foundation/serialize';
+import { Tuple } from '@aztec/foundation/serialize';
 import {
   PublicExecution,
   PublicExecutionResult,
@@ -54,8 +57,6 @@ import { MerkleTreeOperations } from '@aztec/world-state';
 
 import { env } from 'process';
 
-import { getVerificationKeys } from '../mocks/verification_keys.js';
-import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { HintsBuilder } from './hints_builder.js';
 import { lastSideEffectCounter } from './utils.js';
@@ -81,7 +82,6 @@ export abstract class AbstractPhaseManager {
     protected db: MerkleTreeOperations,
     protected publicExecutor: PublicExecutor,
     protected publicKernel: PublicKernelCircuitSimulator,
-    protected publicProver: PublicProver,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
     public phase: PublicKernelPhase,
@@ -240,7 +240,7 @@ export abstract class AbstractPhaseManager {
         // sanity check. Note we can't expect them to just be equal, because e.g.
         // if the simulator reverts in app logic, it "resets" and result.reverted will be false when we run teardown,
         // but the kernel carries the reverted flag forward. But if the simulator reverts, so should the kernel.
-        if (result.reverted && !kernelOutput.reverted) {
+        if (result.reverted && kernelOutput.endNonRevertibleData.revertCode.isOK()) {
           throw new Error(
             `Public kernel circuit did not revert on ${result.execution.contractAddress.toString()}:${functionSelector}, but simulator did.`,
           );
@@ -278,8 +278,7 @@ export abstract class AbstractPhaseManager {
     callData?: PublicCallData,
   ): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
     const output = await this.getKernelCircuitOutput(previousOutput, previousProof, callData);
-    const proof = await this.publicProver.getPublicKernelCircuitProof(output);
-    return [output, proof];
+    return [output, makeEmptyProof()];
   }
 
   protected async getKernelCircuitOutput(
@@ -330,7 +329,8 @@ export abstract class AbstractPhaseManager {
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
   ): PublicKernelData {
-    const vk = getVerificationKeys().publicKernelCircuit;
+    // TODO(@PhilWindle) Fix once we move this to prover-client
+    const vk = VerificationKey.makeFake();
     const vkIndex = 0;
     const vkSiblingPath = MembershipWitness.random(VK_TREE_HEIGHT).siblingPath;
     return new PublicKernelData(previousOutput, previousProof, vk, vkIndex, vkSiblingPath);
@@ -348,7 +348,7 @@ export abstract class AbstractPhaseManager {
     );
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
-    const unencryptedLogsHash = to2Fields(result.unencryptedLogs.hash());
+    const unencryptedLogsHash = Fr.fromBuffer(result.unencryptedLogs.hash());
     const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
 
     return PublicCircuitPublicInputs.from({
@@ -385,7 +385,8 @@ export abstract class AbstractPhaseManager {
       unencryptedLogsHash,
       unencryptedLogPreimagesLength,
       historicalHeader: this.historicalHeader,
-      reverted: result.reverted,
+      // TODO(@just-mitch): need better mapping from simulator to revert code.
+      revertCode: result.reverted ? RevertCode.REVERTED : RevertCode.OK,
     });
   }
 
@@ -432,8 +433,7 @@ export abstract class AbstractPhaseManager {
     );
     const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
-    const proof = await this.publicProver.getPublicCircuitProof(callStackItem.publicInputs);
-    return new PublicCallData(callStackItem, publicCallStack, proof, portalContractAddress, bytecodeHash);
+    return new PublicCallData(callStackItem, publicCallStack, makeEmptyProof(), portalContractAddress, bytecodeHash);
   }
 }
 
