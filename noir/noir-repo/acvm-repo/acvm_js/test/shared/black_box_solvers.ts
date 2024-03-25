@@ -32,11 +32,11 @@ export const xor_test_cases: [[string, string], string][] = [
   ],
 ];
 
-export const sha256_compression_test_cases: [Uint32Array, Uint8Array, Uint8Array][] = [
+export const sha256_compression_test_cases: [Uint32Array, Uint32Array, Uint32Array][] = [
   [
     Uint32Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
-    Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8]),
-    Uint8Array.from([1862536192, 526086805, 2067405084, 593147560, 726610467, 813867028, 4091010797, 3974542186]),
+    Uint32Array.from([1, 2, 3, 4, 5, 6, 7, 8]),
+    Uint32Array.from([1862536192, 526086805, 2067405084, 593147560, 726610467, 813867028, 4091010797, 3974542186]),
   ],
 ];
 
