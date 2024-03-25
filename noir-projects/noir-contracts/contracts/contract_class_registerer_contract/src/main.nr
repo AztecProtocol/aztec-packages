@@ -5,7 +5,7 @@ contract ContractClassRegisterer {
     use dep::aztec::context::PrivateContext;
     use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, emit_unencrypted_log};
     use dep::aztec::protocol_types::{
-        hash::hash_args, contract_class_id::ContractClassId,
+        contract_class_id::ContractClassId,
         constants::{
         ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, FUNCTION_TREE_HEIGHT,
         MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE
@@ -37,7 +37,7 @@ contract ContractClassRegisterer {
         hasher_slice = hasher_slice.push_front(public_bytecode_commitment);
         hasher_slice = hasher_slice.push_front(private_functions_root);
         hasher_slice = hasher_slice.push_front(artifact_hash);
-        let mut context = PrivateContext::new(inputs, hash_args(hasher_slice));
+        let mut context = PrivateContext::new(inputs, 0);
 
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
         // TODO: Validate packed_public_bytecode is legit public bytecode
