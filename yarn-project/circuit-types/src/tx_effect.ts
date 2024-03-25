@@ -10,7 +10,13 @@ import {
 import { assertRightPadded, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
-import { BufferReader, Tuple, assertLength, serializeArrayOfBufferableToVector } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  Tuple,
+  assertLength,
+  serializeArrayOfBufferableToVector,
+  truncateAndPad,
+} from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
@@ -86,6 +92,8 @@ export class TxEffect {
   }
 
   hash() {
+    // must correspond with compute_tx_effects_hash() in nr
+    // and TxsDecoder.sol decode()
     assertLength(this.noteHashes, MAX_NEW_NOTE_HASHES_PER_TX);
     assertRightPadded(this.noteHashes, Fr.isZero);
     const noteHashesBuffer = Buffer.concat(this.noteHashes.map(x => x.toBuffer()));
@@ -101,7 +109,6 @@ export class TxEffect {
     assertLength(this.publicDataWrites, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
     assertRightPadded(this.publicDataWrites, PublicDataWrite.isEmpty);
     const publicDataUpdateRequestsBuffer = Buffer.concat(this.publicDataWrites.map(x => x.toBuffer()));
-
     const encryptedLogsHashKernel0 = this.encryptedLogs.hash();
     const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
 
@@ -115,7 +122,7 @@ export class TxEffect {
       unencryptedLogsHashKernel0,
     ]);
 
-    return sha256(inputValue);
+    return truncateAndPad(sha256(inputValue));
   }
 
   static random(
@@ -132,6 +139,18 @@ export class TxEffect {
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
       TxL2Logs.random(numPrivateCallsPerTx, numEncryptedLogsPerCall, LogType.ENCRYPTED),
       TxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall, LogType.UNENCRYPTED),
+    );
+  }
+
+  static empty(): TxEffect {
+    return new TxEffect(
+      RevertCode.OK,
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, Fr.zero),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
+      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.empty),
+      TxL2Logs.empty(),
+      TxL2Logs.empty(),
     );
   }
 
