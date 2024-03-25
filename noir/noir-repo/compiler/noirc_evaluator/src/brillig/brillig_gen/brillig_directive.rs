@@ -16,14 +16,28 @@ pub(crate) fn directive_invert() -> GeneratedBrillig {
     // We store the result in this register too.
     let input = MemoryAddress::from(0);
     let one_const = MemoryAddress::from(1);
+    let zero_const = MemoryAddress::from(2);
+    let input_is_zero = MemoryAddress::from(3);
     // Location of the stop opcode
-    let stop_location = 4;
+    let stop_location = 6;
 
     GeneratedBrillig {
         byte_code: vec![
             BrilligOpcode::CalldataCopy { destination_address: input, size: 1, offset: 0 },
+            // Put value zero in register (2)
+            BrilligOpcode::Const {
+                destination: zero_const,
+                value: FieldElement::from(0_usize),
+                bit_size: FieldElement::max_num_bits(),
+            },
+            BrilligOpcode::BinaryFieldOp {
+                op: BinaryFieldOp::Equals,
+                lhs: input,
+                rhs: zero_const,
+                destination: input_is_zero,
+            },
             // If the input is zero, then we jump to the stop opcode
-            BrilligOpcode::JumpIfNot { condition: input, location: stop_location },
+            BrilligOpcode::JumpIf { condition: input_is_zero, location: stop_location },
             // Put value one in register (1)
             BrilligOpcode::Const {
                 destination: one_const,

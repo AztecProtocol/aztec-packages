@@ -201,17 +201,17 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                 // Check if condition is true
                 // We use 0 to mean false and any other value to mean true
                 let condition_value = self.memory.read(*condition);
-                if !condition_value.value.is_zero() {
+                if condition_value.try_into().expect("condition value is not a boolean") {
                     return self.set_program_counter(*destination);
                 }
                 self.increment_program_counter()
             }
             Opcode::JumpIfNot { condition, location: destination } => {
                 let condition_value = self.memory.read(*condition);
-                if condition_value.value.is_zero() {
-                    return self.set_program_counter(*destination);
+                if condition_value.try_into().expect("condition value is not a boolean") {
+                    return self.increment_program_counter();
                 }
-                self.increment_program_counter()
+                self.set_program_counter(*destination)
             }
             Opcode::CalldataCopy { destination_address, size, offset } => {
                 let values: Vec<_> = self.calldata[*offset..(*offset + size)]
@@ -351,10 +351,10 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
             }
             Opcode::ConditionalMov { destination, source_a, source_b, condition } => {
                 let condition_value = self.memory.read(*condition);
-                if condition_value.value.is_zero() {
-                    self.memory.write(*destination, self.memory.read(*source_b));
-                } else {
+                if condition_value.try_into().expect("condition value is not a boolean") {
                     self.memory.write(*destination, self.memory.read(*source_a));
+                } else {
+                    self.memory.write(*destination, self.memory.read(*source_b));
                 }
                 self.increment_program_counter()
             }
@@ -827,8 +827,22 @@ mod tests {
             offset: 0,
         };
 
+        let cast_zero = Opcode::Cast {
+            destination: MemoryAddress::from(0),
+            source: MemoryAddress::from(0),
+            bit_size: 1,
+        };
+
+        let cast_one = Opcode::Cast {
+            destination: MemoryAddress::from(1),
+            source: MemoryAddress::from(1),
+            bit_size: 1,
+        };
+
         let opcodes = &[
             calldata_copy,
+            cast_zero,
+            cast_one,
             Opcode::ConditionalMov {
                 destination: MemoryAddress(4), // Sets 3_u128 to memory address 4
                 source_a: MemoryAddress(2),
@@ -843,6 +857,12 @@ mod tests {
             },
         ];
         let mut vm = VM::new(calldata, opcodes, vec![], &DummyBlackBoxSolver);
+
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
+
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
 
         let status = vm.process_opcode();
         assert_eq!(status, VMStatus::InProgress);

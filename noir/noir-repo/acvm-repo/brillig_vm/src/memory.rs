@@ -8,11 +8,27 @@ pub struct MemoryValue {
     pub bit_size: u32,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum MemoryTypeError {
+    #[error("Bit size for value {value_bit_size} does not match the expected bit size {expected_bit_size}")]
+    MismatchedBitSize { value_bit_size: u32, expected_bit_size: u32 },
+}
+
 impl MemoryValue {
     pub fn to_usize(&self) -> usize {
         assert!(self.bit_size == MEMORY_ADDRESSING_BIT_SIZE, "value is not typed as brillig usize");
         usize::try_from(self.value.try_to_u64().expect("value does not fit into u64"))
             .expect("value does not fit into usize")
+    }
+
+    pub fn expect_bit_size(&self, expected_bit_size: u32) -> Result<(), MemoryTypeError> {
+        if self.bit_size != expected_bit_size {
+            return Err(MemoryTypeError::MismatchedBitSize {
+                value_bit_size: self.bit_size,
+                expected_bit_size,
+            });
+        }
+        Ok(())
     }
 }
 
@@ -71,6 +87,64 @@ impl From<u64> for MemoryValue {
 impl From<bool> for MemoryValue {
     fn from(value: bool) -> Self {
         MemoryValue::new(value.into(), 1)
+    }
+}
+
+impl TryFrom<MemoryValue> for FieldElement {
+    type Error = MemoryTypeError;
+
+    fn try_from(memory_value: MemoryValue) -> Result<Self, Self::Error> {
+        memory_value.expect_bit_size(FieldElement::max_num_bits())?;
+        Ok(memory_value.value)
+    }
+}
+
+impl TryFrom<MemoryValue> for u64 {
+    type Error = MemoryTypeError;
+
+    fn try_from(memory_value: MemoryValue) -> Result<Self, Self::Error> {
+        memory_value.expect_bit_size(64)?;
+        Ok(memory_value.value.try_to_u64().expect("value typed as u64 does not fit into u64"))
+    }
+}
+
+impl TryFrom<MemoryValue> for u32 {
+    type Error = MemoryTypeError;
+
+    fn try_from(memory_value: MemoryValue) -> Result<Self, Self::Error> {
+        memory_value.expect_bit_size(32)?;
+        let as_u64 =
+            memory_value.value.try_to_u64().expect("value typed as u32 does not fit into u64");
+        Ok(u32::try_from(as_u64).expect("value typed as u32 does not fit into u32"))
+    }
+}
+
+impl TryFrom<MemoryValue> for u8 {
+    type Error = MemoryTypeError;
+
+    fn try_from(memory_value: MemoryValue) -> Result<Self, Self::Error> {
+        memory_value.expect_bit_size(8)?;
+
+        Ok(u8::try_from(
+            memory_value.value.try_to_u64().expect("value typed as u8 does not fit into u64"),
+        )
+        .expect("value typed as u8 does not fit into u8"))
+    }
+}
+
+impl TryFrom<MemoryValue> for bool {
+    type Error = MemoryTypeError;
+
+    fn try_from(memory_value: MemoryValue) -> Result<Self, Self::Error> {
+        memory_value.expect_bit_size(1)?;
+
+        if memory_value.value == FieldElement::zero() {
+            Ok(false)
+        } else if memory_value.value == FieldElement::one() {
+            Ok(true)
+        } else {
+            unreachable!("value typed as bool is greater than one")
+        }
     }
 }
 

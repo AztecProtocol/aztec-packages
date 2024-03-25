@@ -20,11 +20,8 @@ fn read_heap_array<'a>(memory: &'a Memory, array: &HeapArray) -> &'a [MemoryValu
 /// Extracts the last byte of every value
 fn to_u8_vec(inputs: &[MemoryValue]) -> Vec<u8> {
     let mut result = Vec::with_capacity(inputs.len());
-    for input in inputs {
-        assert!(input.bit_size == 8);
-        let field_bytes = input.value.to_be_bytes();
-        let byte = field_bytes.last().unwrap();
-        result.push(*byte);
+    for &input in inputs {
+        result.push(input.try_into().unwrap());
     }
     result
 }
@@ -66,10 +63,7 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
         BlackBoxOp::Keccakf1600 { message, output } => {
             let state_vec: Vec<u64> = read_heap_vector(memory, message)
                 .iter()
-                .map(|memory_value| {
-                    assert!(memory_value.bit_size == 64);
-                    memory_value.value.try_to_u64().unwrap()
-                })
+                .map(|&memory_value| memory_value.try_into().unwrap())
                 .collect();
             let state: [u64; 25] = state_vec.try_into().unwrap();
 
@@ -130,8 +124,8 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             Ok(())
         }
         BlackBoxOp::SchnorrVerify { public_key_x, public_key_y, message, signature, result } => {
-            let public_key_x = memory.read(*public_key_x).value;
-            let public_key_y = memory.read(*public_key_y).value;
+            let public_key_x = memory.read(*public_key_x).try_into().unwrap();
+            let public_key_y = memory.read(*public_key_y).try_into().unwrap();
             let message: Vec<u8> = to_u8_vec(read_heap_vector(memory, message));
             let signature: Vec<u8> = to_u8_vec(read_heap_vector(memory, signature));
             let verified =
@@ -140,26 +134,26 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             Ok(())
         }
         BlackBoxOp::FixedBaseScalarMul { low, high, result } => {
-            let low = memory.read(*low).value;
-            let high = memory.read(*high).value;
+            let low = memory.read(*low).try_into().unwrap();
+            let high = memory.read(*high).try_into().unwrap();
             let (x, y) = solver.fixed_base_scalar_mul(&low, &high)?;
             memory.write_slice(memory.read_ref(result.pointer), &[x.into(), y.into()]);
             Ok(())
         }
         BlackBoxOp::EmbeddedCurveAdd { input1_x, input1_y, input2_x, input2_y, result } => {
-            let input1_x = memory.read(*input1_x).value;
-            let input1_y = memory.read(*input1_y).value;
-            let input2_x = memory.read(*input2_x).value;
-            let input2_y = memory.read(*input2_y).value;
+            let input1_x = memory.read(*input1_x).try_into().unwrap();
+            let input1_y = memory.read(*input1_y).try_into().unwrap();
+            let input2_x = memory.read(*input2_x).try_into().unwrap();
+            let input2_y = memory.read(*input2_y).try_into().unwrap();
             let (x, y) = solver.ec_add(&input1_x, &input1_y, &input2_x, &input2_y)?;
             memory.write_slice(memory.read_ref(result.pointer), &[x.into(), y.into()]);
             Ok(())
         }
         BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {
             let inputs: Vec<FieldElement> =
-                read_heap_vector(memory, inputs).iter().map(|x| x.value).collect();
+                read_heap_vector(memory, inputs).iter().map(|&x| x.try_into().unwrap()).collect();
             let domain_separator: u32 =
-                memory.read(*domain_separator).value.to_u128().try_into().map_err(|_| {
+                memory.read(*domain_separator).try_into().map_err(|_| {
                     BlackBoxResolutionError::Failed(
                         BlackBoxFunc::PedersenCommitment,
                         "Invalid signature length".to_string(),
@@ -171,9 +165,9 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
         }
         BlackBoxOp::PedersenHash { inputs, domain_separator, output } => {
             let inputs: Vec<FieldElement> =
-                read_heap_vector(memory, inputs).iter().map(|x| x.value).collect();
+                read_heap_vector(memory, inputs).iter().map(|&x| x.try_into().unwrap()).collect();
             let domain_separator: u32 =
-                memory.read(*domain_separator).value.to_u128().try_into().map_err(|_| {
+                memory.read(*domain_separator).try_into().map_err(|_| {
                     BlackBoxResolutionError::Failed(
                         BlackBoxFunc::PedersenCommitment,
                         "Invalid signature length".to_string(),
@@ -191,8 +185,8 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
         BlackBoxOp::BigIntToLeBytes { .. } => todo!(),
         BlackBoxOp::Poseidon2Permutation { message, output, len } => {
             let input = read_heap_vector(memory, message);
-            let input: Vec<FieldElement> = input.iter().map(|x| x.value).collect();
-            let len = memory.read(*len).value.to_u128() as u32;
+            let input: Vec<FieldElement> = input.iter().map(|&x| x.try_into().unwrap()).collect();
+            let len = memory.read(*len).try_into().unwrap();
             let result = solver.poseidon2_permutation(&input, len)?;
             let mut values = Vec::new();
             for i in result {
@@ -210,8 +204,8 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
                     format!("Expected 16 inputs but encountered {}", &inputs.len()),
                 ));
             }
-            for (i, input) in inputs.iter().enumerate() {
-                message[i] = input.value.to_u128() as u32;
+            for (i, &input) in inputs.iter().enumerate() {
+                message[i] = input.try_into().unwrap();
             }
             let mut state = [0; 8];
             let values = read_heap_vector(memory, hash_values);
@@ -221,8 +215,8 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
                     format!("Expected 8 values but encountered {}", &values.len()),
                 ));
             }
-            for (i, value) in values.iter().enumerate() {
-                state[i] = value.value.to_u128() as u32;
+            for (i, &value) in values.iter().enumerate() {
+                state[i] = value.try_into().unwrap();
             }
 
             sha256compression(&mut state, &message);
