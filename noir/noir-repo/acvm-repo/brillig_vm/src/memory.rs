@@ -20,12 +20,10 @@ impl MemoryValue {
     }
 
     pub fn new_checked(value: FieldElement, bit_size: u32) -> Option<Self> {
-        let max = FieldElement::from(2_u128).pow(&FieldElement::from(bit_size as u128))
-            - FieldElement::one();
-
-        if value > max {
+        if value.num_bits() > bit_size {
             return None;
         }
+
         Some(MemoryValue::new(value, bit_size))
     }
 
