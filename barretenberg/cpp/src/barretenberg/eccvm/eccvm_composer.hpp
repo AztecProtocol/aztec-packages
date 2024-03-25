@@ -1,9 +1,9 @@
 #pragma once
 
+#include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
-#include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
-#include "barretenberg/proof_system/composer/composer_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
@@ -34,8 +34,7 @@ template <IsECCVMFlavor Flavor> class ECCVMComposer_ {
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bool contains_recursive_proof = false;
     bool computed_witness = false;
-    ECCVMComposer_()
-        requires(std::same_as<Flavor, ECCVMFlavor>)
+    ECCVMComposer_() requires(std::same_as<Flavor, ECCVMFlavor>)
     {
         crs_factory_ = bb::srs::get_grumpkin_crs_factory();
     };

@@ -1,7 +1,7 @@
 #include "prover_instance.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/composer/permutation_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
 /**
@@ -38,8 +38,7 @@ template <class Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circ
  * @param circuit
  */
 template <class Flavor>
-void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
-    requires IsGoblinFlavor<Flavor>
+void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit) requires IsGoblinFlavor<Flavor>
 {
     Polynomial public_calldata{ dyadic_circuit_size };
     Polynomial calldata_read_counts{ dyadic_circuit_size };

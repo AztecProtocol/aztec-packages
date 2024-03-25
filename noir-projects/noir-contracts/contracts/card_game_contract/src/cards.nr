@@ -104,7 +104,7 @@ impl Deck {
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let _context = self.set.context.private.unwrap();
 
-        let mut inserted_cards = [];
+        let mut inserted_cards = &[];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner);
             self.set.insert(&mut card_note.note, true);

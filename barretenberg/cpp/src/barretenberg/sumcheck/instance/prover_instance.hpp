@@ -1,11 +1,11 @@
 #pragma once
+#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
-#include "barretenberg/proof_system/composer/composer_lib.hpp"
-#include "barretenberg/proof_system/composer/permutation_lib.hpp"
-#include "barretenberg/proof_system/execution_trace/execution_trace.hpp"
+#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 namespace bb {
 /**
@@ -85,8 +85,7 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_() = default;
     ~ProverInstance_() = default;
 
-    void compute_databus_id()
-        requires IsGoblinFlavor<Flavor>;
+    void compute_databus_id() requires IsGoblinFlavor<Flavor>;
 
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
@@ -95,8 +94,7 @@ template <class Flavor> class ProverInstance_ {
 
     size_t compute_dyadic_size(Circuit&);
 
-    void construct_databus_polynomials(Circuit&)
-        requires IsGoblinFlavor<Flavor>;
+    void construct_databus_polynomials(Circuit&) requires IsGoblinFlavor<Flavor>;
 
     void construct_table_polynomials(Circuit&, size_t);
 };
