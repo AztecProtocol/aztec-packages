@@ -156,10 +156,15 @@ export class AvmPersistableStateManager {
   public async checkL1ToL2MessageExists(msgHash: Fr, msgLeafIndex: Fr): Promise<boolean> {
     let exists = false;
     try {
-      // This secret is used to compute a message nullifier. Given that here we do not care about getting non-nullified
-      // messages we can just pass in an invalid value and the nullifier check will be ignored.
+      // This following 2 values are used to compute a message nullifier. Given that here we do not care about getting
+      // non-nullified messages we can just pass in an invalid value and the nullifier check will be ignored.
+      const ignoredContractAddress = AztecAddress.random();
       const ignoredSecret = Fr.random();
-      const gotMessage = await this.hostStorage.commitmentsDb.getL1ToL2MembershipWitness(msgHash, ignoredSecret);
+      const gotMessage = await this.hostStorage.commitmentsDb.getL1ToL2MembershipWitness(
+        ignoredContractAddress,
+        msgHash,
+        ignoredSecret,
+      );
       exists = gotMessage !== undefined && gotMessage.index == msgLeafIndex.toBigInt();
     } catch {
       // error getting message - doesn't exist!

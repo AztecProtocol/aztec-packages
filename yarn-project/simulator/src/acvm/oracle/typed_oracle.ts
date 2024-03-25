@@ -172,6 +172,7 @@ export abstract class TypedOracle {
   }
 
   getL1ToL2MembershipWitness(
+    _contractAddress: AztecAddress,
     _messageHash: Fr,
     _secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {

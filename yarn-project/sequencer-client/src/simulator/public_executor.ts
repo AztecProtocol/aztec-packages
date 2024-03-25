@@ -224,6 +224,7 @@ export class WorldStateDB implements CommitmentsDB {
   }
 
   public async getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
     messageHash: Fr,
     secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
@@ -238,7 +239,7 @@ export class WorldStateDB implements CommitmentsDB {
         throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
       }
 
-      const messageNullifier = computeL1ToL2MessageNullifier(messageHash, secret, messageIndex);
+      const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, messageIndex);
       nullifierIndex = await this.getNullifierIndex(messageNullifier);
     } while (nullifierIndex !== undefined);
 

@@ -93,12 +93,13 @@ export class PublicExecutionContext extends TypedOracle {
 
   /**
    * Fetches the a message from the db, given its key.
+   * @param contractAddress - Address of a contract by which the message was emitted.
    * @param messageHash - Hash of the message.
    * @param secret - Secret used to compute a nullifier (to get non-nullified messages).
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  public async getL1ToL2MembershipWitness(messageHash: Fr, secret: Fr) {
-    return await this.commitmentsDb.getL1ToL2MembershipWitness(messageHash, secret);
+  public async getL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
+    return await this.commitmentsDb.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
   }
 
   /**

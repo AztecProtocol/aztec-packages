@@ -80,11 +80,13 @@ export interface PublicContractsDB {
 export interface CommitmentsDB {
   /**
    * Fetches the a message from the db, given its key.
+   * @param contractAddress - Address of a contract by which the message was emitted.
    * @param messageHash - Hash of the message.
    * @param secret - Secret used to compute a nullifier (to get non-nullified messages).
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
   getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
     messageHash: Fr,
     secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;

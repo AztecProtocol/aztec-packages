@@ -244,8 +244,13 @@ export class Oracle {
     return toACVMField(exists);
   }
 
-  async getL1ToL2MembershipWitness([messageHash]: ACVMField[], [secret]: ACVMField[]): Promise<ACVMField[]> {
+  async getL1ToL2MembershipWitness(
+    [contractAddress]: ACVMField[],
+    [messageHash]: ACVMField[],
+    [secret]: ACVMField[],
+  ): Promise<ACVMField[]> {
     const message = await this.typedOracle.getL1ToL2MembershipWitness(
+      AztecAddress.fromString(contractAddress),
       fromACVMField(messageHash),
       fromACVMField(secret),
     );

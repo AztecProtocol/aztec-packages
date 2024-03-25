@@ -318,7 +318,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     async (isPrivate: boolean) => {
       const testContract = await TestContract.deploy(user1Wallet).send().deployed();
 
-      let consumeMethod = isPrivate
+      const consumeMethod = isPrivate
         ? testContract.methods.consume_message_from_arbitrary_sender_private
         : testContract.methods.consume_message_from_arbitrary_sender_public;
 
@@ -352,15 +352,6 @@ describe('e2e_public_cross_chain_messaging', () => {
 
       expect(message2Index).toBeDefined();
       expect(message2Index).toBeGreaterThan(message1Index);
-
-      {
-        // Note: We update the consume method to use wallet 2 because we currently don't have nonces implemented and
-        // sending the exact same transaction twice (which we need to claim the same message) will fail
-        const contractWithWallet2 = testContract.withWallet(user2Wallet);
-        consumeMethod = isPrivate
-          ? contractWithWallet2.methods.consume_message_from_arbitrary_sender_private
-          : contractWithWallet2.methods.consume_message_from_arbitrary_sender_public;
-      }
 
       // Now we consume the message again. Everything should pass because oracle should return the duplicate message
       // which is not nullified
