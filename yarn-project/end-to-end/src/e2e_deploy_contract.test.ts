@@ -134,7 +134,10 @@ describe('e2e_deploy_contract', () => {
 
         await Promise.all([goodDeploy.simulate(firstOpts), badDeploy.simulate(secondOpts)]);
         const [goodTx, badTx] = [goodDeploy.send(firstOpts), badDeploy.send(secondOpts)];
-        const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([goodTx.wait(), badTx.wait()]);
+        const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([
+          goodTx.wait(),
+          badTx.wait({ dontThrowOnRevert: true }),
+        ]);
 
         expect(goodTxPromiseResult.status).toBe('fulfilled');
         expect(badTxReceiptResult.status).toBe('fulfilled'); // but reverted
@@ -396,7 +399,7 @@ describe('e2e_deploy_contract', () => {
             const receipt = await contract.methods
               .increment_public_value(whom, 10)
               .send({ skipPublicSimulation: true })
-              .wait();
+              .wait({ dontThrowOnRevert: true });
             expect(receipt.status).toEqual(TxStatus.REVERTED);
 
             // Meanwhile we check we didn't increment the value
