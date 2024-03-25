@@ -1,11 +1,11 @@
 #pragma once
+#include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
-#include "barretenberg/proof_system/composer/composer_lib.hpp"
-#include "barretenberg/proof_system/composer/permutation_lib.hpp"
-#include "barretenberg/proof_system/execution_trace/execution_trace.hpp"
+#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 namespace bb {
 /**
@@ -75,11 +75,6 @@ template <class Flavor> class ProverInstance_ {
 
         std::span<FF> public_wires_source = proving_key->w_r;
 
-        // Determine public input offsets in the circuit relative to the 0th index for Ultra flavors
-        proving_key->pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
-        if constexpr (IsGoblinFlavor<Flavor>) {
-            proving_key->pub_inputs_offset += proving_key->num_ecc_op_gates;
-        }
         // Construct the public inputs array
         for (size_t i = 0; i < proving_key->num_public_inputs; ++i) {
             size_t idx = i + proving_key->pub_inputs_offset;

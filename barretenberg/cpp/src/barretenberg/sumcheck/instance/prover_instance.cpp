@@ -1,7 +1,7 @@
 #include "prover_instance.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/composer/permutation_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
 /**
@@ -18,7 +18,7 @@ template <class Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circ
     // minumum size of execution trace due to everything else
     size_t min_size_of_execution_trace = circuit.public_inputs.size() + circuit.num_gates;
     if constexpr (IsGoblinFlavor<Flavor>) {
-        min_size_of_execution_trace += circuit.num_ecc_op_gates;
+        min_size_of_execution_trace += circuit.blocks.ecc_op.size();
     }
 
     // The number of gates is the maxmimum required by the lookup argument or everything else, plus an optional zero row
@@ -48,7 +48,6 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     // Note: We do not utilize a zero row for databus columns
     for (size_t idx = 0; idx < circuit.public_calldata.size(); ++idx) {
         public_calldata[idx] = circuit.get_variable(circuit.public_calldata[idx]);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/821): automate updating of read counts
         calldata_read_counts[idx] = circuit.calldata_read_counts[idx];
     }
 
