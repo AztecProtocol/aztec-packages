@@ -73,8 +73,8 @@ describe('e2e_slow_tree', () => {
       _root: { before: bigint; after: bigint; next_change: bigint },
       _leaf: { before: bigint; after: bigint; next_change: bigint },
     ) => {
-      const root = await contract.methods.un_read_root(owner).view();
-      const leaf = await contract.methods.un_read_leaf_at(owner, key).view();
+      const root = await contract.methods.un_read_root(owner).simulate();
+      const leaf = await contract.methods.un_read_leaf_at(owner, key).simulate();
       expect(root).toEqual(_root);
       expect(leaf).toEqual(_leaf);
     };

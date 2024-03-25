@@ -67,7 +67,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the view transaction as returned by the contract function.
    */
-  public async view(options: ViewMethodOptions = {}): Promise<any> {
+  public async simulate(options: ViewMethodOptions = {}): Promise<any> {
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
       return this.wallet.viewTx(this.functionDao.name, this.args, this.contractAddress, options.from);
     }

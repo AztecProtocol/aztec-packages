@@ -192,10 +192,10 @@ describe('e2e_deploy_contract', () => {
           .send()
           .wait();
         logger.info(`Checking if the constructor was run for ${contract.address}`);
-        expect(await contract.methods.summed_values(owner).view()).toEqual(42n);
+        expect(await contract.methods.summed_values(owner).simulate()).toEqual(42n);
         logger.info(`Calling a private function that requires initialization on ${contract.address}`);
         await contract.methods.create_note(owner, 10).send().wait();
-        expect(await contract.methods.summed_values(owner).view()).toEqual(52n);
+        expect(await contract.methods.summed_values(owner).simulate()).toEqual(52n);
       },
       30_000,
     );
@@ -209,8 +209,8 @@ describe('e2e_deploy_contract', () => {
       );
       const calls = contracts.map((c, i) => c.methods.constructor(...initArgss[i]).request());
       await new BatchCall(wallet, calls).send().wait();
-      expect(await contracts[0].methods.summed_values(owner).view()).toEqual(42n);
-      expect(await contracts[1].methods.summed_values(owner).view()).toEqual(52n);
+      expect(await contracts[0].methods.summed_values(owner).simulate()).toEqual(42n);
+      expect(await contracts[1].methods.summed_values(owner).simulate()).toEqual(52n);
     }, 30_000);
 
     // TODO(@spalladino): This won't work until we can read a nullifier in the same tx in which it was emitted.
@@ -224,7 +224,7 @@ describe('e2e_deploy_contract', () => {
       ]);
       logger.info(`Executing constructor and private function in batch at ${contract.address}`);
       await batch.send().wait();
-      expect(await contract.methods.summed_values(owner).view()).toEqual(52n);
+      expect(await contract.methods.summed_values(owner).simulate()).toEqual(52n);
     });
 
     it('refuses to initialize a contract twice', async () => {
@@ -390,7 +390,7 @@ describe('e2e_deploy_contract', () => {
               .increment_public_value_no_init_check(whom, 10)
               .send({ skipPublicSimulation: true })
               .wait();
-            const stored = await contract.methods.get_public_value(whom).view();
+            const stored = await contract.methods.get_public_value(whom).simulate();
             expect(stored).toEqual(10n);
           }, 30_000);
 
@@ -403,7 +403,7 @@ describe('e2e_deploy_contract', () => {
             expect(receipt.status).toEqual(TxStatus.REVERTED);
 
             // Meanwhile we check we didn't increment the value
-            expect(await contract.methods.get_public_value(whom).view()).toEqual(0n);
+            expect(await contract.methods.get_public_value(whom).simulate()).toEqual(0n);
           }, 30_000);
 
           it('refuses to initialize the instance with wrong args via a private function', async () => {
@@ -419,7 +419,7 @@ describe('e2e_deploy_contract', () => {
               .wait();
             const whom = AztecAddress.random();
             await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
-            const stored = await contract.methods.get_public_value(whom).view();
+            const stored = await contract.methods.get_public_value(whom).simulate();
             expect(stored).toEqual(10n);
           }, 30_000);
 
@@ -445,7 +445,7 @@ describe('e2e_deploy_contract', () => {
               .send({ skipPublicSimulation: true })
               .wait({ dontThrowOnRevert: true });
             expect(receipt.status).toEqual(TxStatus.REVERTED);
-            expect(await contract.methods.get_public_value(whom).view()).toEqual(0n);
+            expect(await contract.methods.get_public_value(whom).simulate()).toEqual(0n);
           }, 30_000);
 
           it('initializes the contract and calls a public function', async () => {
@@ -455,7 +455,7 @@ describe('e2e_deploy_contract', () => {
               .wait();
             const whom = AztecAddress.random();
             await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
-            const stored = await contract.methods.get_public_value(whom).view();
+            const stored = await contract.methods.get_public_value(whom).simulate();
             expect(stored).toEqual(10n);
           }, 30_000);
 
@@ -516,25 +516,25 @@ describe('e2e_deploy_contract', () => {
       const owner = accounts[0];
       logger.debug(`Deploying stateful test contract`);
       const contract = await StatefulTestContract.deploy(wallet, owner, 42).send().deployed();
-      expect(await contract.methods.summed_values(owner).view()).toEqual(42n);
+      expect(await contract.methods.summed_values(owner).simulate()).toEqual(42n);
       logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
       await contract.methods.increment_public_value(owner, 84).send().wait();
-      expect(await contract.methods.get_public_value(owner).view()).toEqual(84n);
+      expect(await contract.methods.get_public_value(owner).simulate()).toEqual(84n);
     }, 60_000);
 
     it('publicly universally deploys and initializes a contract', async () => {
       const owner = accounts[0];
       const opts = { universalDeploy: true };
       const contract = await StatefulTestContract.deploy(wallet, owner, 42).send(opts).deployed();
-      expect(await contract.methods.summed_values(owner).view()).toEqual(42n);
+      expect(await contract.methods.summed_values(owner).simulate()).toEqual(42n);
       await contract.methods.increment_public_value(owner, 84).send().wait();
-      expect(await contract.methods.get_public_value(owner).view()).toEqual(84n);
+      expect(await contract.methods.get_public_value(owner).simulate()).toEqual(84n);
     }, 60_000);
 
     it('publicly deploys and calls a public function from the constructor', async () => {
       const owner = accounts[0];
       const token = await TokenContract.deploy(wallet, owner, 'TOKEN', 'TKN', 18).send().deployed();
-      expect(await token.methods.is_minter(owner).view()).toEqual(true);
+      expect(await token.methods.is_minter(owner).simulate()).toEqual(true);
     }, 60_000);
 
     it('publicly deploys and initializes via a public function', async () => {
@@ -543,10 +543,10 @@ describe('e2e_deploy_contract', () => {
       const contract = await StatefulTestContract.deployWithOpts({ wallet, method: 'public_constructor' }, owner, 42)
         .send()
         .deployed();
-      expect(await contract.methods.get_public_value(owner).view()).toEqual(42n);
+      expect(await contract.methods.get_public_value(owner).simulate()).toEqual(42n);
       logger.debug(`Calling a private function to ensure the contract was properly initialized`);
       await contract.methods.create_note(owner, 30).send().wait();
-      expect(await contract.methods.summed_values(owner).view()).toEqual(30n);
+      expect(await contract.methods.summed_values(owner).simulate()).toEqual(30n);
     }, 60_000);
 
     it('deploys a contract with a default initializer not named constructor', async () => {
@@ -555,7 +555,7 @@ describe('e2e_deploy_contract', () => {
       const contract = await CounterContract.deploy(wallet, 10, accounts[0]).send(opts).deployed();
       logger.debug(`Calling a function to ensure the contract was properly initialized`);
       await contract.methods.increment(accounts[0]).send().wait();
-      expect(await contract.methods.get_counter(accounts[0]).view()).toEqual(11n);
+      expect(await contract.methods.get_counter(accounts[0]).simulate()).toEqual(11n);
     });
 
     it('publicly deploys a contract with no constructor', async () => {

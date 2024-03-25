@@ -43,7 +43,7 @@ describe('guides/dapp/testing', () => {
 
       it('increases recipient funds on mint', async () => {
         const recipientAddress = recipient.getAddress();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(0n);
+        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(0n);
 
         const mintAmount = 20n;
         const secret = Fr.random();
@@ -65,7 +65,7 @@ describe('guides/dapp/testing', () => {
         await pxe.addNote(extendedNote);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
+        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       }, 30_000);
     });
     // docs:end:sandbox-example
@@ -87,7 +87,7 @@ describe('guides/dapp/testing', () => {
       }, 30_000);
 
       it('increases recipient funds on mint', async () => {
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(0n);
+        expect(await token.methods.balance_of_private(recipient.getAddress()).simulate()).toEqual(0n);
         const recipientAddress = recipient.getAddress();
         const mintAmount = 20n;
         const secret = Fr.random();
@@ -109,7 +109,7 @@ describe('guides/dapp/testing', () => {
         await pxe.addNote(extendedNote);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
+        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       }, 30_000);
     });
 

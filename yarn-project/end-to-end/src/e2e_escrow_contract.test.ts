@@ -90,7 +90,7 @@ describe('e2e_escrow_contract', () => {
   afterEach(() => teardown(), 30_000);
 
   const expectBalance = async (who: AztecAddress, expectedBalance: bigint) => {
-    const balance = await token.methods.balance_of_private(who).view({ from: who });
+    const balance = await token.methods.balance_of_private(who).simulate({ from: who });
     logger(`Account ${who} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };

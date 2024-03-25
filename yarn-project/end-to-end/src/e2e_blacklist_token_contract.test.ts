@@ -129,7 +129,7 @@ describe('e2e_blacklist_token_contract', () => {
     await cheatCodes.aztec.warp(time + 200);
     await slowUpdateTreeSimulator.commit();
 
-    const roleLeaf = await slowTree.methods.un_read_leaf_at(asset.address, accounts[0].address).view();
+    const roleLeaf = await slowTree.methods.un_read_leaf_at(asset.address, accounts[0].address).simulate();
     expect(roleLeaf['next_change']).toBeGreaterThan(0n);
     expect(roleLeaf['before']).toEqual(0n);
     expect(roleLeaf['after']).toEqual(4n);
@@ -162,7 +162,7 @@ describe('e2e_blacklist_token_contract', () => {
       const newMinter = accounts[0].address;
       const newRoles = 2n + 4n;
 
-      const beforeLeaf = await slowTree.methods.un_read_leaf_at(asset.address, newMinter).view();
+      const beforeLeaf = await slowTree.methods.un_read_leaf_at(asset.address, newMinter).simulate();
       // eslint-disable-next-line camelcase
       expect(beforeLeaf['next_change']).toBeGreaterThan(0n);
       expect(beforeLeaf['before']).toEqual(0n);
@@ -176,7 +176,7 @@ describe('e2e_blacklist_token_contract', () => {
       await asset.methods.update_roles(newMinter, newRoles).send().wait();
       await slowUpdateTreeSimulator.commit();
 
-      const afterLeaf = await slowTree.methods.un_read_leaf_at(asset.address, newMinter).view();
+      const afterLeaf = await slowTree.methods.un_read_leaf_at(asset.address, newMinter).simulate();
       expect(afterLeaf['next_change']).toBeGreaterThan(beforeLeaf['next_change']);
       expect(afterLeaf['before']).toEqual(4n);
       expect(afterLeaf['after']).toEqual(newRoles);
@@ -189,7 +189,7 @@ describe('e2e_blacklist_token_contract', () => {
       const newAdmin = accounts[1].address;
       const newRoles = 4n;
 
-      let v = await slowTree.methods.un_read_leaf_at(asset.address, newAdmin).view();
+      let v = await slowTree.methods.un_read_leaf_at(asset.address, newAdmin).simulate();
       // eslint-disable-next-line camelcase
       expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
 
@@ -201,7 +201,7 @@ describe('e2e_blacklist_token_contract', () => {
       await asset.methods.update_roles(newAdmin, newRoles).send().wait();
       await slowUpdateTreeSimulator.commit();
 
-      v = await slowTree.methods.un_read_leaf_at(asset.address, newAdmin).view();
+      v = await slowTree.methods.un_read_leaf_at(asset.address, newAdmin).simulate();
       expect(v['next_change']).toBeGreaterThan(0n);
       expect(v['before']).toEqual(0n);
       expect(v['after']).toEqual(newRoles);
@@ -216,7 +216,7 @@ describe('e2e_blacklist_token_contract', () => {
       const newRoles = 0n;
       const currentRoles = 4n;
 
-      const beforeLeaf = await slowTree.methods.un_read_leaf_at(asset.address, actor).view();
+      const beforeLeaf = await slowTree.methods.un_read_leaf_at(asset.address, actor).simulate();
       // eslint-disable-next-line camelcase
       expect(beforeLeaf['next_change']).toBeGreaterThan(0n);
       expect(beforeLeaf['before']).toEqual(0n);
@@ -230,7 +230,7 @@ describe('e2e_blacklist_token_contract', () => {
       await asset.methods.update_roles(actor, newRoles).send().wait();
       await slowUpdateTreeSimulator.commit();
 
-      const afterLeaf = await slowTree.methods.un_read_leaf_at(asset.address, actor).view();
+      const afterLeaf = await slowTree.methods.un_read_leaf_at(asset.address, actor).simulate();
       expect(afterLeaf['next_change']).toBeGreaterThan(beforeLeaf['next_change']);
       expect(afterLeaf['before']).toEqual(currentRoles);
       expect(afterLeaf['after']).toEqual(newRoles);
@@ -240,7 +240,7 @@ describe('e2e_blacklist_token_contract', () => {
     });
 
     it('Add account[3] to blacklist', async () => {
-      let v = await slowTree.methods.un_read_leaf_at(asset.address, accounts[3].address).view();
+      let v = await slowTree.methods.un_read_leaf_at(asset.address, accounts[3].address).simulate();
       // eslint-disable-next-line camelcase
       expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
 
@@ -252,7 +252,7 @@ describe('e2e_blacklist_token_contract', () => {
       await asset.methods.update_roles(accounts[3].address, 1n).send().wait();
       await slowUpdateTreeSimulator.commit();
 
-      v = await slowTree.methods.un_read_leaf_at(asset.address, accounts[3].address).view();
+      v = await slowTree.methods.un_read_leaf_at(asset.address, accounts[3].address).simulate();
       expect(v['next_change']).toBeGreaterThan(0n);
       expect(v['before']).toEqual(0n);
       expect(v['after']).toEqual(1n);
@@ -264,7 +264,7 @@ describe('e2e_blacklist_token_contract', () => {
     describe('failure cases', () => {
       it('Set admin (not admin)', async () => {
         const account = AztecAddress.random();
-        const v = await slowTree.methods.un_read_leaf_at(asset.address, account).view();
+        const v = await slowTree.methods.un_read_leaf_at(asset.address, account).simulate();
         const newRoles = 4n;
         // eslint-disable-next-line camelcase
         expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
@@ -279,7 +279,7 @@ describe('e2e_blacklist_token_contract', () => {
 
       it('Revoke minter not as admin', async () => {
         const adminAccount = accounts[0].address;
-        const v = await slowTree.methods.un_read_leaf_at(asset.address, adminAccount).view();
+        const v = await slowTree.methods.un_read_leaf_at(asset.address, adminAccount).simulate();
         const newRoles = 0n;
         // eslint-disable-next-line camelcase
         expect(v['next_change']).toBeGreaterThan(0n);
@@ -303,10 +303,10 @@ describe('e2e_blacklist_token_contract', () => {
         await asset.methods.mint_public(accounts[0].address, amount).send().wait();
 
         tokenSim.mintPublic(accounts[0].address, amount);
-        expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(
+        expect(await asset.methods.balance_of_public(accounts[0].address).simulate()).toEqual(
           tokenSim.balanceOfPublic(accounts[0].address),
         );
-        expect(await asset.methods.total_supply().view()).toEqual(tokenSim.totalSupply);
+        expect(await asset.methods.total_supply().simulate()).toEqual(tokenSim.totalSupply);
       });
 
       describe('failure cases', () => {
@@ -433,7 +433,7 @@ describe('e2e_blacklist_token_contract', () => {
   describe('Transfer', () => {
     describe('public', () => {
       it('transfer less than balance', async () => {
-        const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         await asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, 0).send().wait();
@@ -442,7 +442,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('transfer to self', async () => {
-        const balance = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balance = await asset.methods.balance_of_public(accounts[0].address).simulate();
         const amount = balance / 2n;
         expect(amount).toBeGreaterThan(0n);
         await asset.methods.transfer_public(accounts[0].address, accounts[0].address, amount, 0).send().wait();
@@ -451,7 +451,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('transfer on behalf of other', async () => {
-        const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         const nonce = Fr.random();
@@ -479,7 +479,7 @@ describe('e2e_blacklist_token_contract', () => {
 
       describe('failure cases', () => {
         it('transfer more than balance', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
           const amount = balance0 + 1n;
           const nonce = 0;
           await expect(
@@ -488,7 +488,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('transfer on behalf of self with non-zero nonce', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
           const amount = balance0 - 1n;
           const nonce = 1;
           await expect(
@@ -497,7 +497,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('transfer on behalf of other without "approval"', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           await expect(
@@ -509,8 +509,8 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('transfer more than balance on behalf of other', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
-          const balance1 = await asset.methods.balance_of_public(accounts[1].address).view();
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
+          const balance1 = await asset.methods.balance_of_public(accounts[1].address).simulate();
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -525,13 +525,13 @@ describe('e2e_blacklist_token_contract', () => {
           // Perform the transfer
           await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
-          expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
-          expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
+          expect(await asset.methods.balance_of_public(accounts[0].address).simulate()).toEqual(balance0);
+          expect(await asset.methods.balance_of_public(accounts[1].address).simulate()).toEqual(balance1);
         });
 
         it('transfer on behalf of other, wrong designated caller', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
-          const balance1 = await asset.methods.balance_of_public(accounts[1].address).view();
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
+          const balance1 = await asset.methods.balance_of_public(accounts[1].address).simulate();
           const amount = balance0 + 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -546,13 +546,13 @@ describe('e2e_blacklist_token_contract', () => {
           // Perform the transfer
           await expect(action.prove()).rejects.toThrow('Assertion failed: Message not authorized by account');
 
-          expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
-          expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
+          expect(await asset.methods.balance_of_public(accounts[0].address).simulate()).toEqual(balance0);
+          expect(await asset.methods.balance_of_public(accounts[1].address).simulate()).toEqual(balance1);
         });
 
         it('transfer on behalf of other, wrong designated caller', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
-          const balance1 = await asset.methods.balance_of_public(accounts[1].address).view();
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
+          const balance1 = await asset.methods.balance_of_public(accounts[1].address).simulate();
           const amount = balance0 + 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -566,8 +566,8 @@ describe('e2e_blacklist_token_contract', () => {
           // Perform the transfer
           await expect(action.prove()).rejects.toThrow('Assertion failed: Message not authorized by account');
 
-          expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
-          expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
+          expect(await asset.methods.balance_of_public(accounts[0].address).simulate()).toEqual(balance0);
+          expect(await asset.methods.balance_of_public(accounts[1].address).simulate()).toEqual(balance1);
         });
 
         it.skip('transfer into account to overflow', () => {
@@ -593,7 +593,7 @@ describe('e2e_blacklist_token_contract', () => {
 
     describe('private', () => {
       it('transfer less than balance', async () => {
-        const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         await wallets[0].addCapsule(
@@ -607,7 +607,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('transfer to self', async () => {
-        const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         await wallets[0].addCapsule(
@@ -621,7 +621,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('transfer on behalf of other', async () => {
-        const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
         const amount = balance0 / 2n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -665,7 +665,7 @@ describe('e2e_blacklist_token_contract', () => {
 
       describe('failure cases', () => {
         it('transfer more than balance', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
           const amount = balance0 + 1n;
           expect(amount).toBeGreaterThan(0n);
           await wallets[0].addCapsule(
@@ -680,7 +680,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('transfer on behalf of self with non-zero nonce', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
           const amount = balance0 - 1n;
           expect(amount).toBeGreaterThan(0n);
           await wallets[0].addCapsule(
@@ -695,8 +695,8 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('transfer more than balance on behalf of other', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
-          const balance1 = await asset.methods.balance_of_private(accounts[1].address).view();
+          const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
+          const balance1 = await asset.methods.balance_of_private(accounts[1].address).simulate();
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -719,8 +719,8 @@ describe('e2e_blacklist_token_contract', () => {
 
           // Perform the transfer
           await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
-          expect(await asset.methods.balance_of_private(accounts[0].address).view()).toEqual(balance0);
-          expect(await asset.methods.balance_of_private(accounts[1].address).view()).toEqual(balance1);
+          expect(await asset.methods.balance_of_private(accounts[0].address).simulate()).toEqual(balance0);
+          expect(await asset.methods.balance_of_private(accounts[1].address).simulate()).toEqual(balance1);
         });
 
         it.skip('transfer into account to overflow', () => {
@@ -731,7 +731,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('transfer on behalf of other without approval', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
           const amount = balance0 / 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -759,7 +759,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('transfer on behalf of other, wrong designated caller', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
           const amount = balance0 / 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -787,7 +787,7 @@ describe('e2e_blacklist_token_contract', () => {
           await expect(action.prove()).rejects.toThrow(
             `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
           );
-          expect(await asset.methods.balance_of_private(accounts[0].address).view()).toEqual(balance0);
+          expect(await asset.methods.balance_of_private(accounts[0].address).simulate()).toEqual(balance0);
         });
 
         it('transfer from a blacklisted account', async () => {
@@ -826,7 +826,7 @@ describe('e2e_blacklist_token_contract', () => {
     });
 
     it('on behalf of self', async () => {
-      const balancePub = await asset.methods.balance_of_public(accounts[0].address).view();
+      const balancePub = await asset.methods.balance_of_public(accounts[0].address).simulate();
       const amount = balancePub / 2n;
       expect(amount).toBeGreaterThan(0n);
 
@@ -844,7 +844,7 @@ describe('e2e_blacklist_token_contract', () => {
     });
 
     it('on behalf of other', async () => {
-      const balancePub = await asset.methods.balance_of_public(accounts[0].address).view();
+      const balancePub = await asset.methods.balance_of_public(accounts[0].address).simulate();
       const amount = balancePub / 2n;
       const nonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -875,7 +875,7 @@ describe('e2e_blacklist_token_contract', () => {
 
     describe('failure cases', () => {
       it('on behalf of self (more than balance)', async () => {
-        const balancePub = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balancePub = await asset.methods.balance_of_public(accounts[0].address).simulate();
         const amount = balancePub + 1n;
         expect(amount).toBeGreaterThan(0n);
 
@@ -885,7 +885,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('on behalf of self (invalid nonce)', async () => {
-        const balancePub = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balancePub = await asset.methods.balance_of_public(accounts[0].address).simulate();
         const amount = balancePub + 1n;
         expect(amount).toBeGreaterThan(0n);
 
@@ -895,7 +895,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('on behalf of other (more than balance)', async () => {
-        const balancePub = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balancePub = await asset.methods.balance_of_public(accounts[0].address).simulate();
         const amount = balancePub + 1n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -908,7 +908,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('on behalf of other (wrong designated caller)', async () => {
-        const balancePub = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balancePub = await asset.methods.balance_of_public(accounts[0].address).simulate();
         const amount = balancePub + 1n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -921,7 +921,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('on behalf of other (without approval)', async () => {
-        const balance = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balance = await asset.methods.balance_of_public(accounts[0].address).simulate();
         const amount = balance / 2n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -944,7 +944,7 @@ describe('e2e_blacklist_token_contract', () => {
 
   describe('Unshielding', () => {
     it('on behalf of self', async () => {
-      const balancePriv = await asset.methods.balance_of_private(accounts[0].address).view();
+      const balancePriv = await asset.methods.balance_of_private(accounts[0].address).simulate();
       const amount = balancePriv / 2n;
       expect(amount).toBeGreaterThan(0n);
 
@@ -956,7 +956,7 @@ describe('e2e_blacklist_token_contract', () => {
     });
 
     it('on behalf of other', async () => {
-      const balancePriv0 = await asset.methods.balance_of_private(accounts[0].address).view();
+      const balancePriv0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
       const amount = balancePriv0 / 2n;
       const nonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -989,7 +989,7 @@ describe('e2e_blacklist_token_contract', () => {
 
     describe('failure cases', () => {
       it('on behalf of self (more than balance)', async () => {
-        const balancePriv = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balancePriv = await asset.methods.balance_of_private(accounts[0].address).simulate();
         const amount = balancePriv + 1n;
         expect(amount).toBeGreaterThan(0n);
 
@@ -1006,7 +1006,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('on behalf of self (invalid nonce)', async () => {
-        const balancePriv = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balancePriv = await asset.methods.balance_of_private(accounts[0].address).simulate();
         const amount = balancePriv + 1n;
         expect(amount).toBeGreaterThan(0n);
 
@@ -1023,7 +1023,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('on behalf of other (more than balance)', async () => {
-        const balancePriv0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balancePriv0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
         const amount = balancePriv0 + 2n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -1048,7 +1048,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('on behalf of other (invalid designated caller)', async () => {
-        const balancePriv0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balancePriv0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
         const amount = balancePriv0 + 2n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -1109,7 +1109,7 @@ describe('e2e_blacklist_token_contract', () => {
   describe('Burn', () => {
     describe('public', () => {
       it('burn less than balance', async () => {
-        const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         await asset.methods.burn_public(accounts[0].address, amount, 0).send().wait();
@@ -1118,7 +1118,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('burn on behalf of other', async () => {
-        const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         const nonce = Fr.random();
@@ -1138,7 +1138,7 @@ describe('e2e_blacklist_token_contract', () => {
 
       describe('failure cases', () => {
         it('burn more than balance', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
           const amount = balance0 + 1n;
           const nonce = 0;
           await expect(asset.methods.burn_public(accounts[0].address, amount, nonce).prove()).rejects.toThrow(
@@ -1147,7 +1147,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('burn on behalf of self with non-zero nonce', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
           const amount = balance0 - 1n;
           expect(amount).toBeGreaterThan(0n);
           const nonce = 1;
@@ -1157,7 +1157,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('burn on behalf of other without "approval"', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           await expect(
@@ -1166,7 +1166,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('burn more than balance on behalf of other', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -1179,7 +1179,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('burn on behalf of other, wrong designated caller', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).simulate();
           const amount = balance0 + 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -1203,7 +1203,7 @@ describe('e2e_blacklist_token_contract', () => {
 
     describe('private', () => {
       it('burn less than balance', async () => {
-        const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         await wallets[0].addCapsule(
@@ -1214,7 +1214,7 @@ describe('e2e_blacklist_token_contract', () => {
       });
 
       it('burn on behalf of other', async () => {
-        const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
         const amount = balance0 / 2n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -1243,7 +1243,7 @@ describe('e2e_blacklist_token_contract', () => {
 
       describe('failure cases', () => {
         it('burn more than balance', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
           const amount = balance0 + 1n;
           expect(amount).toBeGreaterThan(0n);
           await wallets[0].addCapsule(
@@ -1255,7 +1255,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('burn on behalf of self with non-zero nonce', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
           const amount = balance0 - 1n;
           expect(amount).toBeGreaterThan(0n);
           await wallets[0].addCapsule(
@@ -1267,7 +1267,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('burn more than balance on behalf of other', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -1287,7 +1287,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('burn on behalf of other without approval', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
           const amount = balance0 / 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -1310,7 +1310,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('on behalf of other (invalid designated caller)', async () => {
-          const balancePriv0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balancePriv0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
           const amount = balancePriv0 + 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);

@@ -213,7 +213,7 @@ describe('e2e_dapp_subscription', () => {
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     await sentTx.wait();
 
-    expect(await counterContract.methods.get_counter(bobAddress).view()).toBe(1n);
+    expect(await counterContract.methods.get_counter(bobAddress).simulate()).toBe(1n);
 
     await expectMapping(
       gasBalances,

@@ -137,7 +137,7 @@ describe('Contract Class', () => {
 
   it('should call view on an unconstrained function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    const result = await fooContract.methods.qux(123n).view({
+    const result = await fooContract.methods.qux(123n).simulate({
       from: account.address,
     });
     expect(wallet.viewTx).toHaveBeenCalledTimes(1);
@@ -152,7 +152,7 @@ describe('Contract Class', () => {
 
   it('should not call view on a secret or open function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    expect(() => fooContract.methods.bar().view()).toThrow();
-    expect(() => fooContract.methods.baz().view()).toThrow();
+    expect(() => fooContract.methods.bar().simulate()).toThrow();
+    expect(() => fooContract.methods.baz().simulate()).toThrow();
   });
 });
