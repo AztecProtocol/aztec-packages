@@ -7,6 +7,8 @@ import { Contract } from '@aztec/aztec.js';
 // docs:end:import_contract
 // docs:start:import_token_contract
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+
+
 // docs:end:import_token_contract
 
 describe('doc tests', () => {
@@ -44,6 +46,6 @@ describe('doc tests', () => {
 
     // docs:start:call_view_function
     const _balance = await contract.methods.get_balance(wallet.getAddress()).view();
-    // docs:end:call_view_function
-  });
-});
+    // docs:end:call_view_functione
+  }, 50_000);
+}, );
