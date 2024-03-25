@@ -94,7 +94,7 @@ impl From<u32> for MemoryValue {
 
 impl From<u8> for MemoryValue {
     fn from(value: u8) -> Self {
-        MemoryValue::new((value as u128).into(), 32)
+        MemoryValue::new((value as u128).into(), 8)
     }
 }
 
