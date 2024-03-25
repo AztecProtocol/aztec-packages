@@ -314,11 +314,11 @@ describe('e2e_public_cross_chain_messaging', () => {
   // Note: We register one portal address when deploying contract but that address is no-longer the only address
   // allowed to send messages to the given contract. In the following test we'll test that it's really the case.
   it.each([true, false])(
-    'can send an L1 -> L2 message from a non-registered portal address consumed from private or public',
+    'can send an L1 -> L2 message from a non-registered portal address consumed from private or public and then sends and claims exactly the same message again',
     async (isPrivate: boolean) => {
       const testContract = await TestContract.deploy(user1Wallet).send().deployed();
 
-      const consumeMethod = isPrivate
+      let consumeMethod = isPrivate
         ? testContract.methods.consume_message_from_arbitrary_sender_private
         : testContract.methods.consume_message_from_arbitrary_sender_public;
 
@@ -339,23 +339,34 @@ describe('e2e_public_cross_chain_messaging', () => {
       await consumeMethod(message.content, secret, message.sender.sender).send().wait();
 
       // We send and consume the exact same message the second time to test that oracles correctly return the new
-      // non-nullified message.
+      // non-nullified message
       await sendL2Message(message);
 
-      // We check that the duplicate message was correctly inserted by checking that its message index is defined and larger than
-      // the previous message index
+      // We check that the duplicate message was correctly inserted by checking that its message index is defined and
+      // larger than the previous message index
       const [message2Index, _2] = (await aztecNode.getL1ToL2MessageMembershipWitness(
         'latest',
         message.hash(),
         message1Index + 1n,
       ))!;
+
       expect(message2Index).toBeDefined();
       expect(message2Index).toBeGreaterThan(message1Index);
 
-      // The following fails due to duplicate tx --> we need a nonce
-      // await consumeMethod(message.content, secret, message.sender.sender).send().wait();
+      {
+        // Note: We update the consume method to use wallet 2 because we currently don't have nonces implemented and
+        // sending the exact same transaction twice (which we need to claim the same message) will fail
+        const contractWithWallet2 = testContract.withWallet(user2Wallet);
+        consumeMethod = isPrivate
+          ? contractWithWallet2.methods.consume_message_from_arbitrary_sender_private
+          : contractWithWallet2.methods.consume_message_from_arbitrary_sender_public;
+      }
+
+      // Now we consume the message again. Everything should pass because oracle should return the duplicate message
+      // which is not nullified
+      await consumeMethod(message.content, secret, message.sender.sender).send().wait();
     },
-    60_000,
+    120_000,
   );
 
   const sendL2Message = async (message: L1ToL2Message) => {
