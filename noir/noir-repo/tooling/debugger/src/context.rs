@@ -510,9 +510,9 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
         self.brillig_solver.as_ref().map(|solver| solver.get_memory())
     }
 
-    pub(super) fn write_brillig_memory(&mut self, ptr: usize, value: FieldElement) {
+    pub(super) fn write_brillig_memory(&mut self, ptr: usize, value: FieldElement, bit_size: u32) {
         if let Some(solver) = self.brillig_solver.as_mut() {
-            solver.write_memory_at(ptr, value.into());
+            solver.write_memory_at(ptr, MemoryValue::new(value, bit_size));
         }
     }
 

@@ -18,7 +18,13 @@ impl MemoryValue {
 
 impl std::fmt::Display for MemoryValue {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
-        f.write_str(format!("{} :u{}", self.value, self.bit_size).as_str())
+        let typ = match self.bit_size {
+            0 => "null".to_string(),
+            1 => "bool".to_string(),
+            _ if self.bit_size == FieldElement::max_num_bits() => "field".to_string(),
+            _ => format!("u{}", self.bit_size),
+        };
+        f.write_str(format!("{}: {}", self.value, typ).as_str())
     }
 }
 
