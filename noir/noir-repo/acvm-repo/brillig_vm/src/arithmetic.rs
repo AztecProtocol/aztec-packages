@@ -5,25 +5,37 @@ use num_traits::{One, ToPrimitive, Zero};
 
 use crate::memory::MemoryValue;
 
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum BrilligArithmeticError {
+    #[error("Bit size for lhs {lhs_bit_size} does not match op bit size {op_bit_size}")]
+    MismatchedLhsBitSize { lhs_bit_size: u32, op_bit_size: u32 },
+    #[error("Bit size for rhs {rhs_bit_size} does not match op bit size {op_bit_size}")]
+    MismatchedRhsBitSize { rhs_bit_size: u32, op_bit_size: u32 },
+    #[error("Shift with bit size {op_bit_size} is invalid")]
+    InvalidShift { op_bit_size: u32 },
+}
+
 /// Evaluate a binary operation on two FieldElement memory values.
 pub(crate) fn evaluate_binary_field_op(
     op: &BinaryFieldOp,
-    a: MemoryValue,
-    b: MemoryValue,
-) -> Result<MemoryValue, String> {
-    if a.bit_size != b.bit_size {
-        return Err(format!(
-            "bit sizes for lhs ({}) and rhs ({}) for op {:?} must match",
-            a.bit_size, b.bit_size, op
-        )
-        .to_string());
+    lhs: MemoryValue,
+    rhs: MemoryValue,
+) -> Result<MemoryValue, BrilligArithmeticError> {
+    if lhs.bit_size != FieldElement::max_num_bits() {
+        return Err(BrilligArithmeticError::MismatchedLhsBitSize {
+            lhs_bit_size: lhs.bit_size,
+            op_bit_size: FieldElement::max_num_bits(),
+        });
     }
-    if a.bit_size != FieldElement::max_num_bits() {
-        return Err(format!("bit size ({}) for op {:?} must be field", a.bit_size, op).to_string());
+    if rhs.bit_size != FieldElement::max_num_bits() {
+        return Err(BrilligArithmeticError::MismatchedRhsBitSize {
+            rhs_bit_size: rhs.bit_size,
+            op_bit_size: FieldElement::max_num_bits(),
+        });
     }
 
-    let a = a.value;
-    let b = b.value;
+    let a = lhs.value;
+    let b = rhs.value;
     Ok(match op {
         // Perform addition, subtraction, multiplication, and division based on the BinaryOp variant.
         BinaryFieldOp::Add => (a + b).into(),
@@ -46,46 +58,43 @@ pub(crate) fn evaluate_binary_field_op(
 /// Evaluate a binary operation on two unsigned big integers with a given bit size.
 pub(crate) fn evaluate_binary_int_op(
     op: &BinaryIntOp,
-    a: MemoryValue,
-    b: MemoryValue,
+    lhs: MemoryValue,
+    rhs: MemoryValue,
     bit_size: u32,
-) -> Result<MemoryValue, String> {
-    if a.bit_size != b.bit_size {
-        return Err(format!(
-            "bit sizes for lhs ({}) and rhs ({}) for op {:?} must match",
-            a.bit_size, b.bit_size, op
-        )
-        .to_string());
+) -> Result<MemoryValue, BrilligArithmeticError> {
+    if lhs.bit_size != bit_size {
+        return Err(BrilligArithmeticError::MismatchedLhsBitSize {
+            lhs_bit_size: lhs.bit_size,
+            op_bit_size: bit_size,
+        });
     }
-    if a.bit_size != bit_size {
-        return Err(format!(
-            "bit size for lhs ({}) must match op bit size ({}) for op {:?}",
-            a.bit_size, bit_size, op
-        )
-        .to_string());
+    if rhs.bit_size != bit_size {
+        return Err(BrilligArithmeticError::MismatchedRhsBitSize {
+            rhs_bit_size: rhs.bit_size,
+            op_bit_size: bit_size,
+        });
     }
 
-    let a = BigUint::from_bytes_be(&a.value.to_be_bytes());
-    let b = BigUint::from_bytes_be(&b.value.to_be_bytes());
+    let lhs = BigUint::from_bytes_be(&lhs.value.to_be_bytes());
+    let rhs = BigUint::from_bytes_be(&rhs.value.to_be_bytes());
 
     let bit_modulo = &(BigUint::one() << bit_size);
     let result = match op {
         // Perform addition, subtraction, and multiplication, applying a modulo operation to keep the result within the bit size.
-        BinaryIntOp::Add => (a + b) % bit_modulo,
-        BinaryIntOp::Sub => (bit_modulo + a - b) % bit_modulo,
-        BinaryIntOp::Mul => (a * b) % bit_modulo,
+        BinaryIntOp::Add => (lhs + rhs) % bit_modulo,
+        BinaryIntOp::Sub => (bit_modulo + lhs - rhs) % bit_modulo,
+        BinaryIntOp::Mul => (lhs * rhs) % bit_modulo,
         // Perform unsigned division using the modulo operation on a and b.
         BinaryIntOp::Div => {
-            let b_mod = b % bit_modulo;
-            if b_mod.is_zero() {
+            if rhs.is_zero() {
                 BigUint::zero()
             } else {
-                (a % bit_modulo) / b_mod
+                lhs / rhs
             }
         }
         // Perform a == operation, returning 0 or 1
         BinaryIntOp::Equals => {
-            if (a % bit_modulo) == (b % bit_modulo) {
+            if lhs == rhs {
                 BigUint::one()
             } else {
                 BigUint::zero()
@@ -93,7 +102,7 @@ pub(crate) fn evaluate_binary_int_op(
         }
         // Perform a < operation, returning 0 or 1
         BinaryIntOp::LessThan => {
-            if (a % bit_modulo) < (b % bit_modulo) {
+            if lhs < rhs {
                 BigUint::one()
             } else {
                 BigUint::zero()
@@ -101,29 +110,29 @@ pub(crate) fn evaluate_binary_int_op(
         }
         // Perform a <= operation, returning 0 or 1
         BinaryIntOp::LessThanEquals => {
-            if (a % bit_modulo) <= (b % bit_modulo) {
+            if lhs <= rhs {
                 BigUint::one()
             } else {
                 BigUint::zero()
             }
         }
         // Perform bitwise AND, OR, XOR, left shift, and right shift operations, applying a modulo operation to keep the result within the bit size.
-        BinaryIntOp::And => (a & b) % bit_modulo,
-        BinaryIntOp::Or => (a | b) % bit_modulo,
-        BinaryIntOp::Xor => (a ^ b) % bit_modulo,
+        BinaryIntOp::And => lhs & rhs,
+        BinaryIntOp::Or => lhs | rhs,
+        BinaryIntOp::Xor => lhs ^ rhs,
         BinaryIntOp::Shl => {
             if bit_size > 128 {
-                return Err("unsupported bit size for left shift".to_string());
+                return Err(BrilligArithmeticError::InvalidShift { op_bit_size: bit_size });
             }
-            let b = b.to_u128().unwrap();
-            (a << b) % bit_modulo
+            let rhs = rhs.to_u128().unwrap();
+            (lhs << rhs) % bit_modulo
         }
         BinaryIntOp::Shr => {
             if bit_size > 128 {
-                return Err("unsupported bit size for right shift".to_string());
+                return Err(BrilligArithmeticError::InvalidShift { op_bit_size: bit_size });
             }
-            let b = b.to_u128().unwrap();
-            (a >> b) % bit_modulo
+            let rhs = rhs.to_u128().unwrap();
+            lhs >> rhs
         }
     };
 

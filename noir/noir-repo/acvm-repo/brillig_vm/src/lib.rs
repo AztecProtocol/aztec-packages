@@ -17,7 +17,7 @@ use acir::brillig::{
 };
 use acir::FieldElement;
 use acvm_blackbox_solver::{BlackBoxFunctionSolver, BlackBoxResolutionError};
-use arithmetic::{evaluate_binary_field_op, evaluate_binary_int_op};
+use arithmetic::{evaluate_binary_field_op, evaluate_binary_int_op, BrilligArithmeticError};
 use black_box::evaluate_black_box;
 use num_bigint::BigUint;
 
@@ -177,7 +177,7 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
         match opcode {
             Opcode::BinaryFieldOp { op, lhs, rhs, destination: result } => {
                 if let Err(error) = self.process_binary_field_op(*op, *lhs, *rhs, *result) {
-                    self.fail(error)
+                    self.fail(error.to_string())
                 } else {
                     self.increment_program_counter()
                 }
@@ -185,7 +185,7 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
             Opcode::BinaryIntOp { op, bit_size, lhs, rhs, destination: result } => {
                 if let Err(error) = self.process_binary_int_op(*op, *bit_size, *lhs, *rhs, *result)
                 {
-                    self.fail(error)
+                    self.fail(error.to_string())
                 } else {
                     self.increment_program_counter()
                 }
@@ -511,7 +511,7 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
         lhs: MemoryAddress,
         rhs: MemoryAddress,
         result: MemoryAddress,
-    ) -> Result<(), String> {
+    ) -> Result<(), BrilligArithmeticError> {
         let lhs_value = self.memory.read(lhs);
         let rhs_value = self.memory.read(rhs);
 
@@ -531,7 +531,7 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
         lhs: MemoryAddress,
         rhs: MemoryAddress,
         result: MemoryAddress,
-    ) -> Result<(), String> {
+    ) -> Result<(), BrilligArithmeticError> {
         let lhs_value = self.memory.read(lhs);
         let rhs_value = self.memory.read(rhs);
 
