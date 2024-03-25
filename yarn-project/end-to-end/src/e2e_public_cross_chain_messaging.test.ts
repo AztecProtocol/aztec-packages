@@ -317,6 +317,11 @@ describe('e2e_public_cross_chain_messaging', () => {
     'can send an L1 -> L2 message from a non-registered portal address consumed from private or public',
     async (isPrivate: boolean) => {
       const testContract = await TestContract.deploy(user1Wallet).send().deployed();
+
+      const consumeMethod = isPrivate
+        ? testContract.methods.consume_message_from_arbitrary_sender_private
+        : testContract.methods.consume_message_from_arbitrary_sender_public;
+
       const secret = Fr.random();
 
       const message = new L1ToL2Message(
@@ -326,54 +331,67 @@ describe('e2e_public_cross_chain_messaging', () => {
         computeMessageSecretHash(secret), // secretHash
       );
 
-      // We inject the message to Inbox
-      const txHash = await inbox.write.sendL2Message(
-        [
-          { actor: message.recipient.recipient.toString() as Hex, version: 1n },
-          message.content.toString() as Hex,
-          message.secretHash.toString() as Hex,
-        ] as const,
-        {} as any,
-      );
+      await sendL2Message(message);
 
-      // We check that the message was correctly injected by checking the emitted event
-      const msgHash = message.hash();
-      {
-        const txReceipt = await crossChainTestHarness.publicClient.waitForTransactionReceipt({
-          hash: txHash,
-        });
-
-        // Exactly 1 event should be emitted in the transaction
-        expect(txReceipt.logs.length).toBe(1);
-
-        // We decode the event and get leaf out of it
-        const txLog = txReceipt.logs[0];
-        const topics = decodeEventLog({
-          abi: InboxAbi,
-          data: txLog.data,
-          topics: txLog.topics,
-        });
-        const receivedMsgHash = topics.args.hash;
-
-        // We check that the leaf inserted into the subtree matches the expected message hash
-        expect(receivedMsgHash).toBe(msgHash.toString());
-      }
-
-      await crossChainTestHarness.makeMessageConsumable(msgHash);
+      const [message1Index, _1] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message.hash(), 0n))!;
 
       // Finally, we consume the L1 -> L2 message using the test contract either from private or public
-      if (isPrivate) {
-        await testContract.methods
-          .consume_message_from_arbitrary_sender_private(message.content, secret, message.sender.sender)
-          .send()
-          .wait();
-      } else {
-        await testContract.methods
-          .consume_message_from_arbitrary_sender_public(message.content, secret, message.sender.sender)
-          .send()
-          .wait();
-      }
+      await consumeMethod(message.content, secret, message.sender.sender).send().wait();
+
+      // We send and consume the exact same message the second time to test that oracles correctly return the new
+      // non-nullified message.
+      await sendL2Message(message);
+
+      // We check that the duplicate message was correctly inserted by checking that its message index is defined and larger than
+      // the previous message index
+      const [message2Index, _2] = (await aztecNode.getL1ToL2MessageMembershipWitness(
+        'latest',
+        message.hash(),
+        message1Index + 1n,
+      ))!;
+      expect(message2Index).toBeDefined();
+      expect(message2Index).toBeGreaterThan(message1Index);
+
+      // The following fails due to duplicate tx --> we need a nonce
+      // await consumeMethod(message.content, secret, message.sender.sender).send().wait();
     },
     60_000,
   );
+
+  const sendL2Message = async (message: L1ToL2Message) => {
+    // We inject the message to Inbox
+    const txHash = await inbox.write.sendL2Message(
+      [
+        { actor: message.recipient.recipient.toString() as Hex, version: 1n },
+        message.content.toString() as Hex,
+        message.secretHash.toString() as Hex,
+      ] as const,
+      {} as any,
+    );
+
+    // We check that the message was correctly injected by checking the emitted event
+    const msgHash = message.hash();
+    {
+      const txReceipt = await crossChainTestHarness.publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+      // Exactly 1 event should be emitted in the transaction
+      expect(txReceipt.logs.length).toBe(1);
+
+      // We decode the event and get leaf out of it
+      const txLog = txReceipt.logs[0];
+      const topics = decodeEventLog({
+        abi: InboxAbi,
+        data: txLog.data,
+        topics: txLog.topics,
+      });
+      const receivedMsgHash = topics.args.hash;
+
+      // We check that the leaf inserted into the subtree matches the expected message hash
+      expect(receivedMsgHash).toBe(msgHash.toString());
+    }
+
+    await crossChainTestHarness.makeMessageConsumable(msgHash);
+  };
 });
