@@ -108,6 +108,44 @@ contract DocsExample {
         assert(read.points == expected.points, "Invalid points");
     }
 
+    #[aztec(private)]
+    fn multicall() -> pub AztecAddress {
+        AztecAddress::from_field(
+            context.call_private_function_no_args(
+                context.this_address(),
+                FunctionSelector::from_signature("get_message_sender()")
+            )[0]
+        )
+    }
+
+    #[aztec(private)]
+    fn multicall_public() {
+        context.call_public_function_no_args(
+            context.this_address(),
+            FunctionSelector::from_signature("get_message_sender_public()")
+        );
+    }
+
+    #[aztec(private)]
+    fn get_message_sender() -> pub AztecAddress {
+        context.msg_sender()
+    }
+
+    #[aztec(public)]
+    fn get_message_sender_public() -> pub AztecAddress {
+        context.msg_sender()
+    }
+
+    #[aztec(public)]
+    fn get_shared_immutable_constrained() -> pub Leader {
+        storage.shared_immutable.read_public()
+    }
+
+    #[aztec(private)]
+    fn get_shared_immutable_constrained_private() -> pub Leader {
+        storage.shared_immutable.read_private()
+    }
+
     unconstrained fn get_shared_immutable() -> pub Leader {
         storage.shared_immutable.read_public()
     }

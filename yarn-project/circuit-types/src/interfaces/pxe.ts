@@ -5,7 +5,7 @@ import {
   type GrumpkinPrivateKey,
   type PartialAddress,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { DecodedReturn, type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
@@ -18,6 +18,10 @@ import { type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
 import { type TxExecutionRequest } from '../tx_execution_request.js';
 import { type SyncStatus } from './sync-status.js';
+
+export class Vue {
+  constructor(public tx: Tx, public rv?: DecodedReturn) {}
+}
 
 // docs:start:pxe-interface
 /**
@@ -146,6 +150,7 @@ export interface PXE {
    * Also throws if simulatePublic is true and public simulation reverts.
    */
   simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
+  simulateCall(txRequest: TxExecutionRequest, msgSender?: AztecAddress): Promise<Vue>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.

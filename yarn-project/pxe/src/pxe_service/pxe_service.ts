@@ -18,6 +18,7 @@ import {
   type TxHash,
   type TxReceipt,
   UnencryptedTxL2Logs,
+  Vue,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import { type TxPXEProcessingStats } from '@aztec/circuit-types/stats';
@@ -409,6 +410,71 @@ export class PXEService implements PXE {
 
       return tx;
     });
+  }
+
+  public async simulateCall(txRequest: TxExecutionRequest, msgSender: AztecAddress | undefined = undefined) {
+    if (!txRequest.functionData.isPrivate) {
+      throw new Error(`Public entrypoints are not allowed`);
+    }
+    return await this.jobQueue.put(async () => {
+      const simulatePublic = msgSender === undefined;
+      const vue = await this.#simulateCall(txRequest, msgSender);
+      if (simulatePublic) {
+        const returns = await this.#simulatePublicCalls(vue.tx);
+        console.log(returns);
+        /*const t = returns[0];
+        vue.rv = t && t[0];*/
+      }
+      return vue;
+    });
+  }
+
+  async #simulateCall(txExecutionRequest: TxExecutionRequest, msgSender?: AztecAddress) {
+    // TODO - Pause syncing while simulating.
+    // Get values that allow us to reconstruct the block hash
+
+    // todo: We should likely do something here for the public calls when we are starting with those as well :thinking:
+
+    const sim = async (txRequest: TxExecutionRequest): Promise<ExecutionResult> => {
+      const { contractAddress, functionArtifact, portalContract } = await this.#getSimulationParameters(txRequest);
+      try {
+        const result = await this.simulator.run(
+          txRequest,
+          functionArtifact,
+          contractAddress,
+          portalContract,
+          msgSender,
+        );
+        return result;
+      } catch (err) {
+        if (err instanceof SimulationError) {
+          await this.#enrichSimulationError(err);
+        }
+        throw err;
+      }
+    };
+
+    const executionResult = await sim(txExecutionRequest);
+
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
+    const kernelProver = new KernelProver(kernelOracle);
+    this.log(`Executing kernel prover...`);
+    const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
+    this.log(
+      `Needs setup: ${publicInputs.needsSetup}, needs app logic: ${publicInputs.needsAppLogic}, needs teardown: ${publicInputs.needsTeardown}`,
+    );
+
+    const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
+    const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
+    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
+
+    // HACK(#1639): Manually patches the ordering of the public call stack
+    // TODO(#757): Enforce proper ordering of enqueued public calls
+    await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
+
+    const tx = new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
+
+    return new Vue(tx, executionResult.returnValues);
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {

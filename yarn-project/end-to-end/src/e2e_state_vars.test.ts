@@ -1,4 +1,5 @@
-import { type Wallet } from '@aztec/aztec.js';
+import { DebugLogger, FunctionSelector, type Wallet } from '@aztec/aztec.js';
+import { decodeFunctionSignature } from '@aztec/foundation/abi';
 import { DocsExampleContract } from '@aztec/noir-contracts.js';
 
 import { setup } from './fixtures/utils.js';
@@ -8,18 +9,43 @@ describe('e2e_state_vars', () => {
 
   let teardown: () => Promise<void>;
   let contract: DocsExampleContract;
+  let logger: DebugLogger;
 
   const POINTS = 1n;
   const RANDOMNESS = 2n;
 
   beforeAll(async () => {
-    ({ teardown, wallet } = await setup());
+    ({ teardown, wallet, logger } = await setup());
     contract = await DocsExampleContract.deploy(wallet).send().deployed();
   }, 25_000);
 
   afterAll(() => teardown());
 
   describe('SharedImmutable', () => {
+    it.only('private read of uninitialized SharedImmutable', async () => {
+      await contract.methods.initialize_shared_immutable(1).send().wait();
+      const returnsConstrained = await contract.methods.get_shared_immutable_constrained_private().viewConstrained();
+      const returnsUnconstrained = await contract.methods.get_shared_immutable().view();
+
+      console.log(`Return values from private constrained:`, returnsConstrained);
+      console.log(`Return values from unconstrained:`, returnsUnconstrained);
+
+      console.log(await contract.methods.get_message_sender().viewConstrained());
+
+      console.log(await contract.methods.multicall().viewConstrained());
+    });
+
+    it('public read of uninitialized SharedImmutable', async () => {
+      DocsExampleContract.artifact.functions.forEach(fn => {
+        const sig = decodeFunctionSignature(fn.name, fn.parameters);
+        logger(`Function ${sig} and the selector: ${FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)}`);
+      });
+
+      // await contract.methods.initialize_shared_immutable(1).send().wait();
+      // console.log(await contract.methods.get_shared_immutable_constrained().viewConstrained());
+      console.log(await contract.methods.get_message_sender_public().viewConstrained());
+    });
+
     it('private read of uninitialized SharedImmutable', async () => {
       const s = await contract.methods.get_shared_immutable().view();
 
