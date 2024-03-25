@@ -74,9 +74,11 @@ void AvmBinaryTraceBuilder::entry_builder(
     for (size_t i = 0; i <= num_bytes; i++) {
         binary_trace.push_back(AvmBinaryTraceBuilder::BinaryTraceEntry{
             .binary_clk = clk,
+            .bin_sel = i != num_bytes,
             .op_id = op_id,
             .in_tag = static_cast<uint8_t>(instr_tag),
             .mem_tag_ctr = static_cast<uint8_t>(num_bytes - i),
+            .mem_tag_ctr_inv = i == num_bytes ? FF(1) : FF(num_bytes - i).invert(),
             .start = i == 0,
             .acc_ia = FF(uint256_t::from_uint128(acc_ia)),
             .acc_ib = FF(uint256_t::from_uint128(acc_ib)),

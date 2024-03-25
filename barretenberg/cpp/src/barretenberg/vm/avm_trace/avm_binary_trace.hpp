@@ -9,9 +9,11 @@ class AvmBinaryTraceBuilder {
   public:
     struct BinaryTraceEntry {
         uint32_t binary_clk = 0;
+        bool bin_sel = 0;
         uint8_t op_id = 0;
         uint8_t in_tag = 0;
         uint8_t mem_tag_ctr = 0;
+        FF mem_tag_ctr_inv = 0;
 
         uint256_t factor = 0;
         bool start = false;

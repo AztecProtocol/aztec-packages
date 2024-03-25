@@ -45,7 +45,23 @@ namespace avm_binary(256);
     #[MEM_TAG_REL]
     (mem_tag_ctr' - mem_tag_ctr + 1) * mem_tag_ctr = 0;
 
-    (1 - bin_sel) * mem_tag_ctr = 0; // bin_sel is 1 when mem_tag_ctr is not zero
+    // Bin_sel is a boolean that is set to 1 if mem_tag_ctr != 0.
+    // This is checked by two relation conditions and utilising mem_tag_ctr_inv
+    pol commit mem_tag_ctr_inv;
+
+    // a) Bin_sel constrained to be a boolean
+    // b) When mem_tag_ctr != 0, bin_sel must be 1
+    // c) When mem_tag_ctr = 0, bin_sel must be 0.
+    #[BIN_SEL_CTR_REL]
+    mem_tag_ctr * mem_tag_ctr_inv - bin_sel = 0;
+
+    // Must ensure that mem_tag_ctr_inv !=0 if mem_tag_ctr != 0,
+    // otherwise it is possible to set bin_sel = 0 when mem_tag_ctr != 0 in BIN_SEL_CTR_REL.
+    // a) When mem_tag_ctr == 0, bin_sel is 0 from BIN_SEL_CTR_REL.
+    // b) if bin_sel is 0, mem_tag_ctr_inv must be 1.
+    // c) if bin_sel is 1, mem_tag_ctr_inv constrained by BIN_SEL_CTR_REL.
+    (1 - bin_sel) * (mem_tag_ctr_inv - 1) = 0;
+
     (1 - bin_sel) * acc_ia = 0; // Forces accumulator to start at zero when mem_tag_ctr == 0
     (1 - bin_sel) * acc_ib = 0; // Forces accumulator to start at zero when mem_tag_ctr == 0
 

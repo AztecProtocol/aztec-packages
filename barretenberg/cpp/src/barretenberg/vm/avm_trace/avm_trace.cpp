@@ -1236,7 +1236,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
         auto const& src = bin_trace.at(i);
         auto& dest = main_trace.at(i);
         dest.avm_binary_bin_clk = src.binary_clk;
-        dest.avm_binary_bin_sel = FF(1);
+        dest.avm_binary_bin_sel = src.bin_sel;
         dest.avm_binary_acc_ia = src.acc_ia;
         dest.avm_binary_acc_ib = src.acc_ib;
         dest.avm_binary_acc_ic = src.acc_ic;
@@ -1247,6 +1247,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_binary_bin_ic_bytes = src.bin_ic_bytes;
         dest.avm_binary_start = FF(static_cast<uint8_t>(src.start));
         dest.avm_binary_mem_tag_ctr = src.mem_tag_ctr;
+        dest.avm_binary_mem_tag_ctr_inv = src.mem_tag_ctr_inv;
     }
 
     // Only generate precomputed byte tables if we are actually going to use them in this main trace.
