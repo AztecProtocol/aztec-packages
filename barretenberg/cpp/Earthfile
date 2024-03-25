@@ -156,7 +156,7 @@ RUN_CMAKE:
         cp -r build build-tmp
     # move the temporary build folder back
     # this is because the cached build goes away 
-    RUN rm -rf build-tmp && mv build-tmp build
+    RUN rm -rf build && mv build-tmp build
     WORKDIR /build/build
 
 BENCH_RELEASE:
