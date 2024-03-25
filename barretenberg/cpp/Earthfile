@@ -142,13 +142,12 @@ test:
 
 # Functions
 RUN_CMAKE:
-    WORKDIR /build
+    FUNCTION
     # Runs cmake build and leaves binary artifacts at 'bin'. Uses a mounted cache
     # for incremental rebuilds.
-    FUNCTION
     ARG configure # cmake configure flags
     ARG build # cmake build flags
-
+    WORKDIR /build
     # Use a mount for incremental builds locally.
     # TODO(AD): To be determined: does this get us in trouble in CI?
     RUN --mount type=cache,id="$configure-build",target=/build/build \
