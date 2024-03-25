@@ -147,6 +147,11 @@ namespace avm_main(256);
     // - ind_a, ind_b, ind_c to u32 type
     // - 0 <= r_in_tag, w_in_tag <= 6 // Maybe not needed as probably derived by the operation decomposition.
 
+    //====== COMPARATOR OPCODES CONSTRAINTS =====================================
+    // Enforce that the tag for the ouput of EQ opcode is u8 (i.e. equal to 1).
+    #[EQ_OUTPUT_U8]
+    sel_op_eq * (w_in_tag - 1) = 0;
+
     // Relation for division over the finite field
     // If tag_err == 1 in a division, then ib == 0 and op_err == 1.
     #[SUBOP_DIVISION_FF]

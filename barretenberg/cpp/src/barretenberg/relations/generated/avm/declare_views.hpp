@@ -131,12 +131,18 @@
     [[maybe_unused]] auto lookup_byte_operations_counts = View(new_term.lookup_byte_operations_counts);                \
     [[maybe_unused]] auto incl_main_tag_err_counts = View(new_term.incl_main_tag_err_counts);                          \
     [[maybe_unused]] auto incl_mem_tag_err_counts = View(new_term.incl_mem_tag_err_counts);                            \
+<<<<<<< HEAD
     [[maybe_unused]] auto avm_main_internal_return_ptr_shift = View(new_term.avm_main_internal_return_ptr_shift);      \
     [[maybe_unused]] auto avm_main_pc_shift = View(new_term.avm_main_pc_shift);                                        \
+=======
+    [[maybe_unused]] auto avm_main_pc_shift = View(new_term.avm_main_pc_shift);                                        \
+    [[maybe_unused]] auto avm_main_internal_return_ptr_shift = View(new_term.avm_main_internal_return_ptr_shift);      \
+>>>>>>> 6c8f4b1ab (5290 - add constraint on eq output being u8 and unit tests)
     [[maybe_unused]] auto avm_mem_m_addr_shift = View(new_term.avm_mem_m_addr_shift);                                  \
     [[maybe_unused]] auto avm_mem_m_val_shift = View(new_term.avm_mem_m_val_shift);                                    \
     [[maybe_unused]] auto avm_mem_m_tag_shift = View(new_term.avm_mem_m_tag_shift);                                    \
     [[maybe_unused]] auto avm_mem_m_rw_shift = View(new_term.avm_mem_m_rw_shift);                                      \
+<<<<<<< HEAD
     [[maybe_unused]] auto avm_alu_alu_u16_r7_shift = View(new_term.avm_alu_alu_u16_r7_shift);                          \
     [[maybe_unused]] auto avm_alu_alu_u16_r1_shift = View(new_term.avm_alu_alu_u16_r1_shift);                          \
     [[maybe_unused]] auto avm_alu_alu_u16_r5_shift = View(new_term.avm_alu_alu_u16_r5_shift);                          \
@@ -145,3 +151,13 @@
     [[maybe_unused]] auto avm_alu_alu_u16_r4_shift = View(new_term.avm_alu_alu_u16_r4_shift);                          \
     [[maybe_unused]] auto avm_alu_alu_u16_r2_shift = View(new_term.avm_alu_alu_u16_r2_shift);                          \
     [[maybe_unused]] auto avm_alu_alu_u16_r3_shift = View(new_term.avm_alu_alu_u16_r3_shift);
+=======
+    [[maybe_unused]] auto avm_alu_alu_u16_r2_shift = View(new_term.avm_alu_alu_u16_r2_shift);                          \
+    [[maybe_unused]] auto avm_alu_alu_u16_r0_shift = View(new_term.avm_alu_alu_u16_r0_shift);                          \
+    [[maybe_unused]] auto avm_alu_alu_u16_r6_shift = View(new_term.avm_alu_alu_u16_r6_shift);                          \
+    [[maybe_unused]] auto avm_alu_alu_u16_r1_shift = View(new_term.avm_alu_alu_u16_r1_shift);                          \
+    [[maybe_unused]] auto avm_alu_alu_u16_r4_shift = View(new_term.avm_alu_alu_u16_r4_shift);                          \
+    [[maybe_unused]] auto avm_alu_alu_u16_r3_shift = View(new_term.avm_alu_alu_u16_r3_shift);                          \
+    [[maybe_unused]] auto avm_alu_alu_u16_r7_shift = View(new_term.avm_alu_alu_u16_r7_shift);                          \
+    [[maybe_unused]] auto avm_alu_alu_u16_r5_shift = View(new_term.avm_alu_alu_u16_r5_shift);
+>>>>>>> 6c8f4b1ab (5290 - add constraint on eq output being u8 and unit tests)
