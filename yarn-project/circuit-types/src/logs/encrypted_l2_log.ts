@@ -1,5 +1,4 @@
 import { randomBytes } from '@aztec/foundation/crypto';
-import { BufferReader } from '@aztec/foundation/serialize';
 
 /**
  * Represents an individual encrypted log entry.
@@ -36,12 +35,10 @@ export class EncryptedL2Log {
 
   /**
    * Deserializes log from a buffer.
-   * @param buffer - The buffer or buffer reader containing the log.
+   * @param buffer - The buffer containing the log.
    * @returns Deserialized instance of `Log`.
    */
-  public static fromBuffer(buffer: Buffer | BufferReader): EncryptedL2Log {
-    const reader = BufferReader.asReader(buffer);
-    const data = reader.readBuffer();
+  public static fromBuffer(data: Buffer): EncryptedL2Log {
     return new EncryptedL2Log(data);
   }
 

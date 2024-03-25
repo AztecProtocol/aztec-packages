@@ -24,7 +24,7 @@ export class UnencryptedL2Log {
   ) {}
 
   get length(): number {
-    return EventSelector.SIZE + this.data.length;
+    return EventSelector.SIZE + this.data.length + AztecAddress.SIZE_IN_BYTES + 4;
   }
 
   /**

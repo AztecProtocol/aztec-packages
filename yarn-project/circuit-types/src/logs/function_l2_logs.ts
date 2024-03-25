@@ -79,7 +79,7 @@ export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
     const logsBufLength = isLengthPrefixed ? reader.readNumber() : -1;
     const logs = reader.readBufferArray(logsBufLength);
 
-    return new EncryptedFunctionL2Logs(logs.map(UnencryptedL2Log.fromBuffer));
+    return new EncryptedFunctionL2Logs(logs.map(EncryptedL2Log.fromBuffer));
   }
 
   /**
