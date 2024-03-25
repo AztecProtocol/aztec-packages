@@ -19,6 +19,16 @@ impl MemoryValue {
         MemoryValue { value, bit_size }
     }
 
+    pub fn new_checked(value: FieldElement, bit_size: u32) -> Option<Self> {
+        let max = FieldElement::from(2_u128).pow(&FieldElement::from(bit_size as u128))
+            - FieldElement::one();
+
+        if value > max {
+            return None;
+        }
+        Some(MemoryValue::new(value, bit_size))
+    }
+
     pub fn new_field(value: FieldElement) -> Self {
         MemoryValue { value, bit_size: FieldElement::max_num_bits() }
     }
@@ -70,15 +80,21 @@ impl From<usize> for MemoryValue {
     }
 }
 
+impl From<u64> for MemoryValue {
+    fn from(value: u64) -> Self {
+        MemoryValue::new((value as u128).into(), 64)
+    }
+}
+
 impl From<u32> for MemoryValue {
     fn from(value: u32) -> Self {
         MemoryValue::new((value as u128).into(), 32)
     }
 }
 
-impl From<u64> for MemoryValue {
-    fn from(value: u64) -> Self {
-        MemoryValue::new((value as u128).into(), 64)
+impl From<u8> for MemoryValue {
+    fn from(value: u8) -> Self {
+        MemoryValue::new((value as u128).into(), 32)
     }
 }
 

@@ -27,7 +27,7 @@ fn to_u8_vec(inputs: &[MemoryValue]) -> Vec<u8> {
 }
 
 fn to_value_vec(input: &[u8]) -> Vec<MemoryValue> {
-    input.iter().map(|x| MemoryValue::new((*x as usize).into(), 8)).collect()
+    input.iter().map(|&x| x.into()).collect()
 }
 
 pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
