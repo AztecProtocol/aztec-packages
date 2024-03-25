@@ -1,7 +1,7 @@
 use dep::aztec::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress,
     constants::{GENERATOR_INDEX__AUTHWIT_INNER, GENERATOR_INDEX__AUTHWIT_OUTER},
-    hash::{hash_args, pedersen_hash}
+    hash::{hash_args_array, pedersen_hash}
 };
 use dep::aztec::context::{PrivateContext, PublicContext, Context};
 
@@ -30,7 +30,7 @@ pub fn assert_current_call_valid_authwit_public(context: &mut PublicContext, on_
 // docs:start:compute_call_authwit_hash
 // Compute the message hash to be used by an authentication witness 
 pub fn compute_call_authwit_hash<N>(caller: AztecAddress, consumer: AztecAddress, selector: FunctionSelector, args: [Field; N]) -> Field {
-    let args_hash = hash_args(args);
+    let args_hash = hash_args_array(args);
     let inner_hash = compute_inner_authwit_hash([caller.to_field(), selector.to_field(), args_hash]);
     compute_outer_authwit_hash(consumer, inner_hash)
 }

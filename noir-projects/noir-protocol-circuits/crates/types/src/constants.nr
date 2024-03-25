@@ -100,6 +100,7 @@ global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 global NUM_FIELDS_PER_SHA256: u64 = 2;
 global ARGS_HASH_CHUNK_LENGTH: u64 = 32;
 global ARGS_HASH_CHUNK_COUNT: u64 = 32;
+global MAX_ARGS_LENGTH: u64 = ARGS_HASH_CHUNK_COUNT * ARGS_HASH_CHUNK_LENGTH;
 // The following is used in immutable state variables to compute an initialization slot whose value is used to
 // determine whether a given variable has been initialized (by asserting that the value in the slot is 0).
 // The initialization slot is computed by adding the constant bellow to the variable's storage slot. This constant has

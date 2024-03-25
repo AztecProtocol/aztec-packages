@@ -82,7 +82,7 @@ contract SchnorrAccount {
         }
 
         // Verify signature of the payload bytes
-        let verification = std::schnorr::verify_signature(
+        let verification = std::schnorr::verify_signature_slice(
             public_key.x,
             public_key.y,
             signature,
