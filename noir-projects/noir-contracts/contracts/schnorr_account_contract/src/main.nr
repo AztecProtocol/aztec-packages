@@ -134,7 +134,7 @@ contract SchnorrAccount {
             for i in 0..64 {
                 signature[i] = witness[i] as u8;
             }
-            std::schnorr::verify_signature(
+            std::schnorr::verify_signature_slice(
                 public_key.x,
                 public_key.y,
                 signature,
