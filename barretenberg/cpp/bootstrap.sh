@@ -80,7 +80,7 @@ r="\033[0m"   # Reset
 
 AVAILABLE_MEMORY=$(awk '/MemFree/ { printf $2 }' /proc/meminfo)
 # This value may be too low.
-# If builds fail when an amount of free memory greater than this value then it should be increased.
+# If builds fail with an amount of free memory greater than this value then it should be increased.
 MIN_PARALLEL_BUILD_MEMORY=32000000
 
 if [[ AVAILABLE_MEMORY -lt MIN_PARALLEL_BUILD_MEMORY ]]; then
