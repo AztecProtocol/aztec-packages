@@ -564,6 +564,33 @@ template <class Params_> struct alignas(32) field {
         {}
     };
 
+#if defined(__wasm__) || !defined(__SIZEOF_INT128__)
+    BB_INLINE static constexpr void wasm_madd(uint64_t& left_limb,
+                                              const uint64_t* right_limbs,
+                                              uint64_t& result_0,
+                                              uint64_t& result_1,
+                                              uint64_t& result_2,
+                                              uint64_t& result_3,
+                                              uint64_t& result_4,
+                                              uint64_t& result_5,
+                                              uint64_t& result_6,
+                                              uint64_t& result_7,
+                                              uint64_t& result_8);
+    BB_INLINE static constexpr void wasm_reduce(uint64_t& result_0,
+                                                uint64_t& result_1,
+                                                uint64_t& result_2,
+                                                uint64_t& result_3,
+                                                uint64_t& result_4,
+                                                uint64_t& result_5,
+                                                uint64_t& result_6,
+                                                uint64_t& result_7,
+                                                uint64_t& result_8);
+    BB_INLINE static constexpr void wasm_karatsuba_madd(const uint64_t* left_limbs,
+                                                        const uint64_t* right_limbs,
+                                                        uint64_t& result_0,
+                                                        uint64_t& result_1,
+                                                        uint64_t& result_2);
+#endif
     BB_INLINE static constexpr std::pair<uint64_t, uint64_t> mul_wide(uint64_t a, uint64_t b) noexcept;
 
     BB_INLINE static constexpr uint64_t mac(
