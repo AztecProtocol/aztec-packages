@@ -9,6 +9,7 @@ import {
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { UnencryptedL2Log } from '../index.js';
 import { GetUnencryptedLogsResponse } from '../logs/get_unencrypted_logs_response.js';
 import { L2LogsSource } from '../logs/l2_logs_source.js';
 import { TxL2Logs } from '../logs/tx_l2_logs.js';
@@ -164,9 +165,22 @@ export class Tx {
 
       proofSize: this.proof.buffer.length,
       size: this.toBuffer().length,
+
+      feePaymentMethod:
+        // needsTeardown? then we pay a fee
+        this.data.needsTeardown
+          ? // needsSetup? then we pay through a fee payment contract
+            this.data.needsSetup
+            ? // if the first call is to `approve_public_authwit`, then it's a public payment
+              this.enqueuedPublicFunctionCalls.at(-1)!.functionData.selector.toField().toBigInt() === 0x43417bb1n
+              ? 'fpc_public'
+              : 'fpc_private'
+            : 'native'
+          : 'none',
       classRegisteredCount: this.unencryptedLogs
         .unrollLogs()
-        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log)).length,
+        .map(log => UnencryptedL2Log.fromBuffer(log))
+        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data)).length,
     };
   }
 

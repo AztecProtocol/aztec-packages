@@ -645,9 +645,11 @@ impl Context {
                         // assert_eq!(result_ids.len(), outputs.len());
                         self.handle_ssa_call_outputs(result_ids, outputs, dfg)?;
                     }
-                    Value::ForeignFunction(_) => unreachable!(
-                        "All `oracle` methods should be wrapped in an unconstrained fn"
-                    ),
+                    Value::ForeignFunction(_) => {
+                        return Err(RuntimeError::UnconstrainedOracleReturnToConstrained {
+                            call_stack: self.acir_context.get_call_stack(),
+                        })
+                    }
                     _ => unreachable!("expected calling a function but got {function_value:?}"),
                 }
             }

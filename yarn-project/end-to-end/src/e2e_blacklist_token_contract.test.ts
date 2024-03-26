@@ -38,14 +38,14 @@ describe('e2e_blacklist_token_contract', () => {
 
   let tokenSim: TokenSimulator;
 
-  let slowUpdateTreeSimulator: SparseTree;
+  let slowUpdateTreeSimulator: SparseTree<Fr>;
 
   let cheatCodes: CheatCodes;
 
   const getMembershipProof = async (index: bigint, includeUncommitted: boolean) => {
     return {
       index,
-      value: Fr.fromBuffer(slowUpdateTreeSimulator.getLeafValue(index, includeUncommitted)!),
+      value: slowUpdateTreeSimulator.getLeafValue(index, includeUncommitted)!,
       // eslint-disable-next-line camelcase
       sibling_path: (await slowUpdateTreeSimulator.getSiblingPath(index, includeUncommitted)).toFields(),
     };
@@ -101,9 +101,9 @@ describe('e2e_blacklist_token_contract', () => {
     await wallets[accountIndex].addNote(extendedNote);
   };
 
-  const updateSlowTree = async (tree: SparseTree, wallet: Wallet, index: AztecAddress, value: bigint) => {
+  const updateSlowTree = async (tree: SparseTree<Fr>, wallet: Wallet, index: AztecAddress, value: bigint) => {
     await wallet.addCapsule(getUpdateCapsule(await getUpdateProof(value, index.toBigInt())));
-    await tree.updateLeaf(new Fr(value).toBuffer(), index.toBigInt());
+    await tree.updateLeaf(new Fr(value), index.toBigInt());
   };
 
   beforeAll(async () => {
@@ -113,7 +113,7 @@ describe('e2e_blacklist_token_contract', () => {
     slowTree = await SlowTreeContract.deploy(wallets[0]).send().deployed();
 
     const depth = 254;
-    slowUpdateTreeSimulator = await newTree(SparseTree, openTmpStore(), new Pedersen(), 'test', depth);
+    slowUpdateTreeSimulator = await newTree(SparseTree, openTmpStore(), new Pedersen(), 'test', Fr, depth);
 
     // Add account[0] as admin
     await updateSlowTree(slowUpdateTreeSimulator, wallets[0], accounts[0].address, 4n);
@@ -389,7 +389,7 @@ describe('e2e_blacklist_token_contract', () => {
             getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           await expect(asset.methods.redeem_shield(accounts[0].address, amount, secret).simulate()).rejects.toThrow(
-            'Can only remove a note that has been read from the set.',
+            `Assertion failed: Cannot return zero notes`,
           );
         });
 
@@ -740,7 +740,12 @@ describe('e2e_blacklist_token_contract', () => {
           const action = asset
             .withWallet(wallets[1])
             .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
-          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+          const messageHash = computeAuthWitMessageHash(
+            accounts[1].address,
+            wallets[0].getChainId(),
+            wallets[0].getVersion(),
+            action.request(),
+          );
           await wallets[1].addCapsule(
             getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
           );
@@ -763,7 +768,12 @@ describe('e2e_blacklist_token_contract', () => {
           const action = asset
             .withWallet(wallets[2])
             .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
-          const expectedMessageHash = computeAuthWitMessageHash(accounts[2].address, action.request());
+          const expectedMessageHash = computeAuthWitMessageHash(
+            accounts[2].address,
+            wallets[0].getChainId(),
+            wallets[0].getVersion(),
+            action.request(),
+          );
 
           const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
           await wallets[2].addAuthWitness(witness);
@@ -1047,7 +1057,12 @@ describe('e2e_blacklist_token_contract', () => {
         const action = asset
           .withWallet(wallets[2])
           .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce);
-        const expectedMessageHash = computeAuthWitMessageHash(accounts[2].address, action.request());
+        const expectedMessageHash = computeAuthWitMessageHash(
+          accounts[2].address,
+          wallets[0].getChainId(),
+          wallets[0].getVersion(),
+          action.request(),
+        );
 
         // Both wallets are connected to same node and PXE so we could just insert directly
         // But doing it in two actions to show the flow.
@@ -1282,7 +1297,12 @@ describe('e2e_blacklist_token_contract', () => {
             getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
-          const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+          const messageHash = computeAuthWitMessageHash(
+            accounts[1].address,
+            wallets[0].getChainId(),
+            wallets[0].getVersion(),
+            action.request(),
+          );
 
           await expect(action.simulate()).rejects.toThrow(
             `Unknown auth witness for message hash ${messageHash.toString()}`,
@@ -1300,7 +1320,12 @@ describe('e2e_blacklist_token_contract', () => {
             getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
           const action = asset.withWallet(wallets[2]).methods.burn(accounts[0].address, amount, nonce);
-          const expectedMessageHash = computeAuthWitMessageHash(accounts[2].address, action.request());
+          const expectedMessageHash = computeAuthWitMessageHash(
+            accounts[2].address,
+            wallets[0].getChainId(),
+            wallets[0].getVersion(),
+            action.request(),
+          );
 
           const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
           await wallets[2].addAuthWitness(witness);

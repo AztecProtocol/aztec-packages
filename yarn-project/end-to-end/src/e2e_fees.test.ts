@@ -15,7 +15,7 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { FunctionData } from '@aztec/circuits.js';
+import { FunctionData, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { ContractArtifact, decodeFunctionSignature } from '@aztec/foundation/abi';
 import {
   TokenContract as BananaCoin,
@@ -41,7 +41,7 @@ const TOKEN_SYMBOL = 'BC';
 const TOKEN_DECIMALS = 18n;
 const BRIDGED_FPC_GAS = 500n;
 
-jest.setTimeout(100_000);
+jest.setTimeout(1_000_000_000);
 
 describe('e2e_fees', () => {
   let aliceWallet: Wallet;
@@ -63,6 +63,9 @@ describe('e2e_fees', () => {
     e2eContext = await setup(3);
 
     const { accounts, logger, aztecNode, pxe, deployL1ContractsValues, wallets } = e2eContext;
+    await aztecNode.setConfig({
+      allowedFeePaymentContractClasses: [getContractClassFromArtifact(FPCContract.artifact).id],
+    });
 
     logFunctionSignatures(BananaCoin.artifact, logger);
     logFunctionSignatures(FPCContract.artifact, logger);
@@ -172,7 +175,7 @@ describe('e2e_fees', () => {
           paymentMethod: new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, wallets[0]),
         },
       })
-      .wait();
+      .wait({ dontThrowOnRevert: true });
     expect(txReceipt.status).toBe(TxStatus.REVERTED);
 
     // and thus we paid the fee
@@ -687,14 +690,19 @@ describe('e2e_fees', () => {
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
   getFunctionCalls(maxFee: Fr): Promise<FunctionCall[]> {
     const nonce = Fr.random();
-    const messageHash = computeAuthWitMessageHash(this.paymentContract, {
-      args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
-      functionData: new FunctionData(
-        FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-        false,
-      ),
-      to: this.asset,
-    });
+    const messageHash = computeAuthWitMessageHash(
+      this.paymentContract,
+      this.wallet.getChainId(),
+      this.wallet.getVersion(),
+      {
+        args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
+        functionData: new FunctionData(
+          FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
+          false,
+        ),
+        to: this.asset,
+      },
+    );
 
     const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
 
@@ -716,14 +724,19 @@ class BuggedTeardownFeePaymentMethod extends PublicFeePaymentMethod {
   async getFunctionCalls(maxFee: Fr): Promise<FunctionCall[]> {
     // authorize the FPC to take the max fee from Alice
     const nonce = Fr.random();
-    const messageHash1 = computeAuthWitMessageHash(this.paymentContract, {
-      args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
-      functionData: new FunctionData(
-        FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-        false,
-      ),
-      to: this.asset,
-    });
+    const messageHash1 = computeAuthWitMessageHash(
+      this.paymentContract,
+      this.wallet.getChainId(),
+      this.wallet.getVersion(),
+      {
+        args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
+        functionData: new FunctionData(
+          FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
+          false,
+        ),
+        to: this.asset,
+      },
+    );
 
     // authorize the FPC to take the maxFee
     // do this first because we only get 2 feepayload calls

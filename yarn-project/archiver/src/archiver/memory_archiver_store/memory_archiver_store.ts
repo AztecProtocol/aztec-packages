@@ -17,7 +17,12 @@ import {
 } from '@aztec/circuit-types';
 import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import {
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/types/contracts';
 
 import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
 import { DataRetrieval } from '../data_retrieval.js';
@@ -61,6 +66,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private contractClasses: Map<string, ContractClassPublic> = new Map();
 
+  private privateFunctions: Map<string, ExecutablePrivateFunctionWithMembershipProof[]> = new Map();
+
+  private unconstrainedFunctions: Map<string, UnconstrainedFunctionWithMembershipProof[]> = new Map();
+
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
   private lastL1BlockNewBlocks: bigint = 0n;
@@ -72,7 +81,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   ) {}
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    return Promise.resolve(this.contractClasses.get(id.toString()));
+    const contractClass = this.contractClasses.get(id.toString());
+    return Promise.resolve(
+      contractClass && {
+        ...contractClass,
+        privateFunctions: this.privateFunctions.get(id.toString()) ?? [],
+        unconstrainedFunctions: this.unconstrainedFunctions.get(id.toString()) ?? [],
+      },
+    );
   }
 
   public getContractClassIds(): Promise<Fr[]> {
@@ -81,6 +97,28 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return Promise.resolve(this.contractInstances.get(address.toString()));
+  }
+
+  public addFunctions(
+    contractClassId: Fr,
+    newPrivateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
+    newUnconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+  ): Promise<boolean> {
+    const privateFunctions = this.privateFunctions.get(contractClassId.toString()) ?? [];
+    const unconstrainedFunctions = this.unconstrainedFunctions.get(contractClassId.toString()) ?? [];
+    const updatedPrivateFunctions = [
+      ...privateFunctions,
+      ...newPrivateFunctions.filter(newFn => !privateFunctions.find(f => f.selector.equals(newFn.selector))),
+    ];
+    const updatedUnconstrainedFunctions = [
+      ...unconstrainedFunctions,
+      ...newUnconstrainedFunctions.filter(
+        newFn => !unconstrainedFunctions.find(f => f.selector.equals(newFn.selector)),
+      ),
+    ];
+    this.privateFunctions.set(contractClassId.toString(), updatedPrivateFunctions);
+    this.unconstrainedFunctions.set(contractClassId.toString(), updatedUnconstrainedFunctions);
+    return Promise.resolve(true);
   }
 
   public addContractClasses(data: ContractClassPublic[], _blockNumber: number): Promise<boolean> {
@@ -175,12 +213,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
    * @param l1ToL2Message - The L1 to L2 message.
+   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
-    return Promise.resolve(this.l1ToL2Messages.getMessageIndex(l1ToL2Message));
+  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined> {
+    return Promise.resolve(this.l1ToL2Messages.getMessageIndex(l1ToL2Message, startIndex));
   }
 
   /**
@@ -357,10 +396,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.l2BlockContexts[this.l2BlockContexts.length - 1].block.number);
   }
 
-  public getSynchedL1BlockNumbers(): Promise<ArchiverL1SynchPoint> {
+  public getSynchPoint(): Promise<ArchiverL1SynchPoint> {
     return Promise.resolve({
-      blocks: this.lastL1BlockNewBlocks,
-      messages: this.lastL1BlockNewMessages,
+      blocksSynchedTo: this.lastL1BlockNewBlocks,
+      messagesSynchedTo: this.lastL1BlockNewMessages,
     });
   }
 }

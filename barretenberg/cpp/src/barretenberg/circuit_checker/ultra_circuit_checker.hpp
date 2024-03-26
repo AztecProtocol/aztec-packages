@@ -1,15 +1,15 @@
 #pragma once
-#include "barretenberg/flavor/ultra.hpp"
-#include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
+#include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 #include <optional>
 
@@ -21,7 +21,7 @@ class UltraCircuitChecker {
     using Arithmetic = UltraArithmeticRelation<FF>;
     using Elliptic = EllipticRelation<FF>;
     using Auxiliary = AuxiliaryRelation<FF>;
-    using GenPermSort = GenPermSortRelation<FF>;
+    using DeltaRangeConstraint = DeltaRangeConstraintRelation<FF>;
     using PoseidonExternal = Poseidon2ExternalRelation<FF>;
     using PoseidonInternal = Poseidon2InternalRelation<FF>;
     using Params = RelationParameters<FF>;
@@ -132,7 +132,10 @@ class UltraCircuitChecker {
      * @brief Struct for managing memory record data for ensuring RAM/ROM correctness
      */
     struct MemoryCheckData {
-        FF eta = FF::random_element(); // randomness for constructing wire 4 mem records
+        // randomness for constructing wire 4 mem records
+        FF eta = FF::random_element();
+        FF eta_two = FF::random_element();
+        FF eta_three = FF::random_element();
 
         std::unordered_set<size_t> read_record_gates;  // row indices for gates containing RAM/ROM read mem record
         std::unordered_set<size_t> write_record_gates; // row indices for gates containing RAM/ROM write mem record

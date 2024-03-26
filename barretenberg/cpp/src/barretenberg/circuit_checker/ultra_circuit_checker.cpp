@@ -1,5 +1,5 @@
 #include "ultra_circuit_checker.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
 #include <barretenberg/plonk/proof_system/constants.hpp>
 #include <unordered_set>
 
@@ -68,6 +68,8 @@ bool UltraCircuitChecker::check_block(Builder& builder,
     auto values = init_empty_values<Builder>();
     Params params;
     params.eta = memory_data.eta; // used in Auxiliary relation for RAM/ROM consistency
+    params.eta_two = memory_data.eta_two;
+    params.eta_three = memory_data.eta_three;
 
     // Perform checks on each gate defined in the builder
     bool result = true;
@@ -90,9 +92,9 @@ bool UltraCircuitChecker::check_block(Builder& builder,
             info("Failed Auxiliary relation at row idx = ", idx);
             return false;
         }
-        result = result && check_relation<GenPermSort>(values, params);
+        result = result && check_relation<DeltaRangeConstraint>(values, params);
         if (result == false) {
-            info("Failed GenPermSort relation at row idx = ", idx);
+            info("Failed DeltaRangeConstraint relation at row idx = ", idx);
             return false;
         }
         result = result && check_lookup(values, lookup_hash_table);
@@ -179,10 +181,11 @@ void UltraCircuitChecker::populate_values(
         }
     };
 
-    // A lambda function for computing a memory record term of the form w3 * eta^3 + w2 * eta^2 + w1 * eta
-    auto compute_memory_record_term = [](const FF& w_1, const FF& w_2, const FF& w_3, const FF& eta) {
-        return ((w_3 * eta + w_2) * eta + w_1) * eta;
-    };
+    // A lambda function for computing a memory record term of the form w3 * eta_three + w2 * eta_two + w1 * eta
+    auto compute_memory_record_term =
+        [](const FF& w_1, const FF& w_2, const FF& w_3, const FF& eta, const FF& eta_two, FF& eta_three) {
+            return (w_3 * eta_three + w_2 * eta_two + w_1 * eta);
+        };
 
     // Set wire values. Wire 4 is treated specially since it may contain memory records
     values.w_l = builder.get_variable(block.w_l()[idx]);
@@ -191,9 +194,13 @@ void UltraCircuitChecker::populate_values(
     // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that we
     // are indexing into the correct block before updating the w_4 value.
     if (block.has_ram_rom && memory_data.read_record_gates.contains(idx)) {
-        values.w_4 = compute_memory_record_term(values.w_l, values.w_r, values.w_o, memory_data.eta);
+        values.w_4 = compute_memory_record_term(
+            values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three);
     } else if (block.has_ram_rom && memory_data.write_record_gates.contains(idx)) {
-        values.w_4 = compute_memory_record_term(values.w_l, values.w_r, values.w_o, memory_data.eta) + FF::one();
+        values.w_4 =
+            compute_memory_record_term(
+                values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three) +
+            FF::one();
     } else {
         values.w_4 = builder.get_variable(block.w_4()[idx]);
     }
@@ -204,12 +211,20 @@ void UltraCircuitChecker::populate_values(
         values.w_r_shift = builder.get_variable(block.w_r()[idx + 1]);
         values.w_o_shift = builder.get_variable(block.w_o()[idx + 1]);
         if (block.has_ram_rom && memory_data.read_record_gates.contains(idx + 1)) {
-            values.w_4_shift =
-                compute_memory_record_term(values.w_l_shift, values.w_r_shift, values.w_o_shift, memory_data.eta);
+            values.w_4_shift = compute_memory_record_term(values.w_l_shift,
+                                                          values.w_r_shift,
+                                                          values.w_o_shift,
+                                                          memory_data.eta,
+                                                          memory_data.eta_two,
+                                                          memory_data.eta_three);
         } else if (block.has_ram_rom && memory_data.write_record_gates.contains(idx + 1)) {
-            values.w_4_shift =
-                compute_memory_record_term(values.w_l_shift, values.w_r_shift, values.w_o_shift, memory_data.eta) +
-                FF::one();
+            values.w_4_shift = compute_memory_record_term(values.w_l_shift,
+                                                          values.w_r_shift,
+                                                          values.w_o_shift,
+                                                          memory_data.eta,
+                                                          memory_data.eta_two,
+                                                          memory_data.eta_three) +
+                               FF::one();
         } else {
             values.w_4_shift = builder.get_variable(block.w_4()[idx + 1]);
         }
@@ -234,7 +249,7 @@ void UltraCircuitChecker::populate_values(
     values.q_o = block.q_3()[idx];
     values.q_4 = block.q_4()[idx];
     values.q_arith = block.q_arith()[idx];
-    values.q_sort = block.q_sort()[idx];
+    values.q_delta_range = block.q_delta_range()[idx];
     values.q_elliptic = block.q_elliptic()[idx];
     values.q_aux = block.q_aux()[idx];
     values.q_lookup = block.q_lookup_type()[idx];

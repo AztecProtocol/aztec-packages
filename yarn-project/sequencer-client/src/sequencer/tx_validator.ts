@@ -1,11 +1,11 @@
-import { Tx } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, Fr, GlobalVariables } from '@aztec/circuits.js';
+import { ProcessedTx, Tx } from '@aztec/circuit-types';
+import { AztecAddress, EthAddress, Fr, GlobalVariables, PublicCallRequest } from '@aztec/circuits.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Logger, createDebugLogger } from '@aztec/foundation/log';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { ContractDataSource } from '@aztec/types/contracts';
 
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
-import { ProcessedTx } from './processed_tx.js';
 
 /** A source of what nullifiers have been committed to the state trees */
 export interface NullifierSource {
@@ -28,25 +28,33 @@ type TxValidationStatus = typeof VALID_TX | typeof INVALID_TX;
 // the storage slot associated with "storage.balances"
 const GAS_TOKEN_BALANCES_SLOT = new Fr(1);
 
+type FeeValidationConfig = {
+  gasPortalAddress: EthAddress;
+  allowedFeePaymentContractClasses: Fr[];
+  allowedFeePaymentContractInstances: AztecAddress[];
+};
+
 export class TxValidator {
   #log: Logger;
   #globalVariables: GlobalVariables;
   #nullifierSource: NullifierSource;
   #publicStateSource: PublicStateSource;
-  #gasPortalAddress: EthAddress;
+  #contractDataSource: ContractDataSource;
+  #feeValidationConfig: FeeValidationConfig;
 
   constructor(
     nullifierSource: NullifierSource,
     publicStateSource: PublicStateSource,
-    gasPortalAddress: EthAddress,
+    contractDataSource: ContractDataSource,
     globalVariables: GlobalVariables,
+    feeValidationConfig: FeeValidationConfig,
     log = createDebugLogger('aztec:sequencer:tx_validator'),
   ) {
     this.#nullifierSource = nullifierSource;
-    this.#globalVariables = globalVariables;
     this.#publicStateSource = publicStateSource;
-    this.#gasPortalAddress = gasPortalAddress;
-
+    this.#contractDataSource = contractDataSource;
+    this.#globalVariables = globalVariables;
+    this.#feeValidationConfig = feeValidationConfig;
     this.#log = log;
   }
 
@@ -72,7 +80,18 @@ export class TxValidator {
       }
 
       // skip already processed transactions
-      if (tx instanceof Tx && (await this.#validateFee(tx)) === INVALID_TX) {
+      if (tx instanceof Tx) {
+        if ((await this.#validateFee(tx)) === INVALID_TX) {
+          invalidTxs.push(tx);
+          continue;
+        }
+        if ((await this.#validateGasBalance(tx)) === INVALID_TX) {
+          invalidTxs.push(tx);
+          continue;
+        }
+      }
+
+      if (this.#validateMaxBlockNumber(tx) === INVALID_TX) {
         invalidTxs.push(tx);
         continue;
       }
@@ -146,30 +165,17 @@ export class TxValidator {
     return VALID_TX;
   }
 
-  async #validateFee(tx: Tx): Promise<TxValidationStatus> {
+  async #validateGasBalance(tx: Tx): Promise<TxValidationStatus> {
     if (!tx.data.needsTeardown) {
-      // TODO check if fees are mandatory and reject this tx
-      this.#log.debug(`Tx ${Tx.getHash(tx)} doesn't pay for gas`);
       return VALID_TX;
     }
 
-    const {
-      // TODO what if there's more than one function call?
-      // if we're to enshrine that teardown = 1 function call, then we should turn this into a single function call
-      [PublicKernelPhase.TEARDOWN]: [teardownFn],
-    } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx.data, tx.enqueuedPublicFunctionCalls);
-
-    if (!teardownFn) {
-      this.#log.warn(
-        `Rejecting tx ${Tx.getHash(tx)} because it should pay for gas but has no enqueued teardown function call`,
-      );
-      return INVALID_TX;
-    }
+    const teardownFn = TxValidator.#extractFeeExecutionCall(tx)!;
 
     // TODO(#1204) if a generator index is used for the derived storage slot of a map, update it here as well
-    const slot = pedersenHash([GAS_TOKEN_BALANCES_SLOT.toBuffer(), teardownFn.callContext.msgSender.toBuffer()]);
+    const slot = pedersenHash([GAS_TOKEN_BALANCES_SLOT, teardownFn.callContext.msgSender]);
     const gasBalance = await this.#publicStateSource.storageRead(
-      getCanonicalGasTokenAddress(this.#gasPortalAddress),
+      getCanonicalGasTokenAddress(this.#feeValidationConfig.gasPortalAddress),
       slot,
     );
 
@@ -185,5 +191,67 @@ export class TxValidator {
     }
 
     return VALID_TX;
+  }
+
+  #validateMaxBlockNumber(tx: Tx | ProcessedTx): TxValidationStatus {
+    const maxBlockNumber = tx.data.rollupValidationRequests.maxBlockNumber;
+
+    if (maxBlockNumber.isSome && maxBlockNumber.value < this.#globalVariables.blockNumber) {
+      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for low max block number`);
+      return INVALID_TX;
+    } else {
+      return VALID_TX;
+    }
+  }
+
+  async #validateFee(tx: Tx): Promise<TxValidationStatus> {
+    if (!tx.data.needsTeardown) {
+      // TODO check if fees are mandatory and reject this tx
+      this.#log.debug(`Tx ${Tx.getHash(tx)} doesn't pay for gas`);
+      return VALID_TX;
+    }
+
+    const teardownFn = TxValidator.#extractFeeExecutionCall(tx);
+    if (!teardownFn) {
+      this.#log.warn(
+        `Rejecting tx ${Tx.getHash(tx)} because it should pay for gas but has no enqueued teardown function call`,
+      );
+      return INVALID_TX;
+    }
+
+    const fpcAddress = teardownFn.contractAddress;
+    const contractClass = await this.#contractDataSource.getContract(fpcAddress);
+
+    if (!contractClass) {
+      return INVALID_TX;
+    }
+
+    if (fpcAddress.equals(getCanonicalGasTokenAddress(this.#feeValidationConfig.gasPortalAddress))) {
+      return VALID_TX;
+    }
+
+    for (const allowedContract of this.#feeValidationConfig.allowedFeePaymentContractInstances) {
+      if (fpcAddress.equals(allowedContract)) {
+        return VALID_TX;
+      }
+    }
+
+    for (const allowedContractClass of this.#feeValidationConfig.allowedFeePaymentContractClasses) {
+      if (contractClass.contractClassId.equals(allowedContractClass)) {
+        return VALID_TX;
+      }
+    }
+
+    return INVALID_TX;
+  }
+
+  static #extractFeeExecutionCall(tx: Tx): PublicCallRequest | undefined {
+    const {
+      // TODO what if there's more than one function call?
+      // if we're to enshrine that teardown = 1 function call, then we should turn this into a single function call
+      [PublicKernelPhase.TEARDOWN]: [teardownFn],
+    } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx.data, tx.enqueuedPublicFunctionCalls);
+
+    return teardownFn;
   }
 }
