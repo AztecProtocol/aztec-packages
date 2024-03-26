@@ -66,13 +66,13 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     next_accumulator->target_sum = next_target_sum;
     next_accumulator->gate_challenges = instances.next_gate_challenges;
 
-    // Initialize prover polynomials
+    // Initialize proving key polynomials
     ProvingKey acc_proving_key_polys;
     for (auto& polynomial : acc_proving_key_polys.get_all()) {
         polynomial = typename Flavor::Polynomial(instances[0]->proving_key.circuit_size);
     }
 
-    // Fold the prover key polynomials
+    // Fold the proving key polynomials
     for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
         auto accumulator_polys = acc_proving_key_polys.get_all();
         auto input_polys = instances[inst_idx]->proving_key.get_all();
@@ -86,8 +86,9 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
             }
         });
     }
+    // Move them over to the accumulator
     for (auto [next_acc_poly, acc_poly] :
-         zip_view(next_accumulator->proving_key.get_all(), acc_proving_key_polys.get_all())) {
+         zip_view(instances[0]->proving_key.get_all(), acc_proving_key_polys.get_all())) {
         next_acc_poly = std::move(acc_poly);
     }
 
