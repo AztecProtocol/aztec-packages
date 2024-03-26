@@ -58,9 +58,10 @@ get-wasi-sdk:
     # Align with above
     ARG TARGETARCH
     FROM +source
+    COPY ./scripts/install-wasi-sdk.sh ./scripts/
     RUN ./scripts/install-wasi-sdk.sh
-    # TODO better output name
-    SAVE ARTIFACT src/wasi-sdk-20 wasi-sdk
+    # TODO better output name to mirror wasi-sdk
+    SAVE ARTIFACT src/wasi-sdk-20.0 wasi-sdk
 
 wasmtime:
     RUN curl https://wasmtime.dev/install.sh -sSf | bash
@@ -154,7 +155,7 @@ bench-client-ivc:
 build: # default target
     BUILD +preset-release
     BUILD +preset-wasm-threads
-A
+
 test:
     BUILD +test-clang-format
     FROM +preset-release-assert-all
