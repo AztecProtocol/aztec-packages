@@ -217,18 +217,6 @@ impl CrateDefMap {
                         })
                         .collect();
 
-                    let events = module
-                        .type_definitions()
-                        .filter_map(|id| {
-                            id.as_type().filter(|struct_id| {
-                                interner
-                                    .struct_attributes(struct_id)
-                                    .iter()
-                                    .any(|attr| attr == &SecondaryAttribute::Event)
-                            })
-                        })
-                        .collect();
-
                     let mut outputs =
                         ContractOutputs { structs: HashMap::new(), globals: HashMap::new() };
 
@@ -259,7 +247,7 @@ impl CrateDefMap {
                     });
 
                     let name = self.get_module_path(id, module.parent);
-                    Some(Contract { name, location: module.location, functions, events, outputs })
+                    Some(Contract { name, location: module.location, functions, outputs })
                 } else {
                     None
                 }
@@ -324,7 +312,6 @@ pub struct Contract {
     pub name: String,
     pub location: Location,
     pub functions: Vec<ContractFunctionMeta>,
-    pub events: Vec<StructId>,
     pub outputs: ContractOutputs,
 }
 
