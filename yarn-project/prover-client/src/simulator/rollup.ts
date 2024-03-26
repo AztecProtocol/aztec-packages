@@ -19,14 +19,14 @@ import {
   SimulatedBaseRollupArtifact,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
-  convertBaseRollupInputsToWitnessMap,
-  convertBaseRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
+  convertSimulatedBaseRollupInputsToWitnessMap,
+  convertSimulatedBaseRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 import { SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
@@ -113,11 +113,11 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
    * @returns The public inputs as outputs of the simulation.
    */
   public async baseRollupCircuit(input: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
-    const witnessMap = convertBaseRollupInputsToWitnessMap(input);
+    const witnessMap = convertSimulatedBaseRollupInputsToWitnessMap(input);
 
     const witness = await this.simulationProvider.simulateCircuit(witnessMap, SimulatedBaseRollupArtifact);
 
-    const result = convertBaseRollupOutputsFromWitnessMap(witness);
+    const result = convertSimulatedBaseRollupOutputsFromWitnessMap(witness);
 
     return Promise.resolve(result);
   }

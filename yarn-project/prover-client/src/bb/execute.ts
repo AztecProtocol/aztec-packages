@@ -7,7 +7,7 @@ import * as proc from 'child_process';
 import * as fs from 'fs/promises';
 import path from 'path';
 
-enum BB_RESULT {
+export enum BB_RESULT {
   SUCCESS,
   FAILURE,
   ALREADY_PRESENT,
@@ -87,7 +87,7 @@ async function generateKeyForNoirCircuit(
 
   if (!mustRegenerate) {
     const alreadyPresent: BBSuccess = { status: BB_RESULT.ALREADY_PRESENT };
-    return { result: alreadyPresent, circuitOutputDirectory };
+    return { result: alreadyPresent, outputPath: circuitOutputDirectory };
   }
 
   const binaryPresent = await fs
@@ -96,7 +96,7 @@ async function generateKeyForNoirCircuit(
     .catch(_ => false);
   if (!binaryPresent) {
     const failed: BBFailure = { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
-    return { result: failed, circuitOutputDirectory };
+    return { result: failed, outputPath: circuitOutputDirectory };
   }
 
   // Clear up the circuit output directory removing anything that is there
@@ -104,13 +104,16 @@ async function generateKeyForNoirCircuit(
   await fs.mkdir(circuitOutputDirectory, { recursive: true });
   // Write the bytecode and input witness to the working directory
   await fs.writeFile(bytecodePath, bytecode);
-  const args = ['-o', circuitOutputDirectory, '-b', bytecodePath];
+
+  // For verification keys, the argument is the full file path
+  const outputPath = key === 'pk' ? circuitOutputDirectory : `${circuitOutputDirectory}/vk`;
+  const args = ['-o', outputPath, '-b', bytecodePath];
   const timer = new Timer();
   const result = await executeBB(pathToBB, `write_${key}`, args, log);
   const duration = timer.ms();
   await fs.rm(bytecodePath, { force: true });
   await fs.writeFile(bytecodeHashPath, bytecodeHash);
-  return { result, duration, circuitOutputDirectory };
+  return { result, duration, outputPath };
 }
 
 const directorySize = async (directory: string, filesToOmit: string[]) => {
@@ -129,11 +132,14 @@ export async function generateVerificationKeyForNoirCircuit(
   compiledCircuit: NoirCompiledCircuit,
   log: LogFn,
 ) {
-  const {
-    result,
-    duration,
-    circuitOutputDirectory: keyPath,
-  } = await generateKeyForNoirCircuit(pathToBB, workingDirectory, circuitName, compiledCircuit, 'vk', log);
+  const { result, duration, outputPath } = await generateKeyForNoirCircuit(
+    pathToBB,
+    workingDirectory,
+    circuitName,
+    compiledCircuit,
+    'vk',
+    log,
+  );
   if (result.status === BB_RESULT.FAILURE) {
     log(`Failed to generate verification key for circuit ${circuitName}, reason: ${result.reason}`);
     return;
@@ -142,10 +148,10 @@ export async function generateVerificationKeyForNoirCircuit(
     log(`Verification key for circuit ${circuitName} was already present`);
     return;
   }
-  const size = await directorySize(keyPath, [bytecodeHashFilename]);
+  const stats = await fs.stat(outputPath);
   log(
-    `Verification key for circuit ${circuitName} written to ${keyPath} in ${duration} ms, size: ${
-      size / (1024 * 1024)
+    `Verification key for circuit ${circuitName} written to ${outputPath} in ${duration} ms, size: ${
+      stats.size / (1024 * 1024)
     } MB`,
   );
   return result;
@@ -158,11 +164,14 @@ export async function generateProvingKeyForNoirCircuit(
   compiledCircuit: NoirCompiledCircuit,
   log: LogFn,
 ) {
-  const {
-    result,
-    duration,
-    circuitOutputDirectory: keyPath,
-  } = await generateKeyForNoirCircuit(pathToBB, workingDirectory, circuitName, compiledCircuit, 'pk', log);
+  const { result, duration, outputPath } = await generateKeyForNoirCircuit(
+    pathToBB,
+    workingDirectory,
+    circuitName,
+    compiledCircuit,
+    'pk',
+    log,
+  );
   if (result.status === BB_RESULT.FAILURE) {
     log(`Failed to generate proving key for circuit ${circuitName}, reason: ${result.reason}`);
     return;
@@ -171,9 +180,52 @@ export async function generateProvingKeyForNoirCircuit(
     log(`Proving key for circuit ${circuitName} was already present`);
     return;
   }
-  const size = await directorySize(keyPath, [bytecodeHashFilename]);
+  const size = await directorySize(outputPath, [bytecodeHashFilename]);
   log(
-    `Proving key for circuit ${circuitName} written to ${keyPath} in ${duration} ms, size: ${size / (1024 * 1024)} MB`,
+    `Proving key for circuit ${circuitName} written to ${outputPath} in ${duration} ms, size: ${
+      size / (1024 * 1024)
+    } MB`,
   );
   return result;
+}
+
+export async function generateProof(
+  pathToBB: string,
+  workingDirectory: string,
+  circuitName: string,
+  compiledCircuit: NoirCompiledCircuit,
+  inputWitnessFile: string,
+  log: LogFn,
+) {
+  // The bytecode is written to e.g. /workingDirectory/pk/BaseParityArtifact-bytecode
+  const bytecodePath = `${workingDirectory}/proof/${circuitName}-bytecode`;
+  const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
+
+  // The key generation outputs are written to e.g. /workingDirectory/pk/BaseParityArtifact/
+  // The bytecode hash file is also written here as /workingDirectory/pk/BaseParityArtifact/bytecode-hash
+  const circuitOutputDirectory = `${workingDirectory}/proof/${circuitName}`;
+
+  const binaryPresent = await fs
+    .access(pathToBB, fs.constants.R_OK)
+    .then(_ => true)
+    .catch(_ => false);
+  if (!binaryPresent) {
+    const failed: BBFailure = { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
+    return { result: failed, outputPath: circuitOutputDirectory };
+  }
+
+  // Clear up the circuit output directory removing anything that is there
+  await fs.rm(circuitOutputDirectory, { recursive: true, force: true });
+  await fs.mkdir(circuitOutputDirectory, { recursive: true });
+  // Write the bytecode and input witness to the working directory
+  await fs.writeFile(bytecodePath, bytecode);
+
+  // For verification keys, the argument is the full file path
+  const outputPath = `${circuitOutputDirectory}/proof`;
+  const args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile];
+  const timer = new Timer();
+  const result = await executeBB(pathToBB, `prove`, args, log);
+  const duration = timer.ms();
+  await fs.rm(bytecodePath, { force: true });
+  return { result, duration, outputPath };
 }

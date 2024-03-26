@@ -16,12 +16,12 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import {
   BaseParityArtifact,
+  BaseRollupArtifact,
   MergeRollupArtifact,
   ProtocolArtifacts,
   ProtocolCircuitArtifacts,
   RootParityArtifact,
   RootRollupArtifact,
-  SimulatedBaseRollupArtifact,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
   convertBaseRollupInputsToWitnessMap,
@@ -37,31 +37,39 @@ import { NativeACVMSimulator } from '@aztec/simulator';
 
 import * as fs from 'fs/promises';
 
-import { generateProvingKeyForNoirCircuit, generateVerificationKeyForNoirCircuit } from '../bb/execute.js';
+import {
+  BB_RESULT,
+  generateProof,
+  generateProvingKeyForNoirCircuit,
+  generateVerificationKeyForNoirCircuit,
+} from '../bb/execute.js';
 import { CircuitProver } from './interface.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
 async function ensureAllKeys(bbBinaryPath: string, bbWorkingDirectory: string) {
-  const realCircuits = Object.keys(ProtocolCircuitArtifacts).filter((n: string) => !n.includes('Simulated'));
+  const realCircuits = Object.keys(ProtocolCircuitArtifacts).filter(
+    (n: string) => !n.includes('Simulated') && !n.includes('PrivateKernel'),
+  );
+  const promises = [];
   for (const circuitName of realCircuits) {
-    logger.info(`Generating proving key for circuit ${circuitName}`);
-    await generateProvingKeyForNoirCircuit(
+    const provingKeyPromise = generateProvingKeyForNoirCircuit(
       bbBinaryPath,
       bbWorkingDirectory,
       circuitName,
       ProtocolCircuitArtifacts[circuitName as ProtocolArtifacts],
       logger,
     );
-    logger.info(`Generating verification key for circuit ${circuitName}`);
-    await generateVerificationKeyForNoirCircuit(
+    const verificationKeyPromise = generateVerificationKeyForNoirCircuit(
       bbBinaryPath,
       bbWorkingDirectory,
       circuitName,
       ProtocolCircuitArtifacts[circuitName as ProtocolArtifacts],
       logger,
     );
+    promises.push(...[provingKeyPromise, verificationKeyPromise]);
   }
+  await Promise.all(promises);
 }
 
 export type BBProverConfig = {
@@ -134,7 +142,23 @@ export class BBNativeRollupProver implements CircuitProver {
   public async getBaseRollupProof(input: BaseRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     const witnessMap = convertBaseRollupInputsToWitnessMap(input);
 
-    const witness = await this.simulator.simulateCircuit(witnessMap, SimulatedBaseRollupArtifact);
+    const witness = await this.simulator.simulateCircuit(witnessMap, BaseRollupArtifact);
+
+    const inputWitness = '';
+
+    const provingResult = await generateProof(
+      this.bbBinaryPath,
+      this.bbWorkingDirectory,
+      'Base Rollup',
+      BaseRollupArtifact,
+      inputWitness,
+      logger,
+    );
+
+    if (provingResult.result.status === BB_RESULT.FAILURE) {
+      logger.error(`Failed to generate base rollup proof: ${provingResult.result.reason}`);
+      throw new Error(provingResult.result.reason);
+    }
 
     const result = convertBaseRollupOutputsFromWitnessMap(witness);
 

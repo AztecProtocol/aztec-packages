@@ -29,6 +29,8 @@ import {
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
+  convertSimulatedBaseRollupInputsToWitnessMap,
+  convertSimulatedBaseRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 import { SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
@@ -82,11 +84,11 @@ export class TestCircuitProver implements CircuitProver {
    * @returns The public inputs as outputs of the simulation.
    */
   public async getBaseRollupProof(input: BaseRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
-    const witnessMap = convertBaseRollupInputsToWitnessMap(input);
+    const witnessMap = convertSimulatedBaseRollupInputsToWitnessMap(input);
 
     const witness = await this.simulationProvider.simulateCircuit(witnessMap, SimulatedBaseRollupArtifact);
 
-    const result = convertBaseRollupOutputsFromWitnessMap(witness);
+    const result = convertSimulatedBaseRollupOutputsFromWitnessMap(witness);
 
     return Promise.resolve([result, makeEmptyProof()]);
   }

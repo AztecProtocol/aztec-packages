@@ -95,7 +95,8 @@ describe('prover/bb_prover', () => {
       bbWorkingDirectory: config.bbWorkingDirectory,
     };
     prover = await BBNativeRollupProver.new(bbConfig);
-  }, 20_000);
+    logger('AFTER PROVER START');
+  }, 200_000);
 
   afterEach(async () => {
     if (directoryToCleanup) {
@@ -105,6 +106,8 @@ describe('prover/bb_prover', () => {
 
   it('proves the base rollup circuit', async () => {
     const tx = await makeBloatedProcessedTx(builderDb);
+
+    logger('Starting Test!!');
 
     const inputs = await buildBaseRollupInput(tx, globalVariables, builderDb);
     await prover.getBaseRollupProof(inputs);

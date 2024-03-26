@@ -225,6 +225,17 @@ export function convertRootParityInputsToWitnessMap(inputs: RootParityInputs): W
  */
 export function convertBaseRollupInputsToWitnessMap(inputs: BaseRollupInputs): WitnessMap {
   const mapped = mapBaseRollupInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(BaseRollupJson.abi as Abi, { inputs: mapped as any });
+  return initialWitnessMap;
+}
+
+/**
+ * Converts the inputs of the simulated base rollup circuit into a witness map.
+ * @param inputs - The base rollup inputs.
+ * @returns The witness map
+ */
+export function convertSimulatedBaseRollupInputsToWitnessMap(inputs: BaseRollupInputs): WitnessMap {
+  const mapped = mapBaseRollupInputsToNoir(inputs);
   const initialWitnessMap = abiEncode(BaseRollupSimulatedJson.abi as Abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
@@ -295,13 +306,28 @@ export function convertPublicTailInputsToWitnessMap(inputs: PublicKernelTailCirc
 }
 
 /**
+ * Converts the outputs of the simulated base rollup circuit from a witness map.
+ * @param outputs - The base rollup outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertSimulatedBaseRollupOutputsFromWitnessMap(outputs: WitnessMap): BaseOrMergeRollupPublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(BaseRollupSimulatedJson.abi as Abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as BaseRollupReturnType;
+
+  return mapBaseOrMergeRollupPublicInputsFromNoir(returnType);
+}
+
+/**
  * Converts the outputs of the base rollup circuit from a witness map.
  * @param outputs - The base rollup outputs as a witness map.
  * @returns The public inputs.
  */
 export function convertBaseRollupOutputsFromWitnessMap(outputs: WitnessMap): BaseOrMergeRollupPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(BaseRollupSimulatedJson.abi as Abi, outputs);
+  const decodedInputs: DecodedInputs = abiDecode(BaseRollupJson.abi as Abi, outputs);
 
   // Cast the inputs as the return type
   const returnType = decodedInputs.return_value as BaseRollupReturnType;
