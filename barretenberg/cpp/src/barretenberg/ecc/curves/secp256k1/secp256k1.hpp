@@ -43,6 +43,17 @@ struct FqParams {
     static constexpr uint64_t primitive_root_1 = 0UL;
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
+
+    static constexpr uint64_t modulus_wasm_0 = 0x1ffffc2f;
+    static constexpr uint64_t modulus_wasm_1 = 0x1ffffff7;
+    static constexpr uint64_t modulus_wasm_2 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_3 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_4 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_5 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_6 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_7 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_8 = 0xffffff;
+
     static constexpr uint64_t r_squared_wasm_0 = 0x001e88003a428400UL;
     static constexpr uint64_t r_squared_wasm_1 = 0x0000000000000400UL;
     static constexpr uint64_t r_squared_wasm_2 = 0x0000000000000000UL;
@@ -130,6 +141,17 @@ struct FrParams {
     static constexpr uint64_t primitive_root_1 = 0UL;
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
+
+    static constexpr uint64_t modulus_wasm_0 = 0x10364141;
+    static constexpr uint64_t modulus_wasm_1 = 0x1e92f466;
+    static constexpr uint64_t modulus_wasm_2 = 0x12280eef;
+    static constexpr uint64_t modulus_wasm_3 = 0x1db9cd5e;
+    static constexpr uint64_t modulus_wasm_4 = 0x1fffebaa;
+    static constexpr uint64_t modulus_wasm_5 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_6 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_7 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_8 = 0xffffff;
+
     static constexpr uint64_t r_squared_wasm_0 = 0x63e601a3c9f6ab4bUL;
     static constexpr uint64_t r_squared_wasm_1 = 0xa2b6456d46702f57UL;
     static constexpr uint64_t r_squared_wasm_2 = 0x5fd7916f341f1cefUL;

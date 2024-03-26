@@ -24,6 +24,16 @@ class Bn254FqParams {
     static constexpr uint64_t cube_root_2 = 0xaa303344d4741444UL;
     static constexpr uint64_t cube_root_3 = 0x2c3b3f0d26594943UL;
 
+    static constexpr uint64_t modulus_wasm_0 = 0x187cfd47;
+    static constexpr uint64_t modulus_wasm_1 = 0x10460b6;
+    static constexpr uint64_t modulus_wasm_2 = 0x1c72a34f;
+    static constexpr uint64_t modulus_wasm_3 = 0x2d522d0;
+    static constexpr uint64_t modulus_wasm_4 = 0x1585d978;
+    static constexpr uint64_t modulus_wasm_5 = 0x2db40c0;
+    static constexpr uint64_t modulus_wasm_6 = 0xa6e141;
+    static constexpr uint64_t modulus_wasm_7 = 0xe5c2634;
+    static constexpr uint64_t modulus_wasm_8 = 0x30644e;
+
     static constexpr uint64_t r_squared_wasm_0 = 0xe1a2a074659bac10UL;
     static constexpr uint64_t r_squared_wasm_1 = 0x639855865406005aUL;
     static constexpr uint64_t r_squared_wasm_2 = 0xff54c5802d3e2632UL;

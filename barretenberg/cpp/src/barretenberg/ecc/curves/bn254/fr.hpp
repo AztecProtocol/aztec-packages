@@ -64,6 +64,16 @@ class Bn254FrParams {
         0x1d9598e8a7e39857ULL, 0x2ba010aa41eb7786ULL, 0x39aa886bdbf356b5ULL, 0x47b5002d75fb35e5ULL,
     };
 
+    static constexpr uint64_t modulus_wasm_0 = 0x10000001;
+    static constexpr uint64_t modulus_wasm_1 = 0x1f0fac9f;
+    static constexpr uint64_t modulus_wasm_2 = 0xe5c2450;
+    static constexpr uint64_t modulus_wasm_3 = 0x7d090f3;
+    static constexpr uint64_t modulus_wasm_4 = 0x1585d283;
+    static constexpr uint64_t modulus_wasm_5 = 0x2db40c0;
+    static constexpr uint64_t modulus_wasm_6 = 0xa6e141;
+    static constexpr uint64_t modulus_wasm_7 = 0xe5c2634;
+    static constexpr uint64_t modulus_wasm_8 = 0x30644e;
+
     static constexpr uint64_t r_squared_wasm_0 = 0x38c2e14b45b69bd4UL;
     static constexpr uint64_t r_squared_wasm_1 = 0x0ffedb1885883377UL;
     static constexpr uint64_t r_squared_wasm_2 = 0x7840f9f0abc6e54dUL;

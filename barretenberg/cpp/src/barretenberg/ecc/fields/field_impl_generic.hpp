@@ -337,15 +337,6 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     return { r0, r1, r2, r3 };
 #else
 
-    constexpr uint64_t wasm_modulus[9]{ modulus.data[0] & 0x1fffffff,
-                                        (modulus.data[0] >> 29) & 0x1fffffff,
-                                        ((modulus.data[0] >> 58) & 0x3f) | ((modulus.data[1] & 0x7fffff) << 6),
-                                        (modulus.data[1] >> 23) & 0x1fffffff,
-                                        ((modulus.data[1] >> 52) & 0xfff) | ((modulus.data[2] & 0x1ffff) << 12),
-                                        (modulus.data[2] >> 17) & 0x1fffffff,
-                                        ((modulus.data[2] >> 46) & 0x3ffff) | ((modulus.data[3] & 0x7ff) << 18),
-                                        (modulus.data[3] >> 11) & 0x1fffffff,
-                                        (modulus.data[3] >> 40) & 0x1fffffff };
     uint64_t left[9] = { data[0] & 0x1fffffff,
                          (data[0] >> 29) & 0x1fffffff,
                          ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
@@ -603,11 +594,6 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     temp_16 = (temp_16 & new_mask) | (r_temp_7 & inverse_mask);
     temp_17 = (temp_17 & new_mask) | (r_temp_8 & inverse_mask);
 
-    // if (!std::is_constant_evaluated()) {
-    //     info("Temp_17: ", temp_17);
-    //     info("Modulus_8: ", wasm_modulus[8]);
-    //     info("r_temp_8: ", r_temp_8);
-    // }
     return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
              (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
              (temp_13 >> 12) | (temp_14 << 17) | (temp_15 << 46),
@@ -664,15 +650,6 @@ constexpr void field<T>::wasm_reduce(uint64_t& result_0,
                                      uint64_t& result_7,
                                      uint64_t& result_8)
 {
-    constexpr uint64_t wasm_modulus[9]{ modulus.data[0] & 0x1fffffff,
-                                        (modulus.data[0] >> 29) & 0x1fffffff,
-                                        ((modulus.data[0] >> 58) & 0x3f) | ((modulus.data[1] & 0x7fffff) << 6),
-                                        (modulus.data[1] >> 23) & 0x1fffffff,
-                                        ((modulus.data[1] >> 52) & 0xfff) | ((modulus.data[2] & 0x1ffff) << 12),
-                                        (modulus.data[2] >> 17) & 0x1fffffff,
-                                        ((modulus.data[2] >> 46) & 0x3ffff) | ((modulus.data[3] & 0x7ff) << 18),
-                                        (modulus.data[3] >> 11) & 0x1fffffff,
-                                        (modulus.data[3] >> 40) & 0x1fffffff };
     constexpr uint64_t mask = 0x1fffffff;
     constexpr uint64_t r_inv = T::r_inv & mask;
     uint64_t k = (result_0 * r_inv) & mask;
@@ -699,15 +676,6 @@ constexpr void field<T>::wasm_karatsuba_reduce(uint64_t& result_0,
                                                uint64_t& result_8,
                                                uint64_t& result_9)
 {
-    constexpr uint64_t wasm_modulus[9]{ modulus.data[0] & 0x1fffffff,
-                                        (modulus.data[0] >> 29) & 0x1fffffff,
-                                        ((modulus.data[0] >> 58) & 0x3f) | ((modulus.data[1] & 0x7fffff) << 6),
-                                        (modulus.data[1] >> 23) & 0x1fffffff,
-                                        ((modulus.data[1] >> 52) & 0xfff) | ((modulus.data[2] & 0x1ffff) << 12),
-                                        (modulus.data[2] >> 17) & 0x1fffffff,
-                                        ((modulus.data[2] >> 46) & 0x3ffff) | ((modulus.data[3] & 0x7ff) << 18),
-                                        (modulus.data[3] >> 11) & 0x1fffffff,
-                                        (modulus.data[3] >> 40) & 0x1fffffff };
     constexpr uint64_t mask = 0x1fffffff;
     constexpr uint64_t wide_mask = 0x3ffffffffffffffUL;
     constexpr uint64_t r_inv = T::r_inv & wide_mask;

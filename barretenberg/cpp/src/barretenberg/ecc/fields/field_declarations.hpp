@@ -167,6 +167,12 @@ template <class Params_> struct alignas(32) field {
     static constexpr uint256_t r_squared_uint{
         Params_::r_squared_wasm_0, Params_::r_squared_wasm_1, Params_::r_squared_wasm_2, Params_::r_squared_wasm_3
     };
+    static constexpr std::array<uint64_t, 9> wasm_modulus = { Params::modulus_wasm_0, Params::modulus_wasm_1,
+                                                              Params::modulus_wasm_2, Params::modulus_wasm_3,
+                                                              Params::modulus_wasm_4, Params::modulus_wasm_5,
+                                                              Params::modulus_wasm_6, Params::modulus_wasm_7,
+                                                              Params::modulus_wasm_8 };
+
 #endif
     static constexpr field cube_root_of_unity()
     {

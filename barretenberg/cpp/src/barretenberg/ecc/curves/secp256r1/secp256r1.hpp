@@ -8,7 +8,7 @@ namespace bb::secp256r1 {
 struct FqParams {
     static constexpr uint64_t modulus_0 = 0xFFFFFFFFFFFFFFFFULL;
     static constexpr uint64_t modulus_1 = 0x00000000FFFFFFFFULL;
-    static constexpr uint64_t modulus_2 = 0X0000000000000000ULL;
+    static constexpr uint64_t modulus_2 = 0x0000000000000000ULL;
     static constexpr uint64_t modulus_3 = 0xFFFFFFFF00000001ULL;
 
     static constexpr uint64_t r_squared_0 = 3ULL;
@@ -42,6 +42,16 @@ struct FqParams {
     static constexpr uint64_t primitive_root_1 = 0UL;
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
+
+    static constexpr uint64_t modulus_wasm_0 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_1 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_2 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_3 = 0x1ff;
+    static constexpr uint64_t modulus_wasm_4 = 0x0;
+    static constexpr uint64_t modulus_wasm_5 = 0x0;
+    static constexpr uint64_t modulus_wasm_6 = 0x40000;
+    static constexpr uint64_t modulus_wasm_7 = 0x1fe00000;
+    static constexpr uint64_t modulus_wasm_8 = 0xffffff;
 
     static constexpr uint64_t r_squared_wasm_0 = 0x0000000000000c00UL;
     static constexpr uint64_t r_squared_wasm_1 = 0xffffeffffffffc00UL;
@@ -115,6 +125,16 @@ struct FrParams {
     static constexpr uint64_t primitive_root_1 = 0UL;
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
+
+    static constexpr uint64_t modulus_wasm_0 = 0x1c632551;
+    static constexpr uint64_t modulus_wasm_1 = 0x1dce5617;
+    static constexpr uint64_t modulus_wasm_2 = 0x5e7a13c;
+    static constexpr uint64_t modulus_wasm_3 = 0xdf55b4e;
+    static constexpr uint64_t modulus_wasm_4 = 0x1ffffbce;
+    static constexpr uint64_t modulus_wasm_5 = 0x1fffffff;
+    static constexpr uint64_t modulus_wasm_6 = 0x3ffff;
+    static constexpr uint64_t modulus_wasm_7 = 0x1fe00000;
+    static constexpr uint64_t modulus_wasm_8 = 0xffffff;
 
     static constexpr uint64_t r_squared_wasm_0 = 0x45e9cfeeb48d9ef5UL;
     static constexpr uint64_t r_squared_wasm_1 = 0x1f11fc5bb2d31a99UL;
