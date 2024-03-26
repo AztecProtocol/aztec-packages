@@ -70,10 +70,12 @@ jobs:
         working-directory: ./yarn-project/end-to-end/
         if: github.actor == 'ludamad' || github.actor == 'charlielye' || github.actor == 'sklppy88' || github.actor == 'alexghr' || github.actor == 'benesjan' || github.actor == 'spalladino' || github.actor == 'just-mitch'
         # We don't do much on arm, just run it on their builder
-        run: 
-          # use locally=false to run docker-in-docker on the ARM runner. 
-          # the default locally=true is better for setups without docker-in-docker.
-          earthly-cloud build arm --no-output +${{ matrix.test }} --e2e_build=true --locally=false
+        run:
+          # Flags:
+          # - e2e_build=true to get images from a local build, not a dockerhub registry strategy
+          # - locally=false to run docker-in-docker on the ARM runner.  default locally=true is better for setups without docker-in-docker.
+          # - wasm-threads-only=true to skip wasm single threaded builds
+          earthly-cloud build arm --no-output +${{ matrix.test }} --e2e_build=true --locally=false --wasm-threads-only=true
 
   # all the end-to-end integration tests for aztec
   e2e-x86:
