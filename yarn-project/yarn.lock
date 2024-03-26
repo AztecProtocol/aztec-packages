@@ -678,6 +678,7 @@ __metadata:
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
+    zod: ^3.22.4
   languageName: unknown
   linkType: soft
 

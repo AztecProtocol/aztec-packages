@@ -28,6 +28,6 @@
       "path": "../merkle-tree"
     }
   ],
-  "include": ["src", "src/**/*.json"],
-  "exclude": ["src/contracts"]
+  "include": ["src", "src/types/*.ts"],
+  "exclude": ["src/contracts", "src/target/*.json"]
 }
