@@ -1,13 +1,13 @@
 #include "avm_execution.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/flavor/generated/avm_flavor.hpp"
-#include "barretenberg/proof_system/circuit_builder/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
 #include "barretenberg/vm/avm_trace/avm_instructions.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
+#include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/generated/avm_composer.hpp"
+#include "barretenberg/vm/generated/avm_flavor.hpp"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -128,10 +128,41 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                  std::get<uint32_t>(inst.operands.at(4)),
                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
+        // Compute - Comparators
+        case OpCode::EQ:
+            trace_builder.op_eq(std::get<uint8_t>(inst.operands.at(0)),
+                                std::get<uint32_t>(inst.operands.at(2)),
+                                std::get<uint32_t>(inst.operands.at(3)),
+                                std::get<uint32_t>(inst.operands.at(4)),
+                                std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
         // Compute - Bitwise
         case OpCode::NOT:
             trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
                                  std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+
+        case OpCode::AND:
+            trace_builder.op_and(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(3)),
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        case OpCode::OR:
+            trace_builder.op_or(std::get<uint8_t>(inst.operands.at(0)),
+                                std::get<uint32_t>(inst.operands.at(2)),
+                                std::get<uint32_t>(inst.operands.at(3)),
+                                std::get<uint32_t>(inst.operands.at(4)),
+                                std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+
+        case OpCode::XOR:
+            trace_builder.op_xor(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(3)),
                                  std::get<uint32_t>(inst.operands.at(4)),
                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
