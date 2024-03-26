@@ -131,8 +131,9 @@ void common_validate_bit_op(std::vector<Row> const& trace,
     EXPECT_EQ(row->avm_main_mem_op_b, FF(1));
     EXPECT_EQ(row->avm_main_rwb, FF(0));
 
-    // Check the instruction tag
-    EXPECT_EQ(row->avm_main_in_tag, FF(static_cast<uint32_t>(tag)));
+    // Check the instruction tags
+    EXPECT_EQ(row->avm_main_r_in_tag, FF(static_cast<uint32_t>(tag)));
+    EXPECT_EQ(row->avm_main_w_in_tag, FF(static_cast<uint32_t>(tag)));
 
     // Check that start row is the same as what is copied into the main trace
     EXPECT_EQ(bin_row_start->avm_binary_acc_ia, a);
@@ -168,6 +169,7 @@ enum BIT_FAILURES {
     ByteLengthError,
     IncorrectBinSelector,
 };
+
 std::vector<Row> gen_mutated_trace_bit(std::vector<Row> trace,
                                        std::function<bool(Row)>&& select_row,
                                        FF const& c_mutated,

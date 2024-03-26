@@ -136,7 +136,7 @@ namespace avm_mem(256);
     m_rw * m_tag_err = 0;
 
     //====== Indirect Memory Constraints =====================================
-    // Enforce r_in_tag == 3, i.e., in_tag must be U32
+    // Enforce r_in_tag == 3, i.e., r_in_tag must be U32
     m_ind_op_a * (r_in_tag - 3) = 0;
     m_ind_op_b * (r_in_tag - 3) = 0;
     m_ind_op_c * (r_in_tag - 3) = 0;
@@ -146,7 +146,7 @@ namespace avm_mem(256);
     m_ind_op_b * m_rw = 0;
     m_ind_op_c * m_rw = 0;
 
-    //====== MOV Opcode in_tag Constraint =====================================
+    //====== MOV Opcode Tag Constraint =====================================
     // The following constraint ensures that the r_in_tag is set to m_tag for
     // the load operation pertaining to Ia.
     // The permutation check #[PERM_MAIN_MEM_A] guarantees that the r_in_tag

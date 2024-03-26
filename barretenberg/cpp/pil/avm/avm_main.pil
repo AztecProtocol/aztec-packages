@@ -275,7 +275,7 @@ namespace avm_main(256);
     bin_sel = sel_op_and + sel_op_or + sel_op_xor;
     
     #[PERM_MAIN_BIN]
-    bin_sel {ia, ib, ic, bin_op_id, in_tag}
+    bin_sel {ia, ib, ic, bin_op_id, r_in_tag}
     is
     avm_binary.start {avm_binary.acc_ia, avm_binary.acc_ib, avm_binary.acc_ic,
                       avm_binary.op_id, avm_binary.in_tag};
