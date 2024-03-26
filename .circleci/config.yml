@@ -983,7 +983,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_avm_simulator.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_avm_simulator.test.ts
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
@@ -1033,7 +1033,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=docs_examples_test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=docs_examples_test.ts
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
@@ -1192,6 +1192,16 @@ jobs:
           command: |
             should_release || exit 0
             yarn-project/deploy_npm.sh latest
+      - run:
+          name: "Release canary to NPM: l1-contracts"
+          command: |
+            should_release || exit 0
+            deploy_npm l1-contracts canary
+      - run:
+          name: "Release latest to NPM: l1-contracts"
+          command: |
+            should_release || exit 0
+            deploy_npm l1-contracts latest
       - run:
           name: "Deploy mainnet fork"
           command: |
