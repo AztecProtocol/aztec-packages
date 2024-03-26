@@ -55,6 +55,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
         .constraints = { constraint },
+        .quad_constraints = {},
         .block_constraints = {},
     };
 
