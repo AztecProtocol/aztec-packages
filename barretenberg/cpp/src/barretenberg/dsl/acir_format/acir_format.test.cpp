@@ -171,6 +171,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
                                   .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
                                   .constraints = { expr_a, expr_b, expr_c, expr_d },
+                                  .quad_constraints = {},
                                   .block_constraints = {} };
 
     uint256_t inverse_of_five = fr(5).invert();
@@ -248,6 +249,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
                                       .q_o = 1,
                                       .q_c = fr::neg_one(),
                                   } },
+                                  .quad_constraints = {},
                                   .block_constraints = {} };
 
     std::string message_string = "tenletters";
@@ -343,6 +345,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
             .q_o = 1,
             .q_c = fr::neg_one(),
         } },
+        .quad_constraints = {},
         .block_constraints = {},
     };
 
@@ -448,6 +451,7 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
         .constraints = { dummy },
+        .quad_constraints = {},
         .block_constraints = {},
     };
 
@@ -495,6 +499,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                                   .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
                                   .constraints = {},
+                                  .quad_constraints = {},
                                   .block_constraints = {} };
 
     WitnessVector witness{ 1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17,

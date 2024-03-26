@@ -148,6 +148,7 @@ TEST(ECDSASecp256r1, test_hardcoded)
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
         .constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
 
@@ -199,6 +200,7 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
         .constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
 
@@ -248,6 +250,7 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
         .constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
     auto builder = create_circuit(constraint_system);
@@ -292,6 +295,7 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
         .constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
 

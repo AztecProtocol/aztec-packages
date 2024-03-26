@@ -54,6 +54,7 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
                                   .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
                                   .constraints = {},
+                                  .quad_constraints = {},
                                   .block_constraints = {} };
 
     WitnessVector witness{
