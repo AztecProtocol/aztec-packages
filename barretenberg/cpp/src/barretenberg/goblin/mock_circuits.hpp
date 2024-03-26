@@ -69,11 +69,6 @@ class GoblinMockCircuits {
         stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS);             // min gates: ~39k
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS); // min gates: ~41k
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_ITERATIONS);  // min gates: ~29k
-
-        // Note: its not clear whether goblin ops will be supported for function circuits initially but currently
-        // UGH can only be used if some op gates are included so for now we'll assume each function circuit has
-        // some.
-        MockCircuits::construct_goblin_ecc_op_circuit(builder);
     }
 
     /**
@@ -92,8 +87,11 @@ class GoblinMockCircuits {
     {
         bb::GoblinUltraCircuitBuilder builder{ op_queue };
 
-        // Add some goblinized ecc ops
-        MockCircuits::construct_goblin_ecc_op_circuit(builder);
+        // Add some goblinized ecc ops: a mul accum op and an equality op
+        auto point = Point::one() * FF::random_element();
+        auto scalar = FF::random_element();
+        builder.queue_ecc_mul_accum(point, scalar);
+        builder.queue_ecc_eq();
 
         op_queue->set_size_data();
 
