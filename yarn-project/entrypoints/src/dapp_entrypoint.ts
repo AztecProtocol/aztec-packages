@@ -1,5 +1,6 @@
 import { computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/aztec.js';
-import { AuthWitnessProvider, EntrypointInterface } from '@aztec/aztec.js/account';
+import { AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { EntrypointInterface } from '@aztec/aztec.js/entrypoint';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
