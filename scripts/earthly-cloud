@@ -28,12 +28,12 @@ fi
 # default sizes for build type
 if [ "$RUNNER_TYPE" == "build" ] ; then
   SIZE=4xlarge
-  NUMBER_OF_RUNNERS=4
+  NUMBER_OF_RUNNERS=2
   # TODO why cant we set this??
   # MAX_PARALLELISM=8
 elif [ "$RUNNER_TYPE" == "bench" ] ; then
   SIZE=2xlarge
-  NUMBER_OF_RUNNERS=2
+  NUMBER_OF_RUNNERS=1
   # MAX_PARALLELISM=1
 fi
 
