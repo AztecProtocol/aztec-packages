@@ -52,15 +52,6 @@ struct BlackBoxFuncCall {
         static RANGE bincodeDeserialize(std::vector<uint8_t>);
     };
 
-    struct SHA256 {
-        std::vector<Program::FunctionInput> inputs;
-        std::vector<Program::Witness> outputs;
-
-        friend bool operator==(const SHA256&, const SHA256&);
-        std::vector<uint8_t> bincodeSerialize() const;
-        static SHA256 bincodeDeserialize(std::vector<uint8_t>);
-    };
-
     struct Blake2s {
         std::vector<Program::FunctionInput> inputs;
         std::vector<Program::Witness> outputs;
@@ -278,7 +269,6 @@ struct BlackBoxFuncCall {
     std::variant<AND,
                  XOR,
                  RANGE,
-                 SHA256,
                  Blake2s,
                  Blake3,
                  SchnorrVerify,
