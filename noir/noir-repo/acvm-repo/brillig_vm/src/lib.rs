@@ -1372,14 +1372,14 @@ mod tests {
                 })],
                 destination_value_types: vec![HeapValueType::Array {
                     size: initial_matrix.len(),
-                    value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                    value_types: vec![HeapValueType::field()],
                 }],
                 inputs: vec![ValueOrArray::HeapArray(HeapArray {
                     pointer: r_input,
                     size: initial_matrix.len(),
                 })],
                 input_value_types: vec![HeapValueType::Array {
-                    value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                    value_types: vec![HeapValueType::field()],
                     size: initial_matrix.len(),
                 }],
             },
@@ -1469,14 +1469,14 @@ mod tests {
                     size: r_output_size,
                 })],
                 destination_value_types: vec![HeapValueType::Vector {
-                    value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                    value_types: vec![HeapValueType::field()],
                 }],
                 inputs: vec![ValueOrArray::HeapVector(HeapVector {
                     pointer: r_input_pointer,
                     size: r_input_size,
                 })],
                 input_value_types: vec![HeapValueType::Vector {
-                    value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                    value_types: vec![HeapValueType::field()],
                 }],
             },
         ];
@@ -1547,7 +1547,7 @@ mod tests {
                 })],
                 destination_value_types: vec![HeapValueType::Array {
                     size: initial_matrix.len(),
-                    value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                    value_types: vec![HeapValueType::field()],
                 }],
                 inputs: vec![ValueOrArray::HeapArray(HeapArray {
                     pointer: r_input,
@@ -1555,7 +1555,7 @@ mod tests {
                 })],
                 input_value_types: vec![HeapValueType::Array {
                     size: initial_matrix.len(),
-                    value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                    value_types: vec![HeapValueType::field()],
                 }],
             },
         ];
@@ -1630,7 +1630,7 @@ mod tests {
                 })],
                 destination_value_types: vec![HeapValueType::Array {
                     size: matrix_a.len(),
-                    value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                    value_types: vec![HeapValueType::field()],
                 }],
                 inputs: vec![
                     ValueOrArray::HeapArray(HeapArray { pointer: r_input_a, size: matrix_a.len() }),
@@ -1639,11 +1639,11 @@ mod tests {
                 input_value_types: vec![
                     HeapValueType::Array {
                         size: matrix_a.len(),
-                        value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                        value_types: vec![HeapValueType::field()],
                     },
                     HeapValueType::Array {
                         size: matrix_b.len(),
-                        value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                        value_types: vec![HeapValueType::field()],
                     },
                 ],
             },
@@ -1727,15 +1727,10 @@ mod tests {
         memory.extend(outer_array.clone());
 
         let input_array_value_types: Vec<HeapValueType> = vec![
-            HeapValueType::Simple(FieldElement::max_num_bits()),
+            HeapValueType::field(),
             HeapValueType::Simple(64), // size of following vector
-            HeapValueType::Vector {
-                value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
-            },
-            HeapValueType::Array {
-                value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
-                size: 1,
-            },
+            HeapValueType::Vector { value_types: vec![HeapValueType::field()] },
+            HeapValueType::Array { value_types: vec![HeapValueType::field()], size: 1 },
         ];
 
         // memory address of the end of the above data structures
@@ -1761,7 +1756,7 @@ mod tests {
             Opcode::ForeignCall {
                 function: "flat_sum".into(),
                 destinations: vec![ValueOrArray::MemoryAddress(r_output)],
-                destination_value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                destination_value_types: vec![HeapValueType::field()],
                 inputs: vec![ValueOrArray::HeapArray(HeapArray {
                     pointer: r_input,
                     size: outer_array.len(),

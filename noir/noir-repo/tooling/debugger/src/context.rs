@@ -675,7 +675,7 @@ mod tests {
                     destinations: vec![],
                     destination_value_types: vec![],
                     inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
-                    input_value_types: vec![HeapValueType::Simple(FieldElement::max_num_bits())],
+                    input_value_types: vec![HeapValueType::field()],
                 },
                 BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 0 },
             ],

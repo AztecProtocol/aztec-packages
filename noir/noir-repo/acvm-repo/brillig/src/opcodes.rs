@@ -39,6 +39,10 @@ impl HeapValueType {
     pub fn all_simple(types: &[HeapValueType]) -> bool {
         types.iter().all(|typ| matches!(typ, HeapValueType::Simple(_)))
     }
+
+    pub fn field() -> HeapValueType {
+        HeapValueType::Simple(FieldElement::max_num_bits())
+    }
 }
 
 /// A fixed-sized array starting from a Brillig memory location.

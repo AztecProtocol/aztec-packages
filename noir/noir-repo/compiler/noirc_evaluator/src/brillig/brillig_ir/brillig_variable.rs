@@ -140,12 +140,11 @@ pub(crate) fn type_to_heap_value_type(typ: &Type) -> HeapValueType {
 
 pub(crate) fn get_bit_size_from_ssa_type(typ: &Type) -> u32 {
     match typ {
-        Type::Numeric(num_type) => num_type.bit_size(),
         Type::Reference(_) => BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
         // NB. function references are converted to a constant when
         // translating from SSA to Brillig (to allow for debugger
         // instrumentation to work properly)
         Type::Function => 32,
-        _ => unreachable!("ICE bit size not on a non numeric type"),
+        typ => typ.bit_size(),
     }
 }

@@ -179,11 +179,10 @@ impl DefaultForeignCallExecutor {
     ) -> Result<(usize, &[ForeignCallParam]), ForeignCallError> {
         let (id, params) =
             foreign_call_inputs.split_first().ok_or(ForeignCallError::MissingForeignCallInputs)?;
-        Ok((
+        let id =
             usize::try_from(id.unwrap_field().try_to_u64().expect("value does not fit into u64"))
-                .expect("value does not fit into usize"),
-            params,
-        ))
+                .expect("value does not fit into usize");
+        Ok((id, params))
     }
 
     fn find_mock_by_id(&mut self, id: usize) -> Option<&mut MockedCall> {
