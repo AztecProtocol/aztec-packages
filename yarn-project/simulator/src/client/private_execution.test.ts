@@ -162,8 +162,6 @@ describe('Private Execution test suite', () => {
     return trees[name];
   };
 
-  const hashFields = (data: Fr[]) => pedersenHash(data.map(f => f.toBuffer()));
-
   beforeAll(() => {
     logger = createDebugLogger('aztec:test:private_execution');
 
@@ -248,7 +246,7 @@ describe('Private Execution test suite', () => {
       const noteHashIndex = randomInt(1); // mock index in TX's final newNoteHashes array
       const nonce = computeCommitmentNonce(mockFirstNullifier, noteHashIndex);
       const note = new Note([new Fr(amount), owner.toField(), Fr.random()]);
-      const innerNoteHash = hashFields(note.items);
+      const innerNoteHash = pedersenHash(note.items);
       return {
         contractAddress,
         storageSlot,
@@ -896,7 +894,7 @@ describe('Private Execution test suite', () => {
         ownerNullifierKeyPair.secretKey,
         contractAddress,
       );
-      const expectedNullifier = hashFields([
+      const expectedNullifier = pedersenHash([
         innerNoteHash,
         siloedNullifierSecretKey.low,
         siloedNullifierSecretKey.high,
@@ -972,7 +970,7 @@ describe('Private Execution test suite', () => {
         ownerNullifierKeyPair.secretKey,
         contractAddress,
       );
-      const expectedNullifier = hashFields([
+      const expectedNullifier = pedersenHash([
         innerNoteHash,
         siloedNullifierSecretKey.low,
         siloedNullifierSecretKey.high,
