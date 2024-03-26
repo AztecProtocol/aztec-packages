@@ -200,7 +200,6 @@ bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const std::strin
 
     while (!witness_stack.empty()) {
         auto witness_stack_item = witness_stack.back();
-        // auto witness_stack_item = witness_stack.pop_back();
         auto witness = witness_stack_item.second;
         auto constraint_system = constraint_systems[witness_stack_item.first];
 

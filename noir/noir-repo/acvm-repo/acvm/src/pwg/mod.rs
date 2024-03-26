@@ -124,6 +124,10 @@ pub enum OpcodeResolutionError {
     BlackBoxFunctionFailed(BlackBoxFunc, String),
     #[error("Failed to solve brillig function, reason: {message}")]
     BrilligFunctionFailed { message: String, call_stack: Vec<OpcodeLocation> },
+    #[error("Attempted to call `main` with a `Call` opcode")]
+    AcirMainCallAttempted { opcode_location: ErrorLocation },
+    #[error("{results_size:?} result values were provided for {outputs_size:?} call output witnesses, most likely due to bad ACIR codegen")]
+    AcirCallOutputsMismatch { opcode_location: ErrorLocation, results_size: u32, outputs_size: u32 },
 }
 
 impl From<BlackBoxResolutionError> for OpcodeResolutionError {
@@ -266,7 +270,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         self.status(ACVMStatus::RequiresAcirCall(acir_call))
     }
 
-    /// Resolves am ACIR call's result (simply a Vec<FieldElement>) using a result calculated by a separate ACVM instance.
+    /// Resolves an ACIR call's result (simply a list of fields) using a result calculated by a separate ACVM instance.
     ///
     /// The current ACVM instance can then be restarted to solve the remaining ACIR opcodes.
     pub fn resolve_pending_acir_call(&mut self, call_result: Vec<FieldElement>) {
@@ -447,8 +451,13 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         let Opcode::Call { id, inputs, outputs } = &self.opcodes[self.instruction_pointer] else {
             unreachable!("Not executing a Call opcode");
         };
-        // TODO: add a resolution opcode error for this assert
-        assert!(*id != 0, "Attempting to call main, not allowed");
+        if *id == 0 {
+            return Err(OpcodeResolutionError::AcirMainCallAttempted {
+                opcode_location: ErrorLocation::Resolved(OpcodeLocation::Acir(
+                    self.instruction_pointer(),
+                )),
+            });
+        }
 
         if self.acir_call_counter >= self.acir_call_results.len() {
             let mut initial_witness = WitnessMap::default();
@@ -460,8 +469,15 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         }
 
         let result_values = &self.acir_call_results[self.acir_call_counter];
-        // TODO: add a resolution opcode error for this assert
-        assert_eq!(outputs.len(), result_values.len(), "{} result values were provided for ACIR {} call output witnesses, most likely due to codegen", result_values.len(), outputs.len());
+        if outputs.len() != result_values.len() {
+            return Err(OpcodeResolutionError::AcirCallOutputsMismatch {
+                opcode_location: ErrorLocation::Resolved(OpcodeLocation::Acir(
+                    self.instruction_pointer(),
+                )),
+                results_size: result_values.len() as u32,
+                outputs_size: outputs.len() as u32,
+            });
+        }
 
         for (output_witness, result_value) in outputs.iter().zip(result_values) {
             insert_value(output_witness, *result_value, &mut self.witness_map)?;

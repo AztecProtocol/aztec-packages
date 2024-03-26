@@ -14,6 +14,7 @@
 #include "barretenberg/dsl/acir_format/range_constraint.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/schnorr_verify.hpp"
+#include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/dsl/acir_format/sha256_constraint.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "serde/index.hpp"
@@ -415,6 +416,32 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
 /**
  * @brief Converts from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
  *
+ * @param witness_map ACIR-native `WitnessMap` deserialized from a buffer
+ * @return A `WitnessVector` equivalent to the passed `WitnessMap`.
+ * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
+ *       Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
+ */
+WitnessVector witness_map_to_witness_vector(WitnessStack::WitnessMap const& witness_map)
+{
+    WitnessVector wv;
+    size_t index = 0;
+    for (auto& e : witness_map.value) {
+        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
+        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
+        // which do not exist within the `WitnessMap` with the dummy value of zero.
+        while (index < e.first.value) {
+            wv.push_back(bb::fr(0));
+            index++;
+        }
+        wv.push_back(bb::fr(uint256_t(e.second)));
+        index++;
+    }
+    return wv;
+}
+
+/**
+ * @brief Converts from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
+ *
  * @param buf Serialized representation of a `WitnessMap`.
  * @return A `WitnessVector` equivalent to the passed `WitnessMap`.
  * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
@@ -428,20 +455,7 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     auto witness_stack = WitnessStack::WitnessStack::bincodeDeserialize(buf);
     auto w = witness_stack.stack[witness_stack.stack.size() - 1].witness;
 
-    WitnessVector wv;
-    size_t index = 0;
-    for (auto& e : w.value) {
-        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
-        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
-        // which do not exist within the `WitnessMap` with the dummy value of zero.
-        while (index < e.first.value) {
-            wv.push_back(bb::fr(0));
-            index++;
-        }
-        wv.push_back(bb::fr(uint256_t(e.second)));
-        index++;
-    }
-    return wv;
+    return witness_map_to_witness_vector(w);
 }
 
 std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf)
@@ -457,34 +471,14 @@ std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& b
     return constraint_systems;
 }
 
-std::pair<uint32_t, WitnessVector> stack_item_buf_to_stack_item_data(WitnessStack::StackItem const& stack_item)
-{
-    auto w = stack_item.witness;
-
-    WitnessVector wv;
-    size_t index = 0;
-    for (auto& e : w.value) {
-        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
-        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
-        // which do not exist within the `WitnessMap` with the dummy value of zero.
-        while (index < e.first.value) {
-            wv.push_back(bb::fr(0));
-            index++;
-        }
-        wv.push_back(bb::fr(uint256_t(e.second)));
-        index++;
-    }
-    return std::make_pair(stack_item.index, wv);
-}
-
 WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
 {
     auto witness_stack = WitnessStack::WitnessStack::bincodeDeserialize(buf);
     WitnessVectorStack witness_vector_stack;
     witness_vector_stack.reserve(witness_stack.stack.size());
     for (auto const& stack_item : witness_stack.stack) {
-        auto serialized_stack_item = stack_item_buf_to_stack_item_data(stack_item);
-        witness_vector_stack.emplace_back(serialized_stack_item);
+        witness_vector_stack.emplace_back(
+            std::make_pair(stack_item.index, witness_map_to_witness_vector(stack_item.witness)));
     }
     return witness_vector_stack;
 }
