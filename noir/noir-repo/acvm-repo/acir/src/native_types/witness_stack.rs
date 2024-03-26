@@ -40,6 +40,10 @@ impl WitnessStack {
     pub fn peek(&self) -> Option<&StackItem> {
         self.stack.last()
     }
+
+    pub fn length(&self) -> usize {
+        self.stack.len()
+    }
 }
 
 impl From<WitnessMap> for WitnessStack {
