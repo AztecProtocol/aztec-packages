@@ -17,16 +17,24 @@ export interface BasicValue<T extends string, V> {
  * An exported value.
  */
 export type ABIValue =
-  | BasicValue<'field', bigint>
   | BasicValue<'boolean', boolean>
-  | BasicValue<'integer', bigint>
   | BasicValue<'string', string>
   | BasicValue<'array', ABIValue[]>
+  | IntegerValue
+  | FieldValue
   | StructValue;
 
 export interface StructValue {
   kind: 'struct';
   fields: (ABIValue & { name: string })[];
+}
+
+export interface FieldValue extends BasicValue<'field', string> {
+  sign: boolean;
+}
+
+export interface IntegerValue extends BasicValue<'integer', string> {
+  sign: boolean;
 }
 
 /**
