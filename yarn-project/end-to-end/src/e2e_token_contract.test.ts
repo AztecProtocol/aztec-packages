@@ -44,7 +44,7 @@ describe('e2e_token_contract', () => {
       accounts[accountIndex].address,
       asset.address,
       TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TokenNote.id,
+      TokenContract.notes.TransparentNote.id,
       txHash,
     );
     await wallets[accountIndex].addNote(extendedNote);

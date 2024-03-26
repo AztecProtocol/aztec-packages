@@ -1,9 +1,9 @@
 import {
   ABIParameter,
-  BasicType,
   BasicValue,
   ContractArtifact,
   FunctionArtifact,
+  IntegerValue,
   StructValue,
   TypedStructFieldValue,
   getDefaultInitializer,
@@ -192,42 +192,29 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
   const storage = input.outputs.globals.storage ? (input.outputs.globals.storage[0] as StructValue) : { fields: [] };
   const storageFields = storage.fields as TypedStructFieldValue<StructValue>[];
   const storageFieldsUnionType = storageFields.map(f => `'${f.name}'`).join(' | ');
+  const layout = storageFields
+    .map(
+      ({
+        name,
+        value: {
+          fields: [slot, typ],
+        },
+      }) =>
+        `${name}: {
+          slot: new Fr(${(slot.value as IntegerValue).value}n),
+          typ: "${(typ.value as BasicValue<'string', string>).value}",
+        }
+      `,
+    )
+    .join(',\n');
   return storageFields.length > 0
     ? `
-  public static get storage(): ContractStorageLayout<${storageFieldsUnionType}> {
-    const storage = this.artifact.outputs.globals.storage
-    ? (this.artifact.outputs.globals.storage[0] as any)
-    : { fields: [] };
-    const storageFields = storage.fields as any;
-    return storageFields.reduce(
-      (
-        acc: any,
-        {
-          name,
-          value: {
-            fields: [slot, typ],
-          },
-        }: {
-          name: string;
-          value: {
-            fields: [slot: { value: { value: bigint } }, typ: { value: { value: string } }];
-          };
-        },
-      ) => {
-        return {
-          ...acc,
-          ...{
-            [name]: {
-              slot: new Fr(slot.value.value),
-              typ: typ.value.value,
-            },
-          },
-        };
-      },
-      {},
-    ) as ContractStorageLayout<${storageFieldsUnionType}>;
-  }
-  `
+    public static get storage(): ContractStorageLayout<${storageFieldsUnionType}> {
+      return {
+        ${layout}
+      } as ContractStorageLayout<${storageFieldsUnionType}>;
+    }
+    `
     : '';
 }
 
@@ -238,34 +225,23 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
 function generateNotesGetter(input: ContractArtifact) {
   const notes = input.outputs.globals.notes ? (input.outputs.globals.notes as StructValue[]) : [];
   const notesUnionType = notes.map(n => `'${(n.fields[1].value as BasicValue<'string', string>).value}'`).join(' | ');
+
+  const noteMetadata = notes
+    .map(
+      ({ fields: [id, typ] }) =>
+        `${(typ.value as BasicValue<'string', string>).value}: {
+        id: new Fr(${(id.value as IntegerValue).value}n),
+      }
+    `,
+    )
+    .join(',\n');
   return notes.length > 0
     ? `
   public static get notes(): ContractNotes<${notesUnionType}> {
     const notes = this.artifact.outputs.globals.notes ? (this.artifact.outputs.globals.notes as any) : [];
-    return notes.reduce(
-      (
-        acc: any,
-        {
-          value: {
-            fields: [id, name],
-          },
-        }: {
-          value: {
-            fields: [id: { value: { value: bigint } }, typ: { value: { value: string } }];
-          };
-        },
-      ) => {
-        return {
-          ...acc,
-          ...{
-            [name.value.value]: {
-              id: new Fr(id.value.value),
-            },
-          },
-        };
-      },
-      {},
-    ) as ContractNotes<${notesUnionType}>;
+    return {
+      ${noteMetadata}
+    } as ContractNotes<${notesUnionType}>;
   }
   `
     : '';
