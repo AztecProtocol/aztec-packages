@@ -21,7 +21,7 @@ contract Test {
         note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
-        oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, rand::rand},
+        oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, unsafe_rand::unsafe_rand},
         log::emit_unencrypted_log_from_private
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
@@ -189,7 +189,7 @@ contract Test {
         a_struct: DummyNote,
         a_deep_struct: DeepStruct
     ) -> distinct pub PrivateCircuitPublicInputs {
-        let mut args: BoundedVec<Field, 17> = BoundedVec::new();
+        let mut args = BoundedVec::new();
         args.push(a_field);
         args.push(a_bool as Field);
         args.push(a_number as Field);
@@ -204,7 +204,7 @@ contract Test {
             args.push(note.amount);
             args.push(note.secret_hash);
         }
-        let args_hash = hash_args(args.storage);
+        let args_hash = hash_args(args);
         let mut context = PrivateContext::new(inputs, args_hash);
         context.return_values.push(args_hash);
         context.finish()
@@ -261,7 +261,7 @@ contract Test {
 
     // docs:start:is-time-equal
     #[aztec(public)]
-    fn is_time_equal(time: Field) -> Field {
+    fn is_time_equal(time: u64) -> u64 {
         assert(context.timestamp() == time);
         time
     }
@@ -334,7 +334,7 @@ contract Test {
         chain_id: Field,
         version: Field,
         block_number: Field,
-        timestamp: Field,
+        timestamp: u64,
         coinbase: EthAddress,
         fee_recipient: AztecAddress
     ) {
@@ -379,7 +379,7 @@ contract Test {
 
     // Purely exists for testing
     unconstrained fn get_random(kinda_seed: Field) -> pub Field {
-        kinda_seed * rand()
+        kinda_seed * unsafe_rand()
     }
 
     struct DummyNote {

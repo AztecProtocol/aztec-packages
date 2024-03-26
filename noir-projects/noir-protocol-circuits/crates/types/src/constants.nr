@@ -96,8 +96,9 @@ global L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH: u64 = 12;
 
 // MISC CONSTANTS
 global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
-global ARGS_HASH_CHUNK_LENGTH: u64 = 32;
-global ARGS_HASH_CHUNK_COUNT: u64 = 32;
+global ARGS_HASH_CHUNK_LENGTH: u64 = 64;
+global ARGS_HASH_CHUNK_COUNT: u64 = 64;
+global MAX_ARGS_LENGTH: u64 = ARGS_HASH_CHUNK_COUNT * ARGS_HASH_CHUNK_LENGTH;
 // The following is used in immutable state variables to compute an initialization slot whose value is used to
 // determine whether a given variable has been initialized (by asserting that the value in the slot is 0).
 // The initialization slot is computed by adding the constant bellow to the variable's storage slot. This constant has
@@ -130,7 +131,7 @@ global REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE = 0xe7af8166354
 // CONTRACT INSTANCE CONSTANTS
 // sha224sum 'struct ContractInstanceDeployed'
 global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE = 0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
-global DEPLOYER_CONTRACT_ADDRESS = 0x127a8fd1a31888ccd00c88d84b93474449bb6683197083e1727dd02ab6803c6c;
+global DEPLOYER_CONTRACT_ADDRESS = 0x1ad693effc2a4a40fdf5911ff29e19d2b6cd3cf73e6c3685519a6fb783144dcb;
 
 // NOIR CONSTANTS - constants used only in yarn-packages/noir-contracts
 // Some are defined here because Noir doesn't yet support globals referencing other globals yet.
@@ -154,7 +155,7 @@ global CONTRACT_INSTANCE_LENGTH: u64 = 6;
 global CONTRACT_STORAGE_READ_LENGTH: u64 = 2;
 global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u64 = 2;
 global ETH_ADDRESS_LENGTH = 1;
-global FUNCTION_DATA_LENGTH: u64 = 2;
+global FUNCTION_DATA_LENGTH: u64 = 3;
 global FUNCTION_LEAF_PREIMAGE_LENGTH: u64 = 5;
 global GLOBAL_VARIABLES_LENGTH: u64 = 6;
 global HEADER_LENGTH: u64 = 20; // 2 for last_archive, 4 for content commitment, 8 for state reference, 6 for global vars
@@ -164,7 +165,7 @@ global MAX_BLOCK_NUMBER_LENGTH: u64 = 2; // 1 for the option flag, 1 for the val
 global NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 4;
 global NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 5;
 global PARTIAL_STATE_REFERENCE_LENGTH: u64 = 6;
-global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 210;
+global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 211;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we should change this
 // constant as well PRIVATE_CALL_STACK_ITEM_LENGTH
@@ -173,9 +174,9 @@ global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 207;
 global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 198;
 global STATE_REFERENCE_LENGTH: u64 = 8; // 2 for snap + 8 for partial
 global TX_CONTEXT_DATA_LENGTH: u64 = 4;
-global TX_REQUEST_LENGTH: u64 = 8; // 2 + TX_CONTEXT_DATA_LENGTH + FUNCTION_DATA_LENGTH
+global TX_REQUEST_LENGTH: u64 = 9; // 2 + TX_CONTEXT_DATA_LENGTH + FUNCTION_DATA_LENGTH
 
-global ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH: Field = 11; // 2 + FUNCTION_DATA_LENGTH + CALL_CONTEXT_LENGTH
+global ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH: Field = 12; // 2 + FUNCTION_DATA_LENGTH + CALL_CONTEXT_LENGTH
 global GET_NOTES_ORACLE_RETURN_LENGTH: u64 = 674;
 global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
 global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
@@ -242,6 +243,7 @@ global GENERATOR_INDEX__SIGNATURE_PAYLOAD = 34;
 global GENERATOR_INDEX__VK = 41;
 global GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS = 42;
 global GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS = 43;
+// TODO: Function args generator index is being used to hash 64 items
 global GENERATOR_INDEX__FUNCTION_ARGS = 44;
 global GENERATOR_INDEX__AUTHWIT_INNER = 45;
 global GENERATOR_INDEX__AUTHWIT_OUTER = 46;

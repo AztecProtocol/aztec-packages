@@ -1,11 +1,11 @@
-import { getSampleContractArtifact } from '../tests/fixtures.js';
+import { getBenchmarkContractArtifact } from '../tests/fixtures.js';
 import { computeArtifactHash } from './artifact_hash.js';
 
 describe('ArtifactHash', () => {
   it('calculates the artifact hash', () => {
-    const artifact = getSampleContractArtifact();
+    const artifact = getBenchmarkContractArtifact();
     expect(computeArtifactHash(artifact).toString()).toMatchInlineSnapshot(
-      `"0x19dcd971117d72ceed658023cf16036d912de56c75a54da414d2d6bd645c99f2"`,
+      `"0x1c4308cf4acda970916ac5dd5ae32106bd782b17d2da4f50090ff5b77032ad02"`,
     );
   });
 });

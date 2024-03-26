@@ -6,6 +6,7 @@ import {
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   SentTx,
+  getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 import {
@@ -28,7 +29,7 @@ import {
   setup,
 } from './fixtures/utils.js';
 
-jest.setTimeout(1_000_000);
+jest.setTimeout(100_000);
 
 const TOKEN_NAME = 'BananaCoin';
 const TOKEN_SYMBOL = 'BC';
@@ -66,6 +67,10 @@ describe('e2e_dapp_subscription', () => {
     await publicDeployAccounts(e2eContext.wallet, e2eContext.accounts);
 
     const { wallets, accounts, aztecNode, deployL1ContractsValues } = e2eContext;
+
+    await aztecNode.setConfig({
+      allowedFeePaymentContractClasses: [getContractClassFromArtifact(FPCContract.artifact).id],
+    });
 
     // this should be a SignerlessWallet but that can't call public functions directly
     gasTokenContract = await GasTokenContract.at(
