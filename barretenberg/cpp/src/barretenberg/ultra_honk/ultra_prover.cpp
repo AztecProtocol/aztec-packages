@@ -1,5 +1,6 @@
 #include "ultra_prover.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/ultra_honk/oink_prover.hpp"
 
 namespace bb {
 
@@ -15,7 +16,6 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const 
     : instance(std::move(inst))
     , transcript(transcript)
     , commitment_key(instance->proving_key.commitment_key)
-    , oink_prover(inst->proving_key, commitment_key, transcript, "")
 {}
 
 /**
@@ -30,7 +30,6 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     : instance(std::make_shared<ProverInstance>(circuit))
     , transcript(std::make_shared<Transcript>())
     , commitment_key(instance->proving_key.commitment_key)
-    , oink_prover(instance->proving_key, commitment_key, transcript, "")
 {}
 
 /**
@@ -79,6 +78,7 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::export_proof()
 
 template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof()
 {
+    OinkProver<Flavor> oink_prover(instance->proving_key, transcript);
     auto [proving_key, relation_params] = oink_prover.prove();
     instance->proving_key = std::move(proving_key);
     instance->relation_parameters = std::move(relation_params);

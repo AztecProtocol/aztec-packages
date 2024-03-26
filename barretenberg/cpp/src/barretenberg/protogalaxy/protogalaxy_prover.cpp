@@ -6,7 +6,7 @@ template <class ProverInstances>
 void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
                                                                      const std::string& domain_separator)
 {
-    OinkProver<Flavor> oink_prover(instance->proving_key, commitment_key, transcript, domain_separator + '_');
+    OinkProver<Flavor> oink_prover(instance->proving_key, transcript, domain_separator + '_');
 
     auto [proving_key, relation_params] = oink_prover.prove();
     instance->proving_key = std::move(proving_key);
