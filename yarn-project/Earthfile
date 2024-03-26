@@ -26,7 +26,6 @@ RUN ln -s /build/yarn-project/node_modules /build/node_modules
 build:
     FROM +source
     ARG EARTHLY_CI
-    ARG TARGETARCH
     # TODO: Replace puppeteer with puppeteer-core to avoid this.
     # TODO encapsulate in bash script for cleanliness
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
