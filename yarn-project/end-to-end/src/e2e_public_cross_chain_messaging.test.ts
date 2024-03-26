@@ -15,7 +15,6 @@ import {
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { sha256ToField } from '@aztec/foundation/crypto';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { InboxAbi, OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-contracts.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';

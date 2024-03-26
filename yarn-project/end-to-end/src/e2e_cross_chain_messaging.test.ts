@@ -11,7 +11,6 @@ import {
   computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
 import { sha256ToField } from '@aztec/foundation/crypto';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { toFunctionSelector } from 'viem/utils';
