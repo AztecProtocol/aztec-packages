@@ -99,7 +99,6 @@ poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
                 .q_o = 0,
                 .q_c = 0,
             };
-            throw_or_abort("Cannot assign linear term to a constraint of width 3");
         }
     }
 
