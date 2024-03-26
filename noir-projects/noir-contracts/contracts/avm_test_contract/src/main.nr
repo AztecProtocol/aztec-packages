@@ -223,7 +223,7 @@ contract AvmTest {
     }
 
     #[aztec(public-vm)]
-    fn get_timestamp() -> pub Field {
+    fn get_timestamp() -> pub u64 {
         context.timestamp()
     }
 
@@ -231,6 +231,16 @@ contract AvmTest {
     // fn get_contract_call_depth() -> pub Field {
     //     context.contract_call_depth()
     // }
+
+    #[aztec(public-vm)]
+    fn check_selector() {
+        assert(context.selector() == FunctionSelector::from_signature("check_selector()"));
+    }
+
+    #[aztec(public-vm)]
+    fn get_args_hash(_a: u8, _fields: [Field; 3]) -> pub Field {
+        context.get_args_hash()
+    }
 
     #[aztec(public-vm)]
     fn emit_unencrypted_log() {

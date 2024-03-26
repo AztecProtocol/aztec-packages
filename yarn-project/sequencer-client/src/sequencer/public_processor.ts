@@ -1,12 +1,12 @@
 import {
   FailedTx,
-  L1ToL2MessageSource,
   ProcessedTx,
   SimulationError,
   Tx,
   getPreviousOutputAndProof,
   makeEmptyProcessedTx,
   makeProcessedTx,
+  toTxEffect,
   validateProcessedTx,
 } from '@aztec/circuit-types';
 import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
@@ -30,7 +30,6 @@ export class PublicProcessorFactory {
   constructor(
     private merkleTree: MerkleTreeOperations,
     private contractDataSource: ContractDataSource,
-    private l1Tol2MessagesDataSource: L1ToL2MessageSource,
     private simulator: SimulationProvider,
   ) {}
 
@@ -49,7 +48,7 @@ export class PublicProcessorFactory {
 
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
-    const worldStateDB = new WorldStateDB(this.merkleTree, this.l1Tol2MessagesDataSource);
+    const worldStateDB = new WorldStateDB(this.merkleTree);
     const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, historicalHeader);
     return new PublicProcessor(
       this.merkleTree,
@@ -133,6 +132,7 @@ export class PublicProcessor {
         this.log(`Processed public part of ${tx.data.endNonRevertibleData.newNullifiers[0].value}`, {
           eventName: 'tx-sequencer-processing',
           duration: timer.ms(),
+          effectsSize: toTxEffect(processedTransaction).toBuffer().length,
           publicDataUpdateRequests:
             processedTransaction.data.combinedData.publicDataUpdateRequests.filter(x => !x.leafSlot.isZero()).length ??
             0,

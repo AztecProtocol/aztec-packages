@@ -363,23 +363,19 @@ export class CrossChainTestHarness {
   }
 
   getL2ToL1MessageLeaf(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Fr {
-    const content = sha256ToField(
-      Buffer.concat([
-        Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
-        this.ethAccount.toBuffer32(),
-        new Fr(withdrawAmount).toBuffer(),
-        callerOnL1.toBuffer32(),
-      ]),
-    );
-    const leaf = sha256ToField(
-      Buffer.concat([
-        this.l2Bridge.address.toBuffer(),
-        new Fr(1).toBuffer(), // aztec version
-        this.tokenPortalAddress.toBuffer32() ?? Buffer.alloc(32, 0),
-        new Fr(this.publicClient.chain.id).toBuffer(), // chain id
-        content.toBuffer(),
-      ]),
-    );
+    const content = sha256ToField([
+      Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
+      this.ethAccount.toBuffer32(),
+      new Fr(withdrawAmount).toBuffer(),
+      callerOnL1.toBuffer32(),
+    ]);
+    const leaf = sha256ToField([
+      this.l2Bridge.address.toBuffer(),
+      new Fr(1).toBuffer(), // aztec version
+      this.tokenPortalAddress.toBuffer32() ?? Buffer.alloc(32, 0),
+      new Fr(this.publicClient.chain.id).toBuffer(), // chain id
+      content.toBuffer(),
+    ]);
 
     return leaf;
   }
@@ -459,8 +455,13 @@ export class CrossChainTestHarness {
    * it's included it becomes available for consumption in the next block because the l1 to l2 message tree.
    */
   async makeMessageConsumable(msgHash: Fr) {
+    const currentL2BlockNumber = await this.aztecNode.getBlockNumber();
     // We poll isL1ToL2MessageSynced endpoint until the message is available
-    await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(msgHash), 'message sync', 10);
+    await retryUntil(
+      async () => await this.aztecNode.isL1ToL2MessageSynced(msgHash, currentL2BlockNumber),
+      'message sync',
+      10,
+    );
 
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);

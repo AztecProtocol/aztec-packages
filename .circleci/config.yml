@@ -256,7 +256,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 proof_system_tests
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib_circuit_builders_tests
           aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-stdlib-plonk-recursion-ultra-tests:
@@ -983,7 +983,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_avm_simulator.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_avm_simulator.test.ts
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
@@ -1013,7 +1013,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=pxe_sandbox.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=pxe.test.ts
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
@@ -1033,7 +1033,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=docs_examples_test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=docs_examples.test.ts
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
@@ -1094,6 +1094,16 @@ jobs:
       - run:
           name: "Benchmark"
           command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_process_history.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
+          aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
+
+  bench-tx-size:
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_tx_size_fees.test.ts ENABLE_GAS=1 DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
@@ -1192,6 +1202,16 @@ jobs:
           command: |
             should_release || exit 0
             yarn-project/deploy_npm.sh latest
+      - run:
+          name: "Release canary to NPM: l1-contracts"
+          command: |
+            should_release || exit 0
+            deploy_npm l1-contracts canary
+      - run:
+          name: "Release latest to NPM: l1-contracts"
+          command: |
+            should_release || exit 0
+            deploy_npm l1-contracts latest
       - run:
           name: "Deploy mainnet fork"
           command: |
@@ -1346,6 +1366,7 @@ workflows:
       - barretenberg-acir-tests-bb: *bb_acir_tests
       - barretenberg-acir-tests-bb-sol:
           requires:
+            - barretenberg-x86_64-linux-clang-assert
             - barretenberg-x86_64-linux-clang-sol
             - noir-compile-acir-tests
           <<: *bb_acir_tests
@@ -1541,10 +1562,12 @@ workflows:
       # Benchmark jobs.
       - bench-publish-rollup: *e2e_test
       - bench-process-history: *e2e_test
+      - bench-tx-size: *e2e_test
       - bench-summary:
           requires:
             - bench-publish-rollup
             - bench-process-history
+            - bench-tx-size
           <<: *defaults
 
       # Production releases.

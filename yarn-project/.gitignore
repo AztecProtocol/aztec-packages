@@ -11,6 +11,7 @@
 **/target
 **/.debounce-*
 **/.tsc.pid
+**/*.result
 accounts/src/artifacts
 aztec-faucet/data*
 aztec-node/data*
@@ -43,6 +44,7 @@ scripts/tmp
 noir-contracts.js/src
 noir-contracts.js/artifacts/
 noir-contracts.js/codegenCache.json
+types/fixtures/*.json
 
 .yarn/*
 !.yarn/patches
