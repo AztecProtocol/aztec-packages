@@ -227,6 +227,8 @@ constexpr uint256_t uint256_t::operator-() const
 
 constexpr uint256_t uint256_t::operator*(const uint256_t& other) const
 {
+
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     const auto [r0, t0] = mac(0, data[0], other.data[0], 0ULL);
     const auto [q0, t1] = mac(0, data[0], other.data[1], t0);
     const auto [q1, t2] = mac(0, data[0], other.data[2], t1);
@@ -242,6 +244,102 @@ constexpr uint256_t uint256_t::operator*(const uint256_t& other) const
     const auto r3 = mac_discard_hi(q5, data[3], other.data[0], 0ULL);
 
     return { r0, r1, r2, r3 };
+#else
+    uint64_t left[9] = { data[0] & 0x1fffffff,
+                         (data[0] >> 29) & 0x1fffffff,
+                         ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
+                         (data[1] >> 23) & 0x1fffffff,
+                         ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
+                         (data[2] >> 17) & 0x1fffffff,
+                         ((data[2] >> 46) & 0x3ffff) | ((data[3] & 0x7ff) << 18),
+                         (data[3] >> 11) & 0x1fffffff,
+                         (data[3] >> 40) & 0x1fffffff };
+    uint64_t right[9] = { other.data[0] & 0x1fffffff,
+                          (other.data[0] >> 29) & 0x1fffffff,
+                          ((other.data[0] >> 58) & 0x3f) | ((other.data[1] & 0x7fffff) << 6),
+                          (other.data[1] >> 23) & 0x1fffffff,
+                          ((other.data[1] >> 52) & 0xfff) | ((other.data[2] & 0x1ffff) << 12),
+                          (other.data[2] >> 17) & 0x1fffffff,
+                          ((other.data[2] >> 46) & 0x3ffff) | ((other.data[3] & 0x7ff) << 18),
+                          (other.data[3] >> 11) & 0x1fffffff,
+                          (other.data[3] >> 40) & 0x1fffffff };
+    uint64_t temp_0 = 0;
+    uint64_t temp_1 = 0;
+    uint64_t temp_2 = 0;
+    uint64_t temp_3 = 0;
+    uint64_t temp_4 = 0;
+    uint64_t temp_5 = 0;
+    uint64_t temp_6 = 0;
+    uint64_t temp_7 = 0;
+    uint64_t temp_8 = 0;
+    temp_0 += left[0] * right[0];
+    temp_1 += left[0] * right[1];
+    temp_2 += left[0] * right[2];
+    temp_3 += left[0] * right[3];
+    temp_4 += left[0] * right[4];
+    temp_5 += left[0] * right[5];
+    temp_6 += left[0] * right[6];
+    temp_7 += left[0] * right[7];
+    temp_8 += left[0] * right[8];
+    temp_1 += left[1] * right[0];
+    temp_2 += left[1] * right[1];
+    temp_3 += left[1] * right[2];
+    temp_4 += left[1] * right[3];
+    temp_5 += left[1] * right[4];
+    temp_6 += left[1] * right[5];
+    temp_7 += left[1] * right[6];
+    temp_8 += left[1] * right[7];
+    temp_2 += left[2] * right[0];
+    temp_3 += left[2] * right[1];
+    temp_4 += left[2] * right[2];
+    temp_5 += left[2] * right[3];
+    temp_6 += left[2] * right[4];
+    temp_7 += left[2] * right[5];
+    temp_8 += left[2] * right[6];
+    temp_3 += left[3] * right[0];
+    temp_4 += left[3] * right[1];
+    temp_5 += left[3] * right[2];
+    temp_6 += left[3] * right[3];
+    temp_7 += left[3] * right[4];
+    temp_8 += left[3] * right[5];
+    temp_4 += left[4] * right[0];
+    temp_5 += left[4] * right[1];
+    temp_6 += left[4] * right[2];
+    temp_7 += left[4] * right[3];
+    temp_8 += left[4] * right[4];
+    temp_5 += left[5] * right[0];
+    temp_6 += left[5] * right[1];
+    temp_7 += left[5] * right[2];
+    temp_8 += left[5] * right[3];
+    temp_6 += left[6] * right[0];
+    temp_7 += left[6] * right[1];
+    temp_8 += left[6] * right[2];
+    temp_7 += left[7] * right[0];
+    temp_8 += left[7] * right[1];
+    temp_8 += left[8] * right[0];
+
+    constexpr uint64_t mask = 0x1fffffff;
+    temp_1 += temp_0 >> 29;
+    temp_0 &= mask;
+    temp_2 += temp_1 >> 29;
+    temp_1 &= mask;
+    temp_3 += temp_2 >> 29;
+    temp_2 &= mask;
+    temp_4 += temp_3 >> 29;
+    temp_3 &= mask;
+    temp_5 += temp_4 >> 29;
+    temp_4 &= mask;
+    temp_6 += temp_5 >> 29;
+    temp_5 &= mask;
+    temp_7 += temp_6 >> 29;
+    temp_6 &= mask;
+    temp_8 += temp_7 >> 29;
+    temp_7 &= mask;
+    return { (temp_0 << 0) | (temp_1 << 29) | (temp_2 << 58),
+             (temp_2 >> 6) | (temp_3 << 23) | (temp_4 << 52),
+             (temp_4 >> 12) | (temp_5 << 17) | (temp_6 << 46),
+             (temp_6 >> 18) | (temp_7 << 11) | (temp_8 << 40) };
+#endif
 }
 
 constexpr uint256_t uint256_t::operator/(const uint256_t& other) const
