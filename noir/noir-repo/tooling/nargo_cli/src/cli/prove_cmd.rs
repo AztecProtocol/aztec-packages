@@ -1,4 +1,3 @@
-use acvm::acir::native_types::WitnessStack;
 use clap::Args;
 use nargo::constants::{PROVER_INPUT_FILE, VERIFIER_INPUT_FILE};
 use nargo::ops::{compile_program, report_errors};
