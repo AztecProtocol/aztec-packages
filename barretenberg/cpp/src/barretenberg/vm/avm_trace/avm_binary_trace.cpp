@@ -12,7 +12,6 @@ namespace bb::avm_trace {
 
 AvmBinaryTraceBuilder::AvmBinaryTraceBuilder()
 {
-    // lookup_table = std::make_unique<BinaryLookupTable>();
     binary_trace.reserve(AVM_TRACE_SIZE);
 }
 
@@ -52,7 +51,7 @@ std::vector<uint8_t> bytes_decompose_le(uint128_t const& val)
  * @param b Right operand of the bitwise operation
  * @param in_tag Instruction tag
  * @param clk Clock referring to the operation in the main trace.
- * @param op_id which bitwise operation {0: And, 1: Or, 2: Xor } this entry corresponds to.
+ * @param op_id which bitwise operation {0: AND, 1: OR, 2: XOR } this entry corresponds to.
  */
 void AvmBinaryTraceBuilder::entry_builder(
     uint128_t const& a, uint128_t const& b, uint128_t const& c, AvmMemoryTag instr_tag, uint32_t clk, uint8_t op_id)
@@ -92,83 +91,83 @@ void AvmBinaryTraceBuilder::entry_builder(
             auto lookup_index = static_cast<uint32_t>((op_id << 16) + (a_bytes[i] << 8) + b_bytes[i]);
             byte_operation_counter[lookup_index]++;
         }
-        acc_ia = (acc_ia - a_bytes[i]) / 256;
-        acc_ib = (acc_ib - b_bytes[i]) / 256;
-        acc_ic = (acc_ic - c_bytes[i]) / 256;
+        acc_ia = (acc_ia - a_bytes[i]) >> 8;
+        acc_ib = (acc_ib - b_bytes[i]) >> 8;
+        acc_ic = (acc_ic - c_bytes[i]) >> 8;
     }
     // There is 1 latch per call, therefore byte_length check increments
     byte_length_counter[static_cast<uint8_t>(instr_tag)]++;
 }
 
 /**
- * @brief Build Binary trace and return the result of bitwise And operation.
+ * @brief Build Binary trace and return the result of bitwise AND operation.
  *
- * @param a Left operand of the And
- * @param b Right operand of the And
- * @param in_tag Instruction tag defining the number of bits for And
+ * @param a Left operand of the AND
+ * @param b Right operand of the AND
+ * @param in_tag Instruction tag defining the number of bits for AND
  * @param clk Clock referring to the operation in the main trace.
  *
- * @return FF The result of bitwise And casted to a Field element.
+ * @return FF The result of bitwise AND casted to a Field element.
  */
 FF AvmBinaryTraceBuilder::op_and(FF const& a, FF const& b, AvmMemoryTag instr_tag, uint32_t clk)
 {
     if (instr_tag == AvmMemoryTag::FF || instr_tag == AvmMemoryTag::U0) {
         return FF::zero();
     }
-    // Cast to bits and perform And operation
-    auto a_uint128 = static_cast<uint128_t>(a);
-    auto b_uint128 = static_cast<uint128_t>(b);
+    // Cast to bits and perform AND operation
+    auto a_uint128 = uint128_t(a);
+    auto b_uint128 = uint128_t(b);
     uint128_t c_uint128 = a_uint128 & b_uint128;
 
-    this->entry_builder(a_uint128, b_uint128, c_uint128, instr_tag, clk, 0);
+    entry_builder(a_uint128, b_uint128, c_uint128, instr_tag, clk, 0);
     return uint256_t::from_uint128(c_uint128);
 }
 
 /**
- * @brief Build Binary trace and return the result of bitwise Or operation.
+ * @brief Build Binary trace and return the result of bitwise OR operation.
  *
- * @param a Left operand of the Or
- * @param b Right operand of the Or
- * @param in_tag Instruction tag defining the number of bits for Or
+ * @param a Left operand of the OR
+ * @param b Right operand of the OR
+ * @param in_tag Instruction tag defining the number of bits for OR
  * @param clk Clock referring to the operation in the main trace.
  *
- * @return FF The result of bitwise Or casted to a Field element.
+ * @return FF The result of bitwise OR casted to a Field element.
  */
 FF AvmBinaryTraceBuilder::op_or(FF const& a, FF const& b, AvmMemoryTag instr_tag, uint32_t clk)
 {
     if (instr_tag == AvmMemoryTag::FF || instr_tag == AvmMemoryTag::U0) {
         return FF::zero();
     }
-    // Cast to bits and perform Or operation
-    auto a_uint128 = static_cast<uint128_t>(a);
-    auto b_uint128 = static_cast<uint128_t>(b);
+    // Cast to bits and perform OR operation
+    auto a_uint128 = uint128_t(a);
+    auto b_uint128 = uint128_t(b);
     uint128_t c_uint128 = a_uint128 | b_uint128;
 
-    this->entry_builder(a_uint128, b_uint128, c_uint128, instr_tag, clk, 1);
+    entry_builder(a_uint128, b_uint128, c_uint128, instr_tag, clk, 1);
     return uint256_t::from_uint128(c_uint128);
 }
 
 /**
- * @brief Build Binary trace and return the result of bitwise Xor operation.
+ * @brief Build Binary trace and return the result of bitwise XOR operation.
  *
- * @param a Left operand of the Xor
- * @param b Right operand of the Xor
- * @param in_tag Instruction tag defining the number of bits for Xor
+ * @param a Left operand of the XOR
+ * @param b Right operand of the XOR
+ * @param in_tag Instruction tag defining the number of bits for XOR
  * @param clk Clock referring to the operation in the main trace.
  *
- * @return FF The result of bitwise Xor casted to a Field element.
+ * @return FF The result of bitwise XOR casted to a Field element.
  */
 FF AvmBinaryTraceBuilder::op_xor(FF const& a, FF const& b, AvmMemoryTag instr_tag, uint32_t clk)
 {
     if (instr_tag == AvmMemoryTag::FF || instr_tag == AvmMemoryTag::U0) {
         return FF::zero();
     }
-    // Cast to bits and perform Xor operation
-    auto a_uint128 = static_cast<uint128_t>(a);
-    auto b_uint128 = static_cast<uint128_t>(b);
+    // Cast to bits and perform XOR operation
+    auto a_uint128 = uint128_t(a);
+    auto b_uint128 = uint128_t(b);
     uint128_t c_uint128 = a_uint128 ^ b_uint128;
 
-    this->entry_builder(a_uint128, b_uint128, c_uint128, instr_tag, clk, 2);
+    entry_builder(a_uint128, b_uint128, c_uint128, instr_tag, clk, 2);
     return uint256_t::from_uint128(c_uint128);
 }
 

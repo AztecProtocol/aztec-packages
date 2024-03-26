@@ -261,8 +261,10 @@ namespace avm_main(256);
     bin_op_id = sel_op_or + 2 * sel_op_xor; // sel_op_and excluded since op_id = 0 for op_and
 
     // Only 1 of the binary selectors should be set (i.e. Mutual Exclusivity)
+    // Bin_sel is not explicitly constrained to be boolean, however this is enforced through
+    // the operation decomposition step during bytecode unpacking.
     #[BIN_SEL_2]
-    bin_sel = (sel_op_and + sel_op_or + sel_op_xor);
+    bin_sel = sel_op_and + sel_op_or + sel_op_xor;
     
     #[PERM_MAIN_BIN]
     bin_sel {ia, ib, ic, bin_op_id, in_tag}

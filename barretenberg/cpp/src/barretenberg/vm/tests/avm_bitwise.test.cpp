@@ -98,12 +98,8 @@ void common_validate_bit_op(std::vector<Row> const& trace,
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_xor == FF(1); });
     if (op_id == 0) {
         row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_and == FF(1); });
-        EXPECT_EQ(row->avm_main_sel_op_and, FF(1));
     } else if (op_id == 1) {
         row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_or == FF(1); });
-        EXPECT_EQ(row->avm_main_sel_op_or, FF(1));
-    } else {
-        EXPECT_EQ(row->avm_main_sel_op_xor, FF(1));
     }
 
     // Use the row in the main trace to find the same operation in the alu trace.
@@ -113,8 +109,8 @@ void common_validate_bit_op(std::vector<Row> const& trace,
     });
 
     // Check that both rows were found
-    EXPECT_TRUE(bin_row_start != trace.end());
-    EXPECT_TRUE(row != trace.end());
+    ASSERT_TRUE(bin_row_start != trace.end());
+    ASSERT_TRUE(row != trace.end());
 
     // Check that the correct result is stored at the expected memory location.
     EXPECT_EQ(row->avm_main_ic, c);

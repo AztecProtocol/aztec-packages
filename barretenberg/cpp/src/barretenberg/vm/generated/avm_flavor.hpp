@@ -52,10 +52,10 @@ class AvmFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 148;
 
-    using Relations = std::tuple<Avm_vm::avm_main<FF>,
-                                 Avm_vm::avm_mem<FF>,
-                                 Avm_vm::avm_binary<FF>,
+    using Relations = std::tuple<Avm_vm::avm_binary<FF>,
                                  Avm_vm::avm_alu<FF>,
+                                 Avm_vm::avm_main<FF>,
+                                 Avm_vm::avm_mem<FF>,
                                  perm_main_alu_relation<FF>,
                                  perm_main_bin_relation<FF>,
                                  perm_main_mem_a_relation<FF>,
@@ -490,25 +490,25 @@ class AvmFlavor {
                               lookup_byte_operations_counts,
                               incl_main_tag_err_counts,
                               incl_mem_tag_err_counts,
-                              avm_main_pc_shift,
+                              avm_binary_acc_ic_shift,
+                              avm_binary_op_id_shift,
+                              avm_binary_acc_ia_shift,
+                              avm_binary_mem_tag_ctr_shift,
+                              avm_binary_acc_ib_shift,
+                              avm_alu_alu_u16_r3_shift,
+                              avm_alu_alu_u16_r6_shift,
+                              avm_alu_alu_u16_r0_shift,
+                              avm_alu_alu_u16_r1_shift,
+                              avm_alu_alu_u16_r2_shift,
+                              avm_alu_alu_u16_r7_shift,
+                              avm_alu_alu_u16_r4_shift,
+                              avm_alu_alu_u16_r5_shift,
                               avm_main_internal_return_ptr_shift,
-                              avm_mem_m_rw_shift,
+                              avm_main_pc_shift,
                               avm_mem_m_tag_shift,
                               avm_mem_m_val_shift,
                               avm_mem_m_addr_shift,
-                              avm_binary_acc_ib_shift,
-                              avm_binary_acc_ia_shift,
-                              avm_binary_op_id_shift,
-                              avm_binary_mem_tag_ctr_shift,
-                              avm_binary_acc_ic_shift,
-                              avm_alu_alu_u16_r3_shift,
-                              avm_alu_alu_u16_r7_shift,
-                              avm_alu_alu_u16_r0_shift,
-                              avm_alu_alu_u16_r6_shift,
-                              avm_alu_alu_u16_r4_shift,
-                              avm_alu_alu_u16_r2_shift,
-                              avm_alu_alu_u16_r5_shift,
-                              avm_alu_alu_u16_r1_shift)
+                              avm_mem_m_rw_shift)
 
         RefVector<DataType> get_wires()
         {
@@ -641,25 +641,25 @@ class AvmFlavor {
                      lookup_byte_operations_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
-                     avm_main_pc_shift,
+                     avm_binary_acc_ic_shift,
+                     avm_binary_op_id_shift,
+                     avm_binary_acc_ia_shift,
+                     avm_binary_mem_tag_ctr_shift,
+                     avm_binary_acc_ib_shift,
+                     avm_alu_alu_u16_r3_shift,
+                     avm_alu_alu_u16_r6_shift,
+                     avm_alu_alu_u16_r0_shift,
+                     avm_alu_alu_u16_r1_shift,
+                     avm_alu_alu_u16_r2_shift,
+                     avm_alu_alu_u16_r7_shift,
+                     avm_alu_alu_u16_r4_shift,
+                     avm_alu_alu_u16_r5_shift,
                      avm_main_internal_return_ptr_shift,
-                     avm_mem_m_rw_shift,
+                     avm_main_pc_shift,
                      avm_mem_m_tag_shift,
                      avm_mem_m_val_shift,
                      avm_mem_m_addr_shift,
-                     avm_binary_acc_ib_shift,
-                     avm_binary_acc_ia_shift,
-                     avm_binary_op_id_shift,
-                     avm_binary_mem_tag_ctr_shift,
-                     avm_binary_acc_ic_shift,
-                     avm_alu_alu_u16_r3_shift,
-                     avm_alu_alu_u16_r7_shift,
-                     avm_alu_alu_u16_r0_shift,
-                     avm_alu_alu_u16_r6_shift,
-                     avm_alu_alu_u16_r4_shift,
-                     avm_alu_alu_u16_r2_shift,
-                     avm_alu_alu_u16_r5_shift,
-                     avm_alu_alu_u16_r1_shift };
+                     avm_mem_m_rw_shift };
         };
         RefVector<DataType> get_unshifted()
         {
@@ -795,29 +795,29 @@ class AvmFlavor {
         };
         RefVector<DataType> get_to_be_shifted()
         {
-            return { avm_main_pc,        avm_main_internal_return_ptr,
-                     avm_mem_m_rw,       avm_mem_m_tag,
+            return { avm_binary_acc_ic,  avm_binary_op_id,
+                     avm_binary_acc_ia,  avm_binary_mem_tag_ctr,
+                     avm_binary_acc_ib,  avm_alu_alu_u16_r3,
+                     avm_alu_alu_u16_r6, avm_alu_alu_u16_r0,
+                     avm_alu_alu_u16_r1, avm_alu_alu_u16_r2,
+                     avm_alu_alu_u16_r7, avm_alu_alu_u16_r4,
+                     avm_alu_alu_u16_r5, avm_main_internal_return_ptr,
+                     avm_main_pc,        avm_mem_m_tag,
                      avm_mem_m_val,      avm_mem_m_addr,
-                     avm_binary_acc_ib,  avm_binary_acc_ia,
-                     avm_binary_op_id,   avm_binary_mem_tag_ctr,
-                     avm_binary_acc_ic,  avm_alu_alu_u16_r3,
-                     avm_alu_alu_u16_r7, avm_alu_alu_u16_r0,
-                     avm_alu_alu_u16_r6, avm_alu_alu_u16_r4,
-                     avm_alu_alu_u16_r2, avm_alu_alu_u16_r5,
-                     avm_alu_alu_u16_r1 };
+                     avm_mem_m_rw };
         };
         RefVector<DataType> get_shifted()
         {
-            return { avm_main_pc_shift,        avm_main_internal_return_ptr_shift,
-                     avm_mem_m_rw_shift,       avm_mem_m_tag_shift,
+            return { avm_binary_acc_ic_shift,  avm_binary_op_id_shift,
+                     avm_binary_acc_ia_shift,  avm_binary_mem_tag_ctr_shift,
+                     avm_binary_acc_ib_shift,  avm_alu_alu_u16_r3_shift,
+                     avm_alu_alu_u16_r6_shift, avm_alu_alu_u16_r0_shift,
+                     avm_alu_alu_u16_r1_shift, avm_alu_alu_u16_r2_shift,
+                     avm_alu_alu_u16_r7_shift, avm_alu_alu_u16_r4_shift,
+                     avm_alu_alu_u16_r5_shift, avm_main_internal_return_ptr_shift,
+                     avm_main_pc_shift,        avm_mem_m_tag_shift,
                      avm_mem_m_val_shift,      avm_mem_m_addr_shift,
-                     avm_binary_acc_ib_shift,  avm_binary_acc_ia_shift,
-                     avm_binary_op_id_shift,   avm_binary_mem_tag_ctr_shift,
-                     avm_binary_acc_ic_shift,  avm_alu_alu_u16_r3_shift,
-                     avm_alu_alu_u16_r7_shift, avm_alu_alu_u16_r0_shift,
-                     avm_alu_alu_u16_r6_shift, avm_alu_alu_u16_r4_shift,
-                     avm_alu_alu_u16_r2_shift, avm_alu_alu_u16_r5_shift,
-                     avm_alu_alu_u16_r1_shift };
+                     avm_mem_m_rw_shift };
         };
     };
 
@@ -830,16 +830,16 @@ class AvmFlavor {
 
         RefVector<DataType> get_to_be_shifted()
         {
-            return { avm_main_pc,        avm_main_internal_return_ptr,
-                     avm_mem_m_rw,       avm_mem_m_tag,
+            return { avm_binary_acc_ic,  avm_binary_op_id,
+                     avm_binary_acc_ia,  avm_binary_mem_tag_ctr,
+                     avm_binary_acc_ib,  avm_alu_alu_u16_r3,
+                     avm_alu_alu_u16_r6, avm_alu_alu_u16_r0,
+                     avm_alu_alu_u16_r1, avm_alu_alu_u16_r2,
+                     avm_alu_alu_u16_r7, avm_alu_alu_u16_r4,
+                     avm_alu_alu_u16_r5, avm_main_internal_return_ptr,
+                     avm_main_pc,        avm_mem_m_tag,
                      avm_mem_m_val,      avm_mem_m_addr,
-                     avm_binary_acc_ib,  avm_binary_acc_ia,
-                     avm_binary_op_id,   avm_binary_mem_tag_ctr,
-                     avm_binary_acc_ic,  avm_alu_alu_u16_r3,
-                     avm_alu_alu_u16_r7, avm_alu_alu_u16_r0,
-                     avm_alu_alu_u16_r6, avm_alu_alu_u16_r4,
-                     avm_alu_alu_u16_r2, avm_alu_alu_u16_r5,
-                     avm_alu_alu_u16_r1 };
+                     avm_mem_m_rw };
         };
 
         // The plookup wires that store plookup read data.

@@ -420,7 +420,6 @@ void AvmTraceBuilder::op_eq(
     auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, res.direct_b_offset, in_tag);
     tag_match = read_a.tag_match && read_b.tag_match;
 
-    // c = a == b ? 1 : 0
     FF a = read_a.val;
     FF b = read_b.val;
 
@@ -471,7 +470,6 @@ void AvmTraceBuilder::op_and(
     auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, res.direct_b_offset, in_tag);
     tag_match = read_a.tag_match && read_b.tag_match;
 
-    // c = a == b ? 1 : 0
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
 
@@ -521,7 +519,6 @@ void AvmTraceBuilder::op_or(
     auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, res.direct_b_offset, in_tag);
     tag_match = read_a.tag_match && read_b.tag_match;
 
-    // c = a == b ? 1 : 0
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
 
@@ -571,7 +568,6 @@ void AvmTraceBuilder::op_xor(
     auto read_b = mem_trace_builder.read_and_load_from_memory(clk, IntermRegister::IB, res.direct_b_offset, in_tag);
     tag_match = read_a.tag_match && read_b.tag_match;
 
-    // c = a == b ? 1 : 0
     FF a = tag_match ? read_a.val : FF(0);
     FF b = tag_match ? read_b.val : FF(0);
 
@@ -1109,10 +1105,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
     // We only need to pad with zeroes to the size to the largest trace here, pow_2 padding is handled in the
     // subgroup_size check in bb
-    size_t zero_rows_num = *trace_size - main_trace_size;
-    while (zero_rows_num-- > 0) {
-        main_trace.push_back({});
-    }
+    // Resize the main_trace to accomodate a potential lookup, filling with default empty rows.
+    main_trace.resize(*trace_size, {});
 
     main_trace.at(main_trace_size - 1).avm_main_last = FF(1);
 
@@ -1254,8 +1248,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
     if (bin_trace_size > 0) {
         // Generate Lookup Table of all combinations of 2, 8-bit numbers and op_id.
         for (size_t op_id = 0; op_id < 3; op_id++) {
-            for (size_t input_a = 0; input_a <= std::numeric_limits<uint8_t>::max(); input_a++) {
-                for (size_t input_b = 0; input_b <= std::numeric_limits<uint8_t>::max(); input_b++) {
+            for (size_t input_a = 0; input_a <= UINT8_MAX; input_a++) {
+                for (size_t input_b = 0; input_b <= UINT8_MAX; input_b++) {
                     auto a = static_cast<uint8_t>(input_a);
                     auto b = static_cast<uint8_t>(input_b);
 
