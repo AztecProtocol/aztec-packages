@@ -13,7 +13,7 @@ use noirc_abi::{
     Abi, MAIN_RETURN_NAME,
 };
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, process::Output};
 
 use gloo_utils::format::JsValueSerdeExt;
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
@@ -112,4 +112,12 @@ pub fn abi_decode(abi: JsAbi, witness_map: JsWitnessMap) -> Result<JsValue, JsAb
     let return_struct = InputsAndReturn { inputs: inputs_map, return_value };
     <wasm_bindgen::JsValue as JsValueSerdeExt>::from_serde(&return_struct)
         .map_err(|err| err.to_string().into())
+}
+
+#[wasm_bindgen(js_name = serializeWitness)]
+pub fn serialise_witness(witness_map: JsWitnessMap) -> Result<Vec<u8>, JsAbiError> {
+    console_error_panic_hook::set_once();
+    let converted_witness: WitnessMap = witness_map.into();
+    let output = converted_witness.try_into();
+    output.map_err(|op| JsAbiError::new("Failed to convert to Vec<u8>".to_string()))
 }

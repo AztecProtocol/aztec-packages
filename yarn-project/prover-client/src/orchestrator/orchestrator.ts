@@ -26,7 +26,7 @@ import { MerkleTreeOperations } from '@aztec/world-state';
 import { inspect } from 'util';
 
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
-import { RollupProver } from '../prover/index.js';
+import { CircuitProver } from '../prover/index.js';
 import { RealRollupCircuitSimulator, RollupSimulator } from '../simulator/rollup.js';
 import {
   buildBaseRollupInput,
@@ -75,13 +75,13 @@ export class ProvingOrchestrator {
     private db: MerkleTreeOperations,
     simulationProvider: SimulationProvider,
     protected vks: VerificationKeys,
-    private prover: RollupProver,
+    private prover: CircuitProver,
     private maxConcurrentJobs = MAX_CONCURRENT_JOBS,
   ) {
     this.simulator = new RealRollupCircuitSimulator(simulationProvider);
   }
 
-  public static new(db: MerkleTreeOperations, simulationProvider: SimulationProvider, prover: RollupProver) {
+  public static new(db: MerkleTreeOperations, simulationProvider: SimulationProvider, prover: CircuitProver) {
     const orchestrator = new ProvingOrchestrator(db, simulationProvider, getVerificationKeys(), prover);
     orchestrator.start();
     return Promise.resolve(orchestrator);

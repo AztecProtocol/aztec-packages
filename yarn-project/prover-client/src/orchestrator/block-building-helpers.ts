@@ -49,7 +49,7 @@ import { Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
-import { RollupProver } from '../prover/index.js';
+import { CircuitProver } from '../prover/index.js';
 import { RollupSimulator } from '../simulator/rollup.js';
 
 // Denotes fields that are not used now, but will be in the future
@@ -191,7 +191,7 @@ export function createMergeRollupInputs(
 export async function executeMergeRollupCircuit(
   mergeInputs: MergeRollupInputs,
   simulator: RollupSimulator,
-  prover: RollupProver,
+  prover: CircuitProver,
   logger?: DebugLogger,
 ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
   logger?.debug(`Running merge rollup circuit`);
@@ -206,7 +206,7 @@ export async function executeRootRollupCircuit(
   l1ToL2Roots: RootParityInput,
   newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
   simulator: RollupSimulator,
-  prover: RollupProver,
+  prover: CircuitProver,
   db: MerkleTreeOperations,
   logger?: DebugLogger,
 ): Promise<[RootRollupPublicInputs, Proof]> {
@@ -512,7 +512,7 @@ export async function executeBaseRollupCircuit(
   inputs: BaseRollupInputs,
   treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
   simulator: RollupSimulator,
-  prover: RollupProver,
+  prover: CircuitProver,
   logger?: DebugLogger,
 ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
   logger?.(`Running base rollup for ${tx.hash}`);
@@ -557,7 +557,7 @@ export function validateSimulatedTree(
 export async function executeBaseParityCircuit(
   inputs: BaseParityInputs,
   simulator: RollupSimulator,
-  prover: RollupProver,
+  prover: CircuitProver,
   logger?: DebugLogger,
 ): Promise<RootParityInput> {
   logger?.debug(`Running base parity circuit`);
@@ -569,7 +569,7 @@ export async function executeBaseParityCircuit(
 export async function executeRootParityCircuit(
   inputs: RootParityInputs,
   simulator: RollupSimulator,
-  prover: RollupProver,
+  prover: CircuitProver,
   logger?: DebugLogger,
 ): Promise<RootParityInput> {
   logger?.debug(`Running root parity circuit`);

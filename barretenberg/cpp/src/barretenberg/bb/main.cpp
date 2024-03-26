@@ -317,13 +317,13 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath)
     acir_composer.create_circuit(constraint_system);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     auto pk = acir_composer.init_proving_key();
-    auto serialized_pk = to_buffer(*pk);
 
     if (outputPath == "-") {
+        auto serialized_pk = to_buffer(*pk);
         writeRawBytesToStdout(serialized_pk);
         vinfo("pk written to stdout");
     } else {
-        write_file(outputPath, serialized_pk);
+        write_to_file(outputPath, *pk);
         vinfo("pk written to: ", outputPath);
     }
 }

@@ -7,7 +7,7 @@ import { WorldStateSynchronizer } from '@aztec/world-state';
 import { ProverConfig } from '../config.js';
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
-import { EmptyRollupProver } from '../prover/empty.js';
+import { TestCircuitProver } from '../prover/test_circuit_prover.js';
 
 /**
  * A prover accepting individual transaction requests
@@ -23,7 +23,7 @@ export class TxProver implements ProverClient {
       worldStateSynchronizer.getLatest(),
       simulationProvider,
       getVerificationKeys(),
-      new EmptyRollupProver(),
+      new TestCircuitProver(simulationProvider),
     );
   }
 

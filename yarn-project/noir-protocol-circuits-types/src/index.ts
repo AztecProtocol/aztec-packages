@@ -34,6 +34,7 @@ import PublicKernelAppLogicSimulatedJson from './target/public_kernel_app_logic_
 import PublicKernelSetupSimulatedJson from './target/public_kernel_setup_simulated.json' assert { type: 'json' };
 import PublicKernelTailSimulatedJson from './target/public_kernel_tail_simulated.json' assert { type: 'json' };
 import PublicKernelTeardownSimulatedJson from './target/public_kernel_teardown_simulated.json' assert { type: 'json' };
+import BaseRollupJson from './target/rollup_base.json' assert { type: 'json' };
 import BaseRollupSimulatedJson from './target/rollup_base_simulated.json' assert { type: 'json' };
 import MergeRollupJson from './target/rollup_merge.json' assert { type: 'json' };
 import RootRollupJson from './target/rollup_root.json' assert { type: 'json' };
@@ -99,11 +100,42 @@ export const BaseParityArtifact = BaseParityJson as NoirCompiledCircuit;
 
 export const RootParityArtifact = RootParityJson as NoirCompiledCircuit;
 
-export const BaseRollupArtifact = BaseRollupSimulatedJson as NoirCompiledCircuit;
+export const SimulatedBaseRollupArtifact = BaseRollupSimulatedJson as NoirCompiledCircuit;
+
+export const BaseRollupArtifact = BaseRollupJson as NoirCompiledCircuit;
 
 export const MergeRollupArtifact = MergeRollupJson as NoirCompiledCircuit;
 
 export const RootRollupArtifact = RootRollupJson as NoirCompiledCircuit;
+
+export type ProtocolArtifacts =
+  | 'PrivateKernelInitArtifact'
+  | 'PrivateKernelInnerArtifact'
+  | 'PrivateKernelTailArtifact'
+  | 'PublicKernelSetupArtifact'
+  | 'PublicKernelAppLogicArtifact'
+  | 'PublicKernelTeardownArtifact'
+  | 'PublicKernelTailArtifact'
+  | 'BaseParityArtifact'
+  | 'RootParityArtifact'
+  | 'BaseRollupArtifact'
+  | 'MergeRollupArtifact'
+  | 'RootRollupArtifact';
+
+export const ProtocolCircuitArtifacts: Record<ProtocolArtifacts, NoirCompiledCircuit> = {
+  PrivateKernelInitArtifact: PrivateKernelInitArtifact,
+  PrivateKernelInnerArtifact: PrivateKernelInnerArtifact,
+  PrivateKernelTailArtifact: PrivateKernelTailArtifact,
+  PublicKernelSetupArtifact: PublicKernelSetupArtifact,
+  PublicKernelAppLogicArtifact: PublicKernelAppLogicArtifact,
+  PublicKernelTeardownArtifact: PublicKernelTeardownArtifact,
+  PublicKernelTailArtifact: PublicKernelTailArtifact,
+  BaseParityArtifact: BaseParityArtifact,
+  RootParityArtifact: RootParityArtifact,
+  BaseRollupArtifact: BaseRollupArtifact,
+  MergeRollupArtifact: MergeRollupArtifact,
+  RootRollupArtifact: RootRollupArtifact,
+};
 
 let solver: Promise<WasmBlackBoxFunctionSolver>;
 

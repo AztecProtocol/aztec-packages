@@ -4,8 +4,6 @@ import {
   ProcessedTx,
   ProvingSuccess,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
-  makeProcessedTx,
-  mockTx,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -13,22 +11,13 @@ import {
   EthAddress,
   Fr,
   GlobalVariables,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX,
-  MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
-  MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
-  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   Proof,
   PublicDataTreeLeaf,
-  PublicDataUpdateRequest,
-  PublicKernelCircuitPublicInputs,
   RootRollupPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
@@ -37,15 +26,11 @@ import {
 import {
   fr,
   makeBaseOrMergeRollupPublicInputs,
-  makeNewSideEffect,
-  makeNewSideEffectLinkedToNoteHash,
   makeParityPublicInputs,
-  makeProof,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
-import { makeTuple, range } from '@aztec/foundation/array';
+import { range } from '@aztec/foundation/array';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
-import { toTruncField } from '@aztec/foundation/serialize';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { WASMSimulator } from '@aztec/simulator';
@@ -54,8 +39,9 @@ import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
 
+import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
 import { getVerificationKeys } from '../mocks/verification_keys.js';
-import { RollupProver } from '../prover/index.js';
+import { CircuitProver } from '../prover/index.js';
 import { RollupSimulator } from '../simulator/rollup.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
@@ -67,7 +53,7 @@ describe('prover/tx-prover', () => {
   let expectsDb: MerkleTreeOperations;
 
   let simulator: MockProxy<RollupSimulator>;
-  let prover: MockProxy<RollupProver>;
+  let prover: MockProxy<CircuitProver>;
 
   let blockNumber: number;
   let baseRollupOutputLeft: BaseOrMergeRollupPublicInputs;
@@ -91,7 +77,7 @@ describe('prover/tx-prover', () => {
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     expectsDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     simulator = mock<RollupSimulator>();
-    prover = mock<RollupProver>();
+    prover = mock<CircuitProver>();
     builder = new ProvingOrchestrator(builderDb, new WASMSimulator(), getVerificationKeys(), prover);
 
     // Create mock l1 to L2 messages
@@ -322,55 +308,6 @@ describe('prover/tx-prover', () => {
       await builder.stop();
     });
 
-    const makeBloatedProcessedTx = async (seed = 0x1) => {
-      seed *= MAX_NEW_NULLIFIERS_PER_TX; // Ensure no clashing given incremental seeds
-      const tx = mockTx(seed);
-      const kernelOutput = PublicKernelCircuitPublicInputs.empty();
-      kernelOutput.constants.historicalHeader = await builderDb.buildInitialHeader();
-      kernelOutput.end.publicDataUpdateRequests = makeTuple(
-        MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
-        seed + 0x500,
-      );
-      kernelOutput.endNonRevertibleData.publicDataUpdateRequests = makeTuple(
-        MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
-        seed + 0x600,
-      );
-
-      const processedTx = makeProcessedTx(tx, kernelOutput, makeProof());
-
-      processedTx.data.end.newNoteHashes = makeTuple(
-        MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
-        makeNewSideEffect,
-        seed + 0x100,
-      );
-      processedTx.data.endNonRevertibleData.newNoteHashes = makeTuple(
-        MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX,
-        makeNewSideEffect,
-        seed + 0x100,
-      );
-      processedTx.data.end.newNullifiers = makeTuple(
-        MAX_REVERTIBLE_NULLIFIERS_PER_TX,
-        makeNewSideEffectLinkedToNoteHash,
-        seed + 0x100000,
-      );
-
-      processedTx.data.endNonRevertibleData.newNullifiers = makeTuple(
-        MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
-        makeNewSideEffectLinkedToNoteHash,
-        seed + 0x100000 + MAX_REVERTIBLE_NULLIFIERS_PER_TX,
-      );
-
-      processedTx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = SideEffectLinkedToNoteHash.empty();
-
-      processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
-      processedTx.data.end.encryptedLogsHash = toTruncField(processedTx.encryptedLogs.hash());
-      processedTx.data.end.unencryptedLogsHash = toTruncField(processedTx.unencryptedLogs.hash());
-
-      return processedTx;
-    };
-
     it.each([
       [0, 4],
       [1, 4],
@@ -382,7 +319,7 @@ describe('prover/tx-prover', () => {
       async (bloatedCount: number, totalCount: number) => {
         const noteHashTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
         const txs = [
-          ...(await Promise.all(times(bloatedCount, makeBloatedProcessedTx))),
+          ...(await Promise.all(times(bloatedCount, () => makeBloatedProcessedTx(builderDb)))),
           ...(await Promise.all(times(totalCount - bloatedCount, makeEmptyProcessedTx))),
         ];
 
@@ -450,10 +387,10 @@ describe('prover/tx-prover', () => {
 
     it('builds a mixed L2 block', async () => {
       const txs = await Promise.all([
-        makeBloatedProcessedTx(1),
-        makeBloatedProcessedTx(2),
-        makeBloatedProcessedTx(3),
-        makeBloatedProcessedTx(4),
+        makeBloatedProcessedTx(builderDb, 1),
+        makeBloatedProcessedTx(builderDb, 2),
+        makeBloatedProcessedTx(builderDb, 3),
+        makeBloatedProcessedTx(builderDb, 4),
       ]);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
@@ -476,10 +413,10 @@ describe('prover/tx-prover', () => {
 
     it('builds a block concurrently with transactions', async () => {
       const txs = await Promise.all([
-        makeBloatedProcessedTx(1),
-        makeBloatedProcessedTx(2),
-        makeBloatedProcessedTx(3),
-        makeBloatedProcessedTx(4),
+        makeBloatedProcessedTx(builderDb, 1),
+        makeBloatedProcessedTx(builderDb, 2),
+        makeBloatedProcessedTx(builderDb, 3),
+        makeBloatedProcessedTx(builderDb, 4),
       ]);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
