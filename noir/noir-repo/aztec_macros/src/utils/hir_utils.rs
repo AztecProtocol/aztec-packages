@@ -1,11 +1,13 @@
 use iter_extended::vecmap;
 use noirc_frontend::{
     graph::CrateId,
-    hir::def_collector::dc_crate::UnresolvedTraitImpl,
-    macros_api::{HirContext, ModuleDefId, StructId},
-    node_interner::{TraitId, TraitImplId},
-    Signedness, Type, UnresolvedTypeData,
+    hir::def_map::LocalModuleId,
+    macros_api::{FileId, HirContext, ModuleDefId, StructId},
+    node_interner::TraitId,
+    Signedness, Type,
 };
+
+use super::ast_utils::is_custom_attribute;
 
 pub fn collect_crate_structs(crate_id: &CrateId, context: &HirContext) -> Vec<StructId> {
     context
@@ -70,49 +72,39 @@ pub fn signature_of_type(typ: &Type) -> String {
 }
 
 // Fetches the name of all structs that implement trait_name, both in the current crate and all of its dependencies.
-pub fn fetch_struct_trait_impls(
-    context: &mut HirContext,
-    unresolved_traits_impls: &[UnresolvedTraitImpl],
-    trait_name: &str,
-) -> Vec<String> {
-    let mut struct_typenames: Vec<String> = Vec::new();
-
-    // These structs can be declared in either external crates or the current one. External crates that contain
-    // dependencies have already been processed and resolved, but are available here via the NodeInterner. Note that
-    // crates on which the current crate does not depend on may not have been processed, and will be ignored.
-    for trait_impl_id in 0..context.def_interner.next_trait_impl_id().0 {
-        let trait_impl = &context.def_interner.get_trait_implementation(TraitImplId(trait_impl_id));
-
-        if trait_impl.borrow().ident.0.contents == *trait_name {
-            if let Type::Struct(s, _) = &trait_impl.borrow().typ {
-                struct_typenames.push(s.borrow().name.0.contents.clone());
+pub fn fetch_note_names(context: &mut HirContext, crate_id: &CrateId) -> Vec<String> {
+    collect_crate_structs(crate_id, context)
+        .iter()
+        .filter_map(|&struct_id| {
+            let r#struct = context.def_interner.get_struct(struct_id);
+            let attributes = context.def_interner.struct_attributes(&struct_id);
+            if attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(note)")) {
+                Some(r#struct.borrow().name.0.contents.clone())
             } else {
-                panic!("Found impl for {} on non-Struct", trait_name);
+                None
             }
-        }
+        })
+        .collect()
+}
+
+pub fn get_contract_module_data(
+    context: &mut HirContext,
+    crate_id: &CrateId,
+) -> Option<(LocalModuleId, FileId)> {
+    // We first fetch modules in this crate which correspond to contracts, along with their file id.
+    let contract_module_file_ids: Vec<(LocalModuleId, FileId)> = context
+        .def_map(crate_id)
+        .expect("ICE: Missing crate in def_map")
+        .modules()
+        .iter()
+        .filter(|(_, module)| module.is_contract)
+        .map(|(idx, module)| (LocalModuleId(idx), module.location.file))
+        .collect();
+
+    // If the current crate does not contain a contract module we simply skip it. More than 1 contract in a crate is forbidden by the compiler
+    if contract_module_file_ids.is_empty() {
+        return None;
     }
 
-    // This crate's traits and impls have not yet been resolved, so we look for impls in unresolved_trait_impls.
-    struct_typenames.extend(
-        unresolved_traits_impls
-            .iter()
-            .filter(|trait_impl| {
-                trait_impl
-                    .trait_path
-                    .segments
-                    .last()
-                    .expect("ICE: empty trait_impl path")
-                    .0
-                    .contents
-                    == *trait_name
-            })
-            .filter_map(|trait_impl| match &trait_impl.object_type.typ {
-                UnresolvedTypeData::Named(path, _, _) => {
-                    Some(path.segments.last().unwrap().0.contents.clone())
-                }
-                _ => None,
-            }),
-    );
-
-    struct_typenames
+    Some(contract_module_file_ids[0])
 }

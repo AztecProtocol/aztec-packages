@@ -11,7 +11,3 @@ struct Storable<N> {
         typ: str<N>
     }
 
-struct StorableNote<N> {
-        id: Field,
-        typ: str<N>
-    }

@@ -8,7 +8,7 @@ use transforms::{
     note_interface::generate_note_interface_impl,
     storage::{
         assign_storage_slots, check_for_storage_definition, check_for_storage_implementation,
-        generate_storage_implementation,
+        generate_storage_implementation, generate_storage_layout,
     },
 };
 
@@ -95,6 +95,7 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
         if !check_for_storage_implementation(module, &storage_struct_name) {
             generate_storage_implementation(module, &storage_struct_name)?;
         }
+        generate_storage_layout(module, storage_struct_name)?;
     }
 
     for structure in module.types.iter_mut() {
@@ -185,16 +186,11 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
 fn transform_collected_defs(
     crate_id: &CrateId,
     context: &mut HirContext,
-    collected_trait_impls: &[UnresolvedTraitImpl],
+    _collected_trait_impls: &[UnresolvedTraitImpl],
     collected_functions: &mut [UnresolvedFunctions],
 ) -> Result<(), (MacroError, FileId)> {
     if has_aztec_dependency(crate_id, context) {
-        inject_compute_note_hash_and_nullifier(
-            crate_id,
-            context,
-            collected_trait_impls,
-            collected_functions,
-        )
+        inject_compute_note_hash_and_nullifier(crate_id, context, collected_functions)
     } else {
         Ok(())
     }
