@@ -16,7 +16,7 @@ contract DocsExample {
     use dep::aztec::prelude::{
         AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
         PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
-        PrivateSet, SharedImmutable, Storable
+        PrivateSet, SharedImmutable
     };
     use dep::aztec::{note::note_getter_options::Comparator, context::{PublicContext, Context}};
     // how to import methods from other files/folders within your workspace

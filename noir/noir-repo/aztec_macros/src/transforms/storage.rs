@@ -266,9 +266,8 @@ pub fn assign_storage_slots(
 ) -> Result<(), (AztecMacroError, FileId)> {
     let traits: Vec<_> = collect_traits(context);
     if let Some((_, file_id)) = get_contract_module_data(context, crate_id) {
-        let storage_struct = collect_crate_structs(crate_id, context)
-            .iter()
-            .find_map(|&struct_id| {
+        let maybe_storage_struct =
+            collect_crate_structs(crate_id, context).iter().find_map(|&struct_id| {
                 let r#struct = context.def_interner.get_struct(struct_id);
                 let attributes = context.def_interner.struct_attributes(&struct_id);
                 if attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(storage)"))
@@ -278,19 +277,10 @@ pub fn assign_storage_slots(
                 } else {
                     None
                 }
-            })
-            .ok_or((
-                AztecMacroError::CouldNotAssignStorageSlots {
-                    secondary_message: Some("Storage struct not found".to_string()),
-                },
-                file_id,
-            ))?;
+            });
 
-        let storage_layout = context
-            .def_interner
-            .get_all_globals()
-            .iter()
-            .find_map(|global_info| {
+        let maybe_storage_layout =
+            context.def_interner.get_all_globals().iter().find_map(|global_info| {
                 let statement = context.def_interner.get_global_let_statement(global_info.id);
                 if statement.clone().is_some_and(|stmt| {
                     stmt.attributes
@@ -307,43 +297,44 @@ pub fn assign_storage_slots(
                 } else {
                     None
                 }
-            })
-            .ok_or((
-                AztecMacroError::CouldNotAssignStorageSlots {
-                    secondary_message: Some("Storage layout struct not found".to_string()),
-                },
-                file_id,
-            ))?;
+            });
 
-        let init_id = context
-            .def_interner
-            .lookup_method(
-                &Type::Struct(context.def_interner.get_struct(storage_struct.borrow().id), vec![]),
-                storage_struct.borrow().id,
-                "init",
-                false,
-            )
-            .ok_or((
-                AztecMacroError::CouldNotAssignStorageSlots {
-                    secondary_message: Some(
-                        "Storage struct must have an init function".to_string(),
+        if let (Some(storage_struct), Some(storage_layout)) =
+            (maybe_storage_struct, maybe_storage_layout)
+        {
+            let init_id = context
+                .def_interner
+                .lookup_method(
+                    &Type::Struct(
+                        context.def_interner.get_struct(storage_struct.borrow().id),
+                        vec![],
                     ),
+                    storage_struct.borrow().id,
+                    "init",
+                    false,
+                )
+                .ok_or((
+                    AztecMacroError::CouldNotAssignStorageSlots {
+                        secondary_message: Some(
+                            "Storage struct must have an init function".to_string(),
+                        ),
+                    },
+                    file_id,
+                ))?;
+            let init_function =
+                context.def_interner.function(&init_id).block(&context.def_interner);
+            let init_function_statement_id = init_function.statements().first().ok_or((
+                AztecMacroError::CouldNotAssignStorageSlots {
+                    secondary_message: Some("Init storage statement not found".to_string()),
                 },
                 file_id,
             ))?;
-        let init_function = context.def_interner.function(&init_id).block(&context.def_interner);
-        let init_function_statement_id = init_function.statements().first().ok_or((
-            AztecMacroError::CouldNotAssignStorageSlots {
-                secondary_message: Some("Init storage statement not found".to_string()),
-            },
-            file_id,
-        ))?;
-        let storage_constructor_statement =
-            context.def_interner.statement(init_function_statement_id);
+            let storage_constructor_statement =
+                context.def_interner.statement(init_function_statement_id);
 
-        let storage_constructor_expression = match storage_constructor_statement {
-            HirStatement::Expression(expression_id) => {
-                match context.def_interner.expression(&expression_id) {
+            let storage_constructor_expression = match storage_constructor_statement {
+                HirStatement::Expression(expression_id) => {
+                    match context.def_interner.expression(&expression_id) {
                     HirExpression::Constructor(hir_constructor_expression) => {
                         Ok(hir_constructor_expression)
                     }
@@ -357,106 +348,107 @@ pub fn assign_storage_slots(
                         file_id,
                     )),
                 }
-            }
-            _ => Err((
-                AztecMacroError::CouldNotAssignStorageSlots {
-                    secondary_message: Some(
-                        "Storage constructor statement must be an expression".to_string(),
-                    ),
-                },
-                file_id,
-            )),
-        }?;
-
-        let mut storage_slot: u64 = 1;
-        for (index, (_, expr_id)) in storage_constructor_expression.fields.iter().enumerate() {
-            let fields = storage_struct.borrow().get_fields(&[]);
-            let (field_name, field_type) = fields.get(index).unwrap();
-            let new_call_expression = match context.def_interner.expression(expr_id) {
-                HirExpression::Call(hir_call_expression) => Ok(hir_call_expression),
+                }
                 _ => Err((
                     AztecMacroError::CouldNotAssignStorageSlots {
                         secondary_message: Some(
-                            "Storage field initialization expression is not a call expression"
-                                .to_string(),
+                            "Storage constructor statement must be an expression".to_string(),
                         ),
                     },
                     file_id,
                 )),
             }?;
 
-            let slot_arg_expression =
-                context.def_interner.expression(&new_call_expression.arguments[1]);
+            let mut storage_slot: u64 = 1;
+            for (index, (_, expr_id)) in storage_constructor_expression.fields.iter().enumerate() {
+                let fields = storage_struct.borrow().get_fields(&[]);
+                let (field_name, field_type) = fields.get(index).unwrap();
+                let new_call_expression = match context.def_interner.expression(expr_id) {
+                    HirExpression::Call(hir_call_expression) => Ok(hir_call_expression),
+                    _ => Err((
+                        AztecMacroError::CouldNotAssignStorageSlots {
+                            secondary_message: Some(
+                                "Storage field initialization expression is not a call expression"
+                                    .to_string(),
+                            ),
+                        },
+                        file_id,
+                    )),
+                }?;
 
-            let current_storage_slot = match slot_arg_expression {
-                HirExpression::Literal(HirLiteral::Integer(slot, _)) => Ok(slot.to_u128()),
-                _ => Err((
-                    AztecMacroError::CouldNotAssignStorageSlots {
-                        secondary_message: Some(
-                            "Storage slot argument expression must be a literal integer"
-                                .to_string(),
-                        ),
-                    },
-                    file_id,
-                )),
-            }?;
+                let slot_arg_expression =
+                    context.def_interner.expression(&new_call_expression.arguments[1]);
 
-            let storage_layout_field = storage_layout
-                .fields
-                .iter()
-                .find(|field| field.0 .0.contents == field_name.to_string());
+                let current_storage_slot = match slot_arg_expression {
+                    HirExpression::Literal(HirLiteral::Integer(slot, _)) => Ok(slot.to_u128()),
+                    _ => Err((
+                        AztecMacroError::CouldNotAssignStorageSlots {
+                            secondary_message: Some(
+                                "Storage slot argument expression must be a literal integer"
+                                    .to_string(),
+                            ),
+                        },
+                        file_id,
+                    )),
+                }?;
 
-            let storage_layout_slot_expr = if let Some((_, expr_id)) = storage_layout_field {
-                let expr = context.def_interner.expression(expr_id);
-                if let HirExpression::Constructor(storage_layout_field_storable_expr) = expr {
-                    storage_layout_field_storable_expr.fields.iter().find_map(|(field, expr_id)| {
-                        if field.0.contents == "slot" {
-                            Some(*expr_id)
-                        } else {
-                            None
-                        }
-                    })
+                let storage_layout_field =
+                    storage_layout.fields.iter().find(|field| field.0 .0.contents == *field_name);
+
+                let storage_layout_slot_expr = if let Some((_, expr_id)) = storage_layout_field {
+                    let expr = context.def_interner.expression(expr_id);
+                    if let HirExpression::Constructor(storage_layout_field_storable_expr) = expr {
+                        storage_layout_field_storable_expr.fields.iter().find_map(
+                            |(field, expr_id)| {
+                                if field.0.contents == "slot" {
+                                    Some(*expr_id)
+                                } else {
+                                    None
+                                }
+                            },
+                        )
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
-            } else {
-                None
+                .ok_or((
+                    AztecMacroError::CouldNotAssignStorageSlots {
+                        secondary_message: Some(format!(
+                            "Storage layout field ({}) not found or has an incorrect type",
+                            field_name
+                        )),
+                    },
+                    file_id,
+                ))?;
+
+                let new_storage_slot = if current_storage_slot == 0 {
+                    u128::from(storage_slot)
+                } else {
+                    current_storage_slot
+                };
+
+                let type_serialized_len =
+                    get_serialized_length(&traits, field_type, &context.def_interner)
+                        .map_err(|err| (err, file_id))?;
+
+                context.def_interner.update_expression(new_call_expression.arguments[1], |expr| {
+                    *expr = HirExpression::Literal(HirLiteral::Integer(
+                        FieldElement::from(new_storage_slot),
+                        false,
+                    ));
+                });
+
+                context.def_interner.update_expression(storage_layout_slot_expr, |expr| {
+                    *expr = HirExpression::Literal(HirLiteral::Integer(
+                        FieldElement::from(new_storage_slot),
+                        false,
+                    ));
+                });
+
+                storage_slot += type_serialized_len;
             }
-            .ok_or((
-                AztecMacroError::CouldNotAssignStorageSlots {
-                    secondary_message: Some(format!(
-                        "Storage layout field ({}) not found or has an incorrect type",
-                        field_name
-                    )),
-                },
-                file_id,
-            ))?;
-
-            let new_storage_slot = if current_storage_slot == 0 {
-                u128::from(storage_slot)
-            } else {
-                current_storage_slot
-            };
-
-            let type_serialized_len =
-                get_serialized_length(&traits, field_type, &context.def_interner)
-                    .map_err(|err| (err, file_id))?;
-
-            context.def_interner.update_expression(new_call_expression.arguments[1], |expr| {
-                *expr = HirExpression::Literal(HirLiteral::Integer(
-                    FieldElement::from(new_storage_slot),
-                    false,
-                ));
-            });
-
-            context.def_interner.update_expression(storage_layout_slot_expr, |expr| {
-                *expr = HirExpression::Literal(HirLiteral::Integer(
-                    FieldElement::from(new_storage_slot),
-                    false,
-                ));
-            });
-
-            storage_slot += type_serialized_len;
         }
     }
 
@@ -478,10 +470,10 @@ pub fn generate_storage_layout(
     let mut storable_fields_impl = vec![];
 
     definition.fields.iter().enumerate().for_each(|(index, (field_ident, field_type))| {
-        storable_fields.push(format!("{}: Storable<N{}>", field_ident, index));
+        storable_fields.push(format!("{}: dep::aztec::prelude::Storable<N{}>", field_ident, index));
         generic_args.push(format!("N{}", index));
         storable_fields_impl.push(format!(
-            "{}: Storable {{ slot: 0, typ: \"{}\" }}",
+            "{}: dep::aztec::prelude::Storable {{ slot: 0, typ: \"{}\" }}",
             field_ident,
             field_type.to_string().replace("plain::", "")
         ));
