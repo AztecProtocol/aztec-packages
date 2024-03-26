@@ -47,11 +47,19 @@ build-wasi-sdk:
     SAVE ARTIFACT wasi-sdk
     SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
 
-get-wasi-sdk:
+get-wasi-sdk-threads:
     ARG TARGETARCH
     # If this is failing, we need to run earthly --push +build-wasi-sdk
     FROM aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
     SAVE ARTIFACT wasi-sdk
+
+get-wasi-sdk-single-threaded:
+    # NOTE: currently does not work in ARM
+    ARG TARGETARCH
+    FROM +source
+    ./scripts/install-wasi-sdk.sh
+    # TODO better output name
+    SAVE ARTIFACT src/wasi-sdk-20 wasi-sdk
 
 wasmtime:
     RUN curl https://wasmtime.dev/install.sh -sSf | bash
@@ -81,7 +89,21 @@ preset-debug:
     SAVE ARTIFACT bin
 
 preset-wasm:
-    ARG BB_WASI_SDK=""
+    ARG wasm_threads_only=false
+    FROM +source
+    IF [ $wasm_threads_only = true ]
+        FROM +preset-wasm-threads
+        SAVE ARTIFACT bin
+    ELSE
+        # wasi-sdk
+        COPY +get-wasi-sdk/wasi-sdk-threads src/wasi-sdk-threads
+        DO +RUN_CMAKE --configure="--preset wasm" --build="--target barretenberg.wasm"
+        RUN ../src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
+        SAVE ARTIFACT bin
+        SAVE IMAGE --cache-hint
+    END
+
+preset-wasm-threads:
     FROM +source
     # wasi-sdk
     COPY +get-wasi-sdk/wasi-sdk src/wasi-sdk

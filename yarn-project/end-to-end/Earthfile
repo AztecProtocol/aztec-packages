@@ -21,10 +21,14 @@ E2E_TEST_FROM_BUILD:
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG enable_gas=""
-  FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
+  ARG locally="true"
+  LOCALLY
+  IF [ $locally != true ]
+    FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
+    COPY $compose_file $compose_file
+  END
   ENV ENABLE_GAS=$enable_gas
   ENV TEST=$test.test.ts
-  COPY $compose_file $compose_file
   # For ARM, we do use WITH DOCKER as we don't have many e2e tests, but note E2E_TEST_FROM_DOCKERHUB
   WITH DOCKER \
     --load aztecprotocol/aztec:latest=../+aztec \
