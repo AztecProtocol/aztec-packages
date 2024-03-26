@@ -266,16 +266,16 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         self.status(ACVMStatus::RequiresAcirCall(acir_call))
     }
 
-    /// Resolves a foreign call's [result][acir::brillig_vm::ForeignCallResult] using a result calculated outside of the ACVM.
+    /// Resolves am ACIR call's result (simply a Vec<FieldElement>) using a result calculated by a separate ACVM instance.
     ///
-    /// The ACVM can then be restarted to solve the remaining Brillig VM process as well as the remaining ACIR opcodes.
+    /// The current ACVM instance can then be restarted to solve the remaining ACIR opcodes.
     pub fn resolve_pending_acir_call(&mut self, call_result: Vec<FieldElement>) {
         if !matches!(self.status, ACVMStatus::RequiresAcirCall(_)) {
             panic!("ACVM is not expecting an ACIR call response as no call was made");
         }
 
         if self.acir_call_counter < self.acir_call_results.len() {
-            panic!("No unresolved foreign calls");
+            panic!("No unresolved ACIR calls");
         }
         self.acir_call_results.push(call_result);
 
