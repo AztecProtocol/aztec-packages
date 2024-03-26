@@ -113,11 +113,11 @@ TEST_F(ClientIVCTests, Full)
     Builder function_circuit = create_mock_circuit(ivc);
     ivc.initialize(function_circuit);
 
+    auto function_vk = std::make_shared<VerificationKey>(ivc.prover_fold_output.accumulator->proving_key);
+    auto foo_verifier_instance = std::make_shared<VerifierInstance>(function_vk);
     // Accumulate kernel circuit (first kernel mocked as simple circuit since no folding proofs yet)
     Builder kernel_circuit = create_mock_circuit(ivc);
     FoldProof kernel_fold_proof = ivc.accumulate(kernel_circuit);
-    auto function_vk = std::make_shared<VerificationKey>(ivc.prover_fold_output.accumulator->proving_key);
-    auto foo_verifier_instance = std::make_shared<VerifierInstance>(function_vk);
     // This will have a different verification key because we added the recursive merge verification to the circuit
     auto function_vk_with_merge = std::make_shared<VerificationKey>(ivc.prover_instance->proving_key);
     auto kernel_vk = function_vk_with_merge;

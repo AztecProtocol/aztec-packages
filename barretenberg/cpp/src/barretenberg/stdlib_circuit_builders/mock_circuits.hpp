@@ -60,19 +60,5 @@ class MockCircuits {
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
         }
     }
-
-    /**
-     * @brief Populate a builder with some arbitrary goblinized ECC ops
-     *
-     * @param builder
-     */
-    static void construct_goblin_ecc_op_circuit(GoblinUltraCircuitBuilder& builder)
-    {
-        // Add a mul accum op and an equality op
-        auto point = Point::one() * FF::random_element();
-        auto scalar = FF::random_element();
-        builder.queue_ecc_mul_accum(point, scalar);
-        builder.queue_ecc_eq();
-    }
 };
 } // namespace bb
