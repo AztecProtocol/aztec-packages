@@ -121,7 +121,7 @@ mul_quad serialize_mul_quad_gate(Program::Expression const& arg)
     bool b_set = false;
     bool c_set = false;
     bool d_set = false;
-    ASSERT(arg.mul_terms.size() == 1); // We can only accommodate 1 quadratic term
+    ASSERT(arg.mul_terms.size() <= 1); // We can only accommodate 1 quadratic term
     // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
     if (!arg.mul_terms.empty()) {
         const auto& mul_term = arg.mul_terms[0];
