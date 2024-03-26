@@ -89,6 +89,16 @@ poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
             pt.q_o = selector_value;
             c_set = true;
         } else {
+            return poly_triple{
+                .a = 0,
+                .b = 0,
+                .c = 0,
+                .q_m = 0,
+                .q_l = 0,
+                .q_r = 0,
+                .q_o = 0,
+                .q_c = 0,
+            };
             throw_or_abort("Cannot assign linear term to a constraint of width 3");
         }
     }
@@ -171,7 +181,12 @@ mul_quad serialize_mul_quad_gate(Program::Expression const& arg)
 void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af)
 {
     if (arg.value.linear_combinations.size() <= 3) {
-        af.constraints.push_back(serialize_arithmetic_gate(arg.value));
+        poly_triple pt = serialize_arithmetic_gate(arg.value);
+        if (pt == poly_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
+            af.quad_constraints.push_back(serialize_mul_quad_gate(arg.value));
+        } else {
+            af.constraints.push_back(pt);
+        }
     } else {
         af.quad_constraints.push_back(serialize_mul_quad_gate(arg.value));
     }
