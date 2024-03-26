@@ -1,5 +1,6 @@
 import { makeProcessedTx, mockTx } from '@aztec/circuit-types';
 import {
+  Fr,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX,
@@ -14,7 +15,6 @@ import {
 } from '@aztec/circuits.js';
 import { fr, makeNewSideEffect, makeNewSideEffectLinkedToNoteHash, makeProof } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
-import { toTruncField } from '@aztec/foundation/serialize';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, seed = 0x1) => {
@@ -56,8 +56,8 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
   processedTx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = SideEffectLinkedToNoteHash.empty();
 
   processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
-  processedTx.data.end.encryptedLogsHash = toTruncField(processedTx.encryptedLogs.hash());
-  processedTx.data.end.unencryptedLogsHash = toTruncField(processedTx.unencryptedLogs.hash());
+  processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
+  processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
   return processedTx;
 };
