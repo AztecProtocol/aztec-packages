@@ -523,7 +523,8 @@ pub enum AbiValue {
         value: FieldElement,
     },
     Integer {
-        value: i128,
+        sign: bool,
+        value: String,
     },
     Boolean {
         value: bool,
@@ -584,8 +585,7 @@ impl AbiValue {
                 HirLiteral::Bool(value) => Self::Boolean { value },
                 HirLiteral::Str(value) => Self::String { value },
                 HirLiteral::Integer(field, sign) => {
-                    let value = field.to_i128();
-                    Self::Integer { value: if sign { -value } else { value } }
+                    Self::Integer { value: field.to_string(), sign }
                 }
                 _ => unreachable!("Literal cannot be used in the abi"),
             },
