@@ -1,5 +1,13 @@
+import { ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Body, Fr, GlobalVariables, L2Actor, L2Block, createDebugLogger, mockTx } from '@aztec/aztec.js';
+// eslint-disable-next-line no-restricted-imports
+import {
+  ProcessedTx,
+  ProvingSuccess,
+  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
+  makeProcessedTx,
+} from '@aztec/circuit-types';
 import {
   EthAddress,
   Header,
@@ -16,25 +24,17 @@ import {
 import { fr, makeNewSideEffect, makeNewSideEffectLinkedToNoteHash, makeProof } from '@aztec/circuits.js/testing';
 import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
-import { toTruncField } from '@aztec/foundation/serialize';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
-import {
-  EmptyRollupProver,
-  L1Publisher,
-  RealRollupCircuitSimulator,
-  SoloBlockBuilder,
-  WASMSimulator,
-  getL1Publisher,
-  getVerificationKeys,
-  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
-  makeProcessedTx,
-} from '@aztec/sequencer-client';
-import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { TxProver } from '@aztec/prover-client';
+import { L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
+import { WASMSimulator } from '@aztec/simulator';
+import { MerkleTrees, ServerWorldStateSynchronizer, WorldStateConfig } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import * as fs from 'fs';
+import { MockProxy, mock } from 'jest-mock-extended';
 import {
   Account,
   Address,
@@ -80,11 +80,13 @@ describe('L1Publisher integration', () => {
   let publisher: L1Publisher;
   let l2Proof: Buffer;
 
-  let builder: SoloBlockBuilder;
-  let builderDb: MerkleTreeOperations;
+  let builder: TxProver;
+  let builderDb: MerkleTrees;
 
   // The header of the last block
   let prevHeader: Header;
+
+  let blockSource: MockProxy<ArchiveSource>;
 
   const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
 
@@ -123,12 +125,16 @@ describe('L1Publisher integration', () => {
       client: publicClient,
     });
 
-    builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
-    const vks = getVerificationKeys();
-    const simulator = new RealRollupCircuitSimulator(new WASMSimulator());
-    const prover = new EmptyRollupProver();
-    builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
-
+    const tmpStore = openTmpStore();
+    builderDb = await MerkleTrees.new(tmpStore);
+    blockSource = mock<ArchiveSource>();
+    blockSource.getBlocks.mockResolvedValue([]);
+    const worldStateConfig: WorldStateConfig = {
+      worldStateBlockCheckIntervalMS: 10000,
+      l2QueueSize: 10,
+    };
+    const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
+    builder = await TxProver.new({}, worldStateSynchronizer, new WASMSimulator());
     l2Proof = Buffer.alloc(0);
 
     publisher = getL1Publisher({
@@ -143,7 +149,7 @@ describe('L1Publisher integration', () => {
     coinbase = config.coinbase || EthAddress.random();
     feeRecipient = config.feeRecipient || AztecAddress.random();
 
-    prevHeader = await builderDb.buildInitialHeader();
+    prevHeader = await builderDb.buildInitialHeader(false);
   }, 100_000);
 
   const makeEmptyProcessedTx = () => {
@@ -174,8 +180,8 @@ describe('L1Publisher integration', () => {
     processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] =
       SideEffectLinkedToNoteHash.empty();
     processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
-    processedTx.data.end.encryptedLogsHash = toTruncField(processedTx.encryptedLogs.hash());
-    processedTx.data.end.unencryptedLogsHash = toTruncField(processedTx.unencryptedLogs.hash());
+    processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
+    processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
     return processedTx;
   };
@@ -208,7 +214,7 @@ describe('L1Publisher integration', () => {
       topics: txLog.topics,
     });
 
-    return Fr.fromString(topics.args.value);
+    return Fr.fromString(topics.args.hash);
   };
 
   /**
@@ -297,6 +303,19 @@ describe('L1Publisher integration', () => {
     fs.writeFileSync(path, output, 'utf8');
   };
 
+  const buildBlock = async (
+    globalVariables: GlobalVariables,
+    txs: ProcessedTx[],
+    l1ToL2Messages: Fr[],
+    emptyTx: ProcessedTx,
+  ) => {
+    const blockTicket = await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages, emptyTx);
+    for (const tx of txs) {
+      await builder.addNewTx(tx);
+    }
+    return blockTicket;
+  };
+
   it('Block body is correctly published to AvailabilityOracle', async () => {
     const body = Body.random();
     // `sendPublishTx` function is private so I am hacking around TS here. I think it's ok for test purposes.
@@ -360,7 +379,9 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const [block] = await builder.buildL2Block(globalVariables, txs, currentL1ToL2Messages);
+      const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages, makeEmptyProcessedTx());
+      const result = await ticket.provingPromise;
+      const block = (result as ProvingSuccess).block;
       prevHeader = block.header;
 
       const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
@@ -407,8 +428,15 @@ describe('L1Publisher integration', () => {
 
       const treeHeight = Math.ceil(Math.log2(newL2ToL1MsgsArray.length));
 
-      const tree = new StandardTree(openTmpStore(true), new SHA256Trunc(), 'temp_outhash_sibling_path', treeHeight);
-      await tree.appendLeaves(newL2ToL1MsgsArray.map(l2ToL1Msg => l2ToL1Msg.toBuffer()));
+      const tree = new StandardTree(
+        openTmpStore(true),
+        new SHA256Trunc(),
+        'temp_outhash_sibling_path',
+        treeHeight,
+        0n,
+        Fr,
+      );
+      await tree.appendLeaves(newL2ToL1MsgsArray);
 
       const expectedRoot = tree.getRoot(true);
       const [actualRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
@@ -441,7 +469,9 @@ describe('L1Publisher integration', () => {
         coinbase,
         feeRecipient,
       );
-      const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
+      const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages, makeEmptyProcessedTx());
+      const result = await blockTicket.provingPromise;
+      const block = (result as ProvingSuccess).block;
       prevHeader = block.header;
 
       writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);

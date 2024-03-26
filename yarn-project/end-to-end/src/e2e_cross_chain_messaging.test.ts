@@ -10,8 +10,7 @@ import {
   L2Actor,
   computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
-import { sha256 } from '@aztec/foundation/crypto';
-import { serializeToBuffer, toTruncField } from '@aztec/foundation/serialize';
+import { sha256ToField } from '@aztec/foundation/crypto';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { toFunctionSelector } from 'viem/utils';
@@ -82,14 +81,14 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
 
     // 2. Deposit tokens to the TokenPortal
-    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPrivate(
+    const msgHash = await crossChainTestHarness.sendTokensToPortalPrivate(
       secretHashForRedeemingMintedNotes,
       bridgeAmount,
       secretHashForL2MessageConsumption,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
+    await crossChainTestHarness.makeMessageConsumable(msgHash);
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
     await crossChainTestHarness.consumeMessageOnAztecAndMintPrivately(
@@ -119,7 +118,7 @@ describe('e2e_cross_chain_messaging', () => {
     const l2TxReceipt = await crossChainTestHarness.withdrawPrivateFromAztecToL1(withdrawAmount, nonce);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount - withdrawAmount);
 
-    const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageIndexAndSiblingPath(
+    const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
       l2TxReceipt.blockNumber!,
       l2ToL1Message,
     );
@@ -146,7 +145,7 @@ describe('e2e_cross_chain_messaging', () => {
       crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPrivate(
+    const msgHash = await crossChainTestHarness.sendTokensToPortalPrivate(
       secretHashForRedeemingMintedNotes,
       bridgeAmount,
       secretHashForL2MessageConsumption,
@@ -154,17 +153,14 @@ describe('e2e_cross_chain_messaging', () => {
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the message to be available for consumption
-    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
+    await crossChainTestHarness.makeMessageConsumable(msgHash);
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
-    const content = toTruncField(
-      sha256(
-        Buffer.concat([
-          Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
-          serializeToBuffer(...[secretHashForL2MessageConsumption, new Fr(bridgeAmount)]),
-        ]),
-      ),
-    )[0];
+    const content = sha256ToField([
+      Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
+      secretHashForL2MessageConsumption,
+      new Fr(bridgeAmount),
+    ]);
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
@@ -178,7 +174,7 @@ describe('e2e_cross_chain_messaging', () => {
         .withWallet(user2Wallet)
         .methods.claim_private(secretHashForL2MessageConsumption, bridgeAmount, secretForL2MessageConsumption)
         .simulate(),
-    ).rejects.toThrow(`No L1 to L2 message found for entry key ${wrongMessage.hash().toString()}`);
+    ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
 
     // send the right one -
     const consumptionReceipt = await l2Bridge
@@ -205,6 +201,8 @@ describe('e2e_cross_chain_messaging', () => {
     const nonce = Fr.random();
     const expectedBurnMessageHash = computeAuthWitMessageHash(
       l2Bridge.address,
+      user1Wallet.getChainId(),
+      user1Wallet.getVersion(),
       l2Token.methods.burn(user1Wallet.getAddress(), withdrawAmount, nonce).request(),
     );
     // Should fail as owner has not given approval to bridge burn their funds.
@@ -225,7 +223,7 @@ describe('e2e_cross_chain_messaging', () => {
     const [secretForL2MessageConsumption, secretHashForL2MessageConsumption] =
       crossChainTestHarness.generateClaimSecret();
 
-    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPrivate(
+    const msgHash = await crossChainTestHarness.sendTokensToPortalPrivate(
       Fr.random(),
       bridgeAmount,
       secretHashForL2MessageConsumption,
@@ -233,16 +231,13 @@ describe('e2e_cross_chain_messaging', () => {
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(0n);
 
     // Wait for the message to be available for consumption
-    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
+    await crossChainTestHarness.makeMessageConsumable(msgHash);
 
-    const content = toTruncField(
-      sha256(
-        Buffer.concat([
-          Buffer.from(toFunctionSelector('mint_public(bytes32,uint256)').substring(2), 'hex'),
-          serializeToBuffer(...[ownerAddress, new Fr(bridgeAmount)]),
-        ]),
-      ),
-    )[0];
+    const content = sha256ToField([
+      Buffer.from(toFunctionSelector('mint_public(bytes32,uint256)').substring(2), 'hex'),
+      ownerAddress,
+      new Fr(bridgeAmount),
+    ]);
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
@@ -256,6 +251,6 @@ describe('e2e_cross_chain_messaging', () => {
         .withWallet(user2Wallet)
         .methods.claim_public(ownerAddress, bridgeAmount, secretForL2MessageConsumption)
         .simulate(),
-    ).rejects.toThrow(`Message ${wrongMessage.hash().toString()} not found`);
+    ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 120_000);
 });

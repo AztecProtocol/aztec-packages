@@ -53,15 +53,21 @@ get-wasi-sdk:
     FROM aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
     SAVE ARTIFACT wasi-sdk
 
+wasmtime:
+    RUN curl https://wasmtime.dev/install.sh -sSf | bash
+    SAVE ARTIFACT /root/.wasmtime/bin/wasmtime
+
 source:
     # cpp source
-    COPY --keep-ts --dir src/barretenberg src/CMakeLists.txt src
+    COPY --dir src/barretenberg src/CMakeLists.txt src
     # cmake source
-    COPY --keep-ts --dir cmake CMakeLists.txt CMakePresets.json .
+    COPY --dir cmake CMakeLists.txt CMakePresets.json .
+    # for debugging rebuilds
+    RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
 preset-release-assert-all:
     FROM +source
-    RUN cmake --preset clang16 -DCMAKE_BUILD_TYPE=RelWithAssert && cmake --build --preset clang16
+    DO +RUN_CMAKE --configure="--preset clang16-assert" --build=""
     SAVE ARTIFACT bin
 
 preset-release:
@@ -80,7 +86,7 @@ preset-wasm:
     # wasi-sdk
     COPY +get-wasi-sdk/wasi-sdk src/wasi-sdk
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
-    RUN ./src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
+    RUN ../src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
     SAVE ARTIFACT bin
     SAVE IMAGE --cache-hint
 
@@ -131,37 +137,36 @@ build: # default target
 test:
     BUILD +test-clang-format
     FROM +preset-release-assert-all
-    COPY --dir ./srs_db/+build/. srs_db
-    RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
+    COPY --dir ./srs_db/+build/. ../srs_db
+    RUN GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
 
 # Functions
 RUN_CMAKE:
-    # Runs cmake build and leaves binary artifacts at 'bin'
     FUNCTION
+    # Runs cmake build and leaves binary artifacts at 'bin'. Uses a mounted cache
+    # for incremental rebuilds.
     ARG configure # cmake configure flags
     ARG build # cmake build flags
-    ARG EARTHLY_CI
-    IF $EARTHLY_CI
-        # Don't cache CI builds.
-        RUN cmake $configure -Bbuild && \
-            cmake --build build $build
-        RUN cp -r build/bin .
-    ELSE
-        # Use a mount for incremental builds locally.
-        RUN --mount type=cache,id="$configure-build",target=/build/build \
-            (cmake $configure -Bbuild || (rm -f build/CMakeCache.txt && cmake $configure -Bbuild)) && \
-            cmake --build build $build && \
-            cp -r build/bin .
-    END
+    WORKDIR /build
+    # Use a mount for incremental builds locally.
+    # TODO(AD): To be determined: does this get us in trouble in CI?
+    RUN --mount type=cache,id="$configure-build",target=/build/build \
+        (cmake $configure -Bbuild || (rm -f build/CMakeCache.txt && cmake $configure -Bbuild)) && \
+        cmake --build build $build && \
+        cp -r build build-tmp
+    # move the temporary build folder back
+    # this is because the cached build goes away 
+    RUN rm -rf build && mv build-tmp build
+    WORKDIR /build/build
 
 BENCH_RELEASE:
     FUNCTION
     ARG target
     ARG args
     FROM +preset-release
-    DO +BUILD --configure="--preset clang16" --build="--target $target"
-    COPY --dir ./srs_db/+build/. srs_db
-    RUN cd build && ./bin/$target $args
+    DO +RUN_CMAKE --configure="--preset clang16" --build="--target $target"
+    COPY --dir ./srs_db/+build/. ../srs_db
+    RUN ./bin/$target $args
 
 BENCH_OP_COUNT_TIME:
     FUNCTION
@@ -169,8 +174,8 @@ BENCH_OP_COUNT_TIME:
     ARG args
     FROM +preset-op-count-time
     DO +RUN_CMAKE --configure="--preset op-count-time" --build="--target $target"
-    COPY --dir ./srs_db:+build/. srs_db
-    RUN cd build && ./bin/$target $args
+    COPY --dir ./srs_db:+build/. ../srs_db
+    RUN ./bin/$target $args
 
 BENCH_OP_COUNT:
     FUNCTION
@@ -178,8 +183,8 @@ BENCH_OP_COUNT:
     ARG args
     FROM +preset-op-count
     DO +RUN_CMAKE --configure="--preset op-count" --build="--target $target"
-    COPY --dir ./srs_db/+build/. srs_db
-    RUN cd build && ./bin/$target $args
+    COPY --dir ./srs_db/+build/. ../srs_db
+    RUN ./bin/$target $args
 
 BENCH_WASM:
     FUNCTION
@@ -187,5 +192,7 @@ BENCH_WASM:
     ARG args
     FROM +preset-wasm
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target $target"
-    COPY --dir ./srs_db/+build/. srs_db
-    RUN cd build && ~/.wasmtime/bin/wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args
+    COPY --dir ./srs_db/+build/. ../srs_db
+    # install
+    COPY +wasmtime/wasmtime /usr/bin/wasmtime
+    RUN wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args

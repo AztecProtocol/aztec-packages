@@ -1,7 +1,7 @@
-#include "barretenberg/flavor/ecc_vm.hpp"
-#include "barretenberg/flavor/goblin_translator.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
 #include <benchmark/benchmark.h>
 
 namespace {
@@ -32,7 +32,7 @@ template <typename Flavor, typename Relation> void execute_relation(::benchmark:
     }
 }
 BENCHMARK(execute_relation<UltraFlavor, UltraArithmeticRelation<Fr>>);
-BENCHMARK(execute_relation<UltraFlavor, GenPermSortRelation<Fr>>);
+BENCHMARK(execute_relation<UltraFlavor, DeltaRangeConstraintRelation<Fr>>);
 BENCHMARK(execute_relation<UltraFlavor, EllipticRelation<Fr>>);
 BENCHMARK(execute_relation<UltraFlavor, AuxiliaryRelation<Fr>>);
 BENCHMARK(execute_relation<UltraFlavor, LookupRelation<Fr>>);
@@ -43,7 +43,7 @@ BENCHMARK(execute_relation<GoblinUltraFlavor, EccOpQueueRelation<Fr>>);
 BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorDecompositionRelation<Fr>>);
 BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorOpcodeConstraintRelation<Fr>>);
 BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorAccumulatorTransferRelation<Fr>>);
-BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorGenPermSortRelation<Fr>>);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorDeltaRangeConstraintRelation<Fr>>);
 BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorNonNativeFieldRelation<Fr>>);
 BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorPermutationRelation<Fr>>);
 
