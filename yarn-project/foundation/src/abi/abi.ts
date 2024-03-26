@@ -19,7 +19,7 @@ export interface BasicValue<T extends string, V> {
 export type ABIValue =
   | BasicValue<'field', bigint>
   | BasicValue<'boolean', boolean>
-  | BasicValue<'integer', number>
+  | BasicValue<'integer', bigint>
   | BasicValue<'string', string>
   | BasicValue<'array', ABIValue[]>
   | StructValue;
@@ -269,7 +269,7 @@ export interface ContractArtifact {
    */
   functions: FunctionArtifact[];
   /**
-   * The events of the contract.
+   * The outputs of the contract.
    */
   outputs: {
     structs: Record<string, ABIType[]>;
