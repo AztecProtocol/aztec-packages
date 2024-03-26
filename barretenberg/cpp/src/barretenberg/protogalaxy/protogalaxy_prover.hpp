@@ -3,13 +3,13 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/utils.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 
 namespace bb {
@@ -34,6 +34,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using Instance = typename ProverInstances::Instance;
     using Utils = bb::RelationUtils<Flavor>;
     using RowEvaluations = typename Flavor::AllValues;
+    using ProvingKey = typename Flavor::ProvingKey;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
     using RelationSeparator = typename Flavor::RelationSeparator;

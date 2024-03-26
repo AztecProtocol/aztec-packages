@@ -1,8 +1,8 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract Test {
     use dep::aztec::prelude::{
-        AztecAddress, EthAddress, NoteHeader, NoteGetterOptions, NoteViewerOptions, PrivateContext,
-        PrivateImmutable, PrivateSet
+        AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
+        PrivateContext, PrivateImmutable, PrivateSet
     };
 
     use dep::aztec::protocol_types::{
@@ -62,6 +62,25 @@ contract Test {
     fn get_this_address() -> AztecAddress {
         context.this_address()
     }
+
+    #[aztec(private)]
+    fn request_max_block_number(max_block_number: u32, enqueue_public_call: bool) {
+        // docs:start:request-max-block-number
+        context.request_max_block_number(max_block_number);
+        // docs:end:request-max-block-number
+
+        if enqueue_public_call {
+            let _ = context.call_public_function(
+                context.this_address(),
+                FunctionSelector::from_signature("dummy_public_call()"),
+                []
+            );
+        }
+    }
+
+    #[aztec(public)]
+    #[aztec(internal)]
+    fn dummy_public_call() {}
 
     #[aztec(private)]
     fn call_create_note(value: Field, owner: AztecAddress, storage_slot: Field) {
@@ -170,7 +189,7 @@ contract Test {
         a_struct: DummyNote,
         a_deep_struct: DeepStruct
     ) -> distinct pub PrivateCircuitPublicInputs {
-        let mut args: BoundedVec<Field, 17> = BoundedVec::new();
+        let mut args = BoundedVec::new();
         args.push(a_field);
         args.push(a_bool as Field);
         args.push(a_number as Field);
@@ -185,7 +204,7 @@ contract Test {
             args.push(note.amount);
             args.push(note.secret_hash);
         }
-        let args_hash = hash_args(args.storage);
+        let args_hash = hash_args(args);
         let mut context = PrivateContext::new(inputs, args_hash);
         context.return_values.push(args_hash);
         context.finish()
@@ -359,8 +378,8 @@ contract Test {
     }
 
     // Purely exists for testing
-    unconstrained fn get_random(kindaSeed: Field) -> pub Field {
-        kindaSeed * rand()
+    unconstrained fn get_random(kinda_seed: Field) -> pub Field {
+        kinda_seed * rand()
     }
 
     struct DummyNote {

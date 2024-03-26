@@ -256,7 +256,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 proof_system_tests
+          command: cond_spot_run_test barretenberg-x86_64-linux-clang-assert 32 ./scripts/run_tests 1 stdlib_circuit_builders_tests
           aztec_manifest_key: barretenberg-x86_64-linux-clang-assert
 
   barretenberg-stdlib-plonk-recursion-ultra-tests:
@@ -657,6 +657,18 @@ jobs:
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
+  e2e-max-block-number:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_max_block_number.test.ts
+          aztec_manifest_key: end-to-end
+
   e2e-multiple-accounts-1-enc-key:
     steps:
       - *checkout
@@ -971,7 +983,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_avm_simulator.test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_avm_simulator.test.ts
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
@@ -1021,7 +1033,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: AVM_ENABLED=1 cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=docs_examples_test.ts
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=docs_examples_test.ts
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
@@ -1180,6 +1192,16 @@ jobs:
           command: |
             should_release || exit 0
             yarn-project/deploy_npm.sh latest
+      - run:
+          name: "Release canary to NPM: l1-contracts"
+          command: |
+            should_release || exit 0
+            deploy_npm l1-contracts canary
+      - run:
+          name: "Release latest to NPM: l1-contracts"
+          command: |
+            should_release || exit 0
+            deploy_npm l1-contracts latest
       - run:
           name: "Deploy mainnet fork"
           command: |
