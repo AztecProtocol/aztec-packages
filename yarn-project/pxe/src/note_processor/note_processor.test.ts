@@ -7,7 +7,6 @@ import {
   L2Block,
   L2BlockContext,
   L2BlockL2Logs,
-  Note,
   TaggedNote,
   TxL2Logs,
 } from '@aztec/circuit-types';
