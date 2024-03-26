@@ -75,7 +75,7 @@ jobs:
           # - e2e_build=true to get images from a local build, not a dockerhub registry strategy
           # - locally=false to run docker-in-docker on the ARM runner.  default locally=true is better for setups without docker-in-docker.
           # - wasm-threads-only=true to skip wasm single threaded builds
-          earthly-cloud build arm --no-output +${{ matrix.test }} --e2e_build=true --locally=false --wasm-threads-only=true
+          earthly-cloud build arm --no-output +${{ matrix.test }} --e2e_build=true --locally=false --wasm_threads_only=true
 
   # all the end-to-end integration tests for aztec
   e2e-x86:
