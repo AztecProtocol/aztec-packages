@@ -104,7 +104,7 @@ export async function executeNativeCircuit(
 }
 
 export class NativeACVMSimulator implements SimulationProvider {
-  constructor(private workingDirectory: string, private pathToAcvm: string, private bincodeDirectory?) {}
+  constructor(private workingDirectory: string, private pathToAcvm: string, private bincodeDirectory?: string) {}
   async simulateCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
     // Execute the circuit on those initial witness values
 
@@ -120,7 +120,7 @@ export class NativeACVMSimulator implements SimulationProvider {
       decodedBytecode,
       directory,
       this.pathToAcvm,
-      this.outputAsBincode ? 'output-witness' : undefined,
+      this.bincodeDirectory,
     );
 
     return _witnessMap;

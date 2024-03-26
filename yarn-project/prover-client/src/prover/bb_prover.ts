@@ -83,11 +83,7 @@ export type BBProverConfig = {
  * Prover implementation that uses barretenberg native proving
  */
 export class BBNativeRollupProver implements CircuitProver {
-  constructor(
-    private simulator: NativeACVMSimulator,
-    private bbBinaryPath: string,
-    private bbWorkingDirectory: string,
-  ) {}
+  constructor(private config: BBProverConfig) {}
 
   static async new(config: BBProverConfig) {
     await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
@@ -99,9 +95,7 @@ export class BBNativeRollupProver implements CircuitProver {
 
     await ensureAllKeys(config.bbBinaryPath, config.bbWorkingDirectory);
 
-    const simulator = new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath, true);
-
-    return new BBNativeRollupProver(simulator, config.bbBinaryPath, config.bbWorkingDirectory);
+    return new BBNativeRollupProver(config);
   }
 
   /**
@@ -141,6 +135,8 @@ export class BBNativeRollupProver implements CircuitProver {
    */
   public async getBaseRollupProof(input: BaseRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     const witnessMap = convertBaseRollupInputsToWitnessMap(input);
+
+    const simulator = new NativeACVMSimulator(this.config.acvmWorkingDirectory, this.config.acvmBinaryPath, true);
 
     const witness = await this.simulator.simulateCircuit(witnessMap, BaseRollupArtifact);
 
