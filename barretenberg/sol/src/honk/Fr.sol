@@ -16,19 +16,19 @@ uint256 constant MODULUS = 21888242871839275222246405745257275088548364400416034
 
 // Instantiation
 library FrLib {
-    function from(uint256 value) public pure returns (Fr) {
+    function from(uint256 value) internal pure returns (Fr) {
         return Fr.wrap(value % MODULUS);
     }
 
-    function fromBytes32(bytes32 value) public pure returns (Fr) {
+    function fromBytes32(bytes32 value) internal pure returns (Fr) {
         return Fr.wrap(uint256(value) % MODULUS);
     }
 
-    function toBytes32(Fr value) public pure returns (bytes32) {
+    function toBytes32(Fr value) internal pure returns (bytes32) {
         return bytes32(Fr.unwrap(value));
     }
 
-    function invert(Fr value) public view returns (Fr) {
+    function invert(Fr value) internal view returns (Fr) {
 
         uint256 v = Fr.unwrap(value);
         uint256 result;
@@ -80,7 +80,7 @@ library FrLib {
     }
 
     // TODO: Montgomery's batch inversion trick
-    function div(Fr numerator, Fr denominator) public view returns (Fr) {
+    function div(Fr numerator, Fr denominator) internal view returns (Fr) {
         Fr inversion = invert(denominator);
         console.log("inversion");
         console.logBytes32(bytes32(Fr.unwrap(inversion)));

@@ -176,14 +176,8 @@ contract HonkVerifier is IVerifier {
 
         // Metadata
         p.circuitSize = uint256(bytes32(proof[0x00:0x20]));
-        console.log("circuitSize");
-        console.log(p.circuitSize);
         p.publicInputsSize = uint256(bytes32(proof[0x20:0x40]));
-        console.log("publicInputsSize");
-        console.log(p.publicInputsSize);
         p.publicInputsOffset = uint256(bytes32(proof[0x40:0x60]));
-        console.log("publicInputsOffset");
-        console.log(p.publicInputsOffset);
 
         // TODO: Assset sizes are the same as vk - maybe not required actually
 
@@ -192,15 +186,12 @@ contract HonkVerifier is IVerifier {
             x_0: uint256(bytes32(proof[0x60:0x80])), x_1: uint256(bytes32(proof[0x80:0xa0])),
             y_0: uint256(bytes32(proof[0xa0:0xc0])), y_1: uint256(bytes32(proof[0xc0:0xe0]))});
 
-        logG1("w1", p.w1);
         p.w2 = HonkTypes.G1ProofPoint({
             x_0: uint256(bytes32(proof[0xe0:0x100])), x_1: uint256(bytes32(proof[0x100:0x120])), 
             y_0: uint256(bytes32(proof[0x120:0x140])), y_1: uint256(bytes32(proof[0x140:0x160]))});
-        logG1("w2", p.w2);
         p.w3 = HonkTypes.G1ProofPoint({
             x_0: uint256(bytes32(proof[0x160:0x180])), x_1: uint256(bytes32(proof[0x180:0x1a0])),
             y_0: uint256(bytes32(proof[0x1a0:0x1c0])), y_1: uint256(bytes32(proof[0x1c0:0x1e0]))});
-        logG1("w3", p.w3);
 
         // Lookup / Permutation Helper Commitments
         p.sortedAccum =
@@ -208,25 +199,21 @@ contract HonkVerifier is IVerifier {
                 x_0: uint256(bytes32(proof[0x1e0:0x200])), x_1: uint256(bytes32(proof[0x200:0x220])),
                 y_0: uint256(bytes32(proof[0x220:0x240])), y_1: uint256(bytes32(proof[0x240:0x260]))
             });
-        logG1("sortedAccum", p.sortedAccum);
         p.w4 = HonkTypes.G1ProofPoint({
             x_0: uint256(bytes32(proof[0x260:0x280])), x_1: uint256(bytes32(proof[0x280:0x2a0])),
             y_0: uint256(bytes32(proof[0x2a0:0x2c0])), y_1: uint256(bytes32(proof[0x2c0:0x2e0]))
         });
-        logG1("w4", p.w4);
 
         p.zPerm = HonkTypes.G1ProofPoint({
             x_0: uint256(bytes32(proof[0x2e0:0x300])), x_1: uint256(bytes32(proof[0x300:0x320])),
             y_0: uint256(bytes32(proof[0x320:0x340])), y_1: uint256(bytes32(proof[0x340:0x360]))
         });
-        logG1("zperm", p.zPerm);
 
         p.zLookup =
             HonkTypes.G1ProofPoint({
                 x_0: uint256(bytes32(proof[0x360:0x380])), x_1: uint256(bytes32(proof[0x380:0x3a0])),
                 y_0: uint256(bytes32(proof[0x3a0:0x3c0])), y_1: uint256(bytes32(proof[0x3c0:0x3e0]))
             });
-        logG1("zLookup", p.zLookup);
 
         // TEMP the boundary of what has already been read
         uint256 boundary = 0x3e0;
@@ -257,8 +244,6 @@ contract HonkVerifier is IVerifier {
             uint256 start = boundary + (i * 0x20);
             uint256 end = start + 0x20;
             p.sumcheckEvaluations[i] = FrLib.fromBytes32(bytes32(proof[start:end]));
-
-            logFr("sumcheck evaluations", i, p.sumcheckEvaluations[i]);
         }
 
         boundary = boundary + (NUMBER_OF_ENTITIES * 0x20);
@@ -402,7 +387,6 @@ contract HonkVerifier is IVerifier {
         }
 
         Fr eta = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
-        logFr("eta", eta);
         return eta;
     }
 
@@ -420,9 +404,7 @@ contract HonkVerifier is IVerifier {
         round1[8] = bytes32(proof.w4.y_1);
 
         Fr beta = FrLib.fromBytes32(keccak256(abi.encodePacked(round1)));
-        logFr("beta", beta);
         Fr gamma = FrLib.fromBytes32(keccak256(abi.encodePacked(beta)));
-        logFr("gamma", gamma);
         return (beta, gamma);
     }
 
@@ -449,13 +431,11 @@ contract HonkVerifier is IVerifier {
         alpha0[8] = proof.zLookup.y_1;
 
         alphas[0] = FrLib.fromBytes32(keccak256(abi.encodePacked(alpha0)));
-        logFr("alpha0", alphas[0]);
 
         Fr prevChallenge = alphas[0];
         for (uint256 i = 1; i < NUMBER_OF_ALPHAS; i++) {
             prevChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(prevChallenge))));
             alphas[i] = prevChallenge;
-            logFr("alpha", alphas[i]);
         }
         return alphas;
     }
@@ -465,7 +445,6 @@ contract HonkVerifier is IVerifier {
         for (uint256 i = 0; i < LOG_N; i++) {
             previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
             gateChallanges[i] = previousChallenge;
-            logFr("gate", gateChallanges[i]);
         }
         return gateChallanges;
     }
@@ -487,7 +466,6 @@ contract HonkVerifier is IVerifier {
             // TOOD(md): not too sure about the encode here
             sumcheckChallenges[i] = FrLib.fromBytes32(keccak256(abi.encodePacked(univariateChal)));
             prevChallenge = sumcheckChallenges[i];
-            logFr("sumcheck chal", sumcheckChallenges[i]);
         }
 
         return sumcheckChallenges;
@@ -504,7 +482,6 @@ contract HonkVerifier is IVerifier {
 
         Fr rho = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
 
-        logFr("rho", rho);
         return rho;
     }
 
@@ -520,7 +497,6 @@ contract HonkVerifier is IVerifier {
         }
 
         Fr zmy = FrLib.fromBytes32(keccak256(abi.encodePacked(zmY)));
-        logFr("zmy", zmy);
         return zmy;
     }
 
@@ -534,9 +510,7 @@ contract HonkVerifier is IVerifier {
         buf[4] = proof.zmCq.y_1;
 
         Fr zmX = FrLib.fromBytes32(keccak256(abi.encodePacked(buf)));
-        logFr("zmX", zmX);
         Fr zmZ = FrLib.fromBytes32(keccak256(abi.encodePacked(zmX)));
-        logFr("zmZ", zmZ);
         return (zmX, zmZ);
     }
 
@@ -552,12 +526,6 @@ contract HonkVerifier is IVerifier {
         uint256 domainSize,
         uint256 offset
     ) internal view returns (Fr) {
-        logUint("domainSize", domainSize)        ;
-        logUint("offset", offset)        ;
-
-        logFr("beta", beta)        ;
-        logFr("gamma", gamma)        ;
-
         Fr numerator = Fr.wrap(1);
         Fr denominator = Fr.wrap(1);
 
@@ -578,9 +546,6 @@ contract HonkVerifier is IVerifier {
                 denominatorAcc = denominatorAcc - beta;
             }
         }
-
-        logFr("numerator: ", numerator);
-        logFr("denominator: ", denominator);
 
         // Fr delta = numerator / denominator; // TOOO: batch invert later?
         return FrLib.div(numerator, denominator);
@@ -621,8 +586,6 @@ contract HonkVerifier is IVerifier {
         // Last round 
         Fr grandHonkRelationSum = accumulateRelationEvaluations(proof, tp, powPartialEvaluation);
 
-        logFr("grand sum", grandHonkRelationSum);
-        logFr("roundTarget", roundTarget);
         // TODO: Impl comparison
         verified = (Fr.unwrap(grandHonkRelationSum) == Fr.unwrap(roundTarget));
 
@@ -671,9 +634,6 @@ contract HonkVerifier is IVerifier {
             numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
         }
 
-        // Numerator is correct
-        logFr("numerator value 1", numeratorValue);
-
         // Calculate domain size N of inverses -- TODO: montgomery's trick
         Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
         for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
@@ -681,7 +641,6 @@ contract HonkVerifier is IVerifier {
             inv = inv * (roundChallenge - BARYCENTRIC_DOMAIN[i]);
             inv = FrLib.invert(inv);
             denominatorInverses[i] = inv;
-            logFr("domain inverse", i, inv);
         }
 
         Fr result;
@@ -692,8 +651,6 @@ contract HonkVerifier is IVerifier {
         }
         // Scale the sum by the value of B(x) 
         result = result * numeratorValue;
-        
-        logFr("next target sum", result);
         return result;
     }
 
@@ -762,7 +719,6 @@ contract HonkVerifier is IVerifier {
             accum = accum * q_arith;
             accum = accum * powPartialEval;
             evals[0] = accum;
-            logFr("aritmetic relation 0: ", accum);
         }
 
         // TODO: return into the evals object
@@ -775,7 +731,6 @@ contract HonkVerifier is IVerifier {
             accum = accum * (q_arith - Fr.wrap(1));
             accum = accum * q_arith;
             accum = accum * powPartialEval;
-            logFr("aritmetic relation 1: ", accum);
             evals[1] = accum;
         }
         // TODO: return into the evals object
@@ -792,7 +747,6 @@ contract HonkVerifier is IVerifier {
             num = num * (wire(p,WIRE.W_4) + wire(p,WIRE.ID_4) * tp.beta + tp.gamma);
 
             grand_product_numerator = num;
-            logFr("numerator", grand_product_numerator);
         }
         {
             Fr den = wire(p,WIRE.W_L) + wire(p,WIRE.SIGMA_1) * tp.beta + tp.gamma;
@@ -801,7 +755,6 @@ contract HonkVerifier is IVerifier {
             den  = den * (wire(p,WIRE.W_4) + wire(p,WIRE.SIGMA_4) * tp.beta + tp.gamma);
 
             grand_product_denominator = den;
-            logFr("denominator", grand_product_denominator);
         }
 
         // Contribution 2
@@ -811,14 +764,12 @@ contract HonkVerifier is IVerifier {
             acc = acc - ((wire(p,WIRE.Z_PERM_SHIFT) + (wire(p,WIRE.LAGRANGE_LAST) * tp.publicInputsDelta)) *  grand_product_denominator);
             acc = acc * powPartialEval;
             evals[2] = acc;
-            logFr("perm rel 0: ", acc);
         }
 
         // Contribution 3
         {
             Fr acc = (wire(p,WIRE.LAGRANGE_LAST) * wire(p,WIRE.Z_PERM_SHIFT)) * powPartialEval;
             evals[3] = acc;
-            logFr("perm rel 1: ", acc);
         }
     }
 
@@ -864,7 +815,6 @@ contract HonkVerifier is IVerifier {
                 Fr table_accum = wire(p,WIRE.TABLE_1) + wire(p,WIRE.TABLE_2) * tp.eta;
                 table_accum = table_accum + wire(p,WIRE.TABLE_3) * lp.eta_sqr;
                 table_accum = table_accum + wire(p,WIRE.TABLE_4) * lp.eta_cube;
-                logFr("table_accum", table_accum);
 
                 lp.table_accum = table_accum;
             }
@@ -882,30 +832,24 @@ contract HonkVerifier is IVerifier {
                 acc = acc * (lp.table_accum + lp.table_accum_shift * tp.beta + lp.gamma_by_one_plus_beta);  // 1 or 5
                 acc = acc * lp.one_plus_beta;                                                             // deg 1
                 grand_product_numerator = acc;                                            // deg 4 or 10
-                logFr("grand product numerator", grand_product_numerator);
             }
         }
         {
             Fr acc = (wire(p,WIRE.SORTED_ACCUM) + wire(p,WIRE.SORTED_ACCUM_SHIFT) * tp.beta + lp.gamma_by_one_plus_beta);
             grand_product_denominator = acc;
-            logFr("grand product denominator", grand_product_denominator);
         }
 
         // Contribution 4
         {
-            logFr("l gpd:", tp.lookupGrandProductDelta);
-
             Fr acc = grand_product_numerator * (wire(p,WIRE.Z_LOOKUP) + wire(p,WIRE.LAGRANGE_FIRST)) - grand_product_denominator * (wire(p,WIRE.Z_LOOKUP_SHIFT) + wire(p,WIRE.LAGRANGE_LAST) * tp.lookupGrandProductDelta);
             acc = acc * powPartialEval;
             evals[4] = acc;
-            logFr("lookup cont 0", acc);
         }
 
         // Contribution 5
         {
             Fr acc = wire(p,WIRE.LAGRANGE_LAST) * wire(p,WIRE.Z_LOOKUP_SHIFT) * powPartialEval;
             evals[5] = acc;
-            logFr("lookup cont 1", acc);
         }
     }
 
@@ -922,39 +866,35 @@ contract HonkVerifier is IVerifier {
 
         // Contribution 6
         {
-        Fr acc = delta_1;
-        acc = acc * (delta_1 + minus_one);
-        acc = acc * (delta_1 + minus_two);
-        acc = acc * (delta_1 + minus_three);
-        acc = acc * wire(p,WIRE.Q_SORT);
-        acc = acc * powPartialEval;
-        evals[6] = acc;
-        logFr("gen perm 1: ", acc);
-
+            Fr acc = delta_1;
+            acc = acc * (delta_1 + minus_one);
+            acc = acc * (delta_1 + minus_two);
+            acc = acc * (delta_1 + minus_three);
+            acc = acc * wire(p,WIRE.Q_SORT);
+            acc = acc * powPartialEval;
+            evals[6] = acc;
         }
 
         // Contribution 7
         {
-        Fr acc = delta_2;
-        acc = acc * (delta_2 + minus_one);
-        acc = acc * (delta_2 + minus_two);
-        acc = acc * (delta_2 + minus_three);
-        acc = acc * wire(p,WIRE.Q_SORT);
-        acc = acc * powPartialEval;
-        evals[7] = acc;
-        logFr("gen perm 2: ", acc);
+            Fr acc = delta_2;
+            acc = acc * (delta_2 + minus_one);
+            acc = acc * (delta_2 + minus_two);
+            acc = acc * (delta_2 + minus_three);
+            acc = acc * wire(p,WIRE.Q_SORT);
+            acc = acc * powPartialEval;
+            evals[7] = acc;
         }
 
         // Contribution 8
         {
-        Fr acc = delta_3;
-        acc = acc * (delta_3 + minus_one);
-        acc = acc * (delta_3 + minus_two);
-        acc = acc * (delta_3 + minus_three);
-        acc = acc * wire(p,WIRE.Q_SORT);
-        acc = acc * powPartialEval;
-        evals[8] = acc;
-        logFr("gen perm 3: ", acc);
+            Fr acc = delta_3;
+            acc = acc * (delta_3 + minus_one);
+            acc = acc * (delta_3 + minus_two);
+            acc = acc * (delta_3 + minus_three);
+            acc = acc * wire(p,WIRE.Q_SORT);
+            acc = acc * powPartialEval;
+            evals[8] = acc;
         }
 
         // Contribution 9
@@ -966,7 +906,6 @@ contract HonkVerifier is IVerifier {
         acc = acc * wire(p,WIRE.Q_SORT);
         acc = acc * powPartialEval;
         evals[9] = acc;
-        logFr("gen perm 4: ", acc);
         }
 
     }
@@ -1037,7 +976,6 @@ contract HonkVerifier is IVerifier {
             
             Fr acc = ep.x_double_identity * powPartialEval * wire(p,WIRE.Q_ELLIPTIC) * q_is_double;
             evals[10] = evals[10] + acc;
-            logFr("middle 0", evals[10]);
         }
 
         // Contribution 11 point doubling, y-coordinate check
@@ -1046,7 +984,6 @@ contract HonkVerifier is IVerifier {
             Fr x1_sqr_mul_3 = (ep.x_1 + ep.x_1 + ep.x_1) * ep.x_1;
             Fr y_double_identity = x1_sqr_mul_3 * (ep.x_1 - ep.x_3) - (ep.y_1 + ep.y_1) * (ep.y_1 + ep.y_3);
             evals[11] = evals[11] + y_double_identity * powPartialEval * wire(p,WIRE.Q_ELLIPTIC) * q_is_double;
-            logFr("middle 1", evals[11]);
         }
     }
 
@@ -1129,10 +1066,6 @@ contract HonkVerifier is IVerifier {
         ap.non_native_field_gate_3 = ap.non_native_field_gate_3 + wire(p, WIRE.W_4);
         ap.non_native_field_gate_3 = ap.non_native_field_gate_3 - (wire(p, WIRE.W_O_SHIFT) + wire(p, WIRE.W_4_SHIFT));
         ap.non_native_field_gate_3 = ap.non_native_field_gate_3 * wire(p, WIRE.Q_M);
-
-        logFr("non_native_field_gate_1",ap.non_native_field_gate_1 );
-        logFr("non_native_field_gate_2",ap.non_native_field_gate_2 );
-        logFr("non_native_field_gate_3",ap.non_native_field_gate_3 );
 
         Fr non_native_field_identity = ap.non_native_field_gate_1 + ap.non_native_field_gate_2 + ap.non_native_field_gate_3;
         non_native_field_identity = non_native_field_identity * wire(p, WIRE.Q_R);
@@ -1327,18 +1260,6 @@ contract HonkVerifier is IVerifier {
         ap.auxiliary_identity = ap.memory_identity + non_native_field_identity + limb_accumulator_identity;
         ap.auxiliary_identity = ap.auxiliary_identity * (wire(p, WIRE.Q_AUX) * powPartialEval); // deg 4 or 10
         evals[12] = ap.auxiliary_identity;
-
-        logFr("mem identity ", ap.memory_identity);
-        logFr("non native ident ", non_native_field_identity);
-        logFr("limb accum ident ", limb_accumulator_identity);
-
-
-        logFr("aux 0", evals[12]);
-        logFr("aux 1", evals[13]);
-        logFr("aux 2", evals[14]);
-        logFr("aux 3", evals[15]);
-        logFr("aux 4", evals[16]);
-        logFr("aux 5", evals[17]);
     }
 
 
@@ -1347,26 +1268,10 @@ contract HonkVerifier is IVerifier {
     function scaleAndBatchSubrelations(Fr[NUMBER_OF_SUBRELATIONS] memory evaluations, Fr[NUMBER_OF_ALPHAS] memory subrelationChallenges ) internal view returns (Fr) {
         Fr accumulator = Fr.wrap(0) ;
 
-        for (uint256 i; i< NUMBER_OF_ALPHAS; ++i) {
-            logFr("evaluations" , i, evaluations[i]);
-        }
-
-        // tmp output challenges
-        for (uint256 i; i< NUMBER_OF_ALPHAS; ++i) {
-            logFr("subrel challenge" , i, subrelationChallenges[i]);
-        }
-
         accumulator = accumulator + evaluations[0];
 
-        logFr("first contribution", accumulator );
         for (uint256 i = 1; i< NUMBER_OF_SUBRELATIONS; ++i ) {
-            console.log(" ");
-
-            logFr("eval", evaluations[i]);
-            logFr("chal", subrelationChallenges[i -1]);
-            logFr("contribution", evaluations[i] * subrelationChallenges[i-1]);
             accumulator = accumulator + evaluations[i] * subrelationChallenges[i - 1];
-            logFr("accumulation", accumulator);
         }
         return accumulator;
     }
@@ -1411,17 +1316,13 @@ contract HonkVerifier is IVerifier {
         commitments[0] = proof.zmCq;
         scalars[0] = Fr.wrap(1);
 
-        logFr("x chall", tp.zmX);
-        logFr("y chall", tp.zmY);
 
         // TODO: optimize pow operations here ? batch mul able?
 
         for (uint256 k = 0; k < LOG_N; ++k) {
             Fr degree = Fr.wrap((1 << k) - 1);
             Fr scalar = FrLib.pow(tp.zmY, k);
-            logFr("scalar 0: ", scalar);
             scalar = scalar * FrLib.pow(tp.zmX, (1 << LOG_N) - Fr.unwrap(degree) - 1);
-            logFr("scalar 1: ", scalar);
             scalar = scalar * MINUS_ONE;
             logFr("scalar 2: ", scalar);
 
@@ -1444,29 +1345,61 @@ contract HonkVerifier is IVerifier {
         return batchMul(comms, scalars);
     }
 
-    // TODO: TODO: TODO: optimize within the loop above 
+    function compute_C_Z_x(HonkTypes.Proof memory proof, TranscriptParameters memory tp, Fr batchedEval) internal view returns (HonkTypes.G1Point memory) {
+        Fr[] memory scalars;        
+        HonkTypes.G1ProofPoint[] memory commitments;
+
+        // Phi_n(x) = (x^N - 1) / (x - 1)
+        Fr phi_numerator = FrLib.pow(tp.zmX, (1 << LOG_N)) - Fr.wrap(1);
+        Fr phi_n_x = FrLib.div(phi_numerator, tp.zmX - Fr.wrap(1));
+
+        // Add contribution: -v * x * \Phi_n(x) * [1]_1
+        // Add base 
+        scalars[0] = MINUS_ONE * batchedEval * tp.zmX * phi_n_x;
+        commitments[0] = HonkTypes.G1Point({x: 1, y:2}); // One
+
+        Fr rho_pow = Fr.wrap(1);
+        // f - Add all unshifted commitments
+        // g - Add add to be shifted commitments
+
+        // Accumulate points from the vk
+        
+
+
+
+    }
+
+    // TODO: TODO: TODO: optimize 
     // Scalar Mul and acumulate into total
     function batchMul(HonkTypes.G1Point[LOG_N + 1] memory base, Fr[LOG_N + 1] memory scalars) internal view returns (HonkTypes.G1Point memory result) {
-        
         // TODO: check if i actually need to do the memory copies here
-        // Would be better to manually control this loop
-        console.log(" in batch mul");
         uint256 limit = LOG_N + 1;
         assembly {
-            let count := 0x00
             let success := 0x01
 
             let free := mload(0x40)
-            
+
+            // Write the original into the accumulator
+            // Load into memory for ecMUL, leave offset for eccAdd result
+            // base is an array of pointers, so we have to dereference them
+            mstore(add(free, 0x40), mload(mload(base)))
+            mstore(add(free, 0x60), mload(add(0x20, mload(base))))
+            // Add scalar
+            mstore(add(free, 0x80), mload(scalars))
+            success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, free, 0x40))
+
+            let count := 0x01
+
             // TODO: optimize
             for {} lt(count, limit) { count := add(count, 1) } {
-                let base_base := add(add(base, 0x20), mul(count, 0x40))
-                let scalar_base := add(add(scalars, 0x20), mul(count, 0x20))
-                mstore(add(free, 0x40), base_base)
-                mstore(add(free, 0x60), add(base_base, 0x20))
-                // Add scalar
-                mstore(add(free, 0x80), scalar_base)
+                // Get loop offsets
+                let base_base := add(base, mul(count, 0x20))
+                let scalar_base := add(scalars, mul(count, 0x20))
 
+                mstore(add(free, 0x40), mload(mload(base_base)))
+                mstore(add(free, 0x60), mload(add(0x20, mload(base_base))))
+                // Add scalar
+                mstore(add(free, 0x80), mload(scalar_base))
 
                 success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, add(free, 0x40), 0x40))
                 // accumulator = accumulator + accumulator_2
@@ -1475,9 +1408,8 @@ contract HonkVerifier is IVerifier {
 
             // Return the result - i hate this
             mstore(result, mload(free))
-            mstore(add(result, 0x20), mload(add(result, 0x20)))
+            mstore(add(result, 0x20), mload(add(free, 0x20)))
         }
-        console.log(" end batch mul");
     }
 
     function convertPoints(HonkTypes.G1ProofPoint[LOG_N + 1] memory commitments) internal pure returns (HonkTypes.G1Point[LOG_N + 1] memory converted) {
