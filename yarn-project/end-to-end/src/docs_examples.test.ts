@@ -10,8 +10,8 @@ import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/T
 
 // docs:end:import_token_contract
 
-describe('doc tests', () => {
-  it('wallet doc examples should work', async () => {
+describe('docs_examples', () => {
+  it('deploys and interacts with a token contract', async () => {
     // docs:start:define_account_vars
     const PXE_URL = process.env.PXE_URL || 'http://localhost:8080';
     const encryptionPrivateKey = GrumpkinScalar.random();
@@ -40,11 +40,12 @@ describe('doc tests', () => {
     // docs:end:get_contract
 
     // docs:start:send_transaction
-    const _tx = await contract.methods.transfer(1, wallet).send().wait();
+    const _tx = await contract.methods.mint_public(wallet.getAddress(), 1).send().wait();
     // docs:end:send_transaction
 
     // docs:start:call_view_function
-    const _balance = await contract.methods.get_balance(wallet.getAddress()).view();
-    // docs:end:call_view_functione
-  }, 50_000);
-}, );
+    const balance = await contract.methods.balance_of_public(wallet.getAddress()).view();
+    expect(balance).toEqual(1n);
+    // docs:end:call_view_function
+  }, 120_000);
+});
