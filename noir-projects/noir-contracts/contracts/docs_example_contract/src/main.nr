@@ -16,55 +16,12 @@ contract DocsExample {
     use dep::aztec::prelude::{
         AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
         PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
-        PrivateSet, SharedImmutable, Storable, StorableNote
+        PrivateSet, SharedImmutable, Storable
     };
     use dep::aztec::{note::note_getter_options::Comparator, context::{PublicContext, Context}};
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
-
-    struct StorageFields<N1, N2, N3, N4, N5, N6, N7, N8> {
-        leader: Storable<N1>,
-        legendary_card: Storable<N2>,
-        profiles: Storable<N3>,
-        set: Storable<N4>,
-        private_immutable: Storable<N5>,
-        shared_immutable: Storable<N6>,
-        minters: Storable<N7>,
-        public_immutable: Storable<N8>,
-    }
-
-    struct StorageNotes<N1> {
-        card_note: StorableNote<N1>,
-    }
-
-    struct StorageLayout<N1, N2, N3, N4, N5, N6, N7, N8, M1> {
-        fields: StorageFields<N1, N2, N3, N4, N5, N6, N7, N8>,
-        notes: StorageNotes<M1>,
-    }
-
-    #[abi(event)]
-    struct WithdrawalProcessed {
-        who: AztecAddress,
-        amount: u64,
-    }
-
-    #[abi(storage)]
-    global STORAGE_LAYOUT = StorageLayout {
-        fields: StorageFields {
-            leader: Storable { slot: 1, typ: "PublicMutable<Leader>" },
-            legendary_card: Storable { slot: 3, typ: "PrivateMutable<CardNote>" },
-            profiles: Storable { slot: 4, typ: "Map<AztecAddress, PrivateMutable<CardNote>>" },
-            set: Storable { slot: 5, typ: "PrivateSet<CardNote>" },
-            private_immutable: Storable { slot: 6, typ: "PrivateImmutable<CardNote>" },
-            shared_immutable: Storable { slot: 7, typ: "SharedImmutable<Leader>" },
-            minters: Storable { slot: 8, typ: "Map<AztecAddress, PublicMutable<bool>" },
-            public_immutable: Storable { slot: 9, typ: "PublicImmutable<Leader>" }
-        },
-        notes: StorageNotes {
-            card_note: StorableNote { id: 2, typ: "CardNote" }
-        }
-    };
 
     #[aztec(storage)]
     struct Storage {
