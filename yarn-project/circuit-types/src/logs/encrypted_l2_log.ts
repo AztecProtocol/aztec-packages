@@ -1,3 +1,4 @@
+import { Fr, Point } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 
 /**
@@ -47,8 +48,9 @@ export class EncryptedL2Log {
    * @returns A random log.
    */
   public static random(): EncryptedL2Log {
-    const dataLength = randomBytes(1)[0];
-    const data = randomBytes(dataLength);
+    const randomEphPubKey = Point.random();
+    const randomLogContent = randomBytes(144 - Point.SIZE_IN_BYTES);
+    const data = Buffer.concat([Fr.random().toBuffer(), randomLogContent, randomEphPubKey.toBuffer()]);
     return new EncryptedL2Log(data);
   }
 
