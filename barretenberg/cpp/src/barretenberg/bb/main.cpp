@@ -618,7 +618,6 @@ int main(int argc, char* argv[])
             return proveAndVerify(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_ultra_honk") {
-            // return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
             return proveAndVerifyHonk<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_goblin_ultra_honk") {
