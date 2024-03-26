@@ -447,7 +447,7 @@ describe('Private Execution test suite', () => {
       logger(`Parent deployed at ${parentAddress.toShortString()}`);
       logger(`Calling child function ${childSelector.toString()} at ${childAddress.toShortString()}`);
 
-      const args = [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector.toBuffer())];
+      const args = [childAddress, childSelector];
       const result = await runSimulator({ args, artifact: parentArtifact });
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(privateIncrement));
@@ -782,7 +782,7 @@ describe('Private Execution test suite', () => {
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(childPortalContractAddress));
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve({ ...childContractArtifact, isInternal }));
 
-      const args = [Fr.fromBuffer(childAddress.toBuffer()), childSelector.toField(), 42n];
+      const args = [childAddress, childSelector, 42n];
       const result = await runSimulator({
         msgSender: parentAddress,
         contractAddress: parentAddress,
