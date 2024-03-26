@@ -75,7 +75,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // Fold the prover key polynomials
     for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
         auto accumulator_polys = acc_proving_key_polys.get_all();
-        auto input_polys = instances[inst_idx]->proving_key->get_all();
+        auto input_polys = instances[inst_idx]->proving_key.get_all();
         run_loop_in_parallel(Flavor::NUM_FOLDED_ENTITIES, [&](size_t start_idx, size_t end_idx) {
             for (size_t poly_idx = start_idx; poly_idx < end_idx; poly_idx++) {
                 auto& acc_poly = accumulator_polys[poly_idx];
@@ -87,7 +87,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
         });
     }
     for (auto [next_acc_poly, acc_poly] :
-         zip_view(next_accumulator->proving_key->get_all(), acc_proving_key_polys.get_all())) {
+         zip_view(next_accumulator->proving_key.get_all(), acc_proving_key_polys.get_all())) {
         next_acc_poly = std::move(acc_poly);
     }
 

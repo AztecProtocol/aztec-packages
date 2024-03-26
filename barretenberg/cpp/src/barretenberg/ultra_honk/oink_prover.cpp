@@ -25,9 +25,8 @@ template <IsUltraFlavor Flavor> OinkProverOutput<Flavor> OinkProver<Flavor>::pro
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
 
-    return OinkProverOutput<Flavor>
-    {
-        .proving_key = std::move(proving_key);
+    return OinkProverOutput<Flavor>{
+        .proving_key = std::move(proving_key),
         .relation_parameters = std::move(relation_parameters),
     };
 }

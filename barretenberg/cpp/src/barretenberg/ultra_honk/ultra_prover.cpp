@@ -79,7 +79,8 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::export_proof()
 
 template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof()
 {
-    auto [relation_params] = oink_prover.prove();
+    auto [proving_key, relation_params] = oink_prover.prove();
+    instance->proving_key = std::move(proving_key);
     instance->relation_parameters = std::move(relation_params);
     instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
