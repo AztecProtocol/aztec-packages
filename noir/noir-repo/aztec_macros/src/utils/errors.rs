@@ -57,7 +57,7 @@ impl From<AztecMacroError> for MacroError {
             },
             AztecMacroError::CouldNotExportStorageLayout { secondary_message, span } => MacroError {
                 primary_message: "Could not generate and export storage layout".to_string(),
-                secondary_message: secondary_message,
+                secondary_message,
                 span,
             },
             AztecMacroError::EventError { span, message } => MacroError {
