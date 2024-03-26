@@ -56,6 +56,9 @@ export class Vue {
    */
   public static fromJSON(obj: any) {
     const returnFromJson = (json: string): ProcessReturnValues => {
+      if (json == undefined) {
+        return json;
+      }
       const reviver = (key: string, value: any): any => {
         if (typeof value === 'string') {
           if (value.match(/\d+n$/)) {

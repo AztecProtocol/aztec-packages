@@ -183,7 +183,7 @@ describe('e2e_note_getter', () => {
     }
 
     async function callGetNotes(storageSlot: number, activeOrNullified: boolean): Promise<bigint> {
-      // call_get_notes exposes the return value via an event since we cannot use view() with it.
+      // call_get_notes exposes the return value via an event since we cannot use simulate() with it.
       const tx = contract.methods.call_get_notes(storageSlot, activeOrNullified).send();
       await tx.wait();
 
@@ -194,7 +194,7 @@ describe('e2e_note_getter', () => {
     }
 
     async function callGetNotesMany(storageSlot: number, activeOrNullified: boolean): Promise<Array<bigint>> {
-      // call_get_notes_many exposes the return values via event since we cannot use view() with it.
+      // call_get_notes_many exposes the return values via event since we cannot use simulate() with it.
       const tx = contract.methods.call_get_notes_many(storageSlot, activeOrNullified).send();
       await tx.wait();
 
