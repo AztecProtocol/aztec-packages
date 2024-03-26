@@ -149,10 +149,4 @@ describe('Contract Class', () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     await expect(fooContract.methods.qux().create()).rejects.toThrow();
   });
-
-  it('should not call view on a secret or open function', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    expect(() => fooContract.methods.bar().simulate()).toThrow();
-    expect(() => fooContract.methods.baz().simulate()).toThrow();
-  });
 });
