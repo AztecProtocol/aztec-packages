@@ -45,9 +45,11 @@ TEST_F(GoblinRecursionTests, Vanilla)
     size_t NUM_CIRCUITS = 2;
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
 
-        // Construct and accumulate a mock function circuit
+        // Construct and accumulate a mock function circuit containing both arbitrary arithmetic gates and goblin
+        // ecc op gates to make it a meaningful test
         GoblinUltraCircuitBuilder function_circuit{ goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(function_circuit, /*target_log2_dyadic_size=*/8);
+        MockCircuits::construct_goblin_ecc_op_circuit(function_circuit);
         goblin.merge(function_circuit);
         auto function_accum = construct_accumulator(function_circuit);
 

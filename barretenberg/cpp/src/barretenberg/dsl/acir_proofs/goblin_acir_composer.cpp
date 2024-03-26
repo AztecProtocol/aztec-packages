@@ -15,6 +15,10 @@ void GoblinAcirComposer::create_circuit(acir_format::AcirFormat& constraint_syst
 
     // Populate constraints in the builder via the data in constraint_system
     acir_format::build_constraints(builder_, constraint_system, true);
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): Add some arbitrary op gates to ensure the
+    //  to give ECCVM and Translator some ECC ops to process.
+    MockCircuits::construct_goblin_ecc_op_circuit(builder_);
 }
 
 std::vector<bb::fr> GoblinAcirComposer::accumulate_and_prove()

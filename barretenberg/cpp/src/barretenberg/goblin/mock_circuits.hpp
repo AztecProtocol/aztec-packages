@@ -87,11 +87,8 @@ class GoblinMockCircuits {
     {
         bb::GoblinUltraCircuitBuilder builder{ op_queue };
 
-        // Add some goblinized ecc ops: a mul accum op and an equality op
-        auto point = Point::one() * FF::random_element();
-        auto scalar = FF::random_element();
-        builder.queue_ecc_mul_accum(point, scalar);
-        builder.queue_ecc_eq();
+        // Add some goblinized ecc ops
+        MockCircuits::construct_goblin_ecc_op_circuit(builder);
 
         op_queue->set_size_data();
 

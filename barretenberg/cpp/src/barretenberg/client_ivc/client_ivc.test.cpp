@@ -38,8 +38,8 @@ class ClientIVCTests : public ::testing::Test {
 
     /**
      * @brief Construct mock circuit with arithmetic gates and goblin ops
-     * @details Currently default sized to 2^16 to match kernel. (Note: op gates will bump size to next power of
-     2)
+     * @details Currently default sized to 2^16 to match kernel. (Note: dummy op gates added to avoid non-zero
+     * polynomials will bump size to next power of 2)
      *
      */
     static Builder create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 15)
