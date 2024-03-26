@@ -53,6 +53,32 @@ library FrLib {
         return Fr.wrap(result);
     }
 
+    // TODO: edit other pow, it only works for powers of two
+    function pow(Fr base, uint256 v) internal view returns (Fr) {
+        uint256 b = Fr.unwrap(base);
+        uint256 result;
+        
+        // Call the modexp precompile to invert in the field
+        assembly {
+            let free := mload(0x40)
+            mstore(free, 0x20)
+            mstore(add(free, 0x20), 0x20)
+            mstore(add(free, 0x40), 0x20)
+            mstore(add(free, 0x60), b)
+            mstore(add(free, 0x80), v) // TODO: check --via-ir will compiler inline
+            mstore(add(free, 0xa0), MODULUS)
+            let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20)
+            if iszero(success) {
+                // TODO: meaningful error
+                revert(0, 0)
+            }
+            result := mload(0x00)
+        }        
+
+        return Fr.wrap(result);
+
+    }
+
     // TODO: Montgomery's batch inversion trick
     function div(Fr numerator, Fr denominator) public view returns (Fr) {
         Fr inversion = invert(denominator);
@@ -77,6 +103,7 @@ library FrLib {
 
     // TODO: double check this !
     function exp(Fr base, Fr exponent) pure returns (Fr) {
+        if (Fr.unwrap(exponent) == 0) {return Fr.wrap(1); }
         // Implement exponent with a loop as we will overflow otherwise
         for (uint256 i = 1; i < Fr.unwrap(exponent); i += i) {
             base = base * base;

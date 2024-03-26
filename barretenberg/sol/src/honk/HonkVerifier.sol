@@ -80,6 +80,8 @@ contract HonkVerifier is IVerifier {
     uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order
     uint256 constant P = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
 
+    // Circuit size
+    uint256 constant N = 32;
     /// Log of the circuit size - precomputed
     uint256 constant LOG_N = 5;
 
@@ -139,6 +141,15 @@ contract HonkVerifier is IVerifier {
         string memory y_1 = bytes32ToString(bytes32(point.y_1));
 
         string memory message = string(abi.encodePacked(name, " x: ", x_0, x_1, " y: ",  y_0, y_1));
+        console2.log(message);
+    }
+
+    function logG(string memory name, HonkTypes.G1Point memory point) internal pure {
+        // TODO: convert both to hex before printing to line up with cpp
+        string memory x = bytes32ToString(bytes32(point.x));
+        string memory y = bytes32ToString(bytes32(point.y));
+
+        string memory message = string(abi.encodePacked(name, " x: ", x, " y: ",  y));
         console2.log(message);
     }
 
@@ -321,6 +332,9 @@ contract HonkVerifier is IVerifier {
 
         // Sumcheck
         bool success = verifySumcheck(p, tp);
+
+        // Zeromorph
+        success = verifyZeroMorph(p, tp);
 
     }
 
@@ -587,12 +601,7 @@ contract HonkVerifier is IVerifier {
     // TODO: check this is 0
     uint256 constant ROUND_TARGET = 0;
 
-    function verifySumcheck(HonkTypes.Proof memory proof, TranscriptParameters memory tp) internal view returns (bool){
-        bool verified = false;
-
-        // TODO: This multivariate challenge is used in the final round
-        Fr[LOG_N] memory multivariateChallenge;
-
+    function verifySumcheck(HonkTypes.Proof memory proof, TranscriptParameters memory tp) internal view returns (bool verified){
         Fr roundTarget;
         Fr powPartialEvaluation = Fr.wrap(1);
 
@@ -603,7 +612,6 @@ contract HonkVerifier is IVerifier {
             bool valid = checkSum(roundUnivariate, roundTarget);
 
             Fr roundChallenge = tp.sumCheckUChallenges[round];
-            multivariateChallenge[round] = roundChallenge;
 
             // Update the round target for the next rounf
             roundTarget = computeNextTargetSum(roundUnivariate, roundChallenge);
@@ -619,9 +627,6 @@ contract HonkVerifier is IVerifier {
         verified = (Fr.unwrap(grandHonkRelationSum) == Fr.unwrap(roundTarget));
 
         console.log("verified", verified);
-
-        
-        return verified;
     }
 
     // TODO: i assume that the round univarate will be a sliding window, so i will need to be included in here
@@ -1367,5 +1372,126 @@ contract HonkVerifier is IVerifier {
     }
 
 
-    // function verifyZeroMorph() {}
+    function verifyZeroMorph(HonkTypes.Proof memory proof, TranscriptParameters memory tp) internal view returns (bool) {
+
+        // Need:
+        // - commitments - unshifted -> in proof
+        // - commitments - shifted -> in proof
+        // - puported evaluations - unshifted -> in proof
+        // - puported evaluations - shifted -> in proof
+        // - multivariateChallenge = sumcheck U challenges
+        // - transcript
+
+        // Construct batched evaluation v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u)
+        Fr batchedEval = Fr.wrap(0);
+        Fr batchedScalar = Fr.wrap(1);
+        
+        // We linearly combine all evaluations (unshifted first, then shifted)
+        for (uint256 i = 0; i < NUMBER_OF_ENTITIES; ++i){
+            batchedEval = batchedEval + proof.sumcheckEvaluations[i] * batchedScalar;
+            batchedScalar = batchedScalar * tp.rho;
+        }
+        // TODO: check adding concat evaluations
+
+        // Get k commitments
+        HonkTypes.G1Point memory c_zeta = computeCZeta(proof, tp);
+        logG("c zeta", c_zeta);
+
+        
+    }
+
+    // Compute commitment to lifted degree quotient identity
+    function computeCZeta(HonkTypes.Proof memory proof, TranscriptParameters memory tp) internal view returns (HonkTypes.G1Point memory) {
+        // 
+        Fr[LOG_N + 1] memory scalars;
+        // TODO: first commitment must have zm C_q pushed to the front
+        HonkTypes.G1ProofPoint[LOG_N + 1] memory commitments;
+
+        // Initial contribution
+        commitments[0] = proof.zmCq;
+        scalars[0] = Fr.wrap(1);
+
+        logFr("x chall", tp.zmX);
+        logFr("y chall", tp.zmY);
+
+        // TODO: optimize pow operations here ? batch mul able?
+
+        for (uint256 k = 0; k < LOG_N; ++k) {
+            Fr degree = Fr.wrap((1 << k) - 1);
+            Fr scalar = FrLib.pow(tp.zmY, k);
+            logFr("scalar 0: ", scalar);
+            scalar = scalar * FrLib.pow(tp.zmX, (1 << LOG_N) - Fr.unwrap(degree) - 1);
+            logFr("scalar 1: ", scalar);
+            scalar = scalar * MINUS_ONE;
+            logFr("scalar 2: ", scalar);
+
+            scalars[k + 1] = scalar;
+            commitments[k + 1] = proof.zmCqs[k];
+        }
+
+        for (uint256 k = 0; k < LOG_N + 1; ++k) {
+            logFr("zm scalar", k, scalars[k]);
+        }
+
+
+        // Convert all commitments for batch mul
+        HonkTypes.G1Point[LOG_N + 1] memory comms = convertPoints(commitments);
+
+        for (uint256 k = 0; k < LOG_N + 1; ++k) {
+            logG("zm comms", comms[k]);
+        }
+
+        return batchMul(comms, scalars);
+    }
+
+    // TODO: TODO: TODO: optimize within the loop above 
+    // Scalar Mul and acumulate into total
+    function batchMul(HonkTypes.G1Point[LOG_N + 1] memory base, Fr[LOG_N + 1] memory scalars) internal view returns (HonkTypes.G1Point memory result) {
+        
+        // TODO: check if i actually need to do the memory copies here
+        // Would be better to manually control this loop
+        console.log(" in batch mul");
+        uint256 limit = LOG_N + 1;
+        assembly {
+            let count := 0x00
+            let success := 0x01
+
+            let free := mload(0x40)
+            
+            // TODO: optimize
+            for {} lt(count, limit) { count := add(count, 1) } {
+                let base_base := add(add(base, 0x20), mul(count, 0x40))
+                let scalar_base := add(add(scalars, 0x20), mul(count, 0x20))
+                mstore(add(free, 0x40), base_base)
+                mstore(add(free, 0x60), add(base_base, 0x20))
+                // Add scalar
+                mstore(add(free, 0x80), scalar_base)
+
+
+                success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, add(free, 0x40), 0x40))
+                // accumulator = accumulator + accumulator_2
+                success := and(success, staticcall(gas(), 6, free, 0x80, free, 0x40))
+            }
+
+            // Return the result - i hate this
+            mstore(result, mload(free))
+            mstore(add(result, 0x20), mload(add(result, 0x20)))
+        }
+        console.log(" end batch mul");
+    }
+
+    function convertPoints(HonkTypes.G1ProofPoint[LOG_N + 1] memory commitments) internal pure returns (HonkTypes.G1Point[LOG_N + 1] memory converted) {
+        for (uint256 i; i < LOG_N + 1; ++i) {
+            converted[i] = convertProofPoint(commitments[i]);
+        }
+    }
+
+    function convertProofPoint(HonkTypes.G1ProofPoint memory input) internal pure returns (HonkTypes.G1Point memory) {
+        return HonkTypes.G1Point({
+                x: input.x_0 | (input.x_1 << 136),
+                y: input.y_0 | (input.y_1 << 136)
+            });
+    }
+
+
 }
