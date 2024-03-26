@@ -54,14 +54,18 @@ get-wasi-sdk-threads:
     SAVE ARTIFACT wasi-sdk
 
 get-wasi-sdk:
-    # NOTE: currently does not work in ARM
-    # Align with above
+    # NOTE: currently only works with ARM
+    # TODO Align with above
     ARG TARGETARCH
     FROM +source
-    COPY ./scripts/install-wasi-sdk.sh ./scripts/
-    RUN ./scripts/install-wasi-sdk.sh
-    # TODO better output name to mirror wasi-sdk
-    SAVE ARTIFACT src/wasi-sdk-20.0 wasi-sdk
+    IF [ $TARGETARCH = amd64 ]
+        COPY ./scripts/install-wasi-sdk.sh ./scripts/
+        RUN ./scripts/install-wasi-sdk.sh
+        # TODO better output name to mirror wasi-sdk
+        SAVE ARTIFACT src/wasi-sdk-20.0 wasi-sdk
+    ELSE
+        FROM +get-wasi-sdk-threads
+    END
 
 wasmtime:
     RUN curl https://wasmtime.dev/install.sh -sSf | bash
@@ -212,7 +216,7 @@ BENCH_WASM:
     FUNCTION
     ARG target
     ARG args
-    FROM +preset-wasm
+    FROM +preset-wasm-threads
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target $target"
     COPY --dir ./srs_db/+build/. ../srs_db
     # install
