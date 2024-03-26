@@ -280,16 +280,14 @@ describe('e2e_token_contract', () => {
         });
 
         it('mint_private as non-minter', async () => {
-          await expect(
-            asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).prove(),
-          ).rejects.toThrow('Assertion failed: caller is not minter');
+          await expect(asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).prove()).rejects.toThrow(
+            'Assertion failed: caller is not minter',
+          );
         });
 
         it('mint >u128 tokens to overflow', async () => {
           const amount = 2n ** 128n; // U128::max() + 1;
-          await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(
-            BITSIZE_TOO_BIG_ERROR,
-          );
+          await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(BITSIZE_TOO_BIG_ERROR);
         });
 
         it('mint <u128 but recipient balance >u128', async () => {

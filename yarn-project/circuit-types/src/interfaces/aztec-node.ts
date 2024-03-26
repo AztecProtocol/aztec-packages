@@ -7,7 +7,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { L1ContractAddresses } from '@aztec/ethereum';
-import { DecodedReturn, ProcessReturnValues } from '@aztec/foundation/abi';
+import { ProcessReturnValues } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';

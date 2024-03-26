@@ -278,7 +278,7 @@ export abstract class AbstractPhaseManager {
         if (!enqueuedExecutionResult) {
           enqueuedExecutionResult = result;
 
-          // @todo @lherskind We need to get the proper artifact here
+          // TODO(#5450) Need to use the proper return values here
           const returnTypes: ABIType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
           const mockArtifact = { returnTypes } as any as FunctionArtifact;
 

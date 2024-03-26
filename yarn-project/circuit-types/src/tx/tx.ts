@@ -7,10 +7,10 @@ import {
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
+import { ProcessReturnValues } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { ProcessReturnValues } from '../../../foundation/src/abi/decoder.js';
 import { GetUnencryptedLogsResponse } from '../logs/get_unencrypted_logs_response.js';
 import { L2LogsSource } from '../logs/l2_logs_source.js';
 import { EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';

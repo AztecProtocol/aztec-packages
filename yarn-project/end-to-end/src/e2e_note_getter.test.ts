@@ -174,7 +174,9 @@ describe('e2e_note_getter', () => {
     }
 
     async function assertNoReturnValue(storageSlot: number, activeOrNullified: boolean) {
-      await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow('is_some');
+      await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
+        'is_some',
+      );
       await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).send().wait()).rejects.toThrow(
         `Assertion failed: Cannot return zero notes`,
       );
@@ -244,7 +246,9 @@ describe('e2e_note_getter', () => {
         await contract.methods.call_destroy_note(storageSlot).send().wait();
 
         // We now fetch multiple notes, and get both the active and the nullified one.
-        const viewNotesManyResult = await contract.methods.call_view_notes_many(storageSlot, activeOrNullified).simulate();
+        const viewNotesManyResult = await contract.methods
+          .call_view_notes_many(storageSlot, activeOrNullified)
+          .simulate();
         const getNotesManyResult = await callGetNotesMany(storageSlot, activeOrNullified);
 
         // We can't be sure in which order the notes will be returned, so we simply sort them to test equality. Note

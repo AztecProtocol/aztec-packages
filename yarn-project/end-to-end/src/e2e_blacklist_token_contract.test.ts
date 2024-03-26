@@ -289,9 +289,9 @@ describe('e2e_blacklist_token_contract', () => {
         await wallets[3].addCapsule(
           getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), false)),
         );
-        await expect(
-          asset.withWallet(wallets[3]).methods.update_roles(adminAccount, newRoles).prove(),
-        ).rejects.toThrow("Assertion failed: caller is not admin 'caller_roles.is_admin'");
+        await expect(asset.withWallet(wallets[3]).methods.update_roles(adminAccount, newRoles).prove()).rejects.toThrow(
+          "Assertion failed: caller is not admin 'caller_roles.is_admin'",
+        );
       });
     });
   });
@@ -394,16 +394,14 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('mint_private as non-minter', async () => {
-          await expect(
-            asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).prove(),
-          ).rejects.toThrow('Assertion failed: caller is not minter');
+          await expect(asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).prove()).rejects.toThrow(
+            'Assertion failed: caller is not minter',
+          );
         });
 
         it('mint >u128 tokens to overflow', async () => {
           const amount = 2n ** 128n; // U128::max() + 1;
-          await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(
-            BITSIZE_TOO_BIG_ERROR,
-          );
+          await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(BITSIZE_TOO_BIG_ERROR);
         });
 
         it('mint <u128 but recipient balance >u128', async () => {
@@ -797,9 +795,9 @@ describe('e2e_blacklist_token_contract', () => {
           await wallets[3].addCapsule(
             getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
           );
-          await expect(
-            asset.methods.transfer(accounts[3].address, accounts[0].address, 1n, 0).prove(),
-          ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
+          await expect(asset.methods.transfer(accounts[3].address, accounts[0].address, 1n, 0).prove()).rejects.toThrow(
+            "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
+          );
         });
 
         it('transfer to a blacklisted account', async () => {
@@ -809,9 +807,9 @@ describe('e2e_blacklist_token_contract', () => {
           await wallets[0].addCapsule(
             getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
           );
-          await expect(
-            asset.methods.transfer(accounts[0].address, accounts[3].address, 1n, 0).prove(),
-          ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
+          await expect(asset.methods.transfer(accounts[0].address, accounts[3].address, 1n, 0).prove()).rejects.toThrow(
+            "Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'",
+          );
         });
       });
     });
@@ -1087,9 +1085,9 @@ describe('e2e_blacklist_token_contract', () => {
         await wallets[0].addCapsule(
           getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
         );
-        await expect(
-          asset.methods.unshield(accounts[3].address, accounts[0].address, 1n, 0).prove(),
-        ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
+        await expect(asset.methods.unshield(accounts[3].address, accounts[0].address, 1n, 0).prove()).rejects.toThrow(
+          "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
+        );
       });
 
       it('unshield to blacklisted account', async () => {
@@ -1099,9 +1097,9 @@ describe('e2e_blacklist_token_contract', () => {
         await wallets[0].addCapsule(
           getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
         );
-        await expect(
-          asset.methods.unshield(accounts[0].address, accounts[3].address, 1n, 0).prove(),
-        ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
+        await expect(asset.methods.unshield(accounts[0].address, accounts[3].address, 1n, 0).prove()).rejects.toThrow(
+          "Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'",
+        );
       });
     });
   });

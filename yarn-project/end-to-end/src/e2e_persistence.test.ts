@@ -116,7 +116,9 @@ describe('Aztec persistence', () => {
 
     it('correctly restores private notes', async () => {
       // test for >0 instead of exact value so test isn't dependent on run order
-      await expect(contract.methods.balance_of_private(ownerWallet.getAddress()).simulate()).resolves.toBeGreaterThan(0n);
+      await expect(contract.methods.balance_of_private(ownerWallet.getAddress()).simulate()).resolves.toBeGreaterThan(
+        0n,
+      );
     });
 
     it('correctly restores public storage', async () => {
@@ -296,7 +298,9 @@ describe('Aztec persistence', () => {
     });
 
     it("restores owner's public balance", async () => {
-      await expect(contract.methods.balance_of_public(ownerAddress.address).simulate()).resolves.toEqual(revealedAmount);
+      await expect(contract.methods.balance_of_public(ownerAddress.address).simulate()).resolves.toEqual(
+        revealedAmount,
+      );
     });
 
     it('allows consuming transparent note created on another PXE', async () => {
