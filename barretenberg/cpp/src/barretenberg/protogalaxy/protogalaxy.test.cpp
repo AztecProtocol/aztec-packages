@@ -1,9 +1,9 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/polynomials/pow.hpp"
-#include "barretenberg/protogalaxy/decider_prover.hpp"
 #include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
+#include "barretenberg/ultra_honk/decider_prover.hpp"
 
 #include <gtest/gtest.h>
 

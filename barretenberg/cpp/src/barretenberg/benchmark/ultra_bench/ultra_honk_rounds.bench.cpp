@@ -3,6 +3,7 @@
 #include "barretenberg/benchmark/ultra_bench/mock_circuits.hpp"
 #include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 
 using namespace benchmark;
@@ -52,8 +53,17 @@ BB_PROFILE static void test_round_inner(State& state, GoblinUltraProver& prover,
     // we need to get the relation_parameters and prover_polynomials from the oink_prover
     prover.instance->relation_parameters = prover.oink_prover.relation_parameters;
     prover.instance->prover_polynomials = GoblinUltraFlavor::ProverPolynomials(prover.instance->proving_key);
-    time_if_index(RELATION_CHECK, [&] { prover.execute_relation_check_rounds(); });
-    time_if_index(ZEROMORPH, [&] { prover.execute_zeromorph_rounds(); });
+
+    std::vector<GoblinUltraFlavor::FF> gate_challenges(numeric::get_msb(prover.instance->proving_key->circuit_size));
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = prover.transcript->template get_challenge<GoblinUltraFlavor::FF>(
+            "Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    prover.instance->gate_challenges = gate_challenges;
+
+    DeciderProver_<GoblinUltraFlavor> decider_prover(prover.instance, prover.transcript);
+    time_if_index(RELATION_CHECK, [&] { decider_prover.execute_relation_check_rounds(); });
+    time_if_index(ZEROMORPH, [&] { decider_prover.execute_zeromorph_rounds(); });
 }
 BB_PROFILE static void test_round(State& state, size_t index) noexcept
 {

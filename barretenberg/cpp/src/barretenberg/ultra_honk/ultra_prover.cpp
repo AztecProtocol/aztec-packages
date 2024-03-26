@@ -1,5 +1,6 @@
 #include "ultra_prover.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/ultra_honk/decider_prover.hpp"
 
 namespace bb {
 
@@ -33,46 +34,11 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     , oink_prover(instance->proving_key, commitment_key, transcript, "")
 {}
 
-/**
- * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
- *
- */
-template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_check_rounds()
-{
-    using Sumcheck = SumcheckProver<Flavor>;
-    auto circuit_size = instance->proving_key->circuit_size;
-    auto sumcheck = Sumcheck(circuit_size, transcript);
-
-    std::vector<FF> gate_challenges(numeric::get_msb(circuit_size));
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
-    instance->gate_challenges = gate_challenges;
-    sumcheck_output = sumcheck.prove(instance);
-}
-
-/**
- * @brief Execute the ZeroMorph protocol to prove the multilinear evaluations produced by Sumcheck
- * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
- *
- * */
-template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_zeromorph_rounds()
-{
-    ZeroMorph::prove(instance->prover_polynomials.get_unshifted(),
-                     instance->prover_polynomials.get_to_be_shifted(),
-                     sumcheck_output.claimed_evaluations.get_unshifted(),
-                     sumcheck_output.claimed_evaluations.get_shifted(),
-                     sumcheck_output.challenge,
-                     commitment_key,
-                     transcript);
-}
-
 template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;
     return proof;
 }
-
 template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof()
 {
     auto [relation_params, alphas] = oink_prover.prove();
@@ -80,15 +46,23 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof
     instance->alphas = alphas;
     instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
-    // Fiat-Shamir: alpha
-    // Run sumcheck subprotocol.
-    execute_relation_check_rounds();
+    std::vector<FF> gate_challenges(numeric::get_msb(instance->proving_key->circuit_size));
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    instance->gate_challenges = gate_challenges;
 
-    // Fiat-Shamir: rho, y, x, z
-    // Execute Zeromorph multilinear PCS
-    execute_zeromorph_rounds();
+    DeciderProver_<Flavor> decider_prover(instance, transcript);
 
-    return export_proof();
+    // // Fiat-Shamir: alpha
+    // // Run sumcheck subprotocol.
+    // execute_relation_check_rounds();
+
+    // // Fiat-Shamir: rho, y, x, z
+    // // Execute Zeromorph multilinear PCS
+    // execute_zeromorph_rounds();
+
+    return decider_prover.construct_proof();
 }
 
 template class UltraProver_<UltraFlavor>;
