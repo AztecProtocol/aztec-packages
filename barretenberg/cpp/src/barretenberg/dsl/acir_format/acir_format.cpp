@@ -16,6 +16,9 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     for (const auto& constraint : constraint_system.constraints) {
         builder.create_poly_gate(constraint);
     }
+    for (const auto& constraint : constraint_system.quad_constraints) {
+        builder.create_big_mul_gate(constraint);
+    }
 
     // Add logic constraint
     for (const auto& constraint : constraint_system.logic_constraints) {
