@@ -25,8 +25,15 @@ template <IsUltraFlavor Flavor> OinkProverOutput<Flavor> OinkProver<Flavor>::pro
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
 
+    // Generate relation separators alphas for sumcheck
+    RelationSeparator alphas;
+    for (size_t idx = 0; idx < alphas.size(); idx++) {
+        alphas[idx] = transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
+    }
+
     return OinkProverOutput<Flavor>{
         .relation_parameters = std::move(relation_parameters),
+        .alphas = std::move(alphas),
     };
 }
 

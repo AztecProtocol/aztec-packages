@@ -26,6 +26,7 @@
 namespace bb {
 template <IsUltraFlavor Flavor> struct OinkProverOutput {
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
+    typename Flavor::RelationSeparator alphas;
 };
 
 /**
@@ -49,6 +50,7 @@ template <IsUltraFlavor Flavor> class OinkProver {
     std::string domain_separator;
     typename Flavor::WitnessCommitments witness_commitments;
     typename Flavor::CommitmentLabels commitment_labels;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
 
