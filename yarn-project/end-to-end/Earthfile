@@ -112,10 +112,6 @@ uniswap-trade-on-l1-from-l2:
   ARG e2e_build=false
   DO +E2E_TEST --test=uniswap_trade_on_l1_from_l2 --e2e_build=$e2e_build
 
-integration-archiver-l1-to-l2:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=integration_archiver_l1_to_l2 --e2e_build=$e2e_build
-
 integration-l1-publisher:
   ARG e2e_build=false
   DO +E2E_TEST --test=integration_l1_publisher --e2e_build=$e2e_build
@@ -150,7 +146,7 @@ e2e-dapp-subscription:
 
 pxe:
   ARG e2e_build=false
-  DO +E2E_TEST --test=pxe_sandbox --e2e_build=$e2e_build
+  DO +E2E_TEST --test=pxe --e2e_build=$e2e_build
 
 cli-docs-sandbox:
   ARG e2e_build=false

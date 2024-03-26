@@ -98,7 +98,6 @@ jobs:
           - e2e-pending-note-hashes-contract
           - e2e-ordering
           - uniswap-trade-on-l1-from-l2
-          - integration-archiver-l1-to-l2
           - integration-l1-publisher
           - e2e-cli
           - e2e-persistence
