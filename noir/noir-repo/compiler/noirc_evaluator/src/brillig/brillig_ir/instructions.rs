@@ -403,6 +403,12 @@ impl BrilligContext {
     }
 
     fn constant(&mut self, result: SingleAddrVariable, constant: FieldElement) {
+        assert!(
+            result.bit_size >= constant.num_bits(),
+            "Constant {} does not fit in bit size {}",
+            constant,
+            result.bit_size
+        );
         if result.bit_size > 128 && !constant.fits_in_u128() {
             let high = FieldElement::from_be_bytes_reduce(
                 constant.to_be_bytes().get(0..16).expect("FieldElement::to_be_bytes() too short!"),

@@ -306,11 +306,8 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                 self.set_program_counter(*location)
             }
             Opcode::Const { destination, value, bit_size } => {
-                self.memory.write(
-                    *destination,
-                    MemoryValue::new_checked(*value, *bit_size)
-                        .expect("Constant does not fit in bit size"),
-                );
+                // Consts are not checked in runtime to fit in the bit size, since they can safely be checked statically.
+                self.memory.write(*destination, MemoryValue::new(*value, *bit_size));
                 self.increment_program_counter()
             }
             Opcode::BlackBox(black_box_op) => {
