@@ -195,9 +195,7 @@ export async function executeMergeRollupCircuit(
   logger?: DebugLogger,
 ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
   logger?.debug(`Running merge rollup circuit`);
-  const output = await simulator.mergeRollupCircuit(mergeInputs);
-  const proof = await prover.getMergeRollupProof(mergeInputs, output);
-  return [output, proof];
+  return await prover.getMergeRollupProof(mergeInputs);
 }
 
 export async function executeRootRollupCircuit(
@@ -220,9 +218,7 @@ export async function executeRootRollupCircuit(
   );
 
   // Simulate and get proof for the root circuit
-  const rootOutput = await simulator.rootRollupCircuit(rootInput);
-
-  const rootProof = await prover.getRootRollupProof(rootInput, rootOutput);
+  const [rootOutput, rootProof] = await prover.getRootRollupProof(rootInput);
 
   //TODO(@PhilWindle) Move this to orchestrator to ensure that we are still on the same block
   // Update the archive with the latest block header
@@ -517,9 +513,8 @@ export async function executeBaseRollupCircuit(
   logger?: DebugLogger,
 ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
   logger?.(`Running base rollup for ${tx.hash}`);
-  const rollupOutput = await simulator.baseRollupCircuit(inputs);
+  const [rollupOutput, proof] = await prover.getBaseRollupProof(inputs);
   validatePartialState(rollupOutput.end, treeSnapshots);
-  const proof = await prover.getBaseRollupProof(inputs, rollupOutput);
   return [rollupOutput, proof];
 }
 
@@ -562,8 +557,7 @@ export async function executeBaseParityCircuit(
   logger?: DebugLogger,
 ): Promise<RootParityInput> {
   logger?.debug(`Running base parity circuit`);
-  const parityPublicInputs = await simulator.baseParityCircuit(inputs);
-  const proof = await prover.getBaseParityProof(inputs, parityPublicInputs);
+  const [parityPublicInputs, proof] = await prover.getBaseParityProof(inputs);
   return new RootParityInput(proof, parityPublicInputs);
 }
 
@@ -574,8 +568,7 @@ export async function executeRootParityCircuit(
   logger?: DebugLogger,
 ): Promise<RootParityInput> {
   logger?.debug(`Running root parity circuit`);
-  const parityPublicInputs = await simulator.rootParityCircuit(inputs);
-  const proof = await prover.getRootParityProof(inputs, parityPublicInputs);
+  const [parityPublicInputs, proof] = await prover.getRootParityProof(inputs);
   return new RootParityInput(proof, parityPublicInputs);
 }
 

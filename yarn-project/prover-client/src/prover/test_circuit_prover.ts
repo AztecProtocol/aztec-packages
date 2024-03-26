@@ -51,14 +51,14 @@ export class TestCircuitProver implements CircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
-  public async getBaseParityProof(inputs: BaseParityInputs): Promise<[Proof, ParityPublicInputs]> {
+  public async getBaseParityProof(inputs: BaseParityInputs): Promise<[ParityPublicInputs, Proof]> {
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
 
     const witness = await this.simulationProvider.simulateCircuit(witnessMap, BaseParityArtifact);
 
     const result = convertBaseParityOutputsFromWitnessMap(witness);
 
-    return Promise.resolve([makeEmptyProof(), result]);
+    return Promise.resolve([result, makeEmptyProof()]);
   }
 
   /**
@@ -66,14 +66,14 @@ export class TestCircuitProver implements CircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
-  public async getRootParityProof(inputs: RootParityInputs): Promise<[Proof, ParityPublicInputs]> {
+  public async getRootParityProof(inputs: RootParityInputs): Promise<[ParityPublicInputs, Proof]> {
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
     const witness = await this.simulationProvider.simulateCircuit(witnessMap, RootParityArtifact);
 
     const result = convertRootParityOutputsFromWitnessMap(witness);
 
-    return Promise.resolve([makeEmptyProof(), result]);
+    return Promise.resolve([result, makeEmptyProof()]);
   }
 
   /**
@@ -81,21 +81,21 @@ export class TestCircuitProver implements CircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async getBaseRollupProof(input: BaseRollupInputs): Promise<[Proof, BaseOrMergeRollupPublicInputs]> {
+  public async getBaseRollupProof(input: BaseRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     const witnessMap = convertBaseRollupInputsToWitnessMap(input);
 
     const witness = await this.simulationProvider.simulateCircuit(witnessMap, SimulatedBaseRollupArtifact);
 
     const result = convertBaseRollupOutputsFromWitnessMap(witness);
 
-    return Promise.resolve([makeEmptyProof(), result]);
+    return Promise.resolve([result, makeEmptyProof()]);
   }
   /**
    * Simulates the merge rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async getMergeRollupProof(input: MergeRollupInputs): Promise<[Proof, BaseOrMergeRollupPublicInputs]> {
+  public async getMergeRollupProof(input: MergeRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     const witnessMap = convertMergeRollupInputsToWitnessMap(input);
 
     // use WASM here as it is faster for small circuits
@@ -103,7 +103,7 @@ export class TestCircuitProver implements CircuitProver {
 
     const result = convertMergeRollupOutputsFromWitnessMap(witness);
 
-    return Promise.resolve([makeEmptyProof(), result]);
+    return Promise.resolve([result, makeEmptyProof()]);
   }
 
   /**
@@ -111,7 +111,7 @@ export class TestCircuitProver implements CircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async getRootRollupProof(input: RootRollupInputs): Promise<[Proof, RootRollupPublicInputs]> {
+  public async getRootRollupProof(input: RootRollupInputs): Promise<[RootRollupPublicInputs, Proof]> {
     const witnessMap = convertRootRollupInputsToWitnessMap(input);
 
     // use WASM here as it is faster for small circuits
@@ -126,6 +126,6 @@ export class TestCircuitProver implements CircuitProver {
       inputSize: input.toBuffer().length,
       outputSize: result.toBuffer().length,
     } satisfies CircuitSimulationStats);
-    return Promise.resolve([makeEmptyProof(), result]);
+    return Promise.resolve([result, makeEmptyProof()]);
   }
 }
