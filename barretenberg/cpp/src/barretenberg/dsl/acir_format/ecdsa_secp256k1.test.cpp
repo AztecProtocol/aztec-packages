@@ -113,7 +113,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
     };
@@ -163,7 +163,7 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
     };
@@ -208,7 +208,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
     };

@@ -125,7 +125,7 @@ mul_quad serialize_mul_quad_gate(Program::Expression const& arg)
                    .d_scaling = 0,
                    .const_scaling = 0 };
 
-    // Flags indicating whether each witness index for the present poly_tuple has been set
+    // Flags indicating whether each witness index for the present mul_quad has been set
     bool a_set = false;
     bool b_set = false;
     bool c_set = false;
@@ -148,7 +148,7 @@ mul_quad serialize_mul_quad_gate(Program::Expression const& arg)
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
         // index and the corresponding selector value.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): May need to adjust the pt.a == witness_idx
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): May need to adjust the quad.a == witness_idx
         // check (and the others like it) since we initialize a,b,c with 0 but 0 is a valid witness index once the
         // +1 offset is removed from noir.
         if (!a_set || quad.a == witness_idx) {
@@ -181,10 +181,14 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af)
 {
     if (arg.value.linear_combinations.size() <= 3) {
         poly_triple pt = serialize_arithmetic_gate(arg.value);
+        // Even if the number of linear terms is less than 3, we might not be able to fit it into a width-3 arithmetic
+        // gate. This is the case if the linear terms are all disctinct witness from the multiplication term. In that
+        // case, the serialize_arithmetic_gate() function will return a poly_triple with all 0's, and we use a width-4
+        // gate instead. We could probably always use a width-4 gate in fact.
         if (pt == poly_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
             af.quad_constraints.push_back(serialize_mul_quad_gate(arg.value));
         } else {
-            af.constraints.push_back(pt);
+            af.poly_triple_constraints.push_back(pt);
         }
     } else {
         af.quad_constraints.push_back(serialize_mul_quad_gate(arg.value));

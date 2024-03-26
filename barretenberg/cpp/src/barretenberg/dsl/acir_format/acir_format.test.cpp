@@ -54,7 +54,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = { constraint },
+        .poly_triple_constraints = { constraint },
         .quad_constraints = {},
         .block_constraints = {},
     };
@@ -171,7 +171,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
                                   .bigint_from_le_bytes_constraints = {},
                                   .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
-                                  .constraints = { expr_a, expr_b, expr_c, expr_d },
+                                  .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
                                   .quad_constraints = {},
                                   .block_constraints = {} };
 
@@ -240,7 +240,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
                                   .bigint_from_le_bytes_constraints = {},
                                   .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
-                                  .constraints = { poly_triple{
+                                  .poly_triple_constraints = { poly_triple{
                                       .a = schnorr_constraint.result,
                                       .b = schnorr_constraint.result,
                                       .c = schnorr_constraint.result,
@@ -336,7 +336,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = { poly_triple{
+        .poly_triple_constraints = { poly_triple{
             .a = schnorr_constraint.result,
             .b = schnorr_constraint.result,
             .c = schnorr_constraint.result,
@@ -451,7 +451,7 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = { dummy },
+        .poly_triple_constraints = { dummy },
         .quad_constraints = {},
         .block_constraints = {},
     };
@@ -499,7 +499,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                                   .bigint_from_le_bytes_constraints = {},
                                   .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
-                                  .constraints = {},
+                                  .poly_triple_constraints = {},
                                   .quad_constraints = {},
                                   .block_constraints = {} };
 
