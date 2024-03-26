@@ -22,6 +22,7 @@
     "./json-rpc/client": "./dest/json-rpc/client/index.js",
     "./log": "./dest/log/index.js",
     "./mutex": "./dest/mutex/index.js",
+    "./number": "./dest/number/index.js",
     "./fields": "./dest/fields/index.js",
     "./retry": "./dest/retry/index.js",
     "./running-promise": "./dest/running-promise/index.js",
