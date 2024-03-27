@@ -49,12 +49,11 @@ contract AvmTest {
     /************************************************************************
      * Storage
      ************************************************************************/
-    // FIX: calls unsupported getNullifierMembershipWitness.
-    // #[aztec(public-vm)]
-    // #[aztec(initializer)]
-    // fn constructor() {
-    //     storage.immutable.initialize(42);
-    // }
+    #[aztec(public-vm)]
+    #[aztec(initializer)]
+    fn constructor() {
+        storage.immutable.initialize(42);
+    }
 
     unconstrained fn view_storage_immutable() -> pub Field {
         storage.immutable.read()
