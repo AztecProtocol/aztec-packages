@@ -109,31 +109,21 @@ contract DocsExample {
     }
 
     #[aztec(private)]
-    fn multicall() -> pub AztecAddress {
-        AztecAddress::from_field(
-            context.call_private_function_no_args(
-                context.this_address(),
-                FunctionSelector::from_signature("get_message_sender()")
-            )[0]
-        )
-    }
-
-    #[aztec(private)]
-    fn multicall_public() {
-        context.call_public_function_no_args(
+    fn get_shared_immutable_constrained_private_indirect() -> pub Leader {
+        let ret = context.call_private_function_no_args(
             context.this_address(),
-            FunctionSelector::from_signature("get_message_sender_public()")
+            FunctionSelector::from_signature("get_shared_immutable_constrained_private()")
         );
-    }
-
-    #[aztec(private)]
-    fn get_message_sender() -> pub AztecAddress {
-        context.msg_sender()
+        Leader::deserialize([ret[0], ret[1]])
     }
 
     #[aztec(public)]
-    fn get_message_sender_public() -> pub AztecAddress {
-        context.msg_sender()
+    fn get_shared_immutable_constrained_indirect() -> pub Leader {
+        let ret = context.call_public_function_no_args(
+            context.this_address(),
+            FunctionSelector::from_signature("get_shared_immutable_constrained()")
+        );
+        Leader::deserialize([ret[0], ret[1]])
     }
 
     #[aztec(public)]

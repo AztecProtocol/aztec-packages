@@ -63,44 +63,23 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   }
 
   /**
-   * Execute a view (read-only) transaction on an unconstrained function.
-   * This method is used to call functions that do not modify the contract state and only return data.
-   * Throws an error if called on a non-unconstrained function.
+   * Simulate a transaction and get its return values
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the view transaction as returned by the contract function.
    */
-  public view(options: ViewMethodOptions = {}) {
-    if (this.functionDao.functionType !== FunctionType.UNCONSTRAINED) {
-      throw new Error('Can only call `view` on an unconstrained function.');
+  public async simulate(options: ViewMethodOptions = {}): Promise<any> {
+    if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
+      return this.wallet.viewTx(this.functionDao.name, this.args, this.contractAddress, options.from);
     }
 
-    const { from } = options;
-    return this.wallet.viewTx(this.functionDao.name, this.args, this.contractAddress, from);
-  }
+    // TODO: If not unconstrained, we return a size 4 array of fields.
+    // TODO: It should instead return the correctly decoded value
+    // TODO: The return type here needs to be fixed! @LHerskind
 
-  /**
-   * Execute a view (read-only) transaction on an unconstrained function.
-   * This method is used to call functions that do not modify the contract state and only return data.
-   * Throws an error if called on a non-unconstrained function.
-   * @param options - An optional object containing additional configuration for the transaction.
-   * @returns The result of the view transaction as returned by the contract function.
-   */
-  public async viewConstrained(options: ViewMethodOptions = {}) {
-    // We need to create the request, but we need to change the entry-point slightly I think :thinking:
+    if (this.functionDao.functionType == FunctionType.SECRET) {
+      const nodeInfo = await this.wallet.getNodeInfo();
+      const packedArgs = PackedArguments.fromArgs(encodeArguments(this.functionDao, this.args));
 
-    const packedArgs = PackedArguments.fromArgs(encodeArguments(this.functionDao, this.args));
-
-    // I have forgotten what the hell origin is.
-
-    const nodeInfo = await this.wallet.getNodeInfo();
-
-    // We need to figure something better around for doing the simulation to have a origin and a to that is different
-    // such that we can actually replace the "msg_sender" etc
-
-    // Depending on public or not we need to do some changes.
-    const a = FunctionData.fromAbi(this.functionDao);
-
-    if (a.isPrivate) {
       const txRequest = TxExecutionRequest.from({
         argsHash: packedArgs.hash,
         origin: this.contractAddress,
@@ -109,13 +88,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         packedArguments: [packedArgs],
         authWitnesses: [],
       });
-
-      const vue = await this.pxe.simulateCall(txRequest, options.from ?? this.wallet.getAddress());
-      return vue.rv;
+      const vue = await this.pxe.simulateTx(txRequest, false, options.from ?? this.wallet.getAddress());
+      return vue.privateReturnValues && vue.privateReturnValues[0];
     } else {
-      await this.create();
-      const vue = await this.pxe.simulateCall(this.txRequest!);
-      return vue.rv;
+      const txRequest = await this.create();
+      const vue = await this.pxe.simulateTx(txRequest, true);
+      return vue.publicReturnValues && vue.publicReturnValues[0];
     }
   }
 }

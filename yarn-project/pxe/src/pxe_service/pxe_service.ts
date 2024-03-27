@@ -72,7 +72,7 @@ export class PXEService implements PXE {
   private simulator: AcirSimulator;
   private log: DebugLogger;
   private nodeVersion: string;
-  // serialize synchronizer and calls to simulateTx.
+  // serialize synchronizer and calls to proveTx.
   // ensures that state is not changed while simulating
   private jobQueue = new SerialQueue();
 
@@ -389,92 +389,39 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
-  public async simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean) {
-    if (!txRequest.functionData.isPrivate) {
-      throw new Error(`Public entrypoints are not allowed`);
-    }
-
-    // all simulations must be serialized w.r.t. the synchronizer
-    return await this.jobQueue.put(async () => {
-      const timer = new Timer();
-      const tx = await this.#simulateAndProve(txRequest);
-      this.log(`Processed private part of ${tx.getTxHash()}`, {
-        eventName: 'tx-pxe-processing',
-        duration: timer.ms(),
-        ...tx.getStats(),
-      } satisfies TxPXEProcessingStats);
-      if (simulatePublic) {
-        await this.#simulatePublicCalls(tx);
-      }
-      this.log.info(`Executed local simulation for ${tx.getTxHash()}`);
-
-      return tx;
-    });
+  public async proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean) {
+    return (await this.simulateTx(txRequest, simulatePublic)).tx;
   }
 
-  public async simulateCall(txRequest: TxExecutionRequest, msgSender: AztecAddress | undefined = undefined) {
+  public async simulateTx(
+    txRequest: TxExecutionRequest,
+    simulatePublic: boolean,
+    msgSender: AztecAddress | undefined = undefined,
+  ) {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
     }
     return await this.jobQueue.put(async () => {
-      const simulatePublic = msgSender === undefined;
-      const vue = await this.#simulateCall(txRequest, msgSender);
+      const timer = new Timer();
+      const vue = await this.#simulateAndProve(txRequest, msgSender);
+      if (!msgSender) {
+        this.log(`Processed private part of ${vue.tx.getTxHash()}`, {
+          eventName: 'tx-pxe-processing',
+          duration: timer.ms(),
+          ...vue.tx.getStats(),
+        } satisfies TxPXEProcessingStats);
+      }
+
       if (simulatePublic) {
-        await this.#simulatePublicCalls(vue.tx);
-        // console.log(returns);
-        /*const t = returns[0];
-        vue.rv = t && t[0];*/
+        // Only one transaction, so we can take index 0.
+        vue.publicReturnValues = (await this.#simulatePublicCalls(vue.tx))[0];
+      }
+
+      if (!msgSender) {
+        this.log.info(`Executed local simulation for ${vue.tx.getTxHash()}`);
       }
       return vue;
     });
-  }
-
-  async #simulateCall(txExecutionRequest: TxExecutionRequest, msgSender?: AztecAddress) {
-    // TODO - Pause syncing while simulating.
-    // Get values that allow us to reconstruct the block hash
-
-    // todo: We should likely do something here for the public calls when we are starting with those as well :thinking:
-
-    const sim = async (txRequest: TxExecutionRequest): Promise<ExecutionResult> => {
-      const { contractAddress, functionArtifact, portalContract } = await this.#getSimulationParameters(txRequest);
-      try {
-        const result = await this.simulator.run(
-          txRequest,
-          functionArtifact,
-          contractAddress,
-          portalContract,
-          msgSender,
-        );
-        return result;
-      } catch (err) {
-        if (err instanceof SimulationError) {
-          await this.#enrichSimulationError(err);
-        }
-        throw err;
-      }
-    };
-
-    const executionResult = await sim(txExecutionRequest);
-
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
-    const kernelProver = new KernelProver(kernelOracle);
-    this.log(`Executing kernel prover...`);
-    const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
-    this.log(
-      `Needs setup: ${publicInputs.needsSetup}, needs app logic: ${publicInputs.needsAppLogic}, needs teardown: ${publicInputs.needsTeardown}`,
-    );
-
-    const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
-    const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
-    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
-
-    // HACK(#1639): Manually patches the ordering of the public call stack
-    // TODO(#757): Enforce proper ordering of enqueued public calls
-    await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
-
-    const tx = new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
-
-    return new Vue(tx, executionResult.returnValues);
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
@@ -590,14 +537,14 @@ export class PXEService implements PXE {
     };
   }
 
-  async #simulate(txRequest: TxExecutionRequest): Promise<ExecutionResult> {
+  async #simulate(txRequest: TxExecutionRequest, msgSender?: AztecAddress): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
 
     const { contractAddress, functionArtifact, portalContract } = await this.#getSimulationParameters(txRequest);
 
     this.log('Executing simulator...');
     try {
-      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract);
+      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract, msgSender);
       this.log('Simulation completed!');
       return result;
     } catch (err) {
@@ -641,7 +588,7 @@ export class PXEService implements PXE {
    */
   async #simulatePublicCalls(tx: Tx) {
     try {
-      await this.node.simulatePublicCalls(tx);
+      return await this.node.simulatePublicCalls(tx);
     } catch (err) {
       // Try to fill in the noir call stack since the PXE may have access to the debug metadata
       if (err instanceof SimulationError) {
@@ -665,20 +612,20 @@ export class PXEService implements PXE {
 
   /**
    * Simulate a transaction, generate a kernel proof, and create a private transaction object.
-   * The function takes in a transaction request and an ECDSA signature. It simulates the transaction,
-   * then generates a kernel proof using the simulation result. Finally, it creates a private
+   * The function takes in a transaction request, simulates it, and then generates a kernel proof
+   * using the simulation result. Finally, it creates a private
    * transaction object with the generated proof and public inputs. If a new contract address is provided,
    * the function will also include the new contract's public functions in the transaction object.
    *
    * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param signature - The ECDSA signature for the transaction request.
-   * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
+   * @returns An object tract contains:
+   * A private transaction object containing the proof, public inputs, and encrypted logs.
+   * The return values of the private execution
    */
-  async #simulateAndProve(txExecutionRequest: TxExecutionRequest) {
-    // TODO - Pause syncing while simulating.
-
+  async #simulateAndProve(txExecutionRequest: TxExecutionRequest, msgSender?: AztecAddress) {
     // Get values that allow us to reconstruct the block hash
-    const executionResult = await this.#simulate(txExecutionRequest);
+    const executionResult = await this.#simulate(txExecutionRequest, msgSender);
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle);
@@ -696,7 +643,8 @@ export class PXEService implements PXE {
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
-    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
+    const tx = new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
+    return new Vue(tx, [executionResult.returnValues]);
   }
 
   /**
