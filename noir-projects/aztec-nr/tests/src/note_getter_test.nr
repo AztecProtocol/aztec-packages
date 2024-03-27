@@ -16,7 +16,7 @@ fn sets_note_manually_and_fetches_it() {
     let mut test_note = TestNote::new(1337);
     test_note.header = NoteHeader::new(AztecAddress::from_field(69), 0, 42);
 
-    let mut opt_notes: [Option<TestNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
+    let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     opt_notes[0] = Option::some(test_note);
 
     let storage_slot: Field = 42;
