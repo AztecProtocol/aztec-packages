@@ -184,6 +184,7 @@ impl Ssa {
         last_array_uses: &HashMap<ValueId, InstructionId>,
     ) -> Result<Vec<GeneratedAcir>, RuntimeError> {
         let mut acirs = Vec::new();
+        // TODO: can we parallelise this?
         for function in self.functions.values() {
             let context = Context::new();
             if let Some(generated_acir) =
@@ -664,22 +665,22 @@ impl Context {
         output_values: Vec<AcirValue>,
         dfg: &DataFlowGraph,
     ) -> Result<(), RuntimeError> {
-        for result in result_ids.iter().zip(output_values) {
-            if let AcirValue::Array(_) = &result.1 {
-                let array_id = dfg.resolve(*result.0);
+        for (result_id, output) in result_ids.iter().zip(output_values) {
+            if let AcirValue::Array(_) = &output {
+                let array_id = dfg.resolve(*result_id);
                 let block_id = self.block_id(&array_id);
                 let array_typ = dfg.type_of_value(array_id);
                 let len = if matches!(array_typ, Type::Array(_, _)) {
                     array_typ.flattened_size()
                 } else {
-                    Self::flattened_value_size(&result.1)
+                    Self::flattened_value_size(&output)
                 };
-                self.initialize_array(block_id, len, Some(result.1.clone()))?;
+                self.initialize_array(block_id, len, Some(output.clone()))?;
             }
             // Do nothing for AcirValue::DynamicArray and AcirValue::Var
             // A dynamic array returned from a function call should already be initialized
             // and a single variable does not require any extra initialization.
-            self.ssa_values.insert(*result.0, result.1);
+            self.ssa_values.insert(*result_id, output);
         }
         Ok(())
     }

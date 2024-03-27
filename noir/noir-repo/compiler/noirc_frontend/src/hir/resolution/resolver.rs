@@ -252,7 +252,7 @@ impl<'a> Resolver<'a> {
                 typ: typ.clone(),
                 span: name.span(),
             }),
-            body: BlockExpression(Vec::new()),
+            body: BlockExpression { statements: Vec::new() },
             span: name.span(),
             where_clause: where_clause.to_vec(),
             return_type: return_type.clone(),
@@ -991,10 +991,7 @@ impl<'a> Resolver<'a> {
             .map(|(name, typevar, _span)| (name.clone(), typevar.clone()))
             .collect();
 
-        let should_fold = attributes
-            .function
-            .as_ref()
-            .map_or(false, |func_attribute| func_attribute.is_foldable());
+        let should_fold = attributes.is_foldable();
 
         FuncMeta {
             name: name_ident,
@@ -1958,8 +1955,8 @@ impl<'a> Resolver<'a> {
 
     fn resolve_block(&mut self, block_expr: BlockExpression) -> HirExpression {
         let statements =
-            self.in_new_scope(|this| vecmap(block_expr.0, |stmt| this.intern_stmt(stmt)));
-        HirExpression::Block(HirBlockExpression(statements))
+            self.in_new_scope(|this| vecmap(block_expr.statements, |stmt| this.intern_stmt(stmt)));
+        HirExpression::Block(HirBlockExpression { statements })
     }
 
     pub fn intern_block(&mut self, block: BlockExpression) -> ExprId {
