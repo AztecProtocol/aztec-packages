@@ -1,37 +1,9 @@
-use dep::protocol_types::{hash::pedersen_hash, traits::{FromField, ToField, Deserialize, Serialize}};
+use dep::protocol_types::{hash::pedersen_hash, traits::{FromField, ToField}};
 
 use crate::context::{PrivateContext, PublicContext, Context};
 use crate::history::public_storage::public_storage_historical_read;
-use crate::oracle::storage::{storage_read, storage_write};
-use crate::state_vars::storage::Storage;
-use crate::state_vars::shared_mutable::scheduled_value_change::ScheduledValueChange;
-
-struct PublicStorage {}
-
-impl PublicStorage {
-    fn read<T, N>(storage_slot: Field) -> T where T: Deserialize<N> {
-        T::deserialize(storage_read(storage_slot))
-    }
-
-    fn write<T, N>(storage_slot: Field, value: T) where T: Serialize<N> {
-        storage_write(storage_slot, value.serialize());
-    }
-    // Ideally we'd do the following, but we cannot because of https://github.com/noir-lang/noir/issues/4633
-    // fn read_historical<T, N>(
-    //     storage_slot: Field,
-    //     context: PrivateContext
-    // ) -> T where T: Deserialize<N> {
-    //     let mut fields = [0; N];
-    //     for i in 0..N {
-    //         fields[i] = public_storage_historical_read(
-    //                 context,
-    //                 storage_slot + i as Field,
-    //                 context.this_address()
-    //             );
-    //     }
-    //     T::deserialize(fields)
-    // }
-}
+use crate::public_storage;
+use crate::state_vars::{storage::Storage, shared_mutable::scheduled_value_change::ScheduledValueChange};
 
 struct SharedMutable<T, DELAY> {
     context: Context,
@@ -48,15 +20,15 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
 
     pub fn schedule_value_change(self, new_value: T) {
         let context = self.context.public.unwrap();
-        let mut scheduled_value_change: ScheduledValueChange<T, DELAY> = PublicStorage::read(self.get_derived_storage_slot());
+        let mut scheduled_value_change: ScheduledValueChange<T, DELAY> = public_storage::read(self.get_derived_storage_slot());
 
         scheduled_value_change.schedule_change(new_value, context.block_number() as u32);
 
-        PublicStorage::write(self.get_derived_storage_slot(), scheduled_value_change);
+        public_storage::write(self.get_derived_storage_slot(), scheduled_value_change);
     }
 
     pub fn get_current_value_in_public(self) -> T {
-        let scheduled_value_change: ScheduledValueChange<T, DELAY> = PublicStorage::read(self.get_derived_storage_slot());
+        let scheduled_value_change: ScheduledValueChange<T, DELAY> = public_storage::read(self.get_derived_storage_slot());
 
         let block_number = self.context.public.unwrap().block_number() as u32;
         scheduled_value_change.get_current_at(block_number)
@@ -78,7 +50,7 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
     ) -> (ScheduledValueChange<T, DELAY>, u32) where T: FromField {
         let base_slot = self.get_derived_storage_slot();
 
-        // Ideally the following would be simply PublicStorage::read_historical, but we can't implement that yet.
+        // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
         let mut raw_fields = [0; 3];
         for i in 0..3 {
             raw_fields[i] = public_storage_historical_read(
