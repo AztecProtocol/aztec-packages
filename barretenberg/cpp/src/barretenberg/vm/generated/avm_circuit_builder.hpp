@@ -129,6 +129,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_byte_lookup_table_input_b{};
     FF avm_byte_lookup_table_op_id{};
     FF avm_byte_lookup_table_output{};
+    FF avm_main_alu_in_tag{};
     FF avm_main_alu_sel{};
     FF avm_main_bin_op_id{};
     FF avm_main_bin_sel{};
@@ -173,6 +174,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_mov_b{};
     FF avm_main_sel_op_add{};
     FF avm_main_sel_op_and{};
+    FF avm_main_sel_op_cast{};
     FF avm_main_sel_op_div{};
     FF avm_main_sel_op_eq{};
     FF avm_main_sel_op_lt{};
@@ -309,8 +311,13 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
+<<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 246;
     static constexpr size_t num_polys = 211;
+=======
+    static constexpr size_t num_fixed_columns = 152;
+    static constexpr size_t num_polys = 133;
+>>>>>>> a83ef175e (5466 - introduce in_tag dispatching to the ALU)
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -404,6 +411,7 @@ class AvmCircuitBuilder {
             polys.avm_byte_lookup_table_input_b[i] = rows[i].avm_byte_lookup_table_input_b;
             polys.avm_byte_lookup_table_op_id[i] = rows[i].avm_byte_lookup_table_op_id;
             polys.avm_byte_lookup_table_output[i] = rows[i].avm_byte_lookup_table_output;
+            polys.avm_main_alu_in_tag[i] = rows[i].avm_main_alu_in_tag;
             polys.avm_main_alu_sel[i] = rows[i].avm_main_alu_sel;
             polys.avm_main_bin_op_id[i] = rows[i].avm_main_bin_op_id;
             polys.avm_main_bin_sel[i] = rows[i].avm_main_bin_sel;
@@ -448,6 +456,7 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_mov_b[i] = rows[i].avm_main_sel_mov_b;
             polys.avm_main_sel_op_add[i] = rows[i].avm_main_sel_op_add;
             polys.avm_main_sel_op_and[i] = rows[i].avm_main_sel_op_and;
+            polys.avm_main_sel_op_cast[i] = rows[i].avm_main_sel_op_cast;
             polys.avm_main_sel_op_div[i] = rows[i].avm_main_sel_op_div;
             polys.avm_main_sel_op_eq[i] = rows[i].avm_main_sel_op_eq;
             polys.avm_main_sel_op_lt[i] = rows[i].avm_main_sel_op_lt;

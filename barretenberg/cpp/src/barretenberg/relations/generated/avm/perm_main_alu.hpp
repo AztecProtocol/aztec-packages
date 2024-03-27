@@ -59,9 +59,13 @@ class perm_main_alu_permutation_settings {
                                      in.avm_main_sel_op_mul,
                                      in.avm_main_sel_op_eq,
                                      in.avm_main_sel_op_not,
+<<<<<<< HEAD
                                      in.avm_main_sel_op_lt,
                                      in.avm_main_sel_op_lte,
                                      in.avm_main_r_in_tag,
+=======
+                                     in.avm_main_alu_in_tag,
+>>>>>>> a83ef175e (5466 - introduce in_tag dispatching to the ALU)
                                      in.avm_alu_clk,
                                      in.avm_alu_ia,
                                      in.avm_alu_ib,
@@ -109,9 +113,13 @@ class perm_main_alu_permutation_settings {
                                      in.avm_main_sel_op_mul,
                                      in.avm_main_sel_op_eq,
                                      in.avm_main_sel_op_not,
+<<<<<<< HEAD
                                      in.avm_main_sel_op_lt,
                                      in.avm_main_sel_op_lte,
                                      in.avm_main_r_in_tag,
+=======
+                                     in.avm_main_alu_in_tag,
+>>>>>>> a83ef175e (5466 - introduce in_tag dispatching to the ALU)
                                      in.avm_alu_clk,
                                      in.avm_alu_ia,
                                      in.avm_alu_ib,
