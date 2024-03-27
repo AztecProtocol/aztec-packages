@@ -1,5 +1,7 @@
 import {
   Body,
+  EncryptedL2BlockL2Logs,
+  FromLogType,
   GetUnencryptedLogsResponse,
   InboxLeaf,
   L2Block,
@@ -9,10 +11,16 @@ import {
   TxEffect,
   TxHash,
   TxReceipt,
+  UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import {
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/types/contracts';
 
 import { DataRetrieval } from './data_retrieval.js';
 
@@ -20,10 +28,10 @@ import { DataRetrieval } from './data_retrieval.js';
  * Represents the latest L1 block processed by the archiver for various objects in L2.
  */
 export type ArchiverL1SynchPoint = {
-  /** The last L1 block that added a new L2 block.  */
-  blocks: bigint;
-  /** The last L1 block that added L1 -> L2 messages from the Inbox. */
-  messages: bigint;
+  /** Number of the last L1 block that added a new L2 block.  */
+  blocksSynchedTo: bigint;
+  /** Number of the last L1 block that added L1 -> L2 messages from the Inbox. */
+  messagesSynchedTo: bigint;
 };
 
 /**
@@ -83,8 +91,8 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addLogs(
-    encryptedLogs: L2BlockL2Logs | undefined,
-    unencryptedLogs: L2BlockL2Logs | undefined,
+    encryptedLogs: EncryptedL2BlockL2Logs | undefined,
+    unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,
   ): Promise<boolean>;
 
@@ -103,11 +111,12 @@ export interface ArchiverDataStore {
   getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
 
   /**
-   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
    * @param l1ToL2Message - The L1 to L2 message.
+   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined>;
+  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined>;
 
   /**
    * Gets up to `limit` amount of logs starting from `from`.
@@ -116,7 +125,11 @@ export interface ArchiverDataStore {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]>;
+  getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: TLogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
@@ -134,7 +147,7 @@ export interface ArchiverDataStore {
   /**
    * Gets the synch point of the archiver
    */
-  getSynchedL1BlockNumbers(): Promise<ArchiverL1SynchPoint>;
+  getSynchPoint(): Promise<ArchiverL1SynchPoint>;
 
   /**
    * Add new contract classes from an L2 block to the store's list.
@@ -157,6 +170,15 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
+
+  /**
+   * Adds private functions to a contract class.
+   */
+  addFunctions(
+    contractClassId: Fr,
+    privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
+    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+  ): Promise<boolean>;
 
   /**
    * Returns a contract instance given its address, or undefined if not exists.

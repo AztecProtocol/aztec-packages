@@ -5,10 +5,9 @@ import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
-process.env.AVM_ENABLED = 'absofrigginlutely';
 const TIMEOUT = 100_000;
 
-describe('e2e_nested_contract', () => {
+describe('e2e_avm_simulator', () => {
   jest.setTimeout(TIMEOUT);
 
   let wallet: Wallet;
@@ -26,6 +25,11 @@ describe('e2e_nested_contract', () => {
   }, 50_000);
 
   describe('Storage', () => {
+    // FIX: Enable once the contract function works.
+    // it('Read immutable (initialized) storage (Field)', async () => {
+    //   expect(await avmContact.methods.view_storage_immutable().view()).toEqual(42n);
+    // });
+
     it('Modifies storage (Field)', async () => {
       await avmContact.methods.set_storage_single(20n).send().wait();
       expect(await avmContact.methods.view_storage_single().view()).toEqual(20n);

@@ -18,6 +18,7 @@ TESTS=(
   sumcheck_tests
   eccvm_tests
   translator_vm_tests
+  plonk_honk_shared_tests
   protogalaxy_tests
   ultra_honk_tests
   goblin_tests
@@ -38,7 +39,6 @@ TESTS=(
   plonk_tests
   polynomials_tests
   srs_tests
-  vm_tests
 )
 TESTS_STR="${TESTS[@]}"
 

@@ -1,6 +1,6 @@
 import { Body, TxEffect, TxHash } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header, STRING_ENCODING } from '@aztec/circuits.js';
-import { sha256 } from '@aztec/foundation/crypto';
+import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -85,6 +85,7 @@ export class L2Block {
    * @param numPublicCallsPerTx - The number of public function calls to include in each transaction.
    * @param numEncryptedLogsPerCall - The number of encrypted logs per 1 private function invocation.
    * @param numUnencryptedLogsPerCall - The number of unencrypted logs per 1 public function invocation.
+   * @param inHash - The hash of the L1 to L2 messages subtree which got inserted in this block.
    * @returns The L2 block.
    */
   static random(
@@ -94,7 +95,7 @@ export class L2Block {
     numPublicCallsPerTx = 3,
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
-    numL1ToL2MessagesPerCall = 2,
+    inHash: Buffer | undefined = undefined,
   ): L2Block {
     const body = Body.random(
       txsPerBlock,
@@ -102,15 +103,26 @@ export class L2Block {
       numPublicCallsPerTx,
       numEncryptedLogsPerCall,
       numUnencryptedLogsPerCall,
-      numL1ToL2MessagesPerCall,
     );
 
     const txsEffectsHash = body.getTxsEffectsHash();
 
     return L2Block.fromFields({
       archive: makeAppendOnlyTreeSnapshot(1),
-      header: makeHeader(0, l2BlockNum, txsEffectsHash),
+      header: makeHeader(0, l2BlockNum, txsEffectsHash, inHash),
       body,
+    });
+  }
+
+  /**
+   * Creates an L2 block containing empty data.
+   * @returns The L2 block.
+   */
+  static empty(): L2Block {
+    return L2Block.fromFields({
+      archive: AppendOnlyTreeSnapshot.zero(),
+      header: Header.empty(),
+      body: Body.empty(),
     });
   }
 
@@ -133,7 +145,7 @@ export class L2Block {
    */
   // TODO(#4844)
   getPublicInputsHash(): Fr {
-    const buf = serializeToBuffer(
+    const preimage = [
       this.header.globalVariables,
       AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot / commitments,
       AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
@@ -146,10 +158,9 @@ export class L2Block {
       this.header.state.l1ToL2MessageTree,
       this.archive,
       this.body.getTxsEffectsHash(),
-      this.getL1ToL2MessagesHash(),
-    );
+    ];
 
-    return Fr.fromBufferReduce(sha256(buf));
+    return sha256ToField(preimage);
   }
 
   /**
@@ -184,17 +195,6 @@ export class L2Block {
       this.archive,
     );
     return sha256(inputValue);
-  }
-
-  /**
-   * Compute the hash of all of this blocks l1 to l2 messages,
-   * The hash is also calculated within the contract when the block is submitted.
-   * @returns The hash of all of the l1 to l2 messages.
-   */
-  getL1ToL2MessagesHash(): Buffer {
-    // Create a long buffer of all of the l1 to l2 messages
-    const l1ToL2Messages = Buffer.concat(this.body.l1ToL2Messages.map(message => message.toBuffer()));
-    return sha256(l1ToL2Messages);
   }
 
   /**

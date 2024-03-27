@@ -1,6 +1,8 @@
 import {
   Body,
+  EncryptedL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
+  FromLogType,
   GetUnencryptedLogsResponse,
   InboxLeaf,
   L2Block,
@@ -13,11 +15,16 @@ import {
   TxHash,
   TxReceipt,
   TxStatus,
-  UnencryptedL2Log,
+  UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import {
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/types/contracts';
 
 import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
 import { DataRetrieval } from '../data_retrieval.js';
@@ -46,13 +53,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * An array containing all the encrypted logs that have been fetched so far.
    * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
-  private encryptedLogsPerBlock: L2BlockL2Logs[] = [];
+  private encryptedLogsPerBlock: EncryptedL2BlockL2Logs[] = [];
 
   /**
    * An array containing all the unencrypted logs that have been fetched so far.
    * Note: Index in the "outer" array equals to (corresponding L2 block's number - INITIAL_L2_BLOCK_NUM).
    */
-  private unencryptedLogsPerBlock: L2BlockL2Logs[] = [];
+  private unencryptedLogsPerBlock: UnencryptedL2BlockL2Logs[] = [];
 
   /**
    * Contains all L1 to L2 messages.
@@ -60,6 +67,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l1ToL2Messages = new L1ToL2MessageStore();
 
   private contractClasses: Map<string, ContractClassPublic> = new Map();
+
+  private privateFunctions: Map<string, ExecutablePrivateFunctionWithMembershipProof[]> = new Map();
+
+  private unconstrainedFunctions: Map<string, UnconstrainedFunctionWithMembershipProof[]> = new Map();
 
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
@@ -72,7 +83,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   ) {}
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    return Promise.resolve(this.contractClasses.get(id.toString()));
+    const contractClass = this.contractClasses.get(id.toString());
+    return Promise.resolve(
+      contractClass && {
+        ...contractClass,
+        privateFunctions: this.privateFunctions.get(id.toString()) ?? [],
+        unconstrainedFunctions: this.unconstrainedFunctions.get(id.toString()) ?? [],
+      },
+    );
   }
 
   public getContractClassIds(): Promise<Fr[]> {
@@ -81,6 +99,28 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return Promise.resolve(this.contractInstances.get(address.toString()));
+  }
+
+  public addFunctions(
+    contractClassId: Fr,
+    newPrivateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
+    newUnconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+  ): Promise<boolean> {
+    const privateFunctions = this.privateFunctions.get(contractClassId.toString()) ?? [];
+    const unconstrainedFunctions = this.unconstrainedFunctions.get(contractClassId.toString()) ?? [];
+    const updatedPrivateFunctions = [
+      ...privateFunctions,
+      ...newPrivateFunctions.filter(newFn => !privateFunctions.find(f => f.selector.equals(newFn.selector))),
+    ];
+    const updatedUnconstrainedFunctions = [
+      ...unconstrainedFunctions,
+      ...newUnconstrainedFunctions.filter(
+        newFn => !unconstrainedFunctions.find(f => f.selector.equals(newFn.selector)),
+      ),
+    ];
+    this.privateFunctions.set(contractClassId.toString(), updatedPrivateFunctions);
+    this.unconstrainedFunctions.set(contractClassId.toString(), updatedUnconstrainedFunctions);
+    return Promise.resolve(true);
   }
 
   public addContractClasses(data: ContractClassPublic[], _blockNumber: number): Promise<boolean> {
@@ -145,7 +185,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param blockNumber - The block for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(encryptedLogs: L2BlockL2Logs, unencryptedLogs: L2BlockL2Logs, blockNumber: number): Promise<boolean> {
+  addLogs(
+    encryptedLogs: EncryptedL2BlockL2Logs,
+    unencryptedLogs: UnencryptedL2BlockL2Logs,
+    blockNumber: number,
+  ): Promise<boolean> {
     if (encryptedLogs) {
       this.encryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = encryptedLogs;
     }
@@ -175,12 +219,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
    * @param l1ToL2Message - The L1 to L2 message.
+   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
-    return Promise.resolve(this.l1ToL2Messages.getMessageIndex(l1ToL2Message));
+  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined> {
+    return Promise.resolve(this.l1ToL2Messages.getMessageIndex(l1ToL2Message, startIndex));
   }
 
   /**
@@ -249,11 +294,17 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+  getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: TLogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     if (from < INITIAL_L2_BLOCK_NUM || limit < 1) {
       throw new Error(`Invalid limit: ${limit}`);
     }
-    const logs = logType === LogType.ENCRYPTED ? this.encryptedLogsPerBlock : this.unencryptedLogsPerBlock;
+    const logs = (
+      logType === LogType.ENCRYPTED ? this.encryptedLogsPerBlock : this.unencryptedLogsPerBlock
+    ) as L2BlockL2Logs<FromLogType<TLogType>>[];
     if (from > logs.length) {
       return Promise.resolve([]);
     }
@@ -316,7 +367,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       const blockContext = this.l2BlockContexts[fromBlockIndex];
       const blockLogs = this.unencryptedLogsPerBlock[fromBlockIndex];
       for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
-        const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs().map(log => UnencryptedL2Log.fromBuffer(log));
+        const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs();
         for (; logIndexInTx < txLogs.length; logIndexInTx++) {
           const log = txLogs[logIndexInTx];
           if (
@@ -357,10 +408,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.l2BlockContexts[this.l2BlockContexts.length - 1].block.number);
   }
 
-  public getSynchedL1BlockNumbers(): Promise<ArchiverL1SynchPoint> {
+  public getSynchPoint(): Promise<ArchiverL1SynchPoint> {
     return Promise.resolve({
-      blocks: this.lastL1BlockNewBlocks,
-      messages: this.lastL1BlockNewMessages,
+      blocksSynchedTo: this.lastL1BlockNewBlocks,
+      messagesSynchedTo: this.lastL1BlockNewMessages,
     });
   }
 }
