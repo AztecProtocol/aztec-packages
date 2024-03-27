@@ -126,6 +126,7 @@ pub fn create_program(
         debug_infos.push(debug_info);
         warning_infos.extend(warnings);
         if is_main {
+            // main_input_witness = circuit.re
             main_input_witnesses = input_witnesses;
             main_return_witnesses = return_witnesses;
         }

@@ -991,10 +991,7 @@ impl<'a> Resolver<'a> {
             .map(|(name, typevar, _span)| (name.clone(), typevar.clone()))
             .collect();
 
-        let should_fold = attributes
-            .function
-            .as_ref()
-            .map_or(false, |func_attribute| func_attribute.is_foldable());
+        let should_fold = attributes.is_foldable();
 
         FuncMeta {
             name: name_ident,

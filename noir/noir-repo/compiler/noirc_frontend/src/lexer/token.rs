@@ -427,6 +427,10 @@ impl Attributes {
         }
         None
     }
+
+    pub fn is_foldable(&self) -> bool {
+        self.function.as_ref().map_or(false, |func_attribute| func_attribute.is_foldable())
+    }
 }
 
 /// An Attribute can be either a Primary Attribute or a Secondary Attribute
