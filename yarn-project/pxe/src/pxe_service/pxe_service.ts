@@ -420,8 +420,8 @@ export class PXEService implements PXE {
       const simulatePublic = msgSender === undefined;
       const vue = await this.#simulateCall(txRequest, msgSender);
       if (simulatePublic) {
-        const returns = await this.#simulatePublicCalls(vue.tx);
-        console.log(returns);
+        await this.#simulatePublicCalls(vue.tx);
+        // console.log(returns);
         /*const t = returns[0];
         vue.rv = t && t[0];*/
       }
