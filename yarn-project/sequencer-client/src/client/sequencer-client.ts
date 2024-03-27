@@ -67,7 +67,7 @@ export class SequencerClient {
    * Updates sequencer config.
    * @param config - New parameters.
    */
-  public updateSequencerConfig(config: SequencerConfig) {
+  public updateSequencerConfig(config: Partial<SequencerConfig>) {
     this.sequencer.updateConfig(config);
   }
 

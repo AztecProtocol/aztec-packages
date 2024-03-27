@@ -9,7 +9,7 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { MNEMONIC, createAztecNode, createAztecPXE, deployContractsToL1 } from '../../sandbox.js';
 import { mergeEnvVarsAndCliOptions, parseModuleOptions } from '../util.js';
 
-const { DEPLOY_AZTEC_CONTRACTS } = process.env;
+const { DEPLOY_AZTEC_CONTRACTS = '' } = process.env;
 
 export const startNode = async (
   options: any,
@@ -23,7 +23,26 @@ export const startNode = async (
   // get config from options
   const nodeCliOptions = parseModuleOptions(options.node);
   // merge env vars and cli options
-  let nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(aztecNodeConfigEnvVars, nodeCliOptions);
+  let nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(aztecNodeConfigEnvVars, {
+    ...nodeCliOptions,
+    ...parseModuleOptions(options.archiver),
+    ...parseModuleOptions(options.sequencer),
+    ...parseModuleOptions(options.prover),
+  });
+
+  let hdAccount;
+  if (nodeConfig.publisherPrivateKey === NULL_KEY) {
+    hdAccount = mnemonicToAccount(MNEMONIC);
+    const privKey = hdAccount.getHdKey().privateKey;
+    nodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+  } else {
+    hdAccount = privateKeyToAccount(nodeConfig.publisherPrivateKey);
+  }
+
+  // Deploy contracts if needed
+  if (nodeCliOptions.deployAztecContracts || ['1', 'true'].includes(DEPLOY_AZTEC_CONTRACTS)) {
+    await deployContractsToL1(nodeConfig, hdAccount);
+  }
 
   // if no publisher private key, then use MNEMONIC
   if (!options.archiver) {
@@ -36,27 +55,11 @@ export const startNode = async (
     nodeConfig.archiverUrl = archiverUrl;
   } else {
     const archiverCliOptions = parseModuleOptions(options.archiver);
-    nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(aztecNodeConfigEnvVars, archiverCliOptions, true);
-  }
-
-  // Deploy contracts if needed
-  if (nodeCliOptions.deployAztecContracts || DEPLOY_AZTEC_CONTRACTS === 'true') {
-    let account;
-    if (nodeConfig.publisherPrivateKey === NULL_KEY) {
-      account = mnemonicToAccount(MNEMONIC);
-    } else {
-      account = privateKeyToAccount(nodeConfig.publisherPrivateKey);
-    }
-    await deployContractsToL1(nodeConfig, account);
+    nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(nodeConfig, archiverCliOptions, true);
   }
 
   if (!options.sequencer) {
     nodeConfig.disableSequencer = true;
-  } else if (nodeConfig.publisherPrivateKey === NULL_KEY) {
-    // If we have a sequencer, ensure there's a publisher private key set.
-    const hdAccount = mnemonicToAccount(MNEMONIC);
-    const privKey = hdAccount.getHdKey().privateKey;
-    nodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
 
   if (!options.prover) {

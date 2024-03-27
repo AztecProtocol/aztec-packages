@@ -48,7 +48,7 @@ export class Sequencer {
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private publicProcessorFactory: PublicProcessorFactory,
     private txValidatorFactory: TxValidatorFactory,
-    config: SequencerConfig = {},
+    config: SequencerConfig,
     private log = createDebugLogger('aztec:sequencer'),
   ) {
     this.updateConfig(config);
@@ -59,7 +59,7 @@ export class Sequencer {
    * Updates sequencer config.
    * @param config - New parameters.
    */
-  public updateConfig(config: SequencerConfig) {
+  public updateConfig(config: Partial<SequencerConfig>) {
     if (config.transactionPollingIntervalMS) {
       this.pollingIntervalMs = config.transactionPollingIntervalMS;
     }

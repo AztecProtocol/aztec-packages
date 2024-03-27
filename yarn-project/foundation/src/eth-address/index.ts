@@ -75,6 +75,27 @@ export class EthAddress {
   }
 
   /**
+   * Checks if the given value is an EthAddress instance even if the prototype chain is incorrect
+   * @param value - A value to check if it is an EthAddress instance.
+   * @returns Whether the value is an EthAddress instance.
+   */
+  public static isEthAddress(value: any): value is EthAddress {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    if (value instanceof EthAddress) {
+      return true;
+    }
+
+    if ('buffer' in value && Buffer.isBuffer(value.buffer) && value.buffer.length === EthAddress.SIZE_IN_BYTES) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Checks if the EthAddress instance represents a zero address.
    * A zero address consists of 20 bytes filled with zeros and is considered an invalid address.
    *
