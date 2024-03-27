@@ -337,24 +337,8 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     return { r0, r1, r2, r3 };
 #else
 
-    uint64_t left[9] = { data[0] & 0x1fffffff,
-                         (data[0] >> 29) & 0x1fffffff,
-                         ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
-                         (data[1] >> 23) & 0x1fffffff,
-                         ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
-                         (data[2] >> 17) & 0x1fffffff,
-                         ((data[2] >> 46) & 0x3ffff) | ((data[3] & 0x7ff) << 18),
-                         (data[3] >> 11) & 0x1fffffff,
-                         (data[3] >> 40) & 0x1fffffff };
-    uint64_t right[9] = { other.data[0] & 0x1fffffff,
-                          (other.data[0] >> 29) & 0x1fffffff,
-                          ((other.data[0] >> 58) & 0x3f) | ((other.data[1] & 0x7fffff) << 6),
-                          (other.data[1] >> 23) & 0x1fffffff,
-                          ((other.data[1] >> 52) & 0xfff) | ((other.data[2] & 0x1ffff) << 12),
-                          (other.data[2] >> 17) & 0x1fffffff,
-                          ((other.data[2] >> 46) & 0x3ffff) | ((other.data[3] & 0x7ff) << 18),
-                          (other.data[3] >> 11) & 0x1fffffff,
-                          (other.data[3] >> 40) & 0x1fffffff };
+    auto left = wasm_convert(data);
+    auto right = wasm_convert(other.data);
     constexpr uint64_t mask = 0x1fffffff;
     uint64_t temp_0 = 0;
     uint64_t temp_1 = 0;
