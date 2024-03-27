@@ -11,8 +11,6 @@ services:
       fi'
     expose:
       - '8545'
-    ports:
-      - '8545:8545'
 
   sandbox:
     image: aztecprotocol/aztec:latest
@@ -30,8 +28,6 @@ services:
       ENABLE_GAS: ${ENABLE_GAS:-}
     expose:
       - '8080'
-    ports:
-      - '8080:8080'
 
   end-to-end:
     image: aztecprotocol/end-to-end:latest
