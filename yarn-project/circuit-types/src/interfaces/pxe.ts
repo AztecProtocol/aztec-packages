@@ -1,5 +1,5 @@
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
-import { ContractArtifact, ProcessReturnValues } from '@aztec/foundation/abi';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { NodeInfo } from '@aztec/types/interfaces';
 
@@ -8,18 +8,10 @@ import { L2Block } from '../l2_block.js';
 import { GetUnencryptedLogsResponse, LogFilter } from '../logs/index.js';
 import { ExtendedNote } from '../notes/index.js';
 import { NoteFilter } from '../notes/note_filter.js';
-import { Tx, TxHash, TxReceipt } from '../tx/index.js';
+import { Tx, TxHash, TxReceipt, Vue } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
 import { SyncStatus } from './sync-status.js';
-
-export class Vue {
-  constructor(
-    public tx: Tx,
-    public privateReturnValues?: ProcessReturnValues,
-    public publicReturnValues?: ProcessReturnValues,
-  ) {}
-}
 
 // docs:start:pxe-interface
 /**
@@ -147,12 +139,12 @@ export interface PXE {
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
-  simulateCall(txRequest: TxExecutionRequest, msgSender?: AztecAddress): Promise<Vue>;
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<Vue>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.
-   * @param tx - The transaction as created via `simulateTx`.
+   * @param tx - The transaction as created via `proveTx`.
    * @returns A hash of the transaction, used to identify it.
    */
   sendTx(tx: Tx): Promise<TxHash>;

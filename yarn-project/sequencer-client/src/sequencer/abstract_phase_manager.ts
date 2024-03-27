@@ -278,11 +278,15 @@ export abstract class AbstractPhaseManager {
         if (!enqueuedExecutionResult) {
           enqueuedExecutionResult = result;
 
-          // @todo @lherskind We need to get the proper artifact here
+          // Padding as the AVM is not always returning the expected return size (4)
+          // which is expected by the kernel.
+          const paddedReturn = padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH);
+
+          // TODO(#5450) Need to use the proper return values here
           const returnTypes: ABIType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
           const mockArtifact = { returnTypes } as any as FunctionArtifact;
 
-          currentReturn = decodeReturnValues(mockArtifact, result.returnValues);
+          currentReturn = decodeReturnValues(mockArtifact, paddedReturn);
         }
       }
       // HACK(#1622): Manually patches the ordering of public state actions
