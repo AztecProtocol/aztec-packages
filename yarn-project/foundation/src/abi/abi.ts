@@ -24,9 +24,11 @@ export type ABIValue =
   | FieldValue
   | StructValue;
 
+export type TypedStructFieldValue<T> = { name: string; value: T };
+
 export interface StructValue {
   kind: 'struct';
-  fields: (ABIValue & { name: string })[];
+  fields: TypedStructFieldValue<ABIValue>[];
 }
 
 export interface FieldValue extends BasicValue<'field', string> {

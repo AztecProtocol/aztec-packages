@@ -5,7 +5,7 @@ describe('ArtifactHash', () => {
   it('calculates the artifact hash', () => {
     const artifact = getBenchmarkContractArtifact();
     expect(computeArtifactHash(artifact).toString()).toMatchInlineSnapshot(
-      `"0x19296a8280861c15b09b73699d7df675ca2ed8390d4607964e42ca955b508268"`,
+      `"0x2f91a19f99a562e99f0f2d5504cf640ab73aa4971f8e5116c6fe3ccbb7914e62"`,
     );
   });
 });

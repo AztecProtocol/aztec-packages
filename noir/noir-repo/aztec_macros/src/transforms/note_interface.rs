@@ -1,7 +1,7 @@
 use noirc_errors::Span;
 use noirc_frontend::{
-    parse_program, parser::SortedModule, ItemVisibility, NoirFunction, NoirStruct, PathKind,
-    TraitImplItem, TypeImpl, UnresolvedTypeData, UnresolvedTypeExpression,
+    parse_program, parser::SortedModule, ItemVisibility, LetStatement, NoirFunction, NoirStruct,
+    PathKind, TraitImplItem, TypeImpl, UnresolvedTypeData, UnresolvedTypeExpression,
 };
 use regex::Regex;
 
@@ -24,7 +24,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
         .iter_mut()
         .filter(|typ| typ.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(note)")));
 
-    let mut note_properties_structs = vec![];
+    let mut structs_to_inject = vec![];
 
     for note_struct in annotated_note_structs {
         // Look for the NoteInterface trait implementation for the note
@@ -80,6 +80,13 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                 )),
             }),
         }?;
+        let note_type_id = note_type_id(&note_type);
+
+        let (note_exports_struct, note_exports_global) =
+            generate_note_exports_struct_and_global(&note_type, &note_type_id)?;
+
+        structs_to_inject.push(note_exports_struct);
+        module.globals.push(note_exports_global);
 
         // Automatically inject the header field if it's not present
         let (header_field_name, _) = if let Some(existing_header) =
@@ -138,7 +145,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
                 &header_field_name.0.contents,
                 note_interface_impl_span,
             )?;
-            note_properties_structs.push(note_properties_struct);
+            structs_to_inject.push(note_properties_struct);
             let note_properties_fn = generate_note_properties_fn(
                 &note_type,
                 &note_fields,
@@ -167,7 +174,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
 
         if !check_trait_method_implemented(trait_impl, "get_note_type_id") {
             let get_note_type_id_fn =
-                generate_note_get_type_id(&note_type, note_interface_impl_span)?;
+                generate_note_get_type_id(&note_type_id, note_interface_impl_span)?;
             trait_impl.items.push(TraitImplItem::Function(get_note_type_id_fn));
         }
 
@@ -178,7 +185,7 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
         }
     }
 
-    module.types.extend(note_properties_structs);
+    module.types.extend(structs_to_inject);
     Ok(())
 }
 
@@ -245,19 +252,16 @@ fn generate_note_set_header(
 // Automatically generate the note type id getter method. The id itself its calculated as the concatenation
 // of the conversion of the characters in the note's struct name to unsigned integers.
 fn generate_note_get_type_id(
-    note_type: &str,
+    note_type_id: &str,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
-    // TODO(#4519) Improve automatic note id generation and assignment
-    let note_id =
-        note_type.chars().map(|c| (c as u32).to_string()).collect::<Vec<String>>().join("");
     let function_source = format!(
         "
         fn get_note_type_id() -> Field {{
             {}
         }}
     ",
-        note_id
+        note_type_id
     )
     .to_string();
 
@@ -443,6 +447,40 @@ fn generate_compute_note_content_hash(
     Ok(noir_fn)
 }
 
+fn generate_note_exports_struct_and_global(
+    note_type: &str,
+    note_type_id: &str,
+) -> Result<(NoirStruct, LetStatement), AztecMacroError> {
+    let struct_source = format!(
+        "
+        struct {}Exports<N> {{
+            id: Field,
+            typ: str<N>
+        }}
+        
+        #[abi(notes)]
+        global {}_EXPORTS = {}Exports {{
+            id: {},
+            typ: \"{}\",
+        }};
+        ",
+        note_type, note_type, note_type, note_type_id, note_type
+    )
+    .to_string();
+
+    let (struct_ast, errors) = parse_program(&struct_source);
+    if !errors.is_empty() {
+        dbg!(errors);
+        return Err(AztecMacroError::CouldNotImplementNoteInterface {
+            secondary_message: Some(format!("Failed to parse Noir macro code (struct {}Exports). This is either a bug in the compiler or the Noir macro code", note_type)),
+            span: None
+        });
+    }
+
+    let mut struct_ast = struct_ast.into_sorted();
+    Ok((struct_ast.types.pop().unwrap(), struct_ast.globals.pop().unwrap()))
+}
+
 // Source code generator functions. These utility methods produce Noir code as strings, that are then parsed and added to the AST.
 
 fn generate_note_properties_struct_source(
@@ -580,4 +618,10 @@ fn generate_note_deserialize_content_source(
         note_serialize_len, note_type, note_fields
     )
     .to_string()
+}
+
+// Utility function to generate the note type id as a Field
+fn note_type_id(note_type: &str) -> String {
+    // TODO(#4519) Improve automatic note id generation and assignment
+    note_type.chars().map(|c| (c as u32).to_string()).collect::<Vec<String>>().join("")
 }
