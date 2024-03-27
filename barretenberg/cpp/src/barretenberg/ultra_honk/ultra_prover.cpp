@@ -16,7 +16,7 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const 
     : instance(std::move(inst))
     , transcript(transcript)
     , commitment_key(instance->proving_key->commitment_key)
-    , oink_prover(inst->proving_key, commitment_key, transcript, "")
+    , oink_prover(instance->proving_key, commitment_key, transcript, "")
 {}
 
 /**
@@ -34,12 +34,12 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     , oink_prover(instance->proving_key, commitment_key, transcript, "")
 {}
 
-template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::export_proof()
+template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;
     return proof;
 }
-template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof()
+template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
 {
     auto [relation_params, alphas] = oink_prover.prove();
     instance->relation_parameters = std::move(relation_params);

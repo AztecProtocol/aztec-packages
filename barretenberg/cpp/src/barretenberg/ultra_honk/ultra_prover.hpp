@@ -46,8 +46,8 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
     explicit UltraProver_(Builder&);
 
-    HonkProof& export_proof();
-    HonkProof& construct_proof();
+    HonkProof export_proof();
+    HonkProof construct_proof();
 
   private:
     HonkProof proof;

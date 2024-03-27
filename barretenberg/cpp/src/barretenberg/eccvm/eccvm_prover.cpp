@@ -194,13 +194,13 @@ template <IsECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_transcript_co
     translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge");
 }
 
-template <IsECCVMFlavor Flavor> HonkProof& ECCVMProver_<Flavor>::export_proof()
+template <IsECCVMFlavor Flavor> HonkProof ECCVMProver_<Flavor>::export_proof()
 {
     proof = transcript->export_proof();
     return proof;
 }
 
-template <IsECCVMFlavor Flavor> HonkProof& ECCVMProver_<Flavor>::construct_proof()
+template <IsECCVMFlavor Flavor> HonkProof ECCVMProver_<Flavor>::construct_proof()
 {
     BB_OP_COUNT_TIME_NAME("ECCVMProver::construct_proof");
 
