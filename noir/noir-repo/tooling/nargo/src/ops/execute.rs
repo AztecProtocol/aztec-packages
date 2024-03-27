@@ -97,9 +97,9 @@ impl<'a> ProgramExecutor<'a> {
                         }
                     }
                 }
-                ACVMStatus::RequiresAcirCall(acir_call) => {
-                    let acir_to_call = &self.functions[acir_call.id as usize];
-                    let initial_witness = acir_call.initial_witness;
+                ACVMStatus::RequiresAcirCall(call_info) => {
+                    let acir_to_call = &self.functions[call_info.id as usize];
+                    let initial_witness = call_info.initial_witness;
                     let call_solved_witness = self.execute_circuit(
                         acir_to_call,
                         initial_witness,
@@ -120,7 +120,7 @@ impl<'a> ProgramExecutor<'a> {
                         }
                     }
                     acvm.resolve_pending_acir_call(call_resolved_outputs);
-                    self.witness_stack.push(acir_call.id, call_solved_witness);
+                    self.witness_stack.push(call_info.id, call_solved_witness);
                 }
             }
         }
