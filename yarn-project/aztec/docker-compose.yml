@@ -1,7 +1,7 @@
 version: '3'
 services:
   ethereum:
-    image: aztecprotocol/foundry-nightly-9148dbc2fe0c72e249669b11d04caae593fa6113:latest
+    image: ghcr.io/foundry-rs/foundry:nightly-9148dbc2fe0c72e249669b11d04caae593fa6113
     entrypoint: >
       sh -c '
       if [ -n "$FORK_BLOCK_NUMBER" ] && [ -n "$FORK_URL" ]; then
