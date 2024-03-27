@@ -12,6 +12,15 @@ struct SharedMutable<T, DELAY> {
 
 impl<T, DELAY> Storage<T> for SharedMutable<T, DELAY> {}
 
+// SharedMutable<T> stores a value of type T that is:
+//  - publicly known (i.e. unencrypted)
+//  - mutable in public
+//  - readable in private with no contention (i.e. multiple parties can all read the same value without blocking one
+//    another nor needing to coordinate)
+// This is famously a hard problem to solve. SharedMutable makes it work by introducing a delay to public mutation:
+// the value is not changed immediately but rather a value change is scheduled to happen in the future after some delay
+// measured in blocks. Reads in private are only valid as long as they are included in a block not too far into the 
+// future, so that they can guarantee the value will not have possibly changed by then (because of the delay).
 impl<T, DELAY> SharedMutable<T, DELAY> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
@@ -72,6 +81,9 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
     }
 
     fn get_derived_storage_slot(self) -> Field {
+        // Since we're actually storing three values (a ScheduledValueChange struct), we hash the storage slot to get a
+        // unique location in which we can safely store as much data as we need. This could be removed if state 
+        // variables could expose their size so that proper padding would be added during allocation.
         pedersen_hash([self.storage_slot, 0], 0)
     }
 }

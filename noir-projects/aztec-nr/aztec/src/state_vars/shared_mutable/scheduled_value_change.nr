@@ -1,9 +1,22 @@
 use dep::protocol_types::traits::{Serialize, Deserialize, FromField, ToField};
 
+// This data structure is used by SharedMutable to represent a value that changes from `pre` to `post` at some block 
+// called the `block_of_change`. The value can only be made to change by scheduling a change event at some future block
+// of change after some delay measured in blocks has elapsed. This means that at any given block number we know both the 
+// current value and the smallest block number at which the value might change - this is called the 'block horizon'.
+//
+// The delay being a type parameter instead of a struct field is an implementation detail, and is due to a number of
+// reasons:
+//  - we want to serialize and deserialize this object in order to store it in public storage, but we don't want to
+//    include the delay there because it is immutable
+//  - because of how aztec-nr state variables are declared, having a type with some immutable property is better 
+//    expressed via types, since they are always constructed with the same `::new(context, storage_slot)` function.
 struct ScheduledValueChange<T, DELAY> {
     pre: T,
     post: T,
     block_of_change: u32,
+    // The _dummy variable forces DELAY to be interpreted as a numberic value. This is a workaround to
+    // https://github.com/noir-lang/noir/issues/4633. Remove once resolved.
     _dummy: [Field; DELAY],
 }
 
@@ -47,7 +60,12 @@ impl<T, DELAY> Serialize<3> for ScheduledValueChange<T, DELAY> {
 
 impl<T, DELAY> Deserialize<3> for ScheduledValueChange<T, DELAY> {
   fn deserialize(input: [Field; 3]) -> Self  where T: FromField {
-    Self { pre: T::from_field(input[0]), post: T::from_field(input[1]), block_of_change: FromField::from_field(input[2]), _dummy: [0; DELAY] }
+    Self { 
+        pre: FromField::from_field(input[0]), 
+        post: FromField::from_field(input[1]), 
+        block_of_change: FromField::from_field(input[2]), 
+        _dummy: [0; DELAY] 
+    }
   }
 }
 
