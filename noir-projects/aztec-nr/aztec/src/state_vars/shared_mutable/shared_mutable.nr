@@ -192,5 +192,6 @@ mod test {
         // trivial for a single historical value (we add a leaf and compute the root with any random path), but is quite
         // hard if we're reading more than one value for the same root (as SharedMutable does): we essentially need to
         // create an actual indexed tree and compute the correct path for each of the inserted values.
+        // TODO: implement an actual tree and use it here https://github.com/AztecProtocol/aztec-packages/issues/5494
     }
 }
