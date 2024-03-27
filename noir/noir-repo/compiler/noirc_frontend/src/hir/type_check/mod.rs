@@ -597,8 +597,8 @@ mod test {
     fn fold_entry_point() {
         let src = r#"
             #[fold]
-            fn fold(x: [Field]) -> Field {
-                x[0]
+            fn fold(x: &mut Field) -> Field {
+                *x
             }
         "#;
 
