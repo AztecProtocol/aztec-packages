@@ -98,8 +98,8 @@ fn merkle_crh(
 }
 ```
 
-> `tree_id` reflects the various [trees in the protocol](../../state/index.md). The `PrivateFunction` tree is discussed in the [contract classes](../../contract-deployment/classes.md) section.
-> `layer` is the [layer](../merkle-trees.md#layers) of the `left` and `right` children being hashed. For example, when hashing two leaves, `layer = 0`.
+> `tree_id` reflects the various [trees in the protocol](../state/index.md). The `PrivateFunction` tree is discussed in the [contract classes](../contract-deployment/classes.md) section.
+> `layer` is the [layer](#layers) of the `left` and `right` children being hashed. For example, when hashing two leaves, `layer = 0`.
 
 :::danger
 
