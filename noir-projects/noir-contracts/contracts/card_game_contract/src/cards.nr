@@ -165,6 +165,15 @@ impl Deck {
 
 global PACK_CARDS = 3; // Limited by number of write requests (max 4)
 
+pub fn to_le_32_bytes(a: Field) -> [u8; 32] {
+    let bytes = a.to_le_bytes(32);
+    let mut result = [0; 32];
+    for i in 0..32 {
+        result[i] = bytes[i];
+    }
+    result
+}
+
 pub fn get_pack_cards(
     seed: Field,
     owner: AztecAddress,
@@ -173,7 +182,7 @@ pub fn get_pack_cards(
     // generate pseudo randomness deterministically from 'seed' and user secret
     let secret = context.request_nullifier_secret_key(owner);
     let mix = secret.high + secret.low + seed;
-    let random_bytes = std::hash::sha256(mix.to_le_32_bytes());
+    let random_bytes = std::hash::sha256(to_le_32_bytes(mix));
 
     let mut cards = [Card::from_field(0); PACK_CARDS];
     // we generate PACK_CARDS cards

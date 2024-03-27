@@ -78,10 +78,23 @@ contract EcdsaAccount {
 
         // Verify payload signature using Ethereum's signing scheme
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
-        let hashed_message: [u8; 32] = std::hash::sha256(outer_hash.to_be_32_bytes());
+        let hashed_message: [u8; 32] = std::hash::sha256(to_be_32_bytes(outer_hash));
         let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
         assert(verification == true);
 
         true
     }
+
+    #[contract_library_method]
+    fn to_be_32_bytes(a: Field) -> [u8; 32] {
+        let bytes = a.to_be_bytes(32);
+        let mut result = [0; 32];
+        for i in 0..32 {
+            result[i] = bytes[i];
+        }
+        result
+    }
 }
+
+  
+    

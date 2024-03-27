@@ -47,24 +47,6 @@ impl Field {
         self.__to_be_radix(radix, result_len)
     }
 
-    pub fn to_le_32_bytes(self: Self) -> [u8; 32] {
-        let bytes = self.to_le_bytes(32);
-        let mut result = [0; 32];
-        for i in 0..32 {
-            result[i] = bytes[i];
-        }
-        result
-    }
-
-    pub fn to_be_32_bytes(self: Self) -> [u8; 32] {
-        let bytes = self.to_be_bytes(32);
-        let mut result = [0; 32];
-        for i in 0..32 {
-            result[i] = bytes[i];
-        }
-        result
-    }
-
     // decompose `_self` into a `_result_len` vector over the `_radix` basis
     // `_radix` must be less than 256
     #[builtin(to_le_radix)]
