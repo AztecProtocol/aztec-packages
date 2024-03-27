@@ -1067,93 +1067,165 @@ template <class T> constexpr struct field<T>::wide_array field<T>::mul_512(const
 
     return { r0, r1, r2, r3, r4, r5, r6, carry_2 };
 #else
-    const uint64_t left[8]{
-        data[0] & 0xffffffffULL, data[0] >> 32, data[1] & 0xffffffffULL, data[1] >> 32,
-        data[2] & 0xffffffffULL, data[2] >> 32, data[3] & 0xffffffffULL, data[3] >> 32,
-    };
+    uint64_t left[9] = { data[0] & 0x1fffffff,
+                         (data[0] >> 29) & 0x1fffffff,
+                         ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
+                         (data[1] >> 23) & 0x1fffffff,
+                         ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
+                         (data[2] >> 17) & 0x1fffffff,
+                         ((data[2] >> 46) & 0x3ffff) | ((data[3] & 0x7ff) << 18),
+                         (data[3] >> 11) & 0x1fffffff,
+                         (data[3] >> 40) & 0x1fffffff };
+    uint64_t right[9] = { other.data[0] & 0x1fffffff,
+                          (other.data[0] >> 29) & 0x1fffffff,
+                          ((other.data[0] >> 58) & 0x3f) | ((other.data[1] & 0x7fffff) << 6),
+                          (other.data[1] >> 23) & 0x1fffffff,
+                          ((other.data[1] >> 52) & 0xfff) | ((other.data[2] & 0x1ffff) << 12),
+                          (other.data[2] >> 17) & 0x1fffffff,
+                          ((other.data[2] >> 46) & 0x3ffff) | ((other.data[3] & 0x7ff) << 18),
+                          (other.data[3] >> 11) & 0x1fffffff,
+                          (other.data[3] >> 40) & 0x1fffffff };
+    constexpr uint64_t mask = 0x1fffffff;
+    uint64_t temp_0 = 0;
+    uint64_t temp_1 = 0;
+    uint64_t temp_2 = 0;
+    uint64_t temp_3 = 0;
+    uint64_t temp_4 = 0;
+    uint64_t temp_5 = 0;
+    uint64_t temp_6 = 0;
+    uint64_t temp_7 = 0;
+    uint64_t temp_8 = 0;
+    uint64_t temp_9 = 0;
+    uint64_t temp_10 = 0;
+    uint64_t temp_11 = 0;
+    uint64_t temp_12 = 0;
+    uint64_t temp_13 = 0;
+    uint64_t temp_14 = 0;
+    uint64_t temp_15 = 0;
+    uint64_t temp_16 = 0;
 
-    const uint64_t right[8]{
-        other.data[0] & 0xffffffffULL, other.data[0] >> 32, other.data[1] & 0xffffffffULL, other.data[1] >> 32,
-        other.data[2] & 0xffffffffULL, other.data[2] >> 32, other.data[3] & 0xffffffffULL, other.data[3] >> 32,
-    };
+    temp_0 += left[0] * right[0];
+    temp_1 += left[0] * right[1];
+    temp_2 += left[0] * right[2];
+    temp_3 += left[0] * right[3];
+    temp_4 += left[0] * right[4];
+    temp_5 += left[0] * right[5];
+    temp_6 += left[0] * right[6];
+    temp_7 += left[0] * right[7];
+    temp_8 += left[0] * right[8];
+    temp_1 += left[1] * right[0];
+    temp_2 += left[1] * right[1];
+    temp_3 += left[1] * right[2];
+    temp_4 += left[1] * right[3];
+    temp_5 += left[1] * right[4];
+    temp_6 += left[1] * right[5];
+    temp_7 += left[1] * right[6];
+    temp_8 += left[1] * right[7];
+    temp_9 += left[1] * right[8];
+    temp_2 += left[2] * right[0];
+    temp_3 += left[2] * right[1];
+    temp_4 += left[2] * right[2];
+    temp_5 += left[2] * right[3];
+    temp_6 += left[2] * right[4];
+    temp_7 += left[2] * right[5];
+    temp_8 += left[2] * right[6];
+    temp_9 += left[2] * right[7];
+    temp_10 += left[2] * right[8];
+    temp_3 += left[3] * right[0];
+    temp_4 += left[3] * right[1];
+    temp_5 += left[3] * right[2];
+    temp_6 += left[3] * right[3];
+    temp_7 += left[3] * right[4];
+    temp_8 += left[3] * right[5];
+    temp_9 += left[3] * right[6];
+    temp_10 += left[3] * right[7];
+    temp_11 += left[3] * right[8];
+    temp_4 += left[4] * right[0];
+    temp_5 += left[4] * right[1];
+    temp_6 += left[4] * right[2];
+    temp_7 += left[4] * right[3];
+    temp_8 += left[4] * right[4];
+    temp_9 += left[4] * right[5];
+    temp_10 += left[4] * right[6];
+    temp_11 += left[4] * right[7];
+    temp_12 += left[4] * right[8];
+    temp_5 += left[5] * right[0];
+    temp_6 += left[5] * right[1];
+    temp_7 += left[5] * right[2];
+    temp_8 += left[5] * right[3];
+    temp_9 += left[5] * right[4];
+    temp_10 += left[5] * right[5];
+    temp_11 += left[5] * right[6];
+    temp_12 += left[5] * right[7];
+    temp_13 += left[5] * right[8];
+    temp_6 += left[6] * right[0];
+    temp_7 += left[6] * right[1];
+    temp_8 += left[6] * right[2];
+    temp_9 += left[6] * right[3];
+    temp_10 += left[6] * right[4];
+    temp_11 += left[6] * right[5];
+    temp_12 += left[6] * right[6];
+    temp_13 += left[6] * right[7];
+    temp_14 += left[6] * right[8];
+    temp_7 += left[7] * right[0];
+    temp_8 += left[7] * right[1];
+    temp_9 += left[7] * right[2];
+    temp_10 += left[7] * right[3];
+    temp_11 += left[7] * right[4];
+    temp_12 += left[7] * right[5];
+    temp_13 += left[7] * right[6];
+    temp_14 += left[7] * right[7];
+    temp_15 += left[7] * right[8];
+    temp_8 += left[8] * right[0];
+    temp_9 += left[8] * right[1];
+    temp_10 += left[8] * right[2];
+    temp_11 += left[8] * right[3];
+    temp_12 += left[8] * right[4];
+    temp_13 += left[8] * right[5];
+    temp_14 += left[8] * right[6];
+    temp_15 += left[8] * right[7];
+    temp_16 += left[8] * right[8];
 
-    uint64_t carry_2 = 0;
-    auto [r0, carry] = mul_wide(left[0], right[0]);
-    uint64_t r1 = mac_mini(carry, left[0], right[1], carry);
-    uint64_t r2 = mac_mini(carry, left[0], right[2], carry);
-    uint64_t r3 = mac_mini(carry, left[0], right[3], carry);
-    uint64_t r4 = mac_mini(carry, left[0], right[4], carry);
-    uint64_t r5 = mac_mini(carry, left[0], right[5], carry);
-    uint64_t r6 = mac_mini(carry, left[0], right[6], carry);
-    uint64_t r7 = mac_mini(carry, left[0], right[7], carry_2);
-
-    r1 = mac_mini(r1, left[1], right[0], carry);
-    r2 = mac(r2, left[1], right[1], carry, carry);
-    r3 = mac(r3, left[1], right[2], carry, carry);
-    r4 = mac(r4, left[1], right[3], carry, carry);
-    r5 = mac(r5, left[1], right[4], carry, carry);
-    r6 = mac(r6, left[1], right[5], carry, carry);
-    r7 = mac(r7, left[1], right[6], carry, carry);
-    uint64_t r8 = mac(carry_2, left[1], right[7], carry, carry_2);
-
-    r2 = mac_mini(r2, left[2], right[0], carry);
-    r3 = mac(r3, left[2], right[1], carry, carry);
-    r4 = mac(r4, left[2], right[2], carry, carry);
-    r5 = mac(r5, left[2], right[3], carry, carry);
-    r6 = mac(r6, left[2], right[4], carry, carry);
-    r7 = mac(r7, left[2], right[5], carry, carry);
-    r8 = mac(r8, left[2], right[6], carry, carry);
-    uint64_t r9 = mac(carry_2, left[2], right[7], carry, carry_2);
-
-    r3 = mac_mini(r3, left[3], right[0], carry);
-    r4 = mac(r4, left[3], right[1], carry, carry);
-    r5 = mac(r5, left[3], right[2], carry, carry);
-    r6 = mac(r6, left[3], right[3], carry, carry);
-    r7 = mac(r7, left[3], right[4], carry, carry);
-    r8 = mac(r8, left[3], right[5], carry, carry);
-    r9 = mac(r9, left[3], right[6], carry, carry);
-    uint64_t r10 = mac(carry_2, left[3], right[7], carry, carry_2);
-
-    r4 = mac_mini(r4, left[4], right[0], carry);
-    r5 = mac(r5, left[4], right[1], carry, carry);
-    r6 = mac(r6, left[4], right[2], carry, carry);
-    r7 = mac(r7, left[4], right[3], carry, carry);
-    r8 = mac(r8, left[4], right[4], carry, carry);
-    r9 = mac(r9, left[4], right[5], carry, carry);
-    r10 = mac(r10, left[4], right[6], carry, carry);
-    uint64_t r11 = mac(carry_2, left[4], right[7], carry, carry_2);
-
-    r5 = mac_mini(r5, left[5], right[0], carry);
-    r6 = mac(r6, left[5], right[1], carry, carry);
-    r7 = mac(r7, left[5], right[2], carry, carry);
-    r8 = mac(r8, left[5], right[3], carry, carry);
-    r9 = mac(r9, left[5], right[4], carry, carry);
-    r10 = mac(r10, left[5], right[5], carry, carry);
-    r11 = mac(r11, left[5], right[6], carry, carry);
-    uint64_t r12 = mac(carry_2, left[5], right[7], carry, carry_2);
-
-    r6 = mac_mini(r6, left[6], right[0], carry);
-    r7 = mac(r7, left[6], right[1], carry, carry);
-    r8 = mac(r8, left[6], right[2], carry, carry);
-    r9 = mac(r9, left[6], right[3], carry, carry);
-    r10 = mac(r10, left[6], right[4], carry, carry);
-    r11 = mac(r11, left[6], right[5], carry, carry);
-    r12 = mac(r12, left[6], right[6], carry, carry);
-    uint64_t r13 = mac(carry_2, left[6], right[7], carry, carry_2);
-
-    r7 = mac_mini(r7, left[7], right[0], carry);
-    r8 = mac(r8, left[7], right[1], carry, carry);
-    r9 = mac(r9, left[7], right[2], carry, carry);
-    r10 = mac(r10, left[7], right[3], carry, carry);
-    r11 = mac(r11, left[7], right[4], carry, carry);
-    r12 = mac(r12, left[7], right[5], carry, carry);
-    r13 = mac(r13, left[7], right[6], carry, carry);
-    uint64_t r14 = mac(carry_2, left[7], right[7], carry, carry_2);
-
-    return {
-        r0 + (r1 << 32), r2 + (r3 << 32),   r4 + (r5 << 32),   r6 + (r7 << 32),
-        r8 + (r9 << 32), r10 + (r11 << 32), r12 + (r13 << 32), r14 + (carry_2 << 32),
-    };
+    temp_1 += temp_0 >> 29;
+    temp_0 &= mask;
+    temp_2 += temp_1 >> 29;
+    temp_1 &= mask;
+    temp_3 += temp_2 >> 29;
+    temp_2 &= mask;
+    temp_4 += temp_3 >> 29;
+    temp_3 &= mask;
+    temp_5 += temp_4 >> 29;
+    temp_4 &= mask;
+    temp_6 += temp_5 >> 29;
+    temp_5 &= mask;
+    temp_7 += temp_6 >> 29;
+    temp_6 &= mask;
+    temp_8 += temp_7 >> 29;
+    temp_7 &= mask;
+    temp_9 += temp_8 >> 29;
+    temp_8 &= mask;
+    temp_10 += temp_9 >> 29;
+    temp_9 &= mask;
+    temp_11 += temp_10 >> 29;
+    temp_10 &= mask;
+    temp_12 += temp_11 >> 29;
+    temp_11 &= mask;
+    temp_13 += temp_12 >> 29;
+    temp_12 &= mask;
+    temp_14 += temp_13 >> 29;
+    temp_13 &= mask;
+    temp_15 += temp_14 >> 29;
+    temp_14 &= mask;
+    temp_16 += temp_15 >> 29;
+    temp_15 &= mask;
+    return { (temp_0 << 0) | (temp_1 << 29) | (temp_2 << 58),
+             (temp_2 >> 6) | (temp_3 << 23) | (temp_4 << 52),
+             (temp_4 >> 12) | (temp_5 << 17) | (temp_6 << 46),
+             (temp_6 >> 18) | (temp_7 << 11) | (temp_8 << 40),
+             (temp_8 >> 24) | (temp_9 << 5) | (temp_10 << 34) | (temp_11 << 63),
+             (temp_11 >> 1) | (temp_12 << 28) | (temp_13 << 57),
+             (temp_13 >> 7) | (temp_14 << 22) | (temp_15 << 51),
+             (temp_15 >> 13) | (temp_16 << 16) };
 #endif
 }
 
