@@ -82,8 +82,9 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
 
     fn get_derived_storage_slot(self) -> Field {
         // Since we're actually storing three values (a ScheduledValueChange struct), we hash the storage slot to get a
-        // unique location in which we can safely store as much data as we need. This could be removed if state 
-        // variables could expose their size so that proper padding would be added during allocation.
+        // unique location in which we can safely store as much data as we need. This could be removed if we informed
+        // the slot allocator of how much space we need to that proper padding could be added.
+        // See https://github.com/AztecProtocol/aztec-packages/issues/5492
         pedersen_hash([self.storage_slot, 0], 0)
     }
 }
