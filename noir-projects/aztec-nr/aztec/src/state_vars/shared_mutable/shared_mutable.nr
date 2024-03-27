@@ -62,14 +62,14 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
         self,
         context: PrivateContext
     ) -> (ScheduledValueChange<T, DELAY>, u32) where T: FromField {
-        let base_slot = self.get_derived_storage_slot();
+        let derived_slot = self.get_derived_storage_slot();
 
         // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
         let mut raw_fields = [0; 3];
         for i in 0..3 {
             raw_fields[i] = public_storage_historical_read(
                     context,
-                    base_slot + i as Field,
+                    derived_slot + i as Field,
                     context.this_address()
                 );
         }
