@@ -16,6 +16,7 @@ import { makeAztecAddress, makeGlobalVariables } from '@aztec/circuits.js/testin
 import { makeTuple } from '@aztec/foundation/array';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { ContractDataSource } from '@aztec/types/contracts';
 
 import { MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -26,12 +27,18 @@ describe('TxValidator', () => {
   let globalVariables: GlobalVariables;
   let nullifierSource: MockProxy<NullifierSource>;
   let publicStateSource: MockProxy<PublicStateSource>;
+  let contractDataSource: MockProxy<ContractDataSource>;
+  let allowedFPCClass: Fr;
+  let allowedFPC: AztecAddress;
   let gasPortalAddress: EthAddress;
   let gasTokenAddress: AztecAddress;
 
   beforeEach(() => {
     gasPortalAddress = EthAddress.random();
     gasTokenAddress = getCanonicalGasTokenAddress(gasPortalAddress);
+    allowedFPCClass = Fr.random();
+    allowedFPC = makeAztecAddress(100);
+
     nullifierSource = mock<NullifierSource>({
       getNullifierIndex: mockFn().mockImplementation(() => {
         return Promise.resolve(undefined);
@@ -46,8 +53,20 @@ describe('TxValidator', () => {
         }
       }),
     });
+    contractDataSource = mock<ContractDataSource>({
+      getContract: mockFn().mockImplementation(() => {
+        return Promise.resolve({
+          contractClassId: allowedFPCClass,
+        });
+      }),
+    });
+
     globalVariables = makeGlobalVariables();
-    validator = new TxValidator(nullifierSource, publicStateSource, gasPortalAddress, globalVariables);
+    validator = new TxValidator(nullifierSource, publicStateSource, contractDataSource, globalVariables, {
+      allowedFeePaymentContractClasses: [allowedFPCClass],
+      allowedFeePaymentContractInstances: [allowedFPC],
+      gasPortalAddress,
+    });
   });
 
   describe('inspects tx metadata', () => {
@@ -93,10 +112,56 @@ describe('TxValidator', () => {
     });
   });
 
+  describe('inspects how fee is paid', () => {
+    it('allows native gas', async () => {
+      const tx = nativeFeePayingTx(makeAztecAddress());
+      // check that the whitelist on contract address won't shadow this check
+      contractDataSource.getContract.mockImplementationOnce(() => {
+        return Promise.resolve({ contractClassId: Fr.random() } as any);
+      });
+      await expect(validator.validateTxs([tx])).resolves.toEqual([[tx], []]);
+    });
+
+    it('allows correct contract class', async () => {
+      const fpc = makeAztecAddress();
+      const tx = fxFeePayingTx(fpc);
+
+      contractDataSource.getContract.mockImplementationOnce(address => {
+        if (fpc.equals(address)) {
+          return Promise.resolve({ contractClassId: allowedFPCClass } as any);
+        } else {
+          return Promise.resolve({ contractClassId: Fr.random() });
+        }
+      });
+
+      await expect(validator.validateTxs([tx])).resolves.toEqual([[tx], []]);
+    });
+
+    it('allows correct contract', async () => {
+      const tx = fxFeePayingTx(allowedFPC);
+      // check that the whitelist on contract address works and won't get shadowed by the class whitelist
+      contractDataSource.getContract.mockImplementationOnce(() => {
+        return Promise.resolve({ contractClassId: Fr.random() } as any);
+      });
+      await expect(validator.validateTxs([tx])).resolves.toEqual([[tx], []]);
+    });
+
+    it('rejects incorrect contract and class', async () => {
+      const fpc = makeAztecAddress();
+      const tx = fxFeePayingTx(fpc);
+
+      contractDataSource.getContract.mockImplementationOnce(() => {
+        return Promise.resolve({ contractClassId: Fr.random() } as any);
+      });
+
+      await expect(validator.validateTxs([tx])).resolves.toEqual([[], [tx]]);
+    });
+  });
+
   describe('inspects tx gas', () => {
     it('allows native fee paying txs', async () => {
       const sender = makeAztecAddress();
-      const expectedBalanceSlot = pedersenHash([new Fr(1).toBuffer(), sender.toBuffer()]);
+      const expectedBalanceSlot = pedersenHash([new Fr(1), sender]);
       const tx = nativeFeePayingTx(sender);
 
       publicStateSource.storageRead.mockImplementation((address, slot) => {
@@ -112,7 +177,7 @@ describe('TxValidator', () => {
 
     it('rejects native fee paying txs if out of balance', async () => {
       const sender = makeAztecAddress();
-      const expectedBalanceSlot = pedersenHash([new Fr(1).toBuffer(), sender.toBuffer()]);
+      const expectedBalanceSlot = pedersenHash([new Fr(1), sender]);
       const tx = nativeFeePayingTx(sender);
 
       publicStateSource.storageRead.mockImplementation((address, slot) => {
@@ -128,7 +193,7 @@ describe('TxValidator', () => {
 
     it('allows txs paying through a fee payment contract', async () => {
       const fpcAddress = makeAztecAddress();
-      const expectedBalanceSlot = pedersenHash([new Fr(1).toBuffer(), fpcAddress.toBuffer()]);
+      const expectedBalanceSlot = pedersenHash([new Fr(1), fpcAddress]);
       const tx = fxFeePayingTx(fpcAddress);
 
       publicStateSource.storageRead.mockImplementation((address, slot) => {
@@ -144,7 +209,7 @@ describe('TxValidator', () => {
 
     it('rejects txs paying through a fee payment contract out of balance', async () => {
       const fpcAddress = makeAztecAddress();
-      const expectedBalanceSlot = pedersenHash([new Fr(1).toBuffer(), fpcAddress.toBuffer()]);
+      const expectedBalanceSlot = pedersenHash([new Fr(1), fpcAddress]);
       const tx = nativeFeePayingTx(fpcAddress);
 
       publicStateSource.storageRead.mockImplementation((address, slot) => {
