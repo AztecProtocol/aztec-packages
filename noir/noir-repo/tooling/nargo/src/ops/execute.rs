@@ -1,7 +1,7 @@
 use acvm::acir::circuit::Program;
 use acvm::acir::native_types::WitnessStack;
 use acvm::brillig_vm::brillig::ForeignCallResult;
-use acvm::pwg::{ACVMStatus, ErrorLocation, OpcodeResolutionError, ACVM};
+use acvm::pwg::{ACVMStatus, ErrorLocation, OpcodeNotSolvable, OpcodeResolutionError, ACVM};
 use acvm::BlackBoxFunctionSolver;
 use acvm::{acir::circuit::Circuit, acir::native_types::WitnessMap};
 
@@ -9,6 +9,7 @@ use crate::errors::ExecutionError;
 use crate::NargoError;
 
 use super::foreign_calls::{ForeignCallExecutor, NargoForeignCallResult};
+
 struct ProgramExecutor<'a> {
     functions: &'a [Circuit],
     // This gets built as we run through the program looking at each function call
@@ -106,13 +107,17 @@ impl<'a> ProgramExecutor<'a> {
                         foreign_call_executor,
                     )?;
                     let mut call_resolved_outputs = Vec::new();
-                    for witness_index in acir_to_call.return_values.indices() {
-                        // TODO: turn this into a real execution error
-                        call_resolved_outputs.push(
-                            *call_solved_witness
-                                .get_index(witness_index)
-                                .expect("ACVM Error: should have return index"),
-                        );
+                    for return_witness_index in acir_to_call.return_values.indices() {
+                        if let Some(return_value) =
+                            call_solved_witness.get_index(return_witness_index)
+                        {
+                            call_resolved_outputs.push(*return_value);
+                        } else {
+                            return Err(ExecutionError::SolvingError(
+                                OpcodeNotSolvable::MissingAssignment(return_witness_index).into(),
+                            )
+                            .into());
+                        }
                     }
                     acvm.resolve_pending_acir_call(call_resolved_outputs);
                     self.witness_stack.push(acir_call.id, call_solved_witness);
@@ -137,6 +142,6 @@ pub fn execute_program<B: BlackBoxFunctionSolver, F: ForeignCallExecutor>(
     let main_witness =
         executor.execute_circuit(main, initial_witness, blackbox_solver, foreign_call_executor)?;
     executor.witness_stack.push(0, main_witness);
-
+    dbg!(executor.witness_stack.clone());
     Ok(executor.finalize())
 }

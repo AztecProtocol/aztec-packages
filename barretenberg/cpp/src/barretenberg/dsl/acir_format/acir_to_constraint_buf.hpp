@@ -14,7 +14,6 @@
 #include "barretenberg/dsl/acir_format/range_constraint.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/schnorr_verify.hpp"
-#include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/dsl/acir_format/sha256_constraint.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "serde/index.hpp"
