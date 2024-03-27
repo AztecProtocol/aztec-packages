@@ -395,33 +395,35 @@ pub fn assign_storage_slots(
                 let storage_layout_field =
                     storage_layout.fields.iter().find(|field| field.0 .0.contents == *field_name);
 
-                let storage_layout_slot_expr = if let Some((_, expr_id)) = storage_layout_field {
-                    let expr = context.def_interner.expression(expr_id);
-                    if let HirExpression::Constructor(storage_layout_field_storable_expr) = expr {
-                        storage_layout_field_storable_expr.fields.iter().find_map(
-                            |(field, expr_id)| {
-                                if field.0.contents == "slot" {
-                                    Some(*expr_id)
-                                } else {
-                                    None
-                                }
-                            },
-                        )
+                let storage_layout_slot_expr_id =
+                    if let Some((_, expr_id)) = storage_layout_field {
+                        let expr = context.def_interner.expression(expr_id);
+                        if let HirExpression::Constructor(storage_layout_field_storable_expr) = expr
+                        {
+                            storage_layout_field_storable_expr.fields.iter().find_map(
+                                |(field, expr_id)| {
+                                    if field.0.contents == "slot" {
+                                        Some(*expr_id)
+                                    } else {
+                                        None
+                                    }
+                                },
+                            )
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
-                } else {
-                    None
-                }
-                .ok_or((
-                    AztecMacroError::CouldNotAssignStorageSlots {
-                        secondary_message: Some(format!(
-                            "Storage layout field ({}) not found or has an incorrect type",
-                            field_name
-                        )),
-                    },
-                    file_id,
-                ))?;
+                    .ok_or((
+                        AztecMacroError::CouldNotAssignStorageSlots {
+                            secondary_message: Some(format!(
+                                "Storage layout field ({}) not found or has an incorrect type",
+                                field_name
+                            )),
+                        },
+                        file_id,
+                    ))?;
 
                 let new_storage_slot = if current_storage_slot == 0 {
                     u128::from(storage_slot)
@@ -437,14 +439,14 @@ pub fn assign_storage_slots(
                     *expr = HirExpression::Literal(HirLiteral::Integer(
                         FieldElement::from(new_storage_slot),
                         false,
-                    ));
+                    ))
                 });
 
-                context.def_interner.update_expression(storage_layout_slot_expr, |expr| {
+                context.def_interner.update_expression(storage_layout_slot_expr_id, |expr| {
                     *expr = HirExpression::Literal(HirLiteral::Integer(
                         FieldElement::from(new_storage_slot),
                         false,
-                    ));
+                    ))
                 });
 
                 storage_slot += type_serialized_len;
