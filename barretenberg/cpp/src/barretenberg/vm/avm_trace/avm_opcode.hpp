@@ -87,6 +87,7 @@ enum class OpCode : uint8_t {
     // Accrued Substate
     EMITUNENCRYPTEDLOG,
     SENDL2TOL1MSG, // Messages
+    GETCONTRACTINSTANCE,
 
     // Control Flow - Contract Calls
     CALL,

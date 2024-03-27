@@ -26,7 +26,11 @@ contract AvmTest {
     // Libs
     use dep::aztec::prelude::Map;
     use dep::aztec::state_vars::{PublicImmutable, PublicMutable};
-    use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH};
+    use dep::aztec::protocol_types::{
+        address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH,
+        contract_instance::ContractInstance
+    };
+    use dep::aztec::oracle::get_contract_instance::{get_contract_instance, get_contract_instance_internal};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::aztec::protocol_types::traits::ToField;
     use dep::aztec::protocol_types::constants::RETURN_VALUES_LENGTH;
@@ -179,6 +183,26 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn pedersen_hash_with_index(data: [Field; 3]) -> pub Field {
         dep::std::hash::pedersen_hash_with_separator(data, 20)
+    }
+
+    /************************************************************************
+     * Contract instance
+     ************************************************************************/
+    #[aztec(public-vm)]
+    fn test_get_contract_instance_raw() {
+        let fields = get_contract_instance_internal(context.this_address());
+        assert(fields.len() == 6);
+        assert(fields[0] == 0x123);
+        assert(fields[1] == 0x456);
+        assert(fields[2] == 0x789);
+        assert(fields[3] == 0x101112);
+        assert(fields[4] == 0x131415);
+        assert(fields[5] == 0x161718);
+    }
+
+    #[aztec(public-vm)]
+    fn test_get_contract_instance() {
+        get_contract_instance(context.this_address());
     }
 
     /************************************************************************
