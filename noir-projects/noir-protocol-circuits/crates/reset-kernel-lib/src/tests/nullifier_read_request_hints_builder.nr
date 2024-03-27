@@ -13,7 +13,7 @@ struct NullifierReadRequestHintsBuilder {
 impl NullifierReadRequestHintsBuilder {
     pub fn new(read_request_len: u64) -> Self {
         NullifierReadRequestHintsBuilder {
-            read_request_statuses: [ReadRequestStatus::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX],
+            read_request_statuses: [ReadRequestStatus::default(); MAX_NULLIFIER_READ_REQUESTS_PER_TX],
             pending_read_hints: BoundedVec { storage: [PendingReadHint::nada(read_request_len); MAX_NULLIFIER_READ_REQUESTS_PER_TX], len: 0 },
             settled_read_hints: BoundedVec {
                 storage: [NullifierSettledReadHint::nada(read_request_len); MAX_NULLIFIER_READ_REQUESTS_PER_TX],

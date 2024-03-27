@@ -15,7 +15,7 @@ use dep::types::{
 },
     grumpkin_private_key::GrumpkinPrivateKey,
     hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash},
-    utils::{arrays::{array_length, array_eq}}, traits::{Empty, is_empty}
+    utils::{arrays::{array_length, array_eq}}, traits::is_default
 };
 
 struct PrivateKernelTailCircuitPrivateInputs {
@@ -66,7 +66,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
         let requests = self.previous_kernel.public_inputs.validation_requests.nullifier_key_validation_requests;
         for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX {
             let request = requests[i];
-            if !is_empty(request) {
+            if !is_default(request) {
                 let master_secret_key = self.master_nullifier_secret_keys[i];
                 let computed_public_key = master_secret_key.derive_public_key();
                 assert(
@@ -106,7 +106,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
         public_inputs.validation_requests.note_hash_read_requests = BoundedVec::new();
     }
 
-    fn assert_sorted_counters<T, N>(original: [T; N], sorted: [T; N], indexes: [u64; N]) where T: Eq + Ordered + Empty {
+    fn assert_sorted_counters<T, N>(original: [T; N], sorted: [T; N], indexes: [u64; N]) where T: Eq + Ordered + Default {
         let mut prev_was_empty = false;
 
         for i in 0..N {
@@ -116,15 +116,15 @@ impl PrivateKernelTailCircuitPrivateInputs {
                 sorted[indexes[i]]
             };
             assert(item.eq(original[i]), "Sorted item is not equal");
-            let is_empty = is_empty(item);
+            let is_default = is_default(item);
 
             if prev_was_empty {
-                assert(is_empty, "Empty items must be at the end");
-            } else if (i != 0) & !is_empty {
+                assert(is_default, "Empty items must be at the end");
+            } else if (i != 0) & !is_default {
                 assert(sorted[i].counter() > sorted[i - 1].counter(), "Not sorted");
             }
 
-            prev_was_empty = is_empty;
+            prev_was_empty = is_default;
         }
     }
 
@@ -171,8 +171,8 @@ impl PrivateKernelTailCircuitPrivateInputs {
                 // match found!
                 // squash both the nullifier and the hash
                 // (set to 0 here and then rearrange array after loop)
-                new_note_hashes[hint_pos] = SideEffect::empty();
-                new_nullifiers[n_idx] = SideEffectLinkedToNoteHash::empty();
+                new_note_hashes[hint_pos] = SideEffect::default();
+                new_nullifiers[n_idx] = SideEffectLinkedToNoteHash::default();
             }
             // non-transient (persistable) nullifiers are just kept in new_nullifiers array and forwarded
             // to public inputs (used later by base rollup circuit)
@@ -269,7 +269,7 @@ mod tests {
         max_block_number::MaxBlockNumber, side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
     },
         hash::compute_unique_siloed_note_hashes, tests::kernel_data_builder::PreviousKernelDataBuilder,
-        utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
+        utils::{arrays::{array_eq, array_length}}, traits::{is_default, is_default_array}
     };
 
     struct PrivateKernelTailInputsBuilder {
@@ -336,7 +336,7 @@ mod tests {
             self.nullifier_commitment_hints[nullifier_index] = commitment_index;
         }
 
-        fn sort_sideffects<T, N>(original: [T; N]) -> ([T; N], [u64; N]) where T: Ordered + Eq + Empty {
+        fn sort_sideffects<T, N>(original: [T; N]) -> ([T; N], [u64; N]) where T: Ordered + Eq + Default {
             let mut indexes = [0; N];
             for i in 0..N {
                 indexes[i] = i;
@@ -345,9 +345,9 @@ mod tests {
                 |a_index: u64, b_index: u64| {
                 let a = original[a_index];
                 let b = original[b_index];
-                if is_empty(b) {
+                if is_default(b) {
                     true
-                } else if is_empty(a) {
+                } else if is_default(a) {
                     false
                 } else {
                     a.counter() < b.counter()
@@ -519,7 +519,7 @@ mod tests {
         builder.nullify_transient_commitment(1, 0);
         let new_nullifiers = builder.get_new_nullifiers();
         let public_inputs = builder.execute();
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
+        assert(is_default_array(public_inputs.end.new_note_hashes));
 
         // The nullifier at index 1 is chopped.
         assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[2]]));
@@ -574,8 +574,8 @@ mod tests {
         let public_inputs = builder.execute();
 
         // app logic will be completely empty after squashing
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
-        assert(is_empty_array(public_inputs.end.new_nullifiers));
+        assert(is_default_array(public_inputs.end.new_note_hashes));
+        assert(is_default_array(public_inputs.end.new_nullifiers));
 
         // and the 0th nullifier will be moved to the non-revertible array
         assert(
@@ -590,8 +590,8 @@ mod tests {
     unconstrained fn ordering_of_commitments_and_nullifiers() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
 
-        let mut sorted_new_note_hashes = [SideEffect::empty(); 10];
-        let mut sorted_new_nullifiers = [SideEffectLinkedToNoteHash::empty(); 10];
+        let mut sorted_new_note_hashes = [SideEffect::default(); 10];
+        let mut sorted_new_nullifiers = [SideEffectLinkedToNoteHash::default(); 10];
 
         for i in 0..10 {
             sorted_new_note_hashes[i] = SideEffect { value: (i + 1) as Field, counter: builder.previous_kernel.next_sideffect_counter() };
@@ -757,9 +757,9 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert(!is_empty_array(public_inputs.end_non_revertible.new_nullifiers));
-        assert(is_empty_array(public_inputs.end_non_revertible.new_note_hashes));
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
-        assert(is_empty_array(public_inputs.end.new_nullifiers));
+        assert(!is_default_array(public_inputs.end_non_revertible.new_nullifiers));
+        assert(is_default_array(public_inputs.end_non_revertible.new_note_hashes));
+        assert(is_default_array(public_inputs.end.new_note_hashes));
+        assert(is_default_array(public_inputs.end.new_nullifiers));
     }
 }

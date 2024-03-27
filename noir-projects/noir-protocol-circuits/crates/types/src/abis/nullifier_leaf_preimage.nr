@@ -8,8 +8,16 @@ struct NullifierLeafPreimage {
     next_index : u64,
 }
 
-impl Empty for NullifierLeafPreimage {
-    fn empty() -> Self {
+impl Eq for NullifierLeafPreimage {
+    fn eq(self, nullifier_leaf_preimage: NullifierLeafPreimage) -> bool {
+        (nullifier_leaf_preimage.nullifier == self.nullifier)
+            & (nullifier_leaf_preimage.next_nullifier == self.next_nullifier)
+            & (nullifier_leaf_preimage.next_index == self.next_index)
+    }
+}
+
+impl Default for NullifierLeafPreimage {
+    fn default() -> Self {
         Self {
             nullifier : 0,
             next_nullifier : 0,
@@ -53,10 +61,6 @@ impl IndexedTreeLeafPreimage for NullifierLeafPreimage {
 }
 
 impl NullifierLeafPreimage {
-    pub fn is_empty(self) -> bool {
-        (self.nullifier == 0) & (self.next_nullifier == 0) & (self.next_index == 0)
-    }
-
     pub fn serialize(self) -> [Field; NULLIFIER_LEAF_PREIMAGE_LENGTH] {
         [self.nullifier, self.next_nullifier, self.next_index as Field]
     }

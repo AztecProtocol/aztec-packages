@@ -20,7 +20,7 @@ use crate::constants::{
 };
 
 use dep::std::unsafe;
-use crate::traits::is_empty;
+use crate::traits::is_default;
 
 use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
@@ -129,9 +129,9 @@ impl CombinedAccumulatedDataBuilder {
 
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             let commitment = self.new_note_hashes.storage[i];
-            // TODO(fees) we shouldn't need to check is_empty here,
+            // TODO(fees) we shouldn't need to check is_default here,
             // but we do because new_note_hashes is bounded to MAX_REVERTIBLE_NOTE_HASHES_PER_TX
-            if !is_empty(commitment) {
+            if !is_default(commitment) {
                 if commitment.counter < min_revertible_side_effect_counter {
                     non_revertible_builder.new_note_hashes.push(commitment);
                 } else {
@@ -141,7 +141,7 @@ impl CombinedAccumulatedDataBuilder {
         }
         for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
             let nullifier = self.new_nullifiers.storage[i];
-            if !is_empty(nullifier) {
+            if !is_default(nullifier) {
                 if nullifier.counter < min_revertible_side_effect_counter {
                     non_revertible_builder.new_nullifiers.push(nullifier);
                 } else {
@@ -152,7 +152,7 @@ impl CombinedAccumulatedDataBuilder {
 
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
             let call_stack_item = self.public_call_stack.storage[i];
-            if !is_empty(call_stack_item) {
+            if !is_default(call_stack_item) {
                 if call_stack_item.start_side_effect_counter < min_revertible_side_effect_counter {
                     non_revertible_builder.public_call_stack.push(call_stack_item);
                 } else {

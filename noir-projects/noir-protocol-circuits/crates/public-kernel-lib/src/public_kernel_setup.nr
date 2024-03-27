@@ -1,11 +1,15 @@
 use crate::common;
-use dep::types::abis::{
-    kernel_circuit_public_inputs::{
-    PrivateKernelTailCircuitPublicInputs, PublicKernelCircuitPublicInputs,
-    PublicKernelCircuitPublicInputsBuilder
-},
-    kernel_data::PublicKernelData, public_call_data::PublicCallData
+use dep::types::{
+    abis::{
+        kernel_circuit_public_inputs::{
+            PrivateKernelTailCircuitPublicInputs, PublicKernelCircuitPublicInputs,
+            PublicKernelCircuitPublicInputsBuilder
+        },
+        kernel_data::PublicKernelData, public_call_data::PublicCallData
+    },
+    traits::is_default
 };
+
 use dep::std::unsafe;
 
 struct PublicKernelSetupCircuitPrivateInputs {
@@ -27,7 +31,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
         for i in 0..private_call_stack.len() {
             let private_call = private_call_stack[i];
             assert(
-                private_call.is_empty(), "Private call stack must be empty when executing in the public kernel"
+                is_default(private_call), "Private call stack must be empty when executing in the public kernel"
             );
         }
 
@@ -208,7 +212,7 @@ mod tests {
     #[test(should_fail_with="Contract address cannot be zero")]
     fn contract_address_must_be_valid() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-        builder.public_call.contract_address = AztecAddress::zero();
+        builder.public_call.contract_address = AztecAddress::default();
 
         builder.failed();
     }
@@ -216,7 +220,7 @@ mod tests {
     #[test(should_fail_with="Function signature cannot be zero")]
     fn function_selector_must_be_valid() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-        builder.public_call.function_data.selector = FunctionSelector::zero();
+        builder.public_call.function_data.selector = FunctionSelector::default();
 
         builder.failed();
     }

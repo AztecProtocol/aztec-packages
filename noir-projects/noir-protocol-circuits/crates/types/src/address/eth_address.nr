@@ -1,6 +1,6 @@
 use crate::{
     constants::ETH_ADDRESS_LENGTH, hash::pedersen_hash,
-    traits::{Empty, ToField, Serialize, Deserialize}, utils
+    traits::{ToField, Serialize, Deserialize}, utils
 };
 
 struct EthAddress{
@@ -13,8 +13,8 @@ impl Eq for EthAddress {
     }
 }
 
-impl Empty for EthAddress {
-    fn empty() -> Self {
+impl Default for EthAddress {
+    fn default() -> Self {
         Self {
             inner : 0
         }
@@ -40,21 +40,9 @@ impl Deserialize<ETH_ADDRESS_LENGTH> for EthAddress {
 }
 
 impl EthAddress {
-    pub fn zero() -> Self {
-        Self { inner: 0 }
-    }
-
     pub fn from_field(field: Field) -> Self {
         field.assert_max_bit_size(160);
         Self { inner: field }
-    }
-
-    pub fn is_zero(self) -> bool {
-        self.inner == 0
-    }
-
-    pub fn assert_is_zero(self) {
-        assert(self.to_field() == 0);
     }
 
     pub fn conditional_assign(predicate: bool, lhs: Self, rhs: Self) -> Self {

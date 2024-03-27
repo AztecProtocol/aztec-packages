@@ -1,7 +1,7 @@
 // This will be moved to a separate Read Request Reset Circuit.
 use dep::types::{
     abis::{read_request::ReadRequestContext, side_effect::OrderedValue}, hash::{silo_nullifier},
-    merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness}, traits::{Empty, is_empty}
+    merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness}, traits::{is_default}
 };
 
 struct ReadRequestStateEnum {
@@ -21,8 +21,8 @@ struct ReadRequestStatus {
     hint_index: u64,
 }
 
-impl Empty for ReadRequestStatus {
-    fn empty() -> Self {
+impl Default for ReadRequestStatus {
+    fn default() -> Self {
         ReadRequestStatus { state: ReadRequestState.NADA, hint_index: 0 }
     }
 }
@@ -112,7 +112,7 @@ fn propagate_unverified_read_requests<READ_REQUEST_LEN, T, NUM_PENDING_READS, S,
     let mut propagated_read_requests = BoundedVec::new();
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests[i];
-        if !is_empty(read_request) {
+        if !is_default(read_request) {
             let status = read_request_statuses[i];
             if status.state == ReadRequestState.NADA {
                 propagated_read_requests.push(read_request);
@@ -327,9 +327,9 @@ mod tests {
     #[test]
     fn test_propagate_unverified_read_requests() {
         let read_request_statuses = [
-            ReadRequestStatus::empty(),
+            ReadRequestStatus::default(),
             ReadRequestStatus { state: ReadRequestState.PENDING, hint_index: 0 },
-            ReadRequestStatus::empty(),
+            ReadRequestStatus::default(),
             ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index: 0 }
         ];
         let pending_read_hints = [pending_read_hints[0]];

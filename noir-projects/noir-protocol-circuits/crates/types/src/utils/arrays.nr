@@ -1,11 +1,11 @@
 use dep::std::array;
 use dep::std::cmp::Eq;
-use crate::traits::{Empty, is_empty};
+use crate::traits::{is_default};
 
-pub fn array_to_bounded_vec<T, N>(array: [T; N]) -> BoundedVec<T, N> where T: Empty + Eq {
+pub fn array_to_bounded_vec<T, N>(array: [T; N]) -> BoundedVec<T, N> where T: Default + Eq {
     let mut len = 0;
     for elem in array {
-        if !is_empty(elem) {
+        if !is_default(elem) {
             len += 1;
         }
     }
@@ -16,30 +16,30 @@ pub fn array_to_bounded_vec<T, N>(array: [T; N]) -> BoundedVec<T, N> where T: Em
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
 // of the form: [*,*,*...,0,0,0,0] where any * is non-zero. Note that a full array of non-zero values is
 // valid.
-pub fn validate_array<T, N>(array: [T; N]) where T: Empty + Eq {
+pub fn validate_array<T, N>(array: [T; N]) where T: Default + Eq {
     let array_length = array.len();
 
     let mut first_zero_pos = array_length;
     let mut last_non_zero_pos = 0;
 
     for i in 0..array_length {
-        let is_empty = is_empty(array[i]);
-        if !is_empty {
+        let is_default = is_default(array[i]);
+        if !is_default {
             last_non_zero_pos = i;
-        } else if is_empty & (first_zero_pos == array_length) {
+        } else if is_default & (first_zero_pos == array_length) {
             first_zero_pos = i;
         }
     }
     assert(last_non_zero_pos <= first_zero_pos, "invalid array");
 }
 
-// Helper method to determine the number of non-zero/empty elements in a validated array (ie, validate_array(array)
+// Helper method to determine the number of non-zero/default elements in a validated array (ie, validate_array(array)
 // should be true).
-pub fn array_length<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
+pub fn array_length<T, N>(array: [T; N]) -> u64 where T: Default + Eq {
     let mut length = 0;
     let mut end = false;
     for elem in array {
-        end |= is_empty(elem);
+        end |= is_default(elem);
         if !end {
             length += 1;
         }
@@ -47,7 +47,7 @@ pub fn array_length<T, N>(array: [T; N]) -> u64 where T: Empty + Eq {
     length
 }
 
-pub fn array_eq<T, N, S>(array: [T; N], expected: [T; S]) -> bool where T: Empty + Eq {
+pub fn array_eq<T, N, S>(array: [T; N], expected: [T; S]) -> bool where T: Default + Eq {
     let mut eq = array_length(array) == S;
 
     for i in 0..S {
@@ -67,26 +67,26 @@ pub fn find_index<T, N, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u64 {
     index
 }
 
-pub fn array_cp<T, N, S>(array: [T; N]) -> [T; S] where T: Empty {
-    let mut result: [T; S] = [T::empty(); S];
+pub fn array_cp<T, N, S>(array: [T; N]) -> [T; S] where T: Default {
+    let mut result: [T; S] = [T::default(); S];
     for i in 0..S {
         result[i] = array[i];
     }
     result
 }
 
-pub fn array_concat<T, N, S, M>(array1: [T; N], array2: [T; S]) -> [T; M] where T: Empty + Eq {
+pub fn array_concat<T, N, S, M>(array1: [T; N], array2: [T; S]) -> [T; M] where T: Default + Eq {
     assert(N + S <= M, "combined array length exceeds length of return array");
-    let mut result: [T; M] = [T::empty(); M];
+    let mut result: [T; M] = [T::default(); M];
     let mut i = 0;
     for elem in array1 {
-        if !is_empty(elem) {
+        if !is_default(elem) {
             result[i] = elem;
             i += 1;
         }
     }
     for elem in array2 {
-        if !is_empty(elem) {
+        if !is_default(elem) {
             result[i] = elem;
             i += 1;
         }
@@ -94,17 +94,17 @@ pub fn array_concat<T, N, S, M>(array1: [T; N], array2: [T; S]) -> [T; M] where 
     result
 }
 
-pub fn array_merge<T, N>(array1: [T; N], array2: [T; N]) -> [T; N] where T: Empty + Eq {
-    let mut result: [T; N] = [T::empty(); N];
+pub fn array_merge<T, N>(array1: [T; N], array2: [T; N]) -> [T; N] where T: Default + Eq {
+    let mut result: [T; N] = [T::default(); N];
     let mut i = 0;
     for elem in array1 {
-        if !is_empty(elem) {
+        if !is_default(elem) {
             result[i] = elem;
             i += 1;
         }
     }
     for elem in array2 {
-        if !is_empty(elem) {
+        if !is_default(elem) {
             result[i] = elem;
             i += 1;
         }
@@ -116,7 +116,7 @@ pub fn check_permutation<T, N>(
     original_array: [T; N],
     permuted_array: [T; N],
     original_indexes: [u64; N]
-) where T: Eq + Empty {
+) where T: Eq + Default {
     let mut seen_value = [false; N];
     for i in 0..N {
         let index = original_indexes[i];
@@ -132,15 +132,15 @@ pub fn assert_sorted_array<T, N, Env>(
     sorted_array: [T; N],
     sorted_indexes: [u64; N],
     ordering: fn[Env](T, T) -> bool
-) where T: Eq + Empty {
-    let mut seen_empty = false;
+) where T: Eq + Default {
+    let mut seen_default = false;
     for i in 0..N {
         let original_value = original_array[i];
-        if is_empty(original_value) {
-            seen_empty = true;
-            assert(is_empty(sorted_array[i]), "Empty values must not be mixed with sorted values");
+        if is_default(original_value) {
+            seen_default = true;
+            assert(is_default(sorted_array[i]), "Default values must not be mixed with sorted values");
         } else {
-            assert(!seen_empty, "Empty values must be padded to the right");
+            assert(!seen_default, "Default values must be padded to the right");
 
             let index = sorted_indexes[i];
             assert(sorted_array[index].eq(original_value), "Invalid index");
@@ -182,7 +182,7 @@ fn smoke_validate_array_invalid_case2() {
 }
 
 #[test]
-fn test_empty_array_length() {
+fn test_default_array_length() {
     assert_eq(array_length([]), 0);
     assert_eq(array_length([0]), 0);
     assert_eq(array_length([0, 0, 0]), 0);
@@ -254,7 +254,7 @@ fn assert_sorted_array_desc() {
 }
 
 #[test]
-fn assert_sorted_array_all_empty() {
+fn assert_sorted_array_all_default() {
     let original = [0, 0, 0, 0, 0, 0];
     let sorted = [0, 0, 0, 0, 0, 0];
     let indexes = [0, 0, 0, 0, 0, 0];
@@ -285,7 +285,7 @@ fn assert_sorted_array_failed_wrong_index() {
     assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
 }
 
-#[test(should_fail_with="Empty values must be padded to the right")]
+#[test(should_fail_with="Default values must be padded to the right")]
 fn assert_sorted_array_failed_not_padded() {
     let original = [30, 20, 90, 0, 50, 0];
     let sorted = [20, 30, 90, 0, 0, 0];
@@ -293,8 +293,8 @@ fn assert_sorted_array_failed_not_padded() {
     assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
 }
 
-#[test(should_fail_with="Empty values must not be mixed with sorted values")]
-fn assert_sorted_array_failed_mixed_empty() {
+#[test(should_fail_with="Default values must not be mixed with sorted values")]
+fn assert_sorted_array_failed_mixed_default() {
     let original = [30, 20, 90, 0, 0, 0];
     let sorted = [20, 30, 90, 0, 0, 10];
     let indexes = [1, 0, 2, 0, 0, 0];

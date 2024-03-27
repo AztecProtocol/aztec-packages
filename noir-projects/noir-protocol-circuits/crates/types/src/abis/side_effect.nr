@@ -1,6 +1,6 @@
 use crate::{
     address::AztecAddress, constants::{GENERATOR_INDEX__SIDE_EFFECT},
-    traits::{Empty, Hash, Serialize, Deserialize}
+    traits::{Hash, Serialize, Deserialize}
 };
 use dep::std::cmp::Eq;
 
@@ -48,8 +48,8 @@ impl Eq for SideEffect {
     }
 }
 
-impl Empty for SideEffect {
-    fn empty() -> Self {
+impl Default for SideEffect {
+    fn default() -> Self {
         SideEffect {
             value: 0,
             counter: 0,
@@ -108,8 +108,8 @@ impl Eq for SideEffectLinkedToNoteHash {
     }
 }
 
-impl Empty for SideEffectLinkedToNoteHash {
-    fn empty() -> Self {
+impl Default for SideEffectLinkedToNoteHash {
+    fn default() -> Self {
         SideEffectLinkedToNoteHash {
             value: 0,
             note_hash: 0,

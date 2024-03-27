@@ -6,10 +6,10 @@ struct L2ToL1Message {
     content: Field,
 }
 
-impl Empty for L2ToL1Message {
-    fn empty() -> Self {
+impl Default for L2ToL1Message {
+    fn default() -> Self {
         Self {
-            recipient: EthAddress::empty(),
+            recipient: EthAddress::default(),
             content: 0,
         }
     }

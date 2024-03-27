@@ -2,7 +2,7 @@ use crate::{
     crate::address::{eth_address::EthAddress, partial_address::PartialAddress, public_keys_hash::PublicKeysHash},
     constants::{AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS},
     contract_class_id::ContractClassId, hash::pedersen_hash, grumpkin_point::GrumpkinPoint,
-    traits::{Empty, ToField, Serialize, Deserialize}, utils
+    traits::{ToField, Serialize, Deserialize}, utils
 };
 
 // Aztec address
@@ -16,8 +16,8 @@ impl Eq for AztecAddress {
     }
 }
 
-impl Empty for AztecAddress {
-    fn empty() -> Self {
+impl Default for AztecAddress {
+    fn default() -> Self {
         Self {
             inner : 0
         }
@@ -43,10 +43,6 @@ impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
 }
 
 impl AztecAddress {
-    pub fn zero() -> Self {
-        Self { inner: 0 }
-    }
-
     pub fn from_field(field: Field) -> Self {
         Self { inner: field }
     }
@@ -78,14 +74,6 @@ impl AztecAddress {
                 GENERATOR_INDEX__CONTRACT_ADDRESS
             )
         )
-    }
-
-    pub fn is_zero(self) -> bool {
-        self.inner == 0
-    }
-
-    pub fn assert_is_zero(self) {
-        assert(self.to_field() == 0);
     }
 
     pub fn conditional_assign(predicate: bool, lhs: Self, rhs: Self) -> Self {

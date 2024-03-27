@@ -1,8 +1,9 @@
 use crate::{
     abis::function_selector::FunctionSelector, address::{EthAddress, AztecAddress},
     constants::{CALL_CONTEXT_LENGTH, GENERATOR_INDEX__CALL_CONTEXT}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Serialize}, abis::side_effect::Ordered
+    traits::{Deserialize, Hash, Serialize, is_default}, abis::side_effect::Ordered
 };
+use dep::std::default::Default;
 
 // docs:start:call-context
 struct CallContext {
@@ -19,12 +20,16 @@ struct CallContext {
 }
 // docs:end:call-context
 
-impl CallContext {
-    fn assert_is_zero(self) {
-        let serialized: [Field; CALL_CONTEXT_LENGTH] = self.serialize();
-
-        for i in 0..CALL_CONTEXT_LENGTH {
-            assert(serialized[i] == 0);
+impl Default for CallContext {
+    fn default() -> Self {
+        CallContext {
+            msg_sender: AztecAddress::default(),
+            storage_contract_address: AztecAddress::default(),
+            portal_contract_address: EthAddress::default(),
+            function_selector: FunctionSelector::default(),
+            is_delegate_call: false,
+            is_static_call: false,
+            side_effect_counter: 0,
         }
     }
 }
@@ -78,16 +83,16 @@ fn serialize_deserialize_of_empty() {
 }
 
 #[test]
-fn assert_is_zero() {
+fn assert_is_default() {
     let context: CallContext = dep::std::unsafe::zeroed();
-    context.assert_is_zero();
+    is_default(context);
 }
 
 #[test(should_fail)]
-fn not_zero_assert_is_zero() {
+fn not_default_assert_is_default() {
     let mut context: CallContext = dep::std::unsafe::zeroed();
     context.is_delegate_call = true;
-    context.assert_is_zero();
+    is_default(context);
 }
 
 #[test]

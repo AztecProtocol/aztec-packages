@@ -2,6 +2,8 @@ use crate::{
     constants::{CONTRACT_STORAGE_READ_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_READ}, hash::pedersen_hash,
     traits::{Deserialize, Hash, Empty, Serialize}
 };
+use dep::std::cmp::Eq;
+use dep::std::default::Default;
 
 struct StorageRead {
     storage_slot: Field,
@@ -14,8 +16,8 @@ impl Eq for StorageRead {
     }
 }
 
-impl Empty for StorageRead {   
-    fn empty() -> Self {
+impl Default for StorageRead {   
+    fn default() -> Self {
         Self {
             storage_slot: 0,
             current_value: 0,

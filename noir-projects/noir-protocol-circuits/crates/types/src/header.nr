@@ -7,9 +7,10 @@ use crate::{
     GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, STATE_REFERENCE_LENGTH,
     CONTENT_COMMITMENT_LENGTH
 },
-    hash::pedersen_hash, state_reference::StateReference, traits::{Deserialize, Empty, Hash, Serialize},
+    hash::pedersen_hash, state_reference::StateReference, traits::{Deserialize, Hash, Serialize},
     utils::{arr_copy_slice}, content_commitment::ContentCommitment
 };
+use dep::std::default::Default;
 
 // docs:start:header
 struct Header {
@@ -66,13 +67,13 @@ impl Deserialize<HEADER_LENGTH> for Header {
     }
 }
 
-impl Empty for Header {
-    fn empty() -> Self {
+impl Default for Header {
+    fn default() -> Self {
         Self {
-            last_archive: AppendOnlyTreeSnapshot::zero(),
-            content_commitment: ContentCommitment::empty(),
-            state: StateReference::empty(),
-            global_variables: GlobalVariables::empty(),
+            last_archive: AppendOnlyTreeSnapshot::default(),
+            content_commitment: ContentCommitment::default(),
+            state: StateReference::default(),
+            global_variables: GlobalVariables::default(),
         }
     }
 }
@@ -98,7 +99,7 @@ fn hash_smoke() {
 }
 
 #[test]
-fn empty_hash_is_zero() {
+fn empty_hash_is_default() {
     let header: Header = dep::std::unsafe::zeroed();
     let hash = header.hash();
 

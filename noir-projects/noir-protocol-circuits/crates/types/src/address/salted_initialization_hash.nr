@@ -37,8 +37,4 @@ impl SaltedInitializationHash {
             )
         )
     }
-
-    pub fn assert_is_zero(self) {
-        assert(self.to_field() == 0);
-    }
 }

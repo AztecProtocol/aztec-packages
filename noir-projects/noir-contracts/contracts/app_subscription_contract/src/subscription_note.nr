@@ -54,6 +54,6 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
 
 impl SubscriptionNote {
     pub fn new(owner: AztecAddress, expiry_block_number: Field, remaining_txs: Field) -> Self {
-        SubscriptionNote { owner, expiry_block_number, remaining_txs, header: NoteHeader::empty() }
+        SubscriptionNote { owner, expiry_block_number, remaining_txs, header: Noteheader::default() }
     }
 }

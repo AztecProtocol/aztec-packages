@@ -128,8 +128,8 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         // Set (storage) contract_address to 0
-        builder.private_call.contract_address = AztecAddress::zero();
-        builder.private_call.public_inputs.call_context.storage_contract_address = AztecAddress::zero();
+        builder.private_call.contract_address = AztecAddress::default();
+        builder.private_call.public_inputs.call_context.storage_contract_address = AztecAddress::default();
 
         builder.failed();
     }
@@ -450,7 +450,7 @@ mod tests {
 
         builder.private_call.public_inputs.new_l2_to_l1_msgs.extend_from_array(
             [
-            L2ToL1Message::empty(),
+            L2ToL1Message::default(),
             L2ToL1Message { recipient: EthAddress::from_field(6), content: 888 }
         ]
         );
@@ -466,7 +466,7 @@ mod tests {
         builder.private_call.public_inputs.new_note_hashes.push(SideEffect { value: 4321, counter: 0 });
 
         // Mock the previous new note hashes to be full, therefore no more commitments can be added.
-        let mut full_new_note_hashes = [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_TX];
+        let mut full_new_note_hashes = [SideEffect::default(); MAX_NEW_NOTE_HASHES_PER_TX];
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             full_new_note_hashes[i] = SideEffect {
                 value: i as Field + 1,

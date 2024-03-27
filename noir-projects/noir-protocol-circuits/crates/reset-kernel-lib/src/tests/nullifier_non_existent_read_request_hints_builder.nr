@@ -24,7 +24,7 @@ impl NullifierNonExistentReadRequestHintsBuilder {
             nullifier_tree: unsafe::zeroed(),
             non_membership_hints: BoundedVec::new(),
             read_values: BoundedVec::new(),
-            pending_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_TX]
+            pending_nullifiers: [SideEffectLinkedToNoteHash::default(); MAX_NEW_NULLIFIERS_PER_TX]
         }
     }
 

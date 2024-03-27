@@ -20,7 +20,7 @@ struct CardNote {
 
 impl CardNote {
     pub fn new(points: u8, randomness: Field, owner: AztecAddress) -> Self {
-        CardNote { points, randomness, owner, header: NoteHeader::empty() }
+        CardNote { points, randomness, owner, header: Noteheader::default() }
     }
 }
 

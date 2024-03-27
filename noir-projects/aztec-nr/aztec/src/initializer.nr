@@ -2,6 +2,7 @@ use dep::protocol_types::{
     hash::{silo_nullifier, pedersen_hash},
     constants::GENERATOR_INDEX__CONSTRUCTOR,
     abis::function_selector::FunctionSelector,
+    traits::is_default,
 };
 
 use crate::{
@@ -37,7 +38,7 @@ pub fn assert_initialization_matches_address_preimage<TContext>(context: TContex
     let instance = get_contract_instance(address);
     let expected_init = compute_initialization_hash(context.selector(), context.get_args_hash());
     assert(instance.initialization_hash == expected_init, "Initialization hash does not match");
-    assert((instance.deployer.is_zero()) | (instance.deployer == context.msg_sender()), "Initializer address is not the contract deployer");
+    assert(is_default(instance.deployer) | (instance.deployer == context.msg_sender()), "Initializer address is not the contract deployer");
 }
 
 pub fn compute_initialization_hash(init_selector: FunctionSelector, init_args_hash: Field) -> Field {
