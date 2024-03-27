@@ -16,12 +16,11 @@ function unwrapOptions<T>(options: NoirOption<T>[]): T[] {
 }
 
 describe('e2e_note_getter', () => {
-  let aztecNode: AztecNode;
   let wallet: Wallet;
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
-    ({ teardown, wallet, aztecNode } = await setup());
+    ({ teardown, wallet } = await setup());
   }, 25_000);
 
   afterAll(() => teardown());

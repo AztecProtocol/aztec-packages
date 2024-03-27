@@ -130,44 +130,6 @@ contract Test {
         emit_unencrypted_log_from_private(&mut context, opt_notes[1].unwrap().value);
     }
 
-    pub fn filter_that_creates_sparse_array(
-        notes: [Option<FieldNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-        _args: bool
-    ) -> pub [Option<FieldNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
-        // selected is our returned sparse array
-        let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-
-        selected[1] = notes[0];
-        selected[2] = notes[1];
-        selected[3] = notes[2];
-        selected[5] = notes[3];
-        selected[8] = notes[4];
-        selected[13] = notes[5];
-        selected[21] = notes[6];
-
-        selected
-    }
-
-    #[aztec(private)]
-    pub fn create_and_get_many_notes_with_filter() {
-        // We create 7 notes to test getting them later
-        for i in 0..7 {
-            let mut note = FieldNote::new(i as Field);
-            storage.example_set.insert(&mut note, false);
-        }
-        
-        let options = NoteGetterOptions::with_filter(filter_that_creates_sparse_array, true);
-        // get_notes should collapse this array
-        let opt_notes: [Option<FieldNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = storage.example_set.get_notes(options);
-
-        // We can't get the return value of a private function from the outside world in an end to end test, so we
-        // expose it via an unecrypted log instead.
-        for i in 0..7 {
-            // We verify that the array was collapsed by unwrapping the first 7 values.
-            emit_unencrypted_log_from_private(&mut context, opt_notes[i].unwrap().value);
-        }
-    }
-
     unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Field {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
