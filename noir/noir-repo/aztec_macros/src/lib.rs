@@ -119,6 +119,7 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
         let mut is_initializer = false;
         let mut is_internal = false;
         let mut insert_init_check = has_initializer;
+        let mut insert_context_creation = true;
 
         for secondary_attribute in func.def.attributes.secondary.clone() {
             if is_custom_attribute(&secondary_attribute, "aztec(private)") {
@@ -134,6 +135,8 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
                 is_public = true;
             } else if is_custom_attribute(&secondary_attribute, "aztec(public-vm)") {
                 is_public_vm = true;
+            } else if is_custom_attribute(&secondary_attribute, "aztec(nocontextcreation)") {
+                insert_context_creation = false;
             }
         }
 
@@ -146,6 +149,7 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
                 is_initializer,
                 insert_init_check,
                 is_internal,
+                insert_context_creation,
             )?;
             has_transformed_module = true;
         } else if is_public_vm {

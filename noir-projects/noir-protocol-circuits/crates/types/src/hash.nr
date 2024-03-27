@@ -29,6 +29,30 @@ pub fn hash_args_array<N>(args: [Field; N]) -> Field {
     hash_args(args_vec)
 }
 
+pub fn hash_args_slice(args: [Field]) -> Field {
+    if args.len() == 0 {
+        0
+    } else {
+        let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
+        for i in 0..ARGS_HASH_CHUNK_COUNT {
+            let mut chunk_hash = 0;
+            let start_chunk_index = i * ARGS_HASH_CHUNK_LENGTH;
+            if start_chunk_index < args.len() {
+                let mut chunk_args = [0; ARGS_HASH_CHUNK_LENGTH];
+                for j in 0..ARGS_HASH_CHUNK_LENGTH {
+                    let item_index = i * ARGS_HASH_CHUNK_LENGTH + j;
+                    if item_index < args.len() {
+                        chunk_args[j] = args[item_index];
+                    }
+                }
+                chunk_hash = pedersen_hash(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS);
+            }
+            chunks_hashes[i] = chunk_hash;
+        }
+        pedersen_hash(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
+    }
+}
+
 pub fn hash_args(args: BoundedVec<Field, MAX_ARGS_LENGTH>) -> Field {
     if args.len() == 0 {
         0
