@@ -1,4 +1,5 @@
 import { UnencryptedL2Log } from '@aztec/circuit-types';
+import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
@@ -9,6 +10,7 @@ import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 import { jest } from '@jest/globals';
 import { strict as assert } from 'assert';
 
+import { AvmMachineState } from './avm_machine_state.js';
 import { TypeTag } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
 import {
@@ -17,26 +19,47 @@ import {
   initExecutionEnvironment,
   initGlobalVariables,
   initL1ToL2MessageOracleInput,
+  initMachineState,
 } from './fixtures/index.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 
 describe('AVM simulator: injected bytecode', () => {
-  it('Should execute bytecode that performs basic addition', async () => {
-    const calldata: Fr[] = [new Fr(1), new Fr(2)];
+  let calldata: Fr[];
+  let bytecode: Buffer;
 
-    // Construct bytecode
-    const bytecode = encodeToBytecode([
+  beforeAll(() => {
+    calldata = [new Fr(1), new Fr(2)];
+    bytecode = encodeToBytecode([
       new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ adjustCalldataIndex(0), /*copySize=*/ 2, /*dstOffset=*/ 0),
       new Add(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
       new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySize=*/ 1),
     ]);
+  });
 
+  it('Should execute bytecode that performs basic addition', async () => {
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+    const { l2GasLeft: initialL2GasLeft } = AvmMachineState.fromState(context.machineState);
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(3)]);
+    expect(context.machineState.l2GasLeft).toEqual(initialL2GasLeft - 350);
+  });
+
+  it('Should halt if runs out of gas', async () => {
+    const context = initContext({
+      env: initExecutionEnvironment({ calldata }),
+      machineState: initMachineState({ l2GasLeft: 5 }),
+    });
+
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+    expect(results.reverted).toBe(true);
+    expect(results.output).toEqual([]);
+    expect(results.revertReason?.name).toEqual('OutOfGasError');
+    expect(context.machineState.l2GasLeft).toEqual(0);
+    expect(context.machineState.l1GasLeft).toEqual(0);
+    expect(context.machineState.daGasLeft).toEqual(0);
   });
 });
 
@@ -223,7 +246,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([pedersenHash(calldata.map(f => f.toBuffer()))]);
+      expect(results.output).toEqual([computeVarArgsHash(calldata)]);
     });
   });
 
@@ -438,6 +461,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       const results = await new AvmSimulator(context).executeBytecode(callBytecode);
 
+      expect(results.revertReason).toBeUndefined();
       expect(results.reverted).toBe(false);
       expect(results.output).toEqual([new Fr(3)]);
     });
