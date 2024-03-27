@@ -225,16 +225,11 @@ contract HonkVerifier is IVerifier {
             // The loop boundary of i, this will shift forward on each evaluation
             uint256 loop_boundary = boundary + (i * 0x20 * BATCHED_RELATION_PARTIAL_LENGTH);
 
-            console.log(i);
             for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
 
                 uint256 start = loop_boundary + (j * 0x20);
                 uint256 end = start + 0x20;
                 p.sumcheckUnivariates[i][j] = FrLib.fromBytes32(bytes32(proof[start:end]));
-
-                string memory name = string(abi.encodePacked("sumcheckUnivariates", i, " ", j));
-                logFr(name, p.sumcheckUnivariates[i][j]);
-
             }
         }
 
@@ -268,8 +263,6 @@ contract HonkVerifier is IVerifier {
                     x_0: uint256(bytes32(proof[xStart:xEnd])), x_1: uint256(bytes32(proof[x1Start:x1End])), 
                     y_0: uint256(bytes32(proof[yStart:yEnd])), y_1: uint256(bytes32(proof[y1Start:y1End]))
                 });
-            console.log(i);
-            logG1("zmCqs", p.zmCqs[i]);
         }
 
         boundary = boundary + (LOG_N * 0x80);
@@ -281,14 +274,10 @@ contract HonkVerifier is IVerifier {
             y_0: uint256(bytes32(proof[boundary + 0x40:boundary + 0x60])), y_1: uint256(bytes32(proof[boundary + 0x60:boundary + 0x80]))
         });
 
-        logG1("zmCq", p.zmCq);
-
         p.zmPi = HonkTypes.G1ProofPoint({
             x_0: uint256(bytes32(proof[boundary + 0x80:boundary + 0xa0])), x_1: uint256(bytes32(proof[boundary + 0xa0:boundary + 0xc0])),
             y_0: uint256(bytes32(proof[boundary + 0xc0:boundary + 0xe0])), y_1: uint256(bytes32(proof[boundary + 0xe0:boundary + 0x100]))
         });
-
-        logG1("zmPi", p.zmPi);
 
         return p;
     }
@@ -297,10 +286,11 @@ contract HonkVerifier is IVerifier {
 
     // TODO(md): I would perfer the publicInputs to be uint256
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) override view public returns (bool) {
+        uint256 gasStart = gasleft();
+
         HonkTypes.VerificationKey memory vk = loadVerificationKey();
         HonkTypes.Proof memory p = loadProof(proof);
 
-        console.log("We have loaded the proof");
 
         if (vk.publicInputsSize != publicInputs.length) {
             revert PublicInputsLengthWrong();
@@ -320,6 +310,10 @@ contract HonkVerifier is IVerifier {
 
         // Zeromorph
         bool verified = verifyZeroMorph(p, vk, tp);
+
+        uint256 gasEnd = gasleft();
+        uint256 gas = gasStart - gasEnd;
+        console.log("gas", gas);
 
         return (success && verified);
     }
@@ -383,10 +377,6 @@ contract HonkVerifier is IVerifier {
         round0[3 + publicInputs.length + 10] = bytes32(proof.w3.y_0);
         round0[3 + publicInputs.length + 11] = bytes32(proof.w3.y_1);
         
-        for (uint256 i = 0; i < 18; i++) {
-            console.logBytes32(round0[i]);
-        }
-
         Fr eta = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         return eta;
     }
@@ -589,8 +579,6 @@ contract HonkVerifier is IVerifier {
 
         // TODO: Impl comparison
         verified = (Fr.unwrap(grandHonkRelationSum) == Fr.unwrap(roundTarget));
-
-        console.log("verified", verified);
     }
 
     // TODO: i assume that the round univarate will be a sliding window, so i will need to be included in here
@@ -1312,17 +1300,8 @@ contract HonkVerifier is IVerifier {
         // Get k commitments
         // TODO: adjust naming
         HonkTypes.G1Point memory c_zeta = computeCZeta(proof, tp);
-        logG("c zeta", c_zeta);
-
         HonkTypes.G1Point memory c_zeta_x = computeCZetaX(proof, vk, tp, batchedEval);
-        logG("c zeta x", c_zeta_x);
-
-
         HonkTypes.G1Point memory c_zeta_Z = ecAdd(c_zeta, ecMul(c_zeta_x, tp.zmZ));
-
-        logG("c zeta z", c_zeta_Z);
-        
-
 
         // KZG pairing accumulator
         Fr evaluation = Fr.wrap(0);
@@ -1348,23 +1327,13 @@ contract HonkVerifier is IVerifier {
             Fr scalar = FrLib.pow(tp.zmY, k);
             scalar = scalar * FrLib.pow(tp.zmX, (1 << LOG_N) - Fr.unwrap(degree) - 1);
             scalar = scalar * MINUS_ONE;
-            logFr("scalar 2: ", scalar);
 
             scalars[k + 1] = scalar;
             commitments[k + 1] = proof.zmCqs[k];
         }
 
-        for (uint256 k = 0; k < LOG_N + 1; ++k) {
-            logFr("zm scalar", k, scalars[k]);
-        }
-
-
         // Convert all commitments for batch mul
         HonkTypes.G1Point[LOG_N + 1] memory comms = convertPoints(commitments);
-
-        for (uint256 k = 0; k < LOG_N + 1; ++k) {
-            logG("zm comms", comms[k]);
-        }
 
         return batchMul(comms, scalars);
     }
@@ -1393,7 +1362,6 @@ contract HonkVerifier is IVerifier {
 
         // Add contribution: -v * x * \Phi_n(x) * [1]_1
         // Add base 
-        logFr(" batched eval",batchedEval);
         scalars[0] = MINUS_ONE * batchedEval * tp.zmX * cp.phi_n_x;
         commitments[0] = HonkTypes.G1Point({x: 1, y: 2}); // One
 
@@ -1480,16 +1448,6 @@ contract HonkVerifier is IVerifier {
 
             cp.x_pow_2k = cp.x_pow_2kp1;
             cp.x_pow_2kp1 = cp.x_pow_2kp1 * cp.x_pow_2kp1;
-        }
-
-        console.log("all commitments");
-        for (uint256 i; i < NUMBER_OF_ENTITIES + LOG_N + 1; ++i) {
-            logG("comm", commitments[i]);
-        }
-
-        console.log("all scalars");
-        for (uint256 i; i < NUMBER_OF_ENTITIES + LOG_N + 1; ++i) {
-            logFr("scalars", scalars[i]);
         }
 
         // TODO: deal with batch mul 2 thingy
@@ -1633,41 +1591,19 @@ contract HonkVerifier is IVerifier {
         // Get KZG_W from the prover??? what is that zmPi?
         HonkTypes.G1Point memory quotient_commitment = convertProofPoint(proof.zmPi);
 
-        logG("claim Comm", commitment);
-        logFr("zm X", tp.zmX);
-        logFr("evaluation", evaluation);
-        logG("quotient Comm", quotient_commitment);
-
         // ec add
         HonkTypes.G1Point memory ONE = HonkTypes.G1Point({x:1, y:2});
-        console.log("0");
 
         HonkTypes.G1Point memory P0 = commitment;
-        logG("P0 0", P0);
-
         P0 = ecAdd(P0, ecMul(quotient_commitment, tp.zmX));
-        logG("P0 1", P0);
-        console.log("1");
+
         HonkTypes.G1Point memory evalAsPoint = ecMul(ONE, evaluation);
-        console.log("2");
         P0 = ecSub(P0, evalAsPoint);
-        logG("P0 2", P0);
-        console.log("1");
-        console.log("3");
 
         // ec mul
         HonkTypes.G1Point memory P1 = negateInplace(quotient_commitment);
-        console.log("4");
-
-
-        logG("P0", P0);
-        logG("P1", P1);
 
         // Perform pairing check
-
-        // P0 = rhs
-        // P1 = lhs
-
         return pairing(P0, P1);
         
     }
