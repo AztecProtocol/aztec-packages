@@ -1,4 +1,4 @@
-use dep::protocol_types::{hash::pedersen_hash, traits::{FromField, ToField}};
+use dep::protocol_types::{hash::pedersen_hash, traits::FromField};
 
 use crate::context::{PrivateContext, PublicContext, Context};
 use crate::history::public_storage::public_storage_historical_read;
