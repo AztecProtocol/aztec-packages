@@ -49,7 +49,8 @@ impl BigIntContext {
             // 2^{256} modulus should be 0
             32
         } else {
-            ((modulus - BigUint::from(1_u32)).bits() - 1) / 8 + 1
+            let max_bits = (modulus - BigUint::from(1_u32)).bits();
+            max_bits.div_ceil(8)
         }
     }
 
