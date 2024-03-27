@@ -253,28 +253,6 @@ describe('e2e_note_getter', () => {
         expect(viewNotesManyResult).toEqual(getNotesManyResult);
         expect(viewNotesManyResult.sort()).toEqual([BigInt(VALUE), BigInt(VALUE + 1)]);
       }, 45_000);
-
-      it('get_notes should collapse sparse arrays', async () => {
-        // We call the function that creates a sparse array in get_notes_internal, using the filter
-        // It then gets the notes from the set and confirms that the array is not sparse and has been handled by get_notes
-        const tx = await contract.methods.create_and_get_many_notes_with_filter().send().wait();
-        const block = await aztecNode.getBlock(tx.blockNumber!);
-
-        // We want to verify that there are:
-        // 2 tx's in the block
-        expect(block!.body.unencryptedLogs.txLogs.length).toStrictEqual(2);
-        // our first tx has two function logs
-        expect(block?.body.unencryptedLogs.txLogs[0].functionLogs.length).toStrictEqual(2);
-        // our second function logs has 7 individual logs that were emitted from create_and_get_notes_many_with_filter
-        expect(block!.body.unencryptedLogs.txLogs[0].functionLogs[1].logs.length).toStrictEqual(7);
-
-        const unencryptedLogs = block?.body.unencryptedLogs.txLogs.flatMap(txLog =>
-          txLog.functionLogs.flatMap(functionLog =>
-            functionLog.logs.map(log => log.toString('hex').substring(log.length * 2 - 2)),
-          ),
-        );
-        expect(unencryptedLogs).toStrictEqual(['00', '01', '02', '03', '04', '05', '06']);
-      }, 45_000);
     });
   });
 });

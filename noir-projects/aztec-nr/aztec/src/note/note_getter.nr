@@ -2,13 +2,14 @@ use dep::protocol_types::{
     constants::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, GET_NOTE_ORACLE_RETURN_LENGTH, GET_NOTES_ORACLE_RETURN_LENGTH,
     MAX_NOTES_PER_PAGE, VIEW_NOTE_ORACLE_RETURN_LENGTH
-}
+    }
 };
 use crate::context::PrivateContext;
 use crate::note::{
+    note_header::NoteHeader,
     note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, Comparator, NoteStatus, PropertySelector},
     note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_consumption
+    utils::compute_note_hash_for_consumption,
 };
 use crate::oracle;
 
@@ -101,6 +102,16 @@ pub fn get_notes<Note, N, FILTER_ARGS>(
     options: NoteGetterOptions<Note, N, FILTER_ARGS>
 ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
     let opt_notes = get_notes_internal(storage_slot, options);
+
+    _get_notes_constrain_get_notes_internal(context, storage_slot, opt_notes, options)
+}
+
+pub fn _get_notes_constrain_get_notes_internal<Note, N, FILTER_ARGS>(
+    context: &mut PrivateContext,
+    storage_slot: Field,
+    opt_notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    options: NoteGetterOptions<Note, N, FILTER_ARGS>
+) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
     let mut returned_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let mut num_notes = 0;
