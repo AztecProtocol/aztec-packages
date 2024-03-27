@@ -12,9 +12,8 @@ use transforms::{
     },
 };
 
-use noirc_frontend::{
-    hir::def_collector::dc_crate::{UnresolvedFunctions, UnresolvedTraitImpl},
-    macros_api::{CrateId, FileId, HirContext, MacroError, MacroProcessor, SortedModule, Span},
+use noirc_frontend::macros_api::{
+    CrateId, FileId, HirContext, MacroError, MacroProcessor, SortedModule, Span,
 };
 
 use utils::{
@@ -34,16 +33,6 @@ impl MacroProcessor for AztecMacro {
         context: &HirContext,
     ) -> Result<SortedModule, (MacroError, FileId)> {
         transform(ast, crate_id, file_id, context)
-    }
-
-    fn process_collected_defs(
-        &self,
-        crate_id: &CrateId,
-        context: &mut HirContext,
-        collected_trait_impls: &[UnresolvedTraitImpl],
-        collected_functions: &mut [UnresolvedFunctions],
-    ) -> Result<(), (MacroError, FileId)> {
-        transform_collected_defs(crate_id, context, collected_trait_impls, collected_functions)
     }
 
     fn process_typed_ast(
@@ -183,19 +172,6 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
     Ok(has_transformed_module)
 }
 
-fn transform_collected_defs(
-    crate_id: &CrateId,
-    context: &mut HirContext,
-    _collected_trait_impls: &[UnresolvedTraitImpl],
-    collected_functions: &mut [UnresolvedFunctions],
-) -> Result<(), (MacroError, FileId)> {
-    if has_aztec_dependency(crate_id, context) {
-        inject_compute_note_hash_and_nullifier(crate_id, context, collected_functions)
-    } else {
-        Ok(())
-    }
-}
-
 //
 //                    Transform Hir Nodes for Aztec
 //
@@ -205,6 +181,11 @@ fn transform_hir(
     crate_id: &CrateId,
     context: &mut HirContext,
 ) -> Result<(), (AztecMacroError, FileId)> {
-    transform_events(crate_id, context)?;
-    assign_storage_slots(crate_id, context)
+    if has_aztec_dependency(crate_id, context) {
+        transform_events(crate_id, context)?;
+        inject_compute_note_hash_and_nullifier(crate_id, context)?;
+        assign_storage_slots(crate_id, context)
+    } else {
+        Ok(())
+    }
 }
