@@ -3,8 +3,7 @@ use dep::aztec::note::{
     note_header::NoteHeader,
     note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, Comparator, NoteStatus, PropertySelector},
     note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_consumption,
-    note_getter::_get_notes_constrain_get_notes_internal,
+    utils::compute_note_hash_for_consumption, note_getter::_get_notes_constrain_get_notes_internal
 };
 
 global TEST_NOTE_LENGTH = 1;
@@ -58,10 +57,7 @@ impl NoteInterface<TEST_NOTE_LENGTH> for TestNote {
 }
 
 impl TestNote {
-  pub fn new(value: Field) -> Self {
-    TestNote { 
-      value,
-      header: NoteHeader::empty(),
+    pub fn new(value: Field) -> Self {
+        TestNote { value, header: NoteHeader::empty() }
     }
-  }
 }

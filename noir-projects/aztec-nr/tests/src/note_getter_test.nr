@@ -3,7 +3,7 @@ use dep::aztec::context::PrivateContext;
 use dep::aztec::note::{
     note_header::NoteHeader,
     note_getter_options::{NoteGetterOptions, Sort, SortOrder, Comparator, PropertySelector},
-    note_getter::_get_notes_constrain_get_notes_internal,
+    note_getter::_get_notes_constrain_get_notes_internal
 };
 use dep::aztec::protocol_types::address::AztecAddress;
 use crate::mock::test_note::TestNote;
@@ -82,7 +82,11 @@ fn invalid_selector() {
 
     let storage_slot: Field = 0;
 
-    let mut options = NoteGetterOptions::new().select(PropertySelector { index: 0, offset: 0, length: 32 }, 10, Option::some(Comparator.EQ));
+    let mut options = NoteGetterOptions::new().select(
+        PropertySelector { index: 0, offset: 0, length: 32 },
+        10,
+        Option::some(Comparator.EQ)
+    );
     let returned = _get_notes_constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
 
@@ -96,7 +100,10 @@ fn invalid_note_order() {
 
     let storage_slot: Field = 0;
 
-    let mut options = NoteGetterOptions::new().sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.DESC);
+    let mut options = NoteGetterOptions::new().sort(
+        PropertySelector { index: 0, offset: 0, length: 32 },
+        SortOrder.DESC
+    );
     let returned = _get_notes_constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 }
 
