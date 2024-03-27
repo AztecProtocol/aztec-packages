@@ -1088,6 +1088,33 @@ context.accruedSubstate.sentL2ToL1Messages.append(
         "Tag updates": "",
     },
     {
+        "id": "getcontractinstance",
+        "Name": "`GETCONTRACTINSTANCE`",
+        "Category": "Other",
+        "Flags": [
+            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
+        ],
+        "Args": [
+            {"name": "addressOffset", "description": "memory offset of the contract instance address"},
+            {"name": "dstOffset", "description": "location to write the contract instance information to"},
+        ],
+        "Expression": `
+M[dstOffset:dstOffset+CONTRACT_INSTANCE_SIZE] = [
+    instance.salt,
+    instance.deployer,
+    instance.contractClassId,
+    instance.initializationHash,
+    instance.portalContractAddress,
+    instance.publicKeysHash,
+]
+`,
+        "Summary": "Copies contract instance data to memory",
+        "Tag checks": "",
+        "Tag updates": "T[dstOffset:dstOffset+CONTRACT_INSTANCE_SIZE] = field",
+        "Additional AVM circuit checks": "TO-DO",
+        "Triggers downstream circuit operations": "TO-DO",
+    },
+    {
         "id": "call",
         "Name": "`CALL`",
         "Category": "Control Flow - Contract Calls",
