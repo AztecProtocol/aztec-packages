@@ -118,6 +118,7 @@ void AvmTraceBuilder::op_add(
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
+        .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_ia = a,
         .avm_main_ib = b,
         .avm_main_ic = c,
@@ -181,6 +182,7 @@ void AvmTraceBuilder::op_sub(
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
+        .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_ia = a,
         .avm_main_ib = b,
         .avm_main_ic = c,
@@ -244,6 +246,7 @@ void AvmTraceBuilder::op_mul(
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
+        .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_ia = a,
         .avm_main_ib = b,
         .avm_main_ic = c,
@@ -390,6 +393,7 @@ void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_o
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
+        .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_ia = a,
         .avm_main_ic = c,
         .avm_main_ind_a = indirect_a_flag ? FF(a_offset) : FF(0),
@@ -447,6 +451,7 @@ void AvmTraceBuilder::op_eq(
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
+        .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_ia = a,
         .avm_main_ib = b,
         .avm_main_ic = c,
