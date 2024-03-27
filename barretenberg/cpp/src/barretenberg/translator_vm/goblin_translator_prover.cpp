@@ -3,7 +3,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
-#include "barretenberg/proof_system/library/grand_product_library.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -290,7 +290,7 @@ void GoblinTranslatorProver::execute_grand_product_computation_round()
         };
     }
     // Compute constraint permutation grand product
-    compute_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
+    compute_grand_products<Flavor>(*key, prover_polynomials, relation_parameters);
 
     transcript->send_to_verifier(commitment_labels.z_perm, commitment_key->commit(key->z_perm));
 }

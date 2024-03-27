@@ -1,6 +1,6 @@
 #include "protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/proof_system/library/grand_product_delta.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/recursive_instances.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -21,11 +21,10 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
         transcript->template receive_from_prover<FF>(domain_separator + "_pub_inputs_offset");
     inst->verification_key->pub_inputs_offset = uint32_t(pub_inputs_offset.get_value());
 
-    inst->verification_key->public_inputs.clear();
     for (size_t i = 0; i < inst->verification_key->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
-        inst->verification_key->public_inputs.emplace_back(public_input_i);
+        inst->public_inputs.emplace_back(public_input_i);
     }
 
     // Get commitments to first three wire polynomials
@@ -51,7 +50,8 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     }
 
     // Get challenge for sorted list batching and wire four memory records commitment
-    auto eta = transcript->template get_challenge<FF>(domain_separator + "_eta");
+    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
+        domain_separator + "_eta", domain_separator + "_eta_two", domain_separator + "_eta_three");
     witness_commitments.sorted_accum =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.sorted_accum);
     witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
@@ -72,7 +72,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
 
     // Compute correction terms for grand products
-    const FF public_input_delta = compute_public_input_delta<Flavor>(inst->verification_key->public_inputs,
+    const FF public_input_delta = compute_public_input_delta<Flavor>(inst->public_inputs,
                                                                      beta,
                                                                      gamma,
                                                                      inst->verification_key->circuit_size,
@@ -80,7 +80,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     const FF lookup_grand_product_delta =
         compute_lookup_grand_product_delta<FF>(beta, gamma, inst->verification_key->circuit_size);
     inst->relation_parameters =
-        RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
+        RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta };
 
     // Get the relation separation challenges
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
@@ -156,7 +156,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         accumulator->verification_key->circuit_size, accumulator->verification_key->num_public_inputs);
     next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
     next_accumulator->verification_key->pub_inputs_offset = accumulator->verification_key->pub_inputs_offset;
-    next_accumulator->verification_key->public_inputs = accumulator->verification_key->public_inputs;
+    next_accumulator->public_inputs = accumulator->public_inputs;
     size_t vk_idx = 0;
     for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
         size_t inst = 0;
@@ -194,16 +194,14 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         comm_idx++;
     }
 
-    next_accumulator->verification_key->num_public_inputs = accumulator->verification_key->num_public_inputs;
-    next_accumulator->verification_key->public_inputs =
-        std::vector<FF>(next_accumulator->verification_key->num_public_inputs, 0);
+    next_accumulator->public_inputs = std::vector<FF>(next_accumulator->verification_key->num_public_inputs, 0);
     size_t public_input_idx = 0;
-    for (auto& public_input : next_accumulator->verification_key->public_inputs) {
+    for (auto& public_input : next_accumulator->public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
             if (instance->verification_key->num_public_inputs >=
                 next_accumulator->verification_key->num_public_inputs) {
-                public_input += instance->verification_key->public_inputs[public_input_idx] * lagranges[inst];
+                public_input += instance->public_inputs[public_input_idx] * lagranges[inst];
                 inst++;
             };
         }
@@ -225,6 +223,8 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
         auto instance = instances[inst_idx];
         expected_parameters.eta += instance->relation_parameters.eta * lagranges[inst_idx];
+        expected_parameters.eta_two += instance->relation_parameters.eta_two * lagranges[inst_idx];
+        expected_parameters.eta_three += instance->relation_parameters.eta_three * lagranges[inst_idx];
         expected_parameters.beta += instance->relation_parameters.beta * lagranges[inst_idx];
         expected_parameters.gamma += instance->relation_parameters.gamma * lagranges[inst_idx];
         expected_parameters.public_input_delta +=

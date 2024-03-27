@@ -1,28 +1,27 @@
-import { L1ToL2MessageSource, SimulationError, Tx } from '@aztec/circuit-types';
+import {
+  FailedTx,
+  ProcessedTx,
+  SimulationError,
+  Tx,
+  getPreviousOutputAndProof,
+  makeEmptyProcessedTx,
+  makeProcessedTx,
+  toTxEffect,
+  validateProcessedTx,
+} from '@aztec/circuit-types';
 import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
 import { GlobalVariables, Header } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
+import { PublicExecutor, PublicStateDB, SimulationProvider } from '@aztec/simulator';
 import { ContractDataSource } from '@aztec/types/contracts';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
-import { EmptyPublicProver } from '../prover/empty.js';
-import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
-import { SimulationProvider } from '../simulator/simulation_provider.js';
 import { AbstractPhaseManager } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
-import {
-  FailedTx,
-  ProcessedTx,
-  getPreviousOutputAndProof,
-  makeEmptyProcessedTx,
-  makeProcessedTx,
-  validateProcessedTx,
-} from './processed_tx.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -31,7 +30,6 @@ export class PublicProcessorFactory {
   constructor(
     private merkleTree: MerkleTreeOperations,
     private contractDataSource: ContractDataSource,
-    private l1Tol2MessagesDataSource: L1ToL2MessageSource,
     private simulator: SimulationProvider,
   ) {}
 
@@ -50,13 +48,12 @@ export class PublicProcessorFactory {
 
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
-    const worldStateDB = new WorldStateDB(this.merkleTree, this.l1Tol2MessagesDataSource);
+    const worldStateDB = new WorldStateDB(this.merkleTree);
     const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, historicalHeader);
     return new PublicProcessor(
       this.merkleTree,
       publicExecutor,
       new RealPublicKernelCircuitSimulator(this.simulator),
-      new EmptyPublicProver(),
       globalVariables,
       historicalHeader,
       publicContractsDB,
@@ -74,7 +71,6 @@ export class PublicProcessor {
     protected db: MerkleTreeOperations,
     protected publicExecutor: PublicExecutor,
     protected publicKernel: PublicKernelCircuitSimulator,
-    protected publicProver: PublicProver,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
@@ -100,7 +96,6 @@ export class PublicProcessor {
         this.db,
         this.publicExecutor,
         this.publicKernel,
-        this.publicProver,
         this.globalVariables,
         this.historicalHeader,
         this.publicContractsDB,
@@ -122,7 +117,6 @@ export class PublicProcessor {
             this.db,
             this.publicExecutor,
             this.publicKernel,
-            this.publicProver,
             this.globalVariables,
             this.historicalHeader,
             this.publicContractsDB,
@@ -138,6 +132,7 @@ export class PublicProcessor {
         this.log(`Processed public part of ${tx.data.endNonRevertibleData.newNullifiers[0].value}`, {
           eventName: 'tx-sequencer-processing',
           duration: timer.ms(),
+          effectsSize: toTxEffect(processedTransaction).toBuffer().length,
           publicDataUpdateRequests:
             processedTransaction.data.combinedData.publicDataUpdateRequests.filter(x => !x.leafSlot.isZero()).length ??
             0,

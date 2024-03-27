@@ -39,7 +39,7 @@ TEST_F(AvmInterTableTests, tagErrNotCopiedInMain)
     // Equality operation on U128 and second operand is of type U16.
     trace_builder.set(32, 18, AvmMemoryTag::U128);
     trace_builder.set(32, 76, AvmMemoryTag::U16);
-    trace_builder.op_eq(18, 76, 65, AvmMemoryTag::U128);
+    trace_builder.op_eq(0, 18, 76, 65, AvmMemoryTag::U128);
     trace_builder.halt();
     auto trace = trace_builder.finalize();
 
@@ -89,10 +89,10 @@ class AvmPermMainAluNegativeTests : public AvmInterTableTests {
 
         trace_builder.set(19, 0, AvmMemoryTag::U64);
         trace_builder.set(15, 1, AvmMemoryTag::U64);
-        trace_builder.op_add(0, 1, 1, AvmMemoryTag::U64); // 19 + 15 = 34
-        trace_builder.op_add(0, 1, 1, AvmMemoryTag::U64); // 19 + 34 = 53
-        trace_builder.op_mul(0, 1, 2, AvmMemoryTag::U64); // 19 * 53 = 1007
-        trace_builder.return_op(0, 0);
+        trace_builder.op_add(0, 0, 1, 1, AvmMemoryTag::U64); // 19 + 15 = 34
+        trace_builder.op_add(0, 0, 1, 1, AvmMemoryTag::U64); // 19 + 34 = 53
+        trace_builder.op_mul(0, 0, 1, 2, AvmMemoryTag::U64); // 19 * 53 = 1007
+        trace_builder.return_op(0, 0, 0);
 
         trace = trace_builder.finalize();
 
@@ -190,8 +190,8 @@ class AvmPermMainMemNegativeTests : public AvmInterTableTests {
     {
         trace_builder.set(a, 52, AvmMemoryTag::U8);
         trace_builder.set(b, 11, AvmMemoryTag::U8);
-        trace_builder.op_sub(52, 11, 55, AvmMemoryTag::U8);
-        trace_builder.return_op(0, 0);
+        trace_builder.op_sub(0, 52, 11, 55, AvmMemoryTag::U8);
+        trace_builder.return_op(0, 0, 0);
 
         trace = trace_builder.finalize();
 
@@ -287,11 +287,12 @@ TEST_F(AvmPermMainMemNegativeTests, wrongInTagIaInMem)
 {
     executeSub(21, 3);
     auto wrong_in_tag = static_cast<uint32_t>(AvmMemoryTag::U32);
-    trace.at(mem_idx_a).avm_mem_m_in_tag = wrong_in_tag; // Correct value: AvmMemoryTag::U8
+    trace.at(mem_idx_a).avm_mem_r_in_tag = wrong_in_tag; // Correct value: AvmMemoryTag::U8
     trace.at(mem_idx_a).avm_mem_m_tag = wrong_in_tag;
 
     // We need to adjust the write operation beforehand (set opcode).
-    trace.at(mem_idx_a - 1).avm_mem_m_in_tag = wrong_in_tag;
+    trace.at(mem_idx_a - 1).avm_mem_r_in_tag = wrong_in_tag;
+    trace.at(mem_idx_a - 1).avm_mem_w_in_tag = wrong_in_tag;
     trace.at(mem_idx_a - 1).avm_mem_m_tag = wrong_in_tag;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "PERM_MAIN_MEM_A");
@@ -301,11 +302,12 @@ TEST_F(AvmPermMainMemNegativeTests, wrongInTagIbInMem)
 {
     executeSub(21, 3);
     auto wrong_in_tag = static_cast<uint32_t>(AvmMemoryTag::U16);
-    trace.at(mem_idx_b).avm_mem_m_in_tag = wrong_in_tag; // Correct value: AvmMemoryTag::U8
+    trace.at(mem_idx_b).avm_mem_r_in_tag = wrong_in_tag; // Correct value: AvmMemoryTag::U8
     trace.at(mem_idx_b).avm_mem_m_tag = wrong_in_tag;
 
     // We need to adjust the write operation beforehand (set opcode).
-    trace.at(mem_idx_b - 1).avm_mem_m_in_tag = wrong_in_tag;
+    trace.at(mem_idx_b - 1).avm_mem_r_in_tag = wrong_in_tag;
+    trace.at(mem_idx_b - 1).avm_mem_w_in_tag = wrong_in_tag;
     trace.at(mem_idx_b - 1).avm_mem_m_tag = wrong_in_tag;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "PERM_MAIN_MEM_B");
@@ -315,7 +317,7 @@ TEST_F(AvmPermMainMemNegativeTests, wrongInTagIcInMem)
 {
     executeSub(21, 3);
     auto wrong_in_tag = static_cast<uint32_t>(AvmMemoryTag::U128);
-    trace.at(mem_idx_c).avm_mem_m_in_tag = wrong_in_tag; // Correct value: AvmMemoryTag::U8
+    trace.at(mem_idx_c).avm_mem_w_in_tag = wrong_in_tag; // Correct value: AvmMemoryTag::U8
     trace.at(mem_idx_c).avm_mem_m_tag = wrong_in_tag;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "PERM_MAIN_MEM_C");
