@@ -38,11 +38,11 @@
     [[maybe_unused]] auto avm_binary_acc_ia = View(new_term.avm_binary_acc_ia);                                        \
     [[maybe_unused]] auto avm_binary_acc_ib = View(new_term.avm_binary_acc_ib);                                        \
     [[maybe_unused]] auto avm_binary_acc_ic = View(new_term.avm_binary_acc_ic);                                        \
-    [[maybe_unused]] auto avm_binary_bin_clk = View(new_term.avm_binary_bin_clk);                                      \
-    [[maybe_unused]] auto avm_binary_bin_ia_bytes = View(new_term.avm_binary_bin_ia_bytes);                            \
-    [[maybe_unused]] auto avm_binary_bin_ib_bytes = View(new_term.avm_binary_bin_ib_bytes);                            \
-    [[maybe_unused]] auto avm_binary_bin_ic_bytes = View(new_term.avm_binary_bin_ic_bytes);                            \
     [[maybe_unused]] auto avm_binary_bin_sel = View(new_term.avm_binary_bin_sel);                                      \
+    [[maybe_unused]] auto avm_binary_clk = View(new_term.avm_binary_clk);                                              \
+    [[maybe_unused]] auto avm_binary_ia_bytes = View(new_term.avm_binary_ia_bytes);                                    \
+    [[maybe_unused]] auto avm_binary_ib_bytes = View(new_term.avm_binary_ib_bytes);                                    \
+    [[maybe_unused]] auto avm_binary_ic_bytes = View(new_term.avm_binary_ic_bytes);                                    \
     [[maybe_unused]] auto avm_binary_in_tag = View(new_term.avm_binary_in_tag);                                        \
     [[maybe_unused]] auto avm_binary_mem_tag_ctr = View(new_term.avm_binary_mem_tag_ctr);                              \
     [[maybe_unused]] auto avm_binary_mem_tag_ctr_inv = View(new_term.avm_binary_mem_tag_ctr_inv);                      \

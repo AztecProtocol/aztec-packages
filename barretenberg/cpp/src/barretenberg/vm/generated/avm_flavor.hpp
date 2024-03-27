@@ -131,11 +131,11 @@ class AvmFlavor {
                               avm_binary_acc_ia,
                               avm_binary_acc_ib,
                               avm_binary_acc_ic,
-                              avm_binary_bin_clk,
-                              avm_binary_bin_ia_bytes,
-                              avm_binary_bin_ib_bytes,
-                              avm_binary_bin_ic_bytes,
                               avm_binary_bin_sel,
+                              avm_binary_clk,
+                              avm_binary_ia_bytes,
+                              avm_binary_ib_bytes,
+                              avm_binary_ic_bytes,
                               avm_binary_in_tag,
                               avm_binary_mem_tag_ctr,
                               avm_binary_mem_tag_ctr_inv,
@@ -265,11 +265,11 @@ class AvmFlavor {
                      avm_binary_acc_ia,
                      avm_binary_acc_ib,
                      avm_binary_acc_ic,
-                     avm_binary_bin_clk,
-                     avm_binary_bin_ia_bytes,
-                     avm_binary_bin_ib_bytes,
-                     avm_binary_bin_ic_bytes,
                      avm_binary_bin_sel,
+                     avm_binary_clk,
+                     avm_binary_ia_bytes,
+                     avm_binary_ib_bytes,
+                     avm_binary_ic_bytes,
                      avm_binary_in_tag,
                      avm_binary_mem_tag_ctr,
                      avm_binary_mem_tag_ctr_inv,
@@ -405,11 +405,11 @@ class AvmFlavor {
                               avm_binary_acc_ia,
                               avm_binary_acc_ib,
                               avm_binary_acc_ic,
-                              avm_binary_bin_clk,
-                              avm_binary_bin_ia_bytes,
-                              avm_binary_bin_ib_bytes,
-                              avm_binary_bin_ic_bytes,
                               avm_binary_bin_sel,
+                              avm_binary_clk,
+                              avm_binary_ia_bytes,
+                              avm_binary_ib_bytes,
+                              avm_binary_ic_bytes,
                               avm_binary_in_tag,
                               avm_binary_mem_tag_ctr,
                               avm_binary_mem_tag_ctr_inv,
@@ -560,11 +560,11 @@ class AvmFlavor {
                      avm_binary_acc_ia,
                      avm_binary_acc_ib,
                      avm_binary_acc_ic,
-                     avm_binary_bin_clk,
-                     avm_binary_bin_ia_bytes,
-                     avm_binary_bin_ib_bytes,
-                     avm_binary_bin_ic_bytes,
                      avm_binary_bin_sel,
+                     avm_binary_clk,
+                     avm_binary_ia_bytes,
+                     avm_binary_ib_bytes,
+                     avm_binary_ic_bytes,
                      avm_binary_in_tag,
                      avm_binary_mem_tag_ctr,
                      avm_binary_mem_tag_ctr_inv,
@@ -715,11 +715,11 @@ class AvmFlavor {
                      avm_binary_acc_ia,
                      avm_binary_acc_ib,
                      avm_binary_acc_ic,
-                     avm_binary_bin_clk,
-                     avm_binary_bin_ia_bytes,
-                     avm_binary_bin_ib_bytes,
-                     avm_binary_bin_ic_bytes,
                      avm_binary_bin_sel,
+                     avm_binary_clk,
+                     avm_binary_ia_bytes,
+                     avm_binary_ib_bytes,
+                     avm_binary_ic_bytes,
                      avm_binary_in_tag,
                      avm_binary_mem_tag_ctr,
                      avm_binary_mem_tag_ctr_inv,
@@ -972,11 +972,11 @@ class AvmFlavor {
             Base::avm_binary_acc_ia = "AVM_BINARY_ACC_IA";
             Base::avm_binary_acc_ib = "AVM_BINARY_ACC_IB";
             Base::avm_binary_acc_ic = "AVM_BINARY_ACC_IC";
-            Base::avm_binary_bin_clk = "AVM_BINARY_BIN_CLK";
-            Base::avm_binary_bin_ia_bytes = "AVM_BINARY_BIN_IA_BYTES";
-            Base::avm_binary_bin_ib_bytes = "AVM_BINARY_BIN_IB_BYTES";
-            Base::avm_binary_bin_ic_bytes = "AVM_BINARY_BIN_IC_BYTES";
             Base::avm_binary_bin_sel = "AVM_BINARY_BIN_SEL";
+            Base::avm_binary_clk = "AVM_BINARY_CLK";
+            Base::avm_binary_ia_bytes = "AVM_BINARY_IA_BYTES";
+            Base::avm_binary_ib_bytes = "AVM_BINARY_IB_BYTES";
+            Base::avm_binary_ic_bytes = "AVM_BINARY_IC_BYTES";
             Base::avm_binary_in_tag = "AVM_BINARY_IN_TAG";
             Base::avm_binary_mem_tag_ctr = "AVM_BINARY_MEM_TAG_CTR";
             Base::avm_binary_mem_tag_ctr_inv = "AVM_BINARY_MEM_TAG_CTR_INV";
@@ -1122,11 +1122,11 @@ class AvmFlavor {
         Commitment avm_binary_acc_ia;
         Commitment avm_binary_acc_ib;
         Commitment avm_binary_acc_ic;
-        Commitment avm_binary_bin_clk;
-        Commitment avm_binary_bin_ia_bytes;
-        Commitment avm_binary_bin_ib_bytes;
-        Commitment avm_binary_bin_ic_bytes;
         Commitment avm_binary_bin_sel;
+        Commitment avm_binary_clk;
+        Commitment avm_binary_ia_bytes;
+        Commitment avm_binary_ib_bytes;
+        Commitment avm_binary_ic_bytes;
         Commitment avm_binary_in_tag;
         Commitment avm_binary_mem_tag_ctr;
         Commitment avm_binary_mem_tag_ctr_inv;
@@ -1272,11 +1272,11 @@ class AvmFlavor {
             avm_binary_acc_ia = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_binary_acc_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_binary_acc_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_binary_bin_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_binary_bin_ia_bytes = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_binary_bin_ib_bytes = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_binary_bin_ic_bytes = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_binary_bin_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_binary_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_binary_ia_bytes = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_binary_ib_bytes = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_binary_ic_bytes = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_binary_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_binary_mem_tag_ctr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_binary_mem_tag_ctr_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -1427,11 +1427,11 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_binary_acc_ia, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_binary_acc_ib, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_binary_acc_ic, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_binary_bin_clk, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_binary_bin_ia_bytes, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_binary_bin_ib_bytes, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_binary_bin_ic_bytes, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_binary_bin_sel, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_binary_clk, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_binary_ia_bytes, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_binary_ib_bytes, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_binary_ic_bytes, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_binary_in_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_binary_mem_tag_ctr, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_binary_mem_tag_ctr_inv, Transcript::proof_data);

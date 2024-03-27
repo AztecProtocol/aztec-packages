@@ -94,16 +94,15 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_binary_acc_ib);
     commitments.avm_binary_acc_ic =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_binary_acc_ic);
-    commitments.avm_binary_bin_clk =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_binary_bin_clk);
-    commitments.avm_binary_bin_ia_bytes =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_binary_bin_ia_bytes);
-    commitments.avm_binary_bin_ib_bytes =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_binary_bin_ib_bytes);
-    commitments.avm_binary_bin_ic_bytes =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_binary_bin_ic_bytes);
     commitments.avm_binary_bin_sel =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_binary_bin_sel);
+    commitments.avm_binary_clk = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_binary_clk);
+    commitments.avm_binary_ia_bytes =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_binary_ia_bytes);
+    commitments.avm_binary_ib_bytes =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_binary_ib_bytes);
+    commitments.avm_binary_ic_bytes =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_binary_ic_bytes);
     commitments.avm_binary_in_tag =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_binary_in_tag);
     commitments.avm_binary_mem_tag_ctr =

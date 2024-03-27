@@ -105,9 +105,8 @@ void common_validate_bit_op(std::vector<Row> const& trace,
 
     // Use the row in the main trace to find the same operation in the alu trace.
     FF clk = row->avm_main_clk;
-    auto bin_row_start = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
-        return r.avm_binary_bin_clk == clk && r.avm_binary_start == FF(1);
-    });
+    auto bin_row_start = std::ranges::find_if(
+        trace.begin(), trace.end(), [clk](Row r) { return r.avm_binary_clk == clk && r.avm_binary_start == FF(1); });
 
     // Check that both rows were found
     ASSERT_TRUE(bin_row_start != trace.end());
@@ -178,17 +177,17 @@ std::vector<Row> gen_mutated_trace_bit(std::vector<Row> trace,
     auto main_trace_row = std::ranges::find_if(trace.begin(), trace.end(), select_row);
     auto main_clk = main_trace_row->avm_main_clk;
     // The corresponding row in the binary trace as well as the row where start = 1
-    auto binary_row = std::ranges::find_if(
-        trace.begin(), trace.end(), [main_clk](Row r) { return r.avm_binary_bin_clk == main_clk; });
+    auto binary_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [main_clk](Row r) { return r.avm_binary_clk == main_clk; });
     // The corresponding row in the binary trace where the computation ends.
     auto last_row = std::ranges::find_if(trace.begin(), trace.end(), [main_clk](Row r) {
-        return r.avm_binary_bin_clk == main_clk && r.avm_binary_mem_tag_ctr == FF(0);
+        return r.avm_binary_clk == main_clk && r.avm_binary_mem_tag_ctr == FF(0);
     });
     switch (fail_mode) {
     case BitDecomposition: {
         // Incrementing the bytes should indicate an incorrect decomposition
         // The lookups are checked later so this will throw an error about decomposition
-        binary_row->avm_binary_bin_ic_bytes++;
+        binary_row->avm_binary_ic_bytes++;
         break;
     }
     case MemTagCtr: {
@@ -215,7 +214,7 @@ std::vector<Row> gen_mutated_trace_bit(std::vector<Row> trace,
         // update anything there or in the corresponding accumulators.
         mutate_ic_in_trace(trace, std::move(select_row), c_mutated, false);
         binary_row->avm_binary_acc_ic = c_mutated;
-        binary_row->avm_binary_bin_ic_bytes = static_cast<uint8_t>(uint128_t{ c_mutated });
+        binary_row->avm_binary_ic_bytes = static_cast<uint8_t>(uint128_t{ c_mutated });
         break;
     }
     case ByteLengthError: {
